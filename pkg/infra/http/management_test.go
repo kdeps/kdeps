@@ -304,3 +304,108 @@ func TestHandleManagementUpdateWorkflow_LargeBody(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
 	assert.Contains(t, []string{"ok", "error"}, body["status"])
 }
+
+// TestHandleManagementUpdateWorkflow_ClearsResourcesDir verifies that stale YAML files
+// in the resources/ directory are removed when a workflow is pushed, preventing
+// duplicate resource loading on the next restart or reload.
+func TestHandleManagementUpdateWorkflow_ClearsResourcesDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	// Pre-create a resources/ directory with a stale resource file
+	resourcesDir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0750))
+	staleResource := filepath.Join(resourcesDir, "old-resource.yaml")
+	require.NoError(t, os.WriteFile(staleResource, []byte("stale content"), 0600))
+	// Also create a non-YAML file that should NOT be removed
+	nonYAMLFile := filepath.Join(resourcesDir, "readme.txt")
+	require.NoError(t, os.WriteFile(nonYAMLFile, []byte("readme"), 0600))
+
+	// Write an initial workflow to the path
+	require.NoError(t, os.WriteFile(workflowPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: initial
+  version: 1.0.0
+  targetActionId: action1
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`), 0600))
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	updatedYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: pushed-agent
+  version: 2.0.0
+  targetActionId: action1
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(updatedYAML))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdateWorkflow(rec, req)
+
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+
+	// The stale YAML resource file must have been removed
+	_, err := os.Stat(staleResource)
+	assert.True(t, os.IsNotExist(err), "stale resource YAML should have been deleted after push")
+
+	// Non-YAML files must be preserved
+	_, err = os.Stat(nonYAMLFile)
+	assert.NoError(t, err, "non-YAML file should be preserved")
+}
+
+// TestHandleManagementUpdateWorkflow_PersistsWorkflowPath verifies that after a push
+// the server uses the originally configured workflow path (not a guessed fallback).
+// This ensures that after a container restart the correct file is read.
+func TestHandleManagementUpdateWorkflow_PersistsWorkflowPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "my-agent", "workflow.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(workflowPath), 0750))
+
+	initialYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-agent
+  version: 1.0.0
+  targetActionId: action1
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	require.NoError(t, os.WriteFile(workflowPath, []byte(initialYAML), 0600))
+
+	server := makeTestServer(t, nil)
+	// Simulate what StartHTTPServer now does: always set the workflow path
+	server.SetWorkflowPath(workflowPath)
+
+	pushedYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-agent
+  version: 2.0.0
+  targetActionId: action1
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(pushedYAML))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdateWorkflow(rec, req)
+	require.Equal(t, stdhttp.StatusOK, rec.Code)
+
+	// The pushed YAML must have been written to the CONFIGURED path, not a fallback
+	written, err := os.ReadFile(workflowPath)
+	require.NoError(t, err)
+	assert.Equal(t, pushedYAML, string(written))
+}

@@ -25,6 +25,7 @@ import (
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -104,6 +105,12 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
+	// Remove old resource YAML files from the resources/ directory so that on
+	// restart (or the next reload) the parser does not load stale resources
+	// alongside the resources that are now inlined in the pushed workflow YAML.
+	resourcesDir := filepath.Join(filepath.Dir(workflowPath), "resources")
+	clearResourcesDir(resourcesDir)
+
 	// Set the workflow path and reload
 	s.mu.Lock()
 	if s.workflowPath == "" {
@@ -181,6 +188,30 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		"status":  "error",
 		"message": message,
 	})
+}
+
+// clearResourcesDir removes YAML resource definition files from dir.
+// It is called after writing a pushed workflow so that on restart (or the next
+// reload) the parser reads only the inline resources from workflow.yaml and does
+// not load stale duplicate definitions from the resources/ directory.
+// Errors are silently ignored because the absence of the directory (or
+// individual file-remove failures) is not fatal.
+func clearResourcesDir(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return // directory does not exist — nothing to clear
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		if strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") {
+			_ = os.Remove(filepath.Join(dir, name))
+		}
+	}
 }
 
 // getManagementWorkflowPath returns the workflow path to use for management operations.
