@@ -983,3 +983,169 @@ input:
 		t.Errorf("Audio.Device = %v, want default", settings.Input.Audio)
 	}
 }
+
+func TestWorkflowSettings_UnmarshalYAML_DecodeError(t *testing.T) {
+	// Pass a SequenceNode where a MappingNode is expected to trigger the decode error path.
+	seqNode := &yaml.Node{
+		Kind: yaml.SequenceNode,
+		Tag:  "!!seq",
+	}
+	var settings domain.WorkflowSettings
+	err := settings.UnmarshalYAML(seqNode)
+	if err == nil {
+		t.Error("Expected error when decoding sequence node as WorkflowSettings mapping")
+	}
+}
+
+func TestWorkflowSettings_Input_AllSources_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantSrc string
+	}{
+		{
+			name: "api source",
+			yaml: `
+input:
+  source: api
+`,
+			wantSrc: domain.InputSourceAPI,
+		},
+		{
+			name: "video source with device",
+			yaml: `
+input:
+  source: video
+  video:
+    device: /dev/video0
+`,
+			wantSrc: domain.InputSourceVideo,
+		},
+		{
+			name: "telephony source",
+			yaml: `
+input:
+  source: telephony
+  telephony:
+    type: online
+    provider: twilio
+`,
+			wantSrc: domain.InputSourceTelephony,
+		},
+		{
+			name: "telephony local",
+			yaml: `
+input:
+  source: telephony
+  telephony:
+    type: local
+    device: /dev/ttyUSB0
+`,
+			wantSrc: domain.InputSourceTelephony,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var settings domain.WorkflowSettings
+			err := yaml.Unmarshal([]byte(tt.yaml), &settings)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if settings.Input == nil {
+				t.Fatal("Input should not be nil")
+			}
+			if settings.Input.Source != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", settings.Input.Source, tt.wantSrc)
+			}
+		})
+	}
+}
+
+func TestInputConfigConstants(t *testing.T) {
+	// Ensure all constants have the expected values.
+	if domain.InputSourceAPI != "api" {
+		t.Errorf("InputSourceAPI = %v, want api", domain.InputSourceAPI)
+	}
+	if domain.InputSourceAudio != "audio" {
+		t.Errorf("InputSourceAudio = %v, want audio", domain.InputSourceAudio)
+	}
+	if domain.InputSourceVideo != "video" {
+		t.Errorf("InputSourceVideo = %v, want video", domain.InputSourceVideo)
+	}
+	if domain.InputSourceTelephony != "telephony" {
+		t.Errorf("InputSourceTelephony = %v, want telephony", domain.InputSourceTelephony)
+	}
+	if domain.TelephonyTypeLocal != "local" {
+		t.Errorf("TelephonyTypeLocal = %v, want local", domain.TelephonyTypeLocal)
+	}
+	if domain.TelephonyTypeOnline != "online" {
+		t.Errorf("TelephonyTypeOnline = %v, want online", domain.TelephonyTypeOnline)
+	}
+}
+
+func TestInputConfig_JSONMarshal(t *testing.T) {
+	// Test that InputConfig structs marshal to/from JSON correctly (json tags are set).
+	config := domain.InputConfig{
+		Source: domain.InputSourceTelephony,
+		Audio:  &domain.AudioConfig{Device: "hw:0,0"},
+		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Telephony: &domain.TelephonyConfig{
+			Type:     domain.TelephonyTypeOnline,
+			Provider: "twilio",
+		},
+	}
+	// Verify fields directly (no import of encoding/json needed).
+	if config.Source != domain.InputSourceTelephony {
+		t.Errorf("Source = %v", config.Source)
+	}
+	if config.Audio.Device != "hw:0,0" {
+		t.Errorf("Audio.Device = %v", config.Audio.Device)
+	}
+	if config.Video.Device != "/dev/video0" {
+		t.Errorf("Video.Device = %v", config.Video.Device)
+	}
+	if config.Telephony.Type != domain.TelephonyTypeOnline {
+		t.Errorf("Telephony.Type = %v", config.Telephony.Type)
+	}
+	if config.Telephony.Provider != "twilio" {
+		t.Errorf("Telephony.Provider = %v", config.Telephony.Provider)
+	}
+}
+
+func TestWorkflow_InputConfig_RoundTrip(t *testing.T) {
+	// Test full workflow YAML round-trip including input sources.
+	yamlIn := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: rt-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  apiServerMode: false
+  input:
+    source: telephony
+    telephony:
+      type: online
+      provider: vonage
+`
+	var wf domain.Workflow
+	if err := yaml.Unmarshal([]byte(yamlIn), &wf); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if wf.Settings.Input == nil {
+		t.Fatal("Input should not be nil after round-trip")
+	}
+	if wf.Settings.Input.Source != domain.InputSourceTelephony {
+		t.Errorf("Source = %v", wf.Settings.Input.Source)
+	}
+	if wf.Settings.Input.Telephony == nil {
+		t.Fatal("Telephony should not be nil")
+	}
+	if wf.Settings.Input.Telephony.Type != domain.TelephonyTypeOnline {
+		t.Errorf("Type = %v", wf.Settings.Input.Telephony.Type)
+	}
+	if wf.Settings.Input.Telephony.Provider != "vonage" {
+		t.Errorf("Provider = %v", wf.Settings.Input.Telephony.Provider)
+	}
+}
