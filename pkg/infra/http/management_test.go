@@ -153,7 +153,7 @@ settings:
 	// Verify the file was written
 	written, err := os.ReadFile(workflowPath)
 	require.NoError(t, err)
-	assert.Equal(t, updatedYAML, string(written))
+	assert.YAMLEq(t, updatedYAML, string(written))
 }
 
 // TestHandleManagementReload_NoWorkflowPath checks reload when workflow path is not set.
@@ -359,7 +359,7 @@ func TestHandleManagementStatus_ResourceCount(t *testing.T) {
 
 	wf, ok := body["workflow"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, float64(2), wf["resources"])
+	assert.InDelta(t, 2, wf["resources"], 0.0001)
 }
 
 // TestHandleManagementUpdateWorkflow_LargeBody checks that oversized bodies are rejected with 413.
@@ -493,7 +493,7 @@ settings:
 	// The pushed YAML must have been written to the CONFIGURED path, not a fallback
 	written, err := os.ReadFile(workflowPath)
 	require.NoError(t, err)
-	assert.Equal(t, pushedYAML, string(written))
+	assert.YAMLEq(t, pushedYAML, string(written))
 }
 
 // ---------------------------------------------------------------------------
@@ -541,9 +541,7 @@ settings:
     timezone: UTC
 `), 0600))
 
-	origDir, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origDir) }()
+	t.Chdir(tmpDir)
 
 	server := makeTestServer(t, nil)
 	// workflowPath is intentionally NOT set — exercises the "set workflowPath if empty" branch
@@ -701,7 +699,7 @@ func TestHandleManagementStatus_AllFields(t *testing.T) {
 	wf := body["workflow"].(map[string]interface{})
 	assert.Equal(t, "Full metadata", wf["description"])
 	assert.Equal(t, "myAction", wf["targetActionId"])
-	assert.Equal(t, float64(3), wf["resources"])
+	assert.InDelta(t, 3, wf["resources"], 0.0001)
 }
 
 // TestHandleManagementReload_NoWorkflow verifies response when workflow is nil after reload.
@@ -777,10 +775,8 @@ func TestGetManagementWorkflowPath_FallbackToRelative(t *testing.T) {
 	// Trigger getManagementWorkflowPath by calling HandleManagementUpdateWorkflow
 	// with some content.  The write will fail (relative path in test dir), but
 	// that's fine — we just confirm the error message does not contain /app.
-	origDir, _ := os.Getwd()
 	tmpDir := t.TempDir()
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origDir) }()
+	t.Chdir(tmpDir)
 
 	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
 	rec := httptest.NewRecorder()

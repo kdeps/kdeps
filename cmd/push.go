@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,6 +42,9 @@ const (
 	// pushMaxResponseSize is the maximum response body size read from the
 	// management server (1 MB is well beyond any valid JSON status response).
 	pushMaxResponseSize = 1 * 1024 * 1024
+
+	// pushArgCount is the number of required positional arguments for the push command.
+	pushArgCount = 2
 )
 
 // newPushCmd creates the push command.
@@ -73,7 +77,7 @@ Examples:
 
   # Push to a remote container
   kdeps push workflow.yaml http://my-server:16395`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.ExactArgs(pushArgCount),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return pushWorkflow(args[0], args[1])
 		},
@@ -125,10 +129,10 @@ func pushWorkflow(sourcePath, target string) error {
 	fmt.Fprintln(os.Stdout, "✅ Workflow pushed successfully!")
 
 	if wf, ok := result["workflow"].(map[string]interface{}); ok {
-		if name, ok := wf["name"].(string); ok {
+		if name, nameOk := wf["name"].(string); nameOk {
 			fmt.Fprintf(os.Stdout, "  Name:    %s\n", name)
 		}
-		if version, ok := wf["version"].(string); ok {
+		if version, versionOk := wf["version"].(string); versionOk {
 			fmt.Fprintf(os.Stdout, "  Version: %s\n", version)
 		}
 	}
@@ -166,7 +170,12 @@ func resolveAndReadWorkflow(sourcePath string) ([]byte, error) {
 func doPushRequest(endpoint string, workflowYAML []byte) ([]byte, error) {
 	client := &stdhttp.Client{Timeout: pushHTTPTimeout}
 
-	req, err := stdhttp.NewRequest(stdhttp.MethodPut, endpoint, bytes.NewReader(workflowYAML))
+	req, err := stdhttp.NewRequestWithContext(
+		context.Background(),
+		stdhttp.MethodPut,
+		endpoint,
+		bytes.NewReader(workflowYAML),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -178,7 +187,7 @@ func doPushRequest(endpoint string, workflowYAML []byte) ([]byte, error) {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // intentional client call to user-specified endpoint
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", endpoint, err)
 	}

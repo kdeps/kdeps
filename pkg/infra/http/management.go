@@ -38,10 +38,7 @@ const (
 	// managementAuthEnvVar is the name of the environment variable containing the
 	// bearer token required to access the write management endpoints.
 	// If the variable is unset or empty, the write endpoints are disabled.
-	managementAuthEnvVar = "KDEPS_MANAGEMENT_TOKEN" //nolint:gosec // not a credential, just an env var name
-
-	// managementResponseMaxSize caps response-body reads (for client-side use).
-	managementResponseMaxSize = 1 * 1024 * 1024
+	managementAuthEnvVar = "KDEPS_MANAGEMENT_TOKEN"
 )
 
 // requireManagementAuth enforces bearer-token based authorization for write
@@ -52,7 +49,11 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
 		if token == "" {
-			stdhttp.Error(w, "management API disabled: set "+managementAuthEnvVar+" to enable", stdhttp.StatusServiceUnavailable)
+			stdhttp.Error(
+				w,
+				"management API disabled: set "+managementAuthEnvVar+" to enable",
+				stdhttp.StatusServiceUnavailable,
+			)
 			return
 		}
 
@@ -85,7 +86,7 @@ func (s *Server) SetupManagementRoutes() {
 }
 
 // HandleManagementStatus returns the current workflow status.
-// GET /_kdeps/status
+// GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	s.mu.RLock()
 	workflow := s.Workflow
@@ -113,7 +114,7 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 
 // HandleManagementUpdateWorkflow accepts a new workflow YAML in the request body,
 // writes it to disk, and reloads the workflow.
-// PUT /_kdeps/workflow
+// PUT /_kdeps/workflow.
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	// Read up to maxWorkflowBodySize + 1 bytes so we can detect oversized payloads.
 	// LimitReader stops at maxWorkflowBodySize bytes; the extra +1 lets us distinguish
@@ -196,7 +197,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 }
 
 // HandleManagementReload triggers a workflow reload from disk.
-// POST /_kdeps/reload
+// POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
@@ -281,5 +282,5 @@ func (s *Server) getManagementWorkflowPath() string {
 		return "/app/workflow.yaml"
 	}
 
-	return "workflow.yaml"
+	return defaultWorkflowFile
 }
