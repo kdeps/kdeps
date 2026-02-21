@@ -19,6 +19,7 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -860,5 +861,656 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 				t.Errorf("GetPortNum() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestInputConfig_UnmarshalYAML covers all input source branches.
+//
+//nolint:gocognit // table-driven test covers all input source branches
+func TestInputConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name      string
+		yamlData  string
+		wantErr   bool
+		wantSrc   string
+		wantDev   string
+		wantTType string
+	}{
+		{
+			name: "api source",
+			yamlData: `
+source: api
+`,
+			wantSrc: domain.InputSourceAPI,
+		},
+		{
+			name: "audio source with device",
+			yamlData: `
+source: audio
+audio:
+  device: hw:0,0
+`,
+			wantSrc: domain.InputSourceAudio,
+			wantDev: "hw:0,0",
+		},
+		{
+			name: "video source with device",
+			yamlData: `
+source: video
+video:
+  device: /dev/video0
+`,
+			wantSrc: domain.InputSourceVideo,
+			wantDev: "/dev/video0",
+		},
+		{
+			name: "telephony local",
+			yamlData: `
+source: telephony
+telephony:
+  type: local
+  device: /dev/ttyUSB0
+`,
+			wantSrc:   domain.InputSourceTelephony,
+			wantTType: domain.TelephonyTypeLocal,
+		},
+		{
+			name: "telephony online",
+			yamlData: `
+source: telephony
+telephony:
+  type: online
+  provider: twilio
+`,
+			wantSrc:   domain.InputSourceTelephony,
+			wantTType: domain.TelephonyTypeOnline,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var config domain.InputConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &config)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if config.Source != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", config.Source, tt.wantSrc)
+			}
+			if tt.wantDev != "" {
+				switch tt.wantSrc {
+				case domain.InputSourceAudio:
+					if config.Audio == nil || config.Audio.Device != tt.wantDev {
+						t.Errorf("Audio.Device = %v, want %v", config.Audio, tt.wantDev)
+					}
+				case domain.InputSourceVideo:
+					if config.Video == nil || config.Video.Device != tt.wantDev {
+						t.Errorf("Video.Device = %v, want %v", config.Video, tt.wantDev)
+					}
+				}
+			}
+			if tt.wantTType != "" {
+				if config.Telephony == nil || config.Telephony.Type != tt.wantTType {
+					t.Errorf("Telephony.Type = %v, want %v", config.Telephony, tt.wantTType)
+				}
+			}
+		})
+	}
+}
+
+func TestWorkflowSettings_Input_UnmarshalYAML(t *testing.T) {
+	yamlData := `
+apiServerMode: false
+input:
+  source: audio
+  audio:
+    device: default
+`
+	var settings domain.WorkflowSettings
+	err := yaml.Unmarshal([]byte(yamlData), &settings)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+	if settings.Input == nil {
+		t.Fatal("Input should not be nil")
+	}
+	if settings.Input.Source != domain.InputSourceAudio {
+		t.Errorf("Source = %v, want %v", settings.Input.Source, domain.InputSourceAudio)
+	}
+	if settings.Input.Audio == nil || settings.Input.Audio.Device != "default" {
+		t.Errorf("Audio.Device = %v, want default", settings.Input.Audio)
+	}
+}
+
+func TestWorkflowSettings_UnmarshalYAML_DecodeError(t *testing.T) {
+	// Pass a SequenceNode where a MappingNode is expected to trigger the decode error path.
+	seqNode := &yaml.Node{
+		Kind: yaml.SequenceNode,
+		Tag:  "!!seq",
+	}
+	var settings domain.WorkflowSettings
+	err := settings.UnmarshalYAML(seqNode)
+	if err == nil {
+		t.Error("Expected error when decoding sequence node as WorkflowSettings mapping")
+	}
+}
+
+func TestWorkflowSettings_Input_AllSources_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantSrc string
+	}{
+		{
+			name: "api source",
+			yaml: `
+input:
+  source: api
+`,
+			wantSrc: domain.InputSourceAPI,
+		},
+		{
+			name: "video source with device",
+			yaml: `
+input:
+  source: video
+  video:
+    device: /dev/video0
+`,
+			wantSrc: domain.InputSourceVideo,
+		},
+		{
+			name: "telephony source",
+			yaml: `
+input:
+  source: telephony
+  telephony:
+    type: online
+    provider: twilio
+`,
+			wantSrc: domain.InputSourceTelephony,
+		},
+		{
+			name: "telephony local",
+			yaml: `
+input:
+  source: telephony
+  telephony:
+    type: local
+    device: /dev/ttyUSB0
+`,
+			wantSrc: domain.InputSourceTelephony,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var settings domain.WorkflowSettings
+			err := yaml.Unmarshal([]byte(tt.yaml), &settings)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if settings.Input == nil {
+				t.Fatal("Input should not be nil")
+			}
+			if settings.Input.Source != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", settings.Input.Source, tt.wantSrc)
+			}
+		})
+	}
+}
+
+func TestInputConfigConstants(t *testing.T) {
+	// Ensure all constants have the expected values.
+	if domain.InputSourceAPI != "api" {
+		t.Errorf("InputSourceAPI = %v, want api", domain.InputSourceAPI)
+	}
+	if domain.InputSourceAudio != "audio" {
+		t.Errorf("InputSourceAudio = %v, want audio", domain.InputSourceAudio)
+	}
+	if domain.InputSourceVideo != "video" {
+		t.Errorf("InputSourceVideo = %v, want video", domain.InputSourceVideo)
+	}
+	if domain.InputSourceTelephony != "telephony" {
+		t.Errorf("InputSourceTelephony = %v, want telephony", domain.InputSourceTelephony)
+	}
+	if domain.TelephonyTypeLocal != "local" {
+		t.Errorf("TelephonyTypeLocal = %v, want local", domain.TelephonyTypeLocal)
+	}
+	if domain.TelephonyTypeOnline != "online" {
+		t.Errorf("TelephonyTypeOnline = %v, want online", domain.TelephonyTypeOnline)
+	}
+}
+
+func TestInputConfig_JSONRoundTrip(t *testing.T) {
+	// Test that InputConfig structs round-trip through encoding/json correctly.
+	original := domain.InputConfig{
+		Source: domain.InputSourceTelephony,
+		Audio:  &domain.AudioConfig{Device: "hw:0,0"},
+		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Telephony: &domain.TelephonyConfig{
+			Type:     domain.TelephonyTypeOnline,
+			Provider: "twilio",
+		},
+		Transcriber: &domain.TranscriberConfig{
+			Mode:     domain.TranscriberModeOnline,
+			Output:   domain.TranscriberOutputText,
+			Language: "en-US",
+			Online: &domain.OnlineTranscriberConfig{
+				Provider:  domain.TranscriberProviderOpenAIWhisper,
+				APIKey:    "sk-test",
+				Region:    "us-east-1",
+				ProjectID: "my-project",
+			},
+		},
+	}
+
+	// Marshal to JSON.
+	data, err := json.Marshal(&original)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+
+	// Unmarshal back.
+	var restored domain.InputConfig
+	if unmarshalErr := json.Unmarshal(data, &restored); unmarshalErr != nil {
+		t.Fatalf("json.Unmarshal: %v", unmarshalErr)
+	}
+
+	// Verify all fields survive the round-trip.
+	if restored.Source != original.Source {
+		t.Errorf("Source = %v, want %v", restored.Source, original.Source)
+	}
+	if restored.Audio == nil || restored.Audio.Device != original.Audio.Device {
+		t.Errorf("Audio.Device = %v, want %v", restored.Audio, original.Audio.Device)
+	}
+	if restored.Video == nil || restored.Video.Device != original.Video.Device {
+		t.Errorf("Video.Device = %v, want %v", restored.Video, original.Video.Device)
+	}
+	if restored.Telephony == nil || restored.Telephony.Type != original.Telephony.Type {
+		t.Errorf("Telephony.Type = %v, want %v", restored.Telephony, original.Telephony.Type)
+	}
+	if restored.Telephony.Provider != original.Telephony.Provider {
+		t.Errorf("Telephony.Provider = %v, want %v", restored.Telephony.Provider, original.Telephony.Provider)
+	}
+	if restored.Transcriber == nil {
+		t.Fatal("Transcriber should not be nil after JSON round-trip")
+	}
+	if restored.Transcriber.Mode != original.Transcriber.Mode {
+		t.Errorf("Transcriber.Mode = %v, want %v", restored.Transcriber.Mode, original.Transcriber.Mode)
+	}
+	if restored.Transcriber.Online == nil ||
+		restored.Transcriber.Online.Provider != original.Transcriber.Online.Provider {
+		t.Errorf("Transcriber.Online.Provider = %v", restored.Transcriber.Online)
+	}
+}
+
+func TestWorkflow_InputConfig_YAMLUnmarshal(t *testing.T) {
+	// Test full workflow YAML unmarshal including input sources.
+	yamlIn := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: rt-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  apiServerMode: false
+  input:
+    source: telephony
+    telephony:
+      type: online
+      provider: vonage
+`
+	var wf domain.Workflow
+	if err := yaml.Unmarshal([]byte(yamlIn), &wf); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if wf.Settings.Input == nil {
+		t.Fatal("Input should not be nil")
+	}
+	if wf.Settings.Input.Source != domain.InputSourceTelephony {
+		t.Errorf("Source = %v", wf.Settings.Input.Source)
+	}
+	if wf.Settings.Input.Telephony == nil {
+		t.Fatal("Telephony should not be nil")
+	}
+	if wf.Settings.Input.Telephony.Type != domain.TelephonyTypeOnline {
+		t.Errorf("Type = %v", wf.Settings.Input.Telephony.Type)
+	}
+	if wf.Settings.Input.Telephony.Provider != "vonage" {
+		t.Errorf("Provider = %v", wf.Settings.Input.Telephony.Provider)
+	}
+
+	// Marshal back to YAML and unmarshal again to ensure a true round-trip.
+	out, err := yaml.Marshal(&wf)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var wf2 domain.Workflow
+	if unmarshalErr := yaml.Unmarshal(out, &wf2); unmarshalErr != nil {
+		t.Fatalf("Re-unmarshal: %v", unmarshalErr)
+	}
+	if wf2.Settings.Input == nil {
+		t.Fatal("Input should not be nil after round-trip")
+	}
+	if wf2.Settings.Input.Source != domain.InputSourceTelephony {
+		t.Errorf("Source after round-trip = %v", wf2.Settings.Input.Source)
+	}
+	if wf2.Settings.Input.Telephony == nil {
+		t.Fatal("Telephony should not be nil after round-trip")
+	}
+	if wf2.Settings.Input.Telephony.Type != domain.TelephonyTypeOnline {
+		t.Errorf("Type after round-trip = %v", wf2.Settings.Input.Telephony.Type)
+	}
+	if wf2.Settings.Input.Telephony.Provider != "vonage" {
+		t.Errorf("Provider after round-trip = %v", wf2.Settings.Input.Telephony.Provider)
+	}
+}
+
+// TestTranscriberConfig_UnmarshalYAML covers all transcriber config branches.
+//
+//nolint:gocognit // table-driven test covers all transcriber branches
+func TestTranscriberConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yamlData string
+		check    func(*testing.T, *domain.InputConfig)
+	}{
+		{
+			name: "online transcriber with openai-whisper",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  output: text
+  language: en-US
+  online:
+    provider: openai-whisper
+    apiKey: sk-test
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber == nil {
+					t.Fatal("Transcriber should not be nil")
+				}
+				if c.Transcriber.Mode != domain.TranscriberModeOnline {
+					t.Errorf("Mode = %v", c.Transcriber.Mode)
+				}
+				if c.Transcriber.Output != domain.TranscriberOutputText {
+					t.Errorf("Output = %v", c.Transcriber.Output)
+				}
+				if c.Transcriber.Language != "en-US" {
+					t.Errorf("Language = %v", c.Transcriber.Language)
+				}
+				if c.Transcriber.Online == nil {
+					t.Fatal("Online should not be nil")
+				}
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderOpenAIWhisper {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.APIKey != "sk-test" {
+					t.Errorf("APIKey = %v", c.Transcriber.Online.APIKey)
+				}
+			},
+		},
+		{
+			name: "online transcriber with aws-transcribe",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: aws-transcribe
+    region: us-east-1
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderAWSTranscribe {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.Region != "us-east-1" {
+					t.Errorf("Region = %v", c.Transcriber.Online.Region)
+				}
+			},
+		},
+		{
+			name: "online transcriber with google-stt",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: google-stt
+    projectId: my-project
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderGoogleSTT {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.ProjectID != "my-project" {
+					t.Errorf("ProjectID = %v", c.Transcriber.Online.ProjectID)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with whisper",
+			yamlData: `
+source: audio
+transcriber:
+  mode: offline
+  output: text
+  offline:
+    engine: whisper
+    model: base
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Mode != domain.TranscriberModeOffline {
+					t.Errorf("Mode = %v", c.Transcriber.Mode)
+				}
+				if c.Transcriber.Offline == nil {
+					t.Fatal("Offline should not be nil")
+				}
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineWhisper {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Offline.Model != "base" {
+					t.Errorf("Model = %v", c.Transcriber.Offline.Model)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with faster-whisper",
+			yamlData: `
+source: video
+transcriber:
+  mode: offline
+  output: media
+  offline:
+    engine: faster-whisper
+    model: small
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineFasterWhisper {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Output != domain.TranscriberOutputMedia {
+					t.Errorf("Output = %v", c.Transcriber.Output)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with vosk",
+			yamlData: `
+source: telephony
+transcriber:
+  mode: offline
+  offline:
+    engine: vosk
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineVosk {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with whisper-cpp",
+			yamlData: `
+source: audio
+transcriber:
+  mode: offline
+  offline:
+    engine: whisper-cpp
+    model: /models/ggml-small.bin
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineWhisperCPP {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Offline.Model != "/models/ggml-small.bin" {
+					t.Errorf("Model = %v", c.Transcriber.Offline.Model)
+				}
+			},
+		},
+		{
+			name: "online transcriber with deepgram",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: deepgram
+    apiKey: dg-key
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderDeepgram {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+			},
+		},
+		{
+			name: "online transcriber with assemblyai",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: assemblyai
+    apiKey: aai-key
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderAssemblyAI {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var config domain.InputConfig
+			if err := yaml.Unmarshal([]byte(tt.yamlData), &config); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			tt.check(t, &config)
+		})
+	}
+}
+
+func TestTranscriberConfigConstants(t *testing.T) {
+	// Modes
+	if domain.TranscriberModeOnline != "online" {
+		t.Errorf("TranscriberModeOnline = %v", domain.TranscriberModeOnline)
+	}
+	if domain.TranscriberModeOffline != "offline" {
+		t.Errorf("TranscriberModeOffline = %v", domain.TranscriberModeOffline)
+	}
+	// Outputs
+	if domain.TranscriberOutputText != "text" {
+		t.Errorf("TranscriberOutputText = %v", domain.TranscriberOutputText)
+	}
+	if domain.TranscriberOutputMedia != "media" {
+		t.Errorf("TranscriberOutputMedia = %v", domain.TranscriberOutputMedia)
+	}
+	// Online providers
+	if domain.TranscriberProviderOpenAIWhisper != "openai-whisper" {
+		t.Errorf("TranscriberProviderOpenAIWhisper = %v", domain.TranscriberProviderOpenAIWhisper)
+	}
+	if domain.TranscriberProviderGoogleSTT != "google-stt" {
+		t.Errorf("TranscriberProviderGoogleSTT = %v", domain.TranscriberProviderGoogleSTT)
+	}
+	if domain.TranscriberProviderAWSTranscribe != "aws-transcribe" {
+		t.Errorf("TranscriberProviderAWSTranscribe = %v", domain.TranscriberProviderAWSTranscribe)
+	}
+	if domain.TranscriberProviderDeepgram != "deepgram" {
+		t.Errorf("TranscriberProviderDeepgram = %v", domain.TranscriberProviderDeepgram)
+	}
+	if domain.TranscriberProviderAssemblyAI != "assemblyai" {
+		t.Errorf("TranscriberProviderAssemblyAI = %v", domain.TranscriberProviderAssemblyAI)
+	}
+	// Offline engines
+	if domain.TranscriberEngineWhisper != "whisper" {
+		t.Errorf("TranscriberEngineWhisper = %v", domain.TranscriberEngineWhisper)
+	}
+	if domain.TranscriberEngineFasterWhisper != "faster-whisper" {
+		t.Errorf("TranscriberEngineFasterWhisper = %v", domain.TranscriberEngineFasterWhisper)
+	}
+	if domain.TranscriberEngineVosk != "vosk" {
+		t.Errorf("TranscriberEngineVosk = %v", domain.TranscriberEngineVosk)
+	}
+	if domain.TranscriberEngineWhisperCPP != "whisper-cpp" {
+		t.Errorf("TranscriberEngineWhisperCPP = %v", domain.TranscriberEngineWhisperCPP)
+	}
+}
+
+func TestWorkflow_TranscriberConfig_RoundTrip(t *testing.T) {
+	yamlIn := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: transcriber-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  input:
+    source: audio
+    audio:
+      device: default
+    transcriber:
+      mode: offline
+      output: text
+      language: fr-FR
+      offline:
+        engine: faster-whisper
+        model: small
+`
+	var wf domain.Workflow
+	if err := yaml.Unmarshal([]byte(yamlIn), &wf); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	tr := wf.Settings.Input.Transcriber
+	if tr == nil {
+		t.Fatal("Transcriber should not be nil")
+	}
+	if tr.Mode != domain.TranscriberModeOffline {
+		t.Errorf("Mode = %v", tr.Mode)
+	}
+	if tr.Output != domain.TranscriberOutputText {
+		t.Errorf("Output = %v", tr.Output)
+	}
+	if tr.Language != "fr-FR" {
+		t.Errorf("Language = %v", tr.Language)
+	}
+	if tr.Offline == nil {
+		t.Fatal("Offline should not be nil")
+	}
+	if tr.Offline.Engine != domain.TranscriberEngineFasterWhisper {
+		t.Errorf("Engine = %v", tr.Offline.Engine)
+	}
+	if tr.Offline.Model != "small" {
+		t.Errorf("Model = %v", tr.Offline.Model)
 	}
 }

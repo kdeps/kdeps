@@ -60,6 +60,7 @@ source "$SCRIPT_DIR/test_features_workflow_metadata.sh"
 source "$SCRIPT_DIR/test_features_route_methods.sh"
 source "$SCRIPT_DIR/test_http_client.sh"
 source "$SCRIPT_DIR/test_features_edge_cases.sh"
+source "$SCRIPT_DIR/test_features_input_sources.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"

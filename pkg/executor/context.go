@@ -93,6 +93,16 @@ type ExecutionContext struct {
 	// LLM metadata (model and backend used in this execution).
 	LLMMetadata *LLMMetadata
 
+	// InputMediaFile is the path to the captured or transcribed media file produced
+	// by the input processor (audio/video/telephony sources with output: media).
+	// Resources can read this path via the inputMedia() expression function.
+	InputMediaFile string
+
+	// InputTranscript is the text produced by the input transcriber
+	// (audio/video/telephony sources with output: text).
+	// Resources can read this value via the inputTranscript() expression function.
+	InputTranscript string
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
