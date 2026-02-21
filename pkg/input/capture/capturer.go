@@ -45,12 +45,14 @@
 package capture
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -130,7 +132,7 @@ func (c *AudioCapturer) Capture() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("capture: create temp file: %w", err)
 	}
-	outFile.Close()
+	_ = outFile.Close()
 	outPath := outFile.Name()
 
 	var cmd *exec.Cmd
@@ -138,11 +140,12 @@ func (c *AudioCapturer) Capture() (string, error) {
 	if runtime.GOOS == "linux" {
 		// Prefer arecord on Linux (ALSA).
 		if _, lookErr := exec.LookPath("arecord"); lookErr == nil {
-			cmd = exec.Command(
+			//nolint:gosec // G204: device comes from user-configured InputConfig
+			cmd = exec.CommandContext(context.Background(),
 				"arecord",
 				"-D", c.device,
 				"-f", "cd",
-				"-d", fmt.Sprintf("%d", DefaultDurationSeconds),
+				"-d", strconv.Itoa(DefaultDurationSeconds),
 				outPath,
 			)
 		}
@@ -150,25 +153,29 @@ func (c *AudioCapturer) Capture() (string, error) {
 
 	// Fall back to ffmpeg (cross-platform).
 	if cmd == nil {
-		inputFmt := "alsa"
-		if runtime.GOOS == "darwin" {
+		var inputFmt string
+		switch runtime.GOOS {
+		case "darwin":
 			inputFmt = "avfoundation"
-		} else if runtime.GOOS == "windows" {
+		case "windows":
 			inputFmt = "dshow"
+		default:
+			inputFmt = "alsa"
 		}
-		cmd = exec.Command(
+		//nolint:gosec // G204: device comes from user-configured InputConfig
+		cmd = exec.CommandContext(context.Background(),
 			"ffmpeg", "-y",
 			"-f", inputFmt,
 			"-i", c.device,
-			"-t", fmt.Sprintf("%d", DefaultDurationSeconds),
+			"-t", strconv.Itoa(DefaultDurationSeconds),
 			outPath,
 		)
 	}
 
 	c.logger.Info("capturing audio", "device", c.device, "output", outPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		os.Remove(outPath)
-		return "", fmt.Errorf("capture audio from %s: %w\n%s", c.device, err, out)
+	if out, runErr := cmd.CombinedOutput(); runErr != nil {
+		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		return "", fmt.Errorf("capture audio from %s: %w\n%s", c.device, runErr, out)
 	}
 
 	return outPath, nil
@@ -190,29 +197,33 @@ func (c *VideoCapturer) Capture() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("capture: create temp file: %w", err)
 	}
-	outFile.Close()
+	_ = outFile.Close()
 	outPath := outFile.Name()
 
-	inputFmt := "v4l2"
-	if runtime.GOOS == "darwin" {
+	var inputFmt string
+	switch runtime.GOOS {
+	case "darwin":
 		inputFmt = "avfoundation"
-	} else if runtime.GOOS == "windows" {
+	case "windows":
 		inputFmt = "dshow"
+	default:
+		inputFmt = "v4l2"
 	}
 
-	cmd := exec.Command(
+	//nolint:gosec // G204: device comes from user-configured InputConfig
+	cmd := exec.CommandContext(context.Background(),
 		"ffmpeg", "-y",
 		"-f", inputFmt,
 		"-i", c.device,
-		"-t", fmt.Sprintf("%d", DefaultDurationSeconds),
+		"-t", strconv.Itoa(DefaultDurationSeconds),
 		"-c:v", "libx264", "-preset", "fast",
 		outPath,
 	)
 
 	c.logger.Info("capturing video", "device", c.device, "output", outPath)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		os.Remove(outPath)
-		return "", fmt.Errorf("capture video from %s: %w\n%s", c.device, err, out)
+	if out, runErr := cmd.CombinedOutput(); runErr != nil {
+		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		return "", fmt.Errorf("capture video from %s: %w\n%s", c.device, runErr, out)
 	}
 
 	return outPath, nil

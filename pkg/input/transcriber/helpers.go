@@ -60,8 +60,8 @@ func saveMediaForResources(src string) (string, error) {
 	}
 	defer out.Close()
 
-	if _, err := io.Copy(out, in); err != nil {
-		return "", fmt.Errorf("transcriber: copy media: %w", err)
+	if _, copyErr := io.Copy(out, in); copyErr != nil {
+		return "", fmt.Errorf("transcriber: copy media: %w", copyErr)
 	}
 
 	return dest, nil

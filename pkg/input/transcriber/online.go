@@ -20,7 +20,9 @@ package transcriber
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -28,6 +30,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -102,34 +105,37 @@ func (t *onlineTranscriber) openAIWhisper(mediaFile string) (*Result, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
-	fw, err := w.CreateFormFile("file", filepath.Base(mediaFile))
-	if err != nil {
-		return nil, fmt.Errorf("openai-whisper: create form file: %w", err)
+	fw, createErr := w.CreateFormFile("file", filepath.Base(mediaFile))
+	if createErr != nil {
+		return nil, fmt.Errorf("openai-whisper: create form file: %w", createErr)
 	}
-	if _, err := io.Copy(fw, f); err != nil {
-		return nil, fmt.Errorf("openai-whisper: copy file: %w", err)
+	if _, copyErr := io.Copy(fw, f); copyErr != nil {
+		return nil, fmt.Errorf("openai-whisper: copy file: %w", copyErr)
 	}
-	if err := w.WriteField("model", "whisper-1"); err != nil {
-		return nil, fmt.Errorf("openai-whisper: write model field: %w", err)
+	if writeErr := w.WriteField("model", "whisper-1"); writeErr != nil {
+		return nil, fmt.Errorf("openai-whisper: write model field: %w", writeErr)
 	}
 	if t.cfg.Language != "" {
-		if err := w.WriteField("language", t.cfg.Language); err != nil {
-			return nil, fmt.Errorf("openai-whisper: write language field: %w", err)
+		if writeErr := w.WriteField("language", t.cfg.Language); writeErr != nil {
+			return nil, fmt.Errorf("openai-whisper: write language field: %w", writeErr)
 		}
 	}
-	w.Close()
+	if closeErr := w.Close(); closeErr != nil {
+		return nil, fmt.Errorf("openai-whisper: close multipart writer: %w", closeErr)
+	}
 
-	req, err := http.NewRequest(http.MethodPost,
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"https://api.openai.com/v1/audio/transcriptions", &buf)
-	if err != nil {
-		return nil, fmt.Errorf("openai-whisper: create request: %w", err)
+	if reqErr != nil {
+		return nil, fmt.Errorf("openai-whisper: create request: %w", reqErr)
 	}
 	req.Header.Set("Authorization", "Bearer "+t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("openai-whisper: request: %w", err)
+	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+	resp, doErr := t.client.Do(req)
+	if doErr != nil {
+		return nil, fmt.Errorf("openai-whisper: request: %w", doErr)
 	}
 	defer resp.Body.Close()
 
@@ -139,8 +145,8 @@ func (t *onlineTranscriber) openAIWhisper(mediaFile string) (*Result, error) {
 	}
 
 	var result openAIWhisperResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("openai-whisper: decode response: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &result); unmarshalErr != nil {
+		return nil, fmt.Errorf("openai-whisper: decode response: %w", unmarshalErr)
 	}
 
 	return t.buildResult(result.Text, mediaFile)
@@ -172,16 +178,17 @@ func (t *onlineTranscriber) deepgram(mediaFile string) (*Result, error) {
 		apiURL += "?language=" + t.cfg.Language
 	}
 
-	req, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("deepgram: create request: %w", err)
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodPost, apiURL, bytes.NewReader(data))
+	if reqErr != nil {
+		return nil, fmt.Errorf("deepgram: create request: %w", reqErr)
 	}
 	req.Header.Set("Authorization", "Token "+t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "audio/wav")
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("deepgram: request: %w", err)
+	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+	resp, doErr := t.client.Do(req)
+	if doErr != nil {
+		return nil, fmt.Errorf("deepgram: request: %w", doErr)
 	}
 	defer resp.Body.Close()
 
@@ -191,8 +198,8 @@ func (t *onlineTranscriber) deepgram(mediaFile string) (*Result, error) {
 	}
 
 	var result deepgramResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("deepgram: decode response: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &result); unmarshalErr != nil {
+		return nil, fmt.Errorf("deepgram: decode response: %w", unmarshalErr)
 	}
 
 	text := ""
@@ -214,7 +221,7 @@ type assemblyAIUploadResponse struct {
 
 // assemblyAITranscriptRequest initiates a transcription job.
 type assemblyAITranscriptRequest struct {
-	AudioURL    string `json:"audio_url"`
+	AudioURL     string `json:"audio_url"`
 	LanguageCode string `json:"language_code,omitempty"`
 }
 
@@ -234,82 +241,111 @@ func (t *onlineTranscriber) assemblyAI(mediaFile string) (*Result, error) {
 		return nil, fmt.Errorf("assemblyai: read file: %w", err)
 	}
 
-	// Step 1: Upload the audio file.
-	req, err := http.NewRequest(http.MethodPost,
+	uploadURL, uploadErr := t.assemblyAIUpload(data)
+	if uploadErr != nil {
+		return nil, uploadErr
+	}
+
+	transcResp, submitErr := t.assemblyAISubmit(uploadURL)
+	if submitErr != nil {
+		return nil, submitErr
+	}
+
+	pollResp, pollErr := t.assemblyAIPoll(transcResp)
+	if pollErr != nil {
+		return nil, pollErr
+	}
+
+	return t.buildResult(pollResp.Text, mediaFile)
+}
+
+func (t *onlineTranscriber) assemblyAIUpload(data []byte) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"https://api.assemblyai.com/v2/upload", bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("assemblyai: create upload request: %w", err)
+		return "", fmt.Errorf("assemblyai: create upload request: %w", err)
 	}
 	req.Header.Set("Authorization", t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("assemblyai: upload: %w", err)
+	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+	resp, doErr := t.client.Do(req)
+	if doErr != nil {
+		return "", fmt.Errorf("assemblyai: upload: %w", doErr)
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("assemblyai: upload status %d: %s", resp.StatusCode, body)
+		return "", fmt.Errorf("assemblyai: upload status %d: %s", resp.StatusCode, body)
 	}
 
 	var uploadResp assemblyAIUploadResponse
-	if err := json.Unmarshal(body, &uploadResp); err != nil {
-		return nil, fmt.Errorf("assemblyai: decode upload response: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &uploadResp); unmarshalErr != nil {
+		return "", fmt.Errorf("assemblyai: decode upload response: %w", unmarshalErr)
 	}
 
-	// Step 2: Submit transcription request.
+	return uploadResp.UploadURL, nil
+}
+
+func (t *onlineTranscriber) assemblyAISubmit(audioURL string) (*assemblyAITranscriptResponse, error) {
 	transcReq := assemblyAITranscriptRequest{
-		AudioURL:    uploadResp.UploadURL,
+		AudioURL:     audioURL,
 		LanguageCode: t.cfg.Language,
 	}
 	transcBody, _ := json.Marshal(transcReq)
 
-	req2, err := http.NewRequest(http.MethodPost,
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"https://api.assemblyai.com/v2/transcript", bytes.NewReader(transcBody))
 	if err != nil {
 		return nil, fmt.Errorf("assemblyai: create transcript request: %w", err)
 	}
-	req2.Header.Set("Authorization", t.cfg.Online.APIKey)
-	req2.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", t.cfg.Online.APIKey)
+	req.Header.Set("Content-Type", "application/json")
 
-	resp2, err := t.client.Do(req2)
-	if err != nil {
-		return nil, fmt.Errorf("assemblyai: transcript submit: %w", err)
+	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+	resp, doErr := t.client.Do(req)
+	if doErr != nil {
+		return nil, fmt.Errorf("assemblyai: transcript submit: %w", doErr)
 	}
-	defer resp2.Body.Close()
+	defer resp.Body.Close()
 
-	body2, _ := io.ReadAll(resp2.Body)
-	if resp2.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("assemblyai: transcript submit status %d: %s", resp2.StatusCode, body2)
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("assemblyai: transcript submit status %d: %s", resp.StatusCode, body)
 	}
 
 	var transcResp assemblyAITranscriptResponse
-	if err := json.Unmarshal(body2, &transcResp); err != nil {
-		return nil, fmt.Errorf("assemblyai: decode transcript response: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &transcResp); unmarshalErr != nil {
+		return nil, fmt.Errorf("assemblyai: decode transcript response: %w", unmarshalErr)
 	}
 
-	// Step 3: Poll until completed.
+	return &transcResp, nil
+}
+
+func (t *onlineTranscriber) assemblyAIPoll(
+	transcResp *assemblyAITranscriptResponse,
+) (*assemblyAITranscriptResponse, error) {
 	for transcResp.Status != "completed" && transcResp.Status != "error" {
 		time.Sleep(assemblyAIPollIntervalSeconds * time.Second)
 
-		pollReq, err := http.NewRequest(http.MethodGet,
+		pollReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet,
 			"https://api.assemblyai.com/v2/transcript/"+transcResp.ID, nil)
 		if err != nil {
 			return nil, fmt.Errorf("assemblyai: poll request: %w", err)
 		}
 		pollReq.Header.Set("Authorization", t.cfg.Online.APIKey)
 
-		pollResp, err := t.client.Do(pollReq)
-		if err != nil {
-			return nil, fmt.Errorf("assemblyai: poll: %w", err)
+		//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+		pollResp, doErr := t.client.Do(pollReq)
+		if doErr != nil {
+			return nil, fmt.Errorf("assemblyai: poll: %w", doErr)
 		}
 		pollBody, _ := io.ReadAll(pollResp.Body)
-		pollResp.Body.Close()
+		_ = pollResp.Body.Close()
 
-		if err := json.Unmarshal(pollBody, &transcResp); err != nil {
-			return nil, fmt.Errorf("assemblyai: decode poll response: %w", err)
+		if unmarshalErr := json.Unmarshal(pollBody, transcResp); unmarshalErr != nil {
+			return nil, fmt.Errorf("assemblyai: decode poll response: %w", unmarshalErr)
 		}
 	}
 
@@ -317,7 +353,7 @@ func (t *onlineTranscriber) assemblyAI(mediaFile string) (*Result, error) {
 		return nil, fmt.Errorf("assemblyai: transcription failed: %s", transcResp.Error)
 	}
 
-	return t.buildResult(transcResp.Text, mediaFile)
+	return transcResp, nil
 }
 
 // --------------------------------------------------------------------------
@@ -366,21 +402,22 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 	reqBody.Config.LanguageCode = langCode
 	reqBody.Audio.Content = encoded64
 
-	reqBytes, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("google-stt: marshal request: %w", err)
+	reqBytes, marshalErr := json.Marshal(reqBody)
+	if marshalErr != nil {
+		return nil, fmt.Errorf("google-stt: marshal request: %w", marshalErr)
 	}
 
 	apiURL := "https://speech.googleapis.com/v1/speech:recognize?key=" + t.cfg.Online.APIKey
-	req, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewReader(reqBytes))
-	if err != nil {
-		return nil, fmt.Errorf("google-stt: create request: %w", err)
+	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodPost, apiURL, bytes.NewReader(reqBytes))
+	if reqErr != nil {
+		return nil, fmt.Errorf("google-stt: create request: %w", reqErr)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := t.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("google-stt: request: %w", err)
+	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
+	resp, doErr := t.client.Do(req)
+	if doErr != nil {
+		return nil, fmt.Errorf("google-stt: request: %w", doErr)
 	}
 	defer resp.Body.Close()
 
@@ -390,18 +427,19 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 	}
 
 	var result googleSTTResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("google-stt: decode response: %w", err)
+	if unmarshalErr := json.Unmarshal(body, &result); unmarshalErr != nil {
+		return nil, fmt.Errorf("google-stt: decode response: %w", unmarshalErr)
 	}
 
-	text := ""
+	var sb strings.Builder
 	for _, r := range result.Results {
 		if len(r.Alternatives) > 0 {
-			text += r.Alternatives[0].Transcript + " "
+			sb.WriteString(r.Alternatives[0].Transcript)
+			sb.WriteString(" ")
 		}
 	}
 
-	return t.buildResult(text, mediaFile)
+	return t.buildResult(sb.String(), mediaFile)
 }
 
 // --------------------------------------------------------------------------
@@ -411,12 +449,12 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 // awsTranscribe sends the audio to AWS Transcribe using the StartTranscriptionJob API.
 // This implementation uses unsigned HTTP for simplicity; production use should
 // use the AWS SDK for proper SigV4 signing.
-func (t *onlineTranscriber) awsTranscribe(mediaFile string) (*Result, error) {
+func (t *onlineTranscriber) awsTranscribe(_ string) (*Result, error) {
 	// AWS Transcribe requires an S3 URI, which is not available via pure REST
 	// without AWS SDK signing. We return a clear error directing users to use
 	// the AWS SDK integration path, or configure an HTTP executor resource for
 	// complex multi-step AWS calls.
-	return nil, fmt.Errorf(
+	return nil, errors.New(
 		"aws-transcribe: direct REST integration requires AWS SDK signing (SigV4); " +
 			"use an http executor resource with AWS credentials for AWS Transcribe",
 	)

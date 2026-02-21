@@ -110,7 +110,7 @@ func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
 		var errMsgSb110 strings.Builder
 		for _, desc := range result.Errors() {
 			enhancedMsg := sv.enhanceErrorMessage(desc, "workflow")
-			errMsgSb110.WriteString(fmt.Sprintf("  - %s\n", enhancedMsg))
+			fmt.Fprintf(&errMsgSb110, "  - %s\n", enhancedMsg)
 		}
 		errMsg += errMsgSb110.String()
 		return errors.New(errMsg)
@@ -162,7 +162,7 @@ func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 		var errMsgSb160 strings.Builder
 		for _, desc := range result.Errors() {
 			enhancedMsg := sv.enhanceErrorMessage(desc, "resource")
-			errMsgSb160.WriteString(fmt.Sprintf("  - %s\n", enhancedMsg))
+			fmt.Fprintf(&errMsgSb160, "  - %s\n", enhancedMsg)
 		}
 		errMsg += errMsgSb160.String()
 		return errors.New(errMsg)

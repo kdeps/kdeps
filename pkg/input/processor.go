@@ -56,7 +56,7 @@ type Processor struct {
 // is handled directly by the HTTP server and needs no processor).
 func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, error) {
 	if cfg == nil || cfg.Source == domain.InputSourceAPI {
-		return nil, nil
+		return nil, nil //nolint:nilnil // nil processor signals no input processing needed, not an error
 	}
 
 	if logger == nil {

@@ -203,9 +203,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			return nil, fmt.Errorf("input processor init: %w", procErr)
 		}
 		if processor != nil {
-			result, procErr := processor.Process()
-			if procErr != nil {
-				return nil, fmt.Errorf("input processing failed: %w", procErr)
+			result, processErr := processor.Process()
+			if processErr != nil {
+				return nil, fmt.Errorf("input processing failed: %w", processErr)
 			}
 			ctx.InputTranscript = result.Transcript
 			ctx.InputMediaFile = result.MediaFile

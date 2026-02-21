@@ -31,6 +31,7 @@
 package transcriber
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -66,13 +67,13 @@ func New(cfg *domain.TranscriberConfig, logger *slog.Logger) (Transcriber, error
 	switch cfg.Mode {
 	case domain.TranscriberModeOnline:
 		if cfg.Online == nil {
-			return nil, fmt.Errorf("transcriber: online config is required when mode is online")
+			return nil, errors.New("transcriber: online config is required when mode is online")
 		}
 		return newOnlineTranscriber(cfg, outputMode, logger)
 
 	case domain.TranscriberModeOffline:
 		if cfg.Offline == nil {
-			return nil, fmt.Errorf("transcriber: offline config is required when mode is offline")
+			return nil, errors.New("transcriber: offline config is required when mode is offline")
 		}
 		return newOfflineTranscriber(cfg, outputMode, logger)
 

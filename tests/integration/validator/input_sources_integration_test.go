@@ -282,11 +282,11 @@ func TestInputSourcesIntegration_TelephonyFields(t *testing.T) {
 	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
 
 	tests := []struct {
-		name             string
-		telephonyYAML    string
-		wantType         string
-		wantDevice       string
-		wantProvider     string
+		name          string
+		telephonyYAML string
+		wantType      string
+		wantDevice    string
+		wantProvider  string
 	}{
 		{
 			name: "local telephony with device",
@@ -326,8 +326,8 @@ settings:
 			tmpDir := t.TempDir()
 			workflowPath := writeWorkflowWithResource(t, tmpDir, workflowYAML)
 
-			workflow, err := yamlParser.ParseWorkflow(workflowPath)
-			require.NoError(t, err)
+			workflow, wfErr := yamlParser.ParseWorkflow(workflowPath)
+			require.NoError(t, wfErr)
 			require.NoError(t, workflowValidator.Validate(workflow))
 
 			require.NotNil(t, workflow.Settings.Input)

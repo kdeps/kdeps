@@ -24,36 +24,49 @@ const (
 	// DefaultPort is the default port for API and Web servers.
 	DefaultPort = 16395
 
-	// Input source constants.
-	InputSourceAPI       = "api"
-	InputSourceAudio     = "audio"
-	InputSourceVideo     = "video"
+	// InputSourceAPI is the input source for API (HTTP) requests (default).
+	InputSourceAPI = "api"
+	// InputSourceAudio is the input source for audio hardware devices.
+	InputSourceAudio = "audio"
+	// InputSourceVideo is the input source for video hardware devices.
+	InputSourceVideo = "video"
+	// InputSourceTelephony is the input source for telephony (phone/SIP) devices.
 	InputSourceTelephony = "telephony"
 
-	// Telephony type constants.
-	TelephonyTypeLocal  = "local"
+	// TelephonyTypeLocal is local telephony hardware (e.g. USB modem or handset).
+	TelephonyTypeLocal = "local"
+	// TelephonyTypeOnline is online telephony via a cloud service provider.
 	TelephonyTypeOnline = "online"
 
-	// Transcriber mode constants.
-	TranscriberModeOnline  = "online"
+	// TranscriberModeOnline uses a cloud transcription service.
+	TranscriberModeOnline = "online"
+	// TranscriberModeOffline uses a local transcription engine.
 	TranscriberModeOffline = "offline"
 
-	// Transcriber output type constants.
-	TranscriberOutputText  = "text"
+	// TranscriberOutputText produces a plain text transcript.
+	TranscriberOutputText = "text"
+	// TranscriberOutputMedia saves the processed media file for resource use.
 	TranscriberOutputMedia = "media"
 
-	// Online transcription provider constants.
+	// TranscriberProviderOpenAIWhisper is the OpenAI Whisper cloud provider.
 	TranscriberProviderOpenAIWhisper = "openai-whisper"
-	TranscriberProviderGoogleSTT     = "google-stt"
+	// TranscriberProviderGoogleSTT is the Google Speech-to-Text provider.
+	TranscriberProviderGoogleSTT = "google-stt"
+	// TranscriberProviderAWSTranscribe is the AWS Transcribe provider.
 	TranscriberProviderAWSTranscribe = "aws-transcribe"
-	TranscriberProviderDeepgram      = "deepgram"
-	TranscriberProviderAssemblyAI    = "assemblyai"
+	// TranscriberProviderDeepgram is the Deepgram provider.
+	TranscriberProviderDeepgram = "deepgram"
+	// TranscriberProviderAssemblyAI is the AssemblyAI provider.
+	TranscriberProviderAssemblyAI = "assemblyai"
 
-	// Offline transcription engine constants.
-	TranscriberEngineWhisper       = "whisper"
+	// TranscriberEngineWhisper is the OpenAI Whisper Python package.
+	TranscriberEngineWhisper = "whisper"
+	// TranscriberEngineFasterWhisper is the CTranslate2-based Whisper Python package.
 	TranscriberEngineFasterWhisper = "faster-whisper"
-	TranscriberEngineVosk          = "vosk"
-	TranscriberEngineWhisperCPP    = "whisper-cpp"
+	// TranscriberEngineVosk is the Vosk offline speech recognition engine.
+	TranscriberEngineVosk = "vosk"
+	// TranscriberEngineWhisperCPP is the compiled C++ Whisper binary.
+	TranscriberEngineWhisperCPP = "whisper-cpp"
 )
 
 // Workflow represents a KDeps workflow configuration.
@@ -102,10 +115,10 @@ type WebAppConfig struct {
 // InputConfig specifies the input source for the workflow.
 // Source can be "api" (default), "audio", "video", or "telephony".
 type InputConfig struct {
-	Source     string             `yaml:"source"               json:"source"`
-	Audio      *AudioConfig       `yaml:"audio,omitempty"      json:"audio,omitempty"`
-	Video      *VideoConfig       `yaml:"video,omitempty"      json:"video,omitempty"`
-	Telephony  *TelephonyConfig   `yaml:"telephony,omitempty"  json:"telephony,omitempty"`
+	Source      string             `yaml:"source"                json:"source"`
+	Audio       *AudioConfig       `yaml:"audio,omitempty"       json:"audio,omitempty"`
+	Video       *VideoConfig       `yaml:"video,omitempty"       json:"video,omitempty"`
+	Telephony   *TelephonyConfig   `yaml:"telephony,omitempty"   json:"telephony,omitempty"`
 	Transcriber *TranscriberConfig `yaml:"transcriber,omitempty" json:"transcriber,omitempty"`
 }
 
@@ -122,9 +135,9 @@ type VideoConfig struct {
 // TelephonyConfig contains telephony input configuration.
 // Type can be "local" (hardware device) or "online" (cloud service).
 type TelephonyConfig struct {
-	Type     string `yaml:"type"               json:"type"`               // local or online
-	Device   string `yaml:"device,omitempty"   json:"device,omitempty"`   // device path for local telephony
-	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // service provider for online telephony
+	Type     string `yaml:"type"               json:"type"`               // "local" or "online"
+	Device   string `yaml:"device,omitempty"   json:"device,omitempty"`   // device path for local telephony (e.g. /dev/ttyUSB0)
+	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // cloud provider for online telephony (e.g. twilio)
 }
 
 // TranscriberConfig defines how analog media signals (audio/video/telephony)
@@ -132,18 +145,18 @@ type TelephonyConfig struct {
 // Mode is either "online" (cloud service) or "offline" (local engine).
 type TranscriberConfig struct {
 	// Mode selects the transcription approach: "online" or "offline".
-	Mode string `yaml:"mode"               json:"mode"`
+	Mode string `yaml:"mode" json:"mode"`
 
 	// Output format: "text" (transcript) or "media" (raw media passthrough).
 	// Defaults to "text" when not specified.
-	Output string `yaml:"output,omitempty"   json:"output,omitempty"`
+	Output string `yaml:"output,omitempty" json:"output,omitempty"`
 
 	// Language is an optional BCP-47 language code (e.g. "en-US", "fr-FR").
 	// When omitted, the transcriber auto-detects the language if supported.
 	Language string `yaml:"language,omitempty" json:"language,omitempty"`
 
 	// Online holds configuration used when Mode is "online".
-	Online *OnlineTranscriberConfig `yaml:"online,omitempty"  json:"online,omitempty"`
+	Online *OnlineTranscriberConfig `yaml:"online,omitempty" json:"online,omitempty"`
 
 	// Offline holds configuration used when Mode is "offline".
 	Offline *OfflineTranscriberConfig `yaml:"offline,omitempty" json:"offline,omitempty"`
@@ -153,14 +166,14 @@ type TranscriberConfig struct {
 // Supported providers: openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai.
 type OnlineTranscriberConfig struct {
 	// Provider selects the cloud transcription service.
-	Provider string `yaml:"provider"           json:"provider"`
+	Provider string `yaml:"provider" json:"provider"`
 
 	// APIKey is the authentication key for the provider.
 	// It is recommended to supply this via an environment variable reference.
-	APIKey string `yaml:"apiKey,omitempty"   json:"apiKey,omitempty"`
+	APIKey string `yaml:"apiKey,omitempty" json:"apiKey,omitempty"` //nolint:gosec // G117: api key field for cloud providers
 
 	// Region is used for region-scoped services such as AWS Transcribe.
-	Region string `yaml:"region,omitempty"   json:"region,omitempty"`
+	Region string `yaml:"region,omitempty" json:"region,omitempty"`
 
 	// ProjectID is used for project-scoped services such as Google STT.
 	ProjectID string `yaml:"projectId,omitempty" json:"projectId,omitempty"`
@@ -170,11 +183,11 @@ type OnlineTranscriberConfig struct {
 // Supported engines: whisper, faster-whisper, vosk, whisper-cpp.
 type OfflineTranscriberConfig struct {
 	// Engine selects the local transcription engine.
-	Engine string `yaml:"engine"             json:"engine"`
+	Engine string `yaml:"engine" json:"engine"`
 
 	// Model is the model name or path used by the engine
 	// (e.g. "base", "small", "/models/ggml-small.bin").
-	Model string `yaml:"model,omitempty"    json:"model,omitempty"`
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
 }
 
 // GetHostIP returns the resolved host IP from top-level settings or default.

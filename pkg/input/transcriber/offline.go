@@ -20,6 +20,7 @@ package transcriber
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -113,13 +114,13 @@ func (t *offlineTranscriber) runWhisper(
 		args = append(args, "--language", language)
 	}
 
-	cmd := exec.Command("python", args...)
+	cmd := exec.CommandContext(context.Background(), "python", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	t.logger.Info("running whisper", "args", args)
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("whisper: %w: %s", err, stderr.String())
+	if runErr := cmd.Run(); runErr != nil {
+		return nil, fmt.Errorf("whisper: %w: %s", runErr, stderr.String())
 	}
 
 	// Whisper writes <basename>.txt in outDir.
@@ -137,7 +138,7 @@ func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("vosk: create temp: %w", err)
 	}
-	outFile.Close()
+	_ = outFile.Close()
 	outPath := outFile.Name()
 
 	args := []string{"-m", "vosk_transcriber", "-i", mediaFile, "-o", outPath}
@@ -145,14 +146,15 @@ func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
 		args = append(args, "-l", t.cfg.Language)
 	}
 
-	cmd := exec.Command("python", args...)
+	//nolint:gosec // G702: python args come from user-configured vosk engine
+	cmd := exec.CommandContext(context.Background(), "python", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	t.logger.Info("running vosk", "args", args)
-	if err := cmd.Run(); err != nil {
-		os.Remove(outPath)
-		return nil, fmt.Errorf("vosk: %w: %s", err, stderr.String())
+	if runErr := cmd.Run(); runErr != nil {
+		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		return nil, fmt.Errorf("vosk: %w: %s", runErr, stderr.String())
 	}
 
 	return t.readTextResult(outPath, mediaFile)
@@ -167,7 +169,7 @@ func (t *offlineTranscriber) runWhisperCPP(mediaFile, model, language string) (*
 	if err != nil {
 		return nil, fmt.Errorf("whisper-cpp: create temp: %w", err)
 	}
-	outFile.Close()
+	_ = outFile.Close()
 	outBase := strings.TrimSuffix(outFile.Name(), ".txt")
 
 	// whisper-cpp -m <model> -f <file> -otxt -of <outbase>
@@ -179,14 +181,15 @@ func (t *offlineTranscriber) runWhisperCPP(mediaFile, model, language string) (*
 		args = append(args, "-l", language)
 	}
 
-	cmd := exec.Command("whisper-cpp", args...)
+	//nolint:gosec // G204: whisper-cpp binary path and args come from user-configured model path
+	cmd := exec.CommandContext(context.Background(), "whisper-cpp", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	t.logger.Info("running whisper-cpp", "args", args)
-	if err := cmd.Run(); err != nil {
-		os.Remove(outFile.Name())
-		return nil, fmt.Errorf("whisper-cpp: %w: %s", err, stderr.String())
+	if runErr := cmd.Run(); runErr != nil {
+		_ = os.Remove(outFile.Name()) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		return nil, fmt.Errorf("whisper-cpp: %w: %s", runErr, stderr.String())
 	}
 
 	txtPath := outBase + ".txt"
@@ -208,9 +211,9 @@ func (t *offlineTranscriber) readTextResult(txtPath, mediaFile string) (*Result,
 	result := &Result{Text: strings.TrimSpace(string(text))}
 
 	if t.outputMode == domain.TranscriberOutputMedia {
-		savedPath, err := saveMediaForResources(mediaFile)
-		if err != nil {
-			return nil, err
+		savedPath, mediaSaveErr := saveMediaForResources(mediaFile)
+		if mediaSaveErr != nil {
+			return nil, mediaSaveErr
 		}
 		result.MediaFile = savedPath
 	}

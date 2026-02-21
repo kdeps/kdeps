@@ -864,6 +864,9 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 	}
 }
 
+// TestInputConfig_UnmarshalYAML covers all input source branches.
+//
+//nolint:gocognit // table-driven test covers all input source branches
 func TestInputConfig_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1116,8 +1119,8 @@ func TestInputConfig_JSONRoundTrip(t *testing.T) {
 
 	// Unmarshal back.
 	var restored domain.InputConfig
-	if err := json.Unmarshal(data, &restored); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	if unmarshalErr := json.Unmarshal(data, &restored); unmarshalErr != nil {
+		t.Fatalf("json.Unmarshal: %v", unmarshalErr)
 	}
 
 	// Verify all fields survive the round-trip.
@@ -1190,8 +1193,8 @@ settings:
 		t.Fatalf("Marshal: %v", err)
 	}
 	var wf2 domain.Workflow
-	if err := yaml.Unmarshal(out, &wf2); err != nil {
-		t.Fatalf("Re-unmarshal: %v", err)
+	if unmarshalErr := yaml.Unmarshal(out, &wf2); unmarshalErr != nil {
+		t.Fatalf("Re-unmarshal: %v", unmarshalErr)
 	}
 	if wf2.Settings.Input == nil {
 		t.Fatal("Input should not be nil after round-trip")
@@ -1210,6 +1213,9 @@ settings:
 	}
 }
 
+// TestTranscriberConfig_UnmarshalYAML covers all transcriber config branches.
+//
+//nolint:gocognit // table-driven test covers all transcriber branches
 func TestTranscriberConfig_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name     string
