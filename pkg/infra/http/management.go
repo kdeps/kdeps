@@ -34,15 +34,54 @@ const (
 
 	// maxWorkflowBodySize is the maximum allowed size for a workflow YAML upload (5 MB).
 	maxWorkflowBodySize = 5 * 1024 * 1024
+
+	// managementAuthEnvVar is the name of the environment variable containing the
+	// bearer token required to access the write management endpoints.
+	// If the variable is unset or empty, the write endpoints are disabled.
+	managementAuthEnvVar = "KDEPS_MANAGEMENT_TOKEN" //nolint:gosec // not a credential, just an env var name
+
+	// managementResponseMaxSize caps response-body reads (for client-side use).
+	managementResponseMaxSize = 1 * 1024 * 1024
 )
+
+// requireManagementAuth enforces bearer-token based authorization for write
+// management endpoints.  The expected token is read from the environment
+// variable named by managementAuthEnvVar.  If no token is configured, the
+// endpoint returns 503 Service Unavailable to prevent accidental open access.
+func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
+		if token == "" {
+			stdhttp.Error(w, "management API disabled: set "+managementAuthEnvVar+" to enable", stdhttp.StatusServiceUnavailable)
+			return
+		}
+
+		const bearerPrefix = "Bearer "
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, bearerPrefix) {
+			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
+			return
+		}
+
+		provided := strings.TrimSpace(authHeader[len(bearerPrefix):])
+		if provided != token {
+			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
+			return
+		}
+
+		next(w, r)
+	}
+}
 
 // SetupManagementRoutes registers the internal management API routes that allow
 // the kdeps host to remotely update the workflow and settings of a running kdeps
 // container (client).
 func (s *Server) SetupManagementRoutes() {
+	// Status is read-only and safe to expose without auth.
 	s.Router.GET(managementPathPrefix+"/status", s.HandleManagementStatus)
-	s.Router.PUT(managementPathPrefix+"/workflow", s.HandleManagementUpdateWorkflow)
-	s.Router.POST(managementPathPrefix+"/reload", s.HandleManagementReload)
+	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
+	s.Router.PUT(managementPathPrefix+"/workflow", requireManagementAuth(s.HandleManagementUpdateWorkflow))
+	s.Router.POST(managementPathPrefix+"/reload", requireManagementAuth(s.HandleManagementReload))
 }
 
 // HandleManagementStatus returns the current workflow status.
@@ -76,17 +115,28 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // writes it to disk, and reloads the workflow.
 // PUT /_kdeps/workflow
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	// Read the workflow YAML from the request body (limit to maxWorkflowBodySize)
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxWorkflowBodySize))
+	// Read up to maxWorkflowBodySize + 1 bytes so we can detect oversized payloads.
+	// LimitReader stops at maxWorkflowBodySize bytes; the extra +1 lets us distinguish
+	// "exactly at the limit" from "over the limit".
+	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxWorkflowBodySize+1))
 	if err != nil {
 		s.respondManagementError(w, stdhttp.StatusBadRequest, fmt.Sprintf("failed to read request body: %v", err))
 		return
 	}
 
-	if len(body) == 0 {
+	if len(limitedBody) == 0 {
 		s.respondManagementError(w, stdhttp.StatusBadRequest, "request body is empty")
 		return
 	}
+
+	// Reject payloads that exceed the allowed size without writing anything to disk.
+	if len(limitedBody) > maxWorkflowBodySize {
+		s.respondManagementError(w, stdhttp.StatusRequestEntityTooLarge,
+			fmt.Sprintf("workflow YAML exceeds maximum allowed size of %d bytes", maxWorkflowBodySize))
+		return
+	}
+
+	body := limitedBody
 
 	// Determine the workflow path to write to
 	workflowPath := s.getManagementWorkflowPath()

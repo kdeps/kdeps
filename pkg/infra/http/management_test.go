@@ -21,7 +21,6 @@ package http_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -212,7 +211,7 @@ func TestSetupManagementRoutes_RoutesRegistered(t *testing.T) {
 	server := makeTestServer(t, nil)
 	server.SetupManagementRoutes()
 
-	// GET /_kdeps/status should return 200
+	// GET /_kdeps/status should return 200 (no auth required)
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, req)
@@ -228,7 +227,7 @@ func TestSetupRoutes_IncludesManagementRoutes(t *testing.T) {
 	server := makeTestServer(t, workflow)
 	server.SetupRoutes()
 
-	// Management status endpoint should be reachable
+	// Management status endpoint should be reachable without auth
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, req)
@@ -237,6 +236,85 @@ func TestSetupRoutes_IncludesManagementRoutes(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
 	assert.Equal(t, "ok", body["status"])
+}
+
+// TestRequireManagementAuth_NoTokenConfigured verifies 503 when env var is unset.
+func TestRequireManagementAuth_NoTokenConfigured(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "")
+	server := makeTestServer(t, nil)
+	server.SetupManagementRoutes()
+
+	// PUT /_kdeps/workflow without token should return 503
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusServiceUnavailable, rec.Code)
+}
+
+// TestRequireManagementAuth_WrongToken verifies 401 for wrong bearer token.
+func TestRequireManagementAuth_WrongToken(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "secret-token")
+	server := makeTestServer(t, nil)
+	server.SetupManagementRoutes()
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	req.Header.Set("Authorization", "Bearer wrong-token")
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
+}
+
+// TestRequireManagementAuth_MissingHeader verifies 401 when Authorization header is absent.
+func TestRequireManagementAuth_MissingHeader(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "secret-token")
+	server := makeTestServer(t, nil)
+	server.SetupManagementRoutes()
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
+}
+
+// TestRequireManagementAuth_ValidToken verifies that a correct token passes through.
+func TestRequireManagementAuth_ValidToken(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "valid-token")
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	validYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: auth-test
+  version: 1.0.0
+  targetActionId: a
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	require.NoError(t, os.WriteFile(workflowPath, []byte(validYAML), 0600))
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+	server.SetupManagementRoutes()
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(validYAML))
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusOK, rec.Code)
+}
+
+// TestRequireManagementAuth_ReloadRequiresToken verifies reload also requires auth.
+func TestRequireManagementAuth_ReloadRequiresToken(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "")
+	server := makeTestServer(t, nil)
+	server.SetupManagementRoutes()
+
+	req := httptest.NewRequest(stdhttp.MethodPost, "/_kdeps/reload", nil)
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusServiceUnavailable, rec.Code)
 }
 
 // TestHandleManagementUpdateWorkflow_InvalidYAML checks that invalid YAML returns an error.
@@ -284,25 +362,33 @@ func TestHandleManagementStatus_ResourceCount(t *testing.T) {
 	assert.Equal(t, float64(2), wf["resources"])
 }
 
-// TestHandleManagementUpdateWorkflow_LargeBody checks that oversized bodies are rejected.
+// TestHandleManagementUpdateWorkflow_LargeBody checks that oversized bodies are rejected with 413.
 func TestHandleManagementUpdateWorkflow_LargeBody(t *testing.T) {
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	sentinel := []byte("sentinel")
+	require.NoError(t, os.WriteFile(workflowPath, sentinel, 0600))
 
 	server := makeTestServer(t, nil)
 	server.SetWorkflowPath(workflowPath)
 
 	// Build body slightly larger than the 5MB limit
-	bigContent := fmt.Sprintf("%s", bytes.Repeat([]byte("a"), 5*1024*1024+1))
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(bigContent))
+	bigContent := bytes.Repeat([]byte("a"), 5*1024*1024+1)
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewReader(bigContent))
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
-	// The body is truncated by LimitReader, so file is written but reload likely fails
-	// We just verify the server doesn't crash and returns a parseable response
+	// Oversized body must be rejected with 413, and the file must NOT be written
+	assert.Equal(t, stdhttp.StatusRequestEntityTooLarge, rec.Code)
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	assert.Contains(t, []string{"ok", "error"}, body["status"])
+	assert.Equal(t, "error", body["status"])
+	assert.Contains(t, body["message"].(string), "exceeds maximum")
+
+	// Verify the sentinel file was NOT overwritten
+	written, err := os.ReadFile(workflowPath)
+	require.NoError(t, err)
+	assert.Equal(t, sentinel, written)
 }
 
 // TestHandleManagementUpdateWorkflow_ClearsResourcesDir verifies that stale YAML files
@@ -730,39 +816,29 @@ type errReader struct{ err error }
 func (e *errReader) Read(_ []byte) (int, error) { return 0, e.err }
 
 // TestGetManagementWorkflowPath_AppDirExists exercises the /app detection
-// branch by temporarily creating the /app directory (if we have permission).
-// In environments where /app already exists this test is also trivially covered.
+// branch when the /app directory already exists in the environment (e.g., inside
+// Docker).  If /app is not present the test is skipped to avoid mutating global state.
 func TestGetManagementWorkflowPath_AppDirExists(t *testing.T) {
-	// Only run this test if we can actually create /app, otherwise skip
-	if _, err := os.Stat("/app"); err == nil {
-		// /app already exists: exercise directly by creating a server with no workflowPath
-		server := makeTestServer(t, nil)
-
-		// Trigger the /app branch via HandleManagementUpdateWorkflow
-		req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
-		rec := httptest.NewRecorder()
-		server.HandleManagementUpdateWorkflow(rec, req)
-
-		// Response can be OK (if /app/workflow.yaml is writable) or error
-		var body map[string]interface{}
-		require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-		assert.Contains(t, []string{"ok", "error"}, body["status"])
+	if _, err := os.Stat("/app"); err != nil {
+		t.Skip("'/app' directory does not exist; skipping /app branch coverage test")
 		return
 	}
 
-	// Try to create /app for the duration of the test
-	if err := os.MkdirAll("/app", 0750); err != nil {
-		t.Skip("cannot create /app directory - skipping /app branch coverage test")
-		return
-	}
-	defer os.Remove("/app") // best-effort cleanup
-
+	// /app already exists: exercise directly by creating a server with no workflowPath.
 	server := makeTestServer(t, nil)
+
+	// Trigger the /app branch via HandleManagementUpdateWorkflow.
 	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
-	var body map[string]interface{}
-	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	assert.Contains(t, []string{"ok", "error"}, body["status"])
+	// Response will be either 200 (if /app/workflow.yaml is writable and YAML valid),
+	// 413 (payload too small to be valid), 422 (invalid YAML), or 500 (write error).
+	// All are non-zero HTTP codes confirming the /app branch was reached.
+	assert.True(t,
+		rec.Code == stdhttp.StatusOK ||
+			rec.Code == stdhttp.StatusRequestEntityTooLarge ||
+			rec.Code == stdhttp.StatusUnprocessableEntity ||
+			rec.Code == stdhttp.StatusInternalServerError,
+		"unexpected response code %d", rec.Code)
 }

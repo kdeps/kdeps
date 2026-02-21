@@ -37,6 +37,10 @@ import (
 const (
 	// pushHTTPTimeout is the timeout for push HTTP requests.
 	pushHTTPTimeout = 30 * time.Second
+
+	// pushMaxResponseSize is the maximum response body size read from the
+	// management server (1 MB is well beyond any valid JSON status response).
+	pushMaxResponseSize = 1 * 1024 * 1024
 )
 
 // newPushCmd creates the push command.
@@ -168,13 +172,19 @@ func doPushRequest(endpoint string, workflowYAML []byte) ([]byte, error) {
 	}
 	req.Header.Set("Content-Type", "application/yaml")
 
+	// If KDEPS_MANAGEMENT_TOKEN is set, include it as a bearer token so that
+	// servers with auth enabled can accept the push.
+	if token := strings.TrimSpace(os.Getenv("KDEPS_MANAGEMENT_TOKEN")); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", endpoint, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, pushMaxResponseSize))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

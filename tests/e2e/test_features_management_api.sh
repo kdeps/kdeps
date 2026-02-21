@@ -85,6 +85,9 @@ run:
 RESEOF
 }
 
+# Token used for management API authentication (static to keep test output reproducible)
+MGMT_TOKEN="kdeps-e2e-management-token"
+
 # Wait until the server is listening on MGMT_PORT (max 15 s)
 _wait_for_server() {
     local port="$1"
@@ -112,15 +115,15 @@ else
     test_failed "Management API - Workflow validation" "validation failed"
     rm -rf "$TEST_DIR"
     echo ""
-    exit 0
+    return
 fi
 
 # ---------------------------------------------------------------------------
-# Test 2: Start server and verify /_kdeps/status is reachable
+# Test 2: Start server with KDEPS_MANAGEMENT_TOKEN and verify it's reachable
 # ---------------------------------------------------------------------------
 
 SERVER_LOG=$(mktemp)
-"$KDEPS_BIN" run "$TEST_DIR" > "$SERVER_LOG" 2>&1 &
+KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" run "$TEST_DIR" > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 if _wait_for_server "$MGMT_PORT"; then
@@ -132,7 +135,7 @@ else
     rm -f "$SERVER_LOG"
     rm -rf "$TEST_DIR"
     echo ""
-    exit 0
+    return
 fi
 
 # ---------------------------------------------------------------------------
@@ -177,11 +180,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Test 4: POST /_kdeps/reload
+# Test 4: POST /_kdeps/reload (requires token)
 # ---------------------------------------------------------------------------
 
 RELOAD_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
-    -X POST "http://127.0.0.1:${MGMT_PORT}/_kdeps/reload" 2>/dev/null || echo "000")
+    -X POST \
+    -H "Authorization: Bearer ${MGMT_TOKEN}" \
+    "http://127.0.0.1:${MGMT_PORT}/_kdeps/reload" 2>/dev/null || echo "000")
 
 if [ "$RELOAD_CODE" = "200" ]; then
     test_passed "Management API - POST /_kdeps/reload returns 200"
@@ -190,16 +195,16 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Test 5: kdeps push — push a new workflow version
+# Test 5: kdeps push — push a new workflow version (uses KDEPS_MANAGEMENT_TOKEN)
 # ---------------------------------------------------------------------------
 
 # Create an updated workflow directory (v2.0.0)
 PUSH_DIR=$(mktemp -d)
 _create_mgmt_workflow "$PUSH_DIR" "mgmt-test-agent" "2.0.0"
 
-# Run kdeps push
+# Run kdeps push — token is read from the env by the push command
 PUSH_LOG=$(mktemp)
-if "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:${MGMT_PORT}" > "$PUSH_LOG" 2>&1; then
+if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:${MGMT_PORT}" > "$PUSH_LOG" 2>&1; then
     test_passed "Management API - kdeps push succeeds"
 else
     test_failed "Management API - kdeps push succeeds" "$(cat "$PUSH_LOG")"

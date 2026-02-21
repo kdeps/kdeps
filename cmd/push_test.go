@@ -321,3 +321,39 @@ func TestPushWorkflow_URLSchemeNormalization(t *testing.T) {
 			strings.Contains(err.Error(), "failed to parse"),
 	)
 }
+
+// TestDoPushRequest_SendsTokenFromEnv verifies that when KDEPS_MANAGEMENT_TOKEN
+// is set, doPushRequest includes it as a Bearer token in the Authorization header.
+func TestDoPushRequest_SendsTokenFromEnv(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "my-secret-token")
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	}))
+	defer server.Close()
+
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"))
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer my-secret-token", gotAuth)
+}
+
+// TestDoPushRequest_NoTokenWhenEnvUnset verifies no Authorization header is sent
+// when KDEPS_MANAGEMENT_TOKEN is not set.
+func TestDoPushRequest_NoTokenWhenEnvUnset(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "")
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	}))
+	defer server.Close()
+
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"))
+	require.NoError(t, err)
+	assert.Empty(t, gotAuth)
+}

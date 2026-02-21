@@ -42,6 +42,9 @@ import (
 	httppkg "github.com/kdeps/kdeps/v2/pkg/infra/http"
 )
 
+// testManagementToken is the bearer token used in integration tests.
+const testManagementToken = "test-integration-token"
+
 // minimalWorkflow creates a simple valid workflow for tests.
 func minimalWorkflow(name, version string) *domain.Workflow {
 	wf := &domain.Workflow{}
@@ -53,8 +56,8 @@ func minimalWorkflow(name, version string) *domain.Workflow {
 }
 
 // startManagementServer starts a real httptest.Server backed by the kdeps
-// HTTP server with management routes wired up.  Returns the test server, the
-// underlying kdeps server, and the workflow path used.
+// HTTP server with management routes wired up.  Returns the test server and the
+// underlying kdeps server.
 func startManagementServer(
 	t *testing.T,
 	workflow *domain.Workflow,
@@ -81,6 +84,29 @@ func startManagementServer(
 	return ts, srv
 }
 
+// authedPut builds a PUT request with the test bearer token set.
+// body may be nil (treated as an empty body).
+func authedPut(t *testing.T, url string, body []byte) *http.Request {
+	t.Helper()
+	if body == nil {
+		body = []byte{}
+	}
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/yaml")
+	req.Header.Set("Authorization", "Bearer "+testManagementToken)
+	return req
+}
+
+// authedPost builds a POST request with the test bearer token set.
+func authedPost(t *testing.T, url string) *http.Request {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+testManagementToken)
+	return req
+}
+
 // mockExecutor satisfies httppkg.WorkflowExecutor for tests.
 type mockExecutor struct{}
 
@@ -92,7 +118,7 @@ func (m *mockExecutor) Execute(
 }
 
 // ---------------------------------------------------------------------------
-// GET /_kdeps/status
+// GET /_kdeps/status  (no auth required)
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_Status_NoWorkflow(t *testing.T) {
@@ -130,6 +156,58 @@ func TestManagementIntegration_Status_WithWorkflow(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Auth middleware: write endpoints require KDEPS_MANAGEMENT_TOKEN
+// ---------------------------------------------------------------------------
+
+func TestManagementIntegration_Auth_NoTokenConfigured(t *testing.T) {
+	// Ensure the env var is unset for this test
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "")
+	ts, _ := startManagementServer(t, nil, "")
+
+	// PUT /_kdeps/workflow must return 503 (management API disabled)
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	resp.Body.Close()
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+
+	// POST /_kdeps/reload must also return 503
+	req2, err := http.NewRequest(http.MethodPost, ts.URL+"/_kdeps/reload", nil)
+	require.NoError(t, err)
+	resp2, err := http.DefaultClient.Do(req2)
+	require.NoError(t, err)
+	resp2.Body.Close()
+	assert.Equal(t, http.StatusServiceUnavailable, resp2.StatusCode)
+}
+
+func TestManagementIntegration_Auth_WrongToken(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
+	ts, _ := startManagementServer(t, nil, "")
+
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer wrong-token")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	resp.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestManagementIntegration_Auth_MissingHeader(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
+	ts, _ := startManagementServer(t, nil, "")
+
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	require.NoError(t, err)
+	// No Authorization header
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	resp.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
+// ---------------------------------------------------------------------------
 // PUT /_kdeps/workflow
 // ---------------------------------------------------------------------------
 
@@ -146,17 +224,14 @@ settings:
 `
 
 func TestManagementIntegration_UpdateWorkflow_Success(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowPath, []byte(validWorkflowYAML), 0600))
 
 	ts, _ := startManagementServer(t, nil, workflowPath)
 
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString(validWorkflowYAML))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/yaml")
-
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte(validWorkflowYAML)))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -174,12 +249,10 @@ func TestManagementIntegration_UpdateWorkflow_Success(t *testing.T) {
 }
 
 func TestManagementIntegration_UpdateWorkflow_EmptyBody(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	ts, _ := startManagementServer(t, nil, "")
 
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewReader(nil))
-	require.NoError(t, err)
-
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", nil))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -191,21 +264,44 @@ func TestManagementIntegration_UpdateWorkflow_EmptyBody(t *testing.T) {
 }
 
 func TestManagementIntegration_UpdateWorkflow_InvalidYAML(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowPath, []byte("placeholder"), 0600))
 
 	ts, _ := startManagementServer(t, nil, workflowPath)
 
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow",
-		bytes.NewBufferString("not: valid: yaml: !!!"))
-	require.NoError(t, err)
-
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte("not: valid: yaml: !!!")))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
+}
+
+// TestManagementIntegration_UpdateWorkflow_OversizedBody verifies that payloads
+// exceeding maxWorkflowBodySize are rejected with 413 and never written to disk.
+func TestManagementIntegration_UpdateWorkflow_OversizedBody(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	// Pre-write a sentinel so we can detect if it gets overwritten
+	sentinel := []byte("sentinel")
+	require.NoError(t, os.WriteFile(workflowPath, sentinel, 0600))
+
+	ts, _ := startManagementServer(t, nil, workflowPath)
+
+	// Build a payload > 5 MB
+	big := bytes.Repeat([]byte("a"), 5*1024*1024+1)
+	resp, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", big))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+
+	// The original file must not have been overwritten
+	written, err := os.ReadFile(workflowPath)
+	require.NoError(t, err)
+	assert.Equal(t, sentinel, written, "file must not be overwritten when payload is too large")
 }
 
 // ---------------------------------------------------------------------------
@@ -213,13 +309,14 @@ func TestManagementIntegration_UpdateWorkflow_InvalidYAML(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_Reload_Success(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowPath, []byte(validWorkflowYAML), 0600))
 
 	ts, _ := startManagementServer(t, nil, workflowPath)
 
-	resp, err := http.Post(ts.URL+"/_kdeps/reload", "application/json", nil) //nolint:noctx
+	resp, err := http.DefaultClient.Do(authedPost(t, ts.URL+"/_kdeps/reload"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -236,9 +333,10 @@ func TestManagementIntegration_Reload_Success(t *testing.T) {
 }
 
 func TestManagementIntegration_Reload_NoFile(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	ts, _ := startManagementServer(t, nil, "/nonexistent/workflow.yaml")
 
-	resp, err := http.Post(ts.URL+"/_kdeps/reload", "application/json", nil) //nolint:noctx
+	resp, err := http.DefaultClient.Do(authedPost(t, ts.URL+"/_kdeps/reload"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -254,6 +352,7 @@ func TestManagementIntegration_Reload_NoFile(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_RoundTrip_PushThenStatus(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 
@@ -291,10 +390,7 @@ settings:
   agentSettings:
     timezone: UTC
 `
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString(updated))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/yaml")
-	resp2, err := http.DefaultClient.Do(req)
+	resp2, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte(updated)))
 	require.NoError(t, err)
 	resp2.Body.Close()
 	require.Equal(t, http.StatusOK, resp2.StatusCode)
@@ -315,6 +411,7 @@ settings:
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_RoundTrip_PushThenReload(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowPath, []byte(validWorkflowYAML), 0600))
@@ -322,10 +419,7 @@ func TestManagementIntegration_RoundTrip_PushThenReload(t *testing.T) {
 	ts, _ := startManagementServer(t, nil, workflowPath)
 
 	// Push a new workflow
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString(validWorkflowYAML))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/yaml")
-	resp1, err := http.DefaultClient.Do(req)
+	resp1, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte(validWorkflowYAML)))
 	require.NoError(t, err)
 	resp1.Body.Close()
 	require.Equal(t, http.StatusOK, resp1.StatusCode)
@@ -345,7 +439,7 @@ settings:
 	require.NoError(t, os.WriteFile(workflowPath, []byte(restarted), 0600))
 
 	// Reload
-	resp2, err := http.Post(ts.URL+"/_kdeps/reload", "application/json", nil) //nolint:noctx
+	resp2, err := http.DefaultClient.Do(authedPost(t, ts.URL+"/_kdeps/reload"))
 	require.NoError(t, err)
 	defer resp2.Body.Close()
 	require.Equal(t, http.StatusOK, resp2.StatusCode)
@@ -366,6 +460,7 @@ settings:
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_UpdateWorkflow_ClearsResourcesDir(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
 	resourcesDir := filepath.Join(tmpDir, "resources")
@@ -379,9 +474,7 @@ func TestManagementIntegration_UpdateWorkflow_ClearsResourcesDir(t *testing.T) {
 
 	ts, _ := startManagementServer(t, nil, workflowPath)
 
-	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString(validWorkflowYAML))
-	require.NoError(t, err)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(authedPut(t, ts.URL+"/_kdeps/workflow", []byte(validWorkflowYAML)))
 	require.NoError(t, err)
 	resp.Body.Close()
 
@@ -410,3 +503,40 @@ func TestManagementIntegration_AlwaysAvailable_WithoutAPIServer(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
+
+// ---------------------------------------------------------------------------
+// Middleware preservation: after reload, existing middleware still active
+// ---------------------------------------------------------------------------
+
+func TestManagementIntegration_ReloadPreservesMiddleware(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(validWorkflowYAML), 0600))
+
+	ts, _ := startManagementServer(t, nil, workflowPath)
+
+	// Trigger a reload
+	resp1, err := http.DefaultClient.Do(authedPost(t, ts.URL+"/_kdeps/reload"))
+	require.NoError(t, err)
+	resp1.Body.Close()
+	require.Equal(t, http.StatusOK, resp1.StatusCode)
+
+	// After reload, status endpoint must still work (router was rebuilt correctly)
+	resp2, err := http.Get(ts.URL + "/_kdeps/status") //nolint:noctx
+	require.NoError(t, err)
+	defer resp2.Body.Close()
+	assert.Equal(t, http.StatusOK, resp2.StatusCode)
+
+	// Auth must still be enforced on write endpoints after reload
+	req, err := http.NewRequest(http.MethodPut, ts.URL+"/_kdeps/workflow", bytes.NewBufferString("yaml"))
+	require.NoError(t, err)
+	// No token set — should be 503 if token env var is cleared, but we set it above
+	// so try wrong token to check auth is still applied
+	req.Header.Set("Authorization", "Bearer wrong-token")
+	resp3, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	resp3.Body.Close()
+	assert.Equal(t, http.StatusUnauthorized, resp3.StatusCode)
+}
+

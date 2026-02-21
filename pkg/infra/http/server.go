@@ -719,9 +719,14 @@ func (s *Server) reloadWorkflow() error {
 	// Update workflow
 	s.Workflow = newWorkflow
 
-	// Reload routes (workflow changes might affect routes)
-	// Clear existing routes and re-setup
+	// Reload routes (workflow changes might affect routes).
+	// Preserve the middleware stack that was installed by Server.Start so that
+	// request-ID injection, session handling, upload limits, and CORS continue
+	// to work correctly after a management-API reload.
+	oldMiddleware := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(s.Router.Middleware))
+	copy(oldMiddleware, s.Router.Middleware)
 	s.Router = NewRouter()
+	s.Router.Middleware = oldMiddleware
 	s.SetupRoutes()
 
 	s.logger.Info(
