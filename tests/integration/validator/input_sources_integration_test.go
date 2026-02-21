@@ -467,3 +467,248 @@ func TestInputSourcesIntegration_MissingTelephonyType(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "telephony.type is required")
 }
+
+func TestInputSourcesIntegration_TranscriberOnlineConfig(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	tests := []struct {
+		name         string
+		transYAML    string
+		wantMode     string
+		wantProvider string
+	}{
+		{
+			name: "openai-whisper online transcriber",
+			transYAML: `    transcriber:
+      mode: online
+      output: text
+      language: en-US
+      online:
+        provider: openai-whisper
+        apiKey: sk-test
+`,
+			wantMode:     domain.TranscriberModeOnline,
+			wantProvider: domain.TranscriberProviderOpenAIWhisper,
+		},
+		{
+			name: "deepgram online transcriber",
+			transYAML: `    transcriber:
+      mode: online
+      online:
+        provider: deepgram
+        apiKey: dg-key
+`,
+			wantMode:     domain.TranscriberModeOnline,
+			wantProvider: domain.TranscriberProviderDeepgram,
+		},
+		{
+			name: "assemblyai online transcriber",
+			transYAML: `    transcriber:
+      mode: online
+      online:
+        provider: assemblyai
+`,
+			wantMode:     domain.TranscriberModeOnline,
+			wantProvider: domain.TranscriberProviderAssemblyAI,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: transcriber-online-test
+  version: "1.0.0"
+  targetActionId: main
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+  input:
+    source: audio
+` + tt.transYAML
+
+			tmpDir := t.TempDir()
+			workflowPath := writeWorkflowWithResource(t, tmpDir, workflowYAML)
+
+			workflow, parseErr := yamlParser.ParseWorkflow(workflowPath)
+			require.NoError(t, parseErr)
+			require.NoError(t, workflowValidator.Validate(workflow))
+
+			require.NotNil(t, workflow.Settings.Input.Transcriber)
+			assert.Equal(t, tt.wantMode, workflow.Settings.Input.Transcriber.Mode)
+			require.NotNil(t, workflow.Settings.Input.Transcriber.Online)
+			assert.Equal(t, tt.wantProvider, workflow.Settings.Input.Transcriber.Online.Provider)
+		})
+	}
+}
+
+func TestInputSourcesIntegration_TranscriberOfflineConfig(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	tests := []struct {
+		name       string
+		transYAML  string
+		wantEngine string
+		wantModel  string
+	}{
+		{
+			name: "whisper offline transcriber",
+			transYAML: `    transcriber:
+      mode: offline
+      output: text
+      offline:
+        engine: whisper
+        model: base
+`,
+			wantEngine: domain.TranscriberEngineWhisper,
+			wantModel:  "base",
+		},
+		{
+			name: "faster-whisper offline transcriber",
+			transYAML: `    transcriber:
+      mode: offline
+      offline:
+        engine: faster-whisper
+        model: small
+`,
+			wantEngine: domain.TranscriberEngineFasterWhisper,
+			wantModel:  "small",
+		},
+		{
+			name: "vosk offline transcriber",
+			transYAML: `    transcriber:
+      mode: offline
+      offline:
+        engine: vosk
+`,
+			wantEngine: domain.TranscriberEngineVosk,
+		},
+		{
+			name: "whisper-cpp offline transcriber with path",
+			transYAML: `    transcriber:
+      mode: offline
+      offline:
+        engine: whisper-cpp
+        model: /models/ggml-small.bin
+`,
+			wantEngine: domain.TranscriberEngineWhisperCPP,
+			wantModel:  "/models/ggml-small.bin",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: transcriber-offline-test
+  version: "1.0.0"
+  targetActionId: main
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+  input:
+    source: audio
+` + tt.transYAML
+
+			tmpDir := t.TempDir()
+			workflowPath := writeWorkflowWithResource(t, tmpDir, workflowYAML)
+
+			workflow, parseErr := yamlParser.ParseWorkflow(workflowPath)
+			require.NoError(t, parseErr)
+			require.NoError(t, workflowValidator.Validate(workflow))
+
+			require.NotNil(t, workflow.Settings.Input.Transcriber)
+			assert.Equal(t, domain.TranscriberModeOffline, workflow.Settings.Input.Transcriber.Mode)
+			require.NotNil(t, workflow.Settings.Input.Transcriber.Offline)
+			assert.Equal(t, tt.wantEngine, workflow.Settings.Input.Transcriber.Offline.Engine)
+			if tt.wantModel != "" {
+				assert.Equal(t, tt.wantModel, workflow.Settings.Input.Transcriber.Offline.Model)
+			}
+		})
+	}
+}
+
+func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	makeWorkflow := func(input *domain.InputConfig) *domain.Workflow {
+		return &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "m"},
+			Settings: domain.WorkflowSettings{Input: input},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
+					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+				},
+			},
+		}
+	}
+
+	t.Run("transcriber on API source rejected", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAPI,
+			Transcriber: &domain.TranscriberConfig{
+				Mode:    domain.TranscriberModeOffline,
+				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transcriber is not supported for api input source")
+	})
+
+	t.Run("missing transcriber mode", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source:      domain.InputSourceAudio,
+			Transcriber: &domain.TranscriberConfig{},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transcriber.mode is required")
+	})
+
+	t.Run("invalid transcriber mode", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source:      domain.InputSourceAudio,
+			Transcriber: &domain.TranscriberConfig{Mode: "stream"},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid transcriber mode")
+	})
+
+	t.Run("online mode missing online config", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source:      domain.InputSourceAudio,
+			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOnline},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transcriber.online is required when mode is online")
+	})
+
+	t.Run("offline mode missing offline config", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source:      domain.InputSourceAudio,
+			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOffline},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "transcriber.offline is required when mode is offline")
+	})
+}

@@ -1111,6 +1111,25 @@ func TestInputConfig_JSONMarshal(t *testing.T) {
 	if config.Telephony.Provider != "twilio" {
 		t.Errorf("Telephony.Provider = %v", config.Telephony.Provider)
 	}
+
+	// Verify transcriber fields
+	config.Transcriber = &domain.TranscriberConfig{
+		Mode:     domain.TranscriberModeOnline,
+		Output:   domain.TranscriberOutputText,
+		Language: "en-US",
+		Online: &domain.OnlineTranscriberConfig{
+			Provider:  domain.TranscriberProviderOpenAIWhisper,
+			APIKey:    "sk-test",
+			Region:    "us-east-1",
+			ProjectID: "my-project",
+		},
+	}
+	if config.Transcriber.Mode != domain.TranscriberModeOnline {
+		t.Errorf("Transcriber.Mode = %v", config.Transcriber.Mode)
+	}
+	if config.Transcriber.Online.Provider != domain.TranscriberProviderOpenAIWhisper {
+		t.Errorf("Transcriber.Online.Provider = %v", config.Transcriber.Online.Provider)
+	}
 }
 
 func TestWorkflow_InputConfig_RoundTrip(t *testing.T) {
@@ -1147,5 +1166,304 @@ settings:
 	}
 	if wf.Settings.Input.Telephony.Provider != "vonage" {
 		t.Errorf("Provider = %v", wf.Settings.Input.Telephony.Provider)
+	}
+}
+
+func TestTranscriberConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yamlData string
+		check    func(*testing.T, *domain.InputConfig)
+	}{
+		{
+			name: "online transcriber with openai-whisper",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  output: text
+  language: en-US
+  online:
+    provider: openai-whisper
+    apiKey: sk-test
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber == nil {
+					t.Fatal("Transcriber should not be nil")
+				}
+				if c.Transcriber.Mode != domain.TranscriberModeOnline {
+					t.Errorf("Mode = %v", c.Transcriber.Mode)
+				}
+				if c.Transcriber.Output != domain.TranscriberOutputText {
+					t.Errorf("Output = %v", c.Transcriber.Output)
+				}
+				if c.Transcriber.Language != "en-US" {
+					t.Errorf("Language = %v", c.Transcriber.Language)
+				}
+				if c.Transcriber.Online == nil {
+					t.Fatal("Online should not be nil")
+				}
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderOpenAIWhisper {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.APIKey != "sk-test" {
+					t.Errorf("APIKey = %v", c.Transcriber.Online.APIKey)
+				}
+			},
+		},
+		{
+			name: "online transcriber with aws-transcribe",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: aws-transcribe
+    region: us-east-1
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderAWSTranscribe {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.Region != "us-east-1" {
+					t.Errorf("Region = %v", c.Transcriber.Online.Region)
+				}
+			},
+		},
+		{
+			name: "online transcriber with google-stt",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: google-stt
+    projectId: my-project
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderGoogleSTT {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+				if c.Transcriber.Online.ProjectID != "my-project" {
+					t.Errorf("ProjectID = %v", c.Transcriber.Online.ProjectID)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with whisper",
+			yamlData: `
+source: audio
+transcriber:
+  mode: offline
+  output: text
+  offline:
+    engine: whisper
+    model: base
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Mode != domain.TranscriberModeOffline {
+					t.Errorf("Mode = %v", c.Transcriber.Mode)
+				}
+				if c.Transcriber.Offline == nil {
+					t.Fatal("Offline should not be nil")
+				}
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineWhisper {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Offline.Model != "base" {
+					t.Errorf("Model = %v", c.Transcriber.Offline.Model)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with faster-whisper",
+			yamlData: `
+source: video
+transcriber:
+  mode: offline
+  output: media
+  offline:
+    engine: faster-whisper
+    model: small
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineFasterWhisper {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Output != domain.TranscriberOutputMedia {
+					t.Errorf("Output = %v", c.Transcriber.Output)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with vosk",
+			yamlData: `
+source: telephony
+transcriber:
+  mode: offline
+  offline:
+    engine: vosk
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineVosk {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+			},
+		},
+		{
+			name: "offline transcriber with whisper-cpp",
+			yamlData: `
+source: audio
+transcriber:
+  mode: offline
+  offline:
+    engine: whisper-cpp
+    model: /models/ggml-small.bin
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Offline.Engine != domain.TranscriberEngineWhisperCPP {
+					t.Errorf("Engine = %v", c.Transcriber.Offline.Engine)
+				}
+				if c.Transcriber.Offline.Model != "/models/ggml-small.bin" {
+					t.Errorf("Model = %v", c.Transcriber.Offline.Model)
+				}
+			},
+		},
+		{
+			name: "online transcriber with deepgram",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: deepgram
+    apiKey: dg-key
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderDeepgram {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+			},
+		},
+		{
+			name: "online transcriber with assemblyai",
+			yamlData: `
+source: audio
+transcriber:
+  mode: online
+  online:
+    provider: assemblyai
+    apiKey: aai-key
+`,
+			check: func(t *testing.T, c *domain.InputConfig) {
+				if c.Transcriber.Online.Provider != domain.TranscriberProviderAssemblyAI {
+					t.Errorf("Provider = %v", c.Transcriber.Online.Provider)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var config domain.InputConfig
+			if err := yaml.Unmarshal([]byte(tt.yamlData), &config); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			tt.check(t, &config)
+		})
+	}
+}
+
+func TestTranscriberConfigConstants(t *testing.T) {
+	// Modes
+	if domain.TranscriberModeOnline != "online" {
+		t.Errorf("TranscriberModeOnline = %v", domain.TranscriberModeOnline)
+	}
+	if domain.TranscriberModeOffline != "offline" {
+		t.Errorf("TranscriberModeOffline = %v", domain.TranscriberModeOffline)
+	}
+	// Outputs
+	if domain.TranscriberOutputText != "text" {
+		t.Errorf("TranscriberOutputText = %v", domain.TranscriberOutputText)
+	}
+	if domain.TranscriberOutputMedia != "media" {
+		t.Errorf("TranscriberOutputMedia = %v", domain.TranscriberOutputMedia)
+	}
+	// Online providers
+	if domain.TranscriberProviderOpenAIWhisper != "openai-whisper" {
+		t.Errorf("TranscriberProviderOpenAIWhisper = %v", domain.TranscriberProviderOpenAIWhisper)
+	}
+	if domain.TranscriberProviderGoogleSTT != "google-stt" {
+		t.Errorf("TranscriberProviderGoogleSTT = %v", domain.TranscriberProviderGoogleSTT)
+	}
+	if domain.TranscriberProviderAWSTranscribe != "aws-transcribe" {
+		t.Errorf("TranscriberProviderAWSTranscribe = %v", domain.TranscriberProviderAWSTranscribe)
+	}
+	if domain.TranscriberProviderDeepgram != "deepgram" {
+		t.Errorf("TranscriberProviderDeepgram = %v", domain.TranscriberProviderDeepgram)
+	}
+	if domain.TranscriberProviderAssemblyAI != "assemblyai" {
+		t.Errorf("TranscriberProviderAssemblyAI = %v", domain.TranscriberProviderAssemblyAI)
+	}
+	// Offline engines
+	if domain.TranscriberEngineWhisper != "whisper" {
+		t.Errorf("TranscriberEngineWhisper = %v", domain.TranscriberEngineWhisper)
+	}
+	if domain.TranscriberEngineFasterWhisper != "faster-whisper" {
+		t.Errorf("TranscriberEngineFasterWhisper = %v", domain.TranscriberEngineFasterWhisper)
+	}
+	if domain.TranscriberEngineVosk != "vosk" {
+		t.Errorf("TranscriberEngineVosk = %v", domain.TranscriberEngineVosk)
+	}
+	if domain.TranscriberEngineWhisperCPP != "whisper-cpp" {
+		t.Errorf("TranscriberEngineWhisperCPP = %v", domain.TranscriberEngineWhisperCPP)
+	}
+}
+
+func TestWorkflow_TranscriberConfig_RoundTrip(t *testing.T) {
+	yamlIn := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: transcriber-test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  input:
+    source: audio
+    audio:
+      device: default
+    transcriber:
+      mode: offline
+      output: text
+      language: fr-FR
+      offline:
+        engine: faster-whisper
+        model: small
+`
+	var wf domain.Workflow
+	if err := yaml.Unmarshal([]byte(yamlIn), &wf); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	tr := wf.Settings.Input.Transcriber
+	if tr == nil {
+		t.Fatal("Transcriber should not be nil")
+	}
+	if tr.Mode != domain.TranscriberModeOffline {
+		t.Errorf("Mode = %v", tr.Mode)
+	}
+	if tr.Output != domain.TranscriberOutputText {
+		t.Errorf("Output = %v", tr.Output)
+	}
+	if tr.Language != "fr-FR" {
+		t.Errorf("Language = %v", tr.Language)
+	}
+	if tr.Offline == nil {
+		t.Fatal("Offline should not be nil")
+	}
+	if tr.Offline.Engine != domain.TranscriberEngineFasterWhisper {
+		t.Errorf("Engine = %v", tr.Offline.Engine)
+	}
+	if tr.Offline.Model != "small" {
+		t.Errorf("Model = %v", tr.Offline.Model)
 	}
 }

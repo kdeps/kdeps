@@ -139,6 +139,55 @@
                   "type": "string"
                 }
               }
+            },
+            "transcriber": {
+              "type": "object",
+              "required": ["mode"],
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": ["online", "offline"]
+                },
+                "output": {
+                  "type": "string",
+                  "enum": ["text", "media"]
+                },
+                "language": {
+                  "type": "string"
+                },
+                "online": {
+                  "type": "object",
+                  "required": ["provider"],
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["openai-whisper", "google-stt", "aws-transcribe", "deepgram", "assemblyai"]
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "offline": {
+                  "type": "object",
+                  "required": ["engine"],
+                  "properties": {
+                    "engine": {
+                      "type": "string",
+                      "enum": ["whisper", "faster-whisper", "vosk", "whisper-cpp"]
+                    },
+                    "model": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           }
         }

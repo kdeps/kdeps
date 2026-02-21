@@ -225,5 +225,157 @@ test_input_source_invalid "Input Sources - Telephony without type rejected" \
     telephony:
       device: /dev/ttyUSB0'
 
+# ---------------------------------------------------------------------------
+# Transcriber tests
+# ---------------------------------------------------------------------------
+
+# Test 14: Offline whisper transcriber on audio
+test_input_source_valid "Transcriber - Offline whisper on audio" \
+'  input:
+    source: audio
+    transcriber:
+      mode: offline
+      output: text
+      offline:
+        engine: whisper
+        model: base'
+
+# Test 15: Offline faster-whisper transcriber on video
+test_input_source_valid "Transcriber - Offline faster-whisper on video" \
+'  input:
+    source: video
+    video:
+      device: /dev/video0
+    transcriber:
+      mode: offline
+      offline:
+        engine: faster-whisper
+        model: small'
+
+# Test 16: Offline vosk transcriber
+test_input_source_valid "Transcriber - Offline vosk" \
+'  input:
+    source: audio
+    transcriber:
+      mode: offline
+      offline:
+        engine: vosk'
+
+# Test 17: Offline whisper-cpp transcriber with model path
+test_input_source_valid "Transcriber - Offline whisper-cpp with model path" \
+'  input:
+    source: audio
+    transcriber:
+      mode: offline
+      offline:
+        engine: whisper-cpp
+        model: /models/ggml-small.bin'
+
+# Test 18: Online openai-whisper transcriber
+test_input_source_valid "Transcriber - Online openai-whisper" \
+'  input:
+    source: audio
+    transcriber:
+      mode: online
+      output: text
+      language: en-US
+      online:
+        provider: openai-whisper
+        apiKey: sk-test'
+
+# Test 19: Online deepgram transcriber
+test_input_source_valid "Transcriber - Online deepgram" \
+'  input:
+    source: telephony
+    telephony:
+      type: online
+      provider: twilio
+    transcriber:
+      mode: online
+      online:
+        provider: deepgram'
+
+# Test 20: Online aws-transcribe with region
+test_input_source_valid "Transcriber - Online aws-transcribe with region" \
+'  input:
+    source: audio
+    transcriber:
+      mode: online
+      online:
+        provider: aws-transcribe
+        region: us-east-1'
+
+# Test 21: Online google-stt with projectId
+test_input_source_valid "Transcriber - Online google-stt with projectId" \
+'  input:
+    source: audio
+    transcriber:
+      mode: online
+      online:
+        provider: google-stt
+        projectId: my-gcp-project'
+
+# Test 22: Online assemblyai
+test_input_source_valid "Transcriber - Online assemblyai" \
+'  input:
+    source: audio
+    transcriber:
+      mode: online
+      online:
+        provider: assemblyai
+        apiKey: aai-key'
+
+# Test 23: Transcriber on API source rejected
+test_input_source_invalid "Transcriber - Rejected on API source" \
+'  input:
+    source: api
+    transcriber:
+      mode: offline
+      offline:
+        engine: whisper'
+
+# Test 24: Invalid transcriber mode rejected
+test_input_source_invalid "Transcriber - Invalid mode rejected" \
+'  input:
+    source: audio
+    transcriber:
+      mode: hybrid'
+
+# Test 25: Missing transcriber mode rejected
+test_input_source_invalid "Transcriber - Missing mode rejected" \
+'  input:
+    source: audio
+    transcriber:
+      offline:
+        engine: whisper'
+
+# Test 26: Invalid online provider rejected
+test_input_source_invalid "Transcriber - Invalid online provider rejected" \
+'  input:
+    source: audio
+    transcriber:
+      mode: online
+      online:
+        provider: amazon-transcribe'
+
+# Test 27: Invalid offline engine rejected
+test_input_source_invalid "Transcriber - Invalid offline engine rejected" \
+'  input:
+    source: audio
+    transcriber:
+      mode: offline
+      offline:
+        engine: coqui'
+
+# Test 28: Invalid output type rejected
+test_input_source_invalid "Transcriber - Invalid output type rejected" \
+'  input:
+    source: audio
+    transcriber:
+      mode: offline
+      output: audio
+      offline:
+        engine: whisper'
+
 echo ""
 echo "Input Sources Feature tests complete."

@@ -33,6 +33,27 @@ const (
 	// Telephony type constants.
 	TelephonyTypeLocal  = "local"
 	TelephonyTypeOnline = "online"
+
+	// Transcriber mode constants.
+	TranscriberModeOnline  = "online"
+	TranscriberModeOffline = "offline"
+
+	// Transcriber output type constants.
+	TranscriberOutputText  = "text"
+	TranscriberOutputMedia = "media"
+
+	// Online transcription provider constants.
+	TranscriberProviderOpenAIWhisper = "openai-whisper"
+	TranscriberProviderGoogleSTT     = "google-stt"
+	TranscriberProviderAWSTranscribe = "aws-transcribe"
+	TranscriberProviderDeepgram      = "deepgram"
+	TranscriberProviderAssemblyAI    = "assemblyai"
+
+	// Offline transcription engine constants.
+	TranscriberEngineWhisper       = "whisper"
+	TranscriberEngineFasterWhisper = "faster-whisper"
+	TranscriberEngineVosk          = "vosk"
+	TranscriberEngineWhisperCPP    = "whisper-cpp"
 )
 
 // Workflow represents a KDeps workflow configuration.
@@ -81,10 +102,11 @@ type WebAppConfig struct {
 // InputConfig specifies the input source for the workflow.
 // Source can be "api" (default), "audio", "video", or "telephony".
 type InputConfig struct {
-	Source    string           `yaml:"source"               json:"source"`
-	Audio     *AudioConfig     `yaml:"audio,omitempty"      json:"audio,omitempty"`
-	Video     *VideoConfig     `yaml:"video,omitempty"      json:"video,omitempty"`
-	Telephony *TelephonyConfig `yaml:"telephony,omitempty"  json:"telephony,omitempty"`
+	Source     string             `yaml:"source"               json:"source"`
+	Audio      *AudioConfig       `yaml:"audio,omitempty"      json:"audio,omitempty"`
+	Video      *VideoConfig       `yaml:"video,omitempty"      json:"video,omitempty"`
+	Telephony  *TelephonyConfig   `yaml:"telephony,omitempty"  json:"telephony,omitempty"`
+	Transcriber *TranscriberConfig `yaml:"transcriber,omitempty" json:"transcriber,omitempty"`
 }
 
 // AudioConfig contains audio hardware device configuration.
@@ -103,6 +125,56 @@ type TelephonyConfig struct {
 	Type     string `yaml:"type"               json:"type"`               // local or online
 	Device   string `yaml:"device,omitempty"   json:"device,omitempty"`   // device path for local telephony
 	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // service provider for online telephony
+}
+
+// TranscriberConfig defines how analog media signals (audio/video/telephony)
+// are transcribed to text or kept as media before workflow resources process them.
+// Mode is either "online" (cloud service) or "offline" (local engine).
+type TranscriberConfig struct {
+	// Mode selects the transcription approach: "online" or "offline".
+	Mode string `yaml:"mode"               json:"mode"`
+
+	// Output format: "text" (transcript) or "media" (raw media passthrough).
+	// Defaults to "text" when not specified.
+	Output string `yaml:"output,omitempty"   json:"output,omitempty"`
+
+	// Language is an optional BCP-47 language code (e.g. "en-US", "fr-FR").
+	// When omitted, the transcriber auto-detects the language if supported.
+	Language string `yaml:"language,omitempty" json:"language,omitempty"`
+
+	// Online holds configuration used when Mode is "online".
+	Online *OnlineTranscriberConfig `yaml:"online,omitempty"  json:"online,omitempty"`
+
+	// Offline holds configuration used when Mode is "offline".
+	Offline *OfflineTranscriberConfig `yaml:"offline,omitempty" json:"offline,omitempty"`
+}
+
+// OnlineTranscriberConfig holds settings for cloud-based transcription.
+// Supported providers: openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai.
+type OnlineTranscriberConfig struct {
+	// Provider selects the cloud transcription service.
+	Provider string `yaml:"provider"           json:"provider"`
+
+	// APIKey is the authentication key for the provider.
+	// It is recommended to supply this via an environment variable reference.
+	APIKey string `yaml:"apiKey,omitempty"   json:"apiKey,omitempty"`
+
+	// Region is used for region-scoped services such as AWS Transcribe.
+	Region string `yaml:"region,omitempty"   json:"region,omitempty"`
+
+	// ProjectID is used for project-scoped services such as Google STT.
+	ProjectID string `yaml:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// OfflineTranscriberConfig holds settings for local transcription engines.
+// Supported engines: whisper, faster-whisper, vosk, whisper-cpp.
+type OfflineTranscriberConfig struct {
+	// Engine selects the local transcription engine.
+	Engine string `yaml:"engine"             json:"engine"`
+
+	// Model is the model name or path used by the engine
+	// (e.g. "base", "small", "/models/ggml-small.bin").
+	Model string `yaml:"model,omitempty"    json:"model,omitempty"`
 }
 
 // GetHostIP returns the resolved host IP from top-level settings or default.

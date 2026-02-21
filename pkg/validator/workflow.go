@@ -440,6 +440,20 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		}
 	}
 
+	// Transcribers apply only to non-API sources
+	if config.Transcriber != nil {
+		if config.Source == domain.InputSourceAPI {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"transcriber is not supported for api input source",
+				nil,
+			)
+		}
+		if err := v.ValidateTranscriberConfig(config.Transcriber); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -464,6 +478,141 @@ func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConf
 			fmt.Sprintf(
 				"invalid telephony type: %s. Available options: [local, online]",
 				config.Type,
+			),
+			nil,
+		)
+	}
+
+	return nil
+}
+
+// ValidateTranscriberConfig validates transcriber configuration for analog media inputs.
+func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.TranscriberConfig) error {
+	validModes := map[string]bool{
+		domain.TranscriberModeOnline:  true,
+		domain.TranscriberModeOffline: true,
+	}
+
+	if config.Mode == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"transcriber.mode is required",
+			nil,
+		)
+	}
+
+	if !validModes[config.Mode] {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf(
+				"invalid transcriber mode: %s. Available options: [online, offline]",
+				config.Mode,
+			),
+			nil,
+		)
+	}
+
+	// Validate output type if specified
+	if config.Output != "" {
+		validOutputs := map[string]bool{
+			domain.TranscriberOutputText:  true,
+			domain.TranscriberOutputMedia: true,
+		}
+		if !validOutputs[config.Output] {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"invalid transcriber output: %s. Available options: [text, media]",
+					config.Output,
+				),
+				nil,
+			)
+		}
+	}
+
+	switch config.Mode {
+	case domain.TranscriberModeOnline:
+		if config.Online == nil {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"transcriber.online is required when mode is online",
+				nil,
+			)
+		}
+		if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
+			return err
+		}
+	case domain.TranscriberModeOffline:
+		if config.Offline == nil {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"transcriber.offline is required when mode is offline",
+				nil,
+			)
+		}
+		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ValidateOnlineTranscriberConfig validates online (cloud) transcriber settings.
+func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(config *domain.OnlineTranscriberConfig) error {
+	validProviders := map[string]bool{
+		domain.TranscriberProviderOpenAIWhisper: true,
+		domain.TranscriberProviderGoogleSTT:     true,
+		domain.TranscriberProviderAWSTranscribe: true,
+		domain.TranscriberProviderDeepgram:      true,
+		domain.TranscriberProviderAssemblyAI:    true,
+	}
+
+	if config.Provider == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"transcriber.online.provider is required",
+			nil,
+		)
+	}
+
+	if !validProviders[config.Provider] {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf(
+				"invalid transcriber online provider: %s. Available options: [openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai]",
+				config.Provider,
+			),
+			nil,
+		)
+	}
+
+	return nil
+}
+
+// ValidateOfflineTranscriberConfig validates offline (local) transcriber settings.
+func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(config *domain.OfflineTranscriberConfig) error {
+	validEngines := map[string]bool{
+		domain.TranscriberEngineWhisper:       true,
+		domain.TranscriberEngineFasterWhisper: true,
+		domain.TranscriberEngineVosk:          true,
+		domain.TranscriberEngineWhisperCPP:    true,
+	}
+
+	if config.Engine == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"transcriber.offline.engine is required",
+			nil,
+		)
+	}
+
+	if !validEngines[config.Engine] {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf(
+				"invalid transcriber offline engine: %s. Available options: [whisper, faster-whisper, vosk, whisper-cpp]",
+				config.Engine,
 			),
 			nil,
 		)
