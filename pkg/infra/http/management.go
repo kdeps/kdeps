@@ -19,7 +19,11 @@
 package http
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	stdhttp "net/http"
@@ -34,6 +38,12 @@ const (
 
 	// maxWorkflowBodySize is the maximum allowed size for a workflow YAML upload (5 MB).
 	maxWorkflowBodySize = 5 * 1024 * 1024
+
+	// maxPackageBodySize is the maximum allowed compressed size for a .kdeps package upload (200 MB).
+	maxPackageBodySize = 200 * 1024 * 1024
+
+	// maxPackageFileSize is the maximum allowed size for a single extracted file within a .kdeps package (500 MB).
+	maxPackageFileSize = 500 * 1024 * 1024
 
 	// managementAuthEnvVar is the name of the environment variable containing the
 	// bearer token required to access the write management endpoints.
@@ -82,6 +92,7 @@ func (s *Server) SetupManagementRoutes() {
 	s.Router.GET(managementPathPrefix+"/status", s.HandleManagementStatus)
 	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
 	s.Router.PUT(managementPathPrefix+"/workflow", requireManagementAuth(s.HandleManagementUpdateWorkflow))
+	s.Router.PUT(managementPathPrefix+"/package", requireManagementAuth(s.HandleManagementUpdatePackage))
 	s.Router.POST(managementPathPrefix+"/reload", requireManagementAuth(s.HandleManagementReload))
 }
 
@@ -224,6 +235,154 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 	}
 
 	_ = json.NewEncoder(w).Encode(response)
+}
+
+// HandleManagementUpdatePackage accepts a raw .kdeps package archive in the request body,
+// extracts it to the workflow directory, and reloads the workflow.
+// PUT /_kdeps/package.
+func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	// Read up to maxPackageBodySize + 1 bytes to detect oversized payloads.
+	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxPackageBodySize+1))
+	if err != nil {
+		s.respondManagementError(w, stdhttp.StatusBadRequest,
+			fmt.Sprintf("failed to read request body: %v", err))
+		return
+	}
+
+	if len(limitedBody) == 0 {
+		s.respondManagementError(w, stdhttp.StatusBadRequest, "request body is empty")
+		return
+	}
+
+	if len(limitedBody) > maxPackageBodySize {
+		s.respondManagementError(w, stdhttp.StatusRequestEntityTooLarge,
+			fmt.Sprintf("package exceeds maximum allowed size of %d bytes", maxPackageBodySize))
+		return
+	}
+
+	// Determine the destination directory from the configured workflow path.
+	workflowPath := s.getManagementWorkflowPath()
+	destDir := filepath.Dir(workflowPath)
+
+	// Ensure the destination directory exists.
+	if mkdirErr := os.MkdirAll(destDir, 0750); mkdirErr != nil {
+		s.respondManagementError(w, stdhttp.StatusInternalServerError,
+			fmt.Sprintf("failed to create workflow directory: %v", mkdirErr))
+		return
+	}
+
+	// Extract the .kdeps archive (tar.gz) directly into the workflow directory.
+	// This overwrites workflow.yaml, resources/, data/, scripts/ etc. in place.
+	if extractErr := extractKdepsPackage(limitedBody, destDir); extractErr != nil {
+		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
+			fmt.Sprintf("failed to extract package: %v", extractErr))
+		return
+	}
+
+	// Store the resolved workflow path so reload and subsequent requests use it.
+	s.mu.Lock()
+	if s.workflowPath == "" {
+		s.workflowPath = workflowPath
+	}
+	s.mu.Unlock()
+
+	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
+		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
+			fmt.Sprintf("package extracted but failed to reload: %v", reloadErr))
+		return
+	}
+
+	s.mu.RLock()
+	workflow := s.Workflow
+	s.mu.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(stdhttp.StatusOK)
+
+	response := map[string]interface{}{
+		"status":  "ok",
+		"message": "package extracted and workflow reloaded",
+	}
+	if workflow != nil {
+		response["workflow"] = map[string]interface{}{
+			"name":    workflow.Metadata.Name,
+			"version": workflow.Metadata.Version,
+		}
+	}
+
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+// extractKdepsPackage extracts a .kdeps tar.gz archive into destDir.
+// Each file path in the archive is sanitised against path-traversal attacks
+// before being written. Existing files are overwritten; the archive contents
+// may include workflow.yaml, resources/, data/, scripts/, etc.
+func extractKdepsPackage(data []byte, destDir string) error {
+	gzr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		hdr, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+
+		if nextErr != nil {
+			return fmt.Errorf("failed to read archive entry: %w", nextErr)
+		}
+
+		// Security: reject absolute paths and traversal sequences.
+		relPath := filepath.Clean(hdr.Name)
+		if filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
+
+		targetPath := filepath.Join(destDir, relPath)
+
+		if hdr.FileInfo().IsDir() {
+			if mkdirErr := os.MkdirAll(targetPath, 0750); mkdirErr != nil {
+				return fmt.Errorf("failed to create directory %s: %w", relPath, mkdirErr)
+			}
+
+			continue
+		}
+
+		// Create parent directories if needed.
+		if mkdirErr := os.MkdirAll(filepath.Dir(targetPath), 0750); mkdirErr != nil {
+			return fmt.Errorf("failed to create parent directory for %s: %w", relPath, mkdirErr)
+		}
+
+		if writeErr := writeExtractedFile(targetPath, tr); writeErr != nil {
+			return fmt.Errorf("failed to extract %s: %w", relPath, writeErr)
+		}
+	}
+
+	return nil
+}
+
+// writeExtractedFile creates/overwrites targetPath with content from r,
+// capped at maxPackageFileSize to guard against decompression bombs.
+func writeExtractedFile(targetPath string, r io.Reader) error {
+	f, err := os.OpenFile(
+		targetPath,
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0600,
+	)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if _, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize)); copyErr != nil {
+		return copyErr
+	}
+
+	return nil
 }
 
 // respondManagementError sends a JSON error response for management endpoints.

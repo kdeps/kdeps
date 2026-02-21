@@ -357,3 +357,153 @@ func TestDoPushRequest_NoTokenWhenEnvUnset(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, gotAuth)
 }
+
+// ---------------------------------------------------------------------------
+// Tests for the .kdeps package push path
+// ---------------------------------------------------------------------------
+
+// TestPushKdepsPackage_MissingFile checks that pushKdepsPackage returns an error
+// when the source path does not exist.
+func TestPushKdepsPackage_MissingFile(t *testing.T) {
+	err := pushKdepsPackage("/nonexistent/myagent-1.0.0.kdeps", "http://localhost:16395")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read package")
+}
+
+// TestPushKdepsPackage_Success verifies that pushKdepsPackage reads the file and sends
+// it to the /_kdeps/package endpoint with the correct content type.
+func TestPushKdepsPackage_Success(t *testing.T) {
+	// Create a small fake .kdeps archive file in temp dir.
+	tmpDir := t.TempDir()
+	pkgPath := filepath.Join(tmpDir, "myagent-1.0.0.kdeps")
+	require.NoError(t, os.WriteFile(pkgPath, []byte("fake-archive-bytes"), 0600))
+
+	var gotContentType string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"workflow": map[string]interface{}{
+				"name":    "myagent",
+				"version": "1.0.0",
+			},
+		})
+	}))
+	defer server.Close()
+
+	err := pushKdepsPackage(pkgPath, server.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "application/octet-stream", gotContentType)
+}
+
+// TestDoPushPackageRequest_Success verifies the basic happy path.
+func TestDoPushPackageRequest_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "ok",
+			"message": "package extracted and workflow reloaded",
+		})
+	}))
+	defer server.Close()
+
+	body, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("fake-archive"))
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(body, &result))
+	assert.Equal(t, "ok", result["status"])
+}
+
+// TestDoPushPackageRequest_ServerError verifies that a non-200 response with JSON
+// body propagates the server's message in the error.
+func TestDoPushPackageRequest_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":  "error",
+			"message": "package exceeds maximum allowed size",
+		})
+	}))
+	defer server.Close()
+
+	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("big-archive"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum")
+}
+
+// TestDoPushPackageRequest_SendsToken verifies the bearer token is sent from env.
+func TestDoPushPackageRequest_SendsToken(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "pkg-token-abc")
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	}))
+	defer server.Close()
+
+	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("archive"))
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer pkg-token-abc", gotAuth)
+}
+
+// TestPushWorkflow_KdepsExtension verifies that a .kdeps source path is routed
+// to the package endpoint (/_kdeps/package) not the workflow endpoint.
+func TestPushWorkflow_KdepsExtension(t *testing.T) {
+	tmpDir := t.TempDir()
+	pkgPath := filepath.Join(tmpDir, "myagent-1.0.0.kdeps")
+	require.NoError(t, os.WriteFile(pkgPath, []byte("fake-kdeps-archive"), 0600))
+
+	var calledEndpoint string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calledEndpoint = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "ok",
+			"workflow": map[string]interface{}{"name": "myagent", "version": "1.0.0"},
+		})
+	}))
+	defer server.Close()
+
+	err := pushWorkflow(pkgPath, server.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "/_kdeps/package", calledEndpoint,
+		".kdeps source must use the /_kdeps/package endpoint")
+}
+
+// TestPushWorkflow_YamlDoesNotUsePackageEndpoint verifies a plain YAML source is
+// routed to /_kdeps/workflow, not /_kdeps/package.
+func TestPushWorkflow_YamlDoesNotUsePackageEndpoint(t *testing.T) {
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(yamlPath, []byte(`apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test
+  version: 1.0.0
+  targetActionId: a
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`), 0600))
+
+	var calledEndpoint string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calledEndpoint = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+		})
+	}))
+	defer server.Close()
+
+	_ = pushWorkflow(yamlPath, server.URL) // errors are ok – we just check the endpoint
+	assert.Equal(t, "/_kdeps/workflow", calledEndpoint,
+		"YAML source must use the /_kdeps/workflow endpoint, not /_kdeps/package")
+}
