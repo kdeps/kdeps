@@ -1101,3 +1101,141 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
+	v := validator.NewWorkflowValidator(nil)
+
+	tests := []struct {
+		name    string
+		config  *domain.InputConfig
+		wantErr bool
+	}{
+		{
+			name:    "valid api source",
+			config:  &domain.InputConfig{Source: domain.InputSourceAPI},
+			wantErr: false,
+		},
+		{
+			name:    "valid audio source",
+			config:  &domain.InputConfig{Source: domain.InputSourceAudio},
+			wantErr: false,
+		},
+		{
+			name: "valid audio source with device",
+			config: &domain.InputConfig{
+				Source: domain.InputSourceAudio,
+				Audio:  &domain.AudioConfig{Device: "hw:0,0"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "valid video source",
+			config:  &domain.InputConfig{Source: domain.InputSourceVideo},
+			wantErr: false,
+		},
+		{
+			name: "valid video source with device",
+			config: &domain.InputConfig{
+				Source: domain.InputSourceVideo,
+				Video:  &domain.VideoConfig{Device: "/dev/video0"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid telephony local",
+			config: &domain.InputConfig{
+				Source:    domain.InputSourceTelephony,
+				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid telephony online",
+			config: &domain.InputConfig{
+				Source:    domain.InputSourceTelephony,
+				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeOnline, Provider: "twilio"},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "missing source",
+			config:  &domain.InputConfig{},
+			wantErr: true,
+		},
+		{
+			name:    "invalid source",
+			config:  &domain.InputConfig{Source: "invalid"},
+			wantErr: true,
+		},
+		{
+			name: "telephony missing type",
+			config: &domain.InputConfig{
+				Source:    domain.InputSourceTelephony,
+				Telephony: &domain.TelephonyConfig{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "telephony invalid type",
+			config: &domain.InputConfig{
+				Source:    domain.InputSourceTelephony,
+				Telephony: &domain.TelephonyConfig{Type: "invalid"},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateInputConfig(tt.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateInputConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
+	v := validator.NewWorkflowValidator(nil)
+
+	tests := []struct {
+		name     string
+		workflow *domain.Workflow
+		wantErr  bool
+	}{
+		{
+			name: "valid audio input",
+			workflow: &domain.Workflow{
+				Settings: domain.WorkflowSettings{
+					Input: &domain.InputConfig{Source: domain.InputSourceAudio},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid input source",
+			workflow: &domain.Workflow{
+				Settings: domain.WorkflowSettings{
+					Input: &domain.InputConfig{Source: "invalid"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "no input - defaults to nil",
+			workflow: &domain.Workflow{
+				Settings: domain.WorkflowSettings{},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := v.ValidateSettings(tt.workflow)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateSettings() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

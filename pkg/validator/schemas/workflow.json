@@ -99,6 +99,48 @@
               "format": "uri"
             }
           }
+        },
+        "input": {
+          "type": "object",
+          "required": ["source"],
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": ["api", "audio", "video", "telephony"]
+            },
+            "audio": {
+              "type": "object",
+              "properties": {
+                "device": {
+                  "type": "string"
+                }
+              }
+            },
+            "video": {
+              "type": "object",
+              "properties": {
+                "device": {
+                  "type": "string"
+                }
+              }
+            },
+            "telephony": {
+              "type": "object",
+              "required": ["type"],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["local", "online"]
+                },
+                "device": {
+                  "type": "string"
+                },
+                "provider": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     },

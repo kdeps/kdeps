@@ -23,6 +23,16 @@ import "gopkg.in/yaml.v3"
 const (
 	// DefaultPort is the default port for API and Web servers.
 	DefaultPort = 16395
+
+	// Input source constants.
+	InputSourceAPI       = "api"
+	InputSourceAudio     = "audio"
+	InputSourceVideo     = "video"
+	InputSourceTelephony = "telephony"
+
+	// Telephony type constants.
+	TelephonyTypeLocal  = "local"
+	TelephonyTypeOnline = "online"
 )
 
 // Workflow represents a KDeps workflow configuration.
@@ -55,6 +65,7 @@ type WorkflowSettings struct {
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
 	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
+	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
 }
 
 // WebAppConfig contains WASM web application configuration.
@@ -65,6 +76,33 @@ type WebAppConfig struct {
 	Template    string `yaml:"template"              json:"template"`
 	Styles      string `yaml:"styles,omitempty"      json:"styles,omitempty"`
 	Scripts     string `yaml:"scripts,omitempty"     json:"scripts,omitempty"`
+}
+
+// InputConfig specifies the input source for the workflow.
+// Source can be "api" (default), "audio", "video", or "telephony".
+type InputConfig struct {
+	Source    string           `yaml:"source"               json:"source"`
+	Audio     *AudioConfig     `yaml:"audio,omitempty"      json:"audio,omitempty"`
+	Video     *VideoConfig     `yaml:"video,omitempty"      json:"video,omitempty"`
+	Telephony *TelephonyConfig `yaml:"telephony,omitempty"  json:"telephony,omitempty"`
+}
+
+// AudioConfig contains audio hardware device configuration.
+type AudioConfig struct {
+	Device string `yaml:"device,omitempty" json:"device,omitempty"` // hardware device identifier (e.g. "default", "hw:0,0")
+}
+
+// VideoConfig contains video hardware device configuration.
+type VideoConfig struct {
+	Device string `yaml:"device,omitempty" json:"device,omitempty"` // hardware device identifier (e.g. "/dev/video0")
+}
+
+// TelephonyConfig contains telephony input configuration.
+// Type can be "local" (hardware device) or "online" (cloud service).
+type TelephonyConfig struct {
+	Type     string `yaml:"type"               json:"type"`               // local or online
+	Device   string `yaml:"device,omitempty"   json:"device,omitempty"`   // device path for local telephony
+	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // service provider for online telephony
 }
 
 // GetHostIP returns the resolved host IP from top-level settings or default.
@@ -152,6 +190,7 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 		SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 		Session        *SessionConfig           `yaml:"session,omitempty"`
 		WebApp         *WebAppConfig            `yaml:"webApp,omitempty"`
+		Input          *InputConfig             `yaml:"input,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -179,6 +218,7 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 	w.SQLConnections = alias.SQLConnections
 	w.Session = alias.Session
 	w.WebApp = alias.WebApp
+	w.Input = alias.Input
 
 	// Set defaults if not provided
 	if w.HostIP == "" {

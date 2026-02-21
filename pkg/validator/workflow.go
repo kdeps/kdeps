@@ -121,6 +121,13 @@ func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 		}
 	}
 
+	// Validate input config if specified
+	if workflow.Settings.Input != nil {
+		if err := v.ValidateInputConfig(workflow.Settings.Input); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -391,6 +398,73 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			fmt.Sprintf("invalid HTTP method: %s. Available options: [%s]", config.Method, availableOptions),
+			nil,
+		)
+	}
+
+	return nil
+}
+
+// ValidateInputConfig validates the workflow input source configuration.
+func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) error {
+	validSources := map[string]bool{
+		domain.InputSourceAPI:       true,
+		domain.InputSourceAudio:     true,
+		domain.InputSourceVideo:     true,
+		domain.InputSourceTelephony: true,
+	}
+
+	if config.Source == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.source is required",
+			nil,
+		)
+	}
+
+	if !validSources[config.Source] {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf(
+				"invalid input source: %s. Available options: [api, audio, video, telephony]",
+				config.Source,
+			),
+			nil,
+		)
+	}
+
+	// Validate telephony config when source is telephony
+	if config.Source == domain.InputSourceTelephony && config.Telephony != nil {
+		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// ValidateTelephonyConfig validates telephony configuration.
+func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConfig) error {
+	validTypes := map[string]bool{
+		domain.TelephonyTypeLocal:  true,
+		domain.TelephonyTypeOnline: true,
+	}
+
+	if config.Type == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"telephony.type is required",
+			nil,
+		)
+	}
+
+	if !validTypes[config.Type] {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf(
+				"invalid telephony type: %s. Available options: [local, online]",
+				config.Type,
+			),
 			nil,
 		)
 	}

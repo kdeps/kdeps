@@ -862,3 +862,124 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 		})
 	}
 }
+
+func TestInputConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name      string
+		yamlData  string
+		wantErr   bool
+		wantSrc   string
+		wantDev   string
+		wantTType string
+	}{
+		{
+			name: "api source",
+			yamlData: `
+source: api
+`,
+			wantSrc: domain.InputSourceAPI,
+		},
+		{
+			name: "audio source with device",
+			yamlData: `
+source: audio
+audio:
+  device: hw:0,0
+`,
+			wantSrc: domain.InputSourceAudio,
+			wantDev: "hw:0,0",
+		},
+		{
+			name: "video source with device",
+			yamlData: `
+source: video
+video:
+  device: /dev/video0
+`,
+			wantSrc: domain.InputSourceVideo,
+			wantDev: "/dev/video0",
+		},
+		{
+			name: "telephony local",
+			yamlData: `
+source: telephony
+telephony:
+  type: local
+  device: /dev/ttyUSB0
+`,
+			wantSrc:   domain.InputSourceTelephony,
+			wantTType: domain.TelephonyTypeLocal,
+		},
+		{
+			name: "telephony online",
+			yamlData: `
+source: telephony
+telephony:
+  type: online
+  provider: twilio
+`,
+			wantSrc:   domain.InputSourceTelephony,
+			wantTType: domain.TelephonyTypeOnline,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var config domain.InputConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &config)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if config.Source != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", config.Source, tt.wantSrc)
+			}
+			if tt.wantDev != "" {
+				switch tt.wantSrc {
+				case domain.InputSourceAudio:
+					if config.Audio == nil || config.Audio.Device != tt.wantDev {
+						t.Errorf("Audio.Device = %v, want %v", config.Audio, tt.wantDev)
+					}
+				case domain.InputSourceVideo:
+					if config.Video == nil || config.Video.Device != tt.wantDev {
+						t.Errorf("Video.Device = %v, want %v", config.Video, tt.wantDev)
+					}
+				}
+			}
+			if tt.wantTType != "" {
+				if config.Telephony == nil || config.Telephony.Type != tt.wantTType {
+					t.Errorf("Telephony.Type = %v, want %v", config.Telephony, tt.wantTType)
+				}
+			}
+		})
+	}
+}
+
+func TestWorkflowSettings_Input_UnmarshalYAML(t *testing.T) {
+	yamlData := `
+apiServerMode: false
+input:
+  source: audio
+  audio:
+    device: default
+`
+	var settings domain.WorkflowSettings
+	err := yaml.Unmarshal([]byte(yamlData), &settings)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+	if settings.Input == nil {
+		t.Fatal("Input should not be nil")
+	}
+	if settings.Input.Source != domain.InputSourceAudio {
+		t.Errorf("Source = %v, want %v", settings.Input.Source, domain.InputSourceAudio)
+	}
+	if settings.Input.Audio == nil || settings.Input.Audio.Device != "default" {
+		t.Errorf("Audio.Device = %v, want default", settings.Input.Audio)
+	}
+}
