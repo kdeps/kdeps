@@ -120,6 +120,7 @@ type InputConfig struct {
 	Video       *VideoConfig       `yaml:"video,omitempty"       json:"video,omitempty"`
 	Telephony   *TelephonyConfig   `yaml:"telephony,omitempty"   json:"telephony,omitempty"`
 	Transcriber *TranscriberConfig `yaml:"transcriber,omitempty" json:"transcriber,omitempty"`
+	Activation  *ActivationConfig  `yaml:"activation,omitempty"  json:"activation,omitempty"`
 }
 
 // AudioConfig contains audio hardware device configuration.
@@ -188,6 +189,33 @@ type OfflineTranscriberConfig struct {
 	// Model is the model name or path used by the engine
 	// (e.g. "base", "small", "/models/ggml-small.bin").
 	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+}
+
+// ActivationConfig configures wake-phrase detection for audio/video/telephony inputs.
+// When set, the input processor continuously listens in short chunks until the phrase
+// is detected, then proceeds with the main capture and transcription.
+// This is analogous to "Hey Siri" or "Alexa" activation.
+type ActivationConfig struct {
+	// Phrase is the wake phrase to listen for (e.g. "hey kdeps"). Required.
+	Phrase string `yaml:"phrase" json:"phrase"`
+
+	// Mode selects the detection approach: "online" (cloud STT) or "offline" (local engine).
+	Mode string `yaml:"mode" json:"mode"`
+
+	// Sensitivity is an optional 0.0–1.0 score controlling phrase-match fuzziness.
+	// 1.0 (default) requires an exact case-insensitive substring match.
+	// Lower values allow partial matches (fraction of phrase words that must appear).
+	Sensitivity float64 `yaml:"sensitivity,omitempty" json:"sensitivity,omitempty"`
+
+	// ChunkSeconds is the duration (in seconds) of each audio probe during the
+	// activation listen loop. Defaults to 3 when not specified.
+	ChunkSeconds int `yaml:"chunkSeconds,omitempty" json:"chunkSeconds,omitempty"`
+
+	// Online holds configuration used when Mode is "online".
+	Online *OnlineTranscriberConfig `yaml:"online,omitempty" json:"online,omitempty"`
+
+	// Offline holds configuration used when Mode is "offline".
+	Offline *OfflineTranscriberConfig `yaml:"offline,omitempty" json:"offline,omitempty"`
 }
 
 // GetHostIP returns the resolved host IP from top-level settings or default.

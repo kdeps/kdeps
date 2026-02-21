@@ -1519,3 +1519,161 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateActivationConfig(t *testing.T) { //nolint:gocognit
+sv, _ := validator.NewSchemaValidator()
+v := validator.NewWorkflowValidator(sv)
+
+offlineCfg := &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper}
+onlineCfg := &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderDeepgram}
+
+tests := []struct {
+name    string
+config  *domain.ActivationConfig
+wantErr bool
+errMsg  string
+}{
+{
+name: "valid offline activation",
+config: &domain.ActivationConfig{
+Phrase:  "hey kdeps",
+Mode:    domain.TranscriberModeOffline,
+Offline: offlineCfg,
+},
+wantErr: false,
+},
+{
+name: "valid online activation",
+config: &domain.ActivationConfig{
+Phrase: "hey kdeps",
+Mode:   domain.TranscriberModeOnline,
+Online: onlineCfg,
+},
+wantErr: false,
+},
+{
+name: "valid with sensitivity and chunkSeconds",
+config: &domain.ActivationConfig{
+Phrase:       "hello there",
+Mode:         domain.TranscriberModeOffline,
+Sensitivity:  0.7,
+ChunkSeconds: 5,
+Offline:      offlineCfg,
+},
+wantErr: false,
+},
+{
+name: "missing phrase",
+config: &domain.ActivationConfig{
+Mode:    domain.TranscriberModeOffline,
+Offline: offlineCfg,
+},
+wantErr: true,
+errMsg:  "activation.phrase is required",
+},
+{
+name: "missing mode",
+config: &domain.ActivationConfig{
+Phrase:  "hey kdeps",
+Offline: offlineCfg,
+},
+wantErr: true,
+errMsg:  "activation.mode is required",
+},
+{
+name: "invalid mode",
+config: &domain.ActivationConfig{
+Phrase:  "hey kdeps",
+Mode:    "bad-mode",
+Offline: offlineCfg,
+},
+wantErr: true,
+errMsg:  "invalid activation mode",
+},
+{
+name: "sensitivity out of range",
+config: &domain.ActivationConfig{
+Phrase:      "hey kdeps",
+Mode:        domain.TranscriberModeOffline,
+Sensitivity: 1.5,
+Offline:     offlineCfg,
+},
+wantErr: true,
+errMsg:  "activation.sensitivity must be between",
+},
+{
+name: "online mode without online config",
+config: &domain.ActivationConfig{
+Phrase: "hey kdeps",
+Mode:   domain.TranscriberModeOnline,
+},
+wantErr: true,
+errMsg:  "activation.online is required",
+},
+{
+name: "offline mode without offline config",
+config: &domain.ActivationConfig{
+Phrase: "hey kdeps",
+Mode:   domain.TranscriberModeOffline,
+},
+wantErr: true,
+errMsg:  "activation.offline is required",
+},
+{
+name: "invalid online provider",
+config: &domain.ActivationConfig{
+Phrase: "hey kdeps",
+Mode:   domain.TranscriberModeOnline,
+Online: &domain.OnlineTranscriberConfig{Provider: "unknown-stt"},
+},
+wantErr: true,
+errMsg:  "invalid transcriber online provider",
+},
+{
+name: "invalid offline engine",
+config: &domain.ActivationConfig{
+Phrase:  "hey kdeps",
+Mode:    domain.TranscriberModeOffline,
+Offline: &domain.OfflineTranscriberConfig{Engine: "dragon"},
+},
+wantErr: true,
+errMsg:  "invalid transcriber offline engine",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := v.ValidateActivationConfig(tt.config)
+if (err != nil) != tt.wantErr {
+t.Errorf("ValidateActivationConfig() error = %v, wantErr %v", err, tt.wantErr)
+return
+}
+if tt.wantErr && tt.errMsg != "" && err != nil {
+if !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("error message %q does not contain %q", err.Error(), tt.errMsg)
+}
+}
+})
+}
+}
+
+func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
+sv, _ := validator.NewSchemaValidator()
+v := validator.NewWorkflowValidator(sv)
+
+cfg := &domain.InputConfig{
+Source: domain.InputSourceAPI,
+Activation: &domain.ActivationConfig{
+Phrase:  "hey kdeps",
+Mode:    domain.TranscriberModeOffline,
+Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+},
+}
+err := v.ValidateInputConfig(cfg)
+if err == nil {
+t.Fatal("expected error when activation is set on api source")
+}
+if !strings.Contains(err.Error(), "activation is not supported for api input source") {
+t.Errorf("unexpected error message: %v", err)
+}
+}

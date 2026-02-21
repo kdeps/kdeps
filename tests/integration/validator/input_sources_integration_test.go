@@ -745,3 +745,122 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 		assert.Contains(t, err.Error(), "transcriber.offline is required when mode is offline")
 	})
 }
+
+func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	makeWorkflow := func(input *domain.InputConfig) *domain.Workflow {
+		return &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "m"},
+			Settings: domain.WorkflowSettings{Input: input},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
+					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+				},
+			},
+		}
+	}
+
+	t.Run("valid offline activation", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAudio,
+			Activation: &domain.ActivationConfig{
+				Phrase:  "hey kdeps",
+				Mode:    domain.TranscriberModeOffline,
+				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("valid online activation", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceVideo,
+			Activation: &domain.ActivationConfig{
+				Phrase: "hey kdeps",
+				Mode:   domain.TranscriberModeOnline,
+				Online: &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderDeepgram},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("valid activation with sensitivity and chunk", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceTelephony,
+			Telephony: &domain.TelephonyConfig{
+				Type:   domain.TelephonyTypeLocal,
+				Device: "/dev/ttyUSB0",
+			},
+			Activation: &domain.ActivationConfig{
+				Phrase:       "hey kdeps",
+				Mode:         domain.TranscriberModeOffline,
+				Sensitivity:  0.7,
+				ChunkSeconds: 4,
+				Offline:      &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineFasterWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("activation on api source rejected", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAPI,
+			Activation: &domain.ActivationConfig{
+				Phrase:  "hey kdeps",
+				Mode:    domain.TranscriberModeOffline,
+				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "activation is not supported for api input source")
+	})
+
+	t.Run("missing activation phrase", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAudio,
+			Activation: &domain.ActivationConfig{
+				Mode:    domain.TranscriberModeOffline,
+				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "activation.phrase is required")
+	})
+
+	t.Run("invalid activation mode", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAudio,
+			Activation: &domain.ActivationConfig{
+				Phrase: "hey kdeps",
+				Mode:   "continuous",
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid activation mode")
+	})
+
+	t.Run("sensitivity out of range", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Source: domain.InputSourceAudio,
+			Activation: &domain.ActivationConfig{
+				Phrase:      "hey kdeps",
+				Mode:        domain.TranscriberModeOffline,
+				Sensitivity: 1.5,
+				Offline:     &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "activation.sensitivity must be between")
+	})
+}

@@ -188,6 +188,60 @@
                   }
                 }
               }
+            },
+            "activation": {
+              "type": "object",
+              "required": ["phrase", "mode"],
+              "properties": {
+                "phrase": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": ["online", "offline"]
+                },
+                "sensitivity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "chunkSeconds": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "online": {
+                  "type": "object",
+                  "required": ["provider"],
+                  "properties": {
+                    "provider": {
+                      "type": "string",
+                      "enum": ["openai-whisper", "google-stt", "aws-transcribe", "deepgram", "assemblyai"]
+                    },
+                    "apiKey": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "projectId": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "offline": {
+                  "type": "object",
+                  "required": ["engine"],
+                  "properties": {
+                    "engine": {
+                      "type": "string",
+                      "enum": ["whisper", "faster-whisper", "vosk", "whisper-cpp"]
+                    },
+                    "model": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           },
           "allOf": [

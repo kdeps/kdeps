@@ -461,6 +461,20 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		}
 	}
 
+	// Activation applies only to non-API sources
+	if config.Activation != nil {
+		if config.Source == domain.InputSourceAPI {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"activation is not supported for api input source",
+				nil,
+			)
+		}
+		if err := v.ValidateActivationConfig(config.Activation); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -626,4 +640,74 @@ func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(config *domain.Offl
 	}
 
 	return nil
+}
+
+// ValidateActivationConfig validates wake-phrase activation configuration.
+func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationConfig) error {
+validModes := map[string]bool{
+domain.TranscriberModeOnline:  true,
+domain.TranscriberModeOffline: true,
+}
+
+if config.Phrase == "" {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+"activation.phrase is required",
+nil,
+)
+}
+
+if config.Mode == "" {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+"activation.mode is required",
+nil,
+)
+}
+
+if !validModes[config.Mode] {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+fmt.Sprintf(
+"invalid activation mode: %s. Available options: [online, offline]",
+config.Mode,
+),
+nil,
+)
+}
+
+if config.Sensitivity != 0 && (config.Sensitivity < 0 || config.Sensitivity > 1) {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+"activation.sensitivity must be between 0.0 and 1.0",
+nil,
+)
+}
+
+switch config.Mode {
+case domain.TranscriberModeOnline:
+if config.Online == nil {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+"activation.online is required when mode is online",
+nil,
+)
+}
+if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
+return err
+}
+case domain.TranscriberModeOffline:
+if config.Offline == nil {
+return domain.NewError(
+domain.ErrCodeInvalidWorkflow,
+"activation.offline is required when mode is offline",
+nil,
+)
+}
+if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
+return err
+}
+}
+
+return nil
 }

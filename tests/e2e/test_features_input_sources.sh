@@ -386,3 +386,95 @@ test_input_source_invalid "Transcriber - Invalid output type rejected" \
 
 echo ""
 echo "Input Sources Feature tests complete."
+
+# ---------------------------------------------------------------------------
+# Activation tests (wake-phrase detection)
+# ---------------------------------------------------------------------------
+
+# Test 29: Valid offline activation on audio
+test_input_source_valid "Activation - Valid offline on audio" \
+'  input:
+    source: audio
+    activation:
+      phrase: "hey kdeps"
+      mode: offline
+      offline:
+        engine: whisper'
+
+# Test 30: Valid offline activation on video
+test_input_source_valid "Activation - Valid offline on video" \
+'  input:
+    source: video
+    activation:
+      phrase: "hey kdeps"
+      mode: offline
+      chunkSeconds: 4
+      offline:
+        engine: faster-whisper
+        model: small'
+
+# Test 31: Valid online activation on telephony
+test_input_source_valid "Activation - Valid online on telephony" \
+'  input:
+    source: telephony
+    telephony:
+      type: online
+      provider: twilio
+    activation:
+      phrase: "hey kdeps"
+      mode: online
+      online:
+        provider: deepgram
+        apiKey: dg-key'
+
+# Test 32: Valid activation with sensitivity
+test_input_source_valid "Activation - Valid with sensitivity 0.7" \
+'  input:
+    source: audio
+    activation:
+      phrase: "ok go"
+      mode: offline
+      sensitivity: 0.7
+      offline:
+        engine: vosk'
+
+# Test 33: Activation on API source rejected
+test_input_source_invalid "Activation - Rejected on API source" \
+'  input:
+    source: api
+    activation:
+      phrase: "hey kdeps"
+      mode: offline
+      offline:
+        engine: whisper'
+
+# Test 34: Missing activation phrase rejected
+test_input_source_invalid "Activation - Missing phrase rejected" \
+'  input:
+    source: audio
+    activation:
+      mode: offline
+      offline:
+        engine: whisper'
+
+# Test 35: Invalid activation mode rejected
+test_input_source_invalid "Activation - Invalid mode rejected" \
+'  input:
+    source: audio
+    activation:
+      phrase: "hey kdeps"
+      mode: stream'
+
+# Test 36: Sensitivity out of range rejected
+test_input_source_invalid "Activation - Sensitivity out of range rejected" \
+'  input:
+    source: audio
+    activation:
+      phrase: "hey kdeps"
+      mode: offline
+      sensitivity: 2.0
+      offline:
+        engine: whisper'
+
+echo ""
+echo "Activation feature tests complete."

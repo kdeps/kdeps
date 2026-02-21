@@ -74,20 +74,26 @@ type Capturer interface {
 
 // New returns a Capturer appropriate for the InputConfig source.
 func New(cfg *domain.InputConfig, logger *slog.Logger) (Capturer, error) {
+	return NewWithDuration(cfg, DefaultDurationSeconds, logger)
+}
+
+// NewWithDuration returns a Capturer that records for durationSeconds.
+// This is used by the activation detector to capture short probes.
+func NewWithDuration(cfg *domain.InputConfig, durationSeconds int, logger *slog.Logger) (Capturer, error) {
 	switch cfg.Source {
 	case domain.InputSourceAudio:
 		device := "default"
 		if cfg.Audio != nil && cfg.Audio.Device != "" {
 			device = cfg.Audio.Device
 		}
-		return &AudioCapturer{device: device, logger: logger}, nil
+		return &AudioCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
 	case domain.InputSourceVideo:
 		device := "/dev/video0"
 		if cfg.Video != nil && cfg.Video.Device != "" {
 			device = cfg.Video.Device
 		}
-		return &VideoCapturer{device: device, logger: logger}, nil
+		return &VideoCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
 	case domain.InputSourceTelephony:
 		if cfg.Telephony.Type == domain.TelephonyTypeOnline {
@@ -99,7 +105,7 @@ func New(cfg *domain.InputConfig, logger *slog.Logger) (Capturer, error) {
 		if cfg.Telephony.Device != "" {
 			device = cfg.Telephony.Device
 		}
-		return &AudioCapturer{device: device, logger: logger}, nil
+		return &AudioCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported capture source: %s", cfg.Source)
@@ -122,12 +128,18 @@ func (c *NoOpCapturer) Capture() (string, error) { return "", nil }
 
 // AudioCapturer captures audio from a hardware device.
 type AudioCapturer struct {
-	device string
-	logger *slog.Logger
+	device   string
+	duration int
+	logger   *slog.Logger
 }
 
 // Capture records audio from the device and returns the path to a WAV file.
 func (c *AudioCapturer) Capture() (string, error) {
+	dur := c.duration
+	if dur <= 0 {
+		dur = DefaultDurationSeconds
+	}
+
 	outFile, err := os.CreateTemp("", "kdeps-audio-*"+audioFileExt)
 	if err != nil {
 		return "", fmt.Errorf("capture: create temp file: %w", err)
@@ -145,7 +157,7 @@ func (c *AudioCapturer) Capture() (string, error) {
 				"arecord",
 				"-D", c.device,
 				"-f", "cd",
-				"-d", strconv.Itoa(DefaultDurationSeconds),
+				"-d", strconv.Itoa(dur),
 				outPath,
 			)
 		}
@@ -167,7 +179,7 @@ func (c *AudioCapturer) Capture() (string, error) {
 			"ffmpeg", "-y",
 			"-f", inputFmt,
 			"-i", c.device,
-			"-t", strconv.Itoa(DefaultDurationSeconds),
+			"-t", strconv.Itoa(dur),
 			outPath,
 		)
 	}
@@ -187,12 +199,18 @@ func (c *AudioCapturer) Capture() (string, error) {
 
 // VideoCapturer captures video (and audio) from a V4L2 device using ffmpeg.
 type VideoCapturer struct {
-	device string
-	logger *slog.Logger
+	device   string
+	duration int
+	logger   *slog.Logger
 }
 
 // Capture records video from the device and returns the path to an MP4 file.
 func (c *VideoCapturer) Capture() (string, error) {
+	dur := c.duration
+	if dur <= 0 {
+		dur = DefaultDurationSeconds
+	}
+
 	outFile, err := os.CreateTemp("", "kdeps-video-*"+videoFileExt)
 	if err != nil {
 		return "", fmt.Errorf("capture: create temp file: %w", err)
@@ -215,7 +233,7 @@ func (c *VideoCapturer) Capture() (string, error) {
 		"ffmpeg", "-y",
 		"-f", inputFmt,
 		"-i", c.device,
-		"-t", strconv.Itoa(DefaultDurationSeconds),
+		"-t", strconv.Itoa(dur),
 		"-c:v", "libx264", "-preset", "fast",
 		outPath,
 	)

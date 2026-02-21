@@ -23,8 +23,10 @@ package input
 
 import (
 	"log/slog"
+	"os"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/input/activation"
 	"github.com/kdeps/kdeps/v2/pkg/input/capture"
 	"github.com/kdeps/kdeps/v2/pkg/input/transcriber"
 )
@@ -43,11 +45,15 @@ type Result struct {
 }
 
 // Processor drives the full input pipeline:
-//  1. Capture raw media from the hardware source.
-//  2. If a transcriber is configured, run it and return text or save media.
+//  1. If activation is configured, run the activation listen loop until the
+//     wake phrase is detected.
+//  2. Capture raw media from the hardware source.
+//  3. If a transcriber is configured, run it and return text or save media.
 type Processor struct {
+	cfg         *domain.InputConfig
 	capturer    capture.Capturer
 	transcriber transcriber.Transcriber
+	detector    *activation.Detector
 	logger      *slog.Logger
 }
 
@@ -76,16 +82,33 @@ func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, err
 		}
 	}
 
+	var det *activation.Detector
+	if cfg.Activation != nil {
+		det, err = activation.New(cfg.Activation, logger)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Processor{
+		cfg:         cfg,
 		capturer:    capturer,
 		transcriber: t,
+		detector:    det,
 		logger:      logger,
 	}, nil
 }
 
-// Process captures media from the hardware source, optionally transcribes it,
-// and returns a Result.
+// Process runs the activation loop (if configured), then captures media and
+// optionally transcribes it, returning a Result.
 func (p *Processor) Process() (*Result, error) {
+	// Run the activation listen loop until the wake phrase is detected.
+	if p.detector != nil {
+		if err := p.runActivationLoop(); err != nil {
+			return nil, err
+		}
+	}
+
 	mediaFile, err := p.capturer.Capture()
 	if err != nil {
 		return nil, err
@@ -113,4 +136,36 @@ func (p *Processor) Process() (*Result, error) {
 	}
 
 	return result, nil
+}
+
+// runActivationLoop captures short audio probes and checks for the wake phrase
+// until it is detected, then returns.
+func (p *Processor) runActivationLoop() error {
+	p.logger.Info("activation: waiting for wake phrase", "phrase", p.cfg.Activation.Phrase)
+
+	probeCapturer, err := capture.NewWithDuration(p.cfg, p.detector.ChunkSeconds(), p.logger)
+	if err != nil {
+		return err
+	}
+
+	for {
+		probeFile, captureErr := probeCapturer.Capture()
+		if captureErr != nil {
+			p.logger.Warn("activation: probe capture error", "err", captureErr)
+			continue
+		}
+
+		detected, detectErr := p.detector.Detect(probeFile)
+		_ = os.Remove(probeFile) //nolint:gosec // G703: temp file from Capture
+
+		if detectErr != nil {
+			p.logger.Warn("activation: detect error", "err", detectErr)
+			continue
+		}
+
+		if detected {
+			p.logger.Info("activation: wake phrase detected")
+			return nil
+		}
+	}
 }
