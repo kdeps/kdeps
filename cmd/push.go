@@ -262,7 +262,7 @@ func doPut(
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := client.Do(req) //nolint:gosec // intentional client call to user-specified endpoint
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", endpoint, err)
 	}
