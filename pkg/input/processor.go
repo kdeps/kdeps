@@ -156,7 +156,7 @@ func (p *Processor) runActivationLoop() error {
 		}
 
 		detected, detectErr := p.detector.Detect(probeFile)
-		_ = os.Remove(probeFile) //nolint:gosec // G703: temp file from Capture
+		_ = os.Remove(probeFile)
 
 		if detectErr != nil {
 			p.logger.Warn("activation: detect error", "err", detectErr)

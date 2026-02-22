@@ -185,7 +185,7 @@ func TestTTSIntegration_InlineResource(t *testing.T) {
 						},
 					},
 					APIResponse: &domain.APIResponseConfig{
-						Success: true,
+						Success:  true,
 						Response: map[string]interface{}{"status": "ok"},
 					},
 				},
@@ -253,7 +253,11 @@ func TestTTSIntegration_ConfigStructs(t *testing.T) {
 			APIKey:   "sk-test",
 		},
 	}
+	assert.Equal(t, "Integration test", cfg.Text)
 	assert.Equal(t, "online", cfg.Mode)
+	assert.Equal(t, "en-US", cfg.Language)
+	assert.Equal(t, "alloy", cfg.Voice)
+	assert.InDelta(t, float64(1.0), cfg.Speed, 1e-9)
 	assert.Equal(t, "openai-tts", cfg.Online.Provider)
 	assert.Equal(t, "mp3", cfg.OutputFormat)
 }
@@ -269,7 +273,6 @@ func TestTTSIntegration_AllOfflineEngines(t *testing.T) {
 		domain.TTSEngineCoqui,
 	}
 	for _, eng := range engines {
-		eng := eng
 		t.Run(eng, func(t *testing.T) {
 			t.Parallel()
 			cfg := &domain.TTSConfig{
@@ -277,6 +280,8 @@ func TestTTSIntegration_AllOfflineEngines(t *testing.T) {
 				Mode:    domain.TTSModeOffline,
 				Offline: &domain.OfflineTTSConfig{Engine: eng},
 			}
+			assert.Equal(t, "Test", cfg.Text)
+			assert.Equal(t, domain.TTSModeOffline, cfg.Mode)
 			assert.Equal(t, eng, cfg.Offline.Engine)
 		})
 	}
@@ -294,7 +299,6 @@ func TestTTSIntegration_AllOnlineProviders(t *testing.T) {
 		domain.TTSProviderAzure,
 	}
 	for _, prov := range providers {
-		prov := prov
 		t.Run(prov, func(t *testing.T) {
 			t.Parallel()
 			cfg := &domain.TTSConfig{
@@ -305,6 +309,8 @@ func TestTTSIntegration_AllOnlineProviders(t *testing.T) {
 					APIKey:   "key",
 				},
 			}
+			assert.Equal(t, "Test", cfg.Text)
+			assert.Equal(t, domain.TTSModeOnline, cfg.Mode)
 			assert.Equal(t, prov, cfg.Online.Provider)
 		})
 	}

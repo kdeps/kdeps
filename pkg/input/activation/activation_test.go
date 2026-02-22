@@ -20,25 +20,12 @@ package activation_test
 
 import (
 	"log/slog"
-	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input/activation"
 )
-
-// stubTranscribedFile creates a temporary file whose name can be passed to
-// Detect when we are testing text-matching logic without running real STT.
-func stubTranscribedFile(t *testing.T) string {
-	t.Helper()
-	f, err := os.CreateTemp(t.TempDir(), "probe-*.wav")
-	if err != nil {
-		t.Fatalf("create temp: %v", err)
-	}
-	_ = f.Close()
-	return f.Name()
-}
 
 // --------------------------------------------------------------------------
 // New — construction errors

@@ -56,6 +56,11 @@ const (
 	// String splitting constants.
 	agentPathParts = 2
 	agentSpecParts = 2
+
+	// Context key names for input-processor and TTS outputs.
+	keyTTSOutput       = "ttsOutput"
+	keyInputTranscript = "inputTranscript"
+	keyInputMedia      = "inputMedia"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -293,15 +298,15 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
 	// and TTS output — accessible as get("ttsOutput")
 	switch name {
-	case "inputTranscript":
+	case keyInputTranscript:
 		if ctx.InputTranscript != "" {
 			return ctx.InputTranscript, nil
 		}
-	case "inputMedia":
+	case keyInputMedia:
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
 		}
-	case "ttsOutput":
+	case keyTTSOutput:
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
 		}
@@ -1673,6 +1678,8 @@ func (ctx *ExecutionContext) WalkFiles(
 // Input retrieves input values with unified access.
 // Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
+//
+//nolint:gocognit // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -1696,7 +1703,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no input media file available")
 			}
 			return ctx.InputMediaFile, nil
-		case "ttsOutput", "tts":
+		case keyTTSOutput, "tts":
 			if ctx.TTSOutputFile == "" {
 				return nil, errors.New("no TTS output file available")
 			}
@@ -1710,15 +1717,15 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	// or the short forms input("transcript") / input("media").
 	// TTS output — accessible as input("ttsOutput") / input("tts").
 	switch name {
-	case "inputTranscript", "transcript":
+	case keyInputTranscript, "transcript":
 		if ctx.InputTranscript != "" {
 			return ctx.InputTranscript, nil
 		}
-	case "inputMedia", "media":
+	case keyInputMedia, "media":
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
 		}
-	case "ttsOutput", "tts":
+	case keyTTSOutput, "tts":
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
 		}

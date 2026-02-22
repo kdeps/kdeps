@@ -81,10 +81,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	}
 
 	// Evaluate expression in Text field.
-	text, err := e.evaluateText(cfg.Text, ctx)
-	if err != nil {
-		return nil, fmt.Errorf("tts executor: evaluating text: %w", err)
-	}
+	text := e.evaluateText(cfg.Text, ctx)
 	if text == "" {
 		return nil, errors.New("tts executor: text is empty")
 	}
@@ -125,9 +122,9 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 }
 
 // evaluateText resolves mustache/expr expressions in the text field.
-func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) (string, error) {
+func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
 	if !strings.Contains(text, "{{") {
-		return text, nil
+		return text
 	}
 	eval := expression.NewEvaluator(ctx.API)
 	env := map[string]interface{}{}
@@ -137,12 +134,12 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) (st
 	}
 	result, err := eval.Evaluate(expr, env)
 	if err != nil {
-		return text, nil // return raw on eval failure
+		return text // fall back to raw text when expression evaluation fails
 	}
 	if s, ok := result.(string); ok {
-		return s, nil
+		return s
 	}
-	return fmt.Sprintf("%v", result), nil
+	return fmt.Sprintf("%v", result)
 }
 
 // resolveOutputPath decides where the audio file will be written.
@@ -162,7 +159,7 @@ func resolveOutputPath(cfg *domain.TTSConfig) (string, error) {
 		return "", fmt.Errorf("tts executor: creating temp file: %w", err)
 	}
 	name := f.Name()
-	f.Close() //nolint:errcheck // temp file only needs to be named
+	_ = f.Close() // temp file only needs to be named; close error is non-critical
 	return name, nil
 }
 
@@ -269,11 +266,11 @@ func (e *Executor) googleTTS(text string, cfg *domain.TTSConfig, outPath string)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // G704: client is injected and under caller control
 	if err != nil {
 		return fmt.Errorf("tts google: do request: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("tts google: HTTP %d", resp.StatusCode)
@@ -282,8 +279,8 @@ func (e *Executor) googleTTS(text string, cfg *domain.TTSConfig, outPath string)
 	var result struct {
 		AudioContent string `json:"audioContent"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("tts google: decode response: %w", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&result); decodeErr != nil {
+		return fmt.Errorf("tts google: decode response: %w", decodeErr)
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(result.AudioContent)
@@ -316,7 +313,7 @@ func (e *Executor) elevenLabsTTS(text string, cfg *domain.TTSConfig, outPath str
 	if err != nil {
 		return fmt.Errorf("tts elevenlabs: new request: %w", err)
 	}
-	req.Header.Set("xi-api-key", cfg.Online.APIKey)
+	req.Header.Set("Xi-Api-Key", cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "audio/mpeg")
 
@@ -352,18 +349,18 @@ func (e *Executor) azureTTS(text string, cfg *domain.TTSConfig, outPath string) 
 	}
 	req.Header.Set("Ocp-Apim-Subscription-Key", cfg.Online.SubscriptionKey)
 	req.Header.Set("Content-Type", "application/ssml+xml")
-	req.Header.Set("X-Microsoft-OutputFormat", "audio-16khz-128kbitrate-mono-mp3")
+	req.Header.Set("X-Microsoft-Outputformat", "audio-16khz-128kbitrate-mono-mp3")
 
 	return e.doAndSave(req, outPath, "azure")
 }
 
 // doAndSave performs the HTTP request and writes the response body to outPath.
 func (e *Executor) doAndSave(req *http.Request, outPath, provider string) error {
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // G704: client is injected and under caller control
 	if err != nil {
 		return fmt.Errorf("tts %s: do request: %w", provider, err)
 	}
-	defer resp.Body.Close() //nolint:errcheck // best-effort close
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("tts %s: HTTP %d", provider, resp.StatusCode)
@@ -397,7 +394,7 @@ func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath
 }
 
 // piper runs the Piper TTS binary.
-// piper --model <model> --output_file <outPath>   (text on stdin)
+// Invokes: piper --model <model> --output_file <outPath> (text on stdin).
 func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) error {
 	model := cfg.Offline.Model
 	if model == "" {
@@ -407,7 +404,7 @@ func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) err
 	if cfg.Language != "" {
 		args = append(args, "--speaker", cfg.Language)
 	}
-	cmd := exec.CommandContext(context.Background(), "piper", args...) //nolint:gosec // model path validated by user
+	cmd := exec.CommandContext(context.Background(), "piper", args...)
 	cmd.Stdin = strings.NewReader(text)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -418,7 +415,7 @@ func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) err
 }
 
 // espeak runs eSpeak-NG.
-// espeak-ng -v <voice> -s <speed> -w <outPath> "<text>"
+// Invokes: espeak-ng -v <voice> -s <speed> -w <outPath> "<text>".
 func (e *Executor) espeak(text string, cfg *domain.TTSConfig, outPath string) error {
 	args := []string{"-w", outPath}
 	if cfg.Voice != "" {
@@ -429,7 +426,7 @@ func (e *Executor) espeak(text string, cfg *domain.TTSConfig, outPath string) er
 		args = append(args, "-s", strconv.Itoa(int(cfg.Speed*175)))
 	}
 	args = append(args, text)
-	cmd := exec.CommandContext(context.Background(), "espeak-ng", args...) //nolint:gosec // user-supplied text
+	cmd := exec.CommandContext(context.Background(), "espeak-ng", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -445,7 +442,7 @@ func (e *Executor) festival(text string, outPath string) error {
   (utt.save.wave utt "%s"))`,
 		strings.ReplaceAll(text, `"`, `\"`), filepath.Clean(outPath),
 	)
-	cmd := exec.CommandContext(context.Background(), "festival") //nolint:gosec // internal scheme script
+	cmd := exec.CommandContext(context.Background(), "festival")
 	cmd.Stdin = strings.NewReader(script)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -456,7 +453,7 @@ func (e *Executor) festival(text string, outPath string) error {
 }
 
 // coqui runs the Coqui TTS Python package.
-// python -m TTS.bin.synthesize --text "<text>" --model_name <model> --out_path <outPath>
+// Invokes: python -m TTS.bin.synthesize --text "<text>" --model_name <model> --out_path <outPath>.
 func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) error {
 	model := cfg.Offline.Model
 	if model == "" {
@@ -468,7 +465,7 @@ func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) err
 		"--model_name", model,
 		"--out_path", outPath,
 	}
-	cmd := exec.CommandContext(context.Background(), "python", args...) //nolint:gosec // user-supplied model path
+	cmd := exec.CommandContext(context.Background(), "python", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
@@ -476,4 +473,3 @@ func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) err
 	}
 	return nil
 }
-

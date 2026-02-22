@@ -115,7 +115,7 @@ func (d *Detector) Detect(mediaFile string) (bool, error) {
 	result, err := d.transcriber.Transcribe(mediaFile)
 	if err != nil {
 		d.logger.Warn("activation: transcription error during probe", "err", err)
-		return false, nil //nolint:nilerr // probe errors are non-fatal; keep listening
+		return false, nil // probe errors are non-fatal; keep listening
 	}
 
 	transcript := normalizeText(result.Text)
