@@ -91,6 +91,7 @@ export default defineConfig({
             { text: 'SQL', link: '/resources/sql' },
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
+            { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'API Response', link: '/resources/api-response' },
           ]
         },

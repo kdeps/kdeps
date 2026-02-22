@@ -692,7 +692,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
 		resource.Run.Python != nil ||
-		resource.Run.Exec != nil
+		resource.Run.Exec != nil ||
+		resource.Run.TTS != nil
 
 	var primaryResult interface{}
 	var err error

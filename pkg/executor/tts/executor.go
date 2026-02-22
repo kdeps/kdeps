@@ -64,10 +64,13 @@ type Executor struct {
 
 // NewAdapter returns a new TTS Executor wrapped as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
-	return &Executor{
-		logger: logger,
-		client: &http.Client{Timeout: defaultOnlineTimeoutSec * time.Second},
-	}
+	return NewAdapterWithClient(logger, &http.Client{Timeout: defaultOnlineTimeoutSec * time.Second})
+}
+
+// NewAdapterWithClient returns a new TTS Executor using the supplied HTTP client.
+// This allows test code to inject a mock transport without modifying production paths.
+func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.ResourceExecutor {
+	return &Executor{logger: logger, client: client}
 }
 
 // Execute synthesizes speech from the TTSConfig and returns a result map.
