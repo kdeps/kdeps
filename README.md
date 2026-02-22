@@ -73,6 +73,7 @@ KDeps provides 26 commands organized into categories:
 **Deployment Commands**:
 - `kdeps package` - Package workflow into .kdeps archive
 - `kdeps build` - Build Docker images from workflows
+- `kdeps push` - Push workflow updates to running containers (live update)
 - `kdeps export` - Export workflow configurations
 
 **Cloud Commands** (for kdeps.io):
@@ -81,6 +82,37 @@ KDeps provides 26 commands organized into categories:
 - `kdeps workflows/deployments` - Manage cloud resources
 
 For complete command reference, see [CLI Documentation](docs/v2/getting-started/cli-reference.md).
+
+## Live Workflow Updates (`kdeps push`)
+
+Update a running kdeps container without rebuilding the image:
+
+```bash
+# Start container with management token
+docker run -e KDEPS_MANAGEMENT_TOKEN=mysecret -p 16395:16395 myregistry/myagent:latest
+
+# Push updated workflow directory
+kdeps push --token mysecret ./my-agent http://localhost:16395
+
+# Push packaged .kdeps archive
+kdeps push --token mysecret myagent-2.0.0.kdeps http://localhost:16395
+
+# Token from env (not stored in shell history)
+export KDEPS_MANAGEMENT_TOKEN=mysecret
+kdeps push ./my-agent http://localhost:16395
+```
+
+The management API (`/_kdeps/*`) is built into every kdeps server and supports:
+
+| Endpoint | Auth | Description |
+|----------|------|-------------|
+| `GET /_kdeps/status` | — | Workflow name, version, resource count |
+| `PUT /_kdeps/workflow` | ✓ | Push YAML → hot-reload |
+| `PUT /_kdeps/package` | ✓ | Push `.kdeps` archive → extract → hot-reload |
+| `POST /_kdeps/reload` | ✓ | Reload from current on-disk file |
+
+Write endpoints require a bearer token set via `KDEPS_MANAGEMENT_TOKEN`. Unset → `503`, wrong token → `401`.
+See [Management API docs](docs/v2/concepts/management-api.md) for full details.
 
 ## Unified API
 

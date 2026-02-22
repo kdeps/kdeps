@@ -108,6 +108,7 @@ export default defineConfig({
             { text: 'Validation', link: '/concepts/validation' },
             { text: 'Error Handling (onError)', link: '/concepts/error-handling' },
             { text: 'Route Restrictions', link: '/concepts/route-restrictions' },
+            { text: 'Management API', link: '/concepts/management-api' },
           ]
         },
         {

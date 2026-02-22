@@ -67,6 +67,74 @@ kdeps run workflow.yaml --port 16395
 
 ---
 
+### `kdeps push`
+
+Push a workflow update to a running kdeps container without rebuilding the image.
+
+**Usage:**
+```bash
+kdeps push [workflow_path] [target] [flags]
+```
+
+**Arguments:**
+- `workflow_path` — Path to `workflow.yaml`, a directory containing `workflow.yaml`, or a `.kdeps` package archive
+- `target` — URL of the running kdeps server (e.g. `http://localhost:16395`)
+
+**Flags:**
+| Flag | Shorthand | Description | Default |
+|------|-----------|-------------|---------|
+| `--token` | `-t` | Management API bearer token | `""` (falls back to `KDEPS_MANAGEMENT_TOKEN` env var) |
+
+**Authentication:**
+
+The target server must have `KDEPS_MANAGEMENT_TOKEN` set. Supply the token via the flag or environment variable:
+
+```bash
+# Via environment variable
+export KDEPS_MANAGEMENT_TOKEN=mysecret
+kdeps push workflow.yaml http://localhost:16395
+
+# Via --token flag (takes precedence over env var)
+kdeps push --token mysecret workflow.yaml http://localhost:16395
+```
+
+The token is **never stored** in any workflow file or configuration.
+
+**Behaviour by source type:**
+
+| Source | Endpoint called | What happens |
+|--------|----------------|--------------|
+| `workflow.yaml` or directory | `PUT /_kdeps/workflow` | Inlines all resources → uploads single YAML → hot-reload |
+| `myagent-1.0.0.kdeps` | `PUT /_kdeps/package` | Sends raw archive → server extracts in place → hot-reload |
+
+**Examples:**
+```bash
+# Push from a directory
+kdeps push ./my-agent http://localhost:16395
+
+# Push a single YAML file
+kdeps push workflow.yaml http://localhost:16395
+
+# Push a .kdeps package archive
+kdeps push myagent-1.0.0.kdeps http://localhost:16395
+
+# Push with explicit token
+kdeps push --token s3cr3t myagent-1.0.0.kdeps http://prod-server:16395
+
+# Push to a remote server
+kdeps push workflow.yaml http://my-server:16395
+```
+
+**Error responses:**
+
+| HTTP status | Meaning | Fix |
+|-------------|---------|-----|
+| `401 Unauthorized` | Wrong or missing token | Check `--token` or `KDEPS_MANAGEMENT_TOKEN` |
+| `503 Service Unavailable` | Server has no token set | Set `KDEPS_MANAGEMENT_TOKEN` on the server |
+| `413 Payload Too Large` | Workflow > 5 MB or package > 200 MB | Reduce workflow size |
+
+---
+
 ### `kdeps validate`
 
 Validate workflow configuration against schema and business rules.

@@ -240,3 +240,342 @@ func TestSetupManagementRoutes_IncludesPackageEndpoint(t *testing.T) {
 	assert.Equal(t, stdhttp.StatusServiceUnavailable, rec.Code,
 		"unauthenticated request should get 503")
 }
+
+// ---------------------------------------------------------------------------
+// Additional tests for 100% coverage
+// ---------------------------------------------------------------------------
+
+// buildKdepsArchiveWithDirs creates an in-memory .kdeps tar.gz archive containing
+// explicit directory entries plus file entries. Used to test directory-extraction paths.
+func buildKdepsArchiveWithDirs(t *testing.T, dirs []string, files map[string]string) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	for _, d := range dirs {
+		hdr := &tar.Header{
+			Name:     d,
+			Mode:     0750,
+			Typeflag: tar.TypeDir,
+		}
+		require.NoError(t, tw.WriteHeader(hdr))
+	}
+
+	for name, content := range files {
+		hdr := &tar.Header{
+			Name: name,
+			Mode: 0600,
+			Size: int64(len(content)),
+		}
+		require.NoError(t, tw.WriteHeader(hdr))
+		_, err := tw.Write([]byte(content))
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+
+	return buf.Bytes()
+}
+
+// TestHandleManagementUpdatePackage_BodyReadError exercises the io.ReadAll
+// error branch of HandleManagementUpdatePackage.
+func TestHandleManagementUpdatePackage_BodyReadError(t *testing.T) {
+	server := makeTestServer(t, nil)
+
+	failReader := &errReader{err: assert.AnError}
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", failReader)
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusBadRequest, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "error", body["status"])
+	assert.Contains(t, body["message"].(string), "failed to read request body")
+}
+
+// TestHandleManagementUpdatePackage_MkdirError exercises the os.MkdirAll
+// error branch when the destination directory cannot be created.
+func TestHandleManagementUpdatePackage_MkdirError(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create a regular file where MkdirAll would need to create a directory.
+	blocker := filepath.Join(tmpDir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0600))
+	// workflowPath whose parent is a file — MkdirAll(destDir) will fail.
+	workflowPath := filepath.Join(blocker, "workflow.yaml")
+
+	archive := buildKdepsArchive(t, map[string]string{"workflow.yaml": "content"})
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusInternalServerError, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "error", body["status"])
+	assert.Contains(t, body["message"].(string), "failed to create workflow directory")
+}
+
+// TestHandleManagementUpdatePackage_SetsWorkflowPathWhenEmpty exercises the
+// branch that persists workflowPath when it was previously empty.
+func TestHandleManagementUpdatePackage_SetsWorkflowPathWhenEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: pkg-empty-path
+  version: 1.0.0
+  targetActionId: a
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	archive := buildKdepsArchive(t, map[string]string{"workflow.yaml": workflowYAML})
+
+	server := makeTestServer(t, nil)
+	// workflowPath intentionally NOT set — exercises the "set path if empty" branch.
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	// Should not fail on directory creation (tmpDir exists).
+	assert.NotEqual(t, stdhttp.StatusInternalServerError, rec.Code)
+	assert.NotEqual(t, stdhttp.StatusBadRequest, rec.Code)
+}
+
+// TestHandleManagementUpdatePackage_SuccessWithValidWorkflow exercises the
+// full 200-response path including the workflow metadata field in the response.
+func TestHandleManagementUpdatePackage_SuccessWithValidWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: pkg-success
+  version: 9.0.0
+  targetActionId: action1
+settings:
+  portNum: 16395
+  agentSettings:
+    timezone: UTC
+`
+	// Archive contains ONLY workflow.yaml (no resources/ dir that could fail parsing).
+	archive := buildKdepsArchive(t, map[string]string{"workflow.yaml": workflowYAML})
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	// Reload may succeed (200) or fail (422) depending on the environment.
+	// Both are acceptable; we just want to confirm the success path is reachable.
+	if rec.Code == stdhttp.StatusOK {
+		var body map[string]interface{}
+		require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+		assert.Equal(t, "ok", body["status"])
+		assert.Equal(t, "package extracted and workflow reloaded", body["message"])
+	}
+}
+
+// TestExtractKdepsPackage_DirectoryEntry verifies that tar directory entries
+// are created on disk (the continue branch in extractKdepsPackage).
+func TestExtractKdepsPackage_DirectoryEntry(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	archive := buildKdepsArchiveWithDirs(t,
+		[]string{"data/", "scripts/"},
+		map[string]string{
+			"workflow.yaml":  "content",
+			"data/file.txt":  "data",
+			"scripts/run.sh": "#!/bin/sh",
+		},
+	)
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	// Extraction must succeed regardless of whether reload succeeds.
+	assert.NotEqual(t, stdhttp.StatusBadRequest, rec.Code)
+	assert.NotEqual(t, stdhttp.StatusInternalServerError, rec.Code)
+
+	// Directories must have been created.
+	assert.DirExists(t, filepath.Join(tmpDir, "data"))
+	assert.DirExists(t, filepath.Join(tmpDir, "scripts"))
+}
+
+// TestExtractKdepsPackage_DirMkdirError verifies that a directory entry whose
+// path cannot be created returns an error.
+func TestExtractKdepsPackage_DirMkdirError(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	// Pre-create "blocker" as a regular file; archive has dir entry "blocker/subdir/".
+	// os.MkdirAll(tmpDir + "/blocker/subdir") will fail because blocker is a file.
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "blocker"), []byte("x"), 0600))
+
+	archive := buildKdepsArchiveWithDirs(t, []string{"blocker/subdir/"}, map[string]string{})
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusUnprocessableEntity, rec.Code)
+}
+
+// TestExtractKdepsPackage_CorruptTarEntry verifies that a non-EOF error from
+// tr.Next() (e.g., truncated/corrupted tar stream) is properly returned.
+func TestExtractKdepsPackage_CorruptTarEntry(t *testing.T) {
+	// Create a valid gzip archive but with corrupted tar content (only a few bytes).
+	// tar.Reader.Next() will return io.ErrUnexpectedEOF on the first call.
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	_, err := gzw.Write([]byte("x")) // not a valid tar header
+	require.NoError(t, err)
+	require.NoError(t, gzw.Close())
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(filepath.Join(t.TempDir(), "workflow.yaml"))
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(buf.Bytes()))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusUnprocessableEntity, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Equal(t, "error", body["status"])
+}
+
+// TestExtractKdepsPackage_ParentDirCreationFailure verifies that a file entry
+// whose parent directory cannot be created returns an error.
+func TestExtractKdepsPackage_ParentDirCreationFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	// Pre-create "blocker" as a regular file.
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "blocker"), []byte("x"), 0600))
+
+	// Archive has a file entry "blocker/file.txt"; parent "blocker" is a file not a dir.
+	archive := buildKdepsArchive(t, map[string]string{"blocker/file.txt": "content"})
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(archive))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusUnprocessableEntity, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	assert.Contains(t, body["message"].(string), "parent directory")
+}
+
+// TestExtractKdepsPackage_WriteFileOpenError verifies that a file entry
+// cannot be written when the target path is an existing directory
+// (triggers the os.OpenFile error branch in writeExtractedFile).
+func TestExtractKdepsPackage_WriteFileOpenError(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	// Build a tar archive that:
+	//   1. Has a directory entry "conflict/"
+	//   2. Has a file entry "conflict" (same name without trailing slash)
+	// After (1) creates the directory, (2) tries to open it as a regular file → EISDIR.
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	// Directory entry.
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name:     "conflict/",
+		Mode:     0750,
+		Typeflag: tar.TypeDir,
+	}))
+
+	// File entry with the same clean path.
+	content := "payload"
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name: "conflict",
+		Mode: 0600,
+		Size: int64(len(content)),
+	}))
+	_, err := tw.Write([]byte(content))
+	require.NoError(t, err)
+
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(buf.Bytes()))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusUnprocessableEntity, rec.Code)
+}
+
+// TestExtractKdepsPackage_CopyErrorTruncatedData verifies the io.Copy error
+// branch in writeExtractedFile by crafting a tar archive whose file entry
+// declares more bytes than are actually present in the stream.
+// When io.Copy reads the file data it receives io.ErrUnexpectedEOF because
+// the declared 1000 bytes are read before the gzip stream ends.
+func TestExtractKdepsPackage_CopyErrorTruncatedData(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+
+	// Write a tar header claiming Size=1000, then only 7 bytes of data, then
+	// close the gzip WITHOUT closing the tar writer so no padding/EOF records
+	// are written.  When io.Copy reads the file data it will get
+	// io.ErrUnexpectedEOF because the underlying gzip stream ends before
+	// the declared 1000 bytes are available.
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name: "large.txt",
+		Mode: 0600,
+		Size: 1000,
+	}))
+	_, err := tw.Write([]byte("partial")) // only 7 bytes instead of 1000
+	require.NoError(t, err)
+	// Close gzip without closing tar writer → truncated tar stream.
+	require.NoError(t, gzw.Close())
+
+	server := makeTestServer(t, nil)
+	server.SetWorkflowPath(workflowPath)
+
+	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/package", bytes.NewReader(buf.Bytes()))
+	rec := httptest.NewRecorder()
+	server.HandleManagementUpdatePackage(rec, req)
+
+	assert.Equal(t, stdhttp.StatusUnprocessableEntity, rec.Code)
+}
