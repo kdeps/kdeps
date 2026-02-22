@@ -30,6 +30,7 @@ type Registry struct {
 	sqlExecutor    ResourceExecutor
 	pythonExecutor ResourceExecutor
 	execExecutor   ResourceExecutor
+	ttsExecutor    ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -102,4 +103,14 @@ func (r *Registry) GetExecExecutor() ResourceExecutor {
 		return nil
 	}
 	return r.execExecutor
+}
+
+// SetTTSExecutor sets the TTS executor.
+func (r *Registry) SetTTSExecutor(executor ResourceExecutor) {
+	r.ttsExecutor = executor
+}
+
+// GetTTSExecutor returns the TTS executor.
+func (r *Registry) GetTTSExecutor() ResourceExecutor {
+	return r.ttsExecutor
 }

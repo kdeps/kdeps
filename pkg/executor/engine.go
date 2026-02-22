@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/input"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
@@ -190,6 +191,25 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	// Load resources into context map for tool execution
 	for _, resource := range workflow.Resources {
 		ctx.Resources[resource.Metadata.ActionID] = resource
+	}
+
+	// Process non-API input sources (audio/video/telephony).
+	// The processor captures hardware media and optionally transcribes it before
+	// any resources run, so the transcript/media path is available to all resources
+	// via inputTranscript() and inputMedia() expression functions.
+	if workflow.Settings.Input != nil && workflow.Settings.Input.Source != domain.InputSourceAPI {
+		processor, procErr := input.NewProcessor(workflow.Settings.Input, e.logger)
+		if procErr != nil {
+			return nil, fmt.Errorf("input processor init: %w", procErr)
+		}
+		if processor != nil {
+			result, processErr := processor.Process()
+			if processErr != nil {
+				return nil, fmt.Errorf("input processing failed: %w", processErr)
+			}
+			ctx.InputTranscript = result.Transcript
+			ctx.InputMediaFile = result.MediaFile
+		}
 	}
 
 	// Initialize evaluator with unified API.
@@ -672,7 +692,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
 		resource.Run.Python != nil ||
-		resource.Run.Exec != nil
+		resource.Run.Exec != nil ||
+		resource.Run.TTS != nil
 
 	var primaryResult interface{}
 	var err error
@@ -690,6 +711,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executePython(resource, ctx)
 		case resource.Run.Exec != nil:
 			primaryResult, err = e.executeExec(resource, ctx)
+		case resource.Run.TTS != nil:
+			primaryResult, err = e.executeTTS(resource, ctx)
 		}
 
 		if err != nil {
@@ -1197,6 +1220,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlinePython(inline.Python, ctx)
 		case inline.Exec != nil:
 			result, err = e.executeInlineExec(inline.Exec, ctx)
+		case inline.TTS != nil:
+			result, err = e.executeInlineTTS(inline.TTS, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -1786,6 +1811,15 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 		}
 	}
 
+	// Expose input processor results so resources can read the captured
+	// transcript text and media file path via expression functions.
+	if ctx != nil {
+		env["inputTranscript"] = func() string { return ctx.InputTranscript }
+		env["inputMedia"] = func() string { return ctx.InputMediaFile }
+		// Expose TTS output file path via ttsOutput() expression function.
+		env["ttsOutput"] = func() string { return ctx.TTSOutputFile }
+	}
+
 	return env
 }
 
@@ -1919,4 +1953,31 @@ func (e *Engine) executeInlineExec(config *domain.ExecConfig, ctx *ExecutionCont
 	}
 
 	return executor.Execute(ctx, config)
+}
+
+// executeTTS executes a TTS (Text-to-Speech) resource.
+func (e *Engine) executeTTS(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	if resource.Run.TTS == nil {
+		return nil, fmt.Errorf("resource %s has no tts configuration", resource.Metadata.ActionID)
+	}
+
+	ttsExec := e.registry.GetTTSExecutor()
+	if ttsExec == nil {
+		return nil, errors.New("tts executor not available")
+	}
+
+	return ttsExec.Execute(ctx, resource.Run.TTS)
+}
+
+// executeInlineTTS executes an inline TTS resource.
+func (e *Engine) executeInlineTTS(config *domain.TTSConfig, ctx *ExecutionContext) (interface{}, error) {
+	ttsExec := e.registry.GetTTSExecutor()
+	if ttsExec == nil {
+		return nil, errors.New("tts executor not available")
+	}
+
+	return ttsExec.Execute(ctx, config)
 }
