@@ -666,6 +666,10 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 		return fmt.Errorf("failed to create HTTP server: %w", err)
 	}
 
+	// Always store the workflow path so the management API writes updates to the
+	// correct location (the same path that kdeps reads on restart).
+	httpServer.SetWorkflowPath(workflowPath)
+
 	// Setup file watcher for hot reload
 	if devMode {
 		setupDevMode(httpServer, workflowPath)
@@ -964,6 +968,10 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP server: %w", err)
 	}
+
+	// Always store the workflow path so the management API writes updates to the
+	// correct location (the same path that kdeps reads on restart).
+	httpServer.SetWorkflowPath(workflowPath)
 
 	// Setup dev mode for API server
 	if devMode {
