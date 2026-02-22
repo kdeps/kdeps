@@ -288,7 +288,7 @@ func TestNewPushCmd_HasTokenFlag(t *testing.T) {
 	cmd := newPushCmd()
 	flag := cmd.Flags().Lookup("token")
 	require.NotNil(t, flag, "--token flag must be registered on the push command")
-	assert.Equal(t, "", flag.DefValue, "--token default must be empty string")
+	assert.Empty(t, flag.DefValue, "--token default must be empty string")
 	assert.Equal(t, "t", flag.Shorthand, "--token must have shorthand -t")
 }
 
