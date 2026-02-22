@@ -23,6 +23,8 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 - ✅ **Interactive Wizard** - Create new agents easily with `kdeps new` (no YAML knowledge needed initially).
 - ✅ **Hot Reload** - Auto-reload workflows on file changes in dev mode.
 - ✅ **Mustache Templates** - Support for both Go templates and Mustache syntax for project scaffolding.
+- ✅ **Media Input** - First-class `input:` block supporting API, Audio, Video, and Telephony sources with optional transcription (online/offline) and wake-phrase activation.
+- ✅ **TTS Output** - Built-in Text-to-Speech resource with 5 online providers (OpenAI, Google, ElevenLabs, Azure, AWS Polly) and 4 offline engines (Piper, eSpeak, Festival, Coqui-TTS).
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
 ## Quick Start

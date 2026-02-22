@@ -428,3 +428,61 @@ settings:
 - [Resources Overview](../resources/overview) - Learn about resource types
 - [Unified API](../concepts/unified-api) - Master get() and set()
 - [Docker Deployment](../deployment/docker) - Build container images
+
+---
+
+## Input Configuration
+
+The `settings.input` block specifies how the workflow receives input. By default workflows accept HTTP API requests (`source: api`). Set `source` to `audio`, `video`, or `telephony` to capture media from hardware or telephony providers.
+
+```yaml
+settings:
+  input:
+    source: audio          # api | audio | video | telephony
+
+    # Required when source is "audio"
+    audio:
+      device: hw:0,0       # ALSA device (Linux) or device name
+
+    # Required when source is "video"
+    video:
+      device: /dev/video0  # v4l2 device (Linux), device name (macOS/Windows)
+
+    # Required when source is "telephony"
+    telephony:
+      type: local          # local | online
+      device: /dev/ttyS0   # Used when type is "local"
+      provider: twilio     # Used when type is "online"
+
+    # Optional: activate only when wake phrase is heard
+    activation:
+      phrase: "hey kdeps"  # Required: wake phrase to listen for
+      mode: offline        # online | offline
+      sensitivity: 0.9     # 0.0–1.0 (1.0 = exact match)
+      chunkSeconds: 3      # Audio chunk duration in seconds
+      online:
+        provider: deepgram
+        apiKey: dg-...
+      offline:
+        engine: faster-whisper
+        model: small
+
+    # Optional: transcribe media to text or save raw media
+    transcriber:
+      mode: offline        # online | offline
+      output: text         # text | media
+      language: en-US      # BCP-47 language code
+      online:
+        provider: openai-whisper
+        apiKey: sk-...
+      offline:
+        engine: faster-whisper
+        model: small
+```
+
+After transcription:
+- `inputTranscript()` — returns the text transcript
+- `inputMedia()` — returns the path to the saved media file
+- `get("inputTranscript")` and `input("transcript")` also work
+
+See the [TTS resource](../resources/tts) for the output side of voice workflows.

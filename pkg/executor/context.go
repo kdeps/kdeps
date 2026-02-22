@@ -56,6 +56,11 @@ const (
 	// String splitting constants.
 	agentPathParts = 2
 	agentSpecParts = 2
+
+	// Context key names for input-processor and TTS outputs.
+	keyTTSOutput       = "ttsOutput"
+	keyInputTranscript = "inputTranscript"
+	keyInputMedia      = "inputMedia"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -92,6 +97,20 @@ type ExecutionContext struct {
 
 	// LLM metadata (model and backend used in this execution).
 	LLMMetadata *LLMMetadata
+
+	// InputMediaFile is the path to the captured or transcribed media file produced
+	// by the input processor (audio/video/telephony sources with output: media).
+	// Resources can read this path via the inputMedia() expression function.
+	InputMediaFile string
+
+	// InputTranscript is the text produced by the input transcriber
+	// (audio/video/telephony sources with output: text).
+	// Resources can read this value via the inputTranscript() expression function.
+	InputTranscript string
+
+	// TTSOutputFile is the path to the audio file produced by a TTS resource.
+	// Resources can read this path via the ttsOutput() expression function.
+	TTSOutputFile string
 
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
@@ -274,6 +293,23 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	// 4. Resource outputs (actionID)
 	if val, ok := ctx.Outputs[name]; ok {
 		return val, nil
+	}
+
+	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
+	// and TTS output — accessible as get("ttsOutput")
+	switch name {
+	case keyInputTranscript:
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, nil
+		}
+	case keyInputMedia:
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, nil
+		}
+	case keyTTSOutput:
+		if ctx.TTSOutputFile != "" {
+			return ctx.TTSOutputFile, nil
+		}
 	}
 
 	// 5. Query parameters (with filtering)
@@ -1640,8 +1676,10 @@ func (ctx *ExecutionContext) WalkFiles(
 }
 
 // Input retrieves input values with unified access.
-// Priority: Query Parameter → Header → Request Body
-// Syntax: Input(name) or Input(name, "param"|"header"|"body").
+// Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
+// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
+//
+//nolint:gocognit // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -1655,8 +1693,41 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 			return ctx.GetHeader(name)
 		case "body", "data":
 			return ctx.getBody(name)
+		case "transcript":
+			if ctx.InputTranscript == "" {
+				return nil, errors.New("no input transcript available")
+			}
+			return ctx.InputTranscript, nil
+		case "media":
+			if ctx.InputMediaFile == "" {
+				return nil, errors.New("no input media file available")
+			}
+			return ctx.InputMediaFile, nil
+		case keyTTSOutput, "tts":
+			if ctx.TTSOutputFile == "" {
+				return nil, errors.New("no TTS output file available")
+			}
+			return ctx.TTSOutputFile, nil
 		default:
 			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
+		}
+	}
+
+	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
+	// or the short forms input("transcript") / input("media").
+	// TTS output — accessible as input("ttsOutput") / input("tts").
+	switch name {
+	case keyInputTranscript, "transcript":
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, nil
+		}
+	case keyInputMedia, "media":
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, nil
+		}
+	case keyTTSOutput, "tts":
+		if ctx.TTSOutputFile != "" {
+			return ctx.TTSOutputFile, nil
 		}
 	}
 
