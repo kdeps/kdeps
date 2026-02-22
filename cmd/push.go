@@ -273,6 +273,21 @@ func doPut(
 	}
 
 	if resp.StatusCode != stdhttp.StatusOK {
+		// Provide clear, actionable messages for authentication failures so the
+		// operator knows exactly what to do rather than seeing a raw HTTP error.
+		switch resp.StatusCode {
+		case stdhttp.StatusUnauthorized:
+			return nil, fmt.Errorf(
+				"push rejected: invalid or missing management token" +
+					" (use --token or set KDEPS_MANAGEMENT_TOKEN)",
+			)
+		case stdhttp.StatusServiceUnavailable:
+			return nil, fmt.Errorf(
+				"push rejected: management API is disabled on the server" +
+					" (set KDEPS_MANAGEMENT_TOKEN on the server to enable)",
+			)
+		}
+
 		var errResp map[string]interface{}
 		if jsonErr := json.Unmarshal(respBody, &errResp); jsonErr == nil {
 			if msg, ok := errResp["message"].(string); ok {

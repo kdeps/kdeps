@@ -413,6 +413,35 @@ func TestDoPushRequest_NoTokenWhenEnvUnset(t *testing.T) {
 	assert.Empty(t, gotAuth)
 }
 
+// TestDoPushRequest_WrongToken verifies that a 401 response produces a clear
+// error message directing the user to fix their token.
+func TestDoPushRequest_WrongToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "wrong-token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid or missing management token")
+	assert.Contains(t, err.Error(), "--token")
+	assert.Contains(t, err.Error(), "KDEPS_MANAGEMENT_TOKEN")
+}
+
+// TestDoPushRequest_ServerTokenUnset verifies that a 503 response (server has no
+// token configured) produces a clear message directing the operator.
+func TestDoPushRequest_ServerTokenUnset(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "management API disabled: set KDEPS_MANAGEMENT_TOKEN to enable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "management API is disabled on the server")
+	assert.Contains(t, err.Error(), "KDEPS_MANAGEMENT_TOKEN")
+}
+
 // ---------------------------------------------------------------------------
 // Tests for the .kdeps package push path
 // ---------------------------------------------------------------------------
