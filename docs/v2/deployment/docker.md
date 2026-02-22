@@ -455,8 +455,78 @@ ollama pull llama3.2:1b
 offlineMode: true
 ```
 
+## Live Workflow Updates (Management API)
+
+Every running kdeps container exposes a built-in management API that lets you update the workflow without rebuilding or redeploying the image.
+
+### Enable the Management API
+
+Set `KDEPS_MANAGEMENT_TOKEN` when starting the container:
+
+```bash
+docker run -e KDEPS_MANAGEMENT_TOKEN=mysecret -p 16395:16395 myregistry/myagent:latest
+```
+
+### Push a New Workflow
+
+```bash
+# Push a local workflow directory
+kdeps push --token mysecret ./my-agent http://localhost:16395
+
+# Push a packaged .kdeps archive
+kdeps push --token mysecret myagent-2.0.0.kdeps http://localhost:16395
+```
+
+The token can also be supplied via the environment so it is not in shell history:
+
+```bash
+export KDEPS_MANAGEMENT_TOKEN=mysecret
+kdeps push ./my-agent http://localhost:16395
+```
+
+### Check Workflow Status
+
+```bash
+curl http://localhost:16395/_kdeps/status
+```
+
+```json
+{
+  "status": "ok",
+  "workflow": {
+    "name": "my-agent",
+    "version": "2.0.0",
+    "description": "My AI agent",
+    "resources": 3
+  }
+}
+```
+
+### Docker Compose with Management API
+
+```yaml
+services:
+  myagent:
+    image: myregistry/myagent:latest
+    ports:
+      - "16395:16395"
+    environment:
+      - KDEPS_MANAGEMENT_TOKEN=${KDEPS_MANAGEMENT_TOKEN}
+    restart: unless-stopped
+```
+
+Set the token in your `.env` file (never commit this file):
+
+```bash
+# .env
+KDEPS_MANAGEMENT_TOKEN=mysecret
+```
+
+For the full management API reference see [Management API](../concepts/management-api).
+
 ## Next Steps
 
 - [Workflow Configuration](../configuration/workflow) - Agent settings
 - [WebServer Mode](webserver) - Serve frontends
 - [LLM Backends](../resources/llm-backends) - Backend configuration
+- [Management API](../concepts/management-api) - Live workflow updates without rebuilding

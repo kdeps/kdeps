@@ -54,6 +54,9 @@ const (
 	DefaultHTTPWriteTimeout = 300 * time.Second
 	// DefaultHTTPIdleTimeout is the default idle timeout for HTTP server.
 	DefaultHTTPIdleTimeout = 60 * time.Second
+
+	// defaultWorkflowFile is the default workflow filename when no path is configured.
+	defaultWorkflowFile = "workflow.yaml"
 )
 
 // RequestContext matches executor.RequestContext to avoid import cycle.
@@ -196,6 +199,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) SetupRoutes() {
 	// Health check endpoint
 	s.Router.GET("/health", s.HandleHealth)
+
+	// Management API endpoints (always available for remote workflow management)
+	s.SetupManagementRoutes()
 
 	// Setup routes from workflow configuration
 	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
@@ -621,7 +627,7 @@ func (s *Server) SetupHotReload() error {
 	// Determine workflow path (use stored path or default to "workflow.yaml")
 	watchWorkflowPath := s.workflowPath
 	if watchWorkflowPath == "" {
-		watchWorkflowPath = "workflow.yaml"
+		watchWorkflowPath = defaultWorkflowFile
 	}
 
 	// Ensure workflow path is absolute for watching
@@ -686,7 +692,7 @@ func (s *Server) reloadWorkflow() error {
 	if s.parser == nil || s.workflowPath == "" {
 		workflowPath := s.workflowPath
 		if workflowPath == "" {
-			workflowPath = "workflow.yaml"
+			workflowPath = defaultWorkflowFile
 		}
 
 		// Initialize parser if needed
@@ -716,9 +722,14 @@ func (s *Server) reloadWorkflow() error {
 	// Update workflow
 	s.Workflow = newWorkflow
 
-	// Reload routes (workflow changes might affect routes)
-	// Clear existing routes and re-setup
+	// Reload routes (workflow changes might affect routes).
+	// Preserve the middleware stack that was installed by Server.Start so that
+	// request-ID injection, session handling, upload limits, and CORS continue
+	// to work correctly after a management-API reload.
+	oldMiddleware := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(s.Router.Middleware))
+	copy(oldMiddleware, s.Router.Middleware)
 	s.Router = NewRouter()
+	s.Router.Middleware = oldMiddleware
 	s.SetupRoutes()
 
 	s.logger.Info(
