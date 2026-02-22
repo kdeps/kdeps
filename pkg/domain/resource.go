@@ -67,6 +67,7 @@ type RunConfig struct {
 	SQL         *SQLConfig         `yaml:"sql,omitempty"`
 	Python      *PythonConfig      `yaml:"python,omitempty"`
 	Exec        *ExecConfig        `yaml:"exec,omitempty"`
+	TTS         *TTSConfig         `yaml:"tts,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -81,6 +82,7 @@ type InlineResource struct {
 	SQL        *SQLConfig        `yaml:"sql,omitempty"`
 	Python     *PythonConfig     `yaml:"python,omitempty"`
 	Exec       *ExecConfig       `yaml:"exec,omitempty"`
+	TTS        *TTSConfig        `yaml:"tts,omitempty"`
 }
 
 // PreflightCheck represents preflight validation.
@@ -624,4 +626,89 @@ func (r *ResponseMeta) UnmarshalYAML(node *yaml.Node) error {
 	r.Backend = alias.Backend
 
 	return nil
+}
+
+// TTSModeOnline uses a cloud TTS provider.
+const TTSModeOnline = "online"
+
+// TTSModeOffline uses a local TTS engine.
+const TTSModeOffline = "offline"
+
+// TTSOutputFormatMP3 is the mp3 audio output format.
+const TTSOutputFormatMP3 = "mp3"
+
+// TTSOutputFormatWAV is the wav audio output format.
+const TTSOutputFormatWAV = "wav"
+
+// TTSOutputFormatOGG is the ogg audio output format.
+const TTSOutputFormatOGG = "ogg"
+
+// TTSProviderOpenAI is the OpenAI TTS cloud provider.
+const TTSProviderOpenAI = "openai-tts"
+
+// TTSProviderGoogle is the Google Cloud Text-to-Speech provider.
+const TTSProviderGoogle = "google-tts"
+
+// TTSProviderElevenLabs is the ElevenLabs TTS provider.
+const TTSProviderElevenLabs = "elevenlabs"
+
+// TTSProviderAWSPolly is the AWS Polly TTS provider.
+const TTSProviderAWSPolly = "aws-polly"
+
+// TTSProviderAzure is the Microsoft Azure Cognitive Services TTS provider.
+const TTSProviderAzure = "azure-tts"
+
+// TTSEnginePiper is the Piper offline TTS engine.
+const TTSEnginePiper = "piper"
+
+// TTSEngineEspeak is the eSpeak-NG offline TTS engine.
+const TTSEngineEspeak = "espeak"
+
+// TTSEngineFestival is the Festival offline TTS engine.
+const TTSEngineFestival = "festival"
+
+// TTSEngineCoqui is the Coqui TTS offline engine.
+const TTSEngineCoqui = "coqui-tts"
+
+// TTSConfig configures a Text-to-Speech resource.
+type TTSConfig struct {
+	// Text is the text to synthesize.  Expression evaluation is supported.
+	Text string `yaml:"text"`
+	// Mode is "online" or "offline".
+	Mode string `yaml:"mode"`
+	// Language is an optional BCP-47 language code (e.g. "en-US").
+	Language string `yaml:"language,omitempty"`
+	// Voice is the voice identifier (provider/engine-specific).
+	Voice string `yaml:"voice,omitempty"`
+	// Speed is the speech rate multiplier (default 1.0).
+	Speed float64 `yaml:"speed,omitempty"`
+	// OutputFormat is the audio container: "mp3", "wav", or "ogg".
+	OutputFormat string `yaml:"outputFormat,omitempty"`
+	// OutputFile is an optional explicit output path.  If empty, a path under
+	// /tmp/kdeps-tts/ is generated and stored in ExecutionContext.TTSOutputFile.
+	OutputFile string `yaml:"outputFile,omitempty"`
+	// Online holds cloud provider configuration when Mode is "online".
+	Online *OnlineTTSConfig `yaml:"online,omitempty"`
+	// Offline holds local engine configuration when Mode is "offline".
+	Offline *OfflineTTSConfig `yaml:"offline,omitempty"`
+}
+
+// OnlineTTSConfig holds cloud provider settings for TTS.
+type OnlineTTSConfig struct {
+	// Provider is one of: openai-tts, google-tts, elevenlabs, aws-polly, azure-tts.
+	Provider string `yaml:"provider"`
+	// APIKey is the authentication credential for the chosen provider.
+	APIKey string `yaml:"apiKey,omitempty"` //nolint:gosec // intentional credential field
+	// Region is used by AWS Polly and Azure TTS.
+	Region string `yaml:"region,omitempty"`
+	// SubscriptionKey is used by Azure TTS.
+	SubscriptionKey string `yaml:"subscriptionKey,omitempty"` //nolint:gosec // intentional credential field
+}
+
+// OfflineTTSConfig holds local engine settings for TTS.
+type OfflineTTSConfig struct {
+	// Engine is one of: piper, espeak, festival, coqui-tts.
+	Engine string `yaml:"engine"`
+	// Model is the model name or path used by piper or coqui-tts.
+	Model string `yaml:"model,omitempty"`
 }

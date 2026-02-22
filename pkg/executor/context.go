@@ -103,6 +103,10 @@ type ExecutionContext struct {
 	// Resources can read this value via the inputTranscript() expression function.
 	InputTranscript string
 
+	// TTSOutputFile is the path to the audio file produced by a TTS resource.
+	// Resources can read this path via the ttsOutput() expression function.
+	TTSOutputFile string
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
@@ -287,6 +291,7 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	}
 
 	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
+	// and TTS output — accessible as get("ttsOutput")
 	switch name {
 	case "inputTranscript":
 		if ctx.InputTranscript != "" {
@@ -295,6 +300,10 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	case "inputMedia":
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
+		}
+	case "ttsOutput":
+		if ctx.TTSOutputFile != "" {
+			return ctx.TTSOutputFile, nil
 		}
 	}
 
@@ -1662,8 +1671,8 @@ func (ctx *ExecutionContext) WalkFiles(
 }
 
 // Input retrieves input values with unified access.
-// Priority: Input-processor results → Query Parameter → Header → Request Body
-// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
+// Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
+// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -1687,6 +1696,11 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no input media file available")
 			}
 			return ctx.InputMediaFile, nil
+		case "ttsOutput", "tts":
+			if ctx.TTSOutputFile == "" {
+				return nil, errors.New("no TTS output file available")
+			}
+			return ctx.TTSOutputFile, nil
 		default:
 			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
 		}
@@ -1694,6 +1708,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 
 	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
 	// or the short forms input("transcript") / input("media").
+	// TTS output — accessible as input("ttsOutput") / input("tts").
 	switch name {
 	case "inputTranscript", "transcript":
 		if ctx.InputTranscript != "" {
@@ -1702,6 +1717,10 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	case "inputMedia", "media":
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
+		}
+	case "ttsOutput", "tts":
+		if ctx.TTSOutputFile != "" {
+			return ctx.TTSOutputFile, nil
 		}
 	}
 
