@@ -3694,3 +3694,105 @@ func TestExecutionContext_IsHeaderAllowed_CompleteCoverage(t *testing.T) {
 	result = ctx.IsHeaderAllowed("any")
 	assert.True(t, result) // Empty list means allow all headers
 }
+
+func TestExecutionContext_Get_InputProcessorResults(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+if err != nil {
+t.Fatalf("NewExecutionContext failed: %v", err)
+}
+
+// Before setting processor results — both keys should fall through and return not-found.
+_, errT := ctx.Get("inputTranscript")
+if errT == nil {
+t.Error("expected error for empty inputTranscript, got nil")
+}
+_, errM := ctx.Get("inputMedia")
+if errM == nil {
+t.Error("expected error for empty inputMedia, got nil")
+}
+
+// Populate the processor fields.
+ctx.InputTranscript = "hello world"
+ctx.InputMediaFile = "/tmp/kdeps-media/recording.wav"
+
+got, err := ctx.Get("inputTranscript")
+if err != nil {
+t.Fatalf("Get(inputTranscript): unexpected error: %v", err)
+}
+if got != "hello world" {
+t.Errorf("Get(inputTranscript) = %v, want %q", got, "hello world")
+}
+
+got, err = ctx.Get("inputMedia")
+if err != nil {
+t.Fatalf("Get(inputMedia): unexpected error: %v", err)
+}
+if got != "/tmp/kdeps-media/recording.wav" {
+t.Errorf("Get(inputMedia) = %v, want %q", got, "/tmp/kdeps-media/recording.wav")
+}
+
+// Memory/session/outputs should still take priority over processor results.
+ctx.Memory.Set("inputTranscript", "overridden by memory")
+got, err = ctx.Get("inputTranscript")
+if err != nil {
+t.Fatalf("Get(inputTranscript) with memory override: unexpected error: %v", err)
+}
+if got != "overridden by memory" {
+t.Errorf("Get(inputTranscript) with memory = %v, want %q", got, "overridden by memory")
+}
+}
+
+func TestExecutionContext_Input_InputProcessorResults(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+if err != nil {
+t.Fatalf("NewExecutionContext failed: %v", err)
+}
+
+ctx.InputTranscript = "voice command received"
+ctx.InputMediaFile = "/tmp/kdeps-media/clip.mp4"
+
+tests := []struct {
+name     string
+key      string
+typeHint string
+want     string
+}{
+{"input(inputTranscript)", "inputTranscript", "", "voice command received"},
+{"input(transcript)", "transcript", "", "voice command received"},
+{"input(inputMedia)", "inputMedia", "", "/tmp/kdeps-media/clip.mp4"},
+{"input(media)", "media", "", "/tmp/kdeps-media/clip.mp4"},
+{"input(x, transcript)", "x", "transcript", "voice command received"},
+{"input(x, media)", "x", "media", "/tmp/kdeps-media/clip.mp4"},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+var (
+got interface{}
+e   error
+)
+if tt.typeHint != "" {
+got, e = ctx.Input(tt.key, tt.typeHint)
+} else {
+got, e = ctx.Input(tt.key)
+}
+if e != nil {
+t.Fatalf("Input() error = %v", e)
+}
+if got != tt.want {
+t.Errorf("Input() = %v, want %q", got, tt.want)
+}
+})
+}
+
+// Error cases: empty fields.
+ctx2, _ := executor.NewExecutionContext(&domain.Workflow{})
+if _, e := ctx2.Input("x", "transcript"); e == nil {
+t.Error("expected error when transcript is empty")
+}
+if _, e := ctx2.Input("x", "media"); e == nil {
+t.Error("expected error when media is empty")
+}
+}

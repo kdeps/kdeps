@@ -286,6 +286,18 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 		return val, nil
 	}
 
+	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
+	switch name {
+	case "inputTranscript":
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, nil
+		}
+	case "inputMedia":
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, nil
+		}
+	}
+
 	// 5. Query parameters (with filtering)
 	if val, err := ctx.getFromQuery(name); err == nil {
 		return val, nil
@@ -1650,8 +1662,8 @@ func (ctx *ExecutionContext) WalkFiles(
 }
 
 // Input retrieves input values with unified access.
-// Priority: Query Parameter → Header → Request Body
-// Syntax: Input(name) or Input(name, "param"|"header"|"body").
+// Priority: Input-processor results → Query Parameter → Header → Request Body
+// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
@@ -1665,8 +1677,31 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 			return ctx.GetHeader(name)
 		case "body", "data":
 			return ctx.getBody(name)
+		case "transcript":
+			if ctx.InputTranscript == "" {
+				return nil, errors.New("no input transcript available")
+			}
+			return ctx.InputTranscript, nil
+		case "media":
+			if ctx.InputMediaFile == "" {
+				return nil, errors.New("no input media file available")
+			}
+			return ctx.InputMediaFile, nil
 		default:
 			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
+		}
+	}
+
+	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
+	// or the short forms input("transcript") / input("media").
+	switch name {
+	case "inputTranscript", "transcript":
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, nil
+		}
+	case "inputMedia", "media":
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, nil
 		}
 	}
 
