@@ -110,7 +110,7 @@ func TestDoPushRequest_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	body, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"))
+	body, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, body)
 
@@ -130,7 +130,7 @@ func TestDoPushRequest_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: bad"))
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: bad"), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "schema validation failed")
 }
@@ -142,13 +142,13 @@ func TestDoPushRequest_ServerErrorNoJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml"))
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml"), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "502")
 }
 
 func TestDoPushRequest_ConnectionRefused(t *testing.T) {
-	_, err := doPushRequest("http://127.0.0.1:1", []byte("yaml"))
+	_, err := doPushRequest("http://127.0.0.1:1", []byte("yaml"), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to connect")
 }
@@ -182,7 +182,7 @@ func TestPushWorkflow_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushWorkflow(wfPath, server.URL)
+	err := pushWorkflow(wfPath, server.URL, "")
 	require.NoError(t, err)
 }
 
@@ -202,7 +202,7 @@ func TestPushWorkflow_WithTrailingSlash(t *testing.T) {
 	defer server.Close()
 
 	// Target with trailing slash
-	err := pushWorkflow(wfPath, server.URL+"/")
+	err := pushWorkflow(wfPath, server.URL+"/", "")
 	require.NoError(t, err)
 }
 
@@ -214,7 +214,7 @@ func TestPushWorkflow_WithoutScheme(t *testing.T) {
 	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML), 0600))
 
 	// Connection should fail (port 1 is closed), but error should mention connect, not scheme
-	err := pushWorkflow(wfPath, "127.0.0.1:1")
+	err := pushWorkflow(wfPath, "127.0.0.1:1", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "push request failed")
 }
@@ -235,14 +235,14 @@ func TestPushWorkflow_ServerRejected(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushWorkflow(wfPath, server.URL)
+	err := pushWorkflow(wfPath, server.URL, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "server rejected workflow")
 }
 
 func TestPushWorkflow_NonexistentSource(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	err := pushWorkflow("/nonexistent/workflow.yaml", "http://localhost:16395")
+	err := pushWorkflow("/nonexistent/workflow.yaml", "http://localhost:16395", "")
 	require.Error(t, err)
 }
 
@@ -259,7 +259,7 @@ func TestPushWorkflow_UnexpectedResponseBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushWorkflow(wfPath, server.URL)
+	err := pushWorkflow(wfPath, server.URL, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unexpected response")
 }
@@ -283,6 +283,61 @@ func TestNewPushCmd_UsageAndArgs(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestNewPushCmd_HasTokenFlag verifies that the --token / -t flag is registered.
+func TestNewPushCmd_HasTokenFlag(t *testing.T) {
+	cmd := newPushCmd()
+	flag := cmd.Flags().Lookup("token")
+	require.NotNil(t, flag, "--token flag must be registered on the push command")
+	assert.Equal(t, "", flag.DefValue, "--token default must be empty string")
+	assert.Equal(t, "t", flag.Shorthand, "--token must have shorthand -t")
+}
+
+// TestDoPushRequest_FlagTokenOverridesEnv verifies that when a non-empty token is
+// passed directly it overrides whatever is in KDEPS_MANAGEMENT_TOKEN.
+func TestDoPushRequest_FlagTokenOverridesEnv(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "env-token")
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	}))
+	defer server.Close()
+
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "flag-token")
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer flag-token", gotAuth, "--token flag must take precedence over env var")
+}
+
+// TestPushWorkflow_WithExplicitToken verifies that pushWorkflow passes the token
+// through to the HTTP request when provided directly (not via env).
+func TestPushWorkflow_WithExplicitToken(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "") // ensure env is empty
+
+	tmpDir := t.TempDir()
+	wfPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML), 0600))
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"workflow": map[string]interface{}{
+				"name": "test-agent", "version": "1.0.0",
+			},
+		})
+	}))
+	defer server.Close()
+
+	err := pushWorkflow(wfPath, server.URL, "direct-token")
+	require.NoError(t, err)
+	assert.Equal(t, "Bearer direct-token", gotAuth, "explicit token must be sent as Authorization header")
+}
+
 // TestPushWorkflow_NoWorkflowFieldInResponse tests that a response with status=ok
 // but no "workflow" field still succeeds without panicking.
 func TestPushWorkflow_OkResponseNoWorkflowField(t *testing.T) {
@@ -300,7 +355,7 @@ func TestPushWorkflow_OkResponseNoWorkflowField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushWorkflow(wfPath, server.URL)
+	err := pushWorkflow(wfPath, server.URL, "")
 	require.NoError(t, err)
 }
 
@@ -313,7 +368,7 @@ func TestPushWorkflow_URLSchemeNormalization(t *testing.T) {
 	require.NoError(t, os.WriteFile(wfPath, []byte(minimalWorkflowYAML), 0600))
 
 	// An https:// target will fail to connect in tests, but we just verify the prefix is kept
-	err := pushWorkflow(wfPath, "https://127.0.0.1:1/")
+	err := pushWorkflow(wfPath, "https://127.0.0.1:1/", "")
 	require.Error(t, err)
 	// Should be a connection error, not a URL parsing error
 	assert.True(t,
@@ -335,7 +390,7 @@ func TestDoPushRequest_SendsTokenFromEnv(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"))
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer my-secret-token", gotAuth)
 }
@@ -353,7 +408,7 @@ func TestDoPushRequest_NoTokenWhenEnvUnset(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"))
+	_, err := doPushRequest(server.URL+"/_kdeps/workflow", []byte("yaml: content"), "")
 	require.NoError(t, err)
 	assert.Empty(t, gotAuth)
 }
@@ -365,7 +420,7 @@ func TestDoPushRequest_NoTokenWhenEnvUnset(t *testing.T) {
 // TestPushKdepsPackage_MissingFile checks that pushKdepsPackage returns an error
 // when the source path does not exist.
 func TestPushKdepsPackage_MissingFile(t *testing.T) {
-	err := pushKdepsPackage("/nonexistent/myagent-1.0.0.kdeps", "http://localhost:16395")
+	err := pushKdepsPackage("/nonexistent/myagent-1.0.0.kdeps", "http://localhost:16395", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read package")
 }
@@ -393,7 +448,7 @@ func TestPushKdepsPackage_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushKdepsPackage(pkgPath, server.URL)
+	err := pushKdepsPackage(pkgPath, server.URL, "")
 	require.NoError(t, err)
 	assert.Equal(t, "application/octet-stream", gotContentType)
 }
@@ -409,7 +464,7 @@ func TestDoPushPackageRequest_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	body, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("fake-archive"))
+	body, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("fake-archive"), "")
 	require.NoError(t, err)
 
 	var result map[string]interface{}
@@ -430,7 +485,7 @@ func TestDoPushPackageRequest_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("big-archive"))
+	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("big-archive"), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum")
 }
@@ -447,7 +502,7 @@ func TestDoPushPackageRequest_SendsToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("archive"))
+	_, err := doPushPackageRequest(server.URL+"/_kdeps/package", []byte("archive"), "")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer pkg-token-abc", gotAuth)
 }
@@ -470,7 +525,7 @@ func TestPushWorkflow_KdepsExtension(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := pushWorkflow(pkgPath, server.URL)
+	err := pushWorkflow(pkgPath, server.URL, "")
 	require.NoError(t, err)
 	assert.Equal(t, "/_kdeps/package", calledEndpoint,
 		".kdeps source must use the /_kdeps/package endpoint")
@@ -503,7 +558,7 @@ settings:
 	}))
 	defer server.Close()
 
-	_ = pushWorkflow(yamlPath, server.URL) // errors are ok – we just check the endpoint
+	_ = pushWorkflow(yamlPath, server.URL, "") // errors are ok – we just check the endpoint
 	assert.Equal(t, "/_kdeps/workflow", calledEndpoint,
 		"YAML source must use the /_kdeps/workflow endpoint, not /_kdeps/package")
 }

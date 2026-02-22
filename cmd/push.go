@@ -53,7 +53,9 @@ const (
 
 // newPushCmd creates the push command.
 func newPushCmd() *cobra.Command {
-	return &cobra.Command{
+	var token string
+
+	cmd := &cobra.Command{
 		Use:   "push [workflow_path] [target]",
 		Short: "Push workflow to a running kdeps container",
 		Long: `Push a workflow update to a running kdeps container (client).
@@ -65,6 +67,9 @@ without rebuilding the image.
 The target kdeps container must be running with its API server exposed.
 The workflow is validated, uploaded, and immediately applied by the container.
 
+The management token can be supplied via --token or the KDEPS_MANAGEMENT_TOKEN
+environment variable.  --token takes precedence when both are present.
+
 Arguments:
   workflow_path  Path to workflow.yaml, a directory, or a .kdeps package
   target         URL of the running kdeps container (e.g. http://localhost:16395)
@@ -72,6 +77,9 @@ Arguments:
 Examples:
   # Push a workflow YAML to a local container
   kdeps push workflow.yaml http://localhost:16395
+
+  # Push with an explicit token (takes precedence over KDEPS_MANAGEMENT_TOKEN)
+  kdeps push --token mysecret workflow.yaml http://localhost:16395
 
   # Push from a directory
   kdeps push examples/chatbot http://localhost:16395
@@ -83,13 +91,18 @@ Examples:
   kdeps push workflow.yaml http://my-server:16395`,
 		Args: cobra.ExactArgs(pushArgCount),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return pushWorkflow(args[0], args[1])
+			return pushWorkflow(args[0], args[1], token)
 		},
 	}
+
+	cmd.Flags().StringVarP(&token, "token", "t", "",
+		"Management API bearer token (overrides KDEPS_MANAGEMENT_TOKEN env var)")
+
+	return cmd
 }
 
 // pushWorkflow sends a workflow update to a running kdeps container.
-func pushWorkflow(sourcePath, target string) error {
+func pushWorkflow(sourcePath, target, token string) error {
 	// Normalize target URL (strip trailing slash)
 	target = strings.TrimRight(target, "/")
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
@@ -103,7 +116,7 @@ func pushWorkflow(sourcePath, target string) error {
 	// resources/, data/, scripts/, etc.).  Sending just the marshalled YAML would
 	// lose all non-YAML supporting files.
 	if strings.HasSuffix(sourcePath, ".kdeps") {
-		return pushKdepsPackage(sourcePath, target)
+		return pushKdepsPackage(sourcePath, target, token)
 	}
 
 	// Resolve and read the workflow YAML
@@ -118,7 +131,7 @@ func pushWorkflow(sourcePath, target string) error {
 	fmt.Fprintf(os.Stdout, "  ✓ Workflow loaded (%d bytes)\n", len(workflowYAML))
 	fmt.Fprintf(os.Stdout, "  ✓ Uploading to %s\n", endpoint)
 
-	resp, err := doPushRequest(endpoint, workflowYAML)
+	resp, err := doPushRequest(endpoint, workflowYAML, token)
 	if err != nil {
 		return fmt.Errorf("push request failed: %w", err)
 	}
@@ -129,7 +142,7 @@ func pushWorkflow(sourcePath, target string) error {
 // pushKdepsPackage sends the raw .kdeps archive to the dedicated package endpoint.
 // The server extracts the full archive (workflow.yaml, resources/, data/, scripts/, etc.)
 // preserving all supporting files, then hot-reloads the workflow.
-func pushKdepsPackage(packagePath, target string) error {
+func pushKdepsPackage(packagePath, target, token string) error {
 	pkgData, err := os.ReadFile(packagePath)
 	if err != nil {
 		return fmt.Errorf("failed to read package %s: %w", packagePath, err)
@@ -140,7 +153,7 @@ func pushKdepsPackage(packagePath, target string) error {
 	fmt.Fprintf(os.Stdout, "  ✓ Package loaded (%d bytes)\n", len(pkgData))
 	fmt.Fprintf(os.Stdout, "  ✓ Uploading to %s\n", endpoint)
 
-	resp, err := doPushPackageRequest(endpoint, pkgData)
+	resp, err := doPushPackageRequest(endpoint, pkgData, token)
 	if err != nil {
 		return fmt.Errorf("push request failed: %w", err)
 	}
@@ -207,23 +220,25 @@ func resolveAndReadWorkflow(sourcePath string) ([]byte, error) {
 }
 
 // doPushRequest sends the workflow YAML to the management endpoint and returns the response body.
-func doPushRequest(endpoint string, workflowYAML []byte) ([]byte, error) {
-	return doPut(endpoint, "application/yaml", workflowYAML, pushHTTPTimeout)
+func doPushRequest(endpoint string, workflowYAML []byte, token string) ([]byte, error) {
+	return doPut(endpoint, "application/yaml", workflowYAML, pushHTTPTimeout, token)
 }
 
 // doPushPackageRequest sends a raw .kdeps archive to the package management endpoint
 // and returns the response body.  A longer timeout is used because packages may be large.
-func doPushPackageRequest(endpoint string, pkgData []byte) ([]byte, error) {
-	return doPut(endpoint, "application/octet-stream", pkgData, pushPackageHTTPTimeout)
+func doPushPackageRequest(endpoint string, pkgData []byte, token string) ([]byte, error) {
+	return doPut(endpoint, "application/octet-stream", pkgData, pushPackageHTTPTimeout, token)
 }
 
 // doPut is the shared HTTP PUT helper used by doPushRequest and doPushPackageRequest.
-// It attaches the bearer token from KDEPS_MANAGEMENT_TOKEN when present, caps the
-// response body at pushMaxResponseSize, and converts non-200 status codes to errors.
+// It attaches the bearer token — using token when non-empty, otherwise falling back to
+// KDEPS_MANAGEMENT_TOKEN — caps the response body at pushMaxResponseSize, and converts
+// non-200 status codes to errors.
 func doPut(
 	endpoint, contentType string,
 	body []byte,
 	timeout time.Duration,
+	token string,
 ) ([]byte, error) {
 	client := &stdhttp.Client{Timeout: timeout}
 
@@ -238,9 +253,11 @@ func doPut(
 	}
 	req.Header.Set("Content-Type", contentType)
 
-	// If KDEPS_MANAGEMENT_TOKEN is set, include it as a bearer token so that
-	// servers with auth enabled can accept the push.
-	if token := strings.TrimSpace(os.Getenv("KDEPS_MANAGEMENT_TOKEN")); token != "" {
+	// --token flag takes precedence; fall back to KDEPS_MANAGEMENT_TOKEN env var.
+	if token == "" {
+		token = strings.TrimSpace(os.Getenv("KDEPS_MANAGEMENT_TOKEN"))
+	}
+	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
