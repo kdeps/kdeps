@@ -146,14 +146,13 @@ func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
 		args = append(args, "-l", t.cfg.Language)
 	}
 
-	//nolint:gosec // G702: python args come from user-configured vosk engine
 	cmd := exec.CommandContext(context.Background(), "python", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	t.logger.Info("running vosk", "args", args)
 	if runErr := cmd.Run(); runErr != nil {
-		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		_ = os.Remove(outPath)
 		return nil, fmt.Errorf("vosk: %w: %s", runErr, stderr.String())
 	}
 
@@ -181,14 +180,13 @@ func (t *offlineTranscriber) runWhisperCPP(mediaFile, model, language string) (*
 		args = append(args, "-l", language)
 	}
 
-	//nolint:gosec // G204: whisper-cpp binary path and args come from user-configured model path
 	cmd := exec.CommandContext(context.Background(), "whisper-cpp", args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	t.logger.Info("running whisper-cpp", "args", args)
 	if runErr := cmd.Run(); runErr != nil {
-		_ = os.Remove(outFile.Name()) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		_ = os.Remove(outFile.Name())
 		return nil, fmt.Errorf("whisper-cpp: %w: %s", runErr, stderr.String())
 	}
 

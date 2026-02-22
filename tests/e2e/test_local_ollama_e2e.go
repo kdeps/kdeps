@@ -167,7 +167,7 @@ func testDirectOllamaAPI(t *testing.T, model string) {
 	jsonData, err := json.Marshal(requestBody)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), ollamaAPITimeoutLong)
+	ctx, cancel := context.WithTimeout(t.Context(), ollamaAPITimeoutLong)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(

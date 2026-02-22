@@ -21,7 +21,6 @@ package docker_test
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -340,7 +339,7 @@ func TestClient_BuildImage(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	reader := strings.NewReader("FROM alpine\n")
 
 	err = client.BuildImage(ctx, "Dockerfile", "test-image:latest", reader, false)
@@ -368,7 +367,7 @@ func TestClient_RunContainer(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	config := &docker.ContainerConfig{
 		PortBindings: map[string]string{"16395": "16395"},
 	}
@@ -391,7 +390,7 @@ func TestClient_StopContainer(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err = client.StopContainer(ctx, "nonexistent-container")
 	// Will fail since container doesn't exist
@@ -410,7 +409,7 @@ func TestClient_RemoveContainer(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err = client.RemoveContainer(ctx, "nonexistent-container")
 	// Will fail since container doesn't exist
@@ -507,7 +506,7 @@ func TestClient_TagImage(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err = client.TagImage(ctx, "nonexistent-image:latest", "test-tag:latest")
 	// Will fail since source image doesn't exist
@@ -1038,7 +1037,7 @@ func TestClient_RunContainer_ErrorCases(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Test with nil config
 	_, err = client.RunContainer(ctx, "test-image:latest", nil)
@@ -1062,7 +1061,7 @@ func TestClient_BuildImage_ErrorCases(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Test with nil reader
 	err = client.BuildImage(ctx, "Dockerfile", "test:latest", nil, false)
@@ -1086,7 +1085,7 @@ func TestClient_PruneDanglingImages(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Test pruning dangling images - returns count and error
 	count, err := client.PruneDanglingImages(ctx)
@@ -1116,7 +1115,7 @@ func TestBuilder_BuildImage_WithTags(t *testing.T) {
 		t.Skip("Docker not available for testing")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Create a simple Dockerfile
 	dockerfileContent := `FROM alpine:latest
@@ -1443,7 +1442,7 @@ func TestDefaultCompiler_InterfaceMethods(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test ExecuteCommand (safe command)
-	ctx := context.Background()
+	ctx := t.Context()
 	output, err := compiler.ExecuteCommand(ctx, "", nil, "echo", "test")
 	require.NoError(t, err)
 	assert.Contains(t, string(output), "test")

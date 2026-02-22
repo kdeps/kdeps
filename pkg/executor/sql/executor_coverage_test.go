@@ -452,7 +452,7 @@ func TestExecutor_ExecuteDMLQuery_RowsAffectedError(t *testing.T) {
 	// Execute a DML that might have issues with RowsAffected
 	// In SQLite, this usually works, so we'll just test the happy path
 	rowsAffected, lastInsertID, err := e.ExecuteDMLQuery(
-		context.Background(),
+		t.Context(),
 		db,
 		"SELECT 1", // SELECT doesn't affect rows, but shouldn't error
 		nil,
@@ -549,7 +549,7 @@ func TestExecutor_ExecuteSelectQuery_TimeoutExceeded(t *testing.T) {
 	e := sql.NewExecutor()
 
 	// Create a context that's already cancelled
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	_, err = e.ExecuteSelectQuery(ctx, db, "SELECT 1", nil, 0)
@@ -570,7 +570,7 @@ func TestExecutor_ExecuteDMLQuery_TimeoutExceeded(t *testing.T) {
 	e := sql.NewExecutor()
 
 	// Create a context with very short timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 1*time.Nanosecond)
 	defer cancel()
 
 	// Wait a bit to ensure timeout
