@@ -490,7 +490,7 @@ func TestInputSourcesIntegration_MissingTelephonyType(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			Input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
+				Sources:   []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{}, // missing type
 			},
 		},
@@ -717,7 +717,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("missing transcriber mode", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Sources: []string{domain.InputSourceAudio},
+			Sources:     []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{},
 		})
 		err = workflowValidator.Validate(wf)
@@ -727,7 +727,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("invalid transcriber mode", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Sources: []string{domain.InputSourceAudio},
+			Sources:     []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: "stream"},
 		})
 		err = workflowValidator.Validate(wf)
@@ -737,7 +737,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("online mode missing online config", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Sources: []string{domain.InputSourceAudio},
+			Sources:     []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOnline},
 		})
 		err = workflowValidator.Validate(wf)
@@ -747,7 +747,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("offline mode missing offline config", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Sources: []string{domain.InputSourceAudio},
+			Sources:     []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOffline},
 		})
 		err = workflowValidator.Validate(wf)

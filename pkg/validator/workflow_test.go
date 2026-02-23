@@ -1125,7 +1125,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			name: "valid audio source with device",
 			config: &domain.InputConfig{
 				Sources: []string{domain.InputSourceAudio},
-				Audio:  &domain.AudioConfig{Device: "hw:0,0"},
+				Audio:   &domain.AudioConfig{Device: "hw:0,0"},
 			},
 			wantErr: false,
 		},
@@ -1138,14 +1138,14 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			name: "valid video source with device",
 			config: &domain.InputConfig{
 				Sources: []string{domain.InputSourceVideo},
-				Video:  &domain.VideoConfig{Device: "/dev/video0"},
+				Video:   &domain.VideoConfig{Device: "/dev/video0"},
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid telephony local",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
+				Sources:   []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
 			},
 			wantErr: false,
@@ -1153,7 +1153,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "valid telephony online",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
+				Sources:   []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeOnline, Provider: "twilio"},
 			},
 			wantErr: false,
@@ -1171,7 +1171,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "telephony missing type",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
+				Sources:   []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{},
 			},
 			wantErr: true,
@@ -1179,7 +1179,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "telephony invalid type",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
+				Sources:   []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: "invalid"},
 			},
 			wantErr: true,
@@ -1398,7 +1398,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "missing transcriber mode",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
+				Sources:     []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{},
 			},
 			wantErr: true,
@@ -1407,7 +1407,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "invalid transcriber mode",
 			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
+				Sources:     []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{Mode: "hybrid"},
 			},
 			wantErr: true,

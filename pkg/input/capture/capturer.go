@@ -80,7 +80,12 @@ func New(source string, cfg *domain.InputConfig, logger *slog.Logger) (Capturer,
 // NewWithDuration returns a Capturer that records for durationSeconds.
 // source selects which input to capture from; cfg provides the hardware device settings.
 // This is used by the activation detector to capture short probes.
-func NewWithDuration(source string, cfg *domain.InputConfig, durationSeconds int, logger *slog.Logger) (Capturer, error) {
+func NewWithDuration(
+	source string,
+	cfg *domain.InputConfig,
+	durationSeconds int,
+	logger *slog.Logger,
+) (Capturer, error) {
 	switch source {
 	case domain.InputSourceAudio:
 		device := "default"

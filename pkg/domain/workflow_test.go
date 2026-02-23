@@ -1102,8 +1102,8 @@ func TestInputConfig_JSONRoundTrip(t *testing.T) {
 	// Test that InputConfig structs round-trip through encoding/json correctly.
 	original := domain.InputConfig{
 		Sources: []string{domain.InputSourceTelephony},
-		Audio:  &domain.AudioConfig{Device: "hw:0,0"},
-		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Audio:   &domain.AudioConfig{Device: "hw:0,0"},
+		Video:   &domain.VideoConfig{Device: "/dev/video0"},
 		Telephony: &domain.TelephonyConfig{
 			Type:     domain.TelephonyTypeOnline,
 			Provider: "twilio",

@@ -405,8 +405,8 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 	return nil
 }
 
-// ValidateInputConfig validates the workflow input source configuration.
-func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) error {
+// validateSourcesList validates each source entry and telephony config.
+func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	validSources := map[string]bool{
 		domain.InputSourceAPI:       true,
 		domain.InputSourceAudio:     true,
@@ -414,31 +414,15 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		domain.InputSourceTelephony: true,
 	}
 
-	if len(config.Sources) == 0 {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.sources is required and must have at least one source",
-			nil,
-		)
-	}
-
-	// Validate each source and track flags
 	hasTelephony := false
 	for _, source := range config.Sources {
 		if source == "" {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"input source cannot be empty",
-				nil,
-			)
+			return domain.NewError(domain.ErrCodeInvalidWorkflow, "input source cannot be empty", nil)
 		}
 		if !validSources[source] {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, audio, video, telephony]",
-					source,
-				),
+				fmt.Sprintf("invalid input source: %s. Available options: [api, audio, video, telephony]", source),
 				nil,
 			)
 		}
@@ -447,7 +431,6 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		}
 	}
 
-	// Validate telephony config when any source is telephony
 	if hasTelephony {
 		if config.Telephony == nil {
 			return domain.NewError(
@@ -456,9 +439,24 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 				nil,
 			)
 		}
-		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
-			return err
-		}
+		return v.ValidateTelephonyConfig(config.Telephony)
+	}
+
+	return nil
+}
+
+// ValidateInputConfig validates the workflow input source configuration.
+func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) error {
+	if len(config.Sources) == 0 {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.sources is required and must have at least one source",
+			nil,
+		)
+	}
+
+	if err := v.validateSourcesList(config); err != nil {
+		return err
 	}
 
 	// Transcribers apply only to non-API sources

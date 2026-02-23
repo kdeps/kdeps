@@ -29,7 +29,7 @@ import (
 func TestNew_AudioSource(t *testing.T) {
 	cfg := &domain.InputConfig{
 		Sources: []string{domain.InputSourceAudio},
-		Audio:  &domain.AudioConfig{Device: "default"},
+		Audio:   &domain.AudioConfig{Device: "default"},
 	}
 	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
@@ -58,7 +58,7 @@ func TestNew_AudioSource_NoDevice(t *testing.T) {
 func TestNew_VideoSource(t *testing.T) {
 	cfg := &domain.InputConfig{
 		Sources: []string{domain.InputSourceVideo},
-		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Video:   &domain.VideoConfig{Device: "/dev/video0"},
 	}
 	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {

@@ -50,7 +50,7 @@ func TestNewProcessor_APISource(t *testing.T) {
 func TestNewProcessor_AudioSource_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
 		Sources: []string{domain.InputSourceAudio},
-		Audio:  &domain.AudioConfig{Device: "default"},
+		Audio:   &domain.AudioConfig{Device: "default"},
 	}
 	p, err := input.NewProcessor(cfg, slog.Default())
 	if err != nil {
@@ -64,7 +64,7 @@ func TestNewProcessor_AudioSource_NoTranscriber(t *testing.T) {
 func TestNewProcessor_VideoSource_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
 		Sources: []string{domain.InputSourceVideo},
-		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Video:   &domain.VideoConfig{Device: "/dev/video0"},
 	}
 	p, err := input.NewProcessor(cfg, slog.Default())
 	if err != nil {
