@@ -35,7 +35,6 @@ export default defineConfig({
 
   lastUpdated: true,
   cleanUrls: true,
-  ignoreDeadLinks: true,
 
   themeConfig: {
     logo: '/logo.svg',
