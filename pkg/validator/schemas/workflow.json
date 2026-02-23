@@ -102,11 +102,16 @@
         },
         "input": {
           "type": "object",
-          "required": ["source"],
+          "required": ["sources"],
           "properties": {
-            "source": {
-              "type": "string",
-              "enum": ["api", "audio", "video", "telephony"]
+            "sources": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": ["api", "audio", "video", "telephony"]
+              }
             },
             "audio": {
               "type": "object",
@@ -248,7 +253,7 @@
             {
               "if": {
                 "properties": {
-                  "source": { "const": "telephony" }
+                  "sources": { "contains": { "const": "telephony" } }
                 }
               },
               "then": {
