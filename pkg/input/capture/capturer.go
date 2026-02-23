@@ -72,15 +72,21 @@ type Capturer interface {
 	Capture() (string, error)
 }
 
-// New returns a Capturer appropriate for the InputConfig source.
-func New(cfg *domain.InputConfig, logger *slog.Logger) (Capturer, error) {
-	return NewWithDuration(cfg, DefaultDurationSeconds, logger)
+// New returns a Capturer for the given source using settings from cfg.
+func New(source string, cfg *domain.InputConfig, logger *slog.Logger) (Capturer, error) {
+	return NewWithDuration(source, cfg, DefaultDurationSeconds, logger)
 }
 
 // NewWithDuration returns a Capturer that records for durationSeconds.
+// source selects which input to capture from; cfg provides the hardware device settings.
 // This is used by the activation detector to capture short probes.
-func NewWithDuration(cfg *domain.InputConfig, durationSeconds int, logger *slog.Logger) (Capturer, error) {
-	switch cfg.Source {
+func NewWithDuration(
+	source string,
+	cfg *domain.InputConfig,
+	durationSeconds int,
+	logger *slog.Logger,
+) (Capturer, error) {
+	switch source {
 	case domain.InputSourceAudio:
 		device := "default"
 		if cfg.Audio != nil && cfg.Audio.Device != "" {
@@ -96,19 +102,19 @@ func NewWithDuration(cfg *domain.InputConfig, durationSeconds int, logger *slog.
 		return &VideoCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
 	case domain.InputSourceTelephony:
-		if cfg.Telephony.Type == domain.TelephonyTypeOnline {
+		if cfg.Telephony != nil && cfg.Telephony.Type == domain.TelephonyTypeOnline {
 			// Online telephony media arrives via the API server — nothing to capture locally.
 			return &NoOpCapturer{}, nil
 		}
 		// Local telephony: treat the device as an audio source.
 		device := "/dev/ttyUSB0"
-		if cfg.Telephony.Device != "" {
+		if cfg.Telephony != nil && cfg.Telephony.Device != "" {
 			device = cfg.Telephony.Device
 		}
 		return &AudioCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported capture source: %s", cfg.Source)
+		return nil, fmt.Errorf("unsupported capture source: %s", source)
 	}
 }
 

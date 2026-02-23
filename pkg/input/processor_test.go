@@ -37,7 +37,7 @@ func TestNewProcessor_NilConfig(t *testing.T) {
 }
 
 func TestNewProcessor_APISource(t *testing.T) {
-	cfg := &domain.InputConfig{Source: domain.InputSourceAPI}
+	cfg := &domain.InputConfig{Sources: []string{domain.InputSourceAPI}}
 	p, err := input.NewProcessor(cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("NewProcessor(api) error = %v", err)
@@ -49,8 +49,8 @@ func TestNewProcessor_APISource(t *testing.T) {
 
 func TestNewProcessor_AudioSource_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceAudio,
-		Audio:  &domain.AudioConfig{Device: "default"},
+		Sources: []string{domain.InputSourceAudio},
+		Audio:   &domain.AudioConfig{Device: "default"},
 	}
 	p, err := input.NewProcessor(cfg, slog.Default())
 	if err != nil {
@@ -63,8 +63,8 @@ func TestNewProcessor_AudioSource_NoTranscriber(t *testing.T) {
 
 func TestNewProcessor_VideoSource_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceVideo,
-		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Sources: []string{domain.InputSourceVideo},
+		Video:   &domain.VideoConfig{Device: "/dev/video0"},
 	}
 	p, err := input.NewProcessor(cfg, slog.Default())
 	if err != nil {
@@ -77,7 +77,7 @@ func TestNewProcessor_VideoSource_NoTranscriber(t *testing.T) {
 
 func TestNewProcessor_TelephonyLocal_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceTelephony,
+		Sources: []string{domain.InputSourceTelephony},
 		Telephony: &domain.TelephonyConfig{
 			Type:   domain.TelephonyTypeLocal,
 			Device: "/dev/ttyUSB0",
@@ -94,7 +94,7 @@ func TestNewProcessor_TelephonyLocal_NoTranscriber(t *testing.T) {
 
 func TestNewProcessor_TelephonyOnline_NoTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceTelephony,
+		Sources: []string{domain.InputSourceTelephony},
 		Telephony: &domain.TelephonyConfig{
 			Type:     domain.TelephonyTypeOnline,
 			Provider: "twilio",
@@ -111,7 +111,7 @@ func TestNewProcessor_TelephonyOnline_NoTranscriber(t *testing.T) {
 
 func TestNewProcessor_WithOfflineTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceAudio,
+		Sources: []string{domain.InputSourceAudio},
 		Transcriber: &domain.TranscriberConfig{
 			Mode: domain.TranscriberModeOffline,
 			Offline: &domain.OfflineTranscriberConfig{
@@ -130,7 +130,7 @@ func TestNewProcessor_WithOfflineTranscriber(t *testing.T) {
 
 func TestNewProcessor_WithOnlineTranscriber(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceAudio,
+		Sources: []string{domain.InputSourceAudio},
 		Transcriber: &domain.TranscriberConfig{
 			Mode: domain.TranscriberModeOnline,
 			Online: &domain.OnlineTranscriberConfig{
@@ -149,7 +149,7 @@ func TestNewProcessor_WithOnlineTranscriber(t *testing.T) {
 }
 
 func TestNewProcessor_NilLogger(t *testing.T) {
-	cfg := &domain.InputConfig{Source: domain.InputSourceAudio}
+	cfg := &domain.InputConfig{Sources: []string{domain.InputSourceAudio}}
 	p, err := input.NewProcessor(cfg, nil)
 	if err != nil {
 		t.Fatalf("NewProcessor with nil logger error = %v", err)

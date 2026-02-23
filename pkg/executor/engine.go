@@ -197,7 +197,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	// The processor captures hardware media and optionally transcribes it before
 	// any resources run, so the transcript/media path is available to all resources
 	// via inputTranscript() and inputMedia() expression functions.
-	if workflow.Settings.Input != nil && workflow.Settings.Input.Source != domain.InputSourceAPI {
+	if workflow.Settings.Input != nil && workflow.Settings.Input.HasNonAPISource() {
 		processor, procErr := input.NewProcessor(workflow.Settings.Input, e.logger)
 		if procErr != nil {
 			return nil, fmt.Errorf("input processor init: %w", procErr)

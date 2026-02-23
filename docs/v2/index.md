@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: KDeps
-  text: Workflow Orchestration Framework
-  tagline: Build stateful REST APIs with YAML configuration - handle auth, data flow, storage, and validation without writing boilerplate code
+  text: Edge AI Workflow Framework
+  tagline: Build AI agents for edge devices and APIs with YAML — audio, video, and telephony input, offline LLMs, wake-phrase activation, and speech output. No cloud required.
   image:
     src: /logo.svg
     alt: KDeps Logo
@@ -17,32 +17,32 @@ hero:
       link: https://github.com/kdeps/kdeps
 
 features:
+  - icon: 🎙️
+    title: Multi-Source I/O
+    details: Accept input from audio hardware, cameras, telephony, and HTTP APIs — simultaneously. Transcribe with local Whisper or cloud STT.
+  - icon: 🔇
+    title: Offline-First
+    details: Run entirely on-device — local LLMs via Ollama, offline STT (Whisper, Vosk), offline TTS (Piper, eSpeak). No network required.
+  - icon: 🗣️
+    title: Wake-Phrase Activation
+    details: Always-on listening loop. Workflow triggers only when the wake phrase is detected — like "hey kdeps".
   - icon: 📝
     title: YAML-First Configuration
     details: Define workflows with simple, readable YAML. No complex programming required.
-  - icon: ⚡
-    title: Fast Local Development
-    details: Sub-second startup time. Run locally during development, Docker only for deployment.
-  - icon: 🔌
-    title: Unified API
-    details: Just get() and set() - access data from any source without memorizing 15+ functions.
-  - icon: 🎨
-    title: Mustache Expressions
-    details: Simpler syntax for variables - 56% less typing. Mix with expr-lang for complex logic.
   - icon: 🤖
     title: LLM Integration
-    details: Ollama for local models, or any OpenAI-compatible API endpoint.
+    details: Ollama for local models, or any OpenAI-compatible API endpoint. Vision, tools, and streaming supported.
   - icon: 🗄️
     title: Built-in SQL Support
     details: PostgreSQL, MySQL, SQLite, SQL Server, Oracle with connection pooling.
   - icon: 🐳
     title: Docker Ready
-    details: Package everything into optimized Docker images with optional GPU support.
+    details: Package everything into optimized Docker images. Runs on Raspberry Pi, Jetson, and x86 edge hardware.
 ---
 
 # Introduction
 
-KDeps is a YAML-based workflow orchestration framework for building stateful REST APIs. Built on **~92,000 lines of Go code** with **70% test coverage**, it packages AI tasks, data processing, and API integrations into portable units, eliminating boilerplate code for common patterns like authentication, data flow, storage, and validation.
+KDeps is a YAML-based workflow framework for building AI agents on edge devices and API backends. Built on **~92,000 lines of Go code** with **70% test coverage**, it combines multi-source hardware I/O (audio, video, telephony), offline-capable LLMs, speech recognition, wake-phrase activation, and text-to-speech into portable, self-contained units that run anywhere — from Raspberry Pi to cloud servers.
 
 ## Technical Highlights
 
@@ -55,6 +55,50 @@ KDeps is a YAML-based workflow orchestration framework for building stateful RES
 **Multi-Target**: Native CLI, Docker containers, and WebAssembly for browser execution
 
 ## Key Highlights
+
+### Multi-Source I/O for Edge Devices
+
+KDeps accepts input from hardware devices and HTTP APIs — simultaneously. Configure audio, video, telephony, and API sources in one `workflow.yaml`:
+
+```yaml
+settings:
+  input:
+    sources: [audio]          # audio | video | telephony | api
+    audio:
+      device: hw:0,0          # ALSA device (Linux), microphone name (macOS/Windows)
+    activation:
+      phrase: "hey kdeps"     # Wake phrase — workflow runs only when heard
+      mode: offline
+      offline:
+        engine: faster-whisper
+        model: small
+    transcriber:
+      mode: offline           # Fully local, no cloud required
+      output: text
+      offline:
+        engine: faster-whisper
+        model: small
+```
+
+| Source | Hardware |
+|--------|----------|
+| `audio` | ALSA microphone, line-in, USB audio |
+| `video` | V4L2 camera, USB webcam, CSI camera |
+| `telephony` | SIP/ATA adapter, Twilio |
+| `api` | HTTP REST (default) |
+
+[Full Input Sources guide →](/concepts/input-sources)
+
+### Offline-First AI Stack
+
+Every AI component has an offline alternative — run completely air-gapped:
+
+| Component | Offline Options | Cloud Options |
+|-----------|----------------|---------------|
+| LLM | Ollama (llama3, mistral, phi) | OpenAI, Anthropic, Google, Groq |
+| STT | Whisper, Faster-Whisper, Vosk, Whisper.cpp | OpenAI Whisper API, Deepgram, Google STT |
+| TTS | Piper, eSpeak-NG, Festival, Coqui TTS | OpenAI TTS, ElevenLabs, Azure TTS |
+| Wake Phrase | Faster-Whisper, Vosk | Deepgram, AssemblyAI |
 
 ### YAML-First Configuration
 Build workflows using simple, self-contained YAML configuration blocks. No complex programming required - just define your resources and let KDeps handle the orchestration.
@@ -297,6 +341,7 @@ Five built-in executor types handle different workload types:
 - [Overview](resources/overview) - Resource types and common configuration
 - [LLM (Chat)](resources/llm) - Language model integration
 - [LLM Backends](resources/llm-backends) - Supported LLM backends
+- [TTS (Text-to-Speech)](resources/tts) - Speech synthesis (offline & cloud)
 - [HTTP Client](resources/http-client) - External API calls
 - [SQL](resources/sql) - Database queries
 - [Python](resources/python) - Python script execution
@@ -304,6 +349,7 @@ Five built-in executor types handle different workload types:
 - [API Response](resources/api-response) - Response formatting
 
 ### Concepts
+- [Input Sources](concepts/input-sources) - Audio, video, telephony, wake-phrase, transcription
 - [Unified API](concepts/unified-api) - get(), set(), file(), info()
 - [Expression Helpers](concepts/expression-helpers) - json(), safe(), debug(), default()
 - [Expressions](concepts/expressions) - Expression syntax
@@ -325,6 +371,7 @@ Five built-in executor types handle different workload types:
 - [Building a Chatbot](tutorials/chatbot)
 - [File Upload Processing](tutorials/file-upload)
 - [Multi-Database Workflow](tutorials/multi-database)
+- [Vision Workflow](tutorials/vision)
 
 
 ## Why KDeps v2?
@@ -342,6 +389,11 @@ Five built-in executor types handle different workload types:
 
 Explore working examples:
 
+**Edge AI / Voice:**
+- [Voice Assistant](https://github.com/kdeps/kdeps/tree/main/examples/voice-assistant) - Offline wake-phrase + LLM + TTS on edge hardware
+- [Vision Surveillance](https://github.com/kdeps/kdeps/tree/main/examples/vision-surveillance) - Camera capture + vision LLM analysis
+
+**API Backends:**
 - [Simple Chatbot](https://github.com/kdeps/kdeps/tree/main/examples/chatbot) - LLM chatbot
 - [ChatGPT Clone](https://github.com/kdeps/kdeps/tree/main/examples/chatgpt-clone) - Full chat UI
 - [File Upload](https://github.com/kdeps/kdeps/tree/main/examples/file-upload) - File processing

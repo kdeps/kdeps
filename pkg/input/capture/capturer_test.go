@@ -28,10 +28,10 @@ import (
 
 func TestNew_AudioSource(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceAudio,
-		Audio:  &domain.AudioConfig{Device: "default"},
+		Sources: []string{domain.InputSourceAudio},
+		Audio:   &domain.AudioConfig{Device: "default"},
 	}
-	c, err := capture.New(cfg, slog.Default())
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -45,8 +45,8 @@ func TestNew_AudioSource(t *testing.T) {
 }
 
 func TestNew_AudioSource_NoDevice(t *testing.T) {
-	cfg := &domain.InputConfig{Source: domain.InputSourceAudio}
-	c, err := capture.New(cfg, slog.Default())
+	cfg := &domain.InputConfig{Sources: []string{domain.InputSourceAudio}}
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -57,10 +57,10 @@ func TestNew_AudioSource_NoDevice(t *testing.T) {
 
 func TestNew_VideoSource(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceVideo,
-		Video:  &domain.VideoConfig{Device: "/dev/video0"},
+		Sources: []string{domain.InputSourceVideo},
+		Video:   &domain.VideoConfig{Device: "/dev/video0"},
 	}
-	c, err := capture.New(cfg, slog.Default())
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -74,8 +74,8 @@ func TestNew_VideoSource(t *testing.T) {
 }
 
 func TestNew_VideoSource_NoDevice(t *testing.T) {
-	cfg := &domain.InputConfig{Source: domain.InputSourceVideo}
-	c, err := capture.New(cfg, slog.Default())
+	cfg := &domain.InputConfig{Sources: []string{domain.InputSourceVideo}}
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -86,13 +86,13 @@ func TestNew_VideoSource_NoDevice(t *testing.T) {
 
 func TestNew_TelephonyLocal(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceTelephony,
+		Sources: []string{domain.InputSourceTelephony},
 		Telephony: &domain.TelephonyConfig{
 			Type:   domain.TelephonyTypeLocal,
 			Device: "/dev/ttyUSB0",
 		},
 	}
-	c, err := capture.New(cfg, slog.Default())
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -104,13 +104,13 @@ func TestNew_TelephonyLocal(t *testing.T) {
 
 func TestNew_TelephonyOnline(t *testing.T) {
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceTelephony,
+		Sources: []string{domain.InputSourceTelephony},
 		Telephony: &domain.TelephonyConfig{
 			Type:     domain.TelephonyTypeOnline,
 			Provider: "twilio",
 		},
 	}
-	c, err := capture.New(cfg, slog.Default())
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -132,8 +132,8 @@ func TestNoOpCapturer_Capture(t *testing.T) {
 }
 
 func TestNew_UnsupportedSource(t *testing.T) {
-	cfg := &domain.InputConfig{Source: "bluetooth"}
-	_, err := capture.New(cfg, slog.Default())
+	cfg := &domain.InputConfig{Sources: []string{"bluetooth"}}
+	_, err := capture.New(cfg.Sources[0], cfg, slog.Default())
 	if err == nil {
 		t.Error("expected error for unsupported source")
 	}

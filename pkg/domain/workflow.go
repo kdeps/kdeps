@@ -112,15 +112,57 @@ type WebAppConfig struct {
 	Scripts     string `yaml:"scripts,omitempty"     json:"scripts,omitempty"`
 }
 
-// InputConfig specifies the input source for the workflow.
-// Source can be "api" (default), "audio", "video", or "telephony".
+// InputConfig specifies the input sources for the workflow.
+// Sources is a list of one or more: "api" (default), "audio", "video", "telephony".
+// Multiple sources can be active simultaneously (e.g. audio + video for a video call).
 type InputConfig struct {
-	Source      string             `yaml:"source"                json:"source"`
+	Sources     []string           `yaml:"sources"               json:"sources"`
 	Audio       *AudioConfig       `yaml:"audio,omitempty"       json:"audio,omitempty"`
 	Video       *VideoConfig       `yaml:"video,omitempty"       json:"video,omitempty"`
 	Telephony   *TelephonyConfig   `yaml:"telephony,omitempty"   json:"telephony,omitempty"`
 	Transcriber *TranscriberConfig `yaml:"transcriber,omitempty" json:"transcriber,omitempty"`
 	Activation  *ActivationConfig  `yaml:"activation,omitempty"  json:"activation,omitempty"`
+}
+
+// PrimarySource returns the first non-API source, or InputSourceAPI if none.
+// Used by the input processor to select the source for the activation listen loop.
+func (c *InputConfig) PrimarySource() string {
+	for _, s := range c.Sources {
+		if s != InputSourceAPI {
+			return s
+		}
+	}
+	return InputSourceAPI
+}
+
+// HasNonAPISource reports whether any source in the list is not "api".
+func (c *InputConfig) HasNonAPISource() bool {
+	for _, s := range c.Sources {
+		if s != InputSourceAPI {
+			return true
+		}
+	}
+	return false
+}
+
+// AllSourcesAPI reports whether all sources are "api" (or the list is empty).
+func (c *InputConfig) AllSourcesAPI() bool {
+	for _, s := range c.Sources {
+		if s != InputSourceAPI {
+			return false
+		}
+	}
+	return true
+}
+
+// HasSource reports whether the given source is in the Sources list.
+func (c *InputConfig) HasSource(source string) bool {
+	for _, s := range c.Sources {
+		if s == source {
+			return true
+		}
+	}
+	return false
 }
 
 // AudioConfig contains audio hardware device configuration.
