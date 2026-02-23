@@ -426,4 +426,4 @@ run:
 - [Expression Blocks](expr-blocks.md) - Using `exprBefore` and `exprAfter`
 - [Error Handling](error-handling.md) - Handling errors in resources
 - [Items](items.md) - Iterating over collections
-- [Examples](../../examples/inline-resources/) - Complete example with inline resources
+- [Examples](https://github.com/kdeps/kdeps/tree/main/examples/inline-resources) - Complete example with inline resources
