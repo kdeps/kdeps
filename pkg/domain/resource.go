@@ -698,11 +698,11 @@ type OnlineTTSConfig struct {
 	// Provider is one of: openai-tts, google-tts, elevenlabs, aws-polly, azure-tts.
 	Provider string `yaml:"provider"`
 	// APIKey is the authentication credential for the chosen provider.
-	APIKey string `yaml:"apiKey,omitempty"` //nolint:gosec // intentional credential field
+	APIKey string `yaml:"apiKey,omitempty"`
 	// Region is used by AWS Polly and Azure TTS.
 	Region string `yaml:"region,omitempty"`
 	// SubscriptionKey is used by Azure TTS.
-	SubscriptionKey string `yaml:"subscriptionKey,omitempty"` //nolint:gosec // intentional credential field
+	SubscriptionKey string `yaml:"subscriptionKey,omitempty"`
 }
 
 // OfflineTTSConfig holds local engine settings for TTS.

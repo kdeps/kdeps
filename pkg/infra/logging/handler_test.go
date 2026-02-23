@@ -20,7 +20,6 @@ package logging_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"log/slog"
 	"strings"
@@ -36,7 +35,7 @@ func TestPrettyHandler_Enabled(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&bytes.Buffer{}, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Debug should be disabled
 	if handler.Enabled(ctx, slog.LevelDebug) {
@@ -62,7 +61,7 @@ func TestPrettyHandler_Handle(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 	record.Add(
 		slog.String("key1", "value1"),
@@ -99,7 +98,7 @@ func TestPrettyHandler_Levels(t *testing.T) {
 	handler := logging.NewPrettyHandler(&buf, opts)
 	logger := slog.New(handler)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Test all levels
 	logger.DebugContext(ctx, "Debug message", "key", "value")
@@ -224,7 +223,7 @@ func TestPrettyHandler_ColorDisabled(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 
 	err := handler.Handle(ctx, record)
@@ -252,7 +251,7 @@ func TestPrettyHandler_ColorEnabled(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 
 	err := handler.Handle(ctx, record)

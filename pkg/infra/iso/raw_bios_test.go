@@ -178,7 +178,7 @@ func TestBuildRawBIOSWithImage_Success(t *testing.T) {
 	runner := &mockLinuxKitRunner{}
 
 	outputPath, err := buildRawBIOSWithImage(
-		context.Background(),
+		t.Context(),
 		runner,
 		mockAssembleFunc,
 		configPath,
@@ -217,7 +217,7 @@ func TestBuildRawBIOSWithImage_LinuxKitBuildFailure(t *testing.T) {
 	}
 
 	_, err := buildRawBIOSWithImage(
-		context.Background(),
+		t.Context(),
 		runner,
 		mockAssembleFunc,
 		configPath,

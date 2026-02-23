@@ -584,7 +584,7 @@ func TestDefaultLinuxKitRunner_Build_ErrorPath(t *testing.T) {
 		BinaryPath: "/nonexistent/linuxkit",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
 	_ = os.WriteFile(configPath, []byte("kernel: {}"), 0644)
@@ -604,7 +604,7 @@ func TestDefaultLinuxKitRunner_Build_WithSize(t *testing.T) {
 		BinaryPath: "/nonexistent/linuxkit",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
 	_ = os.WriteFile(configPath, []byte("kernel: {}"), 0644)
@@ -625,7 +625,7 @@ func TestDefaultLinuxKitRunner_CacheImport_ErrorPath(t *testing.T) {
 		BinaryPath: "/nonexistent/linuxkit",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err := runner.CacheImport(ctx, "/fake/image.tar")
 
 	require.Error(t, err)
@@ -643,7 +643,7 @@ func TestEnsureLinuxKit_Integration(t *testing.T) {
 
 	// This test attempts to find or download linuxkit
 	// It may succeed or fail depending on environment
-	_, err := iso.EnsureLinuxKit(context.Background())
+	_, err := iso.EnsureLinuxKit(t.Context())
 
 	// We just ensure it doesn't panic
 	// In CI without linuxkit, it should fail gracefully
@@ -682,7 +682,7 @@ func TestBuilder_CacheImportImage_Success(t *testing.T) {
 	tarPath := filepath.Join(tmpDir, "image.tar")
 	_ = os.WriteFile(tarPath, []byte("fake-tar"), 0644)
 
-	err := builder.CacheImportImage(context.Background(), tarPath)
+	err := builder.CacheImportImage(t.Context(), tarPath)
 
 	require.NoError(t, err)
 	require.Len(t, mockRunner.cacheImportCalls, 1)
@@ -695,7 +695,7 @@ func TestBuilder_CacheImportImage_RunnerError(t *testing.T) {
 	}
 	builder := iso.NewBuilderWithRunner(mockRunner)
 
-	err := builder.CacheImportImage(context.Background(), "image.tar")
+	err := builder.CacheImportImage(t.Context(), "image.tar")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cache import failed")

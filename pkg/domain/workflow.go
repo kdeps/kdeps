@@ -171,7 +171,7 @@ type OnlineTranscriberConfig struct {
 
 	// APIKey is the authentication key for the provider.
 	// It is recommended to supply this via an environment variable reference.
-	APIKey string `yaml:"apiKey,omitempty" json:"apiKey,omitempty"` //nolint:gosec // G117: api key field for cloud providers
+	APIKey string `yaml:"apiKey,omitempty" json:"apiKey,omitempty"`
 
 	// Region is used for region-scoped services such as AWS Transcribe.
 	Region string `yaml:"region,omitempty" json:"region,omitempty"`

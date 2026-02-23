@@ -132,7 +132,6 @@ func (t *onlineTranscriber) openAIWhisper(mediaFile string) (*Result, error) {
 	req.Header.Set("Authorization", "Bearer "+t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 	resp, doErr := t.client.Do(req)
 	if doErr != nil {
 		return nil, fmt.Errorf("openai-whisper: request: %w", doErr)
@@ -185,7 +184,6 @@ func (t *onlineTranscriber) deepgram(mediaFile string) (*Result, error) {
 	req.Header.Set("Authorization", "Token "+t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "audio/wav")
 
-	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 	resp, doErr := t.client.Do(req)
 	if doErr != nil {
 		return nil, fmt.Errorf("deepgram: request: %w", doErr)
@@ -268,7 +266,6 @@ func (t *onlineTranscriber) assemblyAIUpload(data []byte) (string, error) {
 	req.Header.Set("Authorization", t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "application/octet-stream")
 
-	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 	resp, doErr := t.client.Do(req)
 	if doErr != nil {
 		return "", fmt.Errorf("assemblyai: upload: %w", doErr)
@@ -303,7 +300,6 @@ func (t *onlineTranscriber) assemblyAISubmit(audioURL string) (*assemblyAITransc
 	req.Header.Set("Authorization", t.cfg.Online.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 	resp, doErr := t.client.Do(req)
 	if doErr != nil {
 		return nil, fmt.Errorf("assemblyai: transcript submit: %w", doErr)
@@ -336,7 +332,6 @@ func (t *onlineTranscriber) assemblyAIPoll(
 		}
 		pollReq.Header.Set("Authorization", t.cfg.Online.APIKey)
 
-		//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 		pollResp, doErr := t.client.Do(pollReq)
 		if doErr != nil {
 			return nil, fmt.Errorf("assemblyai: poll: %w", doErr)
@@ -414,7 +409,6 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	//nolint:gosec // G704: intentional HTTP call to user-configured cloud API endpoint
 	resp, doErr := t.client.Do(req)
 	if doErr != nil {
 		return nil, fmt.Errorf("google-stt: request: %w", doErr)

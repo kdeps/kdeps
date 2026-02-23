@@ -266,7 +266,7 @@ func (e *Executor) googleTTS(text string, cfg *domain.TTSConfig, outPath string)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req) //nolint:gosec // G704: client is injected and under caller control
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("tts google: do request: %w", err)
 	}
@@ -356,7 +356,7 @@ func (e *Executor) azureTTS(text string, cfg *domain.TTSConfig, outPath string) 
 
 // doAndSave performs the HTTP request and writes the response body to outPath.
 func (e *Executor) doAndSave(req *http.Request, outPath, provider string) error {
-	resp, err := e.client.Do(req) //nolint:gosec // G704: client is injected and under caller control
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("tts %s: do request: %w", provider, err)
 	}

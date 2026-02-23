@@ -19,7 +19,6 @@
 package http_test
 
 import (
-	"context"
 	"log/slog"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -61,7 +60,7 @@ func TestWebServer_CreateWebHandler_Static(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	route := &domain.WebRoute{
 		Path:       "/static",
 		ServerType: "static",
@@ -100,7 +99,7 @@ func TestWebServer_CreateWebHandler_App(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	route := &domain.WebRoute{
 		Path:       "/app",
 		ServerType: "app",
@@ -131,7 +130,7 @@ func TestWebServer_CreateWebHandler_Unsupported(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	route := &domain.WebRoute{
 		Path:       "/unknown",
 		ServerType: "unknown",
@@ -284,7 +283,7 @@ func TestWebServer_SetupWebRoutes(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	webServer.SetupWebRoutes(ctx)
 	// Should set up routes without error
 	assert.NotNil(t, webServer)
@@ -302,7 +301,7 @@ func TestWebServer_Start_NoConfig(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	err = webServer.Start(ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "webServer configuration is required")
@@ -355,7 +354,7 @@ func TestWebServer_Stop_WithRunningCommands(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Start the commands manually (simulating what CreateWebHandler does)
 	for _, route := range workflow.Settings.WebServer.Routes {
@@ -408,7 +407,7 @@ func TestWebServer_Stop_CommandAlreadyTerminated(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a command with nil process (simulating already terminated process)
-	cmd := exec.CommandContext(context.Background(), "echo", "test")
+	cmd := exec.CommandContext(t.Context(), "echo", "test")
 	webServer.Commands["/test"] = cmd
 	// Don't start the command, so Process remains nil
 

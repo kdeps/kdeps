@@ -42,7 +42,7 @@ func TestWebServer_StartAppCommand_WithCommand(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	route := &domain.WebRoute{
@@ -75,7 +75,7 @@ func TestWebServer_StartAppCommand_EmptyCommand(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	route := &domain.WebRoute{
@@ -104,7 +104,7 @@ func TestWebServer_StartAppCommand_ContextCancellation(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	route := &domain.WebRoute{
 		Path:       "/app",
@@ -135,7 +135,7 @@ func TestWebServer_StartAppCommand_CommandError(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	route := &domain.WebRoute{
