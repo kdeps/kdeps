@@ -173,8 +173,10 @@ func (c *InputConfig) HasSource(source string) bool {
 type inputConfigAlias InputConfig
 
 // inputConfigRaw is the on-wire representation that also accepts the legacy `source` field.
+// Note: Go's encoding/json automatically promotes anonymous (embedded) struct fields, so
+// no explicit ",inline" tag is needed for JSON — only yaml.v3 requires it.
 type inputConfigRaw struct {
-	inputConfigAlias `yaml:",inline" json:",inline"`
+	inputConfigAlias `yaml:",inline"`
 	Source           string `yaml:"source,omitempty" json:"source,omitempty"`
 }
 
