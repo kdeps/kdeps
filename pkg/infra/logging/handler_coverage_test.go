@@ -20,7 +20,6 @@ package logging_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"log/slog"
 	"os"
@@ -43,7 +42,7 @@ func TestPrettyHandler_Handle_EmptyRecord(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "", 0)
 
 	err := handler.Handle(ctx, record)
@@ -67,7 +66,7 @@ func TestPrettyHandler_Handle_WithGroups(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 	record.Add(
 		slog.String("key1", "value1"),
@@ -96,7 +95,7 @@ func TestPrettyHandler_Handle_WithColors(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 	record.Add(slog.String("key", "value"))
 
@@ -120,7 +119,7 @@ func TestPrettyHandler_Handle_DifferentLevels(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	levels := []slog.Level{
 		slog.LevelDebug,
@@ -152,7 +151,7 @@ func TestPrettyHandler_Handle_ComplexAttributes(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 	record.Add(
 		slog.String("string", "value"),
@@ -181,7 +180,7 @@ func TestPrettyHandler_Enabled_LevelThreshold(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&bytes.Buffer{}, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Debug should be disabled
 	if handler.Enabled(ctx, slog.LevelDebug) {
@@ -233,7 +232,7 @@ func TestPrettyHandler_Handle_NilOptions(t *testing.T) {
 	var buf bytes.Buffer
 	handler := logging.NewPrettyHandler(&buf, nil) // nil options should use defaults
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 
 	err := handler.Handle(ctx, record)
@@ -256,7 +255,7 @@ func TestPrettyHandler_Handle_LongMessage(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	longMessage := ""
 	var longMessageSb261 strings.Builder
 	for range 1000 {
@@ -285,7 +284,7 @@ func TestPrettyHandler_Handle_ManyAttributes(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 
 	// Add many attributes
@@ -305,7 +304,7 @@ func TestPrettyHandler_FormatValue_Uint64(t *testing.T) {
 	handler := logging.NewPrettyHandler(&buf, nil)
 
 	// Test through Handle method
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test", 0)
 	record.Add(slog.Uint64("uint64", 42))
 
@@ -323,7 +322,7 @@ func TestPrettyHandler_FormatValue_Float64(t *testing.T) {
 	handler := logging.NewPrettyHandler(&buf, nil)
 
 	// Test through Handle method
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test", 0)
 	record.Add(slog.Float64("float64", 3.14159))
 
@@ -347,7 +346,7 @@ func TestPrettyHandler_FormatValue_Group(t *testing.T) {
 	)
 
 	// Test through Handle method instead of direct formatValue to avoid panic
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test", 0)
 	record.Add(slog.Any("group", group))
 
@@ -372,7 +371,7 @@ func TestPrettyHandler_Handle_WithSource(t *testing.T) {
 	}
 	handler := logging.NewPrettyHandler(&buf, opts)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "Test message", 0)
 	// Set PC to a valid program counter
 	record.PC = uintptr(1)

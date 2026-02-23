@@ -139,7 +139,7 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 	server.SetWorkflowDir(workflowPath)
 
 	// Start server in background
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
@@ -551,7 +551,7 @@ func TestWebServer_StartAppCommand(t *testing.T) {
 			Command: "", // Empty command should be handled gracefully
 		}
 
-		ctx := context.Background()
+		ctx := t.Context()
 		// Should not panic with empty command
 		server.StartAppCommand(ctx, route)
 	})
@@ -563,7 +563,7 @@ func TestWebServer_StartAppCommand(t *testing.T) {
 			PublicPath: "/nonexistent/directory",
 		}
 
-		ctx := context.Background()
+		ctx := t.Context()
 		// Should handle invalid working directory gracefully
 		server.StartAppCommand(ctx, route)
 	})
@@ -575,7 +575,7 @@ func TestWebServer_StartAppCommand(t *testing.T) {
 			PublicPath: ".",        // Current directory
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 
 		// Start command in background
 		go server.StartAppCommand(ctx, route)

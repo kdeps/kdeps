@@ -44,7 +44,7 @@ func TestWebServer_CreateWebHandler_Static2(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	route := &domain.WebRoute{
 		Path:       "/static",
@@ -75,7 +75,7 @@ func TestWebServer_CreateWebHandler_App2(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	route := &domain.WebRoute{
 		Path:       "/app",
@@ -107,7 +107,7 @@ func TestWebServer_CreateWebHandler_UnsupportedType(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	route := &domain.WebRoute{
 		Path:       "/unknown",
@@ -137,7 +137,7 @@ func TestWebServer_CreateWebHandler_AppWithCommand2(t *testing.T) {
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	route := &domain.WebRoute{

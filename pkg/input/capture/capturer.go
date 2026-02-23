@@ -174,7 +174,6 @@ func (c *AudioCapturer) Capture() (string, error) {
 		default:
 			inputFmt = "alsa"
 		}
-		//nolint:gosec // G204: device comes from user-configured InputConfig
 		cmd = exec.CommandContext(context.Background(),
 			"ffmpeg", "-y",
 			"-f", inputFmt,
@@ -186,7 +185,7 @@ func (c *AudioCapturer) Capture() (string, error) {
 
 	c.logger.Info("capturing audio", "device", c.device, "output", outPath)
 	if out, runErr := cmd.CombinedOutput(); runErr != nil {
-		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		_ = os.Remove(outPath)
 		return "", fmt.Errorf("capture audio from %s: %w\n%s", c.device, runErr, out)
 	}
 
@@ -228,7 +227,6 @@ func (c *VideoCapturer) Capture() (string, error) {
 		inputFmt = "v4l2"
 	}
 
-	//nolint:gosec // G204: device comes from user-configured InputConfig
 	cmd := exec.CommandContext(context.Background(),
 		"ffmpeg", "-y",
 		"-f", inputFmt,
@@ -240,7 +238,7 @@ func (c *VideoCapturer) Capture() (string, error) {
 
 	c.logger.Info("capturing video", "device", c.device, "output", outPath)
 	if out, runErr := cmd.CombinedOutput(); runErr != nil {
-		_ = os.Remove(outPath) //nolint:gosec // G703: temp path produced by os.CreateTemp
+		_ = os.Remove(outPath)
 		return "", fmt.Errorf("capture video from %s: %w\n%s", c.device, runErr, out)
 	}
 

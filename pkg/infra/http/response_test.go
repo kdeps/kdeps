@@ -101,19 +101,19 @@ func TestRespondWithValidationErrors(t *testing.T) {
 
 func TestGetRequestID(t *testing.T) {
 	t.Run("request ID exists in context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), httppkg.RequestIDKey, "test-id-123")
+		ctx := context.WithValue(t.Context(), httppkg.RequestIDKey, "test-id-123")
 		requestID := httppkg.GetRequestID(ctx)
 		assert.Equal(t, "test-id-123", requestID)
 	})
 
 	t.Run("request ID missing from context", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := t.Context()
 		requestID := httppkg.GetRequestID(ctx)
 		assert.Empty(t, requestID)
 	})
 
 	t.Run("wrong type in context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), httppkg.RequestIDKey, 123)
+		ctx := context.WithValue(t.Context(), httppkg.RequestIDKey, 123)
 		requestID := httppkg.GetRequestID(ctx)
 		assert.Empty(t, requestID)
 	})
@@ -121,25 +121,25 @@ func TestGetRequestID(t *testing.T) {
 
 func TestGetDebugMode(t *testing.T) {
 	t.Run("debug mode true in context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), httppkg.DebugModeKey, true)
+		ctx := context.WithValue(t.Context(), httppkg.DebugModeKey, true)
 		debugMode := httppkg.GetDebugMode(ctx)
 		assert.True(t, debugMode)
 	})
 
 	t.Run("debug mode false in context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), httppkg.DebugModeKey, false)
+		ctx := context.WithValue(t.Context(), httppkg.DebugModeKey, false)
 		debugMode := httppkg.GetDebugMode(ctx)
 		assert.False(t, debugMode)
 	})
 
 	t.Run("debug mode missing from context", func(t *testing.T) {
-		ctx := context.Background()
+		ctx := t.Context()
 		debugMode := httppkg.GetDebugMode(ctx)
 		assert.False(t, debugMode)
 	})
 
 	t.Run("wrong type in context", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), httppkg.DebugModeKey, "true")
+		ctx := context.WithValue(t.Context(), httppkg.DebugModeKey, "true")
 		debugMode := httppkg.GetDebugMode(ctx)
 		assert.False(t, debugMode)
 	})

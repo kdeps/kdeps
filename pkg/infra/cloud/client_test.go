@@ -80,7 +80,7 @@ func TestClient_Whoami_Success(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.Whoami(context.Background())
+	result, err := client.Whoami(t.Context())
 
 	require.NoError(t, err)
 	assert.Equal(t, "user123", result.UserID)
@@ -99,7 +99,7 @@ func TestClient_Whoami_Unauthorized(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("invalid-key", server.URL)
-	result, err := client.Whoami(context.Background())
+	result, err := client.Whoami(t.Context())
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -113,7 +113,7 @@ func TestClient_Whoami_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.Whoami(context.Background())
+	result, err := client.Whoami(t.Context())
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -128,7 +128,7 @@ func TestClient_Whoami_InvalidJSON(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.Whoami(context.Background())
+	result, err := client.Whoami(t.Context())
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -142,7 +142,7 @@ func TestClient_Whoami_ContextCanceled(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately
 
 	result, err := client.Whoami(ctx)
@@ -175,7 +175,7 @@ func TestClient_StartBuild_Success(t *testing.T) {
 
 	client := cloud.NewClient("test-key", server.URL)
 	result, err := client.StartBuild(
-		context.Background(),
+		t.Context(),
 		bytes.NewBufferString("test kdeps content"),
 		"docker",
 		"amd64",
@@ -195,7 +195,7 @@ func TestClient_StartBuild_Unauthorized(t *testing.T) {
 
 	client := cloud.NewClient("invalid-key", server.URL)
 	result, err := client.StartBuild(
-		context.Background(),
+		t.Context(),
 		bytes.NewBufferString("test"),
 		"docker",
 		"amd64",
@@ -218,7 +218,7 @@ func TestClient_StartBuild_Forbidden(t *testing.T) {
 
 	client := cloud.NewClient("test-key", server.URL)
 	result, err := client.StartBuild(
-		context.Background(),
+		t.Context(),
 		bytes.NewBufferString("test"),
 		"docker",
 		"amd64",
@@ -244,7 +244,7 @@ func TestClient_PollBuild_Success(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.PollBuild(context.Background(), "build123")
+	result, err := client.PollBuild(t.Context(), "build123")
 
 	require.NoError(t, err)
 	assert.Equal(t, "completed", result.Status)
@@ -259,7 +259,7 @@ func TestClient_PollBuild_Unauthorized(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("invalid-key", server.URL)
-	result, err := client.PollBuild(context.Background(), "build123")
+	result, err := client.PollBuild(t.Context(), "build123")
 
 	require.Error(t, err)
 	assert.Nil(t, result)
@@ -291,7 +291,7 @@ func TestClient_ListWorkflows_Success(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.ListWorkflows(context.Background())
+	result, err := client.ListWorkflows(t.Context())
 
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -317,7 +317,7 @@ func TestClient_ListDeployments_Success(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.ListDeployments(context.Background())
+	result, err := client.ListDeployments(t.Context())
 
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
@@ -349,7 +349,7 @@ func TestClient_StreamBuildLogs_Success(t *testing.T) {
 
 	client := cloud.NewClient("test-key", server.URL)
 	var buf bytes.Buffer
-	result, err := client.StreamBuildLogs(context.Background(), "build-123", &buf)
+	result, err := client.StreamBuildLogs(t.Context(), "build-123", &buf)
 
 	require.NoError(t, err)
 	assert.Equal(t, "completed", result.Status)
@@ -370,7 +370,7 @@ func TestClient_StreamBuildLogs_Failed(t *testing.T) {
 
 	client := cloud.NewClient("test-key", server.URL)
 	var buf bytes.Buffer
-	result, err := client.StreamBuildLogs(context.Background(), "build-123", &buf)
+	result, err := client.StreamBuildLogs(t.Context(), "build-123", &buf)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "compilation error")
@@ -387,7 +387,7 @@ func TestClient_StreamBuildLogs_ContextCanceled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Cancel immediately
 
 	client := cloud.NewClient("test-key", server.URL)
@@ -414,7 +414,7 @@ func TestClient_StartBuild_RequestBodyError(t *testing.T) {
 	// Read all content to simulate exhausted reader
 	_, _ = io.ReadAll(reader)
 
-	result, err := client.StartBuild(context.Background(), reader, "iso", "amd64", false)
+	result, err := client.StartBuild(t.Context(), reader, "iso", "amd64", false)
 
 	// Should succeed even with exhausted reader (just sends empty file)
 	require.NoError(t, err)
@@ -432,7 +432,7 @@ func TestClient_PollBuild_ErrorStatus(t *testing.T) {
 	defer server.Close()
 
 	client := cloud.NewClient("test-key", server.URL)
-	result, err := client.PollBuild(context.Background(), "build-123")
+	result, err := client.PollBuild(t.Context(), "build-123")
 
 	require.NoError(t, err)
 	assert.Equal(t, "error", result.Status)
