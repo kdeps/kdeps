@@ -725,3 +725,42 @@ func TestSessionConfig_UnmarshalYAML_StorageNonMapType(t *testing.T) {
 		t.Error("Storage should be nil when storage field is not a map type")
 	}
 }
+
+func TestInputConfig_UnmarshalYAML_BackwardCompatSource(t *testing.T) {
+	// Legacy single `source` field should be promoted to Sources.
+	yamlData := `source: audio`
+	var cfg domain.InputConfig
+	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Sources) != 1 || cfg.Sources[0] != domain.InputSourceAudio {
+		t.Errorf("Sources = %v, want [audio]", cfg.Sources)
+	}
+}
+
+func TestInputConfig_UnmarshalYAML_SourcesPreferred(t *testing.T) {
+	// When both `source` and `sources` are present, `sources` wins.
+	yamlData := `
+sources: [api, audio]
+source: video
+`
+	var cfg domain.InputConfig
+	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Sources) != 2 || cfg.Sources[0] != domain.InputSourceAPI || cfg.Sources[1] != domain.InputSourceAudio {
+		t.Errorf("Sources = %v, want [api audio]", cfg.Sources)
+	}
+}
+
+func TestInputConfig_UnmarshalJSON_BackwardCompatSource(t *testing.T) {
+	// Legacy single `source` JSON field should be promoted to Sources.
+	jsonData := `{"source":"audio"}`
+	var cfg domain.InputConfig
+	if err := cfg.UnmarshalJSON([]byte(jsonData)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Sources) != 1 || cfg.Sources[0] != domain.InputSourceAudio {
+		t.Errorf("Sources = %v, want [audio]", cfg.Sources)
+	}
+}

@@ -25,6 +25,8 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input/activation"
@@ -135,35 +137,67 @@ func (p *Processor) Process() (*Result, error) {
 	result := &Result{}
 	var transcripts []string
 
-	for _, sc := range p.sources {
-		result.Sources = append(result.Sources, sc.source)
+	// captureResult holds the per-source outcome of a concurrent capture/transcribe.
+	type captureResult struct {
+		source    string
+		mediaFile string
+		text      string
+		err       error
+	}
 
-		mediaFile, err := sc.capturer.Capture()
-		if err != nil {
-			return nil, err
-		}
+	// results is pre-allocated with one slot per source. Each goroutine writes only
+	// to its own index (idx), so concurrent writes are safe without a mutex.
+	results := make([]captureResult, len(p.sources))
+	var wg sync.WaitGroup
 
-		if mediaFile != "" {
-			result.MediaFile = mediaFile
-		}
+	for i, sc := range p.sources {
+		results[i].source = sc.source
+		wg.Add(1)
+		go func(idx int, sc sourceCapture) {
+			defer wg.Done()
 
-		if p.transcriber == nil || mediaFile == "" {
-			// No transcriber or no media: pass through.
-			continue
-		}
+			mediaFile, err := sc.capturer.Capture()
+			if err != nil {
+				results[idx].err = err
+				return
+			}
+			results[idx].mediaFile = mediaFile
 
-		transcribeResult, err := p.transcriber.Transcribe(mediaFile)
-		if err != nil {
-			return nil, err
-		}
+			if p.transcriber == nil || mediaFile == "" {
+				return
+			}
 
-		if transcribeResult.Text != "" {
-			transcripts = append(transcripts, transcribeResult.Text)
+			transcribeResult, err := p.transcriber.Transcribe(mediaFile)
+			if err != nil {
+				results[idx].err = err
+				return
+			}
+
+			results[idx].text = transcribeResult.Text
+			// When the transcriber produces a new media file (output: media), it replaces
+			// the raw capture file.
+			if transcribeResult.MediaFile != "" {
+				results[idx].mediaFile = transcribeResult.MediaFile
+			}
+		}(i, sc)
+	}
+
+	wg.Wait()
+
+	// Results are iterated in source declaration order (deterministic). The first error
+	// encountered is returned immediately; remaining errors are not collected.
+	// MediaFile is set to the last non-empty value, matching the original sequential
+	// behavior where the last source's file took precedence.
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
 		}
-		// When the transcriber produces a new media file (output: media), it replaces
-		// the raw capture file.
-		if transcribeResult.MediaFile != "" {
-			result.MediaFile = transcribeResult.MediaFile
+		result.Sources = append(result.Sources, r.source)
+		if r.mediaFile != "" {
+			result.MediaFile = r.mediaFile
+		}
+		if r.text != "" {
+			transcripts = append(transcripts, r.text)
 		}
 	}
 
@@ -187,6 +221,13 @@ func (p *Processor) runActivationLoop() error {
 		probeFile, captureErr := probeCapturer.Capture()
 		if captureErr != nil {
 			p.logger.Warn("activation: probe capture error", "err", captureErr)
+			continue
+		}
+
+		if probeFile == "" {
+			// NoOpCapturer (e.g. online telephony) returns an empty path; back off
+			// to avoid a tight spin loop.
+			time.Sleep(time.Second)
 			continue
 		}
 

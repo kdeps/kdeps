@@ -415,6 +415,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 	}
 
 	hasTelephony := false
+	seen := make(map[string]bool)
 	for _, source := range config.Sources {
 		if source == "" {
 			return domain.NewError(domain.ErrCodeInvalidWorkflow, "input source cannot be empty", nil)
@@ -426,6 +427,14 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 				nil,
 			)
 		}
+		if seen[source] {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf("duplicate input source: %s", source),
+				nil,
+			)
+		}
+		seen[source] = true
 		if source == domain.InputSourceTelephony {
 			hasTelephony = true
 		}

@@ -1189,6 +1189,16 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			config:  &domain.InputConfig{Sources: []string{domain.InputSourceTelephony}},
 			wantErr: true,
 		},
+		{
+			name:    "duplicate source rejected",
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAudio, domain.InputSourceAudio}},
+			wantErr: true,
+		},
+		{
+			name:    "duplicate api source rejected",
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceAPI}},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
