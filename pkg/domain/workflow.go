@@ -113,8 +113,19 @@ type WebAppConfig struct {
 }
 
 // InputConfig specifies the input sources for the workflow.
-// Sources is a list of one or more: "api" (default), "audio", "video", "telephony".
-// Multiple sources can be active simultaneously (e.g. audio + video for a video call).
+//
+// The `sources` field in the workflow YAML is a list of one or more input sources:
+// "api" (default), "audio", "video", "telephony".
+//
+// Multiple sources can be active simultaneously (for example, audio + video for a
+// video call). Example:
+//
+//	input:
+//	  sources: ["audio", "video"]
+//	  audio:
+//	    # audio configuration...
+//	  video:
+//	    # video configuration...
 type InputConfig struct {
 	Sources     []string           `yaml:"sources"               json:"sources"`
 	Audio       *AudioConfig       `yaml:"audio,omitempty"       json:"audio,omitempty"`
