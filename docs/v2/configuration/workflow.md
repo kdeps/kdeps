@@ -433,45 +433,110 @@ settings:
 
 ## Input Configuration
 
-The `settings.input` block specifies how the workflow receives input. By default workflows accept HTTP API requests (`source: api`). Set `source` to `audio`, `video`, or `telephony` to capture media from hardware or telephony providers.
+The `settings.input` block specifies how the workflow receives input. Workflows can accept input from one or more sources simultaneously: HTTP API requests, audio hardware, video hardware, and telephony devices.
+
+### Sources (required)
+
+`sources` is a required array of one or more source types:
+
+| Source | Description |
+|--------|-------------|
+| `api` | HTTP API requests (default) |
+| `audio` | Audio hardware device (microphone, line-in) |
+| `video` | Video hardware device (camera) |
+| `telephony` | Phone or SIP device (local hardware or cloud provider) |
 
 ```yaml
 settings:
   input:
-    source: audio          # api | audio | video | telephony
+    sources: [api]            # default: HTTP only
 
-    # Required when source is "audio"
+    sources: [audio]          # microphone only
+
+    sources: [audio, video]   # audio + video simultaneously
+
+    sources: [api, audio]     # API and microphone together
+```
+
+### Audio Source
+
+Required when `audio` is in `sources`:
+
+```yaml
+settings:
+  input:
+    sources: [audio]
     audio:
-      device: hw:0,0       # ALSA device (Linux) or device name
+      device: hw:0,0          # ALSA device (Linux), e.g. "default", "hw:0,0"
+                              # macOS: "Built-in Microphone"
+                              # Windows: "Microphone (Realtek)"
+```
 
-    # Required when source is "video"
+### Video Source
+
+Required when `video` is in `sources`:
+
+```yaml
+settings:
+  input:
+    sources: [video]
     video:
-      device: /dev/video0  # v4l2 device (Linux), device name (macOS/Windows)
+      device: /dev/video0     # V4L2 device (Linux)
+                              # macOS: "FaceTime HD Camera"
+                              # Windows: "USB Video Device"
+```
 
-    # Required when source is "telephony"
+### Telephony Source
+
+Required when `telephony` is in `sources`:
+
+```yaml
+settings:
+  input:
+    sources: [telephony]
     telephony:
-      type: local          # local | online
-      device: /dev/ttyS0   # Used when type is "local"
-      provider: twilio     # Used when type is "online"
+      type: local             # local | online
+      device: /dev/ttyUSB0    # Required when type is "local"
+      provider: twilio        # Required when type is "online"
+```
 
-    # Optional: activate only when wake phrase is heard
+### Activation (Wake Phrase)
+
+Optional. When configured, the workflow only triggers when the wake phrase is detected. Works with non-API sources.
+
+```yaml
+settings:
+  input:
+    sources: [audio]
+    audio:
+      device: hw:0,0
     activation:
-      phrase: "hey kdeps"  # Required: wake phrase to listen for
-      mode: offline        # online | offline
-      sensitivity: 0.9     # 0.0–1.0 (1.0 = exact match)
-      chunkSeconds: 3      # Audio chunk duration in seconds
+      phrase: "hey kdeps"     # Required: wake phrase to listen for
+      mode: offline           # online | offline
+      sensitivity: 0.9        # 0.0–1.0 (1.0 = exact match)
+      chunkSeconds: 3         # Audio probe duration in seconds
       online:
         provider: deepgram
         apiKey: dg-...
       offline:
         engine: faster-whisper
         model: small
+```
 
-    # Optional: transcribe media to text or save raw media
+### Transcriber (Speech-to-Text)
+
+Optional. Converts audio/video/telephony input to text (or saves raw media). Not used when all sources are `api`.
+
+```yaml
+settings:
+  input:
+    sources: [audio]
+    audio:
+      device: hw:0,0
     transcriber:
-      mode: offline        # online | offline
-      output: text         # text | media
-      language: en-US      # BCP-47 language code
+      mode: offline           # online | offline
+      output: text            # text (transcript) | media (raw file)
+      language: en-US         # BCP-47 language code
       online:
         provider: openai-whisper
         apiKey: sk-...
@@ -480,9 +545,33 @@ settings:
         model: small
 ```
 
-After transcription:
-- `inputTranscript()` — returns the text transcript
-- `inputMedia()` — returns the path to the saved media file
-- `get("inputTranscript")` and `input("transcript")` also work
+After transcription, access results via:
+- `inputTranscript()` — the text transcript
+- `inputMedia()` — path to the saved media file
+- `get("inputTranscript")` — unified API equivalent
 
-See the [TTS resource](../resources/tts) for the output side of voice workflows.
+### Multi-Source Example
+
+```yaml
+settings:
+  input:
+    sources: [audio, video]
+    audio:
+      device: hw:0,0
+    video:
+      device: /dev/video0
+    activation:
+      phrase: "hey kdeps"
+      mode: offline
+      offline:
+        engine: faster-whisper
+        model: small
+    transcriber:
+      mode: offline
+      output: text
+      offline:
+        engine: faster-whisper
+        model: small
+```
+
+See the [Input Sources guide](../concepts/input-sources) for complete examples, and the [TTS resource](../resources/tts) for the speech output side of voice workflows.
