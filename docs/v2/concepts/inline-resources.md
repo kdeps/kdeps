@@ -341,7 +341,7 @@ Each inline resource supports the same configuration options as the standalone r
 3. **Handle errors appropriately**: Consider using `onError` for critical workflows
 4. **Set appropriate timeouts**: Prevent hanging on slow operations
 5. **Order matters**: Inline resources execute sequentially in the order defined
-6. **Use expressions**: Access context data with `{{get('variable')}}`
+6. **Use expressions**: Access context data with <span v-pre>`{{get('variable')}}`</span>
 7. **Consider alternatives**: For complex workflows, separate resources may be clearer
 
 ## Comparison with Separate Resources
