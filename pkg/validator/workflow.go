@@ -414,31 +414,45 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 		domain.InputSourceTelephony: true,
 	}
 
-	if config.Source == "" {
+	if len(config.Sources) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			"input.source is required",
+			"input.sources is required and must have at least one source",
 			nil,
 		)
 	}
 
-	if !validSources[config.Source] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid input source: %s. Available options: [api, audio, video, telephony]",
-				config.Source,
-			),
-			nil,
-		)
+	// Validate each source and track flags
+	hasTelephony := false
+	for _, source := range config.Sources {
+		if source == "" {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"input source cannot be empty",
+				nil,
+			)
+		}
+		if !validSources[source] {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"invalid input source: %s. Available options: [api, audio, video, telephony]",
+					source,
+				),
+				nil,
+			)
+		}
+		if source == domain.InputSourceTelephony {
+			hasTelephony = true
+		}
 	}
 
-	// Validate telephony config when source is telephony
-	if config.Source == domain.InputSourceTelephony {
+	// Validate telephony config when any source is telephony
+	if hasTelephony {
 		if config.Telephony == nil {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				"input.telephony is required when source is telephony",
+				"input.telephony is required when sources includes telephony",
 				nil,
 			)
 		}
@@ -449,10 +463,10 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 	// Transcribers apply only to non-API sources
 	if config.Transcriber != nil {
-		if config.Source == domain.InputSourceAPI {
+		if config.AllSourcesAPI() {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				"transcriber is not supported for api input source",
+				"transcriber is not supported when all sources are api",
 				nil,
 			)
 		}
@@ -463,10 +477,10 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 	// Activation applies only to non-API sources
 	if config.Activation != nil {
-		if config.Source == domain.InputSourceAPI {
+		if config.AllSourcesAPI() {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				"activation is not supported for api input source",
+				"activation is not supported when all sources are api",
 				nil,
 			)
 		}

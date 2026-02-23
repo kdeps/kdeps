@@ -879,14 +879,16 @@ func TestInputConfig_UnmarshalYAML(t *testing.T) {
 		{
 			name: "api source",
 			yamlData: `
-source: api
+sources:
+  - api
 `,
 			wantSrc: domain.InputSourceAPI,
 		},
 		{
 			name: "audio source with device",
 			yamlData: `
-source: audio
+sources:
+  - audio
 audio:
   device: hw:0,0
 `,
@@ -896,7 +898,8 @@ audio:
 		{
 			name: "video source with device",
 			yamlData: `
-source: video
+sources:
+  - video
 video:
   device: /dev/video0
 `,
@@ -906,7 +909,8 @@ video:
 		{
 			name: "telephony local",
 			yamlData: `
-source: telephony
+sources:
+  - telephony
 telephony:
   type: local
   device: /dev/ttyUSB0
@@ -917,7 +921,8 @@ telephony:
 		{
 			name: "telephony online",
 			yamlData: `
-source: telephony
+sources:
+  - telephony
 telephony:
   type: online
   provider: twilio
@@ -940,8 +945,8 @@ telephony:
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
-			if config.Source != tt.wantSrc {
-				t.Errorf("Source = %v, want %v", config.Source, tt.wantSrc)
+			if len(config.Sources) == 0 || config.Sources[0] != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", config.Sources[0], tt.wantSrc)
 			}
 			if tt.wantDev != "" {
 				switch tt.wantSrc {
@@ -968,7 +973,8 @@ func TestWorkflowSettings_Input_UnmarshalYAML(t *testing.T) {
 	yamlData := `
 apiServerMode: false
 input:
-  source: audio
+  sources:
+  - audio
   audio:
     device: default
 `
@@ -980,8 +986,8 @@ input:
 	if settings.Input == nil {
 		t.Fatal("Input should not be nil")
 	}
-	if settings.Input.Source != domain.InputSourceAudio {
-		t.Errorf("Source = %v, want %v", settings.Input.Source, domain.InputSourceAudio)
+	if len(settings.Input.Sources) == 0 || settings.Input.Sources[0] != domain.InputSourceAudio {
+		t.Errorf("Source = %v, want %v", settings.Input.Sources[0], domain.InputSourceAudio)
 	}
 	if settings.Input.Audio == nil || settings.Input.Audio.Device != "default" {
 		t.Errorf("Audio.Device = %v, want default", settings.Input.Audio)
@@ -1011,7 +1017,8 @@ func TestWorkflowSettings_Input_AllSources_UnmarshalYAML(t *testing.T) {
 			name: "api source",
 			yaml: `
 input:
-  source: api
+  sources:
+  - api
 `,
 			wantSrc: domain.InputSourceAPI,
 		},
@@ -1019,7 +1026,8 @@ input:
 			name: "video source with device",
 			yaml: `
 input:
-  source: video
+  sources:
+  - video
   video:
     device: /dev/video0
 `,
@@ -1029,7 +1037,8 @@ input:
 			name: "telephony source",
 			yaml: `
 input:
-  source: telephony
+  sources:
+  - telephony
   telephony:
     type: online
     provider: twilio
@@ -1040,7 +1049,8 @@ input:
 			name: "telephony local",
 			yaml: `
 input:
-  source: telephony
+  sources:
+  - telephony
   telephony:
     type: local
     device: /dev/ttyUSB0
@@ -1059,8 +1069,8 @@ input:
 			if settings.Input == nil {
 				t.Fatal("Input should not be nil")
 			}
-			if settings.Input.Source != tt.wantSrc {
-				t.Errorf("Source = %v, want %v", settings.Input.Source, tt.wantSrc)
+			if len(settings.Input.Sources) == 0 || settings.Input.Sources[0] != tt.wantSrc {
+				t.Errorf("Source = %v, want %v", settings.Input.Sources[0], tt.wantSrc)
 			}
 		})
 	}
@@ -1091,7 +1101,7 @@ func TestInputConfigConstants(t *testing.T) {
 func TestInputConfig_JSONRoundTrip(t *testing.T) {
 	// Test that InputConfig structs round-trip through encoding/json correctly.
 	original := domain.InputConfig{
-		Source: domain.InputSourceTelephony,
+		Sources: []string{domain.InputSourceTelephony},
 		Audio:  &domain.AudioConfig{Device: "hw:0,0"},
 		Video:  &domain.VideoConfig{Device: "/dev/video0"},
 		Telephony: &domain.TelephonyConfig{
@@ -1124,8 +1134,8 @@ func TestInputConfig_JSONRoundTrip(t *testing.T) {
 	}
 
 	// Verify all fields survive the round-trip.
-	if restored.Source != original.Source {
-		t.Errorf("Source = %v, want %v", restored.Source, original.Source)
+	if len(restored.Sources) == 0 || restored.Sources[0] != original.Sources[0] {
+		t.Errorf("Source = %v, want %v", restored.Sources[0], original.Sources[0])
 	}
 	if restored.Audio == nil || restored.Audio.Device != original.Audio.Device {
 		t.Errorf("Audio.Device = %v, want %v", restored.Audio, original.Audio.Device)
@@ -1162,7 +1172,8 @@ metadata:
 settings:
   apiServerMode: false
   input:
-    source: telephony
+    sources:
+      - telephony
     telephony:
       type: online
       provider: vonage
@@ -1174,8 +1185,8 @@ settings:
 	if wf.Settings.Input == nil {
 		t.Fatal("Input should not be nil")
 	}
-	if wf.Settings.Input.Source != domain.InputSourceTelephony {
-		t.Errorf("Source = %v", wf.Settings.Input.Source)
+	if len(wf.Settings.Input.Sources) == 0 || wf.Settings.Input.Sources[0] != domain.InputSourceTelephony {
+		t.Errorf("Sources[0] = %v", wf.Settings.Input.Sources[0])
 	}
 	if wf.Settings.Input.Telephony == nil {
 		t.Fatal("Telephony should not be nil")
@@ -1199,8 +1210,8 @@ settings:
 	if wf2.Settings.Input == nil {
 		t.Fatal("Input should not be nil after round-trip")
 	}
-	if wf2.Settings.Input.Source != domain.InputSourceTelephony {
-		t.Errorf("Source after round-trip = %v", wf2.Settings.Input.Source)
+	if len(wf2.Settings.Input.Sources) == 0 || wf2.Settings.Input.Sources[0] != domain.InputSourceTelephony {
+		t.Errorf("Sources[0] after round-trip = %v", wf2.Settings.Input.Sources[0])
 	}
 	if wf2.Settings.Input.Telephony == nil {
 		t.Fatal("Telephony should not be nil after round-trip")
@@ -1225,7 +1236,8 @@ func TestTranscriberConfig_UnmarshalYAML(t *testing.T) {
 		{
 			name: "online transcriber with openai-whisper",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: online
   output: text
@@ -1261,7 +1273,8 @@ transcriber:
 		{
 			name: "online transcriber with aws-transcribe",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: online
   online:
@@ -1280,7 +1293,8 @@ transcriber:
 		{
 			name: "online transcriber with google-stt",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: online
   online:
@@ -1299,7 +1313,8 @@ transcriber:
 		{
 			name: "offline transcriber with whisper",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: offline
   output: text
@@ -1325,7 +1340,8 @@ transcriber:
 		{
 			name: "offline transcriber with faster-whisper",
 			yamlData: `
-source: video
+sources:
+  - video
 transcriber:
   mode: offline
   output: media
@@ -1345,7 +1361,8 @@ transcriber:
 		{
 			name: "offline transcriber with vosk",
 			yamlData: `
-source: telephony
+sources:
+  - telephony
 transcriber:
   mode: offline
   offline:
@@ -1360,7 +1377,8 @@ transcriber:
 		{
 			name: "offline transcriber with whisper-cpp",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: offline
   offline:
@@ -1379,7 +1397,8 @@ transcriber:
 		{
 			name: "online transcriber with deepgram",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: online
   online:
@@ -1395,7 +1414,8 @@ transcriber:
 		{
 			name: "online transcriber with assemblyai",
 			yamlData: `
-source: audio
+sources:
+  - audio
 transcriber:
   mode: online
   online:
@@ -1476,7 +1496,8 @@ metadata:
   targetActionId: main
 settings:
   input:
-    source: audio
+    sources:
+      - audio
     audio:
       device: default
     transcriber:

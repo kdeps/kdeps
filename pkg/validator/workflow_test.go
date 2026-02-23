@@ -1113,31 +1113,31 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 	}{
 		{
 			name:    "valid api source",
-			config:  &domain.InputConfig{Source: domain.InputSourceAPI},
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAPI}},
 			wantErr: false,
 		},
 		{
 			name:    "valid audio source",
-			config:  &domain.InputConfig{Source: domain.InputSourceAudio},
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAudio}},
 			wantErr: false,
 		},
 		{
 			name: "valid audio source with device",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Audio:  &domain.AudioConfig{Device: "hw:0,0"},
 			},
 			wantErr: false,
 		},
 		{
 			name:    "valid video source",
-			config:  &domain.InputConfig{Source: domain.InputSourceVideo},
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceVideo}},
 			wantErr: false,
 		},
 		{
 			name: "valid video source with device",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceVideo,
+				Sources: []string{domain.InputSourceVideo},
 				Video:  &domain.VideoConfig{Device: "/dev/video0"},
 			},
 			wantErr: false,
@@ -1145,7 +1145,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "valid telephony local",
 			config: &domain.InputConfig{
-				Source:    domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
 			},
 			wantErr: false,
@@ -1153,7 +1153,7 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "valid telephony online",
 			config: &domain.InputConfig{
-				Source:    domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeOnline, Provider: "twilio"},
 			},
 			wantErr: false,
@@ -1165,13 +1165,13 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		},
 		{
 			name:    "invalid source",
-			config:  &domain.InputConfig{Source: "invalid"},
+			config:  &domain.InputConfig{Sources: []string{"invalid"}},
 			wantErr: true,
 		},
 		{
 			name: "telephony missing type",
 			config: &domain.InputConfig{
-				Source:    domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{},
 			},
 			wantErr: true,
@@ -1179,14 +1179,14 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "telephony invalid type",
 			config: &domain.InputConfig{
-				Source:    domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{Type: "invalid"},
 			},
 			wantErr: true,
 		},
 		{
 			name:    "telephony without telephony block (nil)",
-			config:  &domain.InputConfig{Source: domain.InputSourceTelephony},
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceTelephony}},
 			wantErr: true,
 		},
 	}
@@ -1213,7 +1213,7 @@ func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
 			name: "valid audio input",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					Input: &domain.InputConfig{Source: domain.InputSourceAudio},
+					Input: &domain.InputConfig{Sources: []string{domain.InputSourceAudio}},
 				},
 			},
 			wantErr: false,
@@ -1222,7 +1222,7 @@ func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
 			name: "invalid input source",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					Input: &domain.InputConfig{Source: "invalid"},
+					Input: &domain.InputConfig{Sources: []string{"invalid"}},
 				},
 			},
 			wantErr: true,
@@ -1259,7 +1259,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid online openai-whisper",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1272,7 +1272,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid online google-stt",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1285,7 +1285,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid online aws-transcribe",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1298,7 +1298,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid online deepgram",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1311,7 +1311,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid online assemblyai",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1325,7 +1325,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid offline whisper",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOffline,
 					Offline: &domain.OfflineTranscriberConfig{
@@ -1339,7 +1339,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid offline faster-whisper",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceVideo,
+				Sources: []string{domain.InputSourceVideo},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOffline,
 					Offline: &domain.OfflineTranscriberConfig{
@@ -1352,7 +1352,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid offline vosk",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{
 					Type: domain.TelephonyTypeLocal,
 				},
@@ -1368,7 +1368,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "valid offline whisper-cpp",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode:   domain.TranscriberModeOffline,
 					Output: domain.TranscriberOutputMedia,
@@ -1384,7 +1384,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "transcriber on API source rejected",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAPI,
+				Sources: []string{domain.InputSourceAPI},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOffline,
 					Offline: &domain.OfflineTranscriberConfig{
@@ -1393,12 +1393,12 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "transcriber is not supported for api input source",
+			errMsg:  "transcriber is not supported when all sources are api",
 		},
 		{
 			name: "missing transcriber mode",
 			config: &domain.InputConfig{
-				Source:      domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{},
 			},
 			wantErr: true,
@@ -1407,7 +1407,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "invalid transcriber mode",
 			config: &domain.InputConfig{
-				Source:      domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{Mode: "hybrid"},
 			},
 			wantErr: true,
@@ -1416,7 +1416,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "invalid transcriber output",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode:   domain.TranscriberModeOnline,
 					Output: "audio",
@@ -1431,7 +1431,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "online mode without online config",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 				},
@@ -1442,7 +1442,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "offline mode without offline config",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOffline,
 				},
@@ -1453,7 +1453,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "online provider missing",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode:   domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{},
@@ -1465,7 +1465,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "invalid online provider",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOnline,
 					Online: &domain.OnlineTranscriberConfig{
@@ -1479,7 +1479,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "offline engine missing",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode:    domain.TranscriberModeOffline,
 					Offline: &domain.OfflineTranscriberConfig{},
@@ -1491,7 +1491,7 @@ func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
 		{
 			name: "invalid offline engine",
 			config: &domain.InputConfig{
-				Source: domain.InputSourceAudio,
+				Sources: []string{domain.InputSourceAudio},
 				Transcriber: &domain.TranscriberConfig{
 					Mode: domain.TranscriberModeOffline,
 					Offline: &domain.OfflineTranscriberConfig{
@@ -1662,7 +1662,7 @@ func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
 	v := validator.NewWorkflowValidator(sv)
 
 	cfg := &domain.InputConfig{
-		Source: domain.InputSourceAPI,
+		Sources: []string{domain.InputSourceAPI},
 		Activation: &domain.ActivationConfig{
 			Phrase:  "hey kdeps",
 			Mode:    domain.TranscriberModeOffline,
@@ -1673,7 +1673,7 @@ func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when activation is set on api source")
 	}
-	if !strings.Contains(err.Error(), "activation is not supported for api input source") {
+	if !strings.Contains(err.Error(), "activation is not supported when all sources are api") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }

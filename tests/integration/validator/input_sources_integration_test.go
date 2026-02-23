@@ -87,7 +87,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: api
+    sources:
+      - api
 `,
 			wantInputSrc: domain.InputSourceAPI,
 		},
@@ -103,7 +104,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: audio
+    sources:
+      - audio
     audio:
       device: hw:0,0
 `,
@@ -121,7 +123,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: video
+    sources:
+      - video
     video:
       device: /dev/video0
 `,
@@ -139,7 +142,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: telephony
+    sources:
+      - telephony
     telephony:
       type: local
       device: /dev/ttyUSB0
@@ -158,7 +162,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: telephony
+    sources:
+      - telephony
     telephony:
       type: online
       provider: twilio
@@ -197,7 +202,7 @@ settings:
 				assert.Nil(t, workflow.Settings.Input)
 			} else {
 				require.NotNil(t, workflow.Settings.Input, "Input should be set")
-				assert.Equal(t, tt.wantInputSrc, workflow.Settings.Input.Source)
+				assert.Equal(t, tt.wantInputSrc, workflow.Settings.Input.Sources[0])
 			}
 		})
 	}
@@ -221,7 +226,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: audio
+    sources:
+      - audio
     audio:
       device: default
 `
@@ -233,7 +239,7 @@ settings:
 	require.NoError(t, workflowValidator.Validate(workflow))
 
 	require.NotNil(t, workflow.Settings.Input)
-	assert.Equal(t, domain.InputSourceAudio, workflow.Settings.Input.Source)
+	assert.Equal(t, domain.InputSourceAudio, workflow.Settings.Input.Sources[0])
 	require.NotNil(t, workflow.Settings.Input.Audio)
 	assert.Equal(t, "default", workflow.Settings.Input.Audio.Device)
 }
@@ -256,7 +262,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: video
+    sources:
+      - video
     video:
       device: /dev/video1
 `
@@ -268,7 +275,7 @@ settings:
 	require.NoError(t, workflowValidator.Validate(workflow))
 
 	require.NotNil(t, workflow.Settings.Input)
-	assert.Equal(t, domain.InputSourceVideo, workflow.Settings.Input.Source)
+	assert.Equal(t, domain.InputSourceVideo, workflow.Settings.Input.Sources[0])
 	require.NotNil(t, workflow.Settings.Input.Video)
 	assert.Equal(t, "/dev/video1", workflow.Settings.Input.Video.Device)
 }
@@ -320,7 +327,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: telephony
+    sources:
+      - telephony
 ` + tt.telephonyYAML
 
 			tmpDir := t.TempDir()
@@ -331,7 +339,7 @@ settings:
 			require.NoError(t, workflowValidator.Validate(workflow))
 
 			require.NotNil(t, workflow.Settings.Input)
-			assert.Equal(t, domain.InputSourceTelephony, workflow.Settings.Input.Source)
+			assert.Equal(t, domain.InputSourceTelephony, workflow.Settings.Input.Sources[0])
 			require.NotNil(t, workflow.Settings.Input.Telephony)
 			assert.Equal(t, tt.wantType, workflow.Settings.Input.Telephony.Type)
 			if tt.wantDevice != "" {
@@ -356,7 +364,7 @@ func TestInputSourcesIntegration_InvalidSource(t *testing.T) {
 			TargetActionID: "main",
 		},
 		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{Source: "bluetooth"},
+			Input: &domain.InputConfig{Sources: []string{"bluetooth"}},
 		},
 		Resources: []*domain.Resource{
 			{
@@ -386,7 +394,7 @@ func TestInputSourcesIntegration_InvalidTelephonyType(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			Input: &domain.InputConfig{
-				Source: domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{
 					Type: "voip", // invalid type
 				},
@@ -413,7 +421,7 @@ func TestInputSourcesIntegration_TelephonyWithoutBlock(t *testing.T) {
 
 	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
 
-	// source: telephony but no telephony block provided at all (nil)
+	// sources: [telephony] but no telephony block provided at all (nil)
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name:           "nil-telephony-test",
@@ -421,7 +429,7 @@ func TestInputSourcesIntegration_TelephonyWithoutBlock(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			Input: &domain.InputConfig{
-				Source: domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				// Telephony is nil — should be rejected
 			},
 		},
@@ -437,7 +445,7 @@ func TestInputSourcesIntegration_TelephonyWithoutBlock(t *testing.T) {
 
 	err = workflowValidator.Validate(workflow)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "input.telephony is required when source is telephony")
+	assert.Contains(t, err.Error(), "input.telephony is required when sources includes telephony")
 }
 
 func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
@@ -466,7 +474,7 @@ func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 
 	err = workflowValidator.Validate(workflow)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "input.source is required")
+	assert.Contains(t, err.Error(), "input.sources is required and must have at least one source")
 }
 
 func TestInputSourcesIntegration_MissingTelephonyType(t *testing.T) {
@@ -482,7 +490,7 @@ func TestInputSourcesIntegration_MissingTelephonyType(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			Input: &domain.InputConfig{
-				Source:    domain.InputSourceTelephony,
+				Sources: []string{domain.InputSourceTelephony},
 				Telephony: &domain.TelephonyConfig{}, // missing type
 			},
 		},
@@ -563,7 +571,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: audio
+    sources:
+      - audio
 ` + tt.transYAML
 
 			tmpDir := t.TempDir()
@@ -652,7 +661,8 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    source: audio
+    sources:
+      - audio
 ` + tt.transYAML
 
 			tmpDir := t.TempDir()
@@ -694,7 +704,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("transcriber on API source rejected", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAPI,
+			Sources: []string{domain.InputSourceAPI},
 			Transcriber: &domain.TranscriberConfig{
 				Mode:    domain.TranscriberModeOffline,
 				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
@@ -702,12 +712,12 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 		})
 		err = workflowValidator.Validate(wf)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "transcriber is not supported for api input source")
+		assert.Contains(t, err.Error(), "transcriber is not supported when all sources are api")
 	})
 
 	t.Run("missing transcriber mode", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source:      domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{},
 		})
 		err = workflowValidator.Validate(wf)
@@ -717,7 +727,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("invalid transcriber mode", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source:      domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: "stream"},
 		})
 		err = workflowValidator.Validate(wf)
@@ -727,7 +737,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("online mode missing online config", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source:      domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOnline},
 		})
 		err = workflowValidator.Validate(wf)
@@ -737,7 +747,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 
 	t.Run("offline mode missing offline config", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source:      domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Transcriber: &domain.TranscriberConfig{Mode: domain.TranscriberModeOffline},
 		})
 		err = workflowValidator.Validate(wf)
@@ -766,7 +776,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("valid offline activation", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Activation: &domain.ActivationConfig{
 				Phrase:  "hey kdeps",
 				Mode:    domain.TranscriberModeOffline,
@@ -779,7 +789,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("valid online activation", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceVideo,
+			Sources: []string{domain.InputSourceVideo},
 			Activation: &domain.ActivationConfig{
 				Phrase: "hey kdeps",
 				Mode:   domain.TranscriberModeOnline,
@@ -792,7 +802,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("valid activation with sensitivity and chunk", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceTelephony,
+			Sources: []string{domain.InputSourceTelephony},
 			Telephony: &domain.TelephonyConfig{
 				Type:   domain.TelephonyTypeLocal,
 				Device: "/dev/ttyUSB0",
@@ -811,7 +821,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("activation on api source rejected", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAPI,
+			Sources: []string{domain.InputSourceAPI},
 			Activation: &domain.ActivationConfig{
 				Phrase:  "hey kdeps",
 				Mode:    domain.TranscriberModeOffline,
@@ -820,12 +830,12 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 		})
 		err = workflowValidator.Validate(wf)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "activation is not supported for api input source")
+		assert.Contains(t, err.Error(), "activation is not supported when all sources are api")
 	})
 
 	t.Run("missing activation phrase", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Activation: &domain.ActivationConfig{
 				Mode:    domain.TranscriberModeOffline,
 				Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
@@ -838,7 +848,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("invalid activation mode", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Activation: &domain.ActivationConfig{
 				Phrase: "hey kdeps",
 				Mode:   "continuous",
@@ -851,7 +861,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 
 	t.Run("sensitivity out of range", func(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
-			Source: domain.InputSourceAudio,
+			Sources: []string{domain.InputSourceAudio},
 			Activation: &domain.ActivationConfig{
 				Phrase:      "hey kdeps",
 				Mode:        domain.TranscriberModeOffline,
