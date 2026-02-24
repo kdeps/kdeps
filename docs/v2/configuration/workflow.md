@@ -546,8 +546,8 @@ settings:
 ```
 
 After transcription, access results via:
-- `inputTranscript()` — the text transcript
-- `inputMedia()` — path to the saved media file
+- `inputTranscript` — the text transcript
+- `inputMedia` — path to the saved media file
 - `get("inputTranscript")` — unified API equivalent
 
 ### Multi-Source Example

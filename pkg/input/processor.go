@@ -19,7 +19,7 @@
 // Package input provides the runtime input processor for KDeps workflows.
 // It handles hardware capture (audio/video/telephony) and signal transcription
 // (online cloud services and offline local engines) before workflow resources run.
-package input
+package input //nolint:cyclop // package-level complexity is inherent to the multi-source activation/capture/transcribe pipeline
 
 import (
 	"log/slog"
@@ -225,7 +225,13 @@ func (p *Processor) runActivationLoop() error {
 		if heard == "" {
 			consecutiveSilences++
 			if consecutiveSilences == silenceWarnAfter {
-				p.logger.Warn("activation: microphone appears silent", "probes", consecutiveSilences, "hint", silenceHint)
+				p.logger.Warn(
+					"activation: microphone appears silent",
+					"probes",
+					consecutiveSilences,
+					"hint",
+					silenceHint,
+				)
 			}
 		} else {
 			consecutiveSilences = 0

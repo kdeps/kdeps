@@ -230,12 +230,12 @@ In any resource that runs after transcription:
 ```yaml
 run:
   chat:
-    prompt: "{{ inputTranscript() }}"    # expression function
+    prompt: "{{ inputTranscript }}"    # expression function
 ```
 
 Equivalent accessors:
-- `inputTranscript()` — expression function
-- `inputMedia()` — path to the raw media file
+- `inputTranscript` — expression function
+- `inputMedia` — path to the raw media file
 - `get("inputTranscript")` — unified API
 
 ### Online Transcription Providers
@@ -317,7 +317,7 @@ metadata:
 run:
   chat:
     model: llama3.2:1b
-    prompt: "{{ inputTranscript() }}"
+    prompt: "{{ inputTranscript }}"
   tts:
     text: "{{ get('voiceChat') }}"
     mode: offline
@@ -354,7 +354,7 @@ run:
     model: llama3.2-vision
     prompt: "Describe what you see in this video frame."
     images:
-      - "{{ inputMedia() }}"
+      - "{{ inputMedia }}"
 ```
 
 ### Telephony Call Handler

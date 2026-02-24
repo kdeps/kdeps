@@ -188,7 +188,11 @@ func (e *Executor) synthesizeOnline(text string, cfg *domain.TTSConfig, outPath 
 	case domain.TTSProviderAzure:
 		return e.azureTTS(text, cfg, outPath)
 	default:
-		return fmt.Errorf("tts executor: unknown online provider %q (valid: %s)", cfg.Online.Provider, validOnlineProviders)
+		return fmt.Errorf(
+			"tts executor: unknown online provider %q (valid: %s)",
+			cfg.Online.Provider,
+			validOnlineProviders,
+		)
 	}
 }
 
@@ -407,7 +411,6 @@ func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath
 	}
 }
 
-
 // piperVoicesDir returns the stable cache directory for downloaded piper voice models.
 func piperVoicesDir() string {
 	if cacheDir, err := os.UserCacheDir(); err == nil {
@@ -419,28 +422,27 @@ func piperVoicesDir() string {
 // parsePiperVoiceName splits a piper voice name of the form
 // "{lang}_{Country}-{speaker}-{quality}" (e.g. "en_US-lessac-medium") into its
 // components so we can build the Hugging Face download URL.
-func parsePiperVoiceName(name string) (lang, langCode, speaker, quality string, ok bool) {
+func parsePiperVoiceName(name string) (string, string, string, string, bool) {
 	dashIdx := strings.Index(name, "-")
 	if dashIdx < 0 {
-		return
+		return "", "", "", "", false
 	}
-	langCode = name[:dashIdx] // e.g. "en_US"
-	rest := name[dashIdx+1:]  // e.g. "lessac-medium"
+	langCode := name[:dashIdx] // e.g. "en_US"
+	rest := name[dashIdx+1:]   // e.g. "lessac-medium"
 
 	underIdx := strings.Index(langCode, "_")
 	if underIdx < 0 {
-		return
+		return "", langCode, "", "", false
 	}
-	lang = langCode[:underIdx] // e.g. "en"
+	lang := langCode[:underIdx] // e.g. "en"
 
 	lastDash := strings.LastIndex(rest, "-")
 	if lastDash < 0 {
-		return
+		return lang, langCode, "", "", false
 	}
-	speaker = rest[:lastDash]   // e.g. "lessac"
-	quality = rest[lastDash+1:] // e.g. "medium"
-	ok = true
-	return
+	speaker := rest[:lastDash]   // e.g. "lessac"
+	quality := rest[lastDash+1:] // e.g. "medium"
+	return lang, langCode, speaker, quality, true
 }
 
 // downloadPiperVoice downloads the .onnx and .onnx.json model files for voice
@@ -523,11 +525,11 @@ func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) err
 	if _, lookErr := exec.LookPath("piper"); lookErr == nil {
 		cmd = exec.CommandContext(context.Background(), "piper", piperArgs...)
 	} else if venvBin := python.IOToolBin("piper", "piper"); venvBin != "" {
-		cmd = exec.CommandContext(context.Background(), venvBin, piperArgs...) //nolint:gosec // path from known venv location
+		cmd = exec.CommandContext(context.Background(), venvBin, piperArgs...)
 	} else {
 		// piper not on PATH and no venv — try via uv tool run as last resort.
 		uvArgs := append([]string{"tool", "run", "--from", "piper-tts", "piper"}, piperArgs...)
-		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...) //nolint:gosec // args are internal constants or user config
+		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...)
 	}
 	cmd.Stdin = strings.NewReader(text)
 	var stderr bytes.Buffer
@@ -593,12 +595,12 @@ func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) err
 	}
 	var cmd *exec.Cmd
 	if venvPython := python.IOToolPythonBin("coqui"); venvPython != "" {
-		cmd = exec.CommandContext(context.Background(), venvPython, ttsArgs...) //nolint:gosec // path from known venv location
+		cmd = exec.CommandContext(context.Background(), venvPython, ttsArgs...)
 	} else if _, uvErr := exec.LookPath("uv"); uvErr == nil {
 		uvArgs := append([]string{"run", "--with", "TTS", "python"}, ttsArgs...)
 		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...)
 	} else {
-		cmd = exec.CommandContext(context.Background(), pythonBin(), ttsArgs...)
+		cmd = exec.CommandContext(context.Background(), pythonBin(), ttsArgs...) //nolint:gosec // pythonBin() returns a fixed internal binary path, not user input
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
