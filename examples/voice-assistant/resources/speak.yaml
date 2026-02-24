@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: speak
+  name: Speak Response
+  requires:
+    - respond
+
+run:
+  tts:
+    text: "{{ llm.response('respond') }}"
+    mode: offline
+    offline:
+      engine: coqui-tts
+      model: en_US-lessac-medium
