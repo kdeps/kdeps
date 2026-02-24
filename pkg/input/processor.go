@@ -24,7 +24,9 @@ package input
 import (
 	"log/slog"
 	"os"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input/activation"
@@ -130,6 +132,14 @@ func (p *Processor) Process() (*Result, error) {
 		if err := p.runActivationLoop(); err != nil {
 			return nil, err
 		}
+		// Pause after wake-phrase detection so the user has time to begin their
+		// follow-up request before the main capture starts.
+		delay := p.cfg.Activation.ListenDelay
+		if delay == 0 {
+			delay = 1 // default: 1 second
+		}
+		p.logger.Info("activation: listening for follow-up", "wait_seconds", delay)
+		time.Sleep(time.Duration(delay) * time.Second)
 	}
 
 	result := &Result{}
@@ -183,14 +193,28 @@ func (p *Processor) runActivationLoop() error {
 		return err
 	}
 
+	retryDelay := time.Duration(p.detector.ChunkSeconds()) * time.Second
+
+	// silenceHint is printed once after a run of consecutive silent probes to
+	// help users diagnose microphone permission or device issues.
+	silenceHint := "check your microphone device setting"
+	if runtime.GOOS == "darwin" {
+		silenceHint = "on macOS grant microphone access: System Settings → Privacy & Security → Microphone"
+	}
+
+	const silenceWarnAfter = 3 // warn after this many consecutive silent probes
+
+	var probeCount, consecutiveSilences int
 	for {
 		probeFile, captureErr := probeCapturer.Capture()
 		if captureErr != nil {
 			p.logger.Warn("activation: probe capture error", "err", captureErr)
+			time.Sleep(retryDelay)
 			continue
 		}
 
-		detected, detectErr := p.detector.Detect(probeFile)
+		probeCount++
+		detected, heard, detectErr := p.detector.Detect(probeFile)
 		_ = os.Remove(probeFile)
 
 		if detectErr != nil {
@@ -198,8 +222,17 @@ func (p *Processor) runActivationLoop() error {
 			continue
 		}
 
+		if heard == "" {
+			consecutiveSilences++
+			if consecutiveSilences == silenceWarnAfter {
+				p.logger.Warn("activation: microphone appears silent", "probes", consecutiveSilences, "hint", silenceHint)
+			}
+		} else {
+			consecutiveSilences = 0
+		}
+
 		if detected {
-			p.logger.Info("activation: wake phrase detected")
+			p.logger.Info("activation: wake phrase detected", "probe", probeCount)
 			return nil
 		}
 	}

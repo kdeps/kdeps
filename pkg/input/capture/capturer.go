@@ -195,6 +195,10 @@ func (c *AudioCapturer) Capture() (string, error) {
 		return "", fmt.Errorf("capture audio from %s: %w\n%s", c.device, runErr, out)
 	}
 
+	if info, statErr := os.Stat(outPath); statErr == nil {
+		c.logger.Info("audio captured", "bytes", info.Size(), "path", outPath)
+	}
+
 	return outPath, nil
 }
 
