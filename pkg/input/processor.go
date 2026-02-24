@@ -26,6 +26,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -142,38 +143,84 @@ func (p *Processor) Process() (*Result, error) {
 		time.Sleep(time.Duration(delay) * time.Second)
 	}
 
+	return p.captureAndTranscribe()
+}
+
+// captureResult holds the per-source outcome of a concurrent capture/transcribe.
+type captureResult struct {
+	source    string
+	mediaFile string
+	text      string
+	err       error
+}
+
+// captureAndTranscribe runs all sources concurrently, then aggregates results.
+func (p *Processor) captureAndTranscribe() (*Result, error) {
+	// results is pre-allocated with one slot per source. Each goroutine writes only
+	// to its own index (idx), so concurrent writes are safe without a mutex.
+	results := make([]captureResult, len(p.sources))
+	var wg sync.WaitGroup
+
+	for i, sc := range p.sources {
+		results[i].source = sc.source
+		wg.Add(1)
+		go func(idx int, sc sourceCapture) {
+			defer wg.Done()
+			p.captureOne(idx, sc, results)
+		}(i, sc)
+	}
+
+	wg.Wait()
+
+	return p.aggregateResults(results)
+}
+
+// captureOne performs capture and optional transcription for a single source,
+// writing into results[idx]. Safe to call from a goroutine.
+func (p *Processor) captureOne(idx int, sc sourceCapture, results []captureResult) {
+	mediaFile, err := sc.capturer.Capture()
+	if err != nil {
+		results[idx].err = err
+		return
+	}
+	results[idx].mediaFile = mediaFile
+
+	if p.transcriber == nil || mediaFile == "" {
+		return
+	}
+
+	transcribeResult, err := p.transcriber.Transcribe(mediaFile)
+	if err != nil {
+		results[idx].err = err
+		return
+	}
+
+	results[idx].text = transcribeResult.Text
+	// When the transcriber produces a new media file (output: media), it replaces
+	// the raw capture file.
+	if transcribeResult.MediaFile != "" {
+		results[idx].mediaFile = transcribeResult.MediaFile
+	}
+}
+
+// aggregateResults collects per-source outcomes into a single Result.
+// Results are iterated in source declaration order (deterministic). The first
+// error encountered is returned immediately. MediaFile is set to the last
+// non-empty value, matching the original sequential behavior.
+func (p *Processor) aggregateResults(results []captureResult) (*Result, error) {
 	result := &Result{}
 	var transcripts []string
 
-	for _, sc := range p.sources {
-		result.Sources = append(result.Sources, sc.source)
-
-		mediaFile, err := sc.capturer.Capture()
-		if err != nil {
-			return nil, err
+	for _, r := range results {
+		if r.err != nil {
+			return nil, r.err
 		}
-
-		if mediaFile != "" {
-			result.MediaFile = mediaFile
+		result.Sources = append(result.Sources, r.source)
+		if r.mediaFile != "" {
+			result.MediaFile = r.mediaFile
 		}
-
-		if p.transcriber == nil || mediaFile == "" {
-			// No transcriber or no media: pass through.
-			continue
-		}
-
-		transcribeResult, err := p.transcriber.Transcribe(mediaFile)
-		if err != nil {
-			return nil, err
-		}
-
-		if transcribeResult.Text != "" {
-			transcripts = append(transcripts, transcribeResult.Text)
-		}
-		// When the transcriber produces a new media file (output: media), it replaces
-		// the raw capture file.
-		if transcribeResult.MediaFile != "" {
-			result.MediaFile = transcribeResult.MediaFile
+		if r.text != "" {
+			transcripts = append(transcripts, r.text)
 		}
 	}
 
@@ -213,6 +260,13 @@ func (p *Processor) runActivationLoop() error {
 			continue
 		}
 
+		if probeFile == "" {
+			// NoOpCapturer (e.g. online telephony) returns an empty path; back off
+			// to avoid a tight spin loop.
+			time.Sleep(time.Second)
+			continue
+		}
+
 		probeCount++
 		detected, heard, detectErr := p.detector.Detect(probeFile)
 		_ = os.Remove(probeFile)
@@ -225,7 +279,13 @@ func (p *Processor) runActivationLoop() error {
 		if heard == "" {
 			consecutiveSilences++
 			if consecutiveSilences == silenceWarnAfter {
-				p.logger.Warn("activation: microphone appears silent", "probes", consecutiveSilences, "hint", silenceHint)
+				p.logger.Warn(
+					"activation: microphone appears silent",
+					"probes",
+					consecutiveSilences,
+					"hint",
+					silenceHint,
+				)
 			}
 		} else {
 			consecutiveSilences = 0

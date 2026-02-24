@@ -18,7 +18,11 @@
 
 package domain
 
-import "gopkg.in/yaml.v3"
+import (
+	"encoding/json"
+
+	"gopkg.in/yaml.v3"
+)
 
 const (
 	// DefaultPort is the default port for API and Web servers.
@@ -113,8 +117,19 @@ type WebAppConfig struct {
 }
 
 // InputConfig specifies the input sources for the workflow.
-// Sources is a list of one or more: "api" (default), "audio", "video", "telephony".
-// Multiple sources can be active simultaneously (e.g. audio + video for a video call).
+//
+// The `sources` field in the workflow YAML is a list of one or more input sources:
+// "api" (default), "audio", "video", "telephony".
+//
+// Multiple sources can be active simultaneously (for example, audio + video for a
+// video call). Example:
+//
+//	input:
+//	  sources: ["audio", "video"]
+//	  audio:
+//	    # audio configuration...
+//	  video:
+//	    # video configuration...
 type InputConfig struct {
 	Sources     []string           `yaml:"sources"               json:"sources"`
 	Audio       *AudioConfig       `yaml:"audio,omitempty"       json:"audio,omitempty"`
@@ -163,6 +178,47 @@ func (c *InputConfig) HasSource(source string) bool {
 		}
 	}
 	return false
+}
+
+// inputConfigAlias is used to avoid infinite recursion in the custom unmarshalers.
+type inputConfigAlias InputConfig
+
+// inputConfigRaw is the on-wire representation that also accepts the legacy `source` field.
+// Note: Go's encoding/json automatically promotes anonymous (embedded) struct fields, so
+// no explicit ",inline" tag is needed for JSON — only yaml.v3 requires it.
+type inputConfigRaw struct {
+	inputConfigAlias `       yaml:",inline"`
+	Source           string `yaml:"source,omitempty" json:"source,omitempty"`
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for backward compatibility.
+// If the legacy `source` field is present and `sources` is empty, the single
+// source is promoted to the `sources` list.
+func (c *InputConfig) UnmarshalYAML(value *yaml.Node) error {
+	raw := &inputConfigRaw{}
+	if err := value.Decode(raw); err != nil {
+		return err
+	}
+	*c = InputConfig(raw.inputConfigAlias)
+	if len(c.Sources) == 0 && raw.Source != "" {
+		c.Sources = []string{raw.Source}
+	}
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler for backward compatibility.
+// If the legacy `source` field is present and `sources` is empty, the single
+// source is promoted to the `sources` list.
+func (c *InputConfig) UnmarshalJSON(data []byte) error {
+	raw := &inputConfigRaw{}
+	if err := json.Unmarshal(data, raw); err != nil {
+		return err
+	}
+	*c = InputConfig(raw.inputConfigAlias)
+	if len(c.Sources) == 0 && raw.Source != "" {
+		c.Sources = []string{raw.Source}
+	}
+	return nil
 }
 
 // AudioConfig contains audio hardware device configuration.

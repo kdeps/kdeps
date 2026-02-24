@@ -1,6 +1,6 @@
 # TTS (Text-to-Speech) Resource
 
-The TTS resource synthesizes speech from text, producing an audio file that can be accessed by downstream resources via the `ttsOutput()` expression function. It supports both cloud (online) and local (offline) synthesis engines and can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+The TTS resource synthesizes speech from text, producing an audio file that can be accessed by downstream resources via the `ttsOutput` expression function. It supports both cloud (online) and local (offline) synthesis engines and can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
 
 ## Basic Usage
 
@@ -232,7 +232,7 @@ tts:
 
 After the TTS resource runs, the path to the synthesized audio file is available via:
 
-- **`ttsOutput()`** — expression function in any resource evaluated after TTS runs
+- **`ttsOutput`** — expression function in any resource evaluated after TTS runs
 - **`get("ttsOutput")`** — unified `get()` helper
 - **`input("ttsOutput")`** or **`input("tts")`** — `input()` helper
 
@@ -253,7 +253,7 @@ resources:
       apiResponse:
         success: true
         response:
-          audioPath: "{{ttsOutput()}}"
+          audioPath: "{{ttsOutput}}"
 ```
 
 ---
@@ -307,7 +307,7 @@ Full example combining input transcription with TTS output:
 # workflow.yaml
 settings:
   input:
-    source: audio
+    sources: [audio]
     audio:
       device: hw:0,0
     activation:

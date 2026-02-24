@@ -32,7 +32,7 @@ func encodeBase64(data []byte) string {
 }
 
 // saveMediaForResources copies the source file to a stable temp path that
-// downstream resources can reference via inputMedia().
+// downstream resources can reference via inputMedia.
 func saveMediaForResources(src string) (string, error) {
 	if src == "" {
 		return "", nil

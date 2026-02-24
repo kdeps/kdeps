@@ -100,16 +100,16 @@ type ExecutionContext struct {
 
 	// InputMediaFile is the path to the captured or transcribed media file produced
 	// by the input processor (audio/video/telephony sources with output: media).
-	// Resources can read this path via the inputMedia() expression function.
+	// Resources can read this path via the inputMedia expression function.
 	InputMediaFile string
 
 	// InputTranscript is the text produced by the input transcriber
 	// (audio/video/telephony sources with output: text).
-	// Resources can read this value via the inputTranscript() expression function.
+	// Resources can read this value via the inputTranscript expression function.
 	InputTranscript string
 
 	// TTSOutputFile is the path to the audio file produced by a TTS resource.
-	// Resources can read this path via the ttsOutput() expression function.
+	// Resources can read this path via the ttsOutput expression function.
 	TTSOutputFile string
 
 	// Filtering configuration (set per resource)
@@ -1339,7 +1339,7 @@ func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error
 	}
 
 	// If it's a map (e.g., JSON response), try to extract response or data field
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
+	if outputMap, okMap := output.(map[string]interface{}); okMap { //nolint:nestif // sequential map key checks are clearest inline
 		// OpenAI-style "response" key
 		if response, okResp := outputMap["response"].(string); okResp {
 			return response, nil

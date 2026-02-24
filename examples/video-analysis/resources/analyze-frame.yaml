@@ -11,7 +11,7 @@ run:
     role: user
     prompt: "Analyze this image from a security camera. Describe what you see, identify any people or vehicles, and flag any unusual activity."
     images:
-      - "{{ inputMedia() }}"
+      - "{{ inputMedia }}"
     jsonResponse: true
     jsonResponseKeys:
       - description
