@@ -120,7 +120,7 @@ func TestDetect_EmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	detected, err := det.Detect("")
+	detected, _, err := det.Detect("")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestDetect_NonExistentFile(t *testing.T) {
 	}
 	// A non-existent file will cause the transcriber subprocess to fail; Detect
 	// treats that as a non-fatal probe error and returns false, nil.
-	detected, detectErr := det.Detect(filepath.Join(t.TempDir(), "does-not-exist.wav"))
+	detected, _, detectErr := det.Detect(filepath.Join(t.TempDir(), "does-not-exist.wav"))
 	if detectErr != nil {
 		t.Fatalf("unexpected error (should be swallowed): %v", detectErr)
 	}

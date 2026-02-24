@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: video-analysis
+  description: Continuous camera monitoring with AI-powered frame analysis and activity logging
+  version: "1.0.0"
+  targetActionId: logResult
+
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llava:7b
+
+  input:
+    sources: [video]
+    video:
+      device: /dev/video0       # Linux V4L2: /dev/video0, /dev/video1, ...
+                                 # macOS (AVFoundation): "FaceTime HD Camera" or "0"
+                                 # Windows (DirectShow): "USB Video Device" or "0"
+    transcriber:
+      mode: offline
+      output: media             # Keep raw video frame — skip text transcription
+      offline:
+        engine: faster-whisper
+        model: base

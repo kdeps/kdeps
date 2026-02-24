@@ -1,0 +1,43 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: voice-assistant
+  description: Fully offline voice assistant with wake phrase detection, LLM response, and TTS output
+  version: "1.0.0"
+  targetActionId: speak
+
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    offlineMode: true
+    installOllama: true
+    models:
+      - llama3.2:1b
+
+  input:
+    sources: [audio]
+    audio:
+      device: :0          # macOS AVFoundation: :<audio_index>  (list with: ffmpeg -f avfoundation -list_devices true -i "")
+                               # Linux ALSA (arecord): hw:<card>,<device>  (list with: arecord -l)
+                               # Linux ffmpeg fallback: default
+                               # Windows dshow: "Microphone (Realtek Audio)"  (list with: ffmpeg -list_devices true -f dshow -i dummy)
+    activation:
+      phrase: "hey computer"   # Use common words whisper tiny reliably transcribes.
+                               # "kdeps" is not a real word — whisper may mishear it as "depths" etc.
+                               # Alternatives: "okay computer", "hello assistant", "start listening"
+      mode: offline
+      sensitivity: 0.8         # 0.8 allows one word to be mis-heard (e.g. "hey" alone triggers)
+                               # Use 1.0 for exact match only
+      chunkSeconds: 3
+      listenDelay: 2           # seconds to wait after wake phrase before capturing the follow-up
+      offline:
+        engine: faster-whisper
+        model: tiny            # Use tiny for fast wake phrase detection
+    transcriber:
+      mode: offline
+      output: text
+      offline:
+        engine: faster-whisper
+        model: small           # Use small for better transcription quality

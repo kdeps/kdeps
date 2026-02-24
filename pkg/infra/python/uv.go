@@ -41,7 +41,43 @@ const (
 	MaxPackagesInVenvName = 3
 	// UVTimeout is the timeout for uv commands.
 	UVTimeout = 5 * time.Minute
+	// IOToolsPythonVersion is the Python version used for I/O tool venvs.
+	IOToolsPythonVersion = "3.12"
 )
+
+// IOToolsBaseDir returns the stable cache directory for I/O tool virtual environments.
+// Venvs here persist across runs so packages only install once.
+func IOToolsBaseDir() string {
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(cacheDir, "kdeps", "io-venvs")
+	}
+	return filepath.Join(os.TempDir(), "kdeps-io-venvs")
+}
+
+// IOToolVenvPath returns the full path to the venv for a named I/O tool.
+func IOToolVenvPath(toolName string) string {
+	return filepath.Join(IOToolsBaseDir(), toolName)
+}
+
+// IOToolPythonBin returns the python executable path for an I/O tool venv.
+// Returns empty string when the venv does not exist yet.
+func IOToolPythonBin(toolName string) string {
+	p := filepath.Join(IOToolVenvPath(toolName), "bin", "python")
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return ""
+}
+
+// IOToolBin returns the path to a named binary inside an I/O tool venv.
+// Returns empty string when the binary does not exist.
+func IOToolBin(toolName, binName string) string {
+	p := filepath.Join(IOToolVenvPath(toolName), "bin", binName)
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return ""
+}
 
 // NewManager creates a new uv manager.
 func NewManager(baseDir string) *Manager {
@@ -129,7 +165,8 @@ func (m *Manager) GetVenvName(
 }
 
 // InstallPackages installs packages using uv pip install.
-func (m *Manager) InstallPackages(venvPath string, packages []string) error {
+// extraArgs are appended after the package names (e.g. "--no-build-isolation").
+func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs ...string) error {
 	pythonPath := filepath.Join(venvPath, "bin", "python")
 	if _, err := os.Stat(pythonPath); os.IsNotExist(err) {
 		// Windows
@@ -138,6 +175,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string) error {
 
 	args := []string{"pip", "install"}
 	args = append(args, packages...)
+	args = append(args, extraArgs...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
@@ -178,6 +216,25 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 		return fmt.Errorf("requirements installation failed: %w, output: %s", err, string(output))
 	}
 
+	return nil
+}
+
+// InstallTool installs a Python CLI tool globally using `uv tool install`.
+// It is a no-op when binaryName is already on PATH.
+// extraArgs are appended verbatim (e.g. "--no-build-isolation").
+func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error {
+	if _, err := exec.LookPath(binaryName); err == nil {
+		return nil // already installed
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	defer cancel()
+
+	args := append([]string{"tool", "install", pkg}, extraArgs...)
+	cmd := exec.CommandContext(ctx, "uv", args...) //nolint:gosec // pkg and extraArgs are internal constants
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("uv tool install %s: %w\n%s", pkg, err, string(output))
+	}
 	return nil
 }
 

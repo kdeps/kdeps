@@ -466,7 +466,9 @@ func (e *Executor) buildMessages(
 		}, messages...)
 	}
 
-	// Insert scenario items after the main message (for compatibility with existing tests)
+	// Insert scenario items: system-role items go before the user message,
+	// all others go after (conversation history / few-shot examples).
+	var beforeUser, afterUser []map[string]interface{}
 	for _, scenarioItem := range config.Scenario {
 		scenarioPrompt, scenarioErr := e.evaluateStringOrLiteral(
 			evaluator,
@@ -487,7 +489,6 @@ func (e *Executor) buildMessages(
 			return nil, fmt.Errorf("failed to evaluate scenario name: %w", nameErr)
 		}
 
-		// Insert scenario message after the main user message
 		msg := map[string]interface{}{
 			"role":    scenarioRole,
 			"content": scenarioPrompt,
@@ -495,8 +496,17 @@ func (e *Executor) buildMessages(
 		if scenarioName != "" {
 			msg["name"] = scenarioName
 		}
-		messages = append(messages, msg)
+		if scenarioRole == "system" {
+			beforeUser = append(beforeUser, msg)
+		} else {
+			afterUser = append(afterUser, msg)
+		}
 	}
+
+	if len(beforeUser) > 0 {
+		messages = append(beforeUser, messages...)
+	}
+	messages = append(messages, afterUser...)
 
 	return messages, nil
 }
@@ -897,6 +907,15 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 
 	// Add resource outputs
 	env["outputs"] = ctx.Outputs
+
+	// Add input transcript and media file (set by the input processor before execution).
+	env["inputTranscript"] = ctx.InputTranscript
+	env["inputMedia"] = ctx.InputMediaFile
+
+	// Add typed accessor objects so expressions like llm.response('x') work in prompts.
+	for k, v := range ctx.BuildEvaluatorEnv() {
+		env[k] = v
+	}
 
 	return env
 }

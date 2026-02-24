@@ -209,6 +209,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			}
 			ctx.InputTranscript = result.Transcript
 			ctx.InputMediaFile = result.MediaFile
+			if result.Transcript != "" {
+				e.logger.Info("input transcribed", "transcript", result.Transcript)
+			}
 		}
 	}
 
@@ -687,7 +690,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||

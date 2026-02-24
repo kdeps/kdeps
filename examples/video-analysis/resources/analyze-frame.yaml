@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: analyzeFrame
+  name: Analyze Frame
+
+run:
+  chat:
+    model: llava:7b
+    role: user
+    prompt: "Analyze this image from a security camera. Describe what you see, identify any people or vehicles, and flag any unusual activity."
+    images:
+      - "{{ inputMedia() }}"
+    jsonResponse: true
+    jsonResponseKeys:
+      - description
+      - people_count
+      - vehicles
+      - activity
+      - alert
+    timeoutDuration: 60s

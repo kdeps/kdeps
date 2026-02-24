@@ -47,8 +47,17 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
+
+// pythonBin returns "python3" when it is on PATH, falling back to "python".
+func pythonBin() string {
+	if _, err := exec.LookPath("python3"); err == nil {
+		return "python3"
+	}
+	return "python"
+}
 
 const (
 	ttsOutputDir            = "/tmp/kdeps-tts"
@@ -127,7 +136,7 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) str
 		return text
 	}
 	eval := expression.NewEvaluator(ctx.API)
-	env := map[string]interface{}{}
+	env := ctx.BuildEvaluatorEnv()
 	expr := &domain.Expression{
 		Raw:  text,
 		Type: domain.ExprTypeInterpolated,
@@ -179,7 +188,7 @@ func (e *Executor) synthesizeOnline(text string, cfg *domain.TTSConfig, outPath 
 	case domain.TTSProviderAzure:
 		return e.azureTTS(text, cfg, outPath)
 	default:
-		return fmt.Errorf("tts executor: unknown online provider %q", cfg.Online.Provider)
+		return fmt.Errorf("tts executor: unknown online provider %q (valid: %s)", cfg.Online.Provider, validOnlineProviders)
 	}
 }
 
@@ -375,6 +384,11 @@ func (e *Executor) doAndSave(req *http.Request, outPath, provider string) error 
 
 // ─── Offline synthesis ───────────────────────────────────────────────────────
 
+const (
+	validOfflineEngines  = "piper, espeak, festival, coqui-tts"
+	validOnlineProviders = "openai-tts, google-tts, elevenlabs, aws-polly, azure-tts"
+)
+
 func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath string) error {
 	engine := cfg.Offline.Engine
 	e.logger.Info("offline TTS", "engine", engine)
@@ -386,25 +400,135 @@ func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath
 		return e.espeak(text, cfg, outPath)
 	case domain.TTSEngineFestival:
 		return e.festival(text, outPath)
-	case domain.TTSEngineCoqui:
+	case domain.TTSEngineCoqui, "coqui":
 		return e.coqui(text, cfg, outPath)
 	default:
-		return fmt.Errorf("tts executor: unknown offline engine %q", engine)
+		return fmt.Errorf("tts executor: unknown offline engine %q (valid: %s)", engine, validOfflineEngines)
 	}
 }
 
+
+// piperVoicesDir returns the stable cache directory for downloaded piper voice models.
+func piperVoicesDir() string {
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		return filepath.Join(cacheDir, "kdeps", "piper-voices")
+	}
+	return filepath.Join(os.TempDir(), "kdeps-piper-voices")
+}
+
+// parsePiperVoiceName splits a piper voice name of the form
+// "{lang}_{Country}-{speaker}-{quality}" (e.g. "en_US-lessac-medium") into its
+// components so we can build the Hugging Face download URL.
+func parsePiperVoiceName(name string) (lang, langCode, speaker, quality string, ok bool) {
+	dashIdx := strings.Index(name, "-")
+	if dashIdx < 0 {
+		return
+	}
+	langCode = name[:dashIdx] // e.g. "en_US"
+	rest := name[dashIdx+1:]  // e.g. "lessac-medium"
+
+	underIdx := strings.Index(langCode, "_")
+	if underIdx < 0 {
+		return
+	}
+	lang = langCode[:underIdx] // e.g. "en"
+
+	lastDash := strings.LastIndex(rest, "-")
+	if lastDash < 0 {
+		return
+	}
+	speaker = rest[:lastDash]   // e.g. "lessac"
+	quality = rest[lastDash+1:] // e.g. "medium"
+	ok = true
+	return
+}
+
+// downloadPiperVoice downloads the .onnx and .onnx.json model files for voice
+// from the rhasspy/piper-voices Hugging Face repository into destDir.
+func downloadPiperVoice(voice, destDir string) error {
+	lang, langCode, speaker, quality, ok := parsePiperVoiceName(voice)
+	if !ok {
+		return fmt.Errorf("piper: cannot parse voice name %q (expected lang_Country-speaker-quality)", voice)
+	}
+	if err := os.MkdirAll(destDir, 0o750); err != nil {
+		return fmt.Errorf("piper: create voices dir: %w", err)
+	}
+	base := fmt.Sprintf(
+		"https://huggingface.co/rhasspy/piper-voices/resolve/main/%s/%s/%s/%s/%s",
+		lang, langCode, speaker, quality, voice,
+	)
+	// Use a client with no timeout — model files can be 50–150 MB.
+	dlClient := &http.Client{}
+	for _, suffix := range []string{".onnx", ".onnx.json"} {
+		dst := filepath.Join(destDir, voice+suffix)
+		if _, err := os.Stat(dst); err == nil {
+			continue // already present
+		}
+		resp, err := dlClient.Get(base + suffix) //nolint:noctx // intentional: long download, no deadline
+		if err != nil {
+			return fmt.Errorf("piper: download %s: %w", suffix, err)
+		}
+		func() {
+			defer func() { _ = resp.Body.Close() }()
+			if resp.StatusCode != http.StatusOK {
+				err = fmt.Errorf("piper: download %s: HTTP %d", suffix, resp.StatusCode)
+				return
+			}
+			f, createErr := os.Create(dst)
+			if createErr != nil {
+				err = createErr
+				return
+			}
+			defer func() { _ = f.Close() }()
+			_, err = io.Copy(f, resp.Body)
+		}()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // piper runs the Piper TTS binary.
-// Invokes: piper --model <model> --output_file <outPath> (text on stdin).
+// When the model is a plain voice name (not a file path), the voice is auto-downloaded
+// to ~/.cache/kdeps/piper-voices/ on first use from Hugging Face.
 func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) error {
 	model := cfg.Offline.Model
 	if model == "" {
 		model = "en_US-lessac-medium"
 	}
-	args := []string{"--model", model, "--output_file", outPath}
-	if cfg.Language != "" {
-		args = append(args, "--speaker", cfg.Language)
+
+	// If the model looks like a voice name (no path separators, no .onnx suffix),
+	// resolve it to a local .onnx path, downloading if necessary.
+	if !strings.Contains(model, string(os.PathSeparator)) && !strings.HasSuffix(model, ".onnx") {
+		voicesDir := piperVoicesDir()
+		onnxPath := filepath.Join(voicesDir, model+".onnx")
+		if _, statErr := os.Stat(onnxPath); os.IsNotExist(statErr) {
+			e.logger.Info("piper: voice not found locally, downloading", "voice", model)
+			if dlErr := downloadPiperVoice(model, voicesDir); dlErr != nil {
+				e.logger.Warn("piper: voice download failed, trying with name directly", "err", dlErr)
+			}
+		}
+		if _, err := os.Stat(onnxPath); err == nil {
+			model = onnxPath
+		}
 	}
-	cmd := exec.CommandContext(context.Background(), "piper", args...)
+
+	piperArgs := []string{"--model", model, "--output_file", outPath}
+	if cfg.Language != "" {
+		piperArgs = append(piperArgs, "--speaker", cfg.Language)
+	}
+
+	var cmd *exec.Cmd
+	if _, lookErr := exec.LookPath("piper"); lookErr == nil {
+		cmd = exec.CommandContext(context.Background(), "piper", piperArgs...)
+	} else if venvBin := python.IOToolBin("piper", "piper"); venvBin != "" {
+		cmd = exec.CommandContext(context.Background(), venvBin, piperArgs...) //nolint:gosec // path from known venv location
+	} else {
+		// piper not on PATH and no venv — try via uv tool run as last resort.
+		uvArgs := append([]string{"tool", "run", "--from", "piper-tts", "piper"}, piperArgs...)
+		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...) //nolint:gosec // args are internal constants or user config
+	}
 	cmd.Stdin = strings.NewReader(text)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -453,19 +577,29 @@ func (e *Executor) festival(text string, outPath string) error {
 }
 
 // coqui runs the Coqui TTS Python package.
-// Invokes: python -m TTS.bin.synthesize --text "<text>" --model_name <model> --out_path <outPath>.
+// Invokes via `uv run --with TTS python -m TTS.bin.synthesize` so the package is
+// downloaded and cached automatically on first use without manual pip install.
 func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) error {
 	model := cfg.Offline.Model
 	if model == "" {
 		model = "tts_models/en/ljspeech/tacotron2-DDC"
 	}
-	args := []string{
+
+	ttsArgs := []string{
 		"-m", "TTS.bin.synthesize",
 		"--text", text,
 		"--model_name", model,
 		"--out_path", outPath,
 	}
-	cmd := exec.CommandContext(context.Background(), "python", args...)
+	var cmd *exec.Cmd
+	if venvPython := python.IOToolPythonBin("coqui"); venvPython != "" {
+		cmd = exec.CommandContext(context.Background(), venvPython, ttsArgs...) //nolint:gosec // path from known venv location
+	} else if _, uvErr := exec.LookPath("uv"); uvErr == nil {
+		uvArgs := append([]string{"run", "--with", "TTS", "python"}, ttsArgs...)
+		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...)
+	} else {
+		cmd = exec.CommandContext(context.Background(), pythonBin(), ttsArgs...)
+	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

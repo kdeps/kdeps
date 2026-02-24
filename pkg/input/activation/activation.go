@@ -105,23 +105,29 @@ func New(cfg *domain.ActivationConfig, logger *slog.Logger) (*Detector, error) {
 func (d *Detector) ChunkSeconds() int { return d.chunkSeconds }
 
 // Detect checks whether the wake phrase is present in the transcription of
-// mediaFile. It returns true when the phrase is detected according to the
-// configured sensitivity threshold.
-func (d *Detector) Detect(mediaFile string) (bool, error) {
+// mediaFile. It returns whether the phrase was detected, the normalized
+// transcript text (empty string for silence), and any error.
+// Transcription errors are non-fatal: the caller receives false and "" so the
+// activation loop continues listening.
+func (d *Detector) Detect(mediaFile string) (bool, string, error) {
 	if mediaFile == "" {
-		return false, nil
+		return false, "", nil
 	}
 
 	result, err := d.transcriber.Transcribe(mediaFile)
 	if err != nil {
 		d.logger.Warn("activation: transcription error during probe", "err", err)
-		return false, nil // probe errors are non-fatal; keep listening
+		return false, "", nil // probe errors are non-fatal; keep listening
 	}
 
 	transcript := normalizeText(result.Text)
-	d.logger.Debug("activation: probe transcript", "transcript", transcript, "phrase", d.phrase)
+	heard := transcript
+	if heard == "" {
+		heard = "(silence)"
+	}
+	d.logger.Info("activation: probe", "heard", heard, "phrase", d.phrase)
 
-	return d.matches(transcript), nil
+	return d.matches(transcript), transcript, nil
 }
 
 // matches checks whether transcript contains the phrase according to sensitivity.

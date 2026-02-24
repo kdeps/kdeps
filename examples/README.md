@@ -86,6 +86,50 @@ Vision model integration with image analysis.
 cd vision && kdeps run workflow.yaml --dev
 ```
 
+### 🎙️ [Voice Assistant](./voice-assistant/)
+Fully offline voice assistant with wake phrase detection, LLM response, and TTS output.
+- Continuous microphone capture
+- Wake phrase detection ("hey kdeps") with `faster-whisper`
+- Offline speech-to-text transcription
+- LLM response via Ollama (llama3.2:1b)
+- Text-to-speech output with Piper TTS
+- No cloud required — runs fully air-gapped
+
+**Prerequisites**: `pip install faster-whisper piper-tts` and `ollama pull llama3.2:1b`
+
+**Run:**
+```bash
+cd voice-assistant && kdeps run workflow.yaml
+```
+
+### 📞 [Telephony Bot](./telephony-bot/)
+AI-powered phone call handler using Twilio, Deepgram STT, and OpenAI TTS.
+- Twilio webhook integration for inbound calls
+- Real-time speech transcription with Deepgram
+- LLM response generation
+- Cloud text-to-speech with OpenAI TTS
+
+**Prerequisites**: Twilio account, Deepgram API key, OpenAI API key
+
+**Run:**
+```bash
+cd telephony-bot && kdeps run workflow.yaml --dev
+```
+
+### 📹 [Video Analysis](./video-analysis/)
+Continuous camera surveillance with AI-powered frame analysis.
+- V4L2 / AVFoundation / DirectShow camera capture
+- Vision LLM analysis with `llava:7b`
+- Structured JSON output (people, vehicles, activity, alerts)
+- Activity log written to disk
+
+**Prerequisites**: `ollama pull llava:7b` and `ffmpeg`
+
+**Run:**
+```bash
+cd video-analysis && kdeps run workflow.yaml
+```
+
 ### 🔧 [Tools](./tools/)
 LLM tool calling / function calling with automatic tool execution.
 - Tool/function definitions in ChatConfig

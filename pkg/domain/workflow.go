@@ -253,6 +253,12 @@ type ActivationConfig struct {
 	// activation listen loop. Defaults to 3 when not specified.
 	ChunkSeconds int `yaml:"chunkSeconds,omitempty" json:"chunkSeconds,omitempty"`
 
+	// ListenDelay is the number of seconds to wait after the wake phrase is
+	// detected before starting the follow-up capture.  This gives the user
+	// time to finish saying the wake phrase and begin their actual request.
+	// Defaults to 1 when not specified.
+	ListenDelay int `yaml:"listenDelay,omitempty" json:"listenDelay,omitempty"`
+
 	// Online holds configuration used when Mode is "online".
 	Online *OnlineTranscriberConfig `yaml:"online,omitempty" json:"online,omitempty"`
 

@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -248,6 +249,10 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 
 	// 3. Setup Python environment (if needed)
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
+	printIORequirements(workflow)
+	if ioErr := installIOTools(workflow); ioErr != nil {
+		return fmt.Errorf("I/O tools setup failed: %w", ioErr)
+	}
 	if setupErr := SetupEnvironment(workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}
@@ -380,6 +385,305 @@ func ValidateWorkflow(workflow *domain.Workflow) error {
 
 	// Validate.
 	return workflowValidator.Validate(workflow)
+}
+
+// printIORequirements prints the system packages needed for the workflow's I/O features.
+// It is a no-op when the workflow has no non-API input sources and no TTS resources.
+func printIORequirements(workflow *domain.Workflow) {
+	input := workflow.Settings.Input
+	hasNonAPIInput := input != nil && input.HasNonAPISource()
+
+	// Collect TTS engines used across all resources (inline before/after included).
+	ttsEngines := collectTTSEngines(workflow)
+
+	if !hasNonAPIInput && len(ttsEngines) == 0 {
+		return
+	}
+
+	fmt.Fprintln(os.Stdout, "  I/O requirements:")
+
+	if hasNonAPIInput {
+		printCaptureRequirements(input)
+		printedSTT := make(map[string]bool)
+		printTranscriberRequirements(input.Transcriber, printedSTT)
+		printActivationRequirements(input.Activation, printedSTT)
+	}
+
+	for engine, label := range ttsEngines {
+		printTTSEngineRequirement(engine, label)
+	}
+}
+
+// collectTTSEngines returns a map of offline TTS engine → descriptive label for
+// every TTS config found in the workflow (resources + inline before/after blocks).
+func collectTTSEngines(workflow *domain.Workflow) map[string]string {
+	engines := make(map[string]string)
+	for _, r := range workflow.Resources {
+		if r.Run.TTS != nil {
+			addTTSEngine(engines, r.Run.TTS)
+		}
+		for _, inline := range r.Run.Before {
+			if inline.TTS != nil {
+				addTTSEngine(engines, inline.TTS)
+			}
+		}
+		for _, inline := range r.Run.After {
+			if inline.TTS != nil {
+				addTTSEngine(engines, inline.TTS)
+			}
+		}
+	}
+	return engines
+}
+
+func addTTSEngine(engines map[string]string, cfg *domain.TTSConfig) {
+	if cfg.Mode != domain.TTSModeOffline || cfg.Offline == nil {
+		return
+	}
+	switch cfg.Offline.Engine {
+	case domain.TTSEnginePiper:
+		engines[domain.TTSEnginePiper] = "piper"
+	case domain.TTSEngineEspeak:
+		engines[domain.TTSEngineEspeak] = "espeak"
+	case domain.TTSEngineFestival:
+		engines[domain.TTSEngineFestival] = "festival"
+	case domain.TTSEngineCoqui:
+		engines[domain.TTSEngineCoqui] = "coqui-tts"
+	}
+}
+
+// isBinaryAvailable returns true when name is found on PATH.
+func isBinaryAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+// isPythonModuleAvailable returns true when `python3 -c "import <module>"` exits 0.
+// Falls back to "python" when python3 is not on PATH.
+func isPythonModuleAvailable(module string) bool {
+	python := "python3"
+	if !isBinaryAvailable("python3") {
+		python = "python"
+	}
+	return exec.Command(python, "-c", "import "+module).Run() == nil //nolint:gosec // module is an internal constant
+}
+
+// notFound returns "  [not found]" when avail is false, empty string otherwise.
+func notFound(avail bool) string {
+	if avail {
+		return ""
+	}
+	return "  [not found]"
+}
+
+func printCaptureRequirements(input *domain.InputConfig) {
+	ffmpegOK := isBinaryAvailable("ffmpeg")
+	for _, src := range input.Sources {
+		switch src {
+		case domain.InputSourceAudio:
+			fmt.Fprintln(os.Stdout, "    Audio capture:")
+			fmt.Fprintf(os.Stdout, "      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n", notFound(ffmpegOK))
+			fmt.Fprintln(os.Stdout, "      arecord   — apt install alsa-utils  (Linux, preferred over ffmpeg)")
+			if runtime.GOOS == "darwin" {
+				fmt.Fprintln(os.Stdout, "      macOS: grant microphone access in System Settings → Privacy & Security → Microphone")
+			}
+		case domain.InputSourceVideo:
+			fmt.Fprintln(os.Stdout, "    Video capture:")
+			fmt.Fprintf(os.Stdout, "      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n", notFound(ffmpegOK))
+			if runtime.GOOS == "darwin" {
+				fmt.Fprintln(os.Stdout, "      macOS: grant camera access in System Settings → Privacy & Security → Camera")
+			}
+		}
+	}
+}
+
+func printTranscriberRequirements(cfg *domain.TranscriberConfig, printed map[string]bool) {
+	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
+		return
+	}
+	printOfflineSTTRequirement(cfg.Offline.Engine, printed)
+}
+
+func printActivationRequirements(cfg *domain.ActivationConfig, printed map[string]bool) {
+	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
+		return
+	}
+	printOfflineSTTRequirement(cfg.Offline.Engine, printed)
+}
+
+func printOfflineSTTRequirement(engine string, printed map[string]bool) {
+	if printed[engine] {
+		return
+	}
+	printed[engine] = true
+	switch engine {
+	case domain.TranscriberEngineWhisper:
+		ok := isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") || isPythonModuleAvailable("whisper")
+		fmt.Fprintf(os.Stdout, "    Transcription (whisper):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      uv tool install whisperx --python 3.12  (auto-installed, recommended)")
+		fmt.Fprintln(os.Stdout, "      OR  uv tool install openai-whisper  /  pip install openai-whisper")
+	case domain.TranscriberEngineFasterWhisper:
+		fmt.Fprintln(os.Stdout, "    Transcription (faster-whisper):")
+		fmt.Fprintln(os.Stdout, "      auto-managed via uv (no installation required)")
+	case domain.TranscriberEngineVosk:
+		ok := isPythonModuleAvailable("vosk")
+		fmt.Fprintf(os.Stdout, "    Transcription (vosk):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      pip install vosk")
+	case domain.TranscriberEngineWhisperCPP:
+		ok := isBinaryAvailable("whisper-cpp")
+		fmt.Fprintf(os.Stdout, "    Transcription (whisper-cpp):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      Binary — https://github.com/ggerganov/whisper.cpp")
+	}
+}
+
+func printTTSEngineRequirement(engine, _ string) {
+	switch engine {
+	case domain.TTSEnginePiper:
+		ok := isPythonModuleAvailable("piper")
+		fmt.Fprintf(os.Stdout, "    Text-to-speech (piper):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      pip install piper-tts")
+	case domain.TTSEngineEspeak:
+		ok := isBinaryAvailable("espeak-ng") || isBinaryAvailable("espeak")
+		fmt.Fprintf(os.Stdout, "    Text-to-speech (espeak):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      brew install espeak-ng  /  apt install espeak-ng")
+	case domain.TTSEngineFestival:
+		ok := isBinaryAvailable("festival")
+		fmt.Fprintf(os.Stdout, "    Text-to-speech (festival):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      brew install festival  /  apt install festival")
+	case domain.TTSEngineCoqui:
+		ok := isPythonModuleAvailable("TTS")
+		fmt.Fprintf(os.Stdout, "    Text-to-speech (coqui-tts):%s\n", notFound(ok))
+		fmt.Fprintln(os.Stdout, "      pip install TTS")
+	}
+}
+
+// installIOTools auto-installs I/O Python tools via uv when they are missing.
+// It is a no-op when uv is not installed or when no I/O tools are required.
+// Errors are returned for failed installs so the user sees a clear message
+// instead of a cryptic runtime failure during transcription or TTS.
+func installIOTools(workflow *domain.Workflow) error {
+	if !isBinaryAvailable("uv") {
+		return nil // uv not available; user already saw [not found] hints
+	}
+
+	input := workflow.Settings.Input
+	hasNonAPIInput := input != nil && input.HasNonAPISource()
+	ttsEngines := collectTTSEngines(workflow)
+
+	if !hasNonAPIInput && len(ttsEngines) == 0 {
+		return nil
+	}
+
+	manager := python.NewManager("")
+
+	if hasNonAPIInput {
+		seen := make(map[string]bool)
+		if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline && t.Offline != nil {
+			if err := installSTTTool(manager, t.Offline.Engine, seen); err != nil {
+				return err
+			}
+		}
+		if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline && a.Offline != nil {
+			if err := installSTTTool(manager, a.Offline.Engine, seen); err != nil {
+				return err
+			}
+		}
+	}
+
+	seenTTS := make(map[string]bool)
+	for engine := range ttsEngines {
+		if seenTTS[engine] {
+			continue
+		}
+		seenTTS[engine] = true
+		if err := installTTSTool(manager, engine); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func installSTTTool(manager *python.Manager, engine string, seen map[string]bool) error {
+	if seen[engine] {
+		return nil
+	}
+	seen[engine] = true
+
+	switch engine {
+	case domain.TranscriberEngineWhisper:
+		// Skip if a whisper-compatible binary is already on PATH.
+		if isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") {
+			return nil
+		}
+		// Skip if venv already exists.
+		if python.IOToolBin("whisperx", "whisperx") != "" {
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, "  ⏳ Installing whisperx venv (first run may take a minute)...")
+		ioManager := python.NewManager(python.IOToolsBaseDir())
+		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"whisperx"}, "", "whisperx"); err != nil {
+			fmt.Fprintf(os.Stderr, "  [warn] auto-install whisperx failed: %v\n", err)
+			fmt.Fprintln(os.Stderr, "  [hint] Consider using engine: faster-whisper instead")
+			return nil // non-fatal
+		}
+		fmt.Fprintln(os.Stdout, "  ✓ Installed whisperx")
+	case domain.TranscriberEngineFasterWhisper:
+		// Skip if venv already exists.
+		if python.IOToolPythonBin("faster-whisper") != "" {
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, "  ⏳ Installing faster-whisper venv (first run may take a minute)...")
+		ioManager := python.NewManager(python.IOToolsBaseDir())
+		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"faster-whisper"}, "", "faster-whisper"); err != nil {
+			return fmt.Errorf("auto-install faster-whisper: %w", err)
+		}
+		fmt.Fprintln(os.Stdout, "  ✓ Installed faster-whisper")
+	case domain.TranscriberEngineVosk:
+		if python.IOToolPythonBin("vosk") != "" {
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, "  ⏳ Installing vosk venv (first run may take a minute)...")
+		ioManager := python.NewManager(python.IOToolsBaseDir())
+		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"vosk"}, "", "vosk"); err != nil {
+			return fmt.Errorf("auto-install vosk: %w", err)
+		}
+		fmt.Fprintln(os.Stdout, "  ✓ Installed vosk")
+	case domain.TranscriberEngineWhisperCPP:
+		if !isBinaryAvailable("whisper-cpp") {
+			fmt.Fprintln(os.Stderr, "  [warn] whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp")
+		}
+	}
+	_ = manager // manager retained for signature compatibility
+	return nil
+}
+
+func installTTSTool(manager *python.Manager, engine string) error {
+	switch engine {
+	case domain.TTSEnginePiper:
+		if isBinaryAvailable("piper") || python.IOToolBin("piper", "piper") != "" {
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, "  ⏳ Installing piper-tts venv (first run may take a minute)...")
+		ioManager := python.NewManager(python.IOToolsBaseDir())
+		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"piper-tts", "pathvalidate"}, "", "piper"); err != nil {
+			return fmt.Errorf("auto-install piper-tts: %w", err)
+		}
+		fmt.Fprintln(os.Stdout, "  ✓ Installed piper-tts")
+	case domain.TTSEngineCoqui:
+		if python.IOToolPythonBin("coqui") != "" {
+			return nil
+		}
+		fmt.Fprintln(os.Stdout, "  ⏳ Installing coqui-tts venv (first run may take a minute)...")
+		ioManager := python.NewManager(python.IOToolsBaseDir())
+		// coqui-tts depends on numba→llvmlite which requires Python ≤3.11 for pre-built wheels.
+		if _, err := ioManager.EnsureVenv("3.11", []string{"TTS"}, "", "coqui"); err != nil {
+			return fmt.Errorf("auto-install coqui-tts: %w", err)
+		}
+		fmt.Fprintln(os.Stdout, "  ✓ Installed coqui-tts")
+	}
+	_ = manager
+	return nil
 }
 
 // SetupEnvironment sets up the execution environment.
@@ -936,8 +1240,7 @@ func ExtractFile(tarReader *tar.Reader, targetPath string) error {
 
 // ExecuteSingleRun executes workflow once and exits.
 func ExecuteSingleRun(workflow *domain.Workflow) error {
-	logger := logging.NewLogger(false)
-	engine := executor.NewEngine(logger)
+	engine := setupEngine(workflow, false)
 
 	// Execute with no request context (single run mode).
 	output, err := engine.Execute(workflow, nil)

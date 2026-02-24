@@ -327,7 +327,7 @@ settings:
 run:
   chat:
     model: llama3
-    prompt: "{{inputTranscript()}}"
+    prompt: "{{inputTranscript}}"
 
 # resources/speak.yaml
 run:
