@@ -307,7 +307,7 @@ Full example combining input transcription with TTS output:
 # workflow.yaml
 settings:
   input:
-    source: audio
+    sources: [audio]
     audio:
       device: hw:0,0
     activation:
