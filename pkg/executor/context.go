@@ -1340,8 +1340,15 @@ func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error
 
 	// If it's a map (e.g., JSON response), try to extract response or data field
 	if outputMap, okMap := output.(map[string]interface{}); okMap {
+		// OpenAI-style "response" key
 		if response, okResp := outputMap["response"].(string); okResp {
 			return response, nil
+		}
+		// Ollama-style "message": {"content": "..."}
+		if message, okMsg := outputMap["message"].(map[string]interface{}); okMsg {
+			if content, okContent := message["content"].(string); okContent {
+				return content, nil
+			}
 		}
 		if data, okData := outputMap["data"]; okData {
 			return data, nil
@@ -1838,4 +1845,51 @@ func (ctx *ExecutionContext) GetItemValues(actionID string) (interface{}, error)
 	}
 
 	return []interface{}{}, nil
+}
+
+// BuildEvaluatorEnv returns an expression environment populated with typed
+// accessor objects (llm, python, exec, …) that mirror what the engine's
+// buildEvaluationEnvironment provides.  It is used by sub-executors (e.g. TTS)
+// that evaluate expressions outside the main engine eval loop.
+func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
+	env := make(map[string]interface{})
+
+	env["llm"] = map[string]interface{}{
+		"response": func(actionID string) interface{} {
+			val, err := ctx.GetLLMResponse(actionID)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+	}
+
+	env["python"] = map[string]interface{}{
+		"stdout": func(actionID string) interface{} {
+			val, err := ctx.GetPythonStdout(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"stderr": func(actionID string) interface{} {
+			val, err := ctx.GetPythonStderr(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+	}
+
+	env["exec"] = map[string]interface{}{
+		"stdout": func(actionID string) interface{} {
+			val, err := ctx.GetExecStdout(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+	}
+
+	return env
 }

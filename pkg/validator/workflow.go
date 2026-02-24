@@ -246,7 +246,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 
 	// Validate execution types.
-	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec
+	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts
 	// apiResponse can be combined with any primary execution type or used alone
 	primaryExecutionTypes := 0
 	if resource.Run.Chat != nil {
@@ -264,6 +264,9 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if resource.Run.Exec != nil {
 		primaryExecutionTypes++
 	}
+	if resource.Run.TTS != nil {
+		primaryExecutionTypes++
+	}
 
 	hasAPIResponse := resource.Run.APIResponse != nil
 
@@ -271,7 +274,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryExecutionTypes == 0 && !hasAPIResponse {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, apiResponse)",
 			nil,
 		)
 	}
@@ -280,7 +283,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryExecutionTypes > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts)",
 			nil,
 		)
 	}

@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: respond
+  name: LLM Response
+
+run:
+  chat:
+    model: llama3.2:1b
+    role: user
+    prompt: "{{ inputTranscript }}"
+    scenario:
+      - role: system
+        prompt: You are a helpful voice assistant. Keep your responses concise and conversational, suitable for text-to-speech output.
+    timeoutDuration: 30s
