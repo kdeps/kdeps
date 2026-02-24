@@ -187,7 +187,7 @@ type inputConfigAlias InputConfig
 // Note: Go's encoding/json automatically promotes anonymous (embedded) struct fields, so
 // no explicit ",inline" tag is needed for JSON — only yaml.v3 requires it.
 type inputConfigRaw struct {
-	inputConfigAlias `yaml:",inline"`
+	inputConfigAlias `       yaml:",inline"`
 	Source           string `yaml:"source,omitempty" json:"source,omitempty"`
 }
 

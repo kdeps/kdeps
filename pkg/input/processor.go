@@ -19,7 +19,7 @@
 // Package input provides the runtime input processor for KDeps workflows.
 // It handles hardware capture (audio/video/telephony) and signal transcription
 // (online cloud services and offline local engines) before workflow resources run.
-package input //nolint:cyclop // package-level complexity is inherent to the multi-source activation/capture/transcribe pipeline
+package input
 
 import (
 	"log/slog"
@@ -143,17 +143,19 @@ func (p *Processor) Process() (*Result, error) {
 		time.Sleep(time.Duration(delay) * time.Second)
 	}
 
-	result := &Result{}
-	var transcripts []string
+	return p.captureAndTranscribe()
+}
 
-	// captureResult holds the per-source outcome of a concurrent capture/transcribe.
-	type captureResult struct {
-		source    string
-		mediaFile string
-		text      string
-		err       error
-	}
+// captureResult holds the per-source outcome of a concurrent capture/transcribe.
+type captureResult struct {
+	source    string
+	mediaFile string
+	text      string
+	err       error
+}
 
+// captureAndTranscribe runs all sources concurrently, then aggregates results.
+func (p *Processor) captureAndTranscribe() (*Result, error) {
 	// results is pre-allocated with one slot per source. Each goroutine writes only
 	// to its own index (idx), so concurrent writes are safe without a mutex.
 	results := make([]captureResult, len(p.sources))
@@ -164,39 +166,51 @@ func (p *Processor) Process() (*Result, error) {
 		wg.Add(1)
 		go func(idx int, sc sourceCapture) {
 			defer wg.Done()
-
-			mediaFile, err := sc.capturer.Capture()
-			if err != nil {
-				results[idx].err = err
-				return
-			}
-			results[idx].mediaFile = mediaFile
-
-			if p.transcriber == nil || mediaFile == "" {
-				return
-			}
-
-			transcribeResult, err := p.transcriber.Transcribe(mediaFile)
-			if err != nil {
-				results[idx].err = err
-				return
-			}
-
-			results[idx].text = transcribeResult.Text
-			// When the transcriber produces a new media file (output: media), it replaces
-			// the raw capture file.
-			if transcribeResult.MediaFile != "" {
-				results[idx].mediaFile = transcribeResult.MediaFile
-			}
+			p.captureOne(idx, sc, results)
 		}(i, sc)
 	}
 
 	wg.Wait()
 
-	// Results are iterated in source declaration order (deterministic). The first error
-	// encountered is returned immediately; remaining errors are not collected.
-	// MediaFile is set to the last non-empty value, matching the original sequential
-	// behavior where the last source's file took precedence.
+	return p.aggregateResults(results)
+}
+
+// captureOne performs capture and optional transcription for a single source,
+// writing into results[idx]. Safe to call from a goroutine.
+func (p *Processor) captureOne(idx int, sc sourceCapture, results []captureResult) {
+	mediaFile, err := sc.capturer.Capture()
+	if err != nil {
+		results[idx].err = err
+		return
+	}
+	results[idx].mediaFile = mediaFile
+
+	if p.transcriber == nil || mediaFile == "" {
+		return
+	}
+
+	transcribeResult, err := p.transcriber.Transcribe(mediaFile)
+	if err != nil {
+		results[idx].err = err
+		return
+	}
+
+	results[idx].text = transcribeResult.Text
+	// When the transcriber produces a new media file (output: media), it replaces
+	// the raw capture file.
+	if transcribeResult.MediaFile != "" {
+		results[idx].mediaFile = transcribeResult.MediaFile
+	}
+}
+
+// aggregateResults collects per-source outcomes into a single Result.
+// Results are iterated in source declaration order (deterministic). The first
+// error encountered is returned immediately. MediaFile is set to the last
+// non-empty value, matching the original sequential behavior.
+func (p *Processor) aggregateResults(results []captureResult) (*Result, error) {
+	result := &Result{}
+	var transcripts []string
+
 	for _, r := range results {
 		if r.err != nil {
 			return nil, r.err
