@@ -43,6 +43,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
+// skipIfOllamaRunning skips the test when Ollama is reachable at localhost:11434.
+// Several tests verify error-handling paths that only trigger when Ollama is absent.
+func skipIfOllamaRunning(t *testing.T) {
+	t.Helper()
+	conn, err := net.DialTimeout("tcp", "localhost:11434", time.Second)
+	if err == nil {
+		conn.Close()
+		t.Skip("Ollama is running at localhost:11434; this test requires Ollama to be unavailable")
+	}
+}
+
 func TestParseWorkflowFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -1491,6 +1502,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 
 // TestExecuteWorkflowSteps_OllamaPath tests that ExecuteWorkflowSteps exercises Ollama functions.
 func TestExecuteWorkflowSteps_OllamaPath(t *testing.T) {
+	skipIfOllamaRunning(t)
 	tmpDir := t.TempDir()
 
 	// Create workflow with Ollama resource
@@ -1879,6 +1891,7 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 
 // TestOllamaServerLifecycle tests the full Ollama server lifecycle through integration.
 func TestOllamaServerLifecycle(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// This test verifies that the Ollama server management functions
 	// are exercised through the normal workflow execution path
 
@@ -1943,6 +1956,7 @@ run:
 
 // TestStartOllamaServer_Coverage tests the startOllamaServer function indirectly.
 func TestStartOllamaServer_Coverage(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// We can't directly test startOllamaServer since it's unexported,
 	// but we can test it indirectly by creating a scenario where
 	// ensureOllamaRunning would call it
@@ -2004,6 +2018,7 @@ run:
 
 // TestWaitForOllamaReady_Coverage tests the waitForOllamaReady function indirectly.
 func TestWaitForOllamaReady_Coverage(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Test the timeout scenario for waitForOllamaReady
 	// by using a port that will never have Ollama running
 
@@ -2062,6 +2077,7 @@ run:
 
 // TestOllamaServerFunctions_Integration tests multiple Ollama server functions together.
 func TestOllamaServerFunctions_Integration(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Test the complete flow: ParseOllamaURL -> IsOllamaRunning -> startOllamaServer -> waitForOllamaReady
 
 	tmpDir := t.TempDir()
@@ -2128,6 +2144,7 @@ run:
 
 // TestStartOllamaServer_CommandNotFound tests the startOllamaServer function indirectly.
 func TestStartOllamaServer_CommandNotFound(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Test that startOllamaServer returns an error when ollama command is not found
 	// This should exercise the exec.LookPath call and error handling through ExecuteWorkflowSteps
 	tmpDir := t.TempDir()
@@ -2186,6 +2203,7 @@ run:
 
 // TestStartOllamaServer_ExportedWrapper provides an exported wrapper for testing startOllamaServer.
 func TestStartOllamaServer_ExportedWrapper(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Since startOllamaServer is unexported, we test the error path by mocking exec.LookPath
 	// This test verifies that the function returns an error when ollama is not in PATH
 
@@ -2247,6 +2265,7 @@ run:
 
 // TestWaitForOllamaReady_ExportedWrapper provides testing for waitForOllamaReady timeout behavior.
 func TestWaitForOllamaReady_ExportedWrapper(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Test waitForOllamaReady timeout by using a port that will never have Ollama
 	tmpDir := t.TempDir()
 
@@ -2304,6 +2323,7 @@ run:
 
 // TestWaitForOllamaReady_Timeout tests waitForOllamaReady with a timeout scenario indirectly.
 func TestWaitForOllamaReady_Timeout(t *testing.T) {
+	skipIfOllamaRunning(t)
 	// Test waitForOllamaReady with a timeout scenario through ExecuteWorkflowSteps
 	// Use a port that will never have Ollama running
 

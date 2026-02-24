@@ -231,7 +231,7 @@ func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error
 	defer cancel()
 
 	args := append([]string{"tool", "install", pkg}, extraArgs...)
-	cmd := exec.CommandContext(ctx, "uv", args...) //nolint:gosec // pkg and extraArgs are internal constants
+	cmd := exec.CommandContext(ctx, "uv", args...)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("uv tool install %s: %w\n%s", pkg, err, string(output))
 	}

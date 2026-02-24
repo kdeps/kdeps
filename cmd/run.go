@@ -465,7 +465,8 @@ func isPythonModuleAvailable(module string) bool {
 	if !isBinaryAvailable("python3") {
 		python = "python"
 	}
-	return exec.Command(python, "-c", "import "+module).Run() == nil //nolint:gosec // module is an internal constant
+	//nolint:gosec // module is an internal constant, not user input
+	return exec.CommandContext(context.Background(), python, "-c", "import "+module).Run() == nil
 }
 
 // notFound returns "  [not found]" when avail is false, empty string otherwise.
@@ -482,16 +483,30 @@ func printCaptureRequirements(input *domain.InputConfig) {
 		switch src {
 		case domain.InputSourceAudio:
 			fmt.Fprintln(os.Stdout, "    Audio capture:")
-			fmt.Fprintf(os.Stdout, "      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n", notFound(ffmpegOK))
+			fmt.Fprintf(
+				os.Stdout,
+				"      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n",
+				notFound(ffmpegOK),
+			)
 			fmt.Fprintln(os.Stdout, "      arecord   — apt install alsa-utils  (Linux, preferred over ffmpeg)")
 			if runtime.GOOS == "darwin" {
-				fmt.Fprintln(os.Stdout, "      macOS: grant microphone access in System Settings → Privacy & Security → Microphone")
+				fmt.Fprintln(
+					os.Stdout,
+					"      macOS: grant microphone access in System Settings → Privacy & Security → Microphone",
+				)
 			}
 		case domain.InputSourceVideo:
 			fmt.Fprintln(os.Stdout, "    Video capture:")
-			fmt.Fprintf(os.Stdout, "      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n", notFound(ffmpegOK))
+			fmt.Fprintf(
+				os.Stdout,
+				"      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n",
+				notFound(ffmpegOK),
+			)
 			if runtime.GOOS == "darwin" {
-				fmt.Fprintln(os.Stdout, "      macOS: grant camera access in System Settings → Privacy & Security → Camera")
+				fmt.Fprintln(
+					os.Stdout,
+					"      macOS: grant camera access in System Settings → Privacy & Security → Camera",
+				)
 			}
 		}
 	}
@@ -577,16 +592,8 @@ func installIOTools(workflow *domain.Workflow) error {
 	manager := python.NewManager("")
 
 	if hasNonAPIInput {
-		seen := make(map[string]bool)
-		if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline && t.Offline != nil {
-			if err := installSTTTool(manager, t.Offline.Engine, seen); err != nil {
-				return err
-			}
-		}
-		if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline && a.Offline != nil {
-			if err := installSTTTool(manager, a.Offline.Engine, seen); err != nil {
-				return err
-			}
+		if err := installInputTools(manager, input); err != nil {
+			return err
 		}
 	}
 
@@ -601,6 +608,21 @@ func installIOTools(workflow *domain.Workflow) error {
 		}
 	}
 
+	return nil
+}
+
+func installInputTools(manager *python.Manager, input *domain.InputConfig) error {
+	seen := make(map[string]bool)
+	if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline && t.Offline != nil {
+		if err := installSTTTool(manager, t.Offline.Engine, seen); err != nil {
+			return err
+		}
+	}
+	if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline && a.Offline != nil {
+		if err := installSTTTool(manager, a.Offline.Engine, seen); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -651,7 +673,10 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		fmt.Fprintln(os.Stdout, "  ✓ Installed vosk")
 	case domain.TranscriberEngineWhisperCPP:
 		if !isBinaryAvailable("whisper-cpp") {
-			fmt.Fprintln(os.Stderr, "  [warn] whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp")
+			fmt.Fprintln(
+				os.Stderr,
+				"  [warn] whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp",
+			)
 		}
 	}
 	_ = manager // manager retained for signature compatibility

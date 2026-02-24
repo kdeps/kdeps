@@ -106,21 +106,20 @@ func TestExecutor_Execute_WithScenario(t *testing.T) {
 		json.NewDecoder(r.Body).Decode(&req)
 
 		messages := req["messages"].([]interface{})
-		assert.Len(t, messages, 4) // main prompt + 3 scenario messages
+		assert.Len(t, messages, 4) // system + main prompt + 2 scenario messages
 
-		// Check main prompt
-		assert.Equal(t, "user", messages[0].(map[string]interface{})["role"])
-		assert.Equal(t, "Hello", messages[0].(map[string]interface{})["content"])
+		// System scenario items are prepended before the user message
+		assert.Equal(t, "system", messages[0].(map[string]interface{})["role"])
+		assert.Equal(t, "You are a helpful assistant", messages[0].(map[string]interface{})["content"])
 
-		// Check system message
-		assert.Equal(t, "system", messages[1].(map[string]interface{})["role"])
-		assert.Equal(t, "You are a helpful assistant", messages[1].(map[string]interface{})["content"])
+		// Main prompt follows system
+		assert.Equal(t, "user", messages[1].(map[string]interface{})["role"])
+		assert.Equal(t, "Hello", messages[1].(map[string]interface{})["content"])
 
-		// Check scenario message 1
+		// Non-system scenario items are appended after the user message
 		assert.Equal(t, "user", messages[2].(map[string]interface{})["role"])
 		assert.Equal(t, "previous context", messages[2].(map[string]interface{})["content"])
 
-		// Check scenario message 2
 		assert.Equal(t, "assistant", messages[3].(map[string]interface{})["role"])
 		assert.Equal(t, "previous response", messages[3].(map[string]interface{})["content"])
 

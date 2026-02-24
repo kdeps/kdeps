@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -610,6 +611,12 @@ func TestTTS_DoAndSave_ReadError_Mock(t *testing.T) {
 
 func TestTTS_Piper_BinaryNotFound(t *testing.T) {
 	t.Parallel()
+	if _, err := exec.LookPath("piper"); err == nil {
+		t.Skip("piper binary found on PATH; skipping BinaryNotFound test")
+	}
+	if _, err := exec.LookPath("uv"); err == nil {
+		t.Skip("uv found on PATH; piper may be auto-installed; skipping BinaryNotFound test")
+	}
 	adp := newAdapter()
 	cfg := &domain.TTSConfig{
 		Text:    "Hello piper",
@@ -643,6 +650,12 @@ func TestTTS_Piper_WithLanguage_BinaryNotFound(t *testing.T) {
 
 func TestTTS_Espeak_BinaryNotFound(t *testing.T) {
 	t.Parallel()
+	if _, err := exec.LookPath("espeak-ng"); err == nil {
+		t.Skip("espeak-ng binary found on PATH; skipping BinaryNotFound test")
+	}
+	if _, err := exec.LookPath("espeak"); err == nil {
+		t.Skip("espeak binary found on PATH; skipping BinaryNotFound test")
+	}
 	adp := newAdapter()
 	cfg := &domain.TTSConfig{
 		Text:    "Hello espeak",
@@ -661,6 +674,12 @@ func TestTTS_Espeak_BinaryNotFound(t *testing.T) {
 
 func TestTTS_Espeak_NoVoiceSpeed_BinaryNotFound(t *testing.T) {
 	t.Parallel()
+	if _, err := exec.LookPath("espeak-ng"); err == nil {
+		t.Skip("espeak-ng binary found on PATH; skipping BinaryNotFound test")
+	}
+	if _, err := exec.LookPath("espeak"); err == nil {
+		t.Skip("espeak binary found on PATH; skipping BinaryNotFound test")
+	}
 	adp := newAdapter()
 	cfg := &domain.TTSConfig{
 		Text:    "Hello",

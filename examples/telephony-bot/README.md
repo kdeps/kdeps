@@ -121,7 +121,7 @@ telephony-bot/
 |------------|-------------|
 | `inputTranscript` | Caller's speech transcribed to text |
 | `get('llmResponse')` | LLM-generated answer |
-| `ttsOutput()` | Path to synthesized audio file |
+| `ttsOutput` | Path to synthesized audio file |
 
 ## Customization
 

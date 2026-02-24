@@ -186,6 +186,78 @@ func (t *offlineTranscriber) Transcribe(mediaFile string) (*Result, error) {
 // whisper / faster-whisper  (Python subprocess)
 // --------------------------------------------------------------------------
 
+// buildFasterWhisperArgs writes the embedded Python script to a temp file and
+// returns the binary and arguments needed to invoke faster-whisper.
+// The caller is responsible for removing the script file after use.
+func buildFasterWhisperArgs(
+	mediaFile, model, language, outDir string,
+) (string, []string, string, error) {
+	sf, tmpErr := os.CreateTemp("", "kdeps-fw-*.py")
+	if tmpErr != nil {
+		return "", nil, "", fmt.Errorf("faster-whisper: create temp script: %w", tmpErr)
+	}
+	scriptName := sf.Name()
+	if _, writeErr := sf.WriteString(fasterWhisperPyScript); writeErr != nil {
+		_ = sf.Close()
+		_ = os.Remove(scriptName)
+		return "", nil, "", fmt.Errorf("faster-whisper: write script: %w", writeErr)
+	}
+	_ = sf.Close()
+
+	modelArg := model
+	if modelArg == "" {
+		modelArg = defaultWhisperModel
+	}
+	scriptArgs := []string{mediaFile, modelArg, language, outDir}
+
+	if venvPython := python.IOToolPythonBin("faster-whisper"); venvPython != "" {
+		return venvPython, append([]string{scriptName}, scriptArgs...), scriptName, nil
+	}
+	return "uv", append(
+		[]string{"run", "--with", "faster-whisper", "python", scriptName},
+		scriptArgs...), scriptName, nil
+}
+
+// buildWhisperArgs selects the best available whisper binary and builds
+// the argument list for a standard (non-faster) whisper invocation.
+func buildWhisperArgs(mediaFile, model, language, outDir string) (string, []string) {
+	// Prefer the `whisper` binary (openai-whisper).
+	// Fall back to whisperx venv bin, then whisperx on PATH,
+	// then `uv tool run whisperx`, last resort: python -m whisper.
+	baseArgs := []string{mediaFile, "--output_dir", outDir, "--output_format", "txt"}
+	var bin string
+	var args []string
+	switch {
+	case isBinaryOnPath("whisper"):
+		bin, args = "whisper", baseArgs
+	case python.IOToolBin("whisperx", "whisperx") != "":
+		bin, args = python.IOToolBin("whisperx", "whisperx"), baseArgs
+	case isBinaryOnPath("whisperx"):
+		bin, args = "whisperx", baseArgs
+	case isBinaryOnPath("uv"):
+		bin, args = "uv", append([]string{"tool", "run", "whisperx"}, baseArgs...)
+	default:
+		bin = pythonBin()
+		args = []string{"-m", "whisper", mediaFile, "--output_dir", outDir, "--output_format", "txt"}
+	}
+
+	if model != "" {
+		args = append(args, "--model", model)
+	} else {
+		args = append(args, "--model", defaultWhisperModel)
+	}
+	if language != "" {
+		args = append(args, "--language", language)
+	}
+	return bin, args
+}
+
+// isBinaryOnPath reports whether name can be found on PATH.
+func isBinaryOnPath(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
 func (t *offlineTranscriber) runWhisper(
 	mediaFile, model, language string,
 	faster bool,
@@ -196,67 +268,18 @@ func (t *offlineTranscriber) runWhisper(
 	var args []string
 
 	if faster {
-		// faster-whisper has no standalone CLI binary — run via an embedded Python script.
-		// Prefer the persistent venv installed by `kdeps run` setup step.
-		// Fall back to `uv run --with faster-whisper` (downloads & caches on first use).
-		sf, tmpErr := os.CreateTemp("", "kdeps-fw-*.py")
-		if tmpErr != nil {
-			return nil, fmt.Errorf("faster-whisper: create temp script: %w", tmpErr)
+		var scriptName string
+		var err error
+		bin, args, scriptName, err = buildFasterWhisperArgs(mediaFile, model, language, outDir)
+		if err != nil {
+			return nil, err
 		}
-		scriptName := sf.Name()
 		defer func() { _ = os.Remove(scriptName) }()
-		if _, writeErr := sf.WriteString(fasterWhisperPyScript); writeErr != nil {
-			_ = sf.Close()
-			return nil, fmt.Errorf("faster-whisper: write script: %w", writeErr)
-		}
-		_ = sf.Close()
-
-		modelArg := model
-		if modelArg == "" {
-			modelArg = defaultWhisperModel
-		}
-		scriptArgs := []string{mediaFile, modelArg, language, outDir}
-
-		if venvPython := python.IOToolPythonBin("faster-whisper"); venvPython != "" {
-			bin = venvPython
-			args = append([]string{scriptName}, scriptArgs...)
-		} else {
-			bin = "uv"
-			args = append([]string{"run", "--with", "faster-whisper", "python", scriptName}, scriptArgs...)
-		}
 	} else {
-		// Prefer the `whisper` binary (openai-whisper).
-		// Fall back to whisperx venv bin, then whisperx on PATH,
-		// then `uv tool run whisperx`, last resort: python -m whisper.
-		baseArgs := []string{mediaFile, "--output_dir", outDir, "--output_format", "txt"}
-		if _, lookErr := exec.LookPath("whisper"); lookErr == nil {
-			bin = "whisper"
-			args = baseArgs
-		} else if venvBin := python.IOToolBin("whisperx", "whisperx"); venvBin != "" {
-			bin = venvBin
-			args = baseArgs
-		} else if _, lookErr := exec.LookPath("whisperx"); lookErr == nil {
-			bin = "whisperx"
-			args = baseArgs
-		} else if _, uvErr := exec.LookPath("uv"); uvErr == nil {
-			bin = "uv"
-			args = append([]string{"tool", "run", "whisperx"}, baseArgs...)
-		} else {
-			bin = pythonBin()
-			args = []string{"-m", "whisper", mediaFile, "--output_dir", outDir, "--output_format", "txt"}
-		}
-
-		if model != "" {
-			args = append(args, "--model", model)
-		} else {
-			args = append(args, "--model", defaultWhisperModel)
-		}
-		if language != "" {
-			args = append(args, "--language", language)
-		}
+		bin, args = buildWhisperArgs(mediaFile, model, language, outDir)
 	}
 
-	cmd := exec.CommandContext(context.Background(), bin, args...) //nolint:gosec // bin is resolved via LookPath or pythonBin
+	cmd := exec.CommandContext(context.Background(), bin, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -356,7 +379,7 @@ func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
 		args = append([]string{"run", "--with", "vosk", "python", scriptName}, scriptArgs...)
 	}
 
-	cmd := exec.CommandContext(context.Background(), bin, args...) //nolint:gosec // bin is resolved from known venv or PATH
+	cmd := exec.CommandContext(context.Background(), bin, args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 

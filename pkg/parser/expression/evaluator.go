@@ -220,57 +220,64 @@ func (e *Evaluator) formatValue(value interface{}) string {
 	}
 }
 
-// tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
-// Returns nil if not found or if the expression contains function call syntax.
-func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
-	// Skip if it's a quoted string literal (expr-lang syntax)
+// isExprLangSyntax returns true when exprStr should be handled by expr-lang, not mustache lookup.
+func isExprLangSyntax(exprStr string) bool {
 	trimmed := strings.TrimSpace(exprStr)
 	if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
 		(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
-		return nil
+		return true
 	}
-
-	// Skip if it looks like a function call
 	if strings.Contains(exprStr, "(") {
-		return nil
+		return true
 	}
-
-	// Skip if it contains operators (arithmetic, comparison, etc.)
-	// This ensures expressions like "2 + 2" or "x > 10" go to expr-lang
 	operators := []string{"+", "-", "*", "/", "==", "!=", ">=", "<=", ">", "<", "&&", "||", "?", ":"}
 	for _, op := range operators {
 		if strings.Contains(exprStr, op) {
-			return nil
+			return true
 		}
 	}
+	return strings.HasPrefix(exprStr, "#") || strings.HasPrefix(exprStr, "/") ||
+		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!")
+}
 
-	// Skip mustache section syntax
-	if strings.HasPrefix(exprStr, "#") || strings.HasPrefix(exprStr, "/") ||
-		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!") {
+// isMustacheIdentifier reports whether s is a valid mustache variable name
+// (alphanumeric, underscore, dot, and hyphen only).
+func isMustacheIdentifier(s string) bool {
+	for _, char := range s {
+		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
+		if !isValid {
+			return false
+		}
+	}
+	return true
+}
+
+// tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
+// Returns nil if not found or if the expression contains function call syntax.
+func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
+	if isExprLangSyntax(exprStr) {
 		return nil
 	}
 
 	// Try to look up the value with mustache-style dot notation
-	value := e.lookupMustacheValue(exprStr, env)
-
-	// If value found, return it
-	if value != nil {
+	if value := e.lookupMustacheValue(exprStr, env); value != nil {
 		return value
 	}
 
-	// Value not found. Check if it's a valid mustache identifier (for mustache behavior).
-	// Valid mustache identifiers are: alphanumeric, underscore, dot, and hyphen.
-	// If it contains other characters or spaces, it's likely expr-lang syntax, so return nil to fall back.
-	for _, char := range exprStr {
-		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
-			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
-		if !isValid {
-			// Contains invalid characters for mustache identifier - fall back to expr-lang
-			return nil
+	// Contains non-mustache characters — fall back to expr-lang
+	if !isMustacheIdentifier(exprStr) {
+		return nil
+	}
+
+	// Valid mustache identifier not found in env — try the UnifiedAPI.
+	if e.api != nil && e.api.Get != nil {
+		if apiVal, apiErr := e.api.Get(strings.TrimSpace(exprStr)); apiErr == nil {
+			return apiVal
 		}
 	}
 
-	// It's a valid mustache identifier but not found - return empty string (mustache behavior)
+	// Valid mustache identifier not found anywhere — return empty string (mustache behavior)
 	return ""
 }
 

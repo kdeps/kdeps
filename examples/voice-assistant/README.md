@@ -93,7 +93,7 @@ The runtime captures `chunkSeconds` (3s) of audio in a continuous loop. Each chu
 |------------|-------------|
 | `inputTranscript` | The transcribed speech text |
 | `get('respond')` | The LLM response text |
-| `ttsOutput()` | Path to the generated audio file |
+| `ttsOutput` | Path to the generated audio file |
 
 ## Customization
 

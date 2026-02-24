@@ -95,16 +95,16 @@ video-analysis/
 ### Pipeline
 
 ```
-Camera → Frame Capture (ffmpeg) → inputMedia() → Vision LLM → JSON Analysis → Log File
+Camera → Frame Capture (ffmpeg) → inputMedia → Vision LLM → JSON Analysis → Log File
 ```
 
-Setting `transcriber.output: media` skips text transcription and delivers the raw video/image file path directly to resources via `inputMedia()`. The vision LLM receives the frame as an image and returns structured analysis.
+Setting `transcriber.output: media` skips text transcription and delivers the raw video/image file path directly to resources via `inputMedia`. The vision LLM receives the frame as an image and returns structured analysis.
 
 ### Key Expressions
 
 | Expression | Description |
 |------------|-------------|
-| `inputMedia()` | Path to the captured video/image frame |
+| `inputMedia` | Path to the captured video/image frame |
 | `get('analyzeFrame')` | JSON analysis from the vision LLM |
 
 ## Customization

@@ -15,4 +15,4 @@ run:
     response:
       transcript: "{{ inputTranscript }}"
       answer: "{{ get('llmResponse') }}"
-      audio: "{{ ttsOutput() }}"
+      audio: "{{ ttsOutput }}"

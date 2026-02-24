@@ -196,7 +196,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	// Process non-API input sources (audio/video/telephony).
 	// The processor captures hardware media and optionally transcribes it before
 	// any resources run, so the transcript/media path is available to all resources
-	// via inputTranscript() and inputMedia() expression functions.
+	// via inputTranscript and inputMedia expression functions.
 	if workflow.Settings.Input != nil && workflow.Settings.Input.HasNonAPISource() {
 		processor, procErr := input.NewProcessor(workflow.Settings.Input, e.logger)
 		if procErr != nil {
@@ -1815,12 +1815,12 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 	}
 
 	// Expose input processor results so resources can read the captured
-	// transcript text and media file path via expression functions.
+	// transcript text and media file path via expression variables.
 	if ctx != nil {
-		env["inputTranscript"] = func() string { return ctx.InputTranscript }
-		env["inputMedia"] = func() string { return ctx.InputMediaFile }
-		// Expose TTS output file path via ttsOutput() expression function.
-		env["ttsOutput"] = func() string { return ctx.TTSOutputFile }
+		env["inputTranscript"] = ctx.InputTranscript
+		env["inputMedia"] = ctx.InputMediaFile
+		// Expose TTS output file path via ttsOutput expression variable.
+		env["ttsOutput"] = ctx.TTSOutputFile
 	}
 
 	return env

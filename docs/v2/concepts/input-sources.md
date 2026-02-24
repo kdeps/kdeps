@@ -13,13 +13,32 @@ KDeps supports multiple input sources simultaneously: HTTP API requests, audio h
 
 Workflows can combine sources:
 
+Microphone only:
 ```yaml
 settings:
   input:
-    sources: [audio]            # microphone only
-    sources: [audio, video]     # audio + video
-    sources: [api, audio]       # API requests + microphone
-    sources: [telephony]        # phone/SIP only
+    sources: [audio]
+```
+
+Audio and video together:
+```yaml
+settings:
+  input:
+    sources: [audio, video]
+```
+
+API requests and microphone:
+```yaml
+settings:
+  input:
+    sources: [api, audio]
+```
+
+Phone/SIP only:
+```yaml
+settings:
+  input:
+    sources: [telephony]
 ```
 
 ---
@@ -235,7 +254,7 @@ run:
 
 Equivalent accessors:
 - `inputTranscript` — expression function
-- `inputMedia()` — path to the raw media file
+- `inputMedia` — path to the raw media file
 - `get("inputTranscript")` — unified API
 
 ### Online Transcription Providers
@@ -354,7 +373,7 @@ run:
     model: llama3.2-vision
     prompt: "Describe what you see in this video frame."
     images:
-      - "{{ inputMedia() }}"
+      - "{{ inputMedia }}"
 ```
 
 ### Telephony Call Handler

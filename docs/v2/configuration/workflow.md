@@ -446,16 +446,32 @@ The `settings.input` block specifies how the workflow receives input. Workflows 
 | `video` | Video hardware device (camera) |
 | `telephony` | Phone or SIP device (local hardware or cloud provider) |
 
+HTTP only (default):
 ```yaml
 settings:
   input:
-    sources: [api]            # default: HTTP only
+    sources: [api]
+```
 
-    sources: [audio]          # microphone only
+Microphone only:
+```yaml
+settings:
+  input:
+    sources: [audio]
+```
 
-    sources: [audio, video]   # audio + video simultaneously
+Audio and video simultaneously:
+```yaml
+settings:
+  input:
+    sources: [audio, video]
+```
 
-    sources: [api, audio]     # API and microphone together
+API and microphone together:
+```yaml
+settings:
+  input:
+    sources: [api, audio]
 ```
 
 ### Audio Source
@@ -547,7 +563,7 @@ settings:
 
 After transcription, access results via:
 - `inputTranscript` — the text transcript
-- `inputMedia()` — path to the saved media file
+- `inputMedia` — path to the saved media file
 - `get("inputTranscript")` — unified API equivalent
 
 ### Multi-Source Example
