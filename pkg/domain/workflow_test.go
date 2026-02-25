@@ -1535,3 +1535,54 @@ settings:
 		t.Errorf("Model = %v", tr.Offline.Model)
 	}
 }
+
+func TestInputConfig_HasMediaSource(t *testing.T) {
+	tests := []struct {
+		name    string
+		sources []string
+		want    bool
+	}{
+		{"audio only", []string{domain.InputSourceAudio}, true},
+		{"video only", []string{domain.InputSourceVideo}, true},
+		{"telephony only", []string{domain.InputSourceTelephony}, true},
+		{"api only", []string{domain.InputSourceAPI}, false},
+		{"bot only", []string{domain.InputSourceBot}, false},
+		{"audio + video", []string{domain.InputSourceAudio, domain.InputSourceVideo}, true},
+		{"api + audio", []string{domain.InputSourceAPI, domain.InputSourceAudio}, true},
+		{"api + bot", []string{domain.InputSourceAPI, domain.InputSourceBot}, false},
+		{"empty sources", []string{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &domain.InputConfig{Sources: tt.sources}
+			if got := cfg.HasMediaSource(); got != tt.want {
+				t.Errorf("HasMediaSource() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputConfig_ExecutionType_UnmarshalYAML(t *testing.T) {
+	yamlData := `
+sources: [audio]
+executionType: polling
+audio:
+  device: hw:0,0
+`
+	var cfg domain.InputConfig
+	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if cfg.ExecutionType != domain.InputExecutionTypePolling {
+		t.Errorf("ExecutionType = %q, want %q", cfg.ExecutionType, domain.InputExecutionTypePolling)
+	}
+}
+
+func TestInputExecutionTypeConstants(t *testing.T) {
+	if domain.InputExecutionTypePolling != "polling" {
+		t.Errorf("InputExecutionTypePolling = %q, want %q", domain.InputExecutionTypePolling, "polling")
+	}
+	if domain.InputExecutionTypeStateless != "stateless" {
+		t.Errorf("InputExecutionTypeStateless = %q, want %q", domain.InputExecutionTypeStateless, "stateless")
+	}
+}

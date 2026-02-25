@@ -68,6 +68,7 @@ type RunConfig struct {
 	Python      *PythonConfig      `yaml:"python,omitempty"`
 	Exec        *ExecConfig        `yaml:"exec,omitempty"`
 	TTS         *TTSConfig         `yaml:"tts,omitempty"`
+	BotReply    *BotReplyConfig    `yaml:"botReply,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -711,4 +712,13 @@ type OfflineTTSConfig struct {
 	Engine string `yaml:"engine"`
 	// Model is the model name or path used by piper or coqui-tts.
 	Model string `yaml:"model,omitempty"`
+}
+
+// BotReplyConfig sends a text reply back to the bot platform that delivered
+// the current message (Discord, Slack, Telegram, WhatsApp, or stdout in
+// stateless mode). It is a primary execution type, similar to TTS.
+type BotReplyConfig struct {
+	// Text is the message to send. Expression evaluation is supported,
+	// e.g. "{{ get('llm') }}".
+	Text string `yaml:"text" json:"text"`
 }

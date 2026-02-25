@@ -62,6 +62,7 @@ source "$SCRIPT_DIR/test_features_route_methods.sh"
 source "$SCRIPT_DIR/test_http_client.sh"
 source "$SCRIPT_DIR/test_features_edge_cases.sh"
 source "$SCRIPT_DIR/test_features_input_sources.sh"
+source "$SCRIPT_DIR/test_features_bot_sources.sh"
 source "$SCRIPT_DIR/test_features_tts.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)

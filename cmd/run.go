@@ -43,6 +43,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -52,6 +53,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
+	"github.com/kdeps/kdeps/v2/pkg/input/bot"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -291,22 +293,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 
 	// 5. Execute workflow or start HTTP server
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
-
-	// Check if both server modes are enabled
-	if workflow.Settings.WebServerMode && workflow.Settings.APIServerMode {
-		return StartBothServers(workflow, workflowPath, flags.DevMode, debugMode)
-	}
-
-	if workflow.Settings.WebServerMode {
-		return StartWebServer(workflow, workflowPath, flags.DevMode)
-	}
-
-	if workflow.Settings.APIServerMode {
-		return StartHTTPServer(workflow, workflowPath, flags.DevMode, debugMode)
-	}
-
-	// Single execution (non-server mode).
-	return ExecuteSingleRun(workflow)
+	return dispatchExecution(workflow, workflowPath, flags.DevMode, debugMode)
 }
 
 // ParseWorkflowFile parses a workflow YAML file.
@@ -403,6 +390,7 @@ func printIORequirements(workflow *domain.Workflow) {
 	fmt.Fprintln(os.Stdout, "  I/O requirements:")
 
 	if hasNonAPIInput {
+		printBotRequirements(input)
 		printCaptureRequirements(input)
 		printedSTT := make(map[string]bool)
 		printTranscriberRequirements(input.Transcriber, printedSTT)
@@ -411,6 +399,34 @@ func printIORequirements(workflow *domain.Workflow) {
 
 	for engine, label := range ttsEngines {
 		printTTSEngineRequirement(engine, label)
+	}
+}
+
+// printBotRequirements prints a note for each configured bot platform.
+func printBotRequirements(input *domain.InputConfig) {
+	if !input.HasBotSource() || input.Bot == nil {
+		return
+	}
+	b := input.Bot
+	if b.Discord != nil {
+		fmt.Fprintln(os.Stdout, "    Discord bot:")
+		fmt.Fprintln(os.Stdout, "      Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)")
+	}
+	if b.Slack != nil {
+		fmt.Fprintln(os.Stdout, "    Slack bot (Socket Mode):")
+		fmt.Fprintln(os.Stdout, "      Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)")
+	}
+	if b.Telegram != nil {
+		fmt.Fprintln(os.Stdout, "    Telegram bot (long-polling):")
+		fmt.Fprintln(os.Stdout, "      Requires a Telegram bot token from @BotFather")
+	}
+	if b.WhatsApp != nil {
+		fmt.Fprintln(os.Stdout, "    WhatsApp Cloud API (embedded webhook server):")
+		fmt.Fprintln(os.Stdout, "      Requires a Phone Number ID and Access Token from Meta for Developers")
+		fmt.Fprintln(
+			os.Stdout,
+			"      The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
+		)
 	}
 }
 
@@ -480,6 +496,9 @@ func notFound(avail bool) string {
 func printCaptureRequirements(input *domain.InputConfig) {
 	ffmpegOK := isBinaryAvailable("ffmpeg")
 	for _, src := range input.Sources {
+		if domain.IsBotSource(src) {
+			continue // bot sources handled by printBotRequirements
+		}
 		switch src {
 		case domain.InputSourceAudio:
 			fmt.Fprintln(os.Stdout, "    Audio capture:")
@@ -582,16 +601,28 @@ func installIOTools(workflow *domain.Workflow) error {
 	}
 
 	input := workflow.Settings.Input
-	hasNonAPIInput := input != nil && input.HasNonAPISource()
+	// hasNonAPIInput is true only for hardware sources (audio/video/telephony),
+	// not for bot sources which need no Python I/O tools.
+	hasHardwareInput := func() bool {
+		if input == nil {
+			return false
+		}
+		for _, s := range input.Sources {
+			if s != domain.InputSourceAPI && !domain.IsBotSource(s) {
+				return true
+			}
+		}
+		return false
+	}()
 	ttsEngines := collectTTSEngines(workflow)
 
-	if !hasNonAPIInput && len(ttsEngines) == 0 {
+	if !hasHardwareInput && len(ttsEngines) == 0 {
 		return nil
 	}
 
 	manager := python.NewManager("")
 
-	if hasNonAPIInput {
+	if hasHardwareInput {
 		if err := installInputTools(manager, input); err != nil {
 			return err
 		}
@@ -957,6 +988,120 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
 const gracefulShutdownTimeout = 10 * time.Second
 
+// dispatchExecution selects and starts the correct execution mode for the workflow:
+// server (API/Web/both), bot (polling or stateless), media polling, or single-run stateless.
+func dispatchExecution(workflow *domain.Workflow, workflowPath string, devMode, debugMode bool) error {
+	s := workflow.Settings
+
+	if s.WebServerMode && s.APIServerMode {
+		return StartBothServers(workflow, workflowPath, devMode, debugMode)
+	}
+	if s.WebServerMode {
+		return StartWebServer(workflow, workflowPath, devMode)
+	}
+	if s.APIServerMode {
+		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
+	}
+	if s.Input != nil && s.Input.HasBotSource() {
+		return StartBotRunners(workflow, debugMode)
+	}
+	if s.Input != nil && s.Input.HasMediaSource() &&
+		s.Input.ExecutionType == domain.InputExecutionTypePolling {
+		return StartMediaRunners(workflow, debugMode)
+	}
+	return ExecuteSingleRun(workflow)
+}
+
+// StartBotRunners starts bot execution in either polling or stateless mode.
+// Polling mode starts long-running platform runners and blocks until SIGINT/SIGTERM.
+// Stateless mode reads one message from stdin, executes the workflow once, writes the
+// reply to stdout, and returns.
+func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
+	input := workflow.Settings.Input
+	logger := logging.NewLogger(debugMode)
+	engine := setupEngine(workflow, debugMode)
+
+	execType := domain.BotExecutionTypePolling
+	if input.Bot != nil && input.Bot.ExecutionType != "" {
+		execType = input.Bot.ExecutionType
+	}
+
+	if execType == domain.BotExecutionTypeStateless {
+		ctx := context.Background()
+		return bot.RunStateless(ctx, workflow, engine, logger)
+	}
+
+	// Polling mode.
+	var platforms []string
+	if input.Bot != nil {
+		if input.Bot.Discord != nil {
+			platforms = append(platforms, "discord")
+		}
+		if input.Bot.Slack != nil {
+			platforms = append(platforms, "slack")
+		}
+		if input.Bot.Telegram != nil {
+			platforms = append(platforms, "telegram")
+		}
+		if input.Bot.WhatsApp != nil {
+			platforms = append(platforms, "whatsapp")
+		}
+	}
+	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
+	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
+
+	dispatcher, err := bot.NewDispatcher(workflow, engine, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create bot dispatcher: %w", err)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	if runErr := dispatcher.Run(ctx); runErr != nil {
+		return runErr
+	}
+	fmt.Fprintln(os.Stdout, "\n✓ Bot stopped")
+	return nil
+}
+
+// StartMediaRunners starts a continuous media capture-execute loop for audio/video/telephony
+// sources configured with executionType: polling. Each iteration captures hardware media,
+// optionally transcribes it, runs the workflow resources, and then immediately restarts.
+// Blocks until SIGINT/SIGTERM.
+func StartMediaRunners(workflow *domain.Workflow, debugMode bool) error {
+	engine := setupEngine(workflow, debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting media input loop (polling mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Media runner ready! Waiting for input... (press Ctrl+C to stop)")
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Fprintln(os.Stdout, "\n✓ Media runner stopped")
+			return nil
+		default:
+		}
+
+		_, execErr := engine.Execute(workflow, nil)
+
+		// Check if we were interrupted (context cancelled during capture or execution).
+		select {
+		case <-ctx.Done():
+			fmt.Fprintln(os.Stdout, "\n✓ Media runner stopped")
+			return nil
+		default:
+		}
+
+		if execErr != nil {
+			fmt.Fprintf(os.Stderr, "  [warn] execution error: %v\n", execErr)
+		}
+	}
+}
+
 // StartHTTPServer starts the HTTP API server (exported for testing).
 //
 
@@ -1060,6 +1205,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
 	registry.SetTTSExecutor(executorTTS.NewAdapter(logger))
+	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

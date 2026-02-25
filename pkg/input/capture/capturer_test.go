@@ -131,6 +131,26 @@ func TestNoOpCapturer_Capture(t *testing.T) {
 	}
 }
 
+func TestNew_BotSource(t *testing.T) {
+	cfg := &domain.InputConfig{
+		Sources: []string{domain.InputSourceBot},
+		Bot: &domain.BotConfig{
+			ExecutionType: domain.BotExecutionTypePolling,
+			Telegram: &domain.TelegramConfig{
+				BotToken: "test-token",
+			},
+		},
+	}
+	c, err := capture.New(cfg.Sources[0], cfg, slog.Default())
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	_, ok := c.(*capture.NoOpCapturer)
+	if !ok {
+		t.Errorf("expected *NoOpCapturer for bot source, got %T", c)
+	}
+}
+
 func TestNew_UnsupportedSource(t *testing.T) {
 	cfg := &domain.InputConfig{Sources: []string{"bluetooth"}}
 	_, err := capture.New(cfg.Sources[0], cfg, slog.Default())

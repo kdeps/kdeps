@@ -158,3 +158,45 @@ func TestNewProcessor_NilLogger(t *testing.T) {
 		t.Fatal("expected non-nil processor")
 	}
 }
+
+func TestNewProcessor_BotSource_ReturnsNil(t *testing.T) {
+	// Bot sources bypass the hardware processor entirely — they're driven by the
+	// Dispatcher. NewProcessor should return (nil, nil) for bot-only configs.
+	cfg := &domain.InputConfig{
+		Sources: []string{domain.InputSourceBot},
+		Bot: &domain.BotConfig{
+			ExecutionType: domain.BotExecutionTypePolling,
+			Telegram: &domain.TelegramConfig{
+				BotToken: "test-token",
+			},
+		},
+	}
+	p, err := input.NewProcessor(cfg, slog.Default())
+	if err != nil {
+		t.Fatalf("NewProcessor(bot) error = %v", err)
+	}
+	if p != nil {
+		t.Errorf("expected nil processor for bot-only source, got %T", p)
+	}
+}
+
+func TestNewProcessor_BotAndAPI_ReturnsNil(t *testing.T) {
+	// API + bot is also a bot-only config from the processor's perspective
+	// (API is served by HTTP server; bot is served by Dispatcher).
+	cfg := &domain.InputConfig{
+		Sources: []string{domain.InputSourceAPI, domain.InputSourceBot},
+		Bot: &domain.BotConfig{
+			ExecutionType: domain.BotExecutionTypePolling,
+			Telegram: &domain.TelegramConfig{
+				BotToken: "test-token",
+			},
+		},
+	}
+	p, err := input.NewProcessor(cfg, slog.Default())
+	if err != nil {
+		t.Fatalf("NewProcessor(api+bot) error = %v", err)
+	}
+	if p != nil {
+		t.Errorf("expected nil processor for api+bot sources, got %T", p)
+	}
+}

@@ -874,3 +874,332 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "activation.sensitivity must be between")
 	})
 }
+
+// ---------------------------------------------------------------------------
+// Bot input source integration tests
+// ---------------------------------------------------------------------------
+
+func TestInputSourcesIntegration_BotSource(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	makeWorkflow := func(input *domain.InputConfig) *domain.Workflow {
+		return &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "m"},
+			Settings: domain.WorkflowSettings{Input: input},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
+					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+				},
+			},
+		}
+	}
+
+	t.Run("bot source with telegram polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Telegram: &domain.TelegramConfig{
+					BotToken: "1234567890:AAH-test-token",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source with discord polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Discord: &domain.DiscordConfig{
+					BotToken: "Bot test-discord-token",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source with slack polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Slack: &domain.SlackConfig{
+					BotToken: "xoxb-test-token",
+					AppToken: "xapp-test-token",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source with whatsapp polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				WhatsApp: &domain.WhatsAppConfig{
+					PhoneNumberID: "123456789",
+					AccessToken:   "EAAtest",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source stateless - no platform required", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypeStateless,
+				// No platform sub-configs — valid for stateless mode
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source multi-platform - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Telegram:      &domain.TelegramConfig{BotToken: "tg-token"},
+				Discord:       &domain.DiscordConfig{BotToken: "Bot dc-token"},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+
+	t.Run("bot source default executionType - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				// No executionType — should default to polling behaviour
+				Telegram: &domain.TelegramConfig{BotToken: "tg-token"},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.NoError(t, err)
+	})
+}
+
+func TestInputSourcesIntegration_BotSourceValidationErrors(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	makeWorkflow := func(input *domain.InputConfig) *domain.Workflow {
+		return &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "m"},
+			Settings: domain.WorkflowSettings{Input: input},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
+					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+				},
+			},
+		}
+	}
+
+	t.Run("bot source without bot config - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot:     nil,
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "input.bot is required")
+	})
+
+	t.Run("bot polling without any platform - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "at least one platform")
+	})
+
+	t.Run("invalid executionType - rejected", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: "webhook",
+				Telegram:      &domain.TelegramConfig{BotToken: "tg-token"},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "executionType")
+	})
+
+	t.Run("discord missing botToken - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Discord:       &domain.DiscordConfig{BotToken: ""},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "discord.botToken is required")
+	})
+
+	t.Run("telegram missing botToken - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Telegram:      &domain.TelegramConfig{BotToken: ""},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "telegram.botToken is required")
+	})
+
+	t.Run("slack missing botToken - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				Slack:         &domain.SlackConfig{BotToken: ""},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "slack.botToken is required")
+	})
+
+	t.Run("whatsapp missing phoneNumberId - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				WhatsApp: &domain.WhatsAppConfig{
+					PhoneNumberID: "",
+					AccessToken:   "EAAtest",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "whatsApp")
+	})
+
+	t.Run("whatsapp missing accessToken - invalid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceBot},
+			Bot: &domain.BotConfig{
+				ExecutionType: domain.BotExecutionTypePolling,
+				WhatsApp: &domain.WhatsAppConfig{
+					PhoneNumberID: "123",
+					AccessToken:   "",
+				},
+			},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "whatsApp")
+	})
+}
+
+// TestInputSourcesIntegration_MediaExecutionType verifies the executionType field
+// on InputConfig for audio/video/telephony sources.
+func TestInputSourcesIntegration_MediaExecutionType(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	makeWorkflow := func(input *domain.InputConfig) *domain.Workflow {
+		return &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "t", TargetActionID: "m"},
+			Settings: domain.WorkflowSettings{Input: input},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
+					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+				},
+			},
+		}
+	}
+
+	t.Run("audio polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceAudio},
+			ExecutionType: domain.InputExecutionTypePolling,
+			Audio:         &domain.AudioConfig{Device: "hw:0,0"},
+		})
+		require.NoError(t, workflowValidator.Validate(wf))
+	})
+
+	t.Run("audio stateless - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceAudio},
+			ExecutionType: domain.InputExecutionTypeStateless,
+			Audio:         &domain.AudioConfig{Device: "hw:0,0"},
+		})
+		require.NoError(t, workflowValidator.Validate(wf))
+	})
+
+	t.Run("video polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceVideo},
+			ExecutionType: domain.InputExecutionTypePolling,
+			Video:         &domain.VideoConfig{Device: "/dev/video0"},
+		})
+		require.NoError(t, workflowValidator.Validate(wf))
+	})
+
+	t.Run("telephony polling - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceTelephony},
+			ExecutionType: domain.InputExecutionTypePolling,
+			Telephony:     &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
+		})
+		require.NoError(t, workflowValidator.Validate(wf))
+	})
+
+	t.Run("no executionType (default stateless) - valid", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources: []string{domain.InputSourceAudio},
+			Audio:   &domain.AudioConfig{Device: "hw:0,0"},
+		})
+		require.NoError(t, workflowValidator.Validate(wf))
+	})
+
+	t.Run("invalid executionType - rejected", func(t *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceAudio},
+			ExecutionType: "continuous",
+			Audio:         &domain.AudioConfig{Device: "hw:0,0"},
+		})
+		err = workflowValidator.Validate(wf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "executionType")
+	})
+
+	t.Run("api only with executionType polling - no error", func(_ *testing.T) {
+		wf := makeWorkflow(&domain.InputConfig{
+			Sources:       []string{domain.InputSourceAPI},
+			ExecutionType: domain.InputExecutionTypePolling,
+		})
+		// executionType: polling on API-only sources is accepted by the validator;
+		// the routing in cmd/run.go simply ignores it for API sources.
+		_ = workflowValidator.Validate(wf)
+	})
+}

@@ -21,6 +21,7 @@
 package executor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -112,6 +113,11 @@ type ExecutionContext struct {
 	// Resources can read this path via the ttsOutput expression function.
 	TTSOutputFile string
 
+	// BotSend delivers a reply to the originating bot platform.
+	// Set by the bot dispatcher (polling) or stateless runner before engine.Execute().
+	// Nil for non-bot executions.
+	BotSend BotSendFunc
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
@@ -125,6 +131,13 @@ type LLMMetadata struct {
 	Backend string
 }
 
+// BotSendFunc delivers a reply text to the originating bot platform.
+// In polling mode it calls the platform's Reply API; in stateless mode it
+// writes to stdout. The function signature is:
+//
+//	func(ctx context.Context, text string) error
+type BotSendFunc func(ctx context.Context, text string) error
+
 // RequestContext holds HTTP request data.
 type RequestContext struct {
 	Method    string
@@ -136,6 +149,11 @@ type RequestContext struct {
 	IP        string       // Client IP address
 	ID        string       // Request ID
 	SessionID string       // Session ID from cookie (if available)
+
+	// BotSend is set by the bot dispatcher/stateless runner so that the
+	// botReply resource executor can deliver the reply without knowing
+	// the platform or chat ID.  It is nil for non-bot executions.
+	BotSend BotSendFunc
 }
 
 // FileUpload represents an uploaded file.
