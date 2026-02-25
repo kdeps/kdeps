@@ -16,45 +16,22 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 
 ### Basic Usage
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 apiVersion: kdeps.io/v1
-
 kind: Resource
-
-
-
 metadata:
-
   actionId: conditionalResource
-
   name: Conditional Resource
-
-
-
 run:
-
   skipCondition:
-
     - get('skip') == true
-
     - get('mode') == 'dry-run'
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('q') }}"
-
 ```
-
-
 
 </div>
 
@@ -71,19 +48,15 @@ run:
 # Skip if flag is set
 skipCondition:
   - get('skip') == true
-
 # Skip for certain routes
 skipCondition:
   - get('route') == '/api/v1/admin'
-
 # Skip if no query parameter
 skipCondition:
   - get('q') == '' || get('q') == null
-
 # Skip based on item value (in items iteration)
 skipCondition:
   - get('current') == 'skip_this'
-
 # Skip if previous resource failed
 skipCondition:
   - get('previousResource') == null
@@ -95,55 +68,27 @@ Preflight checks validate inputs **before** resource execution begins. If valida
 
 ### Basic Usage
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 apiVersion: kdeps.io/v1
-
 kind: Resource
-
-
-
 metadata:
-
   actionId: validatedResource
-
   name: Validated Resource
-
-
-
 run:
-
   preflightCheck:
-
     validations:
-
       - get('q') != ''
-
       - get('userId') != null
-
       - len(get('q')) > 3
-
     error:
-
       code: 400
-
       message: Query parameter 'q' is required and must be at least 3 characters
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('q') }}"
-
 ```
-
-
 
 </div>
 
@@ -162,24 +107,18 @@ preflightCheck:
     # Check existence
     - get('q') != ''
     - get('userId') != null
-    
     # Check type
     - typeof(get('age')) == 'number'
-    
     # Check range
     - get('age') >= 18
     - get('age') <= 120
-    
     # Check length
     - len(get('email')) > 5
     - len(get('password')) >= 8
-    
     # Check format (using regex-like checks)
     - get('email').includes('@')
-    
     # Check multiple conditions
     - get('status') == 'active' || get('status') == 'pending'
-    
     # Check resource outputs
     - get('previousResource') != null
 ```
@@ -204,43 +143,21 @@ Limit which HTTP requests can trigger a resource.
 
 ### Basic Usage
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 apiVersion: kdeps.io/v1
-
 kind: Resource
-
-
-
 metadata:
-
   actionId: apiResource
-
   name: API Resource
-
-
-
 run:
-
   restrictToHttpMethods: [GET, POST]
-
   restrictToRoutes: ["/api/v1/data", "/api/v1/query"]
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('q') }}"
-
 ```
-
-
 
 </div>
 
@@ -257,10 +174,8 @@ run:
 ```yaml
 # Only GET requests
 restrictToHttpMethods: [GET]
-
 # GET and POST only
 restrictToHttpMethods: [GET, POST]
-
 # All methods (default)
 restrictToHttpMethods: []  # or omit
 ```
@@ -270,12 +185,10 @@ restrictToHttpMethods: []  # or omit
 ```yaml
 # Single route
 restrictToRoutes: ["/api/v1/users"]
-
 # Multiple routes
 restrictToRoutes:
   - "/api/v1/users"
   - "/api/v1/profiles"
-
 # All routes (default)
 restrictToRoutes: []  # or omit
 ```
@@ -304,69 +217,34 @@ Validate the structure and content of request data using the `validation` block.
 
 ### Basic Usage
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 apiVersion: kdeps.io/v1
-
 kind: Resource
-
-
-
 metadata:
-
   actionId: validatedInput
-
   name: Validated Input
-
-
-
 run:
-
   validation:
-
     required:
-
       - userId
-
       - action
-
     properties:
-
       userId:
-
         type: string
-
         minLength: 1
-
       action:
-
         type: string
-
         enum: [create, update, delete]
-
       age:
-
         type: number
-
         minimum: 18
-
         maximum: 120
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('action') }} user {{ get('userId') }}"
-
 ```
-
-
 
 </div>
 
@@ -432,151 +310,78 @@ validation:
 
 ### Custom Validation Rules
 
-
-
 In addition to schema validation, you can define custom expression-based validation rules:
-
-
 
 <div v-pre>
 
-
-
 ```yaml
-
 run:
-
   validation:
-
     required:
-
       - email
-
       - password
-
       - confirmPassword
-
     properties:
-
       email:
-
         type: string
-
         pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-
       password:
-
         type: string
-
         minLength: 8
-
       confirmPassword:
-
         type: string
-
     customRules:
-
       - expr: get('password') == get('confirmPassword')
-
         message: "Passwords do not match"
-
       - expr: get('password').length >= 8
-
         message: "Password must be at least 8 characters"
-
       - expr: get('email').includes('@')
-
         message: "Email must contain @ symbol"
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "Process user: {{ get('email') }}"
-
 ```
-
-
 
 </div>
 
 ### Example: Complete Validation
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 run:
-
   validation:
-
     required:
-
       - email
-
       - name
-
     properties:
-
       email:
-
         type: string
-
         pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-
       name:
-
         type: string
-
         minLength: 1
-
         maxLength: 100
-
       age:
-
         type: integer
-
         minimum: 18
-
         maximum: 120
-
       role:
-
         type: string
-
         enum: [user, admin, moderator]
-
       tags:
-
         type: array
-
         minItems: 1
-
         maxItems: 10
-
     customRules:
-
       - expr: get('password') == get('confirmPassword')
-
         message: "Passwords must match"
-
       - expr: get('age') >= 18
-
         message: "Must be 18 or older"
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "Process user: {{ get('name') }}"
-
 ```
-
-
 
 </div>
 
@@ -586,33 +391,18 @@ Restrict which headers and query parameters are allowed in requests.
 
 ### Allowed Headers
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 run:
-
   allowedHeaders:
-
     - Authorization
-
     - Content-Type
-
     - X-API-Key
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('q') }}"
-
 ```
-
-
 
 </div>
 
@@ -620,33 +410,18 @@ If a request contains headers not in this list, the resource is skipped.
 
 ### Allowed Parameters
 
-
-
 <div v-pre>
 
-
-
 ```yaml
-
 run:
-
   allowedParams:
-
     - q
-
     - userId
-
     - action
-
   chat:
-
     model: llama3.2:1b
-
     prompt: "{{ get('q') }}"
-
 ```
-
-
 
 </div>
 
@@ -762,7 +537,6 @@ run:
   restrictToHttpMethods: [POST]
   restrictToRoutes: ["/api/v1/admin"]
   allowedHeaders: [Authorization]
-  
   # Validation: Check inputs
   preflightCheck:
     validations:
@@ -770,11 +544,9 @@ run:
     error:
       code: 401
       message: Admin token required
-  
   # Logic: Skip if dry-run
   skipCondition:
     - get('dryRun') == true
-  
   # Execute
   chat:
     model: llama3.2:1b
@@ -834,16 +606,13 @@ Input validation errors return structured error information:
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Resource
-
 metadata:
   actionId: smartProcessor
   name: Smart Processor
-
 run:
   # Skip if not needed
   skipCondition:
     - get('process') != true
-  
   # Validate inputs
   preflightCheck:
     validations:
@@ -852,7 +621,6 @@ run:
     error:
       code: 400
       message: Data is required
-  
   # Process
   python:
     script: |
@@ -867,17 +635,14 @@ run:
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Resource
-
 metadata:
   actionId: secureEndpoint
   name: Secure Endpoint
-
 run:
   # Security restrictions
   restrictToHttpMethods: [POST]
   restrictToRoutes: ["/api/v1/secure"]
   allowedHeaders: [Authorization, Content-Type]
-  
   # Validate authentication
   preflightCheck:
     validations:
@@ -886,7 +651,6 @@ run:
     error:
       code: 401
       message: Valid authorization token required
-  
   # Process
   chat:
     model: llama3.2:1b
