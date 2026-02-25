@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: reply
+  name: Reply
+
+dependencies:
+  - llm
+
+run:
+  botReply:
+    text: "{{ get('llm') }}"

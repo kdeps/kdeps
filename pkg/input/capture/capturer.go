@@ -113,6 +113,10 @@ func NewWithDuration(
 		}
 		return &AudioCapturer{device: device, duration: durationSeconds, logger: logger}, nil
 
+	case domain.InputSourceBot:
+		// Bot sources are driven by the Dispatcher, not the hardware capture pipeline.
+		return &NoOpCapturer{}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported capture source: %s", source)
 	}

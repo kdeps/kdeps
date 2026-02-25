@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: stateless-bot
+  description: One-shot bot execution — reads a message from stdin, writes the reply to stdout
+  version: "1.0.0"
+  targetActionId: reply
+
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+  input:
+    sources: [bot]
+    bot:
+      executionType: stateless

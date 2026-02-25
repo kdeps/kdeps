@@ -23,7 +23,8 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 - ✅ **Interactive Wizard** - Create new agents easily with `kdeps new` (no YAML knowledge needed initially).
 - ✅ **Hot Reload** - Auto-reload workflows on file changes in dev mode.
 - ✅ **Mustache Templates** - Support for both Go templates and Mustache syntax for project scaffolding.
-- ✅ **Media Input** - First-class `input:` block supporting API, Audio, Video, and Telephony sources with optional transcription (online/offline) and wake-phrase activation.
+- ✅ **Media Input** - First-class `input:` block supporting API, Audio, Video, Telephony, and Bot sources (Discord, Slack, Telegram, WhatsApp) with optional transcription (online/offline) and wake-phrase activation.
+- ✅ **Chat Bots** - Connect workflows to Discord, Slack, Telegram, and WhatsApp via persistent polling or serverless stateless mode. Access the inbound message with `input('message')` and reply automatically.
 - ✅ **TTS Output** - Built-in Text-to-Speech resource with 5 online providers (OpenAI, Google, ElevenLabs, Azure, AWS Polly) and 4 offline engines (Piper, eSpeak, Festival, Coqui-TTS).
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
@@ -303,12 +304,52 @@ run:
         script: "print('Done')"
 ```
 
+### Bot / Chat Platform
+
+Connect a workflow to Discord, Slack, Telegram, or WhatsApp. The inbound message is available via `input('message')`, `input('chatId')`, `input('userId')`, and `input('platform')`.
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling   # persistent long-running connection
+      telegram:
+        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+
+resources:
+  - metadata:
+      actionId: reply
+    run:
+      chat:
+        model: llama3.2:1b
+        messages:
+          - role: user
+            content: "{{ input('message') }}"
+```
+
+**Stateless mode** — read one message from stdin, run once, write reply to stdout:
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: stateless
+```
+
+```bash
+echo '{"message":"What is 2+2?","platform":"telegram"}' | kdeps run workflow.yaml
+```
+
 ## Examples
 
 Explore working examples in the [examples/](examples/) directory:
 
-- **[chatbot](examples/chatbot/)** - Simple LLM chatbot
+- **[chatbot](examples/chatbot/)** - Simple LLM chatbot via HTTP API
 - **[chatgpt-clone](examples/chatgpt-clone/)** - Full-featured chat interface
+- **[telegram-bot](examples/telegram-bot/)** - Telegram bot with LLM replies (polling)
+- **[stateless-bot](examples/stateless-bot/)** - One-shot bot execution from stdin
 - **[inline-resources](examples/inline-resources/)** - Before/after resource execution
 - **[file-upload](examples/file-upload/)** - File processing workflow
 - **[http-advanced](examples/http-advanced/)** - Complex HTTP integrations

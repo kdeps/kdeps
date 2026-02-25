@@ -73,9 +73,23 @@ type Processor struct {
 // NewProcessor creates an input Processor for the given InputConfig.
 // Returns nil (with no error) when config is nil or all sources are "api"
 // (API input is handled directly by the HTTP server and needs no processor).
+// Bot sources (discord, slack, telegram, whatsapp) are driven by the Dispatcher
+// and also return nil so the hardware pipeline is not started.
 func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, error) {
 	if cfg == nil || !cfg.HasNonAPISource() {
 		return nil, nil //nolint:nilnil // nil processor signals no input processing needed, not an error
+	}
+
+	// If every non-API source is a bot source, the Dispatcher handles input — no hardware pipeline needed.
+	allBotOrAPI := true
+	for _, s := range cfg.Sources {
+		if s != domain.InputSourceAPI && !domain.IsBotSource(s) {
+			allBotOrAPI = false
+			break
+		}
+	}
+	if allBotOrAPI {
+		return nil, nil //nolint:nilnil // bot sources are driven by the Dispatcher, not the hardware pipeline
 	}
 
 	if logger == nil {

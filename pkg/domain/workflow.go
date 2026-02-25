@@ -36,6 +36,22 @@ const (
 	InputSourceVideo = "video"
 	// InputSourceTelephony is the input source for telephony (phone/SIP) devices.
 	InputSourceTelephony = "telephony"
+	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram, WhatsApp).
+	InputSourceBot = "bot"
+
+	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
+	BotExecutionTypePolling = "polling"
+	// BotExecutionTypeStateless is a single-shot execution: reads a message from stdin (JSON),
+	// executes the workflow once, writes the reply to stdout, then exits.
+	BotExecutionTypeStateless = "stateless"
+
+	// InputExecutionTypePolling continuously loops: after each capture-execute cycle for
+	// audio/video/telephony sources, it immediately restarts from the capture step.
+	// The process blocks until SIGINT/SIGTERM.
+	InputExecutionTypePolling = "polling"
+	// InputExecutionTypeStateless executes the workflow once (capture → transcribe → run) and exits.
+	// This is the default when executionType is not specified for media sources.
+	InputExecutionTypeStateless = "stateless"
 
 	// TelephonyTypeLocal is local telephony hardware (e.g. USB modem or handset).
 	TelephonyTypeLocal = "local"
@@ -119,7 +135,7 @@ type WebAppConfig struct {
 // InputConfig specifies the input sources for the workflow.
 //
 // The `sources` field in the workflow YAML is a list of one or more input sources:
-// "api" (default), "audio", "video", "telephony".
+// "api" (default), "audio", "video", "telephony", "bot".
 //
 // Multiple sources can be active simultaneously (for example, audio + video for a
 // video call). Example:
@@ -131,12 +147,14 @@ type WebAppConfig struct {
 //	  video:
 //	    # video configuration...
 type InputConfig struct {
-	Sources     []string           `yaml:"sources"               json:"sources"`
-	Audio       *AudioConfig       `yaml:"audio,omitempty"       json:"audio,omitempty"`
-	Video       *VideoConfig       `yaml:"video,omitempty"       json:"video,omitempty"`
-	Telephony   *TelephonyConfig   `yaml:"telephony,omitempty"   json:"telephony,omitempty"`
-	Transcriber *TranscriberConfig `yaml:"transcriber,omitempty" json:"transcriber,omitempty"`
-	Activation  *ActivationConfig  `yaml:"activation,omitempty"  json:"activation,omitempty"`
+	Sources       []string           `yaml:"sources"                 json:"sources"`
+	ExecutionType string             `yaml:"executionType,omitempty" json:"executionType,omitempty"`
+	Audio         *AudioConfig       `yaml:"audio,omitempty"         json:"audio,omitempty"`
+	Video         *VideoConfig       `yaml:"video,omitempty"         json:"video,omitempty"`
+	Telephony     *TelephonyConfig   `yaml:"telephony,omitempty"     json:"telephony,omitempty"`
+	Bot           *BotConfig         `yaml:"bot,omitempty"           json:"bot,omitempty"`
+	Transcriber   *TranscriberConfig `yaml:"transcriber,omitempty"   json:"transcriber,omitempty"`
+	Activation    *ActivationConfig  `yaml:"activation,omitempty"    json:"activation,omitempty"`
 }
 
 // PrimarySource returns the first non-API source, or InputSourceAPI if none.
@@ -178,6 +196,29 @@ func (c *InputConfig) HasSource(source string) bool {
 		}
 	}
 	return false
+}
+
+// HasBotSource reports whether "bot" is in the Sources list.
+func (c *InputConfig) HasBotSource() bool {
+	return c.HasSource(InputSourceBot)
+}
+
+// HasMediaSource reports whether any source is audio, video, or telephony.
+// These sources use hardware capture and support executionType polling/stateless.
+func (c *InputConfig) HasMediaSource() bool {
+	for _, s := range c.Sources {
+		switch s {
+		case InputSourceAudio, InputSourceVideo, InputSourceTelephony:
+			return true
+		}
+	}
+	return false
+}
+
+// IsBotSource returns true when the given source name is the "bot" source,
+// which bypasses the hardware capture pipeline.
+func IsBotSource(s string) bool {
+	return s == InputSourceBot
 }
 
 // inputConfigAlias is used to avoid infinite recursion in the custom unmarshalers.
@@ -237,6 +278,51 @@ type TelephonyConfig struct {
 	Type     string `yaml:"type"               json:"type"`               // "local" or "online"
 	Device   string `yaml:"device,omitempty"   json:"device,omitempty"`   // device path for local telephony (e.g. /dev/ttyUSB0)
 	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"` // cloud provider for online telephony (e.g. twilio)
+}
+
+// BotConfig contains configuration for chat-bot platform runners.
+// ExecutionType selects the execution model: "polling" (default) keeps a persistent
+// long-running connection to each configured platform; "stateless" reads a single
+// message from stdin as JSON, executes the workflow once, writes the reply to stdout,
+// and exits. Platform sub-configs are required for polling mode; they are optional for
+// stateless mode (where the message is supplied externally via stdin).
+type BotConfig struct {
+	// ExecutionType is "polling" (default) or "stateless".
+	ExecutionType string          `yaml:"executionType,omitempty" json:"executionType,omitempty"`
+	Discord       *DiscordConfig  `yaml:"discord,omitempty"       json:"discord,omitempty"`
+	Slack         *SlackConfig    `yaml:"slack,omitempty"         json:"slack,omitempty"`
+	Telegram      *TelegramConfig `yaml:"telegram,omitempty"      json:"telegram,omitempty"`
+	WhatsApp      *WhatsAppConfig `yaml:"whatsApp,omitempty"      json:"whatsApp,omitempty"`
+}
+
+// DiscordConfig contains Discord bot configuration.
+type DiscordConfig struct {
+	BotToken string `yaml:"botToken"          json:"botToken"`
+	GuildID  string `yaml:"guildId,omitempty" json:"guildId,omitempty"` // optional: restrict to one guild
+}
+
+// SlackConfig contains Slack bot configuration.
+// Mode is "socket" (default) which uses Socket Mode WebSocket.
+type SlackConfig struct {
+	BotToken      string `yaml:"botToken"                json:"botToken"`
+	AppToken      string `yaml:"appToken,omitempty"      json:"appToken,omitempty"`      // xapp-... for Socket Mode
+	SigningSecret string `yaml:"signingSecret,omitempty" json:"signingSecret,omitempty"` // for request verification
+	Mode          string `yaml:"mode,omitempty"          json:"mode,omitempty"`          // "socket" (default)
+}
+
+// TelegramConfig contains Telegram bot configuration.
+type TelegramConfig struct {
+	BotToken            string `yaml:"botToken"                      json:"botToken"`
+	PollIntervalSeconds int    `yaml:"pollIntervalSeconds,omitempty" json:"pollIntervalSeconds,omitempty"` // default 1
+}
+
+// WhatsAppConfig contains WhatsApp Cloud API configuration.
+// An embedded HTTP webhook server is started (on WebhookPort) since Meta has no polling API.
+type WhatsAppConfig struct {
+	PhoneNumberID string `yaml:"phoneNumberId"           json:"phoneNumberId"`
+	AccessToken   string `yaml:"accessToken"             json:"accessToken"`
+	WebhookSecret string `yaml:"webhookSecret,omitempty" json:"webhookSecret,omitempty"` // for HMAC verification
+	WebhookPort   int    `yaml:"webhookPort,omitempty"   json:"webhookPort,omitempty"`   // default 16396
 }
 
 // TranscriberConfig defines how analog media signals (audio/video/telephony)
