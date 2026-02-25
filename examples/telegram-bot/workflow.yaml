@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: telegram-bot
+  description: Telegram bot that answers messages using a local LLM (Ollama)
+  version: "1.0.0"
+  targetActionId: reply
+
+settings:
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling
+      telegram:
+        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+        pollIntervalSeconds: 1

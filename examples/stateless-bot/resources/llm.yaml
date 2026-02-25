@@ -1,0 +1,14 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: llm
+  name: LLM Response
+
+run:
+  chat:
+    backend: ollama
+    model: llama3.2:3b
+    messages:
+      - role: user
+        content: "{{ input('message') }}"
