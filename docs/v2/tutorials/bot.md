@@ -224,6 +224,6 @@ telegram-llm-bot/
 ## See Also
 
 - [Input Sources](../concepts/input-sources.md) — All bot platform configs and field reference
-- [Telegram Bot Example](../../../examples/telegram-bot/) — Ready-to-run example
-- [Stateless Bot Example](../../../examples/stateless-bot/) — One-shot stdin/stdout example
+- [Telegram Bot Example](../examples/telegram-bot/) — Ready-to-run example
+- [Stateless Bot Example](../examples/stateless-bot/) — One-shot stdin/stdout example
 - [LLM Resource](../resources/llm) — Chat, scenario, backend options
