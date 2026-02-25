@@ -234,56 +234,61 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 	return nil
 }
 
+// countPrimaryExecutionTypes returns the number of mutually-exclusive primary
+// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply).
+func countPrimaryExecutionTypes(run *domain.RunConfig) int {
+	n := 0
+	if run.Chat != nil {
+		n++
+	}
+	if run.HTTPClient != nil {
+		n++
+	}
+	if run.SQL != nil {
+		n++
+	}
+	if run.Python != nil {
+		n++
+	}
+	if run.Exec != nil {
+		n++
+	}
+	if run.TTS != nil {
+		n++
+	}
+	if run.BotReply != nil {
+		n++
+	}
+	return n
+}
+
 // ValidateResource validates a single resource.
 func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow *domain.Workflow) error {
 	// Validate metadata.
 	if resource.Metadata.ActionID == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource actionID is required", nil)
 	}
-
 	if resource.Metadata.Name == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource name is required", nil)
 	}
 
 	// Validate execution types.
-	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts
-	// apiResponse can be combined with any primary execution type or used alone
-	primaryExecutionTypes := 0
-	if resource.Run.Chat != nil {
-		primaryExecutionTypes++
-	}
-	if resource.Run.HTTPClient != nil {
-		primaryExecutionTypes++
-	}
-	if resource.Run.SQL != nil {
-		primaryExecutionTypes++
-	}
-	if resource.Run.Python != nil {
-		primaryExecutionTypes++
-	}
-	if resource.Run.Exec != nil {
-		primaryExecutionTypes++
-	}
-	if resource.Run.TTS != nil {
-		primaryExecutionTypes++
-	}
-
+	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts, botReply.
+	// apiResponse can be combined with any primary execution type or used alone.
+	primaryCount := countPrimaryExecutionTypes(&resource.Run)
 	hasAPIResponse := resource.Run.APIResponse != nil
 
-	// Must have at least one execution type (primary or apiResponse)
-	if primaryExecutionTypes == 0 && !hasAPIResponse {
+	if primaryCount == 0 && !hasAPIResponse {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, apiResponse)",
 			nil,
 		)
 	}
-
-	// Can only have one primary execution type
-	if primaryExecutionTypes > 1 {
+	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply)",
 			nil,
 		)
 	}
@@ -294,13 +299,11 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 			return err
 		}
 	}
-
 	if resource.Run.SQL != nil {
 		if err := v.ValidateSQLConfig(resource.Run.SQL, workflow); err != nil {
 			return err
 		}
 	}
-
 	if resource.Run.HTTPClient != nil {
 		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
 			return err
@@ -408,16 +411,18 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 	return nil
 }
 
-// validateSourcesList validates each source entry and telephony config.
+// validateSourcesList validates each source entry and per-source config requirements.
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	validSources := map[string]bool{
 		domain.InputSourceAPI:       true,
 		domain.InputSourceAudio:     true,
 		domain.InputSourceVideo:     true,
 		domain.InputSourceTelephony: true,
+		domain.InputSourceBot:       true,
 	}
 
 	hasTelephony := false
+	hasBot := false
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
 		if source == "" {
@@ -426,7 +431,10 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 		if !validSources[source] {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("invalid input source: %s. Available options: [api, audio, video, telephony]", source),
+				fmt.Sprintf(
+					"invalid input source: %s. Available options: [api, audio, video, telephony, bot]",
+					source,
+				),
 				nil,
 			)
 		}
@@ -438,8 +446,11 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			)
 		}
 		seen[source] = true
-		if source == domain.InputSourceTelephony {
+		switch source {
+		case domain.InputSourceTelephony:
 			hasTelephony = true
+		case domain.InputSourceBot:
+			hasBot = true
 		}
 	}
 
@@ -451,9 +462,81 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 				nil,
 			)
 		}
-		return v.ValidateTelephonyConfig(config.Telephony)
+		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
+			return err
+		}
 	}
 
+	if hasBot {
+		if config.Bot == nil {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"input.bot is required when sources includes bot",
+				nil,
+			)
+		}
+		if err := v.validateBotConfig(config.Bot); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateBotConfig validates the bot sub-configuration.
+// For polling mode (default), at least one platform must be configured.
+// For stateless mode, platform sub-configs are optional.
+// Each configured platform must have the required credentials.
+func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
+	executionType := cfg.ExecutionType
+	if executionType == "" {
+		executionType = domain.BotExecutionTypePolling
+	}
+	if executionType != domain.BotExecutionTypePolling && executionType != domain.BotExecutionTypeStateless {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf("input.bot.executionType must be %q or %q, got %q",
+				domain.BotExecutionTypePolling, domain.BotExecutionTypeStateless, cfg.ExecutionType),
+			nil,
+		)
+	}
+
+	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil && cfg.WhatsApp == nil
+	if executionType == domain.BotExecutionTypePolling && noPlatforms {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.bot must configure at least one platform (discord, slack, telegram, or whatsApp) when executionType is polling",
+			nil,
+		)
+	}
+	if cfg.Discord != nil && cfg.Discord.BotToken == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.bot.discord.botToken is required",
+			nil,
+		)
+	}
+	if cfg.Slack != nil && cfg.Slack.BotToken == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.bot.slack.botToken is required",
+			nil,
+		)
+	}
+	if cfg.Telegram != nil && cfg.Telegram.BotToken == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.bot.telegram.botToken is required",
+			nil,
+		)
+	}
+	if cfg.WhatsApp != nil && (cfg.WhatsApp.PhoneNumberID == "" || cfg.WhatsApp.AccessToken == "") {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"input.bot.whatsApp.phoneNumberId and input.bot.whatsApp.accessToken are required",
+			nil,
+		)
+	}
 	return nil
 }
 
@@ -469,6 +552,21 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 	if err := v.validateSourcesList(config); err != nil {
 		return err
+	}
+
+	// Validate executionType for media (audio/video/telephony) sources.
+	if config.ExecutionType != "" {
+		if config.ExecutionType != domain.InputExecutionTypePolling &&
+			config.ExecutionType != domain.InputExecutionTypeStateless {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"input.executionType must be %q or %q, got %q",
+					domain.InputExecutionTypePolling, domain.InputExecutionTypeStateless, config.ExecutionType,
+				),
+				nil,
+			)
+		}
 	}
 
 	// Transcribers apply only to non-API sources

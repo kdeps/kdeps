@@ -182,6 +182,12 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	}
 	ctx.Request = reqCtx
 
+	// Propagate bot send function from request context so the botReply executor
+	// can deliver the reply to the originating platform.
+	if reqCtx != nil && reqCtx.BotSend != nil {
+		ctx.BotSend = reqCtx.BotSend
+	}
+
 	// Update request context with session ID from execution context
 	// This ensures new sessions have their ID propagated back to HTTP layer for cookie setting
 	if reqCtx != nil && ctx.Session != nil {
@@ -690,13 +696,14 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
 		resource.Run.Python != nil ||
 		resource.Run.Exec != nil ||
-		resource.Run.TTS != nil
+		resource.Run.TTS != nil ||
+		resource.Run.BotReply != nil
 
 	var primaryResult interface{}
 	var err error
@@ -716,6 +723,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeExec(resource, ctx)
 		case resource.Run.TTS != nil:
 			primaryResult, err = e.executeTTS(resource, ctx)
+		case resource.Run.BotReply != nil:
+			primaryResult, err = e.executeBotReply(resource, ctx)
 		}
 
 		if err != nil {
@@ -1983,4 +1992,19 @@ func (e *Engine) executeInlineTTS(config *domain.TTSConfig, ctx *ExecutionContex
 	}
 
 	return ttsExec.Execute(ctx, config)
+}
+
+// executeBotReply executes a botReply resource, sending the reply text to the
+// originating bot platform via the BotSend function set on the execution context.
+func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.BotReply == nil {
+		return nil, fmt.Errorf("resource %s has no botReply configuration", resource.Metadata.ActionID)
+	}
+
+	botReplyExec := e.registry.GetBotReplyExecutor()
+	if botReplyExec == nil {
+		return nil, errors.New("botReply executor not available")
+	}
+
+	return botReplyExec.Execute(ctx, resource.Run.BotReply)
 }

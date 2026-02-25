@@ -1,6 +1,6 @@
 # Multi-Source Input
 
-KDeps supports multiple input sources simultaneously: HTTP API requests, audio hardware (microphones), video hardware (cameras), and telephony devices. Sources are configured in the `settings.input` block of your `workflow.yaml`.
+KDeps supports multiple input sources simultaneously: HTTP API requests, audio hardware (microphones), video hardware (cameras), telephony devices, and chat bot platforms (Discord, Slack, Telegram, WhatsApp). Sources are configured in the `settings.input` block of your `workflow.yaml`.
 
 ## Overview
 
@@ -10,6 +10,7 @@ KDeps supports multiple input sources simultaneously: HTTP API requests, audio h
 | `audio` | Microphone or line-in audio capture |
 | `video` | Camera or V4L2 video capture |
 | `telephony` | Phone call audio (local SIP device or cloud provider) |
+| `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
 
 Workflows can combine sources:
 
@@ -54,6 +55,38 @@ settings:
   input:
     sources: [api]
 ```
+
+### Execution Type (Audio / Video / Telephony)
+
+Hardware sources (audio, video, telephony) support two execution modes via `executionType`:
+
+| `executionType` | Description |
+|-----------------|-------------|
+| `stateless` (default) | Capture once, run workflow once, exit |
+| `polling` | Loop continuously: after each capture-execute cycle, restart from capture. Blocks until Ctrl+C |
+
+**Polling (voice assistant loop):**
+
+```yaml
+settings:
+  input:
+    sources: [audio]
+    executionType: polling
+    audio:
+      device: hw:0,0
+```
+
+**Stateless (single capture, default):**
+
+```yaml
+settings:
+  input:
+    sources: [audio]
+    audio:
+      device: hw:0,0
+```
+
+---
 
 ### Audio Source
 
@@ -144,6 +177,162 @@ settings:
 ```
 
 When using an online provider, configure the provider's webhook to POST audio to your workflow's API endpoint.
+
+### Bot Source
+
+Connects to one or more chat platforms and runs the workflow as a long-lived process (polling) or as a single-shot command (stateless). Each inbound message triggers one workflow execution; the reply is sent back to the platform automatically.
+
+#### Execution Types
+
+| `executionType` | Description |
+|-----------------|-------------|
+| `polling` (default) | Long-running process: persistent connection per platform |
+| `stateless` | One-shot: reads a JSON message from stdin, executes once, writes reply to stdout |
+
+**Polling mode** — runs as a daemon, reconnects automatically:
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling
+      telegram:
+        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+        pollIntervalSeconds: 1
+```
+
+**Stateless mode** — run once from a shell script or cron job:
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: stateless
+```
+
+```bash
+echo '{"message":"hello","chatId":"123","userId":"u1","platform":"telegram"}' \
+  | kdeps run workflow.yaml
+
+# Or use environment variables
+KDEPS_BOT_MESSAGE="hello" KDEPS_BOT_PLATFORM="telegram" kdeps run workflow.yaml
+```
+
+#### Bot Reply Resource
+
+Use the `botReply` resource type to send the reply back to the platform. It evaluates a `text` expression, then:
+- In **polling mode**: calls the platform's reply API for the originating chat ID, then the dispatcher loop resumes waiting for the next message.
+- In **stateless mode**: writes the text to stdout, then the process exits.
+
+```yaml
+run:
+  botReply:
+    text: "{{ get('llm') }}"
+```
+
+The `text` field supports the same expressions as any other resource (`get()`, `input()`, string interpolation, etc.).
+
+#### Accessing Message Fields
+
+Inside any resource, use the `input()` expression function:
+
+| Expression | Value |
+|------------|-------|
+| `input('message')` | The user's message text |
+| `input('chatId')` | Platform chat/channel ID |
+| `input('userId')` | Sender's user ID |
+| `input('platform')` | Source platform name (e.g. `telegram`) |
+
+#### Platform Sub-Configs
+
+Configure one or more platforms under `bot`:
+
+**Discord** — connects via Discord Gateway WebSocket:
+
+```yaml
+bot:
+  executionType: polling
+  discord:
+    botToken: "{{ env('DISCORD_BOT_TOKEN') }}"
+    guildId: "123456789"          # Optional: restrict to one server
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `botToken` | Yes | Discord bot token (`Bot ...`) |
+| `guildId` | No | Restrict to a specific guild (server) |
+
+**Slack** — connects via Socket Mode WebSocket:
+
+```yaml
+bot:
+  executionType: polling
+  slack:
+    botToken: "{{ env('SLACK_BOT_TOKEN') }}"       # xoxb-...
+    appToken: "{{ env('SLACK_APP_TOKEN') }}"        # xapp-... (Socket Mode)
+    mode: socket
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `botToken` | Yes | Bot OAuth token (`xoxb-...`) |
+| `appToken` | No | App-level token for Socket Mode (`xapp-...`) |
+| `signingSecret` | No | Signing secret for request verification |
+| `mode` | No | Connection mode: `socket` (default) |
+
+**Telegram** — long-polling via `getUpdates`:
+
+```yaml
+bot:
+  executionType: polling
+  telegram:
+    botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+    pollIntervalSeconds: 1        # Default: 1
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `botToken` | Yes | Bot token from @BotFather |
+| `pollIntervalSeconds` | No | Seconds between polls (default: 1) |
+
+**WhatsApp** — embedded webhook HTTP server + WhatsApp Cloud API:
+
+```yaml
+bot:
+  executionType: polling
+  whatsApp:
+    phoneNumberId: "{{ env('WA_PHONE_NUMBER_ID') }}"
+    accessToken: "{{ env('WA_ACCESS_TOKEN') }}"
+    webhookSecret: "{{ env('WA_WEBHOOK_SECRET') }}"
+    webhookPort: 16396            # Default: 16396
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `phoneNumberId` | Yes | WhatsApp Cloud API phone number ID |
+| `accessToken` | Yes | Meta access token |
+| `webhookSecret` | No | Webhook verification token |
+| `webhookPort` | No | Local port for webhook server (default: 16396) |
+
+> **WhatsApp note:** Meta's Cloud API uses webhooks (not polling). You must expose `webhookPort` via a reverse proxy or HTTPS tunnel (ngrok, cloudflared) and set the webhook URL in the Meta app dashboard.
+
+#### Multiple Platforms Simultaneously
+
+Run on Discord + Telegram at the same time:
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling
+      discord:
+        botToken: "{{ env('DISCORD_BOT_TOKEN') }}"
+      telegram:
+        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+```
 
 ---
 
@@ -303,12 +492,13 @@ transcriber:
 
 ### Offline Voice Assistant (Raspberry Pi / Jetson)
 
-Fully offline voice assistant — no cloud required:
+Fully offline voice assistant — no cloud required. Uses `executionType: polling` so after each request the workflow restarts and listens again:
 
 ```yaml
 settings:
   input:
     sources: [audio]
+    executionType: polling
     audio:
       device: hw:0,0
     activation:
@@ -451,3 +641,4 @@ settings:
 - [TTS Resource](../resources/tts) — Speech output
 - [LLM Resource](../resources/llm) — Language model integration
 - [Docker Deployment](../deployment/docker) — Package for edge deployment
+- [Bot Tutorial](../tutorials/bot.md) — Step-by-step Telegram bot with LLM replies

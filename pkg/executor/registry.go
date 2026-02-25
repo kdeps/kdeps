@@ -25,12 +25,13 @@ type ResourceExecutor interface {
 
 // Registry holds resource executors.
 type Registry struct {
-	llmExecutor    ResourceExecutor
-	httpExecutor   ResourceExecutor
-	sqlExecutor    ResourceExecutor
-	pythonExecutor ResourceExecutor
-	execExecutor   ResourceExecutor
-	ttsExecutor    ResourceExecutor
+	llmExecutor      ResourceExecutor
+	httpExecutor     ResourceExecutor
+	sqlExecutor      ResourceExecutor
+	pythonExecutor   ResourceExecutor
+	execExecutor     ResourceExecutor
+	ttsExecutor      ResourceExecutor
+	botReplyExecutor ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -113,4 +114,14 @@ func (r *Registry) SetTTSExecutor(executor ResourceExecutor) {
 // GetTTSExecutor returns the TTS executor.
 func (r *Registry) GetTTSExecutor() ResourceExecutor {
 	return r.ttsExecutor
+}
+
+// SetBotReplyExecutor sets the bot reply executor.
+func (r *Registry) SetBotReplyExecutor(executor ResourceExecutor) {
+	r.botReplyExecutor = executor
+}
+
+// GetBotReplyExecutor returns the bot reply executor.
+func (r *Registry) GetBotReplyExecutor() ResourceExecutor {
+	return r.botReplyExecutor
 }
