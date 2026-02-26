@@ -18,199 +18,281 @@
  * license notices and attribution when redistributing derived code.
  */
 
-/* KDeps Brand Colors */
+/**
+ * Nothing Phone Monochrome Theme
+ * Near-black backgrounds, near-white text, single cyan accent (#00E5FF).
+ * Typography: Space Grotesk (matches wordmark) + JetBrains Mono.
+ * Sharp corners, hairline borders, no color noise.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* =====================================================
+   BRAND & ACCENT
+   Single accent: kdeps cyan (#00E5FF) on near-black.
+   ===================================================== */
 :root {
-  --vp-c-brand-1: #10b981;
-  --vp-c-brand-2: #059669;
-  --vp-c-brand-3: #047857;
-  --vp-c-brand-soft: rgba(16, 185, 129, 0.14);
+  --vp-c-brand-1: #00E5FF;
+  --vp-c-brand-2: #00ccee;
+  --vp-c-brand-3: #00aacc;
+  --vp-c-brand-soft: rgba(0, 229, 255, 0.10);
 
-  /* Hero gradient */
+  /* Hero: white → cyan gradient on the name */
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #10b981 30%, #3b82f6);
+  --vp-home-hero-name-background: linear-gradient(100deg, #ffffff 0%, #00E5FF 70%);
+  --vp-home-hero-image-background-image: radial-gradient(ellipse at center, rgba(0,229,255,0.12) 0%, transparent 65%);
+  --vp-home-hero-image-filter: blur(56px);
 
-  --vp-home-hero-image-background-image: linear-gradient(-45deg, #10b981 50%, #3b82f6 50%);
-  --vp-home-hero-image-filter: blur(44px);
+  /* Typography */
+  --vp-font-family-base: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* =====================================================
+   DARK MODE PALETTE
+   ===================================================== */
 .dark {
-  --vp-c-brand-1: #34d399;
-  --vp-c-brand-2: #10b981;
-  --vp-c-brand-3: #059669;
-  --vp-c-brand-soft: rgba(52, 211, 153, 0.14);
+  /* Backgrounds: near-black layers */
+  --vp-c-bg:      #080808;
+  --vp-c-bg-soft: #0f0f0f;
+  --vp-c-bg-mute: #141414;
+  --vp-c-bg-elv:  #1a1a1a;
+  --vp-c-bg-alt:  #050505;
+
+  /* Text hierarchy */
+  --vp-c-text-1: #f0f0f0;
+  --vp-c-text-2: #808080;
+  --vp-c-text-3: #484848;
+
+  /* Borders: hairline white */
+  --vp-c-divider: rgba(255, 255, 255, 0.07);
+  --vp-c-border:  rgba(255, 255, 255, 0.10);
+  --vp-c-gutter:  #030303;
+
+  /* Shadows */
+  --vp-shadow-1: 0 1px 4px rgba(0,0,0,0.9);
+  --vp-shadow-2: 0 4px 16px rgba(0,0,0,0.8);
+  --vp-shadow-3: 0 12px 40px rgba(0,0,0,0.7);
 }
 
-/* Custom button styles */
+/* =====================================================
+   NAVBAR
+   ===================================================== */
+.VPNav {
+  background: rgba(8, 8, 8, 0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.dark .VPNavBar {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Logo: size it to fit the navbar height naturally */
+.VPNavBarTitle .logo {
+  height: 26px;
+  width: auto;
+}
+
+/* =====================================================
+   HERO
+   ===================================================== */
+.VPHero .name {
+  font-size: 48px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.VPHero .tagline {
+  font-size: 20px;
+  color: var(--vp-c-text-2);
+  font-weight: 400;
+}
+
+@media (min-width: 640px) {
+  .VPHero .name    { font-size: 64px; }
+  .VPHero .tagline { font-size: 24px; }
+}
+
+/* =====================================================
+   BUTTONS
+   ===================================================== */
+.VPButton {
+  border-radius: 2px !important;
+  font-weight: 600;
+}
+
 .VPButton.brand {
-  background-color: var(--vp-c-brand-1);
-  border-color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-brand-1) !important;
+  border-color: var(--vp-c-brand-1) !important;
+  color: #080808 !important;
 }
 
 .VPButton.brand:hover {
-  background-color: var(--vp-c-brand-2);
-  border-color: var(--vp-c-brand-2);
+  background-color: #33eaff !important;
+  border-color: #33eaff !important;
 }
 
-/* Feature cards */
+/* =====================================================
+   FEATURE CARDS
+   ===================================================== */
 .VPFeature {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  border-radius: 2px !important;
+}
+
+.dark .VPFeature {
+  background: var(--vp-c-bg-soft) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
 }
 
 .VPFeature:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 229, 255, 0.3) !important;
 }
 
-/* Code block enhancements */
+/* =====================================================
+   CODE BLOCKS
+   ===================================================== */
+.dark div[class*='language-'] {
+  background: #070707 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+}
+
+/* All language blocks get the single cyan accent border */
+div[class*='language-'] {
+  border-left: 2px solid rgba(0, 229, 255, 0.35) !important;
+  border-radius: 2px;
+}
+
 .vp-code-group .tabs label {
   font-weight: 500;
+  border-radius: 0;
 }
 
-div[class*='language-yaml'] {
-  border-left: 3px solid var(--vp-c-brand-1);
+/* =====================================================
+   INLINE CODE
+   ===================================================== */
+.vp-doc :not(pre) > code {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 0.88em;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #00E5FF;
 }
 
-div[class*='language-bash'] {
-  border-left: 3px solid #6366f1;
-}
-
-div[class*='language-python'] {
-  border-left: 3px solid #3b82f6;
-}
-
-div[class*='language-json'] {
-  border-left: 3px solid #f59e0b;
-}
-
-/* Table improvements */
+/* =====================================================
+   TABLES
+   ===================================================== */
 .vp-doc table {
   display: table;
   width: 100%;
   border-collapse: collapse;
 }
 
-.vp-doc th {
-  background-color: var(--vp-c-bg-soft);
+.dark .vp-doc th {
+  background: rgba(255, 255, 255, 0.04);
   font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.dark .vp-doc tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .vp-doc td, .vp-doc th {
   padding: 10px 16px;
 }
 
-/* Sidebar styling */
-.VPSidebarItem.level-0 .text {
-  font-weight: 600;
-  color: var(--vp-c-text-1);
-}
-
-/* Custom containers */
-.custom-block.tip {
-  border-color: var(--vp-c-brand-1);
-}
-
-.custom-block.warning {
-  border-color: #f59e0b;
-}
-
-.custom-block.danger {
-  border-color: #ef4444;
-}
-
-.custom-block.info {
-  border-color: #3b82f6;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--vp-c-bg);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--vp-c-divider);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--vp-c-text-3);
-}
-
-/* Badge styling for features */
-.VPBadge {
-  font-size: 12px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-/* Home page hero adjustments */
-.VPHero .name {
-  font-size: 48px;
-  line-height: 1.2;
-}
-
-.VPHero .tagline {
-  font-size: 20px;
-  color: var(--vp-c-text-2);
-}
-
-@media (min-width: 640px) {
-  .VPHero .name {
-    font-size: 64px;
-  }
-
-  .VPHero .tagline {
-    font-size: 24px;
-  }
-}
-
-/* Inline code styling */
-.vp-doc :not(pre) > code {
-  background-color: var(--vp-c-bg-soft);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.9em;
-}
-
-/* Link styling in content */
+/* =====================================================
+   LINKS
+   ===================================================== */
 .vp-doc a {
-  text-decoration: none;
   color: var(--vp-c-brand-1);
-  transition: color 0.2s ease;
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
 .vp-doc a:hover {
-  color: var(--vp-c-brand-2);
+  color: #33eaff;
   text-decoration: underline;
+  text-decoration-color: rgba(0, 229, 255, 0.35);
 }
 
-/* Footer styling */
+/* =====================================================
+   CUSTOM CONTAINERS (tip / warning / danger / info)
+   Monochrome — only the tip block uses the cyan accent.
+   ===================================================== */
+.dark .custom-block {
+  border-radius: 2px;
+}
+
+.custom-block.tip    { border-color: var(--vp-c-brand-1); }
+.custom-block.warning { border-color: rgba(255, 255, 255, 0.35); }
+.custom-block.danger  { border-color: rgba(220, 80, 80, 0.6); }
+.custom-block.info    { border-color: rgba(255, 255, 255, 0.18); }
+
+.dark .custom-block.tip     { background: rgba(0, 229, 255, 0.05); }
+.dark .custom-block.warning { background: rgba(255, 255, 255, 0.03); }
+.dark .custom-block.danger  { background: rgba(220, 80, 80, 0.05); }
+.dark .custom-block.info    { background: rgba(255, 255, 255, 0.03); }
+
+/* =====================================================
+   SIDEBAR
+   ===================================================== */
+.VPSidebarItem.level-0 > .item > .text {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+
+.dark .VPSidebar {
+  background: var(--vp-c-bg) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* =====================================================
+   BADGES
+   ===================================================== */
+.VPBadge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* =====================================================
+   FOOTER
+   ===================================================== */
 .VPFooter {
-  border-top: 1px solid var(--vp-c-divider);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Navigation improvements */
-.VPNavBarTitle .title {
-  font-weight: 700;
-  color: var(--vp-c-brand-1);
+.dark .VPFooter {
+  background: var(--vp-c-bg);
 }
 
-/* Responsive adjustments */
+/* =====================================================
+   SCROLLBAR: thin, monochrome
+   ===================================================== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* =====================================================
+   RESPONSIVE
+   ===================================================== */
 @media (max-width: 768px) {
-  .vp-doc h1 {
-    font-size: 28px;
-  }
-
-  .vp-doc h2 {
-    font-size: 22px;
-  }
-
-  .vp-doc table {
-    font-size: 14px;
-  }
+  .vp-doc h1 { font-size: 28px; }
+  .vp-doc h2 { font-size: 22px; }
+  .vp-doc table { font-size: 14px; }
 }
