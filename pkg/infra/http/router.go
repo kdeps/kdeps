@@ -84,26 +84,28 @@ func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 	// Create a handler that finds and executes the route
 	routeHandler := func(w stdhttp.ResponseWriter, req *stdhttp.Request) {
-		// Find route
-		methodRoutes, ok := r.Routes[req.Method]
-		if !ok {
-			stdhttp.NotFound(w, req)
-			return
-		}
-
-		// Try exact match first
-		handler, ok := methodRoutes[req.URL.Path]
-		if ok {
-			handler(w, req)
-			return
-		}
-
-		// Try pattern matching
-		for pattern, h := range methodRoutes {
-			if r.MatchPattern(pattern, req.URL.Path) {
-				h(w, req)
+		// Try to find a handler for the requested method
+		if methodRoutes, ok := r.Routes[req.Method]; ok {
+			// Try exact match first
+			if handler, found := methodRoutes[req.URL.Path]; found {
+				handler(w, req)
 				return
 			}
+			// Try pattern matching
+			for pattern, h := range methodRoutes {
+				if r.MatchPattern(pattern, req.URL.Path) {
+					h(w, req)
+					return
+				}
+			}
+		}
+
+		// No handler found for this method — check if the path is registered
+		// under any other method and return 405 instead of 404.
+		if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
+			w.Header().Set("Allow", strings.Join(allowed, ", "))
+			stdhttp.Error(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
+			return
 		}
 
 		stdhttp.NotFound(w, req)
@@ -111,6 +113,25 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 
 	// Apply middleware to ALL requests (including OPTIONS for CORS)
 	r.ApplyMiddleware(routeHandler)(w, req)
+}
+
+// allowedMethods returns all HTTP methods registered for the given path.
+// Used to populate the Allow header on 405 responses.
+func (r *Router) allowedMethods(path string) []string {
+	var allowed []string
+	for method, routes := range r.Routes {
+		if _, ok := routes[path]; ok {
+			allowed = append(allowed, method)
+			continue
+		}
+		for pattern := range routes {
+			if r.MatchPattern(pattern, path) {
+				allowed = append(allowed, method)
+				break
+			}
+		}
+	}
+	return allowed
 }
 
 // MatchPattern matches a route pattern against a path.
