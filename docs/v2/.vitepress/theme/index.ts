@@ -21,7 +21,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { h } from 'vue'
 import type { Theme } from 'vitepress'
-import HeroLogo from './HeroLogo.vue'
+import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
 import './custom.css'
 
@@ -29,9 +29,9 @@ export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
-      // Replace the hero name text with the kdeps wordmark
-      'home-hero-info-before': () => h(HeroLogo),
-      // Replace the hero image slot with the YAML code window
+      // Full info block: logo + text + tagline with tight spacing
+      'home-hero-info': () => h(HeroInfo),
+      // Right side: YAML code window
       'home-hero-image': () => h(HeroCode),
     })
   }
