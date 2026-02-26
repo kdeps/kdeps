@@ -42,17 +42,7 @@ features:
 
 # Introduction
 
-KDeps is a YAML-based workflow framework for building AI agents on edge devices and API backends. Built on **~92,000 lines of Go code** with **70% test coverage**, it combines multi-source hardware I/O (audio, video, telephony), offline-capable LLMs, speech recognition, wake-phrase activation, and text-to-speech into portable, self-contained units that run anywhere — from Raspberry Pi to cloud servers.
-
-## Technical Highlights
-
-**Architecture**: Clean architecture with 5 distinct layers (CLI → Executor → Parser → Domain → Infrastructure)
-
-**Scale**: 218 source files, 26 CLI commands, 5 resource executor types, 14 working examples
-
-**Testing**: 13 integration tests + 35 e2e scripts ensuring production readiness
-
-**Multi-Target**: Native CLI, Docker containers, and WebAssembly for browser execution
+KDeps is a YAML-based workflow framework for building AI agents on edge devices and API backends. It combines multi-source hardware I/O (audio, video, telephony), offline-capable LLMs, speech recognition, wake-phrase activation, and text-to-speech into portable, self-contained units that run anywhere — from Raspberry Pi to cloud servers.
 
 ## Key Highlights
 
@@ -147,52 +137,32 @@ user: get('user_name', 'session')  # Session storage
 
 ### Mustache Expressions
 
-KDeps v2 supports both traditional expr-lang and simpler Mustache-style expressions. Choose what fits your needs!
+KDeps v2 supports both expr-lang and Mustache-style variable interpolation:
 
 <div v-pre>
 
 ```yaml
-# Traditional expr-lang (full power)
+# expr-lang (functions and logic)
 prompt: "{{ get('q') }}"
-time: "{{ info('current_time') }}"
+time:   "{{ info('current_time') }}"
 
-# Mustache (simpler - 56% less typing!)
+# Mustache (simple variable access)
 prompt: "{{q}}"
-time: "{{current_time}}"
+time:   "{{current_time}}"
 
-# Mix them naturally in the same workflow
+# Mix in the same workflow
 message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
 ```
 
 </div>
 
-**Key Benefits:**
-- **56% less typing** for simple variables
-- **No whitespace rules** - <code v-pre>{{var}}</code> = <code v-pre>{{ var }}</code>
-- **Backward compatible** - all existing workflows work
-- **Natural mixing** - simple and complex together
-
-**When to use:**
-- Mustache for simple variables: <code v-pre>{{name}}</code>, <code v-pre>{{email}}</code>
-- expr-lang for functions and logic: <code v-pre>{{ get('x') }}</code>, <code v-pre>{{ a + b }}</code>
+Use Mustache for simple variable access; use expr-lang for function calls, arithmetic, and conditionals. `{{var}}` and `{{ var }}` are identical.
 
 [Learn more →](/concepts/expressions)
 
 ### LLM Integration
-Use Ollama for local model serving, or connect to any OpenAI-compatible API endpoint.
 
-| Backend | Description |
-|---------|-------------|
-| Ollama | Local model serving (default) |
-| OpenAI-compatible | Any API endpoint with OpenAI-compatible interface |
-
-### Core Features
-- **Session persistence** with SQLite or in-memory storage
-- **Connection pooling** for databases
-- **Retry logic** with exponential backoff
-- **Response caching** with TTL
-- **CORS configuration** for web applications
-- **WebServer mode** for static files and reverse proxying
+Use Ollama for local model serving or any OpenAI-compatible API. Vision, tools, and streaming are supported.
 
 ## Quick Start
 
@@ -274,104 +244,41 @@ kdeps run workflow.yaml
 curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ```
 
-## Architecture
-
-KDeps implements clean architecture with five distinct layers:
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  CLI Layer (cmd/)                    │
-│  26 commands: run, build, validate, package, new... │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│            Execution Engine (pkg/executor/)          │
-│    Graph → Engine → Context → Resource Executors    │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│       Parser & Validator (pkg/parser, validator)    │
-│       YAML parsing, expression evaluation           │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│            Domain Models (pkg/domain/)               │
-│      Workflow, Resource, RunConfig, Settings         │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│           Infrastructure (pkg/infra/)                │
-│  Docker, HTTP, Storage, Python, Cloud, ISO, WASM    │
-└─────────────────────────────────────────────────────┘
-```
-
-### Resource Executors
-
-Five built-in executor types handle different workload types:
-
-| Executor | Implementation | Features |
-|----------|----------------|----------|
-| **LLM** | 8 files | Ollama, OpenAI-compatible, streaming, tools |
-| **HTTP** | 2 files | REST APIs, auth, retries, caching |
-| **SQL** | 4 files | 5 database drivers, connection pooling |
-| **Python** | 3 files | uv integration (97% smaller images) |
-| **Exec** | 3 files | Secure shell command execution |
-
-### Design Patterns
-
-- **Clean Architecture**: Zero external dependencies in domain layer
-- **Graph-Based Orchestration**: Topological sorting with cycle detection
-- **Dependency Injection**: Interface-based validators and executors
-- **Registry Pattern**: Dynamic executor registration
-- **Adapter Pattern**: Domain → executor config conversion
-
-### Documentation
+## Documentation
 
 ### Getting Started
-- [Installation](getting-started/installation) - Install KDeps on your system
-- [Quickstart](getting-started/quickstart) - Build your first workflow
+- [Installation](getting-started/installation)
+- [Quickstart](getting-started/quickstart)
+- [CLI Reference](getting-started/cli-reference)
 
 ### Configuration
-- [Workflow](configuration/workflow) - Workflow configuration reference
-- [Session & Storage](configuration/session) - Session persistence and storage
-- [CORS](configuration/cors) - Cross-origin resource sharing
-- [Advanced](configuration/advanced) - Imports, request object, agent settings
+- [Workflow](configuration/workflow)
+- [Session & Storage](configuration/session)
+- [CORS](configuration/cors)
+- [Advanced](configuration/advanced)
 
 ### Resources
-- [Overview](resources/overview) - Resource types and common configuration
-- [LLM (Chat)](resources/llm) - Language model integration
-- [LLM Backends](resources/llm-backends) - Supported LLM backends
-- [TTS (Text-to-Speech)](resources/tts) - Speech synthesis (offline & cloud)
-- [HTTP Client](resources/http-client) - External API calls
-- [SQL](resources/sql) - Database queries
-- [Python](resources/python) - Python script execution
-- [Exec](resources/exec) - Shell command execution
-- [API Response](resources/api-response) - Response formatting
+- [Overview](resources/overview)
+- [LLM (Chat)](resources/llm) · [LLM Backends](resources/llm-backends)
+- [TTS](resources/tts) · [HTTP Client](resources/http-client)
+- [SQL](resources/sql) · [Python](resources/python) · [Exec](resources/exec)
+- [API Response](resources/api-response)
 
 ### Concepts
-- [Input Sources](concepts/input-sources) - Audio, video, telephony, wake-phrase, transcription
-- [Unified API](concepts/unified-api) - get(), set(), file(), info()
-- [Expression Helpers](concepts/expression-helpers) - json(), safe(), debug(), default()
-- [Expressions](concepts/expressions) - Expression syntax
-- [Expression Functions Reference](concepts/expression-functions-reference) - Complete function reference
-- [Advanced Expressions](concepts/advanced-expressions) - Advanced expression features
-- [Request Object](concepts/request-object) - HTTP request data and file access
-- [Input Object](concepts/input-object) - Property-based request body access
-- [Tools](concepts/tools) - LLM function calling
-- [Items Iteration](concepts/items) - Batch processing with item object
-- [Validation](concepts/validation) - Input validation and control flow
-- [Error Handling](concepts/error-handling) - onError with retries and fallbacks
-- [Route Restrictions](concepts/route-restrictions) - HTTP method and route filtering
+- [Input Sources](concepts/input-sources) · [Unified API](concepts/unified-api)
+- [Expressions](concepts/expressions) · [Expression Functions Reference](concepts/expression-functions-reference)
+- [Request Object](concepts/request-object) · [Input Object](concepts/input-object)
+- [Tools](concepts/tools) · [Items Iteration](concepts/items)
+- [Validation](concepts/validation) · [Error Handling](concepts/error-handling)
+- [Inline Resources](concepts/inline-resources) · [Route Restrictions](concepts/route-restrictions)
+- [Management API](concepts/management-api)
 
 ### Deployment
-- [Docker](deployment/docker) - Build and deploy Docker images
-- [WebServer Mode](deployment/webserver) - Serve frontends and proxy apps
+- [Docker](deployment/docker) · [WebServer Mode](deployment/webserver)
 
 ### Tutorials
-- [Building a Chatbot](tutorials/chatbot)
-- [File Upload Processing](tutorials/file-upload)
-- [Multi-Database Workflow](tutorials/multi-database)
-- [Vision Workflow](tutorials/vision)
+- [Building a Chatbot](tutorials/chatbot) · [File Upload](tutorials/file-upload)
+- [Multi-Database](tutorials/multi-database) · [Vision](tutorials/vision)
 
 
 ## Why KDeps v2?

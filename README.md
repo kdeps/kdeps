@@ -158,58 +158,19 @@ expr:
 
 ## Mustache Expressions
 
-KDeps v2 supports both traditional expr-lang syntax and simpler Mustache-style variable interpolation. Use whichever fits your needs!
-
-### Syntax Comparison
+KDeps v2 supports both expr-lang and Mustache-style variable interpolation:
 
 ```yaml
-# Traditional expr-lang (full power)
+# expr-lang (functions and logic)
 prompt: "{{ get('q') }}"
-timestamp: "{{ info('current_time') }}"
+result: "{{ score > 80 ? 'Pass' : 'Fail' }}"
 
-# Mustache (simpler - 56% less typing!)
+# Mustache (simple variables)
 prompt: "{{q}}"
-timestamp: "{{current_time}}"
-
-# Both work identically - no whitespace rules
-prompt: "{{ q }}"  # Same as {{q}}
+message: "Hello {{name}}, score: {{ get('points') * 2 }}"
 ```
 
-### Benefits
-
-- **56% less typing** for simple variables
-- **No whitespace rules** - `{{var}}` and `{{ var }}` work the same
-- **Mix freely** - simple variables and complex expressions together
-- **Backward compatible** - all existing workflows work unchanged
-
-### When to Use What
-
-**Use Mustache** for:
-- Simple variable access: `{{name}}`, `{{user.email}}`
-- Clean, readable templates
-- Familiar syntax (everyone knows `{{var}}`)
-
-**Use expr-lang** for:
-- Function calls: `{{ get('x') }}`, `{{ info('time') }}`
-- Arithmetic: `{{ price * quantity }}`
-- Conditionals: `{{ score > 80 ? 'Pass' : 'Fail' }}`
-
-### Examples
-
-```yaml
-# Simple variables with mustache
-name: "{{username}}"
-email: "{{user.email}}"
-
-# Mixed - simple and complex together
-message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
-
-# Complex logic stays with expr-lang
-status: "{{ score > 80 ? 'Pass' : 'Fail' }}"
-total: "{{ price * quantity + tax }}"
-```
-
-**Learn more:** See [Mustache Expression Guide](docs/README_EXPRESSIONS.md) for complete documentation.
+Use Mustache for simple variable access; use expr-lang for function calls, arithmetic, and conditionals. Both styles can be mixed freely in the same workflow. See [Expressions guide](docs/v2/concepts/expressions.md).
 
 ## Resource Examples
 
@@ -395,167 +356,31 @@ sudo usermod -aG docker $USER
 go test -short ./...
 ```
 
-## Technical Overview
-
-### Core Components
-
-**Execution Engine** - The heart of KDeps orchestrates workflow execution:
-- **Graph**: Topological sorting for dependency resolution
-- **Engine**: Resource orchestration with retry logic (1,800+ lines)
-- **Context**: State management during execution
-- **Registry**: Dynamic executor registration
-
-**Resource Executors** - Five built-in executor types:
-
-| Executor | Files | Features |
-|----------|-------|----------|
-| **LLM** | 8 files | Ollama, OpenAI-compatible APIs, streaming, function calling |
-| **HTTP** | 2 files | External API calls, auth, caching, retries |
-| **SQL** | 4 files | PostgreSQL, MySQL, SQLite, MSSQL, Oracle with pooling |
-| **Python** | 3 files | Script execution with uv (97% smaller than Anaconda) |
-| **Exec** | 3 files | Secure shell command execution |
-
-**Expression Language** - Template engine with `{{ }}` syntax:
-```yaml
-# Variable access & interpolation
-prompt: "Hello {{ get('name') }}"
-
-# Arithmetic operations  
-result: {{ 10 + 5 * 2 }}
-
-# Conditional logic
-skipCondition:
-  - "get('status') == 'disabled'"
-
-# Built-in functions
-value: get('key')              # Auto-detect source
-data: set('key', 'value')      # Store in memory
-user: get('id', 'session')     # Session storage
-```
-
-**Multi-Target Support**:
-- **Native Go**: CLI and server execution
-- **Docker**: Containerized deployments with optimized images
-- **WASM**: Browser-side execution (files with `_wasm.go` suffix)
-
-### Key Technologies
-
-**Core Dependencies**:
-- `cobra` - CLI framework
-- `expr` - Expression evaluation engine
-- `yaml.v3` - YAML parsing
-- `gojsonschema` - JSON validation
-
-**Database Drivers**:
-- PostgreSQL (`lib/pq`)
-- MySQL (`go-sql-driver/mysql`)
-- SQLite (`mattn/go-sqlite3`)
-- SQL Server (`go-mssqldb`)
-- Oracle (`go-ora`)
-
-**Infrastructure**:
-- `docker/docker` - Docker client API
-- `fsnotify` - File watching for hot reload
-- `websocket` - WebSocket support
-
 ## Architecture
 
-KDeps follows a **clean architecture** pattern with clear separation of concerns across ~92,000 lines of well-structured Go code (218 source files, 70% test coverage).
-
-### Layered Architecture
+KDeps uses clean architecture (~92,000 lines of Go, 70% test coverage) with five layers:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  CLI Layer (cmd/)                    │
-│  26 commands: run, build, validate, package, new... │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│            Execution Engine (pkg/executor/)          │
-│    Graph → Engine → Context → Resource Executors    │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│       Parser & Validator (pkg/parser, validator)    │
-│       YAML parsing, expression evaluation           │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│            Domain Models (pkg/domain/)               │
-│      Workflow, Resource, RunConfig, Settings         │
-└─────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────┐
-│           Infrastructure (pkg/infra/)                │
-│  Docker, HTTP, Storage, Python, Cloud, ISO, WASM    │
-└─────────────────────────────────────────────────────┘
+CLI (cmd/)  →  Execution Engine (pkg/executor/)  →  Parser/Validator
+           →  Domain Models (pkg/domain/)         →  Infrastructure (pkg/infra/)
 ```
 
-### Project Structure
+**Resource executors**: LLM (Ollama/OpenAI-compatible), HTTP client, SQL (5 drivers), Python (uv), shell exec, API response, and TTS.
 
+**Project structure:**
 ```
 kdeps/
-├── cmd/                    # CLI commands (run, build, validate, etc.)
-│   ├── run.go             # Execute workflows locally
-│   ├── build.go           # Docker image builder
-│   ├── package.go         # Workflow packager
-│   ├── validate.go        # Configuration validator
-│   ├── new.go             # Interactive project wizard
-│   └── scaffold.go        # Add resources to projects
+├── cmd/          # CLI commands
 ├── pkg/
-│   ├── domain/            # Core domain models (no external deps)
-│   ├── executor/          # Execution engine
-│   │   ├── engine.go      # Orchestration engine (1,800+ lines)
-│   │   ├── graph.go       # Dependency resolution
-│   │   ├── llm/           # LLM executor (Ollama, OpenAI-compatible)
-│   │   ├── http/          # HTTP client executor
-│   │   ├── sql/           # Database executor (5 drivers)
-│   │   ├── python/        # Python script executor (uv)
-│   │   └── exec/          # Shell command executor
-│   ├── parser/            # YAML and expression parsing
-│   │   ├── yaml/          # YAML parser with .kdeps support
-│   │   └── expression/    # Template engine ({{ }} syntax)
-│   ├── validator/         # Schema & business validation
-│   └── infra/             # External integrations
-│       ├── docker/        # Docker client & builder (2,800+ lines)
-│       ├── http/          # HTTP/WebSocket server (7 files)
-│       ├── storage/       # Session & memory storage
-│       ├── python/        # uv package management
-│       ├── cloud/         # Cloud deployment client
-│       ├── iso/           # Bootable ISO generation
-│       └── wasm/          # WebAssembly bundler
-├── examples/              # 14 working example workflows
-├── tests/
-│   ├── integration/       # 13 integration test files
-│   └── e2e/               # 35 end-to-end test scripts
-└── docs/                  # VitePress documentation
+│   ├── domain/   # Core models (no external deps)
+│   ├── executor/ # Resource execution engine
+│   ├── parser/   # YAML and expression parsing
+│   ├── validator/# Configuration validation
+│   └── infra/    # Docker, HTTP, storage, cloud
+├── examples/     # Example workflows
+├── tests/        # Integration and e2e tests
+└── docs/         # VitePress documentation
 ```
-
-### Design Patterns
-
-- **Clean Architecture**: Domain layer has zero external dependencies
-- **Dependency Injection**: Interfaces for validators and executors
-- **Registry Pattern**: Dynamic resource executor registration
-- **Adapter Pattern**: Domain config → executor-specific format conversion
-- **Graph-Based Execution**: Topological sort for dependency resolution with cycle detection
-
-## Why KDeps?
-
-**Production-Ready Framework**:
-- ✅ **Mature Codebase**: ~92,000 lines of well-tested Go code
-- ✅ **High Test Coverage**: 70% overall with integration and e2e tests
-- ✅ **Clean Architecture**: Domain-driven design with zero external dependencies in core
-- ✅ **Extensible**: Registry pattern for easy addition of new executors
-- ✅ **Battle-Tested**: 14 working examples covering real-world use cases
-
-**Key Advantages**:
-- **Simplified Development**: Configure workflows in YAML instead of writing boilerplate code
-- **Portability**: Package everything (code, dependencies, config) into a single deployable unit
-- **Flexibility**: Run locally during development, deploy to containers for production
-- **Graph-Based Orchestration**: Automatic dependency resolution with topological sorting
-- **Error Resilience**: Built-in retry logic with exponential backoff
-- **Privacy**: Keep sensitive data on your own infrastructure when needed
-- **Control**: Avoid vendor lock-in with containerized, reproducible deployments
 
 ## About the Name
 
@@ -619,24 +444,6 @@ KDeps is designed for extensibility. To add a new resource type:
 5. **Add tests** following existing patterns
 
 See `pkg/executor/llm/` or `pkg/executor/http/` for reference implementations.
-
-### Project Structure
-
-```
-kdeps/
-├── cmd/                    # CLI commands (run, build, validate, etc.)
-├── pkg/
-│   ├── domain/            # Core domain models
-│   ├── executor/          # Resource execution engine
-│   ├── parser/            # YAML and expression parsing
-│   ├── validator/         # Configuration validation
-│   └── infra/             # External integrations
-├── examples/              # Example workflows
-├── tests/
-│   ├── integration/       # Integration tests
-│   └── e2e/               # End-to-end tests
-└── docs/                  # Documentation
-```
 
 ## Community & Support
 
