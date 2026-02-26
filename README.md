@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/v2/public/kdeps-logo.png" alt="kdeps" width="300" /></p>
+<p align="center"><img src="docs/v2/public/kdeps-logo-dark.png" alt="kdeps" width="300" /></p>
 
 ![version](https://img.shields.io/github/v/tag/kdeps/kdeps?style=flat-square&label=version)
 ![license](https://img.shields.io/github/license/kdeps/kdeps?style=flat-square)
