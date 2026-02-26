@@ -5,9 +5,6 @@ hero:
   name: KDeps
   text: Edge AI Workflow Framework
   tagline: Build AI agents for edge devices and APIs with YAML — audio, video, and telephony input, offline LLMs, wake-phrase activation, and speech output. No cloud required.
-  image:
-    src: /kdeps-logo.png
-    alt: kdeps
   actions:
     - theme: brand
       text: Get Started
