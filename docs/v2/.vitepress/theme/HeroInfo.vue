@@ -28,14 +28,8 @@ const { frontmatter } = useData()
 }
 
 .hero-logo {
-  height: 80px;
+  height: 64px;
   width: auto;
-}
-
-@media (min-width: 640px) {
-  .hero-logo {
-    height: 100px;
-  }
 }
 
 .hero-text {
