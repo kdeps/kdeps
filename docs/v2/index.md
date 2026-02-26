@@ -2,7 +2,6 @@
 layout: home
 
 hero:
-  text: Edge AI Workflow Framework
   tagline: Build AI agents for edge devices and APIs with YAML — audio, video, and telephony input, offline LLMs, wake-phrase activation, and speech output. No cloud required.
   actions:
     - theme: brand

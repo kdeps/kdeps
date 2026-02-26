@@ -14,7 +14,13 @@
 }
 
 .hero-logo img {
-  height: 52px;
+  height: 96px;
   width: auto;
+}
+
+@media (min-width: 640px) {
+  .hero-logo img {
+    height: 120px;
+  }
 }
 </style>
