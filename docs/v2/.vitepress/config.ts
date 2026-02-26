@@ -37,7 +37,8 @@ export default defineConfig({
   cleanUrls: true,
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/kdeps-logo.png',
+    siteTitle: false,
 
     nav: [
       { text: 'Guide', link: '/getting-started/quickstart' },
