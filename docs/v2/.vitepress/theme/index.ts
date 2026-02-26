@@ -19,12 +19,20 @@
  */
 
 import DefaultTheme from 'vitepress/theme'
+import { h } from 'vue'
 import type { Theme } from 'vitepress'
+import HeroLogo from './HeroLogo.vue'
+import HeroCode from './HeroCode.vue'
 import './custom.css'
 
 export default {
   extends: DefaultTheme,
-  enhanceApp({ app, router, siteData }) {
-    // Register custom global components here if needed
+  Layout() {
+    return h(DefaultTheme.Layout, null, {
+      // Replace the hero name text with the kdeps wordmark
+      'home-hero-info-before': () => h(HeroLogo),
+      // Replace the hero image slot with the YAML code window
+      'home-hero-image': () => h(HeroCode),
+    })
   }
 } satisfies Theme
