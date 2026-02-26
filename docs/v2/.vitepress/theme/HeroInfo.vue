@@ -28,8 +28,9 @@ const { frontmatter } = useData()
 }
 
 .hero-logo {
-  height: 64px;
+  height: 88px;
   width: auto;
+  margin-left: 8px;
 }
 
 .hero-text {
