@@ -24,9 +24,11 @@ export default defineConfig({
   title: 'KDeps',
   description: 'AI Agent Framework - Build, configure, and deploy AI workflows with simple YAML',
 
+  appearance: 'force-dark',
+
   head: [
     ['link', { rel: 'icon', href: '/favicon.ico' }],
-    ['meta', { name: 'theme-color', content: '#3eaf7c' }],
+    ['meta', { name: 'theme-color', content: '#080808' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'KDeps Documentation' }],
     ['meta', { name: 'og:title', content: 'KDeps - AI Agent Framework' }],
@@ -172,8 +174,8 @@ export default defineConfig({
 
   markdown: {
     theme: {
-      light: 'github-light',
-      dark: 'github-dark'
+      light: 'vitesse-dark',
+      dark: 'vitesse-dark'
     },
     lineNumbers: true,
     container: {
