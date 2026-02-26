@@ -711,7 +711,8 @@ func TestRouter_WrongMethod(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, stdhttp.StatusNotFound, w.Code)
+	assert.Equal(t, stdhttp.StatusMethodNotAllowed, w.Code)
+	assert.Contains(t, w.Header().Get("Allow"), "GET")
 }
 
 func TestRouter_MultipleMiddleware(t *testing.T) {
