@@ -271,6 +271,9 @@ jobs:
 
       - name: Update release status and notes
         if: steps.should_release.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          MODULE_SUMMARY: ${{ steps.update_modules.outputs.module_updates_summary }}
         run: |
           # Update the release to mark as latest or prerelease based on validation results
           # and add module update information to release notes
@@ -289,8 +292,8 @@ jobs:
           RELEASE_NOTES="$CURRENT_BODY"
           
           # Add module updates section if applicable
+          # MODULE_SUMMARY is passed via env to avoid backtick command substitution
           if [ "$HAS_MODULE_UPDATES" = "true" ]; then
-            MODULE_SUMMARY="${{ steps.update_modules.outputs.module_updates_summary }}"
             if [ -n "$MODULE_SUMMARY" ]; then
               RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"$MODULE_SUMMARY"
             fi
@@ -313,8 +316,6 @@ jobs:
               -f prerelease=true \
               -f make_latest=false
           fi
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Summary
         run: |
