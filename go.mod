@@ -1,6 +1,6 @@
 module github.com/kdeps/kdeps/v2
 
-go 1.24.13
+go 1.26.0
 
 require (
 	github.com/bwmarrin/discordgo v0.28.1
