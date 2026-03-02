@@ -38,6 +38,21 @@ type ResourceMetadata struct {
 	Requires    []string `yaml:"requires,omitempty"`
 }
 
+// LoopConfig configures while-loop repetition for a resource, enabling Turing-complete
+// conditional iteration. The resource body (primary type + expr blocks) is executed
+// repeatedly as long as While evaluates to true, up to MaxIterations times.
+// Loop context variables are available inside the body via loop('index') etc.
+type LoopConfig struct {
+	// While is an expression evaluated before each iteration.
+	// The loop continues while this expression is truthy.
+	// Example: "{{ get('counter') < 10 }}"
+	While string `yaml:"while"`
+
+	// MaxIterations is a safety cap on the number of loop iterations (default: 1000).
+	// Prevents runaway loops when While never becomes false.
+	MaxIterations int `yaml:"maxIterations,omitempty"`
+}
+
 // RunConfig contains resource execution configuration.
 type RunConfig struct {
 	RestrictToHTTPMethods []string         `yaml:"restrictToHttpMethods,omitempty"`
@@ -47,6 +62,10 @@ type RunConfig struct {
 	SkipCondition         []Expression     `yaml:"skipCondition,omitempty"`
 	PreflightCheck        *PreflightCheck  `yaml:"preflightCheck,omitempty"`
 	Validation            *ValidationRules `yaml:"validation,omitempty"`
+
+	// Loop enables conditional while-loop iteration for the resource.
+	// When set, the resource body is executed repeatedly while Loop.While is true.
+	Loop *LoopConfig `yaml:"loop,omitempty"`
 
 	// Expression blocks with positioning control:
 	// - exprBefore: runs BEFORE the primary execution type (chat, python, sql, etc.)

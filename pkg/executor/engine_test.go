@@ -1089,6 +1089,176 @@ func TestEngine_executeWithItems(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+// TestEngine_ExecuteWithLoop tests the while-loop execution feature.
+func TestEngine_ExecuteWithLoop(t *testing.T) {
+	t.Run("loop runs until while condition becomes false", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+		registry := executor.NewRegistry()
+		mockHTTP := &mockHTTPExecutor{result: "ok"}
+		registry.SetHTTPExecutor(mockHTTP)
+		engine.SetRegistry(registry)
+
+		workflow := &domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata: domain.WorkflowMetadata{
+				Name:           "loop-test",
+				Version:        "1.0.0",
+				TargetActionID: "counter",
+			},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{
+						ActionID: "counter",
+						Name:     "Counter",
+					},
+					Run: domain.RunConfig{
+						Loop: &domain.LoopConfig{
+							While:         "loop.index < 3",
+							MaxIterations: 10,
+						},
+						Expr: []domain.Expression{
+							{Raw: "set('counter', loop.count)"},
+						},
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"value": "{{ get('counter') }}"},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := engine.Execute(workflow, nil)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("loop with zero while condition never runs", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-never", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "never", Name: "Never Runs"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "false",
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		assert.Nil(t, result, "loop that never runs should return nil")
+	})
+
+	t.Run("loop respects maxIterations cap", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-cap", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "capped", Name: "Capped Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "true", // always true – would run forever without cap
+					MaxIterations: 3,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('ticks', loop.count)"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// Should have run exactly MaxIterations times, returning a slice
+		results, ok := result.([]interface{})
+		require.True(t, ok, "multiple iterations should return a slice")
+		assert.Len(t, results, 3)
+	})
+
+	t.Run("loop context variables are accessible inside body", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-ctx", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "ctx-loop", Name: "Context Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "loop.index < 2",
+					MaxIterations: 5,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('last_index', loop.index)"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		_, err = engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+
+		// After loop finishes, loop context should be cleaned up
+		val, _ := ctx.API.Get("last_index")
+		assert.NotNil(t, val)
+	})
+
+	t.Run("loop with invalid while expression returns error", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-err", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "err-loop", Name: "Error Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "!!!invalid syntax ??? @@@",
+				},
+				APIResponse: &domain.APIResponseConfig{Success: true},
+			},
+		}
+
+		_, err = engine.ExecuteWithLoop(resource, ctx)
+		require.Error(t, err, "invalid while expression should return error")
+	})
+}
+
 func TestNewEngine(t *testing.T) {
 	engine := executor.NewEngine(slog.Default())
 	assert.NotNil(t, engine)
