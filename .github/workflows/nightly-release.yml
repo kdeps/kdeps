@@ -271,17 +271,48 @@ jobs:
           echo "Checking for existing release: $TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "⚠️  Existing release found for $TAG - deleting before GoReleaser run..."
-            gh release delete "$TAG" --yes || true
+
+            # Best-effort delete via gh CLI
+            if gh release delete "$TAG" --yes; then
+              echo "✓ Release delete via gh CLI initiated"
+            else
+              DELETE_EXIT_CODE=$?
+              echo "⚠️  Failed to delete release $TAG via 'gh release delete' (exit code $DELETE_EXIT_CODE)"
+            fi
             sleep 2  # Allow GitHub API to propagate the deletion
-            # Verify deletion succeeded
+
+            # If the release still exists, try deleting via the GitHub API
             if gh release view "$TAG" >/dev/null 2>&1; then
-              echo "⚠️  Release still exists, trying via API..."
+              echo "⚠️  Release still exists after gh delete, trying via API..."
               RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id' 2>/dev/null)
               if [ -n "$RELEASE_ID" ]; then
-                gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || echo "Warning: API delete failed"
+                if gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID; then
+                  echo "✓ Release deleted via API"
+                else
+                  echo "⚠️  API delete failed for release ID $RELEASE_ID"
+                fi
+                sleep 2  # Allow GitHub API to propagate the deletion
+              else
+                echo "ℹ️  No release ID found via API; it may have been deleted concurrently."
               fi
+            fi
+
+            # Bounded wait for deletion to fully propagate to avoid 422 already_exists
+            MAX_WAIT_SECONDS=60
+            SLEEP_INTERVAL=3
+            ELAPSED=0
+            while gh release view "$TAG" >/dev/null 2>&1 && [ "$ELAPSED" -lt "$MAX_WAIT_SECONDS" ]; do
+              echo "⏳ Release $TAG still exists; waiting for deletion to propagate... ($ELAPSED/${MAX_WAIT_SECONDS}s)"
+              sleep "$SLEEP_INTERVAL"
+              ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+            done
+
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "❌ Release $TAG still exists after cleanup and ${MAX_WAIT_SECONDS}s of waiting."
+              echo "   This may indicate insufficient permissions or incorrect scoping for secrets.RELEASE_TOKEN."
+              exit 1
             else
-              echo "✓ Release deleted successfully"
+              echo "✓ Release deleted successfully and no longer visible."
             fi
           else
             echo "✓ No existing release found for $TAG"
