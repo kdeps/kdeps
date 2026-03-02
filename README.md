@@ -28,6 +28,7 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 - ✅ **Media Input** - First-class `input:` block supporting API, Audio, Video, Telephony, and Bot sources (Discord, Slack, Telegram, WhatsApp) with optional transcription (online/offline) and wake-phrase activation.
 - ✅ **Chat Bots** - Connect workflows to Discord, Slack, Telegram, and WhatsApp via persistent polling or serverless stateless mode. Access the inbound message with `input('message')` and reply automatically.
 - ✅ **TTS Output** - Built-in Text-to-Speech resource with 5 online providers (OpenAI, Google, ElevenLabs, Azure, AWS Polly) and 4 offline engines (Piper, eSpeak, Festival, Coqui-TTS).
+- ✅ **Content Scraper** - Extract text from 15 source types: web pages, PDFs, Word/Excel/PowerPoint, LibreOffice documents, images (OCR), CSV, JSON, XML, Markdown, and plain text.
 - ✅ **Vector Embeddings** - Built-in `embedding` resource for RAG pipelines: index text with Ollama, OpenAI, Cohere, or HuggingFace; search by cosine similarity; stored in SQLite.
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
@@ -411,7 +412,7 @@ CLI (cmd/)  →  Execution Engine (pkg/executor/)  →  Parser/Validator
            →  Domain Models (pkg/domain/)         →  Infrastructure (pkg/infra/)
 ```
 
-**Resource executors**: LLM (Ollama/OpenAI-compatible), HTTP client, SQL (5 drivers), Python (uv), shell exec, API response, TTS, and Embedding (vector DB).
+**Resource executors**: LLM (Ollama/OpenAI-compatible), HTTP client, SQL (5 drivers), Python (uv), shell exec, scraper (15 content types), TTS, bot reply, embedding (vector DB), and API response.
 
 **Project structure:**
 ```

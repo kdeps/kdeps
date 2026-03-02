@@ -69,6 +69,7 @@ type RunConfig struct {
 	Exec        *ExecConfig        `yaml:"exec,omitempty"`
 	TTS         *TTSConfig         `yaml:"tts,omitempty"`
 	BotReply    *BotReplyConfig    `yaml:"botReply,omitempty"`
+	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
@@ -85,6 +86,7 @@ type InlineResource struct {
 	Python     *PythonConfig     `yaml:"python,omitempty"`
 	Exec       *ExecConfig       `yaml:"exec,omitempty"`
 	TTS        *TTSConfig        `yaml:"tts,omitempty"`
+	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
 	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
 }
 
@@ -723,6 +725,99 @@ type BotReplyConfig struct {
 	// Text is the message to send. Expression evaluation is supported,
 	// e.g. "{{ get('llm') }}".
 	Text string `yaml:"text" json:"text"`
+}
+
+// ScraperTypeURL scrapes content from a URL.
+const ScraperTypeURL = "url"
+
+// ScraperTypePDF extracts text from a PDF file.
+const ScraperTypePDF = "pdf"
+
+// ScraperTypeWord extracts text from a Word (.docx) file.
+const ScraperTypeWord = "word"
+
+// ScraperTypeExcel extracts text from an Excel (.xlsx) file.
+const ScraperTypeExcel = "excel"
+
+// ScraperTypeImage extracts text from an image file via OCR.
+const ScraperTypeImage = "image"
+
+// ScraperTypeText reads a plain-text file as-is.
+const ScraperTypeText = "text"
+
+// ScraperTypeHTML reads a local HTML file and extracts visible text.
+const ScraperTypeHTML = "html"
+
+// ScraperTypeCSV reads a CSV file and formats rows as tab-separated text.
+const ScraperTypeCSV = "csv"
+
+// ScraperTypeMarkdown reads a Markdown file and returns plain text
+// with lightweight markup stripped.
+const ScraperTypeMarkdown = "markdown"
+
+// ScraperTypePPTX extracts text from a PowerPoint (.pptx) file.
+const ScraperTypePPTX = "pptx"
+
+// ScraperTypeJSON reads a JSON file and returns its pretty-printed content.
+const ScraperTypeJSON = "json"
+
+// ScraperTypeXML reads a local XML file and extracts all text nodes.
+const ScraperTypeXML = "xml"
+
+// ScraperTypeODT extracts text from an OpenDocument Text (.odt) file.
+const ScraperTypeODT = "odt"
+
+// ScraperTypeODS extracts text from an OpenDocument Spreadsheet (.ods) file.
+const ScraperTypeODS = "ods"
+
+// ScraperTypeODP extracts text from an OpenDocument Presentation (.odp) file.
+const ScraperTypeODP = "odp"
+
+// ScraperConfig represents a scraper resource configuration.
+// It can scrape content from URLs, PDF files, Word/Excel/OpenDocument
+// documents, images (via OCR), plain-text, HTML, CSV, Markdown,
+// PowerPoint, JSON, and XML files.
+type ScraperConfig struct {
+	// Type is the input type: "url", "pdf", "word", "excel", "image",
+	// "text", "html", "csv", "markdown", "pptx", "json", "xml",
+	// "odt", "ods", "odp".
+	Type string `yaml:"type"`
+
+	// Source is the URL or file path to scrape. Expression evaluation is supported.
+	Source string `yaml:"source"`
+
+	// TimeoutDuration is the timeout for URL fetching (e.g., "30s").
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for TimeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
+
+	// OCR holds optional OCR options used when Type is "image".
+	OCR *ScraperOCRConfig `yaml:"ocr,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias.
+func (s *ScraperConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawScraperConfig ScraperConfig
+	var raw rawScraperConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*s = ScraperConfig(raw)
+
+	// Handle timeout alias
+	if s.Timeout != "" && s.TimeoutDuration == "" {
+		s.TimeoutDuration = s.Timeout
+	}
+
+	return nil
+}
+
+// ScraperOCRConfig holds OCR options for image scraping.
+type ScraperOCRConfig struct {
+	// Language is the Tesseract language code (e.g., "eng", "deu"). Default: "eng".
+	Language string `yaml:"language,omitempty"`
 }
 
 // EmbeddingBackendOllama is the Ollama (local) embedding backend.

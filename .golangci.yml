@@ -438,6 +438,9 @@ linters:
       - text: "Function 'getEnumValues' is too long"
         linters: [ funlen ]
         path: 'pkg/validator/schema\.go'
+      - path: 'pkg/executor/embedding/'
+        linters:
+          - nolintlint
       - path: '_test\.go'
         linters:
           - bodyclose
@@ -447,6 +450,8 @@ linters:
           - goconst
           - gosec
           - noctx
+          - nolintlint
+          - testifylint
           - testpackage
           - wrapcheck
       # Gosec taint-analysis rules produce systematic false positives in a CLI/framework that

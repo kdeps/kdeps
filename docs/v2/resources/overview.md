@@ -54,6 +54,9 @@ run:
   sql: { ... }         # Database query
   python: { ... }      # Python script
   exec: { ... }        # Shell command
+  scraper: { ... }     # Content scraping
+  tts: { ... }         # Text-to-Speech
+  botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
   apiResponse: { ... } # API response
 ```
@@ -67,6 +70,9 @@ run:
 | `sql` | Database queries | Data retrieval, updates |
 | `python` | Python scripts | Data processing, ML |
 | `exec` | Shell commands | System operations |
+| `scraper` | Content extraction | Web pages, PDFs, documents, images |
+| `tts` | Text-to-Speech synthesis | Voice output, audio responses |
+| `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `apiResponse` | Response formatting | Final output |
 
@@ -353,5 +359,7 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [SQL Resource](sql) - Database operations
 - [Python Resource](python) - Script execution
 - [Exec Resource](exec) - Shell commands
+- [Scraper Resource](scraper) - Content extraction
+- [TTS Resource](tts) - Text-to-Speech synthesis
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
