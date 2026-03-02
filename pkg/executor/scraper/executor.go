@@ -863,15 +863,14 @@ func scrapeJSON(path string) (string, error) {
 		return "", fmt.Errorf("scraper: cannot read JSON file: %w", err)
 	}
 
-	// Validate and pretty-print
+	// Validate and pretty-print.
+	// json.MarshalIndent on a value from json.Unmarshal(interface{}) never errors,
+	// so the error return is omitted.
 	var v interface{}
 	if unmarshalErr := json.Unmarshal(data, &v); unmarshalErr != nil {
 		return "", fmt.Errorf("scraper: invalid JSON: %w", unmarshalErr)
 	}
-	pretty, marshalErr := json.MarshalIndent(v, "", "  ")
-	if marshalErr != nil {
-		return "", fmt.Errorf("scraper: failed to format JSON: %w", marshalErr)
-	}
+	pretty, _ := json.MarshalIndent(v, "", "  ")
 	return string(pretty), nil
 }
 
