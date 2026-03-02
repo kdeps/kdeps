@@ -1689,71 +1689,106 @@ func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
 }
 
 func TestValidateScraperConfig(t *testing.T) {
-tests := []struct {
-name    string
-config  *domain.ScraperConfig
-wantErr bool
-errMsg  string
-}{
-{
-name:    "valid url",
-config:  &domain.ScraperConfig{Type: "url", Source: "https://example.com"},
-wantErr: false,
-},
-{
-name:    "valid pdf",
-config:  &domain.ScraperConfig{Type: "pdf", Source: "/tmp/file.pdf"},
-wantErr: false,
-},
-{
-name:    "valid word",
-config:  &domain.ScraperConfig{Type: "word", Source: "/tmp/file.docx"},
-wantErr: false,
-},
-{
-name:    "valid excel",
-config:  &domain.ScraperConfig{Type: "excel", Source: "/tmp/file.xlsx"},
-wantErr: false,
-},
-{
-name:    "valid image",
-config:  &domain.ScraperConfig{Type: "image", Source: "/tmp/file.png"},
-wantErr: false,
-},
-{
-name:    "missing type",
-config:  &domain.ScraperConfig{Source: "https://example.com"},
-wantErr: true,
-errMsg:  "scraper.type is required",
-},
-{
-name:    "invalid type",
-config:  &domain.ScraperConfig{Type: "ftp", Source: "ftp://host/file"},
-wantErr: true,
-errMsg:  "not valid",
-},
-{
-name:    "missing source",
-config:  &domain.ScraperConfig{Type: "url"},
-wantErr: true,
-errMsg:  "scraper.source is required",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-err := validator.ValidateScraperConfig(tt.config)
-if tt.wantErr {
-if err == nil {
-t.Fatal("expected error but got nil")
-}
-if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
-}
-} else {
-if err != nil {
-t.Errorf("unexpected error: %v", err)
-}
-}
-})
-}
+	tests := []struct {
+		name    string
+		config  *domain.ScraperConfig
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid url",
+			config:  &domain.ScraperConfig{Type: "url", Source: "https://example.com"},
+			wantErr: false,
+		},
+		{
+			name:    "valid pdf",
+			config:  &domain.ScraperConfig{Type: "pdf", Source: "/tmp/file.pdf"},
+			wantErr: false,
+		},
+		{
+			name:    "valid word",
+			config:  &domain.ScraperConfig{Type: "word", Source: "/tmp/file.docx"},
+			wantErr: false,
+		},
+		{
+			name:    "valid excel",
+			config:  &domain.ScraperConfig{Type: "excel", Source: "/tmp/file.xlsx"},
+			wantErr: false,
+		},
+		{
+			name:    "valid image",
+			config:  &domain.ScraperConfig{Type: "image", Source: "/tmp/file.png"},
+			wantErr: false,
+		},
+		{
+			name:    "valid text",
+			config:  &domain.ScraperConfig{Type: "text", Source: "/tmp/file.txt"},
+			wantErr: false,
+		},
+		{
+			name:    "valid html",
+			config:  &domain.ScraperConfig{Type: "html", Source: "/tmp/file.html"},
+			wantErr: false,
+		},
+		{
+			name:    "valid csv",
+			config:  &domain.ScraperConfig{Type: "csv", Source: "/tmp/file.csv"},
+			wantErr: false,
+		},
+		{
+			name:    "valid markdown",
+			config:  &domain.ScraperConfig{Type: "markdown", Source: "/tmp/file.md"},
+			wantErr: false,
+		},
+		{
+			name:    "valid pptx",
+			config:  &domain.ScraperConfig{Type: "pptx", Source: "/tmp/file.pptx"},
+			wantErr: false,
+		},
+		{
+			name:    "valid json",
+			config:  &domain.ScraperConfig{Type: "json", Source: "/tmp/file.json"},
+			wantErr: false,
+		},
+		{
+			name:    "valid xml",
+			config:  &domain.ScraperConfig{Type: "xml", Source: "/tmp/file.xml"},
+			wantErr: false,
+		},
+		{
+			name:    "missing type",
+			config:  &domain.ScraperConfig{Source: "https://example.com"},
+			wantErr: true,
+			errMsg:  "scraper.type is required",
+		},
+		{
+			name:    "invalid type",
+			config:  &domain.ScraperConfig{Type: "ftp", Source: "ftp://host/file"},
+			wantErr: true,
+			errMsg:  "not valid",
+		},
+		{
+			name:    "missing source",
+			config:  &domain.ScraperConfig{Type: "url"},
+			wantErr: true,
+			errMsg:  "scraper.source is required",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateScraperConfig(tt.config)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
 }

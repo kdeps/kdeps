@@ -18,19 +18,28 @@
 
 // Package scraper implements the scraper resource executor for KDeps.
 //
-// Five content types are supported:
-//   - url:   fetches a web page and extracts its visible text content.
-//   - pdf:   extracts text from a PDF file (requires pdftotext from poppler-utils,
+// Twelve content types are supported:
+//   - url:      fetches a web page and extracts its visible text content.
+//   - pdf:      extracts text from a PDF file (requires pdftotext from poppler-utils,
 //     or falls back to a raw-text scan of the PDF binary).
-//   - word:  extracts text from a .docx (Word) file (parsed as ZIP+XML).
-//   - excel: extracts cell values from a .xlsx (Excel) file (parsed as ZIP+XML).
-//   - image: runs OCR on an image file via Tesseract (requires tesseract CLI).
+//   - word:     extracts text from a .docx (Word) file (parsed as ZIP+XML).
+//   - excel:    extracts cell values from a .xlsx (Excel) file (parsed as ZIP+XML).
+//   - image:    runs OCR on an image file via Tesseract (requires tesseract CLI).
+//   - text:     reads a local plain-text file as-is.
+//   - html:     reads a local HTML file and extracts visible text.
+//   - csv:      reads a CSV file and returns rows as tab-separated text.
+//   - markdown: reads a Markdown file and returns plain text (markup stripped).
+//   - pptx:     extracts text from a PowerPoint (.pptx) file (parsed as ZIP+XML).
+//   - json:     reads a JSON file and returns its pretty-printed content.
+//   - xml:      reads a local XML file and extracts all text nodes.
 package scraper
 
 import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -124,8 +133,25 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 			lang = cfg.OCR.Language
 		}
 		content, err = scrapeImage(source, lang)
+	case domain.ScraperTypeText:
+		content, err = scrapeText(source)
+	case domain.ScraperTypeHTML:
+		content, err = scrapeHTMLFile(source)
+	case domain.ScraperTypeCSV:
+		content, err = scrapeCSV(source)
+	case domain.ScraperTypeMarkdown:
+		content, err = scrapeMarkdown(source)
+	case domain.ScraperTypePPTX:
+		content, err = scrapePPTX(source)
+	case domain.ScraperTypeJSON:
+		content, err = scrapeJSON(source)
+	case domain.ScraperTypeXML:
+		content, err = scrapeXMLFile(source)
 	default:
-		return nil, fmt.Errorf("scraper executor: unknown type %q (expected url, pdf, word, excel, image)", cfg.Type)
+		return nil, fmt.Errorf(
+			"scraper executor: unknown type %q (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml)",
+			cfg.Type,
+		)
 	}
 
 	if err != nil {
@@ -554,6 +580,335 @@ func scrapeImage(path, lang string) (string, error) {
 }
 
 // -----------------------------------------------------------------------
+// Text scraping
+// -----------------------------------------------------------------------
+
+// scrapeText reads a local plain-text file and returns its content as-is.
+func scrapeText(path string) (string, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot read text file: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
+// -----------------------------------------------------------------------
+// HTML file scraping
+// -----------------------------------------------------------------------
+
+// scrapeHTMLFile reads a local HTML file and extracts visible text content.
+func scrapeHTMLFile(path string) (string, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot read HTML file: %w", err)
+	}
+	return extractTextFromHTML(data), nil
+}
+
+// -----------------------------------------------------------------------
+// CSV scraping
+// -----------------------------------------------------------------------
+
+// scrapeCSV reads a CSV file and returns all rows as tab-separated lines.
+func scrapeCSV(path string) (string, error) {
+	f, err := os.Open(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot open CSV file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	reader := csv.NewReader(f)
+	reader.LazyQuotes = true
+	reader.TrimLeadingSpace = true
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return "", fmt.Errorf("scraper: failed to parse CSV: %w", err)
+	}
+
+	var out strings.Builder
+	for _, row := range records {
+		out.WriteString(strings.Join(row, "\t"))
+		out.WriteRune('\n')
+	}
+	return strings.TrimSpace(out.String()), nil
+}
+
+// -----------------------------------------------------------------------
+// Markdown scraping
+// -----------------------------------------------------------------------
+
+// scrapeMarkdown reads a Markdown file and returns plain text with
+// common lightweight markup stripped.
+func scrapeMarkdown(path string) (string, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot read Markdown file: %w", err)
+	}
+	return stripMarkdown(string(data)), nil
+}
+
+// stripMarkdown removes common Markdown markup from a string.
+func stripMarkdown(s string) string {
+	var out strings.Builder
+	lines := strings.Split(s, "\n")
+	for _, line := range lines {
+		line = stripMarkdownLine(line)
+		if line != "" {
+			out.WriteString(line)
+			out.WriteRune('\n')
+		}
+	}
+	return strings.TrimSpace(out.String())
+}
+
+// stripMarkdownLine strips inline and block-level Markdown from a single line.
+func stripMarkdownLine(line string) string {
+	// Strip ATX headings (# ## ### etc.)
+	if idx := strings.IndexFunc(line, func(r rune) bool { return r != '#' && r != ' ' }); idx > 0 {
+		prefix := line[:idx]
+		if strings.TrimSpace(prefix) == strings.Repeat("#", len(strings.TrimSpace(prefix))) {
+			line = strings.TrimSpace(line[idx:])
+		}
+	}
+	// Strip blockquote markers
+	line = strings.TrimPrefix(line, "> ")
+	// Strip unordered list markers (- * +)
+	for _, marker := range []string{"- ", "* ", "+ "} {
+		if strings.HasPrefix(strings.TrimSpace(line), marker) {
+			line = strings.TrimSpace(strings.TrimSpace(line)[len(marker):])
+			break
+		}
+	}
+	// Strip ordered list markers (1. 2. etc.)
+	if len(line) > 2 {
+		end := strings.Index(line, ". ")
+		if end > 0 && end < 4 && isAllDigits(line[:end]) {
+			line = strings.TrimSpace(line[end+2:])
+		}
+	}
+	// Strip fenced code block markers
+	if strings.HasPrefix(strings.TrimSpace(line), "```") || strings.HasPrefix(strings.TrimSpace(line), "~~~") {
+		return ""
+	}
+	// Strip horizontal rules
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "---" || trimmed == "***" || trimmed == "___" {
+		return ""
+	}
+	// Strip inline code (`code`)
+	line = stripBetween(line, '`', '`')
+	// Strip bold (**text** or __text__)
+	line = stripInlineDelim(line, "**")
+	line = stripInlineDelim(line, "__")
+	// Strip italic (*text* or _text_)
+	line = stripInlineDelim(line, "*")
+	line = stripInlineDelim(line, "_")
+	// Strip strikethrough (~~text~~)
+	line = stripInlineDelim(line, "~~")
+	// Strip Markdown links [text](url) -> text
+	line = stripMarkdownLinks(line)
+	// Strip images ![alt](url) -> alt
+	line = stripMarkdownImages(line)
+	return strings.TrimSpace(line)
+}
+
+// isAllDigits returns true if s consists only of decimal digit characters.
+func isAllDigits(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+// stripInlineDelim removes a symmetric delimiter pair (e.g. "**") from a string.
+func stripInlineDelim(s, delim string) string {
+	for {
+		start := strings.Index(s, delim)
+		if start == -1 {
+			break
+		}
+		end := strings.Index(s[start+len(delim):], delim)
+		if end == -1 {
+			break
+		}
+		end += start + len(delim)
+		s = s[:start] + s[start+len(delim):end] + s[end+len(delim):]
+	}
+	return s
+}
+
+// stripBetween removes content between open and close rune delimiters.
+func stripBetween(s string, open, close rune) string {
+	var out strings.Builder
+	inDelim := false
+	for _, r := range s {
+		switch {
+		case !inDelim && r == open:
+			inDelim = true
+		case inDelim && r == close:
+			inDelim = false
+		case !inDelim:
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
+// stripMarkdownLinks replaces [text](url) with text.
+func stripMarkdownLinks(s string) string {
+	for {
+		start := strings.Index(s, "[")
+		if start == -1 {
+			break
+		}
+		mid := strings.Index(s[start:], "](")
+		if mid == -1 {
+			break
+		}
+		mid += start
+		end := strings.Index(s[mid+2:], ")")
+		if end == -1 {
+			break
+		}
+		end += mid + 2
+		text := s[start+1 : mid]
+		s = s[:start] + text + s[end+1:]
+	}
+	return s
+}
+
+// stripMarkdownImages replaces ![alt](url) with alt.
+func stripMarkdownImages(s string) string {
+	for {
+		start := strings.Index(s, "![")
+		if start == -1 {
+			break
+		}
+		mid := strings.Index(s[start:], "](")
+		if mid == -1 {
+			break
+		}
+		mid += start
+		end := strings.Index(s[mid+2:], ")")
+		if end == -1 {
+			break
+		}
+		end += mid + 2
+		alt := s[start+2 : mid]
+		s = s[:start] + alt + s[end+1:]
+	}
+	return s
+}
+
+// -----------------------------------------------------------------------
+// PowerPoint (.pptx) scraping
+// -----------------------------------------------------------------------
+
+// scrapePPTX extracts text from a PowerPoint .pptx file (Office Open XML).
+// Text is extracted from each slide's XML (<a:t> elements in the drawing namespace).
+func scrapePPTX(path string) (string, error) {
+	r, err := zip.OpenReader(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot open pptx file: %w", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	// pptx elements that contain visible text (<a:t> in DrawingML)
+	pptxTextElements := map[string]bool{
+		"t": true,
+	}
+
+	var text strings.Builder
+	for _, f := range r.File {
+		if !strings.HasPrefix(f.Name, "ppt/slides/slide") || !strings.HasSuffix(f.Name, ".xml") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		extracted, err := extractTextFromXML(rc, pptxTextElements)
+		_ = rc.Close()
+		if err != nil {
+			continue
+		}
+		if extracted != "" {
+			text.WriteString(extracted)
+			text.WriteRune('\n')
+		}
+	}
+	return normalizeWhitespace(text.String()), nil
+}
+
+// -----------------------------------------------------------------------
+// JSON scraping
+// -----------------------------------------------------------------------
+
+// scrapeJSON reads a JSON file and returns its content pretty-printed as a string.
+func scrapeJSON(path string) (string, error) {
+	data, err := os.ReadFile(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot read JSON file: %w", err)
+	}
+
+	// Validate and pretty-print
+	var v interface{}
+	if unmarshalErr := json.Unmarshal(data, &v); unmarshalErr != nil {
+		return "", fmt.Errorf("scraper: invalid JSON: %w", unmarshalErr)
+	}
+	pretty, marshalErr := json.MarshalIndent(v, "", "  ")
+	if marshalErr != nil {
+		return "", fmt.Errorf("scraper: failed to format JSON: %w", marshalErr)
+	}
+	return string(pretty), nil
+}
+
+// -----------------------------------------------------------------------
+// XML file scraping
+// -----------------------------------------------------------------------
+
+// scrapeXMLFile reads a local XML file and returns all text node content.
+func scrapeXMLFile(path string) (string, error) {
+	f, err := os.Open(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot open XML file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	return extractAllXMLText(f)
+}
+
+// extractAllXMLText decodes an XML stream and returns all character data joined with spaces.
+func extractAllXMLText(r io.Reader) (string, error) {
+	dec := xml.NewDecoder(r)
+	dec.Strict = false
+	dec.AutoClose = xml.HTMLAutoClose
+
+	var out strings.Builder
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			// Best-effort: stop on parse error but return what we have.
+			break
+		}
+		if cd, ok := tok.(xml.CharData); ok {
+			text := strings.TrimSpace(string(cd))
+			if text != "" {
+				out.WriteString(text)
+				out.WriteRune(' ')
+			}
+		}
+	}
+	return normalizeWhitespace(out.String()), nil
+}
+
+// -----------------------------------------------------------------------
 // Shared XML helper
 // -----------------------------------------------------------------------
 
@@ -631,6 +986,51 @@ func ScrapeImageForTesting(path, lang string) (string, error) {
 // ScrapePDFRawForTesting exposes extractRawTextFromPDF for testing.
 func ScrapePDFRawForTesting(path string) (string, error) {
 	return extractRawTextFromPDF(path)
+}
+
+// ScrapeTextForTesting exposes scrapeText for testing.
+func ScrapeTextForTesting(path string) (string, error) {
+	return scrapeText(path)
+}
+
+// ScrapeHTMLFileForTesting exposes scrapeHTMLFile for testing.
+func ScrapeHTMLFileForTesting(path string) (string, error) {
+	return scrapeHTMLFile(path)
+}
+
+// ScrapeCSVForTesting exposes scrapeCSV for testing.
+func ScrapeCSVForTesting(path string) (string, error) {
+	return scrapeCSV(path)
+}
+
+// ScrapeMarkdownForTesting exposes scrapeMarkdown for testing.
+func ScrapeMarkdownForTesting(path string) (string, error) {
+	return scrapeMarkdown(path)
+}
+
+// StripMarkdownForTesting exposes stripMarkdown for testing.
+func StripMarkdownForTesting(s string) string {
+	return stripMarkdown(s)
+}
+
+// ScrapePPTXForTesting exposes scrapePPTX for testing.
+func ScrapePPTXForTesting(path string) (string, error) {
+	return scrapePPTX(path)
+}
+
+// ScrapeJSONForTesting exposes scrapeJSON for testing.
+func ScrapeJSONForTesting(path string) (string, error) {
+	return scrapeJSON(path)
+}
+
+// ScrapeXMLFileForTesting exposes scrapeXMLFile for testing.
+func ScrapeXMLFileForTesting(path string) (string, error) {
+	return scrapeXMLFile(path)
+}
+
+// ExtractAllXMLTextForTesting exposes extractAllXMLText for testing.
+func ExtractAllXMLTextForTesting(r io.Reader) (string, error) {
+	return extractAllXMLText(r)
 }
 
 // ResolvePath resolves a relative source path against the FSRoot when it is set.

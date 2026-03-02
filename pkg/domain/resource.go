@@ -740,11 +740,35 @@ const ScraperTypeExcel = "excel"
 // ScraperTypeImage extracts text from an image file via OCR.
 const ScraperTypeImage = "image"
 
+// ScraperTypeText reads a plain-text file as-is.
+const ScraperTypeText = "text"
+
+// ScraperTypeHTML reads a local HTML file and extracts visible text.
+const ScraperTypeHTML = "html"
+
+// ScraperTypeCSV reads a CSV file and formats rows as tab-separated text.
+const ScraperTypeCSV = "csv"
+
+// ScraperTypeMarkdown reads a Markdown file and returns plain text
+// with lightweight markup stripped.
+const ScraperTypeMarkdown = "markdown"
+
+// ScraperTypePPTX extracts text from a PowerPoint (.pptx) file.
+const ScraperTypePPTX = "pptx"
+
+// ScraperTypeJSON reads a JSON file and returns its pretty-printed content.
+const ScraperTypeJSON = "json"
+
+// ScraperTypeXML reads a local XML file and extracts all text nodes.
+const ScraperTypeXML = "xml"
+
 // ScraperConfig represents a scraper resource configuration.
 // It can scrape content from URLs, PDF files, Word/Excel documents,
-// or images (via OCR).
+// images (via OCR), plain-text, HTML, CSV, Markdown, PowerPoint,
+// JSON, and XML files.
 type ScraperConfig struct {
-	// Type is the input type: "url", "pdf", "word", "excel", "image".
+	// Type is the input type: "url", "pdf", "word", "excel", "image",
+	// "text", "html", "csv", "markdown", "pptx", "json", "xml".
 	Type string `yaml:"type"`
 
 	// Source is the URL or file path to scrape. Expression evaluation is supported.

@@ -698,3 +698,455 @@ func TestReadSharedStrings_Valid(t *testing.T) {
 	require.Len(t, strs, 1)
 	assert.Equal(t, "TestShared", strs[0])
 }
+
+// ===========================================================================
+// New content types (text, html, csv, markdown, pptx, json, xml)
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// text
+// ---------------------------------------------------------------------------
+
+func TestScrapeText_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.txt")
+require.NoError(t, err)
+_, _ = f.WriteString("Hello plain text\n")
+require.NoError(t, f.Close())
+
+content, err := ScrapeTextForTesting(f.Name())
+require.NoError(t, err)
+assert.Equal(t, "Hello plain text", content)
+}
+
+func TestScrapeText_NotFound(t *testing.T) {
+_, err := ScrapeTextForTesting("/tmp/kdeps_nonexistent_text.txt")
+require.Error(t, err)
+}
+
+func TestExecute_TextSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.txt")
+require.NoError(t, err)
+_, _ = f.WriteString("  execute text  ")
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeText,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Equal(t, "execute text", m["content"])
+}
+
+// ---------------------------------------------------------------------------
+// html (local file)
+// ---------------------------------------------------------------------------
+
+func TestScrapeHTMLFile_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.html")
+require.NoError(t, err)
+_, _ = f.WriteString(`<html><body><p>Local HTML</p></body></html>`)
+require.NoError(t, f.Close())
+
+content, err := ScrapeHTMLFileForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "Local HTML")
+}
+
+func TestScrapeHTMLFile_NotFound(t *testing.T) {
+_, err := ScrapeHTMLFileForTesting("/tmp/kdeps_nonexistent.html")
+require.Error(t, err)
+}
+
+func TestExecute_HTMLFileSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.html")
+require.NoError(t, err)
+_, _ = f.WriteString(`<html><body><h1>Title</h1><p>Paragraph</p></body></html>`)
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeHTML,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Title")
+assert.Contains(t, m["content"].(string), "Paragraph")
+}
+
+// ---------------------------------------------------------------------------
+// csv
+// ---------------------------------------------------------------------------
+
+func TestScrapeCSV_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.csv")
+require.NoError(t, err)
+_, _ = f.WriteString("name,age\nAlice,30\nBob,25\n")
+require.NoError(t, f.Close())
+
+content, err := ScrapeCSVForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "Alice")
+assert.Contains(t, content, "Bob")
+assert.Contains(t, content, "30")
+}
+
+func TestScrapeCSV_TabSeparated(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.csv")
+require.NoError(t, err)
+_, _ = f.WriteString("a,b,c\n1,2,3\n")
+require.NoError(t, f.Close())
+
+content, err := ScrapeCSVForTesting(f.Name())
+require.NoError(t, err)
+// rows are joined with tabs
+assert.Contains(t, content, "\t")
+}
+
+func TestScrapeCSV_NotFound(t *testing.T) {
+_, err := ScrapeCSVForTesting("/tmp/kdeps_nonexistent.csv")
+require.Error(t, err)
+}
+
+func TestExecute_CSVSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.csv")
+require.NoError(t, err)
+_, _ = f.WriteString("x,y\n10,20\n")
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeCSV,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "10")
+}
+
+// ---------------------------------------------------------------------------
+// markdown
+// ---------------------------------------------------------------------------
+
+func TestStripMarkdown_Headings(t *testing.T) {
+in := "# Heading 1\n## Heading 2\nNormal text"
+out := StripMarkdownForTesting(in)
+assert.Contains(t, out, "Heading 1")
+assert.Contains(t, out, "Heading 2")
+assert.Contains(t, out, "Normal text")
+assert.NotContains(t, out, "#")
+}
+
+func TestStripMarkdown_Bold(t *testing.T) {
+out := StripMarkdownForTesting("This is **bold** text")
+assert.Equal(t, "This is bold text", out)
+}
+
+func TestStripMarkdown_Italic(t *testing.T) {
+out := StripMarkdownForTesting("This is *italic* text")
+assert.Equal(t, "This is italic text", out)
+}
+
+func TestStripMarkdown_Link(t *testing.T) {
+out := StripMarkdownForTesting("Click [here](https://example.com) for info")
+assert.Contains(t, out, "here")
+assert.NotContains(t, out, "https://example.com")
+}
+
+func TestStripMarkdown_Image(t *testing.T) {
+out := StripMarkdownForTesting("![alt text](image.png)")
+assert.Contains(t, out, "alt text")
+assert.NotContains(t, out, "image.png")
+}
+
+func TestStripMarkdown_UnorderedList(t *testing.T) {
+out := StripMarkdownForTesting("- item one\n- item two")
+assert.Contains(t, out, "item one")
+assert.Contains(t, out, "item two")
+assert.NotContains(t, out, "- ")
+}
+
+func TestStripMarkdown_OrderedList(t *testing.T) {
+out := StripMarkdownForTesting("1. first\n2. second")
+assert.Contains(t, out, "first")
+assert.Contains(t, out, "second")
+}
+
+func TestStripMarkdown_HorizontalRule(t *testing.T) {
+out := StripMarkdownForTesting("Before\n---\nAfter")
+assert.Contains(t, out, "Before")
+assert.Contains(t, out, "After")
+assert.NotContains(t, out, "---")
+}
+
+func TestStripMarkdown_FencedCode(t *testing.T) {
+out := StripMarkdownForTesting("Text\n```go\ncode here\n```\nMore")
+assert.Contains(t, out, "Text")
+assert.Contains(t, out, "More")
+}
+
+func TestScrapeMarkdown_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.md")
+require.NoError(t, err)
+_, _ = f.WriteString("# Title\n\nSome **bold** paragraph.\n")
+require.NoError(t, f.Close())
+
+content, err := ScrapeMarkdownForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "Title")
+assert.Contains(t, content, "paragraph")
+assert.NotContains(t, content, "**")
+}
+
+func TestScrapeMarkdown_NotFound(t *testing.T) {
+_, err := ScrapeMarkdownForTesting("/tmp/kdeps_nonexistent.md")
+require.Error(t, err)
+}
+
+func TestExecute_MarkdownSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.md")
+require.NoError(t, err)
+_, _ = f.WriteString("# Hello Markdown\nThis is a test.\n")
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeMarkdown,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Hello Markdown")
+}
+
+// ---------------------------------------------------------------------------
+// pptx
+// ---------------------------------------------------------------------------
+
+func makePPTX(t *testing.T, text string) string {
+t.Helper()
+dir := t.TempDir()
+path := filepath.Join(dir, "test.pptx")
+
+f, err := os.Create(path)
+require.NoError(t, err)
+
+w := zip.NewWriter(f)
+
+ct, _ := w.Create("[Content_Types].xml")
+_, _ = ct.Write([]byte(`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`))
+
+slide, _ := w.Create("ppt/slides/slide1.xml")
+xmlContent := fmt.Sprintf(`<?xml version="1.0"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>%s</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`, text)
+_, _ = slide.Write([]byte(xmlContent))
+
+require.NoError(t, w.Close())
+require.NoError(t, f.Close())
+return path
+}
+
+func TestScrapePPTX_Success(t *testing.T) {
+path := makePPTX(t, "Hello from PowerPoint")
+content, err := ScrapePPTXForTesting(path)
+require.NoError(t, err)
+assert.Contains(t, content, "Hello from PowerPoint")
+}
+
+func TestScrapePPTX_NotExist(t *testing.T) {
+_, err := ScrapePPTXForTesting("/tmp/kdeps_nonexistent.pptx")
+require.Error(t, err)
+}
+
+func TestScrapePPTX_NotZip(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.pptx")
+require.NoError(t, err)
+_, _ = f.WriteString("not a zip")
+require.NoError(t, f.Close())
+
+_, err = ScrapePPTXForTesting(f.Name())
+require.Error(t, err)
+}
+
+func TestExecute_PPTXSuccess(t *testing.T) {
+path := makePPTX(t, "Execute PPTX Test")
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypePPTX,
+Source: path,
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Execute PPTX Test")
+}
+
+// ---------------------------------------------------------------------------
+// json
+// ---------------------------------------------------------------------------
+
+func TestScrapeJSON_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.json")
+require.NoError(t, err)
+_, _ = f.WriteString(`{"name":"Alice","age":30}`)
+require.NoError(t, f.Close())
+
+content, err := ScrapeJSONForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "Alice")
+assert.Contains(t, content, "30")
+}
+
+func TestScrapeJSON_Array(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.json")
+require.NoError(t, err)
+_, _ = f.WriteString(`[1, 2, 3]`)
+require.NoError(t, f.Close())
+
+content, err := ScrapeJSONForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "1")
+assert.Contains(t, content, "2")
+}
+
+func TestScrapeJSON_Invalid(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.json")
+require.NoError(t, err)
+_, _ = f.WriteString(`not json {`)
+require.NoError(t, f.Close())
+
+_, err = ScrapeJSONForTesting(f.Name())
+require.Error(t, err)
+assert.Contains(t, err.Error(), "invalid JSON")
+}
+
+func TestScrapeJSON_NotFound(t *testing.T) {
+_, err := ScrapeJSONForTesting("/tmp/kdeps_nonexistent.json")
+require.Error(t, err)
+}
+
+func TestExecute_JSONSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.json")
+require.NoError(t, err)
+_, _ = f.WriteString(`{"key":"value"}`)
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeJSON,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "value")
+}
+
+// ---------------------------------------------------------------------------
+// xml
+// ---------------------------------------------------------------------------
+
+func TestScrapeXMLFile_Success(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.xml")
+require.NoError(t, err)
+_, _ = f.WriteString(`<root><item>Hello XML</item><item>World</item></root>`)
+require.NoError(t, f.Close())
+
+content, err := ScrapeXMLFileForTesting(f.Name())
+require.NoError(t, err)
+assert.Contains(t, content, "Hello XML")
+assert.Contains(t, content, "World")
+}
+
+func TestScrapeXMLFile_NotFound(t *testing.T) {
+_, err := ScrapeXMLFileForTesting("/tmp/kdeps_nonexistent.xml")
+require.Error(t, err)
+}
+
+func TestExtractAllXMLText_Basic(t *testing.T) {
+xmlData := `<doc><title>My Title</title><body>Body text</body></doc>`
+content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
+require.NoError(t, err)
+assert.Contains(t, content, "My Title")
+assert.Contains(t, content, "Body text")
+}
+
+func TestExtractAllXMLText_Nested(t *testing.T) {
+xmlData := `<a><b><c>deep</c></b></a>`
+content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
+require.NoError(t, err)
+assert.Contains(t, content, "deep")
+}
+
+func TestExecute_XMLSuccess(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.xml")
+require.NoError(t, err)
+_, _ = f.WriteString(`<data><entry>42</entry><entry>hello</entry></data>`)
+require.NoError(t, f.Close())
+
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeXML,
+Source: f.Name(),
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "42")
+assert.Contains(t, m["content"].(string), "hello")
+}
+
+// ---------------------------------------------------------------------------
+// isAllDigits helper
+// ---------------------------------------------------------------------------
+
+func TestIsAllDigits(t *testing.T) {
+assert.True(t, isAllDigits("123"))
+assert.False(t, isAllDigits("12a"))
+assert.False(t, isAllDigits(""))
+}
+
+// ---------------------------------------------------------------------------
+// Validator – new types
+// ---------------------------------------------------------------------------
+
+func TestValidateScraperConfig_NewTypes(t *testing.T) {
+newTypes := []string{"text", "html", "csv", "markdown", "pptx", "json", "xml"}
+for _, typ := range newTypes {
+t.Run(typ, func(t *testing.T) {
+err := validateScraperCfg(typ, "/some/path")
+assert.NoError(t, err, "type %q should be valid", typ)
+})
+}
+}
+
+// validateScraperCfg is a package-level helper that calls ValidateScraperConfig
+// through the domain + validator chain without importing the validator package.
+// Since we are inside the scraper package, we test it via Execute with unknown type.
+func validateScraperCfg(typ, source string) error {
+// We test type validation implicitly: if Execute reaches the switch default,
+// the type is unknown; otherwise it is valid (regardless of file existence).
+// For a direct unit-test of ValidateScraperConfig we rely on the validator
+// package tests – here we just confirm the executor accepts these types.
+cfg := &domain.ScraperConfig{Type: typ, Source: source}
+// A non-existent path will produce an error AFTER type validation passes,
+// meaning the error message won't say "unknown type".
+e := NewAdapter()
+_, err := e.Execute(nil, cfg)
+if err != nil && strings.Contains(err.Error(), "unknown type") {
+return err
+}
+return nil
+}

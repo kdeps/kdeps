@@ -844,25 +844,30 @@ func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationCo
 
 // ValidateScraperConfig validates a ScraperConfig.
 func ValidateScraperConfig(config *domain.ScraperConfig) error {
-if config.Type == "" {
-return domain.NewError(domain.ErrCodeInvalidResource, "scraper.type is required", nil)
-}
+	if config.Type == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.type is required", nil)
+	}
 
-switch config.Type {
-case domain.ScraperTypeURL, domain.ScraperTypePDF, domain.ScraperTypeWord,
-domain.ScraperTypeExcel, domain.ScraperTypeImage:
-// valid
-default:
-return domain.NewError(
-domain.ErrCodeInvalidResource,
-fmt.Sprintf("scraper.type %q is not valid (expected: url, pdf, word, excel, image)", config.Type),
-nil,
-)
-}
+	switch config.Type {
+	case domain.ScraperTypeURL, domain.ScraperTypePDF, domain.ScraperTypeWord,
+		domain.ScraperTypeExcel, domain.ScraperTypeImage, domain.ScraperTypeText,
+		domain.ScraperTypeHTML, domain.ScraperTypeCSV, domain.ScraperTypeMarkdown,
+		domain.ScraperTypePPTX, domain.ScraperTypeJSON, domain.ScraperTypeXML:
+		// valid
+	default:
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"scraper.type %q is not valid (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml)",
+				config.Type,
+			),
+			nil,
+		)
+	}
 
-if config.Source == "" {
-return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
-}
+	if config.Source == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
+	}
 
-return nil
+	return nil
 }
