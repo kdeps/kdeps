@@ -1756,6 +1756,21 @@ func TestValidateScraperConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name:    "valid odt",
+			config:  &domain.ScraperConfig{Type: "odt", Source: "/tmp/file.odt"},
+			wantErr: false,
+		},
+		{
+			name:    "valid ods",
+			config:  &domain.ScraperConfig{Type: "ods", Source: "/tmp/file.ods"},
+			wantErr: false,
+		},
+		{
+			name:    "valid odp",
+			config:  &domain.ScraperConfig{Type: "odp", Source: "/tmp/file.odp"},
+			wantErr: false,
+		},
+		{
 			name:    "missing type",
 			config:  &domain.ScraperConfig{Source: "https://example.com"},
 			wantErr: true,

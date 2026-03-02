@@ -852,13 +852,14 @@ func ValidateScraperConfig(config *domain.ScraperConfig) error {
 	case domain.ScraperTypeURL, domain.ScraperTypePDF, domain.ScraperTypeWord,
 		domain.ScraperTypeExcel, domain.ScraperTypeImage, domain.ScraperTypeText,
 		domain.ScraperTypeHTML, domain.ScraperTypeCSV, domain.ScraperTypeMarkdown,
-		domain.ScraperTypePPTX, domain.ScraperTypeJSON, domain.ScraperTypeXML:
+		domain.ScraperTypePPTX, domain.ScraperTypeJSON, domain.ScraperTypeXML,
+		domain.ScraperTypeODT, domain.ScraperTypeODS, domain.ScraperTypeODP:
 		// valid
 	default:
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			fmt.Sprintf(
-				"scraper.type %q is not valid (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml)",
+				"scraper.type %q is not valid (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
 				config.Type,
 			),
 			nil,

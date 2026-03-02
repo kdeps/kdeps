@@ -762,13 +762,23 @@ const ScraperTypeJSON = "json"
 // ScraperTypeXML reads a local XML file and extracts all text nodes.
 const ScraperTypeXML = "xml"
 
+// ScraperTypeODT extracts text from an OpenDocument Text (.odt) file.
+const ScraperTypeODT = "odt"
+
+// ScraperTypeODS extracts text from an OpenDocument Spreadsheet (.ods) file.
+const ScraperTypeODS = "ods"
+
+// ScraperTypeODP extracts text from an OpenDocument Presentation (.odp) file.
+const ScraperTypeODP = "odp"
+
 // ScraperConfig represents a scraper resource configuration.
-// It can scrape content from URLs, PDF files, Word/Excel documents,
-// images (via OCR), plain-text, HTML, CSV, Markdown, PowerPoint,
-// JSON, and XML files.
+// It can scrape content from URLs, PDF files, Word/Excel/OpenDocument
+// documents, images (via OCR), plain-text, HTML, CSV, Markdown,
+// PowerPoint, JSON, and XML files.
 type ScraperConfig struct {
 	// Type is the input type: "url", "pdf", "word", "excel", "image",
-	// "text", "html", "csv", "markdown", "pptx", "json", "xml".
+	// "text", "html", "csv", "markdown", "pptx", "json", "xml",
+	// "odt", "ods", "odp".
 	Type string `yaml:"type"`
 
 	// Source is the URL or file path to scrape. Expression evaluation is supported.

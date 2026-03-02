@@ -18,7 +18,7 @@
 
 // Package scraper implements the scraper resource executor for KDeps.
 //
-// Twelve content types are supported:
+// Fifteen content types are supported:
 //   - url:      fetches a web page and extracts its visible text content.
 //   - pdf:      extracts text from a PDF file (requires pdftotext from poppler-utils,
 //     or falls back to a raw-text scan of the PDF binary).
@@ -32,6 +32,9 @@
 //   - pptx:     extracts text from a PowerPoint (.pptx) file (parsed as ZIP+XML).
 //   - json:     reads a JSON file and returns its pretty-printed content.
 //   - xml:      reads a local XML file and extracts all text nodes.
+//   - odt:      extracts text from an OpenDocument Text (.odt) file (parsed as ZIP+XML).
+//   - ods:      extracts text from an OpenDocument Spreadsheet (.ods) file (parsed as ZIP+XML).
+//   - odp:      extracts text from an OpenDocument Presentation (.odp) file (parsed as ZIP+XML).
 package scraper
 
 import (
@@ -147,9 +150,15 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		content, err = scrapeJSON(source)
 	case domain.ScraperTypeXML:
 		content, err = scrapeXMLFile(source)
+	case domain.ScraperTypeODT:
+		content, err = scrapeODT(source)
+	case domain.ScraperTypeODS:
+		content, err = scrapeODS(source)
+	case domain.ScraperTypeODP:
+		content, err = scrapeODP(source)
 	default:
 		return nil, fmt.Errorf(
-			"scraper executor: unknown type %q (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml)",
+			"scraper executor: unknown type %q (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
 			cfg.Type,
 		)
 	}
@@ -909,6 +918,62 @@ func extractAllXMLText(r io.Reader) (string, error) {
 }
 
 // -----------------------------------------------------------------------
+// OpenDocument Format (ODF) scraping – odt, ods, odp
+// -----------------------------------------------------------------------
+
+// odfTextElements are the XML element local names in ODF content.xml files
+// that carry visible text: paragraphs (text:p), spans (text:span), and
+// headings (text:h).
+var odfTextElements = map[string]bool{
+	"p":    true, // <text:p>
+	"span": true, // <text:span>
+	"h":    true, // <text:h>
+}
+
+// scrapeODFFile is the shared implementation for all ODF types (odt, ods, odp).
+// All ODF archives contain a content.xml whose text resides in <text:p> /
+// <text:span> / <text:h> elements (local names p, span, h).
+func scrapeODFFile(path, typeName string) (string, error) {
+	r, err := zip.OpenReader(path) //nolint:gosec // path is user-supplied
+	if err != nil {
+		return "", fmt.Errorf("scraper: cannot open %s file: %w", typeName, err)
+	}
+	defer func() { _ = r.Close() }()
+
+	for _, f := range r.File {
+		if f.Name != "content.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return "", fmt.Errorf("scraper: cannot open content.xml in %s: %w", typeName, err)
+		}
+		text, xmlErr := extractTextFromXML(rc, odfTextElements)
+		_ = rc.Close()
+		if xmlErr != nil {
+			return "", xmlErr
+		}
+		return normalizeWhitespace(text), nil
+	}
+	return "", fmt.Errorf("scraper: content.xml not found in %s archive", typeName)
+}
+
+// scrapeODT extracts text from an OpenDocument Text (.odt) file.
+func scrapeODT(path string) (string, error) {
+	return scrapeODFFile(path, "odt")
+}
+
+// scrapeODS extracts text from an OpenDocument Spreadsheet (.ods) file.
+func scrapeODS(path string) (string, error) {
+	return scrapeODFFile(path, "ods")
+}
+
+// scrapeODP extracts text from an OpenDocument Presentation (.odp) file.
+func scrapeODP(path string) (string, error) {
+	return scrapeODFFile(path, "odp")
+}
+
+// -----------------------------------------------------------------------
 // Shared XML helper
 // -----------------------------------------------------------------------
 
@@ -1031,6 +1096,21 @@ func ScrapeXMLFileForTesting(path string) (string, error) {
 // ExtractAllXMLTextForTesting exposes extractAllXMLText for testing.
 func ExtractAllXMLTextForTesting(r io.Reader) (string, error) {
 	return extractAllXMLText(r)
+}
+
+// ScrapeODTForTesting exposes scrapeODT for testing.
+func ScrapeODTForTesting(path string) (string, error) {
+	return scrapeODT(path)
+}
+
+// ScrapeODSForTesting exposes scrapeODS for testing.
+func ScrapeODSForTesting(path string) (string, error) {
+	return scrapeODS(path)
+}
+
+// ScrapeODPForTesting exposes scrapeODP for testing.
+func ScrapeODPForTesting(path string) (string, error) {
+	return scrapeODP(path)
 }
 
 // ResolvePath resolves a relative source path against the FSRoot when it is set.

@@ -1150,3 +1150,227 @@ return err
 }
 return nil
 }
+
+// ===========================================================================
+// OpenDocument Format (odt, ods, odp)
+// ===========================================================================
+
+// makeODF creates a minimal ODF archive (ZIP) with content.xml containing the
+// given text wrapped in a <text:p> element, using the ODF text namespace.
+func makeODF(t *testing.T, ext, text string) string {
+t.Helper()
+dir := t.TempDir()
+path := filepath.Join(dir, "test."+ext)
+
+f, err := os.Create(path)
+require.NoError(t, err)
+
+w := zip.NewWriter(f)
+
+// Minimal mimetype entry (not strictly required here, but realistic)
+mt, _ := w.Create("mimetype")
+_, _ = mt.Write([]byte("application/vnd.oasis.opendocument.text"))
+
+// content.xml with a single text:p element
+content, _ := w.Create("content.xml")
+xmlContent := fmt.Sprintf(
+`<?xml version="1.0" encoding="UTF-8"?>`+
+`<office:document-content `+
+`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" `+
+`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">`+
+`<office:body><office:text>`+
+`<text:p>%s</text:p>`+
+`</office:text></office:body>`+
+`</office:document-content>`,
+text,
+)
+_, _ = content.Write([]byte(xmlContent))
+
+require.NoError(t, w.Close())
+require.NoError(t, f.Close())
+return path
+}
+
+// ---------------------------------------------------------------------------
+// odt
+// ---------------------------------------------------------------------------
+
+func TestScrapeODT_Success(t *testing.T) {
+path := makeODF(t, "odt", "Hello from Writer")
+content, err := ScrapeODTForTesting(path)
+require.NoError(t, err)
+assert.Contains(t, content, "Hello from Writer")
+}
+
+func TestScrapeODT_NotExist(t *testing.T) {
+_, err := ScrapeODTForTesting("/tmp/kdeps_nonexistent.odt")
+require.Error(t, err)
+}
+
+func TestScrapeODT_NotZip(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.odt")
+require.NoError(t, err)
+_, _ = f.WriteString("not a zip file")
+require.NoError(t, f.Close())
+
+_, err = ScrapeODTForTesting(f.Name())
+require.Error(t, err)
+}
+
+func TestScrapeODT_NoContentXML(t *testing.T) {
+// ZIP without content.xml
+dir := t.TempDir()
+path := filepath.Join(dir, "empty.odt")
+f, err := os.Create(path)
+require.NoError(t, err)
+w := zip.NewWriter(f)
+other, _ := w.Create("styles.xml")
+_, _ = other.Write([]byte("<styles/>"))
+require.NoError(t, w.Close())
+require.NoError(t, f.Close())
+
+_, err = ScrapeODTForTesting(path)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "content.xml not found")
+}
+
+func TestExecute_ODTSuccess(t *testing.T) {
+path := makeODF(t, "odt", "Execute ODT Test")
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeODT,
+Source: path,
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Execute ODT Test")
+}
+
+// ---------------------------------------------------------------------------
+// ods
+// ---------------------------------------------------------------------------
+
+func TestScrapeODS_Success(t *testing.T) {
+path := makeODF(t, "ods", "Sheet Cell Value")
+content, err := ScrapeODSForTesting(path)
+require.NoError(t, err)
+assert.Contains(t, content, "Sheet Cell Value")
+}
+
+func TestScrapeODS_NotExist(t *testing.T) {
+_, err := ScrapeODSForTesting("/tmp/kdeps_nonexistent.ods")
+require.Error(t, err)
+}
+
+func TestScrapeODS_NotZip(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.ods")
+require.NoError(t, err)
+_, _ = f.WriteString("not a zip file")
+require.NoError(t, f.Close())
+
+_, err = ScrapeODSForTesting(f.Name())
+require.Error(t, err)
+}
+
+func TestExecute_ODSSuccess(t *testing.T) {
+path := makeODF(t, "ods", "Execute ODS Test")
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeODS,
+Source: path,
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Execute ODS Test")
+}
+
+// ---------------------------------------------------------------------------
+// odp
+// ---------------------------------------------------------------------------
+
+func TestScrapeODP_Success(t *testing.T) {
+path := makeODF(t, "odp", "Slide One Title")
+content, err := ScrapeODPForTesting(path)
+require.NoError(t, err)
+assert.Contains(t, content, "Slide One Title")
+}
+
+func TestScrapeODP_NotExist(t *testing.T) {
+_, err := ScrapeODPForTesting("/tmp/kdeps_nonexistent.odp")
+require.Error(t, err)
+}
+
+func TestScrapeODP_NotZip(t *testing.T) {
+f, err := os.CreateTemp(t.TempDir(), "*.odp")
+require.NoError(t, err)
+_, _ = f.WriteString("not a zip file")
+require.NoError(t, f.Close())
+
+_, err = ScrapeODPForTesting(f.Name())
+require.Error(t, err)
+}
+
+func TestExecute_ODPSuccess(t *testing.T) {
+path := makeODF(t, "odp", "Execute ODP Test")
+e := NewAdapter()
+ctx := makeCtx(t)
+result, err := e.Execute(ctx, &domain.ScraperConfig{
+Type:   domain.ScraperTypeODP,
+Source: path,
+})
+require.NoError(t, err)
+m := result.(map[string]interface{})
+assert.Equal(t, true, m["success"])
+assert.Contains(t, m["content"].(string), "Execute ODP Test")
+}
+
+// ---------------------------------------------------------------------------
+// ODF with multiple paragraphs
+// ---------------------------------------------------------------------------
+
+func TestScrapeODT_MultipleParagraphs(t *testing.T) {
+dir := t.TempDir()
+path := filepath.Join(dir, "multi.odt")
+f, err := os.Create(path)
+require.NoError(t, err)
+w := zip.NewWriter(f)
+content, _ := w.Create("content.xml")
+_, _ = content.Write([]byte(
+`<?xml version="1.0"?>` +
+`<office:document-content ` +
+`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ` +
+`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">` +
+`<office:body><office:text>` +
+`<text:p>First paragraph</text:p>` +
+`<text:p>Second paragraph</text:p>` +
+`<text:h>A heading</text:h>` +
+`</office:text></office:body>` +
+`</office:document-content>`,
+))
+require.NoError(t, w.Close())
+require.NoError(t, f.Close())
+
+content2, err := ScrapeODTForTesting(path)
+require.NoError(t, err)
+assert.Contains(t, content2, "First paragraph")
+assert.Contains(t, content2, "Second paragraph")
+assert.Contains(t, content2, "A heading")
+}
+
+// ---------------------------------------------------------------------------
+// Validator – new ODF types
+// ---------------------------------------------------------------------------
+
+func TestValidateScraperConfig_ODFTypes(t *testing.T) {
+odfTypes := []string{"odt", "ods", "odp"}
+for _, typ := range odfTypes {
+t.Run(typ, func(t *testing.T) {
+err := validateScraperCfg(typ, "/some/path."+typ)
+assert.NoError(t, err, "type %q should be valid", typ)
+})
+}
+}
