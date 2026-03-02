@@ -580,7 +580,7 @@ func scrapeImage(path, lang string) (string, error) {
 	if lang != "" {
 		args = append(args, "-l", lang)
 	}
-	cmd := exec.Command("tesseract", args...) //nolint:gosec
+	cmd := exec.Command("tesseract", args...) //nolint:gosec // tesseract is a required external CLI; args are user-supplied
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("scraper: tesseract failed: %w", err)
