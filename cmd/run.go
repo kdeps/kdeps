@@ -44,6 +44,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
+	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -676,7 +677,12 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		}
 		fmt.Fprintln(os.Stdout, "  ⏳ Installing whisperx venv (first run may take a minute)...")
 		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"whisperx"}, "", "whisperx"); err != nil {
+		if _, err := ioManager.EnsureVenv(
+			python.IOToolsPythonVersion,
+			[]string{"whisperx"},
+			"",
+			"whisperx",
+		); err != nil {
 			fmt.Fprintf(os.Stderr, "  [warn] auto-install whisperx failed: %v\n", err)
 			fmt.Fprintln(os.Stderr, "  [hint] Consider using engine: faster-whisper instead")
 			return nil // non-fatal
@@ -689,7 +695,12 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		}
 		fmt.Fprintln(os.Stdout, "  ⏳ Installing faster-whisper venv (first run may take a minute)...")
 		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"faster-whisper"}, "", "faster-whisper"); err != nil {
+		if _, err := ioManager.EnsureVenv(
+			python.IOToolsPythonVersion,
+			[]string{"faster-whisper"},
+			"",
+			"faster-whisper",
+		); err != nil {
 			return fmt.Errorf("auto-install faster-whisper: %w", err)
 		}
 		fmt.Fprintln(os.Stdout, "  ✓ Installed faster-whisper")
@@ -723,7 +734,12 @@ func installTTSTool(manager *python.Manager, engine string) error {
 		}
 		fmt.Fprintln(os.Stdout, "  ⏳ Installing piper-tts venv (first run may take a minute)...")
 		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"piper-tts", "pathvalidate"}, "", "piper"); err != nil {
+		if _, err := ioManager.EnsureVenv(
+			python.IOToolsPythonVersion,
+			[]string{"piper-tts", "pathvalidate"},
+			"",
+			"piper",
+		); err != nil {
 			return fmt.Errorf("auto-install piper-tts: %w", err)
 		}
 		fmt.Fprintln(os.Stdout, "  ✓ Installed piper-tts")
@@ -1208,6 +1224,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetTTSExecutor(executorTTS.NewAdapter(logger))
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetScraperExecutor(executorScraper.NewAdapter())
+	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter(logger))
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

@@ -25,14 +25,15 @@ type ResourceExecutor interface {
 
 // Registry holds resource executors.
 type Registry struct {
-	llmExecutor      ResourceExecutor
-	httpExecutor     ResourceExecutor
-	sqlExecutor      ResourceExecutor
-	pythonExecutor   ResourceExecutor
-	execExecutor     ResourceExecutor
-	ttsExecutor      ResourceExecutor
-	botReplyExecutor ResourceExecutor
-	scraperExecutor  ResourceExecutor
+	llmExecutor       ResourceExecutor
+	httpExecutor      ResourceExecutor
+	sqlExecutor       ResourceExecutor
+	pythonExecutor    ResourceExecutor
+	execExecutor      ResourceExecutor
+	ttsExecutor       ResourceExecutor
+	botReplyExecutor  ResourceExecutor
+	scraperExecutor   ResourceExecutor
+	embeddingExecutor ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -135,4 +136,14 @@ func (r *Registry) SetScraperExecutor(executor ResourceExecutor) {
 // GetScraperExecutor returns the scraper executor.
 func (r *Registry) GetScraperExecutor() ResourceExecutor {
 	return r.scraperExecutor
+}
+
+// SetEmbeddingExecutor sets the embedding executor.
+func (r *Registry) SetEmbeddingExecutor(executor ResourceExecutor) {
+	r.embeddingExecutor = executor
+}
+
+// GetEmbeddingExecutor returns the embedding executor.
+func (r *Registry) GetEmbeddingExecutor() ResourceExecutor {
+	return r.embeddingExecutor
 }

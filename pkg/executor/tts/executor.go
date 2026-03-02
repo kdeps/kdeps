@@ -600,7 +600,10 @@ func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) err
 		uvArgs := append([]string{"run", "--with", "TTS", "python"}, ttsArgs...)
 		cmd = exec.CommandContext(context.Background(), "uv", uvArgs...)
 	} else {
-		cmd = exec.CommandContext(context.Background(), pythonBin(), ttsArgs...) //nolint:gosec // pythonBin() returns a fixed internal binary path, not user input
+		cmd = exec.CommandContext( //nolint:gosec // pythonBin() returns a fixed internal binary path, not user input
+			context.Background(),
+			pythonBin(),
+			ttsArgs...)
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
