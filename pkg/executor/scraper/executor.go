@@ -996,7 +996,7 @@ func scrapeODP(path string) (string, error) {
 // extractTextFromXML decodes an XML stream and returns the concatenated text
 // content of all elements whose local name appears in wanted (with value true).
 // A depth counter is used so nested wanted elements are handled correctly.
-func extractTextFromXML(r io.Reader, wanted map[string]bool) (string, error) { //nolint:gocognit // depth-counting XML token loop; complexity is inherent to the token-dispatch structure
+func extractTextFromXML(r io.Reader, wanted map[string]bool) (string, error) { //nolint:gocognit
 	dec := xml.NewDecoder(r)
 	var out strings.Builder
 	depth := 0 // nesting depth inside wanted elements
