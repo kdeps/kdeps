@@ -258,7 +258,7 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 - [LLM (Chat)](resources/llm) · [LLM Backends](resources/llm-backends)
 - [TTS](resources/tts) · [HTTP Client](resources/http-client)
 - [SQL](resources/sql) · [Python](resources/python) · [Exec](resources/exec)
-- [API Response](resources/api-response)
+- [Scraper](resources/scraper) · [API Response](resources/api-response)
 
 ### Concepts
 - [Input Sources](concepts/input-sources) · [Unified API](concepts/unified-api)
