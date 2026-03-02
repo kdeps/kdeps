@@ -20,8 +20,10 @@ kdeps uses **expr-lang** for expressions, which provides:
 - ✅ **While loops** via the `loop.while` resource field
 - ✅ **List operations** (`filter`, `map`, `all`, `any`, `one`, `none`)
 
-Workflow resources are **Turing complete**: unbounded while-loop iteration is supported via the
-`loop` block on any resource, enabling arbitrary computation.
+Workflow resources are **Turing complete**: the `loop` block enables conditional iteration with
+mutable state. A default safety cap of 1000 iterations applies per resource execution; set
+`maxIterations` to any positive integer for tighter or looser control. Turing completeness is
+preserved because the cap is configurable, not fixed.
 
 ---
 

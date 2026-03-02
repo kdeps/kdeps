@@ -1085,7 +1085,10 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 	return nil
 }
 
-// defaultLoopMaxIterations is the default cap on loop iterations when not specified.
+// defaultLoopMaxIterations is the per-resource iteration cap applied when LoopConfig.MaxIterations
+// is not set (or is 0). This value is deliberately large enough to support real workloads while
+// still preventing accidental runaway loops. Users requiring more iterations can set
+// loop.maxIterations explicitly in their resource configuration.
 const defaultLoopMaxIterations = 1000
 
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
@@ -1158,9 +1161,9 @@ func (e *Engine) ExecuteWithLoop(
 	delete(ctx.Items, "loop.count")
 
 	// Return the collected results from all iterations.
-	// If no iterations ran, return nil.
+	// If no iterations ran, return an empty slice to distinguish from a nil error result.
 	if len(results) == 0 {
-		return nil, nil //nolint:nilnil // loop that never runs returns nil by design
+		return []interface{}{}, nil
 	}
 	if len(results) == 1 {
 		return lastResult, nil

@@ -1160,7 +1160,10 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 		result, err := engine.ExecuteWithLoop(resource, ctx)
 		require.NoError(t, err)
-		assert.Nil(t, result, "loop that never runs should return nil")
+		// A loop that never ran returns an empty slice.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop that never runs should return empty slice")
+		assert.Empty(t, results)
 	})
 
 	t.Run("loop respects maxIterations cap", func(t *testing.T) {
