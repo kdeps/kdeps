@@ -235,7 +235,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, embedding).
+// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	n := 0
 	if run.Chat != nil {
@@ -257,6 +257,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 		n++
 	}
 	if run.BotReply != nil {
+		n++
+	}
+	if run.Scraper != nil {
 		n++
 	}
 	if run.Embedding != nil {
@@ -284,14 +287,14 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryCount == 0 && !hasAPIResponse {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, embedding, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, apiResponse)",
 			nil,
 		)
 	}
 	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, embedding)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding)",
 			nil,
 		)
 	}
@@ -309,6 +312,11 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 	if resource.Run.HTTPClient != nil {
 		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
+			return err
+		}
+	}
+	if resource.Run.Scraper != nil {
+		if err := ValidateScraperConfig(resource.Run.Scraper); err != nil {
 			return err
 		}
 	}
@@ -885,6 +893,37 @@ func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationCo
 		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// ValidateScraperConfig validates a ScraperConfig.
+func ValidateScraperConfig(config *domain.ScraperConfig) error {
+	if config.Type == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.type is required", nil)
+	}
+
+	switch config.Type {
+	case domain.ScraperTypeURL, domain.ScraperTypePDF, domain.ScraperTypeWord,
+		domain.ScraperTypeExcel, domain.ScraperTypeImage, domain.ScraperTypeText,
+		domain.ScraperTypeHTML, domain.ScraperTypeCSV, domain.ScraperTypeMarkdown,
+		domain.ScraperTypePPTX, domain.ScraperTypeJSON, domain.ScraperTypeXML,
+		domain.ScraperTypeODT, domain.ScraperTypeODS, domain.ScraperTypeODP:
+		// valid
+	default:
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"scraper.type %q is not valid (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
+				config.Type,
+			),
+			nil,
+		)
+	}
+
+	if config.Source == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
 	}
 
 	return nil
