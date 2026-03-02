@@ -95,6 +95,7 @@ export default defineConfig({
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
             { text: 'TTS (Speech)', link: '/resources/tts' },
+            { text: 'Embedding (Vector DB)', link: '/resources/embedding' },
             { text: 'API Response', link: '/resources/api-response' },
           ]
         },
