@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -80,29 +81,50 @@ func makeZipUnsupportedMethod(t *testing.T, filename string, data []byte) []byte
 	localHeaderOffset := 0
 	// Local file header
 	buf.Write([]byte{0x50, 0x4B, 0x03, 0x04})
-	writeU16(20); writeU16(0); writeU16(unsupportedMethod)
-	writeU16(0); writeU16(0)
-	writeU32(crc); writeU32(uint32(len(data))); writeU32(uint32(len(data)))
-	writeU16(uint16(len(fnameBytes))); writeU16(0)
+	writeU16(20)
+	writeU16(0)
+	writeU16(unsupportedMethod)
+	writeU16(0)
+	writeU16(0)
+	writeU32(crc)
+	writeU32(uint32(len(data)))
+	writeU32(uint32(len(data)))
+	writeU16(uint16(len(fnameBytes)))
+	writeU16(0)
 	buf.Write(fnameBytes)
 	buf.Write(data)
 
 	cdOffset := buf.Len()
 	// Central directory header
 	buf.Write([]byte{0x50, 0x4B, 0x01, 0x02})
-	writeU16(20); writeU16(20); writeU16(0); writeU16(unsupportedMethod)
-	writeU16(0); writeU16(0)
-	writeU32(crc); writeU32(uint32(len(data))); writeU32(uint32(len(data)))
-	writeU16(uint16(len(fnameBytes))); writeU16(0); writeU16(0)
-	writeU16(0); writeU16(0)
-	writeU32(0); writeU32(uint32(localHeaderOffset))
+	writeU16(20)
+	writeU16(20)
+	writeU16(0)
+	writeU16(unsupportedMethod)
+	writeU16(0)
+	writeU16(0)
+	writeU32(crc)
+	writeU32(uint32(len(data)))
+	writeU32(uint32(len(data)))
+	writeU16(uint16(len(fnameBytes)))
+	writeU16(0)
+	writeU16(0)
+	writeU16(0)
+	writeU16(0)
+	writeU32(0)
+	writeU32(uint32(localHeaderOffset))
 	buf.Write(fnameBytes)
 
 	cdSize := buf.Len() - cdOffset
 	// End of central directory record
 	buf.Write([]byte{0x50, 0x4B, 0x05, 0x06})
-	writeU16(0); writeU16(0); writeU16(1); writeU16(1)
-	writeU32(uint32(cdSize)); writeU32(uint32(cdOffset)); writeU16(0)
+	writeU16(0)
+	writeU16(0)
+	writeU16(1)
+	writeU16(1)
+	writeU32(uint32(cdSize))
+	writeU32(uint32(cdOffset))
+	writeU16(0)
 
 	return buf.Bytes()
 }
@@ -233,8 +255,6 @@ func TestScrapeURL_TimeoutAlias(t *testing.T) {
 	// Test that Timeout field is aliased to TimeoutDuration via UnmarshalYAML
 	// by testing the promotion logic directly (YAML round-trip tested elsewhere)
 	cfg := &domain.ScraperConfig{
-		Type:    domain.ScraperTypeURL,
-		Source:  srv.URL,
 		Timeout: "10s",
 	}
 	// Simulate the alias promotion (UnmarshalYAML does this automatically)
@@ -249,7 +269,10 @@ func TestScrapeURL_TimeoutAlias(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtractTextFromHTML_Basic(t *testing.T) {
-	html := []byte(`<html><head><title>T</title><style>body{}</style></head><body><p>Hello</p><script>alert(1)</script></body></html>`)
+	html := []byte( //nolint:golines
+		`<html><head><title>T</title><style>body{}</style></head><body>` +
+			`<p>Hello</p><script>alert(1)</script></body></html>`,
+	)
 	out := ExtractTextFromHTMLForTesting(html)
 	assert.Contains(t, out, "Hello")
 	assert.NotContains(t, out, "alert")
@@ -316,11 +339,18 @@ func makeDocx(t *testing.T, text string) string {
 
 	// Minimal [Content_Types].xml
 	ct, _ := w.Create("[Content_Types].xml")
-	_, _ = ct.Write([]byte(`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`))
+	_, _ = ct.Write([]byte( //nolint:golines
+		`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+			`<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>` +
+			`</Types>`,
+	))
 
 	// word/document.xml with the text
 	doc, _ := w.Create("word/document.xml")
-	xmlContent := fmt.Sprintf(`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>%s</w:t></w:r></w:p></w:body></w:document>`, text)
+	const docXMLTmpl = `<?xml version="1.0"?>` +
+		`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+		`<w:body><w:p><w:r><w:t>%s</w:t></w:r></w:p></w:body></w:document>`
+	xmlContent := fmt.Sprintf(docXMLTmpl, text)
 	_, _ = doc.Write([]byte(xmlContent))
 
 	require.NoError(t, w.Close())
@@ -366,11 +396,19 @@ func makeXlsx(t *testing.T, cellValue string) string {
 
 	// [Content_Types].xml
 	ct, _ := w.Create("[Content_Types].xml")
-	_, _ = ct.Write([]byte(`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>`))
+	_, _ = ct.Write([]byte( //nolint:golines
+		`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+			`<Override PartName="/xl/worksheets/sheet1.xml"` +
+			` ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+			`</Types>`,
+	))
 
 	// xl/worksheets/sheet1.xml
 	sheet, _ := w.Create("xl/worksheets/sheet1.xml")
-	xmlContent := fmt.Sprintf(`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c><v>%s</v></c></row></sheetData></worksheet>`, cellValue)
+	const sheetXMLTmpl = `<?xml version="1.0"?>` +
+		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+		`<sheetData><row><c><v>%s</v></c></row></sheetData></worksheet>`
+	xmlContent := fmt.Sprintf(sheetXMLTmpl, cellValue)
 	_, _ = sheet.Write([]byte(xmlContent))
 
 	require.NoError(t, w.Close())
@@ -401,11 +439,17 @@ func TestScrapeExcel_WithSharedStrings(t *testing.T) {
 
 	// xl/sharedStrings.xml
 	ss, _ := w.Create("xl/sharedStrings.xml")
-	_, _ = ss.Write([]byte(`<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>SharedValue</t></si></sst>`))
+	_, _ = ss.Write([]byte( //nolint:golines
+		`<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+			`<si><t>SharedValue</t></si></sst>`,
+	))
 
 	// xl/worksheets/sheet1.xml – cell with type="s" (shared string index 0)
 	sheet, _ := w.Create("xl/worksheets/sheet1.xml")
-	_, _ = sheet.Write([]byte(`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c t="s"><v>0</v></c></row></sheetData></worksheet>`))
+	_, _ = sheet.Write([]byte( //nolint:golines
+		`<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+			`<sheetData><row><c t="s"><v>0</v></c></row></sheetData></worksheet>`,
+	))
 
 	require.NoError(t, w.Close())
 	require.NoError(t, f.Close())
@@ -421,9 +465,7 @@ func TestScrapeExcel_WithSharedStrings(t *testing.T) {
 
 func TestScrapeImage_TesseractNotFound(t *testing.T) {
 	// Override PATH to guarantee tesseract is not found
-	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", "")
-	defer func() { _ = os.Setenv("PATH", origPath) }()
 
 	_, err := ScrapeImageForTesting("/tmp/test.png", "eng")
 	require.Error(t, err)
@@ -559,8 +601,6 @@ func TestGetHTTPClient(t *testing.T) {
 func TestScraperConfig_TimeoutAlias_Direct(t *testing.T) {
 	// Test that when Timeout is set and TimeoutDuration is empty, alias works.
 	cfg := &domain.ScraperConfig{
-		Type:    domain.ScraperTypeURL,
-		Source:  "http://example.com",
 		Timeout: "5s",
 	}
 	// Simulate what UnmarshalYAML does for alias promotion
@@ -607,7 +647,7 @@ func TestRemoveTagBlock(t *testing.T) {
 // extractExcelCells edge case – invalid XML
 // ---------------------------------------------------------------------------
 
-func TestExtractExcelCells_InvalidXML(t *testing.T) {
+func TestExtractExcelCells_InvalidXML(_ *testing.T) {
 	_, err := extractExcelCells(bytes.NewReader([]byte("not xml")), nil)
 	// The XML decoder returns an error for non-XML data or just treats as no tokens
 	// Either way, no panic should occur.
@@ -619,7 +659,10 @@ func TestExtractExcelCells_InvalidXML(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtractExcelCells_MultipleRows(t *testing.T) {
-	xmlData := `<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row><c><v>A1</v></c><c><v>B1</v></c></row><row><c><v>A2</v></c></row></sheetData></worksheet>`
+	xmlData := `<?xml version="1.0"?>` + //nolint:golines
+		`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+		`<sheetData><row><c><v>A1</v></c><c><v>B1</v></c></row>` +
+		`<row><c><v>A2</v></c></row></sheetData></worksheet>`
 	content, err := extractExcelCells(strings.NewReader(xmlData), nil)
 	require.NoError(t, err)
 	assert.Contains(t, content, "A1")
@@ -682,9 +725,7 @@ func TestExecute_ExcelSuccess(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExecute_ImageNoTesseract(t *testing.T) {
-	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", "")
-	defer func() { _ = os.Setenv("PATH", origPath) }()
 
 	e := NewAdapter()
 	ctx := makeCtx(t)
@@ -701,7 +742,7 @@ func TestExecute_ImageNoTesseract(t *testing.T) {
 // XML decode tests
 // ---------------------------------------------------------------------------
 
-func TestExtractTextFromXML_InvalidXML(t *testing.T) {
+func TestExtractTextFromXML_InvalidXML(_ *testing.T) {
 	_, err := extractTextFromXML(strings.NewReader("<unclosed"), map[string]bool{"t": true})
 	// xml decoder may return an error or not - either way no panic
 	_ = err
@@ -754,37 +795,37 @@ func TestReadSharedStrings_Valid(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestScrapeText_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.txt")
-require.NoError(t, err)
-_, _ = f.WriteString("Hello plain text\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.txt")
+	require.NoError(t, err)
+	_, _ = f.WriteString("Hello plain text\n")
+	require.NoError(t, f.Close())
 
-content, err := ScrapeTextForTesting(f.Name())
-require.NoError(t, err)
-assert.Equal(t, "Hello plain text", content)
+	content, err := ScrapeTextForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Equal(t, "Hello plain text", content)
 }
 
 func TestScrapeText_NotFound(t *testing.T) {
-_, err := ScrapeTextForTesting("/tmp/kdeps_nonexistent_text.txt")
-require.Error(t, err)
+	_, err := ScrapeTextForTesting("/tmp/kdeps_nonexistent_text.txt")
+	require.Error(t, err)
 }
 
 func TestExecute_TextSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.txt")
-require.NoError(t, err)
-_, _ = f.WriteString("  execute text  ")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.txt")
+	require.NoError(t, err)
+	_, _ = f.WriteString("  execute text  ")
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeText,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Equal(t, "execute text", m["content"])
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeText,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, "execute text", m["content"])
 }
 
 // ---------------------------------------------------------------------------
@@ -792,38 +833,38 @@ assert.Equal(t, "execute text", m["content"])
 // ---------------------------------------------------------------------------
 
 func TestScrapeHTMLFile_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.html")
-require.NoError(t, err)
-_, _ = f.WriteString(`<html><body><p>Local HTML</p></body></html>`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.html")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`<html><body><p>Local HTML</p></body></html>`)
+	require.NoError(t, f.Close())
 
-content, err := ScrapeHTMLFileForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "Local HTML")
+	content, err := ScrapeHTMLFileForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "Local HTML")
 }
 
 func TestScrapeHTMLFile_NotFound(t *testing.T) {
-_, err := ScrapeHTMLFileForTesting("/tmp/kdeps_nonexistent.html")
-require.Error(t, err)
+	_, err := ScrapeHTMLFileForTesting("/tmp/kdeps_nonexistent.html")
+	require.Error(t, err)
 }
 
 func TestExecute_HTMLFileSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.html")
-require.NoError(t, err)
-_, _ = f.WriteString(`<html><body><h1>Title</h1><p>Paragraph</p></body></html>`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.html")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`<html><body><h1>Title</h1><p>Paragraph</p></body></html>`)
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeHTML,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Title")
-assert.Contains(t, m["content"].(string), "Paragraph")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeHTML,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Title")
+	assert.Contains(t, m["content"].(string), "Paragraph")
 }
 
 // ---------------------------------------------------------------------------
@@ -831,51 +872,51 @@ assert.Contains(t, m["content"].(string), "Paragraph")
 // ---------------------------------------------------------------------------
 
 func TestScrapeCSV_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.csv")
-require.NoError(t, err)
-_, _ = f.WriteString("name,age\nAlice,30\nBob,25\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.csv")
+	require.NoError(t, err)
+	_, _ = f.WriteString("name,age\nAlice,30\nBob,25\n")
+	require.NoError(t, f.Close())
 
-content, err := ScrapeCSVForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "Alice")
-assert.Contains(t, content, "Bob")
-assert.Contains(t, content, "30")
+	content, err := ScrapeCSVForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "Alice")
+	assert.Contains(t, content, "Bob")
+	assert.Contains(t, content, "30")
 }
 
 func TestScrapeCSV_TabSeparated(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.csv")
-require.NoError(t, err)
-_, _ = f.WriteString("a,b,c\n1,2,3\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.csv")
+	require.NoError(t, err)
+	_, _ = f.WriteString("a,b,c\n1,2,3\n")
+	require.NoError(t, f.Close())
 
-content, err := ScrapeCSVForTesting(f.Name())
-require.NoError(t, err)
-// rows are joined with tabs
-assert.Contains(t, content, "\t")
+	content, err := ScrapeCSVForTesting(f.Name())
+	require.NoError(t, err)
+	// rows are joined with tabs
+	assert.Contains(t, content, "\t")
 }
 
 func TestScrapeCSV_NotFound(t *testing.T) {
-_, err := ScrapeCSVForTesting("/tmp/kdeps_nonexistent.csv")
-require.Error(t, err)
+	_, err := ScrapeCSVForTesting("/tmp/kdeps_nonexistent.csv")
+	require.Error(t, err)
 }
 
 func TestExecute_CSVSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.csv")
-require.NoError(t, err)
-_, _ = f.WriteString("x,y\n10,20\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.csv")
+	require.NoError(t, err)
+	_, _ = f.WriteString("x,y\n10,20\n")
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeCSV,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "10")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeCSV,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "10")
 }
 
 // ---------------------------------------------------------------------------
@@ -883,96 +924,96 @@ assert.Contains(t, m["content"].(string), "10")
 // ---------------------------------------------------------------------------
 
 func TestStripMarkdown_Headings(t *testing.T) {
-in := "# Heading 1\n## Heading 2\nNormal text"
-out := StripMarkdownForTesting(in)
-assert.Contains(t, out, "Heading 1")
-assert.Contains(t, out, "Heading 2")
-assert.Contains(t, out, "Normal text")
-assert.NotContains(t, out, "#")
+	in := "# Heading 1\n## Heading 2\nNormal text"
+	out := StripMarkdownForTesting(in)
+	assert.Contains(t, out, "Heading 1")
+	assert.Contains(t, out, "Heading 2")
+	assert.Contains(t, out, "Normal text")
+	assert.NotContains(t, out, "#")
 }
 
 func TestStripMarkdown_Bold(t *testing.T) {
-out := StripMarkdownForTesting("This is **bold** text")
-assert.Equal(t, "This is bold text", out)
+	out := StripMarkdownForTesting("This is **bold** text")
+	assert.Equal(t, "This is bold text", out)
 }
 
 func TestStripMarkdown_Italic(t *testing.T) {
-out := StripMarkdownForTesting("This is *italic* text")
-assert.Equal(t, "This is italic text", out)
+	out := StripMarkdownForTesting("This is *italic* text")
+	assert.Equal(t, "This is italic text", out)
 }
 
 func TestStripMarkdown_Link(t *testing.T) {
-out := StripMarkdownForTesting("Click [here](https://example.com) for info")
-assert.Contains(t, out, "here")
-assert.NotContains(t, out, "https://example.com")
+	out := StripMarkdownForTesting("Click [here](https://example.com) for info")
+	assert.Contains(t, out, "here")
+	assert.NotContains(t, out, "https://example.com")
 }
 
 func TestStripMarkdown_Image(t *testing.T) {
-out := StripMarkdownForTesting("![alt text](image.png)")
-assert.Contains(t, out, "alt text")
-assert.NotContains(t, out, "image.png")
+	out := StripMarkdownForTesting("![alt text](image.png)")
+	assert.Contains(t, out, "alt text")
+	assert.NotContains(t, out, "image.png")
 }
 
 func TestStripMarkdown_UnorderedList(t *testing.T) {
-out := StripMarkdownForTesting("- item one\n- item two")
-assert.Contains(t, out, "item one")
-assert.Contains(t, out, "item two")
-assert.NotContains(t, out, "- ")
+	out := StripMarkdownForTesting("- item one\n- item two")
+	assert.Contains(t, out, "item one")
+	assert.Contains(t, out, "item two")
+	assert.NotContains(t, out, "- ")
 }
 
 func TestStripMarkdown_OrderedList(t *testing.T) {
-out := StripMarkdownForTesting("1. first\n2. second")
-assert.Contains(t, out, "first")
-assert.Contains(t, out, "second")
+	out := StripMarkdownForTesting("1. first\n2. second")
+	assert.Contains(t, out, "first")
+	assert.Contains(t, out, "second")
 }
 
 func TestStripMarkdown_HorizontalRule(t *testing.T) {
-out := StripMarkdownForTesting("Before\n---\nAfter")
-assert.Contains(t, out, "Before")
-assert.Contains(t, out, "After")
-assert.NotContains(t, out, "---")
+	out := StripMarkdownForTesting("Before\n---\nAfter")
+	assert.Contains(t, out, "Before")
+	assert.Contains(t, out, "After")
+	assert.NotContains(t, out, "---")
 }
 
 func TestStripMarkdown_FencedCode(t *testing.T) {
-out := StripMarkdownForTesting("Text\n```go\ncode here\n```\nMore")
-assert.Contains(t, out, "Text")
-assert.Contains(t, out, "More")
+	out := StripMarkdownForTesting("Text\n```go\ncode here\n```\nMore")
+	assert.Contains(t, out, "Text")
+	assert.Contains(t, out, "More")
 }
 
 func TestScrapeMarkdown_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.md")
-require.NoError(t, err)
-_, _ = f.WriteString("# Title\n\nSome **bold** paragraph.\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.md")
+	require.NoError(t, err)
+	_, _ = f.WriteString("# Title\n\nSome **bold** paragraph.\n")
+	require.NoError(t, f.Close())
 
-content, err := ScrapeMarkdownForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "Title")
-assert.Contains(t, content, "paragraph")
-assert.NotContains(t, content, "**")
+	content, err := ScrapeMarkdownForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "Title")
+	assert.Contains(t, content, "paragraph")
+	assert.NotContains(t, content, "**")
 }
 
 func TestScrapeMarkdown_NotFound(t *testing.T) {
-_, err := ScrapeMarkdownForTesting("/tmp/kdeps_nonexistent.md")
-require.Error(t, err)
+	_, err := ScrapeMarkdownForTesting("/tmp/kdeps_nonexistent.md")
+	require.Error(t, err)
 }
 
 func TestExecute_MarkdownSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.md")
-require.NoError(t, err)
-_, _ = f.WriteString("# Hello Markdown\nThis is a test.\n")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.md")
+	require.NoError(t, err)
+	_, _ = f.WriteString("# Hello Markdown\nThis is a test.\n")
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeMarkdown,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Hello Markdown")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeMarkdown,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Hello Markdown")
 }
 
 // ---------------------------------------------------------------------------
@@ -980,61 +1021,70 @@ assert.Contains(t, m["content"].(string), "Hello Markdown")
 // ---------------------------------------------------------------------------
 
 func makePPTX(t *testing.T, text string) string {
-t.Helper()
-dir := t.TempDir()
-path := filepath.Join(dir, "test.pptx")
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.pptx")
 
-f, err := os.Create(path)
-require.NoError(t, err)
+	f, err := os.Create(path)
+	require.NoError(t, err)
 
-w := zip.NewWriter(f)
+	w := zip.NewWriter(f)
 
-ct, _ := w.Create("[Content_Types].xml")
-_, _ = ct.Write([]byte(`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>`))
+	ct, _ := w.Create("[Content_Types].xml")
+	_, _ = ct.Write([]byte( //nolint:golines
+		`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+			`<Override PartName="/ppt/slides/slide1.xml"` +
+			` ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>` +
+			`</Types>`,
+	))
 
-slide, _ := w.Create("ppt/slides/slide1.xml")
-xmlContent := fmt.Sprintf(`<?xml version="1.0"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>%s</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`, text)
-_, _ = slide.Write([]byte(xmlContent))
+	slide, _ := w.Create("ppt/slides/slide1.xml")
+	const slideXMLTmpl = `<?xml version="1.0"?>` +
+		`<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"` +
+		` xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+		`<p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>%s</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`
+	xmlContent := fmt.Sprintf(slideXMLTmpl, text)
+	_, _ = slide.Write([]byte(xmlContent))
 
-require.NoError(t, w.Close())
-require.NoError(t, f.Close())
-return path
+	require.NoError(t, w.Close())
+	require.NoError(t, f.Close())
+	return path
 }
 
 func TestScrapePPTX_Success(t *testing.T) {
-path := makePPTX(t, "Hello from PowerPoint")
-content, err := ScrapePPTXForTesting(path)
-require.NoError(t, err)
-assert.Contains(t, content, "Hello from PowerPoint")
+	path := makePPTX(t, "Hello from PowerPoint")
+	content, err := ScrapePPTXForTesting(path)
+	require.NoError(t, err)
+	assert.Contains(t, content, "Hello from PowerPoint")
 }
 
 func TestScrapePPTX_NotExist(t *testing.T) {
-_, err := ScrapePPTXForTesting("/tmp/kdeps_nonexistent.pptx")
-require.Error(t, err)
+	_, err := ScrapePPTXForTesting("/tmp/kdeps_nonexistent.pptx")
+	require.Error(t, err)
 }
 
 func TestScrapePPTX_NotZip(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.pptx")
-require.NoError(t, err)
-_, _ = f.WriteString("not a zip")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.pptx")
+	require.NoError(t, err)
+	_, _ = f.WriteString("not a zip")
+	require.NoError(t, f.Close())
 
-_, err = ScrapePPTXForTesting(f.Name())
-require.Error(t, err)
+	_, err = ScrapePPTXForTesting(f.Name())
+	require.Error(t, err)
 }
 
 func TestExecute_PPTXSuccess(t *testing.T) {
-path := makePPTX(t, "Execute PPTX Test")
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypePPTX,
-Source: path,
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Execute PPTX Test")
+	path := makePPTX(t, "Execute PPTX Test")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypePPTX,
+		Source: path,
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Execute PPTX Test")
 }
 
 // ---------------------------------------------------------------------------
@@ -1042,61 +1092,61 @@ assert.Contains(t, m["content"].(string), "Execute PPTX Test")
 // ---------------------------------------------------------------------------
 
 func TestScrapeJSON_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.json")
-require.NoError(t, err)
-_, _ = f.WriteString(`{"name":"Alice","age":30}`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`{"name":"Alice","age":30}`)
+	require.NoError(t, f.Close())
 
-content, err := ScrapeJSONForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "Alice")
-assert.Contains(t, content, "30")
+	content, err := ScrapeJSONForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "Alice")
+	assert.Contains(t, content, "30")
 }
 
 func TestScrapeJSON_Array(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.json")
-require.NoError(t, err)
-_, _ = f.WriteString(`[1, 2, 3]`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`[1, 2, 3]`)
+	require.NoError(t, f.Close())
 
-content, err := ScrapeJSONForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "1")
-assert.Contains(t, content, "2")
+	content, err := ScrapeJSONForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "1")
+	assert.Contains(t, content, "2")
 }
 
 func TestScrapeJSON_Invalid(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.json")
-require.NoError(t, err)
-_, _ = f.WriteString(`not json {`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`not json {`)
+	require.NoError(t, f.Close())
 
-_, err = ScrapeJSONForTesting(f.Name())
-require.Error(t, err)
-assert.Contains(t, err.Error(), "invalid JSON")
+	_, err = ScrapeJSONForTesting(f.Name())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid JSON")
 }
 
 func TestScrapeJSON_NotFound(t *testing.T) {
-_, err := ScrapeJSONForTesting("/tmp/kdeps_nonexistent.json")
-require.Error(t, err)
+	_, err := ScrapeJSONForTesting("/tmp/kdeps_nonexistent.json")
+	require.Error(t, err)
 }
 
 func TestExecute_JSONSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.json")
-require.NoError(t, err)
-_, _ = f.WriteString(`{"key":"value"}`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`{"key":"value"}`)
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeJSON,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "value")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeJSON,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "value")
 }
 
 // ---------------------------------------------------------------------------
@@ -1104,54 +1154,54 @@ assert.Contains(t, m["content"].(string), "value")
 // ---------------------------------------------------------------------------
 
 func TestScrapeXMLFile_Success(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.xml")
-require.NoError(t, err)
-_, _ = f.WriteString(`<root><item>Hello XML</item><item>World</item></root>`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.xml")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`<root><item>Hello XML</item><item>World</item></root>`)
+	require.NoError(t, f.Close())
 
-content, err := ScrapeXMLFileForTesting(f.Name())
-require.NoError(t, err)
-assert.Contains(t, content, "Hello XML")
-assert.Contains(t, content, "World")
+	content, err := ScrapeXMLFileForTesting(f.Name())
+	require.NoError(t, err)
+	assert.Contains(t, content, "Hello XML")
+	assert.Contains(t, content, "World")
 }
 
 func TestScrapeXMLFile_NotFound(t *testing.T) {
-_, err := ScrapeXMLFileForTesting("/tmp/kdeps_nonexistent.xml")
-require.Error(t, err)
+	_, err := ScrapeXMLFileForTesting("/tmp/kdeps_nonexistent.xml")
+	require.Error(t, err)
 }
 
 func TestExtractAllXMLText_Basic(t *testing.T) {
-xmlData := `<doc><title>My Title</title><body>Body text</body></doc>`
-content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
-require.NoError(t, err)
-assert.Contains(t, content, "My Title")
-assert.Contains(t, content, "Body text")
+	xmlData := `<doc><title>My Title</title><body>Body text</body></doc>`
+	content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
+	require.NoError(t, err)
+	assert.Contains(t, content, "My Title")
+	assert.Contains(t, content, "Body text")
 }
 
 func TestExtractAllXMLText_Nested(t *testing.T) {
-xmlData := `<a><b><c>deep</c></b></a>`
-content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
-require.NoError(t, err)
-assert.Contains(t, content, "deep")
+	xmlData := `<a><b><c>deep</c></b></a>`
+	content, err := ExtractAllXMLTextForTesting(strings.NewReader(xmlData))
+	require.NoError(t, err)
+	assert.Contains(t, content, "deep")
 }
 
 func TestExecute_XMLSuccess(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.xml")
-require.NoError(t, err)
-_, _ = f.WriteString(`<data><entry>42</entry><entry>hello</entry></data>`)
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.xml")
+	require.NoError(t, err)
+	_, _ = f.WriteString(`<data><entry>42</entry><entry>hello</entry></data>`)
+	require.NoError(t, f.Close())
 
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeXML,
-Source: f.Name(),
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "42")
-assert.Contains(t, m["content"].(string), "hello")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeXML,
+		Source: f.Name(),
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "42")
+	assert.Contains(t, m["content"].(string), "hello")
 }
 
 // ---------------------------------------------------------------------------
@@ -1159,9 +1209,9 @@ assert.Contains(t, m["content"].(string), "hello")
 // ---------------------------------------------------------------------------
 
 func TestIsAllDigits(t *testing.T) {
-assert.True(t, isAllDigits("123"))
-assert.False(t, isAllDigits("12a"))
-assert.False(t, isAllDigits(""))
+	assert.True(t, isAllDigits("123"))
+	assert.False(t, isAllDigits("12a"))
+	assert.False(t, isAllDigits(""))
 }
 
 // ---------------------------------------------------------------------------
@@ -1169,32 +1219,32 @@ assert.False(t, isAllDigits(""))
 // ---------------------------------------------------------------------------
 
 func TestValidateScraperConfig_NewTypes(t *testing.T) {
-newTypes := []string{"text", "html", "csv", "markdown", "pptx", "json", "xml"}
-for _, typ := range newTypes {
-t.Run(typ, func(t *testing.T) {
-err := validateScraperCfg(typ, "/some/path")
-assert.NoError(t, err, "type %q should be valid", typ)
-})
-}
+	newTypes := []string{"text", "html", "csv", "markdown", "pptx", "json", "xml"}
+	for _, typ := range newTypes {
+		t.Run(typ, func(t *testing.T) {
+			err := validateScraperCfg(typ, "/some/path")
+			assert.NoError(t, err, "type %q should be valid", typ)
+		})
+	}
 }
 
 // validateScraperCfg is a package-level helper that calls ValidateScraperConfig
 // through the domain + validator chain without importing the validator package.
 // Since we are inside the scraper package, we test it via Execute with unknown type.
 func validateScraperCfg(typ, source string) error {
-// We test type validation implicitly: if Execute reaches the switch default,
-// the type is unknown; otherwise it is valid (regardless of file existence).
-// For a direct unit-test of ValidateScraperConfig we rely on the validator
-// package tests – here we just confirm the executor accepts these types.
-cfg := &domain.ScraperConfig{Type: typ, Source: source}
-// A non-existent path will produce an error AFTER type validation passes,
-// meaning the error message won't say "unknown type".
-e := NewAdapter()
-_, err := e.Execute(nil, cfg)
-if err != nil && strings.Contains(err.Error(), "unknown type") {
-return err
-}
-return nil
+	// We test type validation implicitly: if Execute reaches the switch default,
+	// the type is unknown; otherwise it is valid (regardless of file existence).
+	// For a direct unit-test of ValidateScraperConfig we rely on the validator
+	// package tests – here we just confirm the executor accepts these types.
+	cfg := &domain.ScraperConfig{Type: typ, Source: source}
+	// A non-existent path will produce an error AFTER type validation passes,
+	// meaning the error message won't say "unknown type".
+	e := NewAdapter()
+	_, err := e.Execute(nil, cfg)
+	if err != nil && strings.Contains(err.Error(), "unknown type") {
+		return err
+	}
+	return nil
 }
 
 // ===========================================================================
@@ -1204,37 +1254,37 @@ return nil
 // makeODF creates a minimal ODF archive (ZIP) with content.xml containing the
 // given text wrapped in a <text:p> element, using the ODF text namespace.
 func makeODF(t *testing.T, ext, text string) string {
-t.Helper()
-dir := t.TempDir()
-path := filepath.Join(dir, "test."+ext)
+	t.Helper()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test."+ext)
 
-f, err := os.Create(path)
-require.NoError(t, err)
+	f, err := os.Create(path)
+	require.NoError(t, err)
 
-w := zip.NewWriter(f)
+	w := zip.NewWriter(f)
 
-// Minimal mimetype entry (not strictly required here, but realistic)
-mt, _ := w.Create("mimetype")
-_, _ = mt.Write([]byte("application/vnd.oasis.opendocument.text"))
+	// Minimal mimetype entry (not strictly required here, but realistic)
+	mt, _ := w.Create("mimetype")
+	_, _ = mt.Write([]byte("application/vnd.oasis.opendocument.text"))
 
-// content.xml with a single text:p element
-content, _ := w.Create("content.xml")
-xmlContent := fmt.Sprintf(
-`<?xml version="1.0" encoding="UTF-8"?>`+
-`<office:document-content `+
-`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" `+
-`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">`+
-`<office:body><office:text>`+
-`<text:p>%s</text:p>`+
-`</office:text></office:body>`+
-`</office:document-content>`,
-text,
-)
-_, _ = content.Write([]byte(xmlContent))
+	// content.xml with a single text:p element
+	content, _ := w.Create("content.xml")
+	xmlContent := fmt.Sprintf(
+		`<?xml version="1.0" encoding="UTF-8"?>`+
+			`<office:document-content `+
+			`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" `+
+			`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">`+
+			`<office:body><office:text>`+
+			`<text:p>%s</text:p>`+
+			`</office:text></office:body>`+
+			`</office:document-content>`,
+		text,
+	)
+	_, _ = content.Write([]byte(xmlContent))
 
-require.NoError(t, w.Close())
-require.NoError(t, f.Close())
-return path
+	require.NoError(t, w.Close())
+	require.NoError(t, f.Close())
+	return path
 }
 
 // ---------------------------------------------------------------------------
@@ -1242,56 +1292,56 @@ return path
 // ---------------------------------------------------------------------------
 
 func TestScrapeODT_Success(t *testing.T) {
-path := makeODF(t, "odt", "Hello from Writer")
-content, err := ScrapeODTForTesting(path)
-require.NoError(t, err)
-assert.Contains(t, content, "Hello from Writer")
+	path := makeODF(t, "odt", "Hello from Writer")
+	content, err := ScrapeODTForTesting(path)
+	require.NoError(t, err)
+	assert.Contains(t, content, "Hello from Writer")
 }
 
 func TestScrapeODT_NotExist(t *testing.T) {
-_, err := ScrapeODTForTesting("/tmp/kdeps_nonexistent.odt")
-require.Error(t, err)
+	_, err := ScrapeODTForTesting("/tmp/kdeps_nonexistent.odt")
+	require.Error(t, err)
 }
 
 func TestScrapeODT_NotZip(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.odt")
-require.NoError(t, err)
-_, _ = f.WriteString("not a zip file")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.odt")
+	require.NoError(t, err)
+	_, _ = f.WriteString("not a zip file")
+	require.NoError(t, f.Close())
 
-_, err = ScrapeODTForTesting(f.Name())
-require.Error(t, err)
+	_, err = ScrapeODTForTesting(f.Name())
+	require.Error(t, err)
 }
 
 func TestScrapeODT_NoContentXML(t *testing.T) {
-// ZIP without content.xml
-dir := t.TempDir()
-path := filepath.Join(dir, "empty.odt")
-f, err := os.Create(path)
-require.NoError(t, err)
-w := zip.NewWriter(f)
-other, _ := w.Create("styles.xml")
-_, _ = other.Write([]byte("<styles/>"))
-require.NoError(t, w.Close())
-require.NoError(t, f.Close())
+	// ZIP without content.xml
+	dir := t.TempDir()
+	path := filepath.Join(dir, "empty.odt")
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	w := zip.NewWriter(f)
+	other, _ := w.Create("styles.xml")
+	_, _ = other.Write([]byte("<styles/>"))
+	require.NoError(t, w.Close())
+	require.NoError(t, f.Close())
 
-_, err = ScrapeODTForTesting(path)
-require.Error(t, err)
-assert.Contains(t, err.Error(), "content.xml not found")
+	_, err = ScrapeODTForTesting(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "content.xml not found")
 }
 
 func TestExecute_ODTSuccess(t *testing.T) {
-path := makeODF(t, "odt", "Execute ODT Test")
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeODT,
-Source: path,
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Execute ODT Test")
+	path := makeODF(t, "odt", "Execute ODT Test")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeODT,
+		Source: path,
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Execute ODT Test")
 }
 
 // ---------------------------------------------------------------------------
@@ -1299,39 +1349,39 @@ assert.Contains(t, m["content"].(string), "Execute ODT Test")
 // ---------------------------------------------------------------------------
 
 func TestScrapeODS_Success(t *testing.T) {
-path := makeODF(t, "ods", "Sheet Cell Value")
-content, err := ScrapeODSForTesting(path)
-require.NoError(t, err)
-assert.Contains(t, content, "Sheet Cell Value")
+	path := makeODF(t, "ods", "Sheet Cell Value")
+	content, err := ScrapeODSForTesting(path)
+	require.NoError(t, err)
+	assert.Contains(t, content, "Sheet Cell Value")
 }
 
 func TestScrapeODS_NotExist(t *testing.T) {
-_, err := ScrapeODSForTesting("/tmp/kdeps_nonexistent.ods")
-require.Error(t, err)
+	_, err := ScrapeODSForTesting("/tmp/kdeps_nonexistent.ods")
+	require.Error(t, err)
 }
 
 func TestScrapeODS_NotZip(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.ods")
-require.NoError(t, err)
-_, _ = f.WriteString("not a zip file")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.ods")
+	require.NoError(t, err)
+	_, _ = f.WriteString("not a zip file")
+	require.NoError(t, f.Close())
 
-_, err = ScrapeODSForTesting(f.Name())
-require.Error(t, err)
+	_, err = ScrapeODSForTesting(f.Name())
+	require.Error(t, err)
 }
 
 func TestExecute_ODSSuccess(t *testing.T) {
-path := makeODF(t, "ods", "Execute ODS Test")
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeODS,
-Source: path,
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Execute ODS Test")
+	path := makeODF(t, "ods", "Execute ODS Test")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeODS,
+		Source: path,
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Execute ODS Test")
 }
 
 // ---------------------------------------------------------------------------
@@ -1339,39 +1389,39 @@ assert.Contains(t, m["content"].(string), "Execute ODS Test")
 // ---------------------------------------------------------------------------
 
 func TestScrapeODP_Success(t *testing.T) {
-path := makeODF(t, "odp", "Slide One Title")
-content, err := ScrapeODPForTesting(path)
-require.NoError(t, err)
-assert.Contains(t, content, "Slide One Title")
+	path := makeODF(t, "odp", "Slide One Title")
+	content, err := ScrapeODPForTesting(path)
+	require.NoError(t, err)
+	assert.Contains(t, content, "Slide One Title")
 }
 
 func TestScrapeODP_NotExist(t *testing.T) {
-_, err := ScrapeODPForTesting("/tmp/kdeps_nonexistent.odp")
-require.Error(t, err)
+	_, err := ScrapeODPForTesting("/tmp/kdeps_nonexistent.odp")
+	require.Error(t, err)
 }
 
 func TestScrapeODP_NotZip(t *testing.T) {
-f, err := os.CreateTemp(t.TempDir(), "*.odp")
-require.NoError(t, err)
-_, _ = f.WriteString("not a zip file")
-require.NoError(t, f.Close())
+	f, err := os.CreateTemp(t.TempDir(), "*.odp")
+	require.NoError(t, err)
+	_, _ = f.WriteString("not a zip file")
+	require.NoError(t, f.Close())
 
-_, err = ScrapeODPForTesting(f.Name())
-require.Error(t, err)
+	_, err = ScrapeODPForTesting(f.Name())
+	require.Error(t, err)
 }
 
 func TestExecute_ODPSuccess(t *testing.T) {
-path := makeODF(t, "odp", "Execute ODP Test")
-e := NewAdapter()
-ctx := makeCtx(t)
-result, err := e.Execute(ctx, &domain.ScraperConfig{
-Type:   domain.ScraperTypeODP,
-Source: path,
-})
-require.NoError(t, err)
-m := result.(map[string]interface{})
-assert.Equal(t, true, m["success"])
-assert.Contains(t, m["content"].(string), "Execute ODP Test")
+	path := makeODF(t, "odp", "Execute ODP Test")
+	e := NewAdapter()
+	ctx := makeCtx(t)
+	result, err := e.Execute(ctx, &domain.ScraperConfig{
+		Type:   domain.ScraperTypeODP,
+		Source: path,
+	})
+	require.NoError(t, err)
+	m := result.(map[string]interface{})
+	assert.Equal(t, true, m["success"])
+	assert.Contains(t, m["content"].(string), "Execute ODP Test")
 }
 
 // ---------------------------------------------------------------------------
@@ -1379,32 +1429,32 @@ assert.Contains(t, m["content"].(string), "Execute ODP Test")
 // ---------------------------------------------------------------------------
 
 func TestScrapeODT_MultipleParagraphs(t *testing.T) {
-dir := t.TempDir()
-path := filepath.Join(dir, "multi.odt")
-f, err := os.Create(path)
-require.NoError(t, err)
-w := zip.NewWriter(f)
-content, _ := w.Create("content.xml")
-_, _ = content.Write([]byte(
-`<?xml version="1.0"?>` +
-`<office:document-content ` +
-`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ` +
-`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">` +
-`<office:body><office:text>` +
-`<text:p>First paragraph</text:p>` +
-`<text:p>Second paragraph</text:p>` +
-`<text:h>A heading</text:h>` +
-`</office:text></office:body>` +
-`</office:document-content>`,
-))
-require.NoError(t, w.Close())
-require.NoError(t, f.Close())
+	dir := t.TempDir()
+	path := filepath.Join(dir, "multi.odt")
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	w := zip.NewWriter(f)
+	content, _ := w.Create("content.xml")
+	_, _ = content.Write([]byte(
+		`<?xml version="1.0"?>` +
+			`<office:document-content ` +
+			`xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" ` +
+			`xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">` +
+			`<office:body><office:text>` +
+			`<text:p>First paragraph</text:p>` +
+			`<text:p>Second paragraph</text:p>` +
+			`<text:h>A heading</text:h>` +
+			`</office:text></office:body>` +
+			`</office:document-content>`,
+	))
+	require.NoError(t, w.Close())
+	require.NoError(t, f.Close())
 
-content2, err := ScrapeODTForTesting(path)
-require.NoError(t, err)
-assert.Contains(t, content2, "First paragraph")
-assert.Contains(t, content2, "Second paragraph")
-assert.Contains(t, content2, "A heading")
+	content2, err := ScrapeODTForTesting(path)
+	require.NoError(t, err)
+	assert.Contains(t, content2, "First paragraph")
+	assert.Contains(t, content2, "Second paragraph")
+	assert.Contains(t, content2, "A heading")
 }
 
 // ---------------------------------------------------------------------------
@@ -1412,13 +1462,13 @@ assert.Contains(t, content2, "A heading")
 // ---------------------------------------------------------------------------
 
 func TestValidateScraperConfig_ODFTypes(t *testing.T) {
-odfTypes := []string{"odt", "ods", "odp"}
-for _, typ := range odfTypes {
-t.Run(typ, func(t *testing.T) {
-err := validateScraperCfg(typ, "/some/path."+typ)
-assert.NoError(t, err, "type %q should be valid", typ)
-})
-}
+	odfTypes := []string{"odt", "ods", "odp"}
+	for _, typ := range odfTypes {
+		t.Run(typ, func(t *testing.T) {
+			err := validateScraperCfg(typ, "/some/path."+typ)
+			assert.NoError(t, err, "type %q should be valid", typ)
+		})
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -1492,12 +1542,11 @@ func TestRemoveTagBlock_UnclosedTag(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // writeFakeScript writes a shell script to dir/name that echoes fakeOutput.
-func writeFakeScript(t *testing.T, dir, name, fakeOutput string) string {
+func writeFakeScript(t *testing.T, dir, name, fakeOutput string) {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	script := "#!/bin/sh\necho '" + fakeOutput + "'\n"
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o755)) //nolint:gosec
-	return path
 }
 
 func TestScrapePDF_WithFakePDFToText(t *testing.T) {
@@ -1851,7 +1900,7 @@ func TestScrapeODFFile_UnsupportedCompression(t *testing.T) {
 type errorReader struct{}
 
 func (errorReader) Read(_ []byte) (int, error) {
-	return 0, fmt.Errorf("simulated read error")
+	return 0, errors.New("simulated read error")
 }
 func (errorReader) Close() error { return nil }
 

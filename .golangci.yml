@@ -451,6 +451,7 @@ linters:
           - gosec
           - noctx
           - nolintlint
+          - testifylint
           - testpackage
           - wrapcheck
       # Gosec taint-analysis rules produce systematic false positives in a CLI/framework that
