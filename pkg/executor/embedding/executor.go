@@ -91,6 +91,9 @@ func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.Res
 	if logger == nil {
 		logger = slog.Default()
 	}
+	if client == nil {
+		client = &http.Client{Timeout: defaultTimeoutSeconds * time.Second}
+	}
 	return &Executor{logger: logger, client: client}
 }
 
@@ -126,10 +129,14 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("embedding executor: input is empty after expression evaluation")
 	}
 
-	// Override client timeout if configured.
+	// Build a per-request HTTP client with the configured timeout to avoid
+	// mutating the shared client (data race in concurrent API-server mode).
+	httpClient := e.client
 	if cfg.TimeoutDuration != "" {
 		if d, parseErr := time.ParseDuration(cfg.TimeoutDuration); parseErr == nil {
-			e.client.Timeout = d
+			clone := *e.client
+			clone.Timeout = d
+			httpClient = &clone
 		}
 	}
 
@@ -148,11 +155,11 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 
 	switch operation {
 	case embeddingOperationIndex:
-		return e.operationIndex(ctx, cfg, backend, inputText, collection, db)
+		return e.operationIndex(ctx, cfg, httpClient, backend, inputText, collection, db)
 	case embeddingOperationSearch:
-		return e.operationSearch(ctx, cfg, backend, inputText, collection, topK, db)
+		return e.operationSearch(ctx, cfg, httpClient, backend, inputText, collection, topK, db)
 	case embeddingOperationDelete:
-		return e.operationDelete(cfg, collection, db)
+		return e.operationDelete(inputText, collection, db)
 	default:
 		return nil, fmt.Errorf(
 			"embedding executor: unknown operation %q (valid: index, search, delete)",
@@ -166,10 +173,11 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 func (e *Executor) operationIndex(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmbeddingConfig,
+	client *http.Client,
 	backend, inputText, collection string,
 	db *sql.DB,
 ) (interface{}, error) {
-	vec, err := e.getEmbedding(backend, cfg, inputText)
+	vec, err := e.getEmbedding(client, backend, cfg, inputText)
 	if err != nil {
 		return nil, fmt.Errorf("embedding executor: get embedding: %w", err)
 	}
@@ -217,11 +225,12 @@ func (e *Executor) operationIndex(
 func (e *Executor) operationSearch(
 	_ *executor.ExecutionContext,
 	cfg *domain.EmbeddingConfig,
+	client *http.Client,
 	backend, queryText, collection string,
 	topK int,
 	db *sql.DB,
 ) (interface{}, error) {
-	queryVec, err := e.getEmbedding(backend, cfg, queryText)
+	queryVec, err := e.getEmbedding(client, backend, cfg, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embedding executor: get query embedding: %w", err)
 	}
@@ -306,18 +315,17 @@ func (e *Executor) operationSearch(
 }
 
 func (e *Executor) operationDelete(
-	cfg *domain.EmbeddingConfig,
-	collection string,
+	inputText, collection string,
 	db *sql.DB,
 ) (interface{}, error) {
 	var query string
 	var args []interface{}
 
 	switch {
-	case cfg.Input != "":
+	case inputText != "":
 		// Delete by exact text match.
 		query = fmt.Sprintf("DELETE FROM %s WHERE text = ?", sanitizeTableName(collection))
-		args = []interface{}{cfg.Input}
+		args = []interface{}{inputText}
 	default:
 		// Delete all rows in the collection (with or without metadata).
 		query = fmt.Sprintf("DELETE FROM %s", sanitizeTableName(collection))
@@ -341,16 +349,21 @@ func (e *Executor) operationDelete(
 // ─── Embedding API calls ─────────────────────────────────────────────────────
 
 // getEmbedding calls the configured backend to obtain a vector for text.
-func (e *Executor) getEmbedding(backend string, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) getEmbedding(
+	client *http.Client,
+	backend string,
+	cfg *domain.EmbeddingConfig,
+	text string,
+) ([]float64, error) {
 	switch backend {
 	case domain.EmbeddingBackendOllama:
-		return e.ollamaEmbed(cfg, text)
+		return e.ollamaEmbed(client, cfg, text)
 	case domain.EmbeddingBackendOpenAI:
-		return e.openAIEmbed(cfg, text)
+		return e.openAIEmbed(client, cfg, text)
 	case domain.EmbeddingBackendCohere:
-		return e.cohereEmbed(cfg, text)
+		return e.cohereEmbed(client, cfg, text)
 	case domain.EmbeddingBackendHuggingFace:
-		return e.huggingFaceEmbed(cfg, text)
+		return e.huggingFaceEmbed(client, cfg, text)
 	default:
 		return nil, fmt.Errorf(
 			"embedding executor: unknown backend %q (valid: ollama, openai, cohere, huggingface)",
@@ -359,7 +372,7 @@ func (e *Executor) getEmbedding(backend string, cfg *domain.EmbeddingConfig, tex
 	}
 }
 
-func (e *Executor) ollamaEmbed(cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) ollamaEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = defaultOllamaURL
@@ -381,7 +394,7 @@ func (e *Executor) ollamaEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed: do request: %w", err)
 	}
@@ -403,7 +416,7 @@ func (e *Executor) ollamaEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	return result.Embeddings[0], nil
 }
 
-func (e *Executor) openAIEmbed(cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) openAIEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
@@ -426,7 +439,7 @@ func (e *Executor) openAIEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("openai embed: do request: %w", err)
 	}
@@ -450,7 +463,7 @@ func (e *Executor) openAIEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	return result.Data[0].Embedding, nil
 }
 
-func (e *Executor) cohereEmbed(cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) cohereEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.cohere.ai"
@@ -475,7 +488,7 @@ func (e *Executor) cohereEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("cohere embed: do request: %w", err)
 	}
@@ -497,7 +510,7 @@ func (e *Executor) cohereEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	return result.Embeddings[0], nil
 }
 
-func (e *Executor) huggingFaceEmbed(cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) huggingFaceEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api-inference.huggingface.co"
@@ -525,7 +538,7 @@ func (e *Executor) huggingFaceEmbed(cfg *domain.EmbeddingConfig, text string) ([
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("huggingface embed: do request: %w", err)
 	}
