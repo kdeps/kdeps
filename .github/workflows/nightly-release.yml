@@ -10,6 +10,10 @@ permissions:
   contents: write
   packages: write
 
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
 jobs:
   update-and-release:
     runs-on: macos-latest
@@ -257,6 +261,31 @@ jobs:
         if: steps.should_release.outputs.should_release == 'true'
         id: macos_sdk
         run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
+
+      - name: Clean up existing release before GoReleaser
+        if: steps.should_release.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          TAG="${{ steps.create_tag.outputs.tag }}"
+          echo "Checking for existing release: $TAG"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "⚠️  Existing release found for $TAG - deleting before GoReleaser run..."
+            gh release delete "$TAG" --yes || true
+            sleep 2  # Allow GitHub API to propagate the deletion
+            # Verify deletion succeeded
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "⚠️  Release still exists, trying via API..."
+              RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id' 2>/dev/null)
+              if [ -n "$RELEASE_ID" ]; then
+                gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || echo "Warning: API delete failed"
+              fi
+            else
+              echo "✓ Release deleted successfully"
+            fi
+          else
+            echo "✓ No existing release found for $TAG"
+          fi
 
       - name: Release with GoReleaser
         if: steps.should_release.outputs.should_release == 'true'
