@@ -696,14 +696,15 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
 		resource.Run.Python != nil ||
 		resource.Run.Exec != nil ||
 		resource.Run.TTS != nil ||
-		resource.Run.BotReply != nil
+		resource.Run.BotReply != nil ||
+		resource.Run.Scraper != nil
 
 	var primaryResult interface{}
 	var err error
@@ -725,6 +726,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeTTS(resource, ctx)
 		case resource.Run.BotReply != nil:
 			primaryResult, err = e.executeBotReply(resource, ctx)
+		case resource.Run.Scraper != nil:
+			primaryResult, err = e.executeScraper(resource, ctx)
 		}
 
 		if err != nil {
@@ -1234,6 +1237,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineExec(inline.Exec, ctx)
 		case inline.TTS != nil:
 			result, err = e.executeInlineTTS(inline.TTS, ctx)
+		case inline.Scraper != nil:
+			result, err = e.executeInlineScraper(inline.Scraper, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2007,4 +2012,28 @@ func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContex
 	}
 
 	return botReplyExec.Execute(ctx, resource.Run.BotReply)
+}
+
+// executeScraper executes a scraper resource.
+func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Scraper == nil {
+		return nil, fmt.Errorf("resource %s has no scraper configuration", resource.Metadata.ActionID)
+	}
+
+	scraperExec := e.registry.GetScraperExecutor()
+	if scraperExec == nil {
+		return nil, errors.New("scraper executor not available")
+	}
+
+	return scraperExec.Execute(ctx, resource.Run.Scraper)
+}
+
+// executeInlineScraper executes an inline scraper resource.
+func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
+	scraperExec := e.registry.GetScraperExecutor()
+	if scraperExec == nil {
+		return nil, errors.New("scraper executor not available")
+	}
+
+	return scraperExec.Execute(ctx, config)
 }

@@ -69,6 +69,7 @@ type RunConfig struct {
 	Exec        *ExecConfig        `yaml:"exec,omitempty"`
 	TTS         *TTSConfig         `yaml:"tts,omitempty"`
 	BotReply    *BotReplyConfig    `yaml:"botReply,omitempty"`
+	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -84,6 +85,7 @@ type InlineResource struct {
 	Python     *PythonConfig     `yaml:"python,omitempty"`
 	Exec       *ExecConfig       `yaml:"exec,omitempty"`
 	TTS        *TTSConfig        `yaml:"tts,omitempty"`
+	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
 }
 
 // PreflightCheck represents preflight validation.
@@ -721,4 +723,63 @@ type BotReplyConfig struct {
 	// Text is the message to send. Expression evaluation is supported,
 	// e.g. "{{ get('llm') }}".
 	Text string `yaml:"text" json:"text"`
+}
+
+// ScraperTypeURL scrapes content from a URL.
+const ScraperTypeURL = "url"
+
+// ScraperTypePDF extracts text from a PDF file.
+const ScraperTypePDF = "pdf"
+
+// ScraperTypeWord extracts text from a Word (.docx) file.
+const ScraperTypeWord = "word"
+
+// ScraperTypeExcel extracts text from an Excel (.xlsx) file.
+const ScraperTypeExcel = "excel"
+
+// ScraperTypeImage extracts text from an image file via OCR.
+const ScraperTypeImage = "image"
+
+// ScraperConfig represents a scraper resource configuration.
+// It can scrape content from URLs, PDF files, Word/Excel documents,
+// or images (via OCR).
+type ScraperConfig struct {
+	// Type is the input type: "url", "pdf", "word", "excel", "image".
+	Type string `yaml:"type"`
+
+	// Source is the URL or file path to scrape. Expression evaluation is supported.
+	Source string `yaml:"source"`
+
+	// TimeoutDuration is the timeout for URL fetching (e.g., "30s").
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for TimeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
+
+	// OCR holds optional OCR options used when Type is "image".
+	OCR *ScraperOCRConfig `yaml:"ocr,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias.
+func (s *ScraperConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawScraperConfig ScraperConfig
+	var raw rawScraperConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*s = ScraperConfig(raw)
+
+	// Handle timeout alias
+	if s.Timeout != "" && s.TimeoutDuration == "" {
+		s.TimeoutDuration = s.Timeout
+	}
+
+	return nil
+}
+
+// ScraperOCRConfig holds OCR options for image scraping.
+type ScraperOCRConfig struct {
+	// Language is the Tesseract language code (e.g., "eng", "deu"). Default: "eng".
+	Language string `yaml:"language,omitempty"`
 }

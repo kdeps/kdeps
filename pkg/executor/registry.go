@@ -32,6 +32,7 @@ type Registry struct {
 	execExecutor     ResourceExecutor
 	ttsExecutor      ResourceExecutor
 	botReplyExecutor ResourceExecutor
+	scraperExecutor  ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -124,4 +125,14 @@ func (r *Registry) SetBotReplyExecutor(executor ResourceExecutor) {
 // GetBotReplyExecutor returns the bot reply executor.
 func (r *Registry) GetBotReplyExecutor() ResourceExecutor {
 	return r.botReplyExecutor
+}
+
+// SetScraperExecutor sets the scraper executor.
+func (r *Registry) SetScraperExecutor(executor ResourceExecutor) {
+	r.scraperExecutor = executor
+}
+
+// GetScraperExecutor returns the scraper executor.
+func (r *Registry) GetScraperExecutor() ResourceExecutor {
+	return r.scraperExecutor
 }

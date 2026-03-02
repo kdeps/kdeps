@@ -1687,3 +1687,73 @@ func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
+
+func TestValidateScraperConfig(t *testing.T) {
+tests := []struct {
+name    string
+config  *domain.ScraperConfig
+wantErr bool
+errMsg  string
+}{
+{
+name:    "valid url",
+config:  &domain.ScraperConfig{Type: "url", Source: "https://example.com"},
+wantErr: false,
+},
+{
+name:    "valid pdf",
+config:  &domain.ScraperConfig{Type: "pdf", Source: "/tmp/file.pdf"},
+wantErr: false,
+},
+{
+name:    "valid word",
+config:  &domain.ScraperConfig{Type: "word", Source: "/tmp/file.docx"},
+wantErr: false,
+},
+{
+name:    "valid excel",
+config:  &domain.ScraperConfig{Type: "excel", Source: "/tmp/file.xlsx"},
+wantErr: false,
+},
+{
+name:    "valid image",
+config:  &domain.ScraperConfig{Type: "image", Source: "/tmp/file.png"},
+wantErr: false,
+},
+{
+name:    "missing type",
+config:  &domain.ScraperConfig{Source: "https://example.com"},
+wantErr: true,
+errMsg:  "scraper.type is required",
+},
+{
+name:    "invalid type",
+config:  &domain.ScraperConfig{Type: "ftp", Source: "ftp://host/file"},
+wantErr: true,
+errMsg:  "not valid",
+},
+{
+name:    "missing source",
+config:  &domain.ScraperConfig{Type: "url"},
+wantErr: true,
+errMsg:  "scraper.source is required",
+},
+}
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := validator.ValidateScraperConfig(tt.config)
+if tt.wantErr {
+if err == nil {
+t.Fatal("expected error but got nil")
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+}
+} else {
+if err != nil {
+t.Errorf("unexpected error: %v", err)
+}
+}
+})
+}
+}
