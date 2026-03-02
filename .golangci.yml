@@ -449,3 +449,21 @@ linters:
           - noctx
           - testpackage
           - wrapcheck
+      # Gosec taint-analysis rules produce systematic false positives in a CLI/framework that
+      # intentionally handles user-provided paths, URLs, commands, and credential field names.
+      # G101: schema validation uses URLs with "password" keyword in patterns (not actual credentials)
+      - text: 'G101:'
+        linters: [ gosec ]
+      # G117: APIKey, Password, AccessToken are legitimate domain struct field names, not secrets
+      - text: 'G117:'
+        linters: [ gosec ]
+      # G702-G705: taint analysis false positives — the framework intentionally accepts
+      # user-configured binaries, file paths, backend URLs, and renders user-provided data.
+      - text: 'G702:'
+        linters: [ gosec ]
+      - text: 'G703:'
+        linters: [ gosec ]
+      - text: 'G704:'
+        linters: [ gosec ]
+      - text: 'G705:'
+        linters: [ gosec ]

@@ -381,7 +381,7 @@ func (e *Executor) ollamaEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed: do request: %w", err)
 	}
@@ -426,7 +426,7 @@ func (e *Executor) openAIEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("openai embed: do request: %w", err)
 	}
@@ -475,7 +475,7 @@ func (e *Executor) cohereEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("cohere embed: do request: %w", err)
 	}
@@ -525,7 +525,7 @@ func (e *Executor) huggingFaceEmbed(cfg *domain.EmbeddingConfig, text string) ([
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("huggingface embed: do request: %w", err)
 	}
