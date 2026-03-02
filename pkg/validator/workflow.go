@@ -235,7 +235,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply).
+// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, embedding).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	n := 0
 	if run.Chat != nil {
@@ -257,6 +257,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 		n++
 	}
 	if run.BotReply != nil {
+		n++
+	}
+	if run.Embedding != nil {
 		n++
 	}
 	return n
@@ -281,14 +284,14 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryCount == 0 && !hasAPIResponse {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, embedding, apiResponse)",
 			nil,
 		)
 	}
 	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, embedding)",
 			nil,
 		)
 	}
@@ -306,6 +309,11 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 	if resource.Run.HTTPClient != nil {
 		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
+			return err
+		}
+	}
+	if resource.Run.Embedding != nil {
+		if err := v.ValidateEmbeddingConfig(resource.Run.Embedding); err != nil {
 			return err
 		}
 	}
@@ -406,6 +414,54 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 			fmt.Sprintf("invalid HTTP method: %s. Available options: [%s]", config.Method, availableOptions),
 			nil,
 		)
+	}
+
+	return nil
+}
+
+// ValidateEmbeddingConfig validates embedding configuration.
+func (v *WorkflowValidator) ValidateEmbeddingConfig(config *domain.EmbeddingConfig) error {
+	if config.Model == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "embedding.model is required", nil)
+	}
+
+	// Validate backend if provided.
+	if config.Backend != "" {
+		validBackends := map[string]bool{
+			domain.EmbeddingBackendOllama:      true,
+			domain.EmbeddingBackendOpenAI:      true,
+			domain.EmbeddingBackendCohere:      true,
+			domain.EmbeddingBackendHuggingFace: true,
+		}
+		if !validBackends[config.Backend] {
+			return domain.NewError(
+				domain.ErrCodeInvalidResource,
+				fmt.Sprintf(
+					"invalid embedding.backend: %s. Available options: [ollama, openai, cohere, huggingface]",
+					config.Backend,
+				),
+				nil,
+			)
+		}
+	}
+
+	// Validate operation if provided.
+	if config.Operation != "" {
+		validOperations := map[string]bool{
+			domain.EmbeddingOperationIndex:  true,
+			domain.EmbeddingOperationSearch: true,
+			domain.EmbeddingOperationDelete: true,
+		}
+		if !validOperations[config.Operation] {
+			return domain.NewError(
+				domain.ErrCodeInvalidResource,
+				fmt.Sprintf(
+					"invalid embedding.operation: %s. Available options: [index, search, delete]",
+					config.Operation,
+				),
+				nil,
+			)
+		}
 	}
 
 	return nil

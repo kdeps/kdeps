@@ -54,6 +54,7 @@ run:
   sql: { ... }         # Database query
   python: { ... }      # Python script
   exec: { ... }        # Shell command
+  embedding: { ... }   # Vector DB (index / search / delete)
   apiResponse: { ... } # API response
 ```
 
@@ -66,6 +67,7 @@ run:
 | `sql` | Database queries | Data retrieval, updates |
 | `python` | Python scripts | Data processing, ML |
 | `exec` | Shell commands | System operations |
+| `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `apiResponse` | Response formatting | Final output |
 
 ## Metadata
@@ -351,4 +353,5 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [SQL Resource](sql) - Database operations
 - [Python Resource](python) - Script execution
 - [Exec Resource](exec) - Shell commands
+- [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting

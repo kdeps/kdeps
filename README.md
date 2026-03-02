@@ -28,6 +28,7 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 - ✅ **Media Input** - First-class `input:` block supporting API, Audio, Video, Telephony, and Bot sources (Discord, Slack, Telegram, WhatsApp) with optional transcription (online/offline) and wake-phrase activation.
 - ✅ **Chat Bots** - Connect workflows to Discord, Slack, Telegram, and WhatsApp via persistent polling or serverless stateless mode. Access the inbound message with `input('message')` and reply automatically.
 - ✅ **TTS Output** - Built-in Text-to-Speech resource with 5 online providers (OpenAI, Google, ElevenLabs, Azure, AWS Polly) and 4 offline engines (Piper, eSpeak, Festival, Coqui-TTS).
+- ✅ **Vector Embeddings** - Built-in `embedding` resource for RAG pipelines: index text with Ollama, OpenAI, Cohere, or HuggingFace; search by cosine similarity; stored in SQLite.
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
 ## Quick Start
@@ -267,6 +268,49 @@ run:
         script: "print('Done')"
 ```
 
+### Vector Embeddings (RAG)
+
+Index text and search by semantic similarity. Supports local Ollama and cloud backends (OpenAI, Cohere, HuggingFace).
+
+```yaml
+# Index a document (local Ollama — pull with: ollama pull nomic-embed-text)
+run:
+  embedding:
+    model: nomic-embed-text
+    input: "{{ get('text') }}"
+    collection: docs
+    operation: index          # default
+
+# Index with OpenAI
+run:
+  embedding:
+    model: text-embedding-3-small
+    backend: openai
+    apiKey: "{{ env('OPENAI_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: docs
+
+# Search for the most relevant passages
+run:
+  embedding:
+    model: nomic-embed-text
+    input: "{{ get('q') }}"
+    collection: docs
+    operation: search
+    topK: 5
+```
+
+Access search results in downstream resources:
+
+```yaml
+run:
+  chat:
+    model: llama3
+    prompt: |
+      Context: {{ get('search').results }}
+      Question: {{ get('q') }}
+```
+
 ### Bot / Chat Platform
 
 Connect a workflow to Discord, Slack, Telegram, or WhatsApp. The inbound message is available via `input('message')`, `input('chatId')`, `input('userId')`, and `input('platform')`.
@@ -367,7 +411,7 @@ CLI (cmd/)  →  Execution Engine (pkg/executor/)  →  Parser/Validator
            →  Domain Models (pkg/domain/)         →  Infrastructure (pkg/infra/)
 ```
 
-**Resource executors**: LLM (Ollama/OpenAI-compatible), HTTP client, SQL (5 drivers), Python (uv), shell exec, API response, and TTS.
+**Resource executors**: LLM (Ollama/OpenAI-compatible), HTTP client, SQL (5 drivers), Python (uv), shell exec, API response, TTS, and Embedding (vector DB).
 
 **Project structure:**
 ```

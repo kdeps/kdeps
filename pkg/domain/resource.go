@@ -69,6 +69,7 @@ type RunConfig struct {
 	Exec        *ExecConfig        `yaml:"exec,omitempty"`
 	TTS         *TTSConfig         `yaml:"tts,omitempty"`
 	BotReply    *BotReplyConfig    `yaml:"botReply,omitempty"`
+	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -84,6 +85,7 @@ type InlineResource struct {
 	Python     *PythonConfig     `yaml:"python,omitempty"`
 	Exec       *ExecConfig       `yaml:"exec,omitempty"`
 	TTS        *TTSConfig        `yaml:"tts,omitempty"`
+	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
 }
 
 // PreflightCheck represents preflight validation.
@@ -721,4 +723,115 @@ type BotReplyConfig struct {
 	// Text is the message to send. Expression evaluation is supported,
 	// e.g. "{{ get('llm') }}".
 	Text string `yaml:"text" json:"text"`
+}
+
+// EmbeddingBackendOllama is the Ollama (local) embedding backend.
+const EmbeddingBackendOllama = "ollama"
+
+// EmbeddingBackendOpenAI is the OpenAI embedding backend.
+const EmbeddingBackendOpenAI = "openai"
+
+// EmbeddingBackendCohere is the Cohere embedding backend.
+const EmbeddingBackendCohere = "cohere"
+
+// EmbeddingBackendHuggingFace is the HuggingFace Inference API embedding backend.
+const EmbeddingBackendHuggingFace = "huggingface"
+
+// EmbeddingOperationIndex stores the input text as an embedding in the vector DB.
+const EmbeddingOperationIndex = "index"
+
+// EmbeddingOperationSearch performs a nearest-neighbor search in the vector DB.
+const EmbeddingOperationSearch = "search"
+
+// EmbeddingOperationDelete removes entries from the vector DB by ID or metadata filter.
+const EmbeddingOperationDelete = "delete"
+
+// EmbeddingConfig configures an embedding/vector DB resource that converts
+// text input to vector embeddings and stores or queries them in a local vector index.
+type EmbeddingConfig struct {
+	// Model is the embedding model name (e.g., "nomic-embed-text", "text-embedding-3-small").
+	// Required.
+	Model string `yaml:"model"`
+
+	// Backend is the embedding provider: "ollama" (default, local), "openai", "cohere", "huggingface".
+	Backend string `yaml:"backend,omitempty"`
+
+	// BaseURL is the optional base URL for the backend
+	// (defaults to backend-specific default, e.g., "http://localhost:11434" for ollama).
+	BaseURL string `yaml:"baseUrl,omitempty"`
+
+	// APIKey is the authentication credential for online providers.
+	APIKey string `yaml:"apiKey,omitempty"`
+
+	// Input is the text to embed. Expression evaluation is supported.
+	// Required for "index" and "search" operations.
+	Input string `yaml:"input"`
+
+	// DBPath is the path to the SQLite vector DB file.
+	// Defaults to /tmp/kdeps-embedding/<collection>.db.
+	DBPath string `yaml:"dbPath,omitempty"`
+
+	// Collection is the collection/table name in the vector DB (default: "embeddings").
+	Collection string `yaml:"collection,omitempty"`
+
+	// Operation is the operation to perform: "index" (default), "search", "delete".
+	Operation string `yaml:"operation,omitempty"`
+
+	// TopK is the maximum number of nearest neighbors to return for search (default: 10).
+	TopK int `yaml:"topK,omitempty"`
+
+	// Metadata is optional key-value metadata to store alongside the embedding when indexing.
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+
+	// TimeoutDuration is the timeout for the embedding API call (e.g., "30s", "1m").
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for timeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
+func (e *EmbeddingConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Model           string                 `yaml:"model"`
+		Backend         string                 `yaml:"backend,omitempty"`
+		BaseURL         string                 `yaml:"baseUrl,omitempty"`
+		APIKey          string                 `yaml:"apiKey,omitempty"`
+		Input           string                 `yaml:"input"`
+		DBPath          string                 `yaml:"dbPath,omitempty"`
+		Collection      string                 `yaml:"collection,omitempty"`
+		Operation       string                 `yaml:"operation,omitempty"`
+		TopK            interface{}            `yaml:"topK,omitempty"`
+		Metadata        map[string]interface{} `yaml:"metadata,omitempty"`
+		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
+		Timeout         string                 `yaml:"timeout,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.TopK); ok {
+		e.TopK = i
+	}
+
+	e.Model = alias.Model
+	e.Backend = alias.Backend
+	e.BaseURL = alias.BaseURL
+	e.APIKey = alias.APIKey
+	e.Input = alias.Input
+	e.DBPath = alias.DBPath
+	e.Collection = alias.Collection
+	e.Operation = alias.Operation
+	e.Metadata = alias.Metadata
+	e.TimeoutDuration = alias.TimeoutDuration
+	e.Timeout = alias.Timeout
+
+	// Handle timeout alias
+	if e.Timeout != "" && e.TimeoutDuration == "" {
+		e.TimeoutDuration = e.Timeout
+	}
+
+	return nil
 }
