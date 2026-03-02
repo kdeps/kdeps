@@ -18,7 +18,7 @@
 
 // Package scraper implements the scraper resource executor for KDeps.
 //
-// Four content types are supported:
+// Five content types are supported:
 //   - url:   fetches a web page and extracts its visible text content.
 //   - pdf:   extracts text from a PDF file (requires pdftotext from poppler-utils,
 //     or falls back to a raw-text scan of the PDF binary).
