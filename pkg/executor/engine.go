@@ -703,7 +703,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Python != nil ||
 		resource.Run.Exec != nil ||
 		resource.Run.TTS != nil ||
-		resource.Run.BotReply != nil
+		resource.Run.BotReply != nil ||
+		resource.Run.Embedding != nil
 
 	var primaryResult interface{}
 	var err error
@@ -725,6 +726,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeTTS(resource, ctx)
 		case resource.Run.BotReply != nil:
 			primaryResult, err = e.executeBotReply(resource, ctx)
+		case resource.Run.Embedding != nil:
+			primaryResult, err = e.executeEmbedding(resource, ctx)
 		}
 
 		if err != nil {
@@ -1215,7 +1218,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			"hasHTTPClient", inline.HTTPClient != nil,
 			"hasSQL", inline.SQL != nil,
 			"hasPython", inline.Python != nil,
-			"hasExec", inline.Exec != nil)
+			"hasExec", inline.Exec != nil,
+			"hasEmbedding", inline.Embedding != nil)
 
 		var result interface{}
 		var err error
@@ -1234,6 +1238,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineExec(inline.Exec, ctx)
 		case inline.TTS != nil:
 			result, err = e.executeInlineTTS(inline.TTS, ctx)
+		case inline.Embedding != nil:
+			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2007,4 +2013,29 @@ func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContex
 	}
 
 	return botReplyExec.Execute(ctx, resource.Run.BotReply)
+}
+
+// executeEmbedding executes an embedding resource, converting text to vector embeddings
+// and storing or querying them in a local vector DB.
+func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Embedding == nil {
+		return nil, fmt.Errorf("resource %s has no embedding configuration", resource.Metadata.ActionID)
+	}
+
+	embeddingExec := e.registry.GetEmbeddingExecutor()
+	if embeddingExec == nil {
+		return nil, errors.New("embedding executor not available")
+	}
+
+	return embeddingExec.Execute(ctx, resource.Run.Embedding)
+}
+
+// executeInlineEmbedding executes an inline embedding resource.
+func (e *Engine) executeInlineEmbedding(config *domain.EmbeddingConfig, ctx *ExecutionContext) (interface{}, error) {
+	embeddingExec := e.registry.GetEmbeddingExecutor()
+	if embeddingExec == nil {
+		return nil, errors.New("embedding executor not available")
+	}
+
+	return embeddingExec.Execute(ctx, config)
 }
