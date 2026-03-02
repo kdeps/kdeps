@@ -97,7 +97,7 @@ run:
 
 ### Excel Spreadsheet
 
-Extracts cell values from an Excel `.xlsx` file, returning each row as a tab-separated line.
+Extracts cell values from an Excel `.xlsx` file. Each row is returned as a tab-separated line, with rows separated by newlines (tabs and newlines are preserved in the output).
 
 ```yaml
 run:
@@ -336,8 +336,9 @@ All other types use Go standard library only and have no external dependencies.
 
 ## Error Handling
 
-When scraping fails, the resource returns an error map and the error is propagated. Use
-`onError` to control behavior:
+When scraping fails, the error is propagated to the engine. The engine returns early and no
+output is stored unless `onError.action: continue` is configured. Use `onError` to control
+behavior:
 
 ```yaml
 run:

@@ -1537,6 +1537,26 @@ func TestRemoveTagBlock_UnclosedTag(t *testing.T) {
 	assert.NotContains(t, result, "orphan code")
 }
 
+func TestRemoveTagBlock_NoLongerNameMatch(t *testing.T) {
+	// <header> must NOT be removed when removing <head>
+	s := "<html><head><title>T</title></head><body><header>nav</header>content</body></html>"
+	result := removeTagBlock(s, "head")
+	assert.NotContains(t, result, "<head>")
+	assert.Contains(t, result, "nav")     // <header> content preserved
+	assert.Contains(t, result, "content") // body content preserved
+}
+
+func TestExtractTextFromXML_NestedWanted(t *testing.T) {
+	// Nested wanted elements: text:span inside text:p — content after inner end should remain
+	xmlData := `<root><t>hello <t>world</t>!</t></root>`
+	wanted := map[string]bool{"t": true}
+	result, err := extractTextFromXML(strings.NewReader(xmlData), wanted)
+	require.NoError(t, err)
+	assert.Contains(t, result, "hello")
+	assert.Contains(t, result, "world")
+	assert.Contains(t, result, "!")
+}
+
 // ---------------------------------------------------------------------------
 // scrapePDF / runPDFToText – via fake pdftotext in PATH
 // ---------------------------------------------------------------------------

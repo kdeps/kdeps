@@ -61,7 +61,7 @@ import (
 )
 
 const (
-	// defaultTimeout is the default HTTP/exec timeout.
+	// defaultTimeout is the default HTTP request timeout used for URL scraping.
 	defaultTimeout = 30 * time.Second
 	// defaultOCRLanguage is the default Tesseract language.
 	defaultOCRLanguage = "eng"
@@ -92,14 +92,15 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("scraper executor: invalid config type")
 	}
 
-	// Resolve timeout
+	// Resolve timeout (used only for URL scraping via context.WithTimeout).
 	timeout := defaultTimeout
 	if cfg.TimeoutDuration != "" {
 		if d, err := time.ParseDuration(cfg.TimeoutDuration); err == nil {
 			timeout = d
 		}
 	}
-	e.httpClient.Timeout = timeout
+	// Note: e.httpClient is immutable after construction.  The timeout is applied
+	// per-request via context.WithTimeout inside scrapeURL, not by mutating Timeout.
 
 	// Evaluate expressions in Source field
 	source := cfg.Source
@@ -125,37 +126,37 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	case domain.ScraperTypeURL:
 		content, err = e.scrapeURL(source, timeout)
 	case domain.ScraperTypePDF:
-		content, err = scrapePDF(source)
+		content, err = scrapePDF(ResolvePath(ctx, source))
 	case domain.ScraperTypeWord:
-		content, err = scrapeWord(source)
+		content, err = scrapeWord(ResolvePath(ctx, source))
 	case domain.ScraperTypeExcel:
-		content, err = scrapeExcel(source)
+		content, err = scrapeExcel(ResolvePath(ctx, source))
 	case domain.ScraperTypeImage:
 		lang := defaultOCRLanguage
 		if cfg.OCR != nil && cfg.OCR.Language != "" {
 			lang = cfg.OCR.Language
 		}
-		content, err = scrapeImage(source, lang)
+		content, err = scrapeImage(ResolvePath(ctx, source), lang)
 	case domain.ScraperTypeText:
-		content, err = scrapeText(source)
+		content, err = scrapeText(ResolvePath(ctx, source))
 	case domain.ScraperTypeHTML:
-		content, err = scrapeHTMLFile(source)
+		content, err = scrapeHTMLFile(ResolvePath(ctx, source))
 	case domain.ScraperTypeCSV:
-		content, err = scrapeCSV(source)
+		content, err = scrapeCSV(ResolvePath(ctx, source))
 	case domain.ScraperTypeMarkdown:
-		content, err = scrapeMarkdown(source)
+		content, err = scrapeMarkdown(ResolvePath(ctx, source))
 	case domain.ScraperTypePPTX:
-		content, err = scrapePPTX(source)
+		content, err = scrapePPTX(ResolvePath(ctx, source))
 	case domain.ScraperTypeJSON:
-		content, err = scrapeJSON(source)
+		content, err = scrapeJSON(ResolvePath(ctx, source))
 	case domain.ScraperTypeXML:
-		content, err = scrapeXMLFile(source)
+		content, err = scrapeXMLFile(ResolvePath(ctx, source))
 	case domain.ScraperTypeODT:
-		content, err = scrapeODT(source)
+		content, err = scrapeODT(ResolvePath(ctx, source))
 	case domain.ScraperTypeODS:
-		content, err = scrapeODS(source)
+		content, err = scrapeODS(ResolvePath(ctx, source))
 	case domain.ScraperTypeODP:
-		content, err = scrapeODP(source)
+		content, err = scrapeODP(ResolvePath(ctx, source))
 	default:
 		return nil, fmt.Errorf(
 			"scraper executor: unknown type %q (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
@@ -241,16 +242,31 @@ func extractTextFromHTML(data []byte) string {
 }
 
 // removeTagBlock removes all occurrences of <tag>...</tag> (case-insensitive).
+// It matches the exact tag name by requiring the character after the tag name to be
+// either '>', '/', or whitespace, preventing <head> from matching <header>.
 func removeTagBlock(s, tag string) string {
 	lower := strings.ToLower(s)
-	open := "<" + tag
+	openPrefix := "<" + tag
 	closeTag := "</" + tag + ">"
 	var out strings.Builder
 	for {
-		start := strings.Index(strings.ToLower(s), open)
+		lowerS := strings.ToLower(s)
+		start := strings.Index(lowerS, openPrefix)
 		if start == -1 {
 			out.WriteString(s)
 			break
+		}
+		// Verify the char after tag name is >, /, or whitespace (exact tag match).
+		afterIdx := start + len(openPrefix)
+		if afterIdx < len(s) {
+			next := s[afterIdx]
+			if next != '>' && next != '/' && !unicode.IsSpace(rune(next)) {
+				// Not an exact match — skip past this occurrence and continue.
+				out.WriteString(s[:afterIdx])
+				s = s[afterIdx:]
+				lower = strings.ToLower(s)
+				continue
+			}
 		}
 		out.WriteString(s[:start])
 		rest := lower[start:]
@@ -264,8 +280,9 @@ func removeTagBlock(s, tag string) string {
 	return out.String()
 }
 
-// normalizeWhitespace collapses multiple whitespace characters into a single space,
-// but preserves intentional line breaks (sequences with actual newline characters).
+// normalizeWhitespace collapses runs of Unicode whitespace characters (including
+// newlines and tabs) into a single ASCII space and trims leading/trailing whitespace.
+// Newlines and tabs are not preserved as separate line breaks or tab stops.
 func normalizeWhitespace(s string) string {
 	var out strings.Builder
 	prevSpace := true
@@ -390,6 +407,8 @@ var wordTextElements = map[string]bool{ //nolint:gochecknoglobals // immutable l
 // -----------------------------------------------------------------------
 
 // scrapeExcel extracts cell text values from a .xlsx file (Office Open XML).
+// The output preserves row/column structure: cells are tab-separated within rows,
+// and rows are separated by newlines.
 func scrapeExcel(path string) (string, error) {
 	r, err := zip.OpenReader(path)
 	if err != nil {
@@ -424,7 +443,7 @@ func scrapeExcel(path string) (string, error) {
 			text.WriteRune('\n')
 		}
 	}
-	return normalizeWhitespace(text.String()), nil
+	return strings.TrimSpace(text.String()), nil
 }
 
 // readSharedStrings parses xl/sharedStrings.xml and returns an indexed slice.
@@ -976,10 +995,11 @@ func scrapeODP(path string) (string, error) {
 
 // extractTextFromXML decodes an XML stream and returns the concatenated text
 // content of all elements whose local name appears in wanted (with value true).
+// A depth counter is used so nested wanted elements are handled correctly.
 func extractTextFromXML(r io.Reader, wanted map[string]bool) (string, error) {
 	dec := xml.NewDecoder(r)
 	var out strings.Builder
-	var inWanted bool
+	depth := 0 // nesting depth inside wanted elements
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -991,15 +1011,17 @@ func extractTextFromXML(r io.Reader, wanted map[string]bool) (string, error) {
 		switch t := tok.(type) {
 		case xml.StartElement:
 			if include, ok := wanted[t.Name.Local]; ok && include {
-				inWanted = true
+				depth++
 			}
 		case xml.EndElement:
 			if include, ok := wanted[t.Name.Local]; ok && include {
-				inWanted = false
-				out.WriteRune(' ')
+				if depth > 0 {
+					depth--
+					out.WriteRune(' ')
+				}
 			}
 		case xml.CharData:
-			if inWanted {
+			if depth > 0 {
 				out.Write(t)
 			}
 		}
