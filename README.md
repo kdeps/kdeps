@@ -270,16 +270,25 @@ run:
 
 ### Vector Embeddings (RAG)
 
-Index text and search by semantic similarity using a local Ollama embedding model.
+Index text and search by semantic similarity. Supports local Ollama and cloud backends (OpenAI, Cohere, HuggingFace).
 
 ```yaml
-# Index a document
+# Index a document (local Ollama — pull with: ollama pull nomic-embed-text)
 run:
   embedding:
-    model: nomic-embed-text   # pull with: ollama pull nomic-embed-text
+    model: nomic-embed-text
     input: "{{ get('text') }}"
     collection: docs
     operation: index          # default
+
+# Index with OpenAI
+run:
+  embedding:
+    model: text-embedding-3-small
+    backend: openai
+    apiKey: "{{ env('OPENAI_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: docs
 
 # Search for the most relevant passages
 run:

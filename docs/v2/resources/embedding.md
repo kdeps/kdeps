@@ -422,6 +422,335 @@ run:
 
 ---
 
+## Online RAG Examples
+
+The examples below mirror the full RAG workflow above, but use cloud embedding backends instead of local Ollama. Swap `backend` and `apiKey` to switch providers — the index/search/respond resource structure stays identical.
+
+### OpenAI Embeddings
+
+Uses [`text-embedding-3-small`](https://platform.openai.com/docs/guides/embeddings) (1536 dimensions). Store the API key in an environment variable and reference it with `env()`.
+
+<div v-pre>
+
+```yaml
+# workflow.yaml
+settings:
+  name: openai-rag
+  targetActionId: respond
+  apiServerMode: true
+  apiServer:
+    routes:
+      - path: /index
+        methods: [POST]
+      - path: /query
+        methods: [POST]
+```
+
+```yaml
+# resources/index.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: indexChunk
+  name: Index with OpenAI
+
+run:
+  restrictToRoutes: [/index]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: text-embedding-3-small
+    backend: openai
+    apiKey: "{{ env('OPENAI_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: openai_kb
+    operation: index
+    metadata:
+      source: "{{ get('source') }}"
+
+  apiResponse:
+    success: true
+    response:
+      id: "{{ get('indexChunk').id }}"
+```
+
+```yaml
+# resources/query.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: searchChunks
+  name: Search with OpenAI
+
+run:
+  restrictToRoutes: [/query]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: text-embedding-3-small
+    backend: openai
+    apiKey: "{{ env('OPENAI_API_KEY') }}"
+    input: "{{ get('q') }}"
+    collection: openai_kb
+    operation: search
+    topK: 5
+```
+
+```yaml
+# resources/respond.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: respond
+  name: Generate Answer
+  requires: [searchChunks]
+
+run:
+  restrictToRoutes: [/query]
+  restrictToHttpMethods: [POST]
+
+  chat:
+    model: gpt-4o-mini
+    baseUrl: https://api.openai.com/v1
+    apiKey: "{{ env('OPENAI_API_KEY') }}"
+    prompt: |
+      Answer using only the context below.
+      Context:
+      {{ get('searchChunks').results | map(.text) | join('\n---\n') }}
+
+      Question: {{ get('q') }}
+
+  apiResponse:
+    success: true
+    response:
+      answer: "{{ get('respond') }}"
+      sources: "{{ get('searchChunks').results }}"
+```
+
+</div>
+
+**Run:**
+
+```bash
+export OPENAI_API_KEY=sk-...
+kdeps run workflow.yaml
+
+# Index a document
+curl -X POST http://localhost:16394/index \
+  -H 'Content-Type: application/json' \
+  -d '{"text": "KDeps is a YAML workflow framework.", "source": "readme"}'
+
+# Query
+curl -X POST http://localhost:16394/query \
+  -H 'Content-Type: application/json' \
+  -d '{"q": "What is KDeps?"}'
+```
+
+---
+
+### Cohere Embeddings
+
+Uses [`embed-english-v3.0`](https://docs.cohere.com/docs/embed-api) (1024 dimensions).
+
+<div v-pre>
+
+```yaml
+# resources/index.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: indexChunk
+  name: Index with Cohere
+
+run:
+  restrictToRoutes: [/index]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: embed-english-v3.0
+    backend: cohere
+    apiKey: "{{ env('COHERE_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: cohere_kb
+    operation: index
+    metadata:
+      source: "{{ get('source') }}"
+
+  apiResponse:
+    success: true
+    response:
+      id: "{{ get('indexChunk').id }}"
+```
+
+```yaml
+# resources/query.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: searchChunks
+  name: Search with Cohere
+
+run:
+  restrictToRoutes: [/query]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: embed-english-v3.0
+    backend: cohere
+    apiKey: "{{ env('COHERE_API_KEY') }}"
+    input: "{{ get('q') }}"
+    collection: cohere_kb
+    operation: search
+    topK: 5
+```
+
+</div>
+
+**Run:**
+
+```bash
+export COHERE_API_KEY=...
+kdeps run workflow.yaml
+```
+
+Available multilingual model: `embed-multilingual-v3.0`.
+
+Available Cohere embedding models:
+
+| Model | Dimensions | Notes |
+|-------|-----------|-------|
+| `embed-english-v3.0` | 1024 | English, high quality |
+| `embed-multilingual-v3.0` | 1024 | 100+ languages |
+| `embed-english-light-v3.0` | 384 | Faster, smaller English |
+| `embed-multilingual-light-v3.0` | 384 | Faster, smaller multilingual |
+
+---
+
+### HuggingFace Embeddings
+
+Uses the [HuggingFace Inference API](https://huggingface.co/docs/api-inference/tasks/feature-extraction). Public models work without an API key; private models or higher rate limits require one.
+
+<div v-pre>
+
+```yaml
+# resources/index.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: indexChunk
+  name: Index with HuggingFace
+
+run:
+  restrictToRoutes: [/index]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: sentence-transformers/all-MiniLM-L6-v2
+    backend: huggingface
+    apiKey: "{{ env('HF_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: hf_kb
+    operation: index
+    metadata:
+      source: "{{ get('source') }}"
+
+  apiResponse:
+    success: true
+    response:
+      id: "{{ get('indexChunk').id }}"
+```
+
+```yaml
+# resources/query.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: searchChunks
+  name: Search with HuggingFace
+
+run:
+  restrictToRoutes: [/query]
+  restrictToHttpMethods: [POST]
+
+  embedding:
+    model: sentence-transformers/all-MiniLM-L6-v2
+    backend: huggingface
+    apiKey: "{{ env('HF_API_KEY') }}"
+    input: "{{ get('q') }}"
+    collection: hf_kb
+    operation: search
+    topK: 5
+```
+
+</div>
+
+**Run:**
+
+```bash
+export HF_API_KEY=hf_...   # optional for public models
+kdeps run workflow.yaml
+```
+
+Popular HuggingFace embedding models:
+
+| Model | Dimensions | Notes |
+|-------|-----------|-------|
+| `sentence-transformers/all-MiniLM-L6-v2` | 384 | Fast, good quality |
+| `sentence-transformers/all-mpnet-base-v2` | 768 | Higher quality |
+| `BAAI/bge-large-en-v1.5` | 1024 | State-of-the-art English |
+| `intfloat/multilingual-e5-large` | 1024 | Multilingual |
+
+---
+
+### Compatible with OpenAI API (LM Studio, vLLM, Ollama)
+
+Any server that exposes an OpenAI-compatible `/v1/embeddings` endpoint can be used with `backend: openai` and a custom `baseUrl`.
+
+<div v-pre>
+
+```yaml
+# LM Studio (local)
+run:
+  embedding:
+    model: nomic-embed-text-v1.5
+    backend: openai
+    baseUrl: http://localhost:1234/v1
+    apiKey: lm-studio          # LM Studio accepts any non-empty key
+    input: "{{ get('text') }}"
+    collection: my_docs
+
+# Ollama via OpenAI-compatible endpoint
+run:
+  embedding:
+    model: nomic-embed-text
+    backend: openai
+    baseUrl: http://localhost:11434/v1
+    apiKey: ollama             # Ollama accepts any non-empty key
+    input: "{{ get('text') }}"
+    collection: my_docs
+
+# vLLM
+run:
+  embedding:
+    model: BAAI/bge-large-en-v1.5
+    backend: openai
+    baseUrl: http://my-vllm-host:8000/v1
+    apiKey: "{{ env('VLLM_API_KEY') }}"
+    input: "{{ get('text') }}"
+    collection: my_docs
+```
+
+</div>
+
+---
+
 ## Storage
 
 Embeddings are persisted in a SQLite database (one file per collection):
