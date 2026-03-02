@@ -676,8 +676,6 @@ func TestExecute_TimeoutAlias(t *testing.T) {
 	// Just check that setting Timeout populates TimeoutDuration via UnmarshalYAML.
 	// We test this via the domain config directly (no YAML round-trip needed here).
 	cfg := &domain.EmbeddingConfig{
-		Model:   "m",
-		Input:   "x",
 		Timeout: "45s",
 	}
 	// Simulate the alias resolution that UnmarshalYAML would do.

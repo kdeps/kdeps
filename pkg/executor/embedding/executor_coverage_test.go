@@ -626,7 +626,7 @@ func TestCosineSimilarity_ZeroNorm(t *testing.T) {
 	a := []float64{0, 0, 0}
 	b := []float64{0, 0, 0}
 	got := cosineSimilarity(a, b)
-	assert.Equal(t, float64(0), got)
+	assert.InDelta(t, 0.0, got, 0.0)
 }
 
 // ─── Search sort swap ─────────────────────────────────────────────────────────
@@ -741,53 +741,53 @@ func TestExecute_Search_SkipsMalformedEmbeddingRow(t *testing.T) {
 // ─── operationSearch: embedding-fetch error path ─────────────────────────────
 
 func TestExecute_Search_EmbeddingFetchError(t *testing.T) {
-// Index a doc with a working server, then switch to a 500-returning server
-// so the search embedding fetch fails (exercises lines 224-227).
-vec := []float64{0.1, 0.2}
-goodSrv := ollamaEmbedServer(t, vec)
-defer goodSrv.Close()
+	// Index a doc with a working server, then switch to a 500-returning server
+	// so the search embedding fetch fails (exercises lines 224-227).
+	vec := []float64{0.1, 0.2}
+	goodSrv := ollamaEmbedServer(t, vec)
+	defer goodSrv.Close()
 
-ctx := makeCtx(t)
-dbPath := tmpDBPath(t, "search-embed-fail")
+	ctx := makeCtx(t)
+	dbPath := tmpDBPath(t, "search-embed-fail")
 
-// Index a document using the working server.
-exec := NewAdapterWithClient(nil, goodSrv.Client())
-_, err := exec.Execute(ctx, &domain.EmbeddingConfig{
-Model:   "m",
-BaseURL: goodSrv.URL,
-Input:   "some doc",
-DBPath:  dbPath,
-})
-require.NoError(t, err)
+	// Index a document using the working server.
+	exec := NewAdapterWithClient(nil, goodSrv.Client())
+	_, err := exec.Execute(ctx, &domain.EmbeddingConfig{
+		Model:   "m",
+		BaseURL: goodSrv.URL,
+		Input:   "some doc",
+		DBPath:  dbPath,
+	})
+	require.NoError(t, err)
 
-// Now search with a server that always returns HTTP 500.
-badSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
-defer badSrv.Close()
+	// Now search with a server that always returns HTTP 500.
+	badSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer badSrv.Close()
 
-exec2 := NewAdapterWithClient(nil, badSrv.Client())
-_, err = exec2.Execute(ctx, &domain.EmbeddingConfig{
-Model:     "m",
-BaseURL:   badSrv.URL,
-Input:     "query",
-DBPath:    dbPath,
-Operation: domain.EmbeddingOperationSearch,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "get query embedding")
+	exec2 := NewAdapterWithClient(nil, badSrv.Client())
+	_, err = exec2.Execute(ctx, &domain.EmbeddingConfig{
+		Model:     "m",
+		BaseURL:   badSrv.URL,
+		Input:     "query",
+		DBPath:    dbPath,
+		Operation: domain.EmbeddingOperationSearch,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "get query embedding")
 }
 
 // ─── evaluateText: non-string evaluator result ────────────────────────────────
 
 func TestEvaluateText_NonStringResult(t *testing.T) {
-// Store an integer in memory; get('key') returns an int (not a string).
-// evaluateText must fall through to fmt.Sprintf (line 689).
-ctx := makeCtx(t)
-require.NoError(t, ctx.Memory.Set("intkey", 42))
+	// Store an integer in memory; get('key') returns an int (not a string).
+	// evaluateText must fall through to fmt.Sprintf (line 689).
+	ctx := makeCtx(t)
+	require.NoError(t, ctx.Memory.Set("intkey", 42))
 
-e := &Executor{logger: slog.Default(), client: http.DefaultClient}
-// Single {{ expr }} returns the raw value (an int); evaluateText converts it.
-got := e.evaluateText("{{ get('intkey') }}", ctx)
-assert.Equal(t, "42", got)
+	e := &Executor{logger: slog.Default(), client: http.DefaultClient}
+	// Single {{ expr }} returns the raw value (an int); evaluateText converts it.
+	got := e.evaluateText("{{ get('intkey') }}", ctx)
+	assert.Equal(t, "42", got)
 }

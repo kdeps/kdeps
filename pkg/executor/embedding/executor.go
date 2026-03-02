@@ -57,12 +57,12 @@ import (
 )
 
 const (
-	defaultEmbeddingDir     = "/tmp/kdeps-embedding"
-	defaultCollection       = "embeddings"
-	defaultTopK             = 10
-	defaultOllamaURL        = "http://localhost:11434"
-	defaultTimeoutSeconds   = 60
-	embeddingBackendOllama  = domain.EmbeddingBackendOllama
+	defaultEmbeddingDir      = "/tmp/kdeps-embedding"
+	defaultCollection        = "embeddings"
+	defaultTopK              = 10
+	defaultOllamaURL         = "http://localhost:11434"
+	defaultTimeoutSeconds    = 60
+	embeddingBackendOllama   = domain.EmbeddingBackendOllama
 	embeddingOperationIndex  = domain.EmbeddingOperationIndex
 	embeddingOperationSearch = domain.EmbeddingOperationSearch
 	embeddingOperationDelete = domain.EmbeddingOperationDelete
@@ -313,15 +313,13 @@ func (e *Executor) operationDelete(
 	var query string
 	var args []interface{}
 
-	if cfg.Input != "" {
+	switch {
+	case cfg.Input != "":
 		// Delete by exact text match.
 		query = fmt.Sprintf("DELETE FROM %s WHERE text = ?", sanitizeTableName(collection))
 		args = []interface{}{cfg.Input}
-	} else if len(cfg.Metadata) > 0 {
-		// Delete all rows (caller uses metadata filter via expression in Input).
-		query = fmt.Sprintf("DELETE FROM %s", sanitizeTableName(collection))
-	} else {
-		// Delete all rows in the collection.
+	default:
+		// Delete all rows in the collection (with or without metadata).
 		query = fmt.Sprintf("DELETE FROM %s", sanitizeTableName(collection))
 	}
 
@@ -383,7 +381,7 @@ func (e *Executor) ollamaEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed: do request: %w", err)
 	}
@@ -428,7 +426,7 @@ func (e *Executor) openAIEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
 	if err != nil {
 		return nil, fmt.Errorf("openai embed: do request: %w", err)
 	}
@@ -477,7 +475,7 @@ func (e *Executor) cohereEmbed(cfg *domain.EmbeddingConfig, text string) ([]floa
 	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
 	if err != nil {
 		return nil, fmt.Errorf("cohere embed: do request: %w", err)
 	}
@@ -527,7 +525,7 @@ func (e *Executor) huggingFaceEmbed(cfg *domain.EmbeddingConfig, text string) ([
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := e.client.Do(req)
+	resp, err := e.client.Do(req) //nolint:gosec // URL is user-supplied backend address; SSRF is intentional.
 	if err != nil {
 		return nil, fmt.Errorf("huggingface embed: do request: %w", err)
 	}
@@ -545,41 +543,52 @@ func (e *Executor) huggingFaceEmbed(cfg *domain.EmbeddingConfig, text string) ([
 	return parseHuggingFaceResponse(rawResult)
 }
 
+// parseFlatFloatSlice converts a []interface{} whose elements are all float64
+// into a []float64. Returns an error if any element is not float64.
+func parseFlatFloatSlice(v []interface{}) ([]float64, error) {
+	result := make([]float64, len(v))
+	for i, val := range v {
+		f, isFloat := val.(float64)
+		if !isFloat {
+			return nil, errors.New("huggingface embed: non-float value in embedding")
+		}
+		result[i] = f
+	}
+	return result, nil
+}
+
+// parseNestedFloatSlice converts the first element of v (which must be
+// []interface{} of float64) into a []float64.
+func parseNestedFloatSlice(inner []interface{}) ([]float64, error) {
+	result := make([]float64, len(inner))
+	for i, val := range inner {
+		f, isFloat := val.(float64)
+		if !isFloat {
+			return nil, errors.New("huggingface embed: non-float value in nested embedding")
+		}
+		result[i] = f
+	}
+	return result, nil
+}
+
 // parseHuggingFaceResponse handles both flat []float64 and nested [][]float64 responses.
 func parseHuggingFaceResponse(raw interface{}) ([]float64, error) {
-	switch v := raw.(type) {
-	case []interface{}:
-		if len(v) == 0 {
-			return nil, errors.New("huggingface embed: empty response")
-		}
-		// Check if it's a flat float array.
-		if _, ok := v[0].(float64); ok {
-			result := make([]float64, len(v))
-			for i, val := range v {
-				f, ok := val.(float64)
-				if !ok {
-					return nil, errors.New("huggingface embed: non-float value in embedding")
-				}
-				result[i] = f
-			}
-			return result, nil
-		}
-		// Nested: first element is the embedding array.
-		if inner, ok := v[0].([]interface{}); ok {
-			result := make([]float64, len(inner))
-			for i, val := range inner {
-				f, ok := val.(float64)
-				if !ok {
-					return nil, errors.New("huggingface embed: non-float value in nested embedding")
-				}
-				result[i] = f
-			}
-			return result, nil
-		}
-		return nil, errors.New("huggingface embed: unexpected response format")
-	default:
+	v, ok := raw.([]interface{})
+	if !ok {
 		return nil, errors.New("huggingface embed: unexpected response type")
 	}
+	if len(v) == 0 {
+		return nil, errors.New("huggingface embed: empty response")
+	}
+	// Check if it's a flat float array.
+	if _, isFloat := v[0].(float64); isFloat {
+		return parseFlatFloatSlice(v)
+	}
+	// Nested: first element is the embedding array.
+	if inner, isSlice := v[0].([]interface{}); isSlice {
+		return parseNestedFloatSlice(inner)
+	}
+	return nil, errors.New("huggingface embed: unexpected response format")
 }
 
 // ─── SQLite vector DB helpers ─────────────────────────────────────────────────
