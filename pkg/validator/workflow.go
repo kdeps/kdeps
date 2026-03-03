@@ -20,6 +20,7 @@ package validator
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -269,6 +270,8 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 }
 
 // ValidateResource validates a single resource.
+//
+//nolint:gocognit // resource validation checks multiple mutually exclusive conditions
 func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow *domain.Workflow) error {
 	// Validate metadata.
 	if resource.Metadata.ActionID == "" {
@@ -283,8 +286,16 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := countPrimaryExecutionTypes(&resource.Run)
 	hasAPIResponse := resource.Run.APIResponse != nil
+	hasExprBlocks := len(resource.Run.Expr) > 0 ||
+		len(resource.Run.ExprBefore) > 0 ||
+		len(resource.Run.ExprAfter) > 0
+	hasLoop := resource.Run.Loop != nil
 
-	if primaryCount == 0 && !hasAPIResponse {
+	// A resource is valid if it has:
+	//   a) at least one primary execution type, or
+	//   b) an apiResponse block, or
+	//   c) a loop with expression blocks (for Turing-complete while loops).
+	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, apiResponse)",
@@ -297,6 +308,13 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding)",
 			nil,
 		)
+	}
+
+	// Validate loop configuration.
+	if resource.Run.Loop != nil {
+		if err := ValidateLoopConfig(resource.Run.Loop); err != nil {
+			return err
+		}
 	}
 
 	// Validate specific execution types.
@@ -326,6 +344,17 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 		}
 	}
 
+	return nil
+}
+
+// ValidateLoopConfig validates a LoopConfig.
+func ValidateLoopConfig(config *domain.LoopConfig) error {
+	if strings.TrimSpace(config.While) == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "loop.while condition is required", nil)
+	}
+	if config.MaxIterations < 0 {
+		return domain.NewError(domain.ErrCodeInvalidResource, "loop.maxIterations must be non-negative", nil)
+	}
 	return nil
 }
 

@@ -668,11 +668,19 @@ func (e *Engine) createPreflightError(
 
 // ExecuteResource executes a single resource.
 //
-//nolint:gocognit,gocyclo,cyclop // resource execution handles multiple pathways
+//nolint:gocognit,gocyclo,cyclop,funlen // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	// Handle Loop (while-loop) iteration – takes priority over Items.
+	// Only enter loop mode when not already inside a loop to prevent recursion.
+	if resource.Run.Loop != nil {
+		if _, inLoopContext := ctx.Items[loopKeyIndex]; !inLoopContext {
+			return e.ExecuteWithLoop(resource, ctx)
+		}
+	}
+
 	// Handle Items iteration (only if not already in items context to prevent recursion).
 	if len(resource.Items) > 0 {
 		// Check if we're already processing items to prevent infinite recursion.
@@ -759,7 +767,9 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Handle apiResponse - can be standalone or combined with primary type
+	// Handle apiResponse - can be standalone or combined with primary type.
+	// apiResponse runs on every loop iteration (per-iteration = streaming response),
+	// consistent with how it runs per-item in ExecuteWithItems.
 	if resource.Run.APIResponse != nil {
 		return e.executeAPIResponse(resource, ctx)
 	}
@@ -1075,6 +1085,99 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 	}
 
 	return nil
+}
+
+// defaultLoopMaxIterations is the per-resource iteration cap applied when LoopConfig.MaxIterations
+// is not set (or is 0). This value is deliberately large enough to support real workloads while
+// still preventing accidental runaway loops. Users requiring more iterations can set
+// loop.maxIterations explicitly in their resource configuration.
+const defaultLoopMaxIterations = 1000
+
+// ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
+// Loop context variables (loop.index, loop.count) are available inside the body expressions
+// and primary execution types via the "loop" key in the evaluation environment.
+func (e *Engine) ExecuteWithLoop(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	loopCfg := resource.Run.Loop
+
+	// Ensure the evaluator is initialised (it may not be when called outside Execute).
+	if e.evaluator == nil {
+		var api *domain.UnifiedAPI
+		if ctx != nil {
+			api = ctx.API
+		}
+		e.evaluator = expression.NewEvaluator(api)
+	}
+
+	// Determine the maximum number of iterations allowed.
+	maxIter := defaultLoopMaxIterations
+	if loopCfg.MaxIterations > 0 {
+		maxIter = loopCfg.MaxIterations
+	}
+
+	// Normalise the while condition string (strip optional {{ }} wrappers).
+	whileExpr := strings.TrimSpace(loopCfg.While)
+	if strings.HasPrefix(whileExpr, "{{") && strings.HasSuffix(whileExpr, "}}") {
+		whileExpr = strings.TrimSpace(whileExpr[2 : len(whileExpr)-2])
+	}
+
+	var lastResult interface{}
+	results := make([]interface{}, 0)
+
+	for i := range maxIter {
+		// Set loop context variables so they are accessible inside the body via
+		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
+		ctx.Items[loopKeyIndex] = i
+		ctx.Items[loopKeyCount] = i + 1
+		// Expose accumulated results from *previous* iterations before running this one.
+		// Store the slice directly (no copy) to avoid O(n²) allocations over many iterations.
+		ctx.Items[loopKeyResults] = results
+
+		// Evaluate the while condition.
+		env := e.buildEvaluationEnvironment(ctx)
+		cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
+		if err != nil {
+			// Clean up loop context before returning.
+			delete(ctx.Items, loopKeyIndex)
+			delete(ctx.Items, loopKeyCount)
+			delete(ctx.Items, loopKeyResults)
+			return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
+		}
+		if !cont {
+			break
+		}
+
+		// Execute the resource body for this iteration.
+		result, execErr := e.ExecuteResource(resource, ctx)
+		if execErr != nil {
+			delete(ctx.Items, loopKeyIndex)
+			delete(ctx.Items, loopKeyCount)
+			delete(ctx.Items, loopKeyResults)
+			return nil, fmt.Errorf("loop iteration %d failed: %w", i, execErr)
+		}
+
+		lastResult = result
+		results = append(results, result)
+	}
+
+	// Clean up loop context.
+	delete(ctx.Items, loopKeyIndex)
+	delete(ctx.Items, loopKeyCount)
+	delete(ctx.Items, loopKeyResults)
+
+	// Return the collected results from all iterations.
+	// When apiResponse is present, each iteration produces an apiResponse map;
+	// multiple per-iteration responses constitute a streaming response.
+	// If no iterations ran, return an empty slice to distinguish from a nil error result.
+	if len(results) == 0 {
+		return []interface{}{}, nil
+	}
+	if len(results) == 1 {
+		return lastResult, nil
+	}
+	return results, nil
 }
 
 // ExecuteWithItems executes a resource for each item.

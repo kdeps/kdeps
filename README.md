@@ -30,6 +30,7 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 - ✅ **TTS Output** - Built-in Text-to-Speech resource with 5 online providers (OpenAI, Google, ElevenLabs, Azure, AWS Polly) and 4 offline engines (Piper, eSpeak, Festival, Coqui-TTS).
 - ✅ **Content Scraper** - Extract text from 15 source types: web pages, PDFs, Word/Excel/PowerPoint, LibreOffice documents, images (OCR), CSV, JSON, XML, Markdown, and plain text.
 - ✅ **Vector Embeddings** - Built-in `embedding` resource for RAG pipelines: index text with Ollama, OpenAI, Cohere, or HuggingFace; search by cosine similarity; stored in SQLite.
+- ✅ **Turing-Complete Loops** - `loop` block with configurable `while` condition and `maxIterations` cap. Combines with `set()`/`get()` mutable state for unbounded conditional iteration, accumulation, and search patterns.
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
 ## Quick Start
@@ -363,6 +364,7 @@ Explore working examples in the [examples/](examples/) directory:
 - **[http-advanced](examples/http-advanced/)** - Complex HTTP integrations
 - **[sql-advanced](examples/sql-advanced/)** - Multi-database queries
 - **[batch-processing](examples/batch-processing/)** - Items iteration
+- **[control-flow](examples/control-flow/)** - Conditionals and loop patterns
 - **[session-auth](examples/session-auth/)** - Session management
 - **[tools](examples/tools/)** - LLM function calling
 - **[vision](examples/vision/)** - Image processing with LLMs
