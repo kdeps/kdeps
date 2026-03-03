@@ -1132,7 +1132,8 @@ func (e *Engine) ExecuteWithLoop(
 		ctx.Items[loopKeyIndex] = i
 		ctx.Items[loopKeyCount] = i + 1
 		// Expose accumulated results from *previous* iterations before running this one.
-		ctx.Items[loopKeyResults] = append([]interface{}{}, results...)
+		// Store the slice directly (no copy) to avoid O(n²) allocations over many iterations.
+		ctx.Items[loopKeyResults] = results
 
 		// Evaluate the while condition.
 		env := e.buildEvaluationEnvironment(ctx)

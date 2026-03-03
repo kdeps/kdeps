@@ -87,7 +87,7 @@ else
     test_failed "Loop Iteration - Workflow validation" "Validation failed"
     rm -rf "$TEST_DIR"
     echo ""
-    exit 0
+    return 0
 fi
 
 # Test 2: Verify loop field is present

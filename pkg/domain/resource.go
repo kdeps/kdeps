@@ -41,7 +41,7 @@ type ResourceMetadata struct {
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete
 // conditional iteration. The resource body (primary type + expr blocks) is executed
 // repeatedly as long as While evaluates to true, up to MaxIterations times.
-// Loop context variables are available inside the body via loop('index') etc.
+// Loop context variables are available inside the body via the loop object methods.
 type LoopConfig struct {
 	// While is an expression evaluated before each iteration.
 	// The loop continues while this expression is truthy.

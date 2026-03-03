@@ -1217,9 +1217,10 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Expr: []domain.Expression{
 					{Raw: "set('ticks', loop.count())"},
 				},
-				// No apiResponse: loop returns a slice of per-iteration results.
-				// With apiResponse present, the loop returns a single map instead of a slice.
-				// With apiResponse, it would return a single map.
+				// In this test there is no apiResponse; multiple iterations return a slice
+				// of per-iteration results from ExecuteWithLoop.
+				// When apiResponse is present, multiple iterations still return a slice
+				// (of per-iteration response maps); a single iteration returns a single map.
 			},
 		}
 
