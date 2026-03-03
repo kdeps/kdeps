@@ -1,16 +1,34 @@
 # Control Flow Examples
 
-This example demonstrates control flow in kdeps using expr-lang features:
+This example demonstrates control flow in kdeps:
 - **if-else** via ternary operator (`? :`)
 - **and/or** via logical operators (`&&`, `||`, `!`)
-- **loops** via functional list operations (`filter`, `map`, `all`, `any`)
+- **while loops** via the `loop` resource block (Turing-complete)
+- **list operations** via functional expressions (`filter`, `map`, `all`, `any`)
 
-## Why No Traditional Loops?
+## Conditional Iteration: `loop`
 
-expr-lang intentionally excludes `for`, `while`, and statement-based `if/else` to:
-- **Prevent infinite loops** - All expressions must terminate
-- **Ensure safety** - No Turing-complete code in templates
-- **Promote functional style** - Cleaner, more declarative code
+The `loop` block enables unbounded while-loop iteration in a resource:
+
+```yaml
+run:
+  loop:
+    while: "loop.index() < 5"
+    maxIterations: 1000   # safety cap (default: 1000)
+  expr:
+    - "{{ set('result', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      count: "{{ get('result') }}"
+```
+
+- `loop.index()` — current iteration index (0-based)
+- `loop.count()` — current iteration count (1-based)
+- `loop.results()` — results from all prior iterations (for self-referential termination)
+- `set('key', val, 'loop')` / `get('key', 'loop')` — loop-scoped storage
+
+Multiple iterations with `apiResponse` produce a **streaming response** (a slice of per-iteration maps).
 
 ## Features Demonstrated
 
@@ -43,7 +61,26 @@ enabled: {{!disabled}}
 canPurchase: {{(age >= 18 && verified) || admin}}
 ```
 
-### 3. List Operations (Loop Alternatives)
+### 3. While Loop
+
+```yaml
+# Count to N
+loop:
+  while: "loop.index() < 10"
+  maxIterations: 100
+
+# Accumulate until threshold
+loop:
+  while: "int(default(get('sum'), 0)) <= 20"
+  maxIterations: 100
+
+# Collect N results
+loop:
+  while: "len(loop.results()) < 3"
+  maxIterations: 10
+```
+
+### 4. List Operations
 
 ```yaml
 # Filter (like: for item in items if condition)
@@ -67,5 +104,6 @@ kdeps run examples/control-flow/workflow.yaml
 
 ## Learn More
 
-- [Control Flow Documentation](../../docs/CONTROL_FLOW.md) - Complete guide
+- [Loop Iteration Documentation](../../docs/v2/concepts/loop.md) - Complete loop guide
+- [Control Flow Documentation](../../docs/CONTROL_FLOW.md) - Expressions and conditionals
 - [expr-lang Documentation](https://expr-lang.org/docs/language-definition) - Full language reference
