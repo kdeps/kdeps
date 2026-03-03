@@ -767,8 +767,14 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Handle apiResponse - can be standalone or combined with primary type
-	if resource.Run.APIResponse != nil {
+	// Handle apiResponse - can be standalone or combined with primary type.
+	// Skip inside loop iterations: apiResponse is a "returned-once" type that
+	// ExecuteWithLoop executes exactly once after all iterations complete.
+	inLoopIteration := ctx != nil
+	if inLoopIteration {
+		_, inLoopIteration = ctx.Items[loopKeyIndex]
+	}
+	if resource.Run.APIResponse != nil && !inLoopIteration {
 		return e.executeAPIResponse(resource, ctx)
 	}
 
@@ -1165,6 +1171,13 @@ func (e *Engine) ExecuteWithLoop(
 	delete(ctx.Items, loopKeyIndex)
 	delete(ctx.Items, loopKeyCount)
 	delete(ctx.Items, loopKeyResults)
+
+	// Execute apiResponse exactly once after all loop iterations complete.
+	// apiResponse is a "returned-once" type: ExecuteResource skips it inside loop
+	// iterations (see loopKeyIndex guard above) so that it is not called on every pass.
+	if resource.Run.APIResponse != nil {
+		return e.executeAPIResponse(resource, ctx)
+	}
 
 	// Return the collected results from all iterations.
 	// If no iterations ran, return an empty slice to distinguish from a nil error result.

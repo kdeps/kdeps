@@ -1152,6 +1152,36 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Loop: &domain.LoopConfig{
 					While: "false",
 				},
+				// No apiResponse: the loop returns an empty slice when no iterations ran.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// A loop that never ran (no apiResponse) returns an empty slice.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop that never runs should return empty slice")
+		assert.Empty(t, results)
+	})
+
+	t.Run("loop with zero while condition and apiResponse returns apiResponse once", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-never-api", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "never-api", Name: "Never Runs API"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "false",
+				},
+				// apiResponse is a "returned-once" type: runs after the loop, not per-iteration.
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 				},
@@ -1160,10 +1190,10 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 		result, err := engine.ExecuteWithLoop(resource, ctx)
 		require.NoError(t, err)
-		// A loop that never ran returns an empty slice.
-		results, ok := result.([]interface{})
-		require.True(t, ok, "loop that never runs should return empty slice")
-		assert.Empty(t, results)
+		// With apiResponse, the loop returns a single apiResponse map (not a slice).
+		resp, ok := result.(map[string]interface{})
+		require.True(t, ok, "loop with apiResponse should return a single apiResponse map")
+		assert.Equal(t, true, resp["success"])
 	})
 
 	t.Run("loop respects maxIterations cap", func(t *testing.T) {
@@ -1187,18 +1217,59 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Expr: []domain.Expression{
 					{Raw: "set('ticks', loop.count())"},
 				},
+				// No apiResponse: loop returns a slice of per-iteration results.
+				// With apiResponse present, the loop returns a single map instead of a slice.
+				// With apiResponse, it would return a single map.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// Without apiResponse, multiple iterations return a slice.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "multiple iterations without apiResponse should return a slice")
+		assert.Len(t, results, 3)
+		// Verify side effect: ticks should equal 3 (last loop.count() = MaxIterations).
+		ticks, getErr := ctx.API.Get("ticks")
+		require.NoError(t, getErr)
+		assert.EqualValues(t, 3, ticks)
+	})
+
+	t.Run("loop respects maxIterations cap with apiResponse runs once", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-cap-api", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "capped-api", Name: "Capped Loop API"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "true",
+					MaxIterations: 3,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('ticks', loop.count())"},
+				},
+				// apiResponse runs ONCE after all iterations (not per-iteration).
 				APIResponse: &domain.APIResponseConfig{
-					Success: true,
+					Success:  true,
+					Response: map[string]interface{}{"ticks": "{{ get('ticks') }}"},
 				},
 			},
 		}
 
 		result, err := engine.ExecuteWithLoop(resource, ctx)
 		require.NoError(t, err)
-		// Should have run exactly MaxIterations times, returning a slice
-		results, ok := result.([]interface{})
-		require.True(t, ok, "multiple iterations should return a slice")
-		assert.Len(t, results, 3)
+		// apiResponse returns a single map, not a slice.
+		resp, ok := result.(map[string]interface{})
+		require.True(t, ok, "loop with apiResponse should return a single apiResponse map")
+		assert.Equal(t, true, resp["success"])
 	})
 
 	t.Run("loop context callable methods are accessible inside body", func(t *testing.T) {
@@ -1258,9 +1329,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Expr: []domain.Expression{
 					{Raw: "set('count', loop.count())"},
 				},
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-				},
+				// No apiResponse: loop returns the slice of per-iteration results so we can check len.
 			},
 		}
 
@@ -1286,7 +1355,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 			Metadata: domain.ResourceMetadata{ActionID: "storage-loop", Name: "Storage Loop"},
 			Run: domain.RunConfig{
 				Loop: &domain.LoopConfig{
-						// Use get with 'loop' type hint to read loop-scoped var (parallel to get('k', 'item'))
+					// Use get with 'loop' type hint to read loop-scoped var (parallel to get('k', 'item'))
 					While:         "default(get('step', 'loop'), 0) < 3",
 					MaxIterations: 10,
 				},
@@ -1294,9 +1363,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					// Use set with 'loop' type hint (parallel to set('key', val, 'item'))
 					{Raw: "set('step', loop.count(), 'loop')"},
 				},
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-				},
+				// No apiResponse: loop returns a slice so we can verify iteration count.
 			},
 		}
 

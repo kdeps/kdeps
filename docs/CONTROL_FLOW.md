@@ -163,8 +163,15 @@ run:
     - "{{ <body expressions> }}"
 ```
 
-`loop` can be combined with any primary execution type (exec, python, sql, httpClient, etc.) or
-used with only `expr`/`exprBefore`/`exprAfter` blocks.
+`loop` can be combined with any primary execution type (`exec`, `python`, `sql`, `httpClient`, etc.)
+or used with only `expr`/`exprBefore`/`exprAfter` blocks.
+
+Every resource block runs on **each iteration** of the loop — including primary execution types
+(`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`).
+
+`apiResponse` is the only **"returned-once"** block: it is skipped during loop iterations and
+executed exactly **once after all iterations complete**, using the final state of the context.
+This makes `apiResponse` the natural place to return the result of the loop computation.
 
 ### Loop Context Variables
 
