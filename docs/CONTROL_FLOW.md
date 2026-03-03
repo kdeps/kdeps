@@ -167,11 +167,9 @@ run:
 or used with only `expr`/`exprBefore`/`exprAfter` blocks.
 
 Every resource block runs on **each iteration** of the loop — including primary execution types
-(`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`).
-
-`apiResponse` is the only **"returned-once"** block: it is skipped during loop iterations and
-executed exactly **once after all iterations complete**, using the final state of the context.
-This makes `apiResponse` the natural place to return the result of the loop computation.
+(`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`) and
+`apiResponse`. When `apiResponse` is present, each iteration produces one response map; collecting
+multiple per-iteration responses constitutes a **streaming response**.
 
 ### Loop Context Variables
 

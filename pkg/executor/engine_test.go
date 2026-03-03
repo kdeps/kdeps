@@ -1164,7 +1164,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		assert.Empty(t, results)
 	})
 
-	t.Run("loop with zero while condition and apiResponse returns apiResponse once", func(t *testing.T) {
+	t.Run("loop with zero while condition and apiResponse returns empty slice", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		engine := executor.NewEngine(slog.Default())
 
@@ -1181,7 +1181,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Loop: &domain.LoopConfig{
 					While: "false",
 				},
-				// apiResponse is a "returned-once" type: runs after the loop, not per-iteration.
+				// apiResponse runs per-iteration (streaming); no iterations → empty slice.
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 				},
@@ -1190,10 +1190,10 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 		result, err := engine.ExecuteWithLoop(resource, ctx)
 		require.NoError(t, err)
-		// With apiResponse, the loop returns a single apiResponse map (not a slice).
-		resp, ok := result.(map[string]interface{})
-		require.True(t, ok, "loop with apiResponse should return a single apiResponse map")
-		assert.Equal(t, true, resp["success"])
+		// No iterations ran → empty slice regardless of apiResponse.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop that never runs should return empty slice")
+		assert.Empty(t, results)
 	})
 
 	t.Run("loop respects maxIterations cap", func(t *testing.T) {
@@ -1235,7 +1235,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		assert.EqualValues(t, 3, ticks)
 	})
 
-	t.Run("loop respects maxIterations cap with apiResponse runs once", func(t *testing.T) {
+	t.Run("loop with apiResponse produces streaming response per iteration", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		engine := executor.NewEngine(slog.Default())
 
@@ -1256,7 +1256,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				Expr: []domain.Expression{
 					{Raw: "set('ticks', loop.count())"},
 				},
-				// apiResponse runs ONCE after all iterations (not per-iteration).
+				// apiResponse runs per-iteration; 3 iterations → 3 apiResponse maps (streaming).
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"ticks": "{{ get('ticks') }}"},
@@ -1266,10 +1266,16 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 
 		result, err := engine.ExecuteWithLoop(resource, ctx)
 		require.NoError(t, err)
-		// apiResponse returns a single map, not a slice.
-		resp, ok := result.(map[string]interface{})
-		require.True(t, ok, "loop with apiResponse should return a single apiResponse map")
-		assert.Equal(t, true, resp["success"])
+		// apiResponse runs on every iteration → streaming response: a slice of apiResponse maps.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop with apiResponse should return a streaming slice of apiResponse maps")
+		assert.Len(t, results, 3)
+		// Each entry should be an apiResponse map with success=true.
+		for _, r := range results {
+			resp, mapOK := r.(map[string]interface{})
+			require.True(t, mapOK, "each streaming result should be an apiResponse map")
+			assert.Equal(t, true, resp["success"])
+		}
 	})
 
 	t.Run("loop context callable methods are accessible inside body", func(t *testing.T) {
