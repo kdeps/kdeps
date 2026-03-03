@@ -254,6 +254,34 @@ Access iteration context:
 - `get('index')` - Current index (0-based)
 - `get('count')` - Total item count
 
+## Loop Iteration
+
+Repeat a resource body while a condition is true (Turing-complete while-loop):
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "loop.index() < 5"
+    maxIterations: 1000   # safety cap (default: 1000)
+  expr:
+    - "{{ set('result', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      count: "{{ get('result') }}"
+```
+
+</div>
+
+Access loop context:
+- `loop.index()` - Current index (0-based)
+- `loop.count()` - Current count (1-based)
+- `loop.results()` - Results from all prior iterations
+
+When `apiResponse` is present, each iteration produces one streaming response map.
+
 ## Resource Output
 
 Each resource produces output that can be accessed by dependent resources:

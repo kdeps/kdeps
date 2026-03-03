@@ -7,8 +7,8 @@ Complete guide to control flow, conditionals, logical operators, and iteration i
 1. [Overview](#overview)
 2. [If-Else (Ternary Operator)](#if-else-ternary-operator)
 3. [Logical Operators](#logical-operators)
-4. [List Operations (Loop Alternatives)](#list-operations-loop-alternatives)
-5. [Why No Traditional Loops?](#why-no-traditional-loops)
+4. [While Loops](#while-loops)
+5. [List Operations (Foreach)](#list-operations-foreach)
 6. [Common Patterns](#common-patterns)
 7. [Best Practices](#best-practices)
 
@@ -17,10 +17,13 @@ Complete guide to control flow, conditionals, logical operators, and iteration i
 kdeps uses **expr-lang** for expressions, which provides:
 - ✅ **Conditionals** via ternary operator (`? :`)
 - ✅ **Logical operators** (`&&`, `||`, `!`)
+- ✅ **While loops** via the `loop.while` resource field
 - ✅ **List operations** (`filter`, `map`, `all`, `any`, `one`, `none`)
-- ❌ **No traditional loops** (`for`, `while`) - by design for safety
 
-All expressions are **guaranteed to terminate** - no infinite loops possible.
+Workflow resources are **Turing complete**: the `loop` block enables conditional iteration with
+mutable state. A default safety cap of 1000 iterations applies per resource execution; set
+`maxIterations` to any positive integer for tighter or looser control. Turing completeness is
+preserved because the cap is configurable, not fixed.
 
 ---
 
@@ -144,7 +147,152 @@ valid: {{(score > 50 || bonus > 10) && !disqualified}}
 
 ---
 
-## List Operations (Loop Alternatives)
+## While Loops
+
+The `loop` block on a resource enables **while-loop** iteration — the resource body (primary
+execution type and `expr` blocks) is repeated as long as the `while` condition is truthy.
+
+### Syntax
+
+```yaml
+run:
+  loop:
+    while: "<expression>"   # required: loop continues while this is truthy
+    maxIterations: 1000     # optional: safety cap (default: 1000)
+  expr:
+    - "{{ <body expressions> }}"
+```
+
+`loop` can be combined with any primary execution type (`exec`, `python`, `sql`, `httpClient`, etc.)
+or used with only `expr`/`exprBefore`/`exprAfter` blocks.
+
+Every resource block runs on **each iteration** of the loop — including primary execution types
+(`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`) and
+`apiResponse`. When `apiResponse` is present, each iteration produces one response map; collecting
+multiple per-iteration responses constitutes a **streaming response**.
+
+### Loop Context Variables
+
+Inside the loop body, three context accessors are available (callable methods, consistent with
+`item.index()`, `item.count()` in the `items` feature):
+
+| Method          | Description                                             |
+|-----------------|---------------------------------------------------------|
+| `loop.index()`  | Zero-based iteration counter (0, 1, 2, …)              |
+| `loop.count()`  | One-based iteration counter (1, 2, 3, …)               |
+| `loop.results()`| Results accumulated from all *previous* iterations     |
+
+Loop context is also accessible via `get('key', 'loop')` / `set('key', value, 'loop')`, parallel
+to the `'item'` storage type used by the `items` feature.
+
+### Examples
+
+#### Counter Loop
+
+```yaml
+metadata:
+  actionId: count-to-five
+  name: Count to Five
+run:
+  loop:
+    while: "loop.index() < 5"
+  expr:
+    - "{{ set('result', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      count: "{{ get('result') }}"
+```
+
+#### Loop with State Mutation
+
+```yaml
+metadata:
+  actionId: fibonacci
+  name: Fibonacci Loop
+run:
+  loop:
+    while: "loop.index() < 10"
+    maxIterations: 20
+  exprBefore:
+    - "{{ set('a', get('a') == nil ? 0 : get('a')) }}"
+    - "{{ set('b', get('b') == nil ? 1 : get('b')) }}"
+  expr:
+    - "{{ set('tmp', get('b')) }}"
+    - "{{ set('b', get('a') + get('b')) }}"
+    - "{{ set('a', get('tmp')) }}"
+  apiResponse:
+    success: true
+    response:
+      fib: "{{ get('a') }}"
+```
+
+#### Accumulate Results (loop.results())
+
+```yaml
+metadata:
+  actionId: collect-three
+  name: Collect Three Results
+run:
+  loop:
+    # Stop once we have 3 accumulated results (parallel to item.values() in items)
+    while: "len(loop.results()) < 3"
+  expr:
+    - "{{ set('val', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      collected: "{{ loop.results() }}"
+```
+
+#### Loop-scoped Variables (set/get with 'loop' type)
+
+```yaml
+metadata:
+  actionId: loop-scoped-counter
+  name: Loop-scoped Counter
+run:
+  loop:
+    # Read loop-scoped variable (parallel to get('k', 'item') in items)
+    while: "default(get('step', 'loop'), 0) < 5"
+  expr:
+    # Write to loop scope (parallel to set('k', v, 'item') in items)
+    - "{{ set('step', loop.count(), 'loop') }}"
+  apiResponse:
+    success: true
+```
+
+#### Loop with Primary Execution Type
+
+```yaml
+metadata:
+  actionId: retry-until-success
+  name: Retry Until Success
+run:
+  loop:
+    while: "get('status') != 'ok' && loop.index() < 5"
+  httpClient:
+    method: GET
+    url: "https://api.example.com/status"
+  expr:
+    - "{{ set('status', http.responseBody('retry-until-success')) }}"
+```
+
+### Safety Cap
+
+`maxIterations` prevents runaway loops. When the cap is reached the loop stops silently (it does
+not return an error). The default cap is **1000** iterations. Set it explicitly for tighter
+control:
+
+```yaml
+loop:
+  while: "true"
+  maxIterations: 5   # run exactly 5 times
+```
+
+---
+
+## List Operations (Foreach)
 
 expr-lang doesn't have traditional `for` or `while` loops. Instead, use functional operations.
 
@@ -277,36 +425,6 @@ Check if NO items match.
 
 ```yaml
 noSuspended: {{none(users, .suspended)}}
-```
-
----
-
-## Why No Traditional Loops?
-
-### Design Philosophy
-
-expr-lang **intentionally excludes** traditional loops (`for`, `while`, `do-while`).
-
-**Reasons:**
-
-1. **Safety** - Prevents infinite loops
-2. **Termination** - All expressions guaranteed to finish
-3. **Predictability** - No Turing-complete code
-4. **Simplicity** - Functional approach is cleaner
-
-### What About Complex Iteration?
-
-Use **functional composition**:
-
-```yaml
-# Get names of adult users
-adultNames: {{map(filter(users, .age >= 18), .name)}}
-
-# Count verified adults
-verifiedAdultCount: {{len(filter(users, .age >= 18 && .verified))}}
-
-# Get emails of premium users
-premiumEmails: {{map(filter(users, .premium), .email)}}
 ```
 
 ---
@@ -449,8 +567,9 @@ See working examples in:
 
 ✅ **If-Else**: Ternary operator (`condition ? true : false`)  
 ✅ **AND/OR**: Logical operators (`&&`, `||`, `!`)  
-✅ **Loops**: Functional operations (`filter`, `map`, `all`, `any`)  
-✅ **Safe**: No infinite loops - all expressions terminate  
-✅ **Powerful**: Compose operations for complex logic  
+✅ **While Loops**: `loop.while` resource field with `loop.index()` / `loop.count()` / `loop.results()` context  
+✅ **Foreach**: `items` resource field iterates a list  
+✅ **Functional**: List operations (`filter`, `map`, `all`, `any`)  
+✅ **Turing Complete**: Unbounded conditional iteration + mutable state = full computational power  
 
 **Control flow in kdeps is functional, safe, and expressive!**

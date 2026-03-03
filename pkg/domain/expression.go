@@ -91,6 +91,9 @@ type UnifiedAPI struct {
 	// Item retrieves items iteration context (current, prev, next, index, count).
 	Item func(itemType ...string) (interface{}, error)
 
+	// Loop retrieves loop iteration context (index, count, results).
+	Loop func(key string) (interface{}, error)
+
 	// Session retrieves all session data as a map.
 	Session func() (map[string]interface{}, error)
 

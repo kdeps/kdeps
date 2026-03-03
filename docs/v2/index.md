@@ -264,7 +264,7 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 - [Input Sources](concepts/input-sources) · [Unified API](concepts/unified-api)
 - [Expressions](concepts/expressions) · [Expression Functions Reference](concepts/expression-functions-reference)
 - [Request Object](concepts/request-object) · [Input Object](concepts/input-object)
-- [Tools](concepts/tools) · [Items Iteration](concepts/items)
+- [Tools](concepts/tools) · [Items Iteration](concepts/items) · [Loop Iteration](concepts/loop)
 - [Validation](concepts/validation) · [Error Handling](concepts/error-handling)
 - [Inline Resources](concepts/inline-resources) · [Route Restrictions](concepts/route-restrictions)
 - [Management API](concepts/management-api)

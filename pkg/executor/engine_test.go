@@ -1089,6 +1089,324 @@ func TestEngine_executeWithItems(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+// TestEngine_ExecuteWithLoop tests the while-loop execution feature.
+func TestEngine_ExecuteWithLoop(t *testing.T) {
+	t.Run("loop runs until while condition becomes false", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+		registry := executor.NewRegistry()
+		mockHTTP := &mockHTTPExecutor{result: "ok"}
+		registry.SetHTTPExecutor(mockHTTP)
+		engine.SetRegistry(registry)
+
+		workflow := &domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata: domain.WorkflowMetadata{
+				Name:           "loop-test",
+				Version:        "1.0.0",
+				TargetActionID: "counter",
+			},
+			Resources: []*domain.Resource{
+				{
+					Metadata: domain.ResourceMetadata{
+						ActionID: "counter",
+						Name:     "Counter",
+					},
+					Run: domain.RunConfig{
+						Loop: &domain.LoopConfig{
+							While:         "loop.index() < 3",
+							MaxIterations: 10,
+						},
+						Expr: []domain.Expression{
+							{Raw: "set('counter', loop.count())"},
+						},
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"value": "{{ get('counter') }}"},
+						},
+					},
+				},
+			},
+		}
+
+		result, err := engine.Execute(workflow, nil)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("loop with zero while condition never runs", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-never", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "never", Name: "Never Runs"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "false",
+				},
+				// No apiResponse: the loop returns an empty slice when no iterations ran.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// A loop that never ran (no apiResponse) returns an empty slice.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop that never runs should return empty slice")
+		assert.Empty(t, results)
+	})
+
+	t.Run("loop with zero while condition and apiResponse returns empty slice", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-never-api", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "never-api", Name: "Never Runs API"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "false",
+				},
+				// apiResponse runs per-iteration (streaming); no iterations → empty slice.
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// No iterations ran → empty slice regardless of apiResponse.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop that never runs should return empty slice")
+		assert.Empty(t, results)
+	})
+
+	t.Run("loop respects maxIterations cap", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-cap", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "capped", Name: "Capped Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "true", // always true – would run forever without cap
+					MaxIterations: 3,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('ticks', loop.count())"},
+				},
+				// In this test there is no apiResponse; multiple iterations return a slice
+				// of per-iteration results from ExecuteWithLoop.
+				// When apiResponse is present, multiple iterations still return a slice
+				// (of per-iteration response maps); a single iteration returns a single map.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// Without apiResponse, multiple iterations return a slice.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "multiple iterations without apiResponse should return a slice")
+		assert.Len(t, results, 3)
+		// Verify side effect: ticks should equal 3 (last loop.count() = MaxIterations).
+		ticks, getErr := ctx.API.Get("ticks")
+		require.NoError(t, getErr)
+		assert.EqualValues(t, 3, ticks)
+	})
+
+	t.Run("loop with apiResponse produces streaming response per iteration", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-cap-api", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "capped-api", Name: "Capped Loop API"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "true",
+					MaxIterations: 3,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('ticks', loop.count())"},
+				},
+				// apiResponse runs per-iteration; 3 iterations → 3 apiResponse maps (streaming).
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ticks": "{{ get('ticks') }}"},
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		// apiResponse runs on every iteration → streaming response: a slice of apiResponse maps.
+		results, ok := result.([]interface{})
+		require.True(t, ok, "loop with apiResponse should return a streaming slice of apiResponse maps")
+		assert.Len(t, results, 3)
+		// Each entry should be an apiResponse map with success=true.
+		for _, r := range results {
+			resp, mapOK := r.(map[string]interface{})
+			require.True(t, mapOK, "each streaming result should be an apiResponse map")
+			assert.Equal(t, true, resp["success"])
+		}
+	})
+
+	t.Run("loop context callable methods are accessible inside body", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-ctx", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "ctx-loop", Name: "Context Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 2",
+					MaxIterations: 5,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('last_index', loop.index())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		_, err = engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+
+		// After loop finishes, loop context should be cleaned up
+		val, _ := ctx.API.Get("last_index")
+		assert.NotNil(t, val)
+	})
+
+	t.Run("loop.results() provides accumulated results from previous iterations", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-results", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "results-loop", Name: "Results Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					// Stop when we have collected 3 results (parallel to item.values() in items)
+					While:         "len(loop.results()) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('count', loop.count())"},
+				},
+				// No apiResponse: loop returns the slice of per-iteration results so we can check len.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		results, ok := result.([]interface{})
+		require.True(t, ok)
+		assert.Len(t, results, 3, "loop.results() should stop loop after 3 iterations")
+	})
+
+	t.Run("loop storage type: set and get with 'loop' type hint", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-storage", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "storage-loop", Name: "Storage Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					// Use get with 'loop' type hint to read loop-scoped var (parallel to get('k', 'item'))
+					While:         "default(get('step', 'loop'), 0) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					// Use set with 'loop' type hint (parallel to set('key', val, 'item'))
+					{Raw: "set('step', loop.count(), 'loop')"},
+				},
+				// No apiResponse: loop returns a slice so we can verify iteration count.
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		results, ok := result.([]interface{})
+		require.True(t, ok)
+		assert.Len(t, results, 3)
+	})
+
+	t.Run("loop with invalid while expression returns error", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-err", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "err-loop", Name: "Error Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					While: "!!!invalid syntax ??? @@@",
+				},
+				APIResponse: &domain.APIResponseConfig{Success: true},
+			},
+		}
+
+		_, err = engine.ExecuteWithLoop(resource, ctx)
+		require.Error(t, err, "invalid while expression should return error")
+	})
+}
+
 func TestNewEngine(t *testing.T) {
 	engine := executor.NewEngine(slog.Default())
 	assert.NotNil(t, engine)
@@ -4888,4 +5206,603 @@ func TestEngine_EmptySession_E2E(t *testing.T) {
 	sessionData, ok := resultMap["session_data"].(map[string]interface{})
 	require.True(t, ok, "session_data should be a map")
 	assert.Empty(t, sessionData, "Empty session should return empty map")
+}
+
+// ---------------------------------------------------------------------------
+// Loop Turing-completeness unit tests
+// ---------------------------------------------------------------------------
+
+// TestLoop_TuringCompleteness_Counter verifies that a while-loop can compute a
+// bounded counter, demonstrating mutable state + conditional iteration.
+func TestLoop_TuringCompleteness_Counter(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-counter", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "counter", Name: "Counter"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 5",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('n', loop.count())"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 5, "counter loop should produce exactly 5 iterations")
+
+	// Final state: n == 5 (last loop.count())
+	n, getErr := ctx.API.Get("n")
+	require.NoError(t, getErr)
+	assert.EqualValues(t, 5, n)
+}
+
+// TestLoop_TuringCompleteness_Accumulator verifies sum 1+2+…+N via while-loop.
+func TestLoop_TuringCompleteness_Accumulator(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-accumulator", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// sum = sum + loop.count() each iteration; while loop.index() < 4  → 1+2+3+4 = 10
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "acc", Name: "Accumulator"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 4",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+			},
+		},
+	}
+
+	_, err = engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+
+	sum, getErr := ctx.API.Get("sum")
+	require.NoError(t, getErr)
+	assert.EqualValues(t, 10, sum, "1+2+3+4 should equal 10")
+}
+
+// TestLoop_TuringCompleteness_MutableStateTransition verifies a state-machine
+// pattern: loop iterates through distinct phases via a shared state variable.
+func TestLoop_TuringCompleteness_MutableStateTransition(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-state", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Each iteration increments phase counter; loop stops when phase reaches 3.
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "state", Name: "State Machine"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "int(default(get('phase'), 0)) < 3",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('phase', int(default(get('phase'), 0)) + 1)"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 3)
+
+	phase, getErr := ctx.API.Get("phase")
+	require.NoError(t, getErr)
+	assert.EqualValues(t, 3, phase)
+}
+
+// TestLoop_TuringCompleteness_AccumulateResults verifies that loop.results()
+// provides growing access to all prior-iteration outputs (key for Turing completeness:
+// output of one step feeds input of next).
+func TestLoop_TuringCompleteness_AccumulateResults(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-accumulate", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Terminate when we have 4 accumulated results; verify the count is correct.
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "acc-results", Name: "Accumulate Results"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "len(loop.results()) < 4",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('iters', loop.count())"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 4)
+}
+
+// TestLoop_TuringCompleteness_ConditionalEarlyExit verifies that setting a
+// variable inside the loop can cause it to exit before maxIterations.
+func TestLoop_TuringCompleteness_ConditionalEarlyExit(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-early-exit", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Loop while 'done' is not set; set 'done' on iteration 2 → exits after 2 iters.
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "early-exit", Name: "Early Exit"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "get('done') == nil",
+				MaxIterations: 100,
+			},
+			Expr: []domain.Expression{
+				// On 2nd iteration, set 'done' which will terminate the loop on the next while check.
+				{Raw: "loop.index() >= 1 ? set('done', true) : set('noop', 0)"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 2, "loop should exit after 2 iterations once 'done' is set")
+}
+
+// TestLoop_TuringCompleteness_StreamingAPIResponse verifies that apiResponse
+// running per-iteration produces a streaming slice for a Turing-complete loop.
+func TestLoop_TuringCompleteness_StreamingAPIResponse(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-streaming", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "streaming", Name: "Streaming"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 3",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('tick', loop.count())"},
+			},
+			APIResponse: &domain.APIResponseConfig{
+				Success:  true,
+				Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+
+	// Each iteration produces one apiResponse map → 3-element streaming slice.
+	results, ok := result.([]interface{})
+	require.True(t, ok, "streaming loop should return a slice")
+	assert.Len(t, results, 3)
+	for i, r := range results {
+		resp, mapOK := r.(map[string]interface{})
+		require.True(t, mapOK, "each streaming element should be a map")
+		assert.Equal(t, true, resp["success"], "iteration %d: success should be true", i)
+	}
+}
+
+// TestLoop_WhileExprWithBraceWrappers verifies that while conditions written
+// with {{ }} Mustache wrappers are normalised correctly before evaluation.
+func TestLoop_WhileExprWithBraceWrappers(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "brace-loop", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "brace", Name: "Brace Loop"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				// While written with {{ }} wrappers — should be stripped before evaluation.
+				While:         "{{ loop.index() < 2 }}",
+				MaxIterations: 5,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('brace_ok', true)"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 2, "{{ }} wrapper should be stripped correctly")
+}
+
+// TestLoop_SingleIteration_ReturnsSingleValue verifies that a loop running
+// exactly once returns the single result directly (unwrapped from slice).
+func TestLoop_SingleIteration_ReturnsSingleValue(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "single-iter", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "single", Name: "Single Iteration"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 1",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('once', 42)"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	// Single iteration → result is unwrapped (not a slice).
+	_, isSlice := result.([]interface{})
+	assert.False(t, isSlice, "single iteration should return unwrapped result")
+}
+
+// TestLoop_EvaluatorInitialisedFreshEngine verifies that calling ExecuteWithLoop
+// on a brand-new engine (evaluator == nil) works without panicking.
+func TestLoop_EvaluatorInitialisedFreshEngine(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	// NewEngine initialises engine but Execute() has not been called, so
+	// e.evaluator may still be nil the first time ExecuteWithLoop is invoked.
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "fresh-engine", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "fresh", Name: "Fresh Engine"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 2",
+				MaxIterations: 5,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('ok', true)"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 2)
+}
+
+// TestLoop_IterationBodyError verifies that an error in the loop body is
+// propagated and loop context is cleaned up.
+func TestLoop_IterationBodyError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "body-err", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// set('a', b +++ c) references unknown variable 'b' → evaluation error.
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "body-err", Name: "Body Error"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 3",
+				MaxIterations: 10,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('a', b +++ c)"},
+			},
+		},
+	}
+
+	_, err = engine.ExecuteWithLoop(resource, ctx)
+	require.Error(t, err, "error in loop body should be propagated")
+	assert.Contains(t, err.Error(), "loop iteration 0 failed")
+
+	// Loop context should be cleaned up even after error.
+	val, _ := ctx.Loop("index")
+	assert.EqualValues(t, 0, val, "loop context should be cleaned up after error")
+}
+
+// TestLoop_DefaultMaxIterations verifies that a loop without explicit maxIterations
+// uses the default cap (1000) rather than running forever.
+func TestLoop_DefaultMaxIterations(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "default-cap", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Always-true condition: should stop at the default cap (1000).
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "default-cap", Name: "Default Cap"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				// MaxIterations is 0 → use default (1000).
+				While: "true",
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('ticks', loop.count())"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 1000, "default maxIterations cap should be 1000")
+}
+
+// TestCtxLoop_AllPaths exercises all branches of ctx.Loop() for 100% coverage.
+func TestCtxLoop_AllPaths(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "ctx-loop-paths", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Phase 1: outside a loop — all keys return zero/empty defaults.
+	idx, err := ctx.Loop("index")
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, idx, "index outside loop should be 0")
+
+	cnt, err := ctx.Loop("count")
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, cnt, "count outside loop should be 0")
+
+	res, err := ctx.Loop("results")
+	require.NoError(t, err)
+	resSlice, ok := res.([]interface{})
+	require.True(t, ok)
+	assert.Empty(t, resSlice, "results outside loop should be empty")
+
+	// Unknown key returns error.
+	_, err = ctx.Loop("unknownKey")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown loop context key")
+
+	// Phase 2: exercise loop.index, loop.count, results and the stored-value path
+	// by running a loop that uses set with 'loop' storage type.
+	var capturedIdx, capturedCnt interface{}
+	var capturedResults interface{}
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "ctx-paths", Name: "Ctx Paths"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "loop.index() < 1",
+				MaxIterations: 5,
+			},
+			Expr: []domain.Expression{
+				// Capture loop.index, loop.count, loop.results via set.
+				{Raw: "set('_idx', loop.index())"},
+				{Raw: "set('_cnt', loop.count())"},
+				{Raw: "set('_res', loop.results())"},
+				// Store a value with 'loop' scoped storage type.
+				{Raw: "set('myKey', 'hello', 'loop')"},
+			},
+		},
+	}
+
+	_, err = engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+
+	capturedIdx, _ = ctx.API.Get("_idx")
+	capturedCnt, _ = ctx.API.Get("_cnt")
+	capturedResults, _ = ctx.API.Get("_res")
+
+	assert.EqualValues(t, 0, capturedIdx)
+	assert.EqualValues(t, 1, capturedCnt)
+	resVal, ok2 := capturedResults.([]interface{})
+	require.True(t, ok2)
+	assert.Empty(t, resVal, "loop.results() on first iteration is empty")
+}
+
+// TestLoop_LoopAndSkipCondition verifies that skipCondition interacts correctly
+// with the loop: a resource inside the loop can still be skipped.
+func TestLoop_LoopAndSkipCondition(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "loop-skip",
+			Version:        "1.0.0",
+			TargetActionID: "loop-resource",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: false,
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "loop-resource", Name: "Loop Resource"},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						While:         "loop.index() < 3",
+						MaxIterations: 10,
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('ran', loop.count())"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: map[string]interface{}{"ran": "{{ get('ran') }}"},
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(slog.Default())
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+	// 3 iterations with apiResponse → streaming slice.
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 3)
+}
+
+// TestLoop_ViaToplevelExecute verifies that the full workflow Execute() path
+// dispatches to ExecuteWithLoop correctly (not a direct call).
+func TestLoop_ViaToplevelExecute(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "toplevel-loop",
+			Version:        "1.0.0",
+			TargetActionID: "toplevel",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: false,
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "toplevel", Name: "Top Level"},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						While:         "loop.index() < 2",
+						MaxIterations: 5,
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('done', loop.count())"},
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(slog.Default())
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+	// 2 iterations without apiResponse → slice.
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, results, 2)
+}
+
+// TestLoop_TuringCompleteness_BusyBeaver verifies the "unbounded search" Turing-
+// complete pattern: loop runs until an externally-uncomputable condition
+// (simulated by loop.results()) is satisfied, not a fixed count.
+// This demonstrates that the system can perform mu-recursion.
+func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	engine := executor.NewEngine(slog.Default())
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata:   domain.WorkflowMetadata{Name: "tc-busybeaver", Version: "1.0.0"},
+	})
+	require.NoError(t, err)
+
+	// Simulate: loop until sum exceeds a threshold whose exact iteration count
+	// is not known a priori (demonstrates unbounded search / mu-recursion).
+	// sum += count each iter; stop when sum > 10 → stops after count=5 (1+2+3+4+5=15>10).
+	resource := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "busy-beaver", Name: "Busy Beaver"},
+		Run: domain.RunConfig{
+			Loop: &domain.LoopConfig{
+				While:         "int(default(get('sum'), 0)) <= 10",
+				MaxIterations: 100,
+			},
+			Expr: []domain.Expression{
+				{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+			},
+		},
+	}
+
+	result, err := engine.ExecuteWithLoop(resource, ctx)
+	require.NoError(t, err)
+	results, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.GreaterOrEqual(t, len(results), 4, "should iterate until sum exceeds 10")
+
+	sum, getErr := ctx.API.Get("sum")
+	require.NoError(t, getErr)
+	// 1+2+3+4+5 = 15 (condition 15<=10 is false, so loop exits after 5 iterations).
+	assert.EqualValues(t, 15, sum, "sum should be 15 when loop exits")
 }
