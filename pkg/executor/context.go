@@ -41,6 +41,7 @@ const (
 	storageTypeMemory  = "memory"
 	storageTypeSession = "session"
 	storageTypeItem    = "item"
+	storageTypeLoop    = "loop"
 
 	// Item context keys.
 	itemKeyCurrent = "current"
@@ -50,6 +51,11 @@ const (
 	itemKeyPrev    = "prev"
 	itemKeyNext    = "next"
 	itemKeyItems   = "items"
+
+	// Loop context keys (stored in Items map with "loop." prefix to avoid collision).
+	loopKeyIndex   = "loop.index"
+	loopKeyCount   = "loop.count"
+	loopKeyResults = "loop.results"
 
 	// Default TTL values.
 	defaultSessionTTLMinutes = 30
@@ -264,6 +270,7 @@ func NewExecutionContext(workflow *domain.Workflow, sessionID ...string) (*Execu
 		Input:   ctx.Input,
 		Output:  ctx.Output,
 		Item:    ctx.Item,
+		Loop:    ctx.Loop,
 		Session: ctx.GetAllSession,
 		Env:     ctx.Env,
 	}
@@ -561,6 +568,9 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 			return ctx.Item() // Return current item
 		}
 		return ctx.Item(name) // Pass name as item type (e.g., "index", "count", "prev", "next")
+	case storageTypeLoop:
+		// For "loop" type, use Loop() function which handles loop iteration context
+		return ctx.Loop(name)
 	case storageTypeMemory:
 		return ctx.getMemory(name)
 	case storageTypeSession:
@@ -819,6 +829,11 @@ func (ctx *ExecutionContext) Set(key string, value interface{}, storageType ...s
 
 	case storageTypeItem:
 		ctx.Items[key] = value
+		return nil
+
+	case storageTypeLoop:
+		// Store as "loop.<key>" in Items map to avoid collision with item context
+		ctx.Items[storageTypeLoop+"."+key] = value
 		return nil
 
 	default:
@@ -1851,6 +1866,41 @@ func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
 
 	// For unknown item types, return an error
 	return nil, fmt.Errorf("unknown item type: %s", itemKey)
+}
+
+// Loop retrieves loop iteration context.
+// Syntax: Loop("index"|"count"|"results")
+// - "index": returns current 0-based iteration index
+// - "count": returns current 1-based iteration count
+// - "results": returns accumulated results from previous iterations
+func (ctx *ExecutionContext) Loop(key string) (interface{}, error) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
+
+	switch key {
+	case loopKeyIndex, "index":
+		if val, ok := ctx.Items[loopKeyIndex]; ok {
+			return val, nil
+		}
+		return 0, nil
+	case loopKeyCount, "count":
+		if val, ok := ctx.Items[loopKeyCount]; ok {
+			return val, nil
+		}
+		return 0, nil
+	case loopKeyResults, "results":
+		if val, ok := ctx.Items[loopKeyResults]; ok {
+			return val, nil
+		}
+		return []interface{}{}, nil
+	default:
+		// Support accessing arbitrary loop-scoped values stored via set('key', value, 'loop')
+		fullKey := storageTypeLoop + "." + key
+		if val, ok := ctx.Items[fullKey]; ok {
+			return val, nil
+		}
+		return nil, fmt.Errorf("unknown loop context key: %s", key)
+	}
 }
 
 // GetItemValues retrieves all iteration values for a specific action ID.

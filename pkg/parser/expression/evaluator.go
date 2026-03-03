@@ -425,6 +425,33 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 			evalEnv["item"] = itemObj
 		}
 
+		// Wrap loop() to provide loop iteration context (parallel to item() for loops)
+		if e.api.Loop != nil {
+			loopObj := make(map[string]interface{})
+			loopObj["index"] = func() interface{} {
+				val, err := e.api.Loop("index")
+				if err != nil {
+					return 0
+				}
+				return val
+			}
+			loopObj["count"] = func() interface{} {
+				val, err := e.api.Loop("count")
+				if err != nil {
+					return 0
+				}
+				return val
+			}
+			loopObj["results"] = func() interface{} {
+				val, err := e.api.Loop("results")
+				if err != nil {
+					return []interface{}{}
+				}
+				return val
+			}
+			evalEnv["loop"] = loopObj
+		}
+
 		// Wrap env() to read environment variables, returns empty string if not set
 		evalEnv["env"] = func(name string) interface{} {
 			if e.api.Env != nil {
@@ -507,6 +534,17 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 			}
 		} else {
 			evalEnv["item"] = itemObj
+		}
+	}
+
+	// Merge loop object from environment if it exists (from engine - adds extra loop context)
+	if loopObj, okLoop := env["loop"].(map[string]interface{}); okLoop {
+		if existingLoop, okExisting := evalEnv["loop"].(map[string]interface{}); okExisting {
+			for k, v := range loopObj {
+				existingLoop[k] = v
+			}
+		} else {
+			evalEnv["loop"] = loopObj
 		}
 	}
 

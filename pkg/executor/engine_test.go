@@ -1115,11 +1115,11 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					},
 					Run: domain.RunConfig{
 						Loop: &domain.LoopConfig{
-							While:         "loop.index < 3",
+							While:         "loop.index() < 3",
 							MaxIterations: 10,
 						},
 						Expr: []domain.Expression{
-							{Raw: "set('counter', loop.count)"},
+						{Raw: "set('counter', loop.count())"},
 						},
 						APIResponse: &domain.APIResponseConfig{
 							Success:  true,
@@ -1185,7 +1185,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					MaxIterations: 3,
 				},
 				Expr: []domain.Expression{
-					{Raw: "set('ticks', loop.count)"},
+					{Raw: "set('ticks', loop.count())"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -1201,7 +1201,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		assert.Len(t, results, 3)
 	})
 
-	t.Run("loop context variables are accessible inside body", func(t *testing.T) {
+	t.Run("loop context callable methods are accessible inside body", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		engine := executor.NewEngine(slog.Default())
 
@@ -1216,11 +1216,11 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 			Metadata: domain.ResourceMetadata{ActionID: "ctx-loop", Name: "Context Loop"},
 			Run: domain.RunConfig{
 				Loop: &domain.LoopConfig{
-					While:         "loop.index < 2",
+					While:         "loop.index() < 2",
 					MaxIterations: 5,
 				},
 				Expr: []domain.Expression{
-					{Raw: "set('last_index', loop.index)"},
+					{Raw: "set('last_index', loop.index())"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -1234,6 +1234,77 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		// After loop finishes, loop context should be cleaned up
 		val, _ := ctx.API.Get("last_index")
 		assert.NotNil(t, val)
+	})
+
+	t.Run("loop.results() provides accumulated results from previous iterations", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-results", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "results-loop", Name: "Results Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+					// Stop when we have collected 3 results (parallel to item.values() in items)
+					While:         "len(loop.results()) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('count', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		results, ok := result.([]interface{})
+		require.True(t, ok)
+		assert.Len(t, results, 3, "loop.results() should stop loop after 3 iterations")
+	})
+
+	t.Run("loop storage type: set and get with 'loop' type hint", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		engine := executor.NewEngine(slog.Default())
+
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{
+			APIVersion: "kdeps.io/v1",
+			Kind:       "Workflow",
+			Metadata:   domain.WorkflowMetadata{Name: "loop-storage", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "storage-loop", Name: "Storage Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{
+						// Use get with 'loop' type hint to read loop-scoped var (parallel to get('k', 'item'))
+					While:         "default(get('step', 'loop'), 0) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					// Use set with 'loop' type hint (parallel to set('key', val, 'item'))
+					{Raw: "set('step', loop.count(), 'loop')"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+				},
+			},
+		}
+
+		result, err := engine.ExecuteWithLoop(resource, ctx)
+		require.NoError(t, err)
+		results, ok := result.([]interface{})
+		require.True(t, ok)
+		assert.Len(t, results, 3)
 	})
 
 	t.Run("loop with invalid while expression returns error", func(t *testing.T) {

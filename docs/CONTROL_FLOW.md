@@ -168,12 +168,17 @@ used with only `expr`/`exprBefore`/`exprAfter` blocks.
 
 ### Loop Context Variables
 
-Inside the loop body, two variables are automatically available:
+Inside the loop body, three context accessors are available (callable methods, consistent with
+`item.index()`, `item.count()` in the `items` feature):
 
-| Variable      | Description                                    |
-|---------------|------------------------------------------------|
-| `loop.index`  | Zero-based iteration counter (0, 1, 2, …)     |
-| `loop.count`  | One-based iteration counter (1, 2, 3, …)      |
+| Method          | Description                                             |
+|-----------------|---------------------------------------------------------|
+| `loop.index()`  | Zero-based iteration counter (0, 1, 2, …)              |
+| `loop.count()`  | One-based iteration counter (1, 2, 3, …)               |
+| `loop.results()`| Results accumulated from all *previous* iterations     |
+
+Loop context is also accessible via `get('key', 'loop')` / `set('key', value, 'loop')`, parallel
+to the `'item'` storage type used by the `items` feature.
 
 ### Examples
 
@@ -185,9 +190,9 @@ metadata:
   name: Count to Five
 run:
   loop:
-    while: "loop.index < 5"
+    while: "loop.index() < 5"
   expr:
-    - "{{ set('result', loop.count) }}"
+    - "{{ set('result', loop.count()) }}"
   apiResponse:
     success: true
     response:
@@ -202,7 +207,7 @@ metadata:
   name: Fibonacci Loop
 run:
   loop:
-    while: "loop.index < 10"
+    while: "loop.index() < 10"
     maxIterations: 20
   exprBefore:
     - "{{ set('a', get('a') == nil ? 0 : get('a')) }}"
@@ -217,6 +222,41 @@ run:
       fib: "{{ get('a') }}"
 ```
 
+#### Accumulate Results (loop.results())
+
+```yaml
+metadata:
+  actionId: collect-three
+  name: Collect Three Results
+run:
+  loop:
+    # Stop once we have 3 accumulated results (parallel to item.values() in items)
+    while: "len(loop.results()) < 3"
+  expr:
+    - "{{ set('val', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      collected: "{{ loop.results() }}"
+```
+
+#### Loop-scoped Variables (set/get with 'loop' type)
+
+```yaml
+metadata:
+  actionId: loop-scoped-counter
+  name: Loop-scoped Counter
+run:
+  loop:
+    # Read loop-scoped variable (parallel to get('k', 'item') in items)
+    while: "default(get('step', 'loop'), 0) < 5"
+  expr:
+    # Write to loop scope (parallel to set('k', v, 'item') in items)
+    - "{{ set('step', loop.count(), 'loop') }}"
+  apiResponse:
+    success: true
+```
+
 #### Loop with Primary Execution Type
 
 ```yaml
@@ -225,7 +265,7 @@ metadata:
   name: Retry Until Success
 run:
   loop:
-    while: "get('status') != 'ok' && loop.index < 5"
+    while: "get('status') != 'ok' && loop.index() < 5"
   httpClient:
     method: GET
     url: "https://api.example.com/status"
@@ -522,7 +562,7 @@ See working examples in:
 
 ✅ **If-Else**: Ternary operator (`condition ? true : false`)  
 ✅ **AND/OR**: Logical operators (`&&`, `||`, `!`)  
-✅ **While Loops**: `loop.while` resource field with `loop.index` / `loop.count` context  
+✅ **While Loops**: `loop.while` resource field with `loop.index()` / `loop.count()` / `loop.results()` context  
 ✅ **Foreach**: `items` resource field iterates a list  
 ✅ **Functional**: List operations (`filter`, `map`, `all`, `any`)  
 ✅ **Turing Complete**: Unbounded conditional iteration + mutable state = full computational power  

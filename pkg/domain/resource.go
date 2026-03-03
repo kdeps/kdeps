@@ -45,7 +45,8 @@ type ResourceMetadata struct {
 type LoopConfig struct {
 	// While is an expression evaluated before each iteration.
 	// The loop continues while this expression is truthy.
-	// Example: "{{ get('counter') < 10 }}"
+	// Use callable methods for loop context: loop.index(), loop.count(), loop.results().
+	// Example: "loop.index() < 10" or "len(loop.results()) < 5"
 	While string `yaml:"while"`
 
 	// MaxIterations is a safety cap on the number of loop iterations (default: 1000).

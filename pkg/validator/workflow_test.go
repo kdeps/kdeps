@@ -1815,7 +1815,7 @@ errMsg  string
 }{
 {
 name:    "valid loop with while",
-config:  &domain.LoopConfig{While: "loop.index < 10"},
+config:  &domain.LoopConfig{While: "loop.index() < 10"},
 wantErr: false,
 },
 {
@@ -1867,7 +1867,7 @@ t.Run("loop with exec is valid", func(t *testing.T) {
 resource := &domain.Resource{
 Metadata: domain.ResourceMetadata{ActionID: "loop-exec", Name: "Loop Exec"},
 Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: "loop.index < 5"},
+Loop: &domain.LoopConfig{While: "loop.index() < 5"},
 Exec: &domain.ExecConfig{Command: "echo"},
 },
 }
@@ -1880,8 +1880,8 @@ t.Run("loop with expr-only is valid", func(t *testing.T) {
 resource := &domain.Resource{
 Metadata: domain.ResourceMetadata{ActionID: "loop-expr", Name: "Loop Expr"},
 Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: "loop.index < 3"},
-Expr: []domain.Expression{{Raw: "set('x', loop.index)"}},
+Loop: &domain.LoopConfig{While: "loop.index() < 3"},
+Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
 },
 }
 if err := v.ValidateResource(resource, workflow); err != nil {

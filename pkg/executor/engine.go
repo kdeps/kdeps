@@ -676,7 +676,7 @@ func (e *Engine) ExecuteResource(
 	// Handle Loop (while-loop) iteration – takes priority over Items.
 	// Only enter loop mode when not already inside a loop to prevent recursion.
 	if resource.Run.Loop != nil {
-		if _, inLoopContext := ctx.Items["loop.index"]; !inLoopContext {
+		if _, inLoopContext := ctx.Items[loopKeyIndex]; !inLoopContext {
 			return e.ExecuteWithLoop(resource, ctx)
 		}
 	}
@@ -1127,17 +1127,21 @@ func (e *Engine) ExecuteWithLoop(
 	results := make([]interface{}, 0)
 
 	for i := 0; i < maxIter; i++ {
-		// Set loop context variables so they are accessible inside the body.
-		ctx.Items["loop.index"] = i
-		ctx.Items["loop.count"] = i + 1
+		// Set loop context variables so they are accessible inside the body via
+		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
+		ctx.Items[loopKeyIndex] = i
+		ctx.Items[loopKeyCount] = i + 1
+		// Expose accumulated results from *previous* iterations before running this one.
+		ctx.Items[loopKeyResults] = append([]interface{}{}, results...)
 
 		// Evaluate the while condition.
 		env := e.buildEvaluationEnvironment(ctx)
 		cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
 		if err != nil {
 			// Clean up loop context before returning.
-			delete(ctx.Items, "loop.index")
-			delete(ctx.Items, "loop.count")
+			delete(ctx.Items, loopKeyIndex)
+			delete(ctx.Items, loopKeyCount)
+			delete(ctx.Items, loopKeyResults)
 			return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
 		}
 		if !cont {
@@ -1147,8 +1151,9 @@ func (e *Engine) ExecuteWithLoop(
 		// Execute the resource body for this iteration.
 		result, execErr := e.ExecuteResource(resource, ctx)
 		if execErr != nil {
-			delete(ctx.Items, "loop.index")
-			delete(ctx.Items, "loop.count")
+			delete(ctx.Items, loopKeyIndex)
+			delete(ctx.Items, loopKeyCount)
+			delete(ctx.Items, loopKeyResults)
 			return nil, fmt.Errorf("loop iteration %d failed: %w", i, execErr)
 		}
 
@@ -1157,8 +1162,9 @@ func (e *Engine) ExecuteWithLoop(
 	}
 
 	// Clean up loop context.
-	delete(ctx.Items, "loop.index")
-	delete(ctx.Items, "loop.count")
+	delete(ctx.Items, loopKeyIndex)
+	delete(ctx.Items, loopKeyCount)
+	delete(ctx.Items, loopKeyResults)
 
 	// Return the collected results from all iterations.
 	// If no iterations ran, return an empty slice to distinguish from a nil error result.
@@ -1935,21 +1941,6 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 		env["inputMedia"] = ctx.InputMediaFile
 		// Expose TTS output file path via ttsOutput expression variable.
 		env["ttsOutput"] = ctx.TTSOutputFile
-	}
-
-	// Add loop context variables when inside a loop iteration.
-	// These are accessible via loop.index and loop.count in expressions.
-	if ctx != nil {
-		if idx, ok := ctx.Items["loop.index"]; ok {
-			count := 0
-			if c, ok2 := ctx.Items["loop.count"]; ok2 {
-				count, _ = c.(int)
-			}
-			env["loop"] = map[string]interface{}{
-				"index": idx,
-				"count": count,
-			}
-		}
 	}
 
 	return env
