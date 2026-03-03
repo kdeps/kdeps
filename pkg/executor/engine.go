@@ -668,7 +668,7 @@ func (e *Engine) createPreflightError(
 
 // ExecuteResource executes a single resource.
 //
-//nolint:gocognit,gocyclo,cyclop // resource execution handles multiple pathways
+//nolint:gocognit,gocyclo,cyclop,funlen // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1096,8 +1096,6 @@ const defaultLoopMaxIterations = 1000
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
 // Loop context variables (loop.index, loop.count) are available inside the body expressions
 // and primary execution types via the "loop" key in the evaluation environment.
-//
-//nolint:gocognit // loop execution requires explicit condition/limit checks
 func (e *Engine) ExecuteWithLoop(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1128,7 +1126,7 @@ func (e *Engine) ExecuteWithLoop(
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
-	for i := 0; i < maxIter; i++ {
+	for i := range maxIter {
 		// Set loop context variables so they are accessible inside the body via
 		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
 		ctx.Items[loopKeyIndex] = i

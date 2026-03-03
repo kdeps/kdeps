@@ -1807,110 +1807,110 @@ func TestValidateScraperConfig(t *testing.T) {
 }
 
 func TestValidateLoopConfig(t *testing.T) {
-tests := []struct {
-name    string
-config  *domain.LoopConfig
-wantErr bool
-errMsg  string
-}{
-{
-name:    "valid loop with while",
-config:  &domain.LoopConfig{While: "loop.index() < 10"},
-wantErr: false,
-},
-{
-name:    "valid loop with maxIterations",
-config:  &domain.LoopConfig{While: "true", MaxIterations: 100},
-wantErr: false,
-},
-{
-name:    "missing while condition",
-config:  &domain.LoopConfig{While: ""},
-wantErr: true,
-errMsg:  "loop.while condition is required",
-},
-{
-name:    "whitespace-only while condition",
-config:  &domain.LoopConfig{While: "   "},
-wantErr: true,
-errMsg:  "loop.while condition is required",
-},
-{
-name:    "negative maxIterations",
-config:  &domain.LoopConfig{While: "true", MaxIterations: -1},
-wantErr: true,
-errMsg:  "loop.maxIterations must be non-negative",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-err := validator.ValidateLoopConfig(tt.config)
-if tt.wantErr {
-if err == nil {
-t.Fatal("expected error but got nil")
-}
-if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
-}
-} else if err != nil {
-t.Errorf("unexpected error: %v", err)
-}
-})
-}
+	tests := []struct {
+		name    string
+		config  *domain.LoopConfig
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid loop with while",
+			config:  &domain.LoopConfig{While: "loop.index() < 10"},
+			wantErr: false,
+		},
+		{
+			name:    "valid loop with maxIterations",
+			config:  &domain.LoopConfig{While: "true", MaxIterations: 100},
+			wantErr: false,
+		},
+		{
+			name:    "missing while condition",
+			config:  &domain.LoopConfig{While: ""},
+			wantErr: true,
+			errMsg:  "loop.while condition is required",
+		},
+		{
+			name:    "whitespace-only while condition",
+			config:  &domain.LoopConfig{While: "   "},
+			wantErr: true,
+			errMsg:  "loop.while condition is required",
+		},
+		{
+			name:    "negative maxIterations",
+			config:  &domain.LoopConfig{While: "true", MaxIterations: -1},
+			wantErr: true,
+			errMsg:  "loop.maxIterations must be non-negative",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateLoopConfig(tt.config)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errMsg, err.Error())
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
 }
 
 func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
-v := validator.NewWorkflowValidator(nil)
-workflow := &domain.Workflow{Settings: domain.WorkflowSettings{}}
+	v := validator.NewWorkflowValidator(nil)
+	workflow := &domain.Workflow{Settings: domain.WorkflowSettings{}}
 
-t.Run("loop with exec is valid", func(t *testing.T) {
-resource := &domain.Resource{
-Metadata: domain.ResourceMetadata{ActionID: "loop-exec", Name: "Loop Exec"},
-Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: "loop.index() < 5"},
-Exec: &domain.ExecConfig{Command: "echo"},
-},
-}
-if err := v.ValidateResource(resource, workflow); err != nil {
-t.Errorf("unexpected error: %v", err)
-}
-})
+	t.Run("loop with exec is valid", func(t *testing.T) {
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "loop-exec", Name: "Loop Exec"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{While: "loop.index() < 5"},
+				Exec: &domain.ExecConfig{Command: "echo"},
+			},
+		}
+		if err := v.ValidateResource(resource, workflow); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
-t.Run("loop with expr-only is valid", func(t *testing.T) {
-resource := &domain.Resource{
-Metadata: domain.ResourceMetadata{ActionID: "loop-expr", Name: "Loop Expr"},
-Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: "loop.index() < 3"},
-Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
-},
-}
-if err := v.ValidateResource(resource, workflow); err != nil {
-t.Errorf("unexpected error: %v", err)
-}
-})
+	t.Run("loop with expr-only is valid", func(t *testing.T) {
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "loop-expr", Name: "Loop Expr"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{While: "loop.index() < 3"},
+				Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
+			},
+		}
+		if err := v.ValidateResource(resource, workflow); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
-t.Run("loop without while condition is invalid", func(t *testing.T) {
-resource := &domain.Resource{
-Metadata: domain.ResourceMetadata{ActionID: "bad-loop", Name: "Bad Loop"},
-Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: ""},
-Expr: []domain.Expression{{Raw: "set('x', 1)"}},
-},
-}
-if err := v.ValidateResource(resource, workflow); err == nil {
-t.Error("expected error for loop without while condition")
-}
-})
+	t.Run("loop without while condition is invalid", func(t *testing.T) {
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "bad-loop", Name: "Bad Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{While: ""},
+				Expr: []domain.Expression{{Raw: "set('x', 1)"}},
+			},
+		}
+		if err := v.ValidateResource(resource, workflow); err == nil {
+			t.Error("expected error for loop without while condition")
+		}
+	})
 
-t.Run("loop without expr and without primary type is invalid", func(t *testing.T) {
-resource := &domain.Resource{
-Metadata: domain.ResourceMetadata{ActionID: "lone-loop", Name: "Lone Loop"},
-Run: domain.RunConfig{
-Loop: &domain.LoopConfig{While: "true"},
-},
-}
-if err := v.ValidateResource(resource, workflow); err == nil {
-t.Error("expected error for loop with no execution body")
-}
-})
+	t.Run("loop without expr and without primary type is invalid", func(t *testing.T) {
+		resource := &domain.Resource{
+			Metadata: domain.ResourceMetadata{ActionID: "lone-loop", Name: "Lone Loop"},
+			Run: domain.RunConfig{
+				Loop: &domain.LoopConfig{While: "true"},
+			},
+		}
+		if err := v.ValidateResource(resource, workflow); err == nil {
+			t.Error("expected error for loop with no execution body")
+		}
+	})
 }

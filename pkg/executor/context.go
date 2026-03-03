@@ -1872,7 +1872,7 @@ func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
 // Syntax: Loop("index"|"count"|"results")
 // - "index": returns current 0-based iteration index
 // - "count": returns current 1-based iteration count
-// - "results": returns accumulated results from previous iterations
+// - "results": returns accumulated results from previous iterations.
 func (ctx *ExecutionContext) Loop(key string) (interface{}, error) {
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()

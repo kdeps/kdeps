@@ -1119,7 +1119,7 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 							MaxIterations: 10,
 						},
 						Expr: []domain.Expression{
-						{Raw: "set('counter', loop.count())"},
+							{Raw: "set('counter', loop.count())"},
 						},
 						APIResponse: &domain.APIResponseConfig{
 							Success:  true,

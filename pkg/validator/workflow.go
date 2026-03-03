@@ -270,6 +270,8 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 }
 
 // ValidateResource validates a single resource.
+//
+//nolint:gocognit // resource validation checks multiple mutually exclusive conditions
 func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow *domain.Workflow) error {
 	// Validate metadata.
 	if resource.Metadata.ActionID == "" {
@@ -293,7 +295,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	//   a) at least one primary execution type, or
 	//   b) an apiResponse block, or
 	//   c) a loop with expression blocks (for Turing-complete while loops).
-	if primaryCount == 0 && !hasAPIResponse && !(hasLoop && hasExprBlocks) {
+	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, apiResponse)",
