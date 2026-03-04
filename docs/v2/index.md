@@ -2,8 +2,8 @@
 layout: home
 
 hero:
-  text: Edge AI Workflow Framework
-  tagline: Build AI agents for edge devices and APIs with YAML — audio, video, and telephony input, offline LLMs, wake-phrase activation, and speech output. No cloud required.
+  text: The Rails for AI Agents
+  tagline: Define your agent in YAML. kdeps handles the wiring, the execution order, and the deployment. Ship to cloud, edge device, or bootable ISO with one command.
   actions:
     - theme: brand
       text: Get Started
@@ -13,38 +13,305 @@ hero:
       link: https://github.com/kdeps/kdeps
 
 features:
-  - icon: 🎙️
-    title: Multi-Source I/O
-    details: Accept input from audio hardware, cameras, telephony, and HTTP APIs — simultaneously. Transcribe with local Whisper or cloud STT.
-  - icon: 🔇
-    title: Offline-First
-    details: Run entirely on-device — local LLMs via Ollama, offline STT (Whisper, Vosk), offline TTS (Piper, eSpeak). No network required.
-  - icon: 🗣️
-    title: Wake-Phrase Activation
-    details: Always-on listening loop. Workflow triggers only when the wake phrase is detected — like "hey kdeps".
   - icon: 📝
     title: YAML-First Configuration
-    details: Define workflows with simple, readable YAML. No complex programming required.
+    details: Define your entire agent in config — no glue code, no boilerplate. Chain LLMs, SQL, HTTP, Python, and shell into a graph that runs anywhere.
   - icon: 🤖
-    title: LLM Integration
-    details: Ollama for local models, or any OpenAI-compatible API endpoint. Vision, tools, and streaming supported.
+    title: 14+ LLM Providers
+    details: Ollama for fully offline local models (llama3, mistral, phi), or any cloud provider — OpenAI, Anthropic, Google, Groq, Mistral, DeepSeek, and more.
+  - icon: 🎙️
+    title: Multi-Source I/O
+    details: Accept input from audio hardware, cameras, telephony, HTTP APIs, and chat bots (Discord, Slack, Telegram, WhatsApp) — simultaneously.
+  - icon: 🔇
+    title: Offline-First
+    details: Run entirely air-gapped — local LLMs via Ollama, offline STT (Whisper, Vosk), offline TTS (Piper, eSpeak), vector embeddings. No network required.
   - icon: 🗄️
-    title: Built-in SQL Support
-    details: PostgreSQL, MySQL, SQLite, SQL Server, Oracle with connection pooling.
-  - icon: 🐳
-    title: Docker Ready
-    details: Package everything into optimized Docker images. Runs on Raspberry Pi, Jetson, and x86 edge hardware.
+    title: Built-in SQL & RAG
+    details: PostgreSQL, MySQL, SQLite, SQL Server, Oracle with connection pooling. Built-in vector embeddings for RAG pipelines stored in SQLite.
+  - icon: 🚀
+    title: Deploy Anywhere
+    details: Package as Docker image, push to kdeps.io cloud, or export to bootable ISO — the same agent runs on cloud infrastructure or a $50 edge device.
+  - icon: 💬
+    title: Chat Bot Platforms
+    details: Connect to Discord, Slack, Telegram, or WhatsApp in persistent polling or stateless mode. Access the inbound message with input('message').
+  - icon: 🔁
+    title: Turing-Complete Loops
+    details: while-loop construct with configurable maxIterations. Combine with get()/set() mutable state for accumulation, search, and retry patterns.
 ---
 
 # Introduction
 
-KDeps is a YAML-based workflow framework for building AI agents on edge devices and API backends. It combines multi-source hardware I/O (audio, video, telephony), offline-capable LLMs, speech recognition, wake-phrase activation, and text-to-speech into portable, self-contained units that run anywhere — from Raspberry Pi to cloud servers.
+Rails made it possible to build a web app in a day instead of a month. KDeps does the same for AI agents.
+
+You define what your agent does in YAML — which LLM, which database, which API, which inputs. KDeps figures out the execution order, handles the wiring between resources, and packages everything into a single deployable unit. Run it locally in under a second, push it to kdeps.io in one click, or export it as a bootable ISO that runs on a $50 device with no API costs forever.
+
+No glue code. No vendor lock-in. No legacy code to maintain.
+
+## Real-World Workflows
+
+Each of these is a complete, deployable agent. 17–22 lines of YAML. No custom code.
+
+Every agent shares the same entry point:
+
+<div v-pre>
+
+```yaml
+# workflow.yaml (same for all agents)
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-agent
+  version: "1.0.0"
+  targetActionId: respond
+settings:
+  apiServerMode: true
+  apiServer:
+    portNum: 16395
+    routes:
+      - path: /api/v1/run
+        methods: [POST]
+```
+
+</div>
+
+### 1. Email — sort, draft, unsubscribe
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Email: {{ get('email') }}
+      Classify as urgent / normal / unsubscribe.
+      If urgent: draft a reply.
+      If unsubscribe: return the sender address.
+    jsonResponse: true
+    jsonResponseKeys: [label, draft, unsubscribe_from]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 2. Meetings — agenda + action items
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Meeting request: {{ get('request') }}
+      Attendees: {{ get('attendees') }}
+      Write a concise agenda and post-meeting action items.
+    jsonResponse: true
+    jsonResponseKeys: [agenda, action_items, suggested_time]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 3. Late bills — cash-flow-aware due dates
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Transactions: {{ get('httpClient') }}
+      Today: {{ info('current_date') }}
+      List bills due in 7 days. Flag anything overdue.
+    jsonResponse: true
+    jsonResponseKeys: [due_soon, overdue, balance_after]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 4. Subscription leaks — find what you forgot
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions?days=90"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Transactions: {{ get('httpClient') }}
+      Find all recurring charges. Flag any not used in 30+ days.
+    jsonResponse: true
+    jsonResponseKeys: [subscriptions, unused, monthly_total]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 5. Finding your own files — RAG search
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - embedding:
+        model: nomic-embed-text
+        input: "{{ get('q') }}"
+        collection: my-docs
+        operation: search
+        topK: 5
+  chat:
+    model: llama3.2
+    prompt: |
+      Context: {{ get('embedding').results }}
+      Question: {{ get('q') }}
+      Answer using only the context above.
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 6. Grocery waste — meal plan from what's expiring
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('PANTRY_API') }}/inventory"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Pantry: {{ get('httpClient') }}
+      Suggest 5 meals using items expiring soonest.
+      List what needs reordering.
+    jsonResponse: true
+    jsonResponseKeys: [meals, reorder_list]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 7. Travel planning — one pass
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - scraper:
+        url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
+      Data: {{ get('scraper') }}
+      Best flight option, hotel, and 3-day itinerary.
+    jsonResponse: true
+    jsonResponseKeys: [flight, hotel, itinerary]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
+
+### 8. Admin overhead — generate invoice
+
+<div v-pre>
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Client: {{ get('client') }}
+      Work done: {{ get('description') }}
+      Hours: {{ get('hours') }} at {{ get('rate') }}/hr
+      Generate a professional invoice.
+    jsonResponse: true
+    jsonResponseKeys: [invoice_number, line_items, subtotal, due_date]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+</div>
 
 ## Key Highlights
 
-### Multi-Source I/O for Edge Devices
+### Multi-Source I/O
 
-KDeps accepts input from hardware devices and HTTP APIs — simultaneously. Configure audio, video, telephony, and API sources in one `workflow.yaml`:
+KDeps accepts input from hardware devices, HTTP APIs, and chat bot platforms — simultaneously. Configure audio, video, telephony, bot, and API sources in one `workflow.yaml`:
 
 ```yaml
 settings:
@@ -66,11 +333,12 @@ settings:
         model: small
 ```
 
-| Source | Hardware |
-|--------|----------|
+| Source | Hardware / Platform |
+|--------|---------------------|
 | `audio` | ALSA microphone, line-in, USB audio |
 | `video` | V4L2 camera, USB webcam, CSI camera |
 | `telephony` | SIP/ATA adapter, Twilio |
+| `bot` | Discord, Slack, Telegram, WhatsApp |
 | `api` | HTTP REST (default) |
 
 [Full Input Sources guide →](/concepts/input-sources)
@@ -104,6 +372,37 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
 ```
+
+### Chat Bot Platforms
+
+Connect a workflow to Discord, Slack, Telegram, or WhatsApp with a single config block. Access the inbound message via `input('message')` and reply automatically:
+
+```yaml
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling   # persistent long-running connection
+      telegram:
+        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
+```
+
+Run once from stdin in **stateless mode** — useful for serverless or piped execution:
+
+```bash
+echo '{"message":"What is 2+2?","platform":"telegram"}' | kdeps run workflow.yaml
+```
+
+### Deploy Anywhere — Including Bootable ISO
+
+Package the same workflow as Docker image, push to kdeps.io cloud, or export to a bootable ISO that runs on bare-metal or a $50 edge device:
+
+```bash
+kdeps build my-agent-1.0.0.kdeps       # Docker image
+kdeps export iso my-agent-1.0.0.kdeps  # Bootable ISO (EFI/raw/qcow2)
+```
+
+The bootable ISO bundles the agent, Ollama, and all dependencies — no API costs, no cloud required, runs air-gapped forever.
 
 ### Fast Local Development
 Run workflows instantly on your local machine with sub-second startup time. Docker is optional and only needed for deployment.
@@ -287,14 +586,23 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 | Docker | Required | Optional |
 | Python env | Anaconda (~20GB) | uv (97% smaller) |
 | Learning curve | 2-3 days | ~1 hour |
+| Chat bots | — | Discord, Slack, Telegram, WhatsApp |
+| Vector RAG | — | Built-in embeddings (Ollama, OpenAI, Cohere) |
+| Content scraper | — | 15 source types (PDF, web, DOCX, images…) |
+| ISO export | — | Bootable ISO for bare-metal / edge |
 
 ## Examples
 
 Explore working examples:
 
+**Chat Bots:**
+- [Telegram Bot](https://github.com/kdeps/kdeps/tree/main/examples/telegram-bot) - Telegram bot with LLM replies (polling)
+- [Stateless Bot](https://github.com/kdeps/kdeps/tree/main/examples/stateless-bot) - One-shot bot execution from stdin
+- [Telephony Bot](https://github.com/kdeps/kdeps/tree/main/examples/telephony-bot) - Voice call workflow via SIP/Twilio
+
 **Edge AI / Voice:**
 - [Voice Assistant](https://github.com/kdeps/kdeps/tree/main/examples/voice-assistant) - Offline wake-phrase + LLM + TTS on edge hardware
-- [Vision Surveillance](https://github.com/kdeps/kdeps/tree/main/examples/vision-surveillance) - Camera capture + vision LLM analysis
+- [Video Analysis](https://github.com/kdeps/kdeps/tree/main/examples/video-analysis) - Camera capture + vision LLM analysis
 
 **API Backends:**
 - [Simple Chatbot](https://github.com/kdeps/kdeps/tree/main/examples/chatbot) - LLM chatbot
@@ -303,6 +611,7 @@ Explore working examples:
 - [HTTP Advanced](https://github.com/kdeps/kdeps/tree/main/examples/http-advanced) - API integration
 - [SQL Advanced](https://github.com/kdeps/kdeps/tree/main/examples/sql-advanced) - Multi-database
 - [Batch Processing](https://github.com/kdeps/kdeps/tree/main/examples/batch-processing) - Items iteration
+- [Control Flow](https://github.com/kdeps/kdeps/tree/main/examples/control-flow) - Conditionals and loop patterns
 - [Tools](https://github.com/kdeps/kdeps/tree/main/examples/tools) - LLM function calling
 - [Vision](https://github.com/kdeps/kdeps/tree/main/examples/vision) - Image processing
 

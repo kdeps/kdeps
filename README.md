@@ -7,11 +7,14 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-# kdeps - Workflow Orchestration for Stateful APIs
+# kdeps — The Rails for AI Agents
 
-KDeps is a YAML-based workflow orchestration framework that packages AI tasks, data processing, and API integrations into portable, containerized units. It simplifies building stateful REST APIs by handling common patterns like authentication, data flow, storage, and validation through configuration instead of code.
+Rails made it possible to build a web app in a day instead of a month. kdeps does the same for AI agents.
 
-> **Note:** Prior to v0.6.12, this project used PKL syntax. This new release uses YAML. If you prefer the old PKL syntax, please use version v0.6.12.
+Define your agent in YAML — LLMs, databases, APIs, voice, chat bots. kdeps handles the execution order, the wiring, and the deployment. Ship to cloud, edge device, or bootable ISO with one command.
+
+No glue code. No vendor lock-in. No legacy code to maintain.
+
 
 ## Key Features
 
@@ -82,7 +85,7 @@ KDeps provides 26 commands organized into categories:
 - `kdeps package` - Package workflow into .kdeps archive
 - `kdeps build` - Build Docker images from workflows
 - `kdeps push` - Push workflow updates to running containers (live update)
-- `kdeps export` - Export workflow configurations
+- `kdeps export iso` - Export workflow to bootable ISO (runs on bare-metal or VM)
 
 **Cloud Commands** (for kdeps.io):
 - `kdeps login/logout` - Authenticate with cloud
@@ -351,6 +354,229 @@ settings:
 echo '{"message":"What is 2+2?","platform":"telegram"}' | kdeps run workflow.yaml
 ```
 
+## Real-World Workflows
+
+Each of these is a complete, deployable agent. 17–22 lines of YAML. No custom code.
+
+Every agent shares the same 8-line `workflow.yaml` entry point:
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-agent
+  version: "1.0.0"
+  targetActionId: respond
+settings:
+  apiServerMode: true
+  apiServer:
+    portNum: 16395
+    routes:
+      - path: /api/v1/run
+        methods: [POST]
+```
+
+### 1. Email — sort, draft, unsubscribe
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Email: {{ get('email') }}
+      Classify as urgent / normal / unsubscribe.
+      If urgent: draft a reply.
+      If unsubscribe: return the sender address.
+    jsonResponse: true
+    jsonResponseKeys: [label, draft, unsubscribe_from]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 2. Meetings — agenda + action items
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Meeting request: {{ get('request') }}
+      Attendees: {{ get('attendees') }}
+      Write a concise agenda and post-meeting action items.
+    jsonResponse: true
+    jsonResponseKeys: [agenda, action_items, suggested_time]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 3. Late bills — cash-flow-aware due dates
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Transactions: {{ get('httpClient') }}
+      Today: {{ info('current_date') }}
+      List bills due in 7 days. Flag anything overdue.
+    jsonResponse: true
+    jsonResponseKeys: [due_soon, overdue, balance_after]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 4. Subscription leaks — find what you forgot
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('BANK_API_URL') }}/transactions?days=90"
+        headers:
+          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Transactions: {{ get('httpClient') }}
+      Find all recurring charges. Flag any not used in 30+ days.
+    jsonResponse: true
+    jsonResponseKeys: [subscriptions, unused, monthly_total]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 5. Finding your own files — RAG search
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - embedding:
+        model: nomic-embed-text
+        input: "{{ get('q') }}"
+        collection: my-docs
+        operation: search
+        topK: 5
+  chat:
+    model: llama3.2
+    prompt: |
+      Context: {{ get('embedding').results }}
+      Question: {{ get('q') }}
+      Answer using only the context above.
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 6. Grocery waste — meal plan from what's expiring
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - httpClient:
+        method: GET
+        url: "{{ env('PANTRY_API') }}/inventory"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Pantry: {{ get('httpClient') }}
+      Suggest 5 meals using items expiring soonest.
+      List what needs reordering.
+    jsonResponse: true
+    jsonResponseKeys: [meals, reorder_list]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 7. Travel planning — one pass
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  before:
+    - scraper:
+        url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
+      Data: {{ get('scraper') }}
+      Best flight option, hotel, and 3-day itinerary.
+    jsonResponse: true
+    jsonResponseKeys: [flight, hotel, itinerary]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
+### 8. Admin overhead — generate invoice
+
+```yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: respond
+run:
+  chat:
+    model: gpt-4o-mini
+    prompt: |
+      Client: {{ get('client') }}
+      Work done: {{ get('description') }}
+      Hours: {{ get('hours') }} at {{ get('rate') }}/hr
+      Generate a professional invoice.
+    jsonResponse: true
+    jsonResponseKeys: [invoice_number, line_items, subtotal, due_date]
+  apiResponse:
+    success: true
+    response:
+      data: get('respond')
+```
+
 ## Examples
 
 Explore working examples in the [examples/](examples/) directory:
@@ -496,7 +722,7 @@ See `pkg/executor/llm/` or `pkg/executor/http/` for reference implementations.
 
 ## Community & Support
 
-- **Documentation**: [kdeps.io](https://kdeps.io) (coming soon)
+- **Documentation**: [kdeps.io](https://kdeps.io)
 - **GitHub Issues**: [Report bugs or request features](https://github.com/kdeps/kdeps/issues)
 - **Examples**: [Browse example workflows](https://github.com/kdeps/kdeps/tree/main/examples)
 - **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
