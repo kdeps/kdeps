@@ -9,7 +9,6 @@ const { frontmatter } = useData()
 
 <template>
   <div class="hero-info">
-    <img src="/kdeps-logo.png" alt="kdeps" class="hero-logo" />
     <p v-if="frontmatter.hero?.text" class="hero-text">
       {{ frontmatter.hero.text }}
     </p>
@@ -25,12 +24,6 @@ const { frontmatter } = useData()
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-}
-
-.hero-logo {
-  height: 88px;
-  width: auto;
-  margin-left: 8px;
 }
 
 .hero-text {

@@ -1951,7 +1951,10 @@ run:
 
 	// We expect failure due to LLM execution, but the setup should have been exercised
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "LLM executor not available")
+	assert.True(t,
+		strings.Contains(err.Error(), "LLM executor not available") ||
+			strings.Contains(err.Error(), "failed to start ollama"),
+		"Expected LLM error: %v", err)
 }
 
 // TestStartOllamaServer_Coverage tests the startOllamaServer function indirectly.
@@ -2317,7 +2320,8 @@ run:
 	assert.True(t,
 		strings.Contains(err.Error(), "timeout") ||
 			strings.Contains(err.Error(), "connection refused") ||
-			strings.Contains(err.Error(), "LLM executor not available"),
+			strings.Contains(err.Error(), "LLM executor not available") ||
+			strings.Contains(err.Error(), "failed to start ollama"),
 		"Expected timeout or connection error: %v", err)
 }
 

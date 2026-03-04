@@ -22,7 +22,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'KDeps',
-  description: 'AI Agent Framework - Build, configure, and deploy AI workflows with simple YAML',
+  description: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.',
 
   appearance: 'force-dark',
 
@@ -32,20 +32,19 @@ export default defineConfig({
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:site_name', content: 'KDeps Documentation' }],
     ['meta', { name: 'og:title', content: 'KDeps - AI Agent Framework' }],
-    ['meta', { name: 'og:description', content: 'Build, configure, and deploy AI agent workflows with simple YAML configuration' }],
+    ['meta', { name: 'og:description', content: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.' }],
   ],
 
   lastUpdated: true,
   cleanUrls: true,
 
   themeConfig: {
-    logo: '/kdeps-logo.png',
     siteTitle: false,
 
     nav: [
       { text: 'Guide', link: '/getting-started/quickstart' },
-      { text: 'Reference', link: '/configuration/workflow' },
-      { text: 'Examples', link: 'https://github.com/kdeps/kdeps/tree/main/examples' },
+      { text: 'Visual Editor', link: 'https://kdeps.io' },
+      { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
         text: 'v2.0.0',
         items: [
@@ -62,6 +61,7 @@ export default defineConfig({
           text: 'Introduction',
           items: [
             { text: 'What is KDeps?', link: '/' },
+            { text: 'Real-World Showcase', link: '/examples/showcase' },
           ]
         },
         {

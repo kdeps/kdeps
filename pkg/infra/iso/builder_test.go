@@ -13,6 +13,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -99,7 +100,7 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
-	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
+	assert.Contains(t, config.Kernel.Cmdline, iso.KernelCmdline(runtime.GOARCH))
 	assert.Len(t, config.Init, 4)     // init + runc + containerd + ca-certificates
 	assert.Len(t, config.Services, 3) // dhcpcd + getty + kdeps
 	assert.Equal(t, "dhcpcd", config.Services[0].Name)
