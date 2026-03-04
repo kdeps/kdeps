@@ -7,11 +7,11 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-# kdeps — The Rails for AI Agents
+# kdeps — Run AI Agents Anywhere
 
-Rails made it possible to build a web app in a day instead of a month. kdeps does the same for AI agents.
+Most AI tools rent you intelligence. kdeps lets you own it.
 
-Define your agent in YAML — LLMs, databases, APIs, voice, chat bots. kdeps handles the execution order, the wiring, and the deployment. Ship to cloud, edge device, or bootable ISO with one command.
+Define your agent in YAML — LLMs, databases, APIs, voice, chat bots. Run it on your laptop, your server, or export it as a bootable ISO on a $50 device. No API costs. No cloud required. Your data stays yours.
 
 No glue code. No vendor lock-in. No legacy code to maintain.
 

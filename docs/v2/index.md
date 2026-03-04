@@ -2,8 +2,8 @@
 layout: home
 
 hero:
-  text: The Rails for AI Agents
-  tagline: Define your agent in YAML. kdeps handles the wiring, the execution order, and the deployment. Ship to cloud, edge device, or bootable ISO with one command.
+  text: Run AI Agents Anywhere
+  tagline: Define your agent in YAML. Run it on your laptop, your server, or a $50 device. No API costs. No cloud required. Your data stays yours.
   actions:
     - theme: brand
       text: Get Started
@@ -41,9 +41,9 @@ features:
 
 # Introduction
 
-Rails made it possible to build a web app in a day instead of a month. KDeps does the same for AI agents.
+Most AI tools rent you intelligence. kdeps lets you own it.
 
-You define what your agent does in YAML — which LLM, which database, which API, which inputs. KDeps figures out the execution order, handles the wiring between resources, and packages everything into a single deployable unit. Run it locally in under a second, push it to kdeps.io in one click, or export it as a bootable ISO that runs on a $50 device with no API costs forever.
+You define what your agent does in YAML — which LLM, which database, which API, which inputs. kdeps figures out the execution order, handles the wiring between resources, and packages everything into a single deployable unit. Run it locally in under a second, push it to kdeps.io in one click, or export it as a bootable ISO that runs on a $50 device with no API costs forever.
 
 No glue code. No vendor lock-in. No legacy code to maintain.
 
