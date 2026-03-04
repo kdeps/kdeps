@@ -15,7 +15,7 @@
     </div>
 
     <!-- Code body -->
-    <div class="code-body">
+    <div class="code-body" v-pre>
       <div><span class="key">run</span><span class="op">:</span></div>
       <div>  <span class="key">chat</span><span class="op">:</span></div>
       <div>    <span class="key">model</span><span class="op">:</span> <span class="str">llama3.2:1b</span></div>
