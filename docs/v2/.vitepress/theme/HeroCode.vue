@@ -15,19 +15,17 @@
     </div>
 
     <!-- Code body -->
-    <div class="code-body" v-pre>
-      <div><span class="key">run</span><span class="op">:</span></div>
-      <div>  <span class="key">chat</span><span class="op">:</span></div>
-      <div>    <span class="key">model</span><span class="op">:</span> <span class="str">llama3.2:1b</span></div>
-      <div>    <span class="key">prompt</span><span class="op">:</span> <span class="str">"Summarize: {{get('q')}}"</span></div>
-      <div class="blank-line"></div>
-      <div>  <span class="key">apiResponse</span><span class="op">:</span></div>
-      <div>    <span class="key">success</span><span class="op">:</span> <span class="key">true</span></div>
-      <div>    <span class="key">response</span><span class="op">:</span></div>
-      <div>      <span class="key">data</span><span class="op">:</span> <span class="key">get</span><span class="op">(</span><span class="str">'chat'</span><span class="op">)</span></div>
-      <div class="blank-line"></div>
-      <div><span class="cm"># No glue code. No legacy code.</span></div>
-    </div>
+    <pre class="code-body" v-pre><code><span class="key">run</span><span class="op">:</span>
+  <span class="key">chat</span><span class="op">:</span>
+    <span class="key">model</span><span class="op">:</span> <span class="str">llama3.2:1b</span>
+    <span class="key">prompt</span><span class="op">:</span> <span class="str">"Summarize: {{ get('q') }}"</span>
+
+  <span class="key">apiResponse</span><span class="op">:</span>
+    <span class="key">success</span><span class="op">:</span> <span class="key">true</span>
+    <span class="key">response</span><span class="op">:</span>
+      <span class="key">data</span><span class="op">:</span> <span class="str">"{{ get('chat') }}"</span>
+
+<span class="cm"># No glue code. No legacy code.</span></code></pre>
 
     <!-- Status bar -->
     <div class="code-statusbar">
@@ -49,6 +47,7 @@
   border-radius: 2px;
   overflow: hidden;
   width: 100%;
+  max-width: 480px;
   box-shadow: var(--vp-shadow-3);
 }
 
@@ -85,17 +84,20 @@
 
 /* Code body */
 .code-body {
+  margin: 0;
   padding: 16px;
   color: #c8cce8;
   overflow-x: auto;
-}
-
-.code-body div {
   white-space: pre;
 }
 
-.blank-line {
-  height: 0.5em;
+.code-body code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border: none;
 }
 
 .key { color: #FF2D78; }
@@ -126,6 +128,13 @@
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.3; }
+}
+
+@media (max-width: 960px) {
+  .hero-code-window {
+    max-width: 100%;
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 640px) {
