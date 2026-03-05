@@ -20,7 +20,7 @@ features:
     details: No glue code. No boilerplate.
   - icon: 🔇
     title: Local Execution
-    details: Use local LLMs & Vector DBs.
+    details: Use local LLMs (Ollama) or any cloud provider. Support for offline STT/TTS and vector DBs.
   - icon: 🚀
     title: Deploy Anywhere
     details: Docker or bootable ISO.

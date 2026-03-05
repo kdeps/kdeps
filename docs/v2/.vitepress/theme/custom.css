@@ -111,9 +111,41 @@
   font-weight: 400;
 }
 
-@media (min-width: 640px) {
+/* Ensure the code window doesn't overflow and stacks correctly */
+.VPHero .container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.VPHero .main {
+  width: 100%;
+}
+
+@media (min-width: 960px) {
+  .VPHero .container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .VPHero .main {
+    max-width: 580px;
+  }
   .VPHero .name    { font-size: 64px; }
   .VPHero .tagline { font-size: 24px; }
+}
+
+/* Hide default VitePress image when using home-hero-image slot for HeroCode */
+.VPHero .image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.VPHero .image-container {
+  width: 100%;
+  max-width: 480px;
 }
 
 /* =====================================================
