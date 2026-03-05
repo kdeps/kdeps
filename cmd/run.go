@@ -433,19 +433,14 @@ func printBotRequirements(input *domain.InputConfig) {
 }
 
 // collectTTSEngines returns a map of offline TTS engine → descriptive label for
-// every TTS config found in the workflow (resources + inline before/after blocks).
+// every TTS config found in the workflow (resources + inline resources).
 func collectTTSEngines(workflow *domain.Workflow) map[string]string {
 	engines := make(map[string]string)
 	for _, r := range workflow.Resources {
 		if r.Run.TTS != nil {
 			addTTSEngine(engines, r.Run.TTS)
 		}
-		for _, inline := range r.Run.Before {
-			if inline.TTS != nil {
-				addTTSEngine(engines, inline.TTS)
-			}
-		}
-		for _, inline := range r.Run.After {
+		for _, inline := range r.Run.Resources {
 			if inline.TTS != nil {
 				addTTSEngine(engines, inline.TTS)
 			}

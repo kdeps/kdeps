@@ -9,7 +9,7 @@ metadata:
 run:
   restrictToRoutes: [/api/v1/login]
 
-  validation:
+  validations:
     required:
       - username
       - password

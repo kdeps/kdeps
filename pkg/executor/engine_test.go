@@ -3714,7 +3714,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
+						Validations: &domain.ValidationRules{
 							Required: []string{"missing_field"},
 						},
 						APIResponse: &domain.APIResponseConfig{
@@ -3755,7 +3755,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
+						Validations: &domain.ValidationRules{
 							CustomRules: []domain.CustomRule{
 								{
 									Expr:    domain.Expression{Raw: "{{ false }}"}, // Always fails

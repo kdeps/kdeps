@@ -54,7 +54,7 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Required: []string{"userId", "email"},
 					},
 					APIResponse: &domain.APIResponseConfig{
@@ -144,7 +144,7 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field: "age",
@@ -350,7 +350,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						CustomRules: []domain.CustomRule{
 							{
 								Expr: domain.Expression{
@@ -521,7 +521,7 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Required: []string{"email", "name"},
 						Rules: []domain.FieldRule{
 							{

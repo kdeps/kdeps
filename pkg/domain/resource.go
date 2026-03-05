@@ -62,7 +62,7 @@ type RunConfig struct {
 	AllowedParams         []string         `yaml:"allowedParams,omitempty"`
 	SkipCondition         []Expression     `yaml:"skipCondition,omitempty"`
 	PreflightCheck        *PreflightCheck  `yaml:"preflightCheck,omitempty"`
-	Validation            *ValidationRules `yaml:"validation,omitempty"`
+	Validations           *ValidationRules `yaml:"validations,omitempty"`
 
 	// Loop enables conditional while-loop iteration for the resource.
 	// When set, the resource body is executed repeatedly while Loop.While is true.
@@ -76,10 +76,11 @@ type RunConfig struct {
 	Expr       []Expression `yaml:"expr,omitempty"`
 	ExprAfter  []Expression `yaml:"exprAfter,omitempty"`
 
-	// Inline resources: allows multiple LLM, HTTP, Exec, SQL, Python resources
-	// to be configured to run before or after the main resource
-	Before []InlineResource `yaml:"before,omitempty"`
-	After  []InlineResource `yaml:"after,omitempty"`
+	// Resources: inline resources to run before or after the main resource.
+	// Each entry specifies a position ("before" or "after") and one resource type.
+	// Resources with position "before" run before the primary type; "after" run after.
+	// The default position is "before" when not specified.
+	Resources []InlineResource `yaml:"resources,omitempty"`
 
 	// Action blocks (only one primary type should be set, apiResponse can be combined).
 	Chat        *ChatConfig        `yaml:"chat,omitempty"`
@@ -98,8 +99,12 @@ type RunConfig struct {
 }
 
 // InlineResource represents an inline resource that can be executed before or after the main resource.
-// Only one of the resource types should be set.
+// Set Position to "before" (default) or "after" to control when it runs.
+// Only one of the resource type fields should be set.
 type InlineResource struct {
+	// Position controls when this inline resource runs relative to the primary resource.
+	// Valid values: "before" (default) or "after".
+	Position   string            `yaml:"position,omitempty"`
 	Chat       *ChatConfig       `yaml:"chat,omitempty"`
 	HTTPClient *HTTPClientConfig `yaml:"httpClient,omitempty"`
 	SQL        *SQLConfig        `yaml:"sql,omitempty"`

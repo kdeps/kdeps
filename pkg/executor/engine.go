@@ -322,9 +322,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		}
 
 		// Run input validation.
-		if resource.Run.Validation != nil {
+		if resource.Run.Validations != nil {
 			requestData := ctx.GetRequestData()
-			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validation); validateErr != nil {
+			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validations); validateErr != nil {
 				// Convert validation errors to AppError
 				var validationErrors *validator.MultipleValidationError
 				if errors.As(validateErr, &validationErrors) {
@@ -355,7 +355,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			}
 
 			// Validate custom expression rules
-			if len(resource.Run.Validation.CustomRules) > 0 {
+			if len(resource.Run.Validations.CustomRules) > 0 {
 				// Initialize evaluator if needed
 				if e.evaluator == nil {
 					e.evaluator = expression.NewEvaluator(ctx.API)
@@ -365,7 +365,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 				env := e.buildEvaluationEnvironment(ctx)
 
 				if validateErr := e.exprValidator.ValidateCustomRules(
-					resource.Run.Validation.CustomRules,
+					resource.Run.Validations.CustomRules,
 					e.evaluator,
 					env,
 				); validateErr != nil {
@@ -698,8 +698,9 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute inline "before" resources
-	if len(resource.Run.Before) > 0 {
-		if err := e.executeInlineResources(resource.Run.Before, ctx); err != nil {
+	beforeResources := filterInlineResources(resource.Run.Resources, "before")
+	if len(beforeResources) > 0 {
+		if err := e.executeInlineResources(beforeResources, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)
 		}
 	}
@@ -747,8 +748,9 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute inline "after" resources
-	if len(resource.Run.After) > 0 {
-		if err = e.executeInlineResources(resource.Run.After, ctx); err != nil {
+	afterResources := filterInlineResources(resource.Run.Resources, "after")
+	if len(afterResources) > 0 {
+		if err = e.executeInlineResources(afterResources, ctx); err != nil {
 			return nil, fmt.Errorf("inline after resource failed: %w", err)
 		}
 	}
@@ -781,8 +783,7 @@ func (e *Engine) ExecuteResource(
 
 	// If only expressions (exprBefore, expr, exprAfter) or inline resources, return status
 	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 ||
-		len(resource.Run.After) > 0 {
+		len(resource.Run.ExprAfter) > 0 || len(resource.Run.Resources) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -1313,6 +1314,22 @@ func (e *Engine) ExecuteWithItems(
 	delete(ctx.Items, "all")
 
 	return results, nil
+}
+
+// filterInlineResources returns all inline resources whose Position matches the given position.
+// Resources with an empty Position default to "before".
+func filterInlineResources(resources []domain.InlineResource, position string) []domain.InlineResource {
+	var result []domain.InlineResource
+	for _, r := range resources {
+		p := r.Position
+		if p == "" {
+			p = "before"
+		}
+		if p == position {
+			result = append(result, r)
+		}
+	}
+	return result
 }
 
 // executeInlineResources executes a list of inline resources.

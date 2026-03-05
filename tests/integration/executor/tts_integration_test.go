@@ -171,8 +171,9 @@ func TestTTSIntegration_InlineResource(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "respond", Name: "Respond"},
 				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
+					Resources: []domain.InlineResource{
 						{
+							Position: "before",
 							TTS: &domain.TTSConfig{
 								Text:       "Inline speech",
 								Mode:       domain.TTSModeOnline,
