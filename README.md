@@ -7,47 +7,39 @@ Orchestrate LLMs, databases, and APIs without glue or legacy code.
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-## 2. Complete Example (workflow.yaml)
-```yaml
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: summarizer
-  targetActionId: respond
-settings:
-  apiServerMode: true
-  apiServer:
-    portNum: 16395
-    routes:
-      - path: /api/v1/run
-        methods: [POST]
+## 2. Multi-Model RAG Example
+Chain scrapers, vector search, and multiple LLMs in one file.
 
----
+```yaml
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
-  actionId: respond
+  actionId: analyze
 run:
   before:
-    - sql:
-        query: "SELECT bio FROM users WHERE id = $1"
-        params: [get('user_id')]
-    - httpClient:
-        url: "https://api.site.com/data"
+    - scraper: { url: "{{ get('url') }}" } # Extract text from web/PDF
+    - embedding:
+        operation: search
+        input: "{{ get('scraper') }}"
+        collection: docs
   chat:
-    model: llama3.2:1b
-    prompt: "Bio: {{ get('sql') }}. Data: {{ get('httpClient') }}. Summarize."
+    model: gpt-4o
+    prompt: |
+      Context: {{ get('embedding').results }}
+      Data: {{ get('scraper') }}
+      Question: {{ get('q') }}
   apiResponse:
     success: true
-    response:
-      data: "{{ get('chat') }}"
+    response: { data: "{{ get('chat') }}" }
 ```
 
 ## Syntax Cheatsheet
 
-### ⚡ [Context Functions](https://kdeps.com/concepts/expression-functions-reference)
-- [`get('q')`](https://kdeps.com/concepts/unified-api) – Get data (auto-detects: body, query, header, output)
+### ⚡ [Syntax & Logic](https://kdeps.com/concepts/expressions)
+- [`get('q')`](https://kdeps.com/concepts/unified-api) – Get data (body, query, header, output)
 - [`set('k', v)`](https://kdeps.com/concepts/expression-functions-reference#set-key-value-storage) – Store in memory or session
+- [`items:`](https://kdeps.com/concepts/items) – Iterate over arrays/collections
+- [`validate:`](https://kdeps.com/concepts/validation) – Logic & control flow (if/else)
 - [`env('KEY')`](https://kdeps.com/concepts/expression-functions-reference#get-key-typehint) – Access environment variables
 - [`session()`](https://kdeps.com/concepts/expression-functions-reference#session) – Access persistent session data
 - [`file('*')`](https://kdeps.com/concepts/expression-functions-reference#file-pattern-selector) – Access uploaded or local files
