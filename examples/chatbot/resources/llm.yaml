@@ -16,15 +16,17 @@ run:
       code: 400
       message: Query parameter 'q' is required
 
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeoutDuration: 60s
+
+  resources:
+    - chat:
+        backend: ollama
+        model: llama3.2:1b
+        role: user
+        prompt: "{{ get('q') }}"
+        scenario:
+          - role: assistant
+            prompt: You are a helpful AI assistant.
+        jsonResponse: true
+        jsonResponseKeys:
+          - answer
+        timeoutDuration: 60s

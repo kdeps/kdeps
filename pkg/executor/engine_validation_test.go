@@ -52,13 +52,15 @@ func TestEngine_Validation_RequiredFields(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Required: []string{"name", "email"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -102,13 +104,15 @@ func TestEngine_Validation_RequiredFields_Success(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Required: []string{"name", "email"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -152,7 +156,7 @@ func TestEngine_Validation_TypeValidation(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field: "age",
@@ -164,10 +168,12 @@ func TestEngine_Validation_TypeValidation(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -214,7 +220,7 @@ func TestEngine_Validation_MinMax(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field: "age",
@@ -224,10 +230,12 @@ func TestEngine_Validation_MinMax(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -297,7 +305,7 @@ func TestEngine_Validation_StringLength(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field:     "username",
@@ -307,10 +315,12 @@ func TestEngine_Validation_StringLength(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -367,7 +377,7 @@ func TestEngine_Validation_Pattern(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field:   "code",
@@ -376,10 +386,12 @@ func TestEngine_Validation_Pattern(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -434,7 +446,7 @@ func TestEngine_Validation_Enum(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field: "status",
@@ -443,10 +455,12 @@ func TestEngine_Validation_Enum(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -504,7 +518,7 @@ func TestEngine_Validation_ArrayItems(t *testing.T) {
 					Name:     "Response Resource",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationRules{
 						Rules: []domain.FieldRule{
 							{
 								Field:    "tags",
@@ -514,10 +528,12 @@ func TestEngine_Validation_ArrayItems(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -585,10 +601,12 @@ func TestEngine_Validation_NoValidation(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					// No validation rules
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},

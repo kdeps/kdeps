@@ -129,12 +129,14 @@ func TestEngine_Execute_SingleResource(t *testing.T) {
 					Name:     "LLM Resource",
 				},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:        "gpt-4",
-						Prompt:       "Hello",
-						Role:         "user",
-						JSONResponse: true,
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Model:        "gpt-4",
+							Prompt:       "Hello",
+							Role:         "user",
+							JSONResponse: true,
+						},
+					}},
 				},
 			},
 		},
@@ -178,10 +180,12 @@ func TestEngine_Execute_MultipleResources(t *testing.T) {
 					Name:     "HTTP Call",
 				},
 				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com/data",
-					},
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com/data",
+						},
+					}},
 				},
 			},
 			{
@@ -191,12 +195,14 @@ func TestEngine_Execute_MultipleResources(t *testing.T) {
 					Requires: []string{"http-call"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Workflow completed",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "Workflow completed",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -242,11 +248,13 @@ func TestEngine_Execute_WithDependencies(t *testing.T) {
 					Name:     "Fetch Data",
 				},
 				Run: domain.RunConfig{
-					SQL: &domain.SQLConfig{
-						Connection: "sqlite:///test.db",
-						Query:      "SELECT * FROM data",
-						Format:     "json",
-					},
+					Resources: []domain.InlineResource{{
+						SQL: &domain.SQLConfig{
+							Connection: "sqlite:///test.db",
+							Query:      "SELECT * FROM data",
+							Format:     "json",
+						},
+					}},
 				},
 			},
 			{
@@ -256,14 +264,16 @@ func TestEngine_Execute_WithDependencies(t *testing.T) {
 					Requires: []string{"fetch-data"},
 				},
 				Run: domain.RunConfig{
-					Python: &domain.PythonConfig{
-						Script: `
-import json
-# Process the fetched data
-result = "processed data"
-print(result)
-`,
-					},
+					Resources: []domain.InlineResource{{
+						Python: &domain.PythonConfig{
+							Script: `
+						import json
+						# Process the fetched data
+						result = "processed data"
+						print(result)
+						`,
+						},
+					}},
 				},
 			},
 		},
@@ -307,12 +317,14 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 					Name:     "Conditional Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+SkipCondition: []domain.Expression{
 						{Raw: "false"}, // This should not skip the resource
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -322,14 +334,16 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 					Name:     "Skipped Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "true"}, // This should skip the resource
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"skipped": true,
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"skipped": true,
+							},
 						},
+					}},
+SkipCondition: []domain.Expression{
+						{Raw: "true"}, // This should skip the resource
 					},
 				},
 			},
@@ -342,12 +356,14 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 					}, // Make it depend on conditional resource
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "completed",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "completed",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -397,10 +413,12 @@ func TestEngine_Execute_ErrorHandling(t *testing.T) {
 					Name:     "HTTP Call",
 				},
 				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
 				},
 			},
 		},
@@ -435,10 +453,12 @@ func TestEngine_Execute_InvalidRequestContext(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "success"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "success"},
+						},
+					}},
 				},
 			},
 		},
@@ -474,10 +494,12 @@ func TestEngine_Execute_CyclicDependency(t *testing.T) {
 					Requires: []string{"resource-b"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "a"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "a"},
+						},
+					}},
 				},
 			},
 			{
@@ -487,10 +509,12 @@ func TestEngine_Execute_CyclicDependency(t *testing.T) {
 					Requires: []string{"resource-a"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "b"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "b"},
+						},
+					}},
 				},
 			},
 		},
@@ -541,11 +565,13 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					Name:     "LLM Task",
 				},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						Prompt: "Analyze this data",
-						Role:   "user",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Model:  "gpt-4",
+							Prompt: "Analyze this data",
+							Role:   "user",
+						},
+					}},
 				},
 			},
 			{
@@ -554,10 +580,12 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					Name:     "HTTP Task",
 				},
 				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
 				},
 			},
 			{
@@ -566,10 +594,12 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					Name:     "SQL Task",
 				},
 				Run: domain.RunConfig{
-					SQL: &domain.SQLConfig{
-						Connection: "sqlite:///test.db",
-						Query:      "SELECT * FROM users",
-					},
+					Resources: []domain.InlineResource{{
+						SQL: &domain.SQLConfig{
+							Connection: "sqlite:///test.db",
+							Query:      "SELECT * FROM users",
+						},
+					}},
 				},
 			},
 			{
@@ -578,9 +608,11 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					Name:     "Python Task",
 				},
 				Run: domain.RunConfig{
-					Python: &domain.PythonConfig{
-						Script: "print('Python executed')",
-					},
+					Resources: []domain.InlineResource{{
+						Python: &domain.PythonConfig{
+							Script: "print('Python executed')",
+						},
+					}},
 				},
 			},
 			{
@@ -589,9 +621,11 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					Name:     "Exec Task",
 				},
 				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{
-						Command: "echo",
-					},
+					Resources: []domain.InlineResource{{
+						Exec: &domain.ExecConfig{
+							Command: "echo",
+						},
+					}},
 				},
 			},
 			{
@@ -607,12 +641,14 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 					},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"intermediate": "done",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"intermediate": "done",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -647,10 +683,12 @@ func TestEngine_buildGraph(t *testing.T) {
 					Name:     "Resource A",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "a"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "a"},
+						},
+					}},
 				},
 			},
 			{
@@ -660,10 +698,12 @@ func TestEngine_buildGraph(t *testing.T) {
 					Requires: []string{"resource-a"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "b"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "b"},
+						},
+					}},
 				},
 			},
 			{
@@ -673,10 +713,12 @@ func TestEngine_buildGraph(t *testing.T) {
 					Requires: []string{"resource-b"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "c"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "c"},
+						},
+					}},
 				},
 			},
 		},
@@ -709,10 +751,12 @@ func TestEngine_buildGraph_CyclicDependency(t *testing.T) {
 					Requires: []string{"resource-b"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "a"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "a"},
+						},
+					}},
 				},
 			},
 			{
@@ -722,10 +766,12 @@ func TestEngine_buildGraph_CyclicDependency(t *testing.T) {
 					Requires: []string{"resource-a"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "b"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"result": "b"},
+						},
+					}},
 				},
 			},
 		},
@@ -766,14 +812,16 @@ func TestEngine_runPreflightCheck(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			PreflightCheck: &domain.PreflightCheck{
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"result": "success"},
+				},
+			}},
+PreflightCheck: &domain.PreflightCheck{
 				Validations: []domain.Expression{
 					{Raw: "true"}, // Always passes
 				},
-			},
-			APIResponse: &domain.APIResponseConfig{
-				Success:  true,
-				Response: map[string]interface{}{"result": "success"},
 			},
 		},
 	}
@@ -812,7 +860,13 @@ func TestEngine_runPreflightCheck_Failing(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			PreflightCheck: &domain.PreflightCheck{
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"result": "success"},
+				},
+			}},
+PreflightCheck: &domain.PreflightCheck{
 				Validations: []domain.Expression{
 					{Raw: "false"}, // Always fails
 				},
@@ -820,10 +874,6 @@ func TestEngine_runPreflightCheck_Failing(t *testing.T) {
 					Code:    400,
 					Message: "Preflight check failed",
 				},
-			},
-			APIResponse: &domain.APIResponseConfig{
-				Success:  true,
-				Response: map[string]interface{}{"result": "success"},
 			},
 		},
 	}
@@ -1027,10 +1077,12 @@ func TestEngine_executeResource(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success:  true,
-				Response: map[string]interface{}{"result": "success"},
-			},
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"result": "success"},
+				},
+			}},
 		},
 	}
 
@@ -1065,13 +1117,15 @@ func TestEngine_executeWithItems(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Expr: []domain.Expression{
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"result": "success"},
+				},
+			}},
+Expr: []domain.Expression{
 				{Raw: "items[0]"},
 				{Raw: "items[1]"},
-			},
-			APIResponse: &domain.APIResponseConfig{
-				Success:  true,
-				Response: map[string]interface{}{"result": "success"},
 			},
 		},
 	}
@@ -1114,16 +1168,18 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 						Name:     "Counter",
 					},
 					Run: domain.RunConfig{
-						Loop: &domain.LoopConfig{
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"value": "{{ get('counter') }}"},
+							},
+						}},
+Loop: &domain.LoopConfig{
 							While:         "loop.index() < 3",
 							MaxIterations: 10,
 						},
-						Expr: []domain.Expression{
+Expr: []domain.Expression{
 							{Raw: "set('counter', loop.count())"},
-						},
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"value": "{{ get('counter') }}"},
 						},
 					},
 				},
@@ -1182,9 +1238,11 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					While: "false",
 				},
 				// apiResponse runs per-iteration (streaming); no iterations → empty slice.
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-				},
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+					},
+				}},
 			},
 		}
 
@@ -1258,10 +1316,12 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					{Raw: "set('ticks', loop.count())"},
 				},
 				// apiResponse runs per-iteration; 3 iterations → 3 apiResponse maps (streaming).
-				APIResponse: &domain.APIResponseConfig{
-					Success:  true,
-					Response: map[string]interface{}{"ticks": "{{ get('ticks') }}"},
-				},
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: map[string]interface{}{"ticks": "{{ get('ticks') }}"},
+					},
+				}},
 			},
 		}
 
@@ -1293,15 +1353,17 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		resource := &domain.Resource{
 			Metadata: domain.ResourceMetadata{ActionID: "ctx-loop", Name: "Context Loop"},
 			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+					},
+				}},
+Loop: &domain.LoopConfig{
 					While:         "loop.index() < 2",
 					MaxIterations: 5,
 				},
-				Expr: []domain.Expression{
+Expr: []domain.Expression{
 					{Raw: "set('last_index', loop.index())"},
-				},
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
 				},
 			},
 		}
@@ -1395,10 +1457,12 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		resource := &domain.Resource{
 			Metadata: domain.ResourceMetadata{ActionID: "err-loop", Name: "Error Loop"},
 			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{Success: true},
+				}},
+Loop: &domain.LoopConfig{
 					While: "!!!invalid syntax ??? @@@",
 				},
-				APIResponse: &domain.APIResponseConfig{Success: true},
 			},
 		}
 
@@ -1563,12 +1627,14 @@ func TestEngine_ExecuteAPIResponseForTesting(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "test response",
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test response",
+					},
 				},
-			},
+			}},
 		},
 	}
 
@@ -1697,13 +1763,15 @@ func TestEngine_OnError_Continue_WithFallback_Expression(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action:   "continue",
 						Fallback: "{{ 'expression_fallback_value' }}", // Expression fallback
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1757,13 +1825,15 @@ func TestEngine_OnError_Continue_WithFallback_Map(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action:   "continue",
 						Fallback: mapFallback,
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1848,12 +1918,14 @@ func TestEngine_FormatDuration(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:           "gpt-4",
-						Prompt:          "Test prompt",
-						Role:            "user",
-						TimeoutDuration: "30s",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Model:           "gpt-4",
+							Prompt:          "Test prompt",
+							Role:            "user",
+							TimeoutDuration: "30s",
+						},
+					}},
 				},
 			}
 
@@ -1892,13 +1964,15 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					Name:     "Test Resource 1",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						When:   []domain.Expression{}, // Empty conditions
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1926,15 +2000,17 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					Name:     "Test Resource 2",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						When: []domain.Expression{
 							{Raw: "error.message contains 'mock'"}, // Should match
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1961,15 +2037,17 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					Name:     "Test Resource 3",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "fail", // Explicit fail action
 						When: []domain.Expression{
 							{Raw: "error.message contains 'different'"}, // Should not match
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2006,15 +2084,17 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					Name:     "Test Resource 4",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						When: []domain.Expression{
 							{Raw: "error.code == 'VALIDATION_ERROR'"}, // Should match AppError code
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2042,16 +2122,18 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					Name:     "Test Resource 5",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						When: []domain.Expression{
 							{Raw: "invalid.syntax.expression"},     // This should cause evaluation error
 							{Raw: "error.message contains 'mock'"}, // This should match after first fails
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2189,16 +2271,18 @@ func TestEngine_executeOnErrorExpressions(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						Expr: []domain.Expression{
 							{Raw: "set('error_handled', true)"},
 							{Raw: "set('error_message', error.message)"},
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2245,17 +2329,19 @@ func TestEngine_executeOnErrorExpressions_AppError(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						Expr: []domain.Expression{
 							{Raw: "set('error_code', error.code)"},
 							{Raw: "set('error_type', error.type)"},
 							{Raw: "set('error_status', error.statusCode)"},
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2305,16 +2391,18 @@ func TestEngine_executeOnErrorExpressions_ParseError(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						Expr: []domain.Expression{
 							{Raw: "invalid.syntax.expression"}, // This will fail to parse
 							{Raw: "set('fallback', true)"},     // This should execute after parse error
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2360,16 +2448,18 @@ func TestEngine_executeOnErrorExpressions_EvaluationError(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					OnError: &domain.OnErrorConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						Expr: []domain.Expression{
 							{Raw: "undefined_function()"},  // This will fail during evaluation
 							{Raw: "set('fallback', true)"}, // This should execute after eval error
 						},
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -2430,12 +2520,14 @@ func TestEngine_convertToSlice(t *testing.T) {
 				},
 				Items: []string{"items"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"processed": true,
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"processed": true,
+							},
 						},
-					},
+					}},
 				},
 			}
 
@@ -2497,12 +2589,14 @@ func TestEngine_convertToSlice_DebugMode(t *testing.T) {
 				},
 				Items: []string{"debug_items"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"debug_processed": true,
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"debug_processed": true,
+							},
 						},
-					},
+					}},
 				},
 			}
 
@@ -2547,7 +2641,10 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: nil, // Nil chat config should cause error
+			Resources: []domain.InlineResource{{
+				Chat: nil,
+			}},
+// Nil chat config should cause error,
 		},
 	}
 
@@ -2562,10 +2659,12 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "test-model",
-				Prompt: "test prompt",
-			},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Prompt: "test prompt",
+				},
+			}},
 		},
 	}
 
@@ -2593,11 +2692,13 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "{{input.model}}", // Valid expression
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
-			},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "{{input.model}}", // Valid expression
+					Prompt:          "test prompt",
+					TimeoutDuration: "30s",
+				},
+			}},
 		},
 	}
 
@@ -2613,11 +2714,13 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "test-model",
-				Prompt:          "test prompt",
-				TimeoutDuration: "invalid-duration", // Invalid duration
-			},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "test-model",
+					Prompt:          "test prompt",
+					TimeoutDuration: "invalid-duration", // Invalid duration
+				},
+			}},
 		},
 	}
 
@@ -2633,11 +2736,13 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "test-model",
-				Prompt: "test prompt",
-				// Backend not specified - should default
-			},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Prompt: "test prompt",
+					// Backend not specified - should default
+				},
+			}},
 		},
 	}
 
@@ -2652,11 +2757,13 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "{{invalid.syntax}}", // Invalid expression syntax
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
-			},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "{{invalid.syntax}}", // Invalid expression syntax
+					Prompt:          "test prompt",
+					TimeoutDuration: "30s",
+				},
+			}},
 		},
 	}
 
@@ -2712,12 +2819,14 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 				Name:     "LLM Resource",
 			},
 			Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					Model:           "{{input.model}}", // Expression that evaluates
-					Prompt:          "test prompt",
-					TimeoutDuration: "10s", // Short timeout for testing
-					Backend:         "ollama",
-				},
+				Resources: []domain.InlineResource{{
+					Chat: &domain.ChatConfig{
+						Model:           "{{input.model}}", // Expression that evaluates
+						Prompt:          "test prompt",
+						TimeoutDuration: "10s", // Short timeout for testing
+						Backend:         "ollama",
+					},
+				}},
 			},
 		}
 
@@ -2744,11 +2853,13 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 				Name:     "LLM Resource",
 			},
 			Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					Model:           "{{input.model_config.name}}", // Nested expression
-					Prompt:          "test prompt",
-					TimeoutDuration: "5s", // Very short for quick test
-				},
+				Resources: []domain.InlineResource{{
+					Chat: &domain.ChatConfig{
+						Model:           "{{input.model_config.name}}", // Nested expression
+						Prompt:          "test prompt",
+						TimeoutDuration: "5s", // Very short for quick test
+					},
+				}},
 			},
 		}
 
@@ -2765,11 +2876,13 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 				Name:     "LLM Resource",
 			},
 			Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					Model:           "test-model",
-					Prompt:          "test prompt",
-					TimeoutDuration: "2s", // Short timeout to test countdown
-				},
+				Resources: []domain.InlineResource{{
+					Chat: &domain.ChatConfig{
+						Model:           "test-model",
+						Prompt:          "test prompt",
+						TimeoutDuration: "2s", // Short timeout to test countdown
+					},
+				}},
 			},
 		}
 
@@ -2786,11 +2899,13 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 				Name:     "LLM Resource",
 			},
 			Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					Model:   "custom-model",
-					Prompt:  "test prompt",
-					Backend: "custom-backend",
-				},
+				Resources: []domain.InlineResource{{
+					Chat: &domain.ChatConfig{
+						Model:   "custom-model",
+						Prompt:  "test prompt",
+						Backend: "custom-backend",
+					},
+				}},
 			},
 		}
 
@@ -2844,7 +2959,10 @@ func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			HTTPClient: nil, // This should cause error
+			Resources: []domain.InlineResource{{
+				HTTPClient: nil,
+			}},
+// This should cause error,
 		},
 	}
 
@@ -2859,10 +2977,12 @@ func TestEngine_executeHTTP_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			HTTPClient: &domain.HTTPClientConfig{
-				Method: "GET",
-				URL:    "https://example.com",
-			},
+			Resources: []domain.InlineResource{{
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com",
+				},
+			}},
 		},
 	}
 
@@ -2894,7 +3014,10 @@ func TestEngine_executeSQL_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			SQL: nil, // This should cause error
+			Resources: []domain.InlineResource{{
+				SQL: nil,
+			}},
+// This should cause error,
 		},
 	}
 
@@ -2909,10 +3032,12 @@ func TestEngine_executeSQL_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			SQL: &domain.SQLConfig{
-				Connection: "sqlite:///test.db",
-				Query:      "SELECT * FROM test",
-			},
+			Resources: []domain.InlineResource{{
+				SQL: &domain.SQLConfig{
+					Connection: "sqlite:///test.db",
+					Query:      "SELECT * FROM test",
+				},
+			}},
 		},
 	}
 
@@ -2944,7 +3069,10 @@ func TestEngine_executePython_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Python: nil, // This should cause error
+			Resources: []domain.InlineResource{{
+				Python: nil,
+			}},
+// This should cause error,
 		},
 	}
 
@@ -2959,9 +3087,11 @@ func TestEngine_executePython_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Python: &domain.PythonConfig{
-				Script: "print('test')",
-			},
+			Resources: []domain.InlineResource{{
+				Python: &domain.PythonConfig{
+					Script: "print('test')",
+				},
+			}},
 		},
 	}
 
@@ -2993,7 +3123,10 @@ func TestEngine_executeExec_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Exec: nil, // This should cause error
+			Resources: []domain.InlineResource{{
+				Exec: nil,
+			}},
+// This should cause error,
 		},
 	}
 
@@ -3008,9 +3141,11 @@ func TestEngine_executeExec_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Exec: &domain.ExecConfig{
-				Command: "echo",
-			},
+			Resources: []domain.InlineResource{{
+				Exec: &domain.ExecConfig{
+					Command: "echo",
+				},
+			}},
 		},
 	}
 
@@ -3042,12 +3177,14 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "test",
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
+					},
 				},
-			},
+			}},
 		},
 	}
 
@@ -3064,12 +3201,14 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"invalid": "{{undefined_function()}}", // This should cause evaluation error
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"invalid": "{{undefined_function()}}", // This should cause evaluation error
+					},
 				},
-			},
+			}},
 		},
 	}
 
@@ -3089,17 +3228,19 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"data": "response",
-				},
-				Meta: &domain.ResponseMeta{
-					Headers: map[string]string{
-						"Content-Type": "application/json",
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"data": "response",
+					},
+					Meta: &domain.ResponseMeta{
+						Headers: map[string]string{
+							"Content-Type": "application/json",
+						},
 					},
 				},
-			},
+			}},
 		},
 	}
 
@@ -3421,10 +3562,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3460,10 +3603,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3495,10 +3640,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Requires: []string{"resource-b"},
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "a"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "a"},
+							},
+						}},
 					},
 				},
 				{
@@ -3508,10 +3655,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Requires: []string{"resource-a"},
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "b"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "b"},
+							},
+						}},
 					},
 				},
 			},
@@ -3542,10 +3691,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Resource A",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "a"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "a"},
+							},
+						}},
 					},
 				},
 			},
@@ -3581,10 +3732,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "HTTP Resource",
 					},
 					Run: domain.RunConfig{
-						HTTPClient: &domain.HTTPClientConfig{
-							Method: "GET",
-							URL:    "https://api.example.com",
-						},
+						Resources: []domain.InlineResource{{
+							HTTPClient: &domain.HTTPClientConfig{
+								Method: "GET",
+								URL:    "https://api.example.com",
+							},
+						}},
 					},
 				},
 			},
@@ -3616,10 +3769,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3649,10 +3804,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3682,10 +3839,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Existing Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3714,12 +3873,14 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
+Validations: &domain.ValidationRules{
 							Required: []string{"missing_field"},
-						},
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
 						},
 					},
 				},
@@ -3755,17 +3916,19 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
+Validations: &domain.ValidationRules{
 							CustomRules: []domain.CustomRule{
 								{
 									Expr:    domain.Expression{Raw: "{{ false }}"}, // Always fails
 									Message: "Custom validation failed",
 								},
 							},
-						},
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
 						},
 					},
 				},
@@ -3800,15 +3963,17 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "API Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success: true,
-							Response: map[string]interface{}{
-								"data": map[string]interface{}{
-									"message": "unwrapped data",
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success: true,
+								Response: map[string]interface{}{
+									"data": map[string]interface{}{
+										"message": "unwrapped data",
+									},
+									"nested": "value",
 								},
-								"nested": "value",
 							},
-						},
+						}},
 					},
 				},
 			},
@@ -3844,12 +4009,14 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Simple Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success: true,
-							Response: map[string]interface{}{
-								"result": "simple string result",
-							}, // API response format, but no success/data unwrapping since it's the target
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success: true,
+								Response: map[string]interface{}{
+									"result": "simple string result",
+								}, // API response format, but no success/data unwrapping since it's the target
+							},
+						}},
 					},
 				},
 			},
@@ -3879,10 +4046,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3912,10 +4081,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "success"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "success"},
+							},
+						}},
 					},
 				},
 			},
@@ -3969,10 +4140,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Name:     "Single Resource",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "single"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "single"},
+							},
+						}},
 					},
 				},
 			},
@@ -3997,10 +4170,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Name:     "Resource A",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "a"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "a"},
+							},
+						}},
 					},
 				},
 				{
@@ -4010,10 +4185,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Requires: []string{"resource-a"},
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "b"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "b"},
+							},
+						}},
 					},
 				},
 				{
@@ -4023,10 +4200,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Requires: []string{"resource-b"},
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "c"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "c"},
+							},
+						}},
 					},
 				},
 				{
@@ -4036,10 +4215,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Requires: []string{"resource-a", "resource-c"}, // Multiple dependencies
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "d"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "d"},
+							},
+						}},
 					},
 				},
 			},
@@ -4064,10 +4245,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Name:     "Resource 1",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "1"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "1"},
+							},
+						}},
 					},
 				},
 				{
@@ -4076,10 +4259,12 @@ func TestEngine_BuildGraph_ComplexScenarios(t *testing.T) {
 						Name:     "Resource 2",
 					},
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{
-							Success:  true,
-							Response: map[string]interface{}{"result": "2"},
-						},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{
+								Success:  true,
+								Response: map[string]interface{}{"result": "2"},
+							},
+						}},
 					},
 				},
 			},
@@ -4327,12 +4512,14 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 			Items: []string{"input.items"}, // Access items from request body
 			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"processed": "{{item}}", // Use item in response
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"processed": "{{item}}", // Use item in response
+						},
 					},
-				},
+				}},
 			},
 		}
 
@@ -4381,12 +4568,14 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "LLM Resource",
 			},
 			Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					Model:           "{{input.model}}", // Expression accessing request data
-					Prompt:          "Test prompt",
-					Role:            "user",
-					TimeoutDuration: "30s",
-				},
+				Resources: []domain.InlineResource{{
+					Chat: &domain.ChatConfig{
+						Model:           "{{input.model}}", // Expression accessing request data
+						Prompt:          "Test prompt",
+						Role:            "user",
+						TimeoutDuration: "30s",
+					},
+				}},
 			},
 		}
 
@@ -4575,14 +4764,16 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				Expr: []domain.Expression{
-					{Raw: "input.counter + 1"}, // Simple expression that should evaluate
-				},
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"result": "expressions executed",
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"result": "expressions executed",
+						},
 					},
+				}},
+Expr: []domain.Expression{
+					{Raw: "input.counter + 1"}, // Simple expression that should evaluate
 				},
 			},
 		}
@@ -4621,7 +4812,13 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						OnError: &domain.OnErrorConfig{
+						Resources: []domain.InlineResource{{
+							HTTPClient: &domain.HTTPClientConfig{
+								Method: "GET",
+								URL:    "https://api.example.com",
+							},
+						}},
+OnError: &domain.OnErrorConfig{
 							Action: "continue",
 							When: []domain.Expression{
 								{Raw: "error.code == 'VALIDATION_ERROR'"}, // Tests error object access
@@ -4630,10 +4827,6 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 								{Raw: "set('error_handled', true)"},
 								{Raw: "set('error_code', error.code)"},
 							},
-						},
-						HTTPClient: &domain.HTTPClientConfig{
-							Method: "GET",
-							URL:    "https://api.example.com",
 						},
 					},
 				},
@@ -5041,12 +5234,14 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 			},
 			Items: []string{"item1", "item2"},
 			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"processed": "{{item}}",
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"processed": "{{item}}",
+						},
 					},
-				},
+				}},
 			},
 		}
 
@@ -5069,12 +5264,14 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 			},
 			Items: []string{"item1"}, // Has items but already in context
 			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"result": "normal_execution",
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"result": "normal_execution",
+						},
 					},
-				},
+				}},
 			},
 		}
 
@@ -5096,14 +5293,16 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 				Name:     "Bad Expression",
 			},
 			Run: domain.RunConfig{
-				Expr: []domain.Expression{
-					{Raw: "invalid.syntax.expression"}, // Should cause parse error
-				},
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"result": "should_not_reach",
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"result": "should_not_reach",
+						},
 					},
+				}},
+Expr: []domain.Expression{
+					{Raw: "invalid.syntax.expression"}, // Should cause parse error
 				},
 			},
 		}
@@ -5132,16 +5331,18 @@ func TestEngine_SessionSetGet_E2E(t *testing.T) {
 					Name:     "Session Response",
 				},
 				Run: domain.RunConfig{
-					Expr: []domain.Expression{
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"all_session": "{{ session() }}",
+								"user_id":     "{{ get('user_id', 'session') }}",
+							},
+						},
+					}},
+Expr: []domain.Expression{
 						{Raw: "{{ set('user_id', 'testuser', 'session') }}"},
 						{Raw: "{{ set('logged_in', true, 'session') }}"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"all_session": "{{ session() }}",
-							"user_id":     "{{ get('user_id', 'session') }}",
-						},
 					},
 				},
 			},
@@ -5184,12 +5385,14 @@ func TestEngine_EmptySession_E2E(t *testing.T) {
 					Name:     "Empty Session Resource",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"session_data": "{{ session() }}",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"session_data": "{{ session() }}",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -5408,16 +5611,18 @@ func TestLoop_TuringCompleteness_StreamingAPIResponse(t *testing.T) {
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "streaming", Name: "Streaming"},
 		Run: domain.RunConfig{
-			Loop: &domain.LoopConfig{
+			Resources: []domain.InlineResource{{
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
+				},
+			}},
+Loop: &domain.LoopConfig{
 				While:         "loop.index() < 3",
 				MaxIterations: 10,
 			},
-			Expr: []domain.Expression{
+Expr: []domain.Expression{
 				{Raw: "set('tick', loop.count())"},
-			},
-			APIResponse: &domain.APIResponseConfig{
-				Success:  true,
-				Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
 			},
 		},
 	}
@@ -5697,16 +5902,18 @@ func TestLoop_LoopAndSkipCondition(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "loop-resource", Name: "Loop Resource"},
 				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"ran": "{{ get('ran') }}"},
+						},
+					}},
+Loop: &domain.LoopConfig{
 						While:         "loop.index() < 3",
 						MaxIterations: 10,
 					},
-					Expr: []domain.Expression{
+Expr: []domain.Expression{
 						{Raw: "set('ran', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ran": "{{ get('ran') }}"},
 					},
 				},
 			},

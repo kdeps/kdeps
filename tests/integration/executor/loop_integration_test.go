@@ -60,10 +60,12 @@ func TestLoopIntegration_BasicCounter(t *testing.T) {
 					Expr: []domain.Expression{
 						{Raw: "set('result', loop.count())"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"count": "{{ get('result') }}"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"count": "{{ get('result') }}"},
+						},
+					}},
 				},
 			},
 		},
@@ -124,10 +126,12 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 					Requires: []string{"compute"},
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"value": "{{ get('computed') }}"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"value": "{{ get('computed') }}"},
+						},
+					}},
 				},
 			},
 		},
@@ -176,10 +180,12 @@ func TestLoopIntegration_TuringComplete_Accumulator(t *testing.T) {
 					Expr: []domain.Expression{
 						{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"partial_sum": "{{ get('sum') }}"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"partial_sum": "{{ get('sum') }}"},
+						},
+					}},
 				},
 			},
 		},
@@ -276,9 +282,11 @@ func TestLoopIntegration_StreamingResponse_ExactCount(t *testing.T) {
 					Expr: []domain.Expression{
 						{Raw: "set('n', loop.count())"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+						},
+					}},
 				},
 			},
 		},
@@ -424,14 +432,16 @@ func TestLoopIntegration_LoopWithExprBeforeAndAfter(t *testing.T) {
 					ExprAfter: []domain.Expression{
 						{Raw: "set('after', loop.count())"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"before": "{{ get('before') }}",
-							"main":   "{{ get('main') }}",
-							"after":  "{{ get('after') }}",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"before": "{{ get('before') }}",
+								"main":   "{{ get('main') }}",
+								"after":  "{{ get('after') }}",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},

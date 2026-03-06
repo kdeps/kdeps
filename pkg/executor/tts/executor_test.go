@@ -874,20 +874,22 @@ func TestOnlineTTSConfig_Fields(t *testing.T) {
 func TestRunConfig_TTSField(t *testing.T) {
 	t.Parallel()
 	rc := domain.RunConfig{
-		TTS: &domain.TTSConfig{
-			Text: "Speaking",
-			Mode: domain.TTSModeOnline,
-			Online: &domain.OnlineTTSConfig{
-				Provider: domain.TTSProviderElevenLabs,
-				APIKey:   "xi-key",
+		Resources: []domain.InlineResource{{
+			TTS: &domain.TTSConfig{
+				Text: "Speaking",
+				Mode: domain.TTSModeOnline,
+				Online: &domain.OnlineTTSConfig{
+					Provider: domain.TTSProviderElevenLabs,
+					APIKey:   "xi-key",
+				},
 			},
-		},
+		}},
 	}
-	if rc.TTS == nil {
+	if rc.GetTTS() == nil {
 		t.Fatal("TTS should not be nil")
 	}
-	if rc.TTS.Online.Provider != domain.TTSProviderElevenLabs {
-		t.Errorf("Provider = %q", rc.TTS.Online.Provider)
+	if rc.GetTTS().Online.Provider != domain.TTSProviderElevenLabs {
+		t.Errorf("Provider = %q", rc.GetTTS().Online.Provider)
 	}
 }
 

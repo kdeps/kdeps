@@ -53,8 +53,12 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: nil, // Should cause error
-		},
+			Resources: []domain.InlineResource{{
+				Chat: nil,
+			}},
+ // Should cause error
+		
+},
 	}
 
 	_, err = engine.ExecuteResource(resource1, ctx)
@@ -68,11 +72,13 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "test-model",
-				Prompt: "test prompt",
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Prompt: "test prompt",
+				},
+			}},
+},
 	}
 
 	_, err = engine.ExecuteResource(resource2, ctx)
@@ -111,15 +117,18 @@ func TestEngine_executeResourceWithErrorHandling_RetryLogic(t *testing.T) {
 					Name:     "Retry Resource",
 				},
 				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+
 					OnError: &domain.OnErrorConfig{
 						Action:     "retry",
 						MaxRetries: 2,
 					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
-				},
+},
 			},
 		},
 	}
@@ -159,15 +168,18 @@ func TestEngine_executeResourceWithErrorHandling_RetryExhaustion(t *testing.T) {
 					Name:     "Retry Resource",
 				},
 				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+
 					OnError: &domain.OnErrorConfig{
 						Action:     "retry",
 						MaxRetries: 2, // Only 2 retries (3 total attempts)
 					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
-				},
+},
 			},
 		},
 	}
@@ -206,14 +218,17 @@ func TestEngine_executeResourceWithErrorHandling_FailAction(t *testing.T) {
 					Name:     "Fail Resource",
 				},
 				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+
 					OnError: &domain.OnErrorConfig{
 						Action: "fail", // Explicit fail action
 					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
-				},
+},
 			},
 		},
 	}
@@ -252,15 +267,18 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithFallback(t *testing
 					Name:     "Continue Resource",
 				},
 				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+
 					OnError: &domain.OnErrorConfig{
 						Action:   "continue",
 						Fallback: "fallback_value",
 					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
-				},
+},
 			},
 		},
 	}
@@ -299,15 +317,18 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithoutFallback(t *test
 					Name:     "Continue Resource",
 				},
 				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "https://api.example.com",
+						},
+					}},
+
 					OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						// No fallback specified
 					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
-				},
+},
 			},
 		},
 	}
@@ -396,12 +417,14 @@ func TestEngine_Execute_TimeoutDurationParsing(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "test-model",
-				Prompt:          "test prompt",
-				TimeoutDuration: "invalid-duration", // Invalid duration string
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "test-model",
+					Prompt:          "test prompt",
+					TimeoutDuration: "invalid-duration", // Invalid duration string
+				},
+			}},
+},
 	}
 
 	result, err := engine.ExecuteResource(resource, ctx)
@@ -449,12 +472,14 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 			Name:     "LLM Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "{{input.model_name}}", // Expression that should evaluate
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "{{input.model_name}}", // Expression that should evaluate
+					Prompt:          "test prompt",
+					TimeoutDuration: "30s",
+				},
+			}},
+},
 	}
 
 	result, err := engine.ExecuteResource(resource, ctx)
@@ -494,12 +519,14 @@ func TestEngine_Execute_ExpressionEvaluationErrorInLLM(t *testing.T) {
 			Name:     "LLM Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:           "{{invalid.syntax}}", // Invalid expression
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:           "{{invalid.syntax}}", // Invalid expression
+					Prompt:          "test prompt",
+					TimeoutDuration: "30s",
+				},
+			}},
+},
 	}
 
 	result, err := engine.ExecuteResource(resource, ctx)
@@ -537,11 +564,13 @@ func TestEngine_Execute_DebugMode(t *testing.T) {
 			Name:     "LLM Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "test-model",
-				Prompt: "test prompt",
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Prompt: "test prompt",
+				},
+			}},
+},
 	}
 
 	result, err := engine.ExecuteResource(resource, ctx)
@@ -581,12 +610,14 @@ func TestEngine_Execute_DefaultBackend(t *testing.T) {
 			Name:     "LLM Resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "test-model",
-				Prompt: "test prompt",
-				// Backend not specified - should default
-			},
-		},
+			Resources: []domain.InlineResource{{
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Prompt: "test prompt",
+					// Backend not specified - should default
+				},
+			}},
+},
 	}
 
 	result, err := engine.ExecuteResource(resource, ctx)

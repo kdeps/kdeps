@@ -8,11 +8,13 @@ metadata:
     - llmResponse
 
 run:
-  tts:
-    text: "{{ get('llmResponse') }}"
-    mode: online
-    voice: alloy
-    outputFormat: mp3
-    online:
-      provider: openai-tts
-      apiKey: "YOUR_OPENAI_API_KEY"   # Replace or set OPENAI_API_KEY env var
+
+  resources:
+    - tts:
+        text: "{{ get('llmResponse') }}"
+        mode: online
+        voice: alloy
+        outputFormat: mp3
+        online:
+          provider: openai-tts
+          apiKey: "YOUR_OPENAI_API_KEY"   # Replace or set OPENAI_API_KEY env var

@@ -43,7 +43,7 @@ resources:
         params:
           - "{{ "{{" }} get('status') {{ "}}" }}"
           - "{{ "{{" }} get('limit', 10) {{ "}}" }}"
-      validation:
+      validations:
         required:
           - status
         rules:

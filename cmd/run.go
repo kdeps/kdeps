@@ -433,19 +433,14 @@ func printBotRequirements(input *domain.InputConfig) {
 }
 
 // collectTTSEngines returns a map of offline TTS engine → descriptive label for
-// every TTS config found in the workflow (resources + inline before/after blocks).
+// every TTS config found in the workflow (resources + inline resources).
 func collectTTSEngines(workflow *domain.Workflow) map[string]string {
 	engines := make(map[string]string)
 	for _, r := range workflow.Resources {
-		if r.Run.TTS != nil {
-			addTTSEngine(engines, r.Run.TTS)
+		if tts := r.Run.GetTTS(); tts != nil {
+			addTTSEngine(engines, tts)
 		}
-		for _, inline := range r.Run.Before {
-			if inline.TTS != nil {
-				addTTSEngine(engines, inline.TTS)
-			}
-		}
-		for _, inline := range r.Run.After {
+		for _, inline := range r.Run.Resources {
 			if inline.TTS != nil {
 				addTTSEngine(engines, inline.TTS)
 			}
@@ -991,9 +986,9 @@ func ensureOllamaRunning(ollamaURL string) error {
 // workflowNeedsOllama checks if any resource in the workflow uses LLM with Ollama backend.
 func workflowNeedsOllama(workflow *domain.Workflow) bool {
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
+		if chat := resource.Run.GetChat(); chat != nil {
 			// Check if backend is ollama or empty (default is ollama)
-			backend := resource.Run.Chat.Backend
+			backend := chat.Backend
 			if backend == "" || backend == "ollama" {
 				return true
 			}

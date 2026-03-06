@@ -47,13 +47,17 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  123,
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:      "run.chat.model",
+			expectedField:      "run.resources.0.chat.model",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -66,13 +70,17 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method": "GET",
 						"url":    123,
 					},
+					},
+				},
 				},
 			},
-			expectedField:      "run.httpClient.url",
+			expectedField:      "run.resources.0.httpClient.url",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -85,13 +93,17 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"apiResponse": map[string]interface{}{
 						"success":  "true",
 						"response": map[string]interface{}{},
 					},
+					},
+				},
 				},
 			},
-			expectedField:      "run.apiResponse.success",
+			expectedField:      "run.resources.0.apiResponse.success",
 			expectedSuggestion: "boolean",
 		},
 		{
@@ -123,10 +135,14 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name": "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField:      "actionId",
@@ -178,13 +194,17 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"contextLength": 100,
 						"model":         "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:      "run.chat.contextLength",
+			expectedField:      "run.resources.0.chat.contextLength",
 			expectedSuggestion: "Available options",
 		},
 		{
@@ -197,13 +217,17 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"backend": "invalid-backend",
 						"model":   "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:      "run.chat.backend",
+			expectedField:      "run.resources.0.chat.backend",
 			expectedSuggestion: "Available options:",
 		},
 		{
@@ -265,7 +289,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 
 	t.Run("getTypeSuggestion regex extraction", func(t *testing.T) {
 		// Test regex extraction with custom types
-		result := validator.GetTypeSuggestion("run.chat.model", "Invalid type. Expected: customtype123, given: string")
+		result := validator.GetTypeSuggestion("run.resources.0.chat.model", "Invalid type. Expected: customtype123, given: string")
 		expected := "Expected type: customtype123. Example: \"llama3.2:latest\""
 		if result != expected {
 			t.Errorf("GetTypeSuggestion() = %q, expected %q", result, expected)
@@ -298,7 +322,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 		}{
 			{
 				name:     "Expected: string format",
-				field:    "run.chat.model",
+				field:    "run.resources.0.chat.model",
 				descStr:  "Invalid type. Expected: string, given: integer",
 				expected: "Expected type: string. Example: \"llama3.2:latest\"",
 			},
@@ -310,13 +334,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: boolean format",
-				field:    "run.apiResponse.success",
+				field:    "run.resources.0.apiResponse.success",
 				descStr:  "Invalid type. Expected: boolean, given: string",
 				expected: "Expected type: boolean. Example: true or false",
 			},
 			{
 				name:     "Expected: object format",
-				field:    "run.httpClient.headers",
+				field:    "run.resources.0.httpClient.headers",
 				descStr:  "Invalid type. Expected: object, given: string",
 				expected: "Expected type: object. Example: {\"key\": \"value\"}",
 			},
@@ -328,13 +352,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "expected string lowercase",
-				field:    "run.chat.prompt",
+				field:    "run.resources.0.chat.prompt",
 				descStr:  "Invalid type. expected string, given: integer",
 				expected: "Expected type: string. Example: \"What is the weather?\"",
 			},
 			{
 				name:     "Expected: string with but got (no examples)",
-				field:    "run.chat.model",
+				field:    "run.resources.0.chat.model",
 				descStr:  "Invalid type. Expected: string, but got integer",
 				expected: "Expected type: string",
 			},
@@ -346,13 +370,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: boolean with but got (no examples)",
-				field:    "run.apiResponse.success",
+				field:    "run.resources.0.apiResponse.success",
 				descStr:  "Invalid type. Expected: boolean, but got string",
 				expected: "Expected type: boolean",
 			},
 			{
 				name:     "Expected: object with but got (no examples)",
-				field:    "run.httpClient.headers",
+				field:    "run.resources.0.httpClient.headers",
 				descStr:  "Invalid type. Expected: object, but got string",
 				expected: "Expected type: object",
 			},
@@ -471,13 +495,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 		}{
 			{
 				name:           "contextLength in nested chat",
-				field:          "run.chat.deeply.nested.contextLength",
+				field:          "run.resources.0.chat.deeply.nested.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
 				name:           "format in nested sql",
-				field:          "run.sql.deeply.nested.format",
+				field:          "run.resources.0.sql.deeply.nested.format",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"json", "csv", "table"},
 			},
@@ -507,7 +531,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:       "backend partial match in chat",
-				field:      "run.chat.backend",
+				field:      "run.resources.0.chat.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
 					"ollama",
@@ -524,19 +548,19 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:           "method partial match in httpClient",
-				field:          "run.httpClient.method",
+				field:          "run.resources.0.httpClient.method",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
 			{
 				name:           "contextLength partial match in chat",
-				field:          "run.chat.contextLength",
+				field:          "run.resources.0.chat.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
 				name:           "format partial match in sql",
-				field:          "run.sql.format",
+				field:          "run.resources.0.sql.format",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"json", "csv", "table"},
 			},
@@ -649,7 +673,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:       "partial match for backend field",
-				field:      "run.chat.some.backend",
+				field:      "run.resources.0.chat.some.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
 					"ollama",

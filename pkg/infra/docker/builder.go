@@ -255,13 +255,13 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 
 	// Auto-detect: install if there are Chat resources using ollama backend
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
-			backend := resource.Run.Chat.Backend
+		if resource.Run.GetChat() != nil {
+			backend := resource.Run.GetChat().Backend
 			if backend == backendOllama {
 				return true
 			}
 			// Empty backend defaults to ollama only if no online provider indicators
-			if backend == "" && resource.Run.Chat.APIKey == "" && !isOnlineBaseURL(resource.Run.Chat.BaseURL) {
+			if backend == "" && resource.Run.GetChat().APIKey == "" && !isOnlineBaseURL(resource.Run.GetChat().BaseURL) {
 				return true
 			}
 		}
@@ -290,7 +290,7 @@ func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
 
 	// Check if any resource is a Python resource
 	for _, resource := range workflow.Resources {
-		if resource.Run.Python != nil {
+		if resource.Run.GetPython() != nil {
 			return true
 		}
 	}
@@ -327,8 +327,8 @@ func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 		return workflow.Settings.AgentSettings.Models[0]
 	}
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil && resource.Run.Chat.Model != "" {
-			return resource.Run.Chat.Model
+		if resource.Run.GetChat() != nil && resource.Run.GetChat().Model != "" {
+			return resource.Run.GetChat().Model
 		}
 	}
 	return "llama3.2:1b" // fallback default

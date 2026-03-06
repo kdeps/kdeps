@@ -322,9 +322,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		}
 
 		// Run input validation.
-		if resource.Run.Validation != nil {
+		if resource.Run.Validations != nil {
 			requestData := ctx.GetRequestData()
-			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validation); validateErr != nil {
+			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validations); validateErr != nil {
 				// Convert validation errors to AppError
 				var validationErrors *validator.MultipleValidationError
 				if errors.As(validateErr, &validationErrors) {
@@ -355,7 +355,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			}
 
 			// Validate custom expression rules
-			if len(resource.Run.Validation.CustomRules) > 0 {
+			if len(resource.Run.Validations.CustomRules) > 0 {
 				// Initialize evaluator if needed
 				if e.evaluator == nil {
 					e.evaluator = expression.NewEvaluator(ctx.API)
@@ -365,7 +365,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 				env := e.buildEvaluationEnvironment(ctx)
 
 				if validateErr := e.exprValidator.ValidateCustomRules(
-					resource.Run.Validation.CustomRules,
+					resource.Run.Validations.CustomRules,
 					e.evaluator,
 					env,
 				); validateErr != nil {
@@ -698,22 +698,23 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute inline "before" resources
-	if len(resource.Run.Before) > 0 {
-		if err := e.executeInlineResources(resource.Run.Before, ctx); err != nil {
+	beforeResources := filterInlineResources(resource.Run.Resources, "before")
+	if len(beforeResources) > 0 {
+		if err := e.executeInlineResources(beforeResources, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)
 		}
 	}
 
 	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper)
-	hasPrimaryType := resource.Run.Chat != nil ||
-		resource.Run.HTTPClient != nil ||
-		resource.Run.SQL != nil ||
-		resource.Run.Python != nil ||
-		resource.Run.Exec != nil ||
-		resource.Run.TTS != nil ||
-		resource.Run.BotReply != nil ||
-		resource.Run.Scraper != nil ||
-		resource.Run.Embedding != nil
+	hasPrimaryType := resource.Run.GetChat() != nil ||
+		resource.Run.GetHTTPClient() != nil ||
+		resource.Run.GetSQL() != nil ||
+		resource.Run.GetPython() != nil ||
+		resource.Run.GetExec() != nil ||
+		resource.Run.GetTTS() != nil ||
+		resource.Run.GetBotReply() != nil ||
+		resource.Run.GetScraper() != nil ||
+		resource.Run.GetEmbedding() != nil
 
 	var primaryResult interface{}
 	var err error
@@ -721,23 +722,23 @@ func (e *Engine) ExecuteResource(
 	// Execute primary resource type if present.
 	if hasPrimaryType {
 		switch {
-		case resource.Run.Chat != nil:
+		case resource.Run.GetChat() != nil:
 			primaryResult, err = e.executeLLM(resource, ctx)
-		case resource.Run.HTTPClient != nil:
+		case resource.Run.GetHTTPClient() != nil:
 			primaryResult, err = e.executeHTTP(resource, ctx)
-		case resource.Run.SQL != nil:
+		case resource.Run.GetSQL() != nil:
 			primaryResult, err = e.executeSQL(resource, ctx)
-		case resource.Run.Python != nil:
+		case resource.Run.GetPython() != nil:
 			primaryResult, err = e.executePython(resource, ctx)
-		case resource.Run.Exec != nil:
+		case resource.Run.GetExec() != nil:
 			primaryResult, err = e.executeExec(resource, ctx)
-		case resource.Run.TTS != nil:
+		case resource.Run.GetTTS() != nil:
 			primaryResult, err = e.executeTTS(resource, ctx)
-		case resource.Run.BotReply != nil:
+		case resource.Run.GetBotReply() != nil:
 			primaryResult, err = e.executeBotReply(resource, ctx)
-		case resource.Run.Scraper != nil:
+		case resource.Run.GetScraper() != nil:
 			primaryResult, err = e.executeScraper(resource, ctx)
-		case resource.Run.Embedding != nil:
+		case resource.Run.GetEmbedding() != nil:
 			primaryResult, err = e.executeEmbedding(resource, ctx)
 		}
 
@@ -747,8 +748,9 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute inline "after" resources
-	if len(resource.Run.After) > 0 {
-		if err = e.executeInlineResources(resource.Run.After, ctx); err != nil {
+	afterResources := filterInlineResources(resource.Run.Resources, "after")
+	if len(afterResources) > 0 {
+		if err = e.executeInlineResources(afterResources, ctx); err != nil {
 			return nil, fmt.Errorf("inline after resource failed: %w", err)
 		}
 	}
@@ -770,7 +772,7 @@ func (e *Engine) ExecuteResource(
 	// Handle apiResponse - can be standalone or combined with primary type.
 	// apiResponse runs on every loop iteration (per-iteration = streaming response),
 	// consistent with how it runs per-item in ExecuteWithItems.
-	if resource.Run.APIResponse != nil {
+	if resource.Run.GetAPIResponse() != nil {
 		return e.executeAPIResponse(resource, ctx)
 	}
 
@@ -779,10 +781,17 @@ func (e *Engine) ExecuteResource(
 		return primaryResult, nil
 	}
 
-	// If only expressions (exprBefore, expr, exprAfter) or inline resources, return status
+	// If only expressions (exprBefore, expr, exprAfter) or non-primary inline resources, return status.
+	// Primary resources (empty position) don't count here — those should have been handled above.
+	hasNonPrimaryResources := false
+	for _, r := range resource.Run.Resources {
+		if r.Position != "" {
+			hasNonPrimaryResources = true
+			break
+		}
+	}
 	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 ||
-		len(resource.Run.After) > 0 {
+		len(resource.Run.ExprAfter) > 0 || hasNonPrimaryResources {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -1315,6 +1324,19 @@ func (e *Engine) ExecuteWithItems(
 	return results, nil
 }
 
+// filterInlineResources returns all inline resources whose Position matches the given position.
+// Only resources with an explicit "before" or "after" position are returned.
+// Resources with an empty position are primary resources and are not included.
+func filterInlineResources(resources []domain.InlineResource, position string) []domain.InlineResource {
+	var result []domain.InlineResource
+	for _, r := range resources {
+		if r.Position == position {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
 // executeInlineResources executes a list of inline resources.
 func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource, ctx *ExecutionContext) error {
 	for i, inline := range inlineResources {
@@ -1371,7 +1393,7 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 //
 //nolint:gocognit // LLM execution has multiple configuration paths
 func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	if resource.Run.Chat == nil {
+	if resource.Run.GetChat() == nil {
 		return nil, fmt.Errorf("resource %s has no chat configuration", resource.Metadata.ActionID)
 	}
 
@@ -1381,7 +1403,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	}
 
 	// Log timeout configuration (v1 compatibility)
-	timeoutDurationStr := resource.Run.Chat.TimeoutDuration
+	timeoutDurationStr := resource.Run.GetChat().TimeoutDuration
 	if timeoutDurationStr == "" {
 		timeoutDurationStr = "60s" // Default
 	}
@@ -1395,13 +1417,13 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	}
 
 	// Determine backend for logging
-	backendName := resource.Run.Chat.Backend
+	backendName := resource.Run.GetChat().Backend
 	if backendName == "" {
 		backendName = "ollama" // Default
 	}
 
 	// Evaluate model (only if it contains expression syntax)
-	modelStr := resource.Run.Chat.Model
+	modelStr := resource.Run.GetChat().Model
 	if modelExpr, parseErr := expression.NewParser().ParseValue(modelStr); parseErr == nil {
 		if e.evaluator == nil {
 			e.evaluator = expression.NewEvaluator(ctx.API)
@@ -1419,7 +1441,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		"actionID", resource.Metadata.ActionID,
 		"model", modelStr,
 		"timeoutDuration", timeoutDurationStr,
-		"jsonResponse", resource.Run.Chat.JSONResponse,
+		"jsonResponse", resource.Run.GetChat().JSONResponse,
 		"backend", backendName)
 
 	// Store LLM metadata in context (for API response meta)
@@ -1484,7 +1506,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	}
 
 	// Execute LLM resource
-	result, execErr := executor.Execute(ctx, resource.Run.Chat)
+	result, execErr := executor.Execute(ctx, resource.Run.GetChat())
 
 	// Signal countdown goroutine to stop (close channel to signal completion)
 	if done != nil {
@@ -1499,7 +1521,7 @@ func (e *Engine) executeHTTP(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	if resource.Run.HTTPClient == nil {
+	if resource.Run.GetHTTPClient() == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no HTTP client configuration",
 			resource.Metadata.ActionID,
@@ -1511,12 +1533,12 @@ func (e *Engine) executeHTTP(
 		return nil, errors.New("HTTP executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.HTTPClient)
+	return executor.Execute(ctx, resource.Run.GetHTTPClient())
 }
 
 // executeSQL executes a SQL resource.
 func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	if resource.Run.SQL == nil {
+	if resource.Run.GetSQL() == nil {
 		return nil, fmt.Errorf("resource %s has no SQL configuration", resource.Metadata.ActionID)
 	}
 
@@ -1525,7 +1547,7 @@ func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (i
 		return nil, errors.New("SQL executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.SQL)
+	return executor.Execute(ctx, resource.Run.GetSQL())
 }
 
 // executePython executes a Python resource.
@@ -1533,7 +1555,7 @@ func (e *Engine) executePython(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	if resource.Run.Python == nil {
+	if resource.Run.GetPython() == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no Python configuration",
 			resource.Metadata.ActionID,
@@ -1545,7 +1567,7 @@ func (e *Engine) executePython(
 		return nil, errors.New("python executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.Python)
+	return executor.Execute(ctx, resource.Run.GetPython())
 }
 
 // executeExec executes a shell command resource.
@@ -1553,7 +1575,7 @@ func (e *Engine) executeExec(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	if resource.Run.Exec == nil {
+	if resource.Run.GetExec() == nil {
 		return nil, fmt.Errorf("resource %s has no exec configuration", resource.Metadata.ActionID)
 	}
 
@@ -1562,7 +1584,7 @@ func (e *Engine) executeExec(
 		return nil, errors.New("exec executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.Exec)
+	return executor.Execute(ctx, resource.Run.GetExec())
 }
 
 // executeAPIResponse executes an API response resource.
@@ -1582,7 +1604,7 @@ func (e *Engine) executeAPIResponse(
 
 	// Evaluate response expressions recursively.
 	env := e.buildEvaluationEnvironment(ctx)
-	apiResponseConfig := resource.Run.APIResponse
+	apiResponseConfig := resource.Run.GetAPIResponse()
 	response := apiResponseConfig.Response
 
 	evaluatedResponse, err := e.evaluateResponseValue(response, env)
@@ -2086,7 +2108,7 @@ func (e *Engine) executeTTS(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
-	if resource.Run.TTS == nil {
+	if resource.Run.GetTTS() == nil {
 		return nil, fmt.Errorf("resource %s has no tts configuration", resource.Metadata.ActionID)
 	}
 
@@ -2095,7 +2117,7 @@ func (e *Engine) executeTTS(
 		return nil, errors.New("tts executor not available")
 	}
 
-	return ttsExec.Execute(ctx, resource.Run.TTS)
+	return ttsExec.Execute(ctx, resource.Run.GetTTS())
 }
 
 // executeInlineTTS executes an inline TTS resource.
@@ -2111,7 +2133,7 @@ func (e *Engine) executeInlineTTS(config *domain.TTSConfig, ctx *ExecutionContex
 // executeBotReply executes a botReply resource, sending the reply text to the
 // originating bot platform via the BotSend function set on the execution context.
 func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	if resource.Run.BotReply == nil {
+	if resource.Run.GetBotReply() == nil {
 		return nil, fmt.Errorf("resource %s has no botReply configuration", resource.Metadata.ActionID)
 	}
 
@@ -2120,12 +2142,12 @@ func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContex
 		return nil, errors.New("botReply executor not available")
 	}
 
-	return botReplyExec.Execute(ctx, resource.Run.BotReply)
+	return botReplyExec.Execute(ctx, resource.Run.GetBotReply())
 }
 
 // executeScraper executes a scraper resource.
 func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	if resource.Run.Scraper == nil {
+	if resource.Run.GetScraper() == nil {
 		return nil, fmt.Errorf("resource %s has no scraper configuration", resource.Metadata.ActionID)
 	}
 
@@ -2134,7 +2156,7 @@ func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext
 		return nil, errors.New("scraper executor not available")
 	}
 
-	return scraperExec.Execute(ctx, resource.Run.Scraper)
+	return scraperExec.Execute(ctx, resource.Run.GetScraper())
 }
 
 // executeInlineScraper executes an inline scraper resource.
@@ -2150,7 +2172,7 @@ func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *Executi
 // executeEmbedding executes an embedding resource, converting text to vector embeddings
 // and storing or querying them in a local vector DB.
 func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	if resource.Run.Embedding == nil {
+	if resource.Run.GetEmbedding() == nil {
 		return nil, fmt.Errorf("resource %s has no embedding configuration", resource.Metadata.ActionID)
 	}
 
@@ -2159,7 +2181,7 @@ func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionConte
 		return nil, errors.New("embedding executor not available")
 	}
 
-	return embeddingExec.Execute(ctx, resource.Run.Embedding)
+	return embeddingExec.Execute(ctx, resource.Run.GetEmbedding())
 }
 
 // executeInlineEmbedding executes an inline embedding resource.

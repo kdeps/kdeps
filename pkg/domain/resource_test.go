@@ -48,12 +48,13 @@ run:
     - POST
   restrictTodomain.Routes:
     - /api/test
-  chat:
-    model: llama3.2:latest
-    role: user
-    prompt: "Test prompt"
-    jsonResponse: true
-    timeoutDuration: 30s
+  resources:
+    - chat:
+        model: llama3.2:latest
+        role: user
+        prompt: "Test prompt"
+        jsonResponse: true
+        timeoutDuration: 30s
 `
 
 	var resource domain.Resource
@@ -99,15 +100,15 @@ run:
 	}
 
 	// Verify chat config.
-	if resource.Run.Chat == nil {
+	if resource.Run.GetChat() == nil {
 		t.Fatal("Chat config is nil")
 	}
 
-	if resource.Run.Chat.Model != "llama3.2:latest" {
-		t.Errorf("Chat.Model = %v, want %v", resource.Run.Chat.Model, "llama3.2:latest")
+	if resource.Run.GetChat().Model != "llama3.2:latest" {
+		t.Errorf("Chat.Model = %v, want %v", resource.Run.GetChat().Model, "llama3.2:latest")
 	}
 
-	if !resource.Run.Chat.JSONResponse {
+	if !resource.Run.GetChat().JSONResponse {
 		t.Error("Chat.JSONResponse should be true")
 	}
 }
@@ -122,10 +123,14 @@ func TestResourceYAMLMarshal(t *testing.T) {
 			Description: "A test resource",
 		},
 		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "llama3.2:latest",
-				Role:   "user",
-				Prompt: "Test prompt",
+			Resources: []domain.InlineResource{
+				{
+					Chat: &domain.ChatConfig{
+						Model:  "llama3.2:latest",
+						Role:   "user",
+						Prompt: "Test prompt",
+					},
+				},
 			},
 		},
 	}
@@ -146,12 +151,12 @@ func TestResourceYAMLMarshal(t *testing.T) {
 		t.Errorf("ActionID = %v, want %v", result.Metadata.ActionID, resource.Metadata.ActionID)
 	}
 
-	if result.Run.Chat == nil {
+	if result.Run.GetChat() == nil {
 		t.Fatal("Chat config is nil after round-trip")
 	}
 
-	if result.Run.Chat.Model != resource.Run.Chat.Model {
-		t.Errorf("Chat.Model = %v, want %v", result.Run.Chat.Model, resource.Run.Chat.Model)
+	if result.Run.GetChat().Model != resource.Run.GetChat().Model {
+		t.Errorf("Chat.Model = %v, want %v", result.Run.GetChat().Model, resource.Run.GetChat().Model)
 	}
 }
 

@@ -8,9 +8,11 @@ metadata:
     - respond
 
 run:
-  tts:
-    text: "{{ llm.response('respond') }}"
-    mode: offline
-    offline:
-      engine: coqui-tts
-      model: en_US-lessac-medium
+
+  resources:
+    - tts:
+        text: "{{ llm.response('respond') }}"
+        mode: offline
+        offline:
+          engine: coqui-tts
+          model: en_US-lessac-medium

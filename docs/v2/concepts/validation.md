@@ -144,7 +144,7 @@ run:
 
 ## Input Validation
 
-### Using the validation Block
+### Using the validations Block
 
 Define validation rules for incoming data:
 
@@ -154,7 +154,7 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  validation:
+  validations:
     required:
       - username
       - email
@@ -234,7 +234,7 @@ You can also use the `rules` array format instead of `properties`:
 
 ```yaml
 run:
-  validation:
+  validations:
     required:
       - username
       - email
@@ -260,7 +260,7 @@ Add custom validation logic with expressions:
 
 ```yaml
 run:
-  validation:
+  validations:
     required:
       - password
       - confirmPassword
@@ -281,7 +281,7 @@ kind: Resource
 metadata:
   actionId: orderValidation
 run:
-  validation:
+  validations:
     required:
       - items
       - shippingAddress

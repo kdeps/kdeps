@@ -78,15 +78,17 @@ func TestTTSIntegration_OnlineMode_OpenAI(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "speak", Name: "Speak"},
 				Run: domain.RunConfig{
-					TTS: &domain.TTSConfig{
-						Text:       "Hello, integration test!",
-						Mode:       domain.TTSModeOnline,
-						OutputFile: outFile,
-						Online: &domain.OnlineTTSConfig{
-							Provider: domain.TTSProviderOpenAI,
-							APIKey:   "test-key",
+					Resources: []domain.InlineResource{{
+						TTS: &domain.TTSConfig{
+							Text:       "Hello, integration test!",
+							Mode:       domain.TTSModeOnline,
+							OutputFile: outFile,
+							Online: &domain.OnlineTTSConfig{
+								Provider: domain.TTSProviderOpenAI,
+								APIKey:   "test-key",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -124,11 +126,13 @@ func TestTTSIntegration_OfflineMode_EspeakNotFound(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "speak", Name: "Speak"},
 				Run: domain.RunConfig{
-					TTS: &domain.TTSConfig{
-						Text:    "Hello offline",
-						Mode:    domain.TTSModeOffline,
-						Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineEspeak},
-					},
+					Resources: []domain.InlineResource{{
+						TTS: &domain.TTSConfig{
+							Text:    "Hello offline",
+							Mode:    domain.TTSModeOffline,
+							Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineEspeak},
+						},
+					}},
 				},
 			},
 		},
@@ -171,8 +175,9 @@ func TestTTSIntegration_InlineResource(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "respond", Name: "Respond"},
 				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
+					Resources: []domain.InlineResource{
 						{
+							Position: "before",
 							TTS: &domain.TTSConfig{
 								Text:       "Inline speech",
 								Mode:       domain.TTSModeOnline,
@@ -184,10 +189,12 @@ func TestTTSIntegration_InlineResource(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"status": "ok"},
+						},
+					}},
 				},
 			},
 		},
@@ -222,11 +229,13 @@ func TestTTSIntegration_ExecutorNotRegistered(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "speak", Name: "Speak"},
 				Run: domain.RunConfig{
-					TTS: &domain.TTSConfig{
-						Text:    "Hello",
-						Mode:    domain.TTSModeOffline,
-						Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineEspeak},
-					},
+					Resources: []domain.InlineResource{{
+						TTS: &domain.TTSConfig{
+							Text:    "Hello",
+							Mode:    domain.TTSModeOffline,
+							Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineEspeak},
+						},
+					}},
 				},
 			},
 		},

@@ -141,16 +141,18 @@ func TestEmbeddingIntegration_OllamaIndexSearch(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "idx", Name: "Index"},
 				Run: domain.RunConfig{
-					Embedding: &domain.EmbeddingConfig{
-						Model:      "nomic-embed-text",
-						Backend:    domain.EmbeddingBackendOllama,
-						BaseURL:    srv.URL,
-						Input:      "The quick brown fox jumps over the lazy dog.",
-						Collection: "inttest",
-						DBPath:     dbPath,
-						Operation:  domain.EmbeddingOperationIndex,
-						Metadata:   map[string]interface{}{"source": "test"},
-					},
+					Resources: []domain.InlineResource{{
+						Embedding: &domain.EmbeddingConfig{
+							Model:      "nomic-embed-text",
+							Backend:    domain.EmbeddingBackendOllama,
+							BaseURL:    srv.URL,
+							Input:      "The quick brown fox jumps over the lazy dog.",
+							Collection: "inttest",
+							DBPath:     dbPath,
+							Operation:  domain.EmbeddingOperationIndex,
+							Metadata:   map[string]interface{}{"source": "test"},
+						},
+					}},
 				},
 			},
 		},
@@ -173,16 +175,18 @@ func TestEmbeddingIntegration_OllamaIndexSearch(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "srch", Name: "Search"},
 				Run: domain.RunConfig{
-					Embedding: &domain.EmbeddingConfig{
-						Model:      "nomic-embed-text",
-						Backend:    domain.EmbeddingBackendOllama,
-						BaseURL:    srv.URL,
-						Input:      "quick fox",
-						Collection: "inttest",
-						DBPath:     dbPath,
-						Operation:  domain.EmbeddingOperationSearch,
-						TopK:       5,
-					},
+					Resources: []domain.InlineResource{{
+						Embedding: &domain.EmbeddingConfig{
+							Model:      "nomic-embed-text",
+							Backend:    domain.EmbeddingBackendOllama,
+							BaseURL:    srv.URL,
+							Input:      "quick fox",
+							Collection: "inttest",
+							DBPath:     dbPath,
+							Operation:  domain.EmbeddingOperationSearch,
+							TopK:       5,
+						},
+					}},
 				},
 			},
 		},
@@ -218,10 +222,12 @@ func TestEmbeddingIntegration_OllamaDelete(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model: "m", BaseURL: srv.URL, Input: "to delete",
-					DBPath: dbPath, Collection: "delcol",
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model: "m", BaseURL: srv.URL, Input: "to delete",
+						DBPath: dbPath, Collection: "delcol",
+					},
+				}},
 			},
 		}},
 	}, nil)
@@ -235,11 +241,13 @@ func TestEmbeddingIntegration_OllamaDelete(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model: "m", BaseURL: srv.URL, Input: "to delete",
-					DBPath: dbPath, Collection: "delcol",
-					Operation: domain.EmbeddingOperationDelete,
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model: "m", BaseURL: srv.URL, Input: "to delete",
+						DBPath: dbPath, Collection: "delcol",
+						Operation: domain.EmbeddingOperationDelete,
+					},
+				}},
 			},
 		}},
 	}, nil)
@@ -270,15 +278,17 @@ func TestEmbeddingIntegration_OpenAIBackend(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model:     "text-embedding-3-small",
-					Backend:   domain.EmbeddingBackendOpenAI,
-					BaseURL:   srv.URL,
-					APIKey:    "test-key",
-					Input:     "OpenAI integration test",
-					DBPath:    tempDBPath(t, "openai-int"),
-					Operation: domain.EmbeddingOperationIndex,
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model:     "text-embedding-3-small",
+						Backend:   domain.EmbeddingBackendOpenAI,
+						BaseURL:   srv.URL,
+						APIKey:    "test-key",
+						Input:     "OpenAI integration test",
+						DBPath:    tempDBPath(t, "openai-int"),
+						Operation: domain.EmbeddingOperationIndex,
+					},
+				}},
 			},
 		}},
 	}, nil)
@@ -308,15 +318,17 @@ func TestEmbeddingIntegration_CohereBackend(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model:     "embed-english-v3.0",
-					Backend:   domain.EmbeddingBackendCohere,
-					BaseURL:   srv.URL,
-					APIKey:    "test-key",
-					Input:     "Cohere integration test",
-					DBPath:    tempDBPath(t, "cohere-int"),
-					Operation: domain.EmbeddingOperationIndex,
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model:     "embed-english-v3.0",
+						Backend:   domain.EmbeddingBackendCohere,
+						BaseURL:   srv.URL,
+						APIKey:    "test-key",
+						Input:     "Cohere integration test",
+						DBPath:    tempDBPath(t, "cohere-int"),
+						Operation: domain.EmbeddingOperationIndex,
+					},
+				}},
 			},
 		}},
 	}, nil)
@@ -346,15 +358,17 @@ func TestEmbeddingIntegration_HuggingFaceBackend(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model:     "sentence-transformers/all-MiniLM-L6-v2",
-					Backend:   domain.EmbeddingBackendHuggingFace,
-					BaseURL:   srv.URL,
-					APIKey:    "hf-test",
-					Input:     "HuggingFace integration test",
-					DBPath:    tempDBPath(t, "hf-int"),
-					Operation: domain.EmbeddingOperationIndex,
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model:     "sentence-transformers/all-MiniLM-L6-v2",
+						Backend:   domain.EmbeddingBackendHuggingFace,
+						BaseURL:   srv.URL,
+						APIKey:    "hf-test",
+						Input:     "HuggingFace integration test",
+						DBPath:    tempDBPath(t, "hf-int"),
+						Operation: domain.EmbeddingOperationIndex,
+					},
+				}},
 			},
 		}},
 	}, nil)
@@ -399,15 +413,17 @@ func TestEmbeddingIntegration_MultiResourceWorkflow(t *testing.T) {
 					Name:     "Index Document",
 				},
 				Run: domain.RunConfig{
-					Embedding: &domain.EmbeddingConfig{
-						Model:      "m",
-						Backend:    domain.EmbeddingBackendOllama,
-						BaseURL:    srv.URL,
-						Input:      "Integration test document content.",
-						Collection: "multidocs",
-						DBPath:     dbPath,
-						Operation:  domain.EmbeddingOperationIndex,
-					},
+					Resources: []domain.InlineResource{{
+						Embedding: &domain.EmbeddingConfig{
+							Model:      "m",
+							Backend:    domain.EmbeddingBackendOllama,
+							BaseURL:    srv.URL,
+							Input:      "Integration test document content.",
+							Collection: "multidocs",
+							DBPath:     dbPath,
+							Operation:  domain.EmbeddingOperationIndex,
+						},
+					}},
 				},
 			},
 			{
@@ -417,16 +433,18 @@ func TestEmbeddingIntegration_MultiResourceWorkflow(t *testing.T) {
 					Requires: []string{"indexDoc"},
 				},
 				Run: domain.RunConfig{
-					Embedding: &domain.EmbeddingConfig{
-						Model:      "m",
-						Backend:    domain.EmbeddingBackendOllama,
-						BaseURL:    srv.URL,
-						Input:      "integration content",
-						Collection: "multidocs",
-						DBPath:     dbPath,
-						Operation:  domain.EmbeddingOperationSearch,
-						TopK:       3,
-					},
+					Resources: []domain.InlineResource{{
+						Embedding: &domain.EmbeddingConfig{
+							Model:      "m",
+							Backend:    domain.EmbeddingBackendOllama,
+							BaseURL:    srv.URL,
+							Input:      "integration content",
+							Collection: "multidocs",
+							DBPath:     dbPath,
+							Operation:  domain.EmbeddingOperationSearch,
+							TopK:       3,
+						},
+					}},
 				},
 			},
 		},
@@ -462,12 +480,14 @@ func TestEmbeddingIntegration_BackendError(t *testing.T) {
 		Resources: []*domain.Resource{{
 			Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
 			Run: domain.RunConfig{
-				Embedding: &domain.EmbeddingConfig{
-					Model:   "m",
-					BaseURL: srv.URL,
-					Input:   "trigger error",
-					DBPath:  tempDBPath(t, "backend-err"),
-				},
+				Resources: []domain.InlineResource{{
+					Embedding: &domain.EmbeddingConfig{
+						Model:   "m",
+						BaseURL: srv.URL,
+						Input:   "trigger error",
+						DBPath:  tempDBPath(t, "backend-err"),
+					},
+				}},
 			},
 		}},
 	}, nil)

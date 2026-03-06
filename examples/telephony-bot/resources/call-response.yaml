@@ -10,9 +10,11 @@ metadata:
 run:
   restrictToHttpMethods: [POST]
   restrictToRoutes: [/api/v1/call]
-  apiResponse:
-    success: true
-    response:
-      transcript: "{{ inputTranscript }}"
-      answer: "{{ get('llmResponse') }}"
-      audio: "{{ ttsOutput }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          transcript: "{{ inputTranscript }}"
+          answer: "{{ get('llmResponse') }}"
+          audio: "{{ ttsOutput }}"

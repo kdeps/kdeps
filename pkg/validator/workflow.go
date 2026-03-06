@@ -238,32 +238,36 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
 // execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
+	p := run.GetPrimary()
+	if p == nil {
+		return 0
+	}
 	n := 0
-	if run.Chat != nil {
+	if p.Chat != nil {
 		n++
 	}
-	if run.HTTPClient != nil {
+	if p.HTTPClient != nil {
 		n++
 	}
-	if run.SQL != nil {
+	if p.SQL != nil {
 		n++
 	}
-	if run.Python != nil {
+	if p.Python != nil {
 		n++
 	}
-	if run.Exec != nil {
+	if p.Exec != nil {
 		n++
 	}
-	if run.TTS != nil {
+	if p.TTS != nil {
 		n++
 	}
-	if run.BotReply != nil {
+	if p.BotReply != nil {
 		n++
 	}
-	if run.Scraper != nil {
+	if p.Scraper != nil {
 		n++
 	}
-	if run.Embedding != nil {
+	if p.Embedding != nil {
 		n++
 	}
 	return n
@@ -285,7 +289,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts, botReply.
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := countPrimaryExecutionTypes(&resource.Run)
-	hasAPIResponse := resource.Run.APIResponse != nil
+	hasAPIResponse := resource.Run.GetAPIResponse() != nil
 	hasExprBlocks := len(resource.Run.Expr) > 0 ||
 		len(resource.Run.ExprBefore) > 0 ||
 		len(resource.Run.ExprAfter) > 0
@@ -318,28 +322,28 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 
 	// Validate specific execution types.
-	if resource.Run.Chat != nil {
-		if err := v.ValidateChatConfig(resource.Run.Chat); err != nil {
+	if resource.Run.GetChat() != nil {
+		if err := v.ValidateChatConfig(resource.Run.GetChat()); err != nil {
 			return err
 		}
 	}
-	if resource.Run.SQL != nil {
-		if err := v.ValidateSQLConfig(resource.Run.SQL, workflow); err != nil {
+	if resource.Run.GetSQL() != nil {
+		if err := v.ValidateSQLConfig(resource.Run.GetSQL(), workflow); err != nil {
 			return err
 		}
 	}
-	if resource.Run.HTTPClient != nil {
-		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
+	if resource.Run.GetHTTPClient() != nil {
+		if err := v.ValidateHTTPConfig(resource.Run.GetHTTPClient()); err != nil {
 			return err
 		}
 	}
-	if resource.Run.Scraper != nil {
-		if err := ValidateScraperConfig(resource.Run.Scraper); err != nil {
+	if resource.Run.GetScraper() != nil {
+		if err := ValidateScraperConfig(resource.Run.GetScraper()); err != nil {
 			return err
 		}
 	}
-	if resource.Run.Embedding != nil {
-		if err := v.ValidateEmbeddingConfig(resource.Run.Embedding); err != nil {
+	if resource.Run.GetEmbedding() != nil {
+		if err := v.ValidateEmbeddingConfig(resource.Run.GetEmbedding()); err != nil {
 			return err
 		}
 	}

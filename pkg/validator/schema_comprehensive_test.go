@@ -46,10 +46,14 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedError: "apiVersion is required",
@@ -64,10 +68,14 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedError: "kind is required",
@@ -79,10 +87,14 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedError: "metadata is required",
@@ -97,10 +109,14 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 					"name": "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedError: "actionId is required",
@@ -115,10 +131,14 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 					"actionId": "test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedError: "name is required",
@@ -177,10 +197,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField: "apiVersion",
@@ -196,10 +220,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField: "kind",
@@ -215,10 +243,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField: "metadata.actionId",
@@ -234,13 +266,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  123,
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.chat.model",
+			expectedField: "run.resources.0.chat.model",
 			expectedType:  "string",
 		},
 		{
@@ -253,13 +289,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": 123,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.chat.prompt",
+			expectedField: "run.resources.0.chat.prompt",
 			expectedType:  "string",
 		},
 		{
@@ -272,14 +312,18 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":        "llama3.2",
 						"prompt":       "test",
 						"jsonResponse": "true",
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.chat.jsonResponse",
+			expectedField: "run.resources.0.chat.jsonResponse",
 			expectedType:  "boolean",
 		},
 		{
@@ -292,13 +336,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method": "GET",
 						"url":    123,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.httpClient.url",
+			expectedField: "run.resources.0.httpClient.url",
 			expectedType:  "string",
 		},
 		{
@@ -311,13 +359,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": 123,
 						"query":      "SELECT * FROM users",
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.sql.connection",
+			expectedField: "run.resources.0.sql.connection",
 			expectedType:  "string",
 		},
 		{
@@ -330,13 +382,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      123,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.sql.query",
+			expectedField: "run.resources.0.sql.query",
 			expectedType:  "string",
 		},
 		{
@@ -349,14 +405,18 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      "SELECT * FROM users",
 						"maxRows":    "100",
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.sql.maxRows",
+			expectedField: "run.resources.0.sql.maxRows",
 			expectedType:  "integer",
 		},
 		{
@@ -369,12 +429,16 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"python": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"python": map[string]interface{}{
 						"script": 123,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.python.script",
+			expectedField: "run.resources.0.python.script",
 			expectedType:  "string",
 		},
 		{
@@ -387,12 +451,16 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"python": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"python": map[string]interface{}{
 						"file": 123,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.python.file",
+			expectedField: "run.resources.0.python.file",
 			expectedType:  "string",
 		},
 		{
@@ -405,13 +473,17 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"apiResponse": map[string]interface{}{
 						"success":  "true",
 						"response": map[string]interface{}{},
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.apiResponse.success",
+			expectedField: "run.resources.0.apiResponse.success",
 			expectedType:  "boolean",
 		},
 		// Note: apiResponse.response now accepts any type (string, array, object, etc.)
@@ -426,14 +498,18 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":   "llama3.2",
 						"prompt":  "test",
 						"baseUrl": 8080,
 					},
+					},
+				},
 				},
 			},
-			expectedField: "run.chat.baseUrl",
+			expectedField: "run.resources.0.chat.baseUrl",
 			expectedType:  "string",
 		},
 	}
@@ -482,10 +558,14 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					"restrictToHttpMethods": []interface{}{
 						"INVALID",
 					},
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField:  "restrictToHttpMethods",
@@ -504,10 +584,14 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					"restrictToHttpMethods": []interface{}{
 						123,
 					},
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField:  "restrictToHttpMethods",
@@ -559,10 +643,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 		},
@@ -576,10 +664,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method": "GET",
 						"url":    "https://api.example.com",
 					},
+					},
+				},
 				},
 			},
 		},
@@ -593,10 +685,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      "SELECT * FROM users",
 					},
+					},
+				},
 				},
 			},
 		},
@@ -610,9 +706,13 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"python": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"python": map[string]interface{}{
 						"script": "print('hello')",
 					},
+					},
+				},
 				},
 			},
 		},
@@ -626,10 +726,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"apiResponse": map[string]interface{}{
 						"success":  true,
 						"response": map[string]interface{}{},
 					},
+					},
+				},
 				},
 			},
 		},
@@ -647,10 +751,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 						"GET",
 						"POST",
 					},
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 		},

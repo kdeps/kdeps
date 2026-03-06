@@ -10,9 +10,11 @@ metadata:
 run:
   restrictToHttpMethods: [POST]
   restrictToRoutes: [/api/v1/tools]
-  apiResponse:
-    success: true
-    response:
-      query: "{{ get('q', 'param') }}"
-      llm_response: "{{ get('llmWithTools') }}"
-      tools_available: true
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          query: "{{ get('q', 'param') }}"
+          llm_response: "{{ get('llmWithTools') }}"
+          tools_available: true

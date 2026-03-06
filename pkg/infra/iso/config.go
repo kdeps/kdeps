@@ -263,12 +263,12 @@ func ShouldInstallOllama(workflow *domain.Workflow) bool {
 	}
 
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
-			backend := resource.Run.Chat.Backend
+		if resource.Run.GetChat() != nil {
+			backend := resource.Run.GetChat().Backend
 			if backend == backendOllama {
 				return true
 			}
-			if backend == "" && resource.Run.Chat.APIKey == "" {
+			if backend == "" && resource.Run.GetChat().APIKey == "" {
 				return true
 			}
 		}

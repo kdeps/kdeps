@@ -7,9 +7,11 @@ metadata:
   requires: [systemInfo]
 
 run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{ get('systemInfo') }}"
-      timestamp: "{{ info('current_time') }}"
-      workflow: "{{ info('name') }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          system_info: "{{ get('systemInfo') }}"
+          timestamp: "{{ info('current_time') }}"
+          workflow: "{{ info('name') }}"

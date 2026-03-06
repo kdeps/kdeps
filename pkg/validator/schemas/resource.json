@@ -1,19 +1,31 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata", "run"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "run"
+  ],
   "properties": {
     "apiVersion": {
       "type": "string",
-      "enum": ["kdeps.io/v1"]
+      "enum": [
+        "kdeps.io/v1"
+      ]
     },
     "kind": {
       "type": "string",
-      "enum": ["Resource"]
+      "enum": [
+        "Resource"
+      ]
     },
     "metadata": {
       "type": "object",
-      "required": ["actionId", "name"],
+      "required": [
+        "actionId",
+        "name"
+      ],
       "properties": {
         "actionId": {
           "type": "string",
@@ -47,7 +59,13 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "DELETE",
+              "PATCH"
+            ]
           }
         },
         "restrictToRoutes": {
@@ -79,212 +97,44 @@
             }
           }
         },
-        "chat": {
+        "onError": {
           "type": "object",
+          "description": "Error handling configuration for the resource",
           "properties": {
-            "model": {
-              "type": "string"
-            },
-            "backend": {
+            "action": {
               "type": "string",
-              "enum": ["ollama", "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek"]
+              "enum": [
+                "continue",
+                "fail",
+                "retry"
+              ],
+              "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
             },
-            "baseUrl": {
-              "type": "string"
-            },
-            "apiKey": {
-              "type": "string"
-            },
-            "contextLength": {
+            "maxRetries": {
               "type": "integer",
-              "enum": [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+              "minimum": 1,
+              "maximum": 10,
+              "description": "Maximum number of retry attempts (only for action: retry)"
             },
-            "role": {
-              "type": "string"
-            },
-            "prompt": {
-              "type": "string"
-            },
-            "scenario": {
-              "type": "array"
-            },
-            "tools": {
-              "type": "array"
-            },
-            "files": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "jsonResponse": {
-              "type": "boolean"
-            },
-            "jsonResponseKeys": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "timeoutDuration": {
-              "type": "string"
-            },
-            "temperature": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 2
-            },
-            "maxTokens": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "topP": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 1
-            },
-            "frequencyPenalty": {
-              "type": "number",
-              "minimum": -2,
-              "maximum": 2
-            },
-            "presencePenalty": {
-              "type": "number",
-              "minimum": -2,
-              "maximum": 2
-            }
-          }
-        },
-        "httpClient": {
-          "type": "object",
-          "properties": {
-            "url": {
-              "type": "string"
-            },
-            "method": {
+            "retryDelay": {
               "type": "string",
-              "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Delay between retry attempts (e.g., '1s', '500ms')"
             },
-            "headers": {
-              "type": "object"
+            "fallback": {
+              "description": "Fallback value to use when error occurs and action is 'continue'"
             },
-            "body": {
-              "type": "object"
-            }
-          }
-        },
-        "sql": {
-          "type": "object",
-          "properties": {
-            "connection": {
-              "type": "string"
-            },
-            "connectionName": {
-              "type": "string"
-            },
-            "query": {
-              "type": "string"
-            },
-            "params": {
-              "type": "array"
-            },
-            "format": {
-              "type": "string",
-              "enum": ["json", "csv", "table"]
-            },
-            "maxRows": {
-              "type": "integer"
-            },
-            "timeoutDuration": {
-              "type": "string"
-            }
-          }
-        },
-        "python": {
-          "type": "object",
-          "properties": {
-            "script": {
-              "type": "string"
-            },
-            "file": {
-              "type": "string"
-            },
-            "scriptFile": {
-              "type": "string"
-            },
-            "args": {
+            "expr": {
               "type": "array",
-              "items": {
-                "type": "string"
-              }
+              "description": "Expressions to execute when an error occurs (has access to 'error' object)"
             },
-            "timeoutDuration": {
-              "type": "string"
-            },
-            "venvName": {
-              "type": "string",
-              "description": "Custom virtual environment name for Python environment isolation"
-            }
-          }
-        },
-        "exec": {
-          "type": "object",
-          "properties": {
-            "command": {
-              "type": "string"
-            },
-            "args": {
+            "when": {
               "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "timeoutDuration": {
-              "type": "string"
-            },
-            "workingDir": {
-              "type": "string",
-              "description": "Working directory for command execution"
-            },
-            "env": {
-              "type": "object",
-              "description": "Environment variables",
-              "additionalProperties": {
-                "type": "string"
-              }
+              "description": "Conditions for when to apply this error handler (has access to 'error' object)"
             }
           }
         },
-        "apiResponse": {
-          "type": "object",
-          "properties": {
-            "success": {
-              "type": "boolean"
-            },
-            "response": {
-              "description": "Response data - can be any type: string, array, object, number, etc."
-            },
-            "meta": {
-              "type": "object",
-              "properties": {
-                "headers": {
-                  "type": "object"
-                },
-                "statusCode": {
-                  "type": "integer",
-                  "description": "HTTP status code for the response"
-                },
-                "model": {
-                  "type": "string"
-                },
-                "backend": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "validation": {
+        "validations": {
           "type": "object",
           "description": "Input validation rules for the resource",
           "properties": {
@@ -307,7 +157,18 @@
                   },
                   "type": {
                     "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"],
+                    "enum": [
+                      "string",
+                      "integer",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "email",
+                      "url",
+                      "uuid",
+                      "date"
+                    ],
                     "description": "Expected field type"
                   },
                   "minLength": {
@@ -365,7 +226,18 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                    "enum": [
+                      "string",
+                      "integer",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "email",
+                      "url",
+                      "uuid",
+                      "date"
+                    ]
                   },
                   "minLength": {
                     "type": "integer"
@@ -411,7 +283,18 @@
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                    "enum": [
+                      "string",
+                      "integer",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "email",
+                      "url",
+                      "uuid",
+                      "date"
+                    ]
                   },
                   "minLength": {
                     "type": "integer"
@@ -454,7 +337,10 @@
               "description": "Custom expression-based validation rules",
               "items": {
                 "type": "object",
-                "required": ["expr", "message"],
+                "required": [
+                  "expr",
+                  "message"
+                ],
                 "properties": {
                   "expr": {
                     "type": "string",
@@ -469,36 +355,251 @@
             }
           }
         },
-        "onError": {
-          "type": "object",
-          "description": "Error handling configuration for the resource",
-          "properties": {
-            "action": {
-              "type": "string",
-              "enum": ["continue", "fail", "retry"],
-              "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
-            },
-            "maxRetries": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 10,
-              "description": "Maximum number of retry attempts (only for action: retry)"
-            },
-            "retryDelay": {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m)$",
-              "description": "Delay between retry attempts (e.g., '1s', '500ms')"
-            },
-            "fallback": {
-              "description": "Fallback value to use when error occurs and action is 'continue'"
-            },
-            "expr": {
-              "type": "array",
-              "description": "Expressions to execute when an error occurs (has access to 'error' object)"
-            },
-            "when": {
-              "type": "array",
-              "description": "Conditions for when to apply this error handler (has access to 'error' object)"
+        "resources": {
+          "type": "array",
+          "description": "Inline resources to execute before or after the main resource",
+          "items": {
+            "type": "object",
+            "description": "An inline resource to execute before or after the main resource",
+            "properties": {
+              "position": {
+                "type": "string",
+                "description": "Execution position: '' (empty) = primary resource, 'before' = before primary, 'after' = after primary"
+              },
+              "chat": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string"
+                  },
+                  "backend": {
+                    "type": "string",
+                    "enum": [
+                      "ollama",
+                      "openai",
+                      "anthropic",
+                      "google",
+                      "cohere",
+                      "mistral",
+                      "together",
+                      "perplexity",
+                      "groq",
+                      "deepseek"
+                    ]
+                  },
+                  "baseUrl": {
+                    "type": "string"
+                  },
+                  "apiKey": {
+                    "type": "string"
+                  },
+                  "contextLength": {
+                    "type": "integer",
+                    "enum": [
+                      4096,
+                      8192,
+                      16384,
+                      32768,
+                      65536,
+                      131072,
+                      262144
+                    ]
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "type": "string"
+                  },
+                  "scenario": {
+                    "type": "array"
+                  },
+                  "tools": {
+                    "type": "array"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "jsonResponse": {
+                    "type": "boolean"
+                  },
+                  "jsonResponseKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "timeoutDuration": {
+                    "type": "string"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2
+                  },
+                  "maxTokens": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "topP": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "frequencyPenalty": {
+                    "type": "number",
+                    "minimum": -2,
+                    "maximum": 2
+                  },
+                  "presencePenalty": {
+                    "type": "number",
+                    "minimum": -2,
+                    "maximum": 2
+                  }
+                }
+              },
+              "httpClient": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "POST",
+                      "PUT",
+                      "DELETE",
+                      "PATCH"
+                    ]
+                  },
+                  "headers": {
+                    "type": "object"
+                  },
+                  "body": {
+                    "type": "object"
+                  }
+                }
+              },
+              "sql": {
+                "type": "object",
+                "properties": {
+                  "connection": {
+                    "type": "string"
+                  },
+                  "connectionName": {
+                    "type": "string"
+                  },
+                  "query": {
+                    "type": "string"
+                  },
+                  "params": {
+                    "type": "array"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "json",
+                      "csv",
+                      "table"
+                    ]
+                  },
+                  "maxRows": {
+                    "type": "integer"
+                  },
+                  "timeoutDuration": {
+                    "type": "string"
+                  }
+                }
+              },
+              "python": {
+                "type": "object",
+                "properties": {
+                  "script": {
+                    "type": "string"
+                  },
+                  "file": {
+                    "type": "string"
+                  },
+                  "scriptFile": {
+                    "type": "string"
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "timeoutDuration": {
+                    "type": "string"
+                  },
+                  "venvName": {
+                    "type": "string",
+                    "description": "Custom virtual environment name for Python environment isolation"
+                  }
+                }
+              },
+              "exec": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "timeoutDuration": {
+                    "type": "string"
+                  },
+                  "workingDir": {
+                    "type": "string",
+                    "description": "Working directory for command execution"
+                  },
+                  "env": {
+                    "type": "object",
+                    "description": "Environment variables",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "apiResponse": {
+                "type": "object",
+                "properties": {
+                  "success": {
+                    "type": "boolean"
+                  },
+                  "response": {
+                    "description": "Response data - can be any type: string, array, object, number, etc."
+                  },
+                  "meta": {
+                    "type": "object",
+                    "properties": {
+                      "headers": {
+                        "type": "object"
+                      },
+                      "statusCode": {
+                        "type": "integer",
+                        "description": "HTTP status code for the response"
+                      },
+                      "model": {
+                        "type": "string"
+                      },
+                      "backend": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
