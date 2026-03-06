@@ -75,11 +75,13 @@ func TestEngine_InlineResources_Before(t *testing.T) {
 								Command: "echo hello",
 							},
 						},
-					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
+						{
+							Chat: &domain.ChatConfig{
+								Model:  "test-model",
+								Role:   "user",
+								Prompt: "test prompt",
+							},
+						},
 					},
 				},
 			},
@@ -128,12 +130,14 @@ func TestEngine_InlineResources_After(t *testing.T) {
 					Name:     "Main Resource",
 				},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
 					Resources: []domain.InlineResource{
+						{
+							Chat: &domain.ChatConfig{
+								Model:  "test-model",
+								Role:   "user",
+								Prompt: "test prompt",
+							},
+						},
 						{
 							Position: "after",
 							SQL: &domain.SQLConfig{
@@ -213,11 +217,13 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 								Command: "echo after",
 							},
 						},
-					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
+						{
+							Chat: &domain.ChatConfig{
+								Model:  "test-model",
+								Role:   "user",
+								Prompt: "test prompt",
+							},
+						},
 					},
 				},
 			},

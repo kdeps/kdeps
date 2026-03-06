@@ -54,7 +54,9 @@ func makeCtx(t *testing.T) *executor.ExecutionContext {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
 				Run: domain.RunConfig{
-					Scraper: &domain.ScraperConfig{Type: domain.ScraperTypeURL, Source: "http://example.com"},
+					Resources: []domain.InlineResource{{
+						Scraper: &domain.ScraperConfig{Type: domain.ScraperTypeURL, Source: "http://example.com"},
+					}},
 				},
 			},
 		},

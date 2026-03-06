@@ -7,13 +7,15 @@ metadata:
   requires: [authenticatedApi, apiKeyAuth, proxyTls]
 
 run:
-  apiResponse:
-    success: true
-    response:
-      authenticated_call: "{{ get('authenticatedApi') }}"
-      api_key_call: "{{ get('apiKeyAuth') }}"
-      proxy_tls_call: "{{ get('proxyTls') }}"
-      summary:
-        total_calls: 3
-        timestamp: "{{ info('current_time') }}"
-        workflow_version: "{{ info('version') }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          authenticated_call: "{{ get('authenticatedApi') }}"
+          api_key_call: "{{ get('apiKeyAuth') }}"
+          proxy_tls_call: "{{ get('proxyTls') }}"
+          summary:
+            total_calls: 3
+            timestamp: "{{ info('current_time') }}"
+            workflow_version: "{{ info('version') }}"

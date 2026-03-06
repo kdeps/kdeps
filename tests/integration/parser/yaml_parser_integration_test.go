@@ -96,14 +96,15 @@ metadata:
   actionId: llmResource
   name: Test LLM
 run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeoutDuration: 60s
+  resources:
+    - chat:
+        model: llama3.2:1b
+        role: user
+        prompt: "{{ get('q') }}"
+        jsonResponse: true
+        jsonResponseKeys:
+          - answer
+        timeoutDuration: 60s
 `
 
 	err = os.WriteFile(resourcePath, []byte(resourceYAML), 0644)
@@ -113,8 +114,8 @@ run:
 	require.NoError(t, err)
 
 	assert.Equal(t, "llmResource", resource.Metadata.ActionID)
-	assert.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
+	assert.NotNil(t, resource.Run.GetChat())
+	assert.Equal(t, "llama3.2:1b", resource.Run.GetChat().Model)
 }
 
 func TestYAMLParser_ParseComplexWorkflow(t *testing.T) {
@@ -206,21 +207,22 @@ metadata:
   actionId: http-api-call
   name: HTTP API Call
 run:
-  httpClient:
-    url: "https://api.example.com/users"
-    method: "GET"
-    headers:
-      Authorization: "Bearer token123"
-      Content-Type: "application/json"
-    timeoutDuration: "30s"
+  resources:
+    - httpClient:
+        url: "https://api.example.com/users"
+        method: "GET"
+        headers:
+          Authorization: "Bearer token123"
+          Content-Type: "application/json"
+        timeoutDuration: "30s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
 				assert.Equal(t, "http-api-call", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.HTTPClient)
-				assert.Equal(t, "https://api.example.com/users", resource.Run.HTTPClient.URL)
-				assert.Equal(t, "GET", resource.Run.HTTPClient.Method)
-				assert.Contains(t, resource.Run.HTTPClient.Headers, "Authorization")
+				assert.NotNil(t, resource.Run.GetHTTPClient())
+				assert.Equal(t, "https://api.example.com/users", resource.Run.GetHTTPClient().URL)
+				assert.Equal(t, "GET", resource.Run.GetHTTPClient().Method)
+				assert.Contains(t, resource.Run.GetHTTPClient().Headers, "Authorization")
 			},
 		},
 		{
@@ -231,20 +233,21 @@ metadata:
   actionId: db-query
   name: Database Query
 run:
-  sql:
-    connection: "primary"
-    query: "SELECT id, name FROM users WHERE active = ?"
-    params:
-      - true
-    format: "json"
+  resources:
+    - sql:
+        connection: "primary"
+        query: "SELECT id, name FROM users WHERE active = ?"
+        params:
+          - true
+        format: "json"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
 				assert.Equal(t, "db-query", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.SQL)
-				assert.Equal(t, "primary", resource.Run.SQL.Connection)
-				assert.Contains(t, resource.Run.SQL.Query, "SELECT")
-				assert.Equal(t, "json", resource.Run.SQL.Format)
+				assert.NotNil(t, resource.Run.GetSQL())
+				assert.Equal(t, "primary", resource.Run.GetSQL().Connection)
+				assert.Contains(t, resource.Run.GetSQL().Query, "SELECT")
+				assert.Equal(t, "json", resource.Run.GetSQL().Format)
 			},
 		},
 		{
@@ -255,19 +258,20 @@ metadata:
   actionId: data-processor
   name: Data Processor
 run:
-  python:
-    script: |
-      import json
-      data = {"processed": True, "count": len(input_data)}
-      print(json.dumps(data))
-    timeoutDuration: "60s"
+  resources:
+    - python:
+        script: |
+          import json
+          data = {"processed": True, "count": len(input_data)}
+          print(json.dumps(data))
+        timeoutDuration: "60s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
 				assert.Equal(t, "data-processor", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.Python)
-				assert.Contains(t, resource.Run.Python.Script, "import json")
-				assert.Contains(t, resource.Run.Python.Script, "processed")
+				assert.NotNil(t, resource.Run.GetPython())
+				assert.Contains(t, resource.Run.GetPython().Script, "import json")
+				assert.Contains(t, resource.Run.GetPython().Script, "processed")
 			},
 		},
 		{
@@ -278,15 +282,16 @@ metadata:
   actionId: system-command
   name: System Command
 run:
-  exec:
-    command: "ls -la /tmp"
-    timeoutDuration: "10s"
+  resources:
+    - exec:
+        command: "ls -la /tmp"
+        timeoutDuration: "10s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
 				assert.Equal(t, "system-command", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.Exec)
-				assert.Contains(t, resource.Run.Exec.Command, "ls -la")
+				assert.NotNil(t, resource.Run.GetExec())
+				assert.Contains(t, resource.Run.GetExec().Command, "ls -la")
 			},
 		},
 	}
@@ -433,12 +438,13 @@ metadata:
   actionId: dynamic-response
   name: Dynamic Response
 run:
-  apiResponse:
-    success: true
-    response:
-      message: "Hello @{request.query.name || 'World'}"
-      timestamp: "@{new Date().toISOString()}"
-      version: "@{workflow.metadata.version}"
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          message: "Hello @{request.query.name || 'World'}"
+          timestamp: "@{new Date().toISOString()}"
+          version: "@{workflow.metadata.version}"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "dynamic-response.yaml")
@@ -450,8 +456,8 @@ run:
 	require.NoError(t, err)
 
 	assert.Equal(t, "dynamic-response", resource.Metadata.ActionID)
-	assert.NotNil(t, resource.Run.APIResponse)
-	responseMap := resource.Run.APIResponse.Response.(map[string]interface{})
+	assert.NotNil(t, resource.Run.GetAPIResponse())
+	responseMap := resource.Run.GetAPIResponse().Response.(map[string]interface{})
 	assert.Contains(
 		t,
 		responseMap["message"].(string),

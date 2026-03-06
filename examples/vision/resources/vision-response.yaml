@@ -10,11 +10,13 @@ metadata:
 run:
   restrictToHttpMethods: [POST]
   restrictToRoutes: [/api/v1/vision]
-  apiResponse:
-    success: true
-    response:
-      query: "{{ get('q', 'param') }}"
-      analysis: "{{ get('visionLLM') }}"
-      file_info:
-        filename: "{{ info('files') }}"
-        filetype: "{{ info('filetypes') }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          query: "{{ get('q', 'param') }}"
+          analysis: "{{ get('visionLLM') }}"
+          file_info:
+            filename: "{{ info('files') }}"
+            filetype: "{{ info('filetypes') }}"

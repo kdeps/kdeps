@@ -370,7 +370,9 @@ func TestInputSourcesIntegration_InvalidSource(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					}},
 				},
 			},
 		},
@@ -404,7 +406,9 @@ func TestInputSourcesIntegration_InvalidTelephonyType(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					}},
 				},
 			},
 		},
@@ -437,7 +441,9 @@ func TestInputSourcesIntegration_TelephonyWithoutBlock(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					}},
 				},
 			},
 		},
@@ -466,7 +472,9 @@ func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					}},
 				},
 			},
 		},
@@ -498,7 +506,9 @@ func TestInputSourcesIntegration_MissingTelephonyType(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					}},
 				},
 			},
 		},
@@ -696,7 +706,7 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run:      domain.RunConfig{Resources: []domain.InlineResource{{APIResponse: &domain.APIResponseConfig{Success: true}}}},
 				},
 			},
 		}
@@ -768,7 +778,7 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run:      domain.RunConfig{Resources: []domain.InlineResource{{APIResponse: &domain.APIResponseConfig{Success: true}}}},
 				},
 			},
 		}
@@ -891,7 +901,7 @@ func TestInputSourcesIntegration_BotSource(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run:      domain.RunConfig{Resources: []domain.InlineResource{{APIResponse: &domain.APIResponseConfig{Success: true}}}},
 				},
 			},
 		}
@@ -1005,7 +1015,7 @@ func TestInputSourcesIntegration_BotSourceValidationErrors(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run:      domain.RunConfig{Resources: []domain.InlineResource{{APIResponse: &domain.APIResponseConfig{Success: true}}}},
 				},
 			},
 		}
@@ -1132,7 +1142,7 @@ func TestInputSourcesIntegration_MediaExecutionType(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run:      domain.RunConfig{Resources: []domain.InlineResource{{APIResponse: &domain.APIResponseConfig{Success: true}}}},
 				},
 			},
 		}

@@ -23,7 +23,9 @@ run:
         {"id": "qwen2.5:3b", "name": "Qwen 2.5 (3B)", "description": "Alibaba's model with strong multilingual support"}
       ])
 
-  apiResponse:
-    success: true
-    response:
-      models: "{{ get('availableModels') }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          models: "{{ get('availableModels') }}"

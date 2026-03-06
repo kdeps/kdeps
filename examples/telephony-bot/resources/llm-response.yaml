@@ -6,11 +6,13 @@ metadata:
   name: LLM Response
 
 run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ inputTranscript }}"
-    scenario:
-      - role: assistant
-        prompt: You are a helpful phone assistant. Keep responses brief and clear, as they will be spoken aloud to the caller.
-    timeoutDuration: 30s
+
+  resources:
+    - chat:
+        model: llama3.2:1b
+        role: user
+        prompt: "{{ inputTranscript }}"
+        scenario:
+          - role: assistant
+            prompt: You are a helpful phone assistant. Keep responses brief and clear, as they will be spoken aloud to the caller.
+        timeoutDuration: 30s

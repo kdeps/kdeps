@@ -29,15 +29,11 @@ import (
 )
 
 // filterByPosition returns inline resources matching the given position.
-// Resources with an empty position default to "before".
+// Resources with an empty position are primary resources and are NOT included here.
 func filterByPosition(resources []domain.InlineResource, position string) []domain.InlineResource {
 	var result []domain.InlineResource
 	for _, r := range resources {
-		p := r.Position
-		if p == "" {
-			p = "before"
-		}
-		if p == position {
+		if r.Position == position {
 			result = append(result, r)
 		}
 	}
@@ -67,10 +63,10 @@ run:
     - position: before
       exec:
         command: echo hello
-  chat:
-    model: test-model
-    role: user
-    prompt: test
+    - chat:
+        model: test-model
+        role: user
+        prompt: test
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				before := filterByPosition(resource.Run.Resources, "before")
@@ -80,7 +76,7 @@ run:
 				assert.Equal(t, "http://example.com", before[0].HTTPClient.URL)
 				assert.NotNil(t, before[1].Exec)
 				assert.Equal(t, "echo hello", before[1].Exec.Command)
-				assert.NotNil(t, resource.Run.Chat)
+				assert.NotNil(t, resource.Run.GetChat())
 			},
 		},
 		{
@@ -92,11 +88,11 @@ metadata:
   actionId: test
   name: Test Resource
 run:
-  chat:
-    model: test-model
-    role: user
-    prompt: test
   resources:
+    - chat:
+        model: test-model
+        role: user
+        prompt: test
     - position: after
       sql:
         connection: sqlite3://./db.sqlite
@@ -113,7 +109,7 @@ run:
 				assert.Equal(t, "INSERT INTO logs VALUES (?)", after[0].SQL.Query)
 				assert.NotNil(t, after[1].Python)
 				assert.Equal(t, "print('done')", after[1].Python.Script)
-				assert.NotNil(t, resource.Run.Chat)
+				assert.NotNil(t, resource.Run.GetChat())
 			},
 		},
 		{
@@ -133,10 +129,10 @@ run:
     - position: after
       exec:
         command: echo after
-  chat:
-    model: test-model
-    role: user
-    prompt: test
+    - chat:
+        model: test-model
+        role: user
+        prompt: test
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				before := filterByPosition(resource.Run.Resources, "before")
@@ -147,7 +143,7 @@ run:
 				assert.Equal(t, "POST", before[0].HTTPClient.Method)
 				assert.NotNil(t, after[0].Exec)
 				assert.Equal(t, "echo after", after[0].Exec.Command)
-				assert.NotNil(t, resource.Run.Chat)
+				assert.NotNil(t, resource.Run.GetChat())
 			},
 		},
 		{
@@ -173,11 +169,11 @@ run:
 				after := filterByPosition(resource.Run.Resources, "after")
 				require.Len(t, before, 1)
 				require.Len(t, after, 1)
-				assert.Nil(t, resource.Run.Chat)
-				assert.Nil(t, resource.Run.HTTPClient)
-				assert.Nil(t, resource.Run.SQL)
-				assert.Nil(t, resource.Run.Python)
-				assert.Nil(t, resource.Run.Exec)
+				assert.Nil(t, resource.Run.GetChat())
+				assert.Nil(t, resource.Run.GetHTTPClient())
+				assert.Nil(t, resource.Run.GetSQL())
+				assert.Nil(t, resource.Run.GetPython())
+				assert.Nil(t, resource.Run.GetExec())
 			},
 		},
 		{
@@ -209,10 +205,10 @@ run:
     - position: before
       exec:
         command: mkdir -p /tmp/test
-  chat:
-    model: main-model
-    role: user
-    prompt: main prompt
+    - chat:
+        model: main-model
+        role: user
+        prompt: main prompt
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
 				before := filterByPosition(resource.Run.Resources, "before")
@@ -223,8 +219,8 @@ run:
 				assert.NotNil(t, before[2].SQL)
 				assert.NotNil(t, before[3].Python)
 				assert.NotNil(t, before[4].Exec)
-				assert.NotNil(t, resource.Run.Chat)
-				assert.Equal(t, "main-model", resource.Run.Chat.Model)
+				assert.NotNil(t, resource.Run.GetChat())
+				assert.Equal(t, "main-model", resource.Run.GetChat().Model)
 			},
 		},
 	}
@@ -247,15 +243,18 @@ metadata:
   actionId: test
   name: Test Resource
 run:
-  chat:
-    model: test-model
-    role: user
-    prompt: test
+  resources:
+    - chat:
+        model: test-model
+        role: user
+        prompt: test
 `
 
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
 	require.NoError(t, err)
-	assert.Empty(t, resource.Run.Resources)
-	assert.NotNil(t, resource.Run.Chat)
+	assert.NotEmpty(t, resource.Run.Resources)
+	assert.Empty(t, filterByPosition(resource.Run.Resources, "before"))
+	assert.Empty(t, filterByPosition(resource.Run.Resources, "after"))
+	assert.NotNil(t, resource.Run.GetChat())
 }

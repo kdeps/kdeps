@@ -28,16 +28,18 @@ run:
     - set('userMessage', get('message'))
     - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
 
-  chat:
-    backend: ollama
-    baseUrl: http://localhost:11434
-    model: "{{ get('selectedModel') }}"
-    role: user
-    prompt: "{{ get('userMessage') }}"
-    scenario:
-      - role: system
-        prompt: "{{ get('systemPrompt') }}"
-    timeoutDuration: 300s
+
+  resources:
+    - chat:
+        backend: ollama
+        baseUrl: http://localhost:11434
+        model: "{{ get('selectedModel') }}"
+        role: user
+        prompt: "{{ get('userMessage') }}"
+        scenario:
+          - role: system
+            prompt: "{{ get('systemPrompt') }}"
+        timeoutDuration: 300s
 
   onError:
     action: continue

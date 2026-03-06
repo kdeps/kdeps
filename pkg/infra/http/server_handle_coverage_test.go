@@ -51,17 +51,19 @@ func TestServer_HandleRequest_APIResponse_WithMetaHeaders(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "api"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"data": map[string]interface{}{"key": "value"},
-							"_meta": map[string]interface{}{
-								"headers": map[string]interface{}{
-									"X-Custom-Header": "custom-value",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"data": map[string]interface{}{"key": "value"},
+								"_meta": map[string]interface{}{
+									"headers": map[string]interface{}{
+										"X-Custom-Header": "custom-value",
+									},
 								},
 							},
 						},
-					},
+					}},
 				},
 			},
 		},

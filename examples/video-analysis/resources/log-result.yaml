@@ -8,6 +8,8 @@ metadata:
     - analyzeFrame
 
 run:
-  exec:
-    command: "mkdir -p /tmp/kdeps-surveillance && echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) {{ get('analyzeFrame') }}\" >> /tmp/kdeps-surveillance/analysis.log"
-    timeoutDuration: 5s
+
+  resources:
+    - exec:
+        command: "mkdir -p /tmp/kdeps-surveillance && echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) {{ get('analyzeFrame') }}\" >> /tmp/kdeps-surveillance/analysis.log"
+        timeoutDuration: 5s

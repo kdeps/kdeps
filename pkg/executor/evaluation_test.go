@@ -67,19 +67,21 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 				ActionID: "api-test",
 			},
 			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"message": "Hello {{get('targetModel')}}",
-					},
-					Meta: &domain.ResponseMeta{
-						Model:   "{{get('targetModel')}}",
-						Backend: "{{get('targetBackend')}}",
-						Headers: map[string]string{
-							"X-Custom-Model": "{{get('targetModel')}}",
+				Resources: []domain.InlineResource{{
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+						Response: map[string]interface{}{
+							"message": "Hello {{get('targetModel')}}",
+						},
+						Meta: &domain.ResponseMeta{
+							Model:   "{{get('targetModel')}}",
+							Backend: "{{get('targetBackend')}}",
+							Headers: map[string]string{
+								"X-Custom-Model": "{{get('targetModel')}}",
+							},
 						},
 					},
-				},
+				}},
 			},
 		}
 
@@ -111,9 +113,11 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 				ActionID: "error-test",
 			},
 			Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{
-					Command: "exit 1", // Will fail
-				},
+				Resources: []domain.InlineResource{{
+					Exec: &domain.ExecConfig{
+						Command: "exit 1", // Will fail
+					},
+				}},
 				OnError: &domain.OnErrorConfig{
 					Action:     "retry",
 					MaxRetries: 2,

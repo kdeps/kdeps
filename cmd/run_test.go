@@ -187,12 +187,14 @@ func TestValidateWorkflow(t *testing.T) {
 					Name:     "Test Action",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "test",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -361,9 +363,11 @@ func TestParseOllamaURL(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -398,9 +402,11 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -413,9 +419,11 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "",
+								},
+							}},
 						},
 					},
 				},
@@ -428,9 +436,11 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "openai",
+								},
+							}},
 						},
 					},
 				},
@@ -443,9 +453,11 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+							Resources: []domain.InlineResource{{
+								APIResponse: &domain.APIResponseConfig{
+									Success: true,
+								},
+							}},
 						},
 					},
 				},
@@ -458,16 +470,20 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+							Resources: []domain.InlineResource{{
+								APIResponse: &domain.APIResponseConfig{
+									Success: true,
+								},
+							}},
 						},
 					},
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -864,12 +880,14 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 					Name:     "Test Action",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "test",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -1060,12 +1078,14 @@ func TestStartBothServers(t *testing.T) {
 					Name:     "Test Action",
 				},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "test",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -1119,11 +1139,13 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-								Prompt:  "You are a helpful assistant",
-								Role:    "user",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+									Prompt:  "You are a helpful assistant",
+									Role:    "user",
+								},
+							}},
 						},
 					},
 				},
@@ -1152,9 +1174,11 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "",
+								},
+							}},
 						},
 					},
 				},
@@ -1178,9 +1202,11 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+							Resources: []domain.InlineResource{{
+								APIResponse: &domain.APIResponseConfig{
+									Success: true,
+								},
+							}},
 						},
 					},
 				},
@@ -1204,9 +1230,11 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "openai",
+								},
+							}},
 						},
 					},
 				},
@@ -1230,8 +1258,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 			// by checking if the workflow structure would trigger Ollama checks
 			hasOllamaResource := false
 			for _, resource := range tt.workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Run.GetChat() != nil {
+					backend := resource.Run.GetChat().Backend
 					if backend == "" || backend == "ollama" {
 						hasOllamaResource = true
 						break
@@ -1318,9 +1346,11 @@ func TestOllamaURLParsing(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -1331,7 +1361,7 @@ func TestOllamaURLParsing(t *testing.T) {
 			// but we can verify the workflow is structured correctly for URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Run.GetChat())
 		})
 	}
 }
@@ -1361,9 +1391,11 @@ func TestOllamaConnectionLogic(t *testing.T) {
 					Name:     "Test Action",
 				},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+						},
+					}},
 				},
 			},
 		},
@@ -1378,7 +1410,7 @@ func TestOllamaConnectionLogic(t *testing.T) {
 	assert.NotNil(t, workflowWithOllama)
 	assert.Equal(t, "http://localhost:11434", workflowWithOllama.Settings.AgentSettings.OllamaURL)
 	assert.Len(t, workflowWithOllama.Resources, 1)
-	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Run.Chat.Backend)
+	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Run.GetChat().Backend)
 }
 
 // TestWorkflowNeedsOllamaComprehensive tests the workflowNeedsOllama logic comprehensively.
@@ -1398,7 +1430,9 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: "ollama"},
+						}},
 					},
 				},
 			},
@@ -1409,7 +1443,9 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: ""},
+						}},
 					},
 				},
 			},
@@ -1420,7 +1456,9 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: "openai"},
+						}},
 					},
 				},
 			},
@@ -1431,12 +1469,16 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{Success: true},
+						}},
 					},
 				},
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: "ollama"},
+						}},
 					},
 				},
 			},
@@ -1447,12 +1489,16 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
+						Resources: []domain.InlineResource{{
+							APIResponse: &domain.APIResponseConfig{Success: true},
+						}},
 					},
 				},
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: "openai"},
+						}},
 					},
 				},
 			},
@@ -1463,12 +1509,16 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: "ollama"},
+						}},
 					},
 				},
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{Backend: ""},
+						}},
 					},
 				},
 			},
@@ -1485,8 +1535,8 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			// Test the logic that workflowNeedsOllama implements
 			needsOllama := false
 			for _, resource := range workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Run.GetChat() != nil {
+					backend := resource.Run.GetChat().Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1595,17 +1645,19 @@ func TestOllamaFunctionsIndirectCoverage(t *testing.T) {
 			resources := []*domain.Resource{
 				{
 					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Backend: "ollama",
-						},
+						Resources: []domain.InlineResource{{
+							Chat: &domain.ChatConfig{
+								Backend: "ollama",
+							},
+						}},
 					},
 				},
 			}
 
 			needsOllama := false
 			for _, resource := range resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Run.GetChat() != nil {
+					backend := resource.Run.GetChat().Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1719,9 +1771,11 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -1730,7 +1784,7 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 			// Verify workflow structure
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Run.GetChat())
 		})
 	}
 }
@@ -1763,9 +1817,11 @@ func TestEnsureOllamaRunning_AlreadyRunning(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+						},
+					}},
 				},
 			},
 		},
@@ -1872,9 +1928,11 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 							Name:     "Test Action",
 						},
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+							Resources: []domain.InlineResource{{
+								Chat: &domain.ChatConfig{
+									Backend: "ollama",
+								},
+							}},
 						},
 					},
 				},
@@ -1883,8 +1941,8 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 			// Verify the workflow is structured correctly for Ollama URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
-			assert.Equal(t, "ollama", workflow.Resources[0].Run.Chat.Backend)
+			assert.NotNil(t, workflow.Resources[0].Run.GetChat())
+			assert.Equal(t, "ollama", workflow.Resources[0].Run.GetChat().Backend)
 		})
 	}
 }
@@ -2418,9 +2476,11 @@ func TestWaitForOllamaReady_Success(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+						},
+					}},
 				},
 			},
 		},

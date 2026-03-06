@@ -7,9 +7,11 @@ metadata:
   requires: [analytics, batchUpdate]
 
 run:
-  apiResponse:
-    success: true
-    response:
-      analytics: "{{ get('analytics') }}"
-      batch_results: "{{ get('batchUpdate') }}"
-      timestamp: "{{ info('current_time') }}"
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          analytics: "{{ get('analytics') }}"
+          batch_results: "{{ get('batchUpdate') }}"
+          timestamp: "{{ info('current_time') }}"

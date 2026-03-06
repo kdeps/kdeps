@@ -55,6 +55,9 @@ type LoopConfig struct {
 }
 
 // RunConfig contains resource execution configuration.
+// The Resources slice holds all execution units: the primary resource (Position == "") and
+// optional inline resources that run before (Position == "before") or after (Position == "after")
+// the primary resource.
 type RunConfig struct {
 	RestrictToHTTPMethods []string         `yaml:"restrictToHttpMethods,omitempty"`
 	RestrictToRoutes      []string         `yaml:"restrictToRoutes,omitempty"`
@@ -76,13 +79,116 @@ type RunConfig struct {
 	Expr       []Expression `yaml:"expr,omitempty"`
 	ExprAfter  []Expression `yaml:"exprAfter,omitempty"`
 
-	// Resources: inline resources to run before or after the main resource.
-	// Each entry specifies a position ("before" or "after") and one resource type.
-	// Resources with position "before" run before the primary type; "after" run after.
-	// The default position is "before" when not specified.
+	// Resources holds all execution units for this resource:
+	//   - Primary resource: Position == "" (empty). Exactly one should exist.
+	//   - Inline before:    Position == "before". Runs before the primary.
+	//   - Inline after:     Position == "after".  Runs after the primary.
 	Resources []InlineResource `yaml:"resources,omitempty"`
 
-	// Action blocks (only one primary type should be set, apiResponse can be combined).
+	// Error handling
+	OnError *OnErrorConfig `yaml:"onError,omitempty"`
+}
+
+// GetPrimary returns the first InlineResource with an empty Position (the primary resource).
+func (r *RunConfig) GetPrimary() *InlineResource {
+	for i := range r.Resources {
+		if r.Resources[i].Position == "" {
+			return &r.Resources[i]
+		}
+	}
+	return nil
+}
+
+// GetChat returns the ChatConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetChat() *ChatConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.Chat
+	}
+	return nil
+}
+
+// GetHTTPClient returns the HTTPClientConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetHTTPClient() *HTTPClientConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.HTTPClient
+	}
+	return nil
+}
+
+// GetSQL returns the SQLConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetSQL() *SQLConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.SQL
+	}
+	return nil
+}
+
+// GetPython returns the PythonConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetPython() *PythonConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.Python
+	}
+	return nil
+}
+
+// GetExec returns the ExecConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetExec() *ExecConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.Exec
+	}
+	return nil
+}
+
+// GetTTS returns the TTSConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetTTS() *TTSConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.TTS
+	}
+	return nil
+}
+
+// GetBotReply returns the BotReplyConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetBotReply() *BotReplyConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.BotReply
+	}
+	return nil
+}
+
+// GetScraper returns the ScraperConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetScraper() *ScraperConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.Scraper
+	}
+	return nil
+}
+
+// GetEmbedding returns the EmbeddingConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetEmbedding() *EmbeddingConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.Embedding
+	}
+	return nil
+}
+
+// GetAPIResponse returns the APIResponseConfig from the primary resource, or nil if not set.
+func (r *RunConfig) GetAPIResponse() *APIResponseConfig {
+	if p := r.GetPrimary(); p != nil {
+		return p.APIResponse
+	}
+	return nil
+}
+
+// InlineResource represents a resource execution unit.
+// Position controls when it runs relative to other resources:
+//   - "" (empty): primary resource for this run config
+//   - "before":   runs before the primary resource
+//   - "after":    runs after the primary resource
+//
+// Only one of the resource type fields should be set.
+type InlineResource struct {
+	// Position controls execution order: "" = primary, "before" = before primary, "after" = after primary.
+	Position    string             `yaml:"position,omitempty"`
 	Chat        *ChatConfig        `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig  `yaml:"httpClient,omitempty"`
 	SQL         *SQLConfig         `yaml:"sql,omitempty"`
@@ -93,26 +199,6 @@ type RunConfig struct {
 	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
-
-	// Error handling
-	OnError *OnErrorConfig `yaml:"onError,omitempty"`
-}
-
-// InlineResource represents an inline resource that can be executed before or after the main resource.
-// Set Position to "before" (default) or "after" to control when it runs.
-// Only one of the resource type fields should be set.
-type InlineResource struct {
-	// Position controls when this inline resource runs relative to the primary resource.
-	// Valid values: "before" (default) or "after".
-	Position   string            `yaml:"position,omitempty"`
-	Chat       *ChatConfig       `yaml:"chat,omitempty"`
-	HTTPClient *HTTPClientConfig `yaml:"httpClient,omitempty"`
-	SQL        *SQLConfig        `yaml:"sql,omitempty"`
-	Python     *PythonConfig     `yaml:"python,omitempty"`
-	Exec       *ExecConfig       `yaml:"exec,omitempty"`
-	TTS        *TTSConfig        `yaml:"tts,omitempty"`
-	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
-	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
 }
 
 // PreflightCheck represents preflight validation.

@@ -239,12 +239,16 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name":     "Test Resource",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":           "llama3.2:latest",
 						"role":            "user",
 						"prompt":          "Test prompt",
 						"timeoutDuration": "30s",
 					},
+					},
+				},
 				},
 			},
 			wantErr: false,
@@ -259,11 +263,15 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name":     "HTTP Resource",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method":          "POST",
 						"url":             "https://api.example.com",
 						"timeoutDuration": "10s",
 					},
+					},
+				},
 				},
 			},
 			wantErr: false,
@@ -278,10 +286,14 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name":     "SQL Resource",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      "SELECT * FROM users",
 					},
+					},
+				},
 				},
 			},
 			wantErr: false,
@@ -300,12 +312,16 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					},
 				},
 				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"apiResponse": map[string]interface{}{
 						"success": true,
 						"response": map[string]interface{}{
 							"message": "OK",
 						},
 					},
+					},
+				},
 				},
 			},
 			wantErr: false,
@@ -319,10 +335,14 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name": "Test Resource",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			wantErr: true,
@@ -336,10 +356,14 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"actionId": "test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			wantErr: true,
@@ -366,10 +390,14 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			wantErr: true,
@@ -384,10 +412,14 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			wantErr: true,
@@ -427,14 +459,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"backend": 1, // Wrong type
 						"model":   "llama3.2",
 						"prompt":  "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.chat.backend",
+			expectedField:          "run.resources.0.chat.backend",
 			expectedOption:         "ollama",
 			expectAvailableOptions: true,
 		},
@@ -448,14 +484,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"backend": "invalid-backend",
 						"model":   "llama3.2",
 						"prompt":  "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.chat.backend",
+			expectedField:          "run.resources.0.chat.backend",
 			expectedOption:         "ollama",
 			expectAvailableOptions: true,
 		},
@@ -469,13 +509,17 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method": 123, // Wrong type
 						"url":    "https://api.example.com",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.httpClient.method",
+			expectedField:          "run.resources.0.httpClient.method",
 			expectedOption:         "GET",
 			expectAvailableOptions: true,
 		},
@@ -489,13 +533,17 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"httpClient": map[string]interface{}{
 						"method": "INVALID",
 						"url":    "https://api.example.com",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.httpClient.method",
+			expectedField:          "run.resources.0.httpClient.method",
 			expectedOption:         "GET",
 			expectAvailableOptions: true,
 		},
@@ -509,14 +557,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":         "llama3.2",
 						"contextLength": "invalid", // Wrong type
 						"prompt":        "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.chat.contextLength",
+			expectedField:          "run.resources.0.chat.contextLength",
 			expectedOption:         "4096",
 			expectAvailableOptions: true,
 		},
@@ -530,14 +582,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":         "llama3.2",
 						"contextLength": 5000, // Not in enum
 						"prompt":        "test",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.chat.contextLength",
+			expectedField:          "run.resources.0.chat.contextLength",
 			expectedOption:         "4096",
 			expectAvailableOptions: true,
 		},
@@ -551,10 +607,14 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField:          "apiVersion",
@@ -571,10 +631,14 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField:          "kind",
@@ -591,14 +655,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      "SELECT * FROM users",
 						"format":     123, // Wrong type
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.sql.format",
+			expectedField:          "run.resources.0.sql.format",
 			expectedOption:         "json",
 			expectAvailableOptions: true,
 		},
@@ -612,14 +680,18 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"sql": map[string]interface{}{
 						"connection": "postgresql://localhost:5432/db",
 						"query":      "SELECT * FROM users",
 						"format":     "invalid-format",
 					},
+					},
+				},
 				},
 			},
-			expectedField:          "run.sql.format",
+			expectedField:          "run.resources.0.sql.format",
 			expectedOption:         "json",
 			expectAvailableOptions: true,
 		},
@@ -863,10 +935,14 @@ func TestSchemaValidator_EnhancedErrorMessages_PatternAndLength(t *testing.T) {
 					"name":     "", // Empty string violates minLength
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expectedField: "name",
@@ -913,13 +989,13 @@ func TestSchemaValidator_IsEnumField(t *testing.T) {
 	}{
 		{
 			name:       "enum field - backend",
-			field:      "run.chat.backend",
+			field:      "run.resources.0.chat.backend",
 			schemaType: "resource",
 			want:       true,
 		},
 		{
 			name:       "enum field - method",
-			field:      "run.httpClient.method",
+			field:      "run.resources.0.httpClient.method",
 			schemaType: "resource",
 			want:       true,
 		},
@@ -997,10 +1073,14 @@ func TestSchemaValidator_GetTypeSuggestion(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expected: "Available options:",
@@ -1178,10 +1258,14 @@ func TestSchemaValidator_GetFieldExamples(t *testing.T) {
 					"name": "", // Missing required field
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expected: "Example:",
@@ -1196,10 +1280,14 @@ func TestSchemaValidator_GetFieldExamples(t *testing.T) {
 					// Missing name field
 				},
 				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 						"model":  "llama3.2:latest",
 						"prompt": "test",
 					},
+					},
+				},
 				},
 			},
 			expected: "Example:",
@@ -1378,7 +1466,7 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 	}{
 		{
 			name:       "chat backend enum",
-			field:      "run.chat.backend",
+			field:      "run.resources.0.chat.backend",
 			schemaType: "resource",
 			expected: []interface{}{
 				"ollama",
@@ -1395,7 +1483,7 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 		},
 		{
 			name:       "http method enum",
-			field:      "run.httpClient.method",
+			field:      "run.resources.0.httpClient.method",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -1419,7 +1507,7 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 		},
 		{
 			name:       "nested field matching - chat.backend",
-			field:      "run.chat.contextLength",
+			field:      "run.resources.0.chat.contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
@@ -1529,13 +1617,13 @@ func TestSchemaValidator_GetFieldExamples_Direct(t *testing.T) {
 		},
 		{
 			name:         "chat model field",
-			field:        "run.chat.model",
+			field:        "run.resources.0.chat.model",
 			expectedType: "string",
 			expected:     `"llama3.2:latest"`,
 		},
 		{
 			name:         "http method field",
-			field:        "run.httpClient.method",
+			field:        "run.resources.0.httpClient.method",
 			expectedType: "string",
 			expected:     `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
 		},
@@ -1547,7 +1635,7 @@ func TestSchemaValidator_GetFieldExamples_Direct(t *testing.T) {
 		},
 		{
 			name:         "apiResponse success field",
-			field:        "run.apiResponse.success",
+			field:        "run.resources.0.apiResponse.success",
 			expectedType: "boolean",
 			expected:     `true or false`,
 		},
@@ -1661,12 +1749,16 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting(t *testing.T) {
 			"name":     "Test",
 		},
 		"run": map[string]interface{}{
-			"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 				"backend": "invalid-backend", // Should trigger enum error with options
 				"model":   "llama3.2",
 				"prompt":  "test",
 			},
-		},
+					},
+				},
+				},
 	}
 
 	err = v.ValidateResource(testData)
@@ -1833,11 +1925,15 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_FieldExamples(t *testing.T) 
 			"name": "", // Empty required field
 		},
 		"run": map[string]interface{}{
-			"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 				"model":  "llama3.2:latest",
 				"prompt": "test",
 			},
-		},
+					},
+				},
+				},
 	}
 
 	err = v.ValidateResource(testData)
@@ -1880,13 +1976,13 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 		},
 		{
 			name:       "chat contextLength with array normalization",
-			field:      "run.chat.0.contextLength",
+			field:      "run.resources.0.chat.0.contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
 		{
 			name:       "http method with normalization",
-			field:      "run.httpClient.0.method",
+			field:      "run.resources.0.httpClient.0.method",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -1898,7 +1994,7 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 		},
 		{
 			name:       "sql format normalized",
-			field:      "run.sql.0.format",
+			field:      "run.resources.0.sql.0.format",
 			schemaType: "resource",
 			expected:   []interface{}{"json", "csv", "table"},
 		},
@@ -2014,11 +2110,15 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_FieldExamples_Indirect(t *te
 			"name": "", // Empty required field
 		},
 		"run": map[string]interface{}{
-			"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 				"model":  "llama3.2:latest",
 				"prompt": "test",
 			},
-		},
+					},
+				},
+				},
 	}
 
 	err = v.ValidateResource(testData)
@@ -2045,9 +2145,9 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 	testFields := []string{
 		"routes.0.methods",                      // Should normalize to routes.methods
 		"settings.apiServer.routes.1.methods.0", // Should normalize to routes.methods
-		"run.chat.0.contextLength",              // Should normalize to run.chat.contextLength
-		"run.httpClient.0.method",               // Should normalize to run.httpClient.method
-		"run.sql.0.format",                      // Should normalize to run.sql.format
+		"run.resources.0.chat.0.contextLength",              // Should normalize to run.chat.contextLength
+		"run.resources.0.httpClient.0.method",               // Should normalize to run.httpClient.method
+		"run.resources.0.sql.0.format",                      // Should normalize to run.sql.format
 		"run.0.restrictToHttpMethods",           // Should normalize to run.restrictToHttpMethods
 	}
 
@@ -2077,12 +2177,16 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting_Indirect(t *testing.
 			"name":     "Test",
 		},
 		"run": map[string]interface{}{
-			"chat": map[string]interface{}{
+					"resources": []interface{}{
+					map[string]interface{}{
+						"chat": map[string]interface{}{
 				"backend": "invalid-backend", // Should show enum options
 				"model":   "llama3.2",
 				"prompt":  "test",
 			},
-		},
+					},
+				},
+				},
 	}
 
 	err = v.ValidateResource(testData)
@@ -2202,7 +2306,7 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "string type with example from known field",
-			field:    "run.chat.model",
+			field:    "run.resources.0.chat.model",
 			descStr:  "Expected: string, given: number",
 			expected: "Expected type: string. Example: \"llama3.2:latest\"",
 		},
@@ -2214,13 +2318,13 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "boolean type with example from known field",
-			field:    "run.apiResponse.success",
+			field:    "run.resources.0.apiResponse.success",
 			descStr:  "Expected: boolean, given: string",
 			expected: "Expected type: boolean. Example: true or false",
 		},
 		{
 			name:     "object type with example from known field",
-			field:    "run.apiResponse.response",
+			field:    "run.resources.0.apiResponse.response",
 			descStr:  "Expected: object, given: string",
 			expected: "Expected type: object. Example: {\"key\": \"value\"}",
 		},
@@ -2232,7 +2336,7 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "type error without 'given' keyword - should not include examples",
-			field:    "run.chat.model",
+			field:    "run.resources.0.chat.model",
 			descStr:  "Invalid type. Expected string, but got number",
 			expected: "Expected type: string",
 		},
@@ -2308,22 +2412,22 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "known field with example - run.chat.prompt",
-			field:    "run.chat.prompt",
+			field:    "run.resources.0.chat.prompt",
 			expected: "This field is required. Example: \"What is the weather?\"",
 		},
 		{
 			name:     "known field with example - run.httpClient.url",
-			field:    "run.httpClient.url",
+			field:    "run.resources.0.httpClient.url",
 			expected: "This field is required. Example: \"https://api.example.com/users\"",
 		},
 		{
 			name:     "field with partial match - run.chat.model",
-			field:    "run.chat.model",
+			field:    "run.resources.0.chat.model",
 			expected: "This field is required. Example: \"llama3.2:latest\"",
 		},
 		{
 			name:     "field with partial match - run.sql.connection",
-			field:    "run.sql.connection",
+			field:    "run.resources.0.sql.connection",
 			expected: "This field is required. Example: \"postgresql://user:pass@localhost:5432/dbname\"",
 		},
 		{
@@ -2362,7 +2466,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 	}{
 		{
 			name:       "exact match - run.chat.backend",
-			field:      "run.chat.backend",
+			field:      "run.resources.0.chat.backend",
 			schemaType: "resource",
 			expected: []interface{}{
 				"ollama",
@@ -2379,7 +2483,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 		},
 		{
 			name:       "exact match - run.httpClient.method",
-			field:      "run.httpClient.method",
+			field:      "run.resources.0.httpClient.method",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -2397,13 +2501,13 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 		},
 		{
 			name:       "nested field matching - run.chat.contextLength",
-			field:      "run.chat.contextLength",
+			field:      "run.resources.0.chat.contextLength",
 			schemaType: "resource",
 			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
 		{
 			name:       "nested field matching - run.sql.format",
-			field:      "run.sql.format",
+			field:      "run.resources.0.sql.format",
 			schemaType: "resource",
 			expected:   []interface{}{"json", "csv", "table"},
 		},
@@ -2498,7 +2602,7 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 		},
 		{
 			name:       "wrong schema type",
-			field:      "run.chat.backend",
+			field:      "run.resources.0.chat.backend",
 			schemaType: "invalid",
 			expected:   nil,
 		},

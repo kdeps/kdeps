@@ -11,11 +11,13 @@ run:
   restrictToHttpMethods: [POST]
   restrictToRoutes: [/api/v1/chat]
 
-  apiResponse:
-    success: true
-    response:
-      data: get('llmResource')
-      query: get('q')
-    meta:
-      headers:
-        Content-Type: application/json
+
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          data: get('llmResource')
+          query: get('q')
+        meta:
+          headers:
+            Content-Type: application/json

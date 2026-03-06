@@ -38,7 +38,7 @@ func makeCtxWithSend(t *testing.T, send executor.BotSendFunc) *executor.Executio
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-				Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hi"}},
+				Run:      domain.RunConfig{Resources: []domain.InlineResource{{BotReply: &domain.BotReplyConfig{Text: "hi"}}}},
 			},
 		},
 	}

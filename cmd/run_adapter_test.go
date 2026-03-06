@@ -43,10 +43,12 @@ func TestRequestContextAdapter_Execute_NilRequest(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "response"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"ok": true},
+						},
+					}},
 				},
 			},
 		},
@@ -79,10 +81,12 @@ func TestRequestContextAdapter_Execute_PropagatesSessionID(t *testing.T) {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "response"},
 				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success:  true,
+							Response: map[string]interface{}{"ok": true},
+						},
+					}},
 				},
 			},
 		},

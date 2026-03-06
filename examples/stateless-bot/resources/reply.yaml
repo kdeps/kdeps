@@ -9,5 +9,7 @@ dependencies:
   - llm
 
 run:
-  botReply:
-    text: "{{ get('llm') }}"
+
+  resources:
+    - botReply:
+        text: "{{ get('llm') }}"

@@ -426,10 +426,12 @@ func TestOllamaDetection_BackendOllama(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama2:7b",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+							Model:   "llama2:7b",
+						},
+					}},
 				},
 			},
 		},
@@ -445,10 +447,12 @@ func TestOllamaDetection_OnlineProvider(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						APIKey: "sk-test",
-					},
+					Resources: []domain.InlineResource{{
+						Chat: &domain.ChatConfig{
+							Model:  "gpt-4",
+							APIKey: "sk-test",
+						},
+					}},
 				},
 			},
 		},

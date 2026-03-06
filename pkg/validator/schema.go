@@ -461,10 +461,20 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		return example
 	}
 
+	// Normalize path: strip "resources.N." to handle new path format
+	// e.g., "run.resources.0.chat.model" -> "run.chat.model"
+	normalizedField := strings.ReplaceAll(field, "run.resources.", "run.")
+	normalizedField = strings.ReplaceAll(normalizedField, ".0.", ".")
+	normalizedField = strings.TrimSuffix(normalizedField, ".0")
+
+	if example, ok := examples[normalizedField]; ok {
+		return example
+	}
+
 	// Check partial matches
-	if field != "" {
+	if normalizedField != "" {
 		for key, example := range examples {
-			if strings.Contains(field, key) || strings.Contains(key, field) {
+			if strings.Contains(normalizedField, key) || strings.Contains(key, normalizedField) {
 				return example
 			}
 		}
@@ -555,6 +565,9 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 	normalizedField = strings.ReplaceAll(normalizedField, ".2.", ".")
 	// Handle trailing array indices
 	normalizedField = strings.TrimSuffix(normalizedField, ".0")
+	// Strip "resources.N." prefix segments to normalize paths like
+	// "run.resources.0.chat.backend" → "run.chat.backend"
+	normalizedField = strings.ReplaceAll(normalizedField, "run.resources.", "run.")
 
 	// Check normalized field
 	if values, ok := enumMap[normalizedField]; ok {

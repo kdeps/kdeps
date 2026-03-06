@@ -95,11 +95,12 @@ metadata:
   actionId: fetch-data
   name: Fetch Data
 run:
-  httpClient:
-    method: "GET"
-    url: "https://httpbin.org/get"
-    headers:
-      Accept: "application/json"
+  resources:
+    - httpClient:
+        method: "GET"
+        url: "https://httpbin.org/get"
+        headers:
+          Accept: "application/json"
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "fetch-data.yaml"), []byte(httpResource), 0644)
@@ -113,10 +114,11 @@ metadata:
   name: Store Data
   requires: ["fetch-data"]
 run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "INSERT INTO data (content) VALUES (?)"
-    params: ["{{fetch-data.response}}"]
+  resources:
+    - sql:
+        connection: "sqlite:///test.db"
+        query: "INSERT INTO data (content) VALUES (?)"
+        params: ["{{fetch-data.response}}"]
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "store-data.yaml"), []byte(sqlResource), 0644)
@@ -130,14 +132,15 @@ metadata:
   name: Process Data
   requires: ["store-data"]
 run:
-  python:
-    script: |
-      import json
-      import sys
+  resources:
+    - python:
+        script: |
+          import json
+          import sys
 
-      # Read from stdin (simulated data)
-      data = {"processed": True, "timestamp": "2024-01-01"}
-      print(json.dumps(data))
+          # Read from stdin (simulated data)
+          data = {"processed": True, "timestamp": "2024-01-01"}
+          print(json.dumps(data))
 `
 
 	err = os.WriteFile(
@@ -155,11 +158,12 @@ metadata:
   name: Final Response
   requires: ["process-data"]
 run:
-  apiResponse:
-    success: true
-    response:
-      status: "completed"
-      data: "{{process-data.output}}"
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          status: "completed"
+          data: "{{process-data.output}}"
 `
 
 	err = os.WriteFile(
@@ -226,28 +230,28 @@ settings:
 	httpRes, exists := resourceMap["fetch-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Fetch Data", httpRes.Metadata.Name)
-	assert.NotNil(t, httpRes.Run.HTTPClient)
+	assert.NotNil(t, httpRes.Run.GetHTTPClient())
 
 	// Verify SQL resource
 	sqlRes, exists := resourceMap["store-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Store Data", sqlRes.Metadata.Name)
 	assert.Contains(t, sqlRes.Metadata.Requires, "fetch-data")
-	assert.NotNil(t, sqlRes.Run.SQL)
+	assert.NotNil(t, sqlRes.Run.GetSQL())
 
 	// Verify Python resource
 	pythonRes, exists := resourceMap["process-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Process Data", pythonRes.Metadata.Name)
 	assert.Contains(t, pythonRes.Metadata.Requires, "store-data")
-	assert.NotNil(t, pythonRes.Run.Python)
+	assert.NotNil(t, pythonRes.Run.GetPython())
 
 	// Verify response resource
 	responseRes, exists := resourceMap["final-response"]
 	require.True(t, exists)
 	assert.Equal(t, "Final Response", responseRes.Metadata.Name)
 	assert.Contains(t, responseRes.Metadata.Requires, "process-data")
-	assert.NotNil(t, responseRes.Run.APIResponse)
+	assert.NotNil(t, responseRes.Run.GetAPIResponse())
 }
 
 func TestWorkflowValidationIntegration_ErrorCases(t *testing.T) {
@@ -377,12 +381,13 @@ metadata:
   actionId: http-test
   name: HTTP Test
 run:
-  httpClient:
-    method: "GET"
-    url: "https://api.example.com/test"
-    headers:
-      Authorization: "Bearer token"
-      Content-Type: "application/json"
+  resources:
+    - httpClient:
+        method: "GET"
+        url: "https://api.example.com/test"
+        headers:
+          Authorization: "Bearer token"
+          Content-Type: "application/json"
 `,
 
 		"sql-resource.yaml": `apiVersion: kdeps.io/v1
@@ -391,11 +396,12 @@ metadata:
   actionId: sql-test
   name: SQL Test
 run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "SELECT * FROM users WHERE id = ?"
-    params: ["123"]
-    format: "json"
+  resources:
+    - sql:
+        connection: "sqlite:///test.db"
+        query: "SELECT * FROM users WHERE id = ?"
+        params: ["123"]
+        format: "json"
 `,
 
 		"python-resource.yaml": `apiVersion: kdeps.io/v1
@@ -404,11 +410,12 @@ metadata:
   actionId: python-test
   name: Python Test
 run:
-  python:
-    script: |
-      import json
-      result = {"status": "success", "data": [1, 2, 3]}
-      print(json.dumps(result))
+  resources:
+    - python:
+        script: |
+          import json
+          result = {"status": "success", "data": [1, 2, 3]}
+          print(json.dumps(result))
 `,
 
 		"exec-resource.yaml": `apiVersion: kdeps.io/v1
@@ -417,8 +424,9 @@ metadata:
   actionId: exec-test
   name: Exec Test
 run:
-  exec:
-    command: "echo Hello World"
+  resources:
+    - exec:
+        command: "echo Hello World"
 `,
 
 		"response-resource.yaml": `apiVersion: kdeps.io/v1
@@ -427,11 +435,12 @@ metadata:
   actionId: response-test
   name: Response Test
 run:
-  apiResponse:
-    success: true
-    response:
-      message: "Operation completed"
-      code: 200
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          message: "Operation completed"
+          code: 200
 `,
 	}
 
@@ -476,34 +485,34 @@ settings:
 	}
 
 	// Verify each resource type
-	assert.NotNil(t, resourceMap["http-test"].Run.HTTPClient)
-	assert.NotNil(t, resourceMap["sql-test"].Run.SQL)
-	assert.NotNil(t, resourceMap["python-test"].Run.Python)
-	assert.NotNil(t, resourceMap["exec-test"].Run.Exec)
-	assert.NotNil(t, resourceMap["response-test"].Run.APIResponse)
+	assert.NotNil(t, resourceMap["http-test"].Run.GetHTTPClient())
+	assert.NotNil(t, resourceMap["sql-test"].Run.GetSQL())
+	assert.NotNil(t, resourceMap["python-test"].Run.GetPython())
+	assert.NotNil(t, resourceMap["exec-test"].Run.GetExec())
+	assert.NotNil(t, resourceMap["response-test"].Run.GetAPIResponse())
 
 	// Verify HTTP resource configuration
 	httpRes := resourceMap["http-test"]
-	assert.Equal(t, "https://api.example.com/test", httpRes.Run.HTTPClient.URL)
-	assert.Equal(t, "GET", httpRes.Run.HTTPClient.Method)
-	assert.Contains(t, httpRes.Run.HTTPClient.Headers, "Authorization")
+	assert.Equal(t, "https://api.example.com/test", httpRes.Run.GetHTTPClient().URL)
+	assert.Equal(t, "GET", httpRes.Run.GetHTTPClient().Method)
+	assert.Contains(t, httpRes.Run.GetHTTPClient().Headers, "Authorization")
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
-	assert.Contains(t, sqlRes.Run.SQL.Query, "SELECT")
-	assert.Contains(t, sqlRes.Run.SQL.Params, "123")
+	assert.Contains(t, sqlRes.Run.GetSQL().Query, "SELECT")
+	assert.Contains(t, sqlRes.Run.GetSQL().Params, "123")
 
 	// Verify Python resource has script
 	pythonRes := resourceMap["python-test"]
-	assert.Contains(t, pythonRes.Run.Python.Script, "import json")
+	assert.Contains(t, pythonRes.Run.GetPython().Script, "import json")
 
 	// Verify Exec resource has command
 	execRes := resourceMap["exec-test"]
-	assert.Equal(t, "echo Hello World", execRes.Run.Exec.Command)
+	assert.Equal(t, "echo Hello World", execRes.Run.GetExec().Command)
 
 	// Verify API Response resource
 	responseRes := resourceMap["response-test"]
-	assert.Equal(t, true, responseRes.Run.APIResponse.Success)
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "message")
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "code")
+	assert.Equal(t, true, responseRes.Run.GetAPIResponse().Success)
+	assert.Contains(t, responseRes.Run.GetAPIResponse().Response, "message")
+	assert.Contains(t, responseRes.Run.GetAPIResponse().Response, "code")
 }

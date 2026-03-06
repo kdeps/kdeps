@@ -273,12 +273,13 @@ metadata:
   name: Test Resource
   description: A test resource
 run:
-  chat:
-    model: llama3.2:latest
-    role: user
-    prompt: "Test prompt"
-    jsonResponse: true
-    timeoutDuration: 30s
+  resources:
+    - chat:
+        model: llama3.2:latest
+        role: user
+        prompt: "Test prompt"
+        jsonResponse: true
+        timeoutDuration: 30s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -293,12 +294,13 @@ metadata:
   actionID: http-action
   name: HTTP Resource
 run:
-  httpClient:
-    method: POST
-    url: https://api.example.com
-    headers:
-      Content-Type: application/json
-    timeoutDuration: 10s
+  resources:
+    - httpClient:
+        method: POST
+        url: https://api.example.com
+        headers:
+          Content-Type: application/json
+        timeoutDuration: 10s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -313,12 +315,13 @@ metadata:
   actionID: sql-action
   name: SQL Resource
 run:
-  sql:
-    connection: postgresql://localhost:5432/db
-    query: SELECT * FROM users
-    params:
-      - 123
-    timeoutDuration: 5s
+  resources:
+    - sql:
+        connection: postgresql://localhost:5432/db
+        query: SELECT * FROM users
+        params:
+          - 123
+        timeoutDuration: 5s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -336,10 +339,11 @@ metadata:
     - action1
     - action2
 run:
-  apiResponse:
-    success: true
-    response:
-      message: OK
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          message: OK
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -366,9 +370,10 @@ metadata:
   actionId: test
   name: Test
 run:
-  chat:
-    model: llama3.2:latest
-    prompt: test
+  resources:
+    - chat:
+        model: llama3.2:latest
+        prompt: test
 `,
 			validator: &mockSchemaValidator{
 				validateResourceFunc: func(_ map[string]interface{}) error {
@@ -431,10 +436,11 @@ metadata:
   actionId: test
   name: Test
 run:
-  chat:
-    model: llama3.2:latest
-    prompt: test
-    timeoutDuration: 30s
+  resources:
+    - chat:
+        model: llama3.2:latest
+        prompt: test
+        timeoutDuration: 30s
 `
 
 	tmpDir := t.TempDir()
@@ -483,31 +489,31 @@ func validateChatResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
 	assert.Equal(t, "test-action", resource.Metadata.ActionID)
 	assert.Equal(t, "Test Resource", resource.Metadata.Name)
-	require.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "llama3.2:latest", resource.Run.Chat.Model)
+	require.NotNil(t, resource.Run.GetChat())
+	assert.Equal(t, "llama3.2:latest", resource.Run.GetChat().Model)
 }
 
 // validateHTTPResource validates an HTTP resource.
 func validateHTTPResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	require.NotNil(t, resource.Run.HTTPClient)
-	assert.Equal(t, http.MethodPost, resource.Run.HTTPClient.Method)
-	assert.Equal(t, "https://api.example.com", resource.Run.HTTPClient.URL)
+	require.NotNil(t, resource.Run.GetHTTPClient())
+	assert.Equal(t, http.MethodPost, resource.Run.GetHTTPClient().Method)
+	assert.Equal(t, "https://api.example.com", resource.Run.GetHTTPClient().URL)
 }
 
 // validateSQLResource validates a SQL resource.
 func validateSQLResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	require.NotNil(t, resource.Run.SQL)
-	assert.Equal(t, "postgresql://localhost:5432/db", resource.Run.SQL.Connection)
-	assert.Equal(t, "SELECT * FROM users", resource.Run.SQL.Query)
+	require.NotNil(t, resource.Run.GetSQL())
+	assert.Equal(t, "postgresql://localhost:5432/db", resource.Run.GetSQL().Connection)
+	assert.Equal(t, "SELECT * FROM users", resource.Run.GetSQL().Query)
 }
 
 // validateDependentResource validates a resource with dependencies.
 func validateDependentResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
 	assert.Len(t, resource.Metadata.Requires, 2)
-	require.NotNil(t, resource.Run.APIResponse)
+	require.NotNil(t, resource.Run.GetAPIResponse())
 }
 
 func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
@@ -528,7 +534,7 @@ func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
 		{
 			name:              "resources directory with valid YAML",
 			setupResources:    true,
-			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: test-resource\n  name: Test Resource\nrun:\n  apiResponse:\n    success: true\n    response:\n      message: hello",
+			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: test-resource\n  name: Test Resource\nrun:\n  resources:\n    - apiResponse:\n        success: true\n        response:\n          message: hello",
 			resourceFilename:  "test-resource.yaml",
 			expectError:       false,
 			expectedResources: 1,
@@ -552,7 +558,7 @@ func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
 		{
 			name:              "resources directory with both YAML and non-YAML",
 			setupResources:    true,
-			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: mixed-resource\n  name: Mixed Resource\nrun:\n  apiResponse:\n    success: true",
+			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: mixed-resource\n  name: Mixed Resource\nrun:\n  resources:\n    - apiResponse:\n        success: true",
 			resourceFilename:  "mixed.yaml",
 			expectError:       false,
 			expectedResources: 1,
@@ -664,10 +670,11 @@ metadata:
   actionId: test-resource
   name: Test Resource
 run:
-  apiResponse:
-    success: true
-    response:
-      message: hello world
+  resources:
+    - apiResponse:
+        success: true
+        response:
+          message: hello world
 `
 	err = os.WriteFile(resourcePath, []byte(resourceContent), 0600)
 	require.NoError(t, err)

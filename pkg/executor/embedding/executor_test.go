@@ -44,10 +44,14 @@ func makeCtx(t *testing.T) *executor.ExecutionContext {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-				Run: domain.RunConfig{Embedding: &domain.EmbeddingConfig{
-					Model: "nomic-embed-text",
-					Input: "hello",
-				}},
+				Run: domain.RunConfig{
+					Resources: []domain.InlineResource{{
+						Embedding: &domain.EmbeddingConfig{
+							Model: "nomic-embed-text",
+							Input: "hello",
+						},
+					}},
+				},
 			},
 		},
 	}

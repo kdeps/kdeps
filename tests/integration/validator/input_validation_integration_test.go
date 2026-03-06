@@ -57,12 +57,14 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 					Validations: &domain.ValidationRules{
 						Required: []string{"userId", "email"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Success",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "Success",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -165,12 +167,14 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Valid",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "Valid",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -366,12 +370,14 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Valid",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "Valid",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
@@ -544,12 +550,14 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 							},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "All validations passed",
+					Resources: []domain.InlineResource{{
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
+							Response: map[string]interface{}{
+								"message": "All validations passed",
+							},
 						},
-					},
+					}},
 				},
 			},
 		},
