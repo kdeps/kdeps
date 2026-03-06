@@ -191,7 +191,9 @@ run:
     - set('hasItems', input.items != nil && len(input.items) > 0)
     - set('isPremium', input.user.tier == 'premium')
   
-  skipCondition:
+  validations:
+  
+    skip:
     - !get('hasItems')
   
   chat:

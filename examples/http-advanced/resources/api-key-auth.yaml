@@ -6,8 +6,9 @@ metadata:
   name: API Key Authentication
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/http-demo]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/http-demo]
 
   httpClient:
     method: POST

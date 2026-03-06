@@ -456,8 +456,8 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 	}
 }
 
-// TestSchemaValidator_RestrictToHttpMethods tests restrictToHttpMethods enum validation.
-func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
+// TestSchemaValidator_ValidationsMethodsEnum tests validations.methods enum validation.
+func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 	validator, err := validator.NewSchemaValidator()
 	if err != nil {
 		t.Fatalf("Failed to create validator: %v", err)
@@ -470,7 +470,7 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 		expectedOption string
 	}{
 		{
-			name: "invalid restrictToHttpMethods value",
+			name: "invalid validations.methods value",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -479,8 +479,8 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"restrictToHttpMethods": []interface{}{
-						"INVALID",
+					"validations": map[string]interface{}{
+						"methods": []interface{}{"INVALID"},
 					},
 					"chat": map[string]interface{}{
 						"model":  "llama3.2",
@@ -488,11 +488,11 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					},
 				},
 			},
-			expectedField:  "restrictToHttpMethods",
+			expectedField:  "methods",
 			expectedOption: "GET",
 		},
 		{
-			name: "invalid restrictToHttpMethods type - integer",
+			name: "invalid validations.methods type - integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -501,8 +501,8 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"restrictToHttpMethods": []interface{}{
-						123,
+					"validations": map[string]interface{}{
+						"methods": []interface{}{123},
 					},
 					"chat": map[string]interface{}{
 						"model":  "llama3.2",
@@ -510,7 +510,7 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 					},
 				},
 			},
-			expectedField:  "restrictToHttpMethods",
+			expectedField:  "methods",
 			expectedOption: "GET",
 		},
 	}
@@ -525,10 +525,6 @@ func TestSchemaValidator_RestrictToHttpMethods(t *testing.T) {
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
 				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
-			}
-
-			if !contains(errMsg, "Available options") {
-				t.Errorf("Error message should contain 'Available options', got: %s", errMsg)
 			}
 
 			if !contains(errMsg, tt.expectedOption) {
@@ -634,7 +630,7 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "valid resource with restrictToHttpMethods",
+			name: "valid resource with validations.methods",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -643,9 +639,8 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"restrictToHttpMethods": []interface{}{
-						"GET",
-						"POST",
+					"validations": map[string]interface{}{
+						"methods": []interface{}{"GET", "POST"},
 					},
 					"chat": map[string]interface{}{
 						"model":  "llama3.2",

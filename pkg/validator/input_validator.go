@@ -42,7 +42,7 @@ func NewInputValidator() *InputValidator {
 }
 
 // Validate validates data against validation rules.
-func (v *InputValidator) Validate(data map[string]interface{}, rules *domain.ValidationRules) error {
+func (v *InputValidator) Validate(data map[string]interface{}, rules *domain.ValidationsConfig) error {
 	if rules == nil {
 		return nil
 	}

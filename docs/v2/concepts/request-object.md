@@ -136,8 +136,8 @@ run:
   expr:
     - set('fileCount', request.filecount())
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - request.filecount() > 0
     error:
       code: 400
@@ -242,8 +242,8 @@ run:
     - set('fileCount', request.filecount())
     - set('hasFiles', get('fileCount') > 0)
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - request.filecount() > 0
     error:
       code: 400
@@ -324,12 +324,14 @@ run:
     - set('isApiPath', request.path startsWith '/api/')
     - set('hasAuth', request.header('Authorization') != nil)
   
-  skipCondition:
+  validations:
+  
+    skip:
     - !get('isPost')
     - !get('isApiPath')
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - request.header('Authorization') != ''
     error:
       code: 401
@@ -345,8 +347,8 @@ run:
     - set('allowedTypes', ['image/png', 'image/jpeg', 'application/pdf'])
     - set('isValid', all(get('fileTypes'), . in get('allowedTypes')))
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('isValid')
     error:
       code: 400

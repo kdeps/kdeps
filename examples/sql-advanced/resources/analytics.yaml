@@ -6,8 +6,9 @@ metadata:
   name: User Analytics Query
 
 run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/sql-demo]
+  validations:
+    methods: [GET]
+    routes: [/api/v1/sql-demo]
 
   sql:
     connectionName: analytics

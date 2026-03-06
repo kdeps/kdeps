@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -536,6 +537,12 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 		return files, nil
 	}
 
+	root, rootErr := os.OpenRoot(packageDir)
+	if rootErr != nil {
+		return nil, rootErr
+	}
+	defer root.Close()
+
 	err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -549,7 +556,13 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return relErr
 		}
 
-		content, readErr := os.ReadFile(path)
+		f, openErr := root.Open(relPath)
+		if openErr != nil {
+			return openErr
+		}
+		defer f.Close()
+
+		content, readErr := io.ReadAll(f)
 		if readErr != nil {
 			return readErr
 		}

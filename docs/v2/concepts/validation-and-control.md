@@ -1,14 +1,15 @@
 # Validation and Control Flow
 
-KDeps provides multiple mechanisms to control resource execution and validate inputs before processing.
+KDeps provides multiple mechanisms to control resource execution and validate inputs before processing. All of these live under the unified `run.validations:` block.
 
 ## Overview
 
-Resources can be controlled through:
-- **Skip Conditions** - Skip execution based on runtime conditions
-- **Preflight Checks** - Validate inputs before execution
-- **Route/Method Restrictions** - Limit which requests trigger the resource
-- **Input Validation** - Validate request data structure
+The `validations:` block handles:
+- **`methods`** / **`routes`** — Limit which requests trigger the resource
+- **`headers`** / **`params`** — Whitelist accepted headers and parameters
+- **`skip`** — Skip execution based on runtime conditions (OR logic)
+- **`check`** / **`error`** — Validate inputs before execution (AND logic, returns error on failure)
+- **`required`** / **`rules`** / **`expr`** — Validate request data structure
 
 ## Skip Conditions
 
@@ -25,9 +26,10 @@ metadata:
   actionId: conditionalResource
   name: Conditional Resource
 run:
-  skipCondition:
-    - get('skip') == true
-    - get('mode') == 'dry-run'
+  validations:
+    skip:
+      - get('skip') == true
+      - get('mode') == 'dry-run'
   chat:
     model: llama3.2:1b
     prompt: "{{ get('q') }}"
@@ -45,26 +47,21 @@ run:
 ### Common Patterns
 
 ```yaml
-# Skip if flag is set
-skipCondition:
-  - get('skip') == true
-# Skip for certain routes
-skipCondition:
-  - get('route') == '/api/v1/admin'
-# Skip if no query parameter
-skipCondition:
-  - get('q') == '' || get('q') == null
-# Skip based on item value (in items iteration)
-skipCondition:
-  - get('current') == 'skip_this'
-# Skip if previous resource failed
-skipCondition:
-  - get('previousResource') == null
+validations:
+  skip:
+    # Skip if flag is set
+    - get('skip') == true
+    # Skip if no query parameter
+    - get('q') == '' || get('q') == null
+    # Skip based on item value (in items iteration)
+    - get('current') == 'skip_this'
+    # Skip if previous resource failed
+    - get('previousResource') == null
 ```
 
 ## Preflight Checks
 
-Preflight checks validate inputs **before** resource execution begins. If validation fails, execution is aborted with a custom error.
+Preflight checks validate inputs **before** resource execution begins. If any condition fails, execution is aborted with a custom error.
 
 ### Basic Usage
 
@@ -77,8 +74,8 @@ metadata:
   actionId: validatedResource
   name: Validated Resource
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('q') != ''
       - get('userId') != null
       - len(get('q')) > 3
@@ -94,38 +91,35 @@ run:
 
 ### How It Works
 
-- All validations must pass (AND logic)
-- If any validation fails, execution stops
-- Custom error is returned with specified code and message
-- Validations run before any resource action executes
+- All `check` conditions must pass (AND logic)
+- If any condition fails, execution stops and the `error` is returned
+- Runs before any resource action executes
 
-### Validation Expressions
+### Check Expressions
+
+<div v-pre>
 
 ```yaml
-preflightCheck:
-  validations:
-    # Check existence
+validations:
+  check:
     - get('q') != ''
     - get('userId') != null
-    # Check type
     - typeof(get('age')) == 'number'
-    # Check range
     - get('age') >= 18
-    - get('age') <= 120
-    # Check length
     - len(get('email')) > 5
-    - len(get('password')) >= 8
-    # Check format (using regex-like checks)
     - get('email').includes('@')
-    # Check multiple conditions
     - get('status') == 'active' || get('status') == 'pending'
-    # Check resource outputs
     - get('previousResource') != null
+  error:
+    code: 400
+    message: "Validation failed"
 ```
+
+</div>
 
 ### Error Response
 
-When preflight validation fails:
+When a `check` validation fails:
 
 ```json
 {
@@ -152,8 +146,9 @@ metadata:
   actionId: apiResource
   name: API Resource
 run:
-  restrictToHttpMethods: [GET, POST]
-  restrictToRoutes: ["/api/v1/data", "/api/v1/query"]
+  validations:
+    methods: [GET, POST]
+    routes: [/api/v1/data, /api/v1/query]
   chat:
     model: llama3.2:1b
     prompt: "{{ get('q') }}"
@@ -163,34 +158,26 @@ run:
 
 ### How It Works
 
-- Resource only executes if **both** conditions match:
-  - HTTP method is in `restrictToHttpMethods`
-  - Route path matches one in `restrictToRoutes`
-- If restrictions don't match, resource is skipped
+- Resource only executes if **both** conditions match
+- If restrictions don't match, resource is skipped silently
 - Empty arrays mean "allow all"
 
 ### Method Restrictions
 
 ```yaml
-# Only GET requests
-restrictToHttpMethods: [GET]
-# GET and POST only
-restrictToHttpMethods: [GET, POST]
-# All methods (default)
-restrictToHttpMethods: []  # or omit
+validations:
+  methods: [GET]         # only GET
+  methods: [GET, POST]   # GET and POST
+  # omit to allow all methods
 ```
 
 ### Route Restrictions
 
 ```yaml
-# Single route
-restrictToRoutes: ["/api/v1/users"]
-# Multiple routes
-restrictToRoutes:
-  - "/api/v1/users"
-  - "/api/v1/profiles"
-# All routes (default)
-restrictToRoutes: []  # or omit
+validations:
+  routes: [/api/v1/users]                   # single route
+  routes: [/api/v1/users, /api/v1/profiles] # multiple routes
+  # omit to allow all routes
 ```
 
 ### Combined Example
@@ -199,11 +186,11 @@ restrictToRoutes: []  # or omit
 
 ```yaml
 run:
-  # Only execute for POST requests to specific endpoints
-  restrictToHttpMethods: [POST]
-  restrictToRoutes:
-    - "/api/v1/create"
-    - "/api/v1/update"
+  validations:
+    methods: [POST]
+    routes:
+      - /api/v1/create
+      - /api/v1/update
   chat:
     model: llama3.2:1b
     prompt: "Create: {{ get('data') }}"
@@ -213,7 +200,7 @@ run:
 
 ## Input Validation
 
-Validate the structure and content of request data using the `validation` block. This includes both schema-based validation and custom expression-based rules.
+Validate the structure and content of request data using `required`, `rules`, and `expr`.
 
 ### Basic Usage
 
@@ -226,7 +213,7 @@ metadata:
   actionId: validatedInput
   name: Validated Input
 run:
-  validation:
+  validations:
     required:
       - userId
       - action
@@ -252,9 +239,9 @@ run:
 
 KDeps supports multiple syntaxes for field validation:
 
-**Option 1: Using `properties` (map format)**
+**`properties` (map format)**
 ```yaml
-validation:
+validations:
   required: [email, name]
   properties:
     email:
@@ -265,9 +252,9 @@ validation:
       minLength: 1
 ```
 
-**Option 2: Using `rules` (array format)**
+**`rules` (array format)**
 ```yaml
-validation:
+validations:
   required: [email, name]
   rules:
     - field: email
@@ -278,26 +265,25 @@ validation:
       minLength: 1
 ```
 
-**Option 3: Using `fields` (alternative map format)**
+**`fields` (alternative map format)**
 ```yaml
-validation:
+validations:
   required: [email, name]
   fields:
     email:
       type: string
-      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
     name:
       type: string
       minLength: 1
 ```
 
-### Validation Rules
+### Validation Rules Reference
 
 | Rule | Type | Description |
 |------|------|-------------|
 | `required` | array | List of required fields |
 | `properties` / `fields` / `rules` | object/array | Field-specific validation rules |
-| `type` | string | Data type: `string`, `number`, `integer`, `boolean`, `object`, `array`, `email`, `url`, `uuid`, `date` |
+| `type` | string | `string`, `number`, `integer`, `boolean`, `object`, `array`, `email`, `url`, `uuid`, `date` |
 | `minLength` | number | Minimum string length |
 | `maxLength` | number | Maximum string length |
 | `minimum` / `min` | number | Minimum numeric value |
@@ -308,19 +294,14 @@ validation:
 | `maxItems` | number | Maximum array items |
 | `message` | string | Custom error message for this field |
 
-### Custom Validation Rules
-
-In addition to schema validation, you can define custom expression-based validation rules:
+### Custom Expression Rules
 
 <div v-pre>
 
 ```yaml
 run:
-  validation:
-    required:
-      - email
-      - password
-      - confirmPassword
+  validations:
+    required: [email, password, confirmPassword]
     properties:
       email:
         type: string
@@ -330,57 +311,14 @@ run:
         minLength: 8
       confirmPassword:
         type: string
-    customRules:
+    expr:
       - expr: get('password') == get('confirmPassword')
         message: "Passwords do not match"
-      - expr: get('password').length >= 8
-        message: "Password must be at least 8 characters"
       - expr: get('email').includes('@')
         message: "Email must contain @ symbol"
   chat:
     model: llama3.2:1b
     prompt: "Process user: {{ get('email') }}"
-```
-
-</div>
-
-### Example: Complete Validation
-
-<div v-pre>
-
-```yaml
-run:
-  validation:
-    required:
-      - email
-      - name
-    properties:
-      email:
-        type: string
-        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-      name:
-        type: string
-        minLength: 1
-        maxLength: 100
-      age:
-        type: integer
-        minimum: 18
-        maximum: 120
-      role:
-        type: string
-        enum: [user, admin, moderator]
-      tags:
-        type: array
-        minItems: 1
-        maxItems: 10
-    customRules:
-      - expr: get('password') == get('confirmPassword')
-        message: "Passwords must match"
-      - expr: get('age') >= 18
-        message: "Must be 18 or older"
-  chat:
-    model: llama3.2:1b
-    prompt: "Process user: {{ get('name') }}"
 ```
 
 </div>
@@ -395,10 +333,11 @@ Restrict which headers and query parameters are allowed in requests.
 
 ```yaml
 run:
-  allowedHeaders:
-    - Authorization
-    - Content-Type
-    - X-API-Key
+  validations:
+    headers:
+      - Authorization
+      - Content-Type
+      - X-API-Key
   chat:
     model: llama3.2:1b
     prompt: "{{ get('q') }}"
@@ -406,7 +345,7 @@ run:
 
 </div>
 
-If a request contains headers not in this list, the resource is skipped.
+Headers not in this list are inaccessible via `get()`.
 
 ### Allowed Parameters
 
@@ -414,10 +353,11 @@ If a request contains headers not in this list, the resource is skipped.
 
 ```yaml
 run:
-  allowedParams:
-    - q
-    - userId
-    - action
+  validations:
+    params:
+      - q
+      - userId
+      - action
   chat:
     model: llama3.2:1b
     prompt: "{{ get('q') }}"
@@ -425,7 +365,7 @@ run:
 
 </div>
 
-If a request contains query parameters not in this list, the resource is skipped.
+Parameters not in this list are inaccessible via `get()`.
 
 ### Combined Example
 
@@ -433,13 +373,14 @@ If a request contains query parameters not in this list, the resource is skipped
 
 ```yaml
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: ["/api/v1/secure"]
-  allowedHeaders:
-    - Authorization
-    - Content-Type
-  allowedParams:
-    - action
+  validations:
+    methods: [POST]
+    routes: [/api/v1/secure]
+    headers:
+      - Authorization
+      - Content-Type
+    params:
+      - action
   chat:
     model: llama3.2:1b
     prompt: "Secure action: {{ get('action') }}"
@@ -449,65 +390,39 @@ run:
 
 ## Execution Order
 
-Resources are checked in this order:
-
-1. **Route/Method Restrictions** - Skip if doesn't match
-2. **Skip Conditions** - Skip if condition is true
-3. **Preflight Checks** - Error if validation fails
-4. **Input Validation** - Error if structure invalid
-5. **Execute Resource** - Run the action
-
 ```
 Request
-    ↓
-┌─────────────────────┐
-│ Route/Method Check │ → Skip if not matching
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Skip Conditions     │ → Skip if condition true
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Preflight Check     │ → Error if validation fails
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Input Validation    │ → Error if structure invalid
-└──────────┬──────────┘
-           ↓
-┌─────────────────────┐
-│ Execute Resource    │
-└─────────────────────┘
+  ↓ methods / routes     → skip if no match
+  ↓ headers / params     → filter inaccessible keys
+  ↓ skip conditions      → skip if any true
+  ↓ check + error        → abort with error if any false
+  ↓ required/rules/expr  → abort with 422 if invalid
+  ↓ Execute Resource
 ```
 
 ## Best Practices
 
-### 1. Use Skip Conditions for Optional Logic
+### 1. Use `skip` for Optional Logic
 
 ```yaml
-# Good: Skip optional processing
-skipCondition:
-  - get('enableCache') != true
-run:
-  python:
-    script: |
-      # Expensive caching operation
+validations:
+  skip:
+    - get('enableCache') != true
 ```
 
-### 2. Validate Early with Preflight Checks
+### 2. Validate Early with `check`
 
 <div v-pre>
 
 ```yaml
 # Good: Catch errors before expensive operations
-preflightCheck:
-  validations:
+validations:
+  check:
     - get('userId') != null
     - get('apiKey') != ''
-run:
-  httpClient:
-    url: "https://api.example.com/users/{{ get('userId') }}"
+  error:
+    code: 400
+    message: "userId and apiKey are required"
 ```
 
 </div>
@@ -517,87 +432,36 @@ run:
 <div v-pre>
 
 ```yaml
-# Good: Limit resource to specific endpoints
-restrictToRoutes: ["/api/v1/admin"]
-restrictToHttpMethods: [POST]
-run:
-  chat:
-    prompt: "Admin action: {{ get('action') }}"
+validations:
+  routes: [/api/v1/admin]
+  methods: [POST]
 ```
 
 </div>
 
-### 4. Combine Multiple Controls
+### 4. Combine All Controls
 
 <div v-pre>
 
 ```yaml
 run:
-  # Security: Only POST to admin routes
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: ["/api/v1/admin"]
-  allowedHeaders: [Authorization]
-  # Validation: Check inputs
-  preflightCheck:
-    validations:
+  validations:
+    methods: [POST]
+    routes: [/api/v1/admin]
+    headers: [Authorization]
+    check:
       - get('adminToken') != null
     error:
       code: 401
       message: Admin token required
-  # Logic: Skip if dry-run
-  skipCondition:
-    - get('dryRun') == true
-  # Execute
+    skip:
+      - get('dryRun') == true
   chat:
     model: llama3.2:1b
     prompt: "Admin: {{ get('action') }}"
 ```
 
 </div>
-
-## Error Handling
-
-### Preflight Errors
-
-Preflight errors return the custom error you define:
-
-```yaml
-preflightCheck:
-  validations:
-    - get('q') != ''
-  error:
-    code: 400
-    message: Query parameter 'q' is required
-```
-
-Response:
-```json
-{
-  "success": false,
-  "error": {
-    "code": 400,
-    "message": "Query parameter 'q' is required"
-  }
-}
-```
-
-### Validation Errors
-
-Input validation errors return structured error information:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": 422,
-    "message": "Validation failed",
-    "details": {
-      "email": "Invalid email format",
-      "age": "Must be between 18 and 120"
-    }
-  }
-}
-```
 
 ## Examples
 
@@ -610,18 +474,15 @@ metadata:
   actionId: smartProcessor
   name: Smart Processor
 run:
-  # Skip if not needed
-  skipCondition:
-    - get('process') != true
-  # Validate inputs
-  preflightCheck:
-    validations:
+  validations:
+    skip:
+      - get('process') != true
+    check:
       - get('data') != null
       - len(get('data')) > 0
     error:
       code: 400
       message: Data is required
-  # Process
   python:
     script: |
       data = get('data')
@@ -639,19 +500,16 @@ metadata:
   actionId: secureEndpoint
   name: Secure Endpoint
 run:
-  # Security restrictions
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: ["/api/v1/secure"]
-  allowedHeaders: [Authorization, Content-Type]
-  # Validate authentication
-  preflightCheck:
-    validations:
+  validations:
+    methods: [POST]
+    routes: [/api/v1/secure]
+    headers: [Authorization, Content-Type]
+    check:
       - get('Authorization') != null
       - get('Authorization').startsWith('Bearer ')
     error:
       code: 401
       message: Valid authorization token required
-  # Process
   chat:
     model: llama3.2:1b
     prompt: "Secure: {{ get('q') }}"
@@ -661,7 +519,8 @@ run:
 
 ## Related Documentation
 
-- [Expressions](expressions.md) - Expression syntax for conditions
-- [Resources Overview](../resources/overview.md) - Resource structure
-- [Unified API](unified-api.md) - Using `get()` in validations
-- [Workflow Configuration](../configuration/workflow.md) - Route configuration
+- [Validation](validation.md) — Full `validations:` block reference
+- [Expressions](expressions.md) — Expression syntax for conditions
+- [Resources Overview](../resources/overview.md) — Resource structure
+- [Unified API](unified-api.md) — Using `get()` in validations
+- [Workflow Configuration](../configuration/workflow.md) — Route configuration

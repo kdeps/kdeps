@@ -274,8 +274,8 @@ metadata:
   actionId: userLookup
 
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('user_id') != ''
     error:
       code: 400

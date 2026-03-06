@@ -51,7 +51,9 @@ run:
   expr:
     - set('token', get('Authorization'))
     - set('isValid', get('token') != '')
-  skipCondition: "!get('isValid')"
+  validations:
+    skip:
+      - !get('isValid')
 ```
 
 **my-workflow.yaml:**
@@ -118,7 +120,9 @@ run:
     # Different behavior based on request method
     - set('isPost', request.method == 'POST')
     - set('isGet', request.method == 'GET')
-  skipCondition: "!get('isPost')"
+  validations:
+    skip:
+      - !get('isPost')
 ```
 
 ### Logging and Auditing

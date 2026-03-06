@@ -39,7 +39,7 @@ run:
 - [`get('q')`](https://kdeps.com/concepts/unified-api) – Get data (body, query, header, output)
 - [`set('k', v)`](https://kdeps.com/concepts/expression-functions-reference#set-key-value-storage) – Store in memory or session
 - [`items:`](https://kdeps.com/concepts/items) – Iterate over arrays/collections
-- [`validate:`](https://kdeps.com/concepts/validation) – Logic & control flow (if/else)
+- [`validations:`](https://kdeps.com/concepts/validation) – Validation, filtering & control flow
 - [`env('KEY')`](https://kdeps.com/concepts/expression-functions-reference#get-key-typehint) – Access environment variables
 - [`session()`](https://kdeps.com/concepts/expression-functions-reference#session) – Access persistent session data
 - [`file('*')`](https://kdeps.com/concepts/expression-functions-reference#file-pattern-selector) – Access uploaded or local files

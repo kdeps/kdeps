@@ -8,8 +8,9 @@ metadata:
     - llmResource
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/chat]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/chat]
 
   apiResponse:
     success: true

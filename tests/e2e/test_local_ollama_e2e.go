@@ -240,10 +240,10 @@ resources:
       actionId: llmResource
       name: LLM Test
     run:
-      restrictToHttpMethods: [POST]
-      restrictToRoutes: [/api/v1/test]
-      preflightCheck:
-        validations:
+      validations:
+        methods: [POST]
+        routes: [/api/v1/test]
+        check:
           - get('q') != ''
         error:
           code: 400
@@ -269,8 +269,9 @@ resources:
       requires:
         - llmResource
     run:
-      restrictToHttpMethods: [POST]
-      restrictToRoutes: [/api/v1/test]
+      validations:
+        methods: [POST]
+        routes: [/api/v1/test]
       apiResponse:
         success: true
         response:

@@ -49,7 +49,7 @@ type Engine struct {
 }
 
 type inputValidator interface {
-	Validate(data map[string]interface{}, rules *domain.ValidationRules) error
+	Validate(data map[string]interface{}, rules *domain.ValidationsConfig) error
 }
 
 type exprValidator interface {
@@ -301,30 +301,30 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		}
 
 		// Set allowedHeaders and allowedParams filters for this resource
-		if len(resource.Run.AllowedHeaders) > 0 {
-			ctx.SetAllowedHeaders(resource.Run.AllowedHeaders)
-			e.logger.Debug("Applied allowedHeaders filter",
+		if resource.Run.Validations != nil && len(resource.Run.Validations.Headers) > 0 {
+			ctx.SetAllowedHeaders(resource.Run.Validations.Headers)
+			e.logger.Debug("Applied headers filter",
 				"actionID", resource.Metadata.ActionID,
-				"allowedHeaders", resource.Run.AllowedHeaders)
+				"headers", resource.Run.Validations.Headers)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedHeaders(nil)
 		}
 
-		if len(resource.Run.AllowedParams) > 0 {
-			ctx.SetAllowedParams(resource.Run.AllowedParams)
-			e.logger.Debug("Applied allowedParams filter",
+		if resource.Run.Validations != nil && len(resource.Run.Validations.Params) > 0 {
+			ctx.SetAllowedParams(resource.Run.Validations.Params)
+			e.logger.Debug("Applied params filter",
 				"actionID", resource.Metadata.ActionID,
-				"allowedParams", resource.Run.AllowedParams)
+				"params", resource.Run.Validations.Params)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedParams(nil)
 		}
 
 		// Run input validation.
-		if resource.Run.Validation != nil {
+		if resource.Run.Validations != nil {
 			requestData := ctx.GetRequestData()
-			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validation); validateErr != nil {
+			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validations); validateErr != nil {
 				// Convert validation errors to AppError
 				var validationErrors *validator.MultipleValidationError
 				if errors.As(validateErr, &validationErrors) {
@@ -355,7 +355,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			}
 
 			// Validate custom expression rules
-			if len(resource.Run.Validation.CustomRules) > 0 {
+			if len(resource.Run.Validations.Expr) > 0 {
 				// Initialize evaluator if needed
 				if e.evaluator == nil {
 					e.evaluator = expression.NewEvaluator(ctx.API)
@@ -365,7 +365,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 				env := e.buildEvaluationEnvironment(ctx)
 
 				if validateErr := e.exprValidator.ValidateCustomRules(
-					resource.Run.Validation.CustomRules,
+					resource.Run.Validations.Expr,
 					e.evaluator,
 					env,
 				); validateErr != nil {
@@ -468,7 +468,7 @@ func (e *Engine) ShouldSkipResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (bool, error) {
-	if len(resource.Run.SkipCondition) == 0 {
+	if resource.Run.Validations == nil || len(resource.Run.Validations.Skip) == 0 {
 		return false, nil
 	}
 
@@ -482,7 +482,7 @@ func (e *Engine) ShouldSkipResource(
 	}
 
 	// Evaluate all skip conditions.
-	for _, condition := range resource.Run.SkipCondition {
+	for _, condition := range resource.Run.Validations.Skip {
 		// Parse expression if needed (handle {{ }} syntax)
 		exprStr := condition.Raw
 		if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
@@ -511,7 +511,8 @@ func (e *Engine) ShouldSkipResource(
 //nolint:gocognit // restriction checks are intentionally explicit
 func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestContext) bool {
 	// If no restrictions, always match.
-	if len(resource.Run.RestrictToHTTPMethods) == 0 && len(resource.Run.RestrictToRoutes) == 0 {
+	if resource.Run.Validations == nil ||
+		(len(resource.Run.Validations.Methods) == 0 && len(resource.Run.Validations.Routes) == 0) {
 		return true
 	}
 
@@ -521,9 +522,9 @@ func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestCont
 	}
 
 	// Check method restriction.
-	if len(resource.Run.RestrictToHTTPMethods) > 0 {
+	if len(resource.Run.Validations.Methods) > 0 {
 		methodMatch := false
-		for _, method := range resource.Run.RestrictToHTTPMethods {
+		for _, method := range resource.Run.Validations.Methods {
 			if method == req.Method {
 				methodMatch = true
 				break
@@ -535,9 +536,9 @@ func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestCont
 	}
 
 	// Check route restriction with pattern matching support.
-	if len(resource.Run.RestrictToRoutes) > 0 {
+	if len(resource.Run.Validations.Routes) > 0 {
 		routeMatch := false
-		for _, route := range resource.Run.RestrictToRoutes {
+		for _, route := range resource.Run.Validations.Routes {
 			// Try exact match first
 			if route == req.Path {
 				routeMatch = true
@@ -595,7 +596,7 @@ func (e *Engine) matchRoutePattern(pattern, path string) bool {
 
 // RunPreflightCheck runs preflight validations.
 func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionContext) error {
-	if resource.Run.PreflightCheck == nil {
+	if resource.Run.Validations == nil || len(resource.Run.Validations.Check) == 0 {
 		return nil
 	}
 
@@ -609,8 +610,8 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 		e.evaluator = expression.NewEvaluator(ctx.API)
 	}
 
-	// Evaluate all validations.
-	for _, validation := range resource.Run.PreflightCheck.Validations {
+	// Evaluate all check expressions (AND logic: all must be true).
+	for _, validation := range resource.Run.Validations.Check {
 		valid, err := e.evaluatePreflightValidation(validation, ctx)
 		if err != nil {
 			return err
@@ -648,9 +649,9 @@ func (e *Engine) createPreflightError(
 	validation domain.Expression,
 	ctx *ExecutionContext,
 ) error {
-	if resource.Run.PreflightCheck.Error != nil {
+	if resource.Run.Validations.Error != nil {
 		// Evaluate error message if it's an expression
-		msg := resource.Run.PreflightCheck.Error.Message
+		msg := resource.Run.Validations.Error.Message
 		if strings.Contains(msg, "{{") {
 			evaluatedMsg, evalErr := e.evaluateFallback(msg, ctx)
 			if evalErr == nil {
@@ -659,7 +660,7 @@ func (e *Engine) createPreflightError(
 		}
 
 		return &PreflightError{
-			Code:    resource.Run.PreflightCheck.Error.Code,
+			Code:    resource.Run.Validations.Error.Code,
 			Message: msg,
 		}
 	}

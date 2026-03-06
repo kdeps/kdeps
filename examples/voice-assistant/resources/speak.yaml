@@ -12,5 +12,5 @@ run:
     text: "{{ llm.response('respond') }}"
     mode: offline
     offline:
-      engine: coqui-tts
+      engine: espeak
       model: en_US-lessac-medium

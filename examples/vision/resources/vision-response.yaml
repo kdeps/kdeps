@@ -8,8 +8,9 @@ metadata:
     - visionLLM
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/vision]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/vision]
   apiResponse:
     success: true
     response:

@@ -26,13 +26,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestValidationRules_UnmarshalYAML_RequiredFields(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_RequiredFields(t *testing.T) {
 	yamlData := `
 required:
   - field1
   - field2
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -45,7 +45,7 @@ required:
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_FieldTypes(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_FieldTypes(t *testing.T) {
 	yamlData := `
 required:
   - email
@@ -58,7 +58,7 @@ rules:
     min: 18.0
     max: 100.0
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -74,7 +74,7 @@ rules:
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_FieldsMapFormat(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_FieldsMapFormat(t *testing.T) {
 	yamlData := `
 fields:
   name:
@@ -84,7 +84,7 @@ fields:
     type: integer
     min: 18.0
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -109,7 +109,7 @@ fields:
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_StringRules(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_StringRules(t *testing.T) {
 	yamlData := `
 rules:
   - field: name
@@ -118,7 +118,7 @@ rules:
     maxLength: 50
     pattern: "^[A-Za-z]+$"
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -134,7 +134,7 @@ rules:
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_ArrayRules(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_ArrayRules(t *testing.T) {
 	yamlData := `
 rules:
   - field: items
@@ -142,7 +142,7 @@ rules:
     minItems: 1
     maxItems: 10
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -158,31 +158,31 @@ rules:
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_CustomRules(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_CustomRules(t *testing.T) {
 	yamlData := `
 rules:
   - field: password
     type: string
-customRules:
+expr:
   - expr: password == confirmPassword
     message: Passwords must match
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if len(rules.CustomRules) != 1 {
-		t.Errorf("Expected 1 custom rule, got %d", len(rules.CustomRules))
+	if len(rules.Expr) != 1 {
+		t.Errorf("Expected 1 custom rule, got %d", len(rules.Expr))
 	}
-	if rules.CustomRules[0].Expr.Raw != "password == confirmPassword" {
+	if rules.Expr[0].Expr.Raw != "password == confirmPassword" {
 		t.Errorf("Custom rule expression mismatch")
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_EmptyRules(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_EmptyRules(t *testing.T) {
 	yamlData := `{}`
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -191,16 +191,16 @@ func TestValidationRules_UnmarshalYAML_EmptyRules(t *testing.T) {
 	// No assertions needed, just ensure no error occurs
 }
 
-func TestValidationRules_UnmarshalYAML_InvalidYAML(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_InvalidYAML(t *testing.T) {
 	yamlData := `[invalid: yaml: structure`
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err == nil {
 		t.Error("Expected error for invalid YAML")
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_PropertiesPrecedence(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_PropertiesPrecedence(t *testing.T) {
 	yamlData := `
 fields:
   name:
@@ -214,7 +214,7 @@ properties:
     type: integer
     max: 100
 `
-	var rules domain.ValidationRules
+	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -339,9 +339,9 @@ max: 100
 	}
 }
 
-func TestValidationRules_UnmarshalYAML_DecodeError(t *testing.T) {
+func TestValidationsConfig_UnmarshalYAML_DecodeError(t *testing.T) {
 	// Test the error path in UnmarshalYAML when node.Decode fails
-	rules := domain.ValidationRules{}
+	rules := domain.ValidationsConfig{}
 
 	// Create a YAML node with invalid structure - scalar where mapping expected
 	node := &yaml.Node{

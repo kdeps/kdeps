@@ -12,7 +12,7 @@ run:
       Content-Type: "application/json"
       Authorization: "Bearer {{#token}}{{token}}{{/token}}"
     timeoutDuration: "30s"
-  validation:
+  validations:
     required:
       - url
     rules:

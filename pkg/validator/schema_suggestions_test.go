@@ -133,7 +133,7 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			expectedSuggestion: "Example:",
 		},
 		{
-			name: "pattern error - invalid restrictToRoutes should suggest pattern",
+			name: "pattern error - invalid validations.routes should suggest pattern",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -142,10 +142,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"name":     "Test",
 				},
 				"run": map[string]interface{}{
-					"restrictToRoutes": []interface{}{"invalid-route"},
+					"validations": map[string]interface{}{
+						"routes": []interface{}{"invalid-route"},
+					},
 				},
 			},
-			expectedField:      "restrictToRoutes",
+			expectedField:      "routes",
 			expectedSuggestion: "Must start with",
 		},
 		{
@@ -322,7 +324,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array format",
-				field:    "run.restrictToRoutes",
+				field:    "run.validations.routes",
 				descStr:  "Invalid type. Expected: array, given: string",
 				expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 			},
@@ -358,7 +360,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: array with but got (no examples)",
-				field:    "run.restrictToRoutes",
+				field:    "run.validations.routes",
 				descStr:  "Invalid type. Expected: array, but got string",
 				expected: "Expected type: array",
 			},
@@ -482,16 +484,16 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: []interface{}{"json", "csv", "table"},
 			},
 			{
-				name:           "restrictToHttpMethods direct",
-				field:          "run.restrictToHttpMethods",
+				name:           "validations.methods direct",
+				field:          "run.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
 			{
-				name:           "methods in nested restrictToHttp",
+				name:           "methods in non-validations context",
 				field:          "run.something.methods",
 				schemaType:     "resource",
-				expectedResult: nil, // Should not match restrictToHttpMethods
+				expectedResult: nil, // Should not match validations.methods
 			},
 			{
 				name:           "apiVersion exact match",
@@ -583,8 +585,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "restrictToHttpMethods suffix match",
-				field:          "run.test.restrictToHttpMethods",
+				name:           "validations.methods nested match",
+				field:          "run.test.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
@@ -814,8 +816,8 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
-				name:           "restrictToHttpMethods partial match",
-				field:          "run.deeply.nested.restrictToHttpMethods",
+				name:           "validations.methods deeply nested match",
+				field:          "run.deeply.nested.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},

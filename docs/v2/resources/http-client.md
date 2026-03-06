@@ -411,8 +411,8 @@ Use preflight checks to validate before making requests:
 
 ```yaml
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('api_token') != ''
       - get('user_id') != ''
     error:

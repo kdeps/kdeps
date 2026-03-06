@@ -8,8 +8,9 @@ metadata:
     - llmWithTools
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/tools]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/tools]
   apiResponse:
     success: true
     response:

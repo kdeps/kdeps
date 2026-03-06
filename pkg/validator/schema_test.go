@@ -1476,8 +1476,8 @@ func TestSchemaValidator_GetPatternSuggestion_Direct(t *testing.T) {
 			expected: "Must start with '/'. Example: '/api/users'",
 		},
 		{
-			name:     "restrictToRoutes",
-			field:    "restrictToRoutes",
+			name:     "validations.routes",
+			field:    "validations.routes",
 			expected: "Must start with '/'. Example: '/api/users'",
 		},
 		{
@@ -1891,8 +1891,8 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization(t *testing.T) {
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
 		{
-			name:       "restrictToHttpMethods normalized",
-			field:      "run.0.restrictToHttpMethods",
+			name:       "validations.methods normalized",
+			field:      "run.0.validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -2048,7 +2048,7 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 		"run.chat.0.contextLength",              // Should normalize to run.chat.contextLength
 		"run.httpClient.0.method",               // Should normalize to run.httpClient.method
 		"run.sql.0.format",                      // Should normalize to run.sql.format
-		"run.0.restrictToHttpMethods",           // Should normalize to run.restrictToHttpMethods
+		"run.validations.methods",               // Should match validations.methods enum
 	}
 
 	for _, field := range testFields {
@@ -2226,7 +2226,7 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "array type with example from known field",
-			field:    "run.restrictToHttpMethods",
+			field:    "run.validations.methods",
 			descStr:  "Expected: array, given: string",
 			expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 		},
@@ -2408,8 +2408,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			expected:   []interface{}{"json", "csv", "table"},
 		},
 		{
-			name:       "restrictToHttpMethods field",
-			field:      "run.restrictToHttpMethods",
+			name:       "validations.methods field",
+			field:      "run.validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},
@@ -2426,8 +2426,8 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			expected:   []interface{}{"Workflow", "Resource"},
 		},
 		{
-			name:       "normalized restrictToHttpMethods",
-			field:      "run.0.restrictToHttpMethods",
+			name:       "normalized validations.methods",
+			field:      "run.0.validations.methods",
 			schemaType: "resource",
 			expected:   []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		},

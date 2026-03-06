@@ -112,8 +112,8 @@ metadata:
   actionId: login
 
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('username') != ''
       - get('password') != ''
     error:
@@ -141,8 +141,8 @@ metadata:
   actionId: protectedResource
 
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('authenticated', 'session') == true
     error:
       code: 401

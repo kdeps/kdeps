@@ -350,8 +350,10 @@ metadata:
   name: Index Document Chunk
 
 run:
-  restrictToRoutes: [/index]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/index]
+  validations:
+    methods: [POST]
 
   embedding:
     model: nomic-embed-text
@@ -377,8 +379,10 @@ metadata:
   name: Search Knowledge Base
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   embedding:
     model: nomic-embed-text
@@ -399,8 +403,10 @@ metadata:
   requires: [searchChunks]
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   chat:
     model: llama3
@@ -456,8 +462,10 @@ metadata:
   name: Index with OpenAI
 
 run:
-  restrictToRoutes: [/index]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/index]
+  validations:
+    methods: [POST]
 
   embedding:
     model: text-embedding-3-small
@@ -485,8 +493,10 @@ metadata:
   name: Search with OpenAI
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   embedding:
     model: text-embedding-3-small
@@ -509,8 +519,10 @@ metadata:
   requires: [searchChunks]
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   chat:
     model: gpt-4o-mini
@@ -567,8 +579,10 @@ metadata:
   name: Index with Cohere
 
 run:
-  restrictToRoutes: [/index]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/index]
+  validations:
+    methods: [POST]
 
   embedding:
     model: embed-english-v3.0
@@ -596,8 +610,10 @@ metadata:
   name: Search with Cohere
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   embedding:
     model: embed-english-v3.0
@@ -647,8 +663,10 @@ metadata:
   name: Index with HuggingFace
 
 run:
-  restrictToRoutes: [/index]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/index]
+  validations:
+    methods: [POST]
 
   embedding:
     model: sentence-transformers/all-MiniLM-L6-v2
@@ -676,8 +694,10 @@ metadata:
   name: Search with HuggingFace
 
 run:
-  restrictToRoutes: [/query]
-  restrictToHttpMethods: [POST]
+  validations:
+    routes: [/query]
+  validations:
+    methods: [POST]
 
   embedding:
     model: sentence-transformers/all-MiniLM-L6-v2

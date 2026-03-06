@@ -6,8 +6,9 @@ metadata:
   name: Batch User Updates
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/sql-demo]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/sql-demo]
 
   sql:
     connectionName: analytics

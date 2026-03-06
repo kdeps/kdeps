@@ -236,8 +236,8 @@ metadata:
   actionId: mlPredict
 
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('features') != ''
     error:
       code: 400

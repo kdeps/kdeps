@@ -1,12 +1,10 @@
 # Route and Method Restrictions
 
-KDeps allows you to restrict resources to specific HTTP methods and routes, enabling powerful routing patterns and method-based behavior.
+KDeps allows you to restrict resources to specific HTTP methods and routes using the `validations:` block.
 
 ## HTTP Method Restrictions
 
-### restrictToHttpMethods
-
-Limit a resource to specific HTTP methods:
+Limit a resource to specific HTTP methods using `validations.methods`:
 
 ```yaml
 apiVersion: kdeps.io/v1
@@ -14,8 +12,8 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  restrictToHttpMethods:
-    - POST
+  validations:
+    methods: [POST]
 
   sql:
     connection: primary
@@ -26,7 +24,7 @@ run:
           - "{{ get('email') }}"
 ```
 
-When `restrictToHttpMethods` is set:
+When `validations.methods` is set:
 - Resource only executes for matching HTTP methods
 - Mismatched methods skip the resource silently
 - Multiple methods can be specified
@@ -42,7 +40,8 @@ kind: Resource
 metadata:
   actionId: createItem
 run:
-  restrictToHttpMethods: [POST]
+  validations:
+    methods: [POST]
   sql:
     queries:
       - query: "INSERT INTO items (name) VALUES (?)"
@@ -55,7 +54,8 @@ kind: Resource
 metadata:
   actionId: getItem
 run:
-  restrictToHttpMethods: [GET]
+  validations:
+    methods: [GET]
   sql:
     queries:
       - query: "SELECT * FROM items WHERE id = ?"
@@ -68,7 +68,8 @@ kind: Resource
 metadata:
   actionId: updateItem
 run:
-  restrictToHttpMethods: [PUT, PATCH]
+  validations:
+    methods: [PUT, PATCH]
   sql:
     queries:
       - query: "UPDATE items SET name = ? WHERE id = ?"
@@ -83,7 +84,8 @@ kind: Resource
 metadata:
   actionId: deleteItem
 run:
-  restrictToHttpMethods: [DELETE]
+  validations:
+    methods: [DELETE]
   sql:
     queries:
       - query: "DELETE FROM items WHERE id = ?"
@@ -92,9 +94,7 @@ run:
 
 ## Route Restrictions
 
-### restrictToRoutes
-
-Limit a resource to specific URL routes:
+Limit a resource to specific URL routes using `validations.routes`:
 
 ```yaml
 apiVersion: kdeps.io/v1
@@ -102,9 +102,10 @@ kind: Resource
 metadata:
   actionId: adminDashboard
 run:
-  restrictToRoutes:
-    - /admin
-    - /admin/*
+  validations:
+    routes:
+      - /admin
+      - /admin/*
 
   sql:
     queries:
@@ -133,8 +134,8 @@ kind: Resource
 metadata:
   actionId: apiV1Handler
 run:
-  restrictToRoutes:
-    - /api/v1/*
+  validations:
+    routes: [/api/v1/*]
   chat:
     model: llama3.2:1b
     prompt: "V1 API: {{ get('q') }}"
@@ -146,8 +147,8 @@ kind: Resource
 metadata:
   actionId: apiV2Handler
 run:
-  restrictToRoutes:
-    - /api/v2/*
+  validations:
+    routes: [/api/v2/*]
   chat:
     model: llama3.2:3b
     prompt: "V2 API with enhanced model: {{ get('q') }}"
@@ -164,9 +165,10 @@ kind: Resource
 metadata:
   actionId: publicContent
 run:
-  restrictToRoutes:
-    - /public/*
-    - /
+  validations:
+    routes:
+      - /public/*
+      - /
   sql:
     queries:
       - query: "SELECT * FROM content WHERE is_public = true"
@@ -178,10 +180,9 @@ kind: Resource
 metadata:
   actionId: adminContent
 run:
-  restrictToRoutes:
-    - /admin/*
-  preflightCheck:
-    validations:
+  validations:
+    routes: [/admin/*]
+    check:
       - get('Authorization') != ''
     error:
       code: 401
@@ -201,10 +202,9 @@ kind: Resource
 metadata:
   actionId: userCreate
 run:
-  # Only POST requests to /api/users
-  restrictToHttpMethods: [POST]
-  restrictToRoutes:
-    - /api/users
+  validations:
+    methods: [POST]
+    routes: [/api/users]
 
   sql:
     queries:
@@ -219,10 +219,9 @@ kind: Resource
 metadata:
   actionId: userGet
 run:
-  # Only GET requests to /api/users/*
-  restrictToHttpMethods: [GET]
-  restrictToRoutes:
-    - /api/users/*
+  validations:
+    methods: [GET]
+    routes: [/api/users/*]
 
   sql:
     queries:
@@ -263,8 +262,9 @@ kind: Resource
 metadata:
   actionId: listUsers
 run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/users]
+  validations:
+    methods: [GET]
+    routes: [/api/users]
   sql:
     connection: db
     queries:
@@ -278,9 +278,9 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/users]
-  validation:
+  validations:
+    methods: [POST]
+    routes: [/api/users]
     required: [name, email]
   sql:
     connection: db
@@ -298,8 +298,9 @@ kind: Resource
 metadata:
   actionId: getUser
 run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/users/*]
+  validations:
+    methods: [GET]
+    routes: [/api/users/*]
   sql:
     connection: db
     queries:
@@ -314,8 +315,9 @@ kind: Resource
 metadata:
   actionId: updateUser
 run:
-  restrictToHttpMethods: [PUT]
-  restrictToRoutes: [/api/users/*]
+  validations:
+    methods: [PUT]
+    routes: [/api/users/*]
   sql:
     connection: db
     queries:
@@ -333,8 +335,9 @@ kind: Resource
 metadata:
   actionId: deleteUser
 run:
-  restrictToHttpMethods: [DELETE]
-  restrictToRoutes: [/api/users/*]
+  validations:
+    methods: [DELETE]
+    routes: [/api/users/*]
   sql:
     connection: db
     queries:
@@ -342,43 +345,16 @@ run:
         params: ["{{ get('id') }}"]
 ```
 
-**resources/response.yaml:**
-```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: responseHandler
-  requires:
-    - listUsers
-    - createUser
-    - getUser
-    - updateUser
-    - deleteUser
-run:
-  expr:
-    # Determine which resource ran based on method and route
-    - set('result',
-        default(get('listUsers'),
-        default(get('createUser'),
-        default(get('getUser'),
-        default(get('updateUser'),
-        get('deleteUser'))))))
-  apiResponse:
-    success: true
-    response:
-      data: get('result')
-```
-
 ## Best Practices
 
 1. **Be Specific**: Use exact routes when possible rather than wildcards
-2. **Combine with Validation**: Add `preflightCheck` or `validation` for secure endpoints
+2. **Combine with `check`**: Add preflight validation for secure endpoints
 3. **Handle All Methods**: Ensure all expected methods have corresponding resources
-4. **Use skipCondition as Fallback**: For complex routing logic, combine with skipCondition
+4. **Use `skip` as Fallback**: For complex routing logic, combine with `skip` conditions
 
 ## See Also
 
-- [Validation](validation) - Input validation
-- [Request Object](request-object) - Accessing request data
-- [Workflow Configuration](../configuration/workflow) - Route configuration
-- [Resources Overview](../resources/overview) - Resource basics
+- [Validation](validation) — Full `validations:` block reference
+- [Request Object](request-object) — Accessing request data
+- [Workflow Configuration](../configuration/workflow) — Route configuration
+- [Resources Overview](../resources/overview) — Resource basics
