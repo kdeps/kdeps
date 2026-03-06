@@ -194,7 +194,7 @@ run:
   validations:
   
     skip:
-    - !get('hasItems')
+    - "!get('hasItems')"
   
   chat:
     prompt: |

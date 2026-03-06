@@ -325,12 +325,9 @@ run:
     - set('hasAuth', request.header('Authorization') != nil)
   
   validations:
-  
     skip:
-    - !get('isPost')
-    - !get('isApiPath')
-  
-  validations:
+    - "!get('isPost')"
+    - "!get('isApiPath')"
     check:
       - request.header('Authorization') != ''
     error:

@@ -556,7 +556,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return relErr
 		}
 
-		f, openErr := root.Open(relPath)
+		f, openErr := root.Open(filepath.ToSlash(relPath))
 		if openErr != nil {
 			return openErr
 		}

@@ -18,7 +18,11 @@
 
 package domain
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
 
 // Resource represents a KDeps resource.
 type Resource struct {
@@ -102,8 +106,14 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 
 	// Parse "fields" and "properties" as map[string]FieldRule → []FieldRule.
 	// "properties" takes precedence over "fields", both override "rules".
-	fieldsRules := mapFieldRulesFromNode(node, "fields")
-	propsRules := mapFieldRulesFromNode(node, "properties")
+	fieldsRules, err := mapFieldRulesFromNode(node, "fields")
+	if err != nil {
+		return err
+	}
+	propsRules, err := mapFieldRulesFromNode(node, "properties")
+	if err != nil {
+		return err
+	}
 
 	if len(propsRules) > 0 {
 		v.Rules = propsRules
@@ -116,12 +126,12 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // mapFieldRulesFromNode extracts a map-style field rules block (e.g. "fields:" or "properties:")
 // from a YAML mapping node and returns it as []FieldRule with Field set from the map key.
-func mapFieldRulesFromNode(node *yaml.Node, key string) []FieldRule {
+func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
 		node = node.Content[0]
 	}
 	if node.Kind != yaml.MappingNode {
-		return nil
+		return nil, nil
 	}
 	for i := 0; i+1 < len(node.Content); i += 2 {
 		if node.Content[i].Value != key {
@@ -129,21 +139,21 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) []FieldRule {
 		}
 		mapNode := node.Content[i+1]
 		if mapNode.Kind != yaml.MappingNode {
-			return nil
+			return nil, nil
 		}
 		var rules []FieldRule
 		for j := 0; j+1 < len(mapNode.Content); j += 2 {
 			fieldName := mapNode.Content[j].Value
 			var rule FieldRule
 			if err := mapNode.Content[j+1].Decode(&rule); err != nil {
-				continue
+				return nil, fmt.Errorf("field %q: %w", fieldName, err)
 			}
 			rule.Field = fieldName
 			rules = append(rules, rule)
 		}
-		return rules
+		return rules, nil
 	}
-	return nil
+	return nil, nil
 }
 
 // RunConfig contains resource execution configuration.
