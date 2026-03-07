@@ -49,7 +49,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		data      map[string]interface{}
-		rules     *domain.ValidationRules
+		rules     *domain.ValidationsConfig
 		wantError bool
 		errorMsg  string
 	}{
@@ -59,7 +59,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 				"field1": "value1",
 				"field2": "value2",
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1", "field2"},
 			},
 			wantError: false,
@@ -69,7 +69,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 			data: map[string]interface{}{
 				"field1": "value1",
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1", "field2"},
 			},
 			wantError: true,
@@ -80,7 +80,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 			data: map[string]interface{}{
 				"field1": "",
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1"},
 			},
 			wantError: true,
@@ -91,7 +91,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 			data: map[string]interface{}{
 				"field1": nil,
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1"},
 			},
 			wantError: true,
@@ -102,7 +102,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 			data: map[string]interface{}{
 				"field1": []interface{}{},
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1"},
 			},
 			wantError: true,
@@ -113,7 +113,7 @@ func TestInputValidator_Validate_RequiredFields(t *testing.T) {
 			data: map[string]interface{}{
 				"field1": map[string]interface{}{},
 			},
-			rules: &domain.ValidationRules{
+			rules: &domain.ValidationsConfig{
 				Required: []string{"field1"},
 			},
 			wantError: true,
@@ -973,7 +973,7 @@ func TestInputValidator_Validate_CombinedRules(t *testing.T) {
 		"email": "john@example.com",
 	}
 
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Required: []string{"name", "age", "email"},
 		Rules: []domain.FieldRule{
 			{
@@ -1008,7 +1008,7 @@ func TestInputValidator_Validate_MultipleErrors(t *testing.T) {
 		"email": "invalid-email", // Invalid format
 	}
 
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Required: []string{"name", "age", "email"},
 		Rules: []domain.FieldRule{
 			{
@@ -1044,7 +1044,7 @@ func TestInputValidator_Validate_NoErrors(t *testing.T) {
 		"age":  25,
 	}
 
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Rules: []domain.FieldRule{
 			{
 				Field: "name",
@@ -1066,7 +1066,7 @@ func TestInputValidator_Validate_EmptyData(t *testing.T) {
 
 	// Test with empty data map
 	data := map[string]interface{}{}
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Required: []string{"name"},
 	}
 
@@ -1080,7 +1080,7 @@ func TestInputValidator_Validate_NilData(t *testing.T) {
 
 	// Test with nil data
 	var data map[string]interface{}
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Required: []string{"name"},
 	}
 
@@ -1101,7 +1101,7 @@ func TestInputValidator_Validate_ComplexNestedRules(t *testing.T) {
 		"tags": []interface{}{"admin", "user"},
 	}
 
-	rules := &domain.ValidationRules{
+	rules := &domain.ValidationsConfig{
 		Required: []string{"user", "tags"},
 		Rules: []domain.FieldRule{
 			{

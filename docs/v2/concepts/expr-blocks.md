@@ -332,8 +332,8 @@ run:
     - set('age', parseInt(get('age')))
     - set('is_valid', get('email').includes('@') && get('age') >= 18)
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('is_valid') == true
     error:
       code: 400

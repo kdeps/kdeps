@@ -23,18 +23,15 @@ items:                        # Optional: for iteration
   - item2
 
 run:
-  # Request restrictions
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/endpoint]
-  allowedHeaders: [Authorization]
-  allowedParams: [q, limit]
-
-  # Validation
-  skipCondition:
+  # Request restrictions and validation
+  validations:
+    methods: [POST]
+    routes: [/api/v1/endpoint]
+    headers: [Authorization]
+    params: [q, limit]
+    skip:
     - get('skip') == true
-
-  preflightCheck:
-    validations:
+    check:
       - get('q') != ''
     error:
       code: 400
@@ -131,57 +128,61 @@ KDeps automatically builds a dependency graph and executes resources in the corr
 
 ## Request Restrictions
 
-### restrictToHttpMethods
+### validations.methods
 Limit which HTTP methods trigger this resource:
 
 ```yaml
 run:
-  restrictToHttpMethods: [GET, POST]
+  validations:
+    methods: [GET, POST]
 ```
 
-### restrictToRoutes
+### validations.routes
 Limit which routes trigger this resource:
 
 ```yaml
 run:
-  restrictToRoutes: [/api/v1/chat, /api/v1/query]
+  validations:
+    routes: [/api/v1/chat, /api/v1/query]
 ```
 
-### allowedHeaders / allowedParams
+### validations.headers / validations.params
 Whitelist specific headers or parameters:
 
 ```yaml
 run:
-  allowedHeaders:
-    - Authorization
-    - X-API-Key
-  allowedParams:
-    - q
-    - limit
-    - offset
+  validations:
+    headers:
+      - Authorization
+      - X-API-Key
+    params:
+      - q
+      - limit
+      - offset
 ```
 
 ## Validation
 
-### skipCondition
+### validations.skip
 Skip resource execution based on conditions:
 
 ```yaml
 run:
-  skipCondition:
-    - get('skip') == true
-    - get('mode') == 'fast'
+  validations:
+    skip:
+      - get('skip') == true
+      - get('mode') == 'fast'
 ```
 
 If any condition evaluates to `true`, the resource is skipped.
 
-### preflightCheck
+### validations.check
 Validate inputs before execution:
 
 ```yaml
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('q') != ''
       - get('limit') <= 100
     error:
@@ -372,7 +373,7 @@ actionId: r2
 Each resource should do one thing well. Split complex logic into multiple resources.
 
 ### 3. Validate Early
-Use `preflightCheck` to catch errors before expensive operations.
+Use `validations.check` to validate inputs before expensive operations.
 
 ### 4. Handle Dependencies
 Only list direct dependencies in `requires`. KDeps handles transitive dependencies.

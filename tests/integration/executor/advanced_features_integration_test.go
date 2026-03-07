@@ -53,8 +53,10 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 					Name:     "Conditional Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "false"}, // Don't skip
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "false"}, // Don't skip
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -70,8 +72,10 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 					Name:     "Skipped Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "true"}, // Skip this
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "true"}, // Skip this
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -152,16 +156,17 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 					Name:     "Validated Resource",
 					Requires: []string{"set-data"},
 				},
-				Run: domain.RunConfig{PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
-						{Raw: "get('userId') != nil"},
-						{Raw: "get('apiToken') != nil"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{
+							{Raw: "get('userId') != nil"},
+							{Raw: "get('apiToken') != nil"},
+						},
+						Error: &domain.ErrorConfig{
+							Code:    400,
+							Message: "Missing required parameters",
+						},
 					},
-					Error: &domain.ErrorConfig{
-						Code:    400,
-						Message: "Missing required parameters",
-					},
-				},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -209,8 +214,8 @@ func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 					Name:     "Validated Resource",
 				},
 				Run: domain.RunConfig{
-					PreflightCheck: &domain.PreflightCheck{
-						Validations: []domain.Expression{
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{
 							{Raw: "get('userId') != nil"}, // Will fail - userId not set
 						},
 						Error: &domain.ErrorConfig{
@@ -310,7 +315,9 @@ func TestAdvancedFeatures_RestrictToHTTPMethods(t *testing.T) {
 					Name:     "Restricted Resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToHTTPMethods: []string{"GET", "POST"},
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET", "POST"},
+					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -366,7 +373,9 @@ func TestAdvancedFeatures_RestrictToRoutes(t *testing.T) {
 					Name:     "Route Restricted Resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToRoutes: []string{"/api/v1/data"},
+					Validations: &domain.ValidationsConfig{
+						Routes: []string{"/api/v1/data"},
+					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -492,8 +501,10 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 					Name:     "Conditional Step",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "get('userId') == null"}, // Skip if userId not set
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "get('userId') == null"}, // Skip if userId not set
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -509,8 +520,8 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 					Name:     "Validated Step",
 				},
 				Run: domain.RunConfig{
-					PreflightCheck: &domain.PreflightCheck{
-						Validations: []domain.Expression{
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{
 							{Raw: "get('userId') != null"},
 						},
 					},

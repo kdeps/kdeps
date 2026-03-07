@@ -257,8 +257,8 @@ run:
     - set('hasRequiredFields', get('name') != nil && get('email') != nil)
     - set('isValid', get('isValidEmail') && get('isValidAge') && get('hasRequiredFields'))
   
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('isValid')
     error:
       code: 400

@@ -18,7 +18,11 @@
 
 package domain
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
 
 // Resource represents a KDeps resource.
 type Resource struct {
@@ -54,15 +58,128 @@ type LoopConfig struct {
 	MaxIterations int `yaml:"maxIterations,omitempty"`
 }
 
+// ValidationsConfig consolidates all validation-related config for a resource.
+type ValidationsConfig struct {
+	Methods  []string     `yaml:"methods,omitempty"`
+	Routes   []string     `yaml:"routes,omitempty"`
+	Headers  []string     `yaml:"headers,omitempty"`
+	Params   []string     `yaml:"params,omitempty"`
+	Skip     []Expression `yaml:"skip,omitempty"`
+	Check    []Expression `yaml:"check,omitempty"`
+	Error    *ErrorConfig `yaml:"error,omitempty"`
+	Required []string     `yaml:"required,omitempty"`
+	Rules    []FieldRule  `yaml:"rules,omitempty"`
+	Expr     []CustomRule `yaml:"expr,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "properties:" and "fields:"
+// as map-style aliases for "rules:". Both formats (array and map) are supported.
+func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawValidationsConfig struct {
+		Methods  []string     `yaml:"methods"`
+		Routes   []string     `yaml:"routes"`
+		Headers  []string     `yaml:"headers"`
+		Params   []string     `yaml:"params"`
+		Skip     []Expression `yaml:"skip"`
+		Check    []Expression `yaml:"check"`
+		Error    *ErrorConfig `yaml:"error"`
+		Required []string     `yaml:"required"`
+		Rules    []FieldRule  `yaml:"rules"`
+		Expr     []CustomRule `yaml:"expr"`
+	}
+
+	var raw rawValidationsConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	v.Methods = raw.Methods
+	v.Routes = raw.Routes
+	v.Headers = raw.Headers
+	v.Params = raw.Params
+	v.Skip = raw.Skip
+	v.Check = raw.Check
+	v.Error = raw.Error
+	v.Required = raw.Required
+	v.Expr = raw.Expr
+	v.Rules = raw.Rules
+
+	// Parse "fields" and "properties" as map[string]FieldRule → []FieldRule.
+	// "properties" takes precedence over "fields", both override "rules".
+	fieldsRules, err := mapFieldRulesFromNode(node, "fields")
+	if err != nil {
+		return err
+	}
+	propsRules, err := mapFieldRulesFromNode(node, "properties")
+	if err != nil {
+		return err
+	}
+
+	if len(propsRules) > 0 {
+		v.Rules = propsRules
+	} else if len(fieldsRules) > 0 {
+		v.Rules = fieldsRules
+	}
+
+	return nil
+}
+
+// yamlNodeKindName returns a human-readable name for a yaml.Kind value.
+func yamlNodeKindName(kind yaml.Kind) string {
+	switch kind {
+	case yaml.DocumentNode:
+		return "document"
+	case yaml.SequenceNode:
+		return "sequence"
+	case yaml.MappingNode:
+		return "mapping"
+	case yaml.ScalarNode:
+		return "scalar"
+	case yaml.AliasNode:
+		return "alias"
+	default:
+		return fmt.Sprintf("unknown(%d)", kind)
+	}
+}
+
+// mapFieldRulesFromNode extracts a map-style field rules block (e.g. "fields:" or "properties:")
+// from a YAML mapping node and returns it as []FieldRule with Field set from the map key.
+func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		node = node.Content[0]
+	}
+	if node.Kind != yaml.MappingNode {
+		return nil, nil
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value != key {
+			continue
+		}
+		mapNode := node.Content[i+1]
+		if mapNode.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf(
+				"%q must be a mapping (got %s at line %d)",
+				key, yamlNodeKindName(mapNode.Kind), mapNode.Line,
+			)
+		}
+		var rules []FieldRule
+		for j := 0; j+1 < len(mapNode.Content); j += 2 {
+			fieldName := mapNode.Content[j].Value
+			var rule FieldRule
+			if err := mapNode.Content[j+1].Decode(&rule); err != nil {
+				return nil, fmt.Errorf("field %q: %w", fieldName, err)
+			}
+			rule.Field = fieldName
+			rules = append(rules, rule)
+		}
+		return rules, nil
+	}
+	return nil, nil
+}
+
 // RunConfig contains resource execution configuration.
 type RunConfig struct {
-	RestrictToHTTPMethods []string         `yaml:"restrictToHttpMethods,omitempty"`
-	RestrictToRoutes      []string         `yaml:"restrictToRoutes,omitempty"`
-	AllowedHeaders        []string         `yaml:"allowedHeaders,omitempty"`
-	AllowedParams         []string         `yaml:"allowedParams,omitempty"`
-	SkipCondition         []Expression     `yaml:"skipCondition,omitempty"`
-	PreflightCheck        *PreflightCheck  `yaml:"preflightCheck,omitempty"`
-	Validation            *ValidationRules `yaml:"validation,omitempty"`
+	Validations *ValidationsConfig `yaml:"validations,omitempty"`
 
 	// Loop enables conditional while-loop iteration for the resource.
 	// When set, the resource body is executed repeatedly while Loop.While is true.
@@ -108,12 +225,6 @@ type InlineResource struct {
 	TTS        *TTSConfig        `yaml:"tts,omitempty"`
 	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
 	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
-}
-
-// PreflightCheck represents preflight validation.
-type PreflightCheck struct {
-	Validations []Expression `yaml:"validations"`
-	Error       *ErrorConfig `yaml:"error,omitempty"`
 }
 
 // ErrorConfig represents error configuration.

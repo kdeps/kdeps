@@ -7,12 +7,10 @@ metadata:
   description: Demonstrates inline resources that execute before and after the main resource
 
 run:
-  # Restrict to specific routes and methods
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/process]
-
-  # Validate input
-  validation:
+  # Restrict to specific routes and methods, and validate input
+  validations:
+    methods: [POST]
+    routes: [/api/v1/process]
     required:
       - data
     rules:
@@ -28,7 +26,7 @@ run:
         method: GET
         url: "https://api.example.com/config"
         timeout: 5s
-    
+
     # Execute a shell command to prepare environment
     - exec:
         command: "echo 'Preparing environment...'"
@@ -52,7 +50,7 @@ run:
         params:
           - "{{get('data')}}"
         timeout: 5s
-    
+
     # Run Python script for post-processing
     - python:
         script: |
@@ -61,7 +59,7 @@ run:
           result = {"status": "success"}
           print(json.dumps(result))
         timeout: 10s
-    
+
     # Send notification via HTTP
     - httpClient:
         method: POST

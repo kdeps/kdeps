@@ -43,11 +43,12 @@ items:
   - item1
   - item2
 run:
-  restrictToHttpMethods:
-    - GET
-    - POST
-  restrictTodomain.Routes:
-    - /api/test
+  validations:
+    methods:
+      - GET
+      - POST
+    routes:
+      - /api/test
   chat:
     model: llama3.2:latest
     role: user
@@ -90,10 +91,15 @@ run:
 	}
 
 	// Verify run config.
-	if len(resource.Run.RestrictToHTTPMethods) != 2 {
+	if resource.Run.Validations == nil || len(resource.Run.Validations.Methods) != 2 {
 		t.Errorf(
-			"RestrictToHTTPMethods length = %v, want %v",
-			len(resource.Run.RestrictToHTTPMethods),
+			"Validations.Methods length = %v, want %v",
+			func() int {
+				if resource.Run.Validations == nil {
+					return 0
+				}
+				return len(resource.Run.Validations.Methods)
+			}(),
 			2,
 		)
 	}
@@ -313,9 +319,9 @@ meta:
 	}
 }
 
-func TestPreflightCheckYAML(t *testing.T) {
+func TestValidationsConfigYAML(t *testing.T) {
 	yamlData := `
-validations:
+check:
   - get('userId') != null
   - get('role') == 'admin'
 error:
@@ -323,27 +329,27 @@ error:
   message: Unauthorized access
 `
 
-	var check domain.PreflightCheck
+	var cfg domain.ValidationsConfig
 
-	err := yaml.Unmarshal([]byte(yamlData), &check)
+	err := yaml.Unmarshal([]byte(yamlData), &cfg)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
 
-	if len(check.Validations) != 2 {
-		t.Errorf("Validations length = %v, want %v", len(check.Validations), 2)
+	if len(cfg.Check) != 2 {
+		t.Errorf("Check length = %v, want %v", len(cfg.Check), 2)
 	}
 
-	if check.Error == nil {
+	if cfg.Error == nil {
 		t.Fatal("Error is nil")
 	}
 
-	if check.Error.Code != 403 {
-		t.Errorf("Error.Code = %v, want %v", check.Error.Code, 403)
+	if cfg.Error.Code != 403 {
+		t.Errorf("Error.Code = %v, want %v", cfg.Error.Code, 403)
 	}
 
-	if check.Error.Message != "Unauthorized access" {
-		t.Errorf("Error.Message = %v, want %v", check.Error.Message, "Unauthorized access")
+	if cfg.Error.Message != "Unauthorized access" {
+		t.Errorf("Error.Message = %v, want %v", cfg.Error.Message, "Unauthorized access")
 	}
 }
 

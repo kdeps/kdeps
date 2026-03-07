@@ -199,7 +199,8 @@ items:
   - "process"
 
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('current') == 'skip_this'
 
   chat:
@@ -222,7 +223,8 @@ items:
     priority: "high"
 
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('current').priority != 'high'
 
   chat:

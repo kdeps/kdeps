@@ -117,7 +117,7 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  validation:
+  validations:
     required:
       - name
       - email
@@ -191,8 +191,10 @@ run:
     - set('hasItems', input.items != nil && len(input.items) > 0)
     - set('isPremium', input.user.tier == 'premium')
   
-  skipCondition:
-    - !get('hasItems')
+  validations:
+  
+    skip:
+    - "!get('hasItems')"
   
   chat:
     prompt: |

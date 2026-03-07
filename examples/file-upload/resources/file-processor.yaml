@@ -6,8 +6,9 @@ metadata:
   name: File Processor
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/upload]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/upload]
   apiResponse:
     success: true
     response:

@@ -6,8 +6,9 @@ metadata:
   name: Authenticated API Call
 
 run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/http-demo]
+  validations:
+    methods: [GET]
+    routes: [/api/v1/http-demo]
 
   httpClient:
     method: GET

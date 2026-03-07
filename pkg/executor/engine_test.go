@@ -307,8 +307,10 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 					Name:     "Conditional Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "false"}, // This should not skip the resource
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "false"}, // This should not skip the resource
+						},
 					},
 					HTTPClient: &domain.HTTPClientConfig{
 						Method: "GET",
@@ -322,8 +324,10 @@ func TestEngine_Execute_SkipConditions(t *testing.T) {
 					Name:     "Skipped Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "true"}, // This should skip the resource
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "true"}, // This should skip the resource
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -766,8 +770,8 @@ func TestEngine_runPreflightCheck(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			PreflightCheck: &domain.PreflightCheck{
-				Validations: []domain.Expression{
+			Validations: &domain.ValidationsConfig{
+				Check: []domain.Expression{
 					{Raw: "true"}, // Always passes
 				},
 			},
@@ -812,8 +816,8 @@ func TestEngine_runPreflightCheck_Failing(t *testing.T) {
 			Name:     "Test Resource",
 		},
 		Run: domain.RunConfig{
-			PreflightCheck: &domain.PreflightCheck{
-				Validations: []domain.Expression{
+			Validations: &domain.ValidationsConfig{
+				Check: []domain.Expression{
 					{Raw: "false"}, // Always fails
 				},
 				Error: &domain.ErrorConfig{
@@ -858,8 +862,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "true"},
 					},
 				},
@@ -893,8 +897,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "true"}, // Should pass
 					},
 				},
@@ -912,8 +916,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "false"}, // Should fail
 					},
 					Error: &domain.ErrorConfig{
@@ -941,8 +945,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "false"}, // Should fail
 					},
 					// No Error config - should return generic error
@@ -965,8 +969,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "{{true}}"}, // Template syntax - should be parsed and evaluated
 					},
 				},
@@ -984,8 +988,8 @@ func TestEngine_RunPreflightCheck_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "invalid.syntax.expression"}, // Should cause evaluation error
 					},
 				},
@@ -1433,7 +1437,7 @@ func TestEngine_ShouldSkipResource_NoRestrictions(t *testing.T) {
 			Name: "test-resource",
 		},
 		Run: domain.RunConfig{
-			SkipCondition: []domain.Expression{},
+			Validations: &domain.ValidationsConfig{Skip: []domain.Expression{}},
 		},
 	}
 
@@ -1450,10 +1454,7 @@ func TestEngine_MatchesRestrictions_NoRestrictions(t *testing.T) {
 		Metadata: domain.ResourceMetadata{
 			Name: "test-resource",
 		},
-		Run: domain.RunConfig{
-			RestrictToHTTPMethods: []string{},
-			RestrictToRoutes:      []string{},
-		},
+		Run: domain.RunConfig{},
 	}
 
 	req := &executor.RequestContext{}
@@ -1469,8 +1470,9 @@ func TestEngine_MatchesRestrictions_WithMethodRestriction(t *testing.T) {
 			Name: "test-resource",
 		},
 		Run: domain.RunConfig{
-			RestrictToHTTPMethods: []string{"POST"},
-			RestrictToRoutes:      []string{},
+			Validations: &domain.ValidationsConfig{
+				Methods: []string{"POST"},
+			},
 		},
 	}
 
@@ -1489,8 +1491,9 @@ func TestEngine_MatchesRestrictions_MethodMismatch(t *testing.T) {
 			Name: "test-resource",
 		},
 		Run: domain.RunConfig{
-			RestrictToHTTPMethods: []string{"POST"},
-			RestrictToRoutes:      []string{},
+			Validations: &domain.ValidationsConfig{
+				Methods: []string{"POST"},
+			},
 		},
 	}
 
@@ -2147,7 +2150,9 @@ func TestEngine_matchRoutePattern(t *testing.T) {
 					Name: "test-resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToRoutes: []string{tt.pattern},
+					Validations: &domain.ValidationsConfig{
+						Routes: []string{tt.pattern},
+					},
 				},
 			}
 
@@ -3138,8 +3143,10 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				SkipCondition: []domain.Expression{
-					{Raw: "true"}, // Should pass with empty environment
+				Validations: &domain.ValidationsConfig{
+					Skip: []domain.Expression{
+						{Raw: "true"}, // Should pass with empty environment
+					},
 				},
 			},
 		}
@@ -3178,8 +3185,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "request.method == 'GET'"}, // Tests request.method accessor
 						{Raw: "request.path == '/test'"}, // Tests request.path accessor
 						{Raw: "input.test == 'value'"},   // Tests input accessor
@@ -3219,8 +3226,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "request.method == 'POST'"}, // Should work
 					},
 				},
@@ -3251,8 +3258,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "llm.response('nonexistent') == nil"},     // Should return nil
 						{Raw: "python.stdout('nonexistent') == ''"},     // Should return empty string
 						{Raw: "python.stderr('nonexistent') == ''"},     // Should return empty string
@@ -3299,8 +3306,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "item.id == 123"},                      // Direct access
 						{Raw: "item.name == 'test item'"},            // String access
 						{Raw: "item.nested.value == 'nested value'"}, // Nested access
@@ -3341,8 +3348,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "len(item.values('test-resource')) == 2"},          // Check length
 						{Raw: "item.values('test-resource')[0].id == 1"},         // Check first item
 						{Raw: "item.values('test-resource')[1].name == 'item2'"}, // Check second item
@@ -3386,8 +3393,8 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "input.debug == 'test'"}, // Should trigger debug logging
 					},
 				},
@@ -3714,7 +3721,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
+						Validations: &domain.ValidationsConfig{
 							Required: []string{"missing_field"},
 						},
 						APIResponse: &domain.APIResponseConfig{
@@ -3755,8 +3762,8 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 						Name:     "Test Resource",
 					},
 					Run: domain.RunConfig{
-						Validation: &domain.ValidationRules{
-							CustomRules: []domain.CustomRule{
+						Validations: &domain.ValidationsConfig{
+							Expr: []domain.CustomRule{
 								{
 									Expr:    domain.Expression{Raw: "{{ false }}"}, // Always fails
 									Message: "Custom validation failed",
@@ -4193,7 +4200,7 @@ func TestEngine_ShouldSkipResource_ComplexConditions(t *testing.T) {
 					Name:     "Test Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: tt.conditions,
+					Validations: &domain.ValidationsConfig{Skip: tt.conditions},
 				},
 			}
 
@@ -4246,8 +4253,10 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				SkipCondition: []domain.Expression{
-					{Raw: "request.method == 'GET'"}, // Should not skip (method is POST)
+				Validations: &domain.ValidationsConfig{
+					Skip: []domain.Expression{
+						{Raw: "request.method == 'GET'"}, // Should not skip (method is POST)
+					},
 				},
 			},
 		}
@@ -4286,8 +4295,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "input.valid == true"}, // Should pass
 					},
 				},
@@ -4408,8 +4417,10 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				SkipCondition: []domain.Expression{
-					{Raw: "true"}, // This will be evaluated with nil context
+				Validations: &domain.ValidationsConfig{
+					Skip: []domain.Expression{
+						{Raw: "true"}, // This will be evaluated with nil context
+					},
 				},
 			},
 		}
@@ -4448,8 +4459,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "true"}, // Always passes
 					},
 				},
@@ -4486,8 +4497,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "item.id == 123"}, // Accesses item context
 					},
 				},
@@ -4535,8 +4546,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "llm.response('llm-resource') == 'llm response'"}, // Tests llm accessor
 					},
 				},
@@ -4660,8 +4671,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "true"}, // Simple expression that should work with minimal env
 					},
 				},
@@ -4703,8 +4714,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "request.method == 'GET'"}, // Should pass
 					},
 				},
@@ -4742,8 +4753,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "item.id == 123 && item.existing == 'value'"}, // Test item context access
 					},
 				},
@@ -4779,8 +4790,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "llm.response('nonexistent') == nil"}, // Test missing LLM response
 					},
 				},
@@ -4829,8 +4840,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "llm.response('llm-resource') == 'llm response'"},
 						{Raw: "python.stdout('python-resource') == 'python output'"},
 						{Raw: "python.stderr('python-resource') == 'python error'"},
@@ -4894,8 +4905,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "request.method == 'POST'"},
 						{Raw: "request.path == '/api/v1/users/123'"},
 						{Raw: "request.headers['Content-Type'] == 'application/json'"},
@@ -4946,8 +4957,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 				Name:     "Test Resource",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "input.test == 'data'"}, // Should trigger debug logging if enabled
 					},
 				},

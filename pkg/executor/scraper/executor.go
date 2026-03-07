@@ -554,7 +554,10 @@ func extractExcelCells(r io.Reader, shared []string) (string, error) { //nolint:
 				if inV {
 					val := valBuf.String()
 					if cellType == "s" && shared != nil {
-						if idx, err := parseSharedIdx(val); err == nil && idx < len(shared) { //nolint:govet // shadow: err intentionally re-declared in if-init scope
+						if idx, parseErr := parseSharedIdx(
+							val,
+						); parseErr == nil &&
+							idx < len(shared) {
 							val = shared[idx]
 						}
 					}

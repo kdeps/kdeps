@@ -172,6 +172,12 @@ func ValidateWorkflowDir(dir string) error {
 // ParseKdepsIgnore walks a directory tree and collects patterns from all .kdepsignore files.
 func ParseKdepsIgnore(dir string) []string {
 	var patterns []string
+	root, rootErr := os.OpenRoot(dir)
+	if rootErr != nil {
+		return patterns
+	}
+	defer root.Close()
+
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -181,9 +187,17 @@ func ParseKdepsIgnore(dir string) []string {
 			return filepath.SkipDir
 		}
 		if info.Name() == ".kdepsignore" {
-			data, readErr := os.ReadFile(path)
-			if readErr == nil {
-				patterns = append(patterns, ParseIgnorePatterns(string(data))...)
+			relPath, relErr := filepath.Rel(dir, path)
+			if relErr != nil {
+				return nil //nolint:nilerr // walk callback: skip files with unresolvable paths without stopping the walk
+			}
+			f, openErr := root.Open(filepath.ToSlash(relPath))
+			if openErr == nil {
+				data, readErr := io.ReadAll(f)
+				_ = f.Close()
+				if readErr == nil {
+					patterns = append(patterns, ParseIgnorePatterns(string(data))...)
+				}
 			}
 		}
 		return nil

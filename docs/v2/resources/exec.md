@@ -387,8 +387,8 @@ When using user input in commands, be careful about command injection:
 
 # Safer - use Python for complex input handling
 # Or validate input first
-preflightCheck:
-  validations:
+validations:
+  check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 

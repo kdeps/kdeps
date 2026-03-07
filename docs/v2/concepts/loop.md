@@ -167,7 +167,7 @@ The three primitives of Turing completeness are:
 |-----------|----------------------|
 | **Unbounded iteration** | `loop.while` with configurable `maxIterations` |
 | **Mutable state** | `set()` / `get()` across iterations |
-| **Conditional branching** | Arbitrary boolean `while` expression + `skipCondition` |
+| **Conditional branching** | Arbitrary boolean `while` expression + `validations.skip` |
 
 Together with `loop.results()` feeding back into the `while` condition, the system can simulate any computable function — including mu-recursion (search until an unpredictable condition is met).
 

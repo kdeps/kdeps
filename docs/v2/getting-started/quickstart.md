@@ -93,11 +93,10 @@ metadata:
   name: LLM Chat
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/chat]
-
-  preflightCheck:
-    validations:
+  validations:
+    methods: [POST]
+    routes: [/api/v1/chat]
+    check:
       - get('q') != ''
     error:
       code: 400
@@ -133,8 +132,9 @@ metadata:
     - llmResource
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/chat]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/chat]
 
   apiResponse:
     success: true
@@ -206,13 +206,13 @@ Changes to your YAML files will automatically reload the server.
 ## Understanding the Flow
 
 1. **Request arrives** at `/api/v1/chat` with `{"q": "..."}`
-2. **Preflight check** validates that `q` is not empty
+2. **Validation check** validates that `q` is not empty
 3. **LLM resource** sends the prompt to the model
 4. **Response resource** formats the output as JSON
 5. **API responds** with the formatted result
 
 ```
-Request → Preflight → LLM → Response → Output
+Request → Validation → LLM → Response → Output
               ↓
          (if invalid)
               ↓
