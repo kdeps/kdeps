@@ -157,7 +157,10 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 		}
 		mapNode := node.Content[i+1]
 		if mapNode.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("%q must be a mapping (got %s at line %d)", key, yamlNodeKindName(mapNode.Kind), mapNode.Line)
+			return nil, fmt.Errorf(
+				"%q must be a mapping (got %s at line %d)",
+				key, yamlNodeKindName(mapNode.Kind), mapNode.Line,
+			)
 		}
 		var rules []FieldRule
 		for j := 0; j+1 < len(mapNode.Content); j += 2 {

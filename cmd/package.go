@@ -189,7 +189,7 @@ func ParseKdepsIgnore(dir string) []string {
 		if info.Name() == ".kdepsignore" {
 			relPath, relErr := filepath.Rel(dir, path)
 			if relErr != nil {
-				return nil
+				return nil //nolint:nilerr // walk callback: skip files with unresolvable paths without stopping the walk
 			}
 			f, openErr := root.Open(filepath.ToSlash(relPath))
 			if openErr == nil {
