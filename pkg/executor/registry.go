@@ -35,6 +35,7 @@ type Registry struct {
 	scraperExecutor   ResourceExecutor
 	embeddingExecutor ResourceExecutor
 	pdfExecutor       ResourceExecutor
+	emailExecutor     ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -157,4 +158,14 @@ func (r *Registry) SetPDFExecutor(executor ResourceExecutor) {
 // GetPDFExecutor returns the PDF generation executor.
 func (r *Registry) GetPDFExecutor() ResourceExecutor {
 	return r.pdfExecutor
+}
+
+// SetEmailExecutor sets the email executor.
+func (r *Registry) SetEmailExecutor(executor ResourceExecutor) {
+	r.emailExecutor = executor
+}
+
+// GetEmailExecutor returns the email executor.
+func (r *Registry) GetEmailExecutor() ResourceExecutor {
+	return r.emailExecutor
 }
