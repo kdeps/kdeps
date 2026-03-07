@@ -1095,10 +1095,13 @@ type EmailSMTPConfig struct {
 	// Password is the SMTP authentication password or app token.
 	Password string `yaml:"password,omitempty"`
 
-	// TLS enables implicit TLS (port 465 / SMTPS). Mutually exclusive with StartTLS.
+	// TLS enables implicit TLS (port 465 / SMTPS).
+	// When TLS is false, the executor attempts STARTTLS opportunistically.
 	TLS bool `yaml:"tls,omitempty"`
 
-	// StartTLS upgrades an existing connection to TLS (port 587). Default for most providers.
+	// StartTLS is deprecated and ignored by the current executor.
+	// STARTTLS is always attempted opportunistically when TLS is false, regardless of this field.
+	// This field is retained only for backward compatibility with existing configurations.
 	StartTLS bool `yaml:"startTLS,omitempty"`
 
 	// InsecureSkipVerify disables TLS certificate verification (testing only).

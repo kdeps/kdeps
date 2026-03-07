@@ -347,8 +347,16 @@ func TestMakeEvaluator_NilAPI_PassThrough(t *testing.T) {
 // ─── sendSTARTTLS / sendImplicitTLS — unreachable addresses ──────────────────
 
 func TestSendSTARTTLS_UnreachableAddr(t *testing.T) {
-	err := sendSTARTTLS(
-		"127.0.0.1:19999", "localhost", "", "",
+	// Bind an ephemeral port then immediately close the listener so the
+	// connection is deterministically refused (avoids hardcoded port collisions).
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+	ln.Close()
+
+	err = sendSTARTTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
 		"from@x.com", []string{"to@x.com"},
 		[]byte("test"), false, defaultTimeout,
 	)
@@ -357,8 +365,16 @@ func TestSendSTARTTLS_UnreachableAddr(t *testing.T) {
 }
 
 func TestSendImplicitTLS_UnreachableAddr(t *testing.T) {
-	err := sendImplicitTLS(
-		"127.0.0.1:19998", "localhost", "", "",
+	// Bind an ephemeral port then immediately close the listener so the
+	// connection is deterministically refused (avoids hardcoded port collisions).
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+	ln.Close()
+
+	err = sendImplicitTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
 		"from@x.com", []string{"to@x.com"},
 		[]byte("test"), false, defaultTimeout,
 	)

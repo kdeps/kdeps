@@ -56,8 +56,8 @@ smtp:
   port: 587                 # Optional (default: 587 for STARTTLS, 465 for TLS)
   username: user@gmail.com  # Optional
   password: app-password    # Optional
-  tls: false                # true = implicit TLS (port 465); false = STARTTLS (port 587)
-  startTLS: false           # Deprecated alias for the STARTTLS upgrade step
+  tls: false                # true = implicit TLS (port 465); false = STARTTLS opportunistic (port 587)
+  # startTLS: deprecated and ignored; STARTTLS is attempted opportunistically when tls: false
   insecureSkipVerify: false # Skip TLS certificate verification (dev/test only)
 ```
 
@@ -67,7 +67,8 @@ smtp:
 | `port` | int | SMTP port. Defaults to `465` when `tls: true`, `587` otherwise. |
 | `username` | string | SMTP authentication username. Omit for unauthenticated servers. |
 | `password` | string | SMTP authentication password. Supports `{{env(...)}}`. |
-| `tls` | bool | `true` = implicit TLS (SMTPS, port 465). `false` = STARTTLS (port 587). |
+| `tls` | bool | `true` = implicit TLS (SMTPS, port 465). `false` = opportunistic STARTTLS (port 587). |
+| `startTLS` | bool | **Deprecated.** Ignored by the executor. STARTTLS is always attempted opportunistically when `tls: false`. Retained for backward compatibility. |
 | `insecureSkipVerify` | bool | Skip TLS certificate verification. **Do not use in production.** |
 
 ---
@@ -164,7 +165,8 @@ email:
     username: "{{env('SMTP_USER')}}"
     password: "{{env('SMTP_PASS')}}"
   from: "{{env('SMTP_FROM')}}"
-  to: "{{get('distribution_list')}}"
+  to:
+    - "{{get('distribution_list')}}"
   subject: "[CV Match] {{get('candidate_name')}} — {{get('job_title')}} ({{get('score_pct')}}%)"
   body: "{{get('email_html')}}"
   html: true
@@ -260,7 +262,8 @@ summary with the match-report PDF attached to a distribution list:
         username: "{{env('SMTP_USERNAME')}}"
         password: "{{env('SMTP_PASSWORD')}}"
       from: "{{env('SMTP_FROM')}}"
-      to: "{{get('distribution_list')}}"
+      to:
+        - "{{get('distribution_list')}}"
       subject: >-
         [CV Match] {{get('extract-cv.name')}} —
         {{get('extract-jd.title')}}
