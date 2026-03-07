@@ -6,8 +6,9 @@ metadata:
   name: API Response
 
 run:
-  restrictToHttpMethods: [GET, POST]
-  restrictToRoutes: [/api/demo]
+  validations:
+    methods: [GET, POST]
+    routes: [/api/demo]
 
   apiResponse:
     response:

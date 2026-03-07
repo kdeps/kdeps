@@ -254,7 +254,8 @@ metadata:
   actionId: externalService
 run:
   # Check circuit breaker state first
-  skipCondition:
+  validations:
+    skip:
     - get('circuitOpen', 'session') == true
 
   httpClient:
@@ -302,7 +303,8 @@ metadata:
     - queryPrimary
 run:
   # Only query replica if primary failed
-  skipCondition:
+  validations:
+    skip:
     - get('queryPrimary') != null
     - safe(get('queryPrimary'), '_error') == nil
 
@@ -342,7 +344,8 @@ metadata:
   requires:
     - primaryLLM
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('primaryLLM') != null
     - safe(get('primaryLLM'), '_error') == nil
 
@@ -398,7 +401,7 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 3. **Use when conditions** - Handle specific errors differently
 4. **Log errors with expr** - Store error info for debugging/monitoring
 5. **Provide meaningful fallbacks** - Return useful data even on failure
-6. **Combine with skipCondition** - Create fallback resource chains
+6. **Combine with validations.skip** - Create fallback resource chains
 
 ## See Also
 

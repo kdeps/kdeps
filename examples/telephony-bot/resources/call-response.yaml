@@ -8,8 +8,9 @@ metadata:
     - ttsResponse
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/call]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/call]
   apiResponse:
     success: true
     response:

@@ -1,5 +1,27 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "fieldRule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+        },
+        "minLength": { "type": "integer" },
+        "maxLength": { "type": "integer" },
+        "pattern": { "type": "string" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minItems": { "type": "integer" },
+        "maxItems": { "type": "integer" },
+        "enum": { "type": "array" },
+        "message": { "type": "string" }
+      }
+    }
+  },
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "run"],
   "properties": {
@@ -43,37 +65,113 @@
     "run": {
       "type": "object",
       "properties": {
-        "restrictToHttpMethods": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
-          }
-        },
-        "restrictToRoutes": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^/"
-          }
-        },
-        "skipCondition": {
-          "type": "array"
-        },
-        "preflightCheck": {
+        "validations": {
           "type": "object",
+          "description": "Consolidated validation configuration for the resource",
           "properties": {
-            "validations": {
-              "type": "array"
+            "methods": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+              }
+            },
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^/"
+              }
+            },
+            "headers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "params": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "skip": {
+              "type": "array",
+              "description": "OR logic: any true condition skips the resource"
+            },
+            "check": {
+              "type": "array",
+              "description": "AND logic: all must be true or error is returned"
             },
             "error": {
               "type": "object",
+              "description": "Error returned when check conditions fail",
               "properties": {
                 "code": {
                   "type": "integer"
                 },
                 "message": {
                   "type": "string"
+                }
+              }
+            },
+            "required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of required field names"
+            },
+            "rules": {
+              "type": "array",
+              "description": "Field-specific validation rules",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                  },
+                  "minLength": { "type": "integer" },
+                  "maxLength": { "type": "integer" },
+                  "pattern": { "type": "string" },
+                  "min": { "type": "number" },
+                  "max": { "type": "number" },
+                  "minimum": { "type": "number" },
+                  "maximum": { "type": "number" },
+                  "minItems": { "type": "integer" },
+                  "maxItems": { "type": "integer" },
+                  "enum": { "type": "array" },
+                  "message": { "type": "string" }
+                }
+              }
+            },
+            "properties": {
+              "type": "object",
+              "description": "Alias for rules: map of field name to rule config",
+              "additionalProperties": { "$ref": "#/definitions/fieldRule" }
+            },
+            "fields": {
+              "type": "object",
+              "description": "Alias for rules: map of field name to rule config",
+              "additionalProperties": { "$ref": "#/definitions/fieldRule" }
+            },
+            "expr": {
+              "type": "array",
+              "description": "Custom expression-based validation rules",
+              "items": {
+                "type": "object",
+                "required": ["expr", "message"],
+                "properties": {
+                  "expr": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -279,191 +377,6 @@
                 },
                 "backend": {
                   "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "validation": {
-          "type": "object",
-          "description": "Input validation rules for the resource",
-          "properties": {
-            "required": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "List of required field names"
-            },
-            "rules": {
-              "type": "array",
-              "description": "Field-specific validation rules",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "field": {
-                    "type": "string",
-                    "description": "Field name to validate"
-                  },
-                  "type": {
-                    "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"],
-                    "description": "Expected field type"
-                  },
-                  "minLength": {
-                    "type": "integer",
-                    "description": "Minimum string length"
-                  },
-                  "maxLength": {
-                    "type": "integer",
-                    "description": "Maximum string length"
-                  },
-                  "pattern": {
-                    "type": "string",
-                    "description": "Regex pattern for string validation"
-                  },
-                  "min": {
-                    "type": "number",
-                    "description": "Minimum value for numbers"
-                  },
-                  "max": {
-                    "type": "number",
-                    "description": "Maximum value for numbers"
-                  },
-                  "minimum": {
-                    "type": "number",
-                    "description": "Minimum value for numbers (alias for min)"
-                  },
-                  "maximum": {
-                    "type": "number",
-                    "description": "Maximum value for numbers (alias for max)"
-                  },
-                  "minItems": {
-                    "type": "integer",
-                    "description": "Minimum array length"
-                  },
-                  "maxItems": {
-                    "type": "integer",
-                    "description": "Maximum array length"
-                  },
-                  "enum": {
-                    "type": "array",
-                    "description": "Allowed values"
-                  },
-                  "message": {
-                    "type": "string",
-                    "description": "Custom error message"
-                  }
-                }
-              }
-            },
-            "fields": {
-              "type": "object",
-              "description": "Field validation rules in map format (alternative to rules array)",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
-                  },
-                  "minLength": {
-                    "type": "integer"
-                  },
-                  "maxLength": {
-                    "type": "integer"
-                  },
-                  "pattern": {
-                    "type": "string"
-                  },
-                  "min": {
-                    "type": "number"
-                  },
-                  "max": {
-                    "type": "number"
-                  },
-                  "minimum": {
-                    "type": "number"
-                  },
-                  "maximum": {
-                    "type": "number"
-                  },
-                  "minItems": {
-                    "type": "integer"
-                  },
-                  "maxItems": {
-                    "type": "integer"
-                  },
-                  "enum": {
-                    "type": "array"
-                  },
-                  "message": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "properties": {
-              "type": "object",
-              "description": "Field validation rules in map format (alias for fields, matches JSON Schema convention)",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
-                  },
-                  "minLength": {
-                    "type": "integer"
-                  },
-                  "maxLength": {
-                    "type": "integer"
-                  },
-                  "pattern": {
-                    "type": "string"
-                  },
-                  "min": {
-                    "type": "number"
-                  },
-                  "max": {
-                    "type": "number"
-                  },
-                  "minimum": {
-                    "type": "number"
-                  },
-                  "maximum": {
-                    "type": "number"
-                  },
-                  "minItems": {
-                    "type": "integer"
-                  },
-                  "maxItems": {
-                    "type": "integer"
-                  },
-                  "enum": {
-                    "type": "array"
-                  },
-                  "message": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "customRules": {
-              "type": "array",
-              "description": "Custom expression-based validation rules",
-              "items": {
-                "type": "object",
-                "required": ["expr", "message"],
-                "properties": {
-                  "expr": {
-                    "type": "string",
-                    "description": "Expression to evaluate (must return boolean)"
-                  },
-                  "message": {
-                    "type": "string",
-                    "description": "Error message if validation fails"
-                  }
                 }
               }
             }

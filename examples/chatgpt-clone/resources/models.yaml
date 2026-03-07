@@ -7,10 +7,11 @@ metadata:
 
 run:
   # Only respond to GET requests on /api/v1/models
-  restrictToHttpMethods:
-    - GET
-  restrictToRoutes:
-    - /api/v1/models
+  validations:
+    methods:
+      - GET
+    routes:
+      - /api/v1/models
 
   expr:
     - >-

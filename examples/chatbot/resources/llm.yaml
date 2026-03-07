@@ -6,11 +6,11 @@ metadata:
   name: LLM Chat
 
 run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/chat]
+  validations:
+    methods: [POST]
+    routes: [/api/v1/chat]
 
-  preflightCheck:
-    validations:
+    check:
       - get('q') != ''
     error:
       code: 400

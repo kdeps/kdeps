@@ -7,9 +7,8 @@ metadata:
   requires: []
 
 run:
-  restrictToRoutes: [/api/v1/login]
-
-  validation:
+  validations:
+    routes: [/api/v1/login]
     required:
       - username
       - password

@@ -323,7 +323,7 @@ run:
       Content-Type: "application/json"
       Authorization: "Bearer {{ get('token', '') }}"
     timeoutDuration: "30s"
-  validation:
+  validations:
     required:
       - url
     rules:
@@ -348,7 +348,7 @@ run:
       - answer
       - reasoning
     timeoutDuration: "60s"
-  validation:
+  validations:
     required:
       - input
     rules:
@@ -373,7 +373,7 @@ run:
     format: json
     maxRows: 100
     timeoutDuration: "30s"
-  validation:
+  validations:
     required:
       - id
     rules:

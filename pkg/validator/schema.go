@@ -322,7 +322,7 @@ func (sv *SchemaValidator) getRequiredFieldSuggestion(field string) string {
 func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 	// Known patterns
 	patternMap := map[string]string{
-		"restrictToRoutes":               "Must start with '/'. Example: '/api/users'",
+		"validations.routes":             "Must start with '/'. Example: '/api/users'",
 		"settings.apiServer.routes.path": "Must start with '/'. Example: '/api/users'",
 		"routes.path":                    "Must start with '/'. Example: '/api/users'",
 	}
@@ -525,7 +525,7 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 		"run.sql.format": {
 			"json", "csv", "table",
 		},
-		"run.restrictToHttpMethods": {
+		"run.validations.methods": {
 			"GET", "POST", "PUT", "DELETE", "PATCH",
 		},
 		"settings.apiServer.routes.methods": {
@@ -607,9 +607,8 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 			(strings.Contains(normalizedField, "routes") || strings.Contains(normalizedField, "apiServer")) {
 			return enumMap["settings.apiServer.routes.methods"]
 		}
-		if lastPart == "restrictToHttpMethods" ||
-			(lastPart == methodsField && strings.Contains(normalizedField, "restrictToHttp")) {
-			return enumMap["run.restrictToHttpMethods"]
+		if lastPart == methodsField && strings.Contains(normalizedField, "validations") {
+			return enumMap["run.validations.methods"]
 		}
 	}
 

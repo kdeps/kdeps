@@ -137,8 +137,8 @@ If invalid, exits with error code 1 to prevent session from being set.
 
 ```yaml
 run:
-  restrictToRoutes: [/api/v1/login]
-  validation:
+  validations:
+    routes: [/api/v1/login]
     required: [username, password]
   python:
     script: |
@@ -164,9 +164,9 @@ Returns session data. Requires user to be logged in:
 
 ```yaml
 run:
-  restrictToRoutes: [/api/v1/session]
-  preflightCheck:
-    validations:
+  validations:
+    routes: [/api/v1/session]
+    check:
       - "{{ get('logged_in', 'session') == 'true' }}"
     error:
       code: 401
@@ -274,13 +274,14 @@ session_data: "{{ session() }}"
 user_id: "{{ get('user_id', 'session') }}"
 logged_in: "{{ get('logged_in', 'session') }}"
 
-# 3. Use in preflightCheck to require login
-preflightCheck:
+# 3. Use validations.check to require login
+run:
   validations:
-    - "{{ get('logged_in', 'session') == 'true' }}"
-  error:
-    code: 401
-    message: "Not logged in"
+    check:
+      - "{{ get('logged_in', 'session') == 'true' }}"
+    error:
+      code: 401
+      message: "Not logged in"
 
 # 4. Use in Python scripts
 python:
@@ -292,8 +293,10 @@ python:
         print(json.dumps({"user": user_id, "authenticated": True}))
 
 # 5. Skip resource if not logged in
-skipCondition:
-  - "{{ get('logged_in', 'session') != 'true' }}"
+run:
+  validations:
+    skip:
+      - "{{ get('logged_in', 'session') != 'true' }}"
 ```
 
 ### Route Restrictions
@@ -302,7 +305,8 @@ Resources only execute when their route matches:
 
 ```yaml
 run:
-  restrictToRoutes: [/api/v1/login]  # Only runs for this route
+  validations:
+    routes: [/api/v1/login]  # Only runs for this route
 ```
 
 ### Output Function

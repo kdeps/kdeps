@@ -364,7 +364,8 @@ metadata:
   requires: [classifier]
 
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('classifier').confidence < 0.8
 
   chat:

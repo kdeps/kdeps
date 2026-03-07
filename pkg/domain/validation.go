@@ -25,60 +25,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ValidationRules defines validation rules for a resource.
-type ValidationRules struct {
-	// Required field names
-	Required []string `yaml:"required" json:"required,omitempty"`
-
-	// Field-specific rules
-	Rules []FieldRule `yaml:"rules" json:"rules,omitempty"`
-
-	// Custom expression validations
-	CustomRules []CustomRule `yaml:"customRules" json:"customRules,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support "fields", "properties" (map), and "rules" (array).
-func (v *ValidationRules) UnmarshalYAML(node *yaml.Node) error {
-	// Create a temporary struct with all possible fields
-	type rawValidation struct {
-		Required    []string             `yaml:"required"`
-		Rules       []FieldRule          `yaml:"rules"`
-		Fields      map[string]FieldRule `yaml:"fields"`
-		Properties  map[string]FieldRule `yaml:"properties"` // Alias for "fields"
-		CustomRules []CustomRule         `yaml:"customRules"`
-	}
-
-	var raw rawValidation
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-
-	v.Required = raw.Required
-	v.CustomRules = raw.CustomRules
-
-	// If "rules" is provided, use it directly
-	if len(raw.Rules) > 0 {
-		v.Rules = raw.Rules
-	}
-
-	// If "fields" or "properties" is provided (map format), convert to rules array
-	// "properties" takes precedence if both are provided (matches JSON Schema convention)
-	fieldsMap := raw.Fields
-	if len(raw.Properties) > 0 {
-		fieldsMap = raw.Properties
-	}
-
-	if len(fieldsMap) > 0 {
-		v.Rules = make([]FieldRule, 0, len(fieldsMap))
-		for fieldName, rule := range fieldsMap {
-			rule.Field = fieldName
-			v.Rules = append(v.Rules, rule)
-		}
-	}
-
-	return nil
-}
-
 // FieldRule defines validation rules for a specific field.
 type FieldRule struct {
 	// Field name

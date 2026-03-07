@@ -34,14 +34,13 @@ run:
 ```
 
 ### 3. Conditions
-Used in `skipCondition`, `preflightCheck`, and `onError`.
+Used in `validations.skip`, `validations.check`, and `onError`.
 
 ```yaml
-skipCondition:
+validations:
+  skip:
   - get('q') == ''
-
-preflightCheck:
-  validations:
+  check:
     - len(get('password')) >= 8
 ```
 

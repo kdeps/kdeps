@@ -102,8 +102,10 @@ func TestEngine_Execute_SkipCondition_FileExists(t *testing.T) {
 					Name:     "Conditional Resource",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "false"}, // Don't skip
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "false"}, // Don't skip
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -145,8 +147,8 @@ func TestEngine_Execute_PreflightCheck_WithError(t *testing.T) {
 					Name:     "Validated Resource",
 				},
 				Run: domain.RunConfig{
-					PreflightCheck: &domain.PreflightCheck{
-						Validations: []domain.Expression{
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{
 							{Raw: "false"}, // Validation fails
 						},
 						Error: &domain.ErrorConfig{
@@ -196,7 +198,9 @@ func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
 					Name:     "Restricted Resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToHTTPMethods: []string{"GET", "POST"},
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET", "POST"},
+					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -251,7 +255,9 @@ func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
 					Name:     "Route Restricted Resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToRoutes: []string{"/api/v1/data"},
+					Validations: &domain.ValidationsConfig{
+						Routes: []string{"/api/v1/data"},
+					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -365,8 +371,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 					Name:     "Conditional Step",
 				},
 				Run: domain.RunConfig{
-					SkipCondition: []domain.Expression{
-						{Raw: "get('step1') == null"}, // Skip if step1 didn't run
+					Validations: &domain.ValidationsConfig{
+						Skip: []domain.Expression{
+							{Raw: "get('step1') == null"}, // Skip if step1 didn't run
+						},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
@@ -441,8 +449,8 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 					Requires: []string{"set-data"},
 				},
 				Run: domain.RunConfig{
-					PreflightCheck: &domain.PreflightCheck{
-						Validations: []domain.Expression{
+					Validations: &domain.ValidationsConfig{
+						Check: []domain.Expression{
 							{Raw: "get('userId') != nil"},
 							{Raw: "get('apiToken') != nil"},
 						},
@@ -553,8 +561,10 @@ func TestEngine_Execute_CombinedRestrictions(t *testing.T) {
 					Name:     "Restricted Resource",
 				},
 				Run: domain.RunConfig{
-					RestrictToHTTPMethods: []string{"GET", "POST"},
-					RestrictToRoutes:      []string{"/api/v1/data"},
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET", "POST"},
+						Routes:  []string{"/api/v1/data"},
+					},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{

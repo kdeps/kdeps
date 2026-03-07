@@ -54,7 +54,7 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationsConfig{
 						Required: []string{"userId", "email"},
 					},
 					APIResponse: &domain.APIResponseConfig{
@@ -144,7 +144,7 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationsConfig{
 						Rules: []domain.FieldRule{
 							{
 								Field: "age",
@@ -350,8 +350,8 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
-						CustomRules: []domain.CustomRule{
+					Validations: &domain.ValidationsConfig{
+						Expr: []domain.CustomRule{
 							{
 								Expr: domain.Expression{
 									Raw: "get('password') == get('confirmPassword')",
@@ -521,7 +521,7 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 					Name:     "Response",
 				},
 				Run: domain.RunConfig{
-					Validation: &domain.ValidationRules{
+					Validations: &domain.ValidationsConfig{
 						Required: []string{"email", "name"},
 						Rules: []domain.FieldRule{
 							{
@@ -535,7 +535,7 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 								MinLength: func() *int { v := 2; return &v }(),
 							},
 						},
-						CustomRules: []domain.CustomRule{
+						Expr: []domain.CustomRule{
 							{
 								Expr: domain.Expression{
 									Raw: "len(get('name')) > 0",

@@ -132,8 +132,8 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 				ActionID: "preflight-test",
 			},
 			Run: domain.RunConfig{
-				PreflightCheck: &domain.PreflightCheck{
-					Validations: []domain.Expression{
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
 						{Raw: "false"}, // Will fail
 					},
 					Error: &domain.ErrorConfig{

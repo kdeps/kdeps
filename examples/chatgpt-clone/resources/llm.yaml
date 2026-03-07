@@ -6,14 +6,12 @@ metadata:
   description: Handles chat requests with the selected LLM model
 
 run:
-  # Only respond to POST requests on /api/v1/chat
-  restrictToHttpMethods:
-    - POST
-  restrictToRoutes:
-    - /api/v1/chat
-
-  # Validate required input
-  validation:
+  # Only respond to POST requests on /api/v1/chat, and validate required input
+  validations:
+    methods:
+      - POST
+    routes:
+      - /api/v1/chat
     required:
       - message
     rules:

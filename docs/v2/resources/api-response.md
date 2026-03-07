@@ -201,8 +201,8 @@ For error handling, use preflight checks or conditional responses:
 
 ```yaml
 run:
-  preflightCheck:
-    validations:
+  validations:
+    check:
       - get('user_id') != ''
     error:
       code: 400
@@ -331,7 +331,8 @@ metadata:
   requires: [dataResource]
 
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('dataResource').error != null
 
   apiResponse:
@@ -346,7 +347,8 @@ metadata:
   requires: [dataResource]
 
 run:
-  skipCondition:
+  validations:
+    skip:
     - get('dataResource').error == null
 
   apiResponse:
