@@ -560,9 +560,9 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 		if openErr != nil {
 			return openErr
 		}
-		defer f.Close()
 
 		content, readErr := io.ReadAll(f)
+		_ = f.Close()
 		if readErr != nil {
 			return readErr
 		}

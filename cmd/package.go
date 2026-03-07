@@ -193,8 +193,8 @@ func ParseKdepsIgnore(dir string) []string {
 			}
 			f, openErr := root.Open(filepath.ToSlash(relPath))
 			if openErr == nil {
-				defer f.Close()
 				data, readErr := io.ReadAll(f)
+				_ = f.Close()
 				if readErr == nil {
 					patterns = append(patterns, ParseIgnorePatterns(string(data))...)
 				}

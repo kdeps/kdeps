@@ -139,7 +139,7 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 		}
 		mapNode := node.Content[i+1]
 		if mapNode.Kind != yaml.MappingNode {
-			return nil, nil
+			return nil, fmt.Errorf("%q must be a mapping, got wrong type", key)
 		}
 		var rules []FieldRule
 		for j := 0; j+1 < len(mapNode.Content); j += 2 {

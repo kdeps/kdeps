@@ -278,6 +278,28 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			"name", resource.Metadata.Name,
 			"actionID", resource.Metadata.ActionID)
 
+		// Apply headers/params filters first so get() uses correct allowlists
+		// when skip expressions and other validations are evaluated.
+		if resource.Run.Validations != nil && len(resource.Run.Validations.Headers) > 0 {
+			ctx.SetAllowedHeaders(resource.Run.Validations.Headers)
+			e.logger.Debug("Applied headers filter",
+				"actionID", resource.Metadata.ActionID,
+				"headers", resource.Run.Validations.Headers)
+		} else {
+			// Clear filter if not set
+			ctx.SetAllowedHeaders(nil)
+		}
+
+		if resource.Run.Validations != nil && len(resource.Run.Validations.Params) > 0 {
+			ctx.SetAllowedParams(resource.Run.Validations.Params)
+			e.logger.Debug("Applied params filter",
+				"actionID", resource.Metadata.ActionID,
+				"params", resource.Run.Validations.Params)
+		} else {
+			// Clear filter if not set
+			ctx.SetAllowedParams(nil)
+		}
+
 		// Check skip conditions.
 		skip, skipErr := e.ShouldSkipResource(resource, ctx)
 		if skipErr != nil {
@@ -300,25 +322,14 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			continue
 		}
 
-		// Set allowedHeaders and allowedParams filters for this resource
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Headers) > 0 {
-			ctx.SetAllowedHeaders(resource.Run.Validations.Headers)
-			e.logger.Debug("Applied headers filter",
-				"actionID", resource.Metadata.ActionID,
-				"headers", resource.Run.Validations.Headers)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedHeaders(nil)
-		}
-
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Params) > 0 {
-			ctx.SetAllowedParams(resource.Run.Validations.Params)
-			e.logger.Debug("Applied params filter",
-				"actionID", resource.Metadata.ActionID,
-				"params", resource.Run.Validations.Params)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedParams(nil)
+		// Run preflight checks before input validation so authentication/authorization
+		// errors surface before potentially leaking info about invalid input.
+		if preflightErr := e.RunPreflightCheck(resource, ctx); preflightErr != nil {
+			return nil, fmt.Errorf(
+				"preflight check failed for %s: %w",
+				resource.Metadata.ActionID,
+				preflightErr,
+			)
 		}
 
 		// Run input validation.
@@ -392,15 +403,6 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 					).WithResource(resource.Metadata.ActionID)
 				}
 			}
-		}
-
-		// Run preflight checks.
-		if preflightErr := e.RunPreflightCheck(resource, ctx); preflightErr != nil {
-			return nil, fmt.Errorf(
-				"preflight check failed for %s: %w",
-				resource.Metadata.ActionID,
-				preflightErr,
-			)
 		}
 
 		// Execute resource with error handling.
