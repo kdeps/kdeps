@@ -801,20 +801,14 @@ func TestCVMatcherExample(t *testing.T) {
 
 	_, execErr := engine.Execute(workflow, reqCtx)
 	if execErr != nil {
-		errStr := strings.ToLower(execErr.Error())
-		// Skip on any external service dependency error.
-		skipKeywords := []string{
-			"connection", "dial tcp", "timeout", "ollama", "smtp",
-			"scraper", "embedding", "no such file", "permission",
+		// In CI, any execution error is assumed to be due to missing external
+		// dependencies (LLM, scrapers, SMTP, etc.), so we skip instead of failing.
+		if os.Getenv("CI") != "" {
+			t.Skipf("cv-matcher execution failed in CI (likely due to external dependencies): %v", execErr)
 		}
-		for _, kw := range skipKeywords {
-			if strings.Contains(errStr, kw) {
-				t.Skipf("cv-matcher requires external service (%s), skipping: %v", kw, execErr)
-			}
-		}
-		// Log unexpected errors but don't fail — the example may reference
-		// resources that the test environment cannot satisfy.
-		t.Logf("cv-matcher execution failed (may be expected in test environment): %v", execErr)
+
+		// Outside CI, execution failures should be actionable test failures.
+		require.NoError(t, execErr, "cv-matcher execution failed")
 	}
 }
 

@@ -95,6 +95,15 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("email executor: subject is required")
 	}
 
+	// Resolve relative attachment paths against ctx.FSRoot (mirrors scraper executor).
+	if ctx != nil && ctx.FSRoot != "" {
+		for i, p := range attachments {
+			if p != "" && !filepath.IsAbs(p) {
+				attachments[i] = filepath.Join(ctx.FSRoot, p)
+			}
+		}
+	}
+
 	timeout := defaultTimeout
 	ts := cfg.TimeoutDuration
 	if ts == "" {
@@ -170,13 +179,22 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}
 
+	// Apply the timeout to the entire SMTP exchange, not just the TCP dial.
+	if timeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("set deadline: %w", err)
+		}
+	}
+
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
+		_ = conn.Close()
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	defer func() { _ = client.Quit() }()
 
-	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec
+	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec // G402: InsecureSkipVerify is user-controlled and required for self-signed/internal SMTP certificates
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err = client.StartTLS(tlsCfg); err != nil {
 			return fmt.Errorf("starttls: %w", err)
@@ -197,15 +215,24 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
 
-	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec
+	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec // G402: InsecureSkipVerify is user-controlled and required for self-signed/internal SMTP certificates
 	dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: timeout}, Config: tlsCfg}
 	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("tls dial %s: %w", addr, err)
 	}
 
+	// Apply the timeout to the entire SMTP exchange, not just the TLS dial.
+	if timeout > 0 {
+		if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+			_ = conn.Close()
+			return fmt.Errorf("set deadline: %w", err)
+		}
+	}
+
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
+		_ = conn.Close()
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	defer func() { _ = client.Quit() }()
@@ -241,9 +268,38 @@ func doSend(client *smtp.Client, from string, to []string, msg []byte) error {
 
 // ─── MIME message builder ─────────────────────────────────────────────────────
 
+// sanitizeHeader returns an error if val contains CR or LF characters,
+// which would enable SMTP/MIME header injection.
+func sanitizeHeader(field, val string) error {
+	if strings.ContainsAny(val, "\r\n") {
+		return fmt.Errorf("email header %q contains CR or LF (header injection)", field)
+	}
+	return nil
+}
+
 // buildMessage constructs a MIME email message with optional HTML and attachments.
 func buildMessage(from string, to, cc, bcc []string, subject, body string,
 	isHTML bool, attachments []string) ([]byte, error) {
+
+	// Reject header values that contain CR or LF to prevent header injection.
+	for field, val := range map[string]string{
+		"From":    from,
+		"Subject": subject,
+	} {
+		if err := sanitizeHeader(field, val); err != nil {
+			return nil, err
+		}
+	}
+	for _, addr := range to {
+		if strings.ContainsAny(addr, "\r\n") {
+			return nil, fmt.Errorf("email recipient address contains CR or LF (header injection)")
+		}
+	}
+	for _, addr := range cc {
+		if strings.ContainsAny(addr, "\r\n") {
+			return nil, fmt.Errorf("email recipient address contains CR or LF (header injection)")
+		}
+	}
 
 	var buf bytes.Buffer
 
@@ -291,7 +347,7 @@ func buildMessage(from string, to, cc, bcc []string, subject, body string,
 		if path == "" {
 			continue
 		}
-		data, err := os.ReadFile(path) //nolint:gosec
+		data, err := os.ReadFile(path) //nolint:gosec // G304: attachment paths are user/config-controlled and reading local files is required to attach them
 		if err != nil {
 			return nil, fmt.Errorf("read attachment %q: %w", path, err)
 		}

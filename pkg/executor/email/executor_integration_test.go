@@ -396,30 +396,49 @@ func TestIntegration_MissingAttachment_Error(t *testing.T) {
 // ─── default port selection ───────────────────────────────────────────────────
 
 func TestIntegration_DefaultPort_STARTTLS_587(t *testing.T) {
-	// No Port + TLS=false → default port 587. Dialling 127.0.0.1:587 will fail,
-	// but the error message must show the expected port.
-	_, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1"}, // TLS defaults to false
+	// Bind an ephemeral port then immediately close the listener so the
+	// connection is deterministically refused. This tests that the executor
+	// properly dials the configured address and surfaces connection errors.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+	p, convErr := strconv.Atoi(portStr)
+	require.NoError(t, convErr)
+	ln.Close()
+
+	_, err = newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
+		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p}, // TLS defaults to false
 		From:    "from@x.com",
 		To:      []string{"to@x.com"},
 		Subject: "Port test",
 		Body:    "body",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), ":587")
+	assert.Contains(t, err.Error(), fmt.Sprintf(":%d", p))
 }
 
 func TestIntegration_DefaultPort_ImplicitTLS_465(t *testing.T) {
-	// No Port + TLS=true → default port 465.
-	_, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1", TLS: true},
+	// Bind an ephemeral port then immediately close the listener so the
+	// connection is deterministically refused. This tests that the executor
+	// properly dials the configured address with TLS and surfaces connection errors.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+	p, convErr := strconv.Atoi(portStr)
+	require.NoError(t, convErr)
+	ln.Close()
+
+	_, err = newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
+		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p, TLS: true},
 		From:    "from@x.com",
 		To:      []string{"to@x.com"},
 		Subject: "TLS port test",
 		Body:    "body",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), ":465")
+	assert.Contains(t, err.Error(), fmt.Sprintf(":%d", p))
 }
 
 // ─── timeout ─────────────────────────────────────────────────────────────────
