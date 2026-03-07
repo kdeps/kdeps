@@ -556,18 +556,18 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return relErr
 		}
 
-		f, openErr := root.Open(relPath)
+		f, openErr := root.Open(filepath.ToSlash(relPath))
 		if openErr != nil {
 			return openErr
 		}
-		defer f.Close()
 
 		content, readErr := io.ReadAll(f)
+		_ = f.Close()
 		if readErr != nil {
 			return readErr
 		}
 
-		files[relPath] = string(content)
+		files[filepath.ToSlash(relPath)] = string(content)
 		return nil
 	})
 

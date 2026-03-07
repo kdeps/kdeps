@@ -23,22 +23,14 @@ items:                        # Optional: for iteration
   - item2
 
 run:
-  # Request restrictions
+  # Request restrictions and validation
   validations:
     methods: [POST]
-  validations:
     routes: [/api/v1/endpoint]
-  validations:
     headers: [Authorization]
-  validations:
     params: [q, limit]
-
-  # Validation
-  validations:
     skip:
     - get('skip') == true
-
-  validations:
     check:
       - get('q') != ''
     error:

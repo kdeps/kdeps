@@ -117,7 +117,7 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  validation:
+  validations:
     required:
       - name
       - email
@@ -194,7 +194,7 @@ run:
   validations:
   
     skip:
-    - !get('hasItems')
+    - "!get('hasItems')"
   
   chat:
     prompt: |

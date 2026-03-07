@@ -21,6 +21,8 @@ package domain_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -381,4 +383,32 @@ func TestFieldRule_UnmarshalYAML_DecodeError(t *testing.T) {
 	if err == nil {
 		t.Error("Expected UnmarshalYAML to return an error for invalid node type")
 	}
+}
+
+func TestValidationsConfig_UnmarshalYAML_FieldsAsSequenceReturnsError(t *testing.T) {
+	// fields: must be a mapping (key→rule), not a sequence.
+	// Providing it as a YAML sequence should return a descriptive error.
+	yamlData := `
+fields:
+  - name
+  - age
+`
+	var rules domain.ValidationsConfig
+	err := yaml.Unmarshal([]byte(yamlData), &rules)
+	require.Error(t, err, "Expected error when fields: is a sequence, not a mapping")
+	assert.Contains(t, err.Error(), `"fields" must be a mapping`)
+}
+
+func TestValidationsConfig_UnmarshalYAML_PropertiesAsSequenceReturnsError(t *testing.T) {
+	// properties: must be a mapping (key→rule), not a sequence.
+	// Providing it as a YAML sequence should return a descriptive error.
+	yamlData := `
+properties:
+  - name
+  - age
+`
+	var rules domain.ValidationsConfig
+	err := yaml.Unmarshal([]byte(yamlData), &rules)
+	require.Error(t, err, "Expected error when properties: is a sequence, not a mapping")
+	assert.Contains(t, err.Error(), `"properties" must be a mapping`)
 }
