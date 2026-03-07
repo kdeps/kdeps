@@ -1,6 +1,6 @@
 # Validation
 
-All validation, filtering, and control-flow for a resource lives in a single `run.validations:` block. This replaces the former separate fields (`restrictToHttpMethods`, `restrictToRoutes`, `allowedHeaders`, `allowedParams`, `skipCondition`, `preflightCheck`, `validation`).
+All validation, filtering, and control-flow for a resource lives in a single `run.validations:` block.
 
 ## Quick Reference
 
