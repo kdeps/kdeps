@@ -128,10 +128,27 @@
               }
             },
             "properties": {
-              "type": "array",
-              "description": "Alias for rules",
-              "items": {
-                "type": "object"
+              "type": "object",
+              "description": "Alias for rules (map-style: field name → rule object)",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                  },
+                  "minLength": { "type": "integer" },
+                  "maxLength": { "type": "integer" },
+                  "pattern": { "type": "string" },
+                  "min": { "type": "number" },
+                  "max": { "type": "number" },
+                  "minimum": { "type": "number" },
+                  "maximum": { "type": "number" },
+                  "minItems": { "type": "integer" },
+                  "maxItems": { "type": "integer" },
+                  "enum": { "type": "array" },
+                  "message": { "type": "string" }
+                }
               }
             },
             "expr": {

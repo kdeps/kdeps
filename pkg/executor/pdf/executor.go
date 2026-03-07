@@ -310,5 +310,8 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) str
 	if s, ok := result.(string); ok {
 		return s
 	}
+	if result == nil {
+		return ""
+	}
 	return fmt.Sprintf("%v", result)
 }
