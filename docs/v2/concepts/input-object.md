@@ -117,7 +117,7 @@ kind: Resource
 metadata:
   actionId: createUser
 run:
-  validation:
+  validations:
     required:
       - name
       - email

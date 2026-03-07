@@ -46,7 +46,7 @@ resources:
         headers:
           Authorization: "Bearer {{ "{{" }} get('api_token') {{ "}}" }}"
         timeoutDuration: "30s"
-      validation:
+      validations:
         required:
           - id
         rules:
