@@ -94,8 +94,8 @@ run:
   sql:
     query: "SELECT * FROM items LIMIT ? OFFSET ?"
     params:
-      - "{{ get('limit') }}"
-      - "{{ get('offset') }}"
+      - get('limit')
+      - get('offset')
 ```
 
 Only listed parameters are accessible. Protects against parameter pollution.

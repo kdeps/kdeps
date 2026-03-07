@@ -167,7 +167,7 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 			fieldName := mapNode.Content[j].Value
 			var rule FieldRule
 			if err := mapNode.Content[j+1].Decode(&rule); err != nil {
-				return nil, fmt.Errorf("field %q: %w", fieldName, err)
+				return nil, fmt.Errorf("validations.%s: failed to decode rule for field %q: %w", key, fieldName, err)
 			}
 			rule.Field = fieldName
 			rules = append(rules, rule)

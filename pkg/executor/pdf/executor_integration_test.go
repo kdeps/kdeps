@@ -71,9 +71,9 @@ func newExecCtx(t *testing.T) *executor.ExecutionContext {
 }
 
 // installFakeCLI creates a shell script named `name` in a temp directory,
-// prepends that directory to PATH, and returns the temp dir path.
+// prepends that directory to PATH.
 // The default script writes a minimal %-PDF fake file at the last argument.
-func installFakeCLI(t *testing.T, name string) string {
+func installFakeCLI(t *testing.T, name string) {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, name)
@@ -81,7 +81,6 @@ func installFakeCLI(t *testing.T, name string) string {
 	content := "#!/bin/sh\nlast=\"\"\nfor a in \"$@\"; do last=\"$a\"; done\nprintf '%%PDF-1.4 fake %s\\n' > \"$last\"\n"
 	require.NoError(t, os.WriteFile(script, []byte(content), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return dir
 }
 
 // installFakePandoc creates a pandoc-compatible fake that honours the -o flag.

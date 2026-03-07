@@ -47,10 +47,10 @@ import (
 )
 
 const (
-	pdfOutputDir        = "/tmp/kdeps-pdf"
-	defaultTimeoutSec   = 60
-	defaultBackend      = domain.PDFBackendWkhtmltopdf
-	defaultContentType  = domain.PDFContentTypeHTML
+	pdfOutputDir       = "/tmp/kdeps-pdf"
+	defaultTimeoutSec  = 60
+	defaultBackend     = domain.PDFBackendWkhtmltopdf
+	defaultContentType = domain.PDFContentTypeHTML
 )
 
 // Executor implements executor.ResourceExecutor for PDF generation resources.
@@ -235,7 +235,7 @@ func runCLI(name string, args []string, timeout time.Duration) error {
 	defer cancel()
 
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(rctx, name, args...) //nolint:noctx // context is set via CommandContext
+	cmd := exec.CommandContext(rctx, name, args...)
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
@@ -309,6 +309,9 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) str
 	}
 	if s, ok := result.(string); ok {
 		return s
+	}
+	if result == nil {
+		return ""
 	}
 	return fmt.Sprintf("%v", result)
 }

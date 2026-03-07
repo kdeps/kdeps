@@ -1000,5 +1000,10 @@ func ValidatePDFConfig(config *domain.PDFConfig) error {
 		)
 	}
 
+	if config.OutputFile != "" && !strings.HasSuffix(strings.ToLower(config.OutputFile), ".pdf") {
+		return domain.NewError(domain.ErrCodeInvalidResource,
+			fmt.Sprintf("pdf.outputFile %q must end with .pdf", config.OutputFile), nil)
+	}
+
 	return nil
 }
