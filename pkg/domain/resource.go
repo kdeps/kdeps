@@ -124,6 +124,24 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// yamlNodeKindName returns a human-readable name for a yaml.Kind value.
+func yamlNodeKindName(kind yaml.Kind) string {
+	switch kind {
+	case yaml.DocumentNode:
+		return "document"
+	case yaml.SequenceNode:
+		return "sequence"
+	case yaml.MappingNode:
+		return "mapping"
+	case yaml.ScalarNode:
+		return "scalar"
+	case yaml.AliasNode:
+		return "alias"
+	default:
+		return fmt.Sprintf("unknown(%d)", kind)
+	}
+}
+
 // mapFieldRulesFromNode extracts a map-style field rules block (e.g. "fields:" or "properties:")
 // from a YAML mapping node and returns it as []FieldRule with Field set from the map key.
 func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
@@ -139,7 +157,7 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 		}
 		mapNode := node.Content[i+1]
 		if mapNode.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf("%q must be a mapping, got wrong type", key)
+			return nil, fmt.Errorf("%q must be a mapping (got %s at line %d)", key, yamlNodeKindName(mapNode.Kind), mapNode.Line)
 		}
 		var rules []FieldRule
 		for j := 0; j+1 < len(mapNode.Content); j += 2 {

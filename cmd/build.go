@@ -567,7 +567,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return readErr
 		}
 
-		files[relPath] = string(content)
+		files[filepath.ToSlash(relPath)] = string(content)
 		return nil
 	})
 
