@@ -53,7 +53,7 @@ run:
     - set('isValid', get('token') != '')
   validations:
     skip:
-      - !get('isValid')
+      - "!get('isValid')"
 ```
 
 **my-workflow.yaml:**

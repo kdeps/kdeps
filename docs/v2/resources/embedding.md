@@ -352,7 +352,6 @@ metadata:
 run:
   validations:
     routes: [/index]
-  validations:
     methods: [POST]
 
   embedding:
@@ -381,7 +380,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   embedding:
@@ -405,7 +403,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   chat:
@@ -464,7 +461,6 @@ metadata:
 run:
   validations:
     routes: [/index]
-  validations:
     methods: [POST]
 
   embedding:
@@ -495,7 +491,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   embedding:
@@ -521,7 +516,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   chat:
@@ -581,7 +575,6 @@ metadata:
 run:
   validations:
     routes: [/index]
-  validations:
     methods: [POST]
 
   embedding:
@@ -612,7 +605,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   embedding:
@@ -665,7 +657,6 @@ metadata:
 run:
   validations:
     routes: [/index]
-  validations:
     methods: [POST]
 
   embedding:
@@ -696,7 +687,6 @@ metadata:
 run:
   validations:
     routes: [/query]
-  validations:
     methods: [POST]
 
   embedding:
