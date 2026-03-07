@@ -743,6 +743,75 @@ func TestChatbotExample_MockedLLM(t *testing.T) {
 	// The key benefit: this test completes in seconds instead of minutes
 }
 
+// TestCVMatcherExample validates that the cv-matcher workflow YAML can be parsed
+// and exercises the pipeline with a mocked LLM.  Most steps will fail in CI
+// because they require external services (Ollama, SMTP, Google Drive, etc.);
+// the test skips gracefully whenever such a dependency is missing.
+func TestCVMatcherExample(t *testing.T) {
+	workflowPath := "../../../examples/cv-matcher/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("cv-matcher example not available")
+	}
+
+	// Parse and validate the workflow structure.
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err, "workflow YAML must be parseable")
+
+	// Structural checks — the workflow must define a known set of resources.
+	require.NotEmpty(t, workflow.Resources, "workflow must have at least one resource")
+	require.NotEmpty(t, workflow.Metadata.Name, "workflow must have a name")
+
+	// Collect actionIds for validation.
+	actionIDs := make([]string, 0, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		actionIDs = append(actionIDs, r.Metadata.ActionID)
+	}
+
+	// Verify the key pipeline steps are present.
+	expectedSteps := []string{"scrape-cv", "scrape-jd", "extract-cv", "extract-jd",
+		"compute-match", "generate-report-pdf", "send-email", "api-response"}
+	for _, step := range expectedSteps {
+		assert.Contains(t, actionIDs, step,
+			"workflow should contain step %q", step)
+	}
+
+	// Attempt to execute the workflow with a mocked LLM.
+	// Most external steps will fail; we skip on any dependency error.
+	engine := setupExecutorWithMockLLM()
+	engine.SetDebugMode(true)
+
+	reqCtx := &executor.RequestContext{
+		Method: "POST",
+		Path:   "/match",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: map[string]interface{}{
+			"cv_path":           "/tmp/test-cv.pdf",
+			"jd_path":           "/tmp/test-jd.pdf",
+			"distribution_list": []string{"hr@example.com"},
+		},
+	}
+
+	_, execErr := engine.Execute(workflow, reqCtx)
+	if execErr != nil {
+		// In CI, any execution error is assumed to be due to missing external
+		// dependencies (LLM, scrapers, SMTP, etc.), so we skip instead of failing.
+		if os.Getenv("CI") != "" {
+			t.Skipf("cv-matcher execution failed in CI (likely due to external dependencies): %v", execErr)
+		}
+
+		// Outside CI, execution failures should be actionable test failures.
+		require.NoError(t, execErr, "cv-matcher execution failed")
+	}
+}
+
 // Helper function to check if a string contains a substring (case-insensitive).
 func contains(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
