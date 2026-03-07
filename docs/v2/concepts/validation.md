@@ -1,6 +1,6 @@
 # Validation
 
-All validation, filtering, and control-flow for a resource lives in a single `run.validations:` block.
+All validation, filtering, and control-flow for a resource lives in a single `run.validations:` block. This replaces the former separate fields (`restrictToHttpMethods`, `restrictToRoutes`, `allowedHeaders`, `allowedParams`, `skipCondition`, `preflightCheck`, `validation`).
 
 ## Quick Reference
 
@@ -94,8 +94,8 @@ run:
   sql:
     query: "SELECT * FROM items LIMIT ? OFFSET ?"
     params:
-      - "{{ get('limit') }}"
-      - "{{ get('offset') }}"
+      - get('limit')
+      - get('offset')
 ```
 
 Only listed parameters are accessible. Protects against parameter pollution.

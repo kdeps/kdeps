@@ -266,6 +266,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Embedding != nil {
 		n++
 	}
+	if run.PDF != nil {
+		n++
+	}
 	return n
 }
 
@@ -298,14 +301,14 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, apiResponse)",
 			nil,
 		)
 	}
 	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf)",
 			nil,
 		)
 	}
@@ -340,6 +343,11 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 	if resource.Run.Embedding != nil {
 		if err := v.ValidateEmbeddingConfig(resource.Run.Embedding); err != nil {
+			return err
+		}
+	}
+	if resource.Run.PDF != nil {
+		if err := ValidatePDFConfig(resource.Run.PDF); err != nil {
 			return err
 		}
 	}
@@ -953,6 +961,48 @@ func ValidateScraperConfig(config *domain.ScraperConfig) error {
 
 	if config.Source == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
+	}
+
+	return nil
+}
+
+// ValidatePDFConfig validates a PDFConfig.
+func ValidatePDFConfig(config *domain.PDFConfig) error {
+	if config.Content == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "pdf.content is required", nil)
+	}
+
+	switch config.ContentType {
+	case "", domain.PDFContentTypeHTML, domain.PDFContentTypeMarkdown:
+		// valid
+	default:
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"pdf.contentType %q is not valid (expected: html, markdown)",
+				config.ContentType,
+			),
+			nil,
+		)
+	}
+
+	switch config.Backend {
+	case "", domain.PDFBackendWkhtmltopdf, domain.PDFBackendPandoc, domain.PDFBackendWeasyprint:
+		// valid
+	default:
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"pdf.backend %q is not valid (expected: wkhtmltopdf, pandoc, weasyprint)",
+				config.Backend,
+			),
+			nil,
+		)
+	}
+
+	if config.OutputFile != "" && !strings.HasSuffix(strings.ToLower(config.OutputFile), ".pdf") {
+		return domain.NewError(domain.ErrCodeInvalidResource,
+			fmt.Sprintf("pdf.outputFile %q must end with .pdf", config.OutputFile), nil)
 	}
 
 	return nil

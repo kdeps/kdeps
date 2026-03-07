@@ -54,6 +54,7 @@ run:
 - [`scraper:`](https://kdeps.com/resources/scraper) – Text extraction from 15+ file types
 - [`embedding:`](https://kdeps.com/resources/embedding) – Vector RAG (index or search)
 - [`tts:`](https://kdeps.com/resources/tts) – Text-to-speech (offline or cloud)
+- [`pdf:`](https://kdeps.com/resources/pdf) – PDF generation from HTML or Markdown
 - [`exec:`](https://kdeps.com/resources/exec) – Shell commands and automation
 - [`botReply:`](https://kdeps.com/concepts/input-sources#chat-bot-platforms) – Send messages to Discord/Slack/Telegram
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
