@@ -53,6 +53,7 @@ run:
   exec: { ... }        # Shell command
   scraper: { ... }     # Content scraping
   tts: { ... }         # Text-to-Speech
+  pdf: { ... }         # PDF generation
   botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
   apiResponse: { ... } # API response
@@ -69,6 +70,7 @@ run:
 | `exec` | Shell commands | System operations |
 | `scraper` | Content extraction | Web pages, PDFs, documents, images |
 | `tts` | Text-to-Speech synthesis | Voice output, audio responses |
+| `pdf` | PDF generation | Reports, letters, tailored documents |
 | `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `apiResponse` | Response formatting | Final output |
@@ -390,5 +392,6 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [Exec Resource](exec) - Shell commands
 - [Scraper Resource](scraper) - Content extraction
 - [TTS Resource](tts) - Text-to-Speech synthesis
+- [PDF Resource](pdf) - PDF generation from HTML or Markdown
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
