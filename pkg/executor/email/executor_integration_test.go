@@ -59,40 +59,40 @@ type smtpCapture struct {
 // It accepts connections in a background goroutine, handles the full
 // SMTP command sequence, and stores the captured transaction so tests
 // can inspect it after Execute() returns.
-func startFakeSMTP(t *testing.T) (host string, port int, captured func() *smtpCapture) {
+func startFakeSMTP(t *testing.T) (string, int, func() *smtpCapture) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = ln.Close() })
 
-	host = "127.0.0.1"
+	smtpHost := "127.0.0.1"
 	_, portStr, _ := net.SplitHostPort(ln.Addr().String())
-	port, _ = strconv.Atoi(portStr)
+	smtpPort, _ := strconv.Atoi(portStr)
 
 	var mu sync.Mutex
-	var cap *smtpCapture
+	var captured *smtpCapture
 
 	go func() {
 		for {
-			conn, err := ln.Accept()
-			if err != nil {
+			conn, acceptErr := ln.Accept()
+			if acceptErr != nil {
 				return // listener closed
 			}
-			go handleSMTPConn(conn, &mu, &cap)
+			go handleSMTPConn(conn, &mu, &captured)
 		}
 	}()
 
-	return host, port, func() *smtpCapture {
+	return smtpHost, smtpPort, func() *smtpCapture {
 		mu.Lock()
 		defer mu.Unlock()
-		return cap
+		return captured
 	}
 }
 
 // handleSMTPConn runs a minimal SMTP state machine on a single connection.
 // It reads commands line-by-line, responds to EHLO/MAIL/RCPT/DATA/QUIT,
-// and stores the captured envelope + message body via the mutex-protected cap.
-func handleSMTPConn(conn net.Conn, mu *sync.Mutex, cap **smtpCapture) {
+// and stores the captured envelope + message body via the mutex-protected recv.
+func handleSMTPConn(conn net.Conn, mu *sync.Mutex, recv **smtpCapture) {
 	defer conn.Close()
 	r := bufio.NewReader(conn)
 
@@ -115,14 +115,12 @@ func handleSMTPConn(conn net.Conn, mu *sync.Mutex, cap **smtpCapture) {
 			if line == "." {
 				inData = false
 				mu.Lock()
-				*cap = &smtpCapture{from: from, to: to, message: msgBuf}
+				*recv = &smtpCapture{from: from, to: to, message: msgBuf}
 				mu.Unlock()
 				_, _ = fmt.Fprint(conn, "250 OK\r\n")
 			} else {
 				// Undo dot-stuffing: a leading '.' in data is doubled by the sender.
-				if strings.HasPrefix(line, ".") {
-					line = line[1:]
-				}
+				line = strings.TrimPrefix(line, ".")
 				msgBuf = append(msgBuf, []byte(line+"\r\n")...)
 			}
 			continue
@@ -255,9 +253,9 @@ func TestIntegration_PlainText_Send(t *testing.T) {
 	assert.Equal(t, "Test subject", m["subject"])
 	assert.Equal(t, 0, m["attachments"])
 
-	if cap := getCapture(); cap != nil {
-		assert.Contains(t, string(cap.message), "Test body")
-		assert.Contains(t, string(cap.message), "text/plain")
+	if recv := getCapture(); recv != nil {
+		assert.Contains(t, string(recv.message), "Test body")
+		assert.Contains(t, string(recv.message), "text/plain")
 	}
 }
 
@@ -277,9 +275,9 @@ func TestIntegration_HTML_Send(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 
-	if cap := getCapture(); cap != nil {
-		assert.Contains(t, string(cap.message), "text/html")
-		assert.Contains(t, string(cap.message), "<h1>Hello</h1>")
+	if recv := getCapture(); recv != nil {
+		assert.Contains(t, string(recv.message), "text/html")
+		assert.Contains(t, string(recv.message), "<h1>Hello</h1>")
 	}
 }
 
@@ -320,11 +318,11 @@ func TestIntegration_BCC_InEnvelopeNotHeaders(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 
-	if cap := getCapture(); cap != nil {
+	if recv := getCapture(); recv != nil {
 		// BCC MUST NOT appear in the MIME message (headers or body).
-		assert.NotContains(t, string(cap.message), "bcc@example.com")
+		assert.NotContains(t, string(recv.message), "bcc@example.com")
 		// BCC MUST appear in the SMTP RCPT TO envelope.
-		assert.Contains(t, cap.to, "bcc@example.com")
+		assert.Contains(t, recv.to, "bcc@example.com")
 	}
 }
 
@@ -372,9 +370,9 @@ func TestIntegration_WithAttachment(t *testing.T) {
 	assert.Equal(t, true, m["success"])
 	assert.Equal(t, 1, m["attachments"])
 
-	if cap := getCapture(); cap != nil {
-		assert.Contains(t, string(cap.message), "multipart/mixed")
-		assert.Contains(t, string(cap.message), "match-report.pdf")
+	if recv := getCapture(); recv != nil {
+		assert.Contains(t, string(recv.message), "multipart/mixed")
+		assert.Contains(t, string(recv.message), "match-report.pdf")
 	}
 }
 
@@ -524,8 +522,8 @@ func TestIntegration_CVMatch_EmailDistribution(t *testing.T) {
 	assert.Equal(t, true, m["success"])
 	assert.Equal(t, 1, m["attachments"])
 
-	if cap := getCapture(); cap != nil {
-		msgStr := string(cap.message)
+	if recv := getCapture(); recv != nil {
+		msgStr := string(recv.message)
 		assert.Contains(t, msgStr, "Jane Smith")
 		assert.Contains(t, msgStr, "87%")
 		assert.Contains(t, msgStr, "text/html")
