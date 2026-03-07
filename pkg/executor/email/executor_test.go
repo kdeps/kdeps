@@ -38,33 +38,14 @@ import (
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-// minimalCtx returns an ExecutionContext with nil API, sufficient for tests
-// that exercise config validation without expression evaluation.
-func minimalCtx(t *testing.T) *executor.ExecutionContext {
-	t.Helper()
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
-		Resources: []*domain.Resource{
-			{
-				Metadata: domain.ResourceMetadata{ActionID: "r", Name: "R"},
-				Run:      domain.RunConfig{Email: &domain.EmailConfig{}},
-			},
-		},
-	}
-	ctx, err := executor.NewExecutionContext(wf)
-	require.NoError(t, err)
-	return ctx
-}
-
 // ─── NewAdapter ───────────────────────────────────────────────────────────────
+
+// Compile-time interface assertion.
+var _ executor.ResourceExecutor = (*Executor)(nil)
 
 func TestNewAdapter_NilLogger(t *testing.T) {
 	ex := NewAdapter(nil)
 	assert.NotNil(t, ex)
-}
-
-func TestNewAdapter_ImplementsResourceExecutor(t *testing.T) {
-	var _ executor.ResourceExecutor = NewAdapter(nil)
 }
 
 // ─── Execute — config type guard ──────────────────────────────────────────────
@@ -395,9 +376,9 @@ func TestDoSend_ViaDummySMTP(t *testing.T) {
 
 	serverDone := make(chan error, 1)
 	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			serverDone <- err
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
 			return
 		}
 		defer conn.Close()

@@ -27,6 +27,7 @@ package email
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
@@ -70,12 +71,12 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 
 	// Evaluate all expression fields.
 	ev := e.makeEvaluator(ctx)
-	from    := ev(cfg.From)
+	from := ev(cfg.From)
 	subject := ev(cfg.Subject)
-	body    := ev(cfg.Body)
-	to      := evalSlice(cfg.To, ev)
-	cc      := evalSlice(cfg.CC, ev)
-	bcc     := evalSlice(cfg.BCC, ev)
+	body := ev(cfg.Body)
+	to := evalSlice(cfg.To, ev)
+	cc := evalSlice(cfg.CC, ev)
+	bcc := evalSlice(cfg.BCC, ev)
 	attachments := evalSlice(cfg.Attachments, ev)
 
 	smtpHost := ev(cfg.SMTP.Host)
@@ -96,12 +97,8 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	}
 
 	// Resolve relative attachment paths against ctx.FSRoot (mirrors scraper executor).
-	if ctx != nil && ctx.FSRoot != "" {
-		for i, p := range attachments {
-			if p != "" && !filepath.IsAbs(p) {
-				attachments[i] = filepath.Join(ctx.FSRoot, p)
-			}
-		}
+	if ctx != nil {
+		attachments = resolveAttachmentPaths(ctx.FSRoot, attachments)
 	}
 
 	timeout := defaultTimeout
@@ -169,21 +166,38 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 
 // ─── SMTP helpers ─────────────────────────────────────────────────────────────
 
+// resolveAttachmentPaths returns paths with any relative entries resolved
+// against fsRoot. If fsRoot is empty, the original slice is returned unchanged.
+func resolveAttachmentPaths(fsRoot string, paths []string) []string {
+	if fsRoot == "" {
+		return paths
+	}
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		if p != "" && !filepath.IsAbs(p) {
+			out[i] = filepath.Join(fsRoot, p)
+		} else {
+			out[i] = p
+		}
+	}
+	return out
+}
+
 // sendSTARTTLS connects on the given addr and upgrades to TLS via STARTTLS.
 // If no credentials are supplied the connection is used unauthenticated.
 func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
-
-	conn, err := net.DialTimeout("tcp", addr, timeout)
+	dialer := &net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}
 
 	// Apply the timeout to the entire SMTP exchange, not just the TCP dial.
 	if timeout > 0 {
-		if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		if dlErr := conn.SetDeadline(time.Now().Add(timeout)); dlErr != nil {
 			_ = conn.Close()
-			return fmt.Errorf("set deadline: %w", err)
+			return fmt.Errorf("set deadline: %w", dlErr)
 		}
 	}
 
@@ -194,7 +208,10 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 	}
 	defer func() { _ = client.Quit() }()
 
-	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec // G402: InsecureSkipVerify is user-controlled and required for self-signed/internal SMTP certificates
+	tlsCfg := &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in for self-signed/internal SMTP
+	}
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		if err = client.StartTLS(tlsCfg); err != nil {
 			return fmt.Errorf("starttls: %w", err)
@@ -214,8 +231,10 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 // sendImplicitTLS connects with TLS from the start (port 465 / SMTPS).
 func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
-
-	tlsCfg := &tls.Config{ServerName: host, InsecureSkipVerify: insecure} //nolint:gosec // G402: InsecureSkipVerify is user-controlled and required for self-signed/internal SMTP certificates
+	tlsCfg := &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in for self-signed/internal SMTP
+	}
 	dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: timeout}, Config: tlsCfg}
 	conn, err := dialer.Dial("tcp", addr)
 	if err != nil {
@@ -224,9 +243,9 @@ func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 
 	// Apply the timeout to the entire SMTP exchange, not just the TLS dial.
 	if timeout > 0 {
-		if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		if dlErr := conn.SetDeadline(time.Now().Add(timeout)); dlErr != nil {
 			_ = conn.Close()
-			return fmt.Errorf("set deadline: %w", err)
+			return fmt.Errorf("set deadline: %w", dlErr)
 		}
 	}
 
@@ -277,28 +296,65 @@ func sanitizeHeader(field, val string) error {
 	return nil
 }
 
+// sanitizeAddressSlice returns an error if any address in the slice contains
+// CR or LF characters, which would enable SMTP/MIME header injection.
+func sanitizeAddressSlice(addrs []string) error {
+	for _, addr := range addrs {
+		if strings.ContainsAny(addr, "\r\n") {
+			return errors.New("email recipient address contains CR or LF (header injection)")
+		}
+	}
+	return nil
+}
+
+// writeAttachmentPart reads the file at path and writes it as a base64-encoded
+// MIME attachment part into mw.
+func writeAttachmentPart(mw *multipart.Writer, path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read attachment %q: %w", path, err)
+	}
+	filename := filepath.Base(path)
+
+	attHeaders := textproto.MIMEHeader{}
+	attHeaders.Set("Content-Type", "application/octet-stream")
+	attHeaders.Set("Content-Transfer-Encoding", "base64")
+	attHeaders.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+
+	attPart, err := mw.CreatePart(attHeaders)
+	if err != nil {
+		return fmt.Errorf("create attachment part for %q: %w", filename, err)
+	}
+	encoder := base64.NewEncoder(base64.StdEncoding, attPart)
+	if _, err = encoder.Write(data); err != nil {
+		return fmt.Errorf("encode attachment %q: %w", filename, err)
+	}
+	if err = encoder.Close(); err != nil {
+		return fmt.Errorf("close attachment encoder %q: %w", filename, err)
+	}
+	return nil
+}
+
 // buildMessage constructs a MIME email message with optional HTML and attachments.
 func buildMessage(from string, to, cc, bcc []string, subject, body string,
 	isHTML bool, attachments []string) ([]byte, error) {
-
 	// Reject header values that contain CR or LF to prevent header injection.
-	for field, val := range map[string]string{
-		"From":    from,
-		"Subject": subject,
-	} {
-		if err := sanitizeHeader(field, val); err != nil {
-			return nil, err
-		}
+	if err := sanitizeHeader("From", from); err != nil {
+		return nil, err
 	}
-	for _, addr := range to {
-		if strings.ContainsAny(addr, "\r\n") {
-			return nil, fmt.Errorf("email recipient address contains CR or LF (header injection)")
-		}
+	if err := sanitizeHeader("Subject", subject); err != nil {
+		return nil, err
 	}
-	for _, addr := range cc {
-		if strings.ContainsAny(addr, "\r\n") {
-			return nil, fmt.Errorf("email recipient address contains CR or LF (header injection)")
-		}
+	if err := sanitizeAddressSlice(to); err != nil {
+		return nil, err
+	}
+	if err := sanitizeAddressSlice(cc); err != nil {
+		return nil, err
+	}
+	// BCC addresses are not written to MIME headers, but they are used in the
+	// SMTP envelope (RCPT TO), so they must be sanitized against CRLF injection.
+	if err := sanitizeAddressSlice(bcc); err != nil {
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -347,31 +403,12 @@ func buildMessage(from string, to, cc, bcc []string, subject, body string,
 		if path == "" {
 			continue
 		}
-		data, err := os.ReadFile(path) //nolint:gosec // G304: attachment paths are user/config-controlled and reading local files is required to attach them
-		if err != nil {
-			return nil, fmt.Errorf("read attachment %q: %w", path, err)
-		}
-		filename := filepath.Base(path)
-
-		attHeaders := textproto.MIMEHeader{}
-		attHeaders.Set("Content-Type", "application/octet-stream")
-		attHeaders.Set("Content-Transfer-Encoding", "base64")
-		attHeaders.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-
-		attPart, err := mw.CreatePart(attHeaders)
-		if err != nil {
-			return nil, fmt.Errorf("create attachment part for %q: %w", filename, err)
-		}
-		encoder := base64.NewEncoder(base64.StdEncoding, attPart)
-		if _, err = encoder.Write(data); err != nil {
-			return nil, fmt.Errorf("encode attachment %q: %w", filename, err)
-		}
-		if err = encoder.Close(); err != nil {
-			return nil, fmt.Errorf("close attachment encoder %q: %w", filename, err)
+		if err = writeAttachmentPart(mw, path); err != nil {
+			return nil, err
 		}
 	}
 
-	if err := mw.Close(); err != nil {
+	if err = mw.Close(); err != nil {
 		return nil, fmt.Errorf("close multipart writer: %w", err)
 	}
 
