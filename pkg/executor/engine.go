@@ -705,7 +705,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
@@ -714,7 +714,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.TTS != nil ||
 		resource.Run.BotReply != nil ||
 		resource.Run.Scraper != nil ||
-		resource.Run.Embedding != nil
+		resource.Run.Embedding != nil ||
+		resource.Run.PDF != nil
 
 	var primaryResult interface{}
 	var err error
@@ -740,6 +741,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeScraper(resource, ctx)
 		case resource.Run.Embedding != nil:
 			primaryResult, err = e.executeEmbedding(resource, ctx)
+		case resource.Run.PDF != nil:
+			primaryResult, err = e.executePDF(resource, ctx)
 		}
 
 		if err != nil {
@@ -1349,6 +1352,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineScraper(inline.Scraper, ctx)
 		case inline.Embedding != nil:
 			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
+		case inline.PDF != nil:
+			result, err = e.executeInlinePDF(inline.PDF, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2171,4 +2176,28 @@ func (e *Engine) executeInlineEmbedding(config *domain.EmbeddingConfig, ctx *Exe
 	}
 
 	return embeddingExec.Execute(ctx, config)
+}
+
+// executePDF executes a PDF generation resource.
+func (e *Engine) executePDF(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.PDF == nil {
+		return nil, fmt.Errorf("resource %s has no pdf configuration", resource.Metadata.ActionID)
+	}
+
+	pdfExec := e.registry.GetPDFExecutor()
+	if pdfExec == nil {
+		return nil, errors.New("pdf executor not available")
+	}
+
+	return pdfExec.Execute(ctx, resource.Run.PDF)
+}
+
+// executeInlinePDF executes an inline PDF generation resource.
+func (e *Engine) executeInlinePDF(config *domain.PDFConfig, ctx *ExecutionContext) (interface{}, error) {
+	pdfExec := e.registry.GetPDFExecutor()
+	if pdfExec == nil {
+		return nil, errors.New("pdf executor not available")
+	}
+
+	return pdfExec.Execute(ctx, config)
 }

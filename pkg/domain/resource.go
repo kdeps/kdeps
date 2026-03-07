@@ -177,6 +177,7 @@ type RunConfig struct {
 	BotReply    *BotReplyConfig    `yaml:"botReply,omitempty"`
 	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
+	PDF         *PDFConfig         `yaml:"pdf,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -194,6 +195,7 @@ type InlineResource struct {
 	TTS        *TTSConfig        `yaml:"tts,omitempty"`
 	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
 	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
+	PDF        *PDFConfig        `yaml:"pdf,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
@@ -1029,4 +1031,52 @@ func (e *EmbeddingConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	return nil
+}
+
+// PDFBackendWkhtmltopdf uses the wkhtmltopdf CLI to render HTML to PDF.
+const PDFBackendWkhtmltopdf = "wkhtmltopdf"
+
+// PDFBackendPandoc uses pandoc to convert HTML or Markdown to PDF.
+const PDFBackendPandoc = "pandoc"
+
+// PDFBackendWeasyprint uses WeasyPrint (Python) to render HTML/CSS to PDF.
+const PDFBackendWeasyprint = "weasyprint"
+
+// PDFContentTypeHTML treats the content as HTML (default).
+const PDFContentTypeHTML = "html"
+
+// PDFContentTypeMarkdown treats the content as Markdown.
+const PDFContentTypeMarkdown = "markdown"
+
+// PDFConfig configures a PDF generation resource.
+// It renders HTML or Markdown content to a PDF file using a configurable
+// backend (wkhtmltopdf, pandoc, or weasyprint).
+//
+// The generated PDF is written to OutputFile (or an auto-generated path
+// under /tmp/kdeps-pdf/) and the path is returned as the executor result.
+type PDFConfig struct {
+	// Content is the HTML or Markdown source to render.  Expression evaluation
+	// is supported (e.g. "{{ get('llm') }}").  Required.
+	Content string `yaml:"content"`
+
+	// ContentType is the format of Content: "html" (default) or "markdown".
+	ContentType string `yaml:"contentType,omitempty"`
+
+	// Backend is the rendering tool: "wkhtmltopdf" (default), "pandoc", "weasyprint".
+	Backend string `yaml:"backend,omitempty"`
+
+	// OutputFile is an optional explicit output path (must end with .pdf).
+	// When empty, a unique path under /tmp/kdeps-pdf/ is generated.
+	OutputFile string `yaml:"outputFile,omitempty"`
+
+	// Options are extra CLI flags forwarded verbatim to the backend executable.
+	// Example for wkhtmltopdf: ["--page-size", "A4", "--margin-top", "10mm"]
+	Options []string `yaml:"options,omitempty"`
+
+	// TimeoutDuration is the maximum time allowed for the backend to run
+	// (Go duration string, e.g. "30s", "2m").  Default: 60s.
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for TimeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
 }
