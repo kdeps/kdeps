@@ -209,6 +209,7 @@ type RunConfig struct {
 	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
 	PDF         *PDFConfig         `yaml:"pdf,omitempty"`
+	Email       *EmailConfig       `yaml:"email,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -227,6 +228,7 @@ type InlineResource struct {
 	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
 	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
 	PDF        *PDFConfig        `yaml:"pdf,omitempty"`
+	Email      *EmailConfig      `yaml:"email,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
@@ -1078,6 +1080,85 @@ const PDFContentTypeHTML = "html"
 
 // PDFContentTypeMarkdown treats the content as Markdown.
 const PDFContentTypeMarkdown = "markdown"
+
+// EmailSMTPConfig holds SMTP server settings for sending email.
+type EmailSMTPConfig struct {
+	// Host is the SMTP server hostname (e.g., "smtp.gmail.com").
+	Host string `yaml:"host"`
+
+	// Port is the SMTP server port (e.g., 587 for STARTTLS, 465 for TLS, 25 for plain).
+	Port int `yaml:"port"`
+
+	// Username is the SMTP authentication username.
+	Username string `yaml:"username,omitempty"`
+
+	// Password is the SMTP authentication password or app token.
+	Password string `yaml:"password,omitempty"`
+
+	// TLS enables implicit TLS (port 465 / SMTPS). Mutually exclusive with StartTLS.
+	TLS bool `yaml:"tls,omitempty"`
+
+	// StartTLS upgrades an existing connection to TLS (port 587). Default for most providers.
+	StartTLS bool `yaml:"startTLS,omitempty"`
+
+	// InsecureSkipVerify disables TLS certificate verification (testing only).
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// EmailConfig configures an email-sending resource using SMTP.
+//
+// Example:
+//
+//	run:
+//	  email:
+//	    smtp:
+//	      host: "smtp.gmail.com"
+//	      port: 587
+//	      username: "{{env('SMTP_USER')}}"
+//	      password: "{{env('SMTP_PASS')}}"
+//	      startTLS: true
+//	    from: "recruiter@example.com"
+//	    to: ["hiring@company.com", "hr@company.com"]
+//	    subject: "New CV Match: {{get('candidate-name')}}"
+//	    body: "{{get('email-body')}}"
+//	    html: true
+//	    attachments:
+//	      - "{{get('pdf-path')}}"
+type EmailConfig struct {
+	// SMTP holds server connection settings.
+	SMTP EmailSMTPConfig `yaml:"smtp"`
+
+	// From is the sender email address. Expression evaluation is supported.
+	From string `yaml:"from"`
+
+	// To is the list of primary recipient addresses. Expression evaluation is supported per item.
+	To []string `yaml:"to"`
+
+	// CC is the list of carbon-copy recipients.
+	CC []string `yaml:"cc,omitempty"`
+
+	// BCC is the list of blind carbon-copy recipients.
+	BCC []string `yaml:"bcc,omitempty"`
+
+	// Subject is the email subject line. Expression evaluation is supported.
+	Subject string `yaml:"subject"`
+
+	// Body is the email body. Expression evaluation is supported.
+	Body string `yaml:"body"`
+
+	// HTML set to true sends the body as HTML; otherwise plain text.
+	HTML bool `yaml:"html,omitempty"`
+
+	// Attachments is an optional list of local file paths to attach.
+	// Expression evaluation is supported per item.
+	Attachments []string `yaml:"attachments,omitempty"`
+
+	// TimeoutDuration is the maximum time for the SMTP send (e.g., "30s").
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for TimeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
+}
 
 // PDFConfig configures a PDF generation resource.
 // It renders HTML or Markdown content to a PDF file using a configurable

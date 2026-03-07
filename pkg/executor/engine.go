@@ -728,7 +728,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
@@ -738,7 +738,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.BotReply != nil ||
 		resource.Run.Scraper != nil ||
 		resource.Run.Embedding != nil ||
-		resource.Run.PDF != nil
+		resource.Run.PDF != nil ||
+		resource.Run.Email != nil
 
 	var primaryResult interface{}
 	var err error
@@ -766,6 +767,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeEmbedding(resource, ctx)
 		case resource.Run.PDF != nil:
 			primaryResult, err = e.executePDF(resource, ctx)
+		case resource.Run.Email != nil:
+			primaryResult, err = e.executeEmail(resource, ctx)
 		}
 
 		if err != nil {
@@ -1377,6 +1380,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
 		case inline.PDF != nil:
 			result, err = e.executeInlinePDF(inline.PDF, ctx)
+		case inline.Email != nil:
+			result, err = e.executeInlineEmail(inline.Email, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2223,4 +2228,28 @@ func (e *Engine) executeInlinePDF(config *domain.PDFConfig, ctx *ExecutionContex
 	}
 
 	return pdfExec.Execute(ctx, config)
+}
+
+// executeEmail executes an email-sending resource.
+func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Email == nil {
+		return nil, fmt.Errorf("resource %s has no email configuration", resource.Metadata.ActionID)
+	}
+
+	emailExec := e.registry.GetEmailExecutor()
+	if emailExec == nil {
+		return nil, errors.New("email executor not available")
+	}
+
+	return emailExec.Execute(ctx, resource.Run.Email)
+}
+
+// executeInlineEmail executes an inline email-sending resource.
+func (e *Engine) executeInlineEmail(config *domain.EmailConfig, ctx *ExecutionContext) (interface{}, error) {
+	emailExec := e.registry.GetEmailExecutor()
+	if emailExec == nil {
+		return nil, errors.New("email executor not available")
+	}
+
+	return emailExec.Execute(ctx, config)
 }
