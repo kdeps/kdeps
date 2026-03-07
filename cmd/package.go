@@ -191,7 +191,7 @@ func ParseKdepsIgnore(dir string) []string {
 			if relErr != nil {
 				return nil
 			}
-			f, openErr := root.Open(relPath)
+			f, openErr := root.Open(filepath.ToSlash(relPath))
 			if openErr == nil {
 				defer f.Close()
 				data, readErr := io.ReadAll(f)

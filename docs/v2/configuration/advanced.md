@@ -53,7 +53,7 @@ run:
     - set('isValid', get('token') != '')
   validations:
     skip:
-      - !get('isValid')
+      - "!get('isValid')"
 ```
 
 **my-workflow.yaml:**
@@ -122,7 +122,7 @@ run:
     - set('isGet', request.method == 'GET')
   validations:
     skip:
-      - !get('isPost')
+      - "!get('isPost')"
 ```
 
 ### Logging and Auditing

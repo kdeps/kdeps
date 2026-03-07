@@ -40,8 +40,6 @@ Used in `validations.skip`, `validations.check`, and `onError`.
 validations:
   skip:
   - get('q') == ''
-
-validations:
   check:
     - len(get('password')) >= 8
 ```
