@@ -13,4 +13,3 @@ run:
     mode: offline
     offline:
       engine: espeak
-      model: en_US-lessac-medium

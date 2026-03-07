@@ -235,9 +235,9 @@ Validations run in this order:
 
 ```
 Request
-  ↓ methods / routes check     → skip if no match
-  ↓ headers / params filter    → filter inaccessible keys
+  ↓ headers / params filter    → filter accessible keys
   ↓ skip conditions            → skip if any true
+  ↓ methods / routes check     → skip if no match
   ↓ check + error              → abort with error if any false
   ↓ required / rules / expr    → abort with 422 if invalid
   ↓ Execute resource

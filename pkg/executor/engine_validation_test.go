@@ -19,6 +19,7 @@
 package executor_test
 
 import (
+	"errors"
 	"log/slog"
 	"testing"
 
@@ -606,4 +607,150 @@ func TestEngine_Validation_NoValidation(t *testing.T) {
 	result, err := engine.Execute(workflow, reqCtx)
 	require.NoError(t, err, "Should not return error without validation rules")
 	assert.NotNil(t, result)
+}
+
+// TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip verifies that
+// headers/params allowlists are applied per-resource, before skip evaluation.
+// A skip expression using get() must see the *current* resource's filter, not
+// the previous resource's stale filter.
+func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-per-resource-filter",
+			Version:        "1.0.0",
+			TargetActionID: "resource2",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "resource1",
+					Name:     "Resource 1",
+				},
+				Run: domain.RunConfig{
+					// Only param1 is accessible in resource1.
+					Validations: &domain.ValidationsConfig{
+						Params: []string{"param1"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: map[string]interface{}{"from": "resource1"},
+					},
+				},
+			},
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "resource2",
+					Name:     "Resource 2",
+					Requires: []string{"resource1"},
+				},
+				Run: domain.RunConfig{
+					// resource2 only exposes param2.
+					// The skip expression uses get('param1') which should return nil
+					// because resource2's filter blocks param1. With the correct
+					// ordering (filter applied before skip), the resource is NOT skipped.
+					Validations: &domain.ValidationsConfig{
+						Params: []string{"param2"},
+						Skip: []domain.Expression{
+							{Raw: "get('param1') == 'v1'"},
+						},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: map[string]interface{}{"from": "resource2"},
+					},
+				},
+			},
+		},
+	}
+
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/api/test",
+		Body: map[string]interface{}{
+			"param1": "v1",
+			"param2": "v2",
+		},
+	}
+
+	// With per-resource filter reset before skip evaluation:
+	// resource2's params filter ["param2"] is applied before its skip expression.
+	// get('param1') returns nil (blocked), so skip condition evaluates to false,
+	// and resource2 executes and returns output.
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err, "resource2 should NOT be skipped when its own params filter blocks param1")
+	assert.NotNil(t, result)
+}
+
+// TestEngine_Validation_PreflightErrorBeforeSchemaValidation verifies that
+// preflight check errors (validations.check) surface before schema validation
+// errors (validations.required/rules), so auth/custom errors take priority.
+func TestEngine_Validation_PreflightErrorBeforeSchemaValidation(t *testing.T) {
+	engine := executor.NewEngine(slog.Default())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-preflight-before-schema",
+			Version:        "1.0.0",
+			TargetActionID: "resource",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "resource",
+					Name:     "Resource",
+				},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						// Preflight check always fails (unauthorized).
+						Check: []domain.Expression{
+							{Raw: "false"},
+						},
+						Error: &domain.ErrorConfig{
+							Code:    401,
+							Message: "Unauthorized",
+						},
+						// Schema validation also fails (required field missing).
+						Required: []string{"missingField"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: map[string]interface{}{"status": "ok"},
+					},
+				},
+			},
+		},
+	}
+
+	// Request with no body (missingField is absent, preflight also fails).
+	reqCtx := &executor.RequestContext{
+		Method: "POST",
+		Path:   "/api/test",
+		Body:   map[string]interface{}{},
+	}
+
+	_, err := engine.Execute(workflow, reqCtx)
+	require.Error(t, err, "Expected an error from either preflight or schema validation")
+
+	// The preflight check runs before input validation, so the returned error
+	// must be a PreflightError (code 401), not a VALIDATION_ERROR.
+	var preflightErr *executor.PreflightError
+	require.True(t, errors.As(err, &preflightErr),
+		"Expected preflight error (check runs before required/rules), got: %v", err)
+	assert.Equal(t, 401, preflightErr.Code)
 }
