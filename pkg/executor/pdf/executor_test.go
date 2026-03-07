@@ -54,20 +54,19 @@ func newCtx(t *testing.T) *executor.ExecutionContext {
 }
 
 // fakeCLI writes a shell script into a temp dir, prepends it to PATH,
-// and returns the directory so the caller can add more scripts if needed.
+// and sets PATH so the caller can use the fake CLI.
 // The script simply writes a minimal "PDF" file at the last argument position.
-func fakeCLI(t *testing.T, name string) string {
+func fakeCLI(t *testing.T, name string) {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, name)
 	content := "#!/bin/sh\nlast=\"\"\nfor a in \"$@\"; do last=\"$a\"; done\nprintf '%%PDF-1.4 fake\\n' > \"$last\"\n"
 	require.NoError(t, os.WriteFile(script, []byte(content), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return dir
 }
 
 // fakePandoc writes a pandoc-compatible fake script that honours the -o flag.
-func fakePandoc(t *testing.T) string {
+func fakePandoc(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	script := filepath.Join(dir, "pandoc")
@@ -82,7 +81,6 @@ printf '%%PDF-1.4 fake pandoc\n' > "$out"
 `
 	require.NoError(t, os.WriteFile(script, []byte(content), 0o755))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return dir
 }
 
 // ─── NewAdapter ───────────────────────────────────────────────────────────────
@@ -197,9 +195,9 @@ func TestExecute_Wkhtmltopdf_ExplicitOutputFile(t *testing.T) {
 	outFile := filepath.Join(t.TempDir(), "report.pdf")
 	ex := NewAdapter(nil)
 	result, err := ex.Execute(newCtx(t), &domain.PDFConfig{
-		Content:     "<p>hello</p>",
-		Backend:     domain.PDFBackendWkhtmltopdf,
-		OutputFile:  outFile,
+		Content:    "<p>hello</p>",
+		Backend:    domain.PDFBackendWkhtmltopdf,
+		OutputFile: outFile,
 	})
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
