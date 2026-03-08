@@ -17,7 +17,6 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - "http://localhost:16395"
         - "http://localhost:{{ port }}"
       allowMethods:
         - GET
@@ -100,7 +99,11 @@ resources:
         response:
           success: true
           data:
+            {%- if "llm" in resources %}
             result: "{% raw %}{{ get('processWithLLM') }}{% endraw %}"
+            {%- elif "http-client" in resources %}
+            result: "{% raw %}{{ get('fetchData') }}{% endraw %}"
+            {%- endif %}
           meta:
             processedAt: "{% raw %}{{ info('current_time') }}{% endraw %}"
 {%- endif %}
