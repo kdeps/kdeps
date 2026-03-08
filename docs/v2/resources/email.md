@@ -6,7 +6,7 @@ STARTTLS, and implicit TLS — and can be used as a primary resource or as an
 [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
 
 All string fields support [KDeps expressions](../concepts/expressions) such as
-`{{get(...)}}` and `{{env(...)}}`.
+<span v-pre>`{{get(...)}}` and `{{env(...)}}`</span>.
 
 ## Basic Usage
 
@@ -66,7 +66,7 @@ smtp:
 | `host` | string | **Required.** SMTP server hostname. |
 | `port` | int | SMTP port. Defaults to `465` when `tls: true`, `587` otherwise. |
 | `username` | string | SMTP authentication username. Omit for unauthenticated servers. |
-| `password` | string | SMTP authentication password. Supports `{{env(...)}}`. |
+| `password` | string | SMTP authentication password. Supports <span v-pre>`{{env(...)}}`</span>. |
 | `tls` | bool | `true` = implicit TLS (SMTPS, port 465). `false` = opportunistic STARTTLS (port 587). |
 | `startTLS` | bool | **Deprecated.** Ignored by the executor. STARTTLS is always attempted opportunistically when `tls: false`. Retained for backward compatibility. |
 | `insecureSkipVerify` | bool | Skip TLS certificate verification. **Do not use in production.** |
