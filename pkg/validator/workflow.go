@@ -269,6 +269,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.PDF != nil {
 		n++
 	}
+	if run.Email != nil {
+		n++
+	}
 	return n
 }
 
@@ -301,14 +304,14 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, apiResponse)",
+			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, apiResponse)",
 			nil,
 		)
 	}
 	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf)",
+			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email)",
 			nil,
 		)
 	}
