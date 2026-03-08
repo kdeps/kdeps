@@ -223,3 +223,56 @@ func TestGenerator_Jinja2TemplateGeneration(t *testing.T) {
 		assert.Contains(t, string(content), "9000")
 	}
 }
+
+func TestPreprocessYAML(t *testing.T) {
+tests := []struct {
+name     string
+content  string
+vars     map[string]interface{}
+expected string
+wantErr  bool
+}{
+{
+name:     "no jinja2 tags - passthrough",
+content:  "name: test\nvalue: \"{{ get('x') }}\"",
+vars:     map[string]interface{}{},
+expected: "name: test\nvalue: \"{{ get('x') }}\"",
+},
+{
+name:    "jinja2 if block rendered",
+content: "{% if env.MODE == 'prod' %}debug: false{% else %}debug: true{% endif %}",
+vars:    map[string]interface{}{"env": map[string]interface{}{"MODE": "prod"}},
+expected: "debug: false",
+},
+{
+name:     "jinja2 comment stripped",
+content:  "{# this is a comment #}\nname: clean",
+vars:     map[string]interface{}{},
+expected: "\nname: clean",
+},
+{
+name:     "raw block preserves runtime expression",
+content:  "{% set x = 1 %}\nurl: \"{% raw %}{{ get('url') }}{% endraw %}\"",
+vars:     map[string]interface{}{},
+expected: "\nurl: \"{{ get('url') }}\"",
+},
+{
+name:    "invalid jinja2 syntax returns error",
+content: "{% if unclosed",
+vars:    map[string]interface{}{},
+wantErr: true,
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+result, err := templates.PreprocessYAML(tt.content, tt.vars)
+if tt.wantErr {
+assert.Error(t, err)
+return
+}
+require.NoError(t, err)
+assert.Equal(t, tt.expected, result)
+})
+}
+}

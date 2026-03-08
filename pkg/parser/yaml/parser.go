@@ -28,6 +28,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
 // Parser parses YAML workflows and resources.
@@ -83,6 +84,14 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read workflow file", err)
 	}
 
+	// Apply Jinja2 preprocessing when the file contains Jinja2 control/comment tags.
+	// Files that only use {{ }} runtime expressions are passed through unchanged.
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess workflow Jinja2 template", preprocessErr)
+	}
+	data = []byte(preprocessed)
+
 	// Parse YAML into generic map first for schema validation.
 	var rawData map[string]interface{}
 	if parseErr := yaml.Unmarshal(data, &rawData); parseErr != nil {
@@ -132,6 +141,14 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	if err != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read resource file", err)
 	}
+
+	// Apply Jinja2 preprocessing when the file contains Jinja2 control/comment tags.
+	// Files that only use {{ }} runtime expressions are passed through unchanged.
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess resource Jinja2 template", preprocessErr)
+	}
+	data = []byte(preprocessed)
 
 	// Parse YAML into generic map first for schema validation.
 	var rawData map[string]interface{}
@@ -222,4 +239,22 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 	}
 
 	return nil
+}
+
+// buildJinja2Context builds the variable context available during Jinja2 preprocessing
+// of workflow and resource YAML files.  At minimum it provides an "env" map containing
+// all current process environment variables so that YAML authors can write:
+//
+//	settings:
+//	  portNum: {{ env.PORT | default(8080) }}
+func buildJinja2Context() map[string]interface{} {
+	env := make(map[string]interface{})
+	for _, e := range os.Environ() {
+		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
+			env[parts[0]] = parts[1]
+		}
+	}
+	return map[string]interface{}{
+		"env": env,
+	}
 }

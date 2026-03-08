@@ -1,14 +1,79 @@
 # Jinja2 Template Integration
 
-KDeps uses [Jinja2](https://jinja.palletsprojects.com/) compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the single unified template system for project scaffolding and resource generation. This replaces the previous dual-system approach of using both Mustache and Go's `text/template`.
+KDeps uses [Jinja2](https://jinja.palletsprojects.com/) compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the single unified template system for **both** project scaffolding and runtime workflow/resource YAML files. This replaces the previous dual-system approach of using both Mustache and Go's `text/template`.
 
 ## Why Jinja2?
 
-- **Unified**: A single template engine for all project and resource generation
+- **Unified**: A single template engine for scaffolding templates, workflow YAML, and resource YAML
 - **Expressive**: Full support for conditionals, loops, filters, and more
 - **Familiar**: Jinja2 is widely known and used across many ecosystems
 - **Readable**: Clean, intuitive syntax with `{{ }}` for variables and `{% %}` for control flow
 - **Powerful**: Supports `in` operator, filters, macros, and raw blocks
+
+## Scope of Jinja2 Rendering
+
+| Use case | When applied | Available variables |
+|----------|-------------|---------------------|
+| Project scaffolding (`.j2` files) | During `kdeps new` / project generation | `name`, `description`, `version`, `port`, `resources`, feature flags |
+| Workflow YAML files | At parse time (before YAML is processed) | `env` (process environment variables) |
+| Resource YAML files | At parse time (before YAML is processed) | `env` (process environment variables) |
+
+### Workflow and Resource YAML Preprocessing
+
+When a workflow or resource YAML file contains Jinja2 control tags (`{%`) or comment tags (`{#`), KDeps preprocesses the file with Jinja2 **before** YAML parsing. This allows you to:
+
+- Conditionally include or exclude sections based on environment variables
+- Set values from environment variables with defaults
+- Add comments that are stripped before parsing
+
+Files that contain **only** `{{ expr }}` runtime expressions (without any `{%` or `{#` tags) are **not** preprocessed by Jinja2, ensuring full backward-compatibility with existing workflow and resource files.
+
+#### Example: Conditional block based on environment
+
+```jinja2
+# workflow.yaml
+apiVersion: v2
+kind: Workflow
+metadata:
+  name: my-api
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  apiServerMode: true
+{% if env.PORT %}
+  portNum: {{ env.PORT | int }}
+{% else %}
+  portNum: 8080
+{% endif %}
+```
+
+#### Example: Runtime expressions alongside Jinja2
+
+When a resource YAML uses Jinja2 preprocessing AND contains runtime `{{ }}` expressions, wrap the runtime expressions in `{% raw %}...{% endraw %}`:
+
+```jinja2
+# resources/fetch.yaml
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: fetchData
+  name: Fetch Data
+run:
+{% if env.ENABLE_HTTP == 'true' %}
+  httpClient:
+    method: GET
+    url: "{% raw %}{{ get('url') }}{% endraw %}"
+{% endif %}
+```
+
+The `{% raw %}{{ get('url') }}{% endraw %}` block is preserved verbatim as `{{ get('url') }}` after Jinja2 preprocessing, so it is still evaluated as a KDeps runtime expression during execution.
+
+#### Available context variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `env` | `map[string]string` | All current process environment variables |
+
 
 ## Template Syntax
 

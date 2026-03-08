@@ -210,3 +210,28 @@ func handleJinja2SpecialCases(base string) string {
 	return base
 }
 
+// yamlRenderer is a package-level Jinja2Renderer used for YAML preprocessing.
+// It caches parsed templates across calls (e.g. hot-reload) to minimise parse overhead.
+var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache for YAML preprocessing
+
+// PreprocessYAML applies Jinja2 rendering to a YAML content string before it is parsed.
+// The function is a no-op when the content contains neither Jinja2 control tags ({%)
+// nor Jinja2 comment tags ({#), ensuring backward-compatibility with existing YAML files
+// that use only runtime {{ }} expression syntax.
+//
+// When Jinja2 control tags are present, runtime {{ }} expressions that should be
+// preserved for later evaluation must be wrapped in {% raw %}...{% endraw %} blocks.
+//
+// The vars map is made available as top-level Jinja2 variables.  A typical call
+// provides at least an "env" key containing the process environment variables:
+//
+//	vars := map[string]interface{}{
+//	    "env": map[string]interface{}{"PORT": "8080", ...},
+//	}
+func PreprocessYAML(content string, vars map[string]interface{}) (string, error) {
+	if !strings.Contains(content, "{%") && !strings.Contains(content, "{#") {
+		return content, nil
+	}
+	return yamlRenderer.Render(content, vars)
+}
+
