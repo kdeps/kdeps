@@ -4,9 +4,8 @@ kind: Resource
 metadata:
   actionId: reply
   name: Reply
-
-dependencies:
-  - llm
+  requires:
+    - llm
 
 run:
   botReply:

@@ -60,7 +60,7 @@ resources:
         backend: "ollama"
         model: "llama3.2:1b"
         role: "user"
-        prompt: "{{ get('q', 'param') }}"
+        prompt: "{{ get('q') }}"
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -72,4 +72,4 @@ resources:
       apiResponse:
         success: true
         response:
-          answer: "{{ llm.response('llm') }}"
+          answer: "{{ get('llm') }}"

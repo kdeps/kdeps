@@ -9,7 +9,7 @@ run:
   chat:
     model: "moondream:1.8b"
     role: "user"
-    prompt: "{{ get('q', 'param') }}"
+    prompt: "{{ get('q') }}"
     files:
       # Get uploaded file path - use 'file' field name from upload
       - "{{ get('file', 'filepath') }}"
