@@ -28,6 +28,12 @@ When a workflow or resource YAML file contains Jinja2 control tags (`{%`) or com
 
 Files that contain **only** `{{ expr }}` runtime expressions (without any `{%` or `{#` tags) are **not** preprocessed by Jinja2, ensuring full backward-compatibility with existing workflow and resource files.
 
+#### Auto-protection of kdeps runtime API calls
+
+KDeps **automatically** protects all runtime API function calls (`{{ get(...) }}`, `{{ set(...) }}`, `{{ info(...) }}`, `{{ input(...) }}`, `{{ output(...) }}`, `{{ file(...) }}`, `{{ item(...) }}`, `{{ loop(...) }}`, `{{ session(...) }}`, `{{ json(...) }}`, `{{ safe(...) }}`, `{{ debug(...) }}`, `{{ default(...) }}`) from Jinja2 evaluation. You do **not** need to wrap them in `{% raw %}...{% endraw %}`.
+
+Static Jinja2 variable expressions such as `{{ env.PORT }}` are evaluated normally because they do not start with a kdeps API function name.
+
 #### Example: Conditional block based on environment
 
 ```jinja2
@@ -47,9 +53,7 @@ settings:
 {% endif %}
 ```
 
-#### Example: Runtime expressions alongside Jinja2
-
-When a resource YAML uses Jinja2 preprocessing AND contains runtime `{{ }}` expressions, wrap the runtime expressions in `{% raw %}...{% endraw %}`:
+#### Example: Mixing Jinja2 control flow with runtime expressions (no `{% raw %}` needed)
 
 ```jinja2
 # resources/fetch.yaml
@@ -62,11 +66,13 @@ run:
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET
-    url: "{% raw %}{{ get('url') }}{% endraw %}"
+    url: "{{ get('url') }}"
+    headers:
+      X-Request-ID: "{{ info('request_id') }}"
 {% endif %}
 ```
 
-The `{% raw %}{{ get('url') }}{% endraw %}` block is preserved verbatim as `{{ get('url') }}` after Jinja2 preprocessing, so it is still evaluated as a KDeps runtime expression during execution.
+`{{ get('url') }}` and `{{ info('request_id') }}` are automatically preserved unchanged by the Jinja2 preprocessor and evaluated later by the kdeps runtime expression evaluator during request handling.
 
 #### Available context variables
 

@@ -89,6 +89,8 @@ settings:
 
 // TestParseResource_Jinja2Preprocessing verifies that Jinja2 control tags in a
 // resource YAML are rendered before the YAML is parsed.
+// Kdeps runtime API calls like {{ get('url') }} are automatically preserved
+// without requiring {% raw %} blocks.
 func TestParseResource_Jinja2Preprocessing(t *testing.T) {
 	t.Setenv("ENABLE_HTTP", "true")
 
@@ -101,7 +103,7 @@ run:
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET
-    url: "{% raw %}{{ get('url') }}{% endraw %}"
+    url: "{{ get('url') }}"
 {% endif %}
 `
 	tmpDir := t.TempDir()
@@ -114,7 +116,7 @@ run:
 	require.NotNil(t, res)
 
 	assert.Equal(t, "fetchData", res.Metadata.ActionID)
-	// The runtime expression inside {% raw %} should be preserved as-is.
+	// The runtime expression is auto-protected by PreprocessYAML and preserved as-is.
 	require.NotNil(t, res.Run.HTTPClient)
 	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
 }
@@ -145,4 +147,39 @@ run:
 	// The runtime expression must be present verbatim after parsing (no Jinja2 preprocessing).
 	require.NotNil(t, res.Run.HTTPClient)
 	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
+}
+
+// TestParseResource_MixedJinja2AndRuntimeExpressions verifies that a resource YAML
+// file can mix Jinja2 control flow ({% if %}) with multiple kdeps runtime API calls
+// without any manual {% raw %} blocks.
+func TestParseResource_MixedJinja2AndRuntimeExpressions(t *testing.T) {
+	t.Setenv("ENABLE_CALL", "yes")
+
+	resourceYAML := `apiVersion: v2
+kind: Resource
+metadata:
+  actionId: callAPI
+  name: Call API
+run:
+{% if env.ENABLE_CALL == 'yes' %}
+  httpClient:
+    method: GET
+    url: "{{ get('url') }}"
+    headers:
+      X-Request-ID: "{{ info('request_id') }}"
+{% endif %}
+`
+	tmpDir := t.TempDir()
+	resourcePath := filepath.Join(tmpDir, "resource.yaml")
+	require.NoError(t, os.WriteFile(resourcePath, []byte(resourceYAML), 0600))
+
+	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+	res, err := parser.ParseResource(resourcePath)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	require.NotNil(t, res.Run.HTTPClient)
+	// Both kdeps runtime expressions are auto-protected and preserved verbatim.
+	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
+	assert.Equal(t, "{{ info('request_id') }}", res.Run.HTTPClient.Headers["X-Request-ID"])
 }

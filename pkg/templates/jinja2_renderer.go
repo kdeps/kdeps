@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -210,6 +211,81 @@ func handleJinja2SpecialCases(base string) string {
 	return base
 }
 
+// kdepsAPIRe matches {{ expr }} blocks where expr begins with a kdeps runtime API
+// function call (get, set, info, input, output, file, item, loop, session, json,
+// safe, debug, default).  These expressions must be preserved unchanged so the
+// runtime expression evaluator can process them later.
+//
+// Uses [ \t]* (horizontal whitespace only) consistently around the function name
+// to avoid matching multi-line constructs that Jinja2 wouldn't parse either.
+//
+// The pattern uses non-greedy .*? which terminates at the first }} pair. This
+// correctly mirrors Jinja2's own lexer behaviour: Jinja2 also closes {{ }} at
+// the first }} it encounters, so a literal }} inside a string argument (e.g.
+// {{ get('k}}ey') }}) would be malformed Jinja2 regardless. Nested function
+// calls that don't contain }} (e.g. {{ get('k', upper(x)) }}) are handled
+// correctly because upper(x) contains no }}.
+//
+// The pattern deliberately does NOT match env.* access (e.g. {{ env.PORT }}) so
+// those remain available for Jinja2 static evaluation.
+var kdepsAPIRe = regexp.MustCompile( //nolint:gochecknoglobals // compile once
+	`\{\{[ \t]*(?:get|set|info|input|output|file|item|loop|session|json|safe|debug|default)[ \t]*\(.*?\}\}`,
+)
+
+// rawBlockRe matches existing {% raw %}...{% endraw %} blocks (including newlines).
+// Used to avoid double-wrapping expressions that are already inside raw blocks.
+var rawBlockRe = regexp.MustCompile(`(?s)\{%[ \t]*raw[ \t]*%\}.*?\{%[ \t]*endraw[ \t]*%\}`) //nolint:gochecknoglobals // compile once
+
+// autoProtectKdepsExpressions wraps any {{ kdepsFunc(...) }} blocks in
+// {% raw %}...{% endraw %} so that Jinja2 passes them through unchanged.
+// Expressions that are already inside an existing {% raw %} block are left
+// untouched to avoid creating invalid nested raw blocks.
+//
+// This lets YAML authors mix Jinja2 control flow ({% if %}, {% for %}, …) with
+// kdeps runtime expressions ({{ get('url') }}, {{ info('time') }}, …) in the
+// same file without needing manual {% raw %} annotations.
+func autoProtectKdepsExpressions(content string) string {
+	// Record all byte ranges that are already inside {% raw %}...{% endraw %} blocks.
+	rawRanges := rawBlockRe.FindAllStringIndex(content, -1)
+
+	isInRawBlock := func(start, end int) bool {
+		for _, r := range rawRanges {
+			if r[0] <= start && end <= r[1] {
+				return true
+			}
+		}
+		return false
+	}
+
+	matches := kdepsAPIRe.FindAllStringIndex(content, -1)
+	if len(matches) == 0 {
+		return content
+	}
+
+	var sb strings.Builder
+	pos := 0
+	for _, m := range matches {
+		sb.WriteString(content[pos:m[0]])
+		if isInRawBlock(m[0], m[1]) {
+			// Already protected — copy verbatim.
+			sb.WriteString(content[m[0]:m[1]])
+		} else {
+			sb.WriteString("{% raw %}")
+			sb.WriteString(content[m[0]:m[1]])
+			sb.WriteString("{% endraw %}")
+		}
+		pos = m[1]
+	}
+	sb.WriteString(content[pos:])
+	return sb.String()
+}
+
+// AutoProtectKdepsExpressions is the exported form of autoProtectKdepsExpressions,
+// exposed for testing. Application code should prefer calling PreprocessYAML directly.
+func AutoProtectKdepsExpressions(content string) string {
+	return autoProtectKdepsExpressions(content)
+}
+
 // yamlRenderer is a package-level Jinja2Renderer used for YAML preprocessing.
 // It caches parsed templates across calls (e.g. hot-reload) to minimise parse overhead.
 var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache for YAML preprocessing
@@ -219,8 +295,13 @@ var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache f
 // nor Jinja2 comment tags ({#), ensuring backward-compatibility with existing YAML files
 // that use only runtime {{ }} expression syntax.
 //
-// When Jinja2 control tags are present, runtime {{ }} expressions that should be
-// preserved for later evaluation must be wrapped in {% raw %}...{% endraw %} blocks.
+// When Jinja2 control tags are present, kdeps runtime API function calls
+// ({{ get('url') }}, {{ info('time') }}, {{ set('k','v') }}, etc.) are automatically
+// wrapped in {% raw %}...{% endraw %} before rendering so they pass through Jinja2
+// unchanged and are evaluated later by the kdeps runtime expression evaluator.
+//
+// Static Jinja2 variable expressions such as {{ env.PORT }} are evaluated normally
+// because they do not start with a kdeps API function name.
 //
 // The vars map is made available as top-level Jinja2 variables.  A typical call
 // provides at least an "env" key containing the process environment variables:
@@ -232,6 +313,7 @@ func PreprocessYAML(content string, vars map[string]interface{}) (string, error)
 	if !strings.Contains(content, "{%") && !strings.Contains(content, "{#") {
 		return content, nil
 	}
-	return yamlRenderer.Render(content, vars)
+	protected := autoProtectKdepsExpressions(content)
+	return yamlRenderer.Render(protected, vars)
 }
 

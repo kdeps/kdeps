@@ -233,7 +233,7 @@ expected string
 wantErr  bool
 }{
 {
-name:     "no jinja2 tags - passthrough",
+name:     "no jinja2 tags - passthrough, api expr preserved",
 content:  "name: test\nvalue: \"{{ get('x') }}\"",
 vars:     map[string]interface{}{},
 expected: "name: test\nvalue: \"{{ get('x') }}\"",
@@ -251,10 +251,22 @@ vars:     map[string]interface{}{},
 expected: "\nname: clean",
 },
 {
-name:     "raw block preserves runtime expression",
-content:  "{% set x = 1 %}\nurl: \"{% raw %}{{ get('url') }}{% endraw %}\"",
+name:     "api expr auto-protected without raw block",
+content:  "{% set x = 1 %}\nurl: \"{{ get('url') }}\"",
 vars:     map[string]interface{}{},
 expected: "\nurl: \"{{ get('url') }}\"",
+},
+{
+name:     "multiple api exprs auto-protected",
+content:  "{% if env.OK %}\nurl: \"{{ get('url') }}\"\ntime: \"{{ info('current_time') }}\"\n{% endif %}",
+vars:     map[string]interface{}{"env": map[string]interface{}{"OK": "1"}},
+expected: "\nurl: \"{{ get('url') }}\"\ntime: \"{{ info('current_time') }}\"\n",
+},
+{
+name:     "env var evaluated by jinja2",
+content:  "{# static config #}\nportNum: {{ env.PORT }}",
+vars:     map[string]interface{}{"env": map[string]interface{}{"PORT": "9090"}},
+expected: "\nportNum: 9090",
 },
 {
 name:    "invalid jinja2 syntax returns error",
@@ -272,6 +284,72 @@ assert.Error(t, err)
 return
 }
 require.NoError(t, err)
+assert.Equal(t, tt.expected, result)
+})
+}
+}
+
+func TestAutoProtectKdepsExpressions(t *testing.T) {
+tests := []struct {
+name     string
+input    string
+expected string
+}{
+{
+name:     "get is auto-protected",
+input:    "url: {{ get('url') }}",
+expected: "url: {% raw %}{{ get('url') }}{% endraw %}",
+},
+{
+name:     "info is auto-protected",
+input:    "t: {{ info('current_time') }}",
+expected: "t: {% raw %}{{ info('current_time') }}{% endraw %}",
+},
+{
+name:     "set is auto-protected",
+input:    "{{ set('k', 'v') }}",
+expected: "{% raw %}{{ set('k', 'v') }}{% endraw %}",
+},
+{
+name:     "multi-arg get is auto-protected",
+input:    "{{ get('key', 'items') }}",
+expected: "{% raw %}{{ get('key', 'items') }}{% endraw %}",
+},
+{
+name:     "env var NOT protected",
+input:    "port: {{ env.PORT }}",
+expected: "port: {{ env.PORT }}",
+},
+{
+name:     "static literal NOT protected",
+input:    "name: {{ name }}",
+expected: "name: {{ name }}",
+},
+{
+name:     "multiple api exprs",
+input:    "{{ get('a') }} {{ info('b') }}",
+expected: "{% raw %}{{ get('a') }}{% endraw %} {% raw %}{{ info('b') }}{% endraw %}",
+},
+{
+name:     "already-raw block NOT double-wrapped",
+input:    "{% raw %}{{ get('url') }}{% endraw %}",
+expected: "{% raw %}{{ get('url') }}{% endraw %}",
+},
+{
+name:     "raw block interleaved with unprotected call",
+input:    "{% raw %}{{ get('a') }}{% endraw %} and {{ info('b') }}",
+expected: "{% raw %}{{ get('a') }}{% endraw %} and {% raw %}{{ info('b') }}{% endraw %}",
+},
+{
+name:     "all api function names covered",
+input:    "{{ input('i') }} {{ output('r') }} {{ file('p') }} {{ item() }} {{ loop('idx') }} {{ session() }} {{ json(x) }} {{ safe(x, 'k') }} {{ debug(x) }} {{ default(x, 1) }}",
+expected: "{% raw %}{{ input('i') }}{% endraw %} {% raw %}{{ output('r') }}{% endraw %} {% raw %}{{ file('p') }}{% endraw %} {% raw %}{{ item() }}{% endraw %} {% raw %}{{ loop('idx') }}{% endraw %} {% raw %}{{ session() }}{% endraw %} {% raw %}{{ json(x) }}{% endraw %} {% raw %}{{ safe(x, 'k') }}{% endraw %} {% raw %}{{ debug(x) }}{% endraw %} {% raw %}{{ default(x, 1) }}{% endraw %}",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+result := templates.AutoProtectKdepsExpressions(tt.input)
 assert.Equal(t, tt.expected, result)
 })
 }
