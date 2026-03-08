@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"text/template"
 )
 
 //go:embed templates
@@ -40,32 +38,14 @@ type TemplateData struct {
 	Features    map[string]bool
 }
 
-// ToMustacheData converts TemplateData to a format suitable for mustache templates.
-// This adds boolean flags for each resource to make conditional rendering easier.
-func (t TemplateData) ToMustacheData() map[string]interface{} {
+// ToJinja2Data converts TemplateData to a format suitable for Jinja2 templates.
+func (t TemplateData) ToJinja2Data() map[string]interface{} {
 	data := map[string]interface{}{
 		"name":        t.Name,
 		"description": t.Description,
 		"version":     t.Version,
 		"port":        t.Port,
-	}
-
-	// Add boolean flags for each resource type
-	for _, resource := range t.Resources {
-		switch resource {
-		case "http-client":
-			data["hasHttpClient"] = true
-		case "llm":
-			data["hasLlm"] = true
-		case "sql":
-			data["hasSql"] = true
-		case "python":
-			data["hasPython"] = true
-		case "exec":
-			data["hasExec"] = true
-		case "response":
-			data["hasResponse"] = true
-		}
+		"resources":   t.Resources,
 	}
 
 	// Add features
@@ -78,195 +58,33 @@ func (t TemplateData) ToMustacheData() map[string]interface{} {
 	return data
 }
 
-// Generator generates project files from templates.
-type Generator struct {
-	templates *template.Template
-}
+// Generator generates project files from Jinja2 templates.
+type Generator struct{}
 
 // NewGenerator creates a new template generator.
 func NewGenerator() (*Generator, error) {
-	// Parse all templates from embedded filesystem
-	tmpl := template.New("generator").Funcs(template.FuncMap{
-		"has": func(slice []string, item string) bool {
-			for _, s := range slice {
-				if s == item {
-					return true
-				}
-			}
-			return false
-		},
-	})
-
-	// Walk embedded filesystem and parse templates
-	err := walkEmbedFS(templatesFS, "templates", func(path string, content []byte) error {
-		relPath := strings.TrimPrefix(path, "templates/")
-		_, err := tmpl.New(relPath).Parse(string(content))
-		return err
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse templates: %w", err)
-	}
-
-	return &Generator{
-		templates: tmpl,
-	}, nil
+	return &Generator{}, nil
 }
 
-// walkEmbedFS walks through embedded filesystem.
-func walkEmbedFS(fs embed.FS, root string, fn func(path string, content []byte) error) error {
-	entries, err := fs.ReadDir(root)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		path := filepath.Join(root, entry.Name())
-
-		if entry.IsDir() { //nolint:nestif // Acceptable complexity for directory walking
-			if walkErr := walkEmbedFS(fs, path, fn); walkErr != nil {
-				return walkErr
-			}
-		} else {
-			// Skip mustache template files during Go template parsing
-			if strings.HasSuffix(entry.Name(), ".mustache") {
-				continue
-			}
-
-			content, readErr := fs.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-
-			// Skip files that contain mustache syntax (they'll be handled by mustache renderer)
-			if hasMustacheSyntax(string(content)) {
-				continue
-			}
-
-			if fnErr := fn(path, content); fnErr != nil {
-				return fnErr
-			}
-		}
-	}
-	return nil
-}
-
-// GenerateProject creates a new project from a template.
-// It automatically detects whether to use Go templates or Mustache templates.
+// GenerateProject creates a new project from a Jinja2 template.
 func (g *Generator) GenerateProject(templateName string, outputDir string, data TemplateData) error {
-	// Validate template exists
 	templateDir := filepath.Join("templates", templateName)
 	entries, readErr := templatesFS.ReadDir(templateDir)
 	if readErr != nil {
 		return fmt.Errorf("template not found: %s", templateName)
 	}
 
-	// Create output directory
 	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create directory: %w", mkdirErr)
 	}
 
-	// Detect template type by checking if any files use mustache syntax
-	useMustache := detectMustacheTemplates(templatesFS, templateDir)
+	renderer := NewJinja2Renderer(templatesFS)
 
-	// Use appropriate renderer
-	if useMustache {
-		renderer := NewMustacheRenderer(templatesFS)
-		return g.walkMustacheTemplate(renderer, templateDir, outputDir, data, entries)
-	}
-
-	// Walk template directory and generate files using Go templates
-	return g.walkTemplate(templateDir, outputDir, data, entries)
+	return g.walkJinja2Template(renderer, templateDir, outputDir, data, entries)
 }
 
-// walkTemplate walks through template directory and generates files.
-func (g *Generator) walkTemplate(templateDir, outputDir string, data TemplateData, entries []os.DirEntry) error {
-	for _, entry := range entries {
-		sourcePath := filepath.Join(templateDir, entry.Name())
-
-		//nolint:nestif // recursive template walk is explicit
-		if entry.IsDir() {
-			// Create subdirectory
-			targetDir := filepath.Join(outputDir, entry.Name())
-			if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {
-				return mkdirErr
-			}
-
-			// Read subdirectory entries
-			subEntries, readErr := templatesFS.ReadDir(sourcePath)
-			if readErr != nil {
-				return readErr
-			}
-
-			// Recurse into subdirectory
-			if walkErr := g.walkTemplate(sourcePath, targetDir, data, subEntries); walkErr != nil {
-				return walkErr
-			}
-		} else {
-			// Generate file from template
-			targetName := stripTemplateExt(entry.Name())
-			targetPath := filepath.Join(outputDir, targetName)
-
-			if err := g.generateFile(sourcePath, targetPath, data); err != nil {
-				return fmt.Errorf("failed to generate %s: %w", targetPath, err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// generateFile generates a single file from template.
-func (g *Generator) generateFile(templatePath, targetPath string, data TemplateData) error {
-	// Read template from embedded filesystem
-	content, err := templatesFS.ReadFile(templatePath)
-	if err != nil {
-		return err
-	}
-
-	// Get relative path for template lookup
-	relPath := strings.TrimPrefix(templatePath, "templates/")
-
-	// Find template by path
-	tmpl := g.templates.Lookup(relPath)
-	if tmpl == nil {
-		// If not found, parse inline
-		var parseErr error
-		tmpl, parseErr = template.New("file").Funcs(template.FuncMap{
-			"has": func(slice []string, item string) bool {
-				for _, s := range slice {
-					if s == item {
-						return true
-					}
-				}
-				return false
-			},
-		}).Parse(string(content))
-		if parseErr != nil {
-			return fmt.Errorf("failed to parse template: %w", parseErr)
-		}
-	}
-
-	// Create output file
-	out, createErr := os.Create(targetPath)
-	if createErr != nil {
-		return fmt.Errorf("failed to create file: %w", createErr)
-	}
-	defer func() {
-		_ = out.Close()
-	}()
-
-	// Execute template
-	if execErr := tmpl.Execute(out, data); execErr != nil {
-		return fmt.Errorf("failed to execute template: %w", execErr)
-	}
-
-	return nil
-}
-
-// GenerateResource generates a single resource file.
+// GenerateResource generates a single resource file from a Jinja2 template.
 func (g *Generator) GenerateResource(resourceName string, targetPath string) error {
-	// Create template data with defaults
 	data := TemplateData{
 		Name:      "agent",
 		Version:   "1.0.0",
@@ -275,25 +93,15 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 		Features:  make(map[string]bool),
 	}
 
-	// Template path for resource
-	templatePath := filepath.Join("templates", "resources", resourceName+".yaml.tmpl")
+	templatePath := filepath.Join("templates", "resources", resourceName+".yaml.j2")
 
-	// Check if template exists
-	content, err := templatesFS.ReadFile(templatePath)
-	if err != nil {
-		// If no template, generate a basic one
+	if _, err := templatesFS.ReadFile(templatePath); err != nil {
 		return g.generateBasicResource(resourceName, targetPath)
 	}
 
-	// Detect if this is a mustache template
-	if hasMustacheSyntax(string(content)) {
-		// Use mustache renderer
-		renderer := NewMustacheRenderer(templatesFS)
-		return g.generateMustacheFile(renderer, templatePath, targetPath, data)
-	}
+	renderer := NewJinja2Renderer(templatesFS)
 
-	// Use Go template renderer
-	return g.generateFile(templatePath, targetPath, data)
+	return g.generateJinja2File(renderer, templatePath, targetPath, data)
 }
 
 // generateBasicResource generates a basic resource file without template.
@@ -442,19 +250,6 @@ run:
 	return os.WriteFile(targetPath, []byte(content), 0644)
 }
 
-// stripTemplateExt removes .tmpl extension and handles special cases.
-func stripTemplateExt(filename string) string {
-	if strings.HasSuffix(filename, ".tmpl") {
-		base := filename[:len(filename)-5]
-		// Handle special case: env.example.tmpl -> .env.example
-		if base == "env.example" {
-			return ".env.example"
-		}
-		return base
-	}
-	return filename
-}
-
 // ListTemplates returns available template names.
 func (g *Generator) ListTemplates() ([]string, error) {
 	entries, err := templatesFS.ReadDir("templates")
@@ -470,119 +265,4 @@ func (g *Generator) ListTemplates() ([]string, error) {
 	}
 
 	return templates, nil
-}
-
-// detectMustacheTemplates checks if a template directory uses mustache syntax.
-// It returns true if any files in the directory have .mustache extension or
-// contain mustache-style syntax ({{var}} without surrounding spaces).
-func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
-	entries, err := fs.ReadDir(templateDir)
-	if err != nil {
-		return false
-	}
-
-	for _, entry := range entries {
-		if entry.IsDir() { //nolint:nestif // Acceptable complexity for template detection
-			// Recursively check subdirectories
-			if detectMustacheTemplates(fs, filepath.Join(templateDir, entry.Name())) {
-				return true
-			}
-		} else {
-			// Check file extension
-			if strings.HasSuffix(entry.Name(), ".mustache") {
-				return true
-			}
-
-			// Check content for mustache syntax
-			path := filepath.Join(templateDir, entry.Name())
-			fileContent, readErr := fs.ReadFile(path)
-			if readErr != nil {
-				continue
-			}
-
-			// Look for mustache-style variables: {{var}} (no spaces)
-			// vs Go template style: {{ .Var }} (with spaces and dots)
-			if hasMustacheSyntax(string(fileContent)) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// hasMustacheSyntax checks if content contains mustache-style syntax.
-// hasMustacheSyntax detects if content contains mustache-specific syntax.
-// Note: Files with .mustache extension are always treated as mustache templates
-// regardless of their content (checked before calling this function).
-// This function is used for content-based detection of .tmpl files.
-func hasMustacheSyntax(content string) bool {
-	// Quick checks for Go template markers that mustache doesn't use
-	if containsGoTemplateMarkers(content) {
-		return false
-	}
-
-	// Look for mustache-specific syntax indicators
-	return containsMustacheMarkers(content)
-}
-
-// containsGoTemplateMarkers checks for Go template-specific patterns.
-func containsGoTemplateMarkers(content string) bool {
-	goMarkers := []string{
-		"{{ .",       // Go templates use dots for field access
-		"{{- ",       // Go templates trim whitespace
-		" -}}",       // Go templates trim whitespace
-		`{{ "{{" }}`, // Go templates escape braces
-	}
-
-	for _, marker := range goMarkers {
-		if strings.Contains(content, marker) {
-			return true
-		}
-	}
-	return false
-}
-
-// containsMustacheMarkers checks for mustache-specific syntax patterns.
-func containsMustacheMarkers(content string) bool {
-	// Mustache sections/comments: {{#, {{^, {{/, {{!
-	mustacheMarkers := []string{"{{#", "{{^", "{{/", "{{!"}
-	for _, marker := range mustacheMarkers {
-		if strings.Contains(content, marker) {
-			return true
-		}
-	}
-
-	// Look for simple variables like {{name}} without spaces
-	return containsSimpleMustacheVariable(content)
-}
-
-//nolint:intrange // Using traditional loop for clarity with multiple indices
-func containsSimpleMustacheVariable(content string) bool {
-	contentLen := len(content)
-	//nolint:intrange // Using traditional loop for clarity with multiple indices
-	for i := 0; i < contentLen-2; i++ {
-		if content[i] != '{' || content[i+1] != '{' {
-			continue
-		}
-
-		if i+2 >= contentLen {
-			continue
-		}
-
-		nextChar := content[i+2]
-		// Skip if it's a space, dash, dot, or quote (Go template indicators)
-		if nextChar == ' ' || nextChar == '-' || nextChar == '.' || nextChar == '"' {
-			continue
-		}
-
-		// Check if previous char is a quote (would indicate Go template string literal)
-		if i > 0 && content[i-1] == '"' {
-			continue
-		}
-
-		// This looks like a mustache variable
-		return true
-	}
-	return false
 }

@@ -1,123 +1,126 @@
-# Mustache Template Integration
+# Jinja2 Template Integration
 
-KDeps now supports [Mustache](https://mustache.github.io/) templates in addition to Go's `text/template` package. Mustache is a logic-less template syntax that is simpler and more portable across different programming languages.
+KDeps uses [Jinja2](https://jinja.palletsprojects.com/) compatible templates (via [gonja](https://github.com/nikolalohinski/gonja)) as the single unified template system for project scaffolding and resource generation. This replaces the previous dual-system approach of using both Mustache and Go's `text/template`.
 
-## Why Mustache?
+## Why Jinja2?
 
-- **Logic-less**: Encourages separation of logic and presentation
-- **Cross-platform**: Same syntax works across many programming languages
-- **Simple**: Easy to learn with minimal syntax
-- **Safe**: No code execution in templates
+- **Unified**: A single template engine for all project and resource generation
+- **Expressive**: Full support for conditionals, loops, filters, and more
+- **Familiar**: Jinja2 is widely known and used across many ecosystems
+- **Readable**: Clean, intuitive syntax with `{{ }}` for variables and `{% %}` for control flow
+- **Powerful**: Supports `in` operator, filters, macros, and raw blocks
 
-## Template Detection
-
-KDeps automatically detects whether to use Go templates or Mustache templates based on:
-
-1. **File extension**: 
-   - Files ending with `.mustache` are always processed as Mustache templates
-   - Files ending with `.tmpl` are analyzed for content and can be either Go or Mustache templates
-   - **YAML workflow and resource files don't need special extensions** - they use `.tmpl` and are detected by content
-   
-2. **Content analysis**: Files are analyzed to detect which type they are:
-   - Mustache syntax: `{{name}}`, `{{#section}}`, `{{^inverted}}`, `{{! comment}}`
-   - Go template syntax: `{{ .Name }}`, `{{- trim }}`, `{{ "escaped" }}`
-
-## Mustache Syntax
+## Template Syntax
 
 ### Variables
 
-```mustache
-Hello {{name}}!
-Port: {{port}}
+```jinja2
+Hello {{ name }}!
+Port: {{ port }}
 ```
 
-### Sections (Conditionals/Loops)
+### Conditionals
 
-```mustache
-{{#hasHttpClient}}
+```jinja2
+{% if "http-client" in resources %}
   - HTTP Client enabled
-{{/hasHttpClient}}
+{% endif %}
 
-{{#items}}
-  * {{name}}
-{{/items}}
+{% if "llm" in resources %}
+  - LLM enabled
+{% else %}
+  - No LLM
+{% endif %}
 ```
 
-### Inverted Sections
+### Loops
 
-```mustache
-{{^items}}
-  No items available
-{{/items}}
+```jinja2
+{% for resource in resources %}
+  - {{ resource }}
+{% endfor %}
 ```
 
 ### Comments
 
-```mustache
-{{! This is a comment and won't be rendered }}
+```jinja2
+{# This is a comment and won't be rendered #}
 ```
 
-### HTML Escaping
+### Raw Blocks (for runtime expressions)
 
-```mustache
-{{name}}        <!-- HTML escaped -->
-{{{rawHtml}}}   <!-- Not escaped -->
+Use `{% raw %}...{% endraw %}` to preserve `{{ }}` syntax in generated files for use as runtime expressions:
+
+```jinja2
+url: "{% raw %}{{ get('url', 'https://api.example.com') }}{% endraw %}"
 ```
 
-## Using Mustache Templates
+This outputs: `url: "{{ get('url', 'https://api.example.com') }}"` in the generated file.
 
-### Creating a Mustache Template
+### Whitespace Control
+
+Use `-` to trim whitespace around tags:
+
+```jinja2
+resources:
+{%- if "http-client" in resources %}
+  - apiVersion: v2
+    kind: Resource
+{%- endif %}
+```
+
+## Using Jinja2 Templates
+
+### Creating a Project Template
 
 1. Create a directory in `pkg/templates/templates/`
-2. Add files with `.mustache` extension
-3. Use mustache syntax in your templates
+2. Add files with `.j2` extension
+3. Use Jinja2 syntax in your templates
 
-Example: `pkg/templates/templates/my-service/workflow.yaml.mustache`
+Example: `pkg/templates/templates/my-service/workflow.yaml.j2`
 
-```mustache
+```jinja2
 apiVersion: v2
 kind: Workflow
 metadata:
-  name: {{name}}
-  description: {{description}}
-  version: {{version}}
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
 
 settings:
   apiServerMode: true
   apiServer:
-    portNum: {{port}}
+    portNum: {{ port }}
 
-{{#hasHttpClient}}
 resources:
+{%- if "http-client" in resources %}
   - apiVersion: v2
     kind: Resource
     metadata:
-      actionId: httpClient
-      name: HTTP Client
-{{/hasHttpClient}}
+      actionId: fetchData
+      name: Fetch Data
+    run:
+      httpClient:
+        method: GET
+        url: "{% raw %}{{ get('url') }}{% endraw %}"
+{%- endif %}
 ```
 
-### Template Data Conversion
+### Template Data
 
-The `TemplateData` struct has a `ToMustacheData()` method that converts resource names into boolean flags for easier conditional rendering:
+The `TemplateData` struct provides these variables to Jinja2 templates:
 
-```go
-data := TemplateData{
-    Name:        "my-api",
-    Version:     "1.0.0",
-    Port:        8080,
-    Resources:   []string{"http-client", "llm", "response"},
-}
+| Variable | Type | Description |
+|----------|------|-------------|
+| `name` | string | Agent/project name |
+| `description` | string | Description |
+| `version` | string | Version string |
+| `port` | int | API server port |
+| `resources` | []string | List of enabled resources |
 
-// Automatically creates flags:
-// hasHttpClient: true
-// hasLlm: true
-// hasResponse: true
-```
+Plus any keys from `Features map[string]bool`.
 
 ### Generating Projects
-
-Use the same API as before - KDeps will automatically detect and use the appropriate template engine:
 
 ```go
 generator, err := templates.NewGenerator()
@@ -126,109 +129,73 @@ if err != nil {
 }
 
 data := templates.TemplateData{
-    Name:        "my-mustache-api",
-    Description: "API service using mustache templates",
+    Name:        "my-api",
+    Description: "API service using Jinja2 templates",
     Version:     "1.0.0",
     Port:        9000,
     Resources:   []string{"http-client", "llm"},
 }
 
-err = generator.GenerateProject("mustache-api-service", "./output", data)
+err = generator.GenerateProject("api-service", "./output", data)
 ```
 
-## Comparing Go Templates vs Mustache
+### Special Filename Handling
 
-| Feature | Go Templates | Mustache |
-|---------|-------------|----------|
-| Variables | `{{ .Name }}` | `{{name}}` |
-| Conditionals | `{{ if .Flag }}` | `{{#flag}}` |
-| Loops | `{{ range .Items }}` | `{{#items}}` |
-| Functions | `{{ has .Resources "http" }}` | Use boolean flags |
-| Nesting | `{{ .User.Name }}` | `{{user.name}}` |
-| Comments | `{{/* comment */}}` | `{{! comment }}` |
+| Template file | Generated file |
+|--------------|----------------|
+| `workflow.yaml.j2` | `workflow.yaml` |
+| `README.md.j2` | `README.md` |
+| `env.example.j2` | `.env.example` |
 
-## Example: Mustache vs Go Template
+## Comparing Template Syntax
 
-### Go Template Style
-```go
-{{ .Name }} - {{ .Version }}
-{{- if has .Resources "http-client" }}
-HTTP Client: enabled
-{{- end }}
-```
+The migration from the old dual systems to Jinja2:
 
-### Mustache Style
-```mustache
-{{name}} - {{version}}
-{{#hasHttpClient}}
-HTTP Client: enabled
-{{/hasHttpClient}}
-```
-
-## Best Practices
-
-1. **Use .mustache extension**: Makes it explicit which template engine to use
-2. **Convert complex logic to data**: Instead of complex conditionals, prepare data with boolean flags
-3. **Keep templates simple**: Mustache's logic-less nature encourages cleaner separation
-4. **Test both engines**: Ensure backward compatibility if migrating from Go templates
-
-## Migration Guide
-
-If you have existing Go templates and want to use Mustache:
-
-1. **Rename files**: Change `.tmpl` to `.mustache`
-2. **Update variable syntax**: `{{ .Name }}` → `{{name}}`
-3. **Convert conditions**: `{{ if .Flag }}` → `{{#flag}}`
-4. **Replace custom functions**: Use `ToMustacheData()` to create boolean flags
-5. **Update loops**: `{{ range .Items }}` → `{{#items}}`
+| Feature | Old Go Templates | Old Mustache | Jinja2 (new) |
+|---------|-----------------|--------------|--------------|
+| Variables | `{{ .Name }}` | `{{name}}` | `{{ name }}` |
+| Conditionals | `{{ if has .Resources "http" }}` | `{{#hasHttp}}` | `{% if "http" in resources %}` |
+| Loops | `{{ range .Items }}` | `{{#items}}` | `{% for item in items %}` |
+| Nesting | `{{ .User.Name }}` | `{{user.name}}` | `{{ user.name }}` |
+| Comments | `{{/* comment */}}` | `{{! comment }}` | `{# comment #}` |
+| Raw output | `{{ "{{" }} expr {{ "}}" }}` | N/A | `{% raw %}{{ expr }}{% endraw %}` |
 
 ## API Reference
 
-### NewMustacheRenderer
+### NewJinja2Renderer
 
 ```go
-func NewMustacheRenderer(fs embed.FS) *MustacheRenderer
+func NewJinja2Renderer(fs embed.FS) *Jinja2Renderer
 ```
 
-Creates a new Mustache template renderer with support for the embedded filesystem.
+Creates a new Jinja2 template renderer with support for the embedded filesystem.
 
 ### Render
 
 ```go
-func (r *MustacheRenderer) Render(templateContent string, data interface{}) (string, error)
+func (r *Jinja2Renderer) Render(templateContent string, data map[string]interface{}) (string, error)
 ```
 
-Renders a mustache template string with the provided data.
+Renders a Jinja2 template string with the provided data.
 
 ### RenderFile
 
 ```go
-func (r *MustacheRenderer) RenderFile(templatePath string, data interface{}) (string, error)
+func (r *Jinja2Renderer) RenderFile(templatePath string, data map[string]interface{}) (string, error)
 ```
 
-Renders a mustache template file from the embedded filesystem.
+Renders a Jinja2 template file from the embedded filesystem.
 
-### ToMustacheData
+### ToJinja2Data
 
 ```go
-func (t TemplateData) ToMustacheData() map[string]interface{}
+func (t TemplateData) ToJinja2Data() map[string]interface{}
 ```
 
-Converts TemplateData to a format suitable for mustache templates, adding boolean flags for each resource type.
-
-## Supported Resource Flags
-
-When using `ToMustacheData()`, the following boolean flags are automatically created:
-
-- `hasHttpClient` - for "http-client" resource
-- `hasLlm` - for "llm" resource
-- `hasSql` - for "sql" resource
-- `hasPython` - for "python" resource
-- `hasExec` - for "exec" resource
-- `hasResponse` - for "response" resource
+Converts `TemplateData` to a format suitable for Jinja2 templates.
 
 ## Further Reading
 
-- [Mustache Manual](https://mustache.github.io/mustache.5.html)
-- [Mustache Specification](https://github.com/mustache/spec)
-- [cbroglie/mustache Library](https://github.com/cbroglie/mustache)
+- [Jinja2 Documentation](https://jinja.palletsprojects.com/en/stable/)
+- [gonja (Go Jinja2 library)](https://github.com/nikolalohinski/gonja)
+

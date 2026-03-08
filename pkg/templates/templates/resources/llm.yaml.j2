@@ -8,7 +8,7 @@ run:
   chat:
     model: llama3.2:1b
     role: user
-    prompt: "{{#input}}{{input}}{{/input}}{{^input}}Hello, how can you help me?{{/input}}"
+    prompt: "{% raw %}{{ get('input', 'Hello, how can you help me?') }}{% endraw %}"
     jsonResponse: true
     jsonResponseKeys:
       - answer

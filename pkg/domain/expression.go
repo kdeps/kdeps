@@ -50,10 +50,9 @@ const (
 	ExprTypeLiteral ExprType = iota
 	// ExprTypeDirect is a direct expression (e.g., get('q')).
 	ExprTypeDirect // Direct expression (e.g., get('q')).
-	// ExprTypeInterpolated is a string with interpolation (e.g., "Hello {{ get('name') }}").
+	// ExprTypeInterpolated is a string with interpolation (e.g., "Hello {{ get('name') }}" or "Hello {{name}}").
+	// Supports both simple variable lookup ({{var}}) and expr-lang expressions ({{ get('var') }}).
 	ExprTypeInterpolated
-	// ExprTypeMustache is a mustache-style template (e.g., "{{name}}" or "Hello {{name}}").
-	ExprTypeMustache
 )
 
 // ParsedExpr represents a parsed expression tree.

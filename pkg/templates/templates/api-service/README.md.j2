@@ -1,6 +1,6 @@
-# {{name}}
+# {{ name }}
 
-{{description}}
+{{ description }}
 
 ## Quick Start
 
@@ -9,14 +9,20 @@
    # No dependencies needed - KDeps runs locally!
    ```
 
-2. Run in development mode:
+2. Configure environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. Run in development mode:
    ```bash
    kdeps run workflow.yaml --dev
    ```
 
-3. Test the API:
+4. Test the API:
    ```bash
-   curl -X POST http://localhost:{{port}}/api/process \
+   curl -X POST http://localhost:{{ port }}/api/process \
      -H "Content-Type: application/json" \
      -d '{"id": "123"}'
    ```
@@ -24,8 +30,19 @@
 ## Project Structure
 
 ```
-{{name}}/
+{{ name }}/
 ├── workflow.yaml       # Main workflow configuration
+├── resources/          # Resource definitions
+│   {%- if "http-client" in resources %}
+│   ├── http_client.yaml
+│   {%- endif %}
+│   {%- if "llm" in resources %}
+│   ├── llm.yaml
+│   {%- endif %}
+│   {%- if "response" in resources %}
+│   └── response.yaml
+│   {%- endif %}
+├── .env.example        # Environment variables template
 └── README.md          # This file
 ```
 
@@ -36,13 +53,26 @@
 The main configuration file defines:
 - Agent metadata (name, version, description)
 - API server settings (port, routes, CORS)
-- Resource definitions
+- Resource references
+
+### Resources (`resources/*.yaml`)
+
+Individual resource files define:
+{%- if "http-client" in resources %}
+- HTTP clients for API calls
+{%- endif %}
+{%- if "llm" in resources %}
+- LLM interactions
+{%- endif %}
+{%- if "response" in resources %}
+- Response formatting
+{%- endif %}
 
 ## API Endpoints
 
 ### POST /api/process
 
-Process data{{#hasLlm}} using AI{{/hasLlm}}.
+Process data using AI.
 
 **Request**:
 ```json
@@ -56,18 +86,13 @@ Process data{{#hasLlm}} using AI{{/hasLlm}}.
 {
   "success": true,
   "data": {
-    {{#hasLlm}}
     "result": {
       "summary": "...",
       "insights": ["...", "..."]
     }
-    {{/hasLlm}}
-    {{^hasLlm}}
-    "message": "Hello from {{name}}"
-    {{/hasLlm}}
   },
   "meta": {
-    "processedAt": "2026-02-16T12:00:00Z"
+    "processedAt": "2026-01-09T12:00:00Z"
   }
 }
 ```
@@ -99,12 +124,12 @@ kdeps validate workflow.yaml
 
 2. Build Docker image:
    ```bash
-   kdeps build {{name}}-{{version}}.kdeps
+   kdeps build {{ name }}-{{ version }}.kdeps
    ```
 
 3. Run with Docker:
    ```bash
-   docker run -p {{port}}:{{port}} {{name}}:{{version}}
+   docker run -p {{ port }}:{{ port }} {{ name }}:{{ version }}
    ```
 
 ## Resources
@@ -115,4 +140,4 @@ kdeps validate workflow.yaml
 
 ## License
 
-Apache 2.0
+MIT

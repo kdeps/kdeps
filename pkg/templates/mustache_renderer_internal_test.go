@@ -29,84 +29,59 @@ import (
 //go:embed testdata/*
 var internalTestFS embed.FS
 
-// TestEmbedFSProvider_Get tests the embedFSProvider.Get method directly.
-func TestEmbedFSProvider_Get(t *testing.T) {
-	provider := &embedFSProvider{fs: internalTestFS}
+// TestJinja2Renderer_RenderInternal tests the Jinja2Renderer.Render method directly.
+func TestJinja2Renderer_RenderInternal(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
 
 	tests := []struct {
-		name    string
-		partial string
-		wantErr bool
-		errMsg  string
+		name     string
+		template string
+		data     map[string]interface{}
+		expected string
+		wantErr  bool
 	}{
 		{
-			name:    "path traversal with ..",
-			partial: "../secret",
-			wantErr: true,
-			errMsg:  "invalid partial name",
+			name:     "simple variable",
+			template: "Hello {{ name }}!",
+			data:     map[string]interface{}{"name": "World"},
+			expected: "Hello World!",
 		},
 		{
-			name:    "forward slash in name",
-			partial: "path/to/file",
-			wantErr: true,
-			errMsg:  "invalid partial name",
-		},
-		{
-			name:    "backslash in name",
-			partial: "path\\to\\file",
-			wantErr: true,
-			errMsg:  "invalid partial name",
-		},
-		{
-			name:    "nonexistent partial",
-			partial: "doesnotexist",
-			wantErr: true,
-			errMsg:  "partial not found",
+			name:     "nil data treated as empty",
+			template: "Hello {{ name }}!",
+			data:     nil,
+			expected: "Hello !",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := provider.Get(tt.partial)
-
+			result, err := renderer.Render(tt.template, tt.data)
 			if tt.wantErr {
 				require.Error(t, err)
-				if tt.errMsg != "" {
-					assert.Contains(t, err.Error(), tt.errMsg)
-				}
 			} else {
 				require.NoError(t, err)
-				assert.NotEmpty(t, result)
+				assert.Equal(t, tt.expected, result)
 			}
 		})
 	}
 }
 
-// TestStripMustacheExt tests the stripMustacheExt function directly.
-func TestStripMustacheExt(t *testing.T) {
+// TestStripJinja2Ext tests the stripJinja2Ext function directly.
+func TestStripJinja2Ext(t *testing.T) {
 	tests := []struct {
 		name     string
 		filename string
 		expected string
 	}{
 		{
-			name:     "mustache extension",
-			filename: "workflow.yaml.mustache",
+			name:     "j2 extension",
+			filename: "workflow.yaml.j2",
 			expected: "workflow.yaml",
 		},
 		{
-			name:     "tmpl extension",
-			filename: "workflow.yaml.tmpl",
-			expected: "workflow.yaml",
-		},
-		{
-			name:     "env.example special case with mustache",
-			filename: "env.example.mustache",
-			expected: ".env.example",
-		},
-		{
-			name:     "env.example special case with tmpl",
-			filename: "env.example.tmpl",
+			name:     "env.example special case",
+			filename: "env.example.j2",
 			expected: ".env.example",
 		},
 		{
@@ -116,7 +91,7 @@ func TestStripMustacheExt(t *testing.T) {
 		},
 		{
 			name:     "multiple dots",
-			filename: "app.config.yaml.mustache",
+			filename: "app.config.yaml.j2",
 			expected: "app.config.yaml",
 		},
 		{
@@ -128,14 +103,14 @@ func TestStripMustacheExt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := stripMustacheExt(tt.filename)
+			result := stripJinja2Ext(tt.filename)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestHandleSpecialCases tests the handleSpecialCases function directly.
-func TestHandleSpecialCases(t *testing.T) {
+// TestHandleJinja2SpecialCases tests the handleJinja2SpecialCases function directly.
+func TestHandleJinja2SpecialCases(t *testing.T) {
 	tests := []struct {
 		name     string
 		base     string
@@ -160,18 +135,32 @@ func TestHandleSpecialCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := handleSpecialCases(tt.base)
+			result := handleJinja2SpecialCases(tt.base)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestWalkMustacheTemplate_ErrorPaths tests error conditions in walkMustacheTemplate.
-func TestWalkMustacheTemplate_ErrorPaths(t *testing.T) {
-	t.Skip("Error path testing for walkMustacheTemplate requires specific filesystem conditions")
+// TestIsJinja2Template tests the isJinja2Template function.
+func TestIsJinja2Template(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected bool
+	}{
+		{"workflow.yaml.j2", true},
+		{"README.md.j2", true},
+		{"env.example.j2", true},
+		{"workflow.yaml.tmpl", false},
+		{"workflow.yaml.mustache", false},
+		{"README.md", false},
+		{".gitkeep", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filename, func(t *testing.T) {
+			result := isJinja2Template(tt.filename)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
 
-// TestGenerateMustacheFile_ErrorPaths tests error conditions in generateMustacheFile.
-func TestGenerateMustacheFile_ErrorPaths(t *testing.T) {
-	t.Skip("Error path testing requires invalid templates or filesystem failures")
-}

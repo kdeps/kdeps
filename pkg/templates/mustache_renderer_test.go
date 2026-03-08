@@ -33,68 +33,70 @@ import (
 //go:embed testdata
 var testFS embed.FS
 
-func TestMustacheRenderer_Render(t *testing.T) {
-	renderer := templates.NewMustacheRenderer(testFS)
+func TestJinja2Renderer_Render(t *testing.T) {
+	renderer := templates.NewJinja2Renderer(testFS)
 
 	tests := []struct {
 		name     string
 		template string
-		data     interface{}
+		data     map[string]interface{}
 		expected string
 		wantErr  bool
 	}{
 		{
 			name:     "simple variable",
-			template: "Hello {{name}}!",
-			data:     map[string]string{"name": "World"},
+			template: "Hello {{ name }}!",
+			data:     map[string]interface{}{"name": "World"},
 			expected: "Hello World!",
-			wantErr:  false,
 		},
 		{
 			name:     "nested object",
-			template: "User: {{user.name}} ({{user.email}})",
+			template: "User: {{ user.name }} ({{ user.email }})",
 			data: map[string]interface{}{
-				"user": map[string]string{
+				"user": map[string]interface{}{
 					"name":  "John Doe",
 					"email": "john@example.com",
 				},
 			},
 			expected: "User: John Doe (john@example.com)",
-			wantErr:  false,
 		},
 		{
-			name:     "section with array",
-			template: "{{#items}}* {{name}}\n{{/items}}",
-			data: map[string]interface{}{
-				"items": []map[string]string{
-					{"name": "Item 1"},
-					{"name": "Item 2"},
-					{"name": "Item 3"},
-				},
-			},
-			expected: "* Item 1\n* Item 2\n* Item 3\n",
-			wantErr:  false,
+			name:     "conditional true",
+			template: "{% if items %}Has items{% else %}No items{% endif %}",
+			data:     map[string]interface{}{"items": []string{"a", "b"}},
+			expected: "Has items",
 		},
 		{
-			name:     "inverted section",
-			template: "{{^items}}No items{{/items}}{{#items}}Has items{{/items}}",
+			name:     "conditional false",
+			template: "{% if items %}Has items{% else %}No items{% endif %}",
 			data:     map[string]interface{}{"items": []string{}},
 			expected: "No items",
-			wantErr:  false,
 		},
 		{
-			name:     "comment",
-			template: "Hello {{! This is a comment }}World",
+			name:     "for loop",
+			template: "{% for item in items %}* {{ item }}\n{% endfor %}",
+			data: map[string]interface{}{
+				"items": []string{"Item 1", "Item 2", "Item 3"},
+			},
+			expected: "* Item 1\n* Item 2\n* Item 3\n",
+		},
+		{
+			name:     "in operator check",
+			template: "{% if 'http-client' in resources %}Has HTTP{% else %}No HTTP{% endif %}",
+			data:     map[string]interface{}{"resources": []string{"http-client", "llm"}},
+			expected: "Has HTTP",
+		},
+		{
+			name:     "raw block preserves braces",
+			template: "url: {% raw %}{{ get('id') }}{% endraw %}",
 			data:     map[string]interface{}{},
-			expected: "Hello World",
-			wantErr:  false,
+			expected: "url: {{ get('id') }}",
 		},
 		{
-			name:     "HTML escaping",
-			template: "{{name}} vs {{{name}}}",
-			data:     map[string]string{"name": "<script>alert('xss')</script>"},
-			expected: "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt; vs <script>alert('xss')</script>",
-			wantErr:  false,
+			name:     "invalid template syntax",
+			template: "{% if unclosed",
+			data:     map[string]interface{}{},
+			wantErr:  true,
 		},
 	}
 
@@ -112,57 +114,38 @@ func TestMustacheRenderer_Render(t *testing.T) {
 	}
 }
 
-func TestMustacheRenderer_RenderFile(t *testing.T) {
-	renderer := templates.NewMustacheRenderer(testFS)
+func TestJinja2Renderer_RenderFile(t *testing.T) {
+	renderer := templates.NewJinja2Renderer(testFS)
 
 	t.Run("render existing file", func(t *testing.T) {
-		data := map[string]string{
+		data := map[string]interface{}{
 			"name":    "Test Project",
 			"version": "1.0.0",
 		}
 
-		result, err := renderer.RenderFile("testdata/simple.mustache", data)
+		result, err := renderer.RenderFile("testdata/simple.j2", data)
 		require.NoError(t, err)
 		assert.Contains(t, result, "Test Project")
 		assert.Contains(t, result, "1.0.0")
 	})
 
 	t.Run("file not found", func(t *testing.T) {
-		_, err := renderer.RenderFile("testdata/nonexistent.mustache", nil)
+		_, err := renderer.RenderFile("testdata/nonexistent.j2", nil)
 		assert.Error(t, err)
 	})
 }
 
-func TestDetectMustacheTemplates(_ *testing.T) {
-	// This function is tested through the public API via TestGenerator_MustacheTemplateGeneration
-	// which verifies that mustache templates are detected and rendered correctly
-}
+func TestJinja2Renderer_ErrorHandling(t *testing.T) {
+	renderer := templates.NewJinja2Renderer(testFS)
 
-func TestIsMustacheTemplate(_ *testing.T) {
-	// This function is tested through the public API via TestGenerator_MustacheTemplateGeneration
-	// which verifies that template files are correctly identified and processed
-}
-
-// Note: Tests for embedFSProvider.Get, stripMustacheExt, and handleSpecialCases
-// are in mustache_renderer_internal_test.go (same package) to access unexported functions.
-
-func TestMustacheRenderer_ErrorHandling(t *testing.T) {
-	renderer := templates.NewMustacheRenderer(testFS)
-
-	t.Run("invalid template syntax", func(t *testing.T) {
-		// Mustache templates with unclosed tags
-		_, err := renderer.Render("{{#section}}content", nil)
-		assert.Error(t, err)
-	})
-
-	t.Run("nil data", func(t *testing.T) {
-		result, err := renderer.Render("Hello {{name}}!", nil)
+	t.Run("nil data treated as empty context", func(t *testing.T) {
+		result, err := renderer.Render("Hello {{ name }}!", nil)
 		require.NoError(t, err)
 		assert.Contains(t, result, "Hello")
 	})
 }
 
-func TestTemplateData_ToMustacheData(t *testing.T) {
+func TestTemplateData_ToJinja2Data(t *testing.T) {
 	data := templates.TemplateData{
 		Name:        "test-api",
 		Description: "Test API Service",
@@ -174,47 +157,44 @@ func TestTemplateData_ToMustacheData(t *testing.T) {
 		},
 	}
 
-	result := data.ToMustacheData()
+	result := data.ToJinja2Data()
 
 	assert.Equal(t, "test-api", result["name"])
 	assert.Equal(t, "Test API Service", result["description"])
 	assert.Equal(t, "1.0.0", result["version"])
 	assert.Equal(t, 8080, result["port"])
-	assert.Equal(t, true, result["hasHttpClient"])
-	assert.Equal(t, true, result["hasLlm"])
-	assert.Equal(t, true, result["hasResponse"])
+	assert.Equal(t, []string{"http-client", "llm", "response"}, result["resources"])
 	assert.Equal(t, true, result["enableCors"])
-	assert.Nil(t, result["hasSql"])
 }
 
-func TestGenerator_MustacheTemplateGeneration(t *testing.T) {
+func TestGenerator_Jinja2TemplateGeneration(t *testing.T) {
 	gen, err := templates.NewGenerator()
 	require.NoError(t, err)
 
 	tmpDir := t.TempDir()
 
 	data := templates.TemplateData{
-		Name:        "my-mustache-api",
-		Description: "API service using mustache templates",
+		Name:        "my-jinja2-api",
+		Description: "API service using Jinja2 templates",
 		Version:     "1.0.0",
 		Port:        9000,
 		Resources:   []string{"http-client", "llm"},
 	}
 
-	// Check if mustache-api-service template exists
-	templates, err := gen.ListTemplates()
+	// Check if api-service template exists
+	availableTemplates, err := gen.ListTemplates()
 	require.NoError(t, err)
 
-	hasMustacheTemplate := false
-	for _, tmpl := range templates {
-		if tmpl == "mustache-api-service" {
-			hasMustacheTemplate = true
+	hasTemplate := false
+	for _, tmpl := range availableTemplates {
+		if tmpl == "api-service" {
+			hasTemplate = true
 			break
 		}
 	}
 
-	if hasMustacheTemplate {
-		err = gen.GenerateProject("mustache-api-service", tmpDir, data)
+	if hasTemplate {
+		err = gen.GenerateProject("api-service", tmpDir, data)
 		require.NoError(t, err)
 
 		// Verify files were created
@@ -224,7 +204,8 @@ func TestGenerator_MustacheTemplateGeneration(t *testing.T) {
 		// Verify content was rendered correctly
 		content, readErr := os.ReadFile(workflowPath)
 		require.NoError(t, readErr)
-		assert.Contains(t, string(content), "my-mustache-api")
+		assert.Contains(t, string(content), "my-jinja2-api")
 		assert.Contains(t, string(content), "9000")
 	}
 }
+

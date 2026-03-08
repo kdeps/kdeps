@@ -1,16 +1,16 @@
 apiVersion: v2
 kind: Workflow
 metadata:
-  name: {{ .Name }}
-  description: {{ .Description }}
-  version: {{ .Version }}
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
   targetActionId: formatResponse
 
 settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: {{ .Port }}
+    portNum: {{ port }}
     routes:
       - path: /api/query
         methods: [POST]
@@ -41,8 +41,8 @@ resources:
           WHERE status = $1
           LIMIT $2
         params:
-          - "{{ "{{" }} get('status') {{ "}}" }}"
-          - "{{ "{{" }} get('limit', 10) {{ "}}" }}"
+          - "{% raw %}{{ get('status') }}{% endraw %}"
+          - "{% raw %}{{ get('limit', 10) }}{% endraw %}"
       validations:
         required:
           - status
@@ -64,5 +64,5 @@ resources:
         response:
           success: true
           data:
-            results: "{{ "{{" }} get('executeQuery') {{ "}}" }}"
-            count: "{{ "{{" }} len(get('executeQuery')) {{ "}}" }}"
+            results: "{% raw %}{{ get('executeQuery') }}{% endraw %}"
+            count: "{% raw %}{{ len(get('executeQuery')) }}{% endraw %}"

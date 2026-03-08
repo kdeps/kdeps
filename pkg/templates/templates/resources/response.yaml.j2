@@ -9,7 +9,7 @@ run:
     response:
       success: true
       data:
-        result: "{{#result}}{{result}}{{/result}}"
+        result: "{% raw %}{{ get('result') }}{% endraw %}"
       meta:
-        timestamp: "{{#current_time}}{{current_time}}{{/current_time}}"
-        requestId: "{{#requestId}}{{requestId}}{{/requestId}}"
+        timestamp: "{% raw %}{{ info('current_time') }}{% endraw %}"
+        requestId: "{% raw %}{{ info('request.ID') }}{% endraw %}"

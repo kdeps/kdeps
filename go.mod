@@ -4,7 +4,6 @@ go 1.25.7
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
-	github.com/cbroglie/mustache v1.4.0
 	github.com/denisenkom/go-mssqldb v0.12.3
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
@@ -16,6 +15,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.11.2
 	github.com/mattn/go-sqlite3 v1.14.34
+	github.com/nikolalohinski/gonja/v2 v2.7.0
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.19.0
 	github.com/spf13/cobra v1.10.2
@@ -48,7 +48,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/morikuni/aec v1.1.0 // indirect
-	github.com/nikolalohinski/gonja/v2 v2.7.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

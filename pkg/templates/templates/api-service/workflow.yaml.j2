@@ -1,23 +1,24 @@
 apiVersion: v2
 kind: Workflow
 metadata:
-  name: {{name}}
-  description: {{description}}
-  version: {{version}}
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
   targetActionId: response
 
 settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: {{port}}
+    portNum: {{ port }}
     routes:
       - path: /api/process
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - "http://localhost:{{port}}"
+        - "http://localhost:16395"
+        - "http://localhost:{{ port }}"
       allowMethods:
         - GET
         - POST
@@ -32,7 +33,7 @@ settings:
     offlineMode: false
 
 resources:
-{{#hasHttpClient}}
+{%- if "http-client" in resources %}
   - apiVersion: v2
     kind: Resource
     metadata:
@@ -41,11 +42,11 @@ resources:
     run:
       httpClient:
         method: GET
-        url: "https://api.example.com/data/{{ "{{" }} get('id') {{ "}}" }}"
+        url: "https://api.example.com/data/{% raw %}{{ get('id') }}{% endraw %}"
         headers:
-          Authorization: "Bearer {{ "{{" }} get('api_token') {{ "}}" }}"
+          Authorization: "Bearer {% raw %}{{ get('api_token') }}{% endraw %}"
         timeoutDuration: "30s"
-      validation:
+      validations:
         required:
           - id
         rules:
@@ -53,26 +54,26 @@ resources:
             type: string
             minLength: 1
             message: "ID is required"
-{{/hasHttpClient}}
+{%- endif %}
 
-{{#hasLlm}}
+{%- if "llm" in resources %}
   - apiVersion: v2
     kind: Resource
     metadata:
       actionId: processWithLLM
       name: LLM Processing
-      {{#hasHttpClient}}
       requires:
+        {%- if "http-client" in resources %}
         - fetchData
-      {{/hasHttpClient}}
+        {%- endif %}
     run:
       chat:
         model: llama3.2:1b
         prompt: |
           Process the following data:
-          {{#hasHttpClient}}
-          {{ "{{" }} get('fetchData') {{ "}}" }}
-          {{/hasHttpClient}}
+          {%- if "http-client" in resources %}
+          {% raw %}{{ get('fetchData') }}{% endraw %}
+          {%- endif %}
 
           Provide a summary and key insights.
         jsonResponse: true
@@ -80,32 +81,26 @@ resources:
           - summary
           - insights
         timeoutDuration: "60s"
-{{/hasLlm}}
+{%- endif %}
 
+{%- if "response" in resources %}
   - apiVersion: v2
     kind: Resource
     metadata:
       actionId: response
       name: API Response
       requires:
-        {{#hasLlm}}
+        {%- if "llm" in resources %}
         - processWithLLM
-        {{/hasLlm}}
-        {{#hasHttpClient}}
-        {{^hasLlm}}
+        {%- elif "http-client" in resources %}
         - fetchData
-        {{/hasLlm}}
-        {{/hasHttpClient}}
+        {%- endif %}
     run:
       apiResponse:
         response:
           success: true
           data:
-            {{#hasLlm}}
-            result: "{{ "{{" }} get('processWithLLM') {{ "}}" }}"
-            {{/hasLlm}}
-            {{^hasLlm}}
-            message: "Hello from {{name}}"
-            {{/hasLlm}}
+            result: "{% raw %}{{ get('processWithLLM') }}{% endraw %}"
           meta:
-            processedAt: "{{ "{{" }} info('current_time') {{ "}}" }}"
+            processedAt: "{% raw %}{{ info('current_time') }}{% endraw %}"
+{%- endif %}

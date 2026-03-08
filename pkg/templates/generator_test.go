@@ -203,79 +203,31 @@ func TestGenerator_GenerateProject_InvalidTemplate(t *testing.T) {
 	assert.Contains(t, err.Error(), "template not found")
 }
 
-func TestGenerator_StripTemplateExt(t *testing.T) {
+func TestGenerator_StripJinja2Ext(t *testing.T) {
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
 
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "regular template",
-			input:    "workflow.yaml.tmpl",
-			expected: "workflow.yaml",
-		},
-		{
-			name:     "env example special case",
-			input:    "env.example.tmpl",
-			expected: ".env.example",
-		},
-		{
-			name:     "no extension",
-			input:    "README",
-			expected: "README",
-		},
-		{
-			name:     "different extension",
-			input:    "script.sh",
-			expected: "script.sh",
-		},
-		{
-			name:     "multiple dots",
-			input:    "config.env.tmpl",
-			expected: "config.env",
-		},
-	}
+	// Test the env.example special case via file generation
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "env-test")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Use reflection to access the private method for direct testing
-			// Since it's an internal function, we'll test it indirectly through file generation
-			// but add specific test cases to ensure all paths are covered
+	data := templates.TemplateData{Name: "test"}
+	err = generator.GenerateProject("api-service", outputDir, data)
+	require.NoError(t, err)
 
-			// For the special env.example case, we can verify it by checking generated files
-			if tt.input == "env.example.tmpl" {
-				tmpDir := t.TempDir()
-				outputDir := filepath.Join(tmpDir, "env-test")
+	// Check for .env.example file (created from env.example.j2)
+	envPath := filepath.Join(outputDir, ".env.example")
+	_, statErr := os.Stat(envPath)
+	require.NoError(t, statErr, ".env.example should be created from env.example.j2")
 
-				data := templates.TemplateData{Name: "test"}
-				err = generator.GenerateProject("api-service", outputDir, data)
-				require.NoError(t, err)
-
-				// Check for .env.example file
-				envPath := filepath.Join(outputDir, ".env.example")
-				_, statErr := os.Stat(envPath)
-				require.NoError(t, statErr, ".env.example should be created from env.example.tmpl")
-			}
-
-			// For other cases, verify general stripping behavior by running a basic generation
-			tmpDir := t.TempDir()
-			outputDir := filepath.Join(tmpDir, "test")
-			data := templates.TemplateData{Name: "test"}
-			err = generator.GenerateProject("api-service", outputDir, data)
-			require.NoError(t, err)
-
-			files, readErr := os.ReadDir(outputDir)
-			require.NoError(t, readErr)
-			for _, file := range files {
-				if file.IsDir() {
-					continue
-				}
-				assert.NotContains(t, file.Name(), ".tmpl", "Generated files should not have .tmpl extension")
-			}
-		})
+	// Verify no .j2 extension remains in generated files
+	files, readErr := os.ReadDir(outputDir)
+	require.NoError(t, readErr)
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		assert.NotContains(t, file.Name(), ".j2", "Generated files should not have .j2 extension")
 	}
 }
 
@@ -385,24 +337,23 @@ func TestGenerator_WalkTemplate_DirectoryRecursion(t *testing.T) {
 		Name: "recursive-test",
 	}
 
-	// Use sql-agent template which has template structure to test walkTemplate functionality
+	// Use sql-agent template which has template structure to test walkJinja2Template functionality
 	err = generator.GenerateProject("sql-agent", outputDir, data)
 	require.NoError(t, err)
 
-	// Check that files were created and the walkTemplate function was exercised
+	// Check that files were created and the walkJinja2Template function was exercised
 	files, err := os.ReadDir(outputDir)
 	require.NoError(t, err)
 	assert.NotEmpty(t, files, "Should create files during template processing")
 
-	// Verify that the walkTemplate logic was tested by checking basic file creation
+	// Verify that the walkJinja2Template logic was tested by checking basic file creation
 	workflowPath := filepath.Join(outputDir, "workflow.yaml")
 	_, err = os.Stat(workflowPath)
 	assert.NoError(t, err, "workflow.yaml should be created")
 }
 
-func TestGenerator_WalkEmbedFS_ErrorPaths(t *testing.T) {
-	// Test walkEmbedFS error handling - difficult to trigger directly with embed.FS
-	// We'll verify the normal operation covers the main paths
+func TestGenerator_EmbeddedTemplates(t *testing.T) {
+	// Verify that embedded templates are processed correctly
 	generator, err := templates.NewGenerator()
 	require.NoError(t, err)
 
@@ -422,36 +373,31 @@ func TestGenerator_WalkEmbedFS_ErrorPaths(t *testing.T) {
 	assert.NotEmpty(t, files, "Should process embedded files")
 }
 
-func TestGenerator_StripTemplateExt_EdgeCases(t *testing.T) {
-	// Test additional edge cases for stripTemplateExt
+func TestGenerator_StripJinja2Ext_EdgeCases(t *testing.T) {
+	// Test additional edge cases for extension stripping
 	tests := []struct {
 		name     string
 		filename string
 		expected string
 	}{
 		{
-			name:     "no tmpl extension",
+			name:     "no j2 extension",
 			filename: "regular.txt",
 			expected: "regular.txt",
 		},
 		{
-			name:     "only tmpl",
-			filename: ".tmpl",
-			expected: "",
+			name:     "multiple j2 extensions",
+			filename: "file.j2.j2",
+			expected: "file.j2",
 		},
 		{
-			name:     "multiple tmpl extensions",
-			filename: "file.tmpl.tmpl",
-			expected: "file.tmpl",
-		},
-		{
-			name:     "multiple dots no tmpl",
+			name:     "multiple dots no j2",
 			filename: "file.name.txt",
 			expected: "file.name.txt",
 		},
 	}
 
-	// Since stripTemplateExt is private, we test it indirectly through file generation
+	// Since stripJinja2Ext is private, we test it indirectly through file generation
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Skip empty filename test as it's not valid for file creation
@@ -995,7 +941,7 @@ func TestGenerator_WalkTemplate_FileGenerationErrors(t *testing.T) {
 		// The error depends on whether the OS allows creating files in read-only dirs
 		// We just ensure it doesn't panic
 		if err != nil {
-			assert.Contains(t, err.Error(), "failed to create")
+			assert.Contains(t, err.Error(), "failed to")
 		}
 	}
 

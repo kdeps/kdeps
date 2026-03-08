@@ -6,5 +6,5 @@ metadata:
   description: Execute shell commands
 run:
   exec:
-    command: "echo '{{#message}}{{message}}{{/message}}{{^message}}Hello World{{/message}}'"
+    command: "echo '{% raw %}{{ get('message', 'Hello World') }}{% endraw %}'"
     timeoutDuration: "30s"

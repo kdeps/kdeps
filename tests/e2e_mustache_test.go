@@ -17,11 +17,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
-// TestE2EMustacheWorkflow tests a complete workflow using mustache expressions.
-func TestE2EMustacheWorkflow(t *testing.T) {
+// TestE2EInterpolationWorkflow tests a complete workflow using interpolated expressions.
+func TestE2EInterpolationWorkflow(t *testing.T) {
 	parser := expression.NewParser()
 
-	// Simulate a workflow with mustache variables
+	// Simulate a workflow with interpolated variables
 	api := &domain.UnifiedAPI{
 		Get: func(name string, _ ...string) (interface{}, error) {
 			values := map[string]interface{}{
@@ -60,12 +60,12 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 		expected interface{}
 	}{
 		{
-			name:     "simple mustache variable",
+			name:     "simple interpolated variable",
 			expr:     "{{query}}",
 			expected: "What is the weather?",
 		},
 		{
-			name:     "mustache with text",
+			name:     "interpolated with text",
 			expr:     "User: {{username}}, Score: {{score}}",
 			expected: "User: alice, Score: 95",
 		},
@@ -75,7 +75,7 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 			expected: "What is the weather?",
 		},
 		{
-			name:     "mixed mustache and text",
+			name:     "mixed interpolation and text",
 			expr:     "Hello {{username}}!",
 			expected: "Hello alice!",
 		},
@@ -94,8 +94,8 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 	}
 }
 
-// TestE2EMustacheTemplateGeneration tests E2E project generation with mustache.
-func TestE2EMustacheTemplateGeneration(t *testing.T) {
+// TestE2EJinja2TemplateGeneration tests E2E project generation with Jinja2.
+func TestE2EJinja2TemplateGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	generator, err := templates.NewGenerator()
@@ -107,16 +107,21 @@ func TestE2EMustacheTemplateGeneration(t *testing.T) {
 		Resources: []string{"http-client", "llm"},
 	}
 
-	// Generate using a simple project template (if it exists)
-	err = generator.GenerateProject("simple-api", filepath.Join(tmpDir, "test-app"), data)
+	// Generate using a Jinja2 template
+	err = generator.GenerateProject("api-service", filepath.Join(tmpDir, "test-app"), data)
 	if err != nil {
 		t.Logf("GenerateProject error (may be expected if template doesn't exist): %v", err)
-		t.Skip("Skipping test as simple-api template may not exist")
+		t.Skip("Skipping test as api-service template may not exist")
 	}
 
 	// Verify output was created
 	_, err = os.Stat(filepath.Join(tmpDir, "test-app"))
 	assert.NoError(t, err)
+
+	// Verify workflow.yaml was generated
+	workflowPath := filepath.Join(tmpDir, "test-app", "workflow.yaml")
+	_, err = os.Stat(workflowPath)
+	assert.NoError(t, err, "workflow.yaml should be generated")
 }
 
 // TestE2EUnifiedExpressionSystem tests the unified expression system E2E.
@@ -175,8 +180,8 @@ func TestE2EUnifiedExpressionSystem(t *testing.T) {
 	}
 }
 
-// TestE2EMustachePerformance tests performance comparison.
-func TestE2EMustachePerformance(t *testing.T) {
+// TestE2EInterpolationPerformance tests performance of the interpolation expression system.
+func TestE2EInterpolationPerformance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance test in short mode")
 	}
@@ -191,9 +196,9 @@ func TestE2EMustachePerformance(t *testing.T) {
 
 	evaluator := expression.NewEvaluator(api)
 
-	// Test simple mustache expression
-	mustacheExpr := "{{name}}"
-	exprObj, err := parser.Parse(mustacheExpr)
+	// Test simple interpolated expression
+	interpolatedExpr := "{{name}}"
+	exprObj, err := parser.Parse(interpolatedExpr)
 	require.NoError(t, err)
 
 	iterations := 1000
@@ -202,11 +207,11 @@ func TestE2EMustachePerformance(t *testing.T) {
 		require.NoError(t, evalErr)
 	}
 
-	t.Logf("Successfully evaluated mustache expression %d times", iterations)
+	t.Logf("Successfully evaluated interpolated expression %d times", iterations)
 }
 
-// TestE2EMustacheMixedComplexity tests mixing simple and complex expressions.
-func TestE2EMustacheMixedComplexity(t *testing.T) {
+// TestE2EInterpolationMixedComplexity tests mixing simple and complex expressions.
+func TestE2EInterpolationMixedComplexity(t *testing.T) {
 	parser := expression.NewParser()
 
 	api := &domain.UnifiedAPI{
@@ -236,7 +241,7 @@ func TestE2EMustacheMixedComplexity(t *testing.T) {
 		contains string
 	}{
 		{
-			name:     "simple mustache variable",
+			name:     "simple interpolated variable",
 			expr:     "Player: {{name}}",
 			contains: "Player: Alice",
 		},
