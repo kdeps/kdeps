@@ -1,6 +1,16 @@
-# kdeps: AI agents in YAML.
+# kdeps: AI agents as code.
 
-Orchestrate LLMs, databases, and APIs without glue or legacy code.
+AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
+
+## Why kdeps? Ordered, Repeatable Systems (ORS)
+
+AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
+
+kdeps enforces **Ordered, Repeatable Systems** by design:
+
+- **Ordered** — Declarative YAML defines every execution step. No hidden logic, no surprise tool calls.
+- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions.
+- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
 
 ## 1. Install
 ```bash

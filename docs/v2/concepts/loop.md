@@ -157,7 +157,7 @@ while: "int(default(get('phase'), 0)) < 3"
 while: "int(loop.count()) * int(loop.count() + 1) / 2 <= 20"
 ```
 
-The `while` field optionally accepts Mustache wrappers (`{{ }}`); they are stripped automatically.
+The `while` field optionally accepts Mustache wrappers (<span v-pre>`{{ }}`</span>); they are stripped automatically.
 
 ## Turing Completeness
 
