@@ -105,7 +105,10 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 	}
 
 	// 2. Parse workflow to get metadata
-	workflowPath := filepath.Join(workflowDir, "workflow.yaml")
+	workflowPath := FindWorkflowFile(workflowDir)
+	if workflowPath == "" {
+		return fmt.Errorf("workflow.yaml not found in %s", workflowDir)
+	}
 
 	// Create validators (minimal setup for packaging)
 	schemaValidator, err := validator.NewSchemaValidator()
@@ -156,8 +159,7 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 
 // ValidateWorkflowDir checks if the directory contains a valid workflow.
 func ValidateWorkflowDir(dir string) error {
-	workflowPath := filepath.Join(dir, "workflow.yaml")
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+	if FindWorkflowFile(dir) == "" {
 		return fmt.Errorf("workflow.yaml not found in %s", dir)
 	}
 

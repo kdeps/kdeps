@@ -216,9 +216,9 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 			continue
 		}
 
-		// Only process .yaml and .yml files
+		// Only process .yaml, .yml, .yaml.j2, and .yml.j2 files
 		name := entry.Name()
-		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+		if !isYAMLFile(name) {
 			continue
 		}
 
@@ -239,6 +239,20 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 	}
 
 	return nil
+}
+
+// isYAMLFile reports whether name is a YAML or Jinja2-YAML file that should be
+// loaded as a resource.  Recognised extensions:
+//
+//   - .yaml      plain YAML
+//   - .yml       plain YAML (short form)
+//   - .yaml.j2   Jinja2 template that produces YAML when rendered
+//   - .yml.j2    Jinja2 template that produces YAML when rendered (short form)
+func isYAMLFile(name string) bool {
+	return strings.HasSuffix(name, ".yaml") ||
+		strings.HasSuffix(name, ".yml") ||
+		strings.HasSuffix(name, ".yaml.j2") ||
+		strings.HasSuffix(name, ".yml.j2")
 }
 
 // buildJinja2Context builds the variable context available during Jinja2 preprocessing

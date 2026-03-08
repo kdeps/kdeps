@@ -86,8 +86,8 @@ func RunScaffoldWithFlags(_ *cobra.Command, args []string, flags *ScaffoldFlags)
 	resourceNames := args
 
 	// Validate directory
-	workflowPath := filepath.Join(flags.Dir, "workflow.yaml")
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+	workflowPath := FindWorkflowFile(flags.Dir)
+	if workflowPath == "" {
 		return fmt.Errorf("workflow.yaml not found in %s (not a kdeps project?)", flags.Dir)
 	}
 

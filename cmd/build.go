@@ -162,7 +162,10 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 		return "", "", nil, fmt.Errorf("failed to extract package: %w", err)
 	}
 
-	workflowPath := filepath.Join(tempDir, "workflow.yaml")
+	workflowPath := FindWorkflowFile(tempDir)
+	if workflowPath == "" {
+		workflowPath = filepath.Join(tempDir, "workflow.yaml") // fallback for legacy packages
+	}
 	packageDir := tempDir
 	cleanupFunc := func() { _ = os.RemoveAll(tempDir) }
 
@@ -175,10 +178,10 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 // resolveDirectoryPackage handles directory-based packages.
 func resolveDirectoryPackage(packagePath string) (string, string, func(), error) {
 	packageDir := packagePath
-	workflowPath := filepath.Join(packagePath, "workflow.yaml")
+	workflowPath := FindWorkflowFile(packagePath)
 
-	// If workflow.yaml doesn't exist, check for .kdeps file
-	if _, statErr := os.Stat(workflowPath); os.IsNotExist(statErr) {
+	// If no workflow file exists, check for .kdeps file
+	if workflowPath == "" {
 		return resolveKdepsFileInDirectory(packagePath)
 	}
 

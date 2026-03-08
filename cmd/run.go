@@ -137,7 +137,10 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 		return "", nil, fmt.Errorf("failed to extract package: %w", err)
 	}
 
-	workflowPath := filepath.Join(tempDir, "workflow.yaml")
+	workflowPath := FindWorkflowFile(tempDir)
+	if workflowPath == "" {
+		workflowPath = filepath.Join(tempDir, "workflow.yaml") // fallback for packages that may use legacy name
+	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
@@ -168,10 +171,28 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 	return absPath, nil, nil
 }
 
+// FindWorkflowFile returns the path to the workflow file inside dir.
+// It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml, then
+// workflow.yml.j2.  Returns an empty string if none of those files exist.
+func FindWorkflowFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "workflow.yaml"),
+		filepath.Join(dir, "workflow.yaml.j2"),
+		filepath.Join(dir, "workflow.yml"),
+		filepath.Join(dir, "workflow.yml.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // ResolveDirectoryPath resolves workflow path for directory inputs.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
-	workflowPath := filepath.Join(absPath, "workflow.yaml")
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+	workflowPath := FindWorkflowFile(absPath)
+	if workflowPath == "" {
 		return "", nil, fmt.Errorf("workflow.yaml not found in directory: %s", absPath)
 	}
 

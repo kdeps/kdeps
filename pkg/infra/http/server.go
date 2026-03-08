@@ -692,7 +692,12 @@ func (s *Server) reloadWorkflow() error {
 	if s.parser == nil || s.workflowPath == "" {
 		workflowPath := s.workflowPath
 		if workflowPath == "" {
-			workflowPath = defaultWorkflowFile
+			// Try to find a workflow file in the current directory.
+			if p := findWorkflowFile("."); p != "" {
+				workflowPath = p
+			} else {
+				workflowPath = defaultWorkflowFile
+			}
 		}
 
 		// Initialize parser if needed

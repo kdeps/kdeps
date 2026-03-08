@@ -436,10 +436,31 @@ func (s *Server) getManagementWorkflowPath() string {
 		return path
 	}
 
-	// Prefer /app/workflow.yaml when running inside Docker
+	// Prefer /app/workflow.yaml (or /app/workflow.yaml.j2) when running inside Docker
 	if _, err := os.Stat("/app"); err == nil {
+		if p := findWorkflowFile("/app"); p != "" {
+			return p
+		}
 		return "/app/workflow.yaml"
 	}
 
 	return defaultWorkflowFile
+}
+
+// findWorkflowFile returns the path to the workflow file inside dir.
+// It tries workflow.yaml first, then workflow.yaml.j2, workflow.yml, workflow.yml.j2.
+// Returns an empty string if no workflow file is found.
+func findWorkflowFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "workflow.yaml"),
+		filepath.Join(dir, "workflow.yaml.j2"),
+		filepath.Join(dir, "workflow.yml"),
+		filepath.Join(dir, "workflow.yml.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
 }
