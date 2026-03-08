@@ -63,9 +63,9 @@ settings:
 	assert.Equal(t, 9090, wf.Settings.PortNum)
 }
 
-// TestParseWorkflow_NoJinja2_PassThrough ensures workflow files without Jinja2
-// control tags are passed through unchanged (existing {{ }} expressions preserved).
-func TestParseWorkflow_NoJinja2_PassThrough(t *testing.T) {
+// TestParseWorkflow_PlainYAMLParsed verifies that a standard workflow YAML file
+// (with no Jinja2 syntax) parses correctly through the Jinja2 engine.
+func TestParseWorkflow_PlainYAMLParsed(t *testing.T) {
 	workflowYAML := `apiVersion: v2
 kind: Workflow
 metadata:
@@ -122,8 +122,8 @@ run:
 }
 
 // TestParseResource_RuntimeExpressionsPreserved ensures that {{ }} runtime
-// expressions in a resource YAML file without Jinja2 control tags are preserved
-// and not interpreted by the Jinja2 preprocessor.
+// API expressions in a resource YAML file are preserved verbatim through Jinja2
+// preprocessing (auto-protected) and available for runtime evaluation.
 func TestParseResource_RuntimeExpressionsPreserved(t *testing.T) {
 	resourceYAML := `apiVersion: v2
 kind: Resource
@@ -144,7 +144,7 @@ run:
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	// The runtime expression must be present verbatim after parsing (no Jinja2 preprocessing).
+	// The runtime expression is auto-protected and preserved verbatim after Jinja2 preprocessing.
 	require.NotNil(t, res.Run.HTTPClient)
 	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
 }

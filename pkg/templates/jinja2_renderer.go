@@ -291,14 +291,12 @@ func AutoProtectKdepsExpressions(content string) string {
 var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache for YAML preprocessing
 
 // PreprocessYAML applies Jinja2 rendering to a YAML content string before it is parsed.
-// The function is a no-op when the content contains neither Jinja2 control tags ({%)
-// nor Jinja2 comment tags ({#), ensuring backward-compatibility with existing YAML files
-// that use only runtime {{ }} expression syntax.
+// All workflow and resource YAML files are always preprocessed through Jinja2.
 //
-// When Jinja2 control tags are present, kdeps runtime API function calls
-// ({{ get('url') }}, {{ info('time') }}, {{ set('k','v') }}, etc.) are automatically
-// wrapped in {% raw %}...{% endraw %} before rendering so they pass through Jinja2
-// unchanged and are evaluated later by the kdeps runtime expression evaluator.
+// Kdeps runtime API function calls ({{ get('url') }}, {{ info('time') }},
+// {{ set('k','v') }}, etc.) are automatically wrapped in {% raw %}...{% endraw %}
+// before rendering so they pass through Jinja2 unchanged and are evaluated later
+// by the kdeps runtime expression evaluator.
 //
 // Static Jinja2 variable expressions such as {{ env.PORT }} are evaluated normally
 // because they do not start with a kdeps API function name.
@@ -310,9 +308,6 @@ var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache f
 //	    "env": map[string]interface{}{"PORT": "8080", ...},
 //	}
 func PreprocessYAML(content string, vars map[string]interface{}) (string, error) {
-	if !strings.Contains(content, "{%") && !strings.Contains(content, "{#") {
-		return content, nil
-	}
 	protected := autoProtectKdepsExpressions(content)
 	return yamlRenderer.Render(protected, vars)
 }

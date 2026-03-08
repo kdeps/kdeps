@@ -233,7 +233,7 @@ expected string
 wantErr  bool
 }{
 {
-name:     "no jinja2 tags - passthrough, api expr preserved",
+name:     "plain yaml - api expr auto-protected and preserved",
 content:  "name: test\nvalue: \"{{ get('x') }}\"",
 vars:     map[string]interface{}{},
 expected: "name: test\nvalue: \"{{ get('x') }}\"",

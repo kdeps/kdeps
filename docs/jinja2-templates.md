@@ -20,13 +20,12 @@ KDeps uses [Jinja2](https://jinja.palletsprojects.com/) compatible templates (vi
 
 ### Workflow and Resource YAML Preprocessing
 
-When a workflow or resource YAML file contains Jinja2 control tags (`{%`) or comment tags (`{#`), KDeps preprocesses the file with Jinja2 **before** YAML parsing. This allows you to:
+All workflow and resource YAML files are preprocessed through Jinja2 **before** YAML parsing. This allows you to:
 
 - Conditionally include or exclude sections based on environment variables
 - Set values from environment variables with defaults
 - Add comments that are stripped before parsing
-
-Files that contain **only** `{{ expr }}` runtime expressions (without any `{%` or `{#` tags) are **not** preprocessed by Jinja2, ensuring full backward-compatibility with existing workflow and resource files.
+- Use full Jinja2 syntax: conditionals, loops, filters, and variable expressions
 
 #### Auto-protection of kdeps runtime API calls
 
