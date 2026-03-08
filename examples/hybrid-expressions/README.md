@@ -1,8 +1,7 @@
 # Hybrid Expressions Example
 
 This example demonstrates **hybrid expressions** that mix:
-- `get()` function calls (from kdeps API)
-- Dot notation variable access (`user.email`)
+- `get()` function calls (from kdeps runtime API)
 - Arithmetic operators (`*`, `+`, `-`, `/`)
 - Comparison operators (`>`, `>=`, `==`)
 - Ternary operators (`? :`)
@@ -10,50 +9,28 @@ This example demonstrates **hybrid expressions** that mix:
 ## Key Feature
 
 You can write expressions like:
-```
-{{get('C') * user.email}}
-```
 
-This works because:
-1. `get('C')` retrieves a value from kdeps API (memory/session/etc.)
-2. `user.email` accesses a nested property from the environment
-3. `*` performs multiplication
-4. All within a single expression!
+```yaml
+doubled: "{{ get('multiplier') * 2 }}"
+```
 
 ## Examples in this Workflow
 
-### Simple Hybrid
+### Arithmetic with API values
 ```yaml
-"doubled_age": {{get('multiplier') * user.age}}
+doubled: "{{ get('value') * 2 }}"
+total: "{{ get('price') * get('quantity') }}"
 ```
-- `get('multiplier')` → retrieves multiplier from memory
-- `user.age` → accesses age property from user object
-- Result: `2 * 30 = 60`
 
-### Complex Calculation
+### Conditional logic
 ```yaml
-"personalized_price": {{(get('basePrice') * get('multiplier')) - user.discount}}
+status: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
 ```
-- Multiple `get()` calls
-- Parentheses for order of operations
-- Dot notation for object property
-- Result: `(50 * 2) - 15 = 85`
 
-### With Ternary
+### Default values
 ```yaml
-"discount_message": "{{user.premium ? 'Premium discount: ' + user.discount : 'Standard discount'}}"
+label: "{{ default(get('name'), 'unknown') }}"
 ```
-- Conditional logic with `? :`
-- String concatenation
-- Dot notation access
-
-## How It Works
-
-The expr-lang evaluator:
-1. Receives environment variables as a map
-2. Supports native dot notation for map property access
-3. Provides kdeps functions like `get()`, `info()`, `env()`
-4. Allows mixing them all in one expression
 
 ## Running the Example
 
@@ -61,49 +38,25 @@ The expr-lang evaluator:
 kdeps run examples/hybrid-expressions/workflow.yaml
 ```
 
-## Expected Output
+## How It Works
 
-```json
-{
-  "user_name": "Alice",
-  "user_age": 30,
-  "doubled_age": 60,
-  "price_with_discount": 35,
-  "personalized_price": 85,
-  "is_adult": true,
-  "discount_message": "Standard discount",
-  "computed_total": 750
-}
-```
-
-## Benefits
-
-1. **Natural syntax** - Write expressions as you think
-2. **No conversion needed** - Mix API calls and data access
-3. **Full power** - All operators and functions work together
-4. **Type safety** - expr-lang handles type conversions
-5. **Readable** - Self-documenting expressions
+The expr-lang evaluator:
+1. Receives the kdeps context (memory, session, request params)
+2. Provides kdeps functions like `get()`, `set()`, `info()`, `default()`
+3. Allows arithmetic, comparison, and ternary operators within `{{ }}`
 
 ## More Examples
 
 ```yaml
-# Arithmetic with API and object
-price: {{get('basePrice') * quantity.amount}}
+# Arithmetic with stored values
+price: "{{ get('base_price') * get('quantity') }}"
 
 # Comparison
-eligible: {{user.age >= get('minAge')}}
+eligible: "{{ get('score') >= get('min_score') }}"
 
-# Complex nested
-total: {{(get('price') * order.items.length) + shipping.cost}}
+# Ternary
+tier: "{{ get('score') >= 90 ? 'gold' : get('score') >= 70 ? 'silver' : 'bronze' }}"
 
-# With function calls
-result: {{get('x') + get('y') * user.profile.score}}
+# Default fallback
+label: "{{ default(get('name'), 'anonymous') }}"
 ```
-
-## Technical Details
-
-- **Evaluator**: Uses expr-lang library
-- **Environment**: All variables passed to evaluator
-- **Dot notation**: Native expr-lang feature for maps
-- **Functions**: Wrapped kdeps API calls
-- **Type handling**: Automatic by expr-lang
