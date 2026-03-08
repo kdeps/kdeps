@@ -25,14 +25,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/nikolalohinski/gonja/v2"
 	gonjaExec "github.com/nikolalohinski/gonja/v2/exec"
 )
 
 // Jinja2Renderer renders templates using Jinja2 template syntax via gonja.
+// Parsed templates are cached to avoid repeated parsing of the same content.
 type Jinja2Renderer struct {
-	fs embed.FS
+	fs    embed.FS
+	cache sync.Map // map[string]*gonjaExec.Template
 }
 
 // NewJinja2Renderer creates a new Jinja2 template renderer.
@@ -53,10 +56,11 @@ func (r *Jinja2Renderer) RenderFile(templatePath string, data map[string]interfa
 }
 
 // Render renders a Jinja2 template string with the provided data.
+// Parsed templates are cached by content to avoid re-parsing on repeated calls.
 func (r *Jinja2Renderer) Render(templateContent string, data map[string]interface{}) (string, error) {
-	tpl, err := gonja.FromString(templateContent)
+	tpl, err := r.getParsedTemplate(templateContent)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse Jinja2 template: %w", err)
+		return "", err
 	}
 
 	if data == nil {
@@ -73,21 +77,20 @@ func (r *Jinja2Renderer) Render(templateContent string, data map[string]interfac
 	return buf.String(), nil
 }
 
-// GenerateProjectWithJinja2 creates a new project from Jinja2 templates.
-func (g *Generator) GenerateProjectWithJinja2(templateName string, outputDir string, data TemplateData) error {
-	templateDir := filepath.Join("templates", templateName)
-	entries, readErr := templatesFS.ReadDir(templateDir)
-	if readErr != nil {
-		return fmt.Errorf("template not found: %s", templateName)
+// getParsedTemplate retrieves a compiled template from the cache, parsing it if not present.
+func (r *Jinja2Renderer) getParsedTemplate(content string) (*gonjaExec.Template, error) {
+	if cached, ok := r.cache.Load(content); ok {
+		//nolint:forcetypeassert // cache always stores *gonjaExec.Template
+		return cached.(*gonjaExec.Template), nil
 	}
 
-	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create directory: %w", mkdirErr)
+	tpl, err := gonja.FromString(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Jinja2 template: %w", err)
 	}
 
-	renderer := NewJinja2Renderer(templatesFS)
-
-	return g.walkJinja2Template(renderer, templateDir, outputDir, data, entries)
+	r.cache.Store(content, tpl)
+	return tpl, nil
 }
 
 // walkJinja2Template walks through template directory and generates files using Jinja2.
@@ -126,7 +129,7 @@ func (g *Generator) processJinja2Directory(
 		return mkdirErr
 	}
 
-	subEntries, readErr := templatesFS.ReadDir(sourcePath)
+	subEntries, readErr := renderer.fs.ReadDir(sourcePath)
 	if readErr != nil {
 		return readErr
 	}
@@ -142,7 +145,7 @@ func (g *Generator) processJinja2File(
 	fileName string,
 ) error {
 	if !isJinja2Template(fileName) {
-		return copyFileFromFS(sourcePath, filepath.Join(outputDir, fileName))
+		return renderer.copyFileFromFS(sourcePath, filepath.Join(outputDir, fileName))
 	}
 
 	targetName := stripJinja2Ext(fileName)
@@ -154,9 +157,9 @@ func (g *Generator) processJinja2File(
 	return nil
 }
 
-// copyFileFromFS copies a file from embedded filesystem to target path.
-func copyFileFromFS(sourcePath, targetPath string) error {
-	content, err := templatesFS.ReadFile(sourcePath)
+// copyFileFromFS copies a file from the renderer's embedded filesystem to a target path.
+func (r *Jinja2Renderer) copyFileFromFS(sourcePath, targetPath string) error {
+	content, err := r.fs.ReadFile(sourcePath)
 	if err != nil {
 		return err
 	}
@@ -206,3 +209,4 @@ func handleJinja2SpecialCases(base string) string {
 	}
 	return base
 }
+

@@ -16,7 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-// Package templates provides Jinja2-based project scaffolding templates.
-// The unified Jinja2 renderer replaces the previous mustache and Go text/template systems.
+// Deprecated: This file has been renamed to doc.go.
+// The Jinja2 renderer implementation is in jinja2_renderer.go.
 package templates
 
