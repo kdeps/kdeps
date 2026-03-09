@@ -248,11 +248,13 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 //   - .yml       plain YAML (short form)
 //   - .yaml.j2   Jinja2 template that produces YAML when rendered
 //   - .yml.j2    Jinja2 template that produces YAML when rendered (short form)
+//   - .j2        pure Jinja2 template (no YAML extension prefix) that produces YAML
 func isYAMLFile(name string) bool {
 	return strings.HasSuffix(name, ".yaml") ||
 		strings.HasSuffix(name, ".yml") ||
 		strings.HasSuffix(name, ".yaml.j2") ||
-		strings.HasSuffix(name, ".yml.j2")
+		strings.HasSuffix(name, ".yml.j2") ||
+		strings.HasSuffix(name, ".j2")
 }
 
 // buildJinja2Context builds the variable context available during Jinja2 preprocessing

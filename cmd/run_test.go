@@ -2661,6 +2661,11 @@ name:       "finds workflow.yml.j2",
 filename:   "workflow.yml.j2",
 wantSuffix: "workflow.yml.j2",
 },
+{
+name:       "finds workflow.j2 (plain Jinja2)",
+filename:   "workflow.j2",
+wantSuffix: "workflow.j2",
+},
 }
 
 for _, tc := range testCases {
@@ -2692,14 +2697,23 @@ result := cmd.FindWorkflowFile(tmpDir)
 assert.Truef(t, strings.HasSuffix(result, "workflow.yaml"),
 "should prefer workflow.yaml over workflow.yaml.j2, got %s", result)
 })
+
+t.Run("prefers workflow.yaml.j2 over workflow.j2", func(t *testing.T) {
+tmpDir := t.TempDir()
+for _, name := range []string{"workflow.yaml.j2", "workflow.j2"} {
+require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644))
+}
+result := cmd.FindWorkflowFile(tmpDir)
+assert.Truef(t, strings.HasSuffix(result, "workflow.yaml.j2"),
+"should prefer workflow.yaml.j2 over workflow.j2, got %s", result)
+})
 }
 
 // TestResolveDirectoryPath_J2Workflow verifies that ResolveDirectoryPath can find
-// a workflow.yaml.j2 file when workflow.yaml is absent.
+// a workflow.yaml.j2 or workflow.j2 file when workflow.yaml is absent.
 func TestResolveDirectoryPath_J2Workflow(t *testing.T) {
+t.Run("finds workflow.yaml.j2", func(t *testing.T) {
 tmpDir := t.TempDir()
-
-// Only put a .j2 workflow file in the directory
 wfPath := filepath.Join(tmpDir, "workflow.yaml.j2")
 err := os.WriteFile(wfPath, []byte("placeholder"), 0644)
 require.NoError(t, err)
@@ -2708,4 +2722,17 @@ result, cleanup, err := cmd.ResolveDirectoryPath(tmpDir)
 require.NoError(t, err)
 assert.Equal(t, wfPath, result)
 assert.Nil(t, cleanup)
+})
+
+t.Run("finds workflow.j2", func(t *testing.T) {
+tmpDir := t.TempDir()
+wfPath := filepath.Join(tmpDir, "workflow.j2")
+err := os.WriteFile(wfPath, []byte("placeholder"), 0644)
+require.NoError(t, err)
+
+result, cleanup, err := cmd.ResolveDirectoryPath(tmpDir)
+require.NoError(t, err)
+assert.Equal(t, wfPath, result)
+assert.Nil(t, cleanup)
+})
 }

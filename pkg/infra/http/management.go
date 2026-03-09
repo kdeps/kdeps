@@ -448,7 +448,8 @@ func (s *Server) getManagementWorkflowPath() string {
 }
 
 // findWorkflowFile returns the path to the workflow file inside dir.
-// It tries workflow.yaml first, then workflow.yaml.j2, workflow.yml, workflow.yml.j2.
+// It tries workflow.yaml first, then workflow.yaml.j2, workflow.yml,
+// workflow.yml.j2, and workflow.j2 (pure Jinja2, no YAML prefix).
 // Returns an empty string if no workflow file is found.
 func findWorkflowFile(dir string) string {
 	candidates := []string{
@@ -456,6 +457,7 @@ func findWorkflowFile(dir string) string {
 		filepath.Join(dir, "workflow.yaml.j2"),
 		filepath.Join(dir, "workflow.yml"),
 		filepath.Join(dir, "workflow.yml.j2"),
+		filepath.Join(dir, "workflow.j2"),
 	}
 	for _, p := range candidates {
 		if _, err := os.Stat(p); err == nil {

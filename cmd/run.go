@@ -172,14 +172,16 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 }
 
 // FindWorkflowFile returns the path to the workflow file inside dir.
-// It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml, then
-// workflow.yml.j2.  Returns an empty string if none of those files exist.
+// It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml,
+// workflow.yml.j2, and finally workflow.j2 (a pure Jinja2 template with no
+// YAML extension prefix).  Returns an empty string if none of those files exist.
 func FindWorkflowFile(dir string) string {
 	candidates := []string{
 		filepath.Join(dir, "workflow.yaml"),
 		filepath.Join(dir, "workflow.yaml.j2"),
 		filepath.Join(dir, "workflow.yml"),
 		filepath.Join(dir, "workflow.yml.j2"),
+		filepath.Join(dir, "workflow.j2"),
 	}
 	for _, p := range candidates {
 		if _, err := os.Stat(p); err == nil {

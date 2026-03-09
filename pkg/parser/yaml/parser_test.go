@@ -707,8 +707,8 @@ settings:
 	assert.Equal(t, "Test Workflow", workflow.Metadata.Name)
 }
 
-// TestParser_LoadResources_J2Extension verifies that resource files with .yaml.j2
-// and .yml.j2 extensions are discovered and loaded, with Jinja2 preprocessing applied.
+// TestParser_LoadResources_J2Extension verifies that resource files with .yaml.j2,
+// .yml.j2, and plain .j2 extensions are discovered and loaded, with Jinja2 preprocessing applied.
 func TestParser_LoadResources_J2Extension(t *testing.T) {
 	workflowContent := `
 apiVersion: kdeps.io/v1
@@ -740,6 +740,12 @@ settings:
 			expectedActionID: "yml-j2-resource",
 		},
 		{
+			name:             "plain .j2 resource loaded and Jinja2 evaluated",
+			resourceContent:  "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: plain-j2-resource\n  name: Plain J2 Resource\nrun:\n  apiResponse:\n    success: true\n",
+			resourceFilename: "plain-j2-resource.j2",
+			expectedActionID: "plain-j2-resource",
+		},
+		{
 			name: "yaml.j2 resource with Jinja2 conditional block",
 			resourceContent: `apiVersion: kdeps.io/v1
 kind: Resource
@@ -758,6 +764,26 @@ run:
 `,
 			resourceFilename: "conditional.yaml.j2",
 			expectedActionID: "conditional-resource",
+		},
+		{
+			name: "plain .j2 resource with Jinja2 conditional block",
+			resourceContent: `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: plain-conditional
+  name: Plain Conditional Resource
+run:
+  apiResponse:
+    success: true
+    response:
+{% if env.KDEPS_TEST_VAR is defined %}
+      env_set: true
+{% else %}
+      env_set: false
+{% endif %}
+`,
+			resourceFilename: "plain-conditional.j2",
+			expectedActionID: "plain-conditional",
 		},
 	}
 
@@ -785,7 +811,7 @@ run:
 }
 
 // TestParser_ParseWorkflow_J2Extension verifies that a workflow file with .yaml.j2
-// extension is parsed and Jinja2-preprocessed correctly.
+// or plain .j2 extension is parsed and Jinja2-preprocessed correctly.
 func TestParser_ParseWorkflow_J2Extension(t *testing.T) {
 	workflowContent := `apiVersion: kdeps.io/v1
 kind: Workflow
@@ -803,16 +829,28 @@ settings:
   agentSettings:
     timezone: UTC
 `
-	tmpDir := t.TempDir()
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml.j2")
-	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
-	require.NoError(t, err)
+	tests := []struct {
+		name     string
+		filename string
+	}{
+		{name: "workflow.yaml.j2 extension", filename: "workflow.yaml.j2"},
+		{name: "workflow.j2 plain extension", filename: "workflow.j2"},
+	}
 
-	parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
-	workflow, parseErr := parser.ParseWorkflow(workflowPath)
-	require.NoError(t, parseErr)
-	require.NotNil(t, workflow)
-	assert.Equal(t, "J2 Workflow", workflow.Metadata.Name)
-	// portNum should have been set to the else-branch default (16395) since TEST_PORT is not set
-	assert.Equal(t, 16395, workflow.Settings.PortNum)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			workflowPath := filepath.Join(tmpDir, tc.filename)
+			err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
+			require.NoError(t, err)
+
+			parser := yaml.NewParser(&mockSchemaValidator{}, &mockExprParser{})
+			workflow, parseErr := parser.ParseWorkflow(workflowPath)
+			require.NoError(t, parseErr)
+			require.NotNil(t, workflow)
+			assert.Equal(t, "J2 Workflow", workflow.Metadata.Name)
+			// portNum should have been set to the else-branch default (16395) since TEST_PORT is not set
+			assert.Equal(t, 16395, workflow.Settings.PortNum)
+		})
+	}
 }
