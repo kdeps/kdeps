@@ -385,7 +385,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						var marshalErr error
 						rawBytes, marshalErr = json.Marshal(data)
 						if marshalErr != nil {
-							s.logger.Error("failed to marshal raw API response", "error", marshalErr, "path", r.URL.Path)
+							s.logger.Error(
+								"failed to marshal raw API response",
+								"error",
+								marshalErr,
+								"path",
+								r.URL.Path,
+							)
 							debugMode := GetDebugMode(r.Context())
 							RespondWithError(w, r, domain.NewAppError(
 								domain.ErrCodeInternal,
@@ -396,7 +402,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					}
 
 					w.WriteHeader(stdhttp.StatusOK)
-					s.logger.Debug("writing raw API response", "path", r.URL.Path, "size", len(rawBytes), "content_type", contentType)
+					s.logger.Debug(
+						"writing raw API response",
+						"path",
+						r.URL.Path,
+						"size",
+						len(rawBytes),
+						"content_type",
+						contentType,
+					)
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
 					}
