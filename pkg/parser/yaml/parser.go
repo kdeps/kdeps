@@ -258,19 +258,8 @@ func isYAMLFile(name string) bool {
 }
 
 // buildJinja2Context builds the variable context available during Jinja2 preprocessing
-// of workflow and resource YAML files.  At minimum it provides an "env" map containing
-// all current process environment variables so that YAML authors can write:
-//
-//	settings:
-//	  portNum: {{ env.PORT | default(8080) }}
+// of workflow and resource YAML files.  Delegates to templates.BuildJinja2Context so
+// the same context is shared with PreprocessJ2Files for non-YAML .j2 files.
 func buildJinja2Context() map[string]interface{} {
-	env := make(map[string]interface{})
-	for _, e := range os.Environ() {
-		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
-			env[parts[0]] = parts[1]
-		}
-	}
-	return map[string]interface{}{
-		"env": env,
-	}
+	return templates.BuildJinja2Context()
 }

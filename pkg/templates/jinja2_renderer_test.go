@@ -354,3 +354,75 @@ assert.Equal(t, tt.expected, result)
 })
 }
 }
+
+// TestBuildJinja2Context verifies that BuildJinja2Context returns a map with an
+// "env" key populated from the process environment.
+func TestBuildJinja2Context(t *testing.T) {
+t.Setenv("KDEPS_TEST_BUILD_CTX", "hello")
+ctx := templates.BuildJinja2Context()
+env, ok := ctx["env"].(map[string]interface{})
+require.True(t, ok, "env should be a map[string]interface{}")
+assert.Equal(t, "hello", env["KDEPS_TEST_BUILD_CTX"])
+}
+
+// TestPreprocessJ2Files verifies that PreprocessJ2Files renders all .j2 files
+// (regardless of extension prefix) in a directory tree to their base names,
+// preserving the original file permissions.
+func TestPreprocessJ2Files(t *testing.T) {
+tmpDir := t.TempDir()
+
+files := map[string]struct {
+content string
+perm    os.FileMode
+}{
+"index.html.j2":     {"<h1>{{ env.SITE_TITLE }}</h1>", 0600},
+"deploy.sh.j2":      {"#!/bin/bash\necho {{ env.APP_NAME }}", 0755},
+"config.py.j2":      {"APP = '{{ env.APP_NAME }}'", 0644},
+"sub/style.css.j2":  {"body { color: {{ env.COLOR }}; }", 0600},
+"plain.txt":         {"no rendering here", 0600},
+".hidden/secret.j2": {"should be skipped", 0600},
+}
+for rel, f := range files {
+path := filepath.Join(tmpDir, rel)
+require.NoError(t, os.MkdirAll(filepath.Dir(path), 0750))
+require.NoError(t, os.WriteFile(path, []byte(f.content), f.perm))
+}
+
+t.Setenv("SITE_TITLE", "My Site")
+t.Setenv("APP_NAME", "myapp")
+t.Setenv("COLOR", "red")
+
+require.NoError(t, templates.PreprocessJ2Files(tmpDir))
+
+// Rendered files should exist with .j2 stripped.
+cases := []struct {
+out      string
+want     string
+wantPerm os.FileMode
+}{
+{"index.html", "<h1>My Site</h1>", 0600},
+{"deploy.sh", "#!/bin/bash\necho myapp", 0755},
+{"config.py", "APP = 'myapp'", 0644},
+{"sub/style.css", "body { color: red; }", 0600},
+}
+for _, tc := range cases {
+outPath := filepath.Join(tmpDir, tc.out)
+data, err := os.ReadFile(outPath)
+require.NoError(t, err, "output file %s should exist", tc.out)
+assert.Equal(t, tc.want, string(data))
+// Verify permissions are preserved.
+info, err := os.Stat(outPath)
+require.NoError(t, err)
+assert.Equal(t, tc.wantPerm, info.Mode().Perm(),
+"file %s should preserve original permissions", tc.out)
+}
+
+// Hidden directory .j2 files should NOT have been rendered.
+_, err := os.ReadFile(filepath.Join(tmpDir, ".hidden/secret"))
+assert.True(t, os.IsNotExist(err), ".hidden/secret should not have been created")
+
+// Non-.j2 file should be unchanged.
+data, err := os.ReadFile(filepath.Join(tmpDir, "plain.txt"))
+require.NoError(t, err)
+assert.Equal(t, "no rendering here", string(data))
+}

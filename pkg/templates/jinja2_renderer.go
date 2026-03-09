@@ -312,3 +312,65 @@ func PreprocessYAML(content string, vars map[string]interface{}) (string, error)
 	return yamlRenderer.Render(protected, vars)
 }
 
+// BuildJinja2Context returns a Jinja2 variable context populated with the current
+// process environment variables under the key "env".  Both the parser and the
+// file-preprocessing pipeline use this context so the same variables are
+// available in YAML files and in arbitrary .j2 template files.
+func BuildJinja2Context() map[string]interface{} {
+	env := make(map[string]interface{})
+	for _, e := range os.Environ() {
+		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
+			env[parts[0]] = parts[1]
+		}
+	}
+	return map[string]interface{}{
+		"env": env,
+	}
+}
+
+// PreprocessJ2Files walks dir recursively and, for every file whose name ends
+// with ".j2", renders the file through Jinja2 and writes the rendered output
+// next to the original file with the ".j2" suffix stripped (e.g.
+// "index.html.j2" → "index.html", "deploy.sh.j2" → "deploy.sh").
+//
+// The Jinja2 context contains an "env" map with all current process environment
+// variables, identical to what YAML preprocessing provides.
+//
+// Directories whose base name starts with "." (e.g. ".git") are skipped.
+// Errors encountered while reading, rendering, or writing individual files are
+// returned immediately.
+func PreprocessJ2Files(dir string) error {
+	vars := BuildJinja2Context()
+	return filepath.WalkDir(dir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		// Skip hidden directories (e.g. .git, .cache).
+		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
+		}
+		rendered, err := yamlRenderer.Render(string(data), vars)
+		if err != nil {
+			return fmt.Errorf("preprocess j2: render %s: %w", path, err)
+		}
+		outPath := strings.TrimSuffix(path, ".j2")
+		// Preserve the original file's permissions so that executable scripts
+		// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("preprocess j2: stat %s: %w", path, err)
+		}
+		if err := os.WriteFile(outPath, []byte(rendered), info.Mode()); err != nil {
+			return fmt.Errorf("preprocess j2: write %s: %w", outPath, err)
+		}
+		return nil
+	})
+}
+

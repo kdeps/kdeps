@@ -60,6 +60,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -252,6 +253,12 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
 	// Check if debug flag is set
 	debugMode, _ := cmd.Flags().GetBool("debug")
+
+	// 0. Preprocess all .j2 files in the project directory.
+	workflowDir := filepath.Dir(workflowPath)
+	if prepErr := templates.PreprocessJ2Files(workflowDir); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
 
 	// 1. Parse YAML
 	fmt.Fprintln(os.Stdout, "\n[1/5] Parsing workflow...")

@@ -37,6 +37,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/fs"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -719,6 +720,10 @@ func (s *Server) reloadWorkflow() error {
 	}
 
 	// Parse workflow (this also reloads resources)
+	// First preprocess any .j2 files in the workflow directory.
+	if prepErr := templates.PreprocessJ2Files(filepath.Dir(s.workflowPath)); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
 	newWorkflow, err := s.parser.ParseWorkflow(s.workflowPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse workflow: %w", err)
