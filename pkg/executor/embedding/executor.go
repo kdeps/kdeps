@@ -57,15 +57,17 @@ import (
 )
 
 const (
-	defaultEmbeddingDir      = "/tmp/kdeps-embedding"
-	defaultCollection        = "embeddings"
-	defaultTopK              = 10
-	defaultOllamaURL         = "http://localhost:11434"
-	defaultTimeoutSeconds    = 60
-	embeddingBackendOllama   = domain.EmbeddingBackendOllama
-	embeddingOperationIndex  = domain.EmbeddingOperationIndex
-	embeddingOperationSearch = domain.EmbeddingOperationSearch
-	embeddingOperationDelete = domain.EmbeddingOperationDelete
+	defaultEmbeddingDir       = "/tmp/kdeps-embedding"
+	defaultCollection         = "embeddings"
+	defaultTopK               = 10
+	defaultOllamaURL          = "http://localhost:11434"
+	defaultTimeoutSeconds     = 60
+	embeddingBackendOllama    = domain.EmbeddingBackendOllama
+	embeddingOperationIndex   = domain.EmbeddingOperationIndex
+	embeddingOperationSearch  = domain.EmbeddingOperationSearch
+	embeddingOperationDelete  = domain.EmbeddingOperationDelete
+	embeddingOperationUpsert  = domain.EmbeddingOperationUpsert
+	upsertSimilarityThreshold = domain.EmbeddingDefaultUpsertThreshold
 )
 
 // Executor implements executor.ResourceExecutor for embedding resources.
@@ -160,9 +162,11 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return e.operationSearch(ctx, cfg, httpClient, backend, inputText, collection, topK, db)
 	case embeddingOperationDelete:
 		return e.operationDelete(inputText, collection, db)
+	case embeddingOperationUpsert:
+		return e.operationUpsert(ctx, cfg, httpClient, backend, inputText, collection, db)
 	default:
 		return nil, fmt.Errorf(
-			"embedding executor: unknown operation %q (valid: index, search, delete)",
+			"embedding executor: unknown operation %q (valid: index, search, delete, upsert)",
 			operation,
 		)
 	}
@@ -343,6 +347,107 @@ func (e *Executor) operationDelete(
 		"operation":  "delete",
 		"collection": collection,
 		"deleted":    deleted,
+	}, nil
+}
+
+// operationUpsert embeds the input text and stores it only when no sufficiently
+// similar entry already exists in the collection.  If a match is found at or
+// above upsertSimilarityThreshold the existing entry is returned unchanged —
+// avoiding redundant embedding API calls and duplicate DB rows across requests.
+func (e *Executor) operationUpsert(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmbeddingConfig,
+	client *http.Client,
+	backend, inputText, collection string,
+	db *sql.DB,
+) (interface{}, error) {
+	// Generate the embedding for the candidate text.
+	vec, err := e.getEmbedding(client, backend, cfg, inputText)
+	if err != nil {
+		return nil, fmt.Errorf("embedding executor: get embedding for upsert: %w", err)
+	}
+
+	// Load all existing embeddings and find the best cosine-similarity match.
+	rows, err := db.QueryContext(
+		context.Background(),
+		fmt.Sprintf("SELECT id, text, embedding FROM %s", sanitizeTableName(collection)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("embedding executor: upsert query: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var bestID int64
+	var bestText string
+	var bestSim float64
+	for rows.Next() {
+		var id int64
+		var text, embJSON string
+		if scanErr := rows.Scan(&id, &text, &embJSON); scanErr != nil {
+			continue
+		}
+		var stored []float64
+		if jsonErr := json.Unmarshal([]byte(embJSON), &stored); jsonErr != nil {
+			continue
+		}
+		sim := cosineSimilarity(vec, stored)
+		if sim > bestSim {
+			bestSim = sim
+			bestID = id
+			bestText = text
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("embedding executor: upsert rows error: %w", err)
+	}
+
+	// If a close-enough match exists, skip indexing and return the cached entry.
+	if bestSim >= upsertSimilarityThreshold {
+		e.logger.Info("embedding upsert: existing entry reused",
+			"collection", collection, "id", bestID, "similarity", bestSim)
+		return map[string]interface{}{
+			"success":    true,
+			"operation":  "upsert",
+			"skipped":    true,
+			"id":         bestID,
+			"text":       bestText,
+			"similarity": bestSim,
+			"collection": collection,
+		}, nil
+	}
+
+	// No close match — index as a new entry.
+	metaJSON, err := json.Marshal(cfg.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("embedding executor: marshal metadata: %w", err)
+	}
+	vecJSON, err := json.Marshal(vec)
+	if err != nil {
+		return nil, fmt.Errorf("embedding executor: marshal vector: %w", err)
+	}
+
+	result, err := db.ExecContext(
+		context.Background(),
+		fmt.Sprintf("INSERT INTO %s (text, embedding, metadata) VALUES (?, ?, ?)", sanitizeTableName(collection)),
+		inputText, string(vecJSON), string(metaJSON),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("embedding executor: upsert insert: %w", err)
+	}
+
+	id, _ := result.LastInsertId()
+	_ = ctx
+
+	e.logger.Info("embedding upsert: new entry stored",
+		"collection", collection, "id", id, "dimensions", len(vec))
+
+	return map[string]interface{}{
+		"success":    true,
+		"operation":  "upsert",
+		"skipped":    false,
+		"id":         id,
+		"collection": collection,
+		"dimensions": len(vec),
 	}, nil
 }
 
@@ -619,6 +724,9 @@ func resolveDBPath(cfg *domain.EmbeddingConfig, collection string) (string, erro
 
 // openVectorDB opens (or creates) the SQLite DB and ensures the collection table exists.
 func openVectorDB(dbPath, collection string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o750); err != nil {
+		return nil, fmt.Errorf("create db dir: %w", err)
+	}
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite3: %w", err)

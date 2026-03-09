@@ -91,12 +91,21 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 				handler(w, req)
 				return
 			}
-			// Try pattern matching
+			// Try pattern matching — prefer the most specific (longest) matching pattern
+			// so that "/files/*" beats "/*" for a request to "/files/foo.pdf".
+			var bestPattern string
+			var bestHandler stdhttp.HandlerFunc
 			for pattern, h := range methodRoutes {
 				if r.MatchPattern(pattern, req.URL.Path) {
-					h(w, req)
-					return
+					if len(pattern) > len(bestPattern) {
+						bestPattern = pattern
+						bestHandler = h
+					}
 				}
+			}
+			if bestHandler != nil {
+				bestHandler(w, req)
+				return
 			}
 		}
 

@@ -499,12 +499,13 @@ func (v *WorkflowValidator) ValidateEmbeddingConfig(config *domain.EmbeddingConf
 			domain.EmbeddingOperationIndex:  true,
 			domain.EmbeddingOperationSearch: true,
 			domain.EmbeddingOperationDelete: true,
+			domain.EmbeddingOperationUpsert: true,
 		}
 		if !validOperations[config.Operation] {
 			return domain.NewError(
 				domain.ErrCodeInvalidResource,
 				fmt.Sprintf(
-					"invalid embedding.operation: %s. Available options: [index, search, delete]",
+					"invalid embedding.operation: %s. Available options: [index, search, delete, upsert]",
 					config.Operation,
 				),
 				nil,
