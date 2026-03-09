@@ -164,10 +164,11 @@ type RequestContext struct {
 
 // FileUpload represents an uploaded file.
 type FileUpload struct {
-	Name     string
-	Path     string
-	MimeType string
-	Size     int64
+	Name      string // Original filename (e.g., "resume.pdf")
+	FieldName string // Form field name (e.g., "cv", "jd", "file")
+	Path      string
+	MimeType  string
+	Size      int64
 }
 
 // NewExecutionContext creates a new execution context.
@@ -594,7 +595,6 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 	case "data", "body":
 		return ctx.getBody(name)
 	case "filepath":
-		// Get file path for uploaded file
 		if ctx.Request != nil {
 			if file, err := ctx.GetUploadedFile(name); err == nil {
 				return file.Path, nil
@@ -602,7 +602,6 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 		}
 		return nil, fmt.Errorf("uploaded file '%s' not found", name)
 	case "filetype":
-		// Get MIME type for uploaded file
 		if ctx.Request != nil {
 			if file, err := ctx.GetUploadedFile(name); err == nil {
 				return file.MimeType, nil
@@ -1261,10 +1260,17 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 		}
 	}
 
-	// Try exact filename match first
-	for _, file := range ctx.Request.Files {
+	// Try form field name first (e.g., get('cv', 'filepath') when form field is 'cv')
+	for i, file := range ctx.Request.Files {
+		if file.FieldName != "" && file.FieldName == name {
+			return &ctx.Request.Files[i], nil
+		}
+	}
+
+	// Try exact filename match (e.g., get('resume.pdf', 'filepath'))
+	for i, file := range ctx.Request.Files {
 		if file.Name == name {
-			return &file, nil
+			return &ctx.Request.Files[i], nil
 		}
 	}
 

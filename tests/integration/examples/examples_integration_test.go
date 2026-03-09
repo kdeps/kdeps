@@ -775,7 +775,7 @@ func TestCVMatcherExample(t *testing.T) {
 
 	// Verify the key pipeline steps are present.
 	expectedSteps := []string{"scrape-cv", "scrape-jd", "extract-cv", "extract-jd",
-		"compute-match", "generate-report-pdf", "send-email", "api-response"}
+		"compute-match", "generate-report-pdf", "send-email", "web-ui"}
 	for _, step := range expectedSteps {
 		assert.Contains(t, actionIDs, step,
 			"workflow should contain step %q", step)
@@ -801,7 +801,21 @@ func TestCVMatcherExample(t *testing.T) {
 
 	_, execErr := engine.Execute(workflow, reqCtx)
 	if execErr != nil {
-		// In CI, any execution error is assumed to be due to missing external
+		errMsg := execErr.Error()
+		// Skip when external dependencies are unavailable (scraper, LLM, SMTP, etc.).
+		externalDeps := []string{
+			"scraper executor not available",
+			"executor not available",
+			"connection refused",
+			"no such host",
+		}
+		for _, dep := range externalDeps {
+			if strings.Contains(errMsg, dep) {
+				t.Skipf("cv-matcher execution skipped (external dependency unavailable): %v", execErr)
+			}
+		}
+
+		// In CI, any remaining error is assumed to be due to missing external
 		// dependencies (LLM, scrapers, SMTP, etc.), so we skip instead of failing.
 		if os.Getenv("CI") != "" {
 			t.Skipf("cv-matcher execution failed in CI (likely due to external dependencies): %v", execErr)

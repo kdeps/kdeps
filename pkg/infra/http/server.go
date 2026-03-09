@@ -51,8 +51,10 @@ const (
 	// DefaultHTTPReadTimeout is the default read timeout for HTTP server.
 	DefaultHTTPReadTimeout = 30 * time.Second
 	// DefaultHTTPWriteTimeout is the default write timeout for HTTP server.
-	// Set to 5 minutes to accommodate long-running operations like LLM requests.
-	DefaultHTTPWriteTimeout = 300 * time.Second
+	// Set to 0 (no limit) — individual resources manage their own timeouts via
+	// timeoutDuration, and long-running workflows (LLM, PDF, embedding, etc.)
+	// can easily exceed any fixed server-level limit.
+	DefaultHTTPWriteTimeout = 0 * time.Second
 	// DefaultHTTPIdleTimeout is the default idle timeout for HTTP server.
 	DefaultHTTPIdleTimeout = 60 * time.Second
 
@@ -75,10 +77,11 @@ type RequestContext struct {
 
 // FileUpload matches executor.FileUpload.
 type FileUpload struct {
-	Name     string
-	Path     string
-	MimeType string
-	Size     int64
+	Name      string
+	FieldName string
+	Path      string
+	MimeType  string
+	Size      int64
 }
 
 // Server is the HTTP API server.
@@ -353,27 +356,74 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// It will wrap data in {"success": true, "data": {...}, "meta": {...}}
 			if success {
 				s.logger.Debug("sending API response", "path", r.URL.Path, "data_type", fmt.Sprintf("%T", data))
-				// Write response directly to ensure it's sent
-				requestID := GetRequestID(r.Context())
-				meta["requestID"] = requestID
-				meta["timestamp"] = time.Now()
-
-				response := map[string]interface{}{
-					"success": true,
-					"data":    data,
-					"meta":    meta,
-				}
-
-				// Ensure Content-Type is set (may have been set from _meta)
-				if w.Header().Get("Content-Type") == "" {
-					w.Header().Set("Content-Type", "application/json")
-				}
 
 				// Set session cookie if session ID is present in context
 				// This ensures cookies are set even when using API response resources
 				ctxSessionID := GetSessionID(r.Context())
 				if ctxSessionID != "" {
 					SetSessionCookie(w, r, ctxSessionID)
+				}
+
+				// Determine Content-Type (may have been set from _meta headers above).
+				// Default to application/json when none was specified.
+				contentType := w.Header().Get("Content-Type")
+				if contentType == "" {
+					contentType = "application/json"
+					w.Header().Set("Content-Type", contentType)
+				}
+
+				// For non-JSON content types (e.g. text/html), write the data field
+				// directly as raw bytes so the response is not wrapped in a JSON envelope.
+				if !strings.HasPrefix(contentType, "application/json") {
+					var rawBytes []byte
+					switch v := data.(type) {
+					case string:
+						rawBytes = []byte(v)
+					case []byte:
+						rawBytes = v
+					default:
+						var marshalErr error
+						rawBytes, marshalErr = json.Marshal(data)
+						if marshalErr != nil {
+							s.logger.Error("failed to marshal raw API response", "error", marshalErr, "path", r.URL.Path)
+							debugMode := GetDebugMode(r.Context())
+							RespondWithError(w, r, domain.NewAppError(
+								domain.ErrCodeInternal,
+								fmt.Sprintf("failed to marshal API response: %v", marshalErr),
+							), debugMode)
+							return
+						}
+					}
+
+					w.WriteHeader(stdhttp.StatusOK)
+					s.logger.Debug("writing raw API response", "path", r.URL.Path, "size", len(rawBytes), "content_type", contentType)
+					if _, writeErr := w.Write(rawBytes); writeErr != nil {
+						s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
+					}
+					if flusher, ok := w.(stdhttp.Flusher); ok {
+						flusher.Flush()
+					}
+					return
+				}
+
+				// JSON response: wrap in the standard envelope.
+				requestID := GetRequestID(r.Context())
+				meta["requestID"] = requestID
+				meta["timestamp"] = time.Now()
+
+				// If data is a JSON string (from an evaluated template), parse it
+				// so it is not double-encoded in the response envelope.
+				if dataStr, isStr := data.(string); isStr && strings.TrimSpace(dataStr) != "" {
+					var parsed interface{}
+					if jsonErr := json.Unmarshal([]byte(dataStr), &parsed); jsonErr == nil {
+						data = parsed
+					}
+				}
+
+				response := map[string]interface{}{
+					"success": true,
+					"data":    data,
+					"meta":    meta,
 				}
 
 				// Encode response to bytes first to check for marshal errors before writing headers
@@ -388,20 +438,14 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					return
 				}
 
-				// Check if headers have already been written (shouldn't happen, but safety check)
-				// In Go's http.ResponseWriter, once WriteHeader is called, headers are sent
-				// We need to write headers and body together
 				w.WriteHeader(stdhttp.StatusOK)
-
 				s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
 
-				// Write response bytes directly
 				if _, writeErr := w.Write(responseBytes); writeErr != nil {
 					s.logger.Error("failed to write API response", "error", writeErr, "path", r.URL.Path)
 					return
 				}
 
-				// Try to flush if the response writer supports it
 				if flusher, okFlusher := w.(stdhttp.Flusher); okFlusher {
 					flusher.Flush()
 					s.logger.Debug("response flushed", "path", r.URL.Path)
@@ -432,8 +476,43 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 	s.logger.Debug("sending regular resource result", "path", r.URL.Path)
 
-	// Regular resource output - wrap in standard success response
-	RespondWithSuccess(w, r, result, nil)
+	// If the result is a JSON string (e.g. from an unwrapped apiResponse resource),
+	// parse it so it is not double-encoded in the success envelope.
+	if resultStr, isStr := result.(string); isStr && strings.TrimSpace(resultStr) != "" {
+		var parsed interface{}
+		if jsonErr := json.Unmarshal([]byte(resultStr), &parsed); jsonErr == nil {
+			result = parsed
+		}
+	}
+
+	// Build and marshal response before writing headers, so any marshal error
+	// can be reported before committing the status code.
+	requestID := GetRequestID(r.Context())
+	regularMeta := map[string]interface{}{
+		"requestID": requestID,
+		"timestamp": time.Now(),
+	}
+	regularResp := map[string]interface{}{
+		"success": true,
+		"data":    result,
+		"meta":    regularMeta,
+	}
+	regularBytes, marshalErr := json.Marshal(regularResp)
+	if marshalErr != nil {
+		s.logger.Error("failed to marshal regular resource result", "error", marshalErr, "path", r.URL.Path)
+		debugMode := GetDebugMode(r.Context())
+		RespondWithError(w, r, domain.NewAppError(
+			domain.ErrCodeInternal,
+			fmt.Sprintf("failed to marshal response: %v", marshalErr),
+		), debugMode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(stdhttp.StatusOK)
+	if _, writeErr := w.Write(regularBytes); writeErr != nil {
+		s.logger.Error("failed to write regular resource result", "error", writeErr, "path", r.URL.Path)
+	}
 }
 
 // ParseRequest parses HTTP request into RequestContext.
@@ -497,10 +576,11 @@ func (s *Server) ParseRequest(r *stdhttp.Request, uploadedFiles []*domain.Upload
 	files := make([]FileUpload, 0, len(uploadedFiles))
 	for _, file := range uploadedFiles {
 		files = append(files, FileUpload{
-			Name:     file.Filename,
-			Path:     file.Path,
-			MimeType: file.ContentType,
-			Size:     file.Size,
+			Name:      file.Filename,
+			FieldName: file.FieldName,
+			Path:      file.Path,
+			MimeType:  file.ContentType,
+			Size:      file.Size,
 		})
 	}
 
