@@ -128,7 +128,10 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 }
 
 // processFileHeader processes a single file header.
-func (h *UploadHandler) processFileHeader(fileHeader *multipart.FileHeader, fieldName string) (*domain.UploadedFile, error) {
+func (h *UploadHandler) processFileHeader(
+	fileHeader *multipart.FileHeader,
+	fieldName string,
+) (*domain.UploadedFile, error) {
 	// Check file size
 	if fileHeader.Size > h.maxFileSize {
 		return nil, domain.NewAppError(
