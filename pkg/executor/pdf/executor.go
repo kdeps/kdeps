@@ -99,13 +99,17 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("pdf executor: content is empty after expression evaluation")
 	}
 
-	// Resolve output path.
-	outputFile := cfg.OutputFile
+	// Resolve output path (evaluate any expressions in the path).
+	outputFile := e.evaluateText(cfg.OutputFile, ctx)
 	if outputFile == "" {
 		if err := os.MkdirAll(pdfOutputDir, 0o750); err != nil {
 			return nil, fmt.Errorf("pdf executor: create output dir: %w", err)
 		}
 		outputFile = filepath.Join(pdfOutputDir, uuid.New().String()+".pdf")
+	} else {
+		if err := os.MkdirAll(filepath.Dir(outputFile), 0o750); err != nil {
+			return nil, fmt.Errorf("pdf executor: create output dir: %w", err)
+		}
 	}
 
 	var err error
@@ -305,6 +309,7 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) str
 	}
 	result, err := eval.Evaluate(expr, env)
 	if err != nil {
+		e.logger.Error("pdf executor: expression evaluation failed", "error", err)
 		return text
 	}
 	if s, ok := result.(string); ok {

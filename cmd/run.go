@@ -815,10 +815,11 @@ func (a *RequestContextAdapter) Execute(workflow *domain.Workflow, req interface
 	executorFiles := make([]executor.FileUpload, len(httpReq.Files))
 	for i, f := range httpReq.Files {
 		executorFiles[i] = executor.FileUpload{
-			Name:     f.Name,
-			Path:     f.Path,
-			MimeType: f.MimeType,
-			Size:     f.Size,
+			Name:      f.Name,
+			FieldName: f.FieldName,
+			Path:      f.Path,
+			MimeType:  f.MimeType,
+			Size:      f.Size,
 		}
 	}
 

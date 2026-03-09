@@ -69,7 +69,7 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 		// Try file[] first (multiple files)
 		if files, ok := form.File["file[]"]; ok {
 			for _, fileHeader := range files {
-				file, err := h.processFileHeader(fileHeader)
+				file, err := h.processFileHeader(fileHeader, "file[]")
 				if err != nil {
 					return nil, fmt.Errorf("failed to process file %s: %w", fileHeader.Filename, err)
 				}
@@ -81,7 +81,7 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 		// Try files (alternative field name for multiple files)
 		if files, ok := form.File["files"]; ok {
 			for _, fileHeader := range files {
-				file, err := h.processFileHeader(fileHeader)
+				file, err := h.processFileHeader(fileHeader, "files")
 				if err != nil {
 					return nil, fmt.Errorf("failed to process file %s: %w", fileHeader.Filename, err)
 				}
@@ -92,18 +92,18 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 
 		// Handle single file with field name "file"
 		if files, ok := form.File["file"]; ok && len(files) > 0 {
-			file, err := h.processFileHeader(files[0])
+			file, err := h.processFileHeader(files[0], "file")
 			if err != nil {
 				return nil, fmt.Errorf("failed to process file: %w", err)
 			}
 			return []*domain.UploadedFile{file}, nil
 		}
 
-		// If no specific field names matched, try to get any uploaded files
+		// If no specific field names matched, collect all uploaded files preserving field names
 		for fieldName, files := range form.File {
 			if len(files) > 0 {
 				for _, fileHeader := range files {
-					file, err := h.processFileHeader(fileHeader)
+					file, err := h.processFileHeader(fileHeader, fieldName)
 					if err != nil {
 						return nil, fmt.Errorf(
 							"failed to process file %s from field %s: %w",
@@ -128,7 +128,7 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 }
 
 // processFileHeader processes a single file header.
-func (h *UploadHandler) processFileHeader(fileHeader *multipart.FileHeader) (*domain.UploadedFile, error) {
+func (h *UploadHandler) processFileHeader(fileHeader *multipart.FileHeader, fieldName string) (*domain.UploadedFile, error) {
 	// Check file size
 	if fileHeader.Size > h.maxFileSize {
 		return nil, domain.NewAppError(
@@ -169,5 +169,6 @@ func (h *UploadHandler) processFileHeader(fileHeader *multipart.FileHeader) (*do
 		return nil, fmt.Errorf("failed to store file: %w", err)
 	}
 
+	file.FieldName = fieldName
 	return file, nil
 }

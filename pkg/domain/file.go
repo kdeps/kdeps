@@ -28,6 +28,9 @@ type UploadedFile struct {
 	// Original filename from client
 	Filename string `json:"filename"`
 
+	// Form field name used when uploading (e.g., "cv", "jd", "file")
+	FieldName string `json:"fieldName,omitempty"`
+
 	// MIME type detected from content
 	ContentType string `json:"contentType"`
 

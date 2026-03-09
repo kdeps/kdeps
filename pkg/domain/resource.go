@@ -976,6 +976,15 @@ const EmbeddingOperationSearch = "search"
 // EmbeddingOperationDelete removes entries from the vector DB by ID or metadata filter.
 const EmbeddingOperationDelete = "delete"
 
+// EmbeddingOperationUpsert embeds the input and only stores it if no sufficiently
+// similar entry already exists in the collection (similarity < UpsertThreshold).
+// This avoids re-indexing skills that were processed in a previous request.
+const EmbeddingOperationUpsert = "upsert"
+
+// EmbeddingDefaultUpsertThreshold is the minimum cosine-similarity score at which
+// an existing embedding is considered a match for upsert deduplication.
+const EmbeddingDefaultUpsertThreshold = 0.95
+
 // EmbeddingConfig configures an embedding/vector DB resource that converts
 // text input to vector embeddings and stores or queries them in a local vector index.
 type EmbeddingConfig struct {
