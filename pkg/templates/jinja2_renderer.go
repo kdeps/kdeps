@@ -308,6 +308,13 @@ var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache f
 //	    "env": map[string]interface{}{"PORT": "8080", ...},
 //	}
 func PreprocessYAML(content string, vars map[string]interface{}) (string, error) {
+	// Only invoke the Jinja2 engine when the content actually contains Jinja2
+	// control or comment tags ({%, {#).  Files that use only runtime {{ }}
+	// expressions (kdeps API calls or other dynamic values) are passed through
+	// unchanged — the kdeps expression evaluator handles those at request time.
+	if !strings.Contains(content, "{%") && !strings.Contains(content, "{#") {
+		return content, nil
+	}
 	protected := autoProtectKdepsExpressions(content)
 	return yamlRenderer.Render(protected, vars)
 }
@@ -361,6 +368,12 @@ func PreprocessJ2Files(dir string) error {
 			return fmt.Errorf("preprocess j2: render %s: %w", path, err)
 		}
 		outPath := strings.TrimSuffix(path, ".j2")
+		// Skip generation when the output file already exists, to avoid
+		// clobbering user-edited files (e.g. workflow.yaml should not be
+		// overwritten by workflow.yaml.j2 when both are present).
+		if _, statErr := os.Stat(outPath); statErr == nil {
+			return nil
+		}
 		// Preserve the original file's permissions so that executable scripts
 		// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
 		info, err := os.Stat(path)

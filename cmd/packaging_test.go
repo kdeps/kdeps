@@ -64,7 +64,7 @@ func TestValidateWorkflowDir(t *testing.T) {
 				return dir
 			},
 			wantErr:     true,
-			errContains: "workflow.yaml not found",
+			errContains: "no workflow file found",
 		},
 		{
 			name: "missing resources directory",
@@ -84,7 +84,7 @@ func TestValidateWorkflowDir(t *testing.T) {
 				return "/nonexistent/path"
 			},
 			wantErr:     true,
-			errContains: "workflow.yaml not found",
+			errContains: "no workflow file found",
 		},
 	}
 

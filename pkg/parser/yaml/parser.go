@@ -84,8 +84,9 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read workflow file", err)
 	}
 
-	// Apply Jinja2 preprocessing when the file contains Jinja2 control/comment tags.
-	// Files that only use {{ }} runtime expressions are passed through unchanged.
+	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
+	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
+	// are returned as-is; the kdeps expression evaluator handles those later.
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess workflow Jinja2 template", preprocessErr)
@@ -142,8 +143,9 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read resource file", err)
 	}
 
-	// Apply Jinja2 preprocessing when the file contains Jinja2 control/comment tags.
-	// Files that only use {{ }} runtime expressions are passed through unchanged.
+	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
+	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
+	// are returned as-is; the kdeps expression evaluator handles those later.
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess resource Jinja2 template", preprocessErr)
@@ -216,7 +218,7 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 			continue
 		}
 
-		// Only process .yaml, .yml, .yaml.j2, and .yml.j2 files
+		// Only process .yaml, .yml, .yaml.j2, .yml.j2, and plain .j2 files
 		name := entry.Name()
 		if !isYAMLFile(name) {
 			continue
