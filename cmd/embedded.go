@@ -30,7 +30,7 @@ import (
 
 const (
 	// EmbeddedMagic is the 16-byte magic marker used to identify prepackaged kdeps binaries.
-	// Trailer layout (appended after .kdeps content): [8 bytes: uint64 size][16 bytes: magic]
+	// Trailer layout (appended after .kdeps content): [8 bytes: uint64 size][16 bytes: magic].
 	EmbeddedMagic = "KDEPS_PACK\x00\x00\x00\x00\x00\x00"
 
 	// EmbeddedTrailerSize is the total number of bytes occupied by the embedded-package trailer.
@@ -59,12 +59,12 @@ func detectPayloadRange(f *os.File, fileSize int64) (offset, size int64, ok bool
 		return 0, 0, false
 	}
 
-	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize)
+	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize) //nolint:gosec // G115: safe uint64→int64
 	if off < 0 {
 		return 0, 0, false
 	}
 
-	return off, int64(kdepsSize), true
+	return off, int64(kdepsSize), true //nolint:gosec // G115: safe uint64→int64
 }
 
 // HasEmbeddedPackage reports whether the binary at execPath carries an
@@ -105,7 +105,7 @@ func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
 	}
 
 	pkgData := make([]byte, size)
-	if _, err := f.ReadAt(pkgData, offset); err != nil {
+	if _, readErr := f.ReadAt(pkgData, offset); readErr != nil {
 		return nil, false
 	}
 
@@ -133,7 +133,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	kdepsSize := kdepsInfo.Size()
 
 	// Preserve the source binary's executable permissions on the output file.
-	mode := os.FileMode(0755) //nolint:gosec // executable output requires world-execute bit
+	mode := os.FileMode(0755) //nolint:gosec,mnd // executable output requires world-execute bit
 	if binInfo, statErr := binFile.Stat(); statErr == nil {
 		mode = binInfo.Mode()
 	}
@@ -149,8 +149,8 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	defer out.Close()
 
 	// 1. Stream the original binary without buffering the whole file.
-	if _, err := io.Copy(out, binFile); err != nil {
-		return fmt.Errorf("failed to write binary content: %w", err)
+	if _, copyErr := io.Copy(out, binFile); copyErr != nil {
+		return fmt.Errorf("failed to write binary content: %w", copyErr)
 	}
 
 	// 2. Stream the .kdeps archive.
@@ -160,20 +160,20 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	}
 	defer kdepsFile.Close()
 
-	if _, err := io.Copy(out, kdepsFile); err != nil {
-		return fmt.Errorf("failed to write .kdeps content: %w", err)
+	if _, copyErr := io.Copy(out, kdepsFile); copyErr != nil {
+		return fmt.Errorf("failed to write .kdeps content: %w", copyErr)
 	}
 
 	// 3. Size field (8-byte big-endian uint64).
-	sizeBuf := make([]byte, 8)
+	sizeBuf := make([]byte, 8) //nolint:mnd // 8 is the byte size of a uint64
 	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize))
-	if _, err := out.Write(sizeBuf); err != nil {
-		return fmt.Errorf("failed to write size trailer: %w", err)
+	if _, writeErr := out.Write(sizeBuf); writeErr != nil {
+		return fmt.Errorf("failed to write size trailer: %w", writeErr)
 	}
 
 	// 4. Magic marker (16 bytes).
-	if _, err := out.Write([]byte(EmbeddedMagic)); err != nil {
-		return fmt.Errorf("failed to write magic trailer: %w", err)
+	if _, writeErr := out.Write([]byte(EmbeddedMagic)); writeErr != nil {
+		return fmt.Errorf("failed to write magic trailer: %w", writeErr)
 	}
 
 	return nil
@@ -186,7 +186,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 func cleanBinaryPath(execPath string) (string, bool, error) {
 	f, err := os.Open(execPath)
 	if err != nil {
-		return execPath, false, nil //nolint:nilerr // non-critical: fall through to using the file as-is
+		return execPath, false, nil
 	}
 	defer f.Close()
 
@@ -196,8 +196,8 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	}
 
 	trailer := make([]byte, EmbeddedTrailerSize)
-	if _, err := f.ReadAt(trailer, info.Size()-int64(EmbeddedTrailerSize)); err != nil {
-		return execPath, false, nil //nolint:nilerr // can't read trailer — treat as unembedded
+	if _, readErr := f.ReadAt(trailer, info.Size()-int64(EmbeddedTrailerSize)); readErr != nil {
+		return execPath, false, nil
 	}
 
 	if string(trailer[8:]) != EmbeddedMagic {
@@ -205,28 +205,28 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	}
 
 	kdepsSize := binary.BigEndian.Uint64(trailer[:8])
-	cleanSize := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize)
+	cleanSize := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize) //nolint:gosec // G115: safe uint64→int64
 	if cleanSize <= 0 {
 		return execPath, false, nil
 	}
 
 	cleanData := make([]byte, cleanSize)
-	if _, err := f.ReadAt(cleanData, 0); err != nil {
-		return "", false, fmt.Errorf("failed to read clean binary portion: %w", err)
+	if _, readErr := f.ReadAt(cleanData, 0); readErr != nil {
+		return "", false, fmt.Errorf("failed to read clean binary portion: %w", readErr)
 	}
 
 	tmpFile, err := os.CreateTemp("", "kdeps-clean-*")
 	if err != nil {
 		return "", false, fmt.Errorf("failed to create temp file for clean binary: %w", err)
 	}
-	if _, err := tmpFile.Write(cleanData); err != nil {
+	if _, writeErr := tmpFile.Write(cleanData); writeErr != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpFile.Name())
-		return "", false, fmt.Errorf("failed to write clean binary: %w", err)
+		return "", false, fmt.Errorf("failed to write clean binary: %w", writeErr)
 	}
-	if err := tmpFile.Close(); err != nil {
+	if closeErr := tmpFile.Close(); closeErr != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", false, fmt.Errorf("failed to close clean binary temp file: %w", err)
+		return "", false, fmt.Errorf("failed to close clean binary temp file: %w", closeErr)
 	}
 
 	return tmpFile.Name(), true, nil
@@ -276,8 +276,8 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 
 	// Inject "run <tmpPath>" into os.Args so the cobra root command picks it up.
 	origArgs := os.Args
-	os.Args = []string{origArgs[0], "run", tmpPath}
-	defer func() { os.Args = origArgs }()
+	os.Args = []string{origArgs[0], "run", tmpPath} //nolint:reassign // inject args for embedded package dispatch
+	defer func() { os.Args = origArgs }()            //nolint:reassign // restore original args on exit
 
 	if execErr := Execute(ver, commit); execErr != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", execErr)

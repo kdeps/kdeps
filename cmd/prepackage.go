@@ -26,6 +26,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,11 +58,11 @@ type archTarget struct {
 //
 //nolint:gochecknoglobals // immutable target list
 var allArchTargets = []archTarget{
-	{GOOS: "linux", GOARCH: "amd64"},
-	{GOOS: "linux", GOARCH: "arm64"},
-	{GOOS: "darwin", GOARCH: "amd64"},
-	{GOOS: "darwin", GOARCH: "arm64"},
-	{GOOS: "windows", GOARCH: "amd64"},
+	{GOOS: goosLinux, GOARCH: "amd64"},
+	{GOOS: goosLinux, GOARCH: "arm64"},
+	{GOOS: goosDarwin, GOARCH: "amd64"},
+	{GOOS: goosDarwin, GOARCH: "arm64"},
+	{GOOS: goosWindows, GOARCH: "amd64"},
 }
 
 const (
@@ -69,6 +70,10 @@ const (
 	downloadTimeout = 10 * time.Minute
 	// maxDownloadBytes limits the response body to avoid excessive memory usage (500 MB).
 	maxDownloadBytes = 500 << 20
+
+	goosWindows = "windows"
+	goosDarwin  = "darwin"
+	goosLinux   = "linux"
 )
 
 // httpDownloadClient is the HTTP client used for downloading release binaries.
@@ -125,6 +130,8 @@ Examples:
 }
 
 // PrePackageWithFlags implements the core logic of the prepackage command.
+//
+//nolint:gocognit
 func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
 	kdepsFile := args[0]
 
@@ -147,7 +154,9 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	if err != nil {
 		base := filepath.Base(kdepsFile)
 		pkgName = strings.TrimSuffix(base, ".kdeps")
-		fmt.Fprintf(os.Stderr, "Warning: could not parse workflow metadata (%v); using filename %q as package name\n", err, pkgName)
+		fmt.Fprintf(os.Stderr,
+			"Warning: could not parse workflow metadata (%v); using filename %q as package name\n",
+			err, pkgName)
 	}
 
 	targets, err := resolvePrepackageTargets(flags.Arch)
@@ -218,7 +227,7 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	}
 
 	if len(produced) == 0 {
-		return fmt.Errorf("no executables were created")
+		return errors.New("no executables were created")
 	}
 	return nil
 }
@@ -230,7 +239,7 @@ func resolveBaseBinary(
 	ver string,
 	target archTarget,
 	currentExec string,
-) (path string, tempCreated bool, err error) {
+) (string, bool, error) {
 	isHostArch := runtime.GOOS == target.GOOS && runtime.GOARCH == target.GOARCH
 
 	if isHostArch && currentExec != "" {
@@ -254,7 +263,7 @@ func resolveBaseBinary(
 // prepackageOutputName returns the filename for the prepackaged binary.
 func prepackageOutputName(pkgName string, target archTarget) string {
 	name := fmt.Sprintf("%s-%s-%s", pkgName, target.GOOS, target.GOARCH)
-	if target.GOOS == "windows" {
+	if target.GOOS == goosWindows {
 		name += ".exe"
 	}
 	return name
@@ -267,8 +276,9 @@ func resolvePrepackageTargets(archFlag string) ([]archTarget, error) {
 		return allArchTargets, nil
 	}
 
-	parts := strings.SplitN(archFlag, "-", 2)
-	if len(parts) != 2 {
+	const archPartCount = 2
+	parts := strings.SplitN(archFlag, "-", archPartCount)
+	if len(parts) != archPartCount {
 		return nil, fmt.Errorf("invalid --arch value %q: expected os-arch (e.g. linux-amd64)", archFlag)
 	}
 	target := archTarget{GOOS: parts[0], GOARCH: parts[1]}
@@ -277,7 +287,10 @@ func resolvePrepackageTargets(archFlag string) ([]archTarget, error) {
 			return []archTarget{target}, nil
 		}
 	}
-	return nil, fmt.Errorf("unsupported target %q (supported: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)", archFlag)
+	return nil, fmt.Errorf(
+		"unsupported target %q (supported: linux-amd64, linux-arm64, darwin-amd64, darwin-arm64, windows-amd64)",
+		archFlag,
+	)
 }
 
 // getPackageName extracts a descriptive name for the output binary from the
@@ -310,11 +323,11 @@ func getPackageName(kdepsFile string) (string, error) {
 // goreleaser archive filenames (e.g. "linux" → "Linux").
 func goosToReleaseOS(goos string) string {
 	switch goos {
-	case "darwin":
+	case goosDarwin:
 		return "Darwin"
-	case "linux":
+	case goosLinux:
 		return "Linux"
-	case "windows":
+	case goosWindows:
 		return "Windows"
 	default:
 		return goos
@@ -351,7 +364,7 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 	releaseOS := goosToReleaseOS(goos)
 	releaseArch := goarchToReleaseArch(goarch)
 	ext := "tar.gz"
-	if goos == "windows" {
+	if goos == goosWindows {
 		ext = "zip"
 	}
 
@@ -368,12 +381,12 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 	}
 
 	binaryName := "kdeps"
-	if goos == "windows" {
+	if goos == goosWindows {
 		binaryName = "kdeps.exe"
 	}
 
 	var binaryData []byte
-	if goos == "windows" {
+	if goos == goosWindows {
 		binaryData, err = extractFromZip(archiveData, binaryName)
 	} else {
 		binaryData, err = extractFromTarGz(archiveData, binaryName)
@@ -382,8 +395,8 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 		return "", fmt.Errorf("failed to extract %q from archive: %w", binaryName, err)
 	}
 
-	mode := os.FileMode(0755) //nolint:gosec // executable requires world-execute bit
-	if goos == "windows" {
+	mode := os.FileMode(0755) //nolint:gosec,mnd // executable requires world-execute bit
+	if goos == goosWindows {
 		mode = 0644
 	}
 
@@ -391,18 +404,18 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	if _, err := tmpFile.Write(binaryData); err != nil {
+	if _, writeErr := tmpFile.Write(binaryData); writeErr != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmpFile.Name())
-		return "", fmt.Errorf("failed to write base binary: %w", err)
+		return "", fmt.Errorf("failed to write base binary: %w", writeErr)
 	}
-	if err := tmpFile.Close(); err != nil {
+	if closeErr := tmpFile.Close(); closeErr != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", fmt.Errorf("failed to close temp file: %w", err)
+		return "", fmt.Errorf("failed to close temp file: %w", closeErr)
 	}
-	if err := os.Chmod(tmpFile.Name(), mode); err != nil {
+	if chmodErr := os.Chmod(tmpFile.Name(), mode); chmodErr != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", fmt.Errorf("failed to set permissions on base binary: %w", err)
+		return "", fmt.Errorf("failed to set permissions on base binary: %w", chmodErr)
 	}
 
 	return tmpFile.Name(), nil

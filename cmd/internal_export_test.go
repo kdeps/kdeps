@@ -24,32 +24,32 @@ package cmd
 
 // ExtractFromTarGz is an alias for the unexported extractFromTarGz helper,
 // exposed for unit testing only.
-var ExtractFromTarGz = extractFromTarGz
+var ExtractFromTarGz = extractFromTarGz //nolint:gochecknoglobals // test-only export
 
 // ExtractFromZip is an alias for the unexported extractFromZip helper,
 // exposed for unit testing only.
-var ExtractFromZip = extractFromZip
+var ExtractFromZip = extractFromZip //nolint:gochecknoglobals // test-only export
 
 // FetchURL is an alias for the unexported fetchURL helper,
 // exposed for unit testing only.
-var FetchURL = fetchURL
+var FetchURL = fetchURL //nolint:gochecknoglobals // test-only export
 
 // CleanBinaryPath is an alias for the unexported cleanBinaryPath helper,
 // exposed for unit testing only.
-var CleanBinaryPath = cleanBinaryPath
+var CleanBinaryPath = cleanBinaryPath //nolint:gochecknoglobals // test-only export
 
 // GoosToReleaseOS is an alias for the unexported goosToReleaseOS helper,
 // exposed for unit testing only.
-var GoosToReleaseOS = goosToReleaseOS
+var GoosToReleaseOS = goosToReleaseOS //nolint:gochecknoglobals // test-only export
 
 // GoarchToReleaseArch is an alias for the unexported goarchToReleaseArch helper,
 // exposed for unit testing only.
-var GoarchToReleaseArch = goarchToReleaseArch
+var GoarchToReleaseArch = goarchToReleaseArch //nolint:gochecknoglobals // test-only export
 
 // DownloadKdepsBinaryToTemp is an alias for the unexported
 // downloadKdepsBinaryToTemp helper, exposed for unit testing only.
-var DownloadKdepsBinaryToTemp = downloadKdepsBinaryToTemp
+var DownloadKdepsBinaryToTemp = downloadKdepsBinaryToTemp //nolint:gochecknoglobals // test-only export
 
 // GithubReleasesBaseURL allows tests to override the base URL for downloads.
 // Tests should restore the original value via t.Cleanup().
-var GithubReleasesBaseURL = &githubReleasesBaseURL
+var GithubReleasesBaseURL = &githubReleasesBaseURL //nolint:gochecknoglobals // test-only export

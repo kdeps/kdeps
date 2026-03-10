@@ -700,7 +700,7 @@ func TestCleanBinaryPath_ZeroCleanSize(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write magic.
-	_, err = tmpFile.Write([]byte(cmd.EmbeddedMagic))
+	_, err = tmpFile.WriteString(cmd.EmbeddedMagic)
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
@@ -746,8 +746,7 @@ func TestGoarchToReleaseArch_Mappings(t *testing.T) {
 // download-extract-write path for a linux/amd64 binary via a mock HTTP server.
 func TestDownloadKdepsBinaryToTemp_LinuxMockServer(t *testing.T) {
 	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
-		// Host binary reuse path — not the download path. We'd need to manually
-		// call the export for that.
+		t.Skip("linux/amd64 is the host arch on this runner — download path not exercised by DownloadKdepsBinaryToTemp")
 	}
 
 	fakeBinary := []byte("FAKE_LINUX_AMD64_BINARY_CONTENT")
