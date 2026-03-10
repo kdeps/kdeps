@@ -76,5 +76,6 @@ run:
 - `kdeps build` – Create Docker images from workflows
 - `kdeps push` – Live-update running containers
 - `kdeps export iso` – Generate bootable edge ISOs
+- `kdeps prepackage` – Bundle a .kdeps file into self-contained executables per arch
 
 [Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0
