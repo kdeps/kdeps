@@ -123,6 +123,7 @@ export default defineConfig({
           items: [
             { text: 'Docker', link: '/deployment/docker' },
             { text: 'WebServer Mode', link: '/deployment/webserver' },
+            { text: 'Standalone Executables', link: '/deployment/prepackage' },
           ]
         },
         {

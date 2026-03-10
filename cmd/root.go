@@ -136,4 +136,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add Docker client management command
 	rootCmd.AddCommand(newPushCmd())
+
+	// Add prepackage command
+	rootCmd.AddCommand(newPrePackageCmd())
 }

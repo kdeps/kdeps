@@ -29,9 +29,9 @@ settings:
 
 ### Auto-protection of Runtime API Calls
 
-KDeps automatically wraps all runtime API function calls (`{{ get(...) }}`, `{{ set(...) }}`, `{{ info(...) }}`, `{{ input(...) }}`, `{{ output(...) }}`, `{{ file(...) }}`, `{{ item(...) }}`, `{{ loop(...) }}`, `{{ session(...) }}`, `{{ json(...) }}`, `{{ safe(...) }}`, `{{ debug(...) }}`, `{{ default(...) }}`) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
+KDeps automatically wraps all runtime API function calls (<code v-pre>{{ get(...) }}</code>, <code v-pre>{{ set(...) }}</code>, <code v-pre>{{ info(...) }}</code>, <code v-pre>{{ input(...) }}</code>, <code v-pre>{{ output(...) }}</code>, <code v-pre>{{ file(...) }}</code>, <code v-pre>{{ item(...) }}</code>, <code v-pre>{{ loop(...) }}</code>, <code v-pre>{{ session(...) }}</code>, <code v-pre>{{ json(...) }}</code>, <code v-pre>{{ safe(...) }}</code>, <code v-pre>{{ debug(...) }}</code>, <code v-pre>{{ default(...) }}</code>) in `{% raw %}...{% endraw %}` before Jinja2 renders the file. You **do not** need to add raw blocks manually.
 
-Static Jinja2 expressions like `{{ env.PORT }}` are evaluated normally because they do not start with a kdeps API function name.
+Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated normally because they do not start with a kdeps API function name.
 
 ```yaml
 # resource.yaml — no {% raw %} needed
