@@ -319,6 +319,12 @@ func goarchToReleaseArch(goarch string) string {
 // downloadKdepsBinaryToTemp downloads the kdeps release binary for the given
 // OS/arch, extracts it from the archive, and writes it to a temporary file.
 // Returns the temp file path; the caller is responsible for removing it.
+// githubReleasesBaseURL is the base URL for downloading kdeps release binaries.
+// It can be overridden in tests via the exported GithubReleasesBaseURL variable.
+//
+//nolint:gochecknoglobals // test-overridable URL pattern
+var githubReleasesBaseURL = "https://github.com/kdeps/kdeps/releases/download"
+
 func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (string, error) {
 	// Dev builds don't have downloadable release artifacts.
 	if strings.HasSuffix(ver, "-dev") || ver == "dev" {
@@ -336,8 +342,8 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 	}
 
 	url := fmt.Sprintf(
-		"https://github.com/kdeps/kdeps/releases/download/v%s/kdeps_%s_%s.%s",
-		ver, releaseOS, releaseArch, ext,
+		"%s/v%s/kdeps_%s_%s.%s",
+		githubReleasesBaseURL, ver, releaseOS, releaseArch, ext,
 	)
 
 	fmt.Fprintf(os.Stdout, "    Downloading %s\n", url)
