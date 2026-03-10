@@ -114,8 +114,8 @@ func createKdepsArchive(destPath, srcDir string) error {
 		if openErr != nil {
 			return openErr
 		}
-		defer src.Close()
 		_, copyErr := io.Copy(tw, src)
+		src.Close() // close explicitly rather than deferring inside the loop
 		return copyErr
 	})
 }
@@ -135,7 +135,7 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	outDir := t.TempDir()
 	hostArch := runtime.GOOS + "-" + runtime.GOARCH
 
-	require.NoError(t, cmd.PrePackageWithFlags([]string{kdepsFile}, &cmd.PrePackageFlags{
+	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
 		Output: outDir,
 		Arch:   hostArch,
 	}))
@@ -172,7 +172,7 @@ func TestPrepackageIntegration_OutputNaming(t *testing.T) {
 	outDir := t.TempDir()
 	hostArch := runtime.GOOS + "-" + runtime.GOARCH
 
-	require.NoError(t, cmd.PrePackageWithFlags([]string{kdepsFile}, &cmd.PrePackageFlags{
+	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
 		Output: outDir,
 		Arch:   hostArch,
 	}))

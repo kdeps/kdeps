@@ -23,6 +23,7 @@ package cmd
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -36,6 +37,54 @@ const (
 	EmbeddedTrailerSize = 24 // 8-byte size field + 16-byte magic
 )
 
+// detectPayloadRange returns the file offset and byte-size of the embedded
+// .kdeps payload, reading only the EmbeddedTrailerSize-byte trailer.
+// ok is false if the file does not carry a valid embedded package.
+func detectPayloadRange(f *os.File, fileSize int64) (offset, size int64, ok bool) {
+	if fileSize < int64(EmbeddedTrailerSize) {
+		return 0, 0, false
+	}
+
+	trailer := make([]byte, EmbeddedTrailerSize)
+	if _, err := f.ReadAt(trailer, fileSize-int64(EmbeddedTrailerSize)); err != nil {
+		return 0, 0, false
+	}
+
+	if string(trailer[8:]) != EmbeddedMagic {
+		return 0, 0, false
+	}
+
+	kdepsSize := binary.BigEndian.Uint64(trailer[:8])
+	if kdepsSize == 0 {
+		return 0, 0, false
+	}
+
+	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize)
+	if off < 0 {
+		return 0, 0, false
+	}
+
+	return off, int64(kdepsSize), true
+}
+
+// HasEmbeddedPackage reports whether the binary at execPath carries an
+// embedded .kdeps archive. It reads only the 24-byte trailer — not the payload.
+func HasEmbeddedPackage(execPath string) bool {
+	f, err := os.Open(execPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	_, _, ok := detectPayloadRange(f, info.Size())
+	return ok
+}
+
 // DetectEmbeddedPackage inspects the binary at execPath for an appended .kdeps package.
 // Returns the raw package bytes and true when an embedded package is found.
 func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
@@ -46,34 +95,16 @@ func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
 	defer f.Close()
 
 	info, err := f.Stat()
-	if err != nil || info.Size() < int64(EmbeddedTrailerSize) {
+	if err != nil {
 		return nil, false
 	}
 
-	// Read the last EmbeddedTrailerSize bytes.
-	trailer := make([]byte, EmbeddedTrailerSize)
-	if _, err := f.ReadAt(trailer, info.Size()-int64(EmbeddedTrailerSize)); err != nil {
+	offset, size, ok := detectPayloadRange(f, info.Size())
+	if !ok {
 		return nil, false
 	}
 
-	// Confirm magic marker (bytes 8–23 of the trailer).
-	if string(trailer[8:]) != EmbeddedMagic {
-		return nil, false
-	}
-
-	// Decode embedded .kdeps size (bytes 0–7 of the trailer).
-	kdepsSize := binary.BigEndian.Uint64(trailer[:8])
-	if kdepsSize == 0 {
-		return nil, false
-	}
-
-	// Verify that the embedded region fits inside the file.
-	offset := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize)
-	if offset < 0 {
-		return nil, false
-	}
-
-	pkgData := make([]byte, kdepsSize)
+	pkgData := make([]byte, size)
 	if _, err := f.ReadAt(pkgData, offset); err != nil {
 		return nil, false
 	}
@@ -82,27 +113,33 @@ func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
 }
 
 // AppendEmbeddedPackage creates a self-contained executable at outputPath by
-// concatenating the binary at binaryPath with the .kdeps file at kdepsPath,
-// followed by the magic trailer that DetectEmbeddedPackage looks for.
+// streaming the binary at binaryPath followed by the .kdeps file at kdepsPath,
+// then appending the magic trailer that DetectEmbeddedPackage looks for.
+// The binary is streamed (not buffered) to keep memory usage constant.
 func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
-	binaryData, err := os.ReadFile(binaryPath)
+	// Open the base binary first so we can get its permissions and stream it.
+	binFile, err := os.Open(binaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to read binary %s: %w", binaryPath, err)
 	}
+	defer binFile.Close()
 
-	kdepsData, err := os.ReadFile(kdepsPath)
+	// Stat the .kdeps file to learn its size (required for the trailer) before
+	// any output is written.
+	kdepsInfo, err := os.Stat(kdepsPath)
 	if err != nil {
 		return fmt.Errorf("failed to read .kdeps file %s: %w", kdepsPath, err)
+	}
+	kdepsSize := kdepsInfo.Size()
+
+	// Preserve the source binary's executable permissions on the output file.
+	mode := os.FileMode(0755) //nolint:gosec // executable output requires world-execute bit
+	if binInfo, statErr := binFile.Stat(); statErr == nil {
+		mode = binInfo.Mode()
 	}
 
 	if mkdirErr := os.MkdirAll(filepath.Dir(outputPath), 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
-	}
-
-	// Preserve the source binary's permissions on the output file.
-	mode := os.FileMode(0755) //nolint:gosec // executable output requires world-execute bit
-	if binInfo, statErr := os.Stat(binaryPath); statErr == nil {
-		mode = binInfo.Mode()
 	}
 
 	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
@@ -111,19 +148,25 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	}
 	defer out.Close()
 
-	// 1. Original binary.
-	if _, err := out.Write(binaryData); err != nil {
+	// 1. Stream the original binary without buffering the whole file.
+	if _, err := io.Copy(out, binFile); err != nil {
 		return fmt.Errorf("failed to write binary content: %w", err)
 	}
 
-	// 2. Embedded .kdeps content.
-	if _, err := out.Write(kdepsData); err != nil {
+	// 2. Stream the .kdeps archive.
+	kdepsFile, err := os.Open(kdepsPath)
+	if err != nil {
+		return fmt.Errorf("failed to read .kdeps file %s: %w", kdepsPath, err)
+	}
+	defer kdepsFile.Close()
+
+	if _, err := io.Copy(out, kdepsFile); err != nil {
 		return fmt.Errorf("failed to write .kdeps content: %w", err)
 	}
 
 	// 3. Size field (8-byte big-endian uint64).
 	sizeBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(sizeBuf, uint64(len(kdepsData)))
+	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize))
 	if _, err := out.Write(sizeBuf); err != nil {
 		return fmt.Errorf("failed to write size trailer: %w", err)
 	}
@@ -189,9 +232,29 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	return tmpFile.Name(), true, nil
 }
 
-// RunEmbeddedPackage extracts the in-memory .kdeps package to a temporary file
-// and runs it via the standard "run" CLI path.  Returns the exit code.
-func RunEmbeddedPackage(ver, commit string, pkgData []byte) int {
+// RunEmbeddedPackage streams the embedded .kdeps package directly from execPath
+// to a temporary file and runs it via the standard "run" CLI path.
+// Returns the exit code.
+func RunEmbeddedPackage(ver, commit, execPath string) int {
+	f, err := os.Open(execPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open executable %s: %v\n", execPath, err)
+		return 1
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to stat executable %s: %v\n", execPath, err)
+		return 1
+	}
+
+	offset, size, ok := detectPayloadRange(f, info.Size())
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error: no embedded .kdeps package found in %s\n", execPath)
+		return 1
+	}
+
 	tmpFile, err := os.CreateTemp("", "kdeps-embedded-*.kdeps")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create temp file for embedded package: %v\n", err)
@@ -200,9 +263,10 @@ func RunEmbeddedPackage(ver, commit string, pkgData []byte) int {
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	if _, writeErr := tmpFile.Write(pkgData); writeErr != nil {
+	// Stream from the known offset/size without buffering the whole payload.
+	if _, copyErr := io.Copy(tmpFile, io.NewSectionReader(f, offset, size)); copyErr != nil {
 		_ = tmpFile.Close()
-		fmt.Fprintf(os.Stderr, "Error: failed to write embedded package data: %v\n", writeErr)
+		fmt.Fprintf(os.Stderr, "Error: failed to extract embedded package data: %v\n", copyErr)
 		return 1
 	}
 	if closeErr := tmpFile.Close(); closeErr != nil {

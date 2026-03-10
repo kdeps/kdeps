@@ -33,6 +33,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -62,6 +63,19 @@ var allArchTargets = []archTarget{
 	{GOOS: "darwin", GOARCH: "arm64"},
 	{GOOS: "windows", GOARCH: "amd64"},
 }
+
+const (
+	// downloadTimeout caps total time for a single release binary download.
+	downloadTimeout = 10 * time.Minute
+	// maxDownloadBytes limits the response body to avoid excessive memory usage (500 MB).
+	maxDownloadBytes = 500 << 20
+)
+
+// httpDownloadClient is the HTTP client used for downloading release binaries.
+// It carries an explicit timeout so downloads cannot hang indefinitely.
+//
+//nolint:gochecknoglobals // overridable in tests via HTTPDownloadClient
+var httpDownloadClient = &http.Client{Timeout: downloadTimeout} //nolint:exhaustruct // only Timeout matters
 
 // newPrePackageCmd constructs the cobra.Command for "kdeps prepackage".
 func newPrePackageCmd() *cobra.Command {
@@ -93,8 +107,8 @@ Examples:
   # Use a specific kdeps runtime version as the base
   kdeps prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return PrePackageWithFlags(args, flags)
+		RunE: func(cobraCmd *cobra.Command, args []string) error {
+			return PrePackageWithFlags(cobraCmd.Context(), args, flags)
 		},
 	}
 
@@ -111,7 +125,7 @@ Examples:
 }
 
 // PrePackageWithFlags implements the core logic of the prepackage command.
-func PrePackageWithFlags(args []string, flags *PrePackageFlags) error {
+func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
 	kdepsFile := args[0]
 
 	if !strings.HasSuffix(kdepsFile, ".kdeps") {
@@ -154,8 +168,6 @@ func PrePackageWithFlags(args []string, flags *PrePackageFlags) error {
 	if execErr != nil {
 		currentExec = ""
 	}
-
-	ctx := context.Background()
 
 	var produced, skipped []string
 
@@ -397,12 +409,14 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 }
 
 // fetchURL performs an HTTP GET and returns the response body.
+// It uses httpDownloadClient (which carries an explicit timeout) and caps the
+// response body at maxDownloadBytes to prevent excessive memory consumption.
 func fetchURL(ctx context.Context, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpDownloadClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +424,7 @@ func fetchURL(ctx context.Context, url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}
-	return io.ReadAll(resp.Body)
+	return io.ReadAll(io.LimitReader(resp.Body, maxDownloadBytes))
 }
 
 // extractFromTarGz finds and returns the contents of a file named filename

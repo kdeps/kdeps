@@ -63,11 +63,12 @@ func main() {
 	// Before normal CLI processing, check whether this binary carries an
 	// embedded .kdeps package.  Prepackaged binaries produced by
 	// "kdeps prepackage" append their workflow archive after the ELF/Mach-O/PE
-	// bytes, followed by a magic trailer.  When detected, extract the archive
-	// and run it automatically — no separate kdeps installation needed.
+	// bytes, followed by a magic trailer.  When detected, stream the archive
+	// directly from the binary to a temp file and run it — no buffering the
+	// whole payload in memory, and no separate kdeps installation needed.
 	if execPath, err := os.Executable(); err == nil {
-		if pkgData, found := cmd.DetectEmbeddedPackage(execPath); found {
-			exitCode := cmd.RunEmbeddedPackage(version.Version, version.Commit, pkgData)
+		if cmd.HasEmbeddedPackage(execPath) {
+			exitCode := cmd.RunEmbeddedPackage(version.Version, version.Commit, execPath)
 			if exitCode != 0 {
 				os.Exit(exitCode)
 			}
