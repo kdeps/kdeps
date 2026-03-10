@@ -243,7 +243,7 @@ func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 
 // HandleRequest handles API requests.
 //
-//nolint:gocognit,nestif,funlen // request handling intentionally explicit
+//nolint:gocognit,nestif,funlen,gocyclo,cyclop // request handling intentionally explicit
 func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	// Check for file uploads and process them
 	var uploadedFiles []*domain.UploadedFile
@@ -366,15 +366,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 				// Determine Content-Type (may have been set from _meta headers above).
 				// Default to application/json when none was specified.
-				contentType := w.Header().Get("Content-Type")
-				if contentType == "" {
-					contentType = "application/json"
-					w.Header().Set("Content-Type", contentType)
+				respContentType := w.Header().Get("Content-Type")
+				if respContentType == "" {
+					respContentType = "application/json"
+					w.Header().Set("Content-Type", respContentType)
 				}
 
 				// For non-JSON content types (e.g. text/html), write the data field
 				// directly as raw bytes so the response is not wrapped in a JSON envelope.
-				if !strings.HasPrefix(contentType, "application/json") {
+				if !strings.HasPrefix(respContentType, "application/json") {
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
@@ -385,7 +385,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						var marshalErr error
 						rawBytes, marshalErr = json.Marshal(data)
 						if marshalErr != nil {
-							s.logger.Error("failed to marshal raw API response", "error", marshalErr, "path", r.URL.Path)
+							s.logger.Error(
+								"failed to marshal raw API response",
+								"error",
+								marshalErr,
+								"path",
+								r.URL.Path,
+							)
 							debugMode := GetDebugMode(r.Context())
 							RespondWithError(w, r, domain.NewAppError(
 								domain.ErrCodeInternal,
@@ -396,11 +402,19 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					}
 
 					w.WriteHeader(stdhttp.StatusOK)
-					s.logger.Debug("writing raw API response", "path", r.URL.Path, "size", len(rawBytes), "content_type", contentType)
+					s.logger.Debug(
+						"writing raw API response",
+						"path",
+						r.URL.Path,
+						"size",
+						len(rawBytes),
+						"content_type",
+						respContentType,
+					)
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
 					}
-					if flusher, ok := w.(stdhttp.Flusher); ok {
+					if flusher, canFlush := w.(stdhttp.Flusher); canFlush {
 						flusher.Flush()
 					}
 					return

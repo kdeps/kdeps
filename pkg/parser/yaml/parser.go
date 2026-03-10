@@ -89,7 +89,11 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 	// are returned as-is; the kdeps expression evaluator handles those later.
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess workflow Jinja2 template", preprocessErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess workflow Jinja2 template",
+			preprocessErr,
+		)
 	}
 	data = []byte(preprocessed)
 
@@ -148,7 +152,11 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	// are returned as-is; the kdeps expression evaluator handles those later.
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess resource Jinja2 template", preprocessErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess resource Jinja2 template",
+			preprocessErr,
+		)
 	}
 	data = []byte(preprocessed)
 

@@ -81,8 +81,10 @@ func (r *Jinja2Renderer) Render(templateContent string, data map[string]interfac
 // getParsedTemplate retrieves a compiled template from the cache, parsing it if not present.
 func (r *Jinja2Renderer) getParsedTemplate(content string) (*gonjaExec.Template, error) {
 	if cached, ok := r.cache.Load(content); ok {
-		//nolint:forcetypeassert // cache always stores *gonjaExec.Template
-		return cached.(*gonjaExec.Template), nil
+		tpl, valid := cached.(*gonjaExec.Template) //nolint:forcetypeassert // cache always stores *gonjaExec.Template
+		if valid {
+			return tpl, nil
+		}
 	}
 
 	tpl, err := gonja.FromString(content)
@@ -228,13 +230,13 @@ func handleJinja2SpecialCases(base string) string {
 //
 // The pattern deliberately does NOT match env.* access (e.g. {{ env.PORT }}) so
 // those remain available for Jinja2 static evaluation.
-var kdepsAPIRe = regexp.MustCompile( //nolint:gochecknoglobals // compile once
+var kdepsAPIRe = regexp.MustCompile(
 	`\{\{[ \t]*(?:get|set|info|input|output|file|item|loop|session|json|safe|debug|default)[ \t]*\(.*?\}\}`,
 )
 
 // rawBlockRe matches existing {% raw %}...{% endraw %} blocks (including newlines).
 // Used to avoid double-wrapping expressions that are already inside raw blocks.
-var rawBlockRe = regexp.MustCompile(`(?s)\{%[ \t]*raw[ \t]*%\}.*?\{%[ \t]*endraw[ \t]*%\}`) //nolint:gochecknoglobals // compile once
+var rawBlockRe = regexp.MustCompile(`(?s)\{%[ \t]*raw[ \t]*%\}.*?\{%[ \t]*endraw[ \t]*%\}`)
 
 // autoProtectKdepsExpressions wraps any {{ kdepsFunc(...) }} blocks in
 // {% raw %}...{% endraw %} so that Jinja2 passes them through unchanged.
@@ -323,10 +325,13 @@ func PreprocessYAML(content string, vars map[string]interface{}) (string, error)
 // process environment variables under the key "env".  Both the parser and the
 // file-preprocessing pipeline use this context so the same variables are
 // available in YAML files and in arbitrary .j2 template files.
+// envVarParts is the number of parts produced by splitting "KEY=VALUE" on "=".
+const envVarParts = 2
+
 func BuildJinja2Context() map[string]interface{} {
 	env := make(map[string]interface{})
 	for _, e := range os.Environ() {
-		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
+		if parts := strings.SplitN(e, "=", envVarParts); len(parts) == envVarParts {
 			env[parts[0]] = parts[1]
 		}
 	}
@@ -359,7 +364,7 @@ func PreprocessJ2Files(dir string) error {
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(path) //nolint:gosec // G304: path comes from filepath.WalkDir, not user input
 		if err != nil {
 			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
 		}
@@ -380,10 +385,13 @@ func PreprocessJ2Files(dir string) error {
 		if err != nil {
 			return fmt.Errorf("preprocess j2: stat %s: %w", path, err)
 		}
-		if err := os.WriteFile(outPath, []byte(rendered), info.Mode()); err != nil {
-			return fmt.Errorf("preprocess j2: write %s: %w", outPath, err)
+		if writeErr := os.WriteFile( //nolint:gosec // G304: path derived from WalkDir entry, not user input
+			outPath,
+			[]byte(rendered),
+			info.Mode(),
+		); writeErr != nil {
+			return fmt.Errorf("preprocess j2: write %s: %w", outPath, writeErr)
 		}
 		return nil
 	})
 }
-

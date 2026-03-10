@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,14 @@ import (
 	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
+
+// TestMain ensures all tests in this package use an isolated in-memory
+// SQLite database rather than the real ~/.kdeps/memory.db, preventing
+// cross-test pollution from persisted values.
+func TestMain(m *testing.M) {
+	os.Setenv("KDEPS_MEMORY_DB_PATH", ":memory:") //nolint:errcheck
+	os.Exit(m.Run())
+}
 
 // MockHTTPClientFactory is a mock implementation for testing.
 type MockHTTPClientFactory struct {

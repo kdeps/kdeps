@@ -30,14 +30,14 @@ echo ""
 
 # Check if Ollama CLI is installed
 if ! command -v ollama &> /dev/null; then
-    test_failed "Ollama CLI not installed - run 'brew install ollama' on macOS" "Please install Ollama locally to run LLM tests"
-    return 1
+    test_skipped "Local Ollama E2E - Ollama CLI not installed (run 'brew install ollama' on macOS)"
+    return 0
 fi
 
 # Check if Ollama server is running
 if ! curl -s --connect-timeout 5 http://localhost:11434/api/tags > /dev/null 2>&1; then
-    test_failed "Ollama server not running - run 'ollama serve' in another terminal" "Local Ollama server must be running on localhost:11434"
-    return 1
+    test_skipped "Local Ollama E2E - Ollama server not running (run 'ollama serve')"
+    return 0
 fi
 
 # Get available small model
@@ -101,9 +101,9 @@ metadata:
 
 settings:
   apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 3001
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 3001
     routes:
       - path: /api/v1/test
         methods: [POST]
@@ -123,8 +123,9 @@ resources:
       actionId: llmResource
       name: LLM Test
     run:
-      restrictToHttpMethods: [POST]
-      restrictToRoutes: [/api/v1/test]
+      validations:
+        methods: [POST]
+        routes: [/api/v1/test]
       preflightCheck:
         validations:
           - get('q') != ''
@@ -152,8 +153,9 @@ resources:
       requires:
         - llmResource
     run:
-      restrictToHttpMethods: [POST]
-      restrictToRoutes: [/api/v1/test]
+      validations:
+        methods: [POST]
+        routes: [/api/v1/test]
       apiResponse:
         success: true
         response:

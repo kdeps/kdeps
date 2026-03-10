@@ -37,13 +37,13 @@ resources:
 
       expr:
         # 1. IF-ELSE via ternary
-        - set('age_label_20', 20 >= 18 ? 'adult' : 'child')
-        - set('age_label_15', 15 >= 18 ? 'adult' : 'child')
+        - "set('age_label_20', 20 >= 18 ? 'adult' : 'child')"
+        - "set('age_label_15', 15 >= 18 ? 'adult' : 'child')"
 
         # 2. Logical operators
-        - set('logic_and', 20 >= 18 && true)
-        - set('logic_or', false || true)
-        - set('logic_not', !false)
+        - "set('logic_and', 20 >= 18 && true)"
+        - "set('logic_or', false || true)"
+        - "set('logic_not', !false)"
 
         # 3. List operations (loop alternatives)
         - >-
@@ -52,10 +52,10 @@ resources:
             {"name": "Bob", "age": 15},
             {"name": "Carol", "age": 30}
           ])
-        - set('adults', filter(get('people'), {.age >= 18}))
-        - set('names', map(get('people'), {.name}))
-        - set('all_adults', all(get('people'), {.age >= 18}))
-        - set('any_minor', any(get('people'), {.age < 18}))
+        - "set('adults', filter(get('people'), {.age >= 18}))"
+        - "set('names', map(get('people'), {.name}))"
+        - "set('all_adults', all(get('people'), {.age >= 18}))"
+        - "set('any_minor', any(get('people'), {.age < 18}))"
 
       apiResponse:
         response:

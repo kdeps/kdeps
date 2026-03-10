@@ -37,6 +37,9 @@ resources:
         - set('base_price', 50)
         - set('quantity', 3)
         - set('score', 85)
+      apiResponse:
+        success: true
+        response: {}
 
   - apiVersion: kdeps.io/v1
     kind: Resource

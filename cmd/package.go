@@ -107,7 +107,10 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 	// 2. Parse workflow to get metadata
 	workflowPath := FindWorkflowFile(workflowDir)
 	if workflowPath == "" {
-		return fmt.Errorf("no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)", workflowDir)
+		return fmt.Errorf(
+			"no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			workflowDir,
+		)
 	}
 
 	// Create validators (minimal setup for packaging)
@@ -160,7 +163,10 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 // ValidateWorkflowDir checks if the directory contains a valid workflow.
 func ValidateWorkflowDir(dir string) error {
 	if FindWorkflowFile(dir) == "" {
-		return fmt.Errorf("no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)", dir)
+		return fmt.Errorf(
+			"no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			dir,
+		)
 	}
 
 	resourcesDir := filepath.Join(dir, "resources")

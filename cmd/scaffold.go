@@ -88,7 +88,10 @@ func RunScaffoldWithFlags(_ *cobra.Command, args []string, flags *ScaffoldFlags)
 	// Validate directory
 	workflowPath := FindWorkflowFile(flags.Dir)
 	if workflowPath == "" {
-		return fmt.Errorf("no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)", flags.Dir)
+		return fmt.Errorf(
+			"no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			flags.Dir,
+		)
 	}
 
 	// Ensure resources directory exists

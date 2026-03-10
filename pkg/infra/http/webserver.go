@@ -161,7 +161,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute) stdhttp.HandlerFunc {
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
-		go s.StartAppCommand(
+		go s.StartAppCommand( //nolint:gosec // G118: ctx is server-lifecycle context, not request-scoped
 			ctx,
 			route,
 		)
@@ -174,7 +174,7 @@ func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute
 		case serverTypeApp:
 			s.HandleAppRequest(w, r, route)
 		default:
-			s.logger.ErrorContext(context.Background(), "unsupported server type", "type", route.ServerType)
+			s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
 			stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 		}
 	}

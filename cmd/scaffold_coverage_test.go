@@ -37,7 +37,7 @@ func TestRunScaffold_MissingWorkflow(t *testing.T) {
 
 	err := cmd.RunScaffoldWithFlags(nil, []string{"llm"}, flags)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workflow.yaml not found")
+	assert.Contains(t, err.Error(), "no workflow file found")
 }
 
 func TestRunScaffold_GeneratesResources(t *testing.T) {
