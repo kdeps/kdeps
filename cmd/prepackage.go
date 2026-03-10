@@ -135,8 +135,6 @@ Examples:
 }
 
 // PrePackageWithFlags implements the core logic of the prepackage command.
-//
-//nolint:gocognit
 func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
 	kdepsFile := args[0]
 
