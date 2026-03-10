@@ -110,7 +110,7 @@
               "uniqueItems": true,
               "items": {
                 "type": "string",
-                "enum": ["api", "audio", "video", "telephony"]
+                "enum": ["api", "audio", "video", "telephony", "bot"]
               }
             },
             "audio": {

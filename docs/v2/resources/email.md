@@ -68,7 +68,7 @@ smtp:
 | `username` | string | SMTP authentication username. Omit for unauthenticated servers. |
 | `password` | string | SMTP authentication password. Supports <span v-pre>`{{env(...)}}`</span>. |
 | `tls` | bool | `true` = implicit TLS (SMTPS, port 465). `false` = opportunistic STARTTLS (port 587). |
-| `startTLS` | bool | **Deprecated.** Ignored by the executor. STARTTLS is always attempted opportunistically when `tls: false`. Retained for backward compatibility. |
+| `startTLS` | bool | Ignored. STARTTLS is always attempted opportunistically when `tls: false`. |
 | `insecureSkipVerify` | bool | Skip TLS certificate verification. **Do not use in production.** |
 
 ---

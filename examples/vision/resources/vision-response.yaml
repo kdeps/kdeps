@@ -14,7 +14,7 @@ run:
   apiResponse:
     success: true
     response:
-      query: "{{ get('q', 'param') }}"
+      query: "{{ get('q') }}"
       analysis: "{{ get('visionLLM') }}"
       file_info:
         filename: "{{ info('files') }}"

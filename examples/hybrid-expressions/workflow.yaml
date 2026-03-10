@@ -1,48 +1,69 @@
 apiVersion: kdeps.io/v1
 kind: Workflow
+
 metadata:
   name: hybrid-expressions-demo
-  description: Demonstrates hybrid expressions mixing get() functions with dot notation
+  description: Demonstrates hybrid expressions mixing get() functions with operators
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  apiServer:
+    routes:
+      - path: /api/demo
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC
 
 resources:
-  - id: set-user-data
-    type: response
-    config:
-      status: 200
-      body: |
-        Setting up user data
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: setup
+      name: Setup Values
     run:
-      # Store user object in memory
-      post:
-        - set("user", {"name": "Alice", "age": 30, "email": "alice@example.com", "discount": 15})
-        - set("multiplier", 2)
-        - set("basePrice", 50)
+      expr:
+        - set('value', 21)
+        - set('multiplier', 2)
+        - set('base_price', 50)
+        - set('quantity', 3)
+        - set('score', 85)
+      apiResponse:
+        success: true
+        response: {}
 
-  - id: demonstrate-hybrid
-    type: response
-    dependsOn:
-      - set-user-data
-    config:
-      status: 200
-      headers:
-        Content-Type: application/json
-      body: |
-        {
-          "user_name": "{{user.name}}",
-          "user_age": {{user.age}},
-          "doubled_age": {{get('multiplier') * user.age}},
-          "price_with_discount": {{get('basePrice') - user.discount}},
-          "personalized_price": {{(get('basePrice') * get('multiplier')) - user.discount}},
-          "is_adult": {{user.age >= 18}},
-          "discount_message": "{{user.premium ? 'Premium discount: ' + user.discount : 'Standard discount'}}",
-          "computed_total": {{(get('basePrice') * user.age) / get('multiplier')}}
-        }
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: response
+      name: API Response
+      requires:
+        - setup
+    run:
+      validations:
+        methods: [GET, POST]
+        routes: [/api/demo]
 
-  - id: complex-calculation
-    type: response
-    dependsOn:
-      - demonstrate-hybrid
-    config:
-      status: 200
-      body: |
-        Complex hybrid expression result: {{(get('basePrice') * 3) + user.discount * 2}}
+      apiResponse:
+        response:
+          # Arithmetic
+          doubled: "{{ get('value') * get('multiplier') }}"
+          total_price: "{{ get('base_price') * get('quantity') }}"
+
+          # Comparison
+          passed: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
+
+          # Default fallback
+          label: "{{ default(get('label'), 'default-label') }}"
+
+          # Timestamp from info
+          generated_at: "{{ info('current_time') }}"

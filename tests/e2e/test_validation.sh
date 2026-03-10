@@ -639,7 +639,7 @@ test_validation_error "$TEMP_DIR18/workflow.yaml" \
     "run.apiResponse.success"
 rm -rf "$TEMP_DIR18"
 
-# Test 19: Invalid restrictToHttpMethods value
+# Test 19: Invalid validations.methods value (formerly restrictToHttpMethods)
 TEMP_DIR19=$(mktemp -d)
 mkdir -p "$TEMP_DIR19/resources"
 cat > "$TEMP_DIR19/workflow.yaml" << 'EOF'
@@ -649,6 +649,12 @@ metadata:
   name: test
   targetActionId: test
 settings:
+  apiServerMode: true
+  portNum: 16395
+  apiServer:
+    routes:
+      - path: /api/test
+        methods: [POST]
   agentSettings:
     timezone: UTC
 EOF
@@ -659,16 +665,17 @@ metadata:
   actionId: test
   name: test
 run:
-  restrictToHttpMethods:
-    - INVALID
+  validations:
+    methods:
+      - INVALID
   chat:
     model: llama3.2
     prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR19/workflow.yaml" \
-    "Enhanced error for invalid restrictToHttpMethods" \
-    "restrictToHttpMethods" \
+    "Enhanced error for invalid validations.methods" \
+    "methods" \
     "GET"
 rm -rf "$TEMP_DIR19"
 

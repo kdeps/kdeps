@@ -80,35 +80,36 @@ func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 	r.Routes[method][path] = handler
 }
 
+// findHandler returns the best matching handler for the given method and path.
+// It tries an exact match first, then falls back to longest-matching pattern.
+func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
+	methodRoutes, ok := r.Routes[method]
+	if !ok {
+		return nil
+	}
+	if handler, found := methodRoutes[path]; found {
+		return handler
+	}
+	// Prefer the most specific (longest) matching pattern so that
+	// "/files/*" beats "/*" for a request to "/files/foo.pdf".
+	var bestPattern string
+	var bestHandler stdhttp.HandlerFunc
+	for pattern, h := range methodRoutes {
+		if r.MatchPattern(pattern, path) && len(pattern) > len(bestPattern) {
+			bestPattern = pattern
+			bestHandler = h
+		}
+	}
+	return bestHandler
+}
+
 // ServeHTTP implements stdhttp.Handler.
 func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
-	// Create a handler that finds and executes the route
 	routeHandler := func(w stdhttp.ResponseWriter, req *stdhttp.Request) {
-		// Try to find a handler for the requested method
-		if methodRoutes, ok := r.Routes[req.Method]; ok {
-			// Try exact match first
-			if handler, found := methodRoutes[req.URL.Path]; found {
-				handler(w, req)
-				return
-			}
-			// Try pattern matching — prefer the most specific (longest) matching pattern
-			// so that "/files/*" beats "/*" for a request to "/files/foo.pdf".
-			var bestPattern string
-			var bestHandler stdhttp.HandlerFunc
-			for pattern, h := range methodRoutes {
-				if r.MatchPattern(pattern, req.URL.Path) {
-					if len(pattern) > len(bestPattern) {
-						bestPattern = pattern
-						bestHandler = h
-					}
-				}
-			}
-			if bestHandler != nil {
-				bestHandler(w, req)
-				return
-			}
+		if handler := r.findHandler(req.Method, req.URL.Path); handler != nil {
+			handler(w, req)
+			return
 		}
-
 		// No handler found for this method — check if the path is registered
 		// under any other method and return 405 instead of 404.
 		if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
@@ -116,7 +117,6 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 			stdhttp.Error(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
 			return
 		}
-
 		stdhttp.NotFound(w, req)
 	}
 

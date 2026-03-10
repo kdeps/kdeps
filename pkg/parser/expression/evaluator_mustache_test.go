@@ -26,7 +26,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-func TestMustacheExpressions(t *testing.T) {
+func TestInterpolatedExpressions(t *testing.T) {
 	tests := []struct {
 		name     string
 		template string
@@ -85,7 +85,7 @@ func TestMustacheExpressions(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "mixed mustache and expr-lang",
+			name:     "mixed interpolation and expr-lang",
 			template: "Hello {{name}}, time is {{ info('current_time') }}",
 			env:      map[string]interface{}{"name": "Alice"},
 			expected: "", // Special case - checked separately
@@ -94,14 +94,14 @@ func TestMustacheExpressions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := evaluateMustacheTemplate(t, tt.template, tt.env)
-			validateMustacheResult(t, tt.name, result, tt.expected, tt.wantErr)
+			result := evaluateInterpolatedTemplate(t, tt.template, tt.env)
+			validateInterpolatedResult(t, tt.name, result, tt.expected, tt.wantErr)
 		})
 	}
 }
 
-// evaluateMustacheTemplate parses and evaluates a mustache template.
-func evaluateMustacheTemplate(t *testing.T, template string, env map[string]interface{}) interface{} {
+// evaluateInterpolatedTemplate parses and evaluates an interpolated template.
+func evaluateInterpolatedTemplate(t *testing.T, template string, env map[string]interface{}) interface{} {
 	t.Helper()
 	parser := expression.NewParser()
 	expr, err := parser.Parse(template)
@@ -109,7 +109,7 @@ func evaluateMustacheTemplate(t *testing.T, template string, env map[string]inte
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	// All interpolated expressions are now ExprTypeInterpolated
+	// All interpolated expressions are ExprTypeInterpolated
 	if expr.Type != domain.ExprTypeInterpolated {
 		t.Errorf("Expected ExprTypeInterpolated, got %v", expr.Type)
 	}
@@ -122,12 +122,12 @@ func evaluateMustacheTemplate(t *testing.T, template string, env map[string]inte
 	return result
 }
 
-// validateMustacheResult validates the result of a mustache expression.
-func validateMustacheResult(t *testing.T, testName string, result, expected interface{}, _ bool) {
+// validateInterpolatedResult validates the result of an interpolated expression.
+func validateInterpolatedResult(t *testing.T, testName string, result, expected interface{}, _ bool) {
 	t.Helper()
 
 	// Special handling for mixed expression test
-	if testName == "mixed mustache and expr-lang" {
+	if testName == "mixed interpolation and expr-lang" {
 		resultStr, ok := result.(string)
 		if !ok {
 			t.Errorf("Expected string result, got %T", result)
@@ -144,7 +144,7 @@ func validateMustacheResult(t *testing.T, testName string, result, expected inte
 	}
 }
 
-func TestExprLangVsMustacheDetection(t *testing.T) {
+func TestExprLangVsSimpleVariableDetection(t *testing.T) {
 	tests := []struct {
 		name     string
 		template string
@@ -156,12 +156,12 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mustache without spaces",
+			name:     "simple variable without spaces",
 			template: "{{q}}",
 			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mustache with spaces now works",
+			name:     "simple variable with spaces",
 			template: "{{ q }}",
 			wantType: domain.ExprTypeInterpolated,
 		},
@@ -171,7 +171,7 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mustache nested",
+			name:     "simple nested variable",
 			template: "{{user.name}}",
 			wantType: domain.ExprTypeInterpolated,
 		},
@@ -181,12 +181,12 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mustache mixed text",
+			name:     "simple variable mixed text",
 			template: "Hello {{name}}",
 			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mixed mustache and expr-lang",
+			name:     "mixed simple and expr-lang",
 			template: "{{name}} at {{ info('time') }}",
 			wantType: domain.ExprTypeInterpolated,
 		},
@@ -207,13 +207,12 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 	}
 }
 
-func TestMustacheWithUnifiedAPI(t *testing.T) {
-	// Test that mustache can access values from the environment
+func TestInterpolationWithUnifiedAPI(t *testing.T) {
+	// Test that simple variable lookup accesses values from the environment
 	// which includes results from unified API functions
 	parser := expression.NewParser()
 	evaluator := expression.NewEvaluator(createMockAPI())
 
-	// Set a value using the API (simulating a previous action result)
 	env := map[string]interface{}{
 		"username": "test_user",
 		"count":    10,

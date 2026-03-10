@@ -1,0 +1,68 @@
+apiVersion: v2
+kind: Workflow
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
+  targetActionId: formatResponse
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{ port }}
+    routes:
+      - path: /api/query
+        methods: [POST]
+
+  sqlConnections:
+    main:
+      driver: postgres
+      dsn: "${DATABASE_URL}"
+      maxOpenConns: 25
+      maxIdleConns: 5
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: executeQuery
+      name: Execute SQL Query
+    run:
+      sql:
+        connectionName: main
+        query: |
+          SELECT *
+          FROM users
+          WHERE status = $1
+          LIMIT $2
+        params:
+          - "{% raw %}{{ get('status') }}{% endraw %}"
+          - "{% raw %}{{ get('limit', 10) }}{% endraw %}"
+      validations:
+        required:
+          - status
+        rules:
+          - field: status
+            type: string
+            enum: [active, inactive, pending]
+            message: "Status must be active, inactive, or pending"
+
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: formatResponse
+      name: Format Response
+      requires:
+        - executeQuery
+    run:
+      apiResponse:
+        response:
+          success: true
+          data:
+            results: "{% raw %}{{ get('executeQuery') }}{% endraw %}"
+            count: "{% raw %}{{ len(get('executeQuery')) }}{% endraw %}"

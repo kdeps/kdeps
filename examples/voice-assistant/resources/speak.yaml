@@ -9,7 +9,7 @@ metadata:
 
 run:
   tts:
-    text: "{{ llm.response('respond') }}"
+    text: "{{ get('respond') }}"
     mode: offline
     offline:
       engine: espeak

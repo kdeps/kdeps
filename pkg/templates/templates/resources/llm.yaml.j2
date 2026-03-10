@@ -1,0 +1,24 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: llm
+  name: LLM Processing
+  description: Large Language Model interaction
+run:
+  chat:
+    model: llama3.2:1b
+    role: user
+    prompt: "{% raw %}{{ get('input', 'Hello, how can you help me?') }}{% endraw %}"
+    jsonResponse: true
+    jsonResponseKeys:
+      - answer
+      - reasoning
+    timeoutDuration: "60s"
+  validations:
+    required:
+      - input
+    rules:
+      - field: input
+        type: string
+        minLength: 1
+        message: "Input is required"

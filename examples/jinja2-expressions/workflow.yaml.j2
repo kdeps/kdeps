@@ -1,0 +1,31 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: jinja2-expressions-demo
+  description: "{{ env.KDEPS_APP_DESC | default('Demonstrates Jinja2 preprocessing in kdeps') }}"
+  version: "1.0.0"
+  targetActionId: response
+
+{# Jinja2 comment: set port from environment or use default #}
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+{% if env.PORT %}
+  portNum: {{ env.PORT | int }}
+{% else %}
+  portNum: 16395
+{% endif %}
+
+  apiServer:
+    routes:
+      - path: /api/demo
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC

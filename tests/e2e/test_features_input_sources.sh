@@ -123,14 +123,14 @@ RESEOF
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - API source accepted" \
 '  input:
-    source: api'
+    sources: [api]'
 
 # ---------------------------------------------------------------------------
 # Test 2: Audio input source with device
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Audio source with device" \
 '  input:
-    source: audio
+    sources: [audio]
     audio:
       device: hw:0,0'
 
@@ -139,14 +139,14 @@ test_input_source_valid "Input Sources - Audio source with device" \
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Audio source without device" \
 '  input:
-    source: audio'
+    sources: [audio]'
 
 # ---------------------------------------------------------------------------
 # Test 4: Video input source with device
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Video source with device" \
 '  input:
-    source: video
+    sources: [video]
     video:
       device: /dev/video0'
 
@@ -155,14 +155,14 @@ test_input_source_valid "Input Sources - Video source with device" \
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Video source without device" \
 '  input:
-    source: video'
+    sources: [video]'
 
 # ---------------------------------------------------------------------------
 # Test 6: Telephony - local type with device
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Telephony local type" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: local
       device: /dev/ttyUSB0'
@@ -172,7 +172,7 @@ test_input_source_valid "Input Sources - Telephony local type" \
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Telephony online type with provider" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: online
       provider: twilio'
@@ -182,7 +182,7 @@ test_input_source_valid "Input Sources - Telephony online type with provider" \
 # ---------------------------------------------------------------------------
 test_input_source_valid "Input Sources - Telephony online type without provider" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: online'
 
@@ -197,7 +197,7 @@ test_input_source_valid "Input Sources - No input block (implicit API)" \
 # ---------------------------------------------------------------------------
 test_input_source_invalid "Input Sources - Invalid source rejected" \
 '  input:
-    source: bluetooth'
+    sources: [bluetooth]'
 
 # ---------------------------------------------------------------------------
 # Test 11: Missing source field in input block
@@ -212,7 +212,7 @@ test_input_source_invalid "Input Sources - Missing source field rejected" \
 # ---------------------------------------------------------------------------
 test_input_source_invalid "Input Sources - Invalid telephony type rejected" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: voip'
 
@@ -221,7 +221,7 @@ test_input_source_invalid "Input Sources - Invalid telephony type rejected" \
 # ---------------------------------------------------------------------------
 test_input_source_invalid "Input Sources - Telephony without type rejected" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       device: /dev/ttyUSB0'
 
@@ -230,7 +230,7 @@ test_input_source_invalid "Input Sources - Telephony without type rejected" \
 # ---------------------------------------------------------------------------
 test_input_source_invalid "Input Sources - Telephony source without telephony block rejected" \
 '  input:
-    source: telephony'
+    sources: [telephony]'
 
 # ---------------------------------------------------------------------------
 # Transcriber tests
@@ -239,7 +239,7 @@ test_input_source_invalid "Input Sources - Telephony source without telephony bl
 # Test 14: Offline whisper transcriber on audio
 test_input_source_valid "Transcriber - Offline whisper on audio" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: offline
       output: text
@@ -250,7 +250,7 @@ test_input_source_valid "Transcriber - Offline whisper on audio" \
 # Test 15: Offline faster-whisper transcriber on video
 test_input_source_valid "Transcriber - Offline faster-whisper on video" \
 '  input:
-    source: video
+    sources: [video]
     video:
       device: /dev/video0
     transcriber:
@@ -262,7 +262,7 @@ test_input_source_valid "Transcriber - Offline faster-whisper on video" \
 # Test 16: Offline vosk transcriber
 test_input_source_valid "Transcriber - Offline vosk" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: offline
       offline:
@@ -271,7 +271,7 @@ test_input_source_valid "Transcriber - Offline vosk" \
 # Test 17: Offline whisper-cpp transcriber with model path
 test_input_source_valid "Transcriber - Offline whisper-cpp with model path" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: offline
       offline:
@@ -281,7 +281,7 @@ test_input_source_valid "Transcriber - Offline whisper-cpp with model path" \
 # Test 18: Online openai-whisper transcriber
 test_input_source_valid "Transcriber - Online openai-whisper" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: online
       output: text
@@ -293,7 +293,7 @@ test_input_source_valid "Transcriber - Online openai-whisper" \
 # Test 19: Online deepgram transcriber
 test_input_source_valid "Transcriber - Online deepgram" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: online
       provider: twilio
@@ -305,7 +305,7 @@ test_input_source_valid "Transcriber - Online deepgram" \
 # Test 20: Online aws-transcribe with region
 test_input_source_valid "Transcriber - Online aws-transcribe with region" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: online
       online:
@@ -315,7 +315,7 @@ test_input_source_valid "Transcriber - Online aws-transcribe with region" \
 # Test 21: Online google-stt with projectId
 test_input_source_valid "Transcriber - Online google-stt with projectId" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: online
       online:
@@ -325,7 +325,7 @@ test_input_source_valid "Transcriber - Online google-stt with projectId" \
 # Test 22: Online assemblyai
 test_input_source_valid "Transcriber - Online assemblyai" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: online
       online:
@@ -335,7 +335,7 @@ test_input_source_valid "Transcriber - Online assemblyai" \
 # Test 23: Transcriber on API source rejected
 test_input_source_invalid "Transcriber - Rejected on API source" \
 '  input:
-    source: api
+    sources: [api]
     transcriber:
       mode: offline
       offline:
@@ -344,14 +344,14 @@ test_input_source_invalid "Transcriber - Rejected on API source" \
 # Test 24: Invalid transcriber mode rejected
 test_input_source_invalid "Transcriber - Invalid mode rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: hybrid'
 
 # Test 25: Missing transcriber mode rejected
 test_input_source_invalid "Transcriber - Missing mode rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       offline:
         engine: whisper'
@@ -359,7 +359,7 @@ test_input_source_invalid "Transcriber - Missing mode rejected" \
 # Test 26: Invalid online provider rejected
 test_input_source_invalid "Transcriber - Invalid online provider rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: online
       online:
@@ -368,7 +368,7 @@ test_input_source_invalid "Transcriber - Invalid online provider rejected" \
 # Test 27: Invalid offline engine rejected
 test_input_source_invalid "Transcriber - Invalid offline engine rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: offline
       offline:
@@ -377,7 +377,7 @@ test_input_source_invalid "Transcriber - Invalid offline engine rejected" \
 # Test 28: Invalid output type rejected
 test_input_source_invalid "Transcriber - Invalid output type rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     transcriber:
       mode: offline
       output: audio
@@ -394,7 +394,7 @@ echo "Input Sources Feature tests complete."
 # Test 29: Valid offline activation on audio
 test_input_source_valid "Activation - Valid offline on audio" \
 '  input:
-    source: audio
+    sources: [audio]
     activation:
       phrase: "hey kdeps"
       mode: offline
@@ -404,7 +404,7 @@ test_input_source_valid "Activation - Valid offline on audio" \
 # Test 30: Valid offline activation on video
 test_input_source_valid "Activation - Valid offline on video" \
 '  input:
-    source: video
+    sources: [video]
     activation:
       phrase: "hey kdeps"
       mode: offline
@@ -416,7 +416,7 @@ test_input_source_valid "Activation - Valid offline on video" \
 # Test 31: Valid online activation on telephony
 test_input_source_valid "Activation - Valid online on telephony" \
 '  input:
-    source: telephony
+    sources: [telephony]
     telephony:
       type: online
       provider: twilio
@@ -430,7 +430,7 @@ test_input_source_valid "Activation - Valid online on telephony" \
 # Test 32: Valid activation with sensitivity
 test_input_source_valid "Activation - Valid with sensitivity 0.7" \
 '  input:
-    source: audio
+    sources: [audio]
     activation:
       phrase: "ok go"
       mode: offline
@@ -441,7 +441,7 @@ test_input_source_valid "Activation - Valid with sensitivity 0.7" \
 # Test 33: Activation on API source rejected
 test_input_source_invalid "Activation - Rejected on API source" \
 '  input:
-    source: api
+    sources: [api]
     activation:
       phrase: "hey kdeps"
       mode: offline
@@ -451,7 +451,7 @@ test_input_source_invalid "Activation - Rejected on API source" \
 # Test 34: Missing activation phrase rejected
 test_input_source_invalid "Activation - Missing phrase rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     activation:
       mode: offline
       offline:
@@ -460,7 +460,7 @@ test_input_source_invalid "Activation - Missing phrase rejected" \
 # Test 35: Invalid activation mode rejected
 test_input_source_invalid "Activation - Invalid mode rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     activation:
       phrase: "hey kdeps"
       mode: stream'
@@ -468,7 +468,7 @@ test_input_source_invalid "Activation - Invalid mode rejected" \
 # Test 36: Sensitivity out of range rejected
 test_input_source_invalid "Activation - Sensitivity out of range rejected" \
 '  input:
-    source: audio
+    sources: [audio]
     activation:
       phrase: "hey kdeps"
       mode: offline

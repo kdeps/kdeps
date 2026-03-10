@@ -24,7 +24,7 @@ build-linux:
 	@CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o kdeps main.go
 	@echo "✓ Build complete: ./kdeps (Linux AMD64)"
 
-# Run tests (with linting)
+# Run tests (with linting) — unit + integration + e2e
 test: fmt lint build
 	@rm -f coverage.out coverage-unit.out coverage-integration.out; \
 	echo "=========================================="; \
@@ -38,23 +38,57 @@ test: fmt lint build
 	fi; \
 	echo ""; \
 	echo "=========================================="; \
+	echo "Running Integration Tests with Coverage"; \
+	echo "=========================================="; \
+	go test -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...; \
+	INT_EXIT=$$?; \
+	INT_COVERAGE=""; \
+	if [ -f coverage-integration.out ]; then \
+		INT_COVERAGE=$$(go tool cover -func=coverage-integration.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+	fi; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Running E2E Tests"; \
+	echo "=========================================="; \
+	bash tests/e2e/e2e.sh; \
+	E2E_EXIT=$$?; \
+	echo ""; \
+	echo "=========================================="; \
 	echo "Test Summary"; \
 	echo "=========================================="; \
 	if [ "$$UNIT_EXIT" -eq 0 ]; then \
 		if [ -n "$$UNIT_COVERAGE" ]; then \
-			echo "✓ Unit Tests: PASSED (Coverage: $$UNIT_COVERAGE)"; \
+			echo "✓ Unit Tests:        PASSED (Coverage: $$UNIT_COVERAGE)"; \
 		else \
-			echo "✓ Unit Tests: PASSED"; \
+			echo "✓ Unit Tests:        PASSED"; \
 		fi; \
 	else \
 		if [ -n "$$UNIT_COVERAGE" ]; then \
-			echo "✗ Unit Tests: FAILED (Coverage: $$UNIT_COVERAGE)"; \
+			echo "✗ Unit Tests:        FAILED (Coverage: $$UNIT_COVERAGE)"; \
 		else \
-			echo "✗ Unit Tests: FAILED"; \
+			echo "✗ Unit Tests:        FAILED"; \
 		fi; \
 	fi; \
+	if [ "$$INT_EXIT" -eq 0 ]; then \
+		if [ -n "$$INT_COVERAGE" ]; then \
+			echo "✓ Integration Tests: PASSED (Coverage: $$INT_COVERAGE)"; \
+		else \
+			echo "✓ Integration Tests: PASSED"; \
+		fi; \
+	else \
+		if [ -n "$$INT_COVERAGE" ]; then \
+			echo "✗ Integration Tests: FAILED (Coverage: $$INT_COVERAGE)"; \
+		else \
+			echo "✗ Integration Tests: FAILED"; \
+		fi; \
+	fi; \
+	if [ "$$E2E_EXIT" -eq 0 ]; then \
+		echo "✓ E2E Tests:         PASSED"; \
+	else \
+		echo "✗ E2E Tests:         FAILED"; \
+	fi; \
 	echo ""; \
-	if [ "$$UNIT_EXIT" -ne 0 ]; then \
+	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ]; then \
 		exit 1; \
 	fi
 
@@ -85,8 +119,8 @@ test-e2e: build
 	@echo "Running E2E tests..."
 	@bash tests/e2e/e2e.sh
 
-# Run all tests
-test-all: test test-integration
+# Run all tests (alias for test)
+test-all: test
 
 # Run linter
 lint:
@@ -140,11 +174,11 @@ help:
 	@echo "Usage:"
 	@echo "  make build           Build the native binary"
 	@echo "  make build-wasm      Build the WASM binary"
-	@echo "  make test            Run linter, unit tests, and E2E tests"
-	@echo "  make test-unit       Run linter and unit tests only (no E2E)"
-	@echo "  make test-integration Run integration tests"
+	@echo "  make test            Run linter + unit + integration + E2E tests"
+	@echo "  make test-unit       Run unit tests only"
+	@echo "  make test-integration Run integration tests only"
 	@echo "  make test-e2e        Run E2E tests only"
-	@echo "  make test-all        Run unit, integration, and E2E tests"
+	@echo "  make test-all        Alias for make test"
 	@echo "  make lint            Run linter"
 	@echo "  make clean           Clean build artifacts"
 	@echo "  make install         Install locally"

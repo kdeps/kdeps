@@ -65,9 +65,8 @@ func (e *Evaluator) Evaluate(
 		// Evaluate direct expression.
 		return e.evaluateDirect(expression.Raw, env)
 
-	case domain.ExprTypeInterpolated, domain.ExprTypeMustache:
+	case domain.ExprTypeInterpolated:
 		// Evaluate interpolated string (may return value directly if single interpolation).
-		// ExprTypeMustache is kept for backward compatibility but handled the same way
 		return e.evaluateInterpolated(expression.Raw, env)
 
 	default:
@@ -133,8 +132,8 @@ func (e *Evaluator) evaluateSingleInterpolation(
 	// Extract the expression
 	exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
 
-	// Try mustache first (simple variable lookup)
-	value := e.tryMustacheVariable(exprStr, env)
+	// Try simple variable lookup first (dot notation)
+	value := e.trySimpleVariable(exprStr, env)
 	if value != nil {
 		return value, true, nil
 	}
@@ -188,8 +187,8 @@ func (e *Evaluator) evaluateAndFormatExpression(
 	var value interface{}
 	var err error
 
-	// Try mustache first (simple variable lookup)
-	value = e.tryMustacheVariable(exprStr, env)
+	// Try simple variable lookup first (dot notation)
+	value = e.trySimpleVariable(exprStr, env)
 	if value == nil {
 		// Fall back to expr-lang
 		value, err = e.evaluateDirect(exprStr, env)
@@ -220,7 +219,7 @@ func (e *Evaluator) formatValue(value interface{}) string {
 	}
 }
 
-// isExprLangSyntax returns true when exprStr should be handled by expr-lang, not mustache lookup.
+// isExprLangSyntax returns true when exprStr should be handled by expr-lang, not simple variable lookup.
 func isExprLangSyntax(exprStr string) bool {
 	trimmed := strings.TrimSpace(exprStr)
 	if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
@@ -240,9 +239,9 @@ func isExprLangSyntax(exprStr string) bool {
 		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!")
 }
 
-// isMustacheIdentifier reports whether s is a valid mustache variable name
+// isSimpleIdentifier reports whether s is a valid simple variable name
 // (alphanumeric, underscore, dot, and hyphen only).
-func isMustacheIdentifier(s string) bool {
+func isSimpleIdentifier(s string) bool {
 	for _, char := range s {
 		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
 			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
@@ -253,36 +252,37 @@ func isMustacheIdentifier(s string) bool {
 	return true
 }
 
-// tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
-// Returns nil if not found or if the expression contains function call syntax.
-func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
+// trySimpleVariable attempts to resolve a simple variable from the environment.
+// Supports dot notation (e.g., "user.name"). Returns nil if not found or if
+// the expression contains function call syntax.
+func (e *Evaluator) trySimpleVariable(exprStr string, env map[string]interface{}) interface{} {
 	if isExprLangSyntax(exprStr) {
 		return nil
 	}
 
-	// Try to look up the value with mustache-style dot notation
-	if value := e.lookupMustacheValue(exprStr, env); value != nil {
+	// Try to look up the value with dot notation
+	if value := e.lookupSimpleValue(exprStr, env); value != nil {
 		return value
 	}
 
-	// Contains non-mustache characters — fall back to expr-lang
-	if !isMustacheIdentifier(exprStr) {
+	// Contains non-identifier characters — fall back to expr-lang
+	if !isSimpleIdentifier(exprStr) {
 		return nil
 	}
 
-	// Valid mustache identifier not found in env — try the UnifiedAPI.
+	// Valid identifier not found in env — try the UnifiedAPI.
 	if e.api != nil && e.api.Get != nil {
 		if apiVal, apiErr := e.api.Get(strings.TrimSpace(exprStr)); apiErr == nil {
 			return apiVal
 		}
 	}
 
-	// Valid mustache identifier not found anywhere — return empty string (mustache behavior)
+	// Valid identifier not found anywhere — return empty string (Jinja2-like behavior)
 	return ""
 }
 
-// lookupMustacheValue looks up a value in mustache context, supporting dot notation.
-func (e *Evaluator) lookupMustacheValue(path string, data map[string]interface{}) interface{} {
+// lookupSimpleValue looks up a value using dot notation (e.g., "user.name").
+func (e *Evaluator) lookupSimpleValue(path string, data map[string]interface{}) interface{} {
 	// Handle dot notation (e.g., "user.name")
 	parts := strings.Split(path, ".")
 
