@@ -9,7 +9,7 @@ run:
   chat:
     model: "llama3.2:1b"
     role: "user"
-    prompt: "{{ get('q', 'param') }}"
+    prompt: "{{ get('q') }}"
     tools:
       - name: calculate
         description: "Perform a mathematical calculation. Supports basic arithmetic (+, -, *, /, **), math functions (sqrt, sin, cos, tan, log, exp, etc.), and constants (pi, e)"

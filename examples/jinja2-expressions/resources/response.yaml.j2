@@ -1,0 +1,21 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: response
+  name: API Response
+
+run:
+  validations:
+    methods: [GET, POST]
+    routes: [/api/demo]
+
+  apiResponse:
+    response:
+      # Runtime API calls — auto-protected from Jinja2, evaluated at request time
+      method: "{{ info('method') }}"
+      timestamp: "{{ info('current_time') }}"
+      query: "{{ get('q') }}"
+
+      # Static env var — evaluated by Jinja2 at parse time
+      environment: "{{ env.KDEPS_ENV | default('development') }}"

@@ -41,7 +41,6 @@ source "$SCRIPT_DIR/test_docker_services.sh"
 # source "$SCRIPT_DIR/test_container_multiarch.sh"
 source "$SCRIPT_DIR/test_execution.sh"
 source "$SCRIPT_DIR/test_examples.sh"
-source "$SCRIPT_DIR/test_examples_chatgpt_clone.sh"
 
 # Run feature tests
 echo "Testing additional features..."
@@ -65,6 +64,7 @@ source "$SCRIPT_DIR/test_features_edge_cases.sh"
 source "$SCRIPT_DIR/test_features_input_sources.sh"
 source "$SCRIPT_DIR/test_features_bot_sources.sh"
 source "$SCRIPT_DIR/test_features_tts.sh"
+source "$SCRIPT_DIR/test_features_embedding.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"

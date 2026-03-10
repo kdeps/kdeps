@@ -60,6 +60,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -137,7 +138,10 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 		return "", nil, fmt.Errorf("failed to extract package: %w", err)
 	}
 
-	workflowPath := filepath.Join(tempDir, "workflow.yaml")
+	workflowPath := FindWorkflowFile(tempDir)
+	if workflowPath == "" {
+		workflowPath = filepath.Join(tempDir, "workflow.yaml") // fallback for packages that may use legacy name
+	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
@@ -168,10 +172,30 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 	return absPath, nil, nil
 }
 
+// FindWorkflowFile returns the path to the workflow file inside dir.
+// It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml,
+// workflow.yml.j2, and finally workflow.j2 (a pure Jinja2 template with no
+// YAML extension prefix).  Returns an empty string if none of those files exist.
+func FindWorkflowFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "workflow.yaml"),
+		filepath.Join(dir, "workflow.yaml.j2"),
+		filepath.Join(dir, "workflow.yml"),
+		filepath.Join(dir, "workflow.yml.j2"),
+		filepath.Join(dir, "workflow.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // ResolveDirectoryPath resolves workflow path for directory inputs.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
-	workflowPath := filepath.Join(absPath, "workflow.yaml")
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+	workflowPath := FindWorkflowFile(absPath)
+	if workflowPath == "" {
 		return "", nil, fmt.Errorf("workflow.yaml not found in directory: %s", absPath)
 	}
 
@@ -229,6 +253,12 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
 	// Check if debug flag is set
 	debugMode, _ := cmd.Flags().GetBool("debug")
+
+	// 0. Preprocess all .j2 files in the project directory.
+	workflowDir := filepath.Dir(workflowPath)
+	if prepErr := templates.PreprocessJ2Files(workflowDir); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
 
 	// 1. Parse YAML
 	fmt.Fprintln(os.Stdout, "\n[1/5] Parsing workflow...")

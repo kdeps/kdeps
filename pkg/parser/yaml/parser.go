@@ -28,6 +28,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
 // Parser parses YAML workflows and resources.
@@ -83,6 +84,19 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read workflow file", err)
 	}
 
+	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
+	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
+	// are returned as-is; the kdeps expression evaluator handles those later.
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess workflow Jinja2 template",
+			preprocessErr,
+		)
+	}
+	data = []byte(preprocessed)
+
 	// Parse YAML into generic map first for schema validation.
 	var rawData map[string]interface{}
 	if parseErr := yaml.Unmarshal(data, &rawData); parseErr != nil {
@@ -132,6 +146,19 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	if err != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read resource file", err)
 	}
+
+	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
+	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
+	// are returned as-is; the kdeps expression evaluator handles those later.
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess resource Jinja2 template",
+			preprocessErr,
+		)
+	}
+	data = []byte(preprocessed)
 
 	// Parse YAML into generic map first for schema validation.
 	var rawData map[string]interface{}
@@ -199,10 +226,21 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 			continue
 		}
 
-		// Only process .yaml and .yml files
+		// Only process .yaml, .yml, .yaml.j2, .yml.j2, and plain .j2 files
 		name := entry.Name()
-		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+		if !isYAMLFile(name) {
 			continue
+		}
+
+		// Skip a .j2 template when the rendered output already exists alongside
+		// it in the same directory.  For example, if both response.yaml and
+		// response.yaml.j2 are present, response.yaml takes priority and
+		// response.yaml.j2 is skipped to avoid duplicate-actionID errors.
+		if strings.HasSuffix(name, ".j2") {
+			renderedName := strings.TrimSuffix(name, ".j2")
+			if _, statErr := os.Stat(filepath.Join(resourcesDir, renderedName)); statErr == nil {
+				continue
+			}
 		}
 
 		resourcePath := filepath.Join(resourcesDir, name)
@@ -222,4 +260,27 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 	}
 
 	return nil
+}
+
+// isYAMLFile reports whether name is a YAML or Jinja2-YAML file that should be
+// loaded as a resource.  Recognised extensions:
+//
+//   - .yaml      plain YAML
+//   - .yml       plain YAML (short form)
+//   - .yaml.j2   Jinja2 template that produces YAML when rendered
+//   - .yml.j2    Jinja2 template that produces YAML when rendered (short form)
+//   - .j2        pure Jinja2 template (no YAML extension prefix) that produces YAML
+func isYAMLFile(name string) bool {
+	return strings.HasSuffix(name, ".yaml") ||
+		strings.HasSuffix(name, ".yml") ||
+		strings.HasSuffix(name, ".yaml.j2") ||
+		strings.HasSuffix(name, ".yml.j2") ||
+		strings.HasSuffix(name, ".j2")
+}
+
+// buildJinja2Context builds the variable context available during Jinja2 preprocessing
+// of workflow and resource YAML files.  Delegates to templates.BuildJinja2Context so
+// the same context is shared with PreprocessJ2Files for non-YAML .j2 files.
+func buildJinja2Context() map[string]interface{} {
+	return templates.BuildJinja2Context()
 }

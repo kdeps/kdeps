@@ -1,0 +1,10 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: exec
+  name: Shell Command
+  description: Execute shell commands
+run:
+  exec:
+    command: "echo '{% raw %}{{ get('message', 'Hello World') }}{% endraw %}'"
+    timeoutDuration: "30s"

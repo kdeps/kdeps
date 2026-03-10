@@ -2,11 +2,32 @@ apiVersion: kdeps.io/v1
 kind: Workflow
 
 metadata:
-  name: Inline Resources Example
-  version: 1.0.0
+  name: inline-resources-example
+  version: "1.0.0"
   description: Demonstrates inline resources that run before and after the main resource
   targetActionId: main
 
 # This workflow demonstrates the inline resources feature which allows
 # multiple LLM, HTTP, Exec, SQL, and Python resources to be configured
 # to run before or after the main resource execution.
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  apiServer:
+    routes:
+      - path: /api/v1/process
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2:1b

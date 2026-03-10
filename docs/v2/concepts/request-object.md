@@ -372,7 +372,7 @@ The `request` object provides an alternative way to access request data. Both ap
 | `request.files()` | `info('files')` | All file paths |
 | `request.filetypes()` | `info('filetypes')` | All MIME types |
 
-**Recommendation:** Use the Unified API (`get()`, `info()`) for consistency, but `request` object methods are available for convenience and backward compatibility.
+**Recommendation:** Use the Unified API (`get()`, `info()`) for consistency, but `request` object methods are available as a convenience shorthand.
 
 ## Best Practices
 

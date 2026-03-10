@@ -105,6 +105,7 @@ export default defineConfig({
           items: [
             { text: 'Unified API', link: '/concepts/unified-api' },
             { text: 'Expressions', link: '/concepts/expressions' },
+            { text: 'Jinja2 Templates', link: '/concepts/jinja2-templates' },
             { text: 'Expression Functions', link: '/concepts/expression-functions-reference' },
             { text: 'Expression Helpers', link: '/concepts/expression-helpers' },
             { text: 'Request Object', link: '/concepts/request-object' },

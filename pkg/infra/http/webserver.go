@@ -174,7 +174,7 @@ func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute
 		case serverTypeApp:
 			s.HandleAppRequest(w, r, route)
 		default:
-			s.logger.ErrorContext(context.Background(), "unsupported server type", "type", route.ServerType)
+			s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
 			stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 		}
 	}

@@ -1,0 +1,21 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: httpClient
+  name: HTTP Client
+  description: HTTP client for making API calls
+run:
+  httpClient:
+    method: GET
+    url: "{% raw %}{{ get('url', 'https://api.example.com/data') }}{% endraw %}"
+    headers:
+      Content-Type: "application/json"
+      Authorization: "Bearer {% raw %}{{ get('token', '') }}{% endraw %}"
+    timeoutDuration: "30s"
+  validations:
+    required:
+      - url
+    rules:
+      - field: url
+        type: url
+        message: "URL must be a valid HTTP/HTTPS URL"

@@ -13,10 +13,6 @@ You can write expressions **without** `{{ }}`:
 prompt: get('q')
 count: get('items').length
 
-# Dot notation
-email: user.email
-name: user.profile.name
-
 # Arithmetic
 total: price * quantity
 average: sum / count
@@ -32,29 +28,13 @@ When interpolating within strings, you **must** use `{{ }}`:
 
 ```yaml
 # Single interpolation
-message: "Hello {{name}}"
+message: "Hello {{ get('name') }}"
 
 # Multiple interpolations
-greeting: "Hello {{first}} {{last}}, welcome!"
-
-# Mixed text and expressions
-summary: "User {{user.name}} scored {{score}} points"
+greeting: "Score: {{ get('score') }} out of {{ get('total') }}"
 
 # With function calls
-result: "Query result: {{get('q')}}"
-```
-
-### ✅ Backward Compatibility
-
-The old syntax with `{{ }}` still works everywhere:
-
-```yaml
-# Both syntaxes work
-prompt: get('q')           # New: without braces
-prompt: {{ get('q') }}     # Old: with braces
-
-email: user.email          # New: without braces
-email: {{user.email}}      # Old: with braces
+result: "Query result: {{ get('q') }}"
 ```
 
 ## Syntax Rules
@@ -62,7 +42,7 @@ email: {{user.email}}      # Old: with braces
 | Context | Braces | Example |
 |---------|--------|---------|
 | **Direct value** | Optional | `prompt: get('q')` |
-| **String interpolation** | Required | `message: "Hello {{name}}"` |
+| **String interpolation** | Required | `message: "Hello {{ get('name') }}"` |
 | **Literal value** | Not needed | `age: 25` |
 
 ## When to Use What
@@ -70,8 +50,7 @@ email: {{user.email}}      # Old: with braces
 ### Use WITHOUT Braces (Cleaner)
 ```yaml
 # When assigning a direct value
-email: user.email
-count: items.length
+count: get('items').length
 valid: age >= 18
 result: get('data')
 ```
@@ -79,20 +58,12 @@ result: get('data')
 ### Use WITH Braces (For Interpolation)
 ```yaml
 # When building strings with dynamic values
-message: "Hello {{name}}, you have {{count}} items"
-url: "https://api.example.com/users/{{userId}}"
-status: "{{username}} is {{status}}"
+message: "You have {{ get('count') }} items"
+url: "https://api.example.com/users/{{ get('userId') }}"
 ```
-
-## Benefits
-
-1. **Cleaner Syntax**: Less typing for direct expressions
-2. **More Readable**: Obvious when interpolation is happening
-3. **Backward Compatible**: Old syntax still works
-4. **Flexible**: Choose the style that fits your needs
 
 ## See Also
 
-- [examples/mustache-expressions/](../mustache-expressions/) - Mustache-style variables
+- [examples/jinja2-expressions/](../jinja2-expressions/) - Jinja2 YAML preprocessing
 - [examples/hybrid-expressions/](../hybrid-expressions/) - Mixing function calls and dot notation
 - [examples/control-flow/](../control-flow/) - Control flow patterns

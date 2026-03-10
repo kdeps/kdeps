@@ -1,0 +1,109 @@
+apiVersion: v2
+kind: Workflow
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{ port }}
+    routes:
+      - path: /api/process
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "http://localhost:{{ port }}"
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowHeaders:
+        - "Content-Type"
+        - "Authorization"
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+{%- if "http-client" in resources %}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: fetchData
+      name: Fetch Data
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.example.com/data/{% raw %}{{ get('id') }}{% endraw %}"
+        headers:
+          Authorization: "Bearer {% raw %}{{ get('api_token') }}{% endraw %}"
+        timeoutDuration: "30s"
+      validations:
+        required:
+          - id
+        rules:
+          - field: id
+            type: string
+            minLength: 1
+            message: "ID is required"
+{%- endif %}
+
+{%- if "llm" in resources %}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: processWithLLM
+      name: LLM Processing
+      requires:
+        {%- if "http-client" in resources %}
+        - fetchData
+        {%- endif %}
+    run:
+      chat:
+        model: llama3.2:1b
+        prompt: |
+          Process the following data:
+          {%- if "http-client" in resources %}
+          {% raw %}{{ get('fetchData') }}{% endraw %}
+          {%- endif %}
+
+          Provide a summary and key insights.
+        jsonResponse: true
+        jsonResponseKeys:
+          - summary
+          - insights
+        timeoutDuration: "60s"
+{%- endif %}
+
+{%- if "response" in resources %}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: response
+      name: API Response
+      requires:
+        {%- if "llm" in resources %}
+        - processWithLLM
+        {%- elif "http-client" in resources %}
+        - fetchData
+        {%- endif %}
+    run:
+      apiResponse:
+        response:
+          success: true
+          data:
+            {%- if "llm" in resources %}
+            result: "{% raw %}{{ get('processWithLLM') }}{% endraw %}"
+            {%- elif "http-client" in resources %}
+            result: "{% raw %}{{ get('fetchData') }}{% endraw %}"
+            {%- endif %}
+          meta:
+            processedAt: "{% raw %}{{ info('current_time') }}{% endraw %}"
+{%- endif %}

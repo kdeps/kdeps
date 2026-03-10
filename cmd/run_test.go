@@ -1625,9 +1625,13 @@ func TestStartOllamaServer_ErrorPaths(t *testing.T) {
 		// when workflow execution tries to start Ollama
 		// and fail because ollama is not in PATH in test environment
 		err := cmd.ExecuteWorkflowSteps(&cobra.Command{}, "/nonexistent/workflow.yaml")
-		// We expect this to fail early due to missing workflow file
+		// We expect this to fail early (either j2 preprocessing or workflow parsing)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse workflow")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to parse workflow") ||
+				strings.Contains(err.Error(), "failed to preprocess") ||
+				strings.Contains(err.Error(), "no such file or directory"),
+			"unexpected error: %v", err)
 	})
 }
 
@@ -2631,4 +2635,108 @@ run:
 			}
 		})
 	}
+}
+
+// TestFindWorkflowFile verifies that FindWorkflowFile finds workflow files with
+// any of the supported extensions (.yaml, .yaml.j2, .yml, .yml.j2).
+func TestFindWorkflowFile(t *testing.T) {
+	testCases := []struct {
+		name       string
+		filename   string
+		wantSuffix string
+	}{
+		{
+			name:       "finds workflow.yaml",
+			filename:   "workflow.yaml",
+			wantSuffix: "workflow.yaml",
+		},
+		{
+			name:       "finds workflow.yaml.j2",
+			filename:   "workflow.yaml.j2",
+			wantSuffix: "workflow.yaml.j2",
+		},
+		{
+			name:       "finds workflow.yml",
+			filename:   "workflow.yml",
+			wantSuffix: "workflow.yml",
+		},
+		{
+			name:       "finds workflow.yml.j2",
+			filename:   "workflow.yml.j2",
+			wantSuffix: "workflow.yml.j2",
+		},
+		{
+			name:       "finds workflow.j2 (plain Jinja2)",
+			filename:   "workflow.j2",
+			wantSuffix: "workflow.j2",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			wfPath := filepath.Join(tmpDir, tc.filename)
+			err := os.WriteFile(wfPath, []byte("placeholder"), 0644)
+			require.NoError(t, err)
+
+			result := cmd.FindWorkflowFile(tmpDir)
+			assert.NotEmpty(t, result, "FindWorkflowFile should return a non-empty path")
+			assert.Truef(t, strings.HasSuffix(result, tc.wantSuffix),
+				"expected path to end with %s, got %s", tc.wantSuffix, result)
+		})
+	}
+
+	t.Run("returns empty string when no workflow file present", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		result := cmd.FindWorkflowFile(tmpDir)
+		assert.Empty(t, result, "FindWorkflowFile should return empty string when no workflow file present")
+	})
+
+	t.Run("prefers workflow.yaml over workflow.yaml.j2", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		for _, name := range []string{"workflow.yaml", "workflow.yaml.j2"} {
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644))
+		}
+		result := cmd.FindWorkflowFile(tmpDir)
+		assert.Truef(t, strings.HasSuffix(result, "workflow.yaml"),
+			"should prefer workflow.yaml over workflow.yaml.j2, got %s", result)
+	})
+
+	t.Run("prefers workflow.yaml.j2 over workflow.j2", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		for _, name := range []string{"workflow.yaml.j2", "workflow.j2"} {
+			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644))
+		}
+		result := cmd.FindWorkflowFile(tmpDir)
+		assert.Truef(t, strings.HasSuffix(result, "workflow.yaml.j2"),
+			"should prefer workflow.yaml.j2 over workflow.j2, got %s", result)
+	})
+}
+
+// TestResolveDirectoryPath_J2Workflow verifies that ResolveDirectoryPath can find
+// a workflow.yaml.j2 or workflow.j2 file when workflow.yaml is absent.
+func TestResolveDirectoryPath_J2Workflow(t *testing.T) {
+	t.Run("finds workflow.yaml.j2", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wfPath := filepath.Join(tmpDir, "workflow.yaml.j2")
+		err := os.WriteFile(wfPath, []byte("placeholder"), 0644)
+		require.NoError(t, err)
+
+		result, cleanup, err := cmd.ResolveDirectoryPath(tmpDir)
+		require.NoError(t, err)
+		assert.Equal(t, wfPath, result)
+		assert.Nil(t, cleanup)
+	})
+
+	t.Run("finds workflow.j2", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		wfPath := filepath.Join(tmpDir, "workflow.j2")
+		err := os.WriteFile(wfPath, []byte("placeholder"), 0644)
+		require.NoError(t, err)
+
+		result, cleanup, err := cmd.ResolveDirectoryPath(tmpDir)
+		require.NoError(t, err)
+		assert.Equal(t, wfPath, result)
+		assert.Nil(t, cleanup)
+	})
 }

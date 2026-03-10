@@ -37,6 +37,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/fs"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
+	"github.com/kdeps/kdeps/v2/pkg/templates"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -242,7 +243,7 @@ func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 
 // HandleRequest handles API requests.
 //
-//nolint:gocognit,nestif,funlen // request handling intentionally explicit
+//nolint:gocognit,nestif,funlen,gocyclo,cyclop // request handling intentionally explicit
 func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	// Check for file uploads and process them
 	var uploadedFiles []*domain.UploadedFile
@@ -365,15 +366,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 				// Determine Content-Type (may have been set from _meta headers above).
 				// Default to application/json when none was specified.
-				contentType := w.Header().Get("Content-Type")
-				if contentType == "" {
-					contentType = "application/json"
-					w.Header().Set("Content-Type", contentType)
+				respContentType := w.Header().Get("Content-Type")
+				if respContentType == "" {
+					respContentType = "application/json"
+					w.Header().Set("Content-Type", respContentType)
 				}
 
 				// For non-JSON content types (e.g. text/html), write the data field
 				// directly as raw bytes so the response is not wrapped in a JSON envelope.
-				if !strings.HasPrefix(contentType, "application/json") {
+				if !strings.HasPrefix(respContentType, "application/json") {
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
@@ -408,12 +409,12 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						"size",
 						len(rawBytes),
 						"content_type",
-						contentType,
+						respContentType,
 					)
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
 					}
-					if flusher, ok := w.(stdhttp.Flusher); ok {
+					if flusher, canFlush := w.(stdhttp.Flusher); canFlush {
 						flusher.Flush()
 					}
 					return
@@ -786,7 +787,12 @@ func (s *Server) reloadWorkflow() error {
 	if s.parser == nil || s.workflowPath == "" {
 		workflowPath := s.workflowPath
 		if workflowPath == "" {
-			workflowPath = defaultWorkflowFile
+			// Try to find a workflow file in the current directory.
+			if p := findWorkflowFile("."); p != "" {
+				workflowPath = p
+			} else {
+				workflowPath = defaultWorkflowFile
+			}
 		}
 
 		// Initialize parser if needed
@@ -808,6 +814,10 @@ func (s *Server) reloadWorkflow() error {
 	}
 
 	// Parse workflow (this also reloads resources)
+	// First preprocess any .j2 files in the workflow directory.
+	if prepErr := templates.PreprocessJ2Files(filepath.Dir(s.workflowPath)); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
 	newWorkflow, err := s.parser.ParseWorkflow(s.workflowPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse workflow: %w", err)
