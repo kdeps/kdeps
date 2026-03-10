@@ -801,6 +801,11 @@ func (e *Engine) ExecuteResource(
 	// apiResponse runs on every loop iteration (per-iteration = streaming response),
 	// consistent with how it runs per-item in ExecuteWithItems.
 	if resource.Run.APIResponse != nil {
+		// Make the primary result accessible via output('actionId') within the
+		// resource's own apiResponse (e.g. embedding/http/python results).
+		if hasPrimaryType && primaryResult != nil {
+			ctx.SetOutput(resource.Metadata.ActionID, primaryResult)
+		}
 		return e.executeAPIResponse(resource, ctx)
 	}
 

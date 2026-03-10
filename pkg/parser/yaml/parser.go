@@ -232,6 +232,17 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 			continue
 		}
 
+		// Skip a .j2 template when the rendered output already exists alongside
+		// it in the same directory.  For example, if both response.yaml and
+		// response.yaml.j2 are present, response.yaml takes priority and
+		// response.yaml.j2 is skipped to avoid duplicate-actionID errors.
+		if strings.HasSuffix(name, ".j2") {
+			renderedName := strings.TrimSuffix(name, ".j2")
+			if _, statErr := os.Stat(filepath.Join(resourcesDir, renderedName)); statErr == nil {
+				continue
+			}
+		}
+
 		resourcePath := filepath.Join(resourcesDir, name)
 		resource, parseErr := p.ParseResource(resourcePath)
 		if parseErr != nil {

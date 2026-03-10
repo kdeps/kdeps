@@ -368,7 +368,8 @@ func PreprocessJ2Files(dir string) error {
 		if err != nil {
 			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
 		}
-		rendered, err := yamlRenderer.Render(string(data), vars)
+		protected := autoProtectKdepsExpressions(string(data))
+		rendered, err := yamlRenderer.Render(protected, vars)
 		if err != nil {
 			return fmt.Errorf("preprocess j2: render %s: %w", path, err)
 		}

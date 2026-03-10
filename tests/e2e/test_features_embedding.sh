@@ -152,8 +152,8 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexDoc').id }}"
-      dimensions: "{{ get('indexDoc').dimensions }}"
+      id: "{{ output('indexDoc').id }}"
+      dimensions: "{{ output('indexDoc').dimensions }}"
 EOF
 
 # Search resource – finds the most similar documents.
@@ -179,8 +179,8 @@ run:
   apiResponse:
     success: true
     response:
-      count: "{{ get('searchDocs').count }}"
-      results: "{{ get('searchDocs').results }}"
+      count: "{{ output('searchDocs').count }}"
+      results: "{{ output('searchDocs').results }}"
 EOF
 
 # Delete resource – removes documents by text match.
@@ -205,26 +205,33 @@ run:
   apiResponse:
     success: true
     response:
-      deleted: "{{ get('deleteDoc').deleted }}"
+      deleted: "{{ output('deleteDoc').deleted }}"
 EOF
 
-# Dummy target resource required for a valid workflow.
+# Target resource – requires the embedding resources so they are in the
+# execution graph.  Each embedding resource only executes when its route
+# validations match the incoming request; the others are skipped.
+# The response exposes each embedding resource's output so the test can
+# inspect search counts and other operation-specific fields.
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: response
   name: Response
+  requires: [indexDoc, searchDocs, deleteDoc]
 run:
   apiResponse:
     success: true
     response:
-      status: ok
+      indexResult: "{{ output('indexDoc') }}"
+      searchResult: "{{ output('searchDocs') }}"
+      deleteResult: "{{ output('deleteDoc') }}"
 EOF
 
 # ── Start KDeps ───────────────────────────────────────────────────────────────
 
-"$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" --resources-dir "$TEST_DIR/resources" &
+"$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" &
 KDEPS_PID=$!
 trap 'kill "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
 
@@ -283,7 +290,7 @@ SEARCH_RESPONSE=$(curl -sf --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{"q": "YAML workflow"}' 2>&1)
 
-if echo "$SEARCH_RESPONSE" | grep -q '"count"'; then
+if echo "$SEARCH_RESPONSE" | grep -q '"searchResult"'; then
     test_passed "Embedding - search documents"
 else
     test_failed "Embedding - search documents" "Response: $SEARCH_RESPONSE"
@@ -295,7 +302,17 @@ SEARCH_COUNT=$(echo "$SEARCH_RESPONSE" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    print(d.get('count', 0))
+    # Response: {success, data: {searchResult: {success, data: {count, results}}}}
+    data = d.get('data', d)
+    sr = data.get('searchResult') or {}
+    if isinstance(sr, dict):
+        inner = sr.get('data', sr)
+        if isinstance(inner, dict):
+            print(inner.get('count', 0))
+        else:
+            print(0)
+    else:
+        print(0)
 except Exception:
     print(0)
 " 2>/dev/null || echo "0")
@@ -330,7 +347,17 @@ SEARCH2_COUNT=$(echo "$SEARCH2_RESPONSE" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    print(d.get('count', 0))
+    # Response: {success, data: {searchResult: {success, data: {count, results}}}}
+    data = d.get('data', d)
+    sr = data.get('searchResult') or {}
+    if isinstance(sr, dict):
+        inner = sr.get('data', sr)
+        if isinstance(inner, dict):
+            print(inner.get('count', 0))
+        else:
+            print(0)
+    else:
+        print(0)
 except Exception:
     print(0)
 " 2>/dev/null || echo "0")
