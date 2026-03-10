@@ -844,7 +844,7 @@ func TestDownloadKdepsBinaryToTemp_BinaryMissingInArchive(t *testing.T) {
 // TestDetectEmbeddedPackage_ZeroSizeField tests the case where the size field
 // in the trailer is zero (invalid embedding).
 func TestDetectEmbeddedPackage_ZeroSizeField(t *testing.T) {
-	import_encoding_binary := func() []byte {
+	makeZeroSizeTrailer := func() []byte {
 		// Build a 24-byte trailer with magic but zero size field.
 		trailer := make([]byte, cmd.EmbeddedTrailerSize)
 		// size field = 0 (bytes 0-7 are already zero)
@@ -858,7 +858,7 @@ func TestDetectEmbeddedPackage_ZeroSizeField(t *testing.T) {
 	padding := make([]byte, 50)
 	_, err = tmpFile.Write(padding)
 	require.NoError(t, err)
-	_, err = tmpFile.Write(import_encoding_binary())
+	_, err = tmpFile.Write(makeZeroSizeTrailer())
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
@@ -870,7 +870,7 @@ func TestDetectEmbeddedPackage_ZeroSizeField(t *testing.T) {
 // TestDetectEmbeddedPackage_OversizedEmbedding tests the case where the size
 // field claims more bytes than are actually in the file.
 func TestDetectEmbeddedPackage_OversizedEmbedding(t *testing.T) {
-	import_encoding_binary := func() []byte {
+	makeOversizedTrailer := func() []byte {
 		// Build a 24-byte trailer with magic and an oversized size field.
 		trailer := make([]byte, cmd.EmbeddedTrailerSize)
 		// Set size = 9999999 (way more than file contains).
@@ -887,7 +887,7 @@ func TestDetectEmbeddedPackage_OversizedEmbedding(t *testing.T) {
 	padding := make([]byte, 50)
 	_, err = tmpFile.Write(padding)
 	require.NoError(t, err)
-	_, err = tmpFile.Write(import_encoding_binary())
+	_, err = tmpFile.Write(makeOversizedTrailer())
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 

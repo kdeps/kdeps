@@ -53,6 +53,8 @@ type archTarget struct {
 }
 
 // allArchTargets lists every OS/arch combination that goreleaser produces.
+//
+//nolint:gochecknoglobals // immutable target list
 var allArchTargets = []archTarget{
 	{GOOS: "linux", GOARCH: "amd64"},
 	{GOOS: "linux", GOARCH: "arm64"},
