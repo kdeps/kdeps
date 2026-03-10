@@ -118,7 +118,12 @@ Examples:
 	}
 
 	cmd.Flags().StringVarP(&flags.Output, "output", "o", ".", "Output directory for produced binaries")
-	cmd.Flags().StringVar(&flags.Arch, "arch", "", "Target architecture (e.g. linux-amd64). Default: all architectures.")
+	cmd.Flags().StringVar(
+		&flags.Arch,
+		"arch",
+		"",
+		"Target architecture (e.g. linux-amd64). Default: all architectures.",
+	)
 	cmd.Flags().StringVar(
 		&flags.KdepsVersion,
 		"kdeps-version",
@@ -208,6 +213,12 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 		produced = append(produced, outPath)
 	}
 
+	return printPrepackageSummary(produced, skipped)
+}
+
+// printPrepackageSummary prints the produced/skipped results and returns nil
+// when at least one executable was created, or an error if none were produced.
+func printPrepackageSummary(produced, skipped []string) error {
 	fmt.Fprintln(os.Stdout)
 	if len(produced) > 0 {
 		fmt.Fprintf(os.Stdout, "✅ %d executable(s) created:\n", len(produced))
@@ -395,7 +406,7 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 		return "", fmt.Errorf("failed to extract %q from archive: %w", binaryName, err)
 	}
 
-	mode := os.FileMode(0755) //nolint:gosec,mnd // executable requires world-execute bit
+	mode := os.FileMode(0755) //nolint:mnd // executable requires world-execute bit
 	if goos == goosWindows {
 		mode = 0644
 	}

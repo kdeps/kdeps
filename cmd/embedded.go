@@ -35,12 +35,17 @@ const (
 
 	// EmbeddedTrailerSize is the total number of bytes occupied by the embedded-package trailer.
 	EmbeddedTrailerSize = 24 // 8-byte size field + 16-byte magic
+
+	// EmbeddedSizeFieldLen is the number of bytes used for the uint64 size field in the trailer.
+	// It is derived from EmbeddedTrailerSize and len(EmbeddedMagic) so that any future change to
+	// the magic string is automatically reflected without a separate update.
+	EmbeddedSizeFieldLen = EmbeddedTrailerSize - len(EmbeddedMagic)
 )
 
 // detectPayloadRange returns the file offset and byte-size of the embedded
 // .kdeps payload, reading only the EmbeddedTrailerSize-byte trailer.
 // ok is false if the file does not carry a valid embedded package.
-func detectPayloadRange(f *os.File, fileSize int64) (offset, size int64, ok bool) {
+func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
 	if fileSize < int64(EmbeddedTrailerSize) {
 		return 0, 0, false
 	}
@@ -133,7 +138,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	kdepsSize := kdepsInfo.Size()
 
 	// Preserve the source binary's executable permissions on the output file.
-	mode := os.FileMode(0755) //nolint:gosec,mnd // executable output requires world-execute bit
+	mode := os.FileMode(0755) //nolint:mnd // executable output requires world-execute bit
 	if binInfo, statErr := binFile.Stat(); statErr == nil {
 		mode = binInfo.Mode()
 	}
@@ -165,14 +170,14 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	}
 
 	// 3. Size field (8-byte big-endian uint64).
-	sizeBuf := make([]byte, 8) //nolint:mnd // 8 is the byte size of a uint64
-	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize))
+	sizeBuf := make([]byte, EmbeddedSizeFieldLen)
+	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize)) //nolint:gosec // G115: kdepsSize is a file size, always ≥ 0
 	if _, writeErr := out.Write(sizeBuf); writeErr != nil {
 		return fmt.Errorf("failed to write size trailer: %w", writeErr)
 	}
 
 	// 4. Magic marker (16 bytes).
-	if _, writeErr := out.Write([]byte(EmbeddedMagic)); writeErr != nil {
+	if _, writeErr := out.WriteString(EmbeddedMagic); writeErr != nil {
 		return fmt.Errorf("failed to write magic trailer: %w", writeErr)
 	}
 
@@ -277,7 +282,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	// Inject "run <tmpPath>" into os.Args so the cobra root command picks it up.
 	origArgs := os.Args
 	os.Args = []string{origArgs[0], "run", tmpPath} //nolint:reassign // inject args for embedded package dispatch
-	defer func() { os.Args = origArgs }()            //nolint:reassign // restore original args on exit
+	defer func() { os.Args = origArgs }()           //nolint:reassign // restore original args on exit
 
 	if execErr := Execute(ver, commit); execErr != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", execErr)
