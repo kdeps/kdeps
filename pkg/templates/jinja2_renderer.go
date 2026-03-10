@@ -364,7 +364,7 @@ func PreprocessJ2Files(dir string) error {
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {
 			return nil
 		}
-		data, err := os.ReadFile(path) //nolint:gosec // G304: path comes from filepath.WalkDir, not user input
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
 		}
@@ -385,7 +385,7 @@ func PreprocessJ2Files(dir string) error {
 		if err != nil {
 			return fmt.Errorf("preprocess j2: stat %s: %w", path, err)
 		}
-		if writeErr := os.WriteFile( //nolint:gosec // G304: path derived from WalkDir entry, not user input
+		if writeErr := os.WriteFile(
 			outPath,
 			[]byte(rendered),
 			info.Mode(),

@@ -161,7 +161,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute) stdhttp.HandlerFunc {
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
-		go s.StartAppCommand( //nolint:gosec // G118: ctx is server-lifecycle context, not request-scoped
+		go s.StartAppCommand(
 			ctx,
 			route,
 		)

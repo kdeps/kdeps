@@ -90,7 +90,7 @@ func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 	}
 
 	// Shutdown when ctx is cancelled.
-	go func() { //nolint:gosec // G118: intentional background goroutine for graceful shutdown
+	go func() {
 		<-ctx.Done()
 		_ = srv.Shutdown(context.Background()) //nolint:contextcheck // intentional: use fresh ctx for shutdown
 	}()
