@@ -84,6 +84,9 @@ Examples:
   kdeps package workflow.yaml
   kdeps build myAgent-1.0.0.kdeps
 
+  # Prepackage as standalone executable (no Docker required)
+  kdeps prepackage myAgent-1.0.0.kdeps
+
   # Create new agent
   kdeps new my-agent
 
