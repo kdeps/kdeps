@@ -30,10 +30,6 @@ import (
 
 // helpers ------------------------------------------------------------------
 
-func intPtr(i int) *int             { return &i }
-func float64Ptr(f float64) *float64 { return &f }
-func strPtr(s string) *string       { return &s }
-
 func chatbotWorkflow() *domain.Workflow {
 	minLen := 1
 	return &domain.Workflow{
@@ -422,10 +418,10 @@ func TestGenerateJSONSchema_NumericConstraints(t *testing.T) {
 					Validations: &domain.ValidationsConfig{
 						Rules: []domain.FieldRule{
 							{
-								Field:   "score",
-								Type:    domain.FieldTypeNumber,
-								Min:     &minV,
-								Max:     &maxV,
+								Field: "score",
+								Type:  domain.FieldTypeNumber,
+								Min:   &minV,
+								Max:   &maxV,
 							},
 						},
 					},
@@ -680,7 +676,7 @@ func TestGenerateOpenAPI_EmptyFieldNameSkipped(t *testing.T) {
 						Methods: []string{"POST"},
 						Routes:  []string{"/v1/action"},
 						Rules: []domain.FieldRule{
-							{Field: "", Type: domain.FieldTypeString},  // empty field name
+							{Field: "", Type: domain.FieldTypeString}, // empty field name
 							{Field: "name", Type: domain.FieldTypeString},
 						},
 					},

@@ -144,66 +144,72 @@ func pathParamNames(routerPath string) []string {
 	return params
 }
 
-// successResponseSchema mirrors pkg/infra/http/response.go SuccessResponse.
+// successResponse builds a fresh OpenAPIResponse that mirrors the
+// SuccessResponse envelope in pkg/infra/http/response.go.
 //
-//	{ "success": bool, "data": any, "meta": { "requestID": string, "timestamp": string, ... } }
-var successResponseSchema = &OpenAPIResponse{
-	Description: "Successful response",
-	Content: map[string]*OpenAPIMediaType{
-		"application/json": {
-			Schema: &OpenAPISchema{
-				Type: "object",
-				Properties: map[string]*OpenAPISchema{
-					"success": {Type: "boolean"},
-					// data accepts any JSON value; the type is intentionally omitted to allow
-					// any JSON type (string, number, object, array, null) as the payload.
-					"data": {Description: "Response payload; may be any JSON value"},
-					"meta": {
-						Type: "object",
-						Properties: map[string]*OpenAPISchema{
-							"requestID": {Type: "string"},
-							"timestamp": {Type: "string", Format: "date-time"},
+//	{ "success": bool, "data": any, "meta": { "requestID": string, "timestamp": string } }
+func successResponse() *OpenAPIResponse {
+	return &OpenAPIResponse{
+		Description: "Successful response",
+		Content: map[string]*OpenAPIMediaType{
+			"application/json": {
+				Schema: &OpenAPISchema{
+					Type: "object",
+					Properties: map[string]*OpenAPISchema{
+						"success": {Type: "boolean"},
+						// data accepts any JSON value; the type is intentionally omitted to allow
+						// any JSON type (string, number, object, array, null) as the payload.
+						"data": {Description: "Response payload; may be any JSON value"},
+						"meta": {
+							Type: "object",
+							Properties: map[string]*OpenAPISchema{
+								"requestID": {Type: fieldTypeString},
+								"timestamp": {Type: fieldTypeString, Format: "date-time"},
+							},
 						},
 					},
 				},
 			},
 		},
-	},
+	}
 }
 
-// errorResponseSchema mirrors pkg/infra/http/response.go ErrorResponse.
+// errorResponse builds a fresh OpenAPIResponse that mirrors the ErrorResponse
+// envelope in pkg/infra/http/response.go.
 //
 //	{ "success": bool, "error": { "code": string, "message": string, ... }, "meta": { ... } }
-var errorResponseSchema = &OpenAPIResponse{
-	Description: "Validation or request error",
-	Content: map[string]*OpenAPIMediaType{
-		"application/json": {
-			Schema: &OpenAPISchema{
-				Type: "object",
-				Properties: map[string]*OpenAPISchema{
-					"success": {Type: "boolean"},
-					"error": {
-						Type: "object",
-						Properties: map[string]*OpenAPISchema{
-							"code":       {Type: "string"},
-							"message":    {Type: "string"},
-							"resourceId": {Type: "string"},
-							"details":    {Type: "object"},
+func errorResponse() *OpenAPIResponse {
+	return &OpenAPIResponse{
+		Description: "Validation or request error",
+		Content: map[string]*OpenAPIMediaType{
+			"application/json": {
+				Schema: &OpenAPISchema{
+					Type: "object",
+					Properties: map[string]*OpenAPISchema{
+						"success": {Type: "boolean"},
+						"error": {
+							Type: "object",
+							Properties: map[string]*OpenAPISchema{
+								"code":       {Type: fieldTypeString},
+								"message":    {Type: fieldTypeString},
+								"resourceId": {Type: fieldTypeString},
+								"details":    {Type: "object"},
+							},
 						},
-					},
-					"meta": {
-						Type: "object",
-						Properties: map[string]*OpenAPISchema{
-							"requestID": {Type: "string"},
-							"timestamp": {Type: "string", Format: "date-time"},
-							"path":      {Type: "string"},
-							"method":    {Type: "string"},
+						"meta": {
+							Type: "object",
+							Properties: map[string]*OpenAPISchema{
+								"requestID": {Type: fieldTypeString},
+								"timestamp": {Type: fieldTypeString, Format: "date-time"},
+								"path":      {Type: fieldTypeString},
+								"method":    {Type: fieldTypeString},
+							},
 						},
 					},
 				},
 			},
 		},
-	},
+	}
 }
 
 // GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.
@@ -275,8 +281,8 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 			resources := resourcesByRoute[k]
 
 			op := buildOperation(method, path, resources, implicitPathParams, usedOpIDs)
-			op.Responses["200"] = successResponseSchema
-			op.Responses["400"] = errorResponseSchema
+			op.Responses["200"] = successResponse()
+			op.Responses["400"] = errorResponse()
 			item[strings.ToLower(method)] = op
 		}
 
@@ -324,6 +330,113 @@ func collectMethodsForPath(
 	return out
 }
 
+// operationValidations holds the result of collecting validation data from a
+// set of resources for a single route/method pair.
+type operationValidations struct {
+	params         []*OpenAPIParameter
+	requiredFields map[string]struct{}
+	fieldSchemas   map[string]*OpenAPISchema
+}
+
+// appendParamIfNew adds a query or header parameter to params if it has not
+// already been seen (tracked by the seenParams map keyed on "in:name").
+func appendParamIfNew(
+	seenParams map[string]struct{},
+	params *[]*OpenAPIParameter,
+	in, name string,
+) {
+	pk := in + ":" + name
+	if _, seen := seenParams[pk]; seen {
+		return
+	}
+	seenParams[pk] = struct{}{}
+	*params = append(*params, &OpenAPIParameter{
+		Name:   name,
+		In:     in,
+		Schema: &OpenAPISchema{Type: fieldTypeString},
+	})
+}
+
+// collectOperationValidations merges all parameters, required-fields, and body
+// property schemas from the given resources into a single operationValidations.
+// implicitPathParams are pre-seeded as already-seen so they are never duplicated.
+func collectOperationValidations(
+	resources []*domain.Resource,
+	implicitPathParams []string,
+) operationValidations {
+	result := operationValidations{
+		requiredFields: make(map[string]struct{}),
+		fieldSchemas:   make(map[string]*OpenAPISchema),
+	}
+	// Pre-seed seen parameters with path params already injected.
+	seenParams := make(map[string]struct{}, len(implicitPathParams))
+	for _, pname := range implicitPathParams {
+		seenParams["path:"+pname] = struct{}{}
+	}
+
+	for _, res := range resources {
+		if res.Run.Validations == nil {
+			continue
+		}
+		v := res.Run.Validations
+
+		for _, req := range v.Required {
+			result.requiredFields[req] = struct{}{}
+		}
+
+		for _, param := range v.Params {
+			appendParamIfNew(seenParams, &result.params, "query", param)
+		}
+
+		for _, hdr := range v.Headers {
+			appendParamIfNew(seenParams, &result.params, "header", hdr)
+		}
+
+		for i := range v.Rules {
+			rule := &v.Rules[i]
+			if rule.Field == "" {
+				continue
+			}
+			result.fieldSchemas[rule.Field] = fieldRuleToSchema(rule)
+		}
+	}
+
+	return result
+}
+
+// buildRequestBody constructs the OpenAPIRequestBody for POST/PUT/PATCH methods.
+// Returns nil for other methods or when there are no fields or required fields.
+func buildRequestBody(upperMethod string, ov operationValidations) *OpenAPIRequestBody {
+	if upperMethod != "POST" && upperMethod != "PUT" && upperMethod != "PATCH" {
+		return nil
+	}
+	if len(ov.fieldSchemas) == 0 && len(ov.requiredFields) == 0 {
+		return nil
+	}
+
+	bodySchema := &OpenAPISchema{
+		Type:       "object",
+		Properties: ov.fieldSchemas,
+	}
+	if len(ov.requiredFields) > 0 {
+		required := make([]string, 0, len(ov.requiredFields))
+		for f := range ov.requiredFields {
+			required = append(required, f)
+		}
+		sort.Strings(required)
+		bodySchema.Required = required
+	}
+
+	return &OpenAPIRequestBody{
+		// required is true only when the body has actual required fields,
+		// reflecting the server's real validation behaviour.
+		Required: len(ov.requiredFields) > 0,
+		Content: map[string]*OpenAPIMediaType{
+			"application/json": {Schema: bodySchema},
+		},
+	}
+}
+
 // buildOperation creates an OpenAPIOperation from a set of resources that
 // handle the given path/method combination.
 // implicitPathParams lists path-parameter names that should be injected as
@@ -346,7 +459,7 @@ func buildOperation(
 			Name:     pname,
 			In:       "path",
 			Required: true,
-			Schema:   &OpenAPISchema{Type: "string"},
+			Schema:   &OpenAPISchema{Type: fieldTypeString},
 		})
 	}
 
@@ -377,144 +490,29 @@ func buildOperation(
 	usedOpIDs[opID] = struct{}{}
 	op.OperationID = opID
 
-	// Collect parameters (headers, query params) and body schema from all
-	// matching resources. When multiple resources match we merge the rules.
-	requiredFields := map[string]struct{}{}
-	fieldSchemas := map[string]*OpenAPISchema{}
-	// Track seen parameters by "in:name" to avoid duplicates.
-	seenParams := map[string]struct{}{}
-	// Pre-seed seenParams with path params already added.
-	for _, pname := range implicitPathParams {
-		seenParams["path:"+pname] = struct{}{}
-	}
-
-	for _, res := range resources {
-		if res.Run.Validations == nil {
-			continue
-		}
-		v := res.Run.Validations
-
-		// Required fields
-		for _, req := range v.Required {
-			requiredFields[req] = struct{}{}
-		}
-
-		// Query parameters (deduplicated)
-		for _, param := range v.Params {
-			pk := "query:" + param
-			if _, seen := seenParams[pk]; seen {
-				continue
-			}
-			seenParams[pk] = struct{}{}
-			op.Parameters = append(op.Parameters, &OpenAPIParameter{
-				Name:   param,
-				In:     "query",
-				Schema: &OpenAPISchema{Type: "string"},
-			})
-		}
-
-		// Header parameters (deduplicated)
-		for _, hdr := range v.Headers {
-			pk := "header:" + hdr
-			if _, seen := seenParams[pk]; seen {
-				continue
-			}
-			seenParams[pk] = struct{}{}
-			op.Parameters = append(op.Parameters, &OpenAPIParameter{
-				Name:   hdr,
-				In:     "header",
-				Schema: &OpenAPISchema{Type: "string"},
-			})
-		}
-
-		// Field validation rules → request body properties
-		for i := range v.Rules {
-			rule := &v.Rules[i]
-			if rule.Field == "" {
-				continue
-			}
-			fs := fieldRuleToSchema(rule)
-			fieldSchemas[rule.Field] = fs
-		}
-	}
-
-	// Build request body for POST/PUT/PATCH methods.
-	upperMethod := strings.ToUpper(method)
-	if upperMethod == "POST" || upperMethod == "PUT" || upperMethod == "PATCH" {
-		if len(fieldSchemas) > 0 || len(requiredFields) > 0 {
-			bodySchema := &OpenAPISchema{
-				Type:       "object",
-				Properties: fieldSchemas,
-			}
-			if len(requiredFields) > 0 {
-				required := make([]string, 0, len(requiredFields))
-				for f := range requiredFields {
-					required = append(required, f)
-				}
-				sort.Strings(required)
-				bodySchema.Required = required
-			}
-			op.RequestBody = &OpenAPIRequestBody{
-				// required is true only when the body has actual required fields,
-				// reflecting the server's real validation behaviour.
-				Required: len(requiredFields) > 0,
-				Content: map[string]*OpenAPIMediaType{
-					"application/json": {Schema: bodySchema},
-				},
-			}
-		}
-	}
+	ov := collectOperationValidations(resources, implicitPathParams)
+	op.Parameters = append(op.Parameters, ov.params...)
+	op.RequestBody = buildRequestBody(strings.ToUpper(method), ov)
 
 	return op
 }
 
 // fieldRuleToSchema converts a domain.FieldRule into an OpenAPISchema.
 func fieldRuleToSchema(rule *domain.FieldRule) *OpenAPISchema {
-	s := &OpenAPISchema{}
-	s.Description = rule.Message
-
-	switch rule.Type {
-	case domain.FieldTypeString:
-		s.Type = "string"
-		s.MinLength = rule.MinLength
-		s.MaxLength = rule.MaxLength
-		s.Pattern = rule.Pattern
-	case domain.FieldTypeInteger:
-		s.Type = "integer"
-		s.Minimum = rule.Min
-		s.Maximum = rule.Max
-	case domain.FieldTypeNumber:
-		s.Type = "number"
-		s.Minimum = rule.Min
-		s.Maximum = rule.Max
-	case domain.FieldTypeBoolean:
-		s.Type = "boolean"
-	case domain.FieldTypeArray:
-		s.Type = "array"
-		s.MinItems = rule.MinItems
-		s.MaxItems = rule.MaxItems
-	case domain.FieldTypeObject:
-		s.Type = "object"
-	case domain.FieldTypeEmail:
-		s.Type = "string"
-		s.Format = "email"
-	case domain.FieldTypeURL:
-		s.Type = "string"
-		s.Format = "uri"
-	case domain.FieldTypeUUID:
-		s.Type = "string"
-		s.Format = "uuid"
-	case domain.FieldTypeDate:
-		s.Type = "string"
-		s.Format = "date"
-	default:
-		s.Type = "string"
-	}
-
+	s := &OpenAPISchema{Description: rule.Message}
+	spec := mapFieldType(rule)
+	s.Type = spec.SchemaType
+	s.Format = spec.Format
+	s.MinLength = spec.MinLength
+	s.MaxLength = spec.MaxLength
+	s.Pattern = spec.Pattern
+	s.Minimum = spec.Minimum
+	s.Maximum = spec.Maximum
+	s.MinItems = spec.MinItems
+	s.MaxItems = spec.MaxItems
 	if len(rule.Enum) > 0 {
 		s.Enum = rule.Enum
 	}
-
 	return s
 }
 

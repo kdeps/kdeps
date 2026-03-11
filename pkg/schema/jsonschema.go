@@ -108,48 +108,18 @@ func fieldRuleToJSONSchema(rule *domain.FieldRule) *JSONSchema {
 	if rule.Message != "" {
 		s.Description = rule.Message
 	}
-
-	switch rule.Type {
-	case domain.FieldTypeString:
-		s.Type = "string"
-		s.MinLength = rule.MinLength
-		s.MaxLength = rule.MaxLength
-		s.Pattern = rule.Pattern
-	case domain.FieldTypeInteger:
-		s.Type = "integer"
-		s.Minimum = rule.Min
-		s.Maximum = rule.Max
-	case domain.FieldTypeNumber:
-		s.Type = "number"
-		s.Minimum = rule.Min
-		s.Maximum = rule.Max
-	case domain.FieldTypeBoolean:
-		s.Type = "boolean"
-	case domain.FieldTypeArray:
-		s.Type = "array"
-		s.MinItems = rule.MinItems
-		s.MaxItems = rule.MaxItems
-	case domain.FieldTypeObject:
-		s.Type = "object"
-	case domain.FieldTypeEmail:
-		s.Type = "string"
-		s.Format = "email"
-	case domain.FieldTypeURL:
-		s.Type = "string"
-		s.Format = "uri"
-	case domain.FieldTypeUUID:
-		s.Type = "string"
-		s.Format = "uuid"
-	case domain.FieldTypeDate:
-		s.Type = "string"
-		s.Format = "date"
-	default:
-		s.Type = "string"
-	}
-
+	spec := mapFieldType(rule)
+	s.Type = spec.SchemaType
+	s.Format = spec.Format
+	s.MinLength = spec.MinLength
+	s.MaxLength = spec.MaxLength
+	s.Pattern = spec.Pattern
+	s.Minimum = spec.Minimum
+	s.Maximum = spec.Maximum
+	s.MinItems = spec.MinItems
+	s.MaxItems = spec.MaxItems
 	if len(rule.Enum) > 0 {
 		s.Enum = rule.Enum
 	}
-
 	return s
 }
