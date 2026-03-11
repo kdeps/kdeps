@@ -22,6 +22,7 @@
 package schema
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -107,7 +108,103 @@ type OpenAPISpec struct {
 }
 
 // routeKey identifies a unique (path, HTTP-method) combination.
+// Paths are stored in the kdeps router format (e.g. "/api/:id"); when building
+// the OpenAPI spec they are translated to the OpenAPI template format (e.g.
+// "/api/{id}") via toOpenAPIPath.
 type routeKey struct{ path, method string }
+
+// toOpenAPIPath translates a kdeps router path pattern to an OpenAPI 3.0 path
+// template. Segment-level ":param" placeholders become "{param}". The catch-all
+// wildcard "*" (which matches any remaining path segments in the kdeps router)
+// becomes "{wildcard}" - note that this is a non-standard transformation; API
+// consumers should treat the "wildcard" parameter as an opaque catch-all value.
+func toOpenAPIPath(routerPath string) string {
+	parts := strings.Split(routerPath, "/")
+	for i, part := range parts {
+		if strings.HasPrefix(part, ":") {
+			parts[i] = "{" + part[1:] + "}"
+		} else if part == "*" {
+			parts[i] = "{wildcard}"
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
+// pathParamNames extracts the names of path parameters from a kdeps router
+// path (e.g. "/api/:id/items/:name" → ["id", "name"]).
+func pathParamNames(routerPath string) []string {
+	var params []string
+	for _, part := range strings.Split(routerPath, "/") {
+		if strings.HasPrefix(part, ":") {
+			params = append(params, part[1:])
+		} else if part == "*" {
+			params = append(params, "wildcard")
+		}
+	}
+	return params
+}
+
+// successResponseSchema mirrors pkg/infra/http/response.go SuccessResponse.
+//
+//	{ "success": bool, "data": any, "meta": { "requestID": string, "timestamp": string, ... } }
+var successResponseSchema = &OpenAPIResponse{
+	Description: "Successful response",
+	Content: map[string]*OpenAPIMediaType{
+		"application/json": {
+			Schema: &OpenAPISchema{
+				Type: "object",
+				Properties: map[string]*OpenAPISchema{
+					"success": {Type: "boolean"},
+					// data accepts any JSON value; the type is intentionally omitted to allow
+					// any JSON type (string, number, object, array, null) as the payload.
+					"data": {Description: "Response payload; may be any JSON value"},
+					"meta": {
+						Type: "object",
+						Properties: map[string]*OpenAPISchema{
+							"requestID": {Type: "string"},
+							"timestamp": {Type: "string", Format: "date-time"},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+// errorResponseSchema mirrors pkg/infra/http/response.go ErrorResponse.
+//
+//	{ "success": bool, "error": { "code": string, "message": string, ... }, "meta": { ... } }
+var errorResponseSchema = &OpenAPIResponse{
+	Description: "Validation or request error",
+	Content: map[string]*OpenAPIMediaType{
+		"application/json": {
+			Schema: &OpenAPISchema{
+				Type: "object",
+				Properties: map[string]*OpenAPISchema{
+					"success": {Type: "boolean"},
+					"error": {
+						Type: "object",
+						Properties: map[string]*OpenAPISchema{
+							"code":       {Type: "string"},
+							"message":    {Type: "string"},
+							"resourceId": {Type: "string"},
+							"details":    {Type: "object"},
+						},
+					},
+					"meta": {
+						Type: "object",
+						Properties: map[string]*OpenAPISchema{
+							"requestID": {Type: "string"},
+							"timestamp": {Type: "string", Format: "date-time"},
+							"path":      {Type: "string"},
+							"method":    {Type: "string"},
+						},
+					},
+				},
+			},
+		},
+	},
+}
 
 // GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.
 // It returns an empty-paths spec (not nil) when the workflow is nil.
@@ -130,6 +227,7 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 	spec.Info.Version = workflow.Metadata.Version
 
 	// Build a lookup: routePath → method → []resource
+	// Keys use the raw kdeps router path format, not the OpenAPI template format.
 	resourcesByRoute := make(map[routeKey][]*domain.Resource)
 
 	for _, res := range workflow.Resources {
@@ -161,38 +259,13 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 		allPaths[k.path] = struct{}{}
 	}
 
-	// Build the standard success/error responses once (reused across all operations).
-	successResponse := &OpenAPIResponse{
-		Description: "Successful response",
-		Content: map[string]*OpenAPIMediaType{
-			"application/json": {
-				Schema: &OpenAPISchema{
-					Type: "object",
-					Properties: map[string]*OpenAPISchema{
-						"success": {Type: "boolean"},
-						"data":    {Type: "object"},
-					},
-				},
-			},
-		},
-	}
-	errorResponse := &OpenAPIResponse{
-		Description: "Validation or request error",
-		Content: map[string]*OpenAPIMediaType{
-			"application/json": {
-				Schema: &OpenAPISchema{
-					Type: "object",
-					Properties: map[string]*OpenAPISchema{
-						"success": {Type: "boolean"},
-						"error":   {Type: "string"},
-					},
-				},
-			},
-		},
-	}
+	// Track which operation IDs have been used so we can ensure uniqueness.
+	usedOpIDs := map[string]struct{}{}
 
 	for path := range allPaths {
 		item := make(OpenAPIPathItem)
+		openAPIPath := toOpenAPIPath(path)
+		implicitPathParams := pathParamNames(path)
 
 		// Determine methods for this path.
 		methods := collectMethodsForPath(path, workflow, resourcesByRoute)
@@ -201,13 +274,13 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 			k := routeKey{path: path, method: strings.ToLower(method)}
 			resources := resourcesByRoute[k]
 
-			op := buildOperation(method, path, resources)
-			op.Responses["200"] = successResponse
-			op.Responses["400"] = errorResponse
+			op := buildOperation(method, path, resources, implicitPathParams, usedOpIDs)
+			op.Responses["200"] = successResponseSchema
+			op.Responses["400"] = errorResponseSchema
 			item[strings.ToLower(method)] = op
 		}
 
-		spec.Paths[path] = item
+		spec.Paths[openAPIPath] = item
 	}
 
 	return spec
@@ -253,10 +326,28 @@ func collectMethodsForPath(
 
 // buildOperation creates an OpenAPIOperation from a set of resources that
 // handle the given path/method combination.
-func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIOperation {
+// implicitPathParams lists path-parameter names that should be injected as
+// required "in: path" parameters (from ":param" segments in the path).
+// usedOpIDs tracks already-assigned operationId values for uniqueness enforcement.
+func buildOperation(
+	method, path string,
+	resources []*domain.Resource,
+	implicitPathParams []string,
+	usedOpIDs map[string]struct{},
+) *OpenAPIOperation {
 	op := &OpenAPIOperation{
 		OperationID: operationID(method, path),
 		Responses:   make(map[string]*OpenAPIResponse),
+	}
+
+	// Inject path parameters derived from ":param" / "*" segments.
+	for _, pname := range implicitPathParams {
+		op.Parameters = append(op.Parameters, &OpenAPIParameter{
+			Name:     pname,
+			In:       "path",
+			Required: true,
+			Schema:   &OpenAPISchema{Type: "string"},
+		})
 	}
 
 	if len(resources) == 0 {
@@ -267,12 +358,35 @@ func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIO
 	first := resources[0]
 	op.Summary = first.Metadata.Name
 	op.Description = first.Metadata.Description
-	op.OperationID = first.Metadata.ActionID
+
+	// Derive a unique operationId.  Prefer the resource's actionId; add the
+	// HTTP method as a suffix if the actionId has already been used (which can
+	// happen when the same resource handles multiple methods).
+	baseID := first.Metadata.ActionID
+	if baseID == "" {
+		baseID = operationID(method, path)
+	}
+	opID := baseID
+	if _, taken := usedOpIDs[opID]; taken {
+		// Prefix with the HTTP method to disambiguate when the same actionId
+		// is shared across multiple methods (e.g. GET and POST on the same route).
+		// actionIds are typically camelCase; the method prefix is lower-case
+		// (e.g. "post_myAction"), making collisions with other actionIds unlikely.
+		opID = strings.ToLower(method) + "_" + baseID
+	}
+	usedOpIDs[opID] = struct{}{}
+	op.OperationID = opID
 
 	// Collect parameters (headers, query params) and body schema from all
 	// matching resources. When multiple resources match we merge the rules.
 	requiredFields := map[string]struct{}{}
 	fieldSchemas := map[string]*OpenAPISchema{}
+	// Track seen parameters by "in:name" to avoid duplicates.
+	seenParams := map[string]struct{}{}
+	// Pre-seed seenParams with path params already added.
+	for _, pname := range implicitPathParams {
+		seenParams["path:"+pname] = struct{}{}
+	}
 
 	for _, res := range resources {
 		if res.Run.Validations == nil {
@@ -285,8 +399,13 @@ func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIO
 			requiredFields[req] = struct{}{}
 		}
 
-		// Query parameters
+		// Query parameters (deduplicated)
 		for _, param := range v.Params {
+			pk := "query:" + param
+			if _, seen := seenParams[pk]; seen {
+				continue
+			}
+			seenParams[pk] = struct{}{}
 			op.Parameters = append(op.Parameters, &OpenAPIParameter{
 				Name:   param,
 				In:     "query",
@@ -294,8 +413,13 @@ func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIO
 			})
 		}
 
-		// Header parameters
+		// Header parameters (deduplicated)
 		for _, hdr := range v.Headers {
+			pk := "header:" + hdr
+			if _, seen := seenParams[pk]; seen {
+				continue
+			}
+			seenParams[pk] = struct{}{}
 			op.Parameters = append(op.Parameters, &OpenAPIParameter{
 				Name:   hdr,
 				In:     "header",
@@ -306,6 +430,9 @@ func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIO
 		// Field validation rules → request body properties
 		for i := range v.Rules {
 			rule := &v.Rules[i]
+			if rule.Field == "" {
+				continue
+			}
 			fs := fieldRuleToSchema(rule)
 			fieldSchemas[rule.Field] = fs
 		}
@@ -320,12 +447,17 @@ func buildOperation(method, path string, resources []*domain.Resource) *OpenAPIO
 				Properties: fieldSchemas,
 			}
 			if len(requiredFields) > 0 {
+				required := make([]string, 0, len(requiredFields))
 				for f := range requiredFields {
-					bodySchema.Required = append(bodySchema.Required, f)
+					required = append(required, f)
 				}
+				sort.Strings(required)
+				bodySchema.Required = required
 			}
 			op.RequestBody = &OpenAPIRequestBody{
-				Required: true,
+				// required is true only when the body has actual required fields,
+				// reflecting the server's real validation behaviour.
+				Required: len(requiredFields) > 0,
 				Content: map[string]*OpenAPIMediaType{
 					"application/json": {Schema: bodySchema},
 				},

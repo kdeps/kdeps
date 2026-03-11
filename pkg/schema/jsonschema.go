@@ -19,6 +19,8 @@
 package schema
 
 import (
+	"sort"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -89,9 +91,12 @@ func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 	}
 
 	if len(requiredSet) > 0 {
+		required := make([]string, 0, len(requiredSet))
 		for f := range requiredSet {
-			root.Required = append(root.Required, f)
+			required = append(required, f)
 		}
+		sort.Strings(required)
+		root.Required = required
 	}
 
 	return root

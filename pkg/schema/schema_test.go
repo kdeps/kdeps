@@ -30,9 +30,9 @@ import (
 
 // helpers ------------------------------------------------------------------
 
-func intPtr(i int) *int           { return &i }
+func intPtr(i int) *int             { return &i }
 func float64Ptr(f float64) *float64 { return &f }
-func strPtr(s string) *string     { return &s }
+func strPtr(s string) *string       { return &s }
 
 func chatbotWorkflow() *domain.Workflow {
 	minLen := 1
@@ -495,4 +495,268 @@ func TestGenerateJSONSchema_StringConstraints(t *testing.T) {
 	assert.Equal(t, 2, *prop.MinLength)
 	assert.Equal(t, 50, *prop.MaxLength)
 	assert.Equal(t, "^[a-z]+$", *prop.Pattern)
+}
+
+func TestGenerateJSONSchema_SortedRequired(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "sorted", Version: "1"},
+		Resources: []*domain.Resource{
+			{
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Required: []string{"z_field", "a_field", "m_field"},
+					},
+				},
+			},
+		},
+	}
+	s := schema.GenerateJSONSchema(wf)
+	require.Equal(t, []string{"a_field", "m_field", "z_field"}, s.Required)
+}
+
+// -------------------------------------------------------------------------
+// Additional OpenAPI tests covering fixes
+// -------------------------------------------------------------------------
+
+func TestGenerateOpenAPI_PathParamTranslation(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "param-test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{
+					{Path: "/api/users/:id", Methods: []string{"GET"}},
+					{Path: "/files/*", Methods: []string{"GET"}},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+
+	// ":id" should become "{id}"
+	assert.Contains(t, spec.Paths, "/api/users/{id}", "expected OpenAPI path template for :id")
+	assert.NotContains(t, spec.Paths, "/api/users/:id", "raw kdeps path should not appear in spec")
+
+	// "*" should become "{wildcard}"
+	assert.Contains(t, spec.Paths, "/files/{wildcard}", "expected OpenAPI path template for *")
+}
+
+func TestGenerateOpenAPI_PathParamInjected(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "path-param", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{
+					{Path: "/api/users/:userId", Methods: []string{"GET"}},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	item, ok := spec.Paths["/api/users/{userId}"]
+	require.True(t, ok)
+
+	getOp := item["get"]
+	require.NotNil(t, getOp)
+
+	found := false
+	for _, p := range getOp.Parameters {
+		if p.Name == "userId" && p.In == "path" {
+			found = true
+			assert.True(t, p.Required)
+		}
+	}
+	assert.True(t, found, "userId path parameter should be injected")
+}
+
+func TestGenerateOpenAPI_ResponseSchemasMatchEnvelopes(t *testing.T) {
+	spec := schema.GenerateOpenAPI(chatbotWorkflow())
+	postOp := spec.Paths["/api/v1/chat"]["post"]
+	require.NotNil(t, postOp)
+
+	// 200 response should have success, data, meta
+	resp200 := postOp.Responses["200"]
+	require.NotNil(t, resp200)
+	schema200 := resp200.Content["application/json"].Schema
+	assert.Contains(t, schema200.Properties, "success")
+	assert.Contains(t, schema200.Properties, "data")
+	assert.Contains(t, schema200.Properties, "meta")
+
+	// 400 response should have success, error (object), meta
+	resp400 := postOp.Responses["400"]
+	require.NotNil(t, resp400)
+	schema400 := resp400.Content["application/json"].Schema
+	assert.Contains(t, schema400.Properties, "success")
+	errProp := schema400.Properties["error"]
+	require.NotNil(t, errProp)
+	assert.Equal(t, "object", errProp.Type, "error should be an object, not a string")
+	require.NotNil(t, errProp.Properties, "error object should have properties")
+	assert.Equal(t, "string", errProp.Properties["code"].Type)
+	assert.Equal(t, "string", errProp.Properties["message"].Type)
+	assert.Equal(t, "string", errProp.Properties["resourceId"].Type)
+	assert.Equal(t, "object", errProp.Properties["details"].Type)
+	assert.Contains(t, schema400.Properties, "meta")
+}
+
+func TestGenerateOpenAPI_RequestBodyRequiredFalseWhenNoRequiredFields(t *testing.T) {
+	// Rules exist but no required fields → requestBody.required should be false
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "optional-body", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"POST"},
+						Routes:  []string{"/optional"},
+						Rules: []domain.FieldRule{
+							{Field: "note", Type: domain.FieldTypeString},
+						},
+						// No Required list
+					},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/optional"]["post"]
+	require.NotNil(t, op)
+	require.NotNil(t, op.RequestBody)
+	assert.False(t, op.RequestBody.Required, "requestBody.required should be false when no required fields")
+}
+
+func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
+	// Two resources on the same route both declare the same query param.
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "dup-params", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "r1"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET"},
+						Routes:  []string{"/search"},
+						Params:  []string{"q"},
+					},
+				},
+			},
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "r2"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET"},
+						Routes:  []string{"/search"},
+						Params:  []string{"q", "limit"},
+					},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/search"]["get"]
+	require.NotNil(t, op)
+
+	// Count how many times "q" appears as a query parameter.
+	count := 0
+	for _, p := range op.Parameters {
+		if p.Name == "q" && p.In == "query" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "query param 'q' should appear exactly once even across multiple resources")
+}
+
+func TestGenerateOpenAPI_EmptyFieldNameSkipped(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "empty-field", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"POST"},
+						Routes:  []string{"/v1/action"},
+						Rules: []domain.FieldRule{
+							{Field: "", Type: domain.FieldTypeString},  // empty field name
+							{Field: "name", Type: domain.FieldTypeString},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/v1/action"]["post"]
+	require.NotNil(t, op)
+	require.NotNil(t, op.RequestBody)
+	props := op.RequestBody.Content["application/json"].Schema.Properties
+	assert.NotContains(t, props, "", "empty field name should be skipped")
+	assert.Contains(t, props, "name")
+}
+
+func TestGenerateOpenAPI_SortedRequiredFields(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "sorted-req", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods:  []string{"POST"},
+						Routes:   []string{"/form"},
+						Required: []string{"z_field", "a_field", "m_field"},
+					},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/form"]["post"]
+	require.NotNil(t, op)
+	require.NotNil(t, op.RequestBody)
+	required := op.RequestBody.Content["application/json"].Schema.Required
+	assert.Equal(t, []string{"a_field", "m_field", "z_field"}, required)
+}
+
+func TestGenerateOpenAPI_UniqueOperationIDs(t *testing.T) {
+	// Same resource actionId used for both GET and POST on the same path.
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "multi-method", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{
+					{Path: "/items", Methods: []string{"GET", "POST"}},
+				},
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "itemsResource", Name: "Items"},
+				Run: domain.RunConfig{
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"GET", "POST"},
+						Routes:  []string{"/items"},
+					},
+				},
+			},
+		},
+	}
+
+	spec := schema.GenerateOpenAPI(wf)
+	item, ok := spec.Paths["/items"]
+	require.True(t, ok)
+
+	opIDs := map[string]int{}
+	for _, op := range item {
+		opIDs[op.OperationID]++
+	}
+
+	for id, count := range opIDs {
+		assert.Equal(t, 1, count, "operationId %q used more than once", id)
+	}
 }
