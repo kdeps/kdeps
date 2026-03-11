@@ -30,6 +30,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/schema"
 )
 
 const (
@@ -88,8 +90,10 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 // the kdeps host to remotely update the workflow and settings of a running kdeps
 // container (client).
 func (s *Server) SetupManagementRoutes() {
-	// Status is read-only and safe to expose without auth.
+	// Status and schema discovery are read-only and safe to expose without auth.
 	s.Router.GET(managementPathPrefix+"/status", s.HandleManagementStatus)
+	s.Router.GET(managementPathPrefix+"/openapi", s.HandleManagementOpenAPI)
+	s.Router.GET(managementPathPrefix+"/schema", s.HandleManagementSchema)
 	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
 	s.Router.PUT(managementPathPrefix+"/workflow", requireManagementAuth(s.HandleManagementUpdateWorkflow))
 	s.Router.PUT(managementPathPrefix+"/package", requireManagementAuth(s.HandleManagementUpdatePackage))
@@ -398,6 +402,36 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		"status":  "error",
 		"message": message,
 	})
+}
+
+// HandleManagementOpenAPI returns an OpenAPI 3.0 specification generated from
+// the currently loaded workflow.
+// GET /_kdeps/openapi.
+func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	s.mu.RLock()
+	workflow := s.Workflow
+	s.mu.RUnlock()
+
+	spec := schema.GenerateOpenAPI(workflow)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(stdhttp.StatusOK)
+	_ = json.NewEncoder(w).Encode(spec)
+}
+
+// HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
+// describes the input accepted by the currently loaded workflow.
+// GET /_kdeps/schema.
+func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	s.mu.RLock()
+	workflow := s.Workflow
+	s.mu.RUnlock()
+
+	s2 := schema.GenerateJSONSchema(workflow)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(stdhttp.StatusOK)
+	_ = json.NewEncoder(w).Encode(s2)
 }
 
 // clearResourcesDir removes YAML resource definition files from dir.
