@@ -1776,3 +1776,244 @@ func TestBuilder_TemplateFunctions_ErrorCases(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported base OS")
 }
+
+// ---------------------------------------------------------------------------
+// Prepackaged binary tests
+// ---------------------------------------------------------------------------
+
+// TestBuilder_GenerateDockerfile_PrepackagedBothArches verifies that when both
+// amd64 and arm64 prepackaged binaries are provided, the Dockerfile contains
+// COPY instructions for each binary and the ARG TARGETARCH selector.
+func TestBuilder_GenerateDockerfile_PrepackagedBothArches(t *testing.T) {
+	// Create fake binary files for each architecture.
+	tmpDir := t.TempDir()
+	amd64BinPath := filepath.Join(tmpDir, "kdeps-amd64")
+	arm64BinPath := filepath.Join(tmpDir, "kdeps-arm64")
+	require.NoError(t, os.WriteFile(amd64BinPath, []byte("FAKE_AMD64"), 0755))
+	require.NoError(t, os.WriteFile(arm64BinPath, []byte("FAKE_ARM64"), 0755))
+
+	builder := &docker.Builder{
+		BaseOS: "alpine",
+		PrepackagedBinaries: map[string]string{
+			"amd64": amd64BinPath,
+			"arm64": arm64BinPath,
+		},
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	// Should COPY both arch-specific prepackaged binaries.
+	assert.Contains(t, dockerfile, "COPY kdeps-linux-amd64")
+	assert.Contains(t, dockerfile, "COPY kdeps-linux-arm64")
+	// Should select the right binary via ARG TARGETARCH.
+	assert.Contains(t, dockerfile, "ARG TARGETARCH")
+	// The install.sh fallback must NOT be present.
+	assert.NotContains(t, dockerfile, "install.sh")
+	// Workflow files must NOT be copied — they are embedded in the binary.
+	assert.NotContains(t, dockerfile, "COPY workflow.yaml")
+}
+
+// TestBuilder_GenerateDockerfile_PrepackagedAMD64Only verifies single-arch
+// (amd64) prepackaged mode emits only the amd64 COPY instruction.
+func TestBuilder_GenerateDockerfile_PrepackagedAMD64Only(t *testing.T) {
+	tmpDir := t.TempDir()
+	amd64BinPath := filepath.Join(tmpDir, "kdeps-amd64")
+	require.NoError(t, os.WriteFile(amd64BinPath, []byte("FAKE_AMD64"), 0755))
+
+	builder := &docker.Builder{
+		BaseOS:              "ubuntu",
+		PrepackagedBinaries: map[string]string{"amd64": amd64BinPath},
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, dockerfile, "COPY kdeps-linux-amd64")
+	assert.NotContains(t, dockerfile, "kdeps-linux-arm64")
+	assert.NotContains(t, dockerfile, "install.sh")
+	assert.NotContains(t, dockerfile, "COPY workflow.yaml")
+}
+
+// TestBuilder_GenerateDockerfile_FallbackWithoutPrepackagedBinaries verifies
+// that when no prepackaged binaries are set, the Dockerfile falls back to the
+// install.sh download and copies the workflow YAML.
+func TestBuilder_GenerateDockerfile_FallbackWithoutPrepackagedBinaries(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	// Fallback path uses install.sh.
+	assert.Contains(t, dockerfile, "install.sh")
+	// Workflow YAML must be copied in fallback mode.
+	assert.Contains(t, dockerfile, "COPY workflow.yaml")
+	// No prepackaged binary COPY instructions.
+	assert.NotContains(t, dockerfile, "kdeps-linux-amd64")
+	assert.NotContains(t, dockerfile, "kdeps-linux-arm64")
+}
+
+// TestBuilder_CreateBuildContext_PrepackagedBinaries verifies that when
+// prepackaged binaries are set, the build context tar contains them but NOT
+// workflow.yaml, resources/, or data/.
+func TestBuilder_CreateBuildContext_PrepackagedBinaries(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// Create fake binaries.
+	amd64BinPath := filepath.Join(tmpDir, "kdeps-amd64")
+	arm64BinPath := filepath.Join(tmpDir, "kdeps-arm64")
+	require.NoError(t, os.WriteFile(amd64BinPath, []byte("FAKE_AMD64_BINARY"), 0755))
+	require.NoError(t, os.WriteFile(arm64BinPath, []byte("FAKE_ARM64_BINARY"), 0755))
+
+	// Also put workflow.yaml in the directory (it must NOT appear in the context).
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: test\n"),
+		0644,
+	))
+
+	builder := &docker.Builder{
+		BaseOS: "alpine",
+		PrepackagedBinaries: map[string]string{
+			"amd64": amd64BinPath,
+			"arm64": arm64BinPath,
+		},
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	dockerfile := "FROM alpine:latest\n"
+	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	require.NoError(t, err)
+	require.NotNil(t, contextReader)
+
+	// Read the tar and collect entry names.
+	data, err := io.ReadAll(contextReader)
+	require.NoError(t, err)
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	var entries []string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		entries = append(entries, hdr.Name)
+	}
+
+	// Prepackaged binaries must be present.
+	assert.Contains(t, entries, "kdeps-linux-amd64")
+	assert.Contains(t, entries, "kdeps-linux-arm64")
+	// Workflow files must NOT be present.
+	for _, e := range entries {
+		assert.False(t, strings.HasPrefix(e, "workflow.yaml"), "workflow.yaml must not be in context")
+		assert.False(t, strings.HasPrefix(e, "resources/"), "resources/ must not be in context")
+		assert.False(t, strings.HasPrefix(e, "data/"), "data/ must not be in context")
+	}
+}
+
+// TestSupervisord_PrepackagedBinary verifies that the supervisord.conf uses
+// "/usr/local/bin/kdeps" (no args) when prepackaged binaries are present.
+func TestSupervisord_PrepackagedBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+	amd64BinPath := filepath.Join(tmpDir, "kdeps-amd64")
+	require.NoError(t, os.WriteFile(amd64BinPath, []byte("FAKE"), 0755))
+
+	builder := &docker.Builder{
+		BaseOS:              "alpine",
+		PrepackagedBinaries: map[string]string{"amd64": amd64BinPath},
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	// GenerateSupervisord is exercised indirectly through GenerateDockerfile
+	// (CreateBuildContext calls generateSupervisord); use the build context path
+	// to inspect the generated supervisord.conf content.
+	t.Chdir(tmpDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+
+	dockerfile := "FROM alpine:latest\n"
+	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(contextReader)
+	require.NoError(t, err)
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	var supervisordContent string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		if hdr.Name == "supervisord.conf" {
+			raw, _ := io.ReadAll(tr)
+			supervisordContent = string(raw)
+			break
+		}
+	}
+
+	require.NotEmpty(t, supervisordContent, "supervisord.conf must be present in build context")
+	// With prepackaged binary the command must be the bare executable (no args).
+	assert.Contains(t, supervisordContent, "command=/usr/local/bin/kdeps")
+	assert.NotContains(t, supervisordContent, "run /app/workflow.yaml")
+}
+
+// TestSupervisord_FallbackNoPrepackagedBinary verifies that the supervisord.conf
+// uses "kdeps run /app/workflow.yaml" when no prepackaged binaries are available.
+func TestSupervisord_FallbackNoPrepackagedBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-app", Version: "1.0.0"},
+	}
+
+	dockerfile := "FROM alpine:latest\n"
+	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(contextReader)
+	require.NoError(t, err)
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	var supervisordContent string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		if hdr.Name == "supervisord.conf" {
+			raw, _ := io.ReadAll(tr)
+			supervisordContent = string(raw)
+			break
+		}
+	}
+
+	require.NotEmpty(t, supervisordContent)
+	assert.Contains(t, supervisordContent, "run /app/workflow.yaml")
+}

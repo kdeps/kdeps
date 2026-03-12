@@ -119,37 +119,41 @@ func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
 
 // DockerfileData contains data for Dockerfile template rendering.
 type DockerfileData struct {
-	BaseImage        string
-	OS               string
-	KdepsVersion     string // Version of kdeps to install in the Docker image
-	InstallOllama    bool   // Whether to install Ollama in the Docker image
-	InstallUV        bool   // Whether to install uv in the Docker image
-	BackendPort      int    // Port for Ollama (11434)
-	GPUType          string
-	BackendInstall   string
-	PythonVersion    string
-	PythonPackages   []string
-	OSPackages       []string
-	RequirementsFile string
-	APIPort          int
-	WebServerPort    int  // Port for the web server
-	HasAPIServer     bool // Whether API server mode is enabled
-	HasWebServer     bool // Whether web server mode is enabled
-	Models           []string
-	DefaultModel     string
-	OfflineMode      bool              // Whether offline mode is enabled (download models during build)
-	HasResources     bool              // Whether resources directory exists
-	HasData          bool              // Whether data directory exists
-	Env              map[string]string // User-defined environment variables
+	BaseImage            string
+	OS                   string
+	KdepsVersion         string // Version of kdeps to install in the Docker image (fallback)
+	UsePrepackagedBinary bool   // Whether to use prepackaged arch-specific binaries
+	PrepackagedAMD64     bool   // Whether linux-amd64 prepackaged binary is in the build context
+	PrepackagedARM64     bool   // Whether linux-arm64 prepackaged binary is in the build context
+	InstallOllama        bool   // Whether to install Ollama in the Docker image
+	InstallUV            bool   // Whether to install uv in the Docker image
+	BackendPort          int    // Port for Ollama (11434)
+	GPUType              string
+	BackendInstall       string
+	PythonVersion        string
+	PythonPackages       []string
+	OSPackages           []string
+	RequirementsFile     string
+	APIPort              int
+	WebServerPort        int  // Port for the web server
+	HasAPIServer         bool // Whether API server mode is enabled
+	HasWebServer         bool // Whether web server mode is enabled
+	Models               []string
+	DefaultModel         string
+	OfflineMode          bool              // Whether offline mode is enabled (download models during build)
+	HasResources         bool              // Whether resources directory exists
+	HasData              bool              // Whether data directory exists
+	Env                  map[string]string // User-defined environment variables
 }
 
 // Builder builds Docker images from workflows.
 type Builder struct {
-	Client         *Client
-	BaseOS         string                 // Base OS: alpine (CPU) or ubuntu (CPU/GPU)
-	GPUType        string                 // GPU type: "", "cuda", "rocm", "intel", "vulkan"
-	ExecutableFunc func() (string, error) // For testing: override os.Executable
-	Compiler       Compiler               // For testing: override cross-compilation
+	Client              *Client
+	BaseOS              string                 // Base OS: alpine (CPU) or ubuntu (CPU/GPU)
+	GPUType             string                 // GPU type: "", "cuda", "rocm", "intel", "vulkan"
+	PrepackagedBinaries map[string]string      // goarch → temp file path (e.g., "amd64" → "/tmp/kdeps-amd64-xxx")
+	ExecutableFunc      func() (string, error) // For testing: override os.Executable
+	Compiler            Compiler               // For testing: override cross-compilation
 }
 
 const (
@@ -409,29 +413,48 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		defaultModel = ""
 	}
 
+	// Determine whether prepackaged binaries are available in the build context.
+	prepackagedAMD64 := false
+	prepackagedARM64 := false
+	if b.PrepackagedBinaries != nil {
+		_, prepackagedAMD64 = b.PrepackagedBinaries["amd64"]
+		_, prepackagedARM64 = b.PrepackagedBinaries["arm64"]
+	}
+	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
+
+	// When using prepackaged binaries the workflow files are embedded inside the
+	// binary itself, so HasResources/HasData only matter for the fallback path.
+	if usePrepackagedBinary {
+		hasResources = false
+		hasData = false
+	}
+
 	return &DockerfileData{
-		BaseImage:        baseImage,
-		OS:               b.BaseOS,
-		KdepsVersion:     version.Version,
-		InstallOllama:    installOllama,
-		InstallUV:        installUV,
-		BackendPort:      b.GetBackendPort(""),
-		GPUType:          b.GPUType,
-		BackendInstall:   backendInstallBuf.String(),
-		PythonVersion:    pythonVersion,
-		PythonPackages:   workflow.Settings.AgentSettings.PythonPackages,
-		OSPackages:       workflow.Settings.AgentSettings.OSPackages,
-		RequirementsFile: workflow.Settings.AgentSettings.RequirementsFile,
-		APIPort:          b.getAPIPort(workflow),
-		WebServerPort:    b.getWebServerPort(workflow),
-		HasAPIServer:     workflow.Settings.APIServerMode,
-		HasWebServer:     workflow.Settings.WebServerMode,
-		Models:           models,
-		DefaultModel:     defaultModel,
-		OfflineMode:      offlineMode,
-		HasResources:     hasResources,
-		HasData:          hasData,
-		Env:              workflow.Settings.AgentSettings.Env,
+		BaseImage:            baseImage,
+		OS:                   b.BaseOS,
+		KdepsVersion:         version.Version,
+		UsePrepackagedBinary: usePrepackagedBinary,
+		PrepackagedAMD64:     prepackagedAMD64,
+		PrepackagedARM64:     prepackagedARM64,
+		InstallOllama:        installOllama,
+		InstallUV:            installUV,
+		BackendPort:          b.GetBackendPort(""),
+		GPUType:              b.GPUType,
+		BackendInstall:       backendInstallBuf.String(),
+		PythonVersion:        pythonVersion,
+		PythonPackages:       workflow.Settings.AgentSettings.PythonPackages,
+		OSPackages:           workflow.Settings.AgentSettings.OSPackages,
+		RequirementsFile:     workflow.Settings.AgentSettings.RequirementsFile,
+		APIPort:              b.getAPIPort(workflow),
+		WebServerPort:        b.getWebServerPort(workflow),
+		HasAPIServer:         workflow.Settings.APIServerMode,
+		HasWebServer:         workflow.Settings.WebServerMode,
+		Models:               models,
+		DefaultModel:         defaultModel,
+		OfflineMode:          offlineMode,
+		HasResources:         hasResources,
+		HasData:              hasData,
+		Env:                  workflow.Settings.AgentSettings.Env,
 	}, nil
 }
 
@@ -471,27 +494,43 @@ func (b *Builder) CreateBuildContext(
 		return nil, fmt.Errorf("failed to add supervisord.conf: %w", addErr)
 	}
 
-	// Add workflow.yaml
-	workflowPath := "workflow.yaml"
-	if addErr := b.addFileFromPath(tw, workflowPath); addErr != nil {
-		return nil, fmt.Errorf("failed to add workflow.yaml: %w", addErr)
+	if len(b.PrepackagedBinaries) > 0 {
+		// Prepackaged mode: embed arch-specific self-contained binaries.
+		// The workflow files are already embedded inside those binaries, so
+		// we do NOT add workflow.yaml / resources / data to the context.
+		for arch, binPath := range b.PrepackagedBinaries {
+			entryName := fmt.Sprintf("kdeps-linux-%s", arch)
+			content, readErr := os.ReadFile(binPath)
+			if readErr != nil {
+				return nil, fmt.Errorf("failed to read prepackaged binary for %s: %w", arch, readErr)
+			}
+			if addErr := b.addFileToTar(tw, entryName, content); addErr != nil {
+				return nil, fmt.Errorf("failed to add prepackaged binary for %s: %w", arch, addErr)
+			}
+		}
+	} else {
+		// Fallback mode: workflow files are copied into the image directly.
+		workflowPath := "workflow.yaml"
+		if addErr := b.addFileFromPath(tw, workflowPath); addErr != nil {
+			return nil, fmt.Errorf("failed to add workflow.yaml: %w", addErr)
+		}
+
+		// Add resources directory (optional)
+		resourcesPath := "resources"
+		if addErr := b.addDirectoryToTar(tw, resourcesPath); addErr != nil {
+			// Resources directory is optional, ignore errors
+			_ = addErr
+		}
+
+		// Add data directory (optional)
+		dataPath := "data"
+		if addErr := b.addDirectoryToTar(tw, dataPath); addErr != nil {
+			// Data directory is optional, ignore errors
+			_ = addErr
+		}
 	}
 
-	// Add resources directory (optional)
-	resourcesPath := "resources"
-	if addErr := b.addDirectoryToTar(tw, resourcesPath); addErr != nil {
-		// Resources directory is optional, ignore errors
-		_ = addErr
-	}
-
-	// Add data directory (optional)
-	dataPath := "data"
-	if addErr := b.addDirectoryToTar(tw, dataPath); addErr != nil {
-		// Data directory is optional, ignore errors
-		_ = addErr
-	}
-
-	// Add requirements.txt if exists
+	// Add requirements.txt if exists (runtime Python dependencies, always needed)
 	if workflow.Settings.AgentSettings.RequirementsFile != "" {
 		if addErr := b.addFileFromPath(tw, workflow.Settings.AgentSettings.RequirementsFile); addErr != nil {
 			return nil, fmt.Errorf("failed to add requirements file: %w", addErr)

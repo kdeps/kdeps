@@ -20,7 +20,11 @@ environment=OLLAMA_HOST="127.0.0.1",OLLAMA_MODELS="/root/.ollama/models"
 {{- end }}
 
 [program:kdeps]
+{{- if .UsePrepackagedBinary }}
+command=/usr/local/bin/kdeps
+{{- else }}
 command=/usr/local/bin/kdeps run /app/workflow.yaml
+{{- end }}
 autostart=true
 autorestart=true
 startretries=3

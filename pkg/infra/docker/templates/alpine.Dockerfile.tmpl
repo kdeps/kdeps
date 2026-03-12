@@ -32,8 +32,32 @@ RUN apk add --no-cache \
     ncurses \
     rsync
 
-# Install kdeps
+{{- if .UsePrepackagedBinary }}
+# Install prepackaged kdeps binary (self-contained, workflow embedded)
+ARG TARGETARCH=amd64
+{{- if .PrepackagedAMD64 }}
+COPY kdeps-linux-amd64 /tmp/kdeps-linux-amd64
+{{- end }}
+{{- if .PrepackagedARM64 }}
+COPY kdeps-linux-arm64 /tmp/kdeps-linux-arm64
+{{- end }}
+{{- if and .PrepackagedAMD64 .PrepackagedARM64 }}
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        mv /tmp/kdeps-linux-amd64 /usr/local/bin/kdeps; \
+    else \
+        mv /tmp/kdeps-linux-arm64 /usr/local/bin/kdeps; \
+    fi && \
+    rm -f /tmp/kdeps-linux-amd64 /tmp/kdeps-linux-arm64 && \
+    chmod +x /usr/local/bin/kdeps
+{{- else if .PrepackagedAMD64 }}
+RUN mv /tmp/kdeps-linux-amd64 /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps
+{{- else }}
+RUN mv /tmp/kdeps-linux-arm64 /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps
+{{- end }}
+{{- else }}
+# Install kdeps binary
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+{{- end }}
 
 {{- if .OSPackages }}
 
@@ -68,12 +92,14 @@ RUN /usr/local/bin/uv pip install -r /tmp/requirements.txt
 {{- end }}
 
 # Copy workflow files
+{{- if not .UsePrepackagedBinary }}
 COPY workflow.yaml /app/workflow.yaml
 {{- if .HasResources }}
 COPY resources/ /app/resources/
 {{- end }}
 {{- if .HasData }}
 COPY data/ /app/data/
+{{- end }}
 {{- end }}
 
 # Copy entrypoint and supervisor config
