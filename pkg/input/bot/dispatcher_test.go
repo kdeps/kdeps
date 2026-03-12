@@ -132,7 +132,7 @@ func TestDispatcher_Run_CancelContext(t *testing.T) {
 	d, err := NewDispatcher(wf, nil, nil)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	// Run should return cleanly when context is cancelled

@@ -42,6 +42,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
+	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 // BuildFlags holds the flags for the build command.
@@ -358,10 +359,14 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 		return err
 	}
 
-	// Get absolute path for package directory and change to it
+	// Resolve absolute paths before chdir so they remain valid afterwards.
 	absPackageDir, err := filepath.Abs(packageDir)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	absPackagePath, err := filepath.Abs(packagePath)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute package path: %w", err)
 	}
 
 	// Try to get current directory for restoring later
@@ -384,13 +389,121 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	}
 	defer builder.Client.Close()
 
-	// Show Dockerfile if requested
+	// Show Dockerfile if requested (skip prepackaging — it's expensive and
+	// the shown Dockerfile would be the fallback unless binaries are already
+	// prepared; the caller can see the prepackaged variant by actually building)
 	if flags.ShowDockerfile {
 		return handleDockerfileShow(builder, workflow)
 	}
 
+	// Produce prepackaged binaries (per target arch) so the Docker image carries
+	// a self-contained executable rather than downloading kdeps at build time.
+	kdepsFile, createdKdeps, kdepsErr := ensureKdepsFile(absPackagePath, absPackageDir, workflow)
+	if kdepsErr == nil {
+		if createdKdeps {
+			defer os.Remove(kdepsFile)
+		}
+		prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(cmd.Context(), kdepsFile)
+		defer cleanupBinaries()
+		if len(prepackagedBinaries) > 0 {
+			builder.PrepackagedBinaries = prepackagedBinaries
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Warning: could not prepare .kdeps file for prepackaging: %v\n", kdepsErr)
+		fmt.Fprintf(os.Stderr, "         Falling back to kdeps install.sh in the Docker image.\n")
+	}
+
 	// Build image
 	return performDockerBuild(builder, workflow, packagePath, flags)
+}
+
+// ensureKdepsFile returns a path to a .kdeps file representing the workflow.
+// If packagePath is already a .kdeps file it is used directly.
+// Otherwise a temporary .kdeps archive is created from packageDir and the
+// caller is responsible for removing it (createdTemp == true).
+func ensureKdepsFile(packagePath, packageDir string, workflow *domain.Workflow) (string, bool, error) {
+	if strings.HasSuffix(packagePath, ".kdeps") {
+		if _, statErr := os.Stat(packagePath); statErr == nil {
+			return packagePath, false, nil
+		}
+	}
+
+	// Create a temporary .kdeps archive from the package directory.
+	tmpFile, err := os.CreateTemp("", "kdeps-build-*.kdeps")
+	if err != nil {
+		return "", false, fmt.Errorf("failed to create temp .kdeps file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+	// CreatePackageArchive creates the file itself; remove the placeholder first.
+	_ = os.Remove(tmpPath)
+
+	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
+		return "", false, fmt.Errorf("failed to create .kdeps archive: %w", archiveErr)
+	}
+
+	return tmpPath, true, nil
+}
+
+// createPrepackagedBinariesForDocker produces self-contained kdeps executables
+// for linux/amd64 and linux/arm64 by appending kdepsFile to each base binary.
+// It returns a map of goarch → temp-file-path and a cleanup function that the
+// caller must defer.
+func createPrepackagedBinariesForDocker(ctx context.Context, kdepsFile string) (map[string]string, func()) {
+	targets := []archTarget{
+		{GOOS: goosLinux, GOARCH: "amd64"},
+		{GOOS: goosLinux, GOARCH: "arm64"},
+	}
+
+	currentExec, _ := os.Executable()
+
+	binaries := make(map[string]string, len(targets))
+
+	for _, target := range targets {
+		basePath, baseIsTemporary, resolveErr := resolveBaseBinary(ctx, normaliseVersion(), target, currentExec)
+		if resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not resolve base binary for %s/%s: %v\n",
+				target.GOOS, target.GOARCH, resolveErr)
+			continue
+		}
+
+		outFile, tmpErr := os.CreateTemp("", fmt.Sprintf("kdeps-prepackaged-%s-%s-*", target.GOOS, target.GOARCH))
+		if tmpErr != nil {
+			if baseIsTemporary {
+				_ = os.Remove(basePath)
+			}
+			continue
+		}
+		outPath := outFile.Name()
+		_ = outFile.Close()
+		// AppendEmbeddedPackage writes to the path; remove placeholder.
+		_ = os.Remove(outPath)
+
+		embedErr := AppendEmbeddedPackage(basePath, kdepsFile, outPath)
+		if baseIsTemporary {
+			_ = os.Remove(basePath)
+		}
+		if embedErr != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not create prepackaged binary for %s/%s: %v\n",
+				target.GOOS, target.GOARCH, embedErr)
+			continue
+		}
+
+		binaries[target.GOARCH] = outPath
+	}
+
+	cleanup := func() {
+		for _, path := range binaries {
+			_ = os.Remove(path)
+		}
+	}
+	return binaries, cleanup
+}
+
+// normaliseVersion returns the current kdeps version without a leading "v"
+// (the format expected by downloadKdepsBinaryToTemp).
+func normaliseVersion() string {
+	return strings.TrimPrefix(version.Version, "v")
 }
 
 // buildWASMImage builds a WASM static web app from a workflow package.
