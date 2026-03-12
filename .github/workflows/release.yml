@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+      - '!v*-nightly*'
 
 permissions:
   contents: write
@@ -11,6 +12,7 @@ permissions:
 
 jobs:
   release:
+    if: "!contains(github.ref_name, '-nightly')"
     runs-on: macos-latest
     steps:
       - name: Checkout
