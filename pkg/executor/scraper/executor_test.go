@@ -21,6 +21,7 @@ package scraper
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/xml"
 	"errors"
@@ -295,7 +296,7 @@ func TestExtractTextFromHTML_WhitespaceNormalized(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestScrapePDF_NotExist(t *testing.T) {
-	_, err := ScrapePDFForTesting("/tmp/kdeps_test_nonexistent.pdf")
+	_, err := ScrapePDFForTesting(context.Background(), "/tmp/kdeps_test_nonexistent.pdf")
 	require.Error(t, err)
 }
 
@@ -467,7 +468,7 @@ func TestScrapeImage_TesseractNotFound(t *testing.T) {
 	// Override PATH to guarantee tesseract is not found
 	t.Setenv("PATH", "")
 
-	_, err := ScrapeImageForTesting("/tmp/test.png", "eng")
+	_, err := ScrapeImageForTesting(context.Background(), "/tmp/test.png", "eng")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tesseract is not installed")
 }
@@ -1582,7 +1583,7 @@ func TestScrapePDF_WithFakePDFToText(t *testing.T) {
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fakeDir+":"+origPath)
 
-	content, err := ScrapePDFForTesting(dummyFile)
+	content, err := ScrapePDFForTesting(context.Background(), dummyFile)
 	require.NoError(t, err)
 	assert.Contains(t, content, "Extracted PDF text")
 }
@@ -1599,7 +1600,7 @@ func TestRunPDFToText_Failure(t *testing.T) {
 	dummyFile := filepath.Join(fakeDir, "dummy.pdf")
 	require.NoError(t, os.WriteFile(dummyFile, []byte("%PDF-1.4"), 0o644))
 
-	_, err := ScrapePDFForTesting(dummyFile)
+	_, err := ScrapePDFForTesting(context.Background(), dummyFile)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "pdftotext failed")
 }
@@ -1618,7 +1619,7 @@ func TestScrapeImage_WithFakeTesseract_Success(t *testing.T) {
 	dummyImg := filepath.Join(fakeDir, "test.png")
 	require.NoError(t, os.WriteFile(dummyImg, []byte("PNG"), 0o644))
 
-	content, err := ScrapeImageForTesting(dummyImg, "eng")
+	content, err := ScrapeImageForTesting(context.Background(), dummyImg, "eng")
 	require.NoError(t, err)
 	assert.Contains(t, content, "OCR Text Result")
 }
@@ -1634,7 +1635,7 @@ func TestScrapeImage_WithFakeTesseract_Failure(t *testing.T) {
 	dummyImg := filepath.Join(fakeDir, "test.png")
 	require.NoError(t, os.WriteFile(dummyImg, []byte("PNG"), 0o644))
 
-	_, err := ScrapeImageForTesting(dummyImg, "")
+	_, err := ScrapeImageForTesting(context.Background(), dummyImg, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tesseract failed")
 }
@@ -1650,7 +1651,7 @@ func TestScrapeImage_EmptyLang(t *testing.T) {
 	dummyImg := filepath.Join(fakeDir, "test.png")
 	require.NoError(t, os.WriteFile(dummyImg, []byte("PNG"), 0o644))
 
-	content, err := ScrapeImageForTesting(dummyImg, "")
+	content, err := ScrapeImageForTesting(context.Background(), dummyImg, "")
 	require.NoError(t, err)
 	assert.Contains(t, content, "no lang result")
 }
