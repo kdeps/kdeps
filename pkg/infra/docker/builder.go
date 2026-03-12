@@ -36,7 +36,6 @@ import (
 	"text/template"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 const (
@@ -121,13 +120,12 @@ func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
 type DockerfileData struct {
 	BaseImage            string
 	OS                   string
-	KdepsVersion         string // Version of kdeps to install in the Docker image (fallback)
-	UsePrepackagedBinary bool   // Whether to use prepackaged arch-specific binaries
-	PrepackagedAMD64     bool   // Whether linux-amd64 prepackaged binary is in the build context
-	PrepackagedARM64     bool   // Whether linux-arm64 prepackaged binary is in the build context
-	InstallOllama        bool   // Whether to install Ollama in the Docker image
-	InstallUV            bool   // Whether to install uv in the Docker image
-	BackendPort          int    // Port for Ollama (11434)
+	UsePrepackagedBinary bool // Whether to use prepackaged arch-specific binaries
+	PrepackagedAMD64     bool // Whether linux-amd64 prepackaged binary is in the build context
+	PrepackagedARM64     bool // Whether linux-arm64 prepackaged binary is in the build context
+	InstallOllama        bool // Whether to install Ollama in the Docker image
+	InstallUV            bool // Whether to install uv in the Docker image
+	BackendPort          int  // Port for Ollama (11434)
 	GPUType              string
 	BackendInstall       string
 	PythonVersion        string
@@ -437,7 +435,6 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	return &DockerfileData{
 		BaseImage:            baseImage,
 		OS:                   b.BaseOS,
-		KdepsVersion:         version.Version,
 		UsePrepackagedBinary: usePrepackagedBinary,
 		PrepackagedAMD64:     prepackagedAMD64,
 		PrepackagedARM64:     prepackagedARM64,
