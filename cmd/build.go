@@ -434,7 +434,7 @@ func ensureKdepsFile(packagePath, packageDir string, workflow *domain.Workflow) 
 		return "", false, fmt.Errorf("failed to create temp .kdeps file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
+	_ = tmpFile.Close()
 	// CreatePackageArchive creates the file itself; remove the placeholder first.
 	_ = os.Remove(tmpPath)
 
@@ -475,7 +475,7 @@ func createPrepackagedBinariesForDocker(ctx context.Context, kdepsFile string) (
 			continue
 		}
 		outPath := outFile.Name()
-		outFile.Close()
+		_ = outFile.Close()
 		// AppendEmbeddedPackage writes to the path; remove placeholder.
 		_ = os.Remove(outPath)
 

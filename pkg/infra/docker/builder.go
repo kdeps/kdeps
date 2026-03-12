@@ -340,6 +340,16 @@ func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 	return "llama3.2:1b" // fallback default
 }
 
+// prepackagedFlags returns whether amd64/arm64 prepackaged binaries are set.
+func (b *Builder) prepackagedFlags() (bool, bool) {
+	var amd64, arm64 bool
+	if b.PrepackagedBinaries != nil {
+		_, amd64 = b.PrepackagedBinaries["amd64"]
+		_, arm64 = b.PrepackagedBinaries["arm64"]
+	}
+	return amd64, arm64
+}
+
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	installOllama := b.shouldInstallOllama(workflow)
@@ -414,12 +424,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	}
 
 	// Determine whether prepackaged binaries are available in the build context.
-	prepackagedAMD64 := false
-	prepackagedARM64 := false
-	if b.PrepackagedBinaries != nil {
-		_, prepackagedAMD64 = b.PrepackagedBinaries["amd64"]
-		_, prepackagedARM64 = b.PrepackagedBinaries["arm64"]
-	}
+	prepackagedAMD64, prepackagedARM64 := b.prepackagedFlags()
 	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
 
 	// When using prepackaged binaries the workflow files are embedded inside the
@@ -495,39 +500,11 @@ func (b *Builder) CreateBuildContext(
 	}
 
 	if len(b.PrepackagedBinaries) > 0 {
-		// Prepackaged mode: embed arch-specific self-contained binaries.
-		// The workflow files are already embedded inside those binaries, so
-		// we do NOT add workflow.yaml / resources / data to the context.
-		for arch, binPath := range b.PrepackagedBinaries {
-			entryName := fmt.Sprintf("kdeps-linux-%s", arch)
-			content, readErr := os.ReadFile(binPath)
-			if readErr != nil {
-				return nil, fmt.Errorf("failed to read prepackaged binary for %s: %w", arch, readErr)
-			}
-			if addErr := b.addFileToTar(tw, entryName, content); addErr != nil {
-				return nil, fmt.Errorf("failed to add prepackaged binary for %s: %w", arch, addErr)
-			}
+		if err := b.addPrepackagedBinariesToContext(tw); err != nil {
+			return nil, err
 		}
-	} else {
-		// Fallback mode: workflow files are copied into the image directly.
-		workflowPath := "workflow.yaml"
-		if addErr := b.addFileFromPath(tw, workflowPath); addErr != nil {
-			return nil, fmt.Errorf("failed to add workflow.yaml: %w", addErr)
-		}
-
-		// Add resources directory (optional)
-		resourcesPath := "resources"
-		if addErr := b.addDirectoryToTar(tw, resourcesPath); addErr != nil {
-			// Resources directory is optional, ignore errors
-			_ = addErr
-		}
-
-		// Add data directory (optional)
-		dataPath := "data"
-		if addErr := b.addDirectoryToTar(tw, dataPath); addErr != nil {
-			// Data directory is optional, ignore errors
-			_ = addErr
-		}
+	} else if err := b.addWorkflowFilesToContext(tw); err != nil {
+		return nil, err
 	}
 
 	// Add requirements.txt if exists (runtime Python dependencies, always needed)
@@ -542,6 +519,35 @@ func (b *Builder) CreateBuildContext(
 	}
 
 	return &buf, nil
+}
+
+// addPrepackagedBinariesToContext adds arch-specific self-contained kdeps
+// binaries to the tar build context. The workflow files are already embedded
+// inside those binaries, so workflow.yaml / resources / data are not added.
+func (b *Builder) addPrepackagedBinariesToContext(tw *tar.Writer) error {
+	for arch, binPath := range b.PrepackagedBinaries {
+		entryName := fmt.Sprintf("kdeps-linux-%s", arch)
+		content, readErr := os.ReadFile(binPath)
+		if readErr != nil {
+			return fmt.Errorf("failed to read prepackaged binary for %s: %w", arch, readErr)
+		}
+		if addErr := b.addFileToTar(tw, entryName, content); addErr != nil {
+			return fmt.Errorf("failed to add prepackaged binary for %s: %w", arch, addErr)
+		}
+	}
+	return nil
+}
+
+// addWorkflowFilesToContext adds workflow.yaml and optional resources/data
+// directories to the tar build context (fallback mode — no prepackaged binary).
+func (b *Builder) addWorkflowFilesToContext(tw *tar.Writer) error {
+	if addErr := b.addFileFromPath(tw, "workflow.yaml"); addErr != nil {
+		return fmt.Errorf("failed to add workflow.yaml: %w", addErr)
+	}
+	// Resources and data directories are optional; ignore errors.
+	_ = b.addDirectoryToTar(tw, "resources")
+	_ = b.addDirectoryToTar(tw, "data")
+	return nil
 }
 
 // addFileToTar adds a file to tar archive.
