@@ -1810,16 +1810,18 @@ func TestBuilder_GenerateDockerfile_PrepackagedBothArches(t *testing.T) {
 	// Should COPY both arch-specific prepackaged binaries.
 	assert.Contains(t, dockerfile, "COPY kdeps-linux-amd64")
 	assert.Contains(t, dockerfile, "COPY kdeps-linux-arm64")
-	// Should select the right binary via ARG TARGETARCH.
+	// Should detect the target arch at build time.
 	assert.Contains(t, dockerfile, "ARG TARGETARCH")
-	// The install.sh fallback must NOT be present.
-	assert.NotContains(t, dockerfile, "install.sh")
+	assert.Contains(t, dockerfile, "uname -m")
+	// install.sh must be present as the fallback for any arch not covered.
+	assert.Contains(t, dockerfile, "install.sh")
 	// Workflow files must NOT be copied — they are embedded in the binary.
 	assert.NotContains(t, dockerfile, "COPY workflow.yaml")
 }
 
 // TestBuilder_GenerateDockerfile_PrepackagedAMD64Only verifies single-arch
-// (amd64) prepackaged mode emits only the amd64 COPY instruction.
+// (amd64) prepackaged mode: amd64 COPY is present, arm64 is absent, and
+// install.sh appears as the cross-platform fallback for non-amd64 builds.
 func TestBuilder_GenerateDockerfile_PrepackagedAMD64Only(t *testing.T) {
 	tmpDir := t.TempDir()
 	amd64BinPath := filepath.Join(tmpDir, "kdeps-amd64")
@@ -1838,8 +1840,13 @@ func TestBuilder_GenerateDockerfile_PrepackagedAMD64Only(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "COPY kdeps-linux-amd64")
-	assert.NotContains(t, dockerfile, "kdeps-linux-arm64")
-	assert.NotContains(t, dockerfile, "install.sh")
+	// Only the amd64 COPY should be present; arm64 should not be COPYed.
+	assert.NotContains(t, dockerfile, "COPY kdeps-linux-arm64")
+	// install.sh must be present as the fallback for arm64 cross-platform builds.
+	assert.Contains(t, dockerfile, "install.sh")
+	// Arch detection must be present.
+	assert.Contains(t, dockerfile, "ARG TARGETARCH")
+	assert.Contains(t, dockerfile, "uname -m")
 	assert.NotContains(t, dockerfile, "COPY workflow.yaml")
 }
 

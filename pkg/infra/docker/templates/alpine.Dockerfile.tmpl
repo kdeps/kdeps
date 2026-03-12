@@ -33,27 +33,24 @@ RUN apk add --no-cache \
     rsync
 
 {{- if .UsePrepackagedBinary }}
-# Install prepackaged kdeps binary (self-contained, workflow embedded)
-ARG TARGETARCH=amd64
+# Install prepackaged kdeps binary (self-contained, workflow embedded).
+# TARGETARCH is set automatically by `docker buildx build --platform`; for a
+# plain `docker build` it falls back to the host arch via `uname -m`.
+ARG TARGETARCH
 {{- if .PrepackagedAMD64 }}
 COPY kdeps-linux-amd64 /tmp/kdeps-linux-amd64
 {{- end }}
 {{- if .PrepackagedARM64 }}
 COPY kdeps-linux-arm64 /tmp/kdeps-linux-arm64
 {{- end }}
-{{- if and .PrepackagedAMD64 .PrepackagedARM64 }}
-RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        mv /tmp/kdeps-linux-amd64 /usr/local/bin/kdeps; \
+RUN ARCH="${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')}" && \
+    if [ -f "/tmp/kdeps-linux-${ARCH}" ]; then \
+        mv "/tmp/kdeps-linux-${ARCH}" /usr/local/bin/kdeps; \
     else \
-        mv /tmp/kdeps-linux-arm64 /usr/local/bin/kdeps; \
+        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin; \
     fi && \
     rm -f /tmp/kdeps-linux-amd64 /tmp/kdeps-linux-arm64 && \
     chmod +x /usr/local/bin/kdeps
-{{- else if .PrepackagedAMD64 }}
-RUN mv /tmp/kdeps-linux-amd64 /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps
-{{- else }}
-RUN mv /tmp/kdeps-linux-arm64 /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps
-{{- end }}
 {{- else }}
 # Install kdeps binary
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
