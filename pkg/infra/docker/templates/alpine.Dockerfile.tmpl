@@ -32,8 +32,29 @@ RUN apk add --no-cache \
     ncurses \
     rsync
 
-# Install kdeps
+{{- if .UsePrepackagedBinary }}
+# Install prepackaged kdeps binary (self-contained, workflow embedded).
+# TARGETARCH is set automatically by `docker buildx build --platform`; for a
+# plain `docker build` it falls back to the host arch via `uname -m`.
+ARG TARGETARCH
+{{- if .PrepackagedAMD64 }}
+COPY kdeps-linux-amd64 /tmp/kdeps-linux-amd64
+{{- end }}
+{{- if .PrepackagedARM64 }}
+COPY kdeps-linux-arm64 /tmp/kdeps-linux-arm64
+{{- end }}
+RUN ARCH="${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')}" && \
+    if [ -f "/tmp/kdeps-linux-${ARCH}" ]; then \
+        mv "/tmp/kdeps-linux-${ARCH}" /usr/local/bin/kdeps; \
+    else \
+        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin; \
+    fi && \
+    rm -f /tmp/kdeps-linux-amd64 /tmp/kdeps-linux-arm64 && \
+    chmod +x /usr/local/bin/kdeps
+{{- else }}
+# Install kdeps binary
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+{{- end }}
 
 {{- if .OSPackages }}
 
@@ -68,12 +89,14 @@ RUN /usr/local/bin/uv pip install -r /tmp/requirements.txt
 {{- end }}
 
 # Copy workflow files
+{{- if not .UsePrepackagedBinary }}
 COPY workflow.yaml /app/workflow.yaml
 {{- if .HasResources }}
 COPY resources/ /app/resources/
 {{- end }}
 {{- if .HasData }}
 COPY data/ /app/data/
+{{- end }}
 {{- end }}
 
 # Copy entrypoint and supervisor config
