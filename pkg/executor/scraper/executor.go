@@ -317,7 +317,7 @@ func scrapePDF(path string) (string, error) {
 // runPDFToText uses the pdftotext CLI to extract text from a PDF.
 func runPDFToText(path string) (string, error) {
 	var out bytes.Buffer
-	cmd := exec.Command("pdftotext", "-layout", path, "-") //nolint:noctx // external CLI; no context support
+	cmd := exec.Command("pdftotext", "-layout", path, "-")
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("scraper: pdftotext failed: %w", err)
@@ -602,7 +602,7 @@ func scrapeImage(path, lang string) (string, error) {
 	if lang != "" {
 		args = append(args, "-l", lang)
 	}
-	cmd := exec.Command("tesseract", args...) //nolint:noctx // external CLI; no context support
+	cmd := exec.Command("tesseract", args...)
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("scraper: tesseract failed: %w", err)

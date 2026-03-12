@@ -37,7 +37,6 @@
 package embedding
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -715,7 +714,7 @@ func TestExecute_Search_SkipsMalformedEmbeddingRow(t *testing.T) {
 	db, dbErr := openVectorDB(dbPath, defaultCollection)
 	require.NoError(t, dbErr)
 	_, insErr := db.ExecContext(
-		context.Background(),
+		t.Context(),
 		"INSERT INTO embeddings (text, embedding, metadata) VALUES (?, ?, ?)",
 		"corrupt", "NOT_VALID_JSON", "{}",
 	)
