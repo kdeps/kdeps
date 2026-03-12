@@ -126,7 +126,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	case domain.ScraperTypeURL:
 		content, err = e.scrapeURL(source, timeout)
 	case domain.ScraperTypePDF:
-		content, err = scrapePDF(ResolvePath(ctx, source))
+		content, err = scrapePDF(context.Background(), ResolvePath(ctx, source))
 	case domain.ScraperTypeWord:
 		content, err = scrapeWord(ResolvePath(ctx, source))
 	case domain.ScraperTypeExcel:
@@ -136,7 +136,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		if cfg.OCR != nil && cfg.OCR.Language != "" {
 			lang = cfg.OCR.Language
 		}
-		content, err = scrapeImage(ResolvePath(ctx, source), lang)
+		content, err = scrapeImage(context.Background(), ResolvePath(ctx, source), lang)
 	case domain.ScraperTypeText:
 		content, err = scrapeText(ResolvePath(ctx, source))
 	case domain.ScraperTypeHTML:
@@ -307,17 +307,17 @@ func normalizeWhitespace(s string) string {
 // scrapePDF extracts text from a PDF file.
 // It tries pdftotext (from poppler-utils) first; if unavailable it falls back
 // to scanning the raw PDF bytes for readable ASCII text runs.
-func scrapePDF(path string) (string, error) {
+func scrapePDF(ctx context.Context, path string) (string, error) {
 	if _, err := exec.LookPath("pdftotext"); err == nil {
-		return runPDFToText(path)
+		return runPDFToText(ctx, path)
 	}
 	return extractRawTextFromPDF(path)
 }
 
 // runPDFToText uses the pdftotext CLI to extract text from a PDF.
-func runPDFToText(path string) (string, error) {
+func runPDFToText(ctx context.Context, path string) (string, error) {
 	var out bytes.Buffer
-	cmd := exec.Command("pdftotext", "-layout", path, "-")
+	cmd := exec.CommandContext(ctx, "pdftotext", "-layout", path, "-")
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("scraper: pdftotext failed: %w", err)
@@ -591,7 +591,7 @@ func parseSharedIdx(s string) (int, error) {
 // -----------------------------------------------------------------------
 
 // scrapeImage runs Tesseract OCR on an image file and returns the recognised text.
-func scrapeImage(path, lang string) (string, error) {
+func scrapeImage(ctx context.Context, path, lang string) (string, error) {
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		return "", errors.New("scraper: tesseract is not installed (required for image OCR)")
 	}
@@ -602,7 +602,7 @@ func scrapeImage(path, lang string) (string, error) {
 	if lang != "" {
 		args = append(args, "-l", lang)
 	}
-	cmd := exec.Command("tesseract", args...)
+	cmd := exec.CommandContext(ctx, "tesseract", args...)
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("scraper: tesseract failed: %w", err)
@@ -1046,8 +1046,8 @@ func (e *Executor) ScrapeURLForTesting(rawURL string, timeout time.Duration) (st
 }
 
 // ScrapePDFForTesting exposes scrapePDF for testing.
-func ScrapePDFForTesting(path string) (string, error) {
-	return scrapePDF(path)
+func ScrapePDFForTesting(ctx context.Context, path string) (string, error) {
+	return scrapePDF(ctx, path)
 }
 
 // ScrapeWordForTesting exposes scrapeWord for testing.
@@ -1066,8 +1066,8 @@ func ExtractTextFromHTMLForTesting(data []byte) string {
 }
 
 // ScrapeImageForTesting exposes scrapeImage for testing.
-func ScrapeImageForTesting(path, lang string) (string, error) {
-	return scrapeImage(path, lang)
+func ScrapeImageForTesting(ctx context.Context, path, lang string) (string, error) {
+	return scrapeImage(ctx, path, lang)
 }
 
 // ScrapePDFRawForTesting exposes extractRawTextFromPDF for testing.
