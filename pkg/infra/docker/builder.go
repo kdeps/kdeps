@@ -36,6 +36,7 @@ import (
 	"text/template"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
 const (
@@ -120,9 +121,10 @@ func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
 type DockerfileData struct {
 	BaseImage        string
 	OS               string
-	InstallOllama    bool // Whether to install Ollama in the Docker image
-	InstallUV        bool // Whether to install uv in the Docker image
-	BackendPort      int  // Port for Ollama (11434)
+	KdepsVersion     string // Version of kdeps to install in the Docker image
+	InstallOllama    bool   // Whether to install Ollama in the Docker image
+	InstallUV        bool   // Whether to install uv in the Docker image
+	BackendPort      int    // Port for Ollama (11434)
 	GPUType          string
 	BackendInstall   string
 	PythonVersion    string
@@ -410,6 +412,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	return &DockerfileData{
 		BaseImage:        baseImage,
 		OS:               b.BaseOS,
+		KdepsVersion:     version.Version,
 		InstallOllama:    installOllama,
 		InstallUV:        installUV,
 		BackendPort:      b.GetBackendPort(""),
