@@ -272,7 +272,10 @@ func TestAgencyIntegration_KdepsPackageAgent(t *testing.T) {
 	// Build a packed .kdeps agent.
 	srcDir := filepath.Join(dir, "responder-src")
 	require.NoError(t, os.MkdirAll(srcDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600),
+	)
 	createKdepsPackageInteg(t, srcDir, filepath.Join(agentsDir, "responder.kdeps"))
 
 	// Write agency with an explicit .kdeps reference.
@@ -330,7 +333,10 @@ func TestAgencyIntegration_AutoDiscoverMixedAgents(t *testing.T) {
 	// .kdeps-based agent.
 	srcDir := filepath.Join(dir, "responder-src")
 	require.NoError(t, os.MkdirAll(srcDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600),
+	)
 	createKdepsPackageInteg(t, srcDir, filepath.Join(agentsDir, "responder.kdeps"))
 
 	// Agency with no explicit agents list (auto-discover).

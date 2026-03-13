@@ -317,9 +317,9 @@ func detectEmbeddedArchiveType(f *os.File, offset int64) string {
 	defer gz.Close()
 
 	tr := tar.NewReader(gz)
-	for i := 0; i < maxTarEntriesForDetection; i++ {
-		hdr, err := tr.Next()
-		if err != nil {
+	for range maxTarEntriesForDetection {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
 			break
 		}
 		base := filepath.Base(hdr.Name)

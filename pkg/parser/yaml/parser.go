@@ -152,24 +152,23 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 	return &workflow, nil
 }
 
-// ParseResource parses a resource YAML file.
-func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
-	// Read YAML file.
+// readPreprocessAndValidateYAML reads the file at path, applies Jinja2
+// preprocessing, unmarshals into a raw map, and optionally calls validate.
+// It returns the preprocessed bytes ready for final struct unmarshaling.
+func (p *Parser) readPreprocessAndValidateYAML(
+	path string,
+	preprocessErrMsg string,
+	validate func(map[string]interface{}) error,
+) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read resource file", err)
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read file", err)
 	}
 
-	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
-	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
-	// are returned as-is; the kdeps expression evaluator handles those later.
+	// Apply Jinja2 preprocessing.
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to preprocess resource Jinja2 template",
-			preprocessErr,
-		)
+		return nil, domain.NewError(domain.ErrCodeParseError, preprocessErrMsg, preprocessErr)
 	}
 	data = []byte(preprocessed)
 
@@ -179,18 +178,42 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse YAML", unmarshalErr)
 	}
 
-	// Validate against schema if validator is available.
-	if p.schemaValidator != nil {
-		if validateErr := p.schemaValidator.ValidateResource(rawData); validateErr != nil {
-			return nil, domain.NewError(
-				domain.ErrCodeValidationFailed,
-				"resource schema validation failed",
-				validateErr,
-			)
+	// Call optional schema validator.
+	if validate != nil {
+		if validateErr := validate(rawData); validateErr != nil {
+			return nil, validateErr
 		}
 	}
 
-	// Parse into resource struct.
+	return data, nil
+}
+
+// ParseResource parses a resource YAML file.
+func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
+	var validate func(map[string]interface{}) error
+	if p.schemaValidator != nil {
+		sv := p.schemaValidator
+		validate = func(rawData map[string]interface{}) error {
+			if validateErr := sv.ValidateResource(rawData); validateErr != nil {
+				return domain.NewError(
+					domain.ErrCodeValidationFailed,
+					"resource schema validation failed",
+					validateErr,
+				)
+			}
+			return nil
+		}
+	}
+
+	data, err := p.readPreprocessAndValidateYAML(
+		path,
+		"failed to preprocess resource Jinja2 template",
+		validate,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var resource domain.Resource
 	if resourceErr := yaml.Unmarshal(data, &resource); resourceErr != nil {
 		return nil, domain.NewError(
@@ -300,41 +323,30 @@ func buildJinja2Context() map[string]interface{} {
 
 // ParseAgency parses an agency YAML file (agency.yml / agency.yaml).
 func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
-	// Read YAML file.
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read agency file", err)
-	}
-
-	// Apply Jinja2 preprocessing.
-	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
-	if preprocessErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to preprocess agency Jinja2 template",
-			preprocessErr,
-		)
-	}
-	data = []byte(preprocessed)
-
-	// Parse YAML into generic map first for schema validation.
-	var rawData map[string]interface{}
-	if parseErr := yaml.Unmarshal(data, &rawData); parseErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse agency YAML", parseErr)
-	}
-
-	// Validate against schema if validator is available.
+	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
-		if schemaErr := p.schemaValidator.ValidateAgency(rawData); schemaErr != nil {
-			return nil, domain.NewError(
-				domain.ErrCodeValidationFailed,
-				"agency schema validation failed",
-				schemaErr,
-			)
+		sv := p.schemaValidator
+		validate = func(rawData map[string]interface{}) error {
+			if schemaErr := sv.ValidateAgency(rawData); schemaErr != nil {
+				return domain.NewError(
+					domain.ErrCodeValidationFailed,
+					"agency schema validation failed",
+					schemaErr,
+				)
+			}
+			return nil
 		}
 	}
 
-	// Parse into agency struct.
+	data, err := p.readPreprocessAndValidateYAML(
+		path,
+		"failed to preprocess agency Jinja2 template",
+		validate,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	var agency domain.Agency
 	if agencyErr := yaml.Unmarshal(data, &agency); agencyErr != nil {
 		return nil, domain.NewError(
