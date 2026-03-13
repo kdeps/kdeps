@@ -67,15 +67,23 @@ run:
 - [`pdf:`](https://kdeps.com/resources/pdf) – PDF generation from HTML or Markdown
 - [`exec:`](https://kdeps.com/resources/exec) – Shell commands and automation
 - [`botReply:`](https://kdeps.com/concepts/input-sources#chat-bot-platforms) – Send messages to Discord/Slack/Telegram
+- [`agent:`](https://kdeps.com/concepts/agency) – Delegate work to another agent in an agency
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
 
+### 🏢 [Agency & Multi-Agent Orchestration](https://kdeps.com/concepts/agency)
+- **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point
+- **Auto-discovery** – `agents/**/workflow.*` dirs and `agents/*.kdeps` archives discovered automatically
+- **`.kagency` archives** – Pack the full agency into one portable file: `kdeps package my-agency/`
+- **Docker / ISO / binary** – `kdeps build`, `kdeps export iso`, and `kdeps prepackage` all accept agencies
+
 ## CLI Cheatsheet
-- `kdeps run` – Execute workflows with hot reload
+- `kdeps run` – Execute workflows or agencies with hot reload
 - `kdeps new` – Create projects via interactive wizard
 - `kdeps validate` – Check YAML syntax and logic
-- `kdeps build` – Create Docker images from workflows
+- `kdeps package` – Pack a workflow (`.kdeps`) or agency (`.kagency`) into a portable archive
+- `kdeps build` – Create Docker images from workflows or agencies
 - `kdeps push` – Live-update running containers
-- `kdeps export iso` – Generate bootable edge ISOs
-- `kdeps prepackage` – Bundle a .kdeps file into self-contained executables per arch
+- `kdeps export iso` – Generate bootable edge ISOs from workflows or agencies
+- `kdeps prepackage` – Bundle a `.kdeps`/`.kagency` file into self-contained executables per arch
 
 [Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0

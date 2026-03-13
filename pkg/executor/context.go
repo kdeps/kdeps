@@ -124,6 +124,11 @@ type ExecutionContext struct {
 	// Nil for non-bot executions.
 	BotSend BotSendFunc
 
+	// AgentPaths maps agent name (metadata.name) → workflow file path.
+	// Populated when running in an agency context so that the `agent` resource
+	// type can locate sibling agents by name.
+	AgentPaths map[string]string
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string

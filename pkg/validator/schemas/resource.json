@@ -6,36 +6,81 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+          "enum": [
+            "string",
+            "integer",
+            "number",
+            "boolean",
+            "array",
+            "object",
+            "email",
+            "url",
+            "uuid",
+            "date"
+          ]
         },
-        "minLength": { "type": "integer" },
-        "maxLength": { "type": "integer" },
-        "pattern": { "type": "string" },
-        "min": { "type": "number" },
-        "max": { "type": "number" },
-        "minimum": { "type": "number" },
-        "maximum": { "type": "number" },
-        "minItems": { "type": "integer" },
-        "maxItems": { "type": "integer" },
-        "enum": { "type": "array" },
-        "message": { "type": "string" }
+        "minLength": {
+          "type": "integer"
+        },
+        "maxLength": {
+          "type": "integer"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "maximum": {
+          "type": "number"
+        },
+        "minItems": {
+          "type": "integer"
+        },
+        "maxItems": {
+          "type": "integer"
+        },
+        "enum": {
+          "type": "array"
+        },
+        "message": {
+          "type": "string"
+        }
       }
     }
   },
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata", "run"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "run"
+  ],
   "properties": {
     "apiVersion": {
       "type": "string",
-      "enum": ["kdeps.io/v1"]
+      "enum": [
+        "kdeps.io/v1"
+      ]
     },
     "kind": {
       "type": "string",
-      "enum": ["Resource"]
+      "enum": [
+        "Resource"
+      ]
     },
     "metadata": {
       "type": "object",
-      "required": ["actionId", "name"],
+      "required": [
+        "actionId",
+        "name"
+      ],
       "properties": {
         "actionId": {
           "type": "string",
@@ -73,7 +118,13 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "DELETE",
+                  "PATCH"
+                ]
               }
             },
             "routes": {
@@ -133,38 +184,78 @@
                   },
                   "type": {
                     "type": "string",
-                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                    "enum": [
+                      "string",
+                      "integer",
+                      "number",
+                      "boolean",
+                      "array",
+                      "object",
+                      "email",
+                      "url",
+                      "uuid",
+                      "date"
+                    ]
                   },
-                  "minLength": { "type": "integer" },
-                  "maxLength": { "type": "integer" },
-                  "pattern": { "type": "string" },
-                  "min": { "type": "number" },
-                  "max": { "type": "number" },
-                  "minimum": { "type": "number" },
-                  "maximum": { "type": "number" },
-                  "minItems": { "type": "integer" },
-                  "maxItems": { "type": "integer" },
-                  "enum": { "type": "array" },
-                  "message": { "type": "string" }
+                  "minLength": {
+                    "type": "integer"
+                  },
+                  "maxLength": {
+                    "type": "integer"
+                  },
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  },
+                  "minimum": {
+                    "type": "number"
+                  },
+                  "maximum": {
+                    "type": "number"
+                  },
+                  "minItems": {
+                    "type": "integer"
+                  },
+                  "maxItems": {
+                    "type": "integer"
+                  },
+                  "enum": {
+                    "type": "array"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
                 }
               }
             },
             "properties": {
               "type": "object",
               "description": "Alias for rules: map of field name to rule config",
-              "additionalProperties": { "$ref": "#/definitions/fieldRule" }
+              "additionalProperties": {
+                "$ref": "#/definitions/fieldRule"
+              }
             },
             "fields": {
               "type": "object",
               "description": "Alias for rules: map of field name to rule config",
-              "additionalProperties": { "$ref": "#/definitions/fieldRule" }
+              "additionalProperties": {
+                "$ref": "#/definitions/fieldRule"
+              }
             },
             "expr": {
               "type": "array",
               "description": "Custom expression-based validation rules",
               "items": {
                 "type": "object",
-                "required": ["expr", "message"],
+                "required": [
+                  "expr",
+                  "message"
+                ],
                 "properties": {
                   "expr": {
                     "type": "string"
@@ -185,7 +276,18 @@
             },
             "backend": {
               "type": "string",
-              "enum": ["ollama", "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek"]
+              "enum": [
+                "ollama",
+                "openai",
+                "anthropic",
+                "google",
+                "cohere",
+                "mistral",
+                "together",
+                "perplexity",
+                "groq",
+                "deepseek"
+              ]
             },
             "baseUrl": {
               "type": "string"
@@ -195,7 +297,15 @@
             },
             "contextLength": {
               "type": "integer",
-              "enum": [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+              "enum": [
+                4096,
+                8192,
+                16384,
+                32768,
+                65536,
+                131072,
+                262144
+              ]
             },
             "role": {
               "type": "string"
@@ -261,7 +371,13 @@
             },
             "method": {
               "type": "string",
-              "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
             },
             "headers": {
               "type": "object"
@@ -288,7 +404,11 @@
             },
             "format": {
               "type": "string",
-              "enum": ["json", "csv", "table"]
+              "enum": [
+                "json",
+                "csv",
+                "table"
+              ]
             },
             "maxRows": {
               "type": "integer"
@@ -382,13 +502,49 @@
             }
           }
         },
+        "agent": {
+          "type": "object",
+          "description": "Invoke another agent within the same agency",
+          "properties": {
+            "agent": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Deprecated: use \"name\" instead. Previously used to specify the target agent workflow name (metadata.name)."
+            },
+            "params": {
+              "type": "object",
+              "description": "Input parameters forwarded to the target agent (accessible via get('key'))"
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name (metadata.name) of the target agent workflow (preferred; use instead of legacy \"agent\" key)"
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "name"
+              ]
+            },
+            {
+              "required": [
+                "agent"
+              ]
+            }
+          ]
+        },
         "onError": {
           "type": "object",
           "description": "Error handling configuration for the resource",
           "properties": {
             "action": {
               "type": "string",
-              "enum": ["continue", "fail", "retry"],
+              "enum": [
+                "continue",
+                "fail",
+                "retry"
+              ],
               "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
             },
             "maxRetries": {

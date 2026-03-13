@@ -49,6 +49,7 @@ const (
 type SchemaValidator struct {
 	workflowSchema *gojsonschema.Schema
 	resourceSchema *gojsonschema.Schema
+	agencySchema   *gojsonschema.Schema
 }
 
 // NewSchemaValidator creates a new schema validator.
@@ -79,6 +80,18 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 		return nil, fmt.Errorf("failed to load resource schema: %w", err)
 	}
 
+	// Load agency schema.
+	agencySchemaData, err := schemas.ReadFile("schemas/agency.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read agency schema: %w", err)
+	}
+
+	agencySchemaLoader := gojsonschema.NewBytesLoader(agencySchemaData)
+	sv.agencySchema, err = gojsonschema.NewSchema(agencySchemaLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load agency schema: %w", err)
+	}
+
 	return sv, nil
 }
 
@@ -95,6 +108,11 @@ func (sv *SchemaValidator) GetWorkflowSchemaForTesting() *gojsonschema.Schema {
 // GetResourceSchemaForTesting returns the resource schema for testing.
 func (sv *SchemaValidator) GetResourceSchemaForTesting() *gojsonschema.Schema {
 	return sv.resourceSchema
+}
+
+// GetAgencySchemaForTesting returns the agency schema for testing.
+func (sv *SchemaValidator) GetAgencySchemaForTesting() *gojsonschema.Schema {
+	return sv.agencySchema
 }
 
 // ValidateWorkflow validates workflow data against the workflow schema.
@@ -165,6 +183,28 @@ func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 			fmt.Fprintf(&errMsgSb160, "  - %s\n", enhancedMsg)
 		}
 		errMsg += errMsgSb160.String()
+		return errors.New(errMsg)
+	}
+
+	return nil
+}
+
+// ValidateAgency validates agency data against the agency schema.
+func (sv *SchemaValidator) ValidateAgency(data map[string]interface{}) error {
+	documentLoader := gojsonschema.NewGoLoader(data)
+	result, err := sv.agencySchema.Validate(documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		errMsg := "agency validation failed:\n"
+		var errMsgBuilder strings.Builder
+		for _, desc := range result.Errors() {
+			enhancedMsg := sv.enhanceErrorMessage(desc, "agency")
+			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
+		}
+		errMsg += errMsgBuilder.String()
 		return errors.New(errMsg)
 	}
 

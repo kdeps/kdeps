@@ -53,3 +53,12 @@ var DownloadKdepsBinaryToTemp = downloadKdepsBinaryToTemp //nolint:gochecknoglob
 // GithubReleasesBaseURL allows tests to override the base URL for downloads.
 // Tests should restore the original value via t.Cleanup().
 var GithubReleasesBaseURL = &githubReleasesBaseURL //nolint:gochecknoglobals // test-only export
+
+// IsAgencyFile exposes the unexported isAgencyFile helper for unit testing.
+var IsAgencyFile = isAgencyFile //nolint:gochecknoglobals // test-only export
+
+// BuildAgentNameMap exposes the unexported buildAgentNameMap helper for unit testing.
+var BuildAgentNameMap = buildAgentNameMap //nolint:gochecknoglobals // test-only export
+
+// IsKagencyFile exposes the unexported isKagencyFile helper for unit testing.
+var IsKagencyFile = isKagencyFile //nolint:gochecknoglobals // test-only export

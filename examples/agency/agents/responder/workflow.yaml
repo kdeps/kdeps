@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: responder-agent
+  description: Helper agent.  Builds a greeting message from the `name` input.
+  version: "1.0.0"
+  targetActionId: respond
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: true
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: respond
+      name: Respond
+    run:
+      # The `name` key is forwarded from greeter-agent via the agent.params field.
+      # It is accessible here via get('name') because the engine injects params
+      # as the request body of the sub-agent execution.
+      apiResponse:
+        success: true
+        response: "Hello, {{ get('name', 'World') }}! (from responder-agent)"
