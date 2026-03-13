@@ -56,6 +56,7 @@ run:
   pdf: { ... }         # PDF generation
   botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
+  agent: { ... }       # Call another agent (agency)
   apiResponse: { ... } # API response
 ```
 
@@ -73,6 +74,7 @@ run:
 | `pdf` | PDF generation | Reports, letters, tailored documents |
 | `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
+| `agent` | Inter-agent delegation | Multi-agent agencies |
 | `apiResponse` | Response formatting | Final output |
 
 ## Metadata
@@ -395,3 +397,4 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [PDF Resource](pdf) - PDF generation from HTML or Markdown
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
+- [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration

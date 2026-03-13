@@ -1,0 +1,18 @@
+apiVersion: kdeps.io/v1
+kind: Agency
+
+metadata:
+  name: greeter-agency
+  description: |
+    A multi-agent agency example.
+
+    The greeter-agent is the entry point.  It accepts a `name` query parameter,
+    calls the responder-agent to build a reply, and returns the combined result.
+  version: "1.0.0"
+  # targetAgentId names the agent that is executed first when the agency starts.
+  targetAgentId: greeter-agent
+
+# List of agent directories (relative paths from this file).
+agents:
+  - agents/greeter
+  - agents/responder

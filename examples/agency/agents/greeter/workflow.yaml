@@ -1,0 +1,55 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: greeter-agent
+  description: Entry-point agent.  Accepts a name, calls responder-agent, and replies.
+  version: "1.0.0"
+  # This is the resource that runs when this workflow is executed.
+  targetActionId: greet
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 17100
+
+  apiServer:
+    routes:
+      - path: /api/v1/greet
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowedOrigins: ["*"]
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: true
+
+resources:
+  # ── Step 1: Call the responder-agent ─────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: callResponder
+      name: Call Responder
+    run:
+      # The `agent` resource type calls another agent within the agency.
+      # The target is identified by its workflow metadata.name.
+      agent:
+        name: responder-agent
+        params:
+          # Forward the incoming `name` query parameter to the responder.
+          name: "{{ get('name') }}"
+
+  # ── Step 2: Return the greeting ──────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: greet
+      name: Greet
+      requires: [callResponder]
+    run:
+      # The callResponder output is the value returned by responder-agent.
+      apiResponse:
+        success: true
+        response: "{{ output('callResponder') }}"

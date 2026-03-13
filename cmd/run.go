@@ -124,8 +124,37 @@ func resolveWorkflowPath(inputPath string) (string, func(), error) {
 		return resolveKdepsPackage(inputPath)
 	}
 
+	// Check if input is a .kagency agency package file.
+	if isKagencyFile(inputPath) {
+		return resolveKagencyPackage(inputPath)
+	}
+
 	// Handle regular file or directory path
 	return ResolveRegularPath(inputPath)
+}
+
+// resolveKagencyPackage extracts a .kagency archive to a temp dir and returns
+// the path to the agency manifest file inside it.
+func resolveKagencyPackage(inputPath string) (string, func(), error) {
+	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", inputPath)
+
+	// Reuse the generic tar.gz extraction from .kdeps infrastructure.
+	tempDir, err := ExtractPackage(inputPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to extract agency package: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tempDir) }
+
+	agencyPath := FindAgencyFile(tempDir)
+	if agencyPath == "" {
+		cleanup()
+		return "", nil, fmt.Errorf("no agency.yaml found inside %s", inputPath)
+	}
+
+	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
+	fmt.Fprintf(os.Stdout, "Agency: %s\n", filepath.Base(agencyPath))
+
+	return agencyPath, cleanup, nil
 }
 
 // resolveKdepsPackage handles .kdeps package file resolution.
@@ -192,8 +221,34 @@ func FindWorkflowFile(dir string) string {
 	return ""
 }
 
+// FindAgencyFile returns the path to the agency file inside dir.
+// It tries agency.yaml first, then agency.yaml.j2, then agency.yml,
+// agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
+func FindAgencyFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "agency.yaml"),
+		filepath.Join(dir, "agency.yaml.j2"),
+		filepath.Join(dir, "agency.yml"),
+		filepath.Join(dir, "agency.yml.j2"),
+		filepath.Join(dir, "agency.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // ResolveDirectoryPath resolves workflow path for directory inputs.
+// It prefers an agency file when both an agency.yml and workflow.yaml exist.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
+	// Check for agency file first.
+	if agencyPath := FindAgencyFile(absPath); agencyPath != "" {
+		fmt.Fprintf(os.Stdout, "Agency: %s\n", agencyPath)
+		return agencyPath, nil, nil
+	}
+
 	workflowPath := FindWorkflowFile(absPath)
 	if workflowPath == "" {
 		return "", nil, fmt.Errorf("workflow.yaml not found in directory: %s", absPath)
@@ -249,8 +304,23 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
 }
 
+// isAgencyFile reports whether path points to an agency file based on its base name.
+func isAgencyFile(path string) bool {
+	base := filepath.Base(path)
+	return base == "agency.yaml" ||
+		base == "agency.yml" ||
+		base == "agency.yaml.j2" ||
+		base == "agency.yml.j2" ||
+		base == "agency.j2"
+}
+
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
 func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
+	// Route to agency execution when an agency file was resolved.
+	if isAgencyFile(workflowPath) {
+		return ExecuteAgencyStepsWithFlags(cmd, workflowPath, flags)
+	}
+
 	// Check if debug flag is set
 	debugMode, _ := cmd.Flags().GetBool("debug")
 
@@ -330,6 +400,114 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	return dispatchExecution(workflow, workflowPath, flags.DevMode, debugMode)
 }
 
+// ExecuteAgencyStepsWithFlags parses an agency file, discovers all agents, and
+// executes the agency entry point (targetAgentId) with the full agent map
+// available for inter-agent calls via the `agent` resource type.
+func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *RunFlags) error {
+	agencyDir := filepath.Dir(agencyPath)
+
+	// 0. Preprocess all .j2 files in the agency directory.
+	if prepErr := templates.PreprocessJ2Files(agencyDir); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
+
+	// 1. Parse agency file and discover agent workflow paths.
+	fmt.Fprintln(os.Stdout, "\n[1/3] Parsing agency...")
+	agency, agentPaths, yamlParser, err := ParseAgencyFileWithParser(agencyPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse agency: %w", err)
+	}
+	// Clean up any temp dirs created for .kdeps packages after execution.
+	defer yamlParser.Cleanup()
+	fmt.Fprintf(os.Stdout, "  ✓ Loaded: %s v%s\n", agency.Metadata.Name, agency.Metadata.Version)
+	fmt.Fprintf(os.Stdout, "  ✓ Agents: %d\n", len(agentPaths))
+
+	// 2. Build the agent name → workflow-path map by parsing each agent's metadata.name.
+	fmt.Fprintln(os.Stdout, "\n[2/3] Indexing agents...")
+	agentNameMap, targetWorkflowPath, err := buildAgentNameMap(agentPaths, agency.Metadata.TargetAgentID)
+	if err != nil {
+		return fmt.Errorf("failed to index agents: %w", err)
+	}
+	for name, path := range agentNameMap {
+		rel, relErr := filepath.Rel(agencyDir, path)
+		if relErr != nil {
+			rel = path
+		}
+		marker := ""
+		if name == agency.Metadata.TargetAgentID {
+			marker = " (entry point)"
+		}
+		fmt.Fprintf(os.Stdout, "  ✓ %s → %s%s\n", name, rel, marker)
+	}
+
+	// 3. Execute the target agent (entry point).
+	fmt.Fprintln(os.Stdout, "\n[3/3] Executing entry point agent...")
+	return executeAgencyEntryPoint(cmd, targetWorkflowPath, agentNameMap, flags)
+}
+
+// buildAgentNameMap reads each agent's workflow metadata.name and returns a
+// name→path map along with the resolved path for the target agent.
+// If targetAgentID is empty and there is exactly one agent, that agent is used
+// as the implicit entry point.
+func buildAgentNameMap(agentPaths []string, targetAgentID string) (map[string]string, string, error) {
+	nameMap := make(map[string]string, len(agentPaths))
+
+	for _, p := range agentPaths {
+		wf, parseErr := ParseWorkflowFile(p)
+		if parseErr != nil {
+			return nil, "", fmt.Errorf("failed to parse agent workflow %s: %w", p, parseErr)
+		}
+		name := wf.Metadata.Name
+		if name == "" {
+			return nil, "", fmt.Errorf("agent workflow %s has no metadata.name", p)
+		}
+		nameMap[name] = p
+	}
+
+	// Resolve the entry point.
+	if targetAgentID != "" {
+		path, ok := nameMap[targetAgentID]
+		if !ok {
+			return nil, "", fmt.Errorf("targetAgentId %q not found in agency agents", targetAgentID)
+		}
+		return nameMap, path, nil
+	}
+
+	// Implicit entry point: use the first (or only) agent.
+	if len(agentPaths) == 0 {
+		return nameMap, "", nil
+	}
+	// Use the first discovered path as implicit entry point.
+	return nameMap, agentPaths[0], nil
+}
+
+// executeAgencyEntryPoint runs the entry-point agent workflow with the full
+// agentNameMap injected into the execution context for inter-agent calls.
+func executeAgencyEntryPoint(
+	cmd *cobra.Command,
+	workflowPath string,
+	agentNameMap map[string]string,
+	flags *RunFlags,
+) error {
+	if workflowPath == "" {
+		fmt.Fprintln(os.Stdout, "  (no agents to execute)")
+		return nil
+	}
+
+	debugMode, _ := cmd.Flags().GetBool("debug")
+
+	workflow, err := ParseWorkflowFile(workflowPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse entry-point workflow: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "  ✓ Agent: %s v%s\n", workflow.Metadata.Name, workflow.Metadata.Version)
+
+	// Set up the engine with the full agent map so agent resource calls work.
+	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
+
+	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode)
+}
+
 // ParseWorkflowFile parses a workflow YAML file.
 func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 	// Create schema validator.
@@ -352,6 +530,45 @@ func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 
 	// Resources are already loaded by ParseWorkflow.loadResources, no need to load again.
 	return workflow, nil
+}
+
+// ParseAgencyFile parses an agency YAML file and returns the parsed Agency along
+// with the discovered agent workflow paths.
+func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
+	agency, agentPaths, _, err := ParseAgencyFileWithParser(path)
+	return agency, agentPaths, err
+}
+
+// ParseAgencyFileWithParser is like ParseAgencyFile but also returns the YAML
+// parser so the caller can invoke parser.Cleanup() after it is done with the
+// returned paths (important when .kdeps agents were extracted to temp dirs).
+func ParseAgencyFileWithParser(path string) (*domain.Agency, []string, *yaml.Parser, error) {
+	// Create schema validator.
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create schema validator: %w", err)
+	}
+
+	// Create expression parser.
+	exprParser := expression.NewParser()
+
+	// Create YAML parser.
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	// Parse agency.
+	agency, err := yamlParser.ParseAgency(path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	// Discover agent workflow paths.
+	agencyDir := filepath.Dir(path)
+	agentPaths, err := yamlParser.DiscoverAgentWorkflows(agency, agencyDir)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to discover agent workflows: %w", err)
+	}
+
+	return agency, agentPaths, yamlParser, nil
 }
 
 // LoadResourceFiles loads all resource files from resources directory.
@@ -1269,6 +1486,248 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 
 	engine.SetRegistry(registry)
 	return engine
+}
+
+// setupEngineWithAgentPaths is like setupEngine but also injects the agentNameMap
+// into every new ExecutionContext so that `agent` resources can call sibling agents.
+func setupEngineWithAgentPaths(
+	workflow *domain.Workflow,
+	agentNameMap map[string]string,
+	debugMode bool,
+) *executor.Engine {
+	eng := setupEngine(workflow, debugMode)
+	eng.SetNewExecutionContextForAgency(agentNameMap)
+	return eng
+}
+
+// dispatchExecutionWithEngine is like dispatchExecution but uses a pre-built engine
+// so caller can inject custom context factories (e.g. for agency AgentPaths).
+func dispatchExecutionWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode, debugMode bool,
+) error {
+	s := workflow.Settings
+
+	// For server and bot modes, the pre-built engine is used where possible.
+	// HTTP/Web/BotReply server paths create their own long-running executor loop.
+	if s.WebServerMode && s.APIServerMode {
+		return startBothServersWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+	}
+	if s.WebServerMode {
+		return StartWebServer(workflow, workflowPath, devMode)
+	}
+	if s.APIServerMode {
+		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+	}
+	if s.Input != nil && s.Input.HasBotSource() {
+		return StartBotRunnersWithEngine(eng, workflow, debugMode)
+	}
+	if s.Input != nil && s.Input.HasMediaSource() &&
+		s.Input.ExecutionType == domain.InputExecutionTypePolling {
+		return StartMediaRunners(workflow, debugMode)
+	}
+	return executeSingleRunWithEngine(eng, workflow)
+}
+
+// executeSingleRunWithEngine runs a workflow once using the supplied engine.
+func executeSingleRunWithEngine(eng *executor.Engine, workflow *domain.Workflow) error {
+	output, err := eng.Execute(workflow, nil)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(os.Stdout, "\n✓ Execution complete!")
+	fmt.Fprintln(os.Stdout, "\nOutput:")
+	fmt.Fprintf(os.Stdout, "%v\n", output)
+	return nil
+}
+
+// startHTTPServerWithEngine starts the HTTP API server using a pre-built engine.
+func startHTTPServerWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode, debugMode bool,
+) error {
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	}
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
+
+	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+		return fmt.Errorf("API server cannot start: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
+	printRoutes(workflow.Settings.APIServer)
+	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
+
+	if devMode {
+		fmt.Fprintln(os.Stdout, "  Dev mode: File watching enabled")
+	}
+
+	logger := logging.NewLogger(debugMode)
+	executorAdapter := &RequestContextAdapter{Engine: eng}
+	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP server: %w", err)
+	}
+
+	httpServer.SetWorkflowPath(workflowPath)
+	if devMode {
+		setupDevMode(httpServer, workflowPath)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- httpServer.Start(addr, devMode)
+	}()
+
+	select {
+	case sig := <-sigChan:
+		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		defer cancel()
+		if shutdownErr := httpServer.Shutdown(stopCtx); shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", shutdownErr)
+		}
+		fmt.Fprintln(os.Stdout, "✓ Server stopped")
+		return nil
+	case chanErr := <-errChan:
+		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
+			return chanErr
+		}
+		return nil
+	}
+}
+
+// startBothServersWithEngine starts both the API and web server using a pre-built engine.
+func startBothServersWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode, debugMode bool,
+) error {
+	logger := logging.NewLogger(debugMode)
+	executorAdapter := &RequestContextAdapter{Engine: eng}
+	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP server: %w", err)
+	}
+	httpServer.SetWorkflowPath(workflowPath)
+	if devMode {
+		setupDevMode(httpServer, workflowPath)
+	}
+
+	webServer, err := http.NewWebServer(workflow, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create web server: %w", err)
+	}
+	webServer.SetWorkflowDir(workflowPath)
+
+	// Merge web routes onto API router.
+	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
+
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	}
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
+	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
+	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	errChan := make(chan error, 1)
+	go func() {
+		if startErr := httpServer.Start(addr, devMode); startErr != nil {
+			errChan <- fmt.Errorf("server error: %w", startErr)
+		}
+	}()
+
+	select {
+	case sig := <-sigChan:
+		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		defer cancel()
+		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+			fmt.Fprintf(os.Stderr, "Error shutting down server: %v\n", shutdownErr)
+		}
+		webServer.Stop()
+		fmt.Fprintln(os.Stdout, "✓ Server stopped")
+		return nil
+	case chanErr := <-errChan:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		defer cancel()
+		_ = httpServer.Shutdown(shutdownCtx)
+		webServer.Stop()
+		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
+			return chanErr
+		}
+		return nil
+	}
+}
+
+// StartBotRunnersWithEngine starts bot runners using a pre-built engine.
+func StartBotRunnersWithEngine(eng *executor.Engine, workflow *domain.Workflow, debugMode bool) error {
+	input := workflow.Settings.Input
+	logger := logging.NewLogger(debugMode)
+
+	execType := domain.BotExecutionTypePolling
+	if input.Bot != nil && input.Bot.ExecutionType != "" {
+		execType = input.Bot.ExecutionType
+	}
+
+	if execType == domain.BotExecutionTypeStateless {
+		ctx := context.Background()
+		return bot.RunStateless(ctx, workflow, eng, logger)
+	}
+
+	var platforms []string
+	if input.Bot != nil {
+		if input.Bot.Discord != nil {
+			platforms = append(platforms, "discord")
+		}
+		if input.Bot.Slack != nil {
+			platforms = append(platforms, "slack")
+		}
+		if input.Bot.Telegram != nil {
+			platforms = append(platforms, "telegram")
+		}
+		if input.Bot.WhatsApp != nil {
+			platforms = append(platforms, "whatsapp")
+		}
+	}
+	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
+	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
+
+	dispatcher, dispErr := bot.NewDispatcher(workflow, eng, logger)
+	if dispErr != nil {
+		return fmt.Errorf("failed to create bot dispatcher: %w", dispErr)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- dispatcher.Run(context.Background())
+	}()
+
+	select {
+	case <-sigChan:
+		fmt.Fprintln(os.Stdout, "\n✓ Shutting down bot runners...")
+		return nil
+	case chanErr := <-errChan:
+		return chanErr
+	}
 }
 
 func setupDevMode(httpServer *http.Server, workflowPath string) {

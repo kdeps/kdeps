@@ -236,7 +236,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding).
+// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, agent).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	n := 0
 	if run.Chat != nil {
@@ -272,6 +272,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Email != nil {
 		n++
 	}
+	if run.Agent != nil {
+		n++
+	}
 	return n
 }
 
@@ -288,7 +291,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 
 	// Validate execution types.
-	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts, botReply.
+	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts, botReply, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := countPrimaryExecutionTypes(&resource.Run)
 	hasAPIResponse := resource.Run.APIResponse != nil
@@ -304,14 +307,18 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource must specify at least one execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, apiResponse)",
+			"resource must specify at least one execution type"+
+				" (chat, httpClient, sql, python, exec, tts, botReply,"+
+				" scraper, embedding, pdf, email, agent, apiResponse)",
 			nil,
 		)
 	}
 	if primaryCount > 1 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"resource can only specify one primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email)",
+			"resource can only specify one primary execution type"+
+				" (chat, httpClient, sql, python, exec, tts, botReply,"+
+				" scraper, embedding, pdf, email, agent)",
 			nil,
 		)
 	}
@@ -610,7 +617,8 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 	if executionType == domain.BotExecutionTypePolling && noPlatforms {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			"input.bot must configure at least one platform (discord, slack, telegram, or whatsApp) when executionType is polling",
+			"input.bot must configure at least one platform"+
+				" (discord, slack, telegram, or whatsApp) when executionType is polling",
 			nil,
 		)
 	}
@@ -828,7 +836,8 @@ func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(config *domain.Onlin
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			fmt.Sprintf(
-				"invalid transcriber online provider: %s. Available options: [openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai]",
+				"invalid transcriber online provider: %s."+
+					" Available options: [openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai]",
 				config.Provider,
 			),
 			nil,
@@ -956,7 +965,8 @@ func ValidateScraperConfig(config *domain.ScraperConfig) error {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			fmt.Sprintf(
-				"scraper.type %q is not valid (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
+				"scraper.type %q is not valid"+
+					" (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
 				config.Type,
 			),
 			nil,

@@ -111,6 +111,7 @@ export default defineConfig({
             { text: 'Request Object', link: '/concepts/request-object' },
             { text: 'Tools (Function Calling)', link: '/concepts/tools' },
             { text: 'Items Iteration', link: '/concepts/items' },
+            { text: 'Agency & Multi-Agent', link: '/concepts/agency' },
             { text: 'Validation', link: '/concepts/validation' },
             { text: 'Error Handling (onError)', link: '/concepts/error-handling' },
             { text: 'Route Restrictions', link: '/concepts/route-restrictions' },

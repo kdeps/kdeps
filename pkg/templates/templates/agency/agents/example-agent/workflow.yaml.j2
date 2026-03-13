@@ -1,0 +1,36 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: example-agent
+  description: Example agent in {{ name }}
+  version: {{ version }}
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+  # ── Entry-point resource ─────────────────────────────────────────────────────
+  # This resource is executed when the agency enters this agent.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: response
+      name: Response
+    run:
+      # Example: call a helper agent within the same agency.
+      # Uncomment this block and add a `helper` agent to the agency to try it.
+      #
+      # agent:
+      #   agent: helper-agent          # metadata.name of the target agent
+      #   params:
+      #     greeting: "{{ get('q') }}" # params accessible via get('greeting') in helper-agent
+      #
+      apiResponse:
+        success: true
+        response: "Hello from example-agent!"

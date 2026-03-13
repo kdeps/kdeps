@@ -1,0 +1,30 @@
+# {{ name }}
+
+{{ description }}
+
+## Structure
+
+```
+{{ name }}/
+├── agency.yaml            # Agency configuration
+└── agents/
+    └── example-agent/     # Individual agent
+        ├── workflow.yaml  # Agent workflow
+        └── resources/     # Agent resources
+```
+
+## Usage
+
+```bash
+# Run the agency
+kdeps run agency.yaml
+
+# Run a specific agent
+kdeps run agents/example-agent/workflow.yaml
+```
+
+## Adding Agents
+
+1. Create a new directory under `agents/`
+2. Add a `workflow.yaml` to it
+3. List the path in `agency.yaml` under `agents:`
