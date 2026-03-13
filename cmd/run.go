@@ -1882,7 +1882,7 @@ func ExtractTarFiles(tarReader *tar.Reader, tempDir string) error {
 			continue
 		}
 
-		if extractErr := ExtractFile(tarReader, targetPath); extractErr != nil {
+		if extractErr := ExtractFile(tarReader, header, targetPath); extractErr != nil {
 			return extractErr
 		}
 	}
@@ -1890,21 +1890,26 @@ func ExtractTarFiles(tarReader *tar.Reader, tempDir string) error {
 }
 
 // ValidateAndJoinPath validates a file path and joins it with the temp directory.
+// It uses filepath.Rel for a separator-aware check so that paths like
+// /tmp/destDir/../other or a tempDir that is a string-prefix of another
+// directory are both handled correctly.
 func ValidateAndJoinPath(headerName, tempDir string) (string, error) {
-	relPath, relErr := filepath.Rel("", headerName)
-	if relErr != nil || strings.Contains(relPath, "..") {
-		return "", fmt.Errorf("invalid file path: %s", headerName)
-	}
-	targetPath := filepath.Join(tempDir, relPath)
-
-	if !strings.HasPrefix(targetPath, tempDir) {
+	targetPath := filepath.Join(tempDir, headerName)
+	rel, relErr := filepath.Rel(tempDir, targetPath)
+	if relErr != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("invalid file path: %s", headerName)
 	}
 	return targetPath, nil
 }
 
-// ExtractFile extracts a single file from tar reader.
-func ExtractFile(tarReader *tar.Reader, targetPath string) error {
+// ExtractFile extracts a single file from tar reader.  The header is used to
+// enforce the size limit before any bytes are written so that oversized entries
+// are rejected rather than silently truncated.
+func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) error {
+	if header.Size > maxExtractFileSize {
+		return fmt.Errorf("archive entry %q exceeds maximum allowed size of %d bytes", header.Name, maxExtractFileSize)
+	}
+
 	if parentErr := os.MkdirAll(filepath.Dir(targetPath), 0750); parentErr != nil {
 		return fmt.Errorf("failed to create parent directory: %w", parentErr)
 	}
