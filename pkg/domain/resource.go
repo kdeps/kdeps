@@ -1212,11 +1212,12 @@ type PDFConfig struct {
 //
 // Example resource using agent call:
 //
-//run:
-//  agent:
-//    name: sql-agent
-//    params:
-//      query: "{{ get('q') }}"
+// run:
+//
+//	agent:
+//	  name: sql-agent
+//	  params:
+//	    query: "{{ get('q') }}"
 type AgentCallConfig struct {
 	// Name is the metadata.name of the target agent workflow in the agency.
 	// The legacy YAML key "agent" is also accepted for backward compatibility.

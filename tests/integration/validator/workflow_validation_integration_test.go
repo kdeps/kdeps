@@ -507,3 +507,139 @@ settings:
 	assert.Contains(t, responseRes.Run.APIResponse.Response, "message")
 	assert.Contains(t, responseRes.Run.APIResponse.Response, "code")
 }
+
+// TestWorkflowValidationIntegration_AgentResource verifies that a resource using the
+// `agent` execution type (inter-agent delegation) passes workflow validation.
+func TestWorkflowValidationIntegration_AgentResource(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	tmpDir := t.TempDir()
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	resourcesDir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o750))
+
+	// Write an agent-type resource (calls another agent).
+	agentResource := `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: call-helper
+  name: Call Helper
+run:
+  agent:
+    name: helper-agent
+    params:
+      query: "hello"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "agent-call.yaml"), []byte(agentResource), 0o600))
+
+	// Write the API-response resource that depends on the agent call.
+	responseResource := `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: final-response
+  name: Final Response
+  requires: [call-helper]
+run:
+  apiResponse:
+    success: true
+    response: "done"
+`
+	require.NoError(t, os.WriteFile(
+		filepath.Join(resourcesDir, "response.yaml"),
+		[]byte(responseResource),
+		0o600,
+	))
+
+	workflowContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: agent-validation-test
+  version: "1.0.0"
+  targetActionId: final-response
+settings:
+  agentSettings:
+    timezone: "UTC"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(workflowContent), 0o600))
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	require.NoError(t, workflowValidator.Validate(workflow))
+	require.Len(t, workflow.Resources, 2)
+
+	// Ensure the agent resource was parsed correctly.
+	for _, res := range workflow.Resources {
+		if res.Metadata.ActionID == "call-helper" {
+			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
+			assert.Equal(t, "helper-agent", res.Run.Agent.Name)
+			assert.Equal(t, "hello", res.Run.Agent.Params["query"])
+		}
+	}
+}
+
+// TestWorkflowValidationIntegration_AgentResourceLegacyKey verifies that the legacy
+// `agent.agent:` key (deprecated; superseded by `agent.name:`) is still accepted.
+func TestWorkflowValidationIntegration_AgentResourceLegacyKey(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	tmpDir := t.TempDir()
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	resourcesDir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0o750))
+
+	// Legacy format: agent.agent instead of agent.name.
+	legacyResource := `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: legacy-call
+  name: Legacy Call
+run:
+  agent:
+    agent: helper-agent
+`
+	require.NoError(t, os.WriteFile(
+		filepath.Join(resourcesDir, "legacy-agent.yaml"),
+		[]byte(legacyResource),
+		0o600,
+	))
+
+	workflowContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: legacy-agent-test
+  version: "1.0.0"
+  targetActionId: legacy-call
+settings:
+  agentSettings:
+    timezone: "UTC"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(workflowContent), 0o600))
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	require.NoError(t, workflowValidator.Validate(workflow))
+
+	// Verify the legacy key was parsed correctly into the Name field.
+	for _, res := range workflow.Resources {
+		if res.Metadata.ActionID == "legacy-call" {
+			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
+			assert.Equal(t, "helper-agent", res.Run.Agent.Name, "legacy 'agent:' key should populate Name field")
+		}
+	}
+}

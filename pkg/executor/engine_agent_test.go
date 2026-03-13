@@ -79,7 +79,7 @@ func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{
-						Name:  "helper-agent",
+						Name:   "helper-agent",
 						Params: map[string]interface{}{"key": "value"},
 					},
 				},
@@ -161,7 +161,7 @@ func TestExecuteAgent_SubAgentExecution(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{
-						Name:  "helper-agent",
+						Name:   "helper-agent",
 						Params: map[string]interface{}{"greeting": "hello"},
 					},
 				},
@@ -200,7 +200,7 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{ActionID: "go", Name: "Go"},
+				Metadata:   domain.ResourceMetadata{ActionID: "go", Name: "Go"},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{Name: "agent-a"},
 				},

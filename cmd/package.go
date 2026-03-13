@@ -137,7 +137,8 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 	workflowPath := FindWorkflowFile(workflowDir)
 	if workflowPath == "" {
 		return fmt.Errorf(
-			"no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			"no workflow file found in %s"+
+				" (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
 			workflowDir,
 		)
 	}
@@ -193,7 +194,8 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 func ValidateWorkflowDir(dir string) error {
 	if FindWorkflowFile(dir) == "" {
 		return fmt.Errorf(
-			"no workflow file found in %s (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			"no workflow file found in %s"+
+				" (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
 			dir,
 		)
 	}
@@ -418,57 +420,57 @@ const kagencyExtension = ".kagency"
 // PackageAgencyWithFlags packages an agency directory into a .kagency archive.
 // The archive is a tar.gz containing agency.yaml and the entire agents/ sub-tree.
 func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
-agencyDir := args[0]
+	agencyDir := args[0]
 
-fmt.Fprintf(os.Stdout, "Packaging agency: %s\n\n", agencyDir)
+	fmt.Fprintf(os.Stdout, "Packaging agency: %s\n\n", agencyDir)
 
-// Locate the agency manifest.
-agencyFile := FindAgencyFile(agencyDir)
-if agencyFile == "" {
-return fmt.Errorf("no agency.yaml / agency.yml found in %s", agencyDir)
-}
+	// Locate the agency manifest.
+	agencyFile := FindAgencyFile(agencyDir)
+	if agencyFile == "" {
+		return fmt.Errorf("no agency.yaml / agency.yml found in %s", agencyDir)
+	}
 
-// Parse the agency to get metadata.
-schemaValidator, err := validator.NewSchemaValidator()
-if err != nil {
-return fmt.Errorf("failed to create schema validator: %w", err)
-}
-exprParser := expression.NewParser()
-parser := yaml.NewParser(schemaValidator, exprParser)
+	// Parse the agency to get metadata.
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
+	}
+	exprParser := expression.NewParser()
+	parser := yaml.NewParser(schemaValidator, exprParser)
 
-agency, err := parser.ParseAgency(agencyFile)
-if err != nil {
-return fmt.Errorf("failed to parse agency: %w", err)
-}
+	agency, err := parser.ParseAgency(agencyFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse agency: %w", err)
+	}
 
-// Determine output name.
-pkgName := flags.Name
-if pkgName == "" {
-pkgName = fmt.Sprintf("%s-%s", agency.Metadata.Name, agency.Metadata.Version)
-}
+	// Determine output name.
+	pkgName := flags.Name
+	if pkgName == "" {
+		pkgName = fmt.Sprintf("%s-%s", agency.Metadata.Name, agency.Metadata.Version)
+	}
 
-outputDir := flags.Output
-if outputDir == "" {
-outputDir = "."
-}
+	outputDir := flags.Output
+	if outputDir == "" {
+		outputDir = "."
+	}
 
-archivePath := filepath.Join(outputDir, pkgName+kagencyExtension)
-if archiveErr := CreateAgencyPackageArchive(agencyDir, archivePath); archiveErr != nil {
-return fmt.Errorf("failed to create agency archive: %w", archiveErr)
-}
+	archivePath := filepath.Join(outputDir, pkgName+kagencyExtension)
+	if archiveErr := CreateAgencyPackageArchive(agencyDir, archivePath); archiveErr != nil {
+		return fmt.Errorf("failed to create agency archive: %w", archiveErr)
+	}
 
-fmt.Fprintln(os.Stdout, "✓ Agency manifest validated")
-fmt.Fprintln(os.Stdout, "✓ Agent sub-directories collected")
-fmt.Fprintln(os.Stdout, "✓ Package created")
-fmt.Fprintln(os.Stdout)
-fmt.Fprintf(os.Stdout, "Created: %s\n", archivePath)
-fmt.Fprintln(os.Stdout)
-fmt.Fprintln(os.Stdout, "Next steps:")
-fmt.Fprintf(os.Stdout, "  kdeps run %s\n", archivePath)
-fmt.Fprintf(os.Stdout, "  kdeps build %s\n", archivePath)
-fmt.Fprintf(os.Stdout, "  kdeps export iso %s\n", archivePath)
+	fmt.Fprintln(os.Stdout, "✓ Agency manifest validated")
+	fmt.Fprintln(os.Stdout, "✓ Agent sub-directories collected")
+	fmt.Fprintln(os.Stdout, "✓ Package created")
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Created: %s\n", archivePath)
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "Next steps:")
+	fmt.Fprintf(os.Stdout, "  kdeps run %s\n", archivePath)
+	fmt.Fprintf(os.Stdout, "  kdeps build %s\n", archivePath)
+	fmt.Fprintf(os.Stdout, "  kdeps export iso %s\n", archivePath)
 
-return nil
+	return nil
 }
 
 // CreateAgencyPackageArchive creates a .kagency tar.gz archive from agencyDir.
@@ -477,26 +479,26 @@ return nil
 //   - agents/   (full sub-tree)
 //   - Any other top-level supporting files (*.j2, data/, etc.) — excluding hidden entries.
 func CreateAgencyPackageArchive(agencyDir, archivePath string) error {
-if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
-return fmt.Errorf("failed to create output directory: %w", err)
-}
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
 
-file, err := os.Create(archivePath)
-if err != nil {
-return fmt.Errorf("failed to create archive file: %w", err)
-}
-defer file.Close()
+	file, err := os.Create(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to create archive file: %w", err)
+	}
+	defer file.Close()
 
-gzipWriter := gzip.NewWriter(file)
-defer gzipWriter.Close()
+	gzipWriter := gzip.NewWriter(file)
+	defer gzipWriter.Close()
 
-tarWriter := tar.NewWriter(gzipWriter)
-defer tarWriter.Close()
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
 
-return filepath.Walk(agencyDir, CreateArchiveWalkFunc(agencyDir, tarWriter, nil))
+	return filepath.Walk(agencyDir, CreateArchiveWalkFunc(agencyDir, tarWriter, nil))
 }
 
 // isKagencyFile reports whether path points to a .kagency archive.
 func isKagencyFile(path string) bool {
-return strings.HasSuffix(path, kagencyExtension)
+	return strings.HasSuffix(path, kagencyExtension)
 }

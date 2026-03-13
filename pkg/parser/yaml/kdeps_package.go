@@ -122,7 +122,6 @@ func extractTarFile(tr *tar.Reader, targetPath string) error {
 	}
 	defer out.Close()
 
-	//nolint:gosec // size limited by maxKdepsExtractSize
 	if _, copyErr := io.CopyN(out, tr, maxKdepsExtractSize); copyErr != nil && !errors.Is(copyErr, io.EOF) {
 		return fmt.Errorf("failed to write file %s: %w", targetPath, copyErr)
 	}

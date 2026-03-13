@@ -33,8 +33,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -121,12 +121,14 @@ func writeAgencyFixtures(t *testing.T) string {
 	// Write greeter agent.
 	greeterDir := filepath.Join(dir, "agents", "greeter")
 	require.NoError(t, os.MkdirAll(greeterDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), []byte(agencyIntegrationGreeterYAML), 0o600))
+	wfGreeter := []byte(agencyIntegrationGreeterYAML)
+	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), wfGreeter, 0o600))
 
 	// Write responder agent.
 	responderDir := filepath.Join(dir, "agents", "responder")
 	require.NoError(t, os.MkdirAll(responderDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(responderDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600))
+	wfResponder := []byte(agencyIntegrationResponderYAML)
+	require.NoError(t, os.WriteFile(filepath.Join(responderDir, "workflow.yaml"), wfResponder, 0o600))
 
 	return filepath.Join(dir, "agency.yaml")
 }
@@ -274,14 +276,14 @@ func TestAgencyIntegration_KdepsPackageAgent(t *testing.T) {
 	createKdepsPackageInteg(t, srcDir, filepath.Join(agentsDir, "responder.kdeps"))
 
 	// Write agency with an explicit .kdeps reference.
-	agencyYAML := fmt.Sprintf(`apiVersion: kdeps.io/v1
+	const agencyYAML = `apiVersion: kdeps.io/v1
 kind: Agency
 metadata:
   name: packed-agency
   version: "1.0.0"
 agents:
   - agents/responder.kdeps
-`)
+`
 	agencyPath := filepath.Join(dir, "agency.yaml")
 	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
 
@@ -322,7 +324,8 @@ func TestAgencyIntegration_AutoDiscoverMixedAgents(t *testing.T) {
 	// Directory-based agent.
 	greeterDir := filepath.Join(agentsDir, "greeter")
 	require.NoError(t, os.MkdirAll(greeterDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), []byte(agencyIntegrationGreeterYAML), 0o600))
+	greeterData := []byte(agencyIntegrationGreeterYAML)
+	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), greeterData, 0o600))
 
 	// .kdeps-based agent.
 	srcDir := filepath.Join(dir, "responder-src")

@@ -62,6 +62,14 @@ func NewParser(schemaValidator SchemaValidator, exprParser ExpressionParser) *Pa
 	}
 }
 
+// NewParserForTesting creates a new YAML parser with testing access.
+func NewParserForTesting(schemaValidator SchemaValidator, exprParser ExpressionParser) *Parser {
+	return &Parser{
+		schemaValidator: schemaValidator,
+		exprParser:      exprParser,
+	}
+}
+
 // Cleanup removes any temporary directories created during agency agent
 // discovery (e.g. extracted .kdeps packages).  It is safe to call multiple times.
 func (p *Parser) Cleanup() {
@@ -69,14 +77,6 @@ func (p *Parser) Cleanup() {
 		_ = os.RemoveAll(dir)
 	}
 	p.tempDirs = nil
-}
-
-// NewParserForTesting creates a new YAML parser with testing access.
-func NewParserForTesting(schemaValidator SchemaValidator, exprParser ExpressionParser) *Parser {
-	return &Parser{
-		schemaValidator: schemaValidator,
-		exprParser:      exprParser,
-	}
 }
 
 // GetSchemaValidatorForTesting returns the schema validator for testing.
@@ -380,15 +380,11 @@ func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]str
 
 		// Handle .kdeps packed agent archives.
 		if isKdepsPackage(resolved) {
-			wf, err := p.extractAndFindWorkflow(resolved)
+			var err error
+			paths, err = p.appendKdepsWorkflow(paths, resolved, agentPath)
 			if err != nil {
-				return nil, domain.NewError(
-					domain.ErrCodeParseError,
-					fmt.Sprintf("failed to load .kdeps agent %s", agentPath),
-					err,
-				)
+				return nil, err
 			}
-			paths = append(paths, wf)
 			continue
 		}
 
@@ -458,15 +454,11 @@ func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 			continue
 		}
 		pkgPath := filepath.Join(agentsDir, entry.Name())
-		wf, err := p.extractAndFindWorkflow(pkgPath)
+		var err error
+		paths, err = p.appendKdepsWorkflow(paths, pkgPath, entry.Name())
 		if err != nil {
-			return nil, domain.NewError(
-				domain.ErrCodeParseError,
-				fmt.Sprintf("failed to load .kdeps agent %s", entry.Name()),
-				err,
-			)
+			return nil, err
 		}
-		paths = append(paths, wf)
 	}
 
 	return paths, nil
@@ -487,6 +479,21 @@ func (p *Parser) extractAndFindWorkflow(packagePath string) (string, error) {
 		return "", fmt.Errorf("no workflow file found in .kdeps package %s", packagePath)
 	}
 	return wf, nil
+}
+
+// appendKdepsWorkflow extracts a .kdeps package at pkgPath, appends the resulting
+// workflow path to paths, and returns the new slice.  agentName is used only in
+// the error message.
+func (p *Parser) appendKdepsWorkflow(paths []string, pkgPath, agentName string) ([]string, error) {
+	wf, err := p.extractAndFindWorkflow(pkgPath)
+	if err != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			fmt.Sprintf("failed to load .kdeps agent %s", agentName),
+			err,
+		)
+	}
+	return append(paths, wf), nil
 }
 
 // findWorkflowInDir returns the first workflow file found in dir, or empty string.

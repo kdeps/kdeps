@@ -427,41 +427,41 @@ command: echo test
 // TestAgentCallConfig_UnmarshalYAML verifies both the new "name:" key and the
 // legacy "agent:" key are accepted by AgentCallConfig.UnmarshalYAML.
 func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
-tests := []struct {
-name     string
-yamlData string
-wantName string
-}{
-{
-name:     "new name: key",
-yamlData: `name: sql-agent`,
-wantName: "sql-agent",
-},
-{
-name:     "legacy agent: key",
-yamlData: `agent: sql-agent`,
-wantName: "sql-agent",
-},
-{
-name:     "name: preferred over agent:",
-yamlData: "name: preferred\nagent: ignored",
-wantName: "preferred",
-},
-{
-name:     "with params",
-yamlData: "name: my-agent\nparams:\n  key: value",
-wantName: "my-agent",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-var cfg domain.AgentCallConfig
-if err := yaml.Unmarshal([]byte(tt.yamlData), &cfg); err != nil {
-t.Fatalf("UnmarshalYAML() error = %v", err)
-}
-if cfg.Name != tt.wantName {
-t.Errorf("AgentCallConfig.Name = %q, want %q", cfg.Name, tt.wantName)
-}
-})
-}
+	tests := []struct {
+		name     string
+		yamlData string
+		wantName string
+	}{
+		{
+			name:     "new name: key",
+			yamlData: `name: sql-agent`,
+			wantName: "sql-agent",
+		},
+		{
+			name:     "legacy agent: key",
+			yamlData: `agent: sql-agent`,
+			wantName: "sql-agent",
+		},
+		{
+			name:     "name: preferred over agent:",
+			yamlData: "name: preferred\nagent: ignored",
+			wantName: "preferred",
+		},
+		{
+			name:     "with params",
+			yamlData: "name: my-agent\nparams:\n  key: value",
+			wantName: "my-agent",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.AgentCallConfig
+			if err := yaml.Unmarshal([]byte(tt.yamlData), &cfg); err != nil {
+				t.Fatalf("UnmarshalYAML() error = %v", err)
+			}
+			if cfg.Name != tt.wantName {
+				t.Errorf("AgentCallConfig.Name = %q, want %q", cfg.Name, tt.wantName)
+			}
+		})
+	}
 }
