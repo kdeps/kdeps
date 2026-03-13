@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Agency
+
+metadata:
+  name: {{ name }}
+  description: {{ description }}
+  version: {{ version }}
+
+# List of agent directories (relative to this file).
+# Each entry must contain a workflow.yaml / workflow.yml file.
+# If this list is empty, KDeps auto-discovers agents under the agents/ directory.
+agents:
+  - agents/example-agent

@@ -41,6 +41,7 @@ type Parser struct {
 type SchemaValidator interface {
 	ValidateWorkflow(data map[string]interface{}) error
 	ValidateResource(data map[string]interface{}) error
+	ValidateAgency(data map[string]interface{}) error
 }
 
 // ExpressionParser parses expressions.
@@ -283,4 +284,150 @@ func isYAMLFile(name string) bool {
 // the same context is shared with PreprocessJ2Files for non-YAML .j2 files.
 func buildJinja2Context() map[string]interface{} {
 	return templates.BuildJinja2Context()
+}
+
+// ParseAgency parses an agency YAML file (agency.yml / agency.yaml).
+func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
+	// Read YAML file.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read agency file", err)
+	}
+
+	// Apply Jinja2 preprocessing.
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess agency Jinja2 template",
+			preprocessErr,
+		)
+	}
+	data = []byte(preprocessed)
+
+	// Parse YAML into generic map first for schema validation.
+	var rawData map[string]interface{}
+	if parseErr := yaml.Unmarshal(data, &rawData); parseErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse agency YAML", parseErr)
+	}
+
+	// Validate against schema if validator is available.
+	if p.schemaValidator != nil {
+		if schemaErr := p.schemaValidator.ValidateAgency(rawData); schemaErr != nil {
+			return nil, domain.NewError(
+				domain.ErrCodeValidationFailed,
+				"agency schema validation failed",
+				schemaErr,
+			)
+		}
+	}
+
+	// Parse into agency struct.
+	var agency domain.Agency
+	if agencyErr := yaml.Unmarshal(data, &agency); agencyErr != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to parse agency",
+			agencyErr,
+		)
+	}
+
+	return &agency, nil
+}
+
+// DiscoverAgentWorkflows returns the workflow file paths for all agents defined
+// (or auto-discovered) in an agency.  The agencyDir is the directory containing
+// agency.yml.
+//
+// Resolution order:
+//  1. If agency.Agents is non-empty, each entry is treated as a path relative to
+//     agencyDir.  The path may point to a directory (workflow file is discovered
+//     inside it) or directly to a workflow file.
+//  2. If agency.Agents is empty, the function globs agents/**/workflow.{yaml,yml}
+//     (and Jinja2 variants) under agencyDir to auto-discover agents.
+func (p *Parser) DiscoverAgentWorkflows(agency *domain.Agency, agencyDir string) ([]string, error) {
+	if len(agency.Agents) > 0 {
+		return p.resolveExplicitAgents(agency.Agents, agencyDir)
+	}
+	return p.autoDiscoverAgents(agencyDir)
+}
+
+// resolveExplicitAgents resolves the workflow paths from an explicit agents list.
+func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]string, error) {
+	var paths []string
+	for _, agentPath := range agents {
+		resolved := agentPath
+		if !filepath.IsAbs(agentPath) {
+			resolved = filepath.Join(agencyDir, agentPath)
+		}
+
+		info, statErr := os.Stat(resolved)
+		if statErr != nil {
+			return nil, domain.NewError(
+				domain.ErrCodeParseError,
+				fmt.Sprintf("agent path not found: %s", agentPath),
+				statErr,
+			)
+		}
+
+		if info.IsDir() {
+			wf := findWorkflowInDir(resolved)
+			if wf == "" {
+				return nil, domain.NewError(
+					domain.ErrCodeParseError,
+					fmt.Sprintf("no workflow file found in agent directory: %s", resolved),
+					nil,
+				)
+			}
+			paths = append(paths, wf)
+		} else {
+			paths = append(paths, resolved)
+		}
+	}
+	return paths, nil
+}
+
+// autoDiscoverAgents globs agents/**/workflow.{yaml,yml,...} under agencyDir.
+func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
+	agentsDir := filepath.Join(agencyDir, "agents")
+	if _, statErr := os.Stat(agentsDir); os.IsNotExist(statErr) {
+		return nil, nil
+	}
+
+	var paths []string
+	walkErr := filepath.WalkDir(agentsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		wf := findWorkflowInDir(path)
+		if wf != "" {
+			paths = append(paths, wf)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to walk agents directory", walkErr)
+	}
+	return paths, nil
+}
+
+// findWorkflowInDir returns the first workflow file found in dir, or empty string.
+// Mirrors the priority order used by FindWorkflowFile in cmd/run.go.
+func findWorkflowInDir(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "workflow.yaml"),
+		filepath.Join(dir, "workflow.yaml.j2"),
+		filepath.Join(dir, "workflow.yml"),
+		filepath.Join(dir, "workflow.yml.j2"),
+		filepath.Join(dir, "workflow.j2"),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
 }

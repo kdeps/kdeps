@@ -192,8 +192,34 @@ func FindWorkflowFile(dir string) string {
 	return ""
 }
 
+// FindAgencyFile returns the path to the agency file inside dir.
+// It tries agency.yaml first, then agency.yaml.j2, then agency.yml,
+// agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
+func FindAgencyFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "agency.yaml"),
+		filepath.Join(dir, "agency.yaml.j2"),
+		filepath.Join(dir, "agency.yml"),
+		filepath.Join(dir, "agency.yml.j2"),
+		filepath.Join(dir, "agency.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // ResolveDirectoryPath resolves workflow path for directory inputs.
+// It prefers an agency file when both an agency.yml and workflow.yaml exist.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
+	// Check for agency file first.
+	if agencyPath := FindAgencyFile(absPath); agencyPath != "" {
+		fmt.Fprintf(os.Stdout, "Agency: %s\n", agencyPath)
+		return agencyPath, nil, nil
+	}
+
 	workflowPath := FindWorkflowFile(absPath)
 	if workflowPath == "" {
 		return "", nil, fmt.Errorf("workflow.yaml not found in directory: %s", absPath)
@@ -249,8 +275,23 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
 }
 
+// isAgencyFile reports whether path points to an agency file based on its base name.
+func isAgencyFile(path string) bool {
+	base := filepath.Base(path)
+	return base == "agency.yaml" ||
+		base == "agency.yml" ||
+		base == "agency.yaml.j2" ||
+		base == "agency.yml.j2" ||
+		base == "agency.j2"
+}
+
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
 func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
+	// Route to agency execution when an agency file was resolved.
+	if isAgencyFile(workflowPath) {
+		return ExecuteAgencyStepsWithFlags(cmd, workflowPath, flags)
+	}
+
 	// Check if debug flag is set
 	debugMode, _ := cmd.Flags().GetBool("debug")
 
@@ -330,6 +371,39 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	return dispatchExecution(workflow, workflowPath, flags.DevMode, debugMode)
 }
 
+// ExecuteAgencyStepsWithFlags parses and validates an agency file, then reports
+// the discovered agent workflows.  Full per-agent execution is handled by running
+// each workflow individually.
+func ExecuteAgencyStepsWithFlags(_ *cobra.Command, agencyPath string, _ *RunFlags) error {
+	agencyDir := filepath.Dir(agencyPath)
+
+	// 0. Preprocess all .j2 files in the agency directory.
+	if prepErr := templates.PreprocessJ2Files(agencyDir); prepErr != nil {
+		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
+	}
+
+	// 1. Parse agency file.
+	fmt.Fprintln(os.Stdout, "\n[1/2] Parsing agency...")
+	agency, agentPaths, err := ParseAgencyFile(agencyPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse agency: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "  ✓ Loaded: %s v%s\n", agency.Metadata.Name, agency.Metadata.Version)
+	fmt.Fprintf(os.Stdout, "  ✓ Agents: %d\n", len(agentPaths))
+
+	// 2. Report discovered agents.
+	fmt.Fprintln(os.Stdout, "\n[2/2] Discovered agents:")
+	for _, ap := range agentPaths {
+		rel, relErr := filepath.Rel(agencyDir, ap)
+		if relErr != nil {
+			rel = ap
+		}
+		fmt.Fprintf(os.Stdout, "  ✓ %s\n", rel)
+	}
+
+	return nil
+}
+
 // ParseWorkflowFile parses a workflow YAML file.
 func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 	// Create schema validator.
@@ -352,6 +426,37 @@ func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 
 	// Resources are already loaded by ParseWorkflow.loadResources, no need to load again.
 	return workflow, nil
+}
+
+// ParseAgencyFile parses an agency YAML file and returns the parsed Agency along
+// with the discovered agent workflow paths.
+func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
+	// Create schema validator.
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create schema validator: %w", err)
+	}
+
+	// Create expression parser.
+	exprParser := expression.NewParser()
+
+	// Create YAML parser.
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	// Parse agency.
+	agency, err := yamlParser.ParseAgency(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Discover agent workflow paths.
+	agencyDir := filepath.Dir(path)
+	agentPaths, err := yamlParser.DiscoverAgentWorkflows(agency, agencyDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to discover agent workflows: %w", err)
+	}
+
+	return agency, agentPaths, nil
 }
 
 // LoadResourceFiles loads all resource files from resources directory.

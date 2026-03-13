@@ -1,0 +1,25 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: example-agent
+  description: Example agent in {{ name }}
+  version: {{ version }}
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: response
+      name: Response
+    run:
+      response:
+        data: "Hello from example-agent!"
