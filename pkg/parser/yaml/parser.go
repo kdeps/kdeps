@@ -35,6 +35,9 @@ import (
 type Parser struct {
 	schemaValidator SchemaValidator
 	exprParser      ExpressionParser
+	// tempDirs accumulates temporary directories created when extracting
+	// .kdeps agent packages.  Call Cleanup() to remove them.
+	tempDirs []string
 }
 
 // SchemaValidator validates YAML against JSON Schema.
@@ -57,6 +60,15 @@ func NewParser(schemaValidator SchemaValidator, exprParser ExpressionParser) *Pa
 		schemaValidator: schemaValidator,
 		exprParser:      exprParser,
 	}
+}
+
+// Cleanup removes any temporary directories created during agency agent
+// discovery (e.g. extracted .kdeps packages).  It is safe to call multiple times.
+func (p *Parser) Cleanup() {
+	for _, dir := range p.tempDirs {
+		_ = os.RemoveAll(dir)
+	}
+	p.tempDirs = nil
 }
 
 // NewParserForTesting creates a new YAML parser with testing access.
@@ -342,9 +354,12 @@ func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
 // Resolution order:
 //  1. If agency.Agents is non-empty, each entry is treated as a path relative to
 //     agencyDir.  The path may point to a directory (workflow file is discovered
-//     inside it) or directly to a workflow file.
+//     inside it), directly to a workflow file, or to a .kdeps packed agent archive.
 //  2. If agency.Agents is empty, the function globs agents/**/workflow.{yaml,yml}
-//     (and Jinja2 variants) under agencyDir to auto-discover agents.
+//     (and Jinja2 variants) AND agents/*.kdeps under agencyDir to auto-discover agents.
+//
+// When a .kdeps archive is encountered it is extracted to a temporary directory.
+// The caller should invoke p.Cleanup() when the returned paths are no longer needed.
 func (p *Parser) DiscoverAgentWorkflows(agency *domain.Agency, agencyDir string) ([]string, error) {
 	if len(agency.Agents) > 0 {
 		return p.resolveExplicitAgents(agency.Agents, agencyDir)
@@ -353,12 +368,28 @@ func (p *Parser) DiscoverAgentWorkflows(agency *domain.Agency, agencyDir string)
 }
 
 // resolveExplicitAgents resolves the workflow paths from an explicit agents list.
+// Each entry may be a directory (containing a workflow file), a direct workflow
+// file, or a .kdeps packed agent archive.
 func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]string, error) {
 	var paths []string
 	for _, agentPath := range agents {
 		resolved := agentPath
 		if !filepath.IsAbs(agentPath) {
 			resolved = filepath.Join(agencyDir, agentPath)
+		}
+
+		// Handle .kdeps packed agent archives.
+		if isKdepsPackage(resolved) {
+			wf, err := p.extractAndFindWorkflow(resolved)
+			if err != nil {
+				return nil, domain.NewError(
+					domain.ErrCodeParseError,
+					fmt.Sprintf("failed to load .kdeps agent %s", agentPath),
+					err,
+				)
+			}
+			paths = append(paths, wf)
+			continue
 		}
 
 		info, statErr := os.Stat(resolved)
@@ -387,13 +418,15 @@ func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]str
 	return paths, nil
 }
 
-// autoDiscoverAgents globs agents/**/workflow.{yaml,yml,...} under agencyDir.
+// autoDiscoverAgents globs agents/**/workflow.{yaml,yml,...} AND agents/*.kdeps
+// under agencyDir.
 func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 	agentsDir := filepath.Join(agencyDir, "agents")
 	if _, statErr := os.Stat(agentsDir); os.IsNotExist(statErr) {
 		return nil, nil
 	}
 
+	// 1. Discover directory-based agents (agents/**/workflow.*).
 	var paths []string
 	walkErr := filepath.WalkDir(agentsDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -411,7 +444,49 @@ func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 	if walkErr != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to walk agents directory", walkErr)
 	}
+
+	// 2. Discover packed agents (agents/*.kdeps) in the immediate agents/ dir.
+	entries, readErr := os.ReadDir(agentsDir)
+	if readErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read agents directory", readErr)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !isKdepsPackage(entry.Name()) {
+			continue
+		}
+		pkgPath := filepath.Join(agentsDir, entry.Name())
+		wf, err := p.extractAndFindWorkflow(pkgPath)
+		if err != nil {
+			return nil, domain.NewError(
+				domain.ErrCodeParseError,
+				fmt.Sprintf("failed to load .kdeps agent %s", entry.Name()),
+				err,
+			)
+		}
+		paths = append(paths, wf)
+	}
+
 	return paths, nil
+}
+
+// extractAndFindWorkflow extracts a .kdeps package to a temp directory, records the
+// temp dir for later Cleanup(), and returns the path to the workflow file inside it.
+func (p *Parser) extractAndFindWorkflow(packagePath string) (string, error) {
+	tempDir, _, err := extractKdepsPackage(packagePath)
+	if err != nil {
+		return "", err
+	}
+	// Track temp dir so Cleanup() can remove it.
+	p.tempDirs = append(p.tempDirs, tempDir)
+
+	wf := findWorkflowInDir(tempDir)
+	if wf == "" {
+		return "", fmt.Errorf("no workflow file found in .kdeps package %s", packagePath)
+	}
+	return wf, nil
 }
 
 // findWorkflowInDir returns the first workflow file found in dir, or empty string.

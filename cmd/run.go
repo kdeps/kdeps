@@ -384,10 +384,12 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 
 	// 1. Parse agency file and discover agent workflow paths.
 	fmt.Fprintln(os.Stdout, "\n[1/3] Parsing agency...")
-	agency, agentPaths, err := ParseAgencyFile(agencyPath)
+	agency, agentPaths, yamlParser, err := ParseAgencyFileWithParser(agencyPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse agency: %w", err)
 	}
+	// Clean up any temp dirs created for .kdeps packages after execution.
+	defer yamlParser.Cleanup()
 	fmt.Fprintf(os.Stdout, "  ✓ Loaded: %s v%s\n", agency.Metadata.Name, agency.Metadata.Version)
 	fmt.Fprintf(os.Stdout, "  ✓ Agents: %d\n", len(agentPaths))
 
@@ -504,10 +506,18 @@ func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 // ParseAgencyFile parses an agency YAML file and returns the parsed Agency along
 // with the discovered agent workflow paths.
 func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
+	agency, agentPaths, _, err := ParseAgencyFileWithParser(path)
+	return agency, agentPaths, err
+}
+
+// ParseAgencyFileWithParser is like ParseAgencyFile but also returns the YAML
+// parser so the caller can invoke parser.Cleanup() after it is done with the
+// returned paths (important when .kdeps agents were extracted to temp dirs).
+func ParseAgencyFileWithParser(path string) (*domain.Agency, []string, *yaml.Parser, error) {
 	// Create schema validator.
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create schema validator: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
 
 	// Create expression parser.
@@ -519,17 +529,17 @@ func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
 	// Parse agency.
 	agency, err := yamlParser.ParseAgency(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Discover agent workflow paths.
 	agencyDir := filepath.Dir(path)
 	agentPaths, err := yamlParser.DiscoverAgentWorkflows(agency, agencyDir)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to discover agent workflows: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to discover agent workflows: %w", err)
 	}
 
-	return agency, agentPaths, nil
+	return agency, agentPaths, yamlParser, nil
 }
 
 // LoadResourceFiles loads all resource files from resources directory.
