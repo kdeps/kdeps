@@ -2300,25 +2300,25 @@ func (e *Engine) executeInlineAgent(cfg *domain.AgentCallConfig, ctx *ExecutionC
 	}
 
 	if ctx.AgentPaths == nil {
-		return nil, fmt.Errorf("cannot call agent %q: no agency context (AgentPaths not set)", cfg.Agent)
+		return nil, fmt.Errorf("cannot call agent %q: no agency context (AgentPaths not set)", cfg.Name)
 	}
 
-	agentPath, ok := ctx.AgentPaths[cfg.Agent]
+	agentPath, ok := ctx.AgentPaths[cfg.Name]
 	if !ok {
-		return nil, fmt.Errorf("agent %q not found in agency (available: %v)", cfg.Agent, agentPathKeys(ctx.AgentPaths))
+		return nil, fmt.Errorf("agent %q not found in agency (available: %v)", cfg.Name, agentPathKeys(ctx.AgentPaths))
 	}
 
 	// Parse the target agent's workflow.
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", cfg.Agent, err)
+		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", cfg.Name, err)
 	}
 	exprParser := expression.NewParser()
 	yamlParser := parseryaml.NewParser(schemaValidator, exprParser)
 
 	workflow, err := yamlParser.ParseWorkflow(agentPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", cfg.Agent, err)
+		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", cfg.Name, err)
 	}
 
 	// Build a request context from the params so the sub-agent's get('key') works.

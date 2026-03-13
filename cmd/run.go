@@ -124,8 +124,37 @@ func resolveWorkflowPath(inputPath string) (string, func(), error) {
 		return resolveKdepsPackage(inputPath)
 	}
 
+	// Check if input is a .kagency agency package file.
+	if isKagencyFile(inputPath) {
+		return resolveKagencyPackage(inputPath)
+	}
+
 	// Handle regular file or directory path
 	return ResolveRegularPath(inputPath)
+}
+
+// resolveKagencyPackage extracts a .kagency archive to a temp dir and returns
+// the path to the agency manifest file inside it.
+func resolveKagencyPackage(inputPath string) (string, func(), error) {
+	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", inputPath)
+
+	// Reuse the generic tar.gz extraction from .kdeps infrastructure.
+	tempDir, err := ExtractPackage(inputPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to extract agency package: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tempDir) }
+
+	agencyPath := FindAgencyFile(tempDir)
+	if agencyPath == "" {
+		cleanup()
+		return "", nil, fmt.Errorf("no agency.yaml found inside %s", inputPath)
+	}
+
+	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
+	fmt.Fprintf(os.Stdout, "Agency: %s\n", filepath.Base(agencyPath))
+
+	return agencyPath, cleanup, nil
 }
 
 // resolveKdepsPackage handles .kdeps package file resolution.

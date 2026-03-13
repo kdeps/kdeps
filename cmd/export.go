@@ -83,8 +83,8 @@ func newExportISOCmd() *cobra.Command {
 
 	isoCmd := &cobra.Command{
 		Use:   "iso [path]",
-		Short: "Export workflow as bootable image",
-		Long: `Export KDeps workflow as a bootable image using LinuxKit
+		Short: "Export workflow or agency as bootable image",
+		Long: `Export KDeps workflow or agency as a bootable image using LinuxKit
 
 Creates a bootable image that runs the workflow on bare metal or VMs.
 The workflow Docker image runs as a container inside a minimal LinuxKit VM
@@ -101,10 +101,21 @@ Accepts:
   Directory containing workflow.yaml
   Direct path to workflow.yaml file
   Package file (.kdeps)
+  Agency directory containing agency.yaml
+  Direct path to agency.yaml file
+  Agency package file (.kagency)
+
+When given an agency, the bootable image runs the entry-point agent.
 
 Examples:
   # Export to bootable ISO (default, EFI)
   kdeps export iso examples/chatbot
+
+  # Export agency to bootable ISO
+  kdeps export iso examples/agency
+
+  # Export agency package to bootable ISO
+  kdeps export iso my-agency-1.0.0.kagency
 
   # Export with custom output path
   kdeps export iso examples/chatbot --output my-agent.iso

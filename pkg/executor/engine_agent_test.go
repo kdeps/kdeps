@@ -79,7 +79,7 @@ func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{
-						Agent:  "helper-agent",
+						Name:  "helper-agent",
 						Params: map[string]interface{}{"key": "value"},
 					},
 				},
@@ -118,7 +118,7 @@ func TestExecuteAgent_AgentNotFound(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{
-						Agent: "nonexistent-agent",
+						Name: "nonexistent-agent",
 					},
 				},
 			},
@@ -161,7 +161,7 @@ func TestExecuteAgent_SubAgentExecution(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Agent: &domain.AgentCallConfig{
-						Agent:  "helper-agent",
+						Name:  "helper-agent",
 						Params: map[string]interface{}{"greeting": "hello"},
 					},
 				},
@@ -202,7 +202,7 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 				Kind:       "Resource",
 				Metadata: domain.ResourceMetadata{ActionID: "go", Name: "Go"},
 				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{Agent: "agent-a"},
+					Agent: &domain.AgentCallConfig{Name: "agent-a"},
 				},
 			},
 		},

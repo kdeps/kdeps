@@ -36,7 +36,7 @@ resources:
       # The `agent` resource type calls another agent within the agency.
       # The target is identified by its workflow metadata.name.
       agent:
-        agent: responder-agent
+        name: responder-agent
         params:
           # Forward the incoming `name` query parameter to the responder.
           name: "{{ get('name') }}"

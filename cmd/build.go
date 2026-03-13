@@ -61,8 +61,8 @@ func newBuildCmd() *cobra.Command {
 
 	buildCmd := &cobra.Command{
 		Use:   "build [path]",
-		Short: "Build Docker image from workflow",
-		Long: `Build Docker image from KDeps workflow
+		Short: "Build Docker image from workflow or agency",
+		Long: `Build Docker image from KDeps workflow or agency
 
 This is optional - KDeps runs locally by default.
 Use this only for deployment/distribution.
@@ -71,6 +71,12 @@ Accepts:
   • Directory containing workflow.yaml
   • Direct path to workflow.yaml file
   • Package file (.kdeps)
+  • Agency directory containing agency.yaml
+  • Direct path to agency.yaml file
+  • Agency package file (.kagency)
+
+When given an agency, the Docker image is built from the entry-point agent
+(specified via targetAgentId in agency.yaml).
 
 Features:
   • Multi-stage Docker build
@@ -85,6 +91,15 @@ Examples:
 
   # Build from workflow file
   kdeps build examples/chatbot/workflow.yaml
+
+  # Build from agency directory
+  kdeps build examples/agency
+
+  # Build from agency manifest
+  kdeps build examples/agency/agency.yaml
+
+  # Build from agency package
+  kdeps build my-agency-1.0.0.kagency
 
   # Build with GPU support (NVIDIA CUDA on Ubuntu)
   kdeps build examples/chatbot --gpu cuda
@@ -138,6 +153,11 @@ func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), erro
 		return "", "", nil, fmt.Errorf("failed to access path: %w", statErr)
 	}
 
+	// Check if input is a .kagency agency package file.
+	if isKagencyFile(packagePath) && !info.IsDir() {
+		return resolveBuildKagencyPackage(packagePath)
+	}
+
 	// Check if input is a .kdeps package file (must be a file, not directory)
 	if strings.HasSuffix(packagePath, ".kdeps") && !info.IsDir() {
 		return resolveBuildKdepsPackage(packagePath)
@@ -147,7 +167,12 @@ func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), erro
 		return resolveDirectoryPackage(packagePath)
 	}
 
-	// It's a file (workflow.yaml or similar)
+	// It's a file (workflow.yaml, agency.yaml, or similar).
+	// If it's an agency manifest, resolve the entry-point workflow for building.
+	if isAgencyFile(packagePath) {
+		return resolveBuildAgencyFile(packagePath)
+	}
+
 	workflowPath := packagePath
 	packageDir := filepath.Dir(packagePath)
 	return workflowPath, packageDir, nil, nil
@@ -176,8 +201,85 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 	return workflowPath, packageDir, cleanupFunc, nil
 }
 
+// resolveBuildKagencyPackage extracts a .kagency archive to a temp dir and
+// resolves the entry-point agent workflow for Docker/ISO builds.
+func resolveBuildKagencyPackage(packagePath string) (string, string, func(), error) {
+	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", packagePath)
+
+	tempDir, err := ExtractPackage(packagePath)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to extract agency package: %w", err)
+	}
+	cleanupFunc := func() { _ = os.RemoveAll(tempDir) }
+
+	agencyFile := FindAgencyFile(tempDir)
+	if agencyFile == "" {
+		cleanupFunc()
+		return "", "", nil, fmt.Errorf("no agency.yaml found in %s", packagePath)
+	}
+
+	fmt.Fprintf(os.Stdout, "Extracted to: %s\n\n", tempDir)
+
+	return resolveBuildAgencyManifest(agencyFile, tempDir, cleanupFunc)
+}
+
+// resolveBuildAgencyFile resolves the entry-point agent workflow from an
+// agency manifest file path (agency.yaml / agency.yml).
+func resolveBuildAgencyFile(agencyFilePath string) (string, string, func(), error) {
+	agencyDir := filepath.Dir(agencyFilePath)
+	return resolveBuildAgencyManifest(agencyFilePath, agencyDir, nil)
+}
+
+// resolveBuildAgencyManifest parses the agency file and returns the path to
+// the entry-point agent's workflow file so that Docker/ISO builds can proceed
+// exactly as they would for a standalone workflow.
+func resolveBuildAgencyManifest(agencyFilePath, packageDir string, cleanup func()) (string, string, func(), error) {
+	agency, agentPaths, agencyParser, err := ParseAgencyFileWithParser(agencyFilePath)
+	if err != nil {
+		if cleanup != nil {
+			cleanup()
+		}
+		return "", "", nil, fmt.Errorf("failed to parse agency %s: %w", agencyFilePath, err)
+	}
+	defer agencyParser.Cleanup()
+
+	if len(agentPaths) == 0 {
+		if cleanup != nil {
+			cleanup()
+		}
+		return "", "", nil, fmt.Errorf("agency %s has no agents", agencyFilePath)
+	}
+
+	// Find the entry-point agent workflow.
+	entryPath := agentPaths[0]
+	targetID := agency.Metadata.TargetAgentID
+	if targetID != "" {
+		for _, p := range agentPaths {
+			wf, parseErr := ParseWorkflowFile(p)
+			if parseErr != nil {
+				continue
+			}
+			if wf.Metadata.Name == targetID {
+				entryPath = p
+				break
+			}
+		}
+	}
+
+	fmt.Fprintf(os.Stdout, "Agency: %s v%s (entry-point: %s)\n\n",
+		agency.Metadata.Name, agency.Metadata.Version, agency.Metadata.TargetAgentID)
+
+	return entryPath, packageDir, cleanup, nil
+}
+
 // resolveDirectoryPackage handles directory-based packages.
+// It checks for agency.yaml first (agencies take priority over workflows).
 func resolveDirectoryPackage(packagePath string) (string, string, func(), error) {
+	// Check for agency manifest first.
+	if agencyFile := FindAgencyFile(packagePath); agencyFile != "" {
+		return resolveBuildAgencyFile(agencyFile)
+	}
+
 	packageDir := packagePath
 	workflowPath := FindWorkflowFile(packagePath)
 

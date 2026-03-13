@@ -69,7 +69,7 @@ resources:
       name: Call Responder
     run:
       agent:
-        agent: responder-agent
+        name: responder-agent
         params:
           name: "{{ get('name') }}"
   - apiVersion: kdeps.io/v1

@@ -59,3 +59,6 @@ var IsAgencyFile = isAgencyFile //nolint:gochecknoglobals // test-only export
 
 // BuildAgentNameMap exposes the unexported buildAgentNameMap helper for unit testing.
 var BuildAgentNameMap = buildAgentNameMap //nolint:gochecknoglobals // test-only export
+
+// IsKagencyFile exposes the unexported isKagencyFile helper for unit testing.
+var IsKagencyFile = isKagencyFile //nolint:gochecknoglobals // test-only export

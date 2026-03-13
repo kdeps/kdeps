@@ -3,8 +3,9 @@
 A simple two-agent agency that demonstrates:
 
 - **`targetAgentId`** entrypoint declaration in `agency.yaml`
-- **`agent` resource type** for inter-agent calls
+- **`agent` resource type** for inter-agent calls (using `name:` key)
 - **Auto-discovered agents** under `agents/` subdirectory
+- **Agency packaging** into a portable `.kagency` archive
 
 ## Structure
 
@@ -29,6 +30,16 @@ agency/
 6. `responder-agent` builds `"Hello, <name>!"` and returns it.
 7. `greeter-agent` wraps the result in an `apiResponse`.
 
+### Agent resource syntax
+
+```yaml
+run:
+  agent:
+    name: responder-agent   # target agent metadata.name (preferred over legacy "agent:" key)
+    params:
+      name: "{{ get('name') }}"
+```
+
 ## Running
 
 ```bash
@@ -48,16 +59,39 @@ Expected response:
 }
 ```
 
+## Packaging the agency (`.kagency`)
+
+An agency directory can be packed into a single portable `.kagency` archive
+(a tar.gz containing `agency.yaml` and the full `agents/` sub-tree).
+
+```bash
+# Package the agency → produces greeter-agency-1.0.0.kagency
+kdeps package examples/agency/
+
+# Run the packed agency
+kdeps run greeter-agency-1.0.0.kagency
+
+# Build a Docker image from the packed agency (uses the entry-point agent)
+kdeps build greeter-agency-1.0.0.kagency
+
+# Export as a bootable ISO
+kdeps export iso greeter-agency-1.0.0.kagency
+
+# Embed in a self-contained binary (no separate kdeps install needed)
+kdeps prepackage greeter-agency-1.0.0.kagency --output my-greeter
+./my-greeter   # auto-detects and runs the embedded .kagency
+```
+
 ## Packed agents (`.kdeps`)
 
-Agents can also be distributed as `.kdeps` archive files.  To use a packed agent:
+Individual agents can also be distributed as `.kdeps` archive files.  To use a packed agent:
 
-1. Build the agent: `kdeps build agents/responder`
-2. Place the resulting `responder-1.0.0.kdeps` file in the `agents/` directory.
+1. Package the agent: `kdeps package agents/responder`
+2. Place the resulting `responder-agent-1.0.0.kdeps` file in the `agents/` directory.
 3. Reference it in `agency.yaml`:
 
 ```yaml
 agents:
-  - agents/greeter            # directory-based agent
-  - agents/responder-1.0.0.kdeps  # packed agent archive
+  - agents/greeter                      # directory-based agent
+  - agents/responder-agent-1.0.0.kdeps  # packed agent archive
 ```

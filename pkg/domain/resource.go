@@ -1214,14 +1214,38 @@ type PDFConfig struct {
 //
 //run:
 //  agent:
-//    agent: sql-agent
+//    name: sql-agent
 //    params:
 //      query: "{{ get('q') }}"
 type AgentCallConfig struct {
-// Agent is the metadata.name of the target agent workflow in the agency.
-Agent string `yaml:"agent"`
+	// Name is the metadata.name of the target agent workflow in the agency.
+	// The legacy YAML key "agent" is also accepted for backward compatibility.
+	Name string `yaml:"name"`
 
-// Params are key-value pairs forwarded to the target agent as input.
-// The target agent accesses them via get('key').
-Params map[string]interface{} `yaml:"params,omitempty"`
+	// Params are key-value pairs forwarded to the target agent as input.
+	// The target agent accesses them via get('key').
+	Params map[string]interface{} `yaml:"params,omitempty"`
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler to accept both "name:" (preferred)
+// and the legacy "agent:" key for backward compatibility.
+func (c *AgentCallConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Use an alias to avoid infinite recursion during unmarshaling.
+	type agentCallConfigAlias struct {
+		Name   string                 `yaml:"name"`
+		Agent  string                 `yaml:"agent"` // legacy key
+		Params map[string]interface{} `yaml:"params,omitempty"`
+	}
+	var alias agentCallConfigAlias
+	if err := unmarshal(&alias); err != nil {
+		return err
+	}
+	// Prefer "name:" over the legacy "agent:" key.
+	if alias.Name != "" {
+		c.Name = alias.Name
+	} else {
+		c.Name = alias.Agent
+	}
+	c.Params = alias.Params
+	return nil
 }

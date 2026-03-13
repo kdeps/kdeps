@@ -21,6 +21,8 @@
 package cmd
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -40,6 +42,14 @@ const (
 	// It is derived from EmbeddedTrailerSize and len(EmbeddedMagic) so that any future change to
 	// the magic string is automatically reflected without a separate update.
 	EmbeddedSizeFieldLen = EmbeddedTrailerSize - len(EmbeddedMagic)
+
+	// archiveHeaderMaxSize is the maximum number of bytes read from the embedded
+	// archive when peeking at its contents to determine the archive type.
+	archiveHeaderMaxSize = 1 << 20 // 1 MB
+
+	// maxTarEntriesForDetection is the maximum number of tar entries scanned
+	// when detecting whether an embedded archive is a .kagency package.
+	maxTarEntriesForDetection = 20
 )
 
 // detectPayloadRange returns the file offset and byte-size of the embedded
@@ -237,8 +247,8 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	return tmpFile.Name(), true, nil
 }
 
-// RunEmbeddedPackage streams the embedded .kdeps package directly from execPath
-// to a temporary file and runs it via the standard "run" CLI path.
+// RunEmbeddedPackage streams the embedded .kdeps/.kagency package directly from
+// execPath to a temporary file and runs it via the standard "run" CLI path.
 // Returns the exit code.
 func RunEmbeddedPackage(ver, commit, execPath string) int {
 	f, err := os.Open(execPath)
@@ -260,7 +270,11 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 		return 1
 	}
 
-	tmpFile, err := os.CreateTemp("", "kdeps-embedded-*.kdeps")
+	// Detect whether the embedded archive is a .kagency (agency package) or a
+	// regular .kdeps workflow package by peeking at the first entry in the tar.
+	ext := detectEmbeddedArchiveType(f, offset)
+
+	tmpFile, err := os.CreateTemp("", "kdeps-embedded-*"+ext)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create temp file for embedded package: %v\n", err)
 		return 1
@@ -289,4 +303,29 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 		return 1
 	}
 	return 0
+}
+
+// detectEmbeddedArchiveType reads the first few tar entries from the section
+// of f starting at offset and returns ".kagency" if an agency manifest is found,
+// otherwise ".kdeps".
+func detectEmbeddedArchiveType(f *os.File, offset int64) string {
+	sr := io.NewSectionReader(f, offset, archiveHeaderMaxSize)
+	gz, err := gzip.NewReader(sr)
+	if err != nil {
+		return ".kdeps"
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for i := 0; i < maxTarEntriesForDetection; i++ {
+		hdr, err := tr.Next()
+		if err != nil {
+			break
+		}
+		base := filepath.Base(hdr.Name)
+		if base == "agency.yaml" || base == "agency.yml" {
+			return kagencyExtension
+		}
+	}
+	return ".kdeps"
 }
