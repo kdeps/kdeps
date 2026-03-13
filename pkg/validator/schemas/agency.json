@@ -24,6 +24,11 @@
         },
         "version": {
           "type": "string"
+        },
+        "targetAgentId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name (metadata.name) of the agent that acts as the agency entry point"
         }
       }
     },

@@ -382,6 +382,22 @@
             }
           }
         },
+        "agent": {
+          "type": "object",
+          "description": "Invoke another agent within the same agency",
+          "required": ["agent"],
+          "properties": {
+            "agent": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name (metadata.name) of the target agent workflow"
+            },
+            "params": {
+              "type": "object",
+              "description": "Input parameters forwarded to the target agent (accessible via get('key'))"
+            }
+          }
+        },
         "onError": {
           "type": "object",
           "description": "Error handling configuration for the resource",

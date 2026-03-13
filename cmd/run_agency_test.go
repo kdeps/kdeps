@@ -173,3 +173,76 @@ func TestParseAgencyFile_NotFound(t *testing.T) {
 	_, _, err := cmd.ParseAgencyFile("/does/not/exist/agency.yml")
 	require.Error(t, err)
 }
+
+// validAgencyWithTargetYAML has a targetAgentId specified.
+const validAgencyWithTargetYAML = `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: target-agency
+  version: "1.0.0"
+  targetAgentId: bot-a
+agents:
+  - agents/bot-a
+`
+
+// TestBuildAgentNameMap_Valid verifies the name map is built correctly.
+func TestBuildAgentNameMap_Valid(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	wfPath := filepath.Join(agentDir, "workflow.yml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(validWorkflowForAgent), 0o600))
+
+	nameMap, targetPath, err := cmd.BuildAgentNameMap([]string{wfPath}, "bot-a")
+	require.NoError(t, err)
+	assert.Equal(t, wfPath, nameMap["bot-a"])
+	assert.Equal(t, wfPath, targetPath)
+}
+
+// TestBuildAgentNameMap_ImplicitEntryPoint verifies that when targetAgentId is
+// empty and there is one agent, it is used as the implicit entry point.
+func TestBuildAgentNameMap_ImplicitEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	wfPath := filepath.Join(agentDir, "workflow.yml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(validWorkflowForAgent), 0o600))
+
+	nameMap, targetPath, err := cmd.BuildAgentNameMap([]string{wfPath}, "")
+	require.NoError(t, err)
+	assert.Equal(t, wfPath, nameMap["bot-a"])
+	assert.Equal(t, wfPath, targetPath)
+}
+
+// TestBuildAgentNameMap_MissingTargetAgent verifies an error when targetAgentId
+// names an agent that doesn't exist.
+func TestBuildAgentNameMap_MissingTargetAgent(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	wfPath := filepath.Join(agentDir, "workflow.yml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(validWorkflowForAgent), 0o600))
+
+	_, _, err := cmd.BuildAgentNameMap([]string{wfPath}, "nonexistent-agent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent-agent")
+}
+
+// TestParseAgencyFile_TargetAgentId verifies that the TargetAgentID is parsed correctly.
+func TestParseAgencyFile_TargetAgentId(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600))
+
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(validAgencyWithTargetYAML), 0o600))
+
+	agency, _, err := cmd.ParseAgencyFile(agencyPath)
+	require.NoError(t, err)
+	assert.Equal(t, "bot-a", agency.Metadata.TargetAgentID)
+}

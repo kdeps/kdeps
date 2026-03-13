@@ -242,3 +242,24 @@ agents:
 	_, err = parser.DiscoverAgentWorkflows(agency, dir)
 	require.Error(t, err)
 }
+
+// TestParseAgency_TargetAgentID verifies that the targetAgentId field is parsed.
+func TestParseAgency_TargetAgentID(t *testing.T) {
+	dir := t.TempDir()
+	agencyYAML := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: my-agency
+  version: "1.0.0"
+  targetAgentId: chatbot
+agents:
+  - agents/chatbot
+`
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(agencyYAML), 0o600))
+
+	parser := newAgencyParser()
+	agency, err := parser.ParseAgency(agencyPath)
+	require.NoError(t, err)
+	assert.Equal(t, "chatbot", agency.Metadata.TargetAgentID)
+}

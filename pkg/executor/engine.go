@@ -32,6 +32,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
@@ -92,6 +93,26 @@ func (e *Engine) SetRegistry(registry *Registry) {
 // SetDebugMode enables or disables debug mode.
 func (e *Engine) SetDebugMode(enabled bool) {
 	e.debugMode = enabled
+}
+
+// SetNewExecutionContextForAgency overrides the execution-context factory so
+// every context created by this engine carries the provided agentPaths map.
+// This allows resources using the `agent` type to call sibling agents by name.
+func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
+	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
+		var ctx *ExecutionContext
+		var err error
+		if sessionID != "" {
+			ctx, err = NewExecutionContext(workflow, sessionID)
+		} else {
+			ctx, err = NewExecutionContext(workflow)
+		}
+		if err != nil {
+			return nil, err
+		}
+		ctx.AgentPaths = agentPaths
+		return ctx, nil
+	}
 }
 
 // Testing methods - exported for testing purposes
@@ -728,7 +749,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, agent)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
@@ -739,7 +760,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Scraper != nil ||
 		resource.Run.Embedding != nil ||
 		resource.Run.PDF != nil ||
-		resource.Run.Email != nil
+		resource.Run.Email != nil ||
+		resource.Run.Agent != nil
 
 	var primaryResult interface{}
 	var err error
@@ -769,6 +791,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executePDF(resource, ctx)
 		case resource.Run.Email != nil:
 			primaryResult, err = e.executeEmail(resource, ctx)
+		case resource.Run.Agent != nil:
+			primaryResult, err = e.executeAgent(resource, ctx)
 		}
 
 		if err != nil {
@@ -1360,7 +1384,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			"hasSQL", inline.SQL != nil,
 			"hasPython", inline.Python != nil,
 			"hasExec", inline.Exec != nil,
-			"hasEmbedding", inline.Embedding != nil)
+			"hasEmbedding", inline.Embedding != nil,
+			"hasAgent", inline.Agent != nil)
 
 		var result interface{}
 		var err error
@@ -1387,6 +1412,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlinePDF(inline.PDF, ctx)
 		case inline.Email != nil:
 			result, err = e.executeInlineEmail(inline.Email, ctx)
+		case inline.Agent != nil:
+			result, err = e.executeInlineAgent(inline.Agent, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2257,4 +2284,68 @@ func (e *Engine) executeInlineEmail(config *domain.EmailConfig, ctx *ExecutionCo
 	}
 
 	return emailExec.Execute(ctx, config)
+}
+
+// executeAgent invokes a sibling agent by name within the same agency.
+// It resolves the agent's workflow path from ctx.AgentPaths, parses the workflow,
+// and executes it in a sub-engine that shares the current registry.
+func (e *Engine) executeAgent(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeInlineAgent(resource.Run.Agent, ctx)
+}
+
+// executeInlineAgent executes an agent call from an inline resource block.
+func (e *Engine) executeInlineAgent(cfg *domain.AgentCallConfig, ctx *ExecutionContext) (interface{}, error) {
+	if cfg == nil {
+		return nil, errors.New("agent call configuration is nil")
+	}
+
+	if ctx.AgentPaths == nil {
+		return nil, fmt.Errorf("cannot call agent %q: no agency context (AgentPaths not set)", cfg.Agent)
+	}
+
+	agentPath, ok := ctx.AgentPaths[cfg.Agent]
+	if !ok {
+		return nil, fmt.Errorf("agent %q not found in agency (available: %v)", cfg.Agent, agentPathKeys(ctx.AgentPaths))
+	}
+
+	// Parse the target agent's workflow.
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", cfg.Agent, err)
+	}
+	exprParser := expression.NewParser()
+	yamlParser := parseryaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(agentPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", cfg.Agent, err)
+	}
+
+	// Build a request context from the params so the sub-agent's get('key') works.
+	params := cfg.Params
+	if params == nil {
+		params = make(map[string]interface{})
+	}
+	reqCtx := &RequestContext{
+		Method: "POST",
+		Body:   params,
+	}
+
+	// Create a sub-engine that shares the registry (and thus all executors).
+	// Forward the agency context so nested agent calls also work.
+	subEngine := NewEngine(e.logger)
+	subEngine.SetRegistry(e.registry)
+	subEngine.SetDebugMode(e.debugMode)
+	subEngine.SetNewExecutionContextForAgency(ctx.AgentPaths)
+
+	return subEngine.Execute(workflow, reqCtx)
+}
+
+// agentPathKeys returns the map keys as a slice for error messages.
+func agentPathKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

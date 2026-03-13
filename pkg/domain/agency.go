@@ -30,14 +30,15 @@ package domain
 //	  name: my-agency
 //	  description: My multi-agent agency
 //	  version: "1.0.0"
+//	  targetAgentId: chatbot
 //	agents:
 //	  - agents/chatbot
 //	  - agents/sql-agent
 type Agency struct {
-	APIVersion string          `yaml:"apiVersion"`
-	Kind       string          `yaml:"kind"`
-	Metadata   AgencyMetadata  `yaml:"metadata"`
-	Agents     []string        `yaml:"agents,omitempty"`
+	APIVersion string         `yaml:"apiVersion"`
+	Kind       string         `yaml:"kind"`
+	Metadata   AgencyMetadata `yaml:"metadata"`
+	Agents     []string       `yaml:"agents,omitempty"`
 }
 
 // AgencyMetadata contains agency-level metadata.
@@ -45,4 +46,9 @@ type AgencyMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 	Version     string `yaml:"version,omitempty"`
+	// TargetAgentID names the agent (by its workflow metadata.name) that acts as
+	// the agency entry point.  When set, running the agency executes this agent
+	// first.  Other agents are available for inter-agent calls via the `agent`
+	// resource type.
+	TargetAgentID string `yaml:"targetAgentId,omitempty"`
 }

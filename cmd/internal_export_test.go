@@ -56,3 +56,6 @@ var GithubReleasesBaseURL = &githubReleasesBaseURL //nolint:gochecknoglobals // 
 
 // IsAgencyFile exposes the unexported isAgencyFile helper for unit testing.
 var IsAgencyFile = isAgencyFile //nolint:gochecknoglobals // test-only export
+
+// BuildAgentNameMap exposes the unexported buildAgentNameMap helper for unit testing.
+var BuildAgentNameMap = buildAgentNameMap //nolint:gochecknoglobals // test-only export

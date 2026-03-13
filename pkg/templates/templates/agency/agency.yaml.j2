@@ -5,6 +5,10 @@ metadata:
   name: {{ name }}
   description: {{ description }}
   version: {{ version }}
+  # targetAgentId names the agent that acts as the agency entry point.
+  # When kdeps runs this agency, the named agent's workflow is executed first.
+  # Other agents are available for inter-agent calls via the `agent` resource type.
+  targetAgentId: example-agent
 
 # List of agent directories (relative to this file).
 # Each entry must contain a workflow.yaml / workflow.yml file.
