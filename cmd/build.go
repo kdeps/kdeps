@@ -241,12 +241,19 @@ func resolveBuildAgencyManifest(agencyFilePath, packageDir string, cleanup func(
 		}
 		return "", "", nil, fmt.Errorf("failed to parse agency %s: %w", agencyFilePath, err)
 	}
-	defer agencyParser.Cleanup()
 
-	if len(agentPaths) == 0 {
+	// Combine the incoming cleanup with the agency parser cleanup so that any
+	// temp dirs created when extracting .kdeps agents are not removed before
+	// the build pipeline has finished using the extracted files.
+	combinedCleanup := func() {
+		agencyParser.Cleanup()
 		if cleanup != nil {
 			cleanup()
 		}
+	}
+
+	if len(agentPaths) == 0 {
+		combinedCleanup()
 		return "", "", nil, fmt.Errorf("agency %s has no agents", agencyFilePath)
 	}
 
@@ -254,22 +261,32 @@ func resolveBuildAgencyManifest(agencyFilePath, packageDir string, cleanup func(
 	entryPath := agentPaths[0]
 	targetID := agency.Metadata.TargetAgentID
 	if targetID != "" {
+		found := false
 		for _, p := range agentPaths {
 			wf, parseErr := ParseWorkflowFile(p)
 			if parseErr != nil {
-				continue
+				// A parse failure on any agent is fatal when a specific target
+				// is required: we cannot silently skip the file that may be the
+				// target agent and fall back to agentPaths[0].
+				combinedCleanup()
+				return "", "", nil, fmt.Errorf("failed to parse agent workflow %s: %w", p, parseErr)
 			}
 			if wf.Metadata.Name == targetID {
 				entryPath = p
+				found = true
 				break
 			}
+		}
+		if !found {
+			combinedCleanup()
+			return "", "", nil, fmt.Errorf("target agent %q not found in agency %s", targetID, agencyFilePath)
 		}
 	}
 
 	fmt.Fprintf(os.Stdout, "Agency: %s v%s (entry-point: %s)\n\n",
 		agency.Metadata.Name, agency.Metadata.Version, agency.Metadata.TargetAgentID)
 
-	return entryPath, packageDir, cleanup, nil
+	return entryPath, packageDir, combinedCleanup, nil
 }
 
 // resolveDirectoryPackage handles directory-based packages.
