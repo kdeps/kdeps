@@ -92,26 +92,20 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("scraper executor: invalid config type")
 	}
 
+	// Evaluate all expression fields before use.
+	scraperType := evaluateText(cfg.Type, ctx)
+	timeoutStr := evaluateText(cfg.TimeoutDuration, ctx)
+	source := evaluateText(cfg.Source, ctx)
+
 	// Resolve timeout (used only for URL scraping via context.WithTimeout).
 	timeout := defaultTimeout
-	if cfg.TimeoutDuration != "" {
-		if d, err := time.ParseDuration(cfg.TimeoutDuration); err == nil {
+	if timeoutStr != "" {
+		if d, err := time.ParseDuration(timeoutStr); err == nil {
 			timeout = d
 		}
 	}
 	// Note: e.httpClient is immutable after construction.  The timeout is applied
 	// per-request via context.WithTimeout inside scrapeURL, not by mutating Timeout.
-
-	// Evaluate expressions in Source field
-	source := cfg.Source
-	if strings.Contains(source, "{{") && ctx != nil && ctx.API != nil {
-		eval := expression.NewEvaluator(ctx.API)
-		env := ctx.BuildEvaluatorEnv()
-		expr := &domain.Expression{Raw: source, Type: domain.ExprTypeInterpolated}
-		if result, err := eval.Evaluate(expr, env); err == nil {
-			source = fmt.Sprintf("%v", result)
-		}
-	}
 
 	if source == "" {
 		return nil, errors.New("scraper executor: source is empty")
@@ -122,7 +116,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		err     error
 	)
 
-	switch strings.ToLower(cfg.Type) {
+	switch strings.ToLower(scraperType) {
 	case domain.ScraperTypeURL:
 		content, err = e.scrapeURL(source, timeout)
 	case domain.ScraperTypePDF:
@@ -134,7 +128,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	case domain.ScraperTypeImage:
 		lang := defaultOCRLanguage
 		if cfg.OCR != nil && cfg.OCR.Language != "" {
-			lang = cfg.OCR.Language
+			lang = evaluateText(cfg.OCR.Language, ctx)
 		}
 		content, err = scrapeImage(context.Background(), ResolvePath(ctx, source), lang)
 	case domain.ScraperTypeText:
@@ -160,13 +154,13 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	default:
 		return nil, fmt.Errorf(
 			"scraper executor: unknown type %q (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
-			cfg.Type,
+			scraperType,
 		)
 	}
 
 	if err != nil {
 		return map[string]interface{}{
-			"type":    cfg.Type,
+			"type":    scraperType,
 			"source":  source,
 			"content": "",
 			"success": false,
@@ -175,7 +169,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	}
 
 	return map[string]interface{}{
-		"type":    cfg.Type,
+		"type":    scraperType,
 		"source":  source,
 		"content": content,
 		"success": true,
@@ -1133,6 +1127,28 @@ func ScrapeODSForTesting(path string) (string, error) {
 // ScrapeODPForTesting exposes scrapeODP for testing.
 func ScrapeODPForTesting(path string) (string, error) {
 	return scrapeODP(path)
+}
+
+// evaluateText resolves mustache/expr expressions in text, mirroring the pattern
+// used by the TTS and embedding executors.
+func evaluateText(text string, ctx *executor.ExecutionContext) string {
+	if !strings.Contains(text, "{{") {
+		return text
+	}
+	if ctx == nil || ctx.API == nil {
+		return text
+	}
+	eval := expression.NewEvaluator(ctx.API)
+	env := ctx.BuildEvaluatorEnv()
+	expr := &domain.Expression{Raw: text, Type: domain.ExprTypeInterpolated}
+	result, err := eval.Evaluate(expr, env)
+	if err != nil {
+		return text
+	}
+	if s, ok := result.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", result)
 }
 
 // ResolvePath resolves a relative source path against the FSRoot when it is set.

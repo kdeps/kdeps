@@ -2321,8 +2321,18 @@ func (e *Engine) executeInlineAgent(cfg *domain.AgentCallConfig, ctx *ExecutionC
 		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", cfg.Name, err)
 	}
 
-	// Build a request context from the params so the sub-agent's get('key') works.
-	params := cfg.Params
+	// Evaluate expressions inside params before forwarding to the sub-agent.
+	// Without this, a param value like "{{ get('name') }}" is passed as a literal
+	// string instead of the resolved value from the current execution context.
+	rawParams := cfg.Params
+	if rawParams == nil {
+		rawParams = make(map[string]interface{})
+	}
+	evaluatedParams, evalErr := e.evaluateFallback(rawParams, ctx)
+	if evalErr != nil {
+		return nil, fmt.Errorf("failed to evaluate params for agent %q: %w", cfg.Name, evalErr)
+	}
+	params, _ := evaluatedParams.(map[string]interface{})
 	if params == nil {
 		params = make(map[string]interface{})
 	}

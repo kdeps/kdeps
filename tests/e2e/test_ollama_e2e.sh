@@ -201,16 +201,27 @@ else
         test_skipped "Chatbot server - Server did not start"
     else
         test_passed "Chatbot server - Started successfully"
-        
-        # Test LLM endpoint - wait for actual response (up to 60 seconds)
+
+        # Give routes a moment to finish registering after the health endpoint
+        # responds (health may become available before the workflow router is ready).
+        sleep 2
+
+        # Test LLM endpoint - wait for actual response (up to 60 seconds).
+        # Retry up to 3 times in case the server returns 400 during the brief
+        # window between health-check-ready and full route registration.
         echo "Sending request to LLM endpoint (waiting for response)..."
         START_TIME=$(date +%s)
-        
-        RESPONSE=$(curl -s -w "\n%{http_code}" --connect-timeout 120 --max-time 120 \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"q": "What is the capital of France? One word answer."}' \
-            "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
+        RESPONSE=""
+        for _attempt in 1 2 3; do
+            RESPONSE=$(curl -s -w "\n%{http_code}" --connect-timeout 120 --max-time 120 \
+                -X POST \
+                -H "Content-Type: application/json" \
+                -d '{"q": "What is the capital of France? One word answer."}' \
+                "http://127.0.0.1:$PORT$ENDPOINT" 2>/dev/null || echo -e "\n000")
+            _status=$(echo "$RESPONSE" | tail -n 1)
+            [ "$_status" = "200" ] && break
+            [ "$_status" = "400" ] && sleep 2  # retry on validation errors during startup race
+        done
         
         END_TIME=$(date +%s)
         ELAPSED=$((END_TIME - START_TIME))
