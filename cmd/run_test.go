@@ -589,9 +589,12 @@ func TestValidateAndJoinPath_InvalidPath(t *testing.T) {
 func TestValidateAndJoinPath_OutsideTempDir(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a path that would go outside tempDir
-	_, err := cmd.ValidateAndJoinPath("/absolute/path", tmpDir)
-	require.Error(t, err)
+	// An absolute path like "/absolute/path" is safely resolved to inside
+	// tempDir by filepath.Join (produces tempDir+"/absolute/path"), so it is
+	// accepted rather than rejected.  Real traversal via ".." is still caught.
+	resolved, err := cmd.ValidateAndJoinPath("/absolute/path", tmpDir)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(tmpDir, "absolute", "path"), resolved)
 }
 
 func TestExtractFile(t *testing.T) {
@@ -626,10 +629,10 @@ func TestExtractFile(t *testing.T) {
 	defer gzipReader.Close()
 
 	tarReader := tar.NewReader(gzipReader)
-	_, err = tarReader.Next()
+	hdr, err := tarReader.Next()
 	require.NoError(t, err)
 
-	err = cmd.ExtractFile(tarReader, targetPath)
+	err = cmd.ExtractFile(tarReader, hdr, targetPath)
 	require.NoError(t, err)
 
 	extractedContent, err := os.ReadFile(targetPath)

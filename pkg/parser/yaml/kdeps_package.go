@@ -102,7 +102,7 @@ func extractTarEntries(tr *tar.Reader, destDir string) error {
 			continue
 		}
 
-		if err = extractTarFile(tr, targetPath); err != nil {
+		if err = extractTarFile(tr, header, targetPath); err != nil {
 			return err
 		}
 	}
@@ -110,8 +110,13 @@ func extractTarEntries(tr *tar.Reader, destDir string) error {
 }
 
 // extractTarFile writes a single tar entry to targetPath, creating parent dirs
-// as needed.
-func extractTarFile(tr *tar.Reader, targetPath string) error {
+// as needed.  The header is used to enforce the size limit before any bytes are
+// written so that oversized entries are rejected rather than silently truncated.
+func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error {
+	if header.Size > maxKdepsExtractSize {
+		return fmt.Errorf("archive entry %q exceeds maximum allowed size of %d bytes", header.Name, maxKdepsExtractSize)
+	}
+
 	if mkErr := os.MkdirAll(filepath.Dir(targetPath), 0o750); mkErr != nil {
 		return fmt.Errorf("failed to create parent directory: %w", mkErr)
 	}
@@ -129,13 +134,13 @@ func extractTarFile(tr *tar.Reader, targetPath string) error {
 }
 
 // safeJoinPath joins name under destDir, rejecting paths that escape destDir.
+// It uses filepath.Rel for a separator-aware check so that paths like
+// /tmp/destDir/../other or a destDir that is a string-prefix of another
+// directory are both handled correctly.
 func safeJoinPath(name, destDir string) (string, error) {
-	rel, err := filepath.Rel("", name)
-	if err != nil || strings.Contains(rel, "..") {
-		return "", fmt.Errorf("invalid path in archive: %s", name)
-	}
-	target := filepath.Join(destDir, rel)
-	if !strings.HasPrefix(target, destDir) {
+	target := filepath.Join(destDir, name)
+	rel, err := filepath.Rel(destDir, target)
+	if err != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("invalid path in archive: %s", name)
 	}
 	return target, nil
