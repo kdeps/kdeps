@@ -219,6 +219,19 @@ func (e *Evaluator) formatValue(value interface{}) string {
 	}
 }
 
+// validTypeHints contains the recognized storage type hints accepted by get().
+var validTypeHints = map[string]bool{ //nolint:gochecknoglobals // immutable lookup table, not mutable state
+	"item": true, "loop": true, "memory": true, "session": true,
+	"output": true, "param": true, "query": true, "header": true,
+	"file": true, "info": true, "data": true, "body": true,
+	"filepath": true, "filetype": true,
+}
+
+// isValidTypeHint reports whether s is a recognized storage type hint for get().
+func isValidTypeHint(s string) bool {
+	return validTypeHints[s]
+}
+
 // isExprLangSyntax returns true when exprStr should be handled by expr-lang, not simple variable lookup.
 func isExprLangSyntax(exprStr string) bool {
 	trimmed := strings.TrimSpace(exprStr)
@@ -317,9 +330,20 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 
 	// Add unified API functions.
 	if e.api != nil {
-		// Wrap get() to return nil on error instead of throwing
-		evalEnv["get"] = func(name string, typeHint ...string) interface{} {
-			val, err := e.api.Get(name, typeHint...)
+		// Wrap get() to support both type hints and default values.
+		// If the second arg is a recognized storage type hint (e.g. "param", "memory"),
+		// it is forwarded to the API. Otherwise it is treated as a default value:
+		// auto-detection is used and the second arg is returned when the key is not found.
+		evalEnv["get"] = func(name string, args ...string) interface{} {
+			if len(args) > 0 && !isValidTypeHint(args[0]) {
+				// Second arg is a default value, not a type hint.
+				val, err := e.api.Get(name)
+				if err != nil {
+					return args[0]
+				}
+				return val
+			}
+			val, err := e.api.Get(name, args...)
 			if err != nil {
 				return nil
 			}

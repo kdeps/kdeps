@@ -89,6 +89,23 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("tts executor: invalid config type")
 	}
 
+	// Evaluate all expression fields before use.
+	cfg.Mode = e.evaluateText(cfg.Mode, ctx)
+	cfg.Voice = e.evaluateText(cfg.Voice, ctx)
+	cfg.Language = e.evaluateText(cfg.Language, ctx)
+	cfg.OutputFormat = e.evaluateText(cfg.OutputFormat, ctx)
+	cfg.OutputFile = e.evaluateText(cfg.OutputFile, ctx)
+	if cfg.Online != nil {
+		cfg.Online.Provider = e.evaluateText(cfg.Online.Provider, ctx)
+		cfg.Online.APIKey = e.evaluateText(cfg.Online.APIKey, ctx)
+		cfg.Online.Region = e.evaluateText(cfg.Online.Region, ctx)
+		cfg.Online.SubscriptionKey = e.evaluateText(cfg.Online.SubscriptionKey, ctx)
+	}
+	if cfg.Offline != nil {
+		cfg.Offline.Engine = e.evaluateText(cfg.Offline.Engine, ctx)
+		cfg.Offline.Model = e.evaluateText(cfg.Offline.Model, ctx)
+	}
+
 	// Evaluate expression in Text field.
 	text := e.evaluateText(cfg.Text, ctx)
 	if text == "" {
@@ -133,6 +150,9 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 // evaluateText resolves mustache/expr expressions in the text field.
 func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
 	if !strings.Contains(text, "{{") {
+		return text
+	}
+	if ctx == nil || ctx.API == nil {
 		return text
 	}
 	eval := expression.NewEvaluator(ctx.API)

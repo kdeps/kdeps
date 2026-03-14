@@ -107,6 +107,9 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		return nil, errors.New("embedding executor: invalid config type")
 	}
 
+	// Evaluate all expression fields before use.
+	e.evaluateConfigFields(cfg, ctx)
+
 	// Apply defaults.
 	backend := cfg.Backend
 	if backend == "" {
@@ -175,7 +178,7 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 // ─── Operations ─────────────────────────────────────────────────────────────
 
 func (e *Executor) operationIndex(
-	ctx *executor.ExecutionContext,
+	_ *executor.ExecutionContext,
 	cfg *domain.EmbeddingConfig,
 	client *http.Client,
 	backend, inputText, collection string,
@@ -214,8 +217,6 @@ func (e *Executor) operationIndex(
 		"collection", collection,
 		"id", id,
 		"dimensions", len(vec))
-
-	_ = ctx // ctx reserved for future expression post-processing
 
 	return map[string]interface{}{
 		"success":    true,
@@ -355,7 +356,7 @@ func (e *Executor) operationDelete(
 // above upsertSimilarityThreshold the existing entry is returned unchanged —
 // avoiding redundant embedding API calls and duplicate DB rows across requests.
 func (e *Executor) operationUpsert(
-	ctx *executor.ExecutionContext,
+	_ *executor.ExecutionContext,
 	cfg *domain.EmbeddingConfig,
 	client *http.Client,
 	backend, inputText, collection string,
@@ -436,7 +437,6 @@ func (e *Executor) operationUpsert(
 	}
 
 	id, _ := result.LastInsertId()
-	_ = ctx
 
 	e.logger.Info("embedding upsert: new entry stored",
 		"collection", collection, "id", id, "dimensions", len(vec))
@@ -792,7 +792,40 @@ func cosineSimilarity(a, b []float64) float64 {
 	return dot / denom
 }
 
-// ─── Expression evaluation helper ─────────────────────────────────────────────
+// ─── Expression evaluation helpers ────────────────────────────────────────────
+
+// evaluateConfigFields evaluates all expression strings in cfg in-place.
+func (e *Executor) evaluateConfigFields(cfg *domain.EmbeddingConfig, ctx *executor.ExecutionContext) {
+	cfg.Backend = e.evaluateText(cfg.Backend, ctx)
+	cfg.Operation = e.evaluateText(cfg.Operation, ctx)
+	cfg.Collection = e.evaluateText(cfg.Collection, ctx)
+	cfg.Model = e.evaluateText(cfg.Model, ctx)
+	cfg.BaseURL = e.evaluateText(cfg.BaseURL, ctx)
+	cfg.APIKey = e.evaluateText(cfg.APIKey, ctx)
+	cfg.DBPath = e.evaluateText(cfg.DBPath, ctx)
+	cfg.TimeoutDuration = e.evaluateText(cfg.TimeoutDuration, ctx)
+	cfg.Metadata = e.evaluateMapFields(cfg.Metadata, ctx)
+}
+
+// evaluateMapFields recursively evaluates expression strings in a
+// map[string]interface{}, returning a new map with all string values resolved.
+func (e *Executor) evaluateMapFields(m map[string]interface{}, ctx *executor.ExecutionContext) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		switch val := v.(type) {
+		case string:
+			result[k] = e.evaluateText(val, ctx)
+		case map[string]interface{}:
+			result[k] = e.evaluateMapFields(val, ctx)
+		default:
+			result[k] = v
+		}
+	}
+	return result
+}
 
 // evaluateText resolves mustache/expr expressions in the input field,
 // mirroring the pattern used by the TTS and botReply executors.

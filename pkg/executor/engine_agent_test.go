@@ -31,6 +31,33 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
+// paramEchoAgentWorkflow is a sub-agent that reads the "greeting" param from its
+// request body and echoes it back in the API response.
+// Used to verify that parent params with expressions are evaluated before hand-off.
+// We use "greeting" (not "name") because "name" is a reserved metadata field shorthand
+// that resolves to the workflow name, which would mask query/body params.
+const paramEchoAgentWorkflow = `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: param-echo-agent
+  version: "1.0.0"
+  targetActionId: echo
+settings:
+  apiServerMode: false
+  agentSettings:
+    timezone: "UTC"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: echo
+      name: Echo
+    run:
+      apiResponse:
+        success: true
+        response: "{{ get('greeting') }}"
+`
+
 // minimalAgentWorkflow is a simple workflow YAML that returns a fixed response.
 const minimalAgentWorkflow = `apiVersion: kdeps.io/v1
 kind: Workflow
@@ -213,4 +240,154 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 	// But it should NOT be "no agency context" - that confirms AgentPaths was set.
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "no agency context")
+}
+
+// TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff verifies the bug fix:
+// params containing expressions like "{{ get('name') }}" must be resolved in the
+// caller's context before being forwarded to the sub-agent as request body.
+//
+// Before the fix, the raw template string was passed verbatim, so the sub-agent's
+// get('name') would return "{{ get('name') }}" instead of the actual value.
+func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
+	dir := t.TempDir()
+	echoPath := filepath.Join(dir, "echo-workflow.yml")
+	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
+
+	eng := executor.NewEngine(slog.Default())
+	eng.SetNewExecutionContextForAgency(map[string]string{
+		"param-echo-agent": echoPath,
+	})
+
+	callerWorkflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "caller",
+			TargetActionID: "callEcho",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{Timezone: "UTC"},
+		},
+		Resources: []*domain.Resource{
+			{
+				APIVersion: "kdeps.io/v1",
+				Kind:       "Resource",
+				Metadata: domain.ResourceMetadata{
+					ActionID: "callEcho",
+					Name:     "Call Echo",
+				},
+				Run: domain.RunConfig{
+					// The expression "{{ get('greeting') }}" must be resolved to "Alice"
+					// from the caller's query param before the sub-agent sees it.
+					Agent: &domain.AgentCallConfig{
+						Name:   "param-echo-agent",
+						Params: map[string]interface{}{"greeting": "{{ get('greeting') }}"},
+					},
+				},
+			},
+		},
+	}
+
+	// The caller receives "greeting=Alice" as a query parameter.
+	req := &executor.RequestContext{
+		Method: "GET",
+		Query:  map[string]string{"greeting": "Alice"},
+	}
+
+	result, err := eng.Execute(callerWorkflow, req)
+	require.NoError(t, err)
+	// The engine unwraps apiResponse: {"success":true,"data":"Alice"} → "Alice".
+	// Must be "Alice", not the unevaluated template "{{ get('greeting') }}".
+	assert.Equal(t, "Alice", result)
+}
+
+// TestExecuteAgent_ParamsExpressions_StaticValueUnchanged verifies that a static
+// (non-expression) param value is forwarded to the sub-agent unchanged.
+func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	echoPath := filepath.Join(dir, "echo-workflow.yml")
+	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
+
+	eng := executor.NewEngine(slog.Default())
+	eng.SetNewExecutionContextForAgency(map[string]string{
+		"param-echo-agent": echoPath,
+	})
+
+	callerWorkflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "caller",
+			TargetActionID: "callEcho",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{Timezone: "UTC"},
+		},
+		Resources: []*domain.Resource{
+			{
+				APIVersion: "kdeps.io/v1",
+				Kind:       "Resource",
+				Metadata: domain.ResourceMetadata{
+					ActionID: "callEcho",
+					Name:     "Call Echo",
+				},
+				Run: domain.RunConfig{
+					Agent: &domain.AgentCallConfig{
+						Name:   "param-echo-agent",
+						Params: map[string]interface{}{"greeting": "Bob"},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := eng.Execute(callerWorkflow, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "Bob", result)
+}
+
+// TestExecuteAgent_ParamsExpressions_DefaultValue verifies that get() default values
+// in params work: if the caller has no "name" param, the default kicks in.
+func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
+	dir := t.TempDir()
+	echoPath := filepath.Join(dir, "echo-workflow.yml")
+	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
+
+	eng := executor.NewEngine(slog.Default())
+	eng.SetNewExecutionContextForAgency(map[string]string{
+		"param-echo-agent": echoPath,
+	})
+
+	callerWorkflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "caller",
+			TargetActionID: "callEcho",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{Timezone: "UTC"},
+		},
+		Resources: []*domain.Resource{
+			{
+				APIVersion: "kdeps.io/v1",
+				Kind:       "Resource",
+				Metadata: domain.ResourceMetadata{
+					ActionID: "callEcho",
+					Name:     "Call Echo",
+				},
+				Run: domain.RunConfig{
+					// "World" is the default — no "greeting" param in the request.
+					Agent: &domain.AgentCallConfig{
+						Name:   "param-echo-agent",
+						Params: map[string]interface{}{"greeting": "{{ get('greeting', 'World') }}"},
+					},
+				},
+			},
+		},
+	}
+
+	// No "greeting" in query params → default "World" should be used.
+	req := &executor.RequestContext{
+		Method: "GET",
+		Query:  map[string]string{},
+	}
+
+	result, err := eng.Execute(callerWorkflow, req)
+	require.NoError(t, err)
+	assert.Equal(t, "World", result)
 }
