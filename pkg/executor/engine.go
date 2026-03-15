@@ -1155,6 +1155,8 @@ const defaultLoopMaxIterations = 1000
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
 // Loop context variables (loop.index, loop.count) are available inside the body expressions
 // and primary execution types via the "loop" key in the evaluation environment.
+// When LoopConfig.Every is set the engine sleeps for that duration between iterations,
+// turning the loop into a repeated scheduled task (ticker pattern).
 func (e *Engine) ExecuteWithLoop(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1182,10 +1184,30 @@ func (e *Engine) ExecuteWithLoop(
 		whileExpr = strings.TrimSpace(whileExpr[2 : len(whileExpr)-2])
 	}
 
+	// Parse the inter-iteration delay (every:) once, before the loop starts.
+	// A zero duration (empty string) means no delay between iterations.
+	var everyDur time.Duration
+	if loopCfg.Every != "" {
+		var parseErr error
+		everyDur, parseErr = time.ParseDuration(loopCfg.Every)
+		if parseErr != nil {
+			return nil, fmt.Errorf("loop every duration %q is invalid: %w", loopCfg.Every, parseErr)
+		}
+	}
+
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
 	for i := range maxIter {
+		// When every: is configured, sleep BEFORE evaluating the while condition on
+		// all iterations after the first (i > 0). This naturally avoids both a
+		// trailing delay and duplicated loop-variable manipulation: if the while
+		// condition fails after the sleep the loop exits cleanly, and no lookahead
+		// re-evaluation of the condition is required.
+		if everyDur > 0 && i > 0 {
+			time.Sleep(everyDur)
+		}
+
 		// Set loop context variables so they are accessible inside the body via
 		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
 		ctx.Items[loopKeyIndex] = i

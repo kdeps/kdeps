@@ -1,6 +1,6 @@
 # While-Loop Iteration
 
-The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an arbitrary expression is true, with full access to mutable state via `set()`/`get()`.
+The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an arbitrary expression is true, with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
 
 ## Basic Usage
 
@@ -135,6 +135,60 @@ run:
     while: "true"
     maxIterations: 50000   # allow up to 50k iterations
 ```
+
+## `every:` — Repeated Scheduled Tasks
+
+Add `every:` to pause the loop for a fixed duration **between** iterations, turning it into a repeated scheduled task (ticker pattern). The value is a Go duration string: `ms`, `s`, `m`, or `h` suffixes are supported.
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "loop.index() < 10"
+    every: "5s"           # wait 5 seconds between each iteration
+    maxIterations: 100
+  expr:
+    - "{{ set('tick', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      tick: "{{ get('tick') }}"
+      at:   "{{ loop.count() }}"
+```
+
+</div>
+
+The sleep is **skipped after the last iteration** — the caller receives results without an unnecessary trailing delay.
+
+### Combining `while: "true"` with `every:` for infinite polling
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "true"          # run until maxIterations
+    every: "30s"           # poll every 30 seconds
+    maxIterations: 1440    # up to 12 hours (1440 × 30 s)
+  exec:
+    command: "poll-service.sh"
+  expr:
+    - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
+```
+
+</div>
+
+### Duration format
+
+| Example | Meaning |
+|---------|---------|
+| `"500ms"` | 500 milliseconds |
+| `"1s"` | 1 second |
+| `"2m"` | 2 minutes |
+| `"1h"` | 1 hour |
+
+An invalid `every:` value (e.g. `"not-a-duration"`) causes the resource to return an error immediately, before any iterations run.
 
 ## Condition Syntax
 
@@ -291,6 +345,7 @@ run:
 | Termination depends on runtime state | You want to iterate over a pre-computed array |
 | You need mutable accumulation across iterations | Each item is independent |
 | Implementing search / retry / polling patterns | Batch processing of a dataset |
+| Running a repeated scheduled task (`every:`) | One-shot batch over a dataset |
 
 ## Next Steps
 

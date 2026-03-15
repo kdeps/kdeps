@@ -261,7 +261,7 @@ Access iteration context:
 
 ## Loop Iteration
 
-Repeat a resource body while a condition is true (Turing-complete while-loop):
+Repeat a resource body while a condition is true (Turing-complete while-loop). Add `every:` to pause between iterations and turn the loop into a **repeated scheduled task**:
 
 <div v-pre>
 
@@ -270,6 +270,7 @@ run:
   loop:
     while: "loop.index() < 5"
     maxIterations: 1000   # safety cap (default: 1000)
+    every: "1s"           # optional: wait 1 second between iterations
   expr:
     - "{{ set('result', loop.count()) }}"
   apiResponse:
@@ -284,6 +285,11 @@ Access loop context:
 - `loop.index()` - Current index (0-based)
 - `loop.count()` - Current count (1-based)
 - `loop.results()` - Results from all prior iterations
+
+Loop fields:
+- `while` - Boolean expression; loop runs while truthy
+- `maxIterations` - Safety cap (default: 1000)
+- `every` - Optional inter-iteration delay (`"500ms"`, `"1s"`, `"2m"`, `"1h"`)
 
 When `apiResponse` is present, each iteration produces one streaming response map.
 

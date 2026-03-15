@@ -268,6 +268,30 @@
             }
           }
         },
+        "loop": {
+          "type": "object",
+          "description": "While-loop iteration config. Repeats the resource body while the 'while' expression is true. Add 'every' to turn it into a repeated scheduled task.",
+          "required": [
+            "while"
+          ],
+          "properties": {
+            "while": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Boolean expression evaluated before each iteration. Loop continues while truthy."
+            },
+            "maxIterations": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Safety cap on the number of iterations (default: 1000)."
+            },
+            "every": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m|h)$",
+              "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m'). Turns the loop into a repeated scheduled task."
+            }
+          }
+        },
         "chat": {
           "type": "object",
           "properties": {
