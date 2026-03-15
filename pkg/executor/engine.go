@@ -1186,6 +1186,65 @@ func parseAtTime(s string) (time.Time, error) {
 		"unrecognised at time format %q (expected RFC3339, HH:MM[:SS], or YYYY-MM-DD)", s)
 }
 
+// loopSchedule holds the validated/parsed scheduling configuration for a loop.
+type loopSchedule struct {
+	everyDur time.Duration // non-zero when every: is set
+	atTimes  []time.Time   // non-empty when at: is set
+}
+
+// prepareLoopSchedule validates and parses the scheduling fields (every:/at:) of
+// a LoopConfig. It also adjusts maxIter when at: is set.
+// An error is returned when:
+//   - both every: and at: are set (mutually exclusive)
+//   - every: contains an invalid duration string
+//   - any at: entry cannot be parsed
+func prepareLoopSchedule(cfg *domain.LoopConfig, maxIter *int) (loopSchedule, error) {
+	var sched loopSchedule
+
+	// every: and at: are mutually exclusive scheduling mechanisms.
+	if cfg.Every != "" && len(cfg.At) > 0 {
+		return sched, fmt.Errorf("loop: 'every' and 'at' are mutually exclusive; set only one")
+	}
+
+	if cfg.Every != "" {
+		d, err := time.ParseDuration(cfg.Every)
+		if err != nil {
+			return sched, fmt.Errorf("loop every duration %q is invalid: %w", cfg.Every, err)
+		}
+		sched.everyDur = d
+	}
+
+	if len(cfg.At) > 0 {
+		sched.atTimes = make([]time.Time, 0, len(cfg.At))
+		for _, s := range cfg.At {
+			t, err := parseAtTime(s)
+			if err != nil {
+				return sched, fmt.Errorf("loop at entry %q: %w", s, err)
+			}
+			sched.atTimes = append(sched.atTimes, t)
+		}
+		if len(sched.atTimes) < *maxIter {
+			*maxIter = len(sched.atTimes)
+		}
+	}
+
+	return sched, nil
+}
+
+// sleepForIteration applies the configured inter-iteration delay for the given
+// iteration index i using the pre-parsed loopSchedule.
+//   - at: mode — sleep until the scheduled time for that entry (past entries skip immediately)
+//   - every: mode — sleep between iterations (no sleep before the first)
+func sleepForIteration(sched loopSchedule, i int) {
+	if len(sched.atTimes) > 0 {
+		if delay := time.Until(sched.atTimes[i]); delay > 0 {
+			time.Sleep(delay)
+		}
+	} else if sched.everyDur > 0 && i > 0 {
+		time.Sleep(sched.everyDur)
+	}
+}
+
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
 // Loop context variables (loop.index, loop.count) are available inside the body expressions
 // and primary execution types via the "loop" key in the evaluation environment.
@@ -1219,57 +1278,18 @@ func (e *Engine) ExecuteWithLoop(
 		whileExpr = strings.TrimSpace(whileExpr[2 : len(whileExpr)-2])
 	}
 
-	// every: and at: are mutually exclusive scheduling mechanisms.
-	if loopCfg.Every != "" && len(loopCfg.At) > 0 {
-		return nil, fmt.Errorf("loop: 'every' and 'at' are mutually exclusive; set only one")
-	}
-
-	// Parse the inter-iteration delay (every:) once, before the loop starts.
-	// A zero duration (empty string) means no delay between iterations.
-	var everyDur time.Duration
-	if loopCfg.Every != "" {
-		var parseErr error
-		everyDur, parseErr = time.ParseDuration(loopCfg.Every)
-		if parseErr != nil {
-			return nil, fmt.Errorf("loop every duration %q is invalid: %w", loopCfg.Every, parseErr)
-		}
-	}
-
-	// Parse at: entries into absolute time.Time values.
-	// When at: is used the number of iterations is capped to len(At).
-	var atTimes []time.Time
-	if len(loopCfg.At) > 0 {
-		atTimes = make([]time.Time, 0, len(loopCfg.At))
-		for _, s := range loopCfg.At {
-			t, parseErr := parseAtTime(s)
-			if parseErr != nil {
-				return nil, fmt.Errorf("loop at entry %q: %w", s, parseErr)
-			}
-			atTimes = append(atTimes, t)
-		}
-		// Cap maxIter to the number of at: entries.
-		if len(atTimes) < maxIter {
-			maxIter = len(atTimes)
-		}
+	// Validate and parse scheduling fields (every:/at:) before the first iteration.
+	sched, schedErr := prepareLoopSchedule(loopCfg, &maxIter)
+	if schedErr != nil {
+		return nil, schedErr
 	}
 
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
 	for i := range maxIter {
-		// --- Scheduling: sleep before this iteration if required ---
-		if len(atTimes) > 0 {
-			// at: mode — sleep until the scheduled absolute time for iteration i.
-			delay := time.Until(atTimes[i])
-			if delay > 0 {
-				time.Sleep(delay)
-			}
-		} else if everyDur > 0 && i > 0 {
-			// every: mode — sleep between iterations (skip before the first).
-			// Sleeping BEFORE the while-check on i > 0 avoids a trailing delay
-			// after the last iteration without any lookahead evaluation.
-			time.Sleep(everyDur)
-		}
+		// Apply any configured inter-iteration delay.
+		sleepForIteration(sched, i)
 
 		// Set loop context variables so they are accessible inside the body via
 		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
