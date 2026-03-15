@@ -1,6 +1,6 @@
 # While-Loop Iteration
 
-The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an arbitrary expression is true, with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
+The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
 
 ## Basic Usage
 
@@ -249,7 +249,9 @@ An invalid entry (e.g. `"not-a-date"`) causes an error before any iterations run
 
 ## Condition Syntax
 
-The `while` expression is evaluated using expr-lang. Any boolean expression is valid:
+The `while:` field is optional. When omitted, the loop runs until `maxIterations` (default 1000) or until all `at:` entries are consumed.
+
+When provided, the expression is evaluated using expr-lang — any boolean expression is valid:
 
 ```yaml
 # Counter

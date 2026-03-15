@@ -861,3 +861,151 @@ func TestLoopIntegration_At_MutuallyExclusiveWithEvery(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
+
+// TestLoopIntegration_NoWhile_RunsMaxIterations verifies that a loop without a
+// while: condition runs exactly maxIterations times (the only stopping criterion).
+func TestLoopIntegration_NoWhile_RunsMaxIterations(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "loop-no-while",
+			Version:        "1.0.0",
+			TargetActionID: "count",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: false,
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "count",
+					Name:     "Count",
+				},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						// No While field — loop runs until maxIterations.
+						MaxIterations: 3,
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('n', loop.count())"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(slog.Default())
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+
+	results, ok := result.([]interface{})
+	require.True(t, ok, "no-while loop should return a streaming slice")
+	assert.Len(t, results, 3, "loop should run exactly maxIterations (3) times")
+}
+
+// TestLoopIntegration_NoWhile_WithEvery verifies that a loop without while: and with
+// every: runs maxIterations times with inter-iteration delays.
+func TestLoopIntegration_NoWhile_WithEvery(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "loop-no-while-every",
+			Version:        "1.0.0",
+			TargetActionID: "tick",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: false,
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "tick",
+					Name:     "Tick",
+				},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						// No While — runs 2 times with a 1 ms inter-iteration delay.
+						Every:         "1ms",
+						MaxIterations: 2,
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('ticks', loop.count())"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(slog.Default())
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+
+	results, ok := result.([]interface{})
+	require.True(t, ok, "no-while+every loop should return a streaming slice")
+	assert.Len(t, results, 2, "loop should run exactly maxIterations (2) times")
+}
+
+// TestLoopIntegration_NoWhile_WithAt verifies that a loop without while: and with at:
+// fires once per at: entry.
+func TestLoopIntegration_NoWhile_WithAt(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	past1 := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
+	past2 := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "loop-no-while-at",
+			Version:        "1.0.0",
+			TargetActionID: "fire",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: false,
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{
+					ActionID: "fire",
+					Name:     "Fire",
+				},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						// No While — at: drives iteration count.
+						At: []string{past1, past2},
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('fires', loop.count())"},
+					},
+					APIResponse: &domain.APIResponseConfig{
+						Success: true,
+					},
+				},
+			},
+		},
+	}
+
+	engine := executor.NewEngine(slog.Default())
+	result, err := engine.Execute(workflow, nil)
+	require.NoError(t, err)
+
+	results, ok := result.([]interface{})
+	require.True(t, ok, "no-while+at loop should return a streaming slice")
+	assert.Len(t, results, 2, "loop should fire once per at: entry")
+}

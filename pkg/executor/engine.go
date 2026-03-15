@@ -1300,17 +1300,21 @@ func (e *Engine) ExecuteWithLoop(
 		ctx.Items[loopKeyResults] = results
 
 		// Evaluate the while condition.
-		env := e.buildEvaluationEnvironment(ctx)
-		cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
-		if err != nil {
-			// Clean up loop context before returning.
-			delete(ctx.Items, loopKeyIndex)
-			delete(ctx.Items, loopKeyCount)
-			delete(ctx.Items, loopKeyResults)
-			return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
-		}
-		if !cont {
-			break
+		// When whileExpr is empty (while: omitted) the loop always continues; the
+		// only stop condition is maxIter (or the at: entry count).
+		if whileExpr != "" {
+			env := e.buildEvaluationEnvironment(ctx)
+			cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
+			if err != nil {
+				// Clean up loop context before returning.
+				delete(ctx.Items, loopKeyIndex)
+				delete(ctx.Items, loopKeyCount)
+				delete(ctx.Items, loopKeyResults)
+				return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
+			}
+			if !cont {
+				break
+			}
 		}
 
 		// Execute the resource body for this iteration.

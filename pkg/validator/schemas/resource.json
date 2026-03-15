@@ -270,15 +270,12 @@
         },
         "loop": {
           "type": "object",
-          "description": "While-loop iteration config. Repeats the resource body while the 'while' expression is true. Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
-          "required": [
-            "while"
-          ],
+          "description": "Loop iteration config. Repeats the resource body while the optional 'while' expression is true (or indefinitely up to maxIterations when 'while' is omitted). Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
           "properties": {
             "while": {
               "type": "string",
               "minLength": 1,
-              "description": "Boolean expression evaluated before each iteration. Loop continues while truthy."
+              "description": "Optional boolean expression evaluated before each iteration. Loop continues while truthy. When omitted, the loop runs until maxIterations (default 1000) or until all 'at' entries are consumed."
             },
             "maxIterations": {
               "type": "integer",
