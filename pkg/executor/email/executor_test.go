@@ -28,7 +28,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -423,4 +426,242 @@ func TestDoSend_ViaDummySMTP(t *testing.T) {
 	_ = client.Quit()
 
 	require.NoError(t, <-serverDone, "server goroutine error")
+}
+
+// ─── parseDate ────────────────────────────────────────────────────────────────
+
+func TestParseDate_YYYYMMDD(t *testing.T) {
+	got, err := parseDate("2024-06-15")
+	require.NoError(t, err)
+	assert.Equal(t, 2024, got.Year())
+	assert.Equal(t, time.June, got.Month())
+	assert.Equal(t, 15, got.Day())
+}
+
+func TestParseDate_RFC3339(t *testing.T) {
+	got, err := parseDate("2024-06-15T08:30:00Z")
+	require.NoError(t, err)
+	assert.Equal(t, 2024, got.Year())
+}
+
+func TestParseDate_Invalid(t *testing.T) {
+	_, err := parseDate("not-a-date")
+	require.Error(t, err)
+}
+
+func TestParseDate_Empty(t *testing.T) {
+	_, err := parseDate("")
+	require.Error(t, err)
+}
+
+// ─── resolveTimeout ───────────────────────────────────────────────────────────
+
+func TestResolveTimeout_Default(t *testing.T) {
+	got := resolveTimeout(&domain.EmailConfig{})
+	assert.Equal(t, 30*time.Second, got)
+}
+
+func TestResolveTimeout_WithDuration(t *testing.T) {
+	got := resolveTimeout(&domain.EmailConfig{TimeoutDuration: "10s"})
+	assert.Equal(t, 10*time.Second, got)
+}
+
+func TestResolveTimeout_Alias(t *testing.T) {
+	got := resolveTimeout(&domain.EmailConfig{Timeout: "5s"})
+	assert.Equal(t, 5*time.Second, got)
+}
+
+func TestResolveTimeout_Invalid_UsesDefault(t *testing.T) {
+	got := resolveTimeout(&domain.EmailConfig{TimeoutDuration: "bad"})
+	assert.Equal(t, 30*time.Second, got)
+}
+
+// ─── hasFlagSeen ──────────────────────────────────────────────────────────────
+
+func TestHasFlagSeen_Present(t *testing.T) {
+	flags := []imap.Flag{imap.FlagSeen, imap.FlagFlagged}
+	assert.True(t, hasFlagSeen(flags))
+}
+
+func TestHasFlagSeen_Absent(t *testing.T) {
+	flags := []imap.Flag{imap.FlagFlagged}
+	assert.False(t, hasFlagSeen(flags))
+}
+
+func TestHasFlagSeen_Empty(t *testing.T) {
+	assert.False(t, hasFlagSeen(nil))
+}
+
+// ─── formatAddress ────────────────────────────────────────────────────────────
+
+func TestFormatAddress_WithName(t *testing.T) {
+	addr := imap.Address{Name: "Alice Smith", Mailbox: "alice", Host: "example.com"}
+	assert.Equal(t, "Alice Smith <alice@example.com>", formatAddress(addr))
+}
+
+func TestFormatAddress_WithoutName(t *testing.T) {
+	addr := imap.Address{Mailbox: "bob", Host: "example.com"}
+	assert.Equal(t, "bob@example.com", formatAddress(addr))
+}
+
+// ─── emptyCriteria ────────────────────────────────────────────────────────────
+
+func TestEmptyCriteria_EmptyIsTrue(t *testing.T) {
+	assert.True(t, emptyCriteria(imap.SearchCriteria{}))
+}
+
+func TestEmptyCriteria_WithHeader_IsFalse(t *testing.T) {
+	c := imap.SearchCriteria{
+		Header: []imap.SearchCriteriaHeaderField{{Key: "From", Value: "x@y.com"}},
+	}
+	assert.False(t, emptyCriteria(c))
+}
+
+func TestEmptyCriteria_WithNotFlag_IsFalse(t *testing.T) {
+	c := imap.SearchCriteria{NotFlag: []imap.Flag{imap.FlagSeen}}
+	assert.False(t, emptyCriteria(c))
+}
+
+func TestEmptyCriteria_WithSince_IsFalse(t *testing.T) {
+	c := imap.SearchCriteria{Since: time.Now()}
+	assert.False(t, emptyCriteria(c))
+}
+
+// ─── buildSearchCriteria ──────────────────────────────────────────────────────
+
+func TestBuildSearchCriteria_Empty(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{}, identity)
+	assert.True(t, emptyCriteria(criteria))
+}
+
+func TestBuildSearchCriteria_FromFilter(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{From: "alice@example.com"}, identity)
+	require.Len(t, criteria.Header, 1)
+	assert.Equal(t, "From", criteria.Header[0].Key)
+	assert.Equal(t, "alice@example.com", criteria.Header[0].Value)
+}
+
+func TestBuildSearchCriteria_SubjectFilter(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Subject: "Invoice"}, identity)
+	require.Len(t, criteria.Header, 1)
+	assert.Equal(t, "Subject", criteria.Header[0].Key)
+	assert.Equal(t, "Invoice", criteria.Header[0].Value)
+}
+
+func TestBuildSearchCriteria_Unseen(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Unseen: true}, identity)
+	require.Len(t, criteria.NotFlag, 1)
+	assert.Equal(t, imap.FlagSeen, criteria.NotFlag[0])
+}
+
+func TestBuildSearchCriteria_SinceDate(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Since: "2024-01-01"}, identity)
+	assert.Equal(t, 2024, criteria.Since.Year())
+}
+
+func TestBuildSearchCriteria_InvalidSince_Ignored(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Since: "bad"}, identity)
+	assert.True(t, criteria.Since.IsZero())
+}
+
+func TestBuildSearchCriteria_BodyFilter(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Body: "urgent"}, identity)
+	require.Len(t, criteria.Body, 1)
+	assert.Equal(t, "urgent", criteria.Body[0])
+}
+
+// ─── bufToMessages ────────────────────────────────────────────────────────────
+
+func TestBufToMessages_Empty(t *testing.T) {
+	result := bufToMessages(nil)
+	assert.Empty(t, result)
+}
+
+func TestBufToMessages_WithEnvelope(t *testing.T) {
+	msgDate := time.Date(2024, time.March, 10, 12, 0, 0, 0, time.UTC)
+	buf := &imapclient.FetchMessageBuffer{
+		UID:   42,
+		Flags: []imap.Flag{imap.FlagSeen},
+		Envelope: &imap.Envelope{
+			MessageID: "msg-001@example.com",
+			Subject:   "Hello World",
+			Date:      msgDate,
+			From:      []imap.Address{{Name: "Alice", Mailbox: "alice", Host: "example.com"}},
+			To:        []imap.Address{{Mailbox: "bob", Host: "example.com"}},
+		},
+		BodySection: []imapclient.FetchBodySectionBuffer{
+			{Bytes: []byte("  hello world  ")},
+		},
+	}
+
+	result := bufToMessages([]*imapclient.FetchMessageBuffer{buf})
+	require.Len(t, result, 1)
+
+	m := result[0]
+	assert.Equal(t, uint32(42), m.UID)
+	assert.True(t, m.Seen)
+	assert.Equal(t, "msg-001@example.com", m.MsgID)
+	assert.Equal(t, "Hello World", m.Subject)
+	assert.Equal(t, "Alice <alice@example.com>", m.From)
+	assert.Equal(t, "bob@example.com", m.To)
+	assert.Equal(t, "hello world", m.Body)
+	assert.Equal(t, msgDate.UTC().Format(time.RFC3339), m.Date)
+}
+
+func TestBufToMessages_NoEnvelope(t *testing.T) {
+	buf := &imapclient.FetchMessageBuffer{
+		UID: 1,
+	}
+	result := bufToMessages([]*imapclient.FetchMessageBuffer{buf})
+	require.Len(t, result, 1)
+	assert.Equal(t, uint32(1), result[0].UID)
+	assert.Equal(t, "", result[0].Subject)
+}
+
+// ─── Execute — action dispatch ────────────────────────────────────────────────
+
+func TestExecute_UnknownAction(t *testing.T) {
+	ex := NewAdapter(nil)
+	_, err := ex.Execute(nil, &domain.EmailConfig{
+		Action: "invalid-action",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown action")
+}
+
+func TestExecute_Read_MissingIMAPHost(t *testing.T) {
+	ex := NewAdapter(nil)
+	_, err := ex.Execute(nil, &domain.EmailConfig{
+		Action: domain.EmailActionRead,
+		IMAP:   domain.EmailIMAPConfig{},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "imap.host")
+}
+
+func TestExecute_Search_MissingIMAPHost(t *testing.T) {
+	ex := NewAdapter(nil)
+	_, err := ex.Execute(nil, &domain.EmailConfig{
+		Action: domain.EmailActionSearch,
+		IMAP:   domain.EmailIMAPConfig{},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "imap.host")
+}
+
+func TestExecute_Modify_MissingIMAPHost(t *testing.T) {
+	ex := NewAdapter(nil)
+	_, err := ex.Execute(nil, &domain.EmailConfig{
+		Action: domain.EmailActionModify,
+		IMAP:   domain.EmailIMAPConfig{},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "imap.host")
 }
