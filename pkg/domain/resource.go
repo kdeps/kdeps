@@ -56,6 +56,12 @@ type LoopConfig struct {
 	// MaxIterations is a safety cap on the number of loop iterations (default: 1000).
 	// Prevents runaway loops when While never becomes false.
 	MaxIterations int `yaml:"maxIterations,omitempty"`
+
+	// Every is an optional Go duration string (e.g. "1s", "500ms", "2m") that causes
+	// the loop to pause for that duration between iterations, turning the loop into a
+	// repeated scheduled task (ticker pattern). Omit or leave empty for a tight loop
+	// with no inter-iteration delay.
+	Every string `yaml:"every,omitempty"`
 }
 
 // ValidationsConfig consolidates all validation-related config for a resource.

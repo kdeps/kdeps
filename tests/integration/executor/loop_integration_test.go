@@ -21,6 +21,7 @@ package executor_test
 import (
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -455,4 +456,213 @@ func TestLoopIntegration_LoopWithExprBeforeAndAfter(t *testing.T) {
 		assert.NotNil(t, respInner["main"])
 		assert.NotNil(t, respInner["after"])
 	}
+}
+
+// TestLoopIntegration_Every_ShortDelay verifies that the every: field is parsed and
+// the loop still produces the correct results. A 1 ms delay is used so the test
+// completes quickly while still exercising the scheduled-task code path.
+func TestLoopIntegration_Every_ShortDelay(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+workflow := &domain.Workflow{
+APIVersion: "kdeps.io/v1",
+Kind:       "Workflow",
+Metadata: domain.WorkflowMetadata{
+Name:           "loop-every-short-delay",
+Version:        "1.0.0",
+TargetActionID: "tick",
+},
+Settings: domain.WorkflowSettings{
+APIServerMode: false,
+AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+},
+Resources: []*domain.Resource{
+{
+Metadata: domain.ResourceMetadata{
+ActionID: "tick",
+Name:     "Tick",
+},
+Run: domain.RunConfig{
+Loop: &domain.LoopConfig{
+While:         "loop.index() < 3",
+MaxIterations: 10,
+Every:         "1ms",
+},
+Expr: []domain.Expression{
+{Raw: "set('tick', loop.count())"},
+},
+APIResponse: &domain.APIResponseConfig{
+Success:  true,
+Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
+},
+},
+},
+},
+}
+
+start := time.Now()
+engine := executor.NewEngine(slog.Default())
+result, err := engine.Execute(workflow, nil)
+elapsed := time.Since(start)
+
+require.NoError(t, err)
+require.NotNil(t, result)
+
+// 3 iterations should produce a streaming slice.
+results, ok := result.([]interface{})
+require.True(t, ok, "3-iteration loop should return a slice")
+assert.Len(t, results, 3)
+
+// The test should complete in well under a second (3 × 1 ms delay = at most ~3 ms).
+assert.Less(t, elapsed, 5*time.Second, "loop with 1ms every should finish quickly")
+}
+
+// TestLoopIntegration_Every_InvalidDuration ensures an invalid every: value returns
+// a descriptive error rather than silently ignoring the delay.
+func TestLoopIntegration_Every_InvalidDuration(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+workflow := &domain.Workflow{
+APIVersion: "kdeps.io/v1",
+Kind:       "Workflow",
+Metadata: domain.WorkflowMetadata{
+Name:           "loop-every-invalid",
+Version:        "1.0.0",
+TargetActionID: "bad-every",
+},
+Settings: domain.WorkflowSettings{
+APIServerMode: false,
+AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+},
+Resources: []*domain.Resource{
+{
+Metadata: domain.ResourceMetadata{
+ActionID: "bad-every",
+Name:     "Bad Every",
+},
+Run: domain.RunConfig{
+Loop: &domain.LoopConfig{
+While:         "loop.index() < 2",
+MaxIterations: 5,
+Every:         "not-a-duration",
+},
+Expr: []domain.Expression{
+{Raw: "set('n', loop.count())"},
+},
+},
+},
+},
+}
+
+engine := executor.NewEngine(slog.Default())
+_, err := engine.Execute(workflow, nil)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "not-a-duration", "error should mention the bad value")
+}
+
+// TestLoopIntegration_Every_ZeroNoDelay verifies that omitting every: (empty string)
+// behaves identically to a tight loop — no unnecessary sleep overhead.
+func TestLoopIntegration_Every_ZeroNoDelay(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+workflow := &domain.Workflow{
+APIVersion: "kdeps.io/v1",
+Kind:       "Workflow",
+Metadata: domain.WorkflowMetadata{
+Name:           "loop-no-every",
+Version:        "1.0.0",
+TargetActionID: "no-delay",
+},
+Settings: domain.WorkflowSettings{
+APIServerMode: false,
+AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+},
+Resources: []*domain.Resource{
+{
+Metadata: domain.ResourceMetadata{
+ActionID: "no-delay",
+Name:     "No Delay",
+},
+Run: domain.RunConfig{
+Loop: &domain.LoopConfig{
+While:         "loop.index() < 4",
+MaxIterations: 10,
+Every:         "", // empty — no delay
+},
+Expr: []domain.Expression{
+{Raw: "set('n', loop.count())"},
+},
+APIResponse: &domain.APIResponseConfig{
+Success:  true,
+Response: map[string]interface{}{"n": "{{ get('n') }}"},
+},
+},
+},
+},
+}
+
+engine := executor.NewEngine(slog.Default())
+result, err := engine.Execute(workflow, nil)
+require.NoError(t, err)
+
+results, ok := result.([]interface{})
+require.True(t, ok)
+assert.Len(t, results, 4)
+}
+
+// TestLoopIntegration_Every_ScheduledTaskPattern demonstrates the canonical
+// scheduled-task usage: run a body 3 times with a 1 ms interval, collecting
+// each iteration's output into a streaming response array.
+func TestLoopIntegration_Every_ScheduledTaskPattern(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+workflow := &domain.Workflow{
+APIVersion: "kdeps.io/v1",
+Kind:       "Workflow",
+Metadata: domain.WorkflowMetadata{
+Name:           "scheduled-task-pattern",
+Version:        "1.0.0",
+TargetActionID: "scheduled",
+},
+Settings: domain.WorkflowSettings{
+APIServerMode: false,
+AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+},
+Resources: []*domain.Resource{
+{
+Metadata: domain.ResourceMetadata{
+ActionID: "scheduled",
+Name:     "Scheduled",
+},
+Run: domain.RunConfig{
+Loop: &domain.LoopConfig{
+While:         "loop.index() < 3",
+MaxIterations: 100,
+Every:         "1ms",
+},
+Expr: []domain.Expression{
+{Raw: "set('run', loop.count())"},
+},
+APIResponse: &domain.APIResponseConfig{
+Success: true,
+Response: map[string]interface{}{
+"run":   "{{ get('run') }}",
+"index": "{{ loop.index() }}",
+},
+},
+},
+},
+},
+}
+
+engine := executor.NewEngine(slog.Default())
+result, err := engine.Execute(workflow, nil)
+require.NoError(t, err)
+
+results, ok := result.([]interface{})
+require.True(t, ok, "scheduled task loop should return streaming slice")
+require.Len(t, results, 3)
+
+// Verify each streaming element has the expected fields.
+for i, r := range results {
+resp, mapOK := r.(map[string]interface{})
+require.True(t, mapOK, "iteration %d result should be a map", i)
+assert.True(t, resp["success"].(bool), "iteration %d: success should be true", i)
+}
 }
