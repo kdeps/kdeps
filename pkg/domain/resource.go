@@ -1119,55 +1119,166 @@ type EmailSMTPConfig struct {
 	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
 }
 
-// EmailConfig configures an email-sending resource using SMTP.
+// EmailAction specifies what the email resource does: send, read, or search.
+type EmailAction string
+
+const (
+	// EmailActionSend sends an email via SMTP (default).
+	EmailActionSend EmailAction = "send"
+	// EmailActionRead reads messages from an IMAP mailbox.
+	EmailActionRead EmailAction = "read"
+	// EmailActionSearch searches messages in an IMAP mailbox.
+	EmailActionSearch EmailAction = "search"
+	// EmailActionModify modifies messages in an IMAP mailbox (flags, move, delete).
+	EmailActionModify EmailAction = "modify"
+)
+
+// EmailIMAPConfig holds IMAP server settings for reading email.
+type EmailIMAPConfig struct {
+	// Host is the IMAP server hostname (e.g., "imap.gmail.com").
+	Host string `yaml:"host"`
+
+	// Port is the IMAP server port (e.g., 993 for TLS, 143 for STARTTLS).
+	Port int `yaml:"port,omitempty"`
+
+	// Username is the IMAP authentication username.
+	Username string `yaml:"username,omitempty"`
+
+	// Password is the IMAP authentication password or app token.
+	Password string `yaml:"password,omitempty"`
+
+	// TLS enables implicit TLS (port 993). Defaults to true.
+	TLS bool `yaml:"tls,omitempty"`
+
+	// InsecureSkipVerify disables TLS certificate verification (testing only).
+	InsecureSkipVerify bool `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// EmailModifyConfig specifies which flags to set and what structural changes to apply.
+// All flag fields use *bool so that true = set, false = clear, nil = leave unchanged.
+type EmailModifyConfig struct {
+	// MarkSeen sets (\Seen) or clears the flag. nil = no change.
+	MarkSeen *bool `yaml:"markSeen,omitempty"`
+
+	// MarkFlagged sets (\Flagged / starred) or clears the flag. nil = no change.
+	MarkFlagged *bool `yaml:"markFlagged,omitempty"`
+
+	// MarkDeleted sets (\Deleted) or clears the flag. nil = no change.
+	MarkDeleted *bool `yaml:"markDeleted,omitempty"`
+
+	// MoveTo moves matched messages to this mailbox. Empty = do not move.
+	MoveTo string `yaml:"moveTo,omitempty"`
+
+	// Expunge calls EXPUNGE after flag changes so \Deleted messages are purged.
+	Expunge bool `yaml:"expunge,omitempty"`
+}
+
+// EmailSearchConfig specifies criteria for searching messages.
+type EmailSearchConfig struct {
+	// From filters by sender address (substring match).
+	From string `yaml:"from,omitempty"`
+
+	// Subject filters by subject (substring match).
+	Subject string `yaml:"subject,omitempty"`
+
+	// Since returns only messages on or after this date (RFC3339 or YYYY-MM-DD).
+	Since string `yaml:"since,omitempty"`
+
+	// Before returns only messages before this date (RFC3339 or YYYY-MM-DD).
+	Before string `yaml:"before,omitempty"`
+
+	// Unseen returns only unread messages when true.
+	Unseen bool `yaml:"unseen,omitempty"`
+
+	// Body filters by message body text (substring match, server-side if supported).
+	Body string `yaml:"body,omitempty"`
+}
+
+// EmailConfig configures an email resource.  Set Action to "send" (default)
+// to send via SMTP, or "read"/"search" to retrieve messages via IMAP.
 //
-// Example:
+// Send example:
 //
 //	run:
 //	  email:
+//	    action: send
 //	    smtp:
 //	      host: "smtp.gmail.com"
 //	      port: 587
 //	      username: "{{env('SMTP_USER')}}"
 //	      password: "{{env('SMTP_PASS')}}"
-//	      startTLS: true
 //	    from: "recruiter@example.com"
-//	    to: ["hiring@company.com", "hr@company.com"]
+//	    to: ["hiring@company.com"]
 //	    subject: "New CV Match: {{get('candidate-name')}}"
 //	    body: "{{get('email-body')}}"
-//	    html: true
-//	    attachments:
-//	      - "{{get('pdf-path')}}"
+//
+// Read example:
+//
+//	run:
+//	  email:
+//	    action: read
+//	    imap:
+//	      host: "imap.gmail.com"
+//	      username: "{{env('IMAP_USER')}}"
+//	      password: "{{env('IMAP_PASS')}}"
+//	    mailbox: "INBOX"
+//	    limit: 10
+//	    markRead: false
 type EmailConfig struct {
-	// SMTP holds server connection settings.
-	SMTP EmailSMTPConfig `yaml:"smtp"`
+	// Action controls whether to send, read, or search email. Default: "send".
+	Action EmailAction `yaml:"action,omitempty"`
 
-	// From is the sender email address. Expression evaluation is supported.
-	From string `yaml:"from"`
+	// SMTP holds server connection settings for sending.
+	SMTP EmailSMTPConfig `yaml:"smtp,omitempty"`
 
-	// To is the list of primary recipient addresses. Expression evaluation is supported per item.
-	To []string `yaml:"to"`
+	// IMAP holds server connection settings for reading/searching.
+	IMAP EmailIMAPConfig `yaml:"imap,omitempty"`
 
-	// CC is the list of carbon-copy recipients.
+	// From is the sender email address (send only). Expression evaluation is supported.
+	From string `yaml:"from,omitempty"`
+
+	// To is the list of primary recipient addresses (send only). Expression evaluation is supported per item.
+	To []string `yaml:"to,omitempty"`
+
+	// CC is the list of carbon-copy recipients (send only).
 	CC []string `yaml:"cc,omitempty"`
 
-	// BCC is the list of blind carbon-copy recipients.
+	// BCC is the list of blind carbon-copy recipients (send only).
 	BCC []string `yaml:"bcc,omitempty"`
 
-	// Subject is the email subject line. Expression evaluation is supported.
-	Subject string `yaml:"subject"`
+	// Subject is the email subject line (send only). Expression evaluation is supported.
+	Subject string `yaml:"subject,omitempty"`
 
-	// Body is the email body. Expression evaluation is supported.
-	Body string `yaml:"body"`
+	// Body is the email body (send only). Expression evaluation is supported.
+	Body string `yaml:"body,omitempty"`
 
-	// HTML set to true sends the body as HTML; otherwise plain text.
+	// HTML set to true sends the body as HTML (send only).
 	HTML bool `yaml:"html,omitempty"`
 
-	// Attachments is an optional list of local file paths to attach.
-	// Expression evaluation is supported per item.
+	// Attachments is an optional list of local file paths to attach (send only).
 	Attachments []string `yaml:"attachments,omitempty"`
 
-	// TimeoutDuration is the maximum time for the SMTP send (e.g., "30s").
+	// Mailbox is the IMAP mailbox/folder to read from (read/search only). Default: "INBOX".
+	Mailbox string `yaml:"mailbox,omitempty"`
+
+	// Limit caps the number of messages returned (read/search only). Default: 10.
+	Limit int `yaml:"limit,omitempty"`
+
+	// MarkRead marks fetched messages as read after retrieval (read/search only).
+	MarkRead bool `yaml:"markRead,omitempty"`
+
+	// UIDs is an explicit list of IMAP UIDs to target (modify only).
+	// Expression evaluation is supported per item.
+	// If empty, Search criteria are used to find target messages.
+	UIDs []string `yaml:"uids,omitempty"`
+
+	// Modify specifies flag changes and structural operations (modify only).
+	Modify EmailModifyConfig `yaml:"modify,omitempty"`
+
+	// Search specifies search criteria (search and modify actions).
+	Search EmailSearchConfig `yaml:"search,omitempty"`
+
+	// TimeoutDuration is the maximum time for the operation (e.g., "30s").
 	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
 
 	// Timeout is an alias for TimeoutDuration.
