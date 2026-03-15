@@ -1152,11 +1152,46 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 // loop.maxIterations explicitly in their resource configuration.
 const defaultLoopMaxIterations = 1000
 
+// parseAtTime parses a single "at" entry from LoopConfig.At into an absolute time.Time.
+// Supported formats (tried in order):
+//   - RFC3339 / RFC3339Nano / local datetime (e.g. "2026-03-15T10:00:00Z")
+//   - Time-of-day "HH:MM" or "HH:MM:SS" — resolves to next occurrence today or tomorrow
+//   - Date "YYYY-MM-DD" — resolves to midnight (00:00:00) of that date in local time
+func parseAtTime(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	// Try absolute timestamp formats first.
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	// Time-of-day: "HH:MM" or "HH:MM:SS"
+	now := time.Now()
+	for _, layout := range []string{"15:04:05", "15:04"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			scheduled := time.Date(now.Year(), now.Month(), now.Day(),
+				t.Hour(), t.Minute(), t.Second(), 0, now.Location())
+			// If the time has already passed today, schedule for tomorrow.
+			if !scheduled.After(now) {
+				scheduled = scheduled.Add(24 * time.Hour)
+			}
+			return scheduled, nil
+		}
+	}
+	// Date-only: "YYYY-MM-DD" — midnight local time.
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local), nil
+	}
+	return time.Time{}, fmt.Errorf(
+		"unrecognised at time format %q (expected RFC3339, HH:MM[:SS], or YYYY-MM-DD)", s)
+}
+
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
 // Loop context variables (loop.index, loop.count) are available inside the body expressions
 // and primary execution types via the "loop" key in the evaluation environment.
 // When LoopConfig.Every is set the engine sleeps for that duration between iterations,
 // turning the loop into a repeated scheduled task (ticker pattern).
+// When LoopConfig.At is set the engine fires the body at each specified date/time entry.
 func (e *Engine) ExecuteWithLoop(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1184,6 +1219,11 @@ func (e *Engine) ExecuteWithLoop(
 		whileExpr = strings.TrimSpace(whileExpr[2 : len(whileExpr)-2])
 	}
 
+	// every: and at: are mutually exclusive scheduling mechanisms.
+	if loopCfg.Every != "" && len(loopCfg.At) > 0 {
+		return nil, fmt.Errorf("loop: 'every' and 'at' are mutually exclusive; set only one")
+	}
+
 	// Parse the inter-iteration delay (every:) once, before the loop starts.
 	// A zero duration (empty string) means no delay between iterations.
 	var everyDur time.Duration
@@ -1195,16 +1235,39 @@ func (e *Engine) ExecuteWithLoop(
 		}
 	}
 
+	// Parse at: entries into absolute time.Time values.
+	// When at: is used the number of iterations is capped to len(At).
+	var atTimes []time.Time
+	if len(loopCfg.At) > 0 {
+		atTimes = make([]time.Time, 0, len(loopCfg.At))
+		for _, s := range loopCfg.At {
+			t, parseErr := parseAtTime(s)
+			if parseErr != nil {
+				return nil, fmt.Errorf("loop at entry %q: %w", s, parseErr)
+			}
+			atTimes = append(atTimes, t)
+		}
+		// Cap maxIter to the number of at: entries.
+		if len(atTimes) < maxIter {
+			maxIter = len(atTimes)
+		}
+	}
+
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
 	for i := range maxIter {
-		// When every: is configured, sleep BEFORE evaluating the while condition on
-		// all iterations after the first (i > 0). This naturally avoids both a
-		// trailing delay and duplicated loop-variable manipulation: if the while
-		// condition fails after the sleep the loop exits cleanly, and no lookahead
-		// re-evaluation of the condition is required.
-		if everyDur > 0 && i > 0 {
+		// --- Scheduling: sleep before this iteration if required ---
+		if len(atTimes) > 0 {
+			// at: mode — sleep until the scheduled absolute time for iteration i.
+			delay := time.Until(atTimes[i])
+			if delay > 0 {
+				time.Sleep(delay)
+			}
+		} else if everyDur > 0 && i > 0 {
+			// every: mode — sleep between iterations (skip before the first).
+			// Sleeping BEFORE the while-check on i > 0 avoids a trailing delay
+			// after the last iteration without any lookahead evaluation.
 			time.Sleep(everyDur)
 		}
 

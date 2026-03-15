@@ -261,7 +261,7 @@ Access iteration context:
 
 ## Loop Iteration
 
-Repeat a resource body while a condition is true (Turing-complete while-loop). Add `every:` to pause between iterations and turn the loop into a **repeated scheduled task**:
+Repeat a resource body while a condition is true (Turing-complete while-loop). Add `every:` to pause between iterations for a ticker pattern, or `at:` to fire at specific dates/times:
 
 <div v-pre>
 
@@ -289,7 +289,8 @@ Access loop context:
 Loop fields:
 - `while` - Boolean expression; loop runs while truthy
 - `maxIterations` - Safety cap (default: 1000)
-- `every` - Optional inter-iteration delay (`"500ms"`, `"1s"`, `"2m"`, `"1h"`)
+- `every` - Optional inter-iteration delay (`"500ms"`, `"1s"`, `"2m"`, `"1h"`). Mutually exclusive with `at`
+- `at` - Optional array of specific dates/times (RFC3339, `"HH:MM"`, or `"YYYY-MM-DD"`). Mutually exclusive with `every`
 
 When `apiResponse` is present, each iteration produces one streaming response map.
 

@@ -270,7 +270,7 @@
         },
         "loop": {
           "type": "object",
-          "description": "While-loop iteration config. Repeats the resource body while the 'while' expression is true. Add 'every' to turn it into a repeated scheduled task.",
+          "description": "While-loop iteration config. Repeats the resource body while the 'while' expression is true. Add 'every' for a fixed inter-iteration delay or 'at' for scheduled fire times.",
           "required": [
             "while"
           ],
@@ -286,9 +286,25 @@
               "description": "Safety cap on the number of iterations (default: 1000)."
             },
             "every": {
-              "type": "string",
-              "pattern": "^[0-9]+(ms|s|m|h)$",
-              "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m'). Turns the loop into a repeated scheduled task."
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]+(ms|s|m|h)$"
+                }
+              ],
+              "description": "Optional inter-iteration delay (e.g. '1s', '500ms', '2m', '1h'). Mutually exclusive with 'at'."
+            },
+            "at": {
+              "type": "array",
+              "description": "Array of specific dates/times to fire the loop body. Supported formats: RFC3339 ('2026-03-15T10:00:00Z'), time-of-day ('10:00' or '10:00:00'), or date ('2026-03-15'). Mutually exclusive with 'every'.",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         },
