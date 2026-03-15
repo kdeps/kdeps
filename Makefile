@@ -2,6 +2,7 @@
 
 # Build variables
 VERSION ?= 2.0.0-dev
+GOLANGCI_VERSION := $(shell cat .golangci-lint-version 2>/dev/null | tr -d '[:space:]')
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X github.com/kdeps/kdeps/v2/pkg/version.Version=$(VERSION) -X github.com/kdeps/kdeps/v2/pkg/version.Commit=$(COMMIT)"
 
@@ -124,12 +125,12 @@ test-all: test
 
 # Run linter
 lint:
-	@echo "Running linter..."
+	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --config=.golangci.yml ./... --fix; \
+		golangci-lint run --config=.golangci.yml ./...; \
 	else \
 		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
-		echo "Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
 	fi
 
 # Clean build artifacts

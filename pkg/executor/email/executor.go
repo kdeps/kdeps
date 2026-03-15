@@ -44,12 +44,17 @@ import (
 
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-const defaultTimeout = 30 * time.Second
+const (
+	defaultTimeout = 30 * time.Second
+	defaultMailbox = "INBOX"
+	defaultLimit   = 10
+)
 
 // Executor implements executor.ResourceExecutor for email resources.
 type Executor struct {
@@ -175,11 +180,11 @@ func (e *Executor) executeRead(ctx *executor.ExecutionContext, cfg *domain.Email
 
 	mailbox := cfg.Mailbox
 	if mailbox == "" {
-		mailbox = "INBOX"
+		mailbox = defaultMailbox
 	}
 	limit := cfg.Limit
 	if limit <= 0 {
-		limit = 10
+		limit = defaultLimit
 	}
 
 	msgs, err := fetchRecent(c, mailbox, limit, cfg.MarkRead)
@@ -210,11 +215,11 @@ func (e *Executor) executeSearch(ctx *executor.ExecutionContext, cfg *domain.Ema
 
 	mailbox := cfg.Mailbox
 	if mailbox == "" {
-		mailbox = "INBOX"
+		mailbox = defaultMailbox
 	}
 	limit := cfg.Limit
 	if limit <= 0 {
-		limit = 10
+		limit = defaultLimit
 	}
 
 	criteria := buildSearchCriteria(cfg.Search, ev)
@@ -247,99 +252,46 @@ func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.Ema
 
 	mailbox := cfg.Mailbox
 	if mailbox == "" {
-		mailbox = "INBOX"
+		mailbox = defaultMailbox
 	}
 
-	_, selErr := c.Select(mailbox, &imap.SelectOptions{ReadOnly: false}).Wait()
-	if selErr != nil {
+	if _, selErr := c.Select(mailbox, &imap.SelectOptions{ReadOnly: false}).Wait(); selErr != nil {
 		return nil, fmt.Errorf("email executor: modify: select %q: %w", mailbox, selErr)
 	}
 
-	// Resolve target UIDs.
-	var uidSet imap.UIDSet
-	if len(cfg.UIDs) > 0 {
-		for _, raw := range cfg.UIDs {
-			s := strings.TrimSpace(ev(raw))
-			if s == "" {
-				continue
-			}
-			var uid uint32
-			if _, scanErr := fmt.Sscan(s, &uid); scanErr == nil && uid > 0 {
-				uidSet.AddNum(imap.UID(uid))
-			}
-		}
-		if len(uidSet) == 0 {
-			return nil, errors.New("email executor: modify: no valid UIDs resolved")
-		}
-	} else {
-		// Fall back to search criteria.
-		criteria := buildSearchCriteria(cfg.Search, ev)
-		searchData, searchErr := c.UIDSearch(&criteria, nil).Wait()
-		if searchErr != nil {
-			return nil, fmt.Errorf("email executor: modify: uid search: %w", searchErr)
-		}
-		allUIDs := searchData.AllUIDs()
-		if len(allUIDs) == 0 {
-			return map[string]interface{}{
-				"success": true,
-				"action":  "modify",
-				"mailbox": mailbox,
-				"count":   0,
-				"uids":    []uint32{},
-			}, nil
-		}
-		for _, uid := range allUIDs {
-			uidSet.AddNum(uid)
-		}
+	uidSet, found, err := resolveModifyUIDs(cfg, c, ev)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return map[string]interface{}{
+			"success": true,
+			"action":  "modify",
+			"mailbox": mailbox,
+			"count":   0,
+			"uids":    []uint32{},
+		}, nil
 	}
 
 	mod := cfg.Modify
+	applyFlagStore(c, uidSet, imap.FlagSeen, mod.MarkSeen, e.logger)
+	applyFlagStore(c, uidSet, imap.FlagFlagged, mod.MarkFlagged, e.logger)
+	applyFlagStore(c, uidSet, imap.FlagDeleted, mod.MarkDeleted, e.logger)
 
-	// Apply flag changes.
-	if mod.MarkSeen != nil {
-		op := imap.StoreFlagsAdd
-		if !*mod.MarkSeen {
-			op = imap.StoreFlagsDel
-		}
-		c.Store(uidSet, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{imap.FlagSeen}}, nil).Close()
-	}
-	if mod.MarkFlagged != nil {
-		op := imap.StoreFlagsAdd
-		if !*mod.MarkFlagged {
-			op = imap.StoreFlagsDel
-		}
-		c.Store(uidSet, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{imap.FlagFlagged}}, nil).Close()
-	}
-	if mod.MarkDeleted != nil {
-		op := imap.StoreFlagsAdd
-		if !*mod.MarkDeleted {
-			op = imap.StoreFlagsDel
-		}
-		c.Store(uidSet, &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{imap.FlagDeleted}}, nil).Close()
-	}
-
-	// Move messages.
 	if mod.MoveTo != "" {
 		if _, moveErr := c.Move(uidSet, mod.MoveTo).Wait(); moveErr != nil {
 			return nil, fmt.Errorf("email executor: modify: move to %q: %w", mod.MoveTo, moveErr)
 		}
 	}
 
-	// Expunge deleted messages (only if MoveTo is not set — Move already expunges).
+	// Expunge only when MoveTo is not set — Move already expunges implicitly.
 	if mod.Expunge && mod.MoveTo == "" {
 		if expErr := c.Expunge().Close(); expErr != nil {
 			return nil, fmt.Errorf("email executor: modify: expunge: %w", expErr)
 		}
 	}
 
-	// Collect affected UIDs for the result.
-	affectedUIDs := make([]uint32, 0)
-	for _, r := range uidSet {
-		for uid := uint32(r.Start); uid <= uint32(r.Stop); uid++ {
-			affectedUIDs = append(affectedUIDs, uid)
-		}
-	}
-
+	affectedUIDs := collectAffectedUIDs(uidSet)
 	e.logger.Info("email modify", "mailbox", mailbox, "count", len(affectedUIDs))
 	return map[string]interface{}{
 		"success": true,
@@ -348,6 +300,78 @@ func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.Ema
 		"count":   len(affectedUIDs),
 		"uids":    affectedUIDs,
 	}, nil
+}
+
+// resolveModifyUIDs returns the target UID set for a modify operation.
+// It returns (set, true, nil) when UIDs are found, (nil, false, nil) when a
+// search yields no results, and (nil, false, err) on hard errors.
+func resolveModifyUIDs(cfg *domain.EmailConfig, c *imapclient.Client, ev evalFn) (imap.UIDSet, bool, error) {
+	if len(cfg.UIDs) > 0 {
+		return resolveExplicitUIDs(cfg.UIDs, ev)
+	}
+	return resolveSearchUIDs(cfg, c, ev)
+}
+
+func resolveExplicitUIDs(rawUIDs []string, ev evalFn) (imap.UIDSet, bool, error) {
+	var uidSet imap.UIDSet
+	for _, raw := range rawUIDs {
+		s := strings.TrimSpace(ev(raw))
+		if s == "" {
+			continue
+		}
+		var uid uint32
+		if _, scanErr := fmt.Sscan(s, &uid); scanErr == nil && uid > 0 {
+			uidSet.AddNum(imap.UID(uid))
+		}
+	}
+	if len(uidSet) == 0 {
+		return nil, false, errors.New("email executor: modify: no valid UIDs resolved")
+	}
+	return uidSet, true, nil
+}
+
+func resolveSearchUIDs(cfg *domain.EmailConfig, c *imapclient.Client, ev evalFn) (imap.UIDSet, bool, error) {
+	criteria := buildSearchCriteria(cfg.Search, ev)
+	searchData, searchErr := c.UIDSearch(&criteria, nil).Wait()
+	if searchErr != nil {
+		return nil, false, fmt.Errorf("email executor: modify: uid search: %w", searchErr)
+	}
+	allUIDs := searchData.AllUIDs()
+	if len(allUIDs) == 0 {
+		return nil, false, nil
+	}
+	var uidSet imap.UIDSet
+	for _, uid := range allUIDs {
+		uidSet.AddNum(uid)
+	}
+	return uidSet, true, nil
+}
+
+// applyFlagStore sends a UID STORE command for a single flag. Errors are logged
+// but not propagated — flag operations are best-effort.
+func applyFlagStore(c *imapclient.Client, uidSet imap.UIDSet, flag imap.Flag, set *bool, logger *slog.Logger) {
+	if set == nil {
+		return
+	}
+	op := imap.StoreFlagsAdd
+	if !*set {
+		op = imap.StoreFlagsDel
+	}
+	storeFlags := &imap.StoreFlags{Op: op, Silent: true, Flags: []imap.Flag{flag}}
+	if err := c.Store(uidSet, storeFlags, nil).Close(); err != nil {
+		logger.Warn("imap store flag failed", "flag", flag, "err", err)
+	}
+}
+
+// collectAffectedUIDs expands a UIDSet into a flat slice of uint32 values.
+func collectAffectedUIDs(uidSet imap.UIDSet) []uint32 {
+	uids := make([]uint32, 0)
+	for _, r := range uidSet {
+		for uid := uint32(r.Start); uid <= uint32(r.Stop); uid++ {
+			uids = append(uids, uid)
+		}
+	}
+	return uids
 }
 
 // ─── IMAP helpers ─────────────────────────────────────────────────────────────
@@ -407,6 +431,8 @@ func (e *Executor) dialIMAP(ctx *executor.ExecutionContext, cfg *domain.EmailCon
 
 // EmailMessage is a serialisable representation of a fetched IMAP message.
 // It is returned in the "messages" slice of the read/search/modify result map.
+//
+//nolint:revive // EmailMessage is intentionally qualified to avoid ambiguity when imported as executorEmail.
 type EmailMessage struct {
 	UID     uint32 `json:"uid"`
 	MsgID   string `json:"messageId,omitempty"`
@@ -418,6 +444,7 @@ type EmailMessage struct {
 	Seen    bool   `json:"seen"`
 }
 
+//nolint:gochecknoglobals // read-only shared fetch options; allocating per-call would be wasteful.
 var fetchBodyOpts = &imap.FetchOptions{
 	UID:      true,
 	Flags:    true,
@@ -440,7 +467,7 @@ func fetchRecent(c *imapclient.Client, mailbox string, limit int, markRead bool)
 	total := selData.NumMessages
 	start := uint32(1)
 	if int(total) > limit {
-		start = total - uint32(limit) + 1
+		start = total - uint32(limit) + 1 //nolint:gosec // G115: limit < total ≤ MaxUint32, conversion is safe.
 	}
 	var seqSet imap.SeqSet
 	seqSet.AddRange(start, total)
@@ -458,7 +485,13 @@ func fetchRecent(c *imapclient.Client, mailbox string, limit int, markRead bool)
 }
 
 // fetchBySearch runs a UID SEARCH with the given criteria then fetches matches.
-func fetchBySearch(c *imapclient.Client, mailbox string, limit int, markRead bool, criteria imap.SearchCriteria) ([]EmailMessage, error) {
+func fetchBySearch(
+	c *imapclient.Client,
+	mailbox string,
+	limit int,
+	markRead bool,
+	criteria imap.SearchCriteria,
+) ([]EmailMessage, error) {
 	selData, err := c.Select(mailbox, &imap.SelectOptions{ReadOnly: !markRead}).Wait()
 	if err != nil {
 		return nil, fmt.Errorf("select %q: %w", mailbox, err)
@@ -532,7 +565,7 @@ func markMessagesRead(c *imapclient.Client, msgs []EmailMessage) {
 			Silent: true,
 			Flags:  []imap.Flag{imap.FlagSeen},
 		}, nil)
-		storeCmd.Close()
+		_ = storeCmd.Close()
 	}
 }
 

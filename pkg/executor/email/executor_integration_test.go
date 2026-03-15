@@ -673,7 +673,7 @@ func startFakeIMAP(t *testing.T, msgs []fakeIMAPMsg) *memIMAPServer {
 		NewSession: func(_ *imapserver.Conn) (imapserver.Session, *imapserver.GreetingData, error) {
 			return memSrv.NewSession(), nil, nil
 		},
-		Caps: imap.CapSet{
+		Caps: imap.CapSet{ //nolint:exhaustive // test server only advertises IMAP4rev1.
 			imap.CapIMAP4rev1: {},
 		},
 		InsecureAuth: true,
