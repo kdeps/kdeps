@@ -353,6 +353,11 @@ func BuildJinja2Context() map[string]interface{} {
 // returned immediately.
 func PreprocessJ2Files(dir string) error {
 	vars := BuildJinja2Context()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return fmt.Errorf("preprocess j2: open root %s: %w", dir, err)
+	}
+	defer root.Close()
 	return filepath.WalkDir(dir, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -364,7 +369,11 @@ func PreprocessJ2Files(dir string) error {
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		relPath, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return fmt.Errorf("preprocess j2: rel path %s: %w", path, relErr)
+		}
+		data, err := root.ReadFile(relPath)
 		if err != nil {
 			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
 		}
@@ -373,21 +382,22 @@ func PreprocessJ2Files(dir string) error {
 		if err != nil {
 			return fmt.Errorf("preprocess j2: render %s: %w", path, err)
 		}
+		outRelPath := strings.TrimSuffix(relPath, ".j2")
 		outPath := strings.TrimSuffix(path, ".j2")
 		// Skip generation when the output file already exists, to avoid
 		// clobbering user-edited files (e.g. workflow.yaml should not be
 		// overwritten by workflow.yaml.j2 when both are present).
-		if _, statErr := os.Stat(outPath); statErr == nil {
+		if _, statErr := root.Stat(outRelPath); statErr == nil {
 			return nil
 		}
 		// Preserve the original file's permissions so that executable scripts
 		// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
-		info, err := os.Stat(path)
+		info, err := root.Stat(relPath)
 		if err != nil {
 			return fmt.Errorf("preprocess j2: stat %s: %w", path, err)
 		}
-		if writeErr := os.WriteFile(
-			outPath,
+		if writeErr := root.WriteFile(
+			outRelPath,
 			[]byte(rendered),
 			info.Mode(),
 		); writeErr != nil {
