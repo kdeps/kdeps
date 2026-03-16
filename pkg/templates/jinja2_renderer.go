@@ -351,6 +351,40 @@ func BuildJinja2Context() map[string]interface{} {
 // Directories whose base name starts with "." (e.g. ".git") are skipped.
 // Errors encountered while reading, rendering, or writing individual files are
 // returned immediately.
+func processJ2File(root *os.Root, dir, path string, vars map[string]interface{}) error {
+	relPath, relErr := filepath.Rel(dir, path)
+	if relErr != nil {
+		return fmt.Errorf("preprocess j2: rel path %s: %w", path, relErr)
+	}
+	data, readErr := root.ReadFile(relPath)
+	if readErr != nil {
+		return fmt.Errorf("preprocess j2: read %s: %w", path, readErr)
+	}
+	protected := autoProtectKdepsExpressions(string(data))
+	rendered, renderErr := yamlRenderer.Render(protected, vars)
+	if renderErr != nil {
+		return fmt.Errorf("preprocess j2: render %s: %w", path, renderErr)
+	}
+	outRelPath := strings.TrimSuffix(relPath, ".j2")
+	outPath := strings.TrimSuffix(path, ".j2")
+	// Skip generation when the output file already exists, to avoid
+	// clobbering user-edited files (e.g. workflow.yaml should not be
+	// overwritten by workflow.yaml.j2 when both are present).
+	if _, statErr := root.Stat(outRelPath); statErr == nil {
+		return nil
+	}
+	// Preserve the original file's permissions so that executable scripts
+	// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
+	info, statErr := root.Stat(relPath)
+	if statErr != nil {
+		return fmt.Errorf("preprocess j2: stat %s: %w", path, statErr)
+	}
+	if writeErr := root.WriteFile(outRelPath, []byte(rendered), info.Mode()); writeErr != nil {
+		return fmt.Errorf("preprocess j2: write %s: %w", outPath, writeErr)
+	}
+	return nil
+}
+
 func PreprocessJ2Files(dir string) error {
 	vars := BuildJinja2Context()
 	root, err := os.OpenRoot(dir)
@@ -362,47 +396,12 @@ func PreprocessJ2Files(dir string) error {
 		if walkErr != nil {
 			return walkErr
 		}
-		// Skip hidden directories (e.g. .git, .cache).
 		if d.IsDir() && strings.HasPrefix(d.Name(), ".") {
 			return filepath.SkipDir
 		}
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".j2") {
 			return nil
 		}
-		relPath, relErr := filepath.Rel(dir, path)
-		if relErr != nil {
-			return fmt.Errorf("preprocess j2: rel path %s: %w", path, relErr)
-		}
-		data, err := root.ReadFile(relPath)
-		if err != nil {
-			return fmt.Errorf("preprocess j2: read %s: %w", path, err)
-		}
-		protected := autoProtectKdepsExpressions(string(data))
-		rendered, err := yamlRenderer.Render(protected, vars)
-		if err != nil {
-			return fmt.Errorf("preprocess j2: render %s: %w", path, err)
-		}
-		outRelPath := strings.TrimSuffix(relPath, ".j2")
-		outPath := strings.TrimSuffix(path, ".j2")
-		// Skip generation when the output file already exists, to avoid
-		// clobbering user-edited files (e.g. workflow.yaml should not be
-		// overwritten by workflow.yaml.j2 when both are present).
-		if _, statErr := root.Stat(outRelPath); statErr == nil {
-			return nil
-		}
-		// Preserve the original file's permissions so that executable scripts
-		// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
-		info, err := root.Stat(relPath)
-		if err != nil {
-			return fmt.Errorf("preprocess j2: stat %s: %w", path, err)
-		}
-		if writeErr := root.WriteFile(
-			outRelPath,
-			[]byte(rendered),
-			info.Mode(),
-		); writeErr != nil {
-			return fmt.Errorf("preprocess j2: write %s: %w", outPath, writeErr)
-		}
-		return nil
+		return processJ2File(root, dir, path, vars)
 	})
 }

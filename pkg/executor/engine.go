@@ -1151,6 +1151,7 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 // still preventing accidental runaway loops. Users requiring more iterations can set
 // loop.maxIterations explicitly in their resource configuration.
 const defaultLoopMaxIterations = 1000
+const hoursPerDay = 24
 
 // parseAtTime parses a single "at" entry from LoopConfig.At into an absolute time.Time.
 // Supported formats (tried in order):
@@ -1173,7 +1174,7 @@ func parseAtTime(s string) (time.Time, error) {
 				t.Hour(), t.Minute(), t.Second(), 0, now.Location())
 			// If the time has already passed today, schedule for tomorrow.
 			if !scheduled.After(now) {
-				scheduled = scheduled.Add(24 * time.Hour)
+				scheduled = scheduled.Add(hoursPerDay * time.Hour)
 			}
 			return scheduled, nil
 		}
@@ -1203,7 +1204,7 @@ func prepareLoopSchedule(cfg *domain.LoopConfig, maxIter *int) (loopSchedule, er
 
 	// every: and at: are mutually exclusive scheduling mechanisms.
 	if cfg.Every != "" && len(cfg.At) > 0 {
-		return sched, fmt.Errorf("loop: 'every' and 'at' are mutually exclusive; set only one")
+		return sched, errors.New("loop: 'every' and 'at' are mutually exclusive; set only one")
 	}
 
 	if cfg.Every != "" {
