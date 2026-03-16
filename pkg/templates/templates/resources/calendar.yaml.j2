@@ -1,0 +1,35 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: calendar
+  name: Calendar
+  description: Read and write local ICS (iCalendar) files
+run:
+  calendar:
+    # action: list | create | modify | delete
+    action: list
+
+    # Path to the .ics file (relative to the agent's FSRoot)
+    filePath: "events.ics"
+
+    # ── list options ──────────────────────────────────────────────────────
+    # since: "2026-01-01"       # only events starting on or after this date
+    # before: "2026-12-31"      # only events starting before this date
+    # limit: 10                 # maximum number of events to return
+    # search: "team meeting"    # substring match on summary or description
+
+    # ── create / modify fields ────────────────────────────────────────────
+    # uid: "my-unique-event-id" # omit to auto-generate on create
+    # summary: "Team Meeting"
+    # description: "Weekly sync"
+    # location: "Conference Room A"
+    # start: "2026-03-16T10:00:00Z"
+    # end:   "2026-03-16T11:00:00Z"
+    # allDay: false
+    # attendees:
+    #   - "alice@example.com"
+    #   - "bob@example.com"
+    # recurrence: "FREQ=WEEKLY;BYDAY=MO"  # RRULE string
+
+    # ── timing ────────────────────────────────────────────────────────────
+    # timeout: "30s"

@@ -226,6 +226,7 @@ type RunConfig struct {
 	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
 	PDF         *PDFConfig         `yaml:"pdf,omitempty"`
 	Email       *EmailConfig       `yaml:"email,omitempty"`
+	Calendar    *CalendarConfig    `yaml:"calendar,omitempty"`
 	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
@@ -246,6 +247,7 @@ type InlineResource struct {
 	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
 	PDF        *PDFConfig        `yaml:"pdf,omitempty"`
 	Email      *EmailConfig      `yaml:"email,omitempty"`
+	Calendar   *CalendarConfig   `yaml:"calendar,omitempty"`
 	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
 }
 
@@ -1299,6 +1301,42 @@ type EmailConfig struct {
 
 	// Timeout is an alias for TimeoutDuration.
 	Timeout string `yaml:"timeout,omitempty"`
+}
+
+// CalendarAction defines the operation to perform on the calendar file.
+type CalendarAction string
+
+const (
+	CalendarActionList   CalendarAction = "list"
+	CalendarActionCreate CalendarAction = "create"
+	CalendarActionModify CalendarAction = "modify"
+	CalendarActionDelete CalendarAction = "delete"
+)
+
+// CalendarConfig configures a calendar (.ics) file resource.
+type CalendarConfig struct {
+	Action   CalendarAction `yaml:"action"`
+	FilePath string         `yaml:"filePath"` // path relative to FSRoot
+
+	// Filtering (list)
+	Since  string `yaml:"since,omitempty"`  // RFC3339 or YYYY-MM-DD
+	Before string `yaml:"before,omitempty"` // RFC3339 or YYYY-MM-DD
+	Limit  int    `yaml:"limit,omitempty"`
+	Search string `yaml:"search,omitempty"` // substring match on summary/description
+
+	// Event fields (create / modify)
+	UID         string   `yaml:"uid,omitempty"`
+	Summary     string   `yaml:"summary,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Location    string   `yaml:"location,omitempty"`
+	Start       string   `yaml:"start,omitempty"` // RFC3339 or YYYY-MM-DD
+	End         string   `yaml:"end,omitempty"`
+	AllDay      bool     `yaml:"allDay,omitempty"`
+	Attendees   []string `yaml:"attendees,omitempty"`
+	Recurrence  string   `yaml:"recurrence,omitempty"` // RRULE string
+
+	Timeout         string `yaml:"timeout,omitempty"`
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
 }
 
 // PDFConfig configures a PDF generation resource.

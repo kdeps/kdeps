@@ -36,6 +36,7 @@ type Registry struct {
 	embeddingExecutor ResourceExecutor
 	pdfExecutor       ResourceExecutor
 	emailExecutor     ResourceExecutor
+	calendarExecutor  ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -168,4 +169,14 @@ func (r *Registry) SetEmailExecutor(executor ResourceExecutor) {
 // GetEmailExecutor returns the email executor.
 func (r *Registry) GetEmailExecutor() ResourceExecutor {
 	return r.emailExecutor
+}
+
+// SetCalendarExecutor sets the calendar executor.
+func (r *Registry) SetCalendarExecutor(executor ResourceExecutor) {
+	r.calendarExecutor = executor
+}
+
+// GetCalendarExecutor returns the calendar executor.
+func (r *Registry) GetCalendarExecutor() ResourceExecutor {
+	return r.calendarExecutor
 }
