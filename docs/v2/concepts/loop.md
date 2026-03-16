@@ -1,6 +1,6 @@
 # While-Loop Iteration
 
-The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an arbitrary expression is true, with full access to mutable state via `set()`/`get()`.
+The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
 
 ## Basic Usage
 
@@ -136,9 +136,122 @@ run:
     maxIterations: 50000   # allow up to 50k iterations
 ```
 
+## `every:` — Repeated Scheduled Tasks
+
+Add `every:` to pause the loop for a fixed duration **between** iterations, turning it into a repeated scheduled task (ticker pattern). Supported units: `ms` (milliseconds), `s` (seconds), `m` (minutes), `h` (hours).
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "loop.index() < 10"
+    every: "5s"           # wait 5 seconds between each iteration
+    maxIterations: 100
+  expr:
+    - "{{ set('tick', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      tick: "{{ get('tick') }}"
+      at:   "{{ loop.count() }}"
+```
+
+</div>
+
+The sleep is **skipped after the last iteration** — the caller receives results without an unnecessary trailing delay.
+
+### Combining `while: "true"` with `every:` for infinite polling
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "true"          # run until maxIterations
+    every: "30s"           # poll every 30 seconds
+    maxIterations: 1440    # up to 12 hours (1440 × 30 s)
+  exec:
+    command: "poll-service.sh"
+  expr:
+    - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
+```
+
+</div>
+
+### Duration format
+
+| Example | Meaning |
+|---------|---------|
+| `"500ms"` | 500 milliseconds |
+| `"1s"` | 1 second |
+| `"2m"` | 2 minutes |
+| `"1h"` | 1 hour |
+
+An invalid `every:` value (e.g. `"not-a-duration"`) is rejected at validation time.
+
+## `at:` — Specific Dates and Times
+
+Use `at:` to fire the loop body at a list of specific dates and/or times, in order. The engine sleeps until each scheduled time before executing the body for that iteration.
+
+`every:` and `at:` are mutually exclusive — set only one per loop block.
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "loop.index() < 2"
+    maxIterations: 10
+    at:
+      - "2026-03-15T10:00:00Z"   # RFC3339 absolute timestamp
+      - "2026-03-15T14:30:00Z"
+  expr:
+    - "{{ set('tick', loop.count()) }}"
+  apiResponse:
+    success: true
+    response:
+      tick: "{{ get('tick') }}"
+```
+
+</div>
+
+### Supported date/time formats
+
+| Format | Example | Behaviour |
+|--------|---------|-----------|
+| RFC3339 (UTC) | `"2026-03-15T10:00:00Z"` | Fire at that exact instant |
+| RFC3339 (offset) | `"2026-03-15T10:00:00+02:00"` | Fire at that exact instant |
+| Local datetime | `"2026-03-15T10:00:00"` | Treated as local time |
+| Time of day | `"10:00"` or `"10:00:00"` | Next occurrence of that time today; tomorrow if already past |
+| Date only | `"2026-03-15"` | Midnight (00:00:00) of that date, local time |
+
+### Daily recurring example
+
+<div v-pre>
+
+```yaml
+run:
+  loop:
+    while: "true"
+    maxIterations: 30  # run for 30 days
+    at:
+      - "08:00"   # fire at 08:00 every morning (next occurrence)
+      - "20:00"   # fire at 20:00 every evening
+  exec:
+    command: "daily-report.sh"
+```
+
+</div>
+
+If a time entry is already in the past the engine fires immediately (no sleep).  
+An invalid entry (e.g. `"not-a-date"`) causes an error before any iterations run.
+
 ## Condition Syntax
 
-The `while` expression is evaluated using expr-lang. Any boolean expression is valid:
+The `while:` field is optional. When omitted, the loop runs until `maxIterations` (default 1000) or until all `at:` entries are consumed.
+
+When provided, the expression is evaluated using expr-lang — any boolean expression is valid:
 
 ```yaml
 # Counter
@@ -291,6 +404,8 @@ run:
 | Termination depends on runtime state | You want to iterate over a pre-computed array |
 | You need mutable accumulation across iterations | Each item is independent |
 | Implementing search / retry / polling patterns | Batch processing of a dataset |
+| Running a repeated scheduled task (`every:`) | One-shot batch over a dataset |
+| Firing at specific dates or times (`at:`) | Batch processing of a dataset |
 
 ## Next Steps
 

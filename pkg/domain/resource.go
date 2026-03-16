@@ -56,6 +56,22 @@ type LoopConfig struct {
 	// MaxIterations is a safety cap on the number of loop iterations (default: 1000).
 	// Prevents runaway loops when While never becomes false.
 	MaxIterations int `yaml:"maxIterations,omitempty"`
+
+	// Every is an optional duration (e.g. "1s", "500ms", "2m", "1h") that causes
+	// the loop to pause for that duration between iterations, turning the loop into a
+	// repeated scheduled task (ticker pattern). Omit or leave empty for a tight loop
+	// with no inter-iteration delay. Mutually exclusive with At.
+	Every string `yaml:"every,omitempty"`
+
+	// At is an optional array of specific dates and/or times at which each iteration
+	// fires. Supported formats:
+	//   - RFC3339 timestamp:  "2026-03-15T10:00:00Z"
+	//   - Local datetime:     "2026-03-15T10:00:00"
+	//   - Time-of-day:        "10:00" or "10:00:00" (next occurrence today or tomorrow)
+	//   - Date:               "2026-03-15" (midnight of that date, local time)
+	// The loop iterates through each entry in order, sleeping until the specified time
+	// before executing the body. Mutually exclusive with Every.
+	At []string `yaml:"at,omitempty"`
 }
 
 // ValidationsConfig consolidates all validation-related config for a resource.
