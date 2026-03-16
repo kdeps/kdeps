@@ -749,7 +749,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, agent)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
@@ -762,6 +762,7 @@ func (e *Engine) ExecuteResource(
 		resource.Run.PDF != nil ||
 		resource.Run.Email != nil ||
 		resource.Run.Calendar != nil ||
+		resource.Run.Search != nil ||
 		resource.Run.Agent != nil
 
 	var primaryResult interface{}
@@ -794,6 +795,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeEmail(resource, ctx)
 		case resource.Run.Calendar != nil:
 			primaryResult, err = e.executeCalendar(resource, ctx)
+		case resource.Run.Search != nil:
+			primaryResult, err = e.executeSearch(resource, ctx)
 		case resource.Run.Agent != nil:
 			primaryResult, err = e.executeAgent(resource, ctx)
 		}
@@ -1527,6 +1530,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineEmail(inline.Email, ctx)
 		case inline.Calendar != nil:
 			result, err = e.executeInlineCalendar(inline.Calendar, ctx)
+		case inline.Search != nil:
+			result, err = e.executeInlineSearch(inline.Search, ctx)
 		case inline.Agent != nil:
 			result, err = e.executeInlineAgent(inline.Agent, ctx)
 		default:
@@ -2420,6 +2425,27 @@ func (e *Engine) executeInlineCalendar(config *domain.CalendarConfig, ctx *Execu
 		return nil, errors.New("calendar executor not available")
 	}
 	return calExec.Execute(ctx, config)
+}
+
+// executeSearch executes a web or local filesystem search resource.
+func (e *Engine) executeSearch(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Search == nil {
+		return nil, fmt.Errorf("resource %s has no search configuration", resource.Metadata.ActionID)
+	}
+	searchExec := e.registry.GetSearchExecutor()
+	if searchExec == nil {
+		return nil, errors.New("search executor not available")
+	}
+	return searchExec.Execute(ctx, resource.Run.Search)
+}
+
+// executeInlineSearch executes an inline search resource.
+func (e *Engine) executeInlineSearch(config *domain.SearchConfig, ctx *ExecutionContext) (interface{}, error) {
+	searchExec := e.registry.GetSearchExecutor()
+	if searchExec == nil {
+		return nil, errors.New("search executor not available")
+	}
+	return searchExec.Execute(ctx, config)
 }
 
 // executeAgent invokes a sibling agent by name within the same agency.
