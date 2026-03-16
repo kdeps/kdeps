@@ -1152,9 +1152,105 @@ func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionCon
 // loop.maxIterations explicitly in their resource configuration.
 const defaultLoopMaxIterations = 1000
 
+// parseAtTime parses a single "at" entry from LoopConfig.At into an absolute time.Time.
+// Supported formats (tried in order):
+//   - RFC3339 / RFC3339Nano / local datetime (e.g. "2026-03-15T10:00:00Z")
+//   - Time-of-day "HH:MM" or "HH:MM:SS" — resolves to next occurrence today or tomorrow
+//   - Date "YYYY-MM-DD" — resolves to midnight (00:00:00) of that date in local time
+func parseAtTime(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	// Try absolute timestamp formats first.
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	// Time-of-day: "HH:MM" or "HH:MM:SS"
+	now := time.Now()
+	for _, layout := range []string{"15:04:05", "15:04"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			scheduled := time.Date(now.Year(), now.Month(), now.Day(),
+				t.Hour(), t.Minute(), t.Second(), 0, now.Location())
+			// If the time has already passed today, schedule for tomorrow.
+			if !scheduled.After(now) {
+				scheduled = scheduled.Add(24 * time.Hour)
+			}
+			return scheduled, nil
+		}
+	}
+	// Date-only: "YYYY-MM-DD" — midnight local time.
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local), nil
+	}
+	return time.Time{}, fmt.Errorf(
+		"unrecognised at time format %q (expected RFC3339, HH:MM[:SS], or YYYY-MM-DD)", s)
+}
+
+// loopSchedule holds the validated/parsed scheduling configuration for a loop.
+type loopSchedule struct {
+	everyDur time.Duration // non-zero when every: is set
+	atTimes  []time.Time   // non-empty when at: is set
+}
+
+// prepareLoopSchedule validates and parses the scheduling fields (every:/at:) of
+// a LoopConfig. It also adjusts maxIter when at: is set.
+// An error is returned when:
+//   - both every: and at: are set (mutually exclusive)
+//   - every: contains an invalid duration string
+//   - any at: entry cannot be parsed
+func prepareLoopSchedule(cfg *domain.LoopConfig, maxIter *int) (loopSchedule, error) {
+	var sched loopSchedule
+
+	// every: and at: are mutually exclusive scheduling mechanisms.
+	if cfg.Every != "" && len(cfg.At) > 0 {
+		return sched, fmt.Errorf("loop: 'every' and 'at' are mutually exclusive; set only one")
+	}
+
+	if cfg.Every != "" {
+		d, err := time.ParseDuration(cfg.Every)
+		if err != nil {
+			return sched, fmt.Errorf("loop every duration %q is invalid: %w", cfg.Every, err)
+		}
+		sched.everyDur = d
+	}
+
+	if len(cfg.At) > 0 {
+		sched.atTimes = make([]time.Time, 0, len(cfg.At))
+		for _, s := range cfg.At {
+			t, err := parseAtTime(s)
+			if err != nil {
+				return sched, fmt.Errorf("loop at entry %q: %w", s, err)
+			}
+			sched.atTimes = append(sched.atTimes, t)
+		}
+		if len(sched.atTimes) < *maxIter {
+			*maxIter = len(sched.atTimes)
+		}
+	}
+
+	return sched, nil
+}
+
+// sleepForIteration applies the configured inter-iteration delay for the given
+// iteration index i using the pre-parsed loopSchedule.
+//   - at: mode — sleep until the scheduled time for that entry (past entries skip immediately)
+//   - every: mode — sleep between iterations (no sleep before the first)
+func sleepForIteration(sched loopSchedule, i int) {
+	if len(sched.atTimes) > 0 {
+		if delay := time.Until(sched.atTimes[i]); delay > 0 {
+			time.Sleep(delay)
+		}
+	} else if sched.everyDur > 0 && i > 0 {
+		time.Sleep(sched.everyDur)
+	}
+}
+
 // ExecuteWithLoop executes a resource body repeatedly while the loop's While condition is true.
 // Loop context variables (loop.index, loop.count) are available inside the body expressions
 // and primary execution types via the "loop" key in the evaluation environment.
+// When LoopConfig.Every is set the engine sleeps for that duration between iterations,
+// turning the loop into a repeated scheduled task (ticker pattern).
+// When LoopConfig.At is set the engine fires the body at each specified date/time entry.
 func (e *Engine) ExecuteWithLoop(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1182,10 +1278,19 @@ func (e *Engine) ExecuteWithLoop(
 		whileExpr = strings.TrimSpace(whileExpr[2 : len(whileExpr)-2])
 	}
 
+	// Validate and parse scheduling fields (every:/at:) before the first iteration.
+	sched, schedErr := prepareLoopSchedule(loopCfg, &maxIter)
+	if schedErr != nil {
+		return nil, schedErr
+	}
+
 	var lastResult interface{}
 	results := make([]interface{}, 0)
 
 	for i := range maxIter {
+		// Apply any configured inter-iteration delay.
+		sleepForIteration(sched, i)
+
 		// Set loop context variables so they are accessible inside the body via
 		// loop.index(), loop.count(), loop.results() (callable methods, consistent with item.index() etc.)
 		ctx.Items[loopKeyIndex] = i
@@ -1195,17 +1300,21 @@ func (e *Engine) ExecuteWithLoop(
 		ctx.Items[loopKeyResults] = results
 
 		// Evaluate the while condition.
-		env := e.buildEvaluationEnvironment(ctx)
-		cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
-		if err != nil {
-			// Clean up loop context before returning.
-			delete(ctx.Items, loopKeyIndex)
-			delete(ctx.Items, loopKeyCount)
-			delete(ctx.Items, loopKeyResults)
-			return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
-		}
-		if !cont {
-			break
+		// When whileExpr is empty (while: omitted) the loop always continues; the
+		// only stop condition is maxIter (or the at: entry count).
+		if whileExpr != "" {
+			env := e.buildEvaluationEnvironment(ctx)
+			cont, err := e.evaluator.EvaluateCondition(whileExpr, env)
+			if err != nil {
+				// Clean up loop context before returning.
+				delete(ctx.Items, loopKeyIndex)
+				delete(ctx.Items, loopKeyCount)
+				delete(ctx.Items, loopKeyResults)
+				return nil, fmt.Errorf("loop while condition evaluation failed: %w", err)
+			}
+			if !cont {
+				break
+			}
 		}
 
 		// Execute the resource body for this iteration.
