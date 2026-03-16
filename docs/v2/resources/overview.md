@@ -55,6 +55,7 @@ run:
   tts: { ... }         # Text-to-Speech
   pdf: { ... }         # PDF generation
   calendar: { ... }    # ICS calendar file
+  search: { ... }      # Web or local filesystem search
   botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
   agent: { ... }       # Call another agent (agency)
@@ -74,6 +75,7 @@ run:
 | `tts` | Text-to-Speech synthesis | Voice output, audio responses |
 | `pdf` | PDF generation | Reports, letters, tailored documents |
 | `calendar` | ICS calendar read/write | Schedule management, event creation |
+| `search` | Web or local filesystem search | Content discovery, research pipelines |
 | `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
@@ -405,6 +407,7 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [TTS Resource](tts) - Text-to-Speech synthesis
 - [PDF Resource](pdf) - PDF generation from HTML or Markdown
 - [Calendar Resource](calendar) - ICS calendar read/write
+- [Search Resource](search) - Web and local filesystem search
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
 - [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration

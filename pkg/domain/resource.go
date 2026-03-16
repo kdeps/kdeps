@@ -227,6 +227,7 @@ type RunConfig struct {
 	PDF         *PDFConfig         `yaml:"pdf,omitempty"`
 	Email       *EmailConfig       `yaml:"email,omitempty"`
 	Calendar    *CalendarConfig    `yaml:"calendar,omitempty"`
+	Search      *SearchConfig      `yaml:"search,omitempty"`
 	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
@@ -248,6 +249,7 @@ type InlineResource struct {
 	PDF        *PDFConfig        `yaml:"pdf,omitempty"`
 	Email      *EmailConfig      `yaml:"email,omitempty"`
 	Calendar   *CalendarConfig   `yaml:"calendar,omitempty"`
+	Search     *SearchConfig     `yaml:"search,omitempty"`
 	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
 }
 
@@ -1337,6 +1339,37 @@ type CalendarConfig struct {
 
 	Timeout         string `yaml:"timeout,omitempty"`
 	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+}
+
+// Search provider constants.
+const (
+	SearchProviderBrave      = "brave"
+	SearchProviderSerpAPI    = "serpapi"
+	SearchProviderDuckDuckGo = "duckduckgo"
+	SearchProviderTavily     = "tavily"
+	SearchProviderLocal      = "local"
+)
+
+// SearchConfig configures a web or local filesystem search resource.
+type SearchConfig struct {
+	// Provider is required: brave | serpapi | duckduckgo | tavily | local
+	Provider string `yaml:"provider"`
+	// Query is the search query or content-match string.
+	Query string `yaml:"query,omitempty"`
+	// APIKey falls back to a per-provider environment variable when omitted.
+	APIKey string `yaml:"apiKey,omitempty"`
+	// Limit is the maximum number of results to return (default 10).
+	Limit int `yaml:"limit,omitempty"`
+	// SafeSearch enables safe-search filtering (provider-dependent).
+	SafeSearch bool `yaml:"safeSearch,omitempty"`
+	// Region restricts results to a geographic region (e.g. "us").
+	Region string `yaml:"region,omitempty"`
+	// Timeout is a Go duration string (e.g. "30s").
+	Timeout string `yaml:"timeout,omitempty"`
+	// Path is the root directory for local search (default: FSRoot).
+	Path string `yaml:"path,omitempty"`
+	// Glob is a glob pattern for local file search (e.g. "**/*.md").
+	Glob string `yaml:"glob,omitempty"`
 }
 
 // PDFConfig configures a PDF generation resource.

@@ -1,0 +1,20 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: search
+  name: Web Search
+  description: Search the web or local files and return URLs for use with the scraper resource
+run:
+  search:
+    provider: brave         # brave | serpapi | duckduckgo | tavily | local
+    query: "{{ get('q') }}"
+    # apiKey: "{{ env('BRAVE_API_KEY') }}"
+    # limit: 10
+    # safeSearch: false
+    # region: "us"
+    # timeout: "30s"
+    #
+    # Local filesystem search (provider: local):
+    # path: "."             # root directory (default: FSRoot)
+    # glob: "**/*.md"       # filename pattern
+    # query: "search term"  # optional content match

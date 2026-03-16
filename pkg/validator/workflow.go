@@ -236,7 +236,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, agent).
+// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	n := 0
 	if run.Chat != nil {
@@ -275,6 +275,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Agent != nil {
 		n++
 	}
+	if run.Search != nil {
+		n++
+	}
 	return n
 }
 
@@ -309,7 +312,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
 				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, embedding, pdf, email, agent, apiResponse)",
+				" scraper, embedding, pdf, email, calendar, search, agent, apiResponse)",
 			nil,
 		)
 	}
@@ -318,7 +321,7 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
 				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, embedding, pdf, email, agent)",
+				" scraper, embedding, pdf, email, calendar, search, agent)",
 			nil,
 		)
 	}
@@ -358,6 +361,11 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 	}
 	if resource.Run.PDF != nil {
 		if err := ValidatePDFConfig(resource.Run.PDF); err != nil {
+			return err
+		}
+	}
+	if resource.Run.Search != nil {
+		if err := ValidateSearchConfig(resource.Run.Search); err != nil {
 			return err
 		}
 	}
@@ -975,6 +983,45 @@ func ValidateScraperConfig(config *domain.ScraperConfig) error {
 
 	if config.Source == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
+	}
+
+	return nil
+}
+
+// ValidateSearchConfig validates a SearchConfig.
+func ValidateSearchConfig(config *domain.SearchConfig) error {
+	if config.Provider == "" {
+		return domain.NewError(domain.ErrCodeInvalidResource, "search.provider is required", nil)
+	}
+
+	switch config.Provider {
+	case domain.SearchProviderBrave, domain.SearchProviderSerpAPI,
+		domain.SearchProviderDuckDuckGo, domain.SearchProviderTavily,
+		domain.SearchProviderLocal:
+		// valid
+	default:
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"search.provider %q is not valid (expected: brave, serpapi, duckduckgo, tavily, local)",
+				config.Provider,
+			),
+			nil,
+		)
+	}
+
+	if config.Provider == domain.SearchProviderLocal {
+		if config.Glob == "" && config.Query == "" {
+			return domain.NewError(
+				domain.ErrCodeInvalidResource,
+				"search: local provider requires at least one of glob or query",
+				nil,
+			)
+		}
+	} else {
+		if config.Query == "" {
+			return domain.NewError(domain.ErrCodeInvalidResource, "search.query is required", nil)
+		}
 	}
 
 	return nil
