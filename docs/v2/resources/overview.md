@@ -54,6 +54,7 @@ run:
   scraper: { ... }     # Content scraping
   tts: { ... }         # Text-to-Speech
   pdf: { ... }         # PDF generation
+  calendar: { ... }    # ICS calendar file
   botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
   agent: { ... }       # Call another agent (agency)
@@ -72,6 +73,7 @@ run:
 | `scraper` | Content extraction | Web pages, PDFs, documents, images |
 | `tts` | Text-to-Speech synthesis | Voice output, audio responses |
 | `pdf` | PDF generation | Reports, letters, tailored documents |
+| `calendar` | ICS calendar read/write | Schedule management, event creation |
 | `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
@@ -402,6 +404,7 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [Scraper Resource](scraper) - Content extraction
 - [TTS Resource](tts) - Text-to-Speech synthesis
 - [PDF Resource](pdf) - PDF generation from HTML or Markdown
+- [Calendar Resource](calendar) - ICS calendar read/write
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
 - [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration

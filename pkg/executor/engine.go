@@ -761,6 +761,7 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Embedding != nil ||
 		resource.Run.PDF != nil ||
 		resource.Run.Email != nil ||
+		resource.Run.Calendar != nil ||
 		resource.Run.Agent != nil
 
 	var primaryResult interface{}
@@ -791,6 +792,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executePDF(resource, ctx)
 		case resource.Run.Email != nil:
 			primaryResult, err = e.executeEmail(resource, ctx)
+		case resource.Run.Calendar != nil:
+			primaryResult, err = e.executeCalendar(resource, ctx)
 		case resource.Run.Agent != nil:
 			primaryResult, err = e.executeAgent(resource, ctx)
 		}
@@ -1522,6 +1525,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlinePDF(inline.PDF, ctx)
 		case inline.Email != nil:
 			result, err = e.executeInlineEmail(inline.Email, ctx)
+		case inline.Calendar != nil:
+			result, err = e.executeInlineCalendar(inline.Calendar, ctx)
 		case inline.Agent != nil:
 			result, err = e.executeInlineAgent(inline.Agent, ctx)
 		default:
@@ -2394,6 +2399,27 @@ func (e *Engine) executeInlineEmail(config *domain.EmailConfig, ctx *ExecutionCo
 	}
 
 	return emailExec.Execute(ctx, config)
+}
+
+// executeCalendar executes a calendar file resource.
+func (e *Engine) executeCalendar(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Calendar == nil {
+		return nil, fmt.Errorf("resource %s has no calendar configuration", resource.Metadata.ActionID)
+	}
+	calExec := e.registry.GetCalendarExecutor()
+	if calExec == nil {
+		return nil, errors.New("calendar executor not available")
+	}
+	return calExec.Execute(ctx, resource.Run.Calendar)
+}
+
+// executeInlineCalendar executes an inline calendar file resource.
+func (e *Engine) executeInlineCalendar(config *domain.CalendarConfig, ctx *ExecutionContext) (interface{}, error) {
+	calExec := e.registry.GetCalendarExecutor()
+	if calExec == nil {
+		return nil, errors.New("calendar executor not available")
+	}
+	return calExec.Execute(ctx, config)
 }
 
 // executeAgent invokes a sibling agent by name within the same agency.
