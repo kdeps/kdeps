@@ -143,13 +143,18 @@ jobs:
             echo "No release needed (no code changes or module updates)"
           fi
 
+      - name: Read golangci-lint version
+        if: steps.should_release.outputs.should_release == 'true'
+        id: lint-version
+        run: echo "version=$(cat .golangci-lint-version)" >> "$GITHUB_OUTPUT"
+
       - name: Run linter
         if: steps.should_release.outputs.should_release == 'true'
         id: lint
         continue-on-error: true
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.5.0
+          version: ${{ steps.lint-version.outputs.version }}
           args: --timeout=10m --config=.golangci.yml
           only-new-issues: false
 
