@@ -93,6 +93,37 @@ Change `llama3.2:3b` to any Ollama-compatible model in all three
 `workflow.yaml` files, or switch `backend: ollama` to `backend: openai`
 and set `OPENAI_API_KEY` to use GPT-4o / Claude.
 
+### 5. Streaming LLM responses
+
+The brain agent uses `streaming: true` so Ollama sends tokens as they are
+generated rather than buffering the full response.  The accumulated response
+is returned to the gateway in the normal format — no frontend changes are
+required.  To disable streaming, remove the flag or set it to `false`.
+
+### 6. MCP (Model Context Protocol) tools
+
+Any tool can delegate to an external MCP server instead of a kdeps resource.
+Replace `script: <actionId>` with an `mcp:` block:
+
+```yaml
+tools:
+  - name: list_files
+    description: "List files in a directory using the filesystem MCP server."
+    mcp:
+      server: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+      transport: stdio   # default; "sse" for remote HTTP+SSE servers
+    parameters:
+      path:
+        type: string
+        description: "Directory path to list."
+        required: true
+```
+
+kdeps starts the MCP server subprocess on demand, performs the JSON-RPC 2.0
+`initialize` handshake, calls `tools/call`, and shuts the process down —
+all transparently within the normal ReAct tool-call loop.
+
 ## Usage
 
 ### Direct API (REST)

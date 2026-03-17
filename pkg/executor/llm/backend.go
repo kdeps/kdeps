@@ -19,13 +19,16 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	stdhttp "net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/version"
@@ -68,6 +71,7 @@ type Backend interface {
 type ChatRequestConfig struct {
 	ContextLength int
 	JSONResponse  bool
+	Streaming     bool
 	Tools         []map[string]interface{}
 }
 
@@ -159,7 +163,7 @@ func (b *OllamaBackend) BuildRequest(
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
-		"stream":   false,
+		"stream":   config.Streaming,
 	}
 
 	if config.JSONResponse {
@@ -192,6 +196,54 @@ func (b *OllamaBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 // GetAPIKeyHeader returns the API key header name and value for authentication.
 func (b *OllamaBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", "" // Local backend, no API key needed
+}
+
+// parseOllamaStreamingResponse reads NDJSON chunks from an Ollama streaming response
+// and assembles them into the standard single-response format.
+func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error) {
+	scanner := bufio.NewScanner(body)
+	var contentBuilder strings.Builder
+	var lastChunk map[string]interface{}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		var chunk map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &chunk); err != nil {
+			continue
+		}
+
+		// Accumulate content from each chunk
+		if msg, ok := chunk["message"].(map[string]interface{}); ok {
+			if content, ok := msg["content"].(string); ok {
+				contentBuilder.WriteString(content)
+			}
+		}
+		lastChunk = chunk
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading streaming response: %w", err)
+	}
+
+	// Build a response identical to the non-streaming format
+	result := map[string]interface{}{
+		"message": map[string]interface{}{
+			"role":    "assistant",
+			"content": contentBuilder.String(),
+		},
+	}
+	// Preserve top-level metadata from the last chunk (e.g. done, total_duration)
+	if lastChunk != nil {
+		for k, v := range lastChunk {
+			if k != "message" {
+				result[k] = v
+			}
+		}
+	}
+	return result, nil
 }
 
 // callBackend calls the appropriate backend API.
@@ -253,6 +305,16 @@ func (e *Executor) callBackendWithEndpoint(
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
+	// Use streaming response parser when stream: true was requested (Ollama only for now)
+	if isStreaming, ok := requestBody["stream"].(bool); ok && isStreaming && backend.Name() == backendOllama {
+		if resp.StatusCode != stdhttp.StatusOK {
+			var errorBody map[string]interface{}
+			_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+			return nil, fmt.Errorf("ollama API error (status %d): %v", resp.StatusCode, errorBody)
+		}
+		return parseOllamaStreamingResponse(resp.Body)
+	}
 
 	return backend.ParseResponse(resp)
 }
