@@ -13,6 +13,7 @@ metadata:
 
 settings:
   apiServerMode: true
+  webServerMode: true
   hostIp: "0.0.0.0"
   portNum: 17200
 
@@ -29,6 +30,12 @@ settings:
     cors:
       enableCors: true
       allowedOrigins: ["*"]
+
+  webServer:
+    routes:
+      - path: /
+        serverType: static
+        publicPath: ./public
 
   agentSettings:
     timezone: "UTC"
