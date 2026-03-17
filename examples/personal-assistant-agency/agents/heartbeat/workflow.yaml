@@ -11,7 +11,7 @@ metadata:
     decide which items need attention right now, collect system context, and
     return an actionable summary.
 
-    Edit /data/pa-memory/heartbeat.md to customise recurring tasks.
+    Edit /tmp/pa-memory/heartbeat.md to customise recurring tasks.
     Called by pa-gateway; not exposed externally.
   version: "1.0.0"
   targetActionId: heartbeat-response
@@ -28,7 +28,7 @@ settings:
 resources:
 
   # ── Load (or seed) the task list ────────────────────────────────────────────
-  # /data/pa-memory/heartbeat.md is the source of truth for recurring tasks.
+  # /tmp/pa-memory/heartbeat.md is the source of truth for recurring tasks.
   # It is created with sensible defaults on first run.
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -40,12 +40,12 @@ resources:
         script: |
           import os
 
-          path = "/data/pa-memory/heartbeat.md"
+          path = "/tmp/pa-memory/heartbeat.md"
           if os.path.exists(path):
               with open(path) as f:
                   print(f.read())
           else:
-              os.makedirs("/data/pa-memory", exist_ok=True)
+              os.makedirs("/tmp/pa-memory", exist_ok=True)
               default = (
                   "# Heartbeat Tasks\n\n"
                   "Edit this file to customise your assistant's recurring proactive checks.\n\n"

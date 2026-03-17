@@ -34,7 +34,7 @@ POST /api/v1/heartbeat ─────────────►  (heartbeat ro
   │                │    send-email-tool   → SMTP                        │    │
   │                │    run-command-tool  → sh                          │    │
   │                │                                                     │    │
-  │  Memory: SQLite /data/pa-memory/conversations.db                   │    │
+  │  Memory: SQLite /tmp/pa-memory/conversations.db                   │    │
   └─────────────────────────────────────────────────────────────────────┘    │
                                                                               │
            ┌───────────────────────────────────────────────────────────────────┘
@@ -45,7 +45,7 @@ POST /api/v1/heartbeat ─────────────►  (heartbeat ro
   │                                                                     │
   │  load-tasks ──► system-context ──► assess (LLM) ──► act ──► resp  │
   │                                                                     │
-  │  Task list: /data/pa-memory/heartbeat.md                           │
+  │  Task list: /tmp/pa-memory/heartbeat.md                           │
   └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -77,7 +77,7 @@ export SMTP_PASS=your-app-password
 
 ### 3. Customise heartbeat tasks
 
-On first run, `/data/pa-memory/heartbeat.md` is created automatically.
+On first run, `/tmp/pa-memory/heartbeat.md` is created automatically.
 Edit it to add or remove recurring tasks:
 
 ```markdown

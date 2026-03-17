@@ -27,7 +27,7 @@ settings:
 
   sqlConnections:
     memory:
-      connection: "sqlite:///data/pa-memory/conversations.db"
+      connection: "sqlite:///tmp/pa-memory/conversations.db"
 
 resources:
 
@@ -42,8 +42,8 @@ resources:
       python:
         script: |
           import sqlite3, os
-          os.makedirs("/data/pa-memory", exist_ok=True)
-          conn = sqlite3.connect("/data/pa-memory/conversations.db")
+          os.makedirs("/tmp/pa-memory", exist_ok=True)
+          conn = sqlite3.connect("/tmp/pa-memory/conversations.db")
           conn.execute("""
             CREATE TABLE IF NOT EXISTS conversations (
               id          INTEGER PRIMARY KEY AUTOINCREMENT,
