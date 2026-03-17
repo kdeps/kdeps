@@ -1,0 +1,98 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: code-report
+  description: |
+    Report synthesis agent.  Receives security and quality findings and
+    produces a single prioritised, actionable code review report.
+    Called by code-intake; not exposed externally.
+  version: "1.0.0"
+  targetActionId: report-response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+resources:
+
+  # ── LLM synthesis ─────────────────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: synthesize
+      name: Synthesize Report
+    run:
+      chat:
+        backend: ollama
+        model: llama3.2:3b
+        role: user
+        prompt: |
+          You are a lead code reviewer writing a final review report.
+          Below are findings from two specialist agents for this {{ get('language') }} code review.
+
+          ── Security Analysis ──────────────────────────────────────────
+          {{ get('security') }}
+
+          ── Quality Analysis ───────────────────────────────────────────
+          {{ get('quality') }}
+
+          ── Code Under Review ──────────────────────────────────────────
+          ```{{ get('language') }}
+          {{ get('code') }}
+          ```
+
+          Produce a comprehensive, prioritised code review report.
+          Respond ONLY with a JSON object — no prose, no markdown fences:
+          {
+            "overall_score": <integer 1-10>,
+            "risk_level": "critical|high|medium|low",
+            "executive_summary": "2-3 sentences suitable for a non-technical manager.",
+            "top_priorities": [
+              { "priority": 1, "title": "...", "rationale": "..." },
+              { "priority": 2, "title": "...", "rationale": "..." },
+              { "priority": 3, "title": "...", "rationale": "..." }
+            ],
+            "security": <paste the full security object here>,
+            "quality": <paste the full quality object here>,
+            "next_steps": [
+              "Concrete action 1 (e.g. 'Parameterise the SQL query on line 12')",
+              "Concrete action 2",
+              "Concrete action 3"
+            ],
+            "estimated_fix_effort": "small|medium|large"
+          }
+        scenario:
+          - role: assistant
+            prompt: |
+              You are a principal engineer writing executive-level code review reports.
+              You integrate security and quality findings into clear, actionable guidance.
+              You ALWAYS respond with valid JSON and nothing else.
+        jsonResponse: true
+        jsonResponseKeys:
+          - overall_score
+          - risk_level
+          - executive_summary
+          - top_priorities
+          - security
+          - quality
+          - next_steps
+          - estimated_fix_effort
+        timeoutDuration: 120s
+
+  # ── Return final report to intake agent ───────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: report-response
+      name: Report Response
+      requires: [synthesize]
+    run:
+      apiResponse:
+        success: true
+        response: "{{ get('synthesize') }}"

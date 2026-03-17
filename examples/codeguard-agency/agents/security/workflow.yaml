@@ -1,0 +1,79 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: code-security
+  description: |
+    Security review agent.  Checks for OWASP Top 10 vulnerabilities,
+    injection flaws, hardcoded secrets, and insecure patterns.
+    Called by code-intake; not exposed externally.
+  version: "1.0.0"
+  targetActionId: security-response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+resources:
+
+  # ── LLM security analysis ─────────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: security-check
+      name: Security Check
+    run:
+      chat:
+        backend: ollama
+        model: llama3.2:3b
+        role: user
+        prompt: |
+          You are an application security engineer performing a code review.
+          Analyse the {{ get('language') }} code below for security vulnerabilities.
+
+          Focus on:
+          • OWASP Top 10 (injection, broken auth, XSS, IDOR, security misconfiguration, etc.)
+          • Hardcoded credentials, tokens, or private keys
+          • Unsafe use of eval / exec / shell commands
+          • Missing input validation or output encoding
+          • Insecure cryptography (weak algorithms, predictable seeds)
+          • Sensitive data exposed in logs or responses
+
+          Code:
+          ```{{ get('language') }}
+          {{ get('code') }}
+          ```
+
+          Respond ONLY with a JSON object — no prose, no markdown fences:
+          {
+            "severity": "critical|high|medium|low|none",
+            "findings": [
+              { "issue": "...", "location": "line N or function name", "cwe": "CWE-XX", "recommendation": "..." }
+            ],
+            "summary": "One sentence overall security assessment."
+          }
+        scenario:
+          - role: assistant
+            prompt: |
+              You are an expert application security engineer (OWASP, SANS).
+              You ALWAYS respond with valid JSON and nothing else.
+        jsonResponse: true
+        jsonResponseKeys: [severity, findings, summary]
+        timeoutDuration: 120s
+
+  # ── Return result to intake agent ─────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: security-response
+      name: Security Response
+      requires: [security-check]
+    run:
+      apiResponse:
+        success: true
+        response: "{{ get('security-check') }}"

@@ -1,0 +1,21 @@
+apiVersion: kdeps.io/v1
+kind: Agency
+
+metadata:
+  name: codeguard
+  description: |
+    AI-powered code review agency.
+
+    Accepts a code snippet and programming language, then runs a **security agent**
+    and a **quality agent** in parallel.  A final **report agent** synthesises both
+    reviews into a single actionable report.
+
+    Entry point: POST /api/v1/review  { "code": "...", "language": "python" }
+  version: "1.0.0"
+  targetAgentId: code-intake
+
+agents:
+  - agents/intake
+  - agents/security
+  - agents/quality
+  - agents/report

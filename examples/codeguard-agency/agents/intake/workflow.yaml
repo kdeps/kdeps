@@ -1,0 +1,106 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: code-intake
+  description: |
+    Entry-point agent.  Validates input, fans out to security and quality agents
+    in parallel, waits for both, then hands the combined results to the report agent.
+  version: "1.0.0"
+  targetActionId: final-response
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 17100
+
+  apiServer:
+    routes:
+      - path: /api/v1/review
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowedOrigins: ["*"]
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+resources:
+
+  # ── Step 0: Validate ──────────────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: validate
+      name: Validate Input
+    run:
+      validations:
+        methods: [POST]
+        routes: [/api/v1/review]
+        check:
+          - get('code') != ''
+        error:
+          code: 400
+          message: "'code' field is required"
+      exec:
+        command: echo
+        args: ["Input validated"]
+
+  # ── Step 1a: Security review (parallel) ───────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: callSecurity
+      name: Call Security Agent
+      requires: [validate]
+    run:
+      agent:
+        name: code-security
+        params:
+          code: "{{ get('code') }}"
+          language: "{{ get('language', 'unknown') }}"
+
+  # ── Step 1b: Quality review (parallel with 1a) ────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: callQuality
+      name: Call Quality Agent
+      requires: [validate]
+    run:
+      agent:
+        name: code-quality
+        params:
+          code: "{{ get('code') }}"
+          language: "{{ get('language', 'unknown') }}"
+
+  # ── Step 2: Synthesise report (waits for both 1a and 1b) ─────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: callReport
+      name: Call Report Agent
+      requires: [callSecurity, callQuality]
+    run:
+      agent:
+        name: code-report
+        params:
+          code:     "{{ get('code') }}"
+          language: "{{ get('language', 'unknown') }}"
+          security: "{{ output('callSecurity') }}"
+          quality:  "{{ output('callQuality') }}"
+
+  # ── Step 3: Return final report ───────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: final-response
+      name: Final Response
+      requires: [callReport]
+    run:
+      apiResponse:
+        success: true
+        response: "{{ output('callReport') }}"
