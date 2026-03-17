@@ -36,28 +36,27 @@ resources:
       actionId: load-tasks
       name: Load Task List
     run:
-      exec:
-        command: sh
-        args:
-          - "-c"
-          - |
-            FILE="/data/pa-memory/heartbeat.md"
-            if [ -f "$FILE" ]; then
-              cat "$FILE"
-            else
-              mkdir -p /data/pa-memory
-              cat > "$FILE" << 'TASKS'
-# Heartbeat Tasks
+      python:
+        script: |
+          import os
 
-Edit this file to customise your assistant's recurring proactive checks.
-
-- [ ] Summarise any unread emails in the INBOX
-- [ ] Report current disk usage (df -h /)
-- [ ] Report system uptime
-- [ ] Remind the user of any calendar events today
-TASKS
-              cat "$FILE"
-            fi
+          path = "/data/pa-memory/heartbeat.md"
+          if os.path.exists(path):
+              with open(path) as f:
+                  print(f.read())
+          else:
+              os.makedirs("/data/pa-memory", exist_ok=True)
+              default = (
+                  "# Heartbeat Tasks\n\n"
+                  "Edit this file to customise your assistant's recurring proactive checks.\n\n"
+                  "- [ ] Summarise any unread emails in the INBOX\n"
+                  "- [ ] Report current disk usage (df -h /)\n"
+                  "- [ ] Report system uptime\n"
+                  "- [ ] Remind the user of any calendar events today\n"
+              )
+              with open(path, "w") as f:
+                  f.write(default)
+              print(default)
 
   # ── Collect system context ────────────────────────────────────────────────────
   # Gathers lightweight system facts so the LLM can make informed decisions.
