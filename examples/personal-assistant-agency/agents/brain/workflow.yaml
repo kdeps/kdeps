@@ -6,11 +6,21 @@ metadata:
   description: |
     Reasoning agent (OpenClaw "Brain" + "Memory" + "Skills" components).
 
-    Loads the last 20 conversation turns from SQLite, then runs an LLM with
-    three tools available — web search, email sending, and shell command
-    execution — via the ReAct pattern.  After the model responds the exchange
-    is saved back to the SQLite memory store.
+    Loads the last 20 conversation turns from SQLite, then runs an LLM that
+    can call nine tools via the ReAct pattern:
 
+      web_search      — DuckDuckGo instant-answer API
+      web_scrape      — fetch and parse a full web page
+      send_email      — send via SMTP
+      read_email      — read inbox via IMAP
+      run_command     — safe read-only shell command
+      calculate       — evaluate a mathematical expression
+      calendar_list   — list upcoming events from a .ics file
+      calendar_add    — add a new event to the .ics file
+      take_note       — append a timestamped note to notes.md
+      read_notes      — read all saved notes
+
+    After the model responds the exchange is saved back to SQLite memory.
     Called by pa-gateway; not exposed externally.
   version: "1.0.0"
   targetActionId: brain-response
@@ -32,7 +42,6 @@ settings:
 resources:
 
   # ── Memory: initialise SQLite storage ───────────────────────────────────────
-  # Creates the database file and conversations table on first run.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -58,8 +67,6 @@ resources:
           print("ready")
 
   # ── Memory: recall recent conversation turns ─────────────────────────────────
-  # Returns the 20 most recent turns as a JSON array for injection into the
-  # LLM system prompt.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -80,9 +87,12 @@ resources:
         format: json
         timeoutDuration: 10s
 
-  # ── Skill: web search ────────────────────────────────────────────────────────
-  # Called by the LLM when it needs up-to-date information.
-  # Queries the DuckDuckGo instant-answer API; swap for any search API.
+  # ────────────────────────────────────────────────────────────────────────────
+  # TOOLS  (invoked by the LLM during ReAct reasoning — not in normal DAG flow)
+  # ────────────────────────────────────────────────────────────────────────────
+
+  # ── Tool 1: web search ───────────────────────────────────────────────────────
+  # DuckDuckGo instant-answer API — lightweight, no API key required.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -97,9 +107,22 @@ resources:
           Accept: "application/json"
           User-Agent: "personal-assistant/1.0"
 
-  # ── Skill: send email ────────────────────────────────────────────────────────
-  # Called by the LLM when the user explicitly asks to email someone.
-  # Configure via environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS.
+  # ── Tool 2: web scrape ───────────────────────────────────────────────────────
+  # Fetches and parses the full text content of a URL.
+  # Use this when web_search returns a link worth reading in full.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: web-scrape-tool
+      name: Web Scrape Tool
+    run:
+      scraper:
+        type: url
+        source: "{{ get('url') }}"
+        timeoutDuration: 30s
+
+  # ── Tool 3: send email ───────────────────────────────────────────────────────
+  # Configure via SMTP_HOST / SMTP_USER / SMTP_PASS environment variables.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -119,9 +142,27 @@ resources:
         subject: "{{ get('subject', 'Message from your AI assistant') }}"
         body: "{{ get('body') }}"
 
-  # ── Skill: run shell command ─────────────────────────────────────────────────
-  # Called by the LLM for system queries (disk usage, date, uptime, etc.).
-  # In production: restrict via an allow-list in your container entrypoint.
+  # ── Tool 4: read email ───────────────────────────────────────────────────────
+  # Reads recent messages from the configured IMAP inbox.
+  # Uses the same IMAP_HOST / SMTP_USER / SMTP_PASS environment variables.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: read-email-tool
+      name: Read Email Tool
+    run:
+      email:
+        action: read
+        imap:
+          host: "{{ env('IMAP_HOST', 'imap.gmail.com') }}"
+          username: "{{ env('SMTP_USER') }}"
+          password: "{{ env('SMTP_PASS') }}"
+        mailbox: "{{ get('mailbox', 'INBOX') }}"
+        limit: 10
+        markRead: false
+
+  # ── Tool 5: run shell command ────────────────────────────────────────────────
+  # Safe read-only system queries. Restrict in production via allow-list.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -135,9 +176,105 @@ resources:
           - "{{ get('command') }}"
         timeoutDuration: 15s
 
+  # ── Tool 6: calculator ───────────────────────────────────────────────────────
+  # Evaluates a mathematical expression safely (no arbitrary code execution).
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: calculator-tool
+      name: Calculator Tool
+    run:
+      python:
+        script: |
+          import math, json
+          expr = "{{ get('expression', '') }}"
+          allowed = {
+              "__builtins__": {},
+              "abs": abs, "round": round, "min": min, "max": max,
+              "sum": sum, "pow": pow, "int": int, "float": float,
+              "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+              "tan": math.tan, "log": math.log, "log10": math.log10,
+              "exp": math.exp, "ceil": math.ceil, "floor": math.floor,
+              "pi": math.pi, "e": math.e,
+          }
+          try:
+              result = eval(expr, allowed, {})
+              print(json.dumps({"result": result, "expression": expr}))
+          except Exception as ex:
+              print(json.dumps({"error": str(ex), "expression": expr}))
+
+  # ── Tool 7: calendar list ────────────────────────────────────────────────────
+  # Lists upcoming events from /tmp/pa-memory/calendar.ics.
+  # The file is created automatically on the first calendar_add call.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: calendar-list-tool
+      name: Calendar List Tool
+    run:
+      calendar:
+        action: list
+        filePath: "/tmp/pa-memory/calendar.ics"
+        since: "{{ get('since', '') }}"
+        before: "{{ get('before', '') }}"
+        limit: 20
+        search: "{{ get('search', '') }}"
+
+  # ── Tool 8: calendar add ─────────────────────────────────────────────────────
+  # Adds a new event to /tmp/pa-memory/calendar.ics.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: calendar-add-tool
+      name: Calendar Add Tool
+    run:
+      calendar:
+        action: create
+        filePath: "/tmp/pa-memory/calendar.ics"
+        summary: "{{ get('summary') }}"
+        description: "{{ get('description', '') }}"
+        location: "{{ get('location', '') }}"
+        start: "{{ get('start') }}"
+        end: "{{ get('end', '') }}"
+        allDay: false
+
+  # ── Tool 9: take note ────────────────────────────────────────────────────────
+  # Appends a timestamped note to /tmp/pa-memory/notes.md.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: take-note-tool
+      name: Take Note Tool
+    run:
+      python:
+        script: |
+          import os, datetime
+          os.makedirs("/tmp/pa-memory", exist_ok=True)
+          note = "{{ get('note', '') }}"
+          ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+          with open("/tmp/pa-memory/notes.md", "a") as f:
+              f.write(f"\n## {ts}\n{note}\n")
+          print("Note saved.")
+
+  # ── Tool 10: read notes ──────────────────────────────────────────────────────
+  # Returns all saved notes from /tmp/pa-memory/notes.md.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: read-notes-tool
+      name: Read Notes Tool
+    run:
+      exec:
+        command: sh
+        args:
+          - "-c"
+          - |
+            FILE="/tmp/pa-memory/notes.md"
+            if [ -f "$FILE" ]; then cat "$FILE"; else echo "No notes yet."; fi
+
+  # ────────────────────────────────────────────────────────────────────────────
+
   # ── Brain: LLM reasoning with ReAct tool-calling ────────────────────────────
-  # The model receives the full conversation history and decides whether to
-  # answer directly or call one of the three registered skills.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -154,18 +291,16 @@ resources:
           - role: assistant
             prompt: |
               You are a capable personal AI assistant with persistent memory and
-              tool access.  Use web_search for current information, send_email
-              to send messages on the user's behalf, and run_command for safe
-              system queries.
+              access to ten tools. Choose the right tool for each request.
 
               Conversation history (oldest first):
               {{ get('recall') }}
         tools:
           - name: web_search
             description: >-
-              Search the web for up-to-date information about any topic.
-              Use for news, facts, weather, prices, or anything that may have
-              changed recently.
+              Search the web for up-to-date information. Use for news, facts,
+              weather, prices, or anything that may have changed recently.
+              Returns an instant-answer summary.
             script: web-search-tool
             parameters:
               query:
@@ -173,10 +308,21 @@ resources:
                 description: "The search query."
                 required: true
 
+          - name: web_scrape
+            description: >-
+              Fetch and read the full text content of a web page URL.
+              Use after web_search when you need the full article or page.
+            script: web-scrape-tool
+            parameters:
+              url:
+                type: string
+                description: "Full URL of the page to scrape (including https://)."
+                required: true
+
           - name: send_email
             description: >-
               Send an email on the user's behalf.
-              Only use when the user explicitly asks to email or message someone.
+              Only use when the user explicitly asks to email someone.
             script: send-email-tool
             parameters:
               to:
@@ -192,23 +338,107 @@ resources:
                 description: "Plain-text email body."
                 required: true
 
+          - name: read_email
+            description: >-
+              Read recent emails from the user's inbox.
+              Use when the user asks to check, summarise, or search their email.
+            script: read-email-tool
+            parameters:
+              mailbox:
+                type: string
+                description: "Mailbox to read (default: INBOX)."
+                required: false
+
           - name: run_command
             description: >-
-              Execute a safe read-only shell command and return its output.
-              Good for: date, uptime, df -h, ls, hostname, uname -a, env.
-              Never use for writes, deletes, or network modifications.
+              Run a safe read-only shell command and return output.
+              Good for: date, uptime, df -h, ls, hostname, uname -a.
+              Never use for writes, deletes, or network changes.
             script: run-command-tool
             parameters:
               command:
                 type: string
-                description: "Shell command to execute."
+                description: "The shell command to execute."
                 required: true
+
+          - name: calculate
+            description: >-
+              Evaluate a mathematical expression and return the numeric result.
+              Supports: +, -, *, /, **, sqrt, sin, cos, log, pi, e, etc.
+            script: calculator-tool
+            parameters:
+              expression:
+                type: string
+                description: "Math expression to evaluate, e.g. 'sqrt(144) + 2*pi'."
+                required: true
+
+          - name: calendar_list
+            description: >-
+              List upcoming calendar events. Optionally filter by date range
+              or keyword. Use when the user asks what's on their schedule.
+            script: calendar-list-tool
+            parameters:
+              since:
+                type: string
+                description: "Start date filter (YYYY-MM-DD). Leave empty for today."
+                required: false
+              before:
+                type: string
+                description: "End date filter (YYYY-MM-DD)."
+                required: false
+              search:
+                type: string
+                description: "Keyword to search in event titles/descriptions."
+                required: false
+
+          - name: calendar_add
+            description: >-
+              Add a new event to the user's calendar.
+              Use when the user asks to schedule, book, or add an appointment.
+            script: calendar-add-tool
+            parameters:
+              summary:
+                type: string
+                description: "Event title."
+                required: true
+              start:
+                type: string
+                description: "Start date/time in RFC3339 or YYYY-MM-DD format."
+                required: true
+              end:
+                type: string
+                description: "End date/time. Leave empty for a 1-hour default."
+                required: false
+              description:
+                type: string
+                description: "Optional event description or notes."
+                required: false
+              location:
+                type: string
+                description: "Optional event location."
+                required: false
+
+          - name: take_note
+            description: >-
+              Save a note with a timestamp to the user's personal notes file.
+              Use when the user asks to remember, jot down, or note something.
+            script: take-note-tool
+            parameters:
+              note:
+                type: string
+                description: "The text to save as a note."
+                required: true
+
+          - name: read_notes
+            description: >-
+              Read all saved notes from the user's notes file.
+              Use when the user asks to see, recall, or list their notes.
+            script: read-notes-tool
+            parameters: {}
 
         timeoutDuration: 120s
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────
-  # get('think') returns the full Ollama JSON object; extract message.content.
-  # expr must be paired with an action (exec) — bare expr blocks are not valid.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
