@@ -436,6 +436,7 @@ resources:
             script: read-notes-tool
             parameters: {}
 
+        streaming: true
         timeoutDuration: 120s
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────

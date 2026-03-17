@@ -256,6 +256,7 @@ func (e *Executor) Execute(
 	requestConfig := ChatRequestConfig{
 		ContextLength: contextLength,
 		JSONResponse:  resolvedConfig.JSONResponse,
+		Streaming:     resolvedConfig.Streaming,
 		Tools:         e.buildTools(resolvedConfig.Tools),
 	}
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
@@ -1091,7 +1092,7 @@ func (e *Executor) executeToolCalls(
 	return results, nil
 }
 
-// executeTool executes a single tool.
+// executeTool executes a single tool — either via an MCP server or a kdeps resource.
 func (e *Executor) executeTool(
 	tool domain.Tool,
 	argumentsJSON string,
@@ -1102,6 +1103,16 @@ func (e *Executor) executeTool(
 		return nil, err
 	}
 
+	// MCP tool: delegate to MCP server via JSON-RPC 2.0 over stdio
+	if tool.MCP != nil {
+		result, mcpErr := executeMCPTool(tool.MCP, tool.Name, args)
+		if mcpErr != nil {
+			return nil, fmt.Errorf("MCP tool execution failed: %w", mcpErr)
+		}
+		return result, nil
+	}
+
+	// kdeps resource tool
 	if scriptErr := e.validateToolScript(tool); scriptErr != nil {
 		return nil, scriptErr
 	}

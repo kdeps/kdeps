@@ -371,6 +371,9 @@
                 "type": "string"
               }
             },
+            "streaming": {
+              "type": "boolean"
+            },
             "timeoutDuration": {
               "type": "string"
             },

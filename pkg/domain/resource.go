@@ -346,6 +346,7 @@ type ChatConfig struct {
 	Files            []string       `yaml:"files,omitempty"`
 	JSONResponse     bool           `yaml:"jsonResponse"`
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
+	Streaming        bool           `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
 	TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
 	Timeout          string         `yaml:"timeout,omitempty"` // Alias for timeoutDuration
 	// Advanced LLM parameters (may not be supported by all backends)
@@ -371,6 +372,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 		Files            []string       `yaml:"files,omitempty"`
 		JSONResponse     interface{}    `yaml:"jsonResponse"`
 		JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
+		Streaming        interface{}    `yaml:"streaming,omitempty"`
 		TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
 		Timeout          string         `yaml:"timeout,omitempty"`
 		Temperature      interface{}    `yaml:"temperature,omitempty"`
@@ -384,9 +386,12 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 
-	// Parse boolean field that might be string
+	// Parse boolean fields that might be strings
 	if b, ok := ParseBool(alias.JSONResponse); ok {
 		c.JSONResponse = b
+	}
+	if b, ok := ParseBool(alias.Streaming); ok {
+		c.Streaming = b
 	}
 
 	// Parse integer fields that might be strings
@@ -429,10 +434,30 @@ type ScenarioItem struct {
 	Name   string `yaml:"name,omitempty"` // Optional name for the participant
 }
 
+// MCPConfig configures an MCP (Model Context Protocol) server as a tool source.
+// When set on a Tool, the tool is executed via the MCP server instead of a kdeps resource.
+type MCPConfig struct {
+	// Server is the command (binary or script) to run the MCP server.
+	// Examples: "npx", "python", "uvx"
+	Server string `yaml:"server"`
+	// Args are the arguments to pass to the server command.
+	// Example: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+	Args []string `yaml:"args,omitempty"`
+	// Transport is the MCP transport type: "stdio" (default) or "sse".
+	// stdio: JSON-RPC 2.0 over stdin/stdout (local process)
+	// sse:   JSON-RPC 2.0 over HTTP+SSE (remote server)
+	Transport string `yaml:"transport,omitempty"`
+	// URL is the base URL for SSE transport (e.g. "http://localhost:3000").
+	URL string `yaml:"url,omitempty"`
+	// Env sets additional environment variables for the MCP server process.
+	Env map[string]string `yaml:"env,omitempty"`
+}
+
 // Tool represents an LLM tool.
 type Tool struct {
 	Name        string               `yaml:"name"`
-	Script      string               `yaml:"script"`
+	Script      string               `yaml:"script,omitempty"` // kdeps resource actionId; omit when using MCP
+	MCP         *MCPConfig           `yaml:"mcp,omitempty"`    // MCP server config (alternative to script)
 	Description string               `yaml:"description"`
 	Parameters  map[string]ToolParam `yaml:"parameters"`
 }
