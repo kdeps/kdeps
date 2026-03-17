@@ -206,13 +206,25 @@ resources:
 
         timeoutDuration: 120s
 
+  # ── Extract plain-text reply from raw Ollama response ───────────────────────
+  # get('think') returns the full Ollama JSON object; extract message.content.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: extract-reply
+      name: Extract Reply Text
+      requires: [think]
+    run:
+      expr:
+        - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
+
   # ── Memory: persist user turn ────────────────────────────────────────────────
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: save-user-turn
       name: Save User Turn
-      requires: [think]
+      requires: [extract-reply]
     run:
       sql:
         connectionName: memory
@@ -241,7 +253,7 @@ resources:
         params:
           - "get('session_id', 'default')"
           - "'assistant'"
-          - "get('think')"
+          - "get('reply')"
         timeoutDuration: 10s
 
   # ── Response ──────────────────────────────────────────────────────────────────
@@ -254,4 +266,4 @@ resources:
     run:
       apiResponse:
         success: true
-        response: "{{ get('think') }}"
+        response: "{{ get('reply') }}"
