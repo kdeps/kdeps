@@ -1,0 +1,130 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: pa-gateway
+  description: |
+    Entry-point agent (OpenClaw "Gateway" component).
+    Normalises messages from multiple channels — REST API, Telegram webhooks,
+    and Slack webhooks — then dispatches to the brain agent for conversation
+    or the heartbeat agent for proactive task checking.
+  version: "1.0.0"
+  targetActionId: final-response
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 17200
+
+  apiServer:
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+      - path: /webhook/telegram
+        methods: [POST]
+      - path: /webhook/slack
+        methods: [POST]
+      - path: /api/v1/heartbeat
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowedOrigins: ["*"]
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+resources:
+
+  # ── Step 0: Normalise input ──────────────────────────────────────────────────
+  # Each channel sends message text in a different field:
+  #   REST API  → body.message, body.session_id
+  #   Telegram  → body.message.text, body.message.from.id
+  #   Slack     → body.event.text, body.event.user
+  #   Heartbeat → (no body required)
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: normalise
+      name: Normalise Input
+    run:
+      validations:
+        methods: [POST]
+        routes:
+          - /api/v1/chat
+          - /webhook/telegram
+          - /webhook/slack
+          - /api/v1/heartbeat
+      expr:
+        # Resolve message text from whichever channel sent it
+        - >-
+          set('msg',
+            get('message') != ''     ? get('message') :
+            get('message.text') != '' ? get('message.text') :
+            get('event.text') != ''  ? get('event.text') :
+            'HEARTBEAT'
+          )
+        # Resolve a stable session identifier
+        - >-
+          set('sid',
+            get('session_id') != ''             ? get('session_id') :
+            string(get('message.from.id')) != '' ? string(get('message.from.id')) :
+            get('event.user') != ''             ? get('event.user') :
+            'default'
+          )
+      exec:
+        command: echo
+        args: ["Input normalised"]
+
+  # ── Step 1a: Brain — handles chat + webhook routes ───────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: call-brain
+      name: Call Brain Agent
+      requires: [normalise]
+    run:
+      validations:
+        methods: [POST]
+        routes:
+          - /api/v1/chat
+          - /webhook/telegram
+          - /webhook/slack
+      agent:
+        name: pa-brain
+        params:
+          message:    "{{ get('msg') }}"
+          session_id: "{{ get('sid') }}"
+
+  # ── Step 1b: Heartbeat — handles the /api/v1/heartbeat route ────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: call-heartbeat
+      name: Call Heartbeat Agent
+      requires: [normalise]
+    run:
+      validations:
+        methods: [POST]
+        routes:
+          - /api/v1/heartbeat
+      agent:
+        name: pa-heartbeat
+        params:
+          session_id: "{{ get('sid', 'heartbeat') }}"
+
+  # ── Step 2: Return response ──────────────────────────────────────────────────
+  # Exactly one of call-brain / call-heartbeat will have a non-empty output
+  # depending on which route was matched; the other will be skipped.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: final-response
+      name: Final Response
+      requires: [call-brain, call-heartbeat]
+    run:
+      apiResponse:
+        success: true
+        response: "{{ output('call-brain') != '' ? output('call-brain') : output('call-heartbeat') }}"

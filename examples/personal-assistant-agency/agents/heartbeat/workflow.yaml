@@ -1,0 +1,165 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: pa-heartbeat
+  description: |
+    Proactive scheduler agent (OpenClaw "Heartbeat" component).
+
+    Called periodically — via POST /api/v1/heartbeat from the gateway, an
+    external cron job, or a cloud scheduler — to review a Markdown task list,
+    decide which items need attention right now, collect system context, and
+    return an actionable summary.
+
+    Edit /data/pa-memory/heartbeat.md to customise recurring tasks.
+    Called by pa-gateway; not exposed externally.
+  version: "1.0.0"
+  targetActionId: heartbeat-response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+resources:
+
+  # ── Load (or seed) the task list ────────────────────────────────────────────
+  # /data/pa-memory/heartbeat.md is the source of truth for recurring tasks.
+  # It is created with sensible defaults on first run.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: load-tasks
+      name: Load Task List
+    run:
+      exec:
+        command: sh
+        args:
+          - "-c"
+          - |
+            FILE="/data/pa-memory/heartbeat.md"
+            if [ -f "$FILE" ]; then
+              cat "$FILE"
+            else
+              mkdir -p /data/pa-memory
+              cat > "$FILE" << 'TASKS'
+# Heartbeat Tasks
+
+Edit this file to customise your assistant's recurring proactive checks.
+
+- [ ] Summarise any unread emails in the INBOX
+- [ ] Report current disk usage (df -h /)
+- [ ] Report system uptime
+- [ ] Remind the user of any calendar events today
+TASKS
+              cat "$FILE"
+            fi
+
+  # ── Collect system context ────────────────────────────────────────────────────
+  # Gathers lightweight system facts so the LLM can make informed decisions.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: system-context
+      name: System Context
+    run:
+      exec:
+        command: sh
+        args:
+          - "-c"
+          - |
+            echo "=== System Context ==="
+            echo "UTC time : $(date -u '+%Y-%m-%d %H:%M:%S')"
+            echo "Uptime   : $(uptime)"
+            echo "Disk     : $(df -h / | tail -1)"
+            echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
+        timeoutDuration: 10s
+
+  # ── Assess which tasks need attention ────────────────────────────────────────
+  # LLM reviews the task list + system context and picks what to action now.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: assess
+      name: Assess Pending Tasks
+      requires: [load-tasks, system-context]
+    run:
+      chat:
+        backend: ollama
+        model: llama3.2:3b
+        role: user
+        prompt: |
+          You are a proactive personal assistant running a scheduled heartbeat check.
+          Review the task list and system context below.  Decide which items need
+          attention right now and what concrete action to take for each.
+
+          System context:
+          {{ get('system-context') }}
+
+          Task list:
+          {{ get('load-tasks') }}
+
+          Respond ONLY with a JSON object — no prose, no markdown fences:
+          {
+            "needs_action": [
+              { "task": "task description", "reason": "why now", "action": "what to do" }
+            ],
+            "deferred": ["task that can wait", ...],
+            "summary": "One-sentence overview of this heartbeat cycle."
+          }
+        scenario:
+          - role: assistant
+            prompt: |
+              You are a concise, proactive assistant running scheduled checks.
+              You ALWAYS respond with valid JSON and nothing else.
+        jsonResponse: true
+        jsonResponseKeys: [needs_action, deferred, summary]
+        timeoutDuration: 60s
+
+  # ── Execute immediate actions ─────────────────────────────────────────────────
+  # Runs lightweight shell actions for tasks that can be resolved automatically
+  # (e.g. reporting disk usage, uptime).  Tasks that require user interaction
+  # are surfaced in the summary for the human to action.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: act
+      name: Execute Actions
+      requires: [assess]
+    run:
+      exec:
+        command: sh
+        args:
+          - "-c"
+          - |
+            echo "=== Heartbeat Actions — $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
+            echo ""
+            echo "--- Disk usage ---"
+            df -h /
+            echo ""
+            echo "--- Uptime ---"
+            uptime
+            echo ""
+            echo "--- Recent system log (last 5 lines) ---"
+            tail -5 /var/log/syslog 2>/dev/null || \
+              journalctl -n 5 --no-pager 2>/dev/null || \
+              echo "(no system log available)"
+        timeoutDuration: 15s
+
+  # ── Response ──────────────────────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: heartbeat-response
+      name: Heartbeat Response
+      requires: [act]
+    run:
+      apiResponse:
+        success: true
+        response:
+          assessment: "{{ get('assess') }}"
+          actions_taken: "{{ get('act') }}"
