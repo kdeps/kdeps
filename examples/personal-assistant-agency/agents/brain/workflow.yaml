@@ -208,6 +208,7 @@ resources:
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────
   # get('think') returns the full Ollama JSON object; extract message.content.
+  # expr must be paired with an action (exec) — bare expr blocks are not valid.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -217,6 +218,9 @@ resources:
     run:
       expr:
         - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
+      exec:
+        command: echo
+        args: ["{{ get('reply') }}"]
 
   # ── Memory: persist user turn ────────────────────────────────────────────────
   - apiVersion: kdeps.io/v1
