@@ -2,6 +2,11 @@ version: 2
 before:
   hooks:
     - go mod tidy
+    # Build WASM binary and copy wasm_exec.js so both are uploaded as flat release assets.
+    # The build-server Dockerfile downloads these instead of compiling from source (~25-30 min saved).
+    - GOOS=js GOARCH=wasm CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -buildvcs=false -o kdeps.wasm ./cmd/wasm/
+    - cp "{{ .Env.GOROOT }}/lib/wasm/wasm_exec.js" wasm_exec.js
+
 builds:
   - binary: kdeps
     main: ./
@@ -58,6 +63,10 @@ builds:
 release:
   make_latest: true
   prerelease: false
+  extra_files:
+    # Flat release assets downloaded by build-server at Docker image build time.
+    - glob: kdeps.wasm
+    - glob: wasm_exec.js
 
 archives:
   - id: default
