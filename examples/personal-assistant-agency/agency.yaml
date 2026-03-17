@@ -1,0 +1,24 @@
+apiVersion: kdeps.io/v1
+kind: Agency
+
+metadata:
+  name: personal-assistant
+  description: |
+    OpenClaw-style personal AI assistant agency.
+
+    Persistent memory, tool-calling brain, and proactive heartbeat scheduler.
+    Messages arrive via REST API, Telegram webhooks, or Slack webhooks.
+    Conversation context is stored in SQLite so it carries across sessions.
+
+    Channels:
+      POST /api/v1/chat       { "message": "...", "session_id": "alice" }
+      POST /webhook/telegram  Telegram webhook update payload
+      POST /webhook/slack     Slack Events API payload
+      POST /api/v1/heartbeat  Trigger proactive task check
+  version: "1.0.0"
+  targetAgentId: pa-gateway
+
+agents:
+  - agents/gateway
+  - agents/brain
+  - agents/heartbeat

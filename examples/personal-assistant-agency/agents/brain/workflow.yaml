@@ -1,0 +1,257 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: pa-brain
+  description: |
+    Reasoning agent (OpenClaw "Brain" + "Memory" + "Skills" components).
+
+    Loads the last 20 conversation turns from SQLite, then runs an LLM with
+    three tools available — web search, email sending, and shell command
+    execution — via the ReAct pattern.  After the model responds the exchange
+    is saved back to the SQLite memory store.
+
+    Called by pa-gateway; not exposed externally.
+  version: "1.0.0"
+  targetActionId: brain-response
+
+settings:
+  apiServerMode: false
+
+  agentSettings:
+    timezone: "UTC"
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2:3b
+
+  sqlConnections:
+    memory:
+      connection: "sqlite:///data/pa-memory/conversations.db"
+
+resources:
+
+  # ── Memory: initialise SQLite storage ───────────────────────────────────────
+  # Creates the database file and conversations table on first run.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: init-db
+      name: Init Memory DB
+    run:
+      python:
+        script: |
+          import sqlite3, os
+          os.makedirs("/data/pa-memory", exist_ok=True)
+          conn = sqlite3.connect("/data/pa-memory/conversations.db")
+          conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+              id          INTEGER PRIMARY KEY AUTOINCREMENT,
+              session_id  TEXT    NOT NULL,
+              role        TEXT    NOT NULL,
+              content     TEXT    NOT NULL,
+              created_at  TEXT    DEFAULT (datetime('now'))
+            )
+          """)
+          conn.commit()
+          conn.close()
+          print("ready")
+
+  # ── Memory: recall recent conversation turns ─────────────────────────────────
+  # Returns the 20 most recent turns as a JSON array for injection into the
+  # LLM system prompt.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: recall
+      name: Recall Memory
+      requires: [init-db]
+    run:
+      sql:
+        connectionName: memory
+        query: |
+          SELECT role, content
+          FROM   conversations
+          WHERE  session_id = $1
+          ORDER  BY id DESC
+          LIMIT  20
+        params:
+          - "get('session_id', 'default')"
+        format: json
+        timeoutDuration: 10s
+
+  # ── Skill: web search ────────────────────────────────────────────────────────
+  # Called by the LLM when it needs up-to-date information.
+  # Queries the DuckDuckGo instant-answer API; swap for any search API.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: web-search-tool
+      name: Web Search Tool
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
+        timeoutDuration: 10s
+        headers:
+          Accept: "application/json"
+          User-Agent: "personal-assistant/1.0"
+
+  # ── Skill: send email ────────────────────────────────────────────────────────
+  # Called by the LLM when the user explicitly asks to email someone.
+  # Configure via environment variables: SMTP_HOST, SMTP_USER, SMTP_PASS.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: send-email-tool
+      name: Send Email Tool
+    run:
+      email:
+        action: send
+        smtp:
+          host: "{{ env('SMTP_HOST', 'smtp.gmail.com') }}"
+          port: 587
+          username: "{{ env('SMTP_USER') }}"
+          password: "{{ env('SMTP_PASS') }}"
+        from: "{{ env('SMTP_USER') }}"
+        to:
+          - "{{ get('to') }}"
+        subject: "{{ get('subject', 'Message from your AI assistant') }}"
+        body: "{{ get('body') }}"
+
+  # ── Skill: run shell command ─────────────────────────────────────────────────
+  # Called by the LLM for system queries (disk usage, date, uptime, etc.).
+  # In production: restrict via an allow-list in your container entrypoint.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: run-command-tool
+      name: Run Command Tool
+    run:
+      exec:
+        command: sh
+        args:
+          - "-c"
+          - "{{ get('command') }}"
+        timeoutDuration: 15s
+
+  # ── Brain: LLM reasoning with ReAct tool-calling ────────────────────────────
+  # The model receives the full conversation history and decides whether to
+  # answer directly or call one of the three registered skills.
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: think
+      name: Think — ReAct Reasoning
+      requires: [recall]
+    run:
+      chat:
+        backend: ollama
+        model: llama3.2:3b
+        role: user
+        prompt: "{{ get('message') }}"
+        scenario:
+          - role: assistant
+            prompt: |
+              You are a capable personal AI assistant with persistent memory and
+              tool access.  Use web_search for current information, send_email
+              to send messages on the user's behalf, and run_command for safe
+              system queries.
+
+              Conversation history (oldest first):
+              {{ get('recall') }}
+        tools:
+          - name: web_search
+            description: >-
+              Search the web for up-to-date information about any topic.
+              Use for news, facts, weather, prices, or anything that may have
+              changed recently.
+            script: web-search-tool
+            parameters:
+              query:
+                type: string
+                description: "The search query."
+                required: true
+
+          - name: send_email
+            description: >-
+              Send an email on the user's behalf.
+              Only use when the user explicitly asks to email or message someone.
+            script: send-email-tool
+            parameters:
+              to:
+                type: string
+                description: "Recipient email address."
+                required: true
+              subject:
+                type: string
+                description: "Email subject line."
+                required: true
+              body:
+                type: string
+                description: "Plain-text email body."
+                required: true
+
+          - name: run_command
+            description: >-
+              Execute a safe read-only shell command and return its output.
+              Good for: date, uptime, df -h, ls, hostname, uname -a, env.
+              Never use for writes, deletes, or network modifications.
+            script: run-command-tool
+            parameters:
+              command:
+                type: string
+                description: "Shell command to execute."
+                required: true
+
+        timeoutDuration: 120s
+
+  # ── Memory: persist user turn ────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: save-user-turn
+      name: Save User Turn
+      requires: [think]
+    run:
+      sql:
+        connectionName: memory
+        query: |
+          INSERT INTO conversations (session_id, role, content)
+          VALUES ($1, $2, $3)
+        params:
+          - "get('session_id', 'default')"
+          - "'user'"
+          - "get('message')"
+        timeoutDuration: 10s
+
+  # ── Memory: persist assistant reply ─────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: save-assistant-turn
+      name: Save Assistant Turn
+      requires: [save-user-turn]
+    run:
+      sql:
+        connectionName: memory
+        query: |
+          INSERT INTO conversations (session_id, role, content)
+          VALUES ($1, $2, $3)
+        params:
+          - "get('session_id', 'default')"
+          - "'assistant'"
+          - "get('think')"
+        timeoutDuration: 10s
+
+  # ── Response ──────────────────────────────────────────────────────────────────
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: brain-response
+      name: Brain Response
+      requires: [save-assistant-turn]
+    run:
+      apiResponse:
+        success: true
+        response: "{{ get('think') }}"
