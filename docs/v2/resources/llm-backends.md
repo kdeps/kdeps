@@ -606,10 +606,42 @@ run:
 | JSON Response | Yes | Yes | Partial | Yes | Yes | Yes |
 | Tools/Functions | Yes | Yes | No | Yes | Yes | Yes |
 | Vision | Yes* | Yes | Yes | Yes | Yes | Yes |
-| Streaming | No** | No** | No** | No** | No** | No** |
+| Streaming | Yes | No** | No** | No** | No** | No** |
 
 *Requires vision-capable model (e.g., `llama3.2-vision`)
-**KDeps uses non-streaming for reliability
+**Streaming is only supported for the Ollama backend. Other backends respond non-streaming for reliability.
+
+## Streaming (Ollama)
+
+Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call — so no changes are required in downstream resources or API responses.
+
+**Why use streaming?**
+- Reduces time-to-first-byte for long responses when the result is piped to `apiResponse:` or logged live.
+- Keeps the HTTP connection alive to the Ollama server, avoiding proxy read-timeouts on slow hardware.
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: ollama
+    model: llama3.2:1b
+    prompt: "{{ get('q') }}"
+    streaming: true      # Request Ollama to stream NDJSON chunks
+```
+
+</div>
+
+**Behaviour:**
+
+| `streaming` | What happens |
+|-------------|-------------|
+| `false` (default) | Single JSON response; simpler, works everywhere |
+| `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
+
+The merged response preserves all metadata fields from the final chunk (`done`, `total_duration`, `eval_count`, etc.) and concatenates all `message.content` values from every chunk into a single string.
+
+> **Note:** `streaming: true` is silently ignored for non-Ollama backends.
 
 ## Troubleshooting
 
