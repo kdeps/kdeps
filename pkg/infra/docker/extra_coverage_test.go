@@ -171,10 +171,7 @@ func TestBuilder_CreateBuildContext_Basic(t *testing.T) {
 	workflowYAML := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowYAML, []byte("name: test\n"), 0644))
 
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origDir) }()
+	t.Chdir(tmpDir)
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -196,11 +193,11 @@ func TestBuilder_CreateBuildContext_Basic(t *testing.T) {
 	tr := tar.NewReader(reader)
 	files := map[string]bool{}
 	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
+		hdr, nextErr := tr.Next()
+		if nextErr == io.EOF {
 			break
 		}
-		require.NoError(t, err)
+		require.NoError(t, nextErr)
 		files[hdr.Name] = true
 	}
 
@@ -215,10 +212,7 @@ func TestBuilder_CreateBuildContext_WithAPIServer(t *testing.T) {
 	workflowYAML := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowYAML, []byte("name: api-test\n"), 0644))
 
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origDir) }()
+	t.Chdir(tmpDir)
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -264,10 +258,7 @@ func TestBuilder_CreateBuildContext_SupervisordContent(t *testing.T) {
 	workflowYAML := filepath.Join(tmpDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(workflowYAML, []byte("name: sup-test\n"), 0644))
 
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origDir) }()
+	t.Chdir(tmpDir)
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -307,7 +298,7 @@ func TestBuilder_Build_NilWorkflow(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestBuilder_Build_EmptyName(t *testing.T) {
+func TestBuilder_Build_EmptyName(_ *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	workflow := &domain.Workflow{

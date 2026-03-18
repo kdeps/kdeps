@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"io"
 	stdhttp "net/http"
-	"os"
 	"strings"
 	"testing"
 
@@ -258,9 +257,7 @@ func TestGoogleBackend_GetAPIKeyHeader_AlwaysEmpty(t *testing.T) {
 
 func TestOpenAIBackend_GetAPIKeyHeader_EmptyExtra(t *testing.T) {
 	// Ensure env var is clear for this test.
-	old := os.Getenv("OPENAI_API_KEY")
 	t.Setenv("OPENAI_API_KEY", "")
-	defer os.Setenv("OPENAI_API_KEY", old) //nolint:errcheck
 	b := &llm.OpenAIBackend{}
 	name, val := b.GetAPIKeyHeader("")
 	assert.Empty(t, name)

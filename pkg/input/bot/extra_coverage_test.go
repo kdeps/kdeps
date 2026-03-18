@@ -52,7 +52,7 @@ func TestTelegramRunner_Reply_InvalidChatID(t *testing.T) {
 // TestHandleMessage_UnknownPlatform exercises the "no runner for platform" log
 // and early-return path. No engine or workflow is needed because the function
 // returns before calling engine.Execute when the platform is not registered.
-func TestHandleMessage_UnknownPlatform(t *testing.T) {
+func TestHandleMessage_UnknownPlatform(_ *testing.T) {
 	d := &Dispatcher{
 		runners: map[string]Runner{},
 		logger:  slog.Default(),
@@ -70,7 +70,7 @@ func TestHandleMessage_UnknownPlatform(t *testing.T) {
 // TestHandleMessage_KnownPlatform_NilEngine exercises the path where the runner
 // is found and engine.Execute is called with a nil engine, which returns an error.
 // The dispatcher logs the error and returns — no panic.
-func TestHandleMessage_KnownPlatform_NilEngine(t *testing.T) {
+func TestHandleMessage_KnownPlatform_NilEngine(_ *testing.T) {
 	// Use a no-op runner that always succeeds for Reply.
 	noopRunner := &discordRunner{
 		cfg: &domain.DiscordConfig{BotToken: "Bot test"},

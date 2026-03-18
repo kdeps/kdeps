@@ -60,10 +60,10 @@ func (e *alwaysErrTransport) RoundTrip(_ *http.Request) (*http.Response, error) 
 	return nil, e.err
 }
 
-func jsonResp(statusCode int, v interface{}) *http.Response {
+func jsonResp(v interface{}) *http.Response {
 	b, _ := json.Marshal(v)
 	return &http.Response{
-		StatusCode: statusCode,
+		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewReader(b)),
 		Header:     make(http.Header),
 	}
@@ -106,7 +106,7 @@ func TestOpenAIWhisper_Success(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderOpenAIWhisper, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, openAIWhisperResponse{Text: "hello world"}),
+			jsonResp(openAIWhisperResponse{Text: "hello world"}),
 		}},
 	)
 	r, err := tr.openAIWhisper(audio)
@@ -119,7 +119,7 @@ func TestOpenAIWhisper_WithLanguage(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderOpenAIWhisper, "fr", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, openAIWhisperResponse{Text: "bonjour"}),
+			jsonResp(openAIWhisperResponse{Text: "bonjour"}),
 		}},
 	)
 	r, err := tr.openAIWhisper(audio)
@@ -169,7 +169,7 @@ func TestOpenAIWhisper_MediaOutputMode(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderOpenAIWhisper, "", domain.TranscriberOutputMedia,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, openAIWhisperResponse{Text: "transcript"}),
+			jsonResp(openAIWhisperResponse{Text: "transcript"}),
 		}},
 	)
 	r, err := tr.openAIWhisper(audio)
@@ -194,7 +194,7 @@ func TestDeepgram_Success(t *testing.T) {
 	}
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderDeepgram, "", domain.TranscriberOutputText,
-		&queuedTransport{responses: []*http.Response{jsonResp(http.StatusOK, resp)}},
+		&queuedTransport{responses: []*http.Response{jsonResp(resp)}},
 	)
 	r, err := tr.deepgram(audio)
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func TestDeepgram_WithLanguage(t *testing.T) {
 	}
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderDeepgram, "fr", domain.TranscriberOutputText,
-		&queuedTransport{responses: []*http.Response{jsonResp(http.StatusOK, resp)}},
+		&queuedTransport{responses: []*http.Response{jsonResp(resp)}},
 	)
 	r, err := tr.deepgram(audio)
 	require.NoError(t, err)
@@ -227,7 +227,7 @@ func TestDeepgram_EmptyChannels(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderDeepgram, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, deepgramResponse{}),
+			jsonResp(deepgramResponse{}),
 		}},
 	)
 	r, err := tr.deepgram(audio)
@@ -280,9 +280,9 @@ func TestAssemblyAI_SuccessFlow(t *testing.T) {
 		domain.TranscriberProviderAssemblyAI, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
 			// 1. upload
-			jsonResp(http.StatusOK, assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/audio/abc"}),
+			jsonResp(assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/audio/abc"}),
 			// 2. submit transcript
-			jsonResp(http.StatusOK, assemblyAITranscriptResponse{ID: "t1", Status: "completed", Text: "assembly result"}),
+			jsonResp(assemblyAITranscriptResponse{ID: "t1", Status: "completed", Text: "assembly result"}),
 		}},
 	)
 	r, err := tr.assemblyAI(audio)
@@ -309,7 +309,7 @@ func TestAssemblyAI_SubmitFails(t *testing.T) {
 		domain.TranscriberProviderAssemblyAI, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
 			// upload succeeds
-			jsonResp(http.StatusOK, assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/audio/abc"}),
+			jsonResp(assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/audio/abc"}),
 			// submit fails
 			rawResp(http.StatusBadRequest, `{"error":"bad request"}`),
 		}},
@@ -325,7 +325,7 @@ func TestAssemblyAIUpload_Success(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderAssemblyAI, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/upload/xyz"}),
+			jsonResp(assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/upload/xyz"}),
 		}},
 	)
 	url, err := tr.assemblyAIUpload([]byte("audio bytes"))
@@ -373,7 +373,7 @@ func TestAssemblyAISubmit_Success(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderAssemblyAI, "en", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, assemblyAITranscriptResponse{ID: "job1", Status: "processing"}),
+			jsonResp(assemblyAITranscriptResponse{ID: "job1", Status: "processing"}),
 		}},
 	)
 	resp, err := tr.assemblyAISubmit("https://cdn.assemblyai.com/audio/abc")
@@ -462,7 +462,7 @@ func TestAssemblyAIPoll_PollUntilComplete(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderAssemblyAI, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, assemblyAITranscriptResponse{ID: "j1", Status: "completed", Text: "polled text"}),
+			jsonResp(assemblyAITranscriptResponse{ID: "j1", Status: "completed", Text: "polled text"}),
 		}},
 	)
 	initial := &assemblyAITranscriptResponse{ID: "j1", Status: "processing"}
@@ -504,7 +504,7 @@ func TestGoogleSTT_Success(t *testing.T) {
 	}
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderGoogleSTT, "", domain.TranscriberOutputText,
-		&queuedTransport{responses: []*http.Response{jsonResp(http.StatusOK, resp)}},
+		&queuedTransport{responses: []*http.Response{jsonResp(resp)}},
 	)
 	r, err := tr.googleSTT(audio)
 	require.NoError(t, err)
@@ -526,7 +526,7 @@ func TestGoogleSTT_WithLanguage(t *testing.T) {
 	}
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderGoogleSTT, "fr-FR", domain.TranscriberOutputText,
-		&queuedTransport{responses: []*http.Response{jsonResp(http.StatusOK, resp)}},
+		&queuedTransport{responses: []*http.Response{jsonResp(resp)}},
 	)
 	r, err := tr.googleSTT(audio)
 	require.NoError(t, err)
@@ -553,7 +553,7 @@ func TestGoogleSTT_MultipleResults(t *testing.T) {
 	}
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderGoogleSTT, "", domain.TranscriberOutputText,
-		&queuedTransport{responses: []*http.Response{jsonResp(http.StatusOK, resp)}},
+		&queuedTransport{responses: []*http.Response{jsonResp(resp)}},
 	)
 	r, err := tr.googleSTT(audio)
 	require.NoError(t, err)
@@ -603,7 +603,7 @@ func TestGoogleSTT_EmptyResults(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderGoogleSTT, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(http.StatusOK, googleSTTResponse{}),
+			jsonResp(googleSTTResponse{}),
 		}},
 	)
 	r, err := tr.googleSTT(audio)
