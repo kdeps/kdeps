@@ -22,10 +22,12 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -69,8 +71,8 @@ type mcpContent struct {
 
 // mcpToolResult is the result of an MCP tools/call.
 type mcpToolResult struct {
-	Content  []mcpContent `json:"content"`
-	IsError  bool         `json:"isError,omitempty"`
+	Content []mcpContent `json:"content"`
+	IsError bool         `json:"isError,omitempty"`
 }
 
 // MCPStdioClient implements an MCP client over stdio transport.
@@ -86,7 +88,7 @@ type MCPStdioClient struct {
 // newMCPStdioClient starts an MCP server subprocess and performs the initialize handshake.
 func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioClient, error) {
 	if cfg.Server == "" {
-		return nil, fmt.Errorf("MCP server command is required")
+		return nil, errors.New("MCP server command is required")
 	}
 
 	//nolint:gosec // user-configured MCP server command — intentionally user-controlled
@@ -128,6 +130,13 @@ func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioCli
 	}
 
 	return client, nil
+}
+
+// NewMCPStdioClientForTesting creates an MCPStdioClient backed by the given
+// pre-opened pipes instead of spawning a subprocess.  The client is created
+// without running the initialize handshake.  Used only in tests.
+func NewMCPStdioClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *MCPStdioClient {
+	return &MCPStdioClient{stdin: stdin, stdout: stdout}
 }
 
 // initialize performs the MCP initialize + initialized handshake.
@@ -202,27 +211,27 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 	var result mcpToolResult
 	if unmarshalErr := json.Unmarshal(*resp.Result, &result); unmarshalErr != nil {
 		// Fallback: return raw JSON
-		return string(*resp.Result), nil
+		return string(*resp.Result), nil //nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
 	}
 
 	if result.IsError {
-		errText := ""
+		var sb strings.Builder
 		for _, item := range result.Content {
 			if item.Type == "text" {
-				errText += item.Text
+				sb.WriteString(item.Text)
 			}
 		}
-		return "", fmt.Errorf("MCP tool returned error: %s", errText)
+		return "", fmt.Errorf("MCP tool returned error: %s", sb.String())
 	}
 
 	// Concatenate all text content items
-	text := ""
+	var sb strings.Builder
 	for _, item := range result.Content {
 		if item.Type == "text" {
-			text += item.Text
+			sb.WriteString(item.Text)
 		}
 	}
-	return text, nil
+	return sb.String(), nil
 }
 
 // send sends a JSON-RPC request to the MCP server.
@@ -257,13 +266,16 @@ func (c *MCPStdioClient) readResponse() (*jsonRPCResponse, error) {
 	if err := c.stdout.Err(); err != nil {
 		return nil, fmt.Errorf("error reading from MCP server stdout: %w", err)
 	}
-	return nil, fmt.Errorf("MCP server stdout closed unexpectedly")
+	return nil, errors.New("MCP server stdout closed unexpectedly")
 }
 
 // Close terminates the MCP server subprocess.
 func (c *MCPStdioClient) Close() error {
 	_ = c.stdin.Close()
-	return c.cmd.Process.Kill() //nolint:wrapcheck // direct kill signal
+	if c.cmd != nil && c.cmd.Process != nil {
+		return c.cmd.Process.Kill() //nolint:wrapcheck // direct kill signal
+	}
+	return nil
 }
 
 // executeMCPTool starts an MCP server subprocess, calls the named tool, and returns the result.
