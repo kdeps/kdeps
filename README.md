@@ -58,7 +58,7 @@ run:
 - [`info('dt')`](https://kdeps.com/concepts/expression-functions-reference#info-field) – Access system metadata
 
 ### 🤖 [Resources (Executors)](https://kdeps.com/resources/overview)
-- [`chat:`](https://kdeps.com/resources/llm) – LLM (Ollama, OpenAI, Anthropic, Groq, etc.)
+- [`chat:`](https://kdeps.com/resources/llm) – LLM (Ollama, OpenAI, Anthropic, Groq, etc.) · `streaming: true` for Ollama NDJSON streaming · `tools:` with `mcp:` for [MCP tool servers](https://kdeps.com/concepts/tools#mcp-tools)
 - [`httpClient:`](https://kdeps.com/resources/http-client) – REST APIs (GET, POST, etc.)
 - [`sql:`](https://kdeps.com/resources/sql) – Databases (Postgres, MySQL, SQLite, Oracle)
 - [`python:`](https://kdeps.com/resources/python) – Scripts via isolated `uv` environments
