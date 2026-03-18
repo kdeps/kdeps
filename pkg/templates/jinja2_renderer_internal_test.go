@@ -20,13 +20,14 @@ package templates
 
 import (
 	"embed"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-//go:embed testdata/*
+//go:embed testdata
 var internalTestFS embed.FS
 
 // TestJinja2Renderer_RenderInternal tests the Jinja2Renderer.Render method directly.
@@ -162,4 +163,63 @@ func TestIsJinja2Template(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// TestCopyFileFromFS tests the private copyFileFromFS method.
+func TestCopyFileFromFS(t *testing.T) {
+renderer := NewJinja2Renderer(internalTestFS)
+tmpDir := t.TempDir()
+
+targetPath := tmpDir + "/static_copy.txt"
+err := renderer.copyFileFromFS("testdata/static.txt", targetPath)
+require.NoError(t, err)
+
+content, err := os.ReadFile(targetPath)
+require.NoError(t, err)
+assert.Contains(t, string(content), "static test file")
+}
+
+// TestCopyFileFromFS_ReadError tests copyFileFromFS when source file doesn't exist.
+func TestCopyFileFromFS_ReadError(t *testing.T) {
+renderer := NewJinja2Renderer(internalTestFS)
+tmpDir := t.TempDir()
+
+err := renderer.copyFileFromFS("testdata/nonexistent.txt", tmpDir+"/output.txt")
+require.Error(t, err)
+}
+
+// TestProcessJinja2Directory tests the private processJinja2Directory method
+// by using the embedded testdata/subdir which contains both j2 and static files.
+func TestProcessJinja2Directory(t *testing.T) {
+renderer := NewJinja2Renderer(internalTestFS)
+generator := &Generator{} // use zero-value Generator
+
+tmpDir := t.TempDir()
+outputDir := tmpDir
+
+data := TemplateData{
+Name:    "test",
+Version: "1.0.0",
+}
+
+// Call processJinja2Directory with testdata/subdir (which has file.j2 and static.txt)
+err := generator.processJinja2Directory(renderer, "testdata/subdir", outputDir, data, "subdir")
+require.NoError(t, err)
+
+// The subdir should have been created in output
+subdirPath := outputDir + "/subdir"
+info, err := os.Stat(subdirPath)
+require.NoError(t, err)
+assert.True(t, info.IsDir(), "subdir should be a directory")
+
+// static.txt (non-j2 file) should be copied via copyFileFromFS
+staticPath := subdirPath + "/static.txt"
+content, err := os.ReadFile(staticPath)
+require.NoError(t, err)
+assert.Contains(t, string(content), "static")
+
+// file.j2 should be rendered to file
+renderedPath := subdirPath + "/file"
+_, err = os.Stat(renderedPath)
+require.NoError(t, err, "rendered j2 file should exist")
 }

@@ -1914,3 +1914,360 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 		}
 	})
 }
+
+func TestWorkflowValidator_ValidateEmbeddingConfig(t *testing.T) {
+v := validator.NewWorkflowValidator(nil)
+
+tests := []struct {
+name    string
+config  *domain.EmbeddingConfig
+wantErr bool
+errMsg  string
+}{
+{
+name:    "valid minimal config",
+config:  &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"},
+wantErr: false,
+},
+{
+name:    "missing model",
+config:  &domain.EmbeddingConfig{Input: "hello"},
+wantErr: true,
+errMsg:  "embedding.model is required",
+},
+{
+name:   "valid backend ollama",
+config: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Backend: domain.EmbeddingBackendOllama},
+},
+{
+name:   "valid backend openai",
+config: &domain.EmbeddingConfig{Model: "text-embedding-3-small", Input: "hello", Backend: domain.EmbeddingBackendOpenAI},
+},
+{
+name:   "valid backend cohere",
+config: &domain.EmbeddingConfig{Model: "embed-english-v3.0", Input: "hello", Backend: domain.EmbeddingBackendCohere},
+},
+{
+name:   "valid backend huggingface",
+config: &domain.EmbeddingConfig{Model: "BAAI/bge-small-en-v1.5", Input: "hello", Backend: domain.EmbeddingBackendHuggingFace},
+},
+{
+name:    "invalid backend",
+config:  &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Backend: "invalid-backend"},
+wantErr: true,
+errMsg:  "invalid embedding.backend",
+},
+{
+name:   "valid operation index",
+config: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Operation: domain.EmbeddingOperationIndex},
+},
+{
+name:   "valid operation search",
+config: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Operation: domain.EmbeddingOperationSearch},
+},
+{
+name:   "valid operation delete",
+config: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Operation: domain.EmbeddingOperationDelete},
+},
+{
+name:   "valid operation upsert",
+config: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Operation: domain.EmbeddingOperationUpsert},
+},
+{
+name:    "invalid operation",
+config:  &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello", Operation: "unknown"},
+wantErr: true,
+errMsg:  "invalid embedding.operation",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := v.ValidateEmbeddingConfig(tt.config)
+if tt.wantErr {
+if err == nil {
+t.Errorf("ValidateEmbeddingConfig() expected error containing %q, got nil", tt.errMsg)
+return
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("ValidateEmbeddingConfig() error = %q, want containing %q", err, tt.errMsg)
+}
+} else if err != nil {
+t.Errorf("ValidateEmbeddingConfig() unexpected error: %v", err)
+}
+})
+}
+}
+
+func TestValidateSearchConfig(t *testing.T) {
+tests := []struct {
+name    string
+config  *domain.SearchConfig
+wantErr bool
+errMsg  string
+}{
+{
+name:    "missing provider",
+config:  &domain.SearchConfig{Query: "test"},
+wantErr: true,
+errMsg:  "search.provider is required",
+},
+{
+name:   "valid brave provider",
+config: &domain.SearchConfig{Provider: domain.SearchProviderBrave, Query: "test"},
+},
+{
+name:   "valid serpapi provider",
+config: &domain.SearchConfig{Provider: domain.SearchProviderSerpAPI, Query: "test"},
+},
+{
+name:   "valid duckduckgo provider",
+config: &domain.SearchConfig{Provider: domain.SearchProviderDuckDuckGo, Query: "test"},
+},
+{
+name:   "valid tavily provider",
+config: &domain.SearchConfig{Provider: domain.SearchProviderTavily, Query: "test"},
+},
+{
+name:   "valid local provider with glob",
+config: &domain.SearchConfig{Provider: domain.SearchProviderLocal, Glob: "**/*.md"},
+},
+{
+name:   "valid local provider with query",
+config: &domain.SearchConfig{Provider: domain.SearchProviderLocal, Query: "test"},
+},
+{
+name:    "local provider with no glob or query",
+config:  &domain.SearchConfig{Provider: domain.SearchProviderLocal},
+wantErr: true,
+errMsg:  "local provider requires",
+},
+{
+name:    "invalid provider",
+config:  &domain.SearchConfig{Provider: "bing", Query: "test"},
+wantErr: true,
+errMsg:  "not valid",
+},
+{
+name:    "non-local provider with no query",
+config:  &domain.SearchConfig{Provider: domain.SearchProviderBrave},
+wantErr: true,
+errMsg:  "search.query is required",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := validator.ValidateSearchConfig(tt.config)
+if tt.wantErr {
+if err == nil {
+t.Errorf("ValidateSearchConfig() expected error containing %q, got nil", tt.errMsg)
+return
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("ValidateSearchConfig() error = %q, want containing %q", err, tt.errMsg)
+}
+} else if err != nil {
+t.Errorf("ValidateSearchConfig() unexpected error: %v", err)
+}
+})
+}
+}
+
+func TestValidatePDFConfig(t *testing.T) {
+tests := []struct {
+name    string
+config  *domain.PDFConfig
+wantErr bool
+errMsg  string
+}{
+{
+name:    "missing content",
+config:  &domain.PDFConfig{},
+wantErr: true,
+errMsg:  "pdf.content is required",
+},
+{
+name:   "valid minimal config",
+config: &domain.PDFConfig{Content: "<html>test</html>"},
+},
+{
+name:   "valid html content type",
+config: &domain.PDFConfig{Content: "<html>test</html>", ContentType: domain.PDFContentTypeHTML},
+},
+{
+name:   "valid markdown content type",
+config: &domain.PDFConfig{Content: "# Hello", ContentType: domain.PDFContentTypeMarkdown},
+},
+{
+name:    "invalid content type",
+config:  &domain.PDFConfig{Content: "<html>test</html>", ContentType: "text"},
+wantErr: true,
+errMsg:  "pdf.contentType",
+},
+{
+name:   "valid wkhtmltopdf backend",
+config: &domain.PDFConfig{Content: "<html>test</html>", Backend: domain.PDFBackendWkhtmltopdf},
+},
+{
+name:   "valid pandoc backend",
+config: &domain.PDFConfig{Content: "# Hello", Backend: domain.PDFBackendPandoc},
+},
+{
+name:   "valid weasyprint backend",
+config: &domain.PDFConfig{Content: "<html>test</html>", Backend: domain.PDFBackendWeasyprint},
+},
+{
+name:    "invalid backend",
+config:  &domain.PDFConfig{Content: "<html>test</html>", Backend: "libreoffice"},
+wantErr: true,
+errMsg:  "pdf.backend",
+},
+{
+name:    "output file without .pdf extension",
+config:  &domain.PDFConfig{Content: "<html>test</html>", OutputFile: "/tmp/output.txt"},
+wantErr: true,
+errMsg:  "must end with .pdf",
+},
+{
+name:   "output file with .pdf extension",
+config: &domain.PDFConfig{Content: "<html>test</html>", OutputFile: "/tmp/output.pdf"},
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := validator.ValidatePDFConfig(tt.config)
+if tt.wantErr {
+if err == nil {
+t.Errorf("ValidatePDFConfig() expected error containing %q, got nil", tt.errMsg)
+return
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("ValidatePDFConfig() error = %q, want containing %q", err, tt.errMsg)
+}
+} else if err != nil {
+t.Errorf("ValidatePDFConfig() unexpected error: %v", err)
+}
+})
+}
+}
+
+func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
+sv, _ := validator.NewSchemaValidator()
+v := validator.NewWorkflowValidator(sv)
+
+tests := []struct {
+name    string
+input   *domain.InputConfig
+wantErr bool
+errMsg  string
+}{
+{
+name: "valid polling with discord",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+Discord: &domain.DiscordConfig{BotToken: "token123"},
+},
+},
+},
+{
+name: "valid stateless no platforms required",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypeStateless,
+},
+},
+},
+{
+name: "polling with no platforms fails",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+},
+},
+wantErr: true,
+errMsg:  "at least one platform",
+},
+{
+name: "invalid execution type",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: "invalid",
+},
+},
+wantErr: true,
+errMsg:  "executionType must be",
+},
+{
+name: "discord without token fails",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+Discord:       &domain.DiscordConfig{BotToken: ""},
+},
+},
+wantErr: true,
+errMsg:  "discord.botToken is required",
+},
+{
+name: "slack without token fails",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+Slack:         &domain.SlackConfig{BotToken: ""},
+},
+},
+wantErr: true,
+errMsg:  "slack.botToken is required",
+},
+{
+name: "telegram without token fails",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+Telegram:      &domain.TelegramConfig{BotToken: ""},
+},
+},
+wantErr: true,
+errMsg:  "telegram.botToken is required",
+},
+{
+name: "whatsapp without required fields fails",
+input: &domain.InputConfig{
+Sources: []string{domain.InputSourceBot},
+Bot: &domain.BotConfig{
+ExecutionType: domain.BotExecutionTypePolling,
+WhatsApp:      &domain.WhatsAppConfig{},
+},
+},
+wantErr: true,
+errMsg:  "whatsApp.phoneNumberId",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := v.ValidateInputConfig(tt.input)
+if tt.wantErr {
+if err == nil {
+t.Errorf("ValidateInputConfig() expected error containing %q, got nil", tt.errMsg)
+return
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("ValidateInputConfig() error = %q, want containing %q", err, tt.errMsg)
+}
+} else if err != nil {
+t.Errorf("ValidateInputConfig() unexpected error: %v", err)
+}
+})
+}
+}

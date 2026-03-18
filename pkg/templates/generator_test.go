@@ -1563,3 +1563,35 @@ func TestGenerator_GenerateFile_TemplateParsing(t *testing.T) {
 	assert.Contains(t, workflowStr, "apiVersion", "Should parse templates correctly")
 	assert.Contains(t, workflowStr, "test", "Should substitute variables")
 }
+
+// TestGenerator_GenerateProject_Agency tests generating the agency template which
+// has subdirectories, exercising processJinja2Directory.
+func TestGenerator_GenerateProject_Agency(t *testing.T) {
+	generator, err := templates.NewGenerator()
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	outputDir := filepath.Join(tmpDir, "my-agency")
+
+	data := templates.TemplateData{
+		Name:        "my-agency",
+		Description: "A test multi-agent system",
+		Version:     "1.0.0",
+		Port:        16395,
+	}
+
+	err = generator.GenerateProject("agency", outputDir, data)
+	require.NoError(t, err)
+
+	// Verify agency.yaml was created
+	agencyPath := filepath.Join(outputDir, "agency.yaml")
+	content, err := os.ReadFile(agencyPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "my-agency")
+
+	// Verify subdirectory was processed (agents/example-agent) - exercises processJinja2Directory
+	agentWorkflowPath := filepath.Join(outputDir, "agents", "example-agent", "workflow.yaml")
+	agentContent, err := os.ReadFile(agentWorkflowPath)
+	require.NoError(t, err, "agent workflow.yaml should be created in subdirectory")
+	assert.Contains(t, string(agentContent), "example-agent")
+}

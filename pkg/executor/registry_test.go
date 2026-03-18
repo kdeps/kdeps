@@ -40,6 +40,14 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetSQLExecutor())
 	assert.Nil(t, registry.GetPythonExecutor())
 	assert.Nil(t, registry.GetExecExecutor())
+	assert.Nil(t, registry.GetTTSExecutor())
+	assert.Nil(t, registry.GetBotReplyExecutor())
+	assert.Nil(t, registry.GetScraperExecutor())
+	assert.Nil(t, registry.GetEmbeddingExecutor())
+	assert.Nil(t, registry.GetPDFExecutor())
+	assert.Nil(t, registry.GetEmailExecutor())
+	assert.Nil(t, registry.GetCalendarExecutor())
+	assert.Nil(t, registry.GetSearchExecutor())
 }
 
 func TestExecutorRegistry_Setters(t *testing.T) {
@@ -51,6 +59,14 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockSQL := &mockExecutor{}
 	mockPython := &mockExecutor{}
 	mockExec := &mockExecutor{}
+	mockTTS := &mockExecutor{}
+	mockBotReply := &mockExecutor{}
+	mockScraper := &mockExecutor{}
+	mockEmbedding := &mockExecutor{}
+	mockPDF := &mockExecutor{}
+	mockEmail := &mockExecutor{}
+	mockCalendar := &mockExecutor{}
+	mockSearch := &mockExecutor{}
 
 	// Set executors
 	registry.SetLLMExecutor(mockLLM)
@@ -58,6 +74,14 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
+	registry.SetTTSExecutor(mockTTS)
+	registry.SetBotReplyExecutor(mockBotReply)
+	registry.SetScraperExecutor(mockScraper)
+	registry.SetEmbeddingExecutor(mockEmbedding)
+	registry.SetPDFExecutor(mockPDF)
+	registry.SetEmailExecutor(mockEmail)
+	registry.SetCalendarExecutor(mockCalendar)
+	registry.SetSearchExecutor(mockSearch)
 
 	// Verify getters return the set values
 	assert.Equal(t, mockLLM, registry.GetLLMExecutor())
@@ -65,6 +89,14 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockSQL, registry.GetSQLExecutor())
 	assert.Equal(t, mockPython, registry.GetPythonExecutor())
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
+	assert.Equal(t, mockTTS, registry.GetTTSExecutor())
+	assert.Equal(t, mockBotReply, registry.GetBotReplyExecutor())
+	assert.Equal(t, mockScraper, registry.GetScraperExecutor())
+	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())
+	assert.Equal(t, mockPDF, registry.GetPDFExecutor())
+	assert.Equal(t, mockEmail, registry.GetEmailExecutor())
+	assert.Equal(t, mockCalendar, registry.GetCalendarExecutor())
+	assert.Equal(t, mockSearch, registry.GetSearchExecutor())
 }
 
 // mockExecutor is a simple mock implementation for testing.
