@@ -198,6 +198,11 @@ func (b *OllamaBackend) GetAPIKeyHeader(_ string) (string, string) {
 	return "", "" // Local backend, no API key needed
 }
 
+// ParseOllamaStreamingResponseForTesting exposes parseOllamaStreamingResponse for tests.
+func ParseOllamaStreamingResponseForTesting(body io.Reader) (map[string]interface{}, error) {
+	return parseOllamaStreamingResponse(body)
+}
+
 // parseOllamaStreamingResponse reads NDJSON chunks from an Ollama streaming response
 // and assembles them into the standard single-response format.
 func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error) {
@@ -217,7 +222,7 @@ func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error
 
 		// Accumulate content from each chunk
 		if msg, ok := chunk["message"].(map[string]interface{}); ok {
-			if content, ok := msg["content"].(string); ok {
+			if content, contentOk := msg["content"].(string); contentOk {
 				contentBuilder.WriteString(content)
 			}
 		}
@@ -236,11 +241,9 @@ func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error
 		},
 	}
 	// Preserve top-level metadata from the last chunk (e.g. done, total_duration)
-	if lastChunk != nil {
-		for k, v := range lastChunk {
-			if k != "message" {
-				result[k] = v
-			}
+	for k, v := range lastChunk {
+		if k != "message" {
+			result[k] = v
 		}
 	}
 	return result, nil
