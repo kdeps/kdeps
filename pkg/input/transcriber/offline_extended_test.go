@@ -33,7 +33,7 @@ import (
 // ─── buildFasterWhisperArgs ───────────────────────────────────────────────────
 
 func TestBuildFasterWhisperArgs_Basic(t *testing.T) {
-	bin, args, scriptName, err := buildFasterWhisperArgs("audio.wav", "base", "en", os.TempDir())
+	bin, args, scriptName, err := buildFasterWhisperArgs("audio.wav", "base", "en", t.TempDir())
 	require.NoError(t, err)
 	defer os.Remove(scriptName)
 	assert.NotEmpty(t, bin)
@@ -43,7 +43,7 @@ func TestBuildFasterWhisperArgs_Basic(t *testing.T) {
 }
 
 func TestBuildFasterWhisperArgs_NoModel(t *testing.T) {
-	bin, args, scriptName, err := buildFasterWhisperArgs("audio.wav", "", "", os.TempDir())
+	bin, args, scriptName, err := buildFasterWhisperArgs("audio.wav", "", "", t.TempDir())
 	require.NoError(t, err)
 	defer os.Remove(scriptName)
 	assert.NotEmpty(t, bin)
