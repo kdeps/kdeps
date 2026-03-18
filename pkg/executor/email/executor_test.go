@@ -665,3 +665,21 @@ func TestExecute_Modify_MissingIMAPHost(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "imap.host")
 }
+
+// ─── markMessagesRead ──────────────────────────────────────────────────────────
+
+// TestMarkMessagesRead_Empty verifies that calling with no messages is safe (nil client OK).
+func TestMarkMessagesRead_Empty(t *testing.T) {
+// nil imapclient.Client is safe when msgs is empty — no Store is called.
+markMessagesRead(nil, []EmailMessage{})
+}
+
+// TestMarkMessagesRead_AllAlreadySeen verifies that already-seen messages are skipped (no Store call).
+func TestMarkMessagesRead_AllAlreadySeen(t *testing.T) {
+msgs := []EmailMessage{
+{UID: 1, Seen: true},
+{UID: 2, Seen: true},
+}
+// nil client is safe because all messages have Seen=true → continue skips the Store call.
+markMessagesRead(nil, msgs)
+}
