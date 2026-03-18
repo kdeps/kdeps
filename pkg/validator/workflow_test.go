@@ -2271,3 +2271,137 @@ t.Errorf("ValidateInputConfig() unexpected error: %v", err)
 })
 }
 }
+
+func TestWorkflowValidator_ValidateResource_NewTypes(t *testing.T) {
+v := validator.NewWorkflowValidator(nil)
+workflow := &domain.Workflow{}
+
+tests := []struct {
+name     string
+resource *domain.Resource
+wantErr  bool
+errMsg   string
+}{
+{
+name: "valid TTS resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "tts-test", Name: "TTS Resource"},
+Run:      domain.RunConfig{TTS: &domain.TTSConfig{Text: "hello", Mode: "online"}},
+},
+},
+{
+name: "valid BotReply resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "bot-test", Name: "BotReply Resource"},
+Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hello"}},
+},
+},
+{
+name: "valid Scraper resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "scraper-test", Name: "Scraper Resource"},
+Run:      domain.RunConfig{Scraper: &domain.ScraperConfig{Type: "url", Source: "https://example.com"}},
+},
+},
+{
+name:    "invalid Scraper resource (no type)",
+wantErr: true,
+errMsg:  "scraper",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "scraper-bad", Name: "Bad Scraper"},
+Run:      domain.RunConfig{Scraper: &domain.ScraperConfig{}},
+},
+},
+{
+name: "valid Embedding resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "embedding-test", Name: "Embedding Resource"},
+Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"}},
+},
+},
+{
+name:    "invalid Embedding resource (no model)",
+wantErr: true,
+errMsg:  "embedding.model",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "embedding-bad", Name: "Bad Embedding"},
+Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{}},
+},
+},
+{
+name: "valid PDF resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "pdf-test", Name: "PDF Resource"},
+Run:      domain.RunConfig{PDF: &domain.PDFConfig{Content: "<html>test</html>"}},
+},
+},
+{
+name:    "invalid PDF resource (no content)",
+wantErr: true,
+errMsg:  "pdf.content",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "pdf-bad", Name: "Bad PDF"},
+Run:      domain.RunConfig{PDF: &domain.PDFConfig{}},
+},
+},
+{
+name: "valid Email resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "email-test", Name: "Email Resource"},
+Run:      domain.RunConfig{Email: &domain.EmailConfig{Subject: "test"}},
+},
+},
+{
+name: "valid Calendar resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "calendar-test", Name: "Calendar Resource"},
+Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList}},
+},
+},
+{
+name: "valid Search resource",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "search-test", Name: "Search Resource"},
+Run:      domain.RunConfig{Search: &domain.SearchConfig{Provider: domain.SearchProviderBrave, Query: "test"}},
+},
+},
+{
+name:    "invalid Search resource (no provider)",
+wantErr: true,
+errMsg:  "search.provider",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "search-bad", Name: "Bad Search"},
+Run:      domain.RunConfig{Search: &domain.SearchConfig{}},
+},
+},
+{
+name:    "multiple primary types fails",
+wantErr: true,
+errMsg:  "one primary execution type",
+resource: &domain.Resource{
+Metadata: domain.ResourceMetadata{ActionID: "multi-test", Name: "Multi Resource"},
+Run: domain.RunConfig{
+TTS:      &domain.TTSConfig{Text: "hello"},
+BotReply: &domain.BotReplyConfig{Text: "hello"},
+},
+},
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+err := v.ValidateResource(tt.resource, workflow)
+if tt.wantErr {
+if err == nil {
+t.Errorf("ValidateResource() expected error containing %q, got nil", tt.errMsg)
+return
+}
+if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+t.Errorf("ValidateResource() error = %q, want containing %q", err, tt.errMsg)
+}
+} else if err != nil {
+t.Errorf("ValidateResource() unexpected error: %v", err)
+}
+})
+}
+}

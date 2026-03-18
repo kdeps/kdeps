@@ -171,7 +171,7 @@ renderer := NewJinja2Renderer(internalTestFS)
 tmpDir := t.TempDir()
 
 targetPath := tmpDir + "/static_copy.txt"
-err := renderer.copyFileFromFS("testdata/static.txt", targetPath)
+err := renderer.copyFileFromFS("testdata/static.cfg", targetPath)
 require.NoError(t, err)
 
 content, err := os.ReadFile(targetPath)
@@ -202,7 +202,7 @@ Name:    "test",
 Version: "1.0.0",
 }
 
-// Call processJinja2Directory with testdata/subdir (which has file.j2 and static.txt)
+// Call processJinja2Directory with testdata/subdir (which has file.j2 and static.cfg)
 err := generator.processJinja2Directory(renderer, "testdata/subdir", outputDir, data, "subdir")
 require.NoError(t, err)
 
@@ -212,8 +212,8 @@ info, err := os.Stat(subdirPath)
 require.NoError(t, err)
 assert.True(t, info.IsDir(), "subdir should be a directory")
 
-// static.txt (non-j2 file) should be copied via copyFileFromFS
-staticPath := subdirPath + "/static.txt"
+// static.cfg (non-j2 file) should be copied via copyFileFromFS
+staticPath := subdirPath + "/static.cfg"
 content, err := os.ReadFile(staticPath)
 require.NoError(t, err)
 assert.Contains(t, string(content), "static")

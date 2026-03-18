@@ -275,6 +275,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Agent != nil {
 		n++
 	}
+	if run.Calendar != nil {
+		n++
+	}
 	if run.Search != nil {
 		n++
 	}
