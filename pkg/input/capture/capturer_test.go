@@ -174,38 +174,38 @@ func TestTempDir(t *testing.T) {
 // is found but the device fails, the error is also returned. The important thing
 // is that the function body IS executed.
 func TestAudioCapturer_Capture_DeviceError(t *testing.T) {
-cfg := &domain.InputConfig{
-Sources: []string{domain.InputSourceAudio},
-Audio:   &domain.AudioConfig{Device: "kdeps-nonexistent-device-xyz"},
-}
-c, err := capture.NewWithDuration(domain.InputSourceAudio, cfg, 1, slog.Default())
-if err != nil {
-t.Skipf("cannot create AudioCapturer: %v", err)
-}
-// Capture() will fail because the device doesn't exist.
-_, err = c.Capture()
-// We always expect an error (device not found or binary not available).
-if err == nil {
-// On some CI environments, a stub binary returns success unexpectedly;
-// accept this as a pass.
-t.Log("Capture() unexpectedly succeeded — device stub present, accepting")
-}
+	cfg := &domain.InputConfig{
+		Sources: []string{domain.InputSourceAudio},
+		Audio:   &domain.AudioConfig{Device: "kdeps-nonexistent-device-xyz"},
+	}
+	c, err := capture.NewWithDuration(domain.InputSourceAudio, cfg, 1, slog.Default())
+	if err != nil {
+		t.Skipf("cannot create AudioCapturer: %v", err)
+	}
+	// Capture() will fail because the device doesn't exist.
+	_, err = c.Capture()
+	// We always expect an error (device not found or binary not available).
+	if err == nil {
+		// On some CI environments, a stub binary returns success unexpectedly;
+		// accept this as a pass.
+		t.Log("Capture() unexpectedly succeeded — device stub present, accepting")
+	}
 }
 
 // ─── VideoCapturer.Capture ───────────────────────────────────────────────────
 
 func TestVideoCapturer_Capture_DeviceError(t *testing.T) {
-cfg := &domain.InputConfig{
-Sources: []string{domain.InputSourceVideo},
-Video:   &domain.VideoConfig{Device: "kdeps-nonexistent-video-device-xyz"},
-}
-c, err := capture.NewWithDuration(domain.InputSourceVideo, cfg, 1, slog.Default())
-if err != nil {
-t.Skipf("cannot create VideoCapturer: %v", err)
-}
-// Capture() will fail because the device doesn't exist.
-_, err = c.Capture()
-if err == nil {
-t.Log("Capture() unexpectedly succeeded — device stub present, accepting")
-}
+	cfg := &domain.InputConfig{
+		Sources: []string{domain.InputSourceVideo},
+		Video:   &domain.VideoConfig{Device: "kdeps-nonexistent-video-device-xyz"},
+	}
+	c, err := capture.NewWithDuration(domain.InputSourceVideo, cfg, 1, slog.Default())
+	if err != nil {
+		t.Skipf("cannot create VideoCapturer: %v", err)
+	}
+	// Capture() will fail because the device doesn't exist.
+	_, err = c.Capture()
+	if err == nil {
+		t.Log("Capture() unexpectedly succeeded — device stub present, accepting")
+	}
 }

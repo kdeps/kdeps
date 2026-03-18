@@ -60,6 +60,8 @@ func TestSaveMediaForResources_CopiesFile(t *testing.T) {
 
 func TestSaveMediaForResources_SameSrcDest(t *testing.T) {
 	// File already in the kdeps-media dir → src == dest, returns as-is.
+	// Must use os.TempDir() here because saveMediaForResources uses os.TempDir() internally.
+	//nolint:usetesting // must match saveMediaForResources internal path
 	dir := filepath.Join(os.TempDir(), "kdeps-media")
 	require.NoError(t, os.MkdirAll(dir, 0700))
 	src := filepath.Join(dir, "same.wav")

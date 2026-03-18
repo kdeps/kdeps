@@ -134,8 +134,8 @@ func TestSleepForIterationForTesting(t *testing.T) {
 	})
 }
 
-// newTestWorkflowAndCtx is a helper to create a minimal workflow + execution context for tests.
-func newTestWorkflowAndCtx(t *testing.T) (*domain.Workflow, *executor.ExecutionContext) {
+// newTestWorkflowAndCtx is a helper to create a minimal execution context for tests.
+func newTestWorkflowAndCtx(t *testing.T) *executor.ExecutionContext {
 	t.Helper()
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -147,13 +147,13 @@ func newTestWorkflowAndCtx(t *testing.T) (*domain.Workflow, *executor.ExecutionC
 	}
 	ctx, err := executor.NewExecutionContext(workflow)
 	require.NoError(t, err)
-	return workflow, ctx
+	return ctx
 }
 
 // TestEngine_ExecuteTTS_NoConfig tests that executeTTS returns error when TTS config is nil.
 func TestEngine_ExecuteTTS_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-tts"},
@@ -167,7 +167,7 @@ func TestEngine_ExecuteTTS_NoConfig(t *testing.T) {
 // TestEngine_ExecuteTTS_NoExecutor tests that executeTTS returns error when executor is not set.
 func TestEngine_ExecuteTTS_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-tts"},
@@ -181,7 +181,7 @@ func TestEngine_ExecuteTTS_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteBotReply_NoConfig tests that executeBotReply returns error when BotReply config is nil.
 func TestEngine_ExecuteBotReply_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-bot"},
@@ -195,7 +195,7 @@ func TestEngine_ExecuteBotReply_NoConfig(t *testing.T) {
 // TestEngine_ExecuteBotReply_NoExecutor tests that executeBotReply returns error when executor is not set.
 func TestEngine_ExecuteBotReply_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-bot"},
@@ -209,7 +209,7 @@ func TestEngine_ExecuteBotReply_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteScraper_NoConfig tests that executeScraper returns error when Scraper config is nil.
 func TestEngine_ExecuteScraper_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-scraper"},
@@ -223,7 +223,7 @@ func TestEngine_ExecuteScraper_NoConfig(t *testing.T) {
 // TestEngine_ExecuteScraper_NoExecutor tests that executeScraper returns error when executor is not set.
 func TestEngine_ExecuteScraper_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-scraper"},
@@ -237,7 +237,7 @@ func TestEngine_ExecuteScraper_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineScraper_NoExecutor tests that executeInlineScraper returns error when executor is not set.
 func TestEngine_ExecuteInlineScraper_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineScraperForTesting(&domain.ScraperConfig{Source: "https://example.com", Type: "url"}, ctx)
 	require.Error(t, err)
@@ -247,7 +247,7 @@ func TestEngine_ExecuteInlineScraper_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteEmbedding_NoConfig tests that executeEmbedding returns error when Embedding config is nil.
 func TestEngine_ExecuteEmbedding_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-embedding"},
@@ -261,7 +261,7 @@ func TestEngine_ExecuteEmbedding_NoConfig(t *testing.T) {
 // TestEngine_ExecuteEmbedding_NoExecutor tests that executeEmbedding returns error when executor is not set.
 func TestEngine_ExecuteEmbedding_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-embedding"},
@@ -275,9 +275,10 @@ func TestEngine_ExecuteEmbedding_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineEmbedding_NoExecutor tests that executeInlineEmbedding returns error when executor is not set.
 func TestEngine_ExecuteInlineEmbedding_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
-	_, err := eng.ExecuteInlineEmbeddingForTesting(&domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"}, ctx)
+	cfg := &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"}
+	_, err := eng.ExecuteInlineEmbeddingForTesting(cfg, ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "embedding executor not available")
 }
@@ -285,7 +286,7 @@ func TestEngine_ExecuteInlineEmbedding_NoExecutor(t *testing.T) {
 // TestEngine_ExecutePDF_NoConfig tests that executePDF returns error when PDF config is nil.
 func TestEngine_ExecutePDF_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-pdf"},
@@ -299,7 +300,7 @@ func TestEngine_ExecutePDF_NoConfig(t *testing.T) {
 // TestEngine_ExecutePDF_NoExecutor tests that executePDF returns error when executor is not set.
 func TestEngine_ExecutePDF_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-pdf"},
@@ -313,7 +314,7 @@ func TestEngine_ExecutePDF_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlinePDF_NoExecutor tests that executeInlinePDF returns error when executor is not set.
 func TestEngine_ExecuteInlinePDF_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlinePDFForTesting(&domain.PDFConfig{Content: "<html>test</html>"}, ctx)
 	require.Error(t, err)
@@ -323,7 +324,7 @@ func TestEngine_ExecuteInlinePDF_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteEmail_NoConfig tests that executeEmail returns error when Email config is nil.
 func TestEngine_ExecuteEmail_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-email"},
@@ -337,7 +338,7 @@ func TestEngine_ExecuteEmail_NoConfig(t *testing.T) {
 // TestEngine_ExecuteEmail_NoExecutor tests that executeEmail returns error when executor is not set.
 func TestEngine_ExecuteEmail_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-email"},
@@ -351,7 +352,7 @@ func TestEngine_ExecuteEmail_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineEmail_NoExecutor tests that executeInlineEmail returns error when executor is not set.
 func TestEngine_ExecuteInlineEmail_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineEmailForTesting(&domain.EmailConfig{Subject: "test"}, ctx)
 	require.Error(t, err)
@@ -361,7 +362,7 @@ func TestEngine_ExecuteInlineEmail_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteCalendar_NoConfig tests that executeCalendar returns error when Calendar config is nil.
 func TestEngine_ExecuteCalendar_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-calendar"},
@@ -375,7 +376,7 @@ func TestEngine_ExecuteCalendar_NoConfig(t *testing.T) {
 // TestEngine_ExecuteCalendar_NoExecutor tests that executeCalendar returns error when executor is not set.
 func TestEngine_ExecuteCalendar_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-calendar"},
@@ -389,7 +390,7 @@ func TestEngine_ExecuteCalendar_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineCalendar_NoExecutor tests that executeInlineCalendar returns error when executor is not set.
 func TestEngine_ExecuteInlineCalendar_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineCalendarForTesting(&domain.CalendarConfig{Action: domain.CalendarActionList}, ctx)
 	require.Error(t, err)
@@ -399,7 +400,7 @@ func TestEngine_ExecuteInlineCalendar_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteSearch_NoConfig tests that executeSearch returns error when Search config is nil.
 func TestEngine_ExecuteSearch_NoConfig(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-search"},
@@ -413,7 +414,7 @@ func TestEngine_ExecuteSearch_NoConfig(t *testing.T) {
 // TestEngine_ExecuteSearch_NoExecutor tests that executeSearch returns error when executor is not set.
 func TestEngine_ExecuteSearch_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-search"},
@@ -427,7 +428,7 @@ func TestEngine_ExecuteSearch_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineSearch_NoExecutor tests that executeInlineSearch returns error when executor is not set.
 func TestEngine_ExecuteInlineSearch_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineSearchForTesting(&domain.SearchConfig{Provider: "brave", Query: "test"}, ctx)
 	require.Error(t, err)
@@ -437,7 +438,7 @@ func TestEngine_ExecuteInlineSearch_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineLLM_NoExecutor tests that executeInlineLLM returns error when executor is not set.
 func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineLLMForTesting(&domain.ChatConfig{Prompt: "hello"}, ctx)
 	require.Error(t, err)
@@ -447,7 +448,7 @@ func TestEngine_ExecuteInlineLLM_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteInlineTTS_NoExecutor tests that executeInlineTTS returns error when executor is not set.
 func TestEngine_ExecuteInlineTTS_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	_, err := eng.ExecuteInlineTTSForTesting(&domain.TTSConfig{Text: "hello"}, ctx)
 	require.Error(t, err)
@@ -457,7 +458,7 @@ func TestEngine_ExecuteInlineTTS_NoExecutor(t *testing.T) {
 // TestEngine_ExecuteResource_TTS tests ExecuteResource dispatches to TTS correctly.
 func TestEngine_ExecuteResource_TTS(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	// With no TTS executor set, ExecuteResource should fail
 	resource := &domain.Resource{
@@ -472,7 +473,7 @@ func TestEngine_ExecuteResource_TTS(t *testing.T) {
 // TestEngine_ExecuteResource_BotReply tests ExecuteResource dispatches to BotReply correctly.
 func TestEngine_ExecuteResource_BotReply(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-bot"},
@@ -486,7 +487,7 @@ func TestEngine_ExecuteResource_BotReply(t *testing.T) {
 // TestEngine_ExecuteResource_Scraper tests ExecuteResource dispatches to Scraper correctly.
 func TestEngine_ExecuteResource_Scraper(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-scraper"},
@@ -500,7 +501,7 @@ func TestEngine_ExecuteResource_Scraper(t *testing.T) {
 // TestEngine_ExecuteResource_Embedding tests ExecuteResource dispatches to Embedding correctly.
 func TestEngine_ExecuteResource_Embedding(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-embedding"},
@@ -514,7 +515,7 @@ func TestEngine_ExecuteResource_Embedding(t *testing.T) {
 // TestEngine_ExecuteResource_PDF tests ExecuteResource dispatches to PDF correctly.
 func TestEngine_ExecuteResource_PDF(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-pdf"},
@@ -528,7 +529,7 @@ func TestEngine_ExecuteResource_PDF(t *testing.T) {
 // TestEngine_ExecuteResource_Email tests ExecuteResource dispatches to Email correctly.
 func TestEngine_ExecuteResource_Email(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-email"},
@@ -542,7 +543,7 @@ func TestEngine_ExecuteResource_Email(t *testing.T) {
 // TestEngine_ExecuteResource_Calendar tests ExecuteResource dispatches to Calendar correctly.
 func TestEngine_ExecuteResource_Calendar(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-calendar"},
@@ -556,7 +557,7 @@ func TestEngine_ExecuteResource_Calendar(t *testing.T) {
 // TestEngine_ExecuteResource_Search tests ExecuteResource dispatches to Search correctly.
 func TestEngine_ExecuteResource_Search(t *testing.T) {
 	eng := executor.NewEngine(nil)
-	_, ctx := newTestWorkflowAndCtx(t)
+	ctx := newTestWorkflowAndCtx(t)
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-search"},

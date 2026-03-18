@@ -864,31 +864,31 @@ settings:
 }
 
 func TestNewParserForTesting(t *testing.T) {
-validator := &mockSchemaValidator{}
-exprParser := &mockExprParser{}
+	validator := &mockSchemaValidator{}
+	exprParser := &mockExprParser{}
 
-parser := yaml.NewParserForTesting(validator, exprParser)
-if parser == nil {
-t.Fatal("NewParserForTesting returned nil")
-}
+	parser := yaml.NewParserForTesting(validator, exprParser)
+	if parser == nil {
+		t.Fatal("NewParserForTesting returned nil")
+	}
 }
 
 func TestParser_GetSchemaValidatorForTesting(t *testing.T) {
-mockValidator := &mockSchemaValidator{}
-parser := yaml.NewParserForTesting(mockValidator, &mockExprParser{})
+	mockValidator := &mockSchemaValidator{}
+	parser := yaml.NewParserForTesting(mockValidator, &mockExprParser{})
 
-got := parser.GetSchemaValidatorForTesting()
-if got == nil {
-t.Fatal("GetSchemaValidatorForTesting returned nil")
-}
+	got := parser.GetSchemaValidatorForTesting()
+	if got == nil {
+		t.Fatal("GetSchemaValidatorForTesting returned nil")
+	}
 }
 
 func TestParser_GetExpressionParserForTesting(t *testing.T) {
-mockExprP := &mockExprParser{}
-parser := yaml.NewParserForTesting(&mockSchemaValidator{}, mockExprP)
+	mockExprP := &mockExprParser{}
+	parser := yaml.NewParserForTesting(&mockSchemaValidator{}, mockExprP)
 
-got := parser.GetExpressionParserForTesting()
-if got == nil {
-t.Fatal("GetExpressionParserForTesting returned nil")
-}
+	got := parser.GetExpressionParserForTesting()
+	if got == nil {
+		t.Fatal("GetExpressionParserForTesting returned nil")
+	}
 }

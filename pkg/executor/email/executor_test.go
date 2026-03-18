@@ -669,17 +669,17 @@ func TestExecute_Modify_MissingIMAPHost(t *testing.T) {
 // ─── markMessagesRead ──────────────────────────────────────────────────────────
 
 // TestMarkMessagesRead_Empty verifies that calling with no messages is safe (nil client OK).
-func TestMarkMessagesRead_Empty(t *testing.T) {
-// nil imapclient.Client is safe when msgs is empty — no Store is called.
-markMessagesRead(nil, []EmailMessage{})
+func TestMarkMessagesRead_Empty(_ *testing.T) {
+	// nil imapclient.Client is safe when msgs is empty — no Store is called.
+	markMessagesRead(nil, []EmailMessage{})
 }
 
 // TestMarkMessagesRead_AllAlreadySeen verifies that already-seen messages are skipped (no Store call).
-func TestMarkMessagesRead_AllAlreadySeen(t *testing.T) {
-msgs := []EmailMessage{
-{UID: 1, Seen: true},
-{UID: 2, Seen: true},
-}
-// nil client is safe because all messages have Seen=true → continue skips the Store call.
-markMessagesRead(nil, msgs)
+func TestMarkMessagesRead_AllAlreadySeen(_ *testing.T) {
+	msgs := []EmailMessage{
+		{UID: 1, Seen: true},
+		{UID: 2, Seen: true},
+	}
+	// nil client is safe because all messages have Seen=true → continue skips the Store call.
+	markMessagesRead(nil, msgs)
 }

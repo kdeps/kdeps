@@ -190,7 +190,10 @@ func (e *Engine) ExecuteScraperForTesting(resource *domain.Resource, ctx *Execut
 }
 
 // ExecuteInlineScraperForTesting exposes the private executeInlineScraper for testing.
-func (e *Engine) ExecuteInlineScraperForTesting(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineScraperForTesting(
+	config *domain.ScraperConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineScraper(config, ctx)
 }
 
@@ -200,7 +203,10 @@ func (e *Engine) ExecuteEmbeddingForTesting(resource *domain.Resource, ctx *Exec
 }
 
 // ExecuteInlineEmbeddingForTesting exposes the private executeInlineEmbedding for testing.
-func (e *Engine) ExecuteInlineEmbeddingForTesting(config *domain.EmbeddingConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineEmbeddingForTesting(
+	config *domain.EmbeddingConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineEmbedding(config, ctx)
 }
 
@@ -210,47 +216,74 @@ func (e *Engine) ExecutePDFForTesting(resource *domain.Resource, ctx *ExecutionC
 }
 
 // ExecuteInlinePDFForTesting exposes the private executeInlinePDF for testing.
-func (e *Engine) ExecuteInlinePDFForTesting(config *domain.PDFConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlinePDFForTesting(
+	config *domain.PDFConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlinePDF(config, ctx)
 }
 
 // ExecuteEmailForTesting exposes the private executeEmail for testing.
-func (e *Engine) ExecuteEmailForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteEmailForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeEmail(resource, ctx)
 }
 
 // ExecuteInlineEmailForTesting exposes the private executeInlineEmail for testing.
-func (e *Engine) ExecuteInlineEmailForTesting(config *domain.EmailConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineEmailForTesting(
+	config *domain.EmailConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineEmail(config, ctx)
 }
 
 // ExecuteCalendarForTesting exposes the private executeCalendar for testing.
-func (e *Engine) ExecuteCalendarForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteCalendarForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeCalendar(resource, ctx)
 }
 
 // ExecuteInlineCalendarForTesting exposes the private executeInlineCalendar for testing.
-func (e *Engine) ExecuteInlineCalendarForTesting(config *domain.CalendarConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineCalendarForTesting(
+	config *domain.CalendarConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineCalendar(config, ctx)
 }
 
 // ExecuteSearchForTesting exposes the private executeSearch for testing.
-func (e *Engine) ExecuteSearchForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteSearchForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeSearch(resource, ctx)
 }
 
 // ExecuteInlineSearchForTesting exposes the private executeInlineSearch for testing.
-func (e *Engine) ExecuteInlineSearchForTesting(config *domain.SearchConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineSearchForTesting(
+	config *domain.SearchConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineSearch(config, ctx)
 }
 
 // ExecuteInlineLLMForTesting exposes the private executeInlineLLM for testing.
-func (e *Engine) ExecuteInlineLLMForTesting(config *domain.ChatConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineLLMForTesting(
+	config *domain.ChatConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineLLM(config, ctx)
 }
 
 // ExecuteInlineTTSForTesting exposes the private executeInlineTTS for testing.
-func (e *Engine) ExecuteInlineTTSForTesting(config *domain.TTSConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteInlineTTSForTesting(
+	config *domain.TTSConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineTTS(config, ctx)
 }
 
