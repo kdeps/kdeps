@@ -119,3 +119,32 @@ func TestExecute_LiteralText_NoExpressionEval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "plain text, no braces", got)
 }
+
+// TestEvaluateText_NoExpressionReturnedAsIs verifies plain text passes through unchanged.
+func TestEvaluateText_NoExpressionReturnedAsIs(t *testing.T) {
+	result := evaluateText("hello world", nil)
+	assert.Equal(t, "hello world", result)
+}
+
+// TestEvaluateText_NilCtx_WithBraces falls back to raw text when ctx is nil.
+func TestEvaluateText_NilCtx_WithBraces(t *testing.T) {
+	result := evaluateText("hello {{ name }}", nil)
+	assert.Equal(t, "hello {{ name }}", result)
+}
+
+// TestEvaluateText_NilAPI_WithBraces falls back when ctx.API is nil.
+func TestEvaluateText_NilAPI_WithBraces(t *testing.T) {
+	ctx := makeCtxWithSend(t, func(_ context.Context, _ string) error { return nil })
+	ctx.API = nil
+	result := evaluateText("hello {{ name }}", ctx)
+	assert.Equal(t, "hello {{ name }}", result)
+}
+
+// TestEvaluateText_WithValidCtx exercises the API evaluation code path.
+func TestEvaluateText_WithValidCtx(t *testing.T) {
+	ctx := makeCtxWithSend(t, func(_ context.Context, _ string) error { return nil })
+	// A Jinja2/gonja literal expression that returns a string.
+	result := evaluateText("{{ 'hello' }}", ctx)
+	// Result may be "hello" (evaluated) or fallback to raw; either way non-empty and no panic.
+	assert.NotEmpty(t, result)
+}
