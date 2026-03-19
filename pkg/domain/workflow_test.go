@@ -1602,3 +1602,159 @@ func TestInputExecutionTypeConstants(t *testing.T) {
 		t.Errorf("InputExecutionTypeStateless = %q, want %q", domain.InputExecutionTypeStateless, "stateless")
 	}
 }
+
+func TestInputConfig_PrimarySource(t *testing.T) {
+	tests := []struct {
+		name    string
+		sources []string
+		want    string
+	}{
+		{
+			name:    "empty sources returns api",
+			sources: []string{},
+			want:    domain.InputSourceAPI,
+		},
+		{
+			name:    "only api returns api",
+			sources: []string{domain.InputSourceAPI},
+			want:    domain.InputSourceAPI,
+		},
+		{
+			name:    "non-api source is primary",
+			sources: []string{domain.InputSourceAudio},
+			want:    domain.InputSourceAudio,
+		},
+		{
+			name:    "api then non-api returns non-api",
+			sources: []string{domain.InputSourceAPI, domain.InputSourceBot},
+			want:    domain.InputSourceBot,
+		},
+		{
+			name:    "non-api first is primary",
+			sources: []string{domain.InputSourceAudio, domain.InputSourceAPI},
+			want:    domain.InputSourceAudio,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &domain.InputConfig{Sources: tt.sources}
+			got := c.PrimarySource()
+			if got != tt.want {
+				t.Errorf("PrimarySource() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputConfig_HasNonAPISource(t *testing.T) {
+	tests := []struct {
+		name    string
+		sources []string
+		want    bool
+	}{
+		{
+			name:    "empty sources",
+			sources: []string{},
+			want:    false,
+		},
+		{
+			name:    "only api",
+			sources: []string{domain.InputSourceAPI},
+			want:    false,
+		},
+		{
+			name:    "has audio source",
+			sources: []string{domain.InputSourceAudio},
+			want:    true,
+		},
+		{
+			name:    "has bot source",
+			sources: []string{domain.InputSourceAPI, domain.InputSourceBot},
+			want:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &domain.InputConfig{Sources: tt.sources}
+			got := c.HasNonAPISource()
+			if got != tt.want {
+				t.Errorf("HasNonAPISource() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputConfig_AllSourcesAPI(t *testing.T) {
+	tests := []struct {
+		name    string
+		sources []string
+		want    bool
+	}{
+		{
+			name:    "empty sources",
+			sources: []string{},
+			want:    true,
+		},
+		{
+			name:    "only api",
+			sources: []string{domain.InputSourceAPI},
+			want:    true,
+		},
+		{
+			name:    "api and non-api",
+			sources: []string{domain.InputSourceAPI, domain.InputSourceAudio},
+			want:    false,
+		},
+		{
+			name:    "only non-api",
+			sources: []string{domain.InputSourceBot},
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &domain.InputConfig{Sources: tt.sources}
+			got := c.AllSourcesAPI()
+			if got != tt.want {
+				t.Errorf("AllSourcesAPI() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInputConfig_HasSource(t *testing.T) {
+	c := &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceBot}}
+	if !c.HasSource(domain.InputSourceAPI) {
+		t.Error("HasSource(api) should be true")
+	}
+	if !c.HasSource(domain.InputSourceBot) {
+		t.Error("HasSource(bot) should be true")
+	}
+	if c.HasSource(domain.InputSourceAudio) {
+		t.Error("HasSource(audio) should be false")
+	}
+}
+
+func TestInputConfig_HasBotSource(t *testing.T) {
+	cWithBot := &domain.InputConfig{Sources: []string{domain.InputSourceBot}}
+	cWithoutBot := &domain.InputConfig{Sources: []string{domain.InputSourceAPI}}
+
+	if !cWithBot.HasBotSource() {
+		t.Error("HasBotSource() should be true when bot is in sources")
+	}
+	if cWithoutBot.HasBotSource() {
+		t.Error("HasBotSource() should be false when bot is not in sources")
+	}
+}
+
+func TestIsBotSource(t *testing.T) {
+	if !domain.IsBotSource(domain.InputSourceBot) {
+		t.Error("IsBotSource(bot) should be true")
+	}
+	if domain.IsBotSource(domain.InputSourceAPI) {
+		t.Error("IsBotSource(api) should be false")
+	}
+	if domain.IsBotSource("") {
+		t.Error("IsBotSource('') should be false")
+	}
+}

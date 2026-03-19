@@ -465,3 +465,154 @@ func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 		})
 	}
 }
+
+func TestScraperConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name           string
+		yamlData       string
+		wantTimeout    string
+		wantTimeoutDur string
+		wantErr        bool
+	}{
+		{
+			name: "timeout alias promoted",
+			yamlData: `
+type: url
+source: https://example.com
+timeout: 30s
+`,
+			wantTimeout:    "30s",
+			wantTimeoutDur: "30s",
+		},
+		{
+			name: "timeoutDuration takes precedence",
+			yamlData: `
+type: url
+source: https://example.com
+timeoutDuration: 60s
+timeout: 30s
+`,
+			wantTimeout:    "30s",
+			wantTimeoutDur: "60s",
+		},
+		{
+			name: "no timeout fields",
+			yamlData: `
+type: url
+source: https://example.com
+`,
+			wantTimeout:    "",
+			wantTimeoutDur: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.ScraperConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &cfg)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if cfg.Timeout != tt.wantTimeout {
+				t.Errorf("Timeout = %q, want %q", cfg.Timeout, tt.wantTimeout)
+			}
+			if cfg.TimeoutDuration != tt.wantTimeoutDur {
+				t.Errorf("TimeoutDuration = %q, want %q", cfg.TimeoutDuration, tt.wantTimeoutDur)
+			}
+		})
+	}
+}
+
+func TestEmbeddingConfig_UnmarshalYAML(t *testing.T) { //nolint:gocognit // table-driven test with many field checks
+	tests := []struct {
+		name           string
+		yamlData       string
+		wantModel      string
+		wantBackend    string
+		wantTopK       int
+		wantTimeout    string
+		wantTimeoutDur string
+		wantErr        bool
+	}{
+		{
+			name: "minimal config",
+			yamlData: `
+model: nomic-embed-text
+input: hello world
+`,
+			wantModel: "nomic-embed-text",
+		},
+		{
+			name: "full config with topK as int",
+			yamlData: `
+model: text-embedding-3-small
+backend: openai
+input: test text
+topK: 5
+timeout: 30s
+`,
+			wantModel:      "text-embedding-3-small",
+			wantBackend:    "openai",
+			wantTopK:       5,
+			wantTimeout:    "30s",
+			wantTimeoutDur: "30s",
+		},
+		{
+			name: "topK as string",
+			yamlData: `
+model: nomic-embed-text
+input: test
+topK: "10"
+`,
+			wantModel: "nomic-embed-text",
+			wantTopK:  10,
+		},
+		{
+			name: "timeoutDuration takes precedence over timeout",
+			yamlData: `
+model: nomic-embed-text
+input: test
+timeoutDuration: 60s
+timeout: 30s
+`,
+			wantModel:      "nomic-embed-text",
+			wantTimeout:    "30s",
+			wantTimeoutDur: "60s",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.EmbeddingConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &cfg)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if cfg.Model != tt.wantModel {
+				t.Errorf("Model = %q, want %q", cfg.Model, tt.wantModel)
+			}
+			if tt.wantBackend != "" && cfg.Backend != tt.wantBackend {
+				t.Errorf("Backend = %q, want %q", cfg.Backend, tt.wantBackend)
+			}
+			if tt.wantTopK != 0 && cfg.TopK != tt.wantTopK {
+				t.Errorf("TopK = %d, want %d", cfg.TopK, tt.wantTopK)
+			}
+			if cfg.Timeout != tt.wantTimeout {
+				t.Errorf("Timeout = %q, want %q", cfg.Timeout, tt.wantTimeout)
+			}
+			if cfg.TimeoutDuration != tt.wantTimeoutDur {
+				t.Errorf("TimeoutDuration = %q, want %q", cfg.TimeoutDuration, tt.wantTimeoutDur)
+			}
+		})
+	}
+}

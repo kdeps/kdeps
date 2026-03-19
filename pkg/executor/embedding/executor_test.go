@@ -738,3 +738,61 @@ func TestExecute_Search_TopKClamped(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, 2, m["count"])
 }
+
+// TestExecute_Upsert_EmptyDB tests upsert when no existing embeddings are stored.
+// When the DB is empty there's no similar entry, so the input must be indexed.
+func TestExecute_Upsert_EmptyDB(t *testing.T) {
+	vec := []float64{0.1, 0.2, 0.3}
+	srv := ollamaEmbedServer(t, vec)
+	defer srv.Close()
+
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "upsert")
+
+	result, err := exec.Execute(ctx, &domain.EmbeddingConfig{
+		Model:     "m",
+		BaseURL:   srv.URL,
+		Input:     "new document",
+		DBPath:    dbPath,
+		Operation: domain.EmbeddingOperationUpsert,
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "upsert", m["operation"])
+}
+
+// TestExecute_Upsert_WithExisting tests upsert when a very similar entry exists.
+func TestExecute_Upsert_WithExisting(t *testing.T) {
+	vec := []float64{1.0, 0.0, 0.0}
+	srv := ollamaEmbedServer(t, vec)
+	defer srv.Close()
+
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "upsert2")
+
+	// First: index a document.
+	_, err := exec.Execute(ctx, &domain.EmbeddingConfig{
+		Model:     "m",
+		BaseURL:   srv.URL,
+		Input:     "existing document",
+		DBPath:    dbPath,
+		Operation: domain.EmbeddingOperationIndex,
+	})
+	require.NoError(t, err)
+
+	// Second: upsert with an identical vector — similarity 1.0 ≥ default 0.95 threshold.
+	result, err := exec.Execute(ctx, &domain.EmbeddingConfig{
+		Model:     "m",
+		BaseURL:   srv.URL,
+		Input:     "very similar document",
+		DBPath:    dbPath,
+		Operation: domain.EmbeddingOperationUpsert,
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "upsert", m["operation"])
+}

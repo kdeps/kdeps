@@ -2532,3 +2532,58 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestSchemaValidator_GetAgencySchemaForTesting(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	schema := v.GetAgencySchemaForTesting()
+	if schema == nil {
+		t.Fatal("GetAgencySchemaForTesting returned nil")
+	}
+}
+
+func TestSchemaValidator_ValidateAgency(t *testing.T) {
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("Failed to create validator: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		data    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "valid minimal agency",
+			data: map[string]interface{}{
+				"apiVersion": "kdeps.io/v1",
+				"kind":       "Agency",
+				"metadata": map[string]interface{}{
+					"name":          "Test Agency",
+					"version":       "1.0.0",
+					"targetAgentId": "main-agent",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "missing required fields",
+			data:    map[string]interface{}{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agencyErr := v.ValidateAgency(tt.data)
+			if tt.wantErr && agencyErr == nil {
+				t.Error("ValidateAgency() expected error, got nil")
+			} else if !tt.wantErr && agencyErr != nil {
+				t.Errorf("ValidateAgency() unexpected error: %v", agencyErr)
+			}
+		})
+	}
+}

@@ -47,6 +47,8 @@ const (
 type whatsAppRunner struct {
 	cfg    *domain.WhatsAppConfig
 	logger *slog.Logger
+	// client is the HTTP client used by Reply. Defaults to http.DefaultClient when nil.
+	client *http.Client
 }
 
 func newWhatsAppRunner(cfg *domain.WhatsAppConfig, logger *slog.Logger) *whatsAppRunner {
@@ -201,7 +203,11 @@ func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+r.cfg.AccessToken)
 
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := r.client
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("whatsapp: send message: %w", err)
 	}

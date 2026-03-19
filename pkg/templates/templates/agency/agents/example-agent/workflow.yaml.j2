@@ -29,7 +29,7 @@ resources:
       # agent:
       #   agent: helper-agent          # metadata.name of the target agent
       #   params:
-      #     greeting: "{{ get('q') }}" # params accessible via get('greeting') in helper-agent
+      #     greeting: "{% raw %}{{ get('q') }}{% endraw %}" # params accessible via get('greeting') in helper-agent
       #
       apiResponse:
         success: true
