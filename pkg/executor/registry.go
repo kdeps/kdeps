@@ -38,6 +38,7 @@ type Registry struct {
 	emailExecutor     ResourceExecutor
 	calendarExecutor  ResourceExecutor
 	searchExecutor    ResourceExecutor
+	browserExecutor   ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -190,4 +191,14 @@ func (r *Registry) SetSearchExecutor(executor ResourceExecutor) {
 // GetSearchExecutor returns the search executor.
 func (r *Registry) GetSearchExecutor() ResourceExecutor {
 	return r.searchExecutor
+}
+
+// SetBrowserExecutor sets the browser executor.
+func (r *Registry) SetBrowserExecutor(executor ResourceExecutor) {
+	r.browserExecutor = executor
+}
+
+// GetBrowserExecutor returns the browser executor.
+func (r *Registry) GetBrowserExecutor() ResourceExecutor {
+	return r.browserExecutor
 }

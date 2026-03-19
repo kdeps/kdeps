@@ -574,6 +574,111 @@
             }
           ]
         },
+        "browser": {
+          "type": "object",
+          "description": "Browser automation resource: navigate pages, fill forms, click elements, upload files, and take screenshots",
+          "properties": {
+            "engine": {
+              "type": "string",
+              "enum": ["chromium", "firefox", "webkit"],
+              "description": "Browser engine to use (default: chromium)"
+            },
+            "headless": {
+              "type": ["boolean", "string"],
+              "description": "Run browser in headless mode (default: true)"
+            },
+            "url": {
+              "type": "string",
+              "description": "Initial URL to navigate to before executing actions"
+            },
+            "sessionId": {
+              "type": "string",
+              "description": "Session identifier for persisting browser state (cookies, localStorage) across resource executions"
+            },
+            "waitFor": {
+              "type": "string",
+              "description": "CSS selector to wait for before executing actions"
+            },
+            "timeoutDuration": {
+              "type": "string",
+              "description": "Default timeout for browser operations (e.g. '30s', '1m')"
+            },
+            "timeout": {
+              "type": "string",
+              "description": "Alias for timeoutDuration"
+            },
+            "viewport": {
+              "type": "object",
+              "description": "Browser viewport dimensions",
+              "properties": {
+                "width": {
+                  "type": ["integer", "string"],
+                  "description": "Viewport width in pixels (default: 1280)"
+                },
+                "height": {
+                  "type": ["integer", "string"],
+                  "description": "Viewport height in pixels (default: 720)"
+                }
+              }
+            },
+            "actions": {
+              "type": "array",
+              "description": "Ordered sequence of browser interactions to perform",
+              "items": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "navigate", "click", "fill", "type", "upload",
+                      "select", "check", "uncheck", "hover", "scroll",
+                      "press", "clear", "evaluate", "screenshot", "wait"
+                    ],
+                    "description": "The browser action to perform"
+                  },
+                  "selector": {
+                    "type": "string",
+                    "description": "CSS or XPath selector for the target element"
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Value to fill/select/type, or pixel offset for scroll"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Destination URL for navigate action"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Local file paths to upload (used with upload action)"
+                  },
+                  "script": {
+                    "type": "string",
+                    "description": "JavaScript expression to evaluate (used with evaluate action)"
+                  },
+                  "wait": {
+                    "type": "string",
+                    "description": "Duration (e.g. '500ms') or CSS selector to wait for"
+                  },
+                  "outputFile": {
+                    "type": "string",
+                    "description": "File path where a screenshot is saved"
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "Keyboard key to press (e.g. 'Enter', 'Tab')"
+                  },
+                  "fullPage": {
+                    "type": ["boolean", "string"],
+                    "description": "Capture full scrollable page for screenshot (default: false)"
+                  }
+                }
+              }
+            }
+          }
+        },
         "onError": {
           "type": "object",
           "description": "Error handling configuration for the resource",

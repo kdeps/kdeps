@@ -271,6 +271,19 @@ func (e *Engine) ExecuteInlineSearchForTesting(
 	return e.executeInlineSearch(config, ctx)
 }
 
+// ExecuteBrowserForTesting exposes the private executeBrowser for testing.
+func (e *Engine) ExecuteBrowserForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	return e.executeBrowser(resource, ctx)
+}
+
+// ExecuteInlineBrowserForTesting exposes the private executeInlineBrowser for testing.
+func (e *Engine) ExecuteInlineBrowserForTesting(
+	config *domain.BrowserConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeInlineBrowser(config, ctx)
+}
+
 // ExecuteInlineLLMForTesting exposes the private executeInlineLLM for testing.
 func (e *Engine) ExecuteInlineLLMForTesting(
 	config *domain.ChatConfig,
@@ -888,7 +901,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Email != nil ||
 		resource.Run.Calendar != nil ||
 		resource.Run.Search != nil ||
-		resource.Run.Agent != nil
+		resource.Run.Agent != nil ||
+		resource.Run.Browser != nil
 
 	var primaryResult interface{}
 	var err error
@@ -924,6 +938,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeSearch(resource, ctx)
 		case resource.Run.Agent != nil:
 			primaryResult, err = e.executeAgent(resource, ctx)
+		case resource.Run.Browser != nil:
+			primaryResult, err = e.executeBrowser(resource, ctx)
 		}
 
 		if err != nil {
@@ -1626,7 +1642,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			"hasPython", inline.Python != nil,
 			"hasExec", inline.Exec != nil,
 			"hasEmbedding", inline.Embedding != nil,
-			"hasAgent", inline.Agent != nil)
+			"hasAgent", inline.Agent != nil,
+			"hasBrowser", inline.Browser != nil)
 
 		var result interface{}
 		var err error
@@ -1659,6 +1676,8 @@ func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource,
 			result, err = e.executeInlineSearch(inline.Search, ctx)
 		case inline.Agent != nil:
 			result, err = e.executeInlineAgent(inline.Agent, ctx)
+		case inline.Browser != nil:
+			result, err = e.executeInlineBrowser(inline.Browser, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2571,6 +2590,27 @@ func (e *Engine) executeInlineSearch(config *domain.SearchConfig, ctx *Execution
 		return nil, errors.New("search executor not available")
 	}
 	return searchExec.Execute(ctx, config)
+}
+
+// executeBrowser executes a browser automation resource.
+func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	if resource.Run.Browser == nil {
+		return nil, fmt.Errorf("resource %s has no browser configuration", resource.Metadata.ActionID)
+	}
+	browserExec := e.registry.GetBrowserExecutor()
+	if browserExec == nil {
+		return nil, errors.New("browser executor not available")
+	}
+	return browserExec.Execute(ctx, resource.Run.Browser)
+}
+
+// executeInlineBrowser executes an inline browser automation resource.
+func (e *Engine) executeInlineBrowser(config *domain.BrowserConfig, ctx *ExecutionContext) (interface{}, error) {
+	browserExec := e.registry.GetBrowserExecutor()
+	if browserExec == nil {
+		return nil, errors.New("browser executor not available")
+	}
+	return browserExec.Execute(ctx, config)
 }
 
 // executeAgent invokes a sibling agent by name within the same agency.
