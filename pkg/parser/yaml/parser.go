@@ -149,7 +149,163 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, loadErr
 	}
 
+	// Merge resources from imported workflows (metadata.workflows: ["@name"]).
+	absPath, _ := filepath.Abs(path)
+	visited := map[string]struct{}{absPath: {}}
+	if importErr := p.loadImportedWorkflows(&workflow, path, visited); importErr != nil {
+		return nil, importErr
+	}
+
 	return &workflow, nil
+}
+
+// loadImportedWorkflows merges resources from workflows listed in
+// metadata.workflows into the importing workflow.  Each entry takes the form
+// "@name" where name is resolved as a sibling path:
+//
+//  1. <workflowDir>/name/     — directory; workflow file discovered inside
+//  2. <workflowDir>/name.yaml — standalone workflow file
+//  3. <workflowDir>/name.yml  — standalone workflow file (short form)
+//
+// Imported resources are prepended so that local resources with the same
+// actionId always take precedence (local wins).  Circular imports are detected
+// via the visited set and return an error.
+func (p *Parser) loadImportedWorkflows(workflow *domain.Workflow, workflowPath string, visited map[string]struct{}) error {
+	if len(workflow.Metadata.Workflows) == 0 {
+		return nil
+	}
+
+	absWorkflowPath, err := filepath.Abs(workflowPath)
+	if err != nil {
+		absWorkflowPath = workflowPath
+	}
+	workflowDir := filepath.Dir(absWorkflowPath)
+
+	for _, ref := range workflow.Metadata.Workflows {
+		name := strings.TrimPrefix(ref, "@")
+		if name == "" {
+			continue
+		}
+
+		importPath := resolveWorkflowImport(name, workflowDir)
+		if importPath == "" {
+			return domain.NewError(
+				domain.ErrCodeParseError,
+				fmt.Sprintf("imported workflow %q not found (looked in %s)", ref, workflowDir),
+				nil,
+			)
+		}
+
+		absImport, absErr := filepath.Abs(importPath)
+		if absErr != nil {
+			absImport = importPath
+		}
+		if _, seen := visited[absImport]; seen {
+			return domain.NewError(
+				domain.ErrCodeParseError,
+				fmt.Sprintf("circular workflow import detected: %s", ref),
+				nil,
+			)
+		}
+		visited[absImport] = struct{}{}
+
+		imported, parseErr := p.parseWorkflowForImport(importPath, visited)
+		if parseErr != nil {
+			return parseErr
+		}
+
+		// Build a set of actionIds already present in the importing workflow
+		// so we can skip any imported resource that would be overridden.
+		existing := make(map[string]struct{}, len(workflow.Resources))
+		for _, r := range workflow.Resources {
+			existing[r.Metadata.ActionID] = struct{}{}
+		}
+
+		// Prepend imported resources whose actionId is not already defined
+		// locally.  Prepending preserves import order: later imports can
+		// themselves be overridden by earlier imports, and all imports are
+		// overridden by local resources.
+		var prepend []*domain.Resource
+		for _, r := range imported.Resources {
+			if _, ok := existing[r.Metadata.ActionID]; !ok {
+				prepend = append(prepend, r)
+			}
+		}
+		workflow.Resources = append(prepend, workflow.Resources...)
+	}
+
+	return nil
+}
+
+// parseWorkflowForImport is the internal recursive helper used by
+// loadImportedWorkflows.  It mirrors ParseWorkflow but skips schema validation
+// (the imported file was already validated when it was first authored) and
+// passes the visited set through to detect circular imports.
+func (p *Parser) parseWorkflowForImport(path string, visited map[string]struct{}) (*domain.Workflow, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read imported workflow file", err)
+	}
+
+	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
+	if preprocessErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess imported workflow Jinja2 template", preprocessErr)
+	}
+
+	var workflow domain.Workflow
+	if unmarshalErr := yaml.Unmarshal([]byte(preprocessed), &workflow); unmarshalErr != nil {
+		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse imported workflow", unmarshalErr)
+	}
+
+	if workflow.Resources == nil {
+		workflow.Resources = make([]*domain.Resource, 0)
+	}
+
+	if loadErr := p.loadResources(&workflow, path); loadErr != nil {
+		return nil, loadErr
+	}
+
+	// Recursively resolve transitive imports.
+	if importErr := p.loadImportedWorkflows(&workflow, path, visited); importErr != nil {
+		return nil, importErr
+	}
+
+	return &workflow, nil
+}
+
+// resolveWorkflowImport resolves "@name" → filesystem path for workflow import.
+//
+// Each agent lives in its own directory, so "@base" is looked up as a
+// *sibling* of the importing workflow's directory (i.e. one level up then
+// into `name/`).  Resolution order:
+//
+//  1. <parentDir>/name/            — sibling directory; workflow file discovered inside
+//  2. <parentDir>/name.yaml        — standalone sibling file
+//  3. <parentDir>/name.yml         — standalone sibling file (short form)
+//  4. <workflowDir>/name/          — sub-directory (flat-layout fallback)
+//  5. <workflowDir>/name.yaml      — sub-file (flat-layout fallback)
+func resolveWorkflowImport(name, workflowDir string) string {
+	parentDir := filepath.Dir(workflowDir)
+
+	// Check sibling locations first (standard agency layout).
+	for _, base := range []string{parentDir, workflowDir} {
+		dirPath := filepath.Join(base, name)
+		if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
+			if wf := findWorkflowInDir(dirPath); wf != "" {
+				return wf
+			}
+		}
+
+		if _, err := os.Stat(filepath.Join(base, name+".yaml")); err == nil {
+			return filepath.Join(base, name+".yaml")
+		}
+
+		if _, err := os.Stat(filepath.Join(base, name+".yml")); err == nil {
+			return filepath.Join(base, name+".yml")
+		}
+	}
+
+	return ""
 }
 
 // readPreprocessAndValidateYAML reads the file at path, applies Jinja2
