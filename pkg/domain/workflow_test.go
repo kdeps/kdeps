@@ -37,6 +37,9 @@ metadata:
   description: A test workflow
   version: 1.0.0
   targetActionId: main-action
+  workflows:
+    - "@base"
+    - "@auth"
 settings:
   apiServerMode: true
   apiServer:
@@ -81,6 +84,19 @@ settings:
 
 	if workflow.Metadata.TargetActionID != "main-action" {
 		t.Errorf("TargetActionID = %v, want %v", workflow.Metadata.TargetActionID, "main-action")
+	}
+
+	// Verify workflows (shared workflow imports).
+	if len(workflow.Metadata.Workflows) != 2 {
+		t.Errorf("Workflows length = %v, want 2", len(workflow.Metadata.Workflows))
+	}
+
+	if workflow.Metadata.Workflows[0] != "@base" {
+		t.Errorf("Workflows[0] = %v, want @base", workflow.Metadata.Workflows[0])
+	}
+
+	if workflow.Metadata.Workflows[1] != "@auth" {
+		t.Errorf("Workflows[1] = %v, want @auth", workflow.Metadata.Workflows[1])
 	}
 
 	// Verify settings.

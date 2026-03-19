@@ -1,96 +1,95 @@
 # Shared Workflow Example
 
-Demonstrates the **shared workflow** pattern: one sub-agent (`shared-llm`) is called
-multiple times by a parent agent (`faq-router`) with different parameters, all bundled
-together in an agency.
+Demonstrates the **workflow import** pattern: a base workflow defines shared
+resources (e.g. authentication) that any other workflow can inherit by
+listing it under `metadata.workflows`.
 
 ## What it does
 
-`POST /api/v1/faq` accepts a question and returns **two answers in one response** — a
-brief (1–2 sentence) summary and a detailed (4–6 sentence) explanation — both generated
-by the same underlying LLM resource.
+`POST /api/v1/chat` requires a valid `Authorization: Bearer <token>` header.
+The auth check is defined **once** in `auth-base/` and reused by `chat-agent/`
+— no copy-paste.
 
-```json
-// POST /api/v1/faq   body: {"q": "What is quantum entanglement?"}
-{
-  "success": true,
-  "data": {
-    "question": "What is quantum entanglement?",
-    "brief":    "Quantum entanglement is a ...",
-    "detailed": "Quantum entanglement is a phenomenon where ..."
-  }
-}
+```
+Authorization: Bearer my-token
+{"message": "What is Kubernetes?"}
+→ {"success": true, "data": {"reply": "..."}}
+
+Authorization: (missing)
+→ 401 Unauthorized
 ```
 
 ## Directory layout
 
 ```
 shared-workflow/
-├── agency.yaml                          # bundles both agents
-└── agents/
-    ├── shared-llm/                      # re-usable LLM wrapper (no HTTP server)
-    │   ├── workflow.yaml
-    │   └── resources/
-    │       ├── generate.yaml            # chat: resource with style param
-    │       └── llm-result.yaml          # targetActionId — returns chat output
-    └── faq-router/                      # entry-point HTTP agent
-        ├── workflow.yaml
-        └── resources/
-            ├── brief-answer.yaml        # calls shared-llm with style=brief
-            ├── detailed-answer.yaml     # calls shared-llm with style=detailed
-            └── faq-response.yaml        # combines both into the final response
+├── auth-base/                   # base workflow — auth resources only
+│   ├── workflow.yaml
+│   └── resources/
+│       └── auth-check.yaml      # actionId: authCheck
+└── chat-agent/                  # entry-point workflow
+    ├── workflow.yaml            # imports @auth-base
+    └── resources/
+        ├── chat.yaml            # requires: [authCheck]  ← from auth-base
+        └── chat-response.yaml
 ```
 
-## How the shared workflow pattern works
-
-The `agent:` resource type lets any workflow call another workflow within the same
-agency by name.  The called workflow runs its full action graph and returns its
-`targetActionId` result to the caller, which stores it under the calling resource's
-`actionId`.
-
-```
-faq-router  ──briefAnswer──►  shared-llm (style=brief)   ──►  llmResult
-            ──detailedAnswer► shared-llm (style=detailed) ──►  llmResult
-```
-
-`brief-answer.yaml` (excerpt):
+## How the import works
 
 ```yaml
-run:
-  agent:
-    name: shared-llm      # matches metadata.name in agents/shared-llm/workflow.yaml
-    params:
-      prompt: "{{ get('q') }}"
-      style: "brief"
+# chat-agent/workflow.yaml
+metadata:
+  name: chat-agent
+  workflows:
+    - "@auth-base"   # ← strip "@", look for sibling dir "auth-base/"
 ```
 
-`faq-response.yaml` then reads both results:
+The parser resolves `@auth-base` by looking for a sibling directory named
+`auth-base` (or a file `auth-base.yaml`), parses it, and **prepends** its
+resources to `chat-agent`'s resource list.  If `chat-agent` defines a
+resource with the same `actionId` as one from `auth-base`, the **local
+definition wins**.
 
-```yaml
-run:
-  apiResponse:
-    response:
-      data:
-        brief:    get('briefAnswer')
-        detailed: get('detailedAnswer')
+After merging, `chat-agent` effectively runs:
+
+```
+authCheck  →  chat  →  chatResponse
 ```
 
 ## Running
 
 ```bash
-kdeps run examples/shared-workflow/agency.yaml
+kdeps run examples/shared-workflow/chat-agent/workflow.yaml
 ```
 
-Then send a request:
+Authenticated request:
 
 ```bash
-curl -s -X POST http://localhost:16395/api/v1/faq \
+curl -s -X POST http://localhost:16395/api/v1/chat \
+  -H 'Authorization: Bearer my-secret-token' \
   -H 'Content-Type: application/json' \
-  -d '{"q": "What is quantum entanglement?"}' | jq .
+  -d '{"message": "What is Kubernetes?"}' | jq .
 ```
+
+Unauthenticated request (should return 401):
+
+```bash
+curl -s -X POST http://localhost:16395/api/v1/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "What is Kubernetes?"}' | jq .
+```
+
+## Import rules
+
+| Rule | Behaviour |
+|------|-----------|
+| Local resource wins | If `chat-agent` defines `actionId: authCheck`, it overrides the imported one |
+| Order matters | `workflows: ["@a", "@b"]` — `@a` resources are prepended first, then `@b` |
+| Transitive imports | `@b` can itself import `@c`; resolved recursively |
+| Circular imports | Detected and reported as an error |
+| Path resolution | `@name` → sibling dir `name/` → `name.yaml` → `name.yml` |
 
 ## Requirements
 
-- [Ollama](https://ollama.com) installed and running (or set `installOllama: true` in
-  `workflow.yaml` to have kdeps install it automatically)
+- [Ollama](https://ollama.com) installed and running (or set `installOllama: true` to have kdeps install it)
 - `llama3.2:1b` model pulled: `ollama pull llama3.2:1b`

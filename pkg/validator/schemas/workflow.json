@@ -28,6 +28,14 @@
         "targetActionId": {
           "type": "string",
           "minLength": 1
+        },
+        "workflows": {
+          "type": "array",
+          "description": "Workflows to import (e.g. '@base-agent'). Resources from imported workflows are merged; local resources take precedence.",
+          "items": {
+            "type": "string",
+            "pattern": "^@.+"
+          }
         }
       }
     },
