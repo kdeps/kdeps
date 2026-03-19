@@ -58,6 +58,7 @@ run:
   search: { ... }      # Web or local filesystem search
   botReply: { ... }    # Bot reply
   embedding: { ... }   # Vector DB (index / search / delete)
+  browser: { ... }     # Browser automation (Playwright)
   agent: { ... }       # Call another agent (agency)
   apiResponse: { ... } # API response
 ```
@@ -78,6 +79,7 @@ run:
 | `search` | Web or local filesystem search | Content discovery, research pipelines |
 | `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
+| `browser` | Browser automation | Web scraping, form filling, screenshots |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
 | `apiResponse` | Response formatting | Final output |
 
@@ -408,6 +410,7 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [PDF Resource](pdf) - PDF generation from HTML or Markdown
 - [Calendar Resource](calendar) - ICS calendar read/write
 - [Search Resource](search) - Web and local filesystem search
+- [Browser Automation](browser) - Playwright-based web browser control
 - [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
 - [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration
