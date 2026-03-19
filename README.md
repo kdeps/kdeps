@@ -70,6 +70,7 @@ run:
 - [`email:`](https://kdeps.com/resources/email) – Send email (SMTP) and read/search/modify messages (IMAP)
 - [`calendar:`](https://kdeps.com/resources/calendar) – Read and write local ICS (iCalendar) files
 - [`search:`](https://kdeps.com/resources/search) – Web search (Brave, SerpAPI, DuckDuckGo, Tavily) or local file discovery
+- [`browser:`](https://kdeps.com/resources/browser) – Browser automation (Playwright) – navigate, fill, click, screenshot
 - [`botReply:`](https://kdeps.com/concepts/input-sources#chat-bot-platforms) – Send messages to Discord/Slack/Telegram
 - [`agent:`](https://kdeps.com/concepts/agency) – Delegate work to another agent in an agency
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
