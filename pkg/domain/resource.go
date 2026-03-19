@@ -229,6 +229,7 @@ type RunConfig struct {
 	Calendar    *CalendarConfig    `yaml:"calendar,omitempty"`
 	Search      *SearchConfig      `yaml:"search,omitempty"`
 	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
+	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 
 	// Error handling
@@ -251,6 +252,7 @@ type InlineResource struct {
 	Calendar   *CalendarConfig   `yaml:"calendar,omitempty"`
 	Search     *SearchConfig     `yaml:"search,omitempty"`
 	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
+	Browser    *BrowserConfig    `yaml:"browser,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
@@ -1471,5 +1473,269 @@ func (c *AgentCallConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 		c.Name = alias.Agent
 	}
 	c.Params = alias.Params
+	return nil
+}
+
+// BrowserActionNavigate navigates the page to a URL.
+const BrowserActionNavigate = "navigate"
+
+// BrowserActionClick clicks on the matched element.
+const BrowserActionClick = "click"
+
+// BrowserActionFill sets the value of a form field.
+const BrowserActionFill = "fill"
+
+// BrowserActionType types text into an element using keyboard events.
+const BrowserActionType = "type"
+
+// BrowserActionUpload sets files on a file input element.
+const BrowserActionUpload = "upload"
+
+// BrowserActionSelect selects an option in a <select> element.
+const BrowserActionSelect = "select"
+
+// BrowserActionCheck checks a checkbox or radio button.
+const BrowserActionCheck = "check"
+
+// BrowserActionUncheck unchecks a checkbox.
+const BrowserActionUncheck = "uncheck"
+
+// BrowserActionHover hovers the pointer over an element.
+const BrowserActionHover = "hover"
+
+// BrowserActionScroll scrolls to an element or by a pixel offset.
+const BrowserActionScroll = "scroll"
+
+// BrowserActionPress presses one or more keyboard keys.
+const BrowserActionPress = "press"
+
+// BrowserActionClear clears the value of an input element.
+const BrowserActionClear = "clear"
+
+// BrowserActionEvaluate evaluates a JavaScript expression in the page context.
+const BrowserActionEvaluate = "evaluate"
+
+// BrowserActionScreenshot captures a screenshot of the page or an element.
+const BrowserActionScreenshot = "screenshot"
+
+// BrowserActionWait waits for an element to appear, or pauses for a fixed duration.
+const BrowserActionWait = "wait"
+
+// BrowserEngineChromium uses the Chromium browser engine.
+const BrowserEngineChromium = "chromium"
+
+// BrowserEngineFirefox uses the Firefox browser engine.
+const BrowserEngineFirefox = "firefox"
+
+// BrowserEngineWebKit uses the WebKit browser engine.
+const BrowserEngineWebKit = "webkit"
+
+// BrowserAction defines a single step in a browser automation sequence.
+// Set Action to one of the BrowserAction* constants; populate only the fields
+// relevant to that action type.
+type BrowserAction struct {
+	// Action is the operation to perform (required).
+	// One of: navigate, click, fill, type, upload, select, check, uncheck,
+	// hover, scroll, press, clear, evaluate, screenshot, wait.
+	Action string `yaml:"action"`
+
+	// Selector is the CSS or XPath selector for the target element.
+	// Required for: click, fill, type, upload, select, check, uncheck,
+	// hover, clear; optional for: screenshot, wait.
+	Selector string `yaml:"selector,omitempty"`
+
+	// Value is the text or option value to use.
+	// Used by: fill, type, select, navigate (alias for url when url is omitted).
+	Value string `yaml:"value,omitempty"`
+
+	// Files is the list of local file paths to upload.
+	// Used by: upload.
+	Files []string `yaml:"files,omitempty"`
+
+	// Script is the JavaScript expression to evaluate in the page context.
+	// Used by: evaluate.
+	Script string `yaml:"script,omitempty"`
+
+	// URL is the destination URL for a navigate action.
+	URL string `yaml:"url,omitempty"`
+
+	// Wait is a CSS selector to wait for, or a Go duration string (e.g. "500ms").
+	// When used with action "wait": if the value looks like a duration it pauses
+	// that long; otherwise it is treated as a selector to wait for.
+	Wait string `yaml:"wait,omitempty"`
+
+	// OutputFile is the file path where a screenshot is saved.
+	// Used by: screenshot.
+	OutputFile string `yaml:"outputFile,omitempty"`
+
+	// Key is the keyboard key to press (e.g. "Enter", "Tab", "ArrowDown").
+	// Used by: press.
+	Key string `yaml:"key,omitempty"`
+
+	// FullPage captures the full scrollable page when true.
+	// Used by: screenshot.
+	FullPage *bool `yaml:"fullPage,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for BrowserAction to support
+// string values for the fullPage boolean field.
+func (b *BrowserAction) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Action     string   `yaml:"action"`
+		Selector   string   `yaml:"selector,omitempty"`
+		Value      string   `yaml:"value,omitempty"`
+		Files      []string `yaml:"files,omitempty"`
+		Script     string   `yaml:"script,omitempty"`
+		URL        string   `yaml:"url,omitempty"`
+		Wait       string   `yaml:"wait,omitempty"`
+		OutputFile string   `yaml:"outputFile,omitempty"`
+		Key        string   `yaml:"key,omitempty"`
+		FullPage   interface{} `yaml:"fullPage,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	b.Action = alias.Action
+	b.Selector = alias.Selector
+	b.Value = alias.Value
+	b.Files = alias.Files
+	b.Script = alias.Script
+	b.URL = alias.URL
+	b.Wait = alias.Wait
+	b.OutputFile = alias.OutputFile
+	b.Key = alias.Key
+
+	if bv, ok := ParseBool(alias.FullPage); ok {
+		b.FullPage = &bv
+	}
+
+	return nil
+}
+
+// BrowserViewportConfig sets the browser viewport dimensions.
+type BrowserViewportConfig struct {
+	// Width is the viewport width in pixels (default: 1280).
+	Width int `yaml:"width,omitempty"`
+
+	// Height is the viewport height in pixels (default: 720).
+	Height int `yaml:"height,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (v *BrowserViewportConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Width  interface{} `yaml:"width,omitempty"`
+		Height interface{} `yaml:"height,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	if i, ok := parseInt(alias.Width); ok {
+		v.Width = i
+	}
+	if i, ok := parseInt(alias.Height); ok {
+		v.Height = i
+	}
+
+	return nil
+}
+
+// BrowserConfig configures a browser automation resource that can navigate pages,
+// interact with elements (click, fill, upload), capture screenshots, and maintain
+// persistent sessions across resource executions.
+//
+// Example:
+//
+//	run:
+//	  browser:
+//	    engine: chromium
+//	    url: "https://example.com/login"
+//	    sessionId: "{{ get('user-session') }}"
+//	    actions:
+//	      - action: fill
+//	        selector: "#username"
+//	        value: "{{ get('username') }}"
+//	      - action: fill
+//	        selector: "#password"
+//	        value: "{{ get('password') }}"
+//	      - action: click
+//	        selector: "#login-btn"
+//	      - action: screenshot
+//	        outputFile: "/tmp/dashboard.png"
+type BrowserConfig struct {
+	// Engine is the browser engine to use: "chromium" (default), "firefox", "webkit".
+	Engine string `yaml:"engine,omitempty"`
+
+	// Headless controls whether the browser runs without a visible UI.
+	// Defaults to true (headless) when not specified.
+	Headless *bool `yaml:"headless,omitempty"`
+
+	// URL is the initial URL to navigate to before executing actions.
+	URL string `yaml:"url,omitempty"`
+
+	// Actions is the ordered sequence of browser interactions to perform.
+	Actions []BrowserAction `yaml:"actions,omitempty"`
+
+	// SessionID enables session reuse across resource executions. When set,
+	// the browser context (cookies, localStorage, etc.) persists between calls
+	// that share the same sessionId. Omit for a single-use ephemeral session.
+	SessionID string `yaml:"sessionId,omitempty"`
+
+	// Viewport configures the browser window size.
+	Viewport *BrowserViewportConfig `yaml:"viewport,omitempty"`
+
+	// TimeoutDuration is the default timeout for individual browser operations
+	// (e.g. "30s", "1m"). Defaults to 30s.
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+
+	// Timeout is an alias for TimeoutDuration.
+	Timeout string `yaml:"timeout,omitempty"`
+
+	// WaitFor is a CSS selector or URL fragment to wait for before executing
+	// the actions list. Useful when the initial navigation triggers async loading.
+	WaitFor string `yaml:"waitFor,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for BrowserConfig to support
+// string values for the headless boolean field and the timeout alias.
+func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Engine          string                `yaml:"engine,omitempty"`
+		Headless        interface{}           `yaml:"headless,omitempty"`
+		URL             string                `yaml:"url,omitempty"`
+		Actions         []BrowserAction       `yaml:"actions,omitempty"`
+		SessionID       string                `yaml:"sessionId,omitempty"`
+		Viewport        *BrowserViewportConfig `yaml:"viewport,omitempty"`
+		TimeoutDuration string                `yaml:"timeoutDuration,omitempty"`
+		Timeout         string                `yaml:"timeout,omitempty"`
+		WaitFor         string                `yaml:"waitFor,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	b.Engine = alias.Engine
+	b.URL = alias.URL
+	b.Actions = alias.Actions
+	b.SessionID = alias.SessionID
+	b.Viewport = alias.Viewport
+	b.TimeoutDuration = alias.TimeoutDuration
+	b.Timeout = alias.Timeout
+	b.WaitFor = alias.WaitFor
+
+	if bv, ok := ParseBool(alias.Headless); ok {
+		b.Headless = &bv
+	}
+
+	// Handle timeout alias
+	if b.Timeout != "" && b.TimeoutDuration == "" {
+		b.TimeoutDuration = b.Timeout
+	}
+
 	return nil
 }

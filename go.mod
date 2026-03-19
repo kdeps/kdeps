@@ -18,6 +18,7 @@ require (
 	github.com/lib/pq v1.12.0
 	github.com/mattn/go-sqlite3 v1.14.37
 	github.com/nikolalohinski/gonja/v2 v2.7.0
+	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.19.0
 	github.com/spf13/cobra v1.10.2
@@ -34,14 +35,17 @@ require (
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
