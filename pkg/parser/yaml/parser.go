@@ -170,7 +170,9 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 // Imported resources are prepended so that local resources with the same
 // actionId always take precedence (local wins).  Circular imports are detected
 // via the visited set and return an error.
-func (p *Parser) loadImportedWorkflows(workflow *domain.Workflow, workflowPath string, visited map[string]struct{}) error {
+func (p *Parser) loadImportedWorkflows(
+	workflow *domain.Workflow, workflowPath string, visited map[string]struct{},
+) error {
 	if len(workflow.Metadata.Workflows) == 0 {
 		return nil
 	}
@@ -249,7 +251,11 @@ func (p *Parser) parseWorkflowForImport(path string, visited map[string]struct{}
 
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
 	if preprocessErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to preprocess imported workflow Jinja2 template", preprocessErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to preprocess imported workflow Jinja2 template",
+			preprocessErr,
+		)
 	}
 
 	var workflow domain.Workflow
