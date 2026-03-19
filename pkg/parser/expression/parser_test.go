@@ -445,3 +445,29 @@ func TestParser_isExpression(t *testing.T) {
 		})
 	}
 }
+
+func TestNewParserForTesting(t *testing.T) {
+	p := expression.NewParserForTesting()
+	if p == nil {
+		t.Fatal("expected non-nil parser from NewParserForTesting")
+	}
+	funcs := p.GetFunctionsForTesting()
+	if funcs == nil {
+		t.Fatal("expected non-nil functions map")
+	}
+	if len(funcs) != 0 {
+		t.Errorf("expected empty functions map, got %d entries", len(funcs))
+	}
+}
+
+func TestGetFunctionsForTesting_AfterRegister(t *testing.T) {
+	p := expression.NewParser()
+	if p == nil {
+		t.Fatal("expected non-nil parser from NewParser")
+	}
+	tp := expression.NewParserForTesting()
+	funcs := tp.GetFunctionsForTesting()
+	if funcs == nil {
+		t.Fatal("expected non-nil functions map")
+	}
+}

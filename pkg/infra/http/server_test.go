@@ -1075,3 +1075,47 @@ func TestFileUpload_Structure(t *testing.T) {
 	assert.Equal(t, "text/plain", upload.MimeType)
 	assert.Equal(t, int64(1024), upload.Size)
 }
+
+// ─── Testing getter methods ────────────────────────────────────────────────────
+
+func TestServer_GetLoggerForTesting(t *testing.T) {
+	logger := slog.Default()
+	server, err := httppkg.NewServer(nil, nil, logger)
+	require.NoError(t, err)
+	got := server.GetLoggerForTesting()
+	assert.Equal(t, logger, got)
+}
+
+func TestServer_GetWorkflowForTesting(t *testing.T) {
+	wf := &domain.Workflow{}
+	server, err := httppkg.NewServer(wf, nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, wf, server.GetWorkflowForTesting())
+}
+
+func TestServer_GetUploadHandlerForTesting(t *testing.T) {
+	server, err := httppkg.NewServer(nil, nil, nil)
+	require.NoError(t, err)
+	// May be nil if upload handler is not initialized in test mode.
+	_ = server.GetUploadHandlerForTesting()
+}
+
+func TestServer_GetFileStoreForTesting(t *testing.T) {
+	server, err := httppkg.NewServer(nil, nil, nil)
+	require.NoError(t, err)
+	_ = server.GetFileStoreForTesting()
+}
+
+func TestServer_GetParserForTesting(t *testing.T) {
+	server, err := httppkg.NewServer(nil, nil, nil)
+	require.NoError(t, err)
+	_ = server.GetParserForTesting()
+}
+
+func TestServer_GetWorkflowPathForTesting(t *testing.T) {
+	server, err := httppkg.NewServer(nil, nil, nil)
+	require.NoError(t, err)
+	path := "/test/path"
+	server.SetWorkflowPath(path)
+	assert.Equal(t, path, server.GetWorkflowPathForTesting())
+}
