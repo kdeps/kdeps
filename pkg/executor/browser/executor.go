@@ -17,23 +17,6 @@
 // license notices and attribution when redistributing derived code.
 
 // Package browser implements the browser automation resource executor for KDeps.
-//
-// The executor drives a real browser via the Playwright protocol to perform
-// rich interactions that are impossible with plain HTTP:
-//
-//   - Navigation (navigate, wait)
-//   - User interactions (click, hover, scroll, press)
-//   - Form filling (fill, type, select, check, uncheck, clear, upload)
-//   - JavaScript evaluation (evaluate)
-//   - Screenshots (screenshot)
-//
-// Browser sessions are optionally persistent: when a BrowserConfig.SessionID is
-// provided the underlying playwright.BrowserContext (cookies, localStorage, etc.)
-// is stored in a package-level map and reused on subsequent calls with the same
-// sessionId, enabling multi-step automation that resumes where it left off.
-//
-// When no sessionId is given the session is ephemeral and cleaned up automatically
-// after the resource execution completes.
 package browser
 
 import (
@@ -45,20 +28,20 @@ import (
 	"sync"
 	"time"
 
+	playwright "github.com/playwright-community/playwright-go"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
-	playwright "github.com/playwright-community/playwright-go"
 )
 
 const (
-	defaultBrowserTimeout  = 30 * time.Second
-	defaultViewportWidth   = 1280
-	defaultViewportHeight  = 720
-	defaultScreenshotDir   = "/tmp/kdeps-browser"
+	defaultBrowserTimeout = 30 * time.Second
+	defaultViewportWidth  = 1280
+	defaultViewportHeight = 720
+	defaultScreenshotDir  = "/tmp/kdeps-browser"
 )
 
-// session stores a live browser context and associated page.
 type session struct {
 	pw      *playwright.Playwright
 	browser playwright.Browser
@@ -66,9 +49,7 @@ type session struct {
 	page    playwright.Page
 }
 
-// activeSessions maps sessionId → *session for persistent browser sessions.
-//
-//nolint:gochecknoglobals // intentionally global; sessions persist across resource executions
+//nolint:gochecknoglobals // sessions persist across resource executions
 var activeSessions sync.Map
 
 // Executor implements executor.ResourceExecutor for browser resources.
@@ -80,84 +61,31 @@ func NewAdapter() executor.ResourceExecutor {
 }
 
 // Execute performs browser automation according to the BrowserConfig supplied in config.
-//
-// Returned result map keys:
-//   - "success":       true/false (bool)
-//   - "url":           final page URL (string)
-//   - "title":         final page title (string)
-//   - "sessionId":     the sessionId used (string; empty for ephemeral sessions)
-//   - "actionResults": ordered slice of per-action result maps ([]interface{})
-//   - "error":         error message (string; only present on failure)
 func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	cfg, ok := config.(*domain.BrowserConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("browser executor: invalid config type")
 	}
 
-	// Resolve expression fields.
-	engineName := evaluateText(cfg.Engine, ctx)
-	if engineName == "" {
-		engineName = domain.BrowserEngineChromium
-	}
-	initialURL := evaluateText(cfg.URL, ctx)
-	sessionID := evaluateText(cfg.SessionID, ctx)
-	timeoutStr := evaluateText(cfg.TimeoutDuration, ctx)
-	waitFor := evaluateText(cfg.WaitFor, ctx)
+	r := parseConfig(cfg, ctx)
 
-	timeout := defaultBrowserTimeout
-	if timeoutStr != "" {
-		if d, err := time.ParseDuration(timeoutStr); err == nil {
-			timeout = d
-		}
-	}
-
-	// headless defaults to true (server-friendly).
-	headless := true
-	if cfg.Headless != nil {
-		headless = *cfg.Headless
-	}
-
-	// Get or create a browser session.
-	sess, isNew, err := getOrCreateSession(sessionID, engineName, headless, cfg.Viewport, timeout)
+	sess, isNew, err := getOrCreateSession(r.sessionID, r.engineName, r.headless, cfg.Viewport, r.timeout)
 	if err != nil {
-		return errorResult(err, sessionID, nil), fmt.Errorf("browser executor: failed to initialise session: %w", err)
+		return errorResult(err, r.sessionID, nil),
+			fmt.Errorf("browser executor: failed to initialise session: %w", err)
 	}
 
-	// Ephemeral sessions are cleaned up after execution.
-	if sessionID == "" && isNew {
+	if r.sessionID == "" && isNew {
 		defer cleanupSession("", sess)
 	}
 
-	// Navigate to the initial URL if provided.
-	if initialURL != "" {
-		if _, err := sess.page.Goto(initialURL, playwright.PageGotoOptions{
-			Timeout: playwright.Float(float64(timeout.Milliseconds())),
-		}); err != nil {
-			return errorResult(err, sessionID, nil), fmt.Errorf("browser executor: navigation to %q failed: %w", initialURL, err)
-		}
+	if navErr := navigatePage(sess.page, r.initialURL, r.waitFor, r.timeout); navErr != nil {
+		return errorResult(navErr, r.sessionID, nil), navErr
 	}
 
-	// Wait for a selector or URL fragment before running actions.
-	if waitFor != "" {
-		if _, err := sess.page.WaitForSelector(waitFor, playwright.PageWaitForSelectorOptions{
-			Timeout: playwright.Float(float64(timeout.Milliseconds())),
-		}); err != nil {
-			return errorResult(err, sessionID, nil), fmt.Errorf("browser executor: waitFor %q failed: %w", waitFor, err)
-		}
-	}
-
-	// Execute each action in order.
-	actionResults := make([]interface{}, 0, len(cfg.Actions))
-	for i, action := range cfg.Actions {
-		// Evaluate expression fields inside the action.
-		resolvedAction := resolveAction(action, ctx)
-
-		res, execErr := executeAction(sess.page, resolvedAction, timeout)
-		actionResults = append(actionResults, res)
-		if execErr != nil {
-			return errorResult(execErr, sessionID, actionResults),
-				fmt.Errorf("browser executor: action[%d] %q failed: %w", i, resolvedAction.Action, execErr)
-		}
+	actionResults, execErr := runActions(sess.page, cfg.Actions, ctx, r.timeout)
+	if execErr != nil {
+		return errorResult(execErr, r.sessionID, actionResults), execErr
 	}
 
 	currentURL := sess.page.URL()
@@ -167,15 +95,94 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 		"success":       true,
 		"url":           currentURL,
 		"title":         title,
-		"sessionId":     sessionID,
+		"sessionId":     r.sessionID,
 		"actionResults": actionResults,
 	}, nil
 }
 
+// browserCfgResolved holds the resolved fields from BrowserConfig.
+type browserCfgResolved struct {
+	engineName string
+	sessionID  string
+	initialURL string
+	waitFor    string
+	timeout    time.Duration
+	headless   bool
+}
+
+// parseConfig evaluates expression fields from a BrowserConfig into a resolved value struct.
+func parseConfig(cfg *domain.BrowserConfig, ctx *executor.ExecutionContext) browserCfgResolved {
+	r := browserCfgResolved{
+		initialURL: evaluateText(cfg.URL, ctx),
+		sessionID:  evaluateText(cfg.SessionID, ctx),
+		waitFor:    evaluateText(cfg.WaitFor, ctx),
+		timeout:    defaultBrowserTimeout,
+		headless:   true,
+	}
+
+	r.engineName = evaluateText(cfg.Engine, ctx)
+	if r.engineName == "" {
+		r.engineName = domain.BrowserEngineChromium
+	}
+
+	if ts := evaluateText(cfg.TimeoutDuration, ctx); ts != "" {
+		if d, dErr := time.ParseDuration(ts); dErr == nil {
+			r.timeout = d
+		}
+	}
+
+	if cfg.Headless != nil {
+		r.headless = *cfg.Headless
+	}
+
+	return r
+}
+
+// navigatePage navigates to the initial URL and waits for a selector when requested.
+func navigatePage(page playwright.Page, initialURL, waitFor string, timeout time.Duration) error {
+	if initialURL != "" {
+		if _, err := page.Goto(initialURL, playwright.PageGotoOptions{
+			Timeout: playwright.Float(float64(timeout.Milliseconds())),
+		}); err != nil {
+			return fmt.Errorf("browser executor: navigation to %q failed: %w", initialURL, err)
+		}
+	}
+
+	if waitFor != "" {
+		if err := page.Locator(waitFor).WaitFor(playwright.LocatorWaitForOptions{
+			Timeout: playwright.Float(float64(timeout.Milliseconds())),
+		}); err != nil {
+			return fmt.Errorf("browser executor: waitFor %q failed: %w", waitFor, err)
+		}
+	}
+
+	return nil
+}
+
+// runActions evaluates and executes all actions in order.
+func runActions(
+	page playwright.Page,
+	actions []domain.BrowserAction,
+	ctx *executor.ExecutionContext,
+	timeout time.Duration,
+) ([]interface{}, error) {
+	results := make([]interface{}, 0, len(actions))
+
+	for i, action := range actions {
+		resolved := resolveAction(action, ctx)
+		res, err := executeAction(page, resolved, timeout)
+		results = append(results, res)
+		if err != nil {
+			return results,
+				fmt.Errorf("browser executor: action[%d] %q failed: %w", i, resolved.Action, err)
+		}
+	}
+
+	return results, nil
+}
+
 // ─── session management ───────────────────────────────────────────────────────
 
-// getOrCreateSession returns an existing session or creates a new one.
-// isNew is true when a brand-new session was created.
 func getOrCreateSession(
 	sessionID, engineName string,
 	headless bool,
@@ -184,7 +191,8 @@ func getOrCreateSession(
 ) (*session, bool, error) {
 	if sessionID != "" {
 		if v, ok := activeSessions.Load(sessionID); ok {
-			return v.(*session), false, nil
+			s, _ := v.(*session)
+			return s, false, nil
 		}
 	}
 
@@ -200,29 +208,18 @@ func getOrCreateSession(
 	return sess, true, nil
 }
 
-// newSession starts playwright, launches a browser, and opens a page.
 func newSession(
 	engineName string,
 	headless bool,
 	viewport *domain.BrowserViewportConfig,
-	_ time.Duration, // reserved for future per-session timeouts
+	_ time.Duration,
 ) (*session, error) {
 	pw, err := playwright.Run()
 	if err != nil {
-		return nil, fmt.Errorf("could not start playwright (hint: run 'npx playwright install'): %w", err)
+		return nil, fmt.Errorf("could not start playwright: %w", err)
 	}
 
-	var browserType playwright.BrowserType
-	switch strings.ToLower(engineName) {
-	case domain.BrowserEngineFirefox:
-		browserType = pw.Firefox
-	case domain.BrowserEngineWebKit:
-		browserType = pw.WebKit
-	default:
-		browserType = pw.Chromium
-	}
-
-	browser, err := browserType.Launch(playwright.BrowserTypeLaunchOptions{
+	browser, err := selectBrowserType(pw, engineName).Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
 	})
 	if err != nil {
@@ -230,9 +227,32 @@ func newSession(
 		return nil, fmt.Errorf("could not launch %s browser: %w", engineName, err)
 	}
 
-	// Configure viewport.
-	vw := defaultViewportWidth
-	vh := defaultViewportHeight
+	bCtx, page, err := createContextAndPage(browser, viewport)
+	if err != nil {
+		_ = browser.Close()
+		_ = pw.Stop()
+		return nil, err
+	}
+
+	return &session{pw: pw, browser: browser, ctx: bCtx, page: page}, nil
+}
+
+func selectBrowserType(pw *playwright.Playwright, engineName string) playwright.BrowserType {
+	switch strings.ToLower(engineName) {
+	case domain.BrowserEngineFirefox:
+		return pw.Firefox
+	case domain.BrowserEngineWebKit:
+		return pw.WebKit
+	default:
+		return pw.Chromium
+	}
+}
+
+func createContextAndPage(
+	browser playwright.Browser,
+	viewport *domain.BrowserViewportConfig,
+) (playwright.BrowserContext, playwright.Page, error) {
+	vw, vh := defaultViewportWidth, defaultViewportHeight
 	if viewport != nil {
 		if viewport.Width > 0 {
 			vw = viewport.Width
@@ -246,29 +266,18 @@ func newSession(
 		Viewport: &playwright.Size{Width: vw, Height: vh},
 	})
 	if err != nil {
-		_ = browser.Close()
-		_ = pw.Stop()
-		return nil, fmt.Errorf("could not create browser context: %w", err)
+		return nil, nil, fmt.Errorf("could not create browser context: %w", err)
 	}
 
 	page, err := bCtx.NewPage()
 	if err != nil {
 		_ = bCtx.Close()
-		_ = browser.Close()
-		_ = pw.Stop()
-		return nil, fmt.Errorf("could not open browser page: %w", err)
+		return nil, nil, fmt.Errorf("could not open browser page: %w", err)
 	}
 
-	return &session{
-		pw:      pw,
-		browser: browser,
-		ctx:     bCtx,
-		page:    page,
-	}, nil
+	return bCtx, page, nil
 }
 
-// cleanupSession closes all playwright resources for the given session.
-// If sessionID is non-empty the entry is removed from activeSessions first.
 func cleanupSession(sessionID string, sess *session) {
 	if sessionID != "" {
 		activeSessions.Delete(sessionID)
@@ -281,225 +290,106 @@ func cleanupSession(sessionID string, sess *session) {
 	_ = sess.pw.Stop()
 }
 
-// CloseSession closes and removes a named session. It is exported so callers
-// can explicitly tear down sessions (e.g. from an expr block).
+// CloseSession closes and removes a named persistent session.
 func CloseSession(sessionID string) {
 	if v, ok := activeSessions.LoadAndDelete(sessionID); ok {
-		cleanupSession("", v.(*session))
+		s, _ := v.(*session)
+		cleanupSession("", s)
 	}
 }
 
-// ─── action execution ─────────────────────────────────────────────────────────
+// ─── action dispatch ──────────────────────────────────────────────────────────
 
-// executeAction dispatches to the correct playwright API for a single action.
-// It always returns a result map (success/error/...) plus a Go error.
-func executeAction(page playwright.Page, action domain.BrowserAction, timeout time.Duration) (map[string]interface{}, error) {
-	timeoutMS := playwright.Float(float64(timeout.Milliseconds()))
-	base := map[string]interface{}{
-		"action": action.Action,
-	}
-	if action.Selector != "" {
-		base["selector"] = action.Selector
-	}
+//nolint:gocognit,funlen // switch over 15 well-defined action types; helper calls keep each case minimal
+func executeAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	timeout time.Duration,
+) (map[string]interface{}, error) {
+	tms := playwright.Float(float64(timeout.Milliseconds()))
+	base := buildBase(action)
 
 	var err error
-	switch strings.ToLower(action.Action) {
 
+	switch strings.ToLower(action.Action) {
 	case domain.BrowserActionNavigate:
-		dest := action.URL
-		if dest == "" {
-			dest = action.Value
-		}
-		if dest == "" {
-			return failAction(base, "navigate requires url or value"), errors.New("navigate: missing url")
-		}
-		_, err = page.Goto(dest, playwright.PageGotoOptions{Timeout: timeoutMS})
-		if err == nil {
-			base["url"] = dest
-		}
+		err = doNavigate(page, action, base, tms)
 
 	case domain.BrowserActionClick:
-		if action.Selector == "" {
-			return failAction(base, "click requires selector"), errors.New("click: missing selector")
+		err = reqSel(action, "click")
+		if err == nil {
+			err = page.Locator(action.Selector).Click(playwright.LocatorClickOptions{Timeout: tms})
 		}
-		err = page.Click(action.Selector, playwright.PageClickOptions{Timeout: timeoutMS})
 
 	case domain.BrowserActionFill:
-		if action.Selector == "" {
-			return failAction(base, "fill requires selector"), errors.New("fill: missing selector")
-		}
-		err = page.Fill(action.Selector, action.Value, playwright.PageFillOptions{Timeout: timeoutMS})
+		err = reqSel(action, "fill")
 		if err == nil {
-			base["value"] = action.Value
+			if ferr := page.Locator(action.Selector).Fill(action.Value,
+				playwright.LocatorFillOptions{Timeout: tms}); ferr == nil {
+				base["value"] = action.Value
+			} else {
+				err = ferr
+			}
 		}
 
 	case domain.BrowserActionType:
-		if action.Selector == "" {
-			return failAction(base, "type requires selector"), errors.New("type: missing selector")
-		}
-		err = page.Type(action.Selector, action.Value, playwright.PageTypeOptions{Timeout: timeoutMS})
+		err = reqSel(action, "type")
 		if err == nil {
-			base["value"] = action.Value
+			if terr := page.Locator(action.Selector).PressSequentially(action.Value,
+				playwright.LocatorPressSequentiallyOptions{}); terr == nil {
+				base["value"] = action.Value
+			} else {
+				err = terr
+			}
 		}
 
 	case domain.BrowserActionUpload:
-		if action.Selector == "" {
-			return failAction(base, "upload requires selector"), errors.New("upload: missing selector")
-		}
-		if len(action.Files) == 0 {
-			return failAction(base, "upload requires files"), errors.New("upload: no files specified")
-		}
-		// Build []playwright.InputFile from paths.
-		inputFiles := make([]playwright.InputFile, 0, len(action.Files))
-		for _, f := range action.Files {
-			// Paths are evaluated from resource config authored by workflow developers.
-			// Workflow authors are considered trusted in the kdeps security model,
-			// analogous to how exec resources can run arbitrary shell commands.
-			data, readErr := os.ReadFile(f) // #nosec G304
-			if readErr != nil {
-				return failAction(base, readErr.Error()), fmt.Errorf("upload: could not read file %q: %w", f, readErr)
-			}
-			inputFiles = append(inputFiles, playwright.InputFile{
-				Name:     filepath.Base(f),
-				MimeType: "application/octet-stream",
-				Buffer:   data,
-			})
-		}
-		err = page.SetInputFiles(action.Selector, inputFiles)
-		if err == nil {
-			base["files"] = action.Files
-		}
+		err = doUpload(page, action, base)
 
 	case domain.BrowserActionSelect:
-		if action.Selector == "" {
-			return failAction(base, "select requires selector"), errors.New("select: missing selector")
-		}
-		_, err = page.SelectOption(action.Selector,
-			playwright.SelectOptionValues{Values: playwright.StringSlice(action.Value)},
-			playwright.PageSelectOptionOptions{Timeout: timeoutMS})
+		err = reqSel(action, "select")
 		if err == nil {
-			base["value"] = action.Value
+			err = doSelect(page, action, base, tms)
 		}
 
 	case domain.BrowserActionCheck:
-		if action.Selector == "" {
-			return failAction(base, "check requires selector"), errors.New("check: missing selector")
+		err = reqSel(action, "check")
+		if err == nil {
+			err = page.Locator(action.Selector).Check(playwright.LocatorCheckOptions{Timeout: tms})
 		}
-		err = page.Check(action.Selector, playwright.PageCheckOptions{Timeout: timeoutMS})
 
 	case domain.BrowserActionUncheck:
-		if action.Selector == "" {
-			return failAction(base, "uncheck requires selector"), errors.New("uncheck: missing selector")
+		err = reqSel(action, "uncheck")
+		if err == nil {
+			err = page.Locator(action.Selector).Uncheck(playwright.LocatorUncheckOptions{Timeout: tms})
 		}
-		err = page.Uncheck(action.Selector, playwright.PageUncheckOptions{Timeout: timeoutMS})
 
 	case domain.BrowserActionHover:
-		if action.Selector == "" {
-			return failAction(base, "hover requires selector"), errors.New("hover: missing selector")
+		err = reqSel(action, "hover")
+		if err == nil {
+			err = page.Locator(action.Selector).Hover(playwright.LocatorHoverOptions{Timeout: tms})
 		}
-		err = page.Hover(action.Selector, playwright.PageHoverOptions{Timeout: timeoutMS})
 
 	case domain.BrowserActionScroll:
-		// Scroll to a selector, or fall back to window.scrollBy(0, offset) when no selector.
-		// Use parameterized evaluation to avoid JavaScript injection via action.Value.
-		if action.Selector != "" {
-			err = page.Hover(action.Selector, playwright.PageHoverOptions{Timeout: timeoutMS})
-			if err == nil {
-				_, err = page.Evaluate("(s) => document.querySelector(s)?.scrollIntoView({behavior:'smooth',block:'center'})", action.Selector)
-			}
-		} else {
-			// Pass action.Value as a parameter to avoid injection; parseInt coerces to safe integer.
-			_, err = page.Evaluate("(offset) => window.scrollBy(0, parseInt(offset, 10) || 0)", action.Value)
-		}
+		err = doScroll(page, action, tms)
 
 	case domain.BrowserActionPress:
-		key := action.Key
-		if key == "" {
-			key = action.Value
-		}
-		if key == "" {
-			return failAction(base, "press requires key or value"), errors.New("press: missing key")
-		}
-		if action.Selector != "" {
-			err = page.Press(action.Selector, key, playwright.PagePressOptions{Timeout: timeoutMS})
-		} else {
-			err = page.Keyboard().Press(key)
-		}
-		if err == nil {
-			base["key"] = key
-		}
+		err = doPress(page, action, base, tms)
 
 	case domain.BrowserActionClear:
-		if action.Selector == "" {
-			return failAction(base, "clear requires selector"), errors.New("clear: missing selector")
+		err = reqSel(action, "clear")
+		if err == nil {
+			err = page.Locator(action.Selector).Clear(playwright.LocatorClearOptions{Timeout: tms})
 		}
-		err = page.Fill(action.Selector, "", playwright.PageFillOptions{Timeout: timeoutMS})
 
 	case domain.BrowserActionEvaluate:
-		if action.Script == "" {
-			return failAction(base, "evaluate requires script"), errors.New("evaluate: missing script")
-		}
-		var evalResult interface{}
-		evalResult, err = page.Evaluate(action.Script)
-		if err == nil {
-			base["result"] = evalResult
-		}
+		err = doEvaluate(page, action, base)
 
 	case domain.BrowserActionScreenshot:
-		outFile := action.OutputFile
-		if outFile == "" {
-			if mkErr := os.MkdirAll(defaultScreenshotDir, 0o755); mkErr == nil {
-				outFile = filepath.Join(defaultScreenshotDir, fmt.Sprintf("screenshot-%d.png", time.Now().UnixNano()))
-			}
-		} else {
-			if mkErr := os.MkdirAll(filepath.Dir(outFile), 0o755); mkErr != nil {
-				return failAction(base, mkErr.Error()), fmt.Errorf("screenshot: could not create output dir: %w", mkErr)
-			}
-		}
-
-		fullPage := false
-		if action.FullPage != nil {
-			fullPage = *action.FullPage
-		}
-
-		opts := playwright.PageScreenshotOptions{
-			Path:     playwright.String(outFile),
-			FullPage: playwright.Bool(fullPage),
-		}
-		if action.Selector != "" {
-			opts.Clip = nil // element-level screenshot via locator below
-			loc := page.Locator(action.Selector)
-			_, err = loc.Screenshot(playwright.LocatorScreenshotOptions{
-				Path: playwright.String(outFile),
-			})
-		} else {
-			_, err = page.Screenshot(opts)
-		}
-		if err == nil {
-			base["file"] = outFile
-		}
+		err = doScreenshot(page, action, base)
 
 	case domain.BrowserActionWait:
-		waitExpr := action.Wait
-		if waitExpr == "" {
-			waitExpr = action.Selector
-		}
-		if waitExpr == "" {
-			waitExpr = action.Value
-		}
-		if waitExpr == "" {
-			return failAction(base, "wait requires wait, selector, or value"), errors.New("wait: nothing to wait for")
-		}
-		// If it looks like a duration, sleep; otherwise wait for a selector.
-		if d, parseErr := time.ParseDuration(waitExpr); parseErr == nil {
-			page.WaitForTimeout(float64(d.Milliseconds()))
-			base["waited"] = waitExpr
-		} else {
-			_, err = page.WaitForSelector(waitExpr, playwright.PageWaitForSelectorOptions{Timeout: timeoutMS})
-			if err == nil {
-				base["waited"] = waitExpr
-			}
-		}
+		err = doWait(page, action, base, tms)
 
 	default:
 		return failAction(base, "unknown action type: "+action.Action),
@@ -511,19 +401,199 @@ func executeAction(page playwright.Page, action domain.BrowserAction, timeout ti
 	}
 
 	base["success"] = true
+
 	return base, nil
+}
+
+// ─── per-action helpers ───────────────────────────────────────────────────────
+
+func buildBase(action domain.BrowserAction) map[string]interface{} {
+	base := map[string]interface{}{"action": action.Action}
+	if action.Selector != "" {
+		base["selector"] = action.Selector
+	}
+	return base
+}
+
+func reqSel(action domain.BrowserAction, name string) error {
+	if action.Selector == "" {
+		return fmt.Errorf("%s: missing selector", name)
+	}
+	return nil
+}
+
+func doNavigate(
+	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
+) error {
+	dest := action.URL
+	if dest == "" {
+		dest = action.Value
+	}
+	if dest == "" {
+		return errors.New("navigate: missing url")
+	}
+	_, err := page.Goto(dest, playwright.PageGotoOptions{Timeout: tms})
+	if err == nil {
+		base["url"] = dest
+	}
+	return err
+}
+
+func doUpload(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+	if err := reqSel(action, "upload"); err != nil {
+		return err
+	}
+	if len(action.Files) == 0 {
+		return errors.New("upload: no files specified")
+	}
+	inputFiles := make([]playwright.InputFile, 0, len(action.Files))
+	for _, f := range action.Files {
+		data, readErr := os.ReadFile(f) // #nosec G304 -- trusted workflow-author config
+		if readErr != nil {
+			return fmt.Errorf("upload: could not read file %q: %w", f, readErr)
+		}
+		inputFiles = append(inputFiles, playwright.InputFile{
+			Name:     filepath.Base(f),
+			MimeType: "application/octet-stream",
+			Buffer:   data,
+		})
+	}
+	if err := page.Locator(action.Selector).SetInputFiles(inputFiles); err != nil {
+		return err
+	}
+	base["files"] = action.Files
+	return nil
+}
+
+func doSelect(
+	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
+) error {
+	_, err := page.Locator(action.Selector).SelectOption(
+		playwright.SelectOptionValues{Values: playwright.StringSlice(action.Value)},
+		playwright.LocatorSelectOptionOptions{Timeout: tms},
+	)
+	if err == nil {
+		base["value"] = action.Value
+	}
+	return err
+}
+
+func doScroll(page playwright.Page, action domain.BrowserAction, tms *float64) error {
+	if action.Selector != "" {
+		if err := page.Locator(action.Selector).Hover(playwright.LocatorHoverOptions{Timeout: tms}); err != nil {
+			return err
+		}
+		_, err := page.Locator(action.Selector).Evaluate(
+			"(el) => el.scrollIntoView({behavior:'smooth',block:'center'})", nil,
+		)
+		return err
+	}
+	_, err := page.Evaluate("(offset) => window.scrollBy(0, parseInt(offset, 10) || 0)", action.Value)
+	return err
+}
+
+func doPress(
+	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
+) error {
+	key := action.Key
+	if key == "" {
+		key = action.Value
+	}
+	if key == "" {
+		return errors.New("press: missing key")
+	}
+	var err error
+	if action.Selector != "" {
+		err = page.Locator(action.Selector).Press(key, playwright.LocatorPressOptions{Timeout: tms})
+	} else {
+		err = page.Keyboard().Press(key)
+	}
+	if err == nil {
+		base["key"] = key
+	}
+	return err
+}
+
+func doEvaluate(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+	if action.Script == "" {
+		return errors.New("evaluate: missing script")
+	}
+	result, err := page.Evaluate(action.Script)
+	if err == nil {
+		base["result"] = result
+	}
+	return err
+}
+
+func doScreenshot(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+	outFile, err := resolveOutputFile(action.OutputFile)
+	if err != nil {
+		return err
+	}
+	fullPage := action.FullPage != nil && *action.FullPage
+	if action.Selector != "" {
+		_, err = page.Locator(action.Selector).Screenshot(playwright.LocatorScreenshotOptions{
+			Path: playwright.String(outFile),
+		})
+	} else {
+		_, err = page.Screenshot(playwright.PageScreenshotOptions{
+			Path:     playwright.String(outFile),
+			FullPage: playwright.Bool(fullPage),
+		})
+	}
+	if err == nil {
+		base["file"] = outFile
+	}
+	return err
+}
+
+func resolveOutputFile(outFile string) (string, error) {
+	if outFile == "" {
+		if err := os.MkdirAll(defaultScreenshotDir, 0o750); err != nil {
+			return "", fmt.Errorf("screenshot: could not create output dir: %w", err)
+		}
+		return filepath.Join(defaultScreenshotDir,
+			fmt.Sprintf("screenshot-%d.png", time.Now().UnixNano())), nil
+	}
+	if err := os.MkdirAll(filepath.Dir(outFile), 0o750); err != nil {
+		return "", fmt.Errorf("screenshot: could not create output dir: %w", err)
+	}
+	return outFile, nil
+}
+
+func doWait(
+	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
+) error {
+	target := action.Wait
+	if target == "" {
+		target = action.Selector
+	}
+	if target == "" {
+		target = action.Value
+	}
+	if target == "" {
+		return errors.New("wait: nothing to wait for")
+	}
+	if d, parseErr := time.ParseDuration(target); parseErr == nil {
+		page.WaitForTimeout(float64(d.Milliseconds())) //nolint:staticcheck // deliberate fixed-duration pause
+		base["waited"] = target
+		return nil
+	}
+	err := page.Locator(target).WaitFor(playwright.LocatorWaitForOptions{Timeout: tms})
+	if err == nil {
+		base["waited"] = target
+	}
+	return err
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-// failAction returns a result map with success=false and the given error message.
 func failAction(base map[string]interface{}, msg string) map[string]interface{} {
 	base["success"] = false
 	base["error"] = msg
 	return base
 }
 
-// errorResult builds a top-level error result map.
 func errorResult(err error, sessionID string, actionResults []interface{}) map[string]interface{} {
 	res := map[string]interface{}{
 		"success":   false,
@@ -536,7 +606,6 @@ func errorResult(err error, sessionID string, actionResults []interface{}) map[s
 	return res
 }
 
-// resolveAction evaluates expression fields inside a BrowserAction.
 func resolveAction(a domain.BrowserAction, ctx *executor.ExecutionContext) domain.BrowserAction {
 	a.Selector = evaluateText(a.Selector, ctx)
 	a.Value = evaluateText(a.Value, ctx)
@@ -551,7 +620,6 @@ func resolveAction(a domain.BrowserAction, ctx *executor.ExecutionContext) domai
 	return a
 }
 
-// evaluateText resolves mustache/expr expressions in a string value.
 func evaluateText(text string, ctx *executor.ExecutionContext) string {
 	if !strings.Contains(text, "{{") {
 		return text
@@ -572,5 +640,4 @@ func evaluateText(text string, ctx *executor.ExecutionContext) string {
 	return fmt.Sprintf("%v", result)
 }
 
-// Ensure Executor satisfies the interface at compile time.
 var _ executor.ResourceExecutor = (*Executor)(nil)
