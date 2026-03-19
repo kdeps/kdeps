@@ -27,8 +27,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 )
 
 func TestWorkflowImport_Integration(t *testing.T) {

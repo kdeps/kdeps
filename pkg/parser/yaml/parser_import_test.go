@@ -270,7 +270,11 @@ metadata:
 
 	// Expect all resources: actionA, actionB, and actionC.
 	require.Len(t, wf.Resources, 3)
-	actionIDs := []string{wf.Resources[0].Metadata.ActionID, wf.Resources[1].Metadata.ActionID, wf.Resources[2].Metadata.ActionID}
+	actionIDs := []string{
+		wf.Resources[0].Metadata.ActionID,
+		wf.Resources[1].Metadata.ActionID,
+		wf.Resources[2].Metadata.ActionID,
+	}
 	assert.Contains(t, actionIDs, "actionA")
 	assert.Contains(t, actionIDs, "actionB")
 	assert.Contains(t, actionIDs, "actionC")
@@ -356,7 +360,7 @@ metadata:
 `)
 
 	p := parseryaml.NewParserForTesting(nil, nil)
-	wf, err := p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
+	_, err := p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
 	require.NoError(t, err)
 
 	// Directory resolution wins over file resolution.
@@ -370,14 +374,14 @@ metadata:
   actionId: res-from-dir
 `)
 	// Refresh wf
-	wf, err = p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
+	wf, err := p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
 	require.NoError(t, err)
 	assert.Equal(t, "res-from-dir", wf.Resources[0].Metadata.ActionID)
 
 	// Now remove base/ and check if base.yaml is picked up.
 	require.NoError(t, os.RemoveAll(filepath.Join(dir, "base")))
 
-	wf, err = p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
+	_, err = p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
 	require.NoError(t, err)
 	// base.yaml has no resources, so we should only see main's resources (if any).
 	// Let's add a resource to base.yaml.
