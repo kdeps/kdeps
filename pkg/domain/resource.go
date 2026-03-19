@@ -1581,15 +1581,15 @@ type BrowserAction struct {
 // string values for the fullPage boolean field.
 func (b *BrowserAction) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		Action     string   `yaml:"action"`
-		Selector   string   `yaml:"selector,omitempty"`
-		Value      string   `yaml:"value,omitempty"`
-		Files      []string `yaml:"files,omitempty"`
-		Script     string   `yaml:"script,omitempty"`
-		URL        string   `yaml:"url,omitempty"`
-		Wait       string   `yaml:"wait,omitempty"`
-		OutputFile string   `yaml:"outputFile,omitempty"`
-		Key        string   `yaml:"key,omitempty"`
+		Action     string      `yaml:"action"`
+		Selector   string      `yaml:"selector,omitempty"`
+		Value      string      `yaml:"value,omitempty"`
+		Files      []string    `yaml:"files,omitempty"`
+		Script     string      `yaml:"script,omitempty"`
+		URL        string      `yaml:"url,omitempty"`
+		Wait       string      `yaml:"wait,omitempty"`
+		OutputFile string      `yaml:"outputFile,omitempty"`
+		Key        string      `yaml:"key,omitempty"`
 		FullPage   interface{} `yaml:"fullPage,omitempty"`
 	}
 	var alias Alias
@@ -1704,15 +1704,15 @@ type BrowserConfig struct {
 // string values for the headless boolean field and the timeout alias.
 func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		Engine          string                `yaml:"engine,omitempty"`
-		Headless        interface{}           `yaml:"headless,omitempty"`
-		URL             string                `yaml:"url,omitempty"`
-		Actions         []BrowserAction       `yaml:"actions,omitempty"`
-		SessionID       string                `yaml:"sessionId,omitempty"`
+		Engine          string                 `yaml:"engine,omitempty"`
+		Headless        interface{}            `yaml:"headless,omitempty"`
+		URL             string                 `yaml:"url,omitempty"`
+		Actions         []BrowserAction        `yaml:"actions,omitempty"`
+		SessionID       string                 `yaml:"sessionId,omitempty"`
 		Viewport        *BrowserViewportConfig `yaml:"viewport,omitempty"`
-		TimeoutDuration string                `yaml:"timeoutDuration,omitempty"`
-		Timeout         string                `yaml:"timeout,omitempty"`
-		WaitFor         string                `yaml:"waitFor,omitempty"`
+		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
+		Timeout         string                 `yaml:"timeout,omitempty"`
+		WaitFor         string                 `yaml:"waitFor,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {

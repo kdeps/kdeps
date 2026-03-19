@@ -1228,3 +1228,99 @@ func TestExecute_ValidConfigPlaywrightNotInstalled(t *testing.T) {
 		assert.Equal(t, false, resultMap["success"])
 	}
 }
+
+// ─── Execute with pre-loaded mock session (covers navigate/actions/success paths) ─
+
+// TestExecute_WithPreloadedSessionSuccess exercises the happy-path of Execute
+// by injecting a mock session so that no real Playwright instance is needed.
+func TestExecute_WithPreloadedSessionSuccess(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-success-%d", time.Now().UnixNano())
+	pg := newPage()
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		// No URL → navigatePage is a no-op; no actions → runActions returns []
+	}
+	result, err := e.Execute(nil, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, sessID, resultMap["sessionId"])
+}
+
+// TestExecute_WithPreloadedSessionNavigateError exercises the navigatePage error
+// branch of Execute (lines covering the navErr != nil path).
+func TestExecute_WithPreloadedSessionNavigateError(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-nav-err-%d", time.Now().UnixNano())
+	pg := &mockPage{gotoErr: errors.New("connection refused")}
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		URL:       "https://example.com",
+	}
+	result, err := e.Execute(nil, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "navigation")
+	require.NotNil(t, result)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, false, resultMap["success"])
+}
+
+// TestExecute_WithPreloadedSessionRunActionsError exercises the runActions error
+// branch of Execute (lines covering the execErr != nil path).
+func TestExecute_WithPreloadedSessionRunActionsError(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-actions-err-%d", time.Now().UnixNano())
+	pg := &mockPage{locatorResult: &mockLocator{clickErr: errors.New("element not found")}}
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		Actions: []domain.BrowserAction{
+			{Action: domain.BrowserActionClick, Selector: "#btn"},
+		},
+	}
+	result, err := e.Execute(nil, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "action[0]")
+	require.NotNil(t, result)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, false, resultMap["success"])
+}
+
+// TestExecute_WithPreloadedSessionSuccessWithURL exercises the success path when
+// a URL is provided and navigation succeeds (mockPage.gotoErr is nil by default).
+func TestExecute_WithPreloadedSessionSuccessWithURL(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-url-ok-%d", time.Now().UnixNano())
+	pg := newPage()
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		URL:       "https://example.com",
+	}
+	result, err := e.Execute(nil, cfg)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, pg.urlValue, resultMap["url"])
+	assert.Equal(t, pg.titleValue, resultMap["title"])
+}
