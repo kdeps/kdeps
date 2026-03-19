@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+# This resource is the targetActionId of the shared-llm workflow.
+# Its apiResponse.response is what callers receive via get('briefAnswer')
+# or get('detailedAnswer') in the faq-router agent.
+
+metadata:
+  actionId: llmResult
+  name: LLM Result
+  requires:
+    - generate
+
+run:
+  apiResponse:
+    success: true
+    response: get('generate')

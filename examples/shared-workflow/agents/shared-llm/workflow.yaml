@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+# This is the SHARED workflow.  It wraps the LLM in one place so that
+# every caller agent gets identical model settings and system prompts.
+# Callers pass two params:
+#   prompt — the user question
+#   style  — "brief" (1-2 sentences) or "detailed" (full paragraph)
+
+metadata:
+  name: shared-llm
+  description: Shared LLM backend — centralises model config, system prompt, and JSON schema
+  version: "1.0.0"
+  targetActionId: llmResult
+
+settings:
+  apiServerMode: false   # sub-agents don't expose their own HTTP server
+
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true
+    models:
+      - llama3.2:1b
