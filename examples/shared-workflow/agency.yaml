@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Agency
+
+metadata:
+  name: shared-workflow
+  description: |
+    Multi-format FAQ bot demonstrating the shared workflow pattern.
+    A single shared-llm agent centralises model config and system prompt;
+    the faq-router entry point calls it twice — once for a brief answer
+    and once for a detailed answer — without duplicating any LLM setup.
+  version: "1.0.0"
+  targetAgentId: faq-router
+
+agents:
+  - agents/shared-llm
+  - agents/faq-router
