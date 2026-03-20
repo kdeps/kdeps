@@ -97,10 +97,15 @@ Examples:
 	return packageCmd
 }
 
-// PackageAutoWithFlags auto-detects whether args[0] is an agency or workflow
+// PackageAutoWithFlags auto-detects whether args[0] is a component, agency, or workflow
 // directory and dispatches to the appropriate packaging function.
 func PackageAutoWithFlags(cmd *cobra.Command, args []string, flags *PackageFlags) error {
 	dir := args[0]
+
+	// Detect component first (component.yaml takes precedence).
+	if componentFile := FindComponentFile(dir); componentFile != "" {
+		return PackageComponentWithFlags(cmd, args, flags)
+	}
 
 	// Detect agency by the presence of an agency.yaml / agency.yml file.
 	if agencyFile := FindAgencyFile(dir); agencyFile != "" {
@@ -417,6 +422,9 @@ func WriteFileContent(path string, tarWriter *tar.Writer) error {
 // kagencyExtension is the file extension for packed agency archives.
 const kagencyExtension = ".kagency"
 
+// komponentExtension is the file extension for packed component archives.
+const komponentExtension = ".komponent"
+
 // PackageAgencyWithFlags packages an agency directory into a .kagency archive.
 // The archive is a tar.gz containing agency.yaml and the entire agents/ sub-tree.
 func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
@@ -501,4 +509,86 @@ func CreateAgencyPackageArchive(agencyDir, archivePath string) error {
 // isKagencyFile reports whether path points to a .kagency archive.
 func isKagencyFile(path string) bool {
 	return strings.HasSuffix(path, kagencyExtension)
+}
+
+// PackageComponentWithFlags packages a component directory into a .komponent archive.
+func PackageComponentWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	componentDir := args[0]
+
+	fmt.Fprintf(os.Stdout, "Packaging component: %s\n\n", componentDir)
+
+	// Locate the component manifest.
+	componentFile := FindComponentFile(componentDir)
+	if componentFile == "" {
+		return fmt.Errorf("no component.yaml / component.yml found in %s", componentDir)
+	}
+
+	// Parse the component to get metadata.
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return fmt.Errorf("failed to create schema validator: %w", err)
+	}
+	exprParser := expression.NewParser()
+	parser := yaml.NewParser(schemaValidator, exprParser)
+
+	component, err := parser.ParseComponent(componentFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse component: %w", err)
+	}
+
+	// Determine output name.
+	pkgName := flags.Name
+	if pkgName == "" {
+		pkgName = fmt.Sprintf("%s-%s", component.Metadata.Name, component.Metadata.Version)
+	}
+
+	outputDir := flags.Output
+	if outputDir == "" {
+		outputDir = "."
+	}
+
+	archivePath := filepath.Join(outputDir, pkgName+komponentExtension)
+	if archiveErr := CreateComponentPackageArchive(componentDir, archivePath); archiveErr != nil {
+		return fmt.Errorf("failed to create component archive: %w", archiveErr)
+	}
+
+	fmt.Fprintln(os.Stdout, "✓ Component manifest validated")
+	fmt.Fprintln(os.Stdout, "✓ Resources collected")
+	fmt.Fprintln(os.Stdout, "✓ Package created")
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Created: %s\n", archivePath)
+
+	return nil
+}
+
+// CreateComponentPackageArchive creates a .komponent tar.gz archive from componentDir.
+// It includes:
+//   - component.yaml (and .j2 variants)
+//   - resources/
+//   - HTML/CSS/JS/template files
+//   - Respects .kdepsignore; excludes hidden entries.
+func CreateComponentPackageArchive(componentDir, archivePath string) error {
+	if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	file, err := os.Create(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to create archive file: %w", err)
+	}
+	defer file.Close()
+
+	gzipWriter := gzip.NewWriter(file)
+	defer gzipWriter.Close()
+
+	tarWriter := tar.NewWriter(gzipWriter)
+	defer tarWriter.Close()
+
+	ignorePatterns := ParseKdepsIgnore(componentDir)
+	return filepath.Walk(componentDir, CreateArchiveWalkFunc(componentDir, tarWriter, ignorePatterns))
+}
+
+// IsKomponentFile reports whether path points to a .komponent archive.
+func IsKomponentFile(path string) bool {
+	return strings.HasSuffix(path, komponentExtension)
 }

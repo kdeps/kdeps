@@ -360,8 +360,6 @@ metadata:
 `)
 
 	p := parseryaml.NewParserForTesting(nil, nil)
-	_, err := p.ParseWorkflow(filepath.Join(dir, "main", "workflow.yaml"))
-	require.NoError(t, err)
 
 	// Directory resolution wins over file resolution.
 	// Since ParseWorkflow returns the merged workflow, we check the metadata

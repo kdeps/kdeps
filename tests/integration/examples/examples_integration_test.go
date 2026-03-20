@@ -826,6 +826,160 @@ func TestCVMatcherExample(t *testing.T) {
 	}
 }
 
+// TestComponentKomponentExample tests the component-komponent example which demonstrates
+// automatic loading of .komponent archives from the components/ directory.
+func TestComponentKomponentExample(t *testing.T) {
+	workflowPath := "../../../examples/component-komponent/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("Component-komponent example not available")
+		return
+	}
+
+	// Parse workflow
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	// Note: ParseWorkflow automatically loads .komponent files from components/
+
+	// Verify that the component's resource was loaded
+	actionIDs := make([]string, 0, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		actionIDs = append(actionIDs, r.Metadata.ActionID)
+	}
+	assert.Contains(t, actionIDs, "sayHello", "component resource 'sayHello' should be loaded from .komponent")
+	assert.Contains(t, actionIDs, "finalResponse", "workflow resource 'finalResponse' should be present")
+	assert.Len(t, actionIDs, 2, "should have exactly 2 resources (sayHello from component + finalResponse)")
+
+	// Execute the workflow using the standard executor (no external deps needed)
+	engine := setupExecutor()
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/",
+		Body:   nil,
+	}
+
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err, "workflow execution should succeed")
+
+	// Verify the result contains the greeting
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "result should be a map")
+	assert.Contains(t, resultMap, "message", "result should have 'message' field")
+	assert.Equal(t, "Hello from .komponent!", resultMap["message"], "greeting should be from component")
+}
+
+// TestComponentsUnpackedExample tests the components-unpacked example which demonstrates
+// automatic loading of unpacked component directories from the components/ folder.
+func TestComponentsUnpackedExample(t *testing.T) {
+	workflowPath := "../../../examples/components-unpacked/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("Components-unpacked example not available")
+		return
+	}
+
+	// Parse workflow
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	// Verify that the component's resource was loaded
+	actionIDs := make([]string, 0, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		actionIDs = append(actionIDs, r.Metadata.ActionID)
+	}
+	assert.Contains(t, actionIDs, "sayHello", "component resource 'sayHello' should be loaded from unpacked directory")
+	assert.Contains(t, actionIDs, "finalResponse", "workflow resource 'finalResponse' should be present")
+	assert.Len(t, actionIDs, 2, "should have exactly 2 resources")
+
+	// Execute the workflow
+	engine := setupExecutor()
+	reqCtx := &executor.RequestContext{
+		Method: "GET",
+		Path:   "/",
+		Body:   nil,
+	}
+
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err, "workflow execution should succeed")
+
+	// Verify result
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "result should be a map")
+	assert.Contains(t, resultMap, "message")
+	assert.Equal(t, "Hello from unpacked component!", resultMap["message"])
+}
+
+// TestComponentsAdvancedExample tests the components-advanced example which demonstrates
+// mixing unpacked directories and .komponent archives, with components having multiple resources.
+func TestComponentsAdvancedExample(t *testing.T) {
+	workflowPath := "../../../examples/components-advanced/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("Components-advanced example not available")
+		return
+	}
+
+	// Parse workflow
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	// Verify that resources from both component types were loaded
+	actionIDs := make([]string, 0, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		actionIDs = append(actionIDs, r.Metadata.ActionID)
+	}
+	// From unpacked formatter component
+	assert.Contains(t, actionIDs, "formatName")
+	assert.Contains(t, actionIDs, "addTimestamp")
+	// From packed data-processor component
+	assert.Contains(t, actionIDs, "uppercaseText")
+	assert.Contains(t, actionIDs, "logResult")
+	// From workflow
+	assert.Contains(t, actionIDs, "finalResponse")
+	// Should have 5 total resources (2 + 2 + 1)
+	assert.Len(t, actionIDs, 5)
+
+	// Execute the workflow with a name parameter
+	engine := setupExecutor()
+	reqCtx := &executor.RequestContext{
+		Method: "POST",
+		Path:   "/process",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Body: map[string]interface{}{
+			"name": "Claude",
+		},
+	}
+
+	result, err := engine.Execute(workflow, reqCtx)
+	require.NoError(t, err, "workflow execution should succeed")
+
+	// Verify result contains all expected data
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "result should be a map")
+	assert.Contains(t, resultMap, "upper")
+	assert.Contains(t, resultMap, "timestamp")
+	assert.Contains(t, resultMap, "message")
+	assert.Equal(t, "CLAUDE", resultMap["upper"]) // uppercase of "Claude"
+	assert.Equal(t, "Hello, Claude! Welcome!", resultMap["message"])
+}
+
 // Helper function to check if a string contains a substring (case-insensitive).
 func contains(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))

@@ -224,6 +224,25 @@ func FindWorkflowFile(dir string) string {
 	return ""
 }
 
+// FindComponentFile returns the path to the component manifest inside dir.
+// It tries component.yaml first, then Jinja2 variants, then .yml forms.
+// Returns an empty string if none exist.
+func FindComponentFile(dir string) string {
+	candidates := []string{
+		filepath.Join(dir, "component.yaml"),
+		filepath.Join(dir, "component.yaml.j2"),
+		filepath.Join(dir, "component.yml"),
+		filepath.Join(dir, "component.yml.j2"),
+		filepath.Join(dir, "component.j2"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // FindAgencyFile returns the path to the agency file inside dir.
 // It tries agency.yaml first, then agency.yaml.j2, then agency.yml,
 // agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.

@@ -47,9 +47,10 @@ const (
 
 // SchemaValidator validates YAML/JSON against JSON Schema.
 type SchemaValidator struct {
-	workflowSchema *gojsonschema.Schema
-	resourceSchema *gojsonschema.Schema
-	agencySchema   *gojsonschema.Schema
+	workflowSchema  *gojsonschema.Schema
+	resourceSchema  *gojsonschema.Schema
+	agencySchema    *gojsonschema.Schema
+	componentSchema *gojsonschema.Schema
 }
 
 // NewSchemaValidator creates a new schema validator.
@@ -92,6 +93,18 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 		return nil, fmt.Errorf("failed to load agency schema: %w", err)
 	}
 
+	// Load component schema.
+	componentSchemaData, err := schemas.ReadFile("schemas/component.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read component schema: %w", err)
+	}
+
+	componentSchemaLoader := gojsonschema.NewBytesLoader(componentSchemaData)
+	sv.componentSchema, err = gojsonschema.NewSchema(componentSchemaLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load component schema: %w", err)
+	}
+
 	return sv, nil
 }
 
@@ -113,6 +126,11 @@ func (sv *SchemaValidator) GetResourceSchemaForTesting() *gojsonschema.Schema {
 // GetAgencySchemaForTesting returns the agency schema for testing.
 func (sv *SchemaValidator) GetAgencySchemaForTesting() *gojsonschema.Schema {
 	return sv.agencySchema
+}
+
+// GetComponentSchemaForTesting returns the component schema for testing.
+func (sv *SchemaValidator) GetComponentSchemaForTesting() *gojsonschema.Schema {
+	return sv.componentSchema
 }
 
 // ValidateWorkflow validates workflow data against the workflow schema.
@@ -183,6 +201,28 @@ func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 			fmt.Fprintf(&errMsgSb160, "  - %s\n", enhancedMsg)
 		}
 		errMsg += errMsgSb160.String()
+		return errors.New(errMsg)
+	}
+
+	return nil
+}
+
+// ValidateComponent validates component data against the component schema.
+func (sv *SchemaValidator) ValidateComponent(data map[string]interface{}) error {
+	documentLoader := gojsonschema.NewGoLoader(data)
+	result, err := sv.componentSchema.Validate(documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		errMsg := "component validation failed:\n"
+		var errMsgBuilder strings.Builder
+		for _, desc := range result.Errors() {
+			enhancedMsg := sv.enhanceErrorMessage(desc, "component")
+			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
+		}
+		errMsg += errMsgBuilder.String()
 		return errors.New(errMsg)
 	}
 
