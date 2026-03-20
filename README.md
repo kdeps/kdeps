@@ -2,13 +2,13 @@
 
 AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
 
-## Why kdeps? Ordered, Repeatable Systems (ORS)
+## Why kdeps
 
 AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
 
-kdeps enforces **Ordered, Repeatable Systems** by design:
+kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems** by design:
 
-- **Ordered** — Declarative YAML defines every execution step. No hidden logic, no surprise tool calls.
+- **Ordered** — Declarative YAML defines every execution step in graph order. No hidden logic, no surprise tool calls.
 - **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions.
 - **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
 
@@ -81,11 +81,17 @@ run:
 - **`.kagency` archives** – Pack the full agency into one portable file: `kdeps package my-agency/`
 - **Docker / ISO / binary** – `kdeps build`, `kdeps export iso`, and `kdeps prepackage` all accept agencies
 
+###🧩 [Components & Reusable Modules](https://kdeps.com/concepts/components)
+- **`component.yaml`** – Define reusable interface (inputs) and resources
+- **Auto-discovery** – Place in `components/<name>/` alongside workflow to auto-load resources
+- **`.komponent` archives** – Package components for distribution: `kdeps package my-component/`
+- **Encapsulation** – Hide implementation behind a clean input contract; share across workflows
+
 ## CLI Cheatsheet
 - `kdeps run` – Execute workflows or agencies with hot reload
 - `kdeps new` – Create projects via interactive wizard
 - `kdeps validate` – Check YAML syntax and logic
-- `kdeps package` – Pack a workflow (`.kdeps`) or agency (`.kagency`) into a portable archive
+- `kdeps package` – Pack a workflow (`.kdeps`), agency (`.kagency`), or component (`.komponent`)
 - `kdeps build` – Create Docker images from workflows or agencies
 - `kdeps push` – Live-update running containers
 - `kdeps export iso` – Generate bootable edge ISOs from workflows or agencies

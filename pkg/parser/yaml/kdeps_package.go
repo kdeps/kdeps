@@ -45,6 +45,8 @@ func isKdepsPackage(path string) bool {
 // extractKdepsPackage extracts a .kdeps archive to a temporary directory and
 // returns the directory path along with a cleanup function.  The caller must
 // invoke cleanup() when it no longer needs the extracted files.
+//
+//nolint:unparam // cleanup is returned for flexibility but callers may track temp dirs themselves
 func extractKdepsPackage(packagePath string) (string, func(), error) {
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		return "", nil, fmt.Errorf("kdeps package not found: %s", packagePath)

@@ -297,33 +297,47 @@ kdeps scaffold sql --force
 
 ### `kdeps package`
 
-Package workflow into `.kdeps` file for Docker build.
+Package workflow or component into an archive for distribution.
 
 **Usage:**
 ```bash
-kdeps package [workflow-directory] [flags]
+kdeps package [directory] [flags]
 ```
 
 **Arguments:**
-- `workflow-directory` - Directory containing `workflow.yaml`
+- `directory` - Directory containing `workflow.yaml`, `agency.yaml`, or `component.yaml`
+
+**Behavior:**
+| Detected file | Output format | Archive extension |
+|---------------|---------------|-------------------|
+| `workflow.yaml` | Workflow package | `.kdeps` |
+| `agency.yaml` | Agency package | `.kagency` |
+| `component.yaml` | Component package | `.komponent` |
 
 **Flags:**
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--output, -o` | Output directory | `.` (current) |
-| `--name` | Package name | From workflow metadata |
+| `--name` | Package name | From metadata (name-version) |
 
 **What it packages:**
-- ✅ `workflow.yaml`
-- ✅ All resource files
+- ✅ Main manifest (`workflow.yaml`, `agency.yaml`, or `component.yaml`)
+- ✅ All resource files (`resources/`)
 - ✅ Python requirements (`requirements.txt`)
-- ✅ Data files
-- ✅ Scripts
+- ✅ Data files and scripts
+- ✅ HTML/CSS/JS assets (for components)
+- Respects `.kdepsignore` exclusions
 
 **Examples:**
 ```bash
-# Package workflow
+# Package a workflow (creates my-agent-1.0.0.kdeps)
 kdeps package my-agent/
+
+# Package an agency (creates my-agency-1.0.0.kagency)
+kdeps package my-agency/
+
+# Package a component (creates greeter-1.0.0.komponent)
+kdeps package my-component/
 
 # Specify output path
 kdeps package my-agent/ --output dist/
@@ -333,7 +347,7 @@ kdeps package my-agent/ --name custom-agent
 ```
 
 **Output:**
-Creates `{name}-{version}.kdeps` file containing all workflow files in a compressed archive.
+Creates `{name}-{version}.{kdeps|kagency|komponent}` archive containing all files in a compressed tarball.
 
 ---
 

@@ -2743,3 +2743,93 @@ func TestResolveDirectoryPath_J2Workflow(t *testing.T) {
 		assert.Nil(t, cleanup)
 	})
 }
+
+// TestWorkflow_ComponentAutoDiscovery tests that a workflow automatically loads
+// resources from ./components/<name>/component.yaml and its resources/ subdirectory.
+func TestWorkflow_ComponentAutoDiscovery(t *testing.T) {
+	workflowDir := t.TempDir()
+
+	// Create the main workflow.yaml.
+	workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: main-workflow
+  version: "1.0.0"
+  targetActionId: main-action
+settings:
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: true
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: main-action
+      name: Main Action
+    run:
+      apiResponse:
+        success: true
+        response:
+          message: "main"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(workflowYAML), 0o600))
+
+	// Create a component: components/greeter/component.yaml + resources/hello.yaml.
+	compDir := filepath.Join(workflowDir, "components", "greeter")
+	require.NoError(t, os.MkdirAll(compDir, 0o750))
+
+	componentYAML := `apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: greeter
+  version: "1.0.0"
+  targetActionId: greet
+interface:
+  inputs:
+    - name: greeting
+      type: string
+      required: true
+      default: "Hello"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(compDir, "component.yaml"), []byte(componentYAML), 0o600))
+
+	compResourcesDir := filepath.Join(compDir, "resources")
+	require.NoError(t, os.Mkdir(compResourcesDir, 0o750))
+
+	compResYAML := `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: greet
+  name: Greet Resource
+run:
+  apiResponse:
+    success: true
+    response:
+      message: "greeted"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(compResourcesDir, "greet.yaml"), []byte(compResYAML), 0o600))
+
+	// Parse the workflow with a real parser (schema validation enabled).
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	exprParser := expression.NewParser()
+	parser := yaml.NewParser(sv, exprParser)
+
+	workflowPath := filepath.Join(workflowDir, "workflow.yaml")
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	require.NotNil(t, workflow)
+
+	// The workflow should have 2 resources: its own main-action and the component's greet.
+	assert.Len(t, workflow.Resources, 2)
+
+	// Both actionIds should be present.
+	actionIDs := make(map[string]struct{})
+	for _, r := range workflow.Resources {
+		actionIDs[r.Metadata.ActionID] = struct{}{}
+	}
+	_, hasMain := actionIDs["main-action"]
+	_, hasGreet := actionIDs["greet"]
+	assert.True(t, hasMain, "workflow should have its own resource")
+	assert.True(t, hasGreet, "workflow should include component resource")
+}

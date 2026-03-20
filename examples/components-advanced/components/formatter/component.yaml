@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: formatter
+  description: Formatting utilities
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: formatName
+      name: Format Name Resource
+    run:
+      expr:
+        - set('formattedName', get('name'))
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: addTimestamp
+      name: Timestamp Resource
+    run:
+      expr:
+        - set('timestamp', now())

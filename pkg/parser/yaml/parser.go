@@ -45,6 +45,7 @@ type SchemaValidator interface {
 	ValidateWorkflow(data map[string]interface{}) error
 	ValidateResource(data map[string]interface{}) error
 	ValidateAgency(data map[string]interface{}) error
+	ValidateComponent(data map[string]interface{}) error
 }
 
 // ExpressionParser parses expressions.
@@ -156,6 +157,11 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		return nil, importErr
 	}
 
+	// Auto-discover and load component resources from ./components/<name>/ sibling dirs.
+	if compErr := p.loadComponents(&workflow, path); compErr != nil {
+		return nil, compErr
+	}
+
 	return &workflow, nil
 }
 
@@ -171,7 +177,9 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 // actionId always take precedence (local wins).  Circular imports are detected
 // via the visited set and return an error.
 func (p *Parser) loadImportedWorkflows(
-	workflow *domain.Workflow, workflowPath string, visited map[string]struct{},
+	workflow *domain.Workflow,
+	workflowPath string,
+	visited map[string]struct{},
 ) error {
 	if len(workflow.Metadata.Workflows) == 0 {
 		return nil

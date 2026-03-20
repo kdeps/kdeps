@@ -33,9 +33,10 @@ import (
 
 // Mock SchemaValidator.
 type mockSchemaValidator struct {
-	validateWorkflowFunc func(data map[string]interface{}) error
-	validateResourceFunc func(data map[string]interface{}) error
-	validateAgencyFunc   func(data map[string]interface{}) error
+	validateWorkflowFunc  func(data map[string]interface{}) error
+	validateResourceFunc  func(data map[string]interface{}) error
+	validateAgencyFunc    func(data map[string]interface{}) error
+	validateComponentFunc func(data map[string]interface{}) error
 }
 
 func (m *mockSchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
@@ -55,6 +56,13 @@ func (m *mockSchemaValidator) ValidateResource(data map[string]interface{}) erro
 func (m *mockSchemaValidator) ValidateAgency(data map[string]interface{}) error {
 	if m.validateAgencyFunc != nil {
 		return m.validateAgencyFunc(data)
+	}
+	return nil
+}
+
+func (m *mockSchemaValidator) ValidateComponent(data map[string]interface{}) error {
+	if m.validateComponentFunc != nil {
+		return m.validateComponentFunc(data)
 	}
 	return nil
 }
