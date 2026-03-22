@@ -152,7 +152,7 @@ Hidden files and `.kdepsignore` patterns are respected.
 
 After component resources are loaded, KDeps automatically scans for environment variable references:
 
-- String fields containing `{{ env('VAR_NAME') }}`
+- String fields containing <span v-pre>`{{ env('VAR_NAME') }}`</span>
 - `ChatConfig.APIKey` with `env:` prefix
 - `MCPConfig.Env` and `PythonConfig.Env` maps
 - Any `env('VAR')` expression in resource fields
