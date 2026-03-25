@@ -47,10 +47,11 @@ const (
 
 // SchemaValidator validates YAML/JSON against JSON Schema.
 type SchemaValidator struct {
-	workflowSchema  *gojsonschema.Schema
-	resourceSchema  *gojsonschema.Schema
-	agencySchema    *gojsonschema.Schema
-	componentSchema *gojsonschema.Schema
+	workflowSchema   *gojsonschema.Schema
+	resourceSchema   *gojsonschema.Schema
+	agencySchema     *gojsonschema.Schema
+	componentSchema  *gojsonschema.Schema
+	remoteAgentSchema *gojsonschema.Schema
 }
 
 // NewSchemaValidator creates a new schema validator.
@@ -105,6 +106,18 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 		return nil, fmt.Errorf("failed to load component schema: %w", err)
 	}
 
+	// Load remote agent schema.
+	remoteAgentSchemaData, err := schemas.ReadFile("schemas/remoteagent.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read remoteagent schema: %w", err)
+	}
+
+	remoteAgentSchemaLoader := gojsonschema.NewBytesLoader(remoteAgentSchemaData)
+	sv.remoteAgentSchema, err = gojsonschema.NewSchema(remoteAgentSchemaLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load remoteagent schema: %w", err)
+	}
+
 	return sv, nil
 }
 
@@ -131,6 +144,11 @@ func (sv *SchemaValidator) GetAgencySchemaForTesting() *gojsonschema.Schema {
 // GetComponentSchemaForTesting returns the component schema for testing.
 func (sv *SchemaValidator) GetComponentSchemaForTesting() *gojsonschema.Schema {
 	return sv.componentSchema
+}
+
+// GetRemoteAgentSchemaForTesting returns the remote agent schema for testing.
+func (sv *SchemaValidator) GetRemoteAgentSchemaForTesting() *gojsonschema.Schema {
+	return sv.remoteAgentSchema
 }
 
 // ValidateWorkflow validates workflow data against the workflow schema.
@@ -242,6 +260,28 @@ func (sv *SchemaValidator) ValidateAgency(data map[string]interface{}) error {
 		var errMsgBuilder strings.Builder
 		for _, desc := range result.Errors() {
 			enhancedMsg := sv.enhanceErrorMessage(desc, "agency")
+			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
+		}
+		errMsg += errMsgBuilder.String()
+		return errors.New(errMsg)
+	}
+
+	return nil
+}
+
+// ValidateRemoteAgent validates remoteAgent configuration against the remote agent schema.
+func (sv *SchemaValidator) ValidateRemoteAgent(data map[string]interface{}) error {
+	documentLoader := gojsonschema.NewGoLoader(data)
+	result, err := sv.remoteAgentSchema.Validate(documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if !result.Valid() {
+		errMsg := "remoteAgent validation failed:\n"
+		var errMsgBuilder strings.Builder
+		for _, desc := range result.Errors() {
+			enhancedMsg := sv.enhanceErrorMessage(desc, "remoteAgent")
 			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
 		}
 		errMsg += errMsgBuilder.String()
@@ -595,6 +635,7 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 			"perplexity",
 			"groq",
 			"deepseek",
+			"openrouter",
 		},
 		"run.httpClient.method": {
 			"GET", "POST", "PUT", "DELETE", "PATCH",
