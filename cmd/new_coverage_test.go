@@ -82,7 +82,10 @@ func TestRunNew_WithForceFlag(t *testing.T) {
 	// Create existing directory with a file
 	existingDir := "existing-agent"
 	require.NoError(t, os.MkdirAll(existingDir, 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(existingDir, "old-file.txt"), []byte("old"), 0644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(existingDir, "old-file.txt"), []byte("old"), 0644),
+	)
 
 	// Should succeed with force flag
 	require.NoError(t, cmd.RunNewWithFlags(nil, []string{existingDir}, flags))

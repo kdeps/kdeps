@@ -408,7 +408,11 @@ func TestIntegration_Search_FullLocalLifecycle(t *testing.T) {
 		assert.NotEmpty(t, item["title"], "title must be non-empty")
 		assert.NotEmpty(t, item["url"], "url must be non-empty")
 		assert.NotEmpty(t, item["snippet"], "snippet must be non-empty")
-		assert.True(t, strings.HasPrefix(item["url"].(string), "file://"), "url must be file:// scheme")
+		assert.True(
+			t,
+			strings.HasPrefix(item["url"].(string), "file://"),
+			"url must be file:// scheme",
+		)
 	}
 }
 

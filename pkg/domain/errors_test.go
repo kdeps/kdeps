@@ -260,8 +260,9 @@ func TestAppError_Error(t *testing.T) {
 			expected: "[VALIDATION_ERROR] test error",
 		},
 		{
-			name:     "with resource ID",
-			err:      domain.NewAppError(domain.ErrCodeValidation, "test error").WithResource("testResource"),
+			name: "with resource ID",
+			err: domain.NewAppError(domain.ErrCodeValidation, "test error").
+				WithResource("testResource"),
 			expected: "[VALIDATION_ERROR] test error (resource: testResource)",
 		},
 	}

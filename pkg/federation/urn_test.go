@@ -36,18 +36,23 @@ func TestParseURN(t *testing.T) {
 			name: "valid SHA256 URN",
 			urn:  "urn:agent:acme-corp.example.com/compliance:checker@v2.1.0#sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			expected: &URN{
-				Authority:   "acme-corp.example.com",
-				Namespace:   "compliance",
-				Name:        "checker",
-				Version:     "v2.1.0",
-				HashAlg:     "sha256",
-				ContentHash: mustDecodeHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Authority: "acme-corp.example.com",
+				Namespace: "compliance",
+				Name:      "checker",
+				Version:   "v2.1.0",
+				HashAlg:   "sha256",
+				ContentHash: mustDecodeHex(
+					"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				),
 			},
 			shouldError: false,
 		},
 		{
 			name: "valid SHA512 URN",
-			urn:  "urn:agent:localhost:8080/test:agent@v1.0.0#sha512:" + strings.Repeat("0123456789abcdef", 8), // 128 hex digits
+			urn: "urn:agent:localhost:8080/test:agent@v1.0.0#sha512:" + strings.Repeat(
+				"0123456789abcdef",
+				8,
+			), // 128 hex digits
 			expected: &URN{
 				Authority:   "localhost:8080",
 				Namespace:   "test",
@@ -60,7 +65,10 @@ func TestParseURN(t *testing.T) {
 		},
 		{
 			name: "valid BLAKE3 URN",
-			urn:  "urn:agent:my-internal.net/org:name@v0.0.1#blake3:" + strings.Repeat("fedcba9876543210", 4), // 64 hex digits
+			urn: "urn:agent:my-internal.net/org:name@v0.0.1#blake3:" + strings.Repeat(
+				"fedcba9876543210",
+				4,
+			), // 64 hex digits
 			expected: &URN{
 				Authority:   "my-internal.net",
 				Namespace:   "org",
@@ -115,12 +123,14 @@ func TestParseURN(t *testing.T) {
 			name: "case insensitivity in components",
 			urn:  "urn:agent:ACMECorp.Example.COM/ACME-CORP:Name@V2.1.0#SHA256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			expected: &URN{
-				Authority:   "acmecorp.example.com",
-				Namespace:   "acme-corp",
-				Name:        "name",
-				Version:     "v2.1.0",
-				HashAlg:     "sha256",
-				ContentHash: mustDecodeHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Authority: "acmecorp.example.com",
+				Namespace: "acme-corp",
+				Name:      "name",
+				Version:   "v2.1.0",
+				HashAlg:   "sha256",
+				ContentHash: mustDecodeHex(
+					"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				),
 			},
 			shouldError: false,
 		},
@@ -128,12 +138,14 @@ func TestParseURN(t *testing.T) {
 			name: "colon in name",
 			urn:  "urn:agent:test.com/my-namespace:my/name@v1.0#sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 			expected: &URN{
-				Authority:   "test.com",
-				Namespace:   "my-namespace",
-				Name:        "my/name",
-				Version:     "v1.0",
-				HashAlg:     "sha256",
-				ContentHash: mustDecodeHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Authority: "test.com",
+				Namespace: "my-namespace",
+				Name:      "my/name",
+				Version:   "v1.0",
+				HashAlg:   "sha256",
+				ContentHash: mustDecodeHex(
+					"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				),
 			},
 			shouldError: false,
 		},
@@ -141,12 +153,14 @@ func TestParseURN(t *testing.T) {
 			name: "whitespace trimming",
 			urn:  "  urn:agent:test.com/ns:name@v1.0#sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  ",
 			expected: &URN{
-				Authority:   "test.com",
-				Namespace:   "ns",
-				Name:        "name",
-				Version:     "v1.0",
-				HashAlg:     "sha256",
-				ContentHash: mustDecodeHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+				Authority: "test.com",
+				Namespace: "ns",
+				Name:      "name",
+				Version:   "v1.0",
+				HashAlg:   "sha256",
+				ContentHash: mustDecodeHex(
+					"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				),
 			},
 			shouldError: false,
 		},
@@ -243,10 +257,10 @@ func TestURNValidate(t *testing.T) {
 			name: "missing content hash",
 			urn: &URN{
 				Authority: "test.com",
-				Namespace:   "ns",
-				Name:        "agent",
-				Version:     "v1.0.0",
-				HashAlg:     "sha256",
+				Namespace: "ns",
+				Name:      "agent",
+				Version:   "v1.0.0",
+				HashAlg:   "sha256",
 			},
 			isValid: false,
 		},
@@ -271,7 +285,9 @@ func TestURNComponent(t *testing.T) {
 		Name:      "my-agent",
 		Version:   "v1.2.3",
 		HashAlg:   "sha256",
-		ContentHash: mustDecodeHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+		ContentHash: mustDecodeHex(
+			"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		),
 	}
 
 	tests := []struct {

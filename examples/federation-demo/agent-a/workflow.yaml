@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: federation-agent-a
+  description: Federation demo — Caller agent
+  version: "1.0.0"
+  targetActionId: callRemoteResource
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  apiServer:
+    routes:
+      - path: /api/v1/call
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: false

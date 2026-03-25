@@ -110,7 +110,13 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 
 	// Download model if needed (skip in offline mode)
 	if m.offlineMode {
-		m.logger.Info("offline mode enabled, skipping model download", "backend", backend, "model", config.Model)
+		m.logger.Info(
+			"offline mode enabled, skipping model download",
+			"backend",
+			backend,
+			"model",
+			config.Model,
+		)
 	} else {
 		if err := m.service.DownloadModel(backend, config.Model); err != nil {
 			m.logger.Warn("model download failed or skipped", "backend", backend, "model", config.Model, "error", err)
@@ -121,7 +127,15 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	// Serve model (non-blocking - starts in background)
 	// This will check if server is already running and skip if so
 	if err := m.service.ServeModel(backend, config.Model, host, port); err != nil {
-		m.logger.Warn("model serving failed or skipped", "backend", backend, "model", config.Model, "error", err)
+		m.logger.Warn(
+			"model serving failed or skipped",
+			"backend",
+			backend,
+			"model",
+			config.Model,
+			"error",
+			err,
+		)
 		// Continue anyway - server might already be running
 	}
 

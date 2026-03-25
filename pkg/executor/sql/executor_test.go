@@ -111,7 +111,9 @@ func TestExecutor_FormatAsJSON_Simulation(t *testing.T) {
 func TestExecutor_Execute_SelectQuery(t *testing.T) {
 	// Use SQLite in-memory database for testing (no external dependency)
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -152,7 +154,9 @@ func TestExecutor_Execute_Transaction(t *testing.T) {
 func TestExecutor_Execute_JSONFormat(t *testing.T) {
 	// Use SQLite in-memory database for testing (no external dependency)
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Simple SELECT query with JSON format
@@ -202,7 +206,9 @@ func TestExecutor_Execute_QueryTimeout(t *testing.T) {
 
 func TestExecutor_Execute_InvalidConnection(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -221,7 +227,9 @@ func TestExecutor_Execute_InvalidConnection(t *testing.T) {
 func TestExecutor_Execute_WithTimeout(t *testing.T) {
 	// Test executeQuery timeout parsing path
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test SELECT query with valid timeout (exercises timeout parsing branch)
@@ -256,7 +264,9 @@ func TestExecutor_Execute_BatchOperations(t *testing.T) {
 func TestExecutor_Execute_MaxRows(t *testing.T) {
 	// Use SQLite in-memory database for testing (no external dependency)
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Simple SELECT query with maxRows limit
@@ -334,7 +344,9 @@ func TestExecutor_ExecuteBatchQuery(t *testing.T) {
 	// Test executeBatchQuery path through executeTransactionQuery
 	// This is a basic test to exercise the code path without actual database operations
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// This will fail due to no database connection, but tests the code path
@@ -361,7 +373,9 @@ func TestExecutor_ExecuteBatchQuery(t *testing.T) {
 func TestExecutor_ExecuteTransactionQuery(t *testing.T) {
 	// Test executeTransactionQuery path through executeTransaction
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing
@@ -401,7 +415,9 @@ func TestExecutor_ExecuteTransactionQuery(t *testing.T) {
 func TestExecutor_ExecuteTransactionSelect(t *testing.T) {
 	// Test executeTransactionSelect path through executeTransactionQuery
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing
@@ -439,7 +455,9 @@ func TestExecutor_ExecuteTransactionSelect(t *testing.T) {
 func TestExecutor_ExecuteTransactionDML(t *testing.T) {
 	// Test executeTransactionDML path through executeTransactionQuery
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing - need to create table first
@@ -757,7 +775,9 @@ func TestExecutor_FormatSelectResults_EmptyResults(t *testing.T) {
 func TestExecutor_EvaluateSingleParam_NonStringParameter(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with non-string parameter (should return as-is)
@@ -770,7 +790,9 @@ func TestExecutor_EvaluateSingleParam_NonStringParameter(t *testing.T) {
 func TestExecutor_EvaluateSingleParam_LiteralString(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with literal string parameter (no function calls)
@@ -823,7 +845,9 @@ func TestExecutor_EvaluateSingleParam_ExpressionWithFunctionCall(t *testing.T) {
 func TestExecutor_EvaluateSingleParam_ExpressionEvaluationError(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
 	evaluator := expression.NewEvaluator(nil)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test with invalid expression that contains function call but invalid syntax
@@ -837,7 +861,9 @@ func TestExecutor_EvaluateSingleParam_ExpressionEvaluationError(t *testing.T) {
 // Test resolvePoolConfig with MaxIdleTime.
 func TestExecutor_ResolvePoolConfig_WithMaxIdleTime(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	poolConfig := &domain.PoolConfig{
@@ -863,7 +889,9 @@ func TestExecutor_ResolvePoolConfig_WithMaxIdleTime(t *testing.T) {
 // Test resolvePoolConfig with ConnectionTimeout.
 func TestExecutor_ResolvePoolConfig_WithConnectionTimeout(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	poolConfig := &domain.PoolConfig{
@@ -887,7 +915,9 @@ func TestExecutor_ResolvePoolConfig_WithConnectionTimeout(t *testing.T) {
 // Test resolvePoolConfig with both settings.
 func TestExecutor_ResolvePoolConfig_WithBothSettings(t *testing.T) {
 	exec := sqlexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	poolConfig := &domain.PoolConfig{

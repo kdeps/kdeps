@@ -142,7 +142,11 @@ func TestAppendAndDetectEmbeddedPackage_RoundTrip(t *testing.T) {
 	// Verify the output exists.
 	info, err := os.Stat(outputPath)
 	require.NoError(t, err)
-	assert.True(t, info.Size() > int64(len(fakeBinaryContent())), "output should be larger than the base binary")
+	assert.True(
+		t,
+		info.Size() > int64(len(fakeBinaryContent())),
+		"output should be larger than the base binary",
+	)
 
 	// DetectEmbeddedPackage should find the embedded package.
 	detected, found := cmd.DetectEmbeddedPackage(outputPath)
@@ -152,7 +156,12 @@ func TestAppendAndDetectEmbeddedPackage_RoundTrip(t *testing.T) {
 	// The detected bytes should be identical to the original .kdeps file.
 	original, err := os.ReadFile(kdepsPath)
 	require.NoError(t, err)
-	assert.Equal(t, original, detected, "detected package bytes should match the original .kdeps file")
+	assert.Equal(
+		t,
+		original,
+		detected,
+		"detected package bytes should match the original .kdeps file",
+	)
 }
 
 func TestAppendEmbeddedPackage_MissingBinary(t *testing.T) {
@@ -170,7 +179,11 @@ func TestAppendEmbeddedPackage_MissingKdepsFile(t *testing.T) {
 	binaryPath := filepath.Join(tmpDir, "fake-bin")
 	require.NoError(t, os.WriteFile(binaryPath, fakeBinaryContent(), 0755))
 
-	err := cmd.AppendEmbeddedPackage(binaryPath, "/nonexistent/pkg.kdeps", filepath.Join(tmpDir, "out"))
+	err := cmd.AppendEmbeddedPackage(
+		binaryPath,
+		"/nonexistent/pkg.kdeps",
+		filepath.Join(tmpDir, "out"),
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read .kdeps file")
 }
@@ -265,9 +278,13 @@ func TestPrePackageWithFlags_NotAKdepsFile(t *testing.T) {
 }
 
 func TestPrePackageWithFlags_NonExistentFile(t *testing.T) {
-	err := cmd.PrePackageWithFlags(t.Context(), []string{"/nonexistent/pkg.kdeps"}, &cmd.PrePackageFlags{
-		Output: t.TempDir(),
-	})
+	err := cmd.PrePackageWithFlags(
+		t.Context(),
+		[]string{"/nonexistent/pkg.kdeps"},
+		&cmd.PrePackageFlags{
+			Output: t.TempDir(),
+		},
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot access .kdeps file")
 }
@@ -336,17 +353,24 @@ func TestPrePackageOutputNames(t *testing.T) {
 	outDir := t.TempDir()
 
 	hostArch := runtime.GOOS + "-" + runtime.GOARCH
-	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
-		Output: outDir,
-		Arch:   hostArch,
-	}))
+	require.NoError(
+		t,
+		cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
+			Output: outDir,
+			Arch:   hostArch,
+		}),
+	)
 
 	entries, err := os.ReadDir(outDir)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)
 
 	name := entries[0].Name()
-	assert.True(t, strings.HasPrefix(name, "test-agent-1.0.0-"), "output name should start with package name")
+	assert.True(
+		t,
+		strings.HasPrefix(name, "test-agent-1.0.0-"),
+		"output name should start with package name",
+	)
 	assert.Contains(t, name, runtime.GOOS)
 	assert.Contains(t, name, runtime.GOARCH)
 }
@@ -402,10 +426,12 @@ func TestGoosToReleaseOS(t *testing.T) {
 
 			// Capture the URL the prepackager tries to download via a mock server.
 			var capturedPath string
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				capturedPath = r.URL.Path
-				w.WriteHeader(http.StatusNotFound) // signal failure so we can verify the URL
-			}))
+			srv := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					capturedPath = r.URL.Path
+					w.WriteHeader(http.StatusNotFound) // signal failure so we can verify the URL
+				}),
+			)
 			defer srv.Close()
 
 			original := *cmd.GithubReleasesBaseURL
@@ -471,10 +497,14 @@ func makeZipWithBinary(t *testing.T, filename string, content []byte) []byte {
 // overridden so all download requests are routed through the mock server.
 func TestPrePackageWithFlags_MockServerLinux(t *testing.T) {
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
-		t.Skip("can't test non-host download on arm64 linux — linux-arm64 would use the host binary")
+		t.Skip(
+			"can't test non-host download on arm64 linux — linux-arm64 would use the host binary",
+		)
 	}
 	if runtime.GOOS != "linux" {
-		t.Skip("skipping linux download test on non-linux host (would require darwin/windows archive)")
+		t.Skip(
+			"skipping linux download test on non-linux host (would require darwin/windows archive)",
+		)
 	}
 
 	fakeBinary := []byte("FAKE_LINUX_ARM64_BINARY")
@@ -498,11 +528,15 @@ func TestPrePackageWithFlags_MockServerLinux(t *testing.T) {
 	// linux-arm64 is a non-host arch on a linux-amd64 CI runner, so the
 	// prepackager will attempt to download the base binary — which our mock
 	// server intercepts and satisfies with the fake tar.gz archive.
-	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
-		Output:       outDir,
-		Arch:         "linux-arm64",
-		KdepsVersion: "2.0.1", // non-dev version to trigger download
-	}), "prepackage should succeed when mock server returns a valid tar.gz archive")
+	require.NoError(
+		t,
+		cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
+			Output:       outDir,
+			Arch:         "linux-arm64",
+			KdepsVersion: "2.0.1", // non-dev version to trigger download
+		}),
+		"prepackage should succeed when mock server returns a valid tar.gz archive",
+	)
 
 	// Verify the output binary exists and carries the expected embedded package.
 	entries, err := os.ReadDir(outDir)
@@ -746,7 +780,9 @@ func TestGoarchToReleaseArch_Mappings(t *testing.T) {
 // download-extract-write path for a linux/amd64 binary via a mock HTTP server.
 func TestDownloadKdepsBinaryToTemp_LinuxMockServer(t *testing.T) {
 	if runtime.GOOS == "linux" && runtime.GOARCH == "amd64" {
-		t.Skip("linux/amd64 is the host arch on this runner — download path not exercised by DownloadKdepsBinaryToTemp")
+		t.Skip(
+			"linux/amd64 is the host arch on this runner — download path not exercised by DownloadKdepsBinaryToTemp",
+		)
 	}
 
 	fakeBinary := []byte("FAKE_LINUX_AMD64_BINARY_CONTENT")
@@ -934,7 +970,12 @@ func TestAppendEmbeddedPackage_PreservesPermissions(t *testing.T) {
 	info, err := os.Stat(outputPath)
 	require.NoError(t, err)
 	// Output should inherit the source binary's 0755 permissions.
-	assert.Equal(t, os.FileMode(0755), info.Mode()&0777, "output should have same permissions as source binary")
+	assert.Equal(
+		t,
+		os.FileMode(0755),
+		info.Mode()&0777,
+		"output should have same permissions as source binary",
+	)
 }
 
 // ---------------------------------------------------------------------------
@@ -994,10 +1035,14 @@ func TestPrePackageWithFlags_AllSupportedArchs(t *testing.T) {
 
 			if runtime.GOOS+"-"+runtime.GOARCH == arch {
 				// Host arch always succeeds.
-				err := cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
-					Output: outDir,
-					Arch:   arch,
-				})
+				err := cmd.PrePackageWithFlags(
+					t.Context(),
+					[]string{kdepsPath},
+					&cmd.PrePackageFlags{
+						Output: outDir,
+						Arch:   arch,
+					},
+				)
 				require.NoError(t, err, "host arch should always succeed")
 			} else {
 				// Non-host arch with dev version → skipped → error.
@@ -1027,10 +1072,13 @@ func TestPrePackageOutputName_WindowsSuffix(t *testing.T) {
 	}
 	kdepsPath := smallFakeKdeps(t)
 	outDir := t.TempDir()
-	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
-		Output: outDir,
-		Arch:   "windows-amd64",
-	}))
+	require.NoError(
+		t,
+		cmd.PrePackageWithFlags(t.Context(), []string{kdepsPath}, &cmd.PrePackageFlags{
+			Output: outDir,
+			Arch:   "windows-amd64",
+		}),
+	)
 	entries, err := os.ReadDir(outDir)
 	require.NoError(t, err)
 	require.Len(t, entries, 1)

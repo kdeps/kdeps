@@ -65,7 +65,11 @@ func (r *slackRunner) Start(ctx context.Context, ch chan<- Message) error {
 
 // pumpSocketEvents reads events from the socket-mode client and forwards
 // inbound messages to ch. It exits when ctx is cancelled or client.Events closes.
-func (r *slackRunner) pumpSocketEvents(ctx context.Context, client *socketmode.Client, ch chan<- Message) {
+func (r *slackRunner) pumpSocketEvents(
+	ctx context.Context,
+	client *socketmode.Client,
+	ch chan<- Message,
+) {
 	for {
 		select {
 		case <-ctx.Done():

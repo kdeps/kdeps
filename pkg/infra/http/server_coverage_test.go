@@ -68,7 +68,11 @@ func TestServer_HandleRequest_FileUploadError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	// Create a request with multipart content type but invalid body
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader("invalid multipart"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader("invalid multipart"),
+	)
 	req.Header.Set("Content-Type", "multipart/form-data; boundary=invalid")
 
 	server.HandleRequest(w, req)
@@ -81,7 +85,11 @@ func TestServer_ParseRequest_POST_FormData_Coverage(t *testing.T) {
 	server, err := httppkg.NewServer(nil, nil, nil)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader("key1=value1&key2=value2"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader("key1=value1&key2=value2"),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	ctx := server.ParseRequest(req, nil)
@@ -127,7 +135,11 @@ func TestServer_ParseRequest_PATCH(t *testing.T) {
 
 	body := map[string]interface{}{"key": "value"}
 	bodyJSON, _ := json.Marshal(body)
-	req := httptest.NewRequest(stdhttp.MethodPatch, "/api/test", strings.NewReader(string(bodyJSON)))
+	req := httptest.NewRequest(
+		stdhttp.MethodPatch,
+		"/api/test",
+		strings.NewReader(string(bodyJSON)),
+	)
 	req.Header.Set("Content-Type", "application/json")
 
 	ctx := server.ParseRequest(req, nil)

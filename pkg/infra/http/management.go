@@ -95,8 +95,14 @@ func (s *Server) SetupManagementRoutes() {
 	s.Router.GET(managementPathPrefix+"/openapi", s.HandleManagementOpenAPI)
 	s.Router.GET(managementPathPrefix+"/schema", s.HandleManagementSchema)
 	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
-	s.Router.PUT(managementPathPrefix+"/workflow", requireManagementAuth(s.HandleManagementUpdateWorkflow))
-	s.Router.PUT(managementPathPrefix+"/package", requireManagementAuth(s.HandleManagementUpdatePackage))
+	s.Router.PUT(
+		managementPathPrefix+"/workflow",
+		requireManagementAuth(s.HandleManagementUpdateWorkflow),
+	)
+	s.Router.PUT(
+		managementPathPrefix+"/package",
+		requireManagementAuth(s.HandleManagementUpdatePackage),
+	)
 	s.Router.POST(managementPathPrefix+"/reload", requireManagementAuth(s.HandleManagementReload))
 }
 
@@ -136,7 +142,11 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 	// "exactly at the limit" from "over the limit".
 	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxWorkflowBodySize+1))
 	if err != nil {
-		s.respondManagementError(w, stdhttp.StatusBadRequest, fmt.Sprintf("failed to read request body: %v", err))
+		s.respondManagementError(
+			w,
+			stdhttp.StatusBadRequest,
+			fmt.Sprintf("failed to read request body: %v", err),
+		)
 		return
 	}
 
@@ -147,8 +157,14 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 
 	// Reject payloads that exceed the allowed size without writing anything to disk.
 	if len(limitedBody) > maxWorkflowBodySize {
-		s.respondManagementError(w, stdhttp.StatusRequestEntityTooLarge,
-			fmt.Sprintf("workflow YAML exceeds maximum allowed size of %d bytes", maxWorkflowBodySize))
+		s.respondManagementError(
+			w,
+			stdhttp.StatusRequestEntityTooLarge,
+			fmt.Sprintf(
+				"workflow YAML exceeds maximum allowed size of %d bytes",
+				maxWorkflowBodySize,
+			),
+		)
 		return
 	}
 

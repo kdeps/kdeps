@@ -18,11 +18,17 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+)
+
+const (
+	wellKnownTimeout      = 10 * time.Second
+	wellKnownMaxRedirects = 3
 )
 
 // WellKnownResponse is the JSON payload returned by a /.well-known/agent/{urn} endpoint.
@@ -42,14 +48,14 @@ type WellKnownClient struct {
 func NewWellKnownClient() *WellKnownClient {
 	return &WellKnownClient{
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: wellKnownTimeout,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 			},
-			// Allow up to 3 redirects.
+			// Allow up to wellKnownMaxRedirects redirects.
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 3 {
-					return fmt.Errorf("too many redirects")
+				if len(via) >= wellKnownMaxRedirects {
+					return errors.New("too many redirects")
 				}
 				return nil
 			},
@@ -77,10 +83,13 @@ func (c *WellKnownClient) Discover(ctx context.Context, urn *URN) (*WellKnownRes
 
 // DiscoverFromAuthority resolves an agent by querying authority's well-known directory.
 // Useful when you only have the authority and want to enumerate available agents.
-func (c *WellKnownClient) DiscoverFromAuthority(ctx context.Context, authority string) ([]*WellKnownResponse, error) {
+func (c *WellKnownClient) DiscoverFromAuthority(
+	ctx context.Context,
+	authority string,
+) ([]*WellKnownResponse, error) {
 	directoryURL := fmt.Sprintf("https://%s/.well-known/agent", authority)
 
-	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, "GET", directoryURL, nil)
@@ -105,7 +114,8 @@ func (c *WellKnownClient) DiscoverFromAuthority(ctx context.Context, authority s
 	}
 
 	var agents []*WellKnownResponse
-	if err := json.Unmarshal(body, &agents); err != nil {
+	err = json.Unmarshal(body, &agents)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse directory response: %w", err)
 	}
 
@@ -114,7 +124,7 @@ func (c *WellKnownClient) DiscoverFromAuthority(ctx context.Context, authority s
 
 // fetchURL performs a GET to the given URL and unmarshals the JSON body into WellKnownResponse.
 func (c *WellKnownClient) fetchURL(ctx context.Context, rawURL string) (*WellKnownResponse, error) {
-	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(reqCtx, "GET", rawURL, nil)
@@ -142,16 +152,17 @@ func (c *WellKnownClient) fetchURL(ctx context.Context, rawURL string) (*WellKno
 	}
 
 	var result WellKnownResponse
-	if err := json.Unmarshal(body, &result); err != nil {
+	err = json.Unmarshal(body, &result)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse well-known response: %w", err)
 	}
 
 	// Validate that the returned URN matches what we requested.
 	if result.URN == "" {
-		return nil, fmt.Errorf("well-known response missing urn field")
+		return nil, errors.New("well-known response missing urn field")
 	}
 	if result.Endpoint == "" {
-		return nil, fmt.Errorf("well-known response missing endpoint field")
+		return nil, errors.New("well-known response missing endpoint field")
 	}
 
 	return &result, nil

@@ -52,7 +52,9 @@ func TestRunScaffold_GeneratesResources(t *testing.T) {
 		t,
 		os.WriteFile(
 			workflowPath,
-			[]byte("apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n"),
+			[]byte(
+				"apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n",
+			),
 			0644,
 		),
 	)
@@ -77,7 +79,9 @@ func TestRunScaffold_MultipleResources(t *testing.T) {
 		t,
 		os.WriteFile(
 			workflowPath,
-			[]byte("apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n"),
+			[]byte(
+				"apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n",
+			),
 			0644,
 		),
 	)
@@ -106,7 +110,9 @@ func TestRunScaffold_ExistingResourceWithoutForce(t *testing.T) {
 		t,
 		os.WriteFile(
 			workflowPath,
-			[]byte("apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n"),
+			[]byte(
+				"apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n",
+			),
 			0644,
 		),
 	)
@@ -139,7 +145,9 @@ func TestRunScaffold_InvalidResource(t *testing.T) {
 		t,
 		os.WriteFile(
 			workflowPath,
-			[]byte("apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n"),
+			[]byte(
+				"apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test\n  version: 1.0.0\n",
+			),
 			0644,
 		),
 	)

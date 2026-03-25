@@ -27,7 +27,7 @@ func TestGenerateKeypair(t *testing.T) {
 	assert.NotNil(t, private)
 	assert.NotNil(t, public)
 	assert.Len(t, private.Seed(), 32) // Ed25519 private key seed is 32 bytes
-	assert.Len(t, public, 32)          // Ed25519 public key is 32 bytes
+	assert.Len(t, public, 32)         // Ed25519 public key is 32 bytes
 }
 
 func TestKeyManagerSignVerify(t *testing.T) {
@@ -128,7 +128,7 @@ func TestSignMessage(t *testing.T) {
 }
 
 func BenchmarkGenerateKeypair(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = GenerateKeypair()
 	}
 }
@@ -140,7 +140,7 @@ func BenchmarkSignVerify(b *testing.B) {
 	sig, _ := km.Sign(msg)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_ = Verify(public, msg, sig)
 	}
 }

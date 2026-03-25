@@ -146,7 +146,11 @@ func extractHostPortManually(baseURL string, defaultHost string, defaultPort int
 	return host, port
 }
 
-func extractHostPortFromParsedURL(parsedURL *url.URL, defaultHost string, defaultPort int) (string, int) {
+func extractHostPortFromParsedURL(
+	parsedURL *url.URL,
+	defaultHost string,
+	defaultPort int,
+) (string, int) {
 	// URL parsed successfully, extract hostname
 	host := parsedURL.Hostname()
 	if host == "" {
@@ -314,7 +318,10 @@ func (e *Executor) Execute(
 					}, nil
 				}
 			}
-			return nil, fmt.Errorf("failed to parse JSON response and cannot extract raw content: %w", parseErr)
+			return nil, fmt.Errorf(
+				"failed to parse JSON response and cannot extract raw content: %w",
+				parseErr,
+			)
 		}
 		return parsed, nil
 	}
@@ -541,7 +548,9 @@ func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
 		sb.WriteString("Rules:\n")
 		sb.WriteString("- Return a JSON array for tool calls, even for one tool.\n")
 		sb.WriteString("- Include all required parameters.\n")
-		sb.WriteString("- Execute tools in the specified order, using previous tool outputs to inform parameters.\n")
+		sb.WriteString(
+			"- Execute tools in the specified order, using previous tool outputs to inform parameters.\n",
+		)
 		sb.WriteString(
 			"- After tool execution, return the final result as a string without tool calls unless new tools are needed.\n",
 		)
@@ -552,7 +561,9 @@ func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
 			// Add parameter descriptions if available
 			if len(tool.Parameters) > 0 {
 				for paramName, param := range tool.Parameters {
-					sb.WriteString("  - " + paramName + " (" + param.Type + "): " + param.Description + "\n")
+					sb.WriteString(
+						"  - " + paramName + " (" + param.Type + "): " + param.Description + "\n",
+					)
 				}
 			}
 		}
@@ -611,7 +622,10 @@ func (e *Executor) buildContent(
 }
 
 // loadImageAsBase64 loads an image file and returns it as base64-encoded string with MIME type.
-func (e *Executor) loadImageAsBase64(filePath string, ctx *executor.ExecutionContext) (string, string, error) {
+func (e *Executor) loadImageAsBase64(
+	filePath string,
+	ctx *executor.ExecutionContext,
+) (string, string, error) {
 	fullPath, mimeType, err := e.findAndResolveImageFile(filePath, ctx)
 	if err != nil {
 		return "", "", err
@@ -621,7 +635,10 @@ func (e *Executor) loadImageAsBase64(filePath string, ctx *executor.ExecutionCon
 }
 
 // findAndResolveImageFile finds the file and determines its MIME type.
-func (e *Executor) findAndResolveImageFile(filePath string, ctx *executor.ExecutionContext) (string, string, error) {
+func (e *Executor) findAndResolveImageFile(
+	filePath string,
+	ctx *executor.ExecutionContext,
+) (string, string, error) {
 	// Try to get file from uploaded files first
 	fullPath, mimeType, found := e.findUploadedFile(filePath, ctx)
 	if found {
@@ -633,7 +650,10 @@ func (e *Executor) findAndResolveImageFile(filePath string, ctx *executor.Execut
 }
 
 // findUploadedFile looks for the file in uploaded files from the request context.
-func (e *Executor) findUploadedFile(filePath string, ctx *executor.ExecutionContext) (string, string, bool) {
+func (e *Executor) findUploadedFile(
+	filePath string,
+	ctx *executor.ExecutionContext,
+) (string, string, bool) {
 	if ctx.Request == nil || ctx.Request.Files == nil || len(ctx.Request.Files) == 0 {
 		return "", "", false
 	}
@@ -655,7 +675,10 @@ func (e *Executor) findUploadedFile(filePath string, ctx *executor.ExecutionCont
 }
 
 // resolveFilesystemImageFile resolves filesystem path and detects MIME type.
-func (e *Executor) resolveFilesystemImageFile(filePath string, ctx *executor.ExecutionContext) (string, string, error) {
+func (e *Executor) resolveFilesystemImageFile(
+	filePath string,
+	ctx *executor.ExecutionContext,
+) (string, string, error) {
 	// Resolve relative to context FSRoot
 	fullPath := filePath
 	if len(filePath) > 0 && !os.IsPathSeparator(filePath[0]) && ctx.FSRoot != "" {
@@ -886,7 +909,8 @@ func (e *Executor) shouldTreatAsLiteral(value string) bool {
 	if len(value) > 0 && (value[0] == '/' || (len(value) > 1 && value[1] == ':')) {
 		// If it's an absolute path, check if it has a file extension or path separators
 		// to distinguish from actual expressions that might start with /
-		return strings.Contains(value, "/") || strings.Contains(value, "\\") || strings.Contains(value, ".")
+		return strings.Contains(value, "/") || strings.Contains(value, "\\") ||
+			strings.Contains(value, ".")
 	}
 	return false
 }
@@ -994,7 +1018,9 @@ func (e *Executor) parseJSONResponse(
 }
 
 // extractToolCalls extracts tool calls from LLM response.
-func (e *Executor) extractToolCalls(response map[string]interface{}) ([]map[string]interface{}, bool) {
+func (e *Executor) extractToolCalls(
+	response map[string]interface{},
+) ([]map[string]interface{}, bool) {
 	message, ok := response["message"].(map[string]interface{})
 	if !ok {
 		return nil, false
@@ -1156,7 +1182,10 @@ func (e *Executor) validateToolScript(tool domain.Tool) error {
 }
 
 // lookupToolResource finds the resource associated with a tool.
-func (e *Executor) lookupToolResource(tool domain.Tool, ctx *executor.ExecutionContext) (*domain.Resource, error) {
+func (e *Executor) lookupToolResource(
+	tool domain.Tool,
+	ctx *executor.ExecutionContext,
+) (*domain.Resource, error) {
 	resource, ok := ctx.Resources[tool.Script]
 	if !ok {
 		return nil, fmt.Errorf(

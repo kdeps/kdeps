@@ -279,7 +279,10 @@ func (p *Parser) looksLikeMIMEType(value string) bool {
 	// Common MIME type patterns: type/subtype
 	// MIME types can contain + and . in the subtype (e.g., "application/vnd.github.v3+json")
 	// Pattern: type/subtype where subtype can contain letters, digits, hyphens, underscores, dots, and plus signs
-	matched, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9_-]*/[a-zA-Z][a-zA-Z0-9_.+-]*(;.*)?$`, value)
+	matched, _ := regexp.MatchString(
+		`^[a-zA-Z][a-zA-Z0-9_-]*/[a-zA-Z][a-zA-Z0-9_.+-]*(;.*)?$`,
+		value,
+	)
 	return matched
 }
 

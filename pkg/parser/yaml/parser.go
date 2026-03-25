@@ -46,6 +46,7 @@ type SchemaValidator interface {
 	ValidateResource(data map[string]interface{}) error
 	ValidateAgency(data map[string]interface{}) error
 	ValidateComponent(data map[string]interface{}) error
+	ValidateRemoteAgent(data map[string]interface{}) error
 }
 
 // ExpressionParser parses expressions.
@@ -251,10 +252,17 @@ func (p *Parser) loadImportedWorkflows(
 // loadImportedWorkflows.  It mirrors ParseWorkflow but skips schema validation
 // (the imported file was already validated when it was first authored) and
 // passes the visited set through to detect circular imports.
-func (p *Parser) parseWorkflowForImport(path string, visited map[string]struct{}) (*domain.Workflow, error) {
+func (p *Parser) parseWorkflowForImport(
+	path string,
+	visited map[string]struct{},
+) (*domain.Workflow, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read imported workflow file", err)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to read imported workflow file",
+			err,
+		)
 	}
 
 	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
@@ -268,7 +276,11 @@ func (p *Parser) parseWorkflowForImport(path string, visited map[string]struct{}
 
 	var workflow domain.Workflow
 	if unmarshalErr := yaml.Unmarshal([]byte(preprocessed), &workflow); unmarshalErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse imported workflow", unmarshalErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to parse imported workflow",
+			unmarshalErr,
+		)
 	}
 
 	if workflow.Resources == nil {
@@ -364,6 +376,7 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	if p.schemaValidator != nil {
 		sv := p.schemaValidator
 		validate = func(rawData map[string]interface{}) error {
+			// Validate the whole resource first
 			if validateErr := sv.ValidateResource(rawData); validateErr != nil {
 				return domain.NewError(
 					domain.ErrCodeValidationFailed,
@@ -371,7 +384,8 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 					validateErr,
 				)
 			}
-			return nil
+			// Additional specific validation for remoteAgent
+			return p.validateRemoteAgentIfPresent(rawData, sv)
 		}
 	}
 
@@ -394,6 +408,23 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	}
 
 	return &resource, nil
+}
+
+// validateRemoteAgentIfPresent checks if the resource contains a remoteAgent configuration
+// and validates it if present. This helper reduces nesting in ParseResource's validate function.
+func (p *Parser) validateRemoteAgentIfPresent(rawData map[string]interface{}, sv SchemaValidator) error {
+	if run, ok := rawData["run"].(map[string]interface{}); ok {
+		if remoteAgent, hasRemote := run["remoteAgent"].(map[string]interface{}); hasRemote {
+			if validateErr := sv.ValidateRemoteAgent(remoteAgent); validateErr != nil {
+				return domain.NewError(
+					domain.ErrCodeValidationFailed,
+					"remoteAgent validation failed",
+					validateErr,
+				)
+			}
+		}
+	}
+	return nil
 }
 
 // loadResources loads and parses all resource files referenced by the workflow.
@@ -620,13 +651,21 @@ func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 		return nil
 	})
 	if walkErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to walk agents directory", walkErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to walk agents directory",
+			walkErr,
+		)
 	}
 
 	// 2. Discover packed agents (agents/*.kdeps) in the immediate agents/ dir.
 	entries, readErr := os.ReadDir(agentsDir)
 	if readErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read agents directory", readErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to read agents directory",
+			readErr,
+		)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {

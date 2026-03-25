@@ -40,7 +40,11 @@ type Dispatcher struct {
 }
 
 // NewDispatcher creates a Dispatcher for the bot platforms configured in workflow.Settings.Input.Bot.
-func NewDispatcher(workflow *domain.Workflow, engine *executor.Engine, logger *slog.Logger) (*Dispatcher, error) {
+func NewDispatcher(
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	logger *slog.Logger,
+) (*Dispatcher, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -145,6 +149,13 @@ func (d *Dispatcher) handleMessage(ctx context.Context, msg Message) {
 	}
 
 	if _, err := d.engine.Execute(d.workflow, req); err != nil {
-		d.logger.ErrorContext(ctx, "bot: workflow execution failed", "platform", msg.Platform, "err", err)
+		d.logger.ErrorContext(
+			ctx,
+			"bot: workflow execution failed",
+			"platform",
+			msg.Platform,
+			"err",
+			err,
+		)
 	}
 }

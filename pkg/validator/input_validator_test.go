@@ -208,7 +208,12 @@ func TestInputValidator_ValidateType(t *testing.T) {
 
 		// UUID type
 		{"valid uuid", domain.FieldTypeUUID, "550e8400-e29b-41d4-a716-446655440000", false},
-		{"valid uuid - uppercase", domain.FieldTypeUUID, "550E8400-E29B-41D4-A716-446655440000", false},
+		{
+			"valid uuid - uppercase",
+			domain.FieldTypeUUID,
+			"550E8400-E29B-41D4-A716-446655440000",
+			false,
+		},
 		{"invalid uuid - format", domain.FieldTypeUUID, "not-a-uuid", true},
 		{"invalid uuid - too short", domain.FieldTypeUUID, "550e8400", true},
 		{"invalid uuid - int", domain.FieldTypeUUID, 123, true},
@@ -1319,8 +1324,13 @@ func TestInputValidator_ValidateType_EdgeCases(t *testing.T) {
 		{"uuid - v4", domain.FieldTypeUUID, "550e8400-e29b-41d4-a716-446655440000", false},
 
 		// Edge cases for date type
-		{"date - unix timestamp format", domain.FieldTypeDate, "1640995200", true}, // Should fail - not RFC3339
-		{"date - custom format", domain.FieldTypeDate, "2024/01/15", true},         // Should fail
+		{
+			"date - unix timestamp format",
+			domain.FieldTypeDate,
+			"1640995200",
+			true,
+		}, // Should fail - not RFC3339
+		{"date - custom format", domain.FieldTypeDate, "2024/01/15", true}, // Should fail
 		{"date - with milliseconds", domain.FieldTypeDate, "2024-01-15T10:30:00.123456789Z", false},
 		{"date - timezone offset", domain.FieldTypeDate, "2024-01-15T10:30:00+05:30", false},
 	}
@@ -1517,7 +1527,11 @@ func TestInputValidator_ValidateType_URL_EdgeCases(t *testing.T) {
 		{"url - with user info", "https://user:pass@example.com", false},
 		{"url - underscore in domain", "http://my_domain.com", false}, // Actually valid
 		{"url - hyphen in domain", "http://my-domain.com", false},
-		{"url - uppercase scheme", "HTTPS://EXAMPLE.COM", true}, // Actually fails - uppercase scheme
+		{
+			"url - uppercase scheme",
+			"HTTPS://EXAMPLE.COM",
+			true,
+		}, // Actually fails - uppercase scheme
 	}
 
 	for _, tt := range tests {

@@ -448,7 +448,11 @@ func TestGenerateJSONSchema_EnumField(t *testing.T) {
 				Run: domain.RunConfig{
 					Validations: &domain.ValidationsConfig{
 						Rules: []domain.FieldRule{
-							{Field: "color", Type: domain.FieldTypeString, Enum: []interface{}{"red", "green", "blue"}},
+							{
+								Field: "color",
+								Type:  domain.FieldTypeString,
+								Enum:  []interface{}{"red", "green", "blue"},
+							},
 						},
 					},
 				},
@@ -620,7 +624,11 @@ func TestGenerateOpenAPI_RequestBodyRequiredFalseWhenNoRequiredFields(t *testing
 	op := spec.Paths["/optional"]["post"]
 	require.NotNil(t, op)
 	require.NotNil(t, op.RequestBody)
-	assert.False(t, op.RequestBody.Required, "requestBody.required should be false when no required fields")
+	assert.False(
+		t,
+		op.RequestBody.Required,
+		"requestBody.required should be false when no required fields",
+	)
 }
 
 func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
@@ -662,7 +670,12 @@ func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
 			count++
 		}
 	}
-	assert.Equal(t, 1, count, "query param 'q' should appear exactly once even across multiple resources")
+	assert.Equal(
+		t,
+		1,
+		count,
+		"query param 'q' should appear exactly once even across multiple resources",
+	)
 }
 
 func TestGenerateOpenAPI_EmptyFieldNameSkipped(t *testing.T) {

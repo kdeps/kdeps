@@ -141,7 +141,12 @@ func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, d
 }
 
 // RespondWithSuccess sends a success response.
-func RespondWithSuccess(w stdhttp.ResponseWriter, r *stdhttp.Request, data any, meta map[string]any) {
+func RespondWithSuccess(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	data any,
+	meta map[string]any,
+) {
 	if meta == nil {
 		meta = make(map[string]any)
 	}

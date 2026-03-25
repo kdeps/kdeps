@@ -166,14 +166,22 @@ func TestExecutor_Execute_Streaming_AccumulatesChunks(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = io.WriteString(w, `{"message":{"role":"assistant","content":"Hello "},"done":false}`+"\n")
-		_, _ = io.WriteString(w, `{"message":{"role":"assistant","content":"World"},"done":false}`+"\n")
+		_, _ = io.WriteString(
+			w,
+			`{"message":{"role":"assistant","content":"Hello "},"done":false}`+"\n",
+		)
+		_, _ = io.WriteString(
+			w,
+			`{"message":{"role":"assistant","content":"World"},"done":false}`+"\n",
+		)
 		_, _ = io.WriteString(w, `{"message":{"role":"assistant","content":"!"},"done":true}`+"\n")
 	}))
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -202,7 +210,9 @@ func TestExecutor_Execute_Streaming_ErrorStatus(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{

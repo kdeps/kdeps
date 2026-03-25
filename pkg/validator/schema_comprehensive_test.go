@@ -148,7 +148,11 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -447,10 +451,18 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 			if !contains(errMsg, "Expected: "+tt.expectedType) {
-				t.Errorf("Error message should mention expected type '%s', got: %s", tt.expectedType, errMsg)
+				t.Errorf(
+					"Error message should mention expected type '%s', got: %s",
+					tt.expectedType,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -524,11 +536,19 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 
 			if !contains(errMsg, tt.expectedOption) {
-				t.Errorf("Error message should contain option '%s', got: %s", tt.expectedOption, errMsg)
+				t.Errorf(
+					"Error message should contain option '%s', got: %s",
+					tt.expectedOption,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -655,7 +675,10 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			validateErr := validator.ValidateResource(tt.data)
 			if validateErr != nil {
-				t.Errorf("ValidateResource() should pass for valid config, got error: %v", validateErr)
+				t.Errorf(
+					"ValidateResource() should pass for valid config, got error: %v",
+					validateErr,
+				)
 			}
 		})
 	}

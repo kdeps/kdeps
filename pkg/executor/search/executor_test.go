@@ -983,7 +983,10 @@ func TestExecute_ErrorResultShape(t *testing.T) {
 	t.Setenv("TAVILY_API_KEY", "")
 	withTavilyURL(t, "http://127.0.0.1:1") // will fail
 	e := &Executor{httpClient: &http.Client{Timeout: 50 * time.Millisecond}}
-	result, err := e.Execute(nil, &domain.SearchConfig{Provider: "tavily", Query: "test", APIKey: "key"})
+	result, err := e.Execute(
+		nil,
+		&domain.SearchConfig{Provider: "tavily", Query: "test", APIKey: "key"},
+	)
 	if err == nil {
 		t.Fatal("expected error")
 	}

@@ -74,12 +74,14 @@ func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
 		return 0, 0, false
 	}
 
-	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize) //nolint:gosec // G115: safe uint64→int64
+	//nolint:gosec // safe uint64->int64 conversion, kdepsSize validated by range check
+	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize)
 	if off < 0 {
 		return 0, 0, false
 	}
 
-	return off, int64(kdepsSize), true //nolint:gosec // G115: safe uint64→int64
+	//nolint:gosec // safe uint64->int64 conversion
+	return off, int64(kdepsSize), true
 }
 
 // HasEmbeddedPackage reports whether the binary at execPath carries an
@@ -181,7 +183,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 
 	// 3. Size field (8-byte big-endian uint64).
 	sizeBuf := make([]byte, EmbeddedSizeFieldLen)
-	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize)) //nolint:gosec // G115: kdepsSize is a file size, always ≥ 0
+	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize)) //nolint:gosec // kdepsSize is non-negative
 	if _, writeErr := out.Write(sizeBuf); writeErr != nil {
 		return fmt.Errorf("failed to write size trailer: %w", writeErr)
 	}
@@ -220,7 +222,8 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	}
 
 	kdepsSize := binary.BigEndian.Uint64(trailer[:8])
-	cleanSize := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize) //nolint:gosec // G115: safe uint64→int64
+	//nolint:gosec // safe uint64->int64 conversion
+	cleanSize := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize)
 	if cleanSize <= 0 {
 		return execPath, false, nil
 	}
@@ -295,8 +298,12 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 
 	// Inject "run <tmpPath>" into os.Args so the cobra root command picks it up.
 	origArgs := os.Args
-	os.Args = []string{origArgs[0], "run", tmpPath} //nolint:reassign // inject args for embedded package dispatch
-	defer func() { os.Args = origArgs }()           //nolint:reassign // restore original args on exit
+	os.Args = []string{ //nolint:reassign // intentional override for command dispatch
+		origArgs[0],
+		"run",
+		tmpPath,
+	} // inject args for embedded package dispatch
+	defer func() { os.Args = origArgs }() //nolint:reassign // restore original args on exit; intentional restore
 
 	if execErr := Execute(ver, commit); execErr != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", execErr)
@@ -323,7 +330,7 @@ func detectEmbeddedArchiveType(f *os.File, offset int64) string {
 			break
 		}
 		base := filepath.Base(hdr.Name)
-		if base == "agency.yaml" || base == "agency.yml" {
+		if base == agencyFile || base == agencyYMLFile {
 			return kagencyExtension
 		}
 	}

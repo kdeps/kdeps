@@ -79,7 +79,11 @@ func TestOllamaBackend(t *testing.T) {
 	backend := &llm.OllamaBackend{}
 	assert.Equal(t, "ollama", backend.Name())
 	assert.Equal(t, "http://localhost:11434", backend.DefaultURL())
-	assert.Equal(t, "http://localhost:11434/api/chat", backend.ChatEndpoint("http://localhost:11434"))
+	assert.Equal(
+		t,
+		"http://localhost:11434/api/chat",
+		backend.ChatEndpoint("http://localhost:11434"),
+	)
 	assert.Equal(t, "http://custom:16395/api/chat", backend.ChatEndpoint("http://custom:16395"))
 
 	// Test BuildRequest
@@ -127,7 +131,11 @@ func TestOpenAIBackend(t *testing.T) {
 	backend := &llm.OpenAIBackend{}
 	assert.Equal(t, "openai", backend.Name())
 	assert.Equal(t, "https://api.openai.com", backend.DefaultURL())
-	assert.Equal(t, "https://api.openai.com/v1/chat/completions", backend.ChatEndpoint("https://api.openai.com"))
+	assert.Equal(
+		t,
+		"https://api.openai.com/v1/chat/completions",
+		backend.ChatEndpoint("https://api.openai.com"),
+	)
 
 	// Test BuildRequest with context length
 	req, err := backend.BuildRequest("gpt-4", []map[string]interface{}{
@@ -166,7 +174,9 @@ func TestExecutor_Execute_WithBackend(t *testing.T) {
 	defer server.Close()
 
 	exec := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -216,7 +226,9 @@ func TestExecutor_Execute_WithOpenAIBackend(t *testing.T) {
 	defer server.Close()
 
 	exec := llm.NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -261,7 +273,9 @@ func TestExecutor_Execute_WithContextLength(t *testing.T) {
 	defer server.Close()
 
 	exec := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -280,7 +294,9 @@ func TestExecutor_Execute_WithContextLength(t *testing.T) {
 
 func TestExecutor_Execute_UnknownBackend(t *testing.T) {
 	exec := llm.NewExecutor("")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{

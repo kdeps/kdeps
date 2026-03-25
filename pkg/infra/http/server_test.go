@@ -172,7 +172,11 @@ func TestServer_HandleRequest_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader(`{"input": "test"}`))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader(`{"input": "test"}`),
+	)
 	req.Header.Set("Content-Type", "application/json")
 
 	server.HandleRequest(w, req)
@@ -281,7 +285,11 @@ func TestServer_ParseRequest_InvalidJSON(t *testing.T) {
 	server, err := httppkg.NewServer(nil, nil, nil)
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader(`{"invalid": json}`))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader(`{"invalid": json}`),
+	)
 	req.Header.Set("Content-Type", "application/json")
 
 	ctx := server.ParseRequest(req, nil) // Should not fail, just parse what it can
@@ -494,12 +502,23 @@ func TestServer_SetupHotReload(t *testing.T) {
 		if strings.HasSuffix(path, "workflow.yaml") || strings.Contains(path, "workflow.yaml") {
 			workflowFound = true
 		}
-		if strings.HasSuffix(path, "resources") || strings.Contains(path, "/resources") || path == "resources" {
+		if strings.HasSuffix(path, "resources") || strings.Contains(path, "/resources") ||
+			path == "resources" {
 			resourcesFound = true
 		}
 	}
-	assert.True(t, workflowFound, "workflow.yaml should be watched, got paths: %v", mockWatcher.watchedPaths)
-	assert.True(t, resourcesFound, "resources directory should be watched, got paths: %v", mockWatcher.watchedPaths)
+	assert.True(
+		t,
+		workflowFound,
+		"workflow.yaml should be watched, got paths: %v",
+		mockWatcher.watchedPaths,
+	)
+	assert.True(
+		t,
+		resourcesFound,
+		"resources directory should be watched, got paths: %v",
+		mockWatcher.watchedPaths,
+	)
 }
 
 func TestServer_SetupHotReload_NoWatcher(t *testing.T) {

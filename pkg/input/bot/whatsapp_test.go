@@ -288,19 +288,31 @@ func TestNew_Discord_Success(t *testing.T) {
 }
 
 func TestNew_Slack_Success(t *testing.T) {
-	r, err := New("slack", &domain.BotConfig{Slack: &domain.SlackConfig{BotToken: "xoxb-t", AppToken: "xapp-t"}}, nil)
+	r, err := New(
+		"slack",
+		&domain.BotConfig{Slack: &domain.SlackConfig{BotToken: "xoxb-t", AppToken: "xapp-t"}},
+		nil,
+	)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
 
 func TestNew_Telegram_Success(t *testing.T) {
-	r, err := New("telegram", &domain.BotConfig{Telegram: &domain.TelegramConfig{BotToken: "t"}}, nil)
+	r, err := New(
+		"telegram",
+		&domain.BotConfig{Telegram: &domain.TelegramConfig{BotToken: "t"}},
+		nil,
+	)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
 
 func TestNew_WhatsApp_Success(t *testing.T) {
-	r, err := New("whatsapp", &domain.BotConfig{WhatsApp: &domain.WhatsAppConfig{AccessToken: "t"}}, nil)
+	r, err := New(
+		"whatsapp",
+		&domain.BotConfig{WhatsApp: &domain.WhatsAppConfig{AccessToken: "t"}},
+		nil,
+	)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }

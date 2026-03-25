@@ -356,7 +356,11 @@ func TestCohereBackend_ParseResponse_Success_Extra(t *testing.T) {
 func TestAnthropicBackend_BuildRequest_JSONResponse(t *testing.T) {
 	b := &llm.AnthropicBackend{}
 	msgs := []map[string]interface{}{{"role": "user", "content": "hello"}}
-	req, err := b.BuildRequest("claude-3", msgs, llm.ChatRequestConfig{JSONResponse: true, ContextLength: 1024})
+	req, err := b.BuildRequest(
+		"claude-3",
+		msgs,
+		llm.ChatRequestConfig{JSONResponse: true, ContextLength: 1024},
+	)
 	require.NoError(t, err)
 	assert.NotNil(t, req["response_format"])
 	assert.Equal(t, 1024, req["max_tokens"])
@@ -367,8 +371,14 @@ func TestAnthropicBackend_BuildRequest_JSONResponse(t *testing.T) {
 func TestGoogleBackend_BuildRequest_Tools(t *testing.T) {
 	b := &llm.GoogleBackend{}
 	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
-	tools := []map[string]interface{}{{"type": "function", "function": map[string]interface{}{"name": "my_fn"}}}
-	req, err := b.BuildRequest("gemini-pro", msgs, llm.ChatRequestConfig{Tools: tools, ContextLength: 512})
+	tools := []map[string]interface{}{
+		{"type": "function", "function": map[string]interface{}{"name": "my_fn"}},
+	}
+	req, err := b.BuildRequest(
+		"gemini-pro",
+		msgs,
+		llm.ChatRequestConfig{Tools: tools, ContextLength: 512},
+	)
 	require.NoError(t, err)
 	assert.Equal(t, tools, req["tools"])
 	assert.Equal(t, 512, req["max_tokens"])

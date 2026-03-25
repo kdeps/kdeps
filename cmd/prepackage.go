@@ -80,7 +80,9 @@ const (
 // It carries an explicit timeout so downloads cannot hang indefinitely.
 //
 //nolint:gochecknoglobals // overridable in tests via HTTPDownloadClient
-var httpDownloadClient = &http.Client{Timeout: downloadTimeout} //nolint:exhaustruct // only Timeout matters
+var httpDownloadClient = &http.Client{
+	Timeout: downloadTimeout,
+} //nolint:exhaustruct // only Timeout matters
 
 // newPrePackageCmd constructs the cobra.Command for "kdeps prepackage".
 func newPrePackageCmd() *cobra.Command {
@@ -117,7 +119,8 @@ Examples:
 		},
 	}
 
-	cmd.Flags().StringVarP(&flags.Output, "output", "o", ".", "Output directory for produced binaries")
+	cmd.Flags().
+		StringVarP(&flags.Output, "output", "o", ".", "Output directory for produced binaries")
 	cmd.Flags().StringVar(
 		&flags.Arch,
 		"arch",
@@ -150,7 +153,10 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	if ver == "" {
 		ver = version.Version
 	}
-	ver = strings.TrimPrefix(ver, "v") // normalise — goreleaser tags use "v2.x.y" but assets omit "v"
+	ver = strings.TrimPrefix(
+		ver,
+		"v",
+	) // normalise — goreleaser tags use "v2.x.y" but assets omit "v"
 
 	// Determine the output package name from the workflow inside the .kdeps file.
 	pkgName, err := getPackageName(kdepsFile)
@@ -288,7 +294,10 @@ func resolvePrepackageTargets(archFlag string) ([]archTarget, error) {
 	const archPartCount = 2
 	parts := strings.SplitN(archFlag, "-", archPartCount)
 	if len(parts) != archPartCount {
-		return nil, fmt.Errorf("invalid --arch value %q: expected os-arch (e.g. linux-amd64)", archFlag)
+		return nil, fmt.Errorf(
+			"invalid --arch value %q: expected os-arch (e.g. linux-amd64)",
+			archFlag,
+		)
 	}
 	target := archTarget{GOOS: parts[0], GOARCH: parts[1]}
 	for _, t := range allArchTargets {

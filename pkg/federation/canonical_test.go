@@ -26,9 +26,9 @@ func TestCanonicalize(t *testing.T) {
 	c := &Canonicalizer{}
 
 	tests := []struct {
-		name     string
-		yaml     string
-		mustContain []string
+		name           string
+		yaml           string
+		mustContain    []string
 		mustNotContain []string
 	}{
 		{
@@ -38,7 +38,7 @@ a: 1
 b: 2
 c: 3
 `,
-			mustContain: []string{`"a":1`, `"b":2`, `"c":3`},
+			mustContain:    []string{`"a":1`, `"b":2`, `"c":3`},
 			mustNotContain: []string{"a: 1", "comments"},
 		},
 		{
@@ -48,7 +48,7 @@ outer:
   inner1: value1
   inner2: value2
 `,
-			mustContain: []string{`"outer":{"inner1":"value1","inner2":"value2"}`},
+			mustContain:    []string{`"outer":{"inner1":"value1","inner2":"value2"}`},
 			mustNotContain: []string{`inner1: value1`}, // YAML format should be gone
 		},
 		{
@@ -56,7 +56,7 @@ outer:
 			yaml: `key: "  spaced value  "
 another: "	\tvalue	"
 `,
-			mustContain: []string{`"key":"spaced value"`, `"another":"value"`},
+			mustContain:    []string{`"key":"spaced value"`, `"another":"value"`},
 			mustNotContain: []string{"  ", "\t"},
 		},
 		{

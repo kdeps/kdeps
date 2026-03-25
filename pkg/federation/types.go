@@ -23,49 +23,49 @@ import (
 
 // JSONSchema represents a JSON Schema for input/output validation.
 type JSONSchema struct {
-	Schema       string                 `json:"$schema,omitempty"`
-	Type         string                 `json:"type,omitempty"`
-	Properties   map[string]Property   `json:"properties,omitempty"`
-	Required     []string               `json:"required,omitempty"`
-	Definitions  map[string]JSONSchema  `json:"definitions,omitempty"`
-	Items        *JSONSchema            `json:"items,omitempty"` // for arrays
-	Enum         []interface{}          `json:"enum,omitempty"`
-	Format       string                 `json:"format,omitempty"`
-	Description  string                 `json:"description,omitempty"`
+	Schema      string                `json:"$schema,omitempty"`
+	Type        string                `json:"type,omitempty"`
+	Properties  map[string]Property   `json:"properties,omitempty"`
+	Required    []string              `json:"required,omitempty"`
+	Definitions map[string]JSONSchema `json:"definitions,omitempty"`
+	Items       *JSONSchema           `json:"items,omitempty"` // for arrays
+	Enum        []interface{}         `json:"enum,omitempty"`
+	Format      string                `json:"format,omitempty"`
+	Description string                `json:"description,omitempty"`
 }
 
 // Property describes a single property in a JSON Schema.
 type Property struct {
-	Type        string      `json:"type,omitempty"`
-	Format      string      `json:"format,omitempty"`
-	Description string      `json:"description,omitempty"`
-	Items       *JSONSchema `json:"items,omitempty"`
+	Type        string        `json:"type,omitempty"`
+	Format      string        `json:"format,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Items       *JSONSchema   `json:"items,omitempty"`
 	Enum        []interface{} `json:"enum,omitempty"`
 }
 
 // Action describes a capability exposed by an agent.
 type Action struct {
-	ActionID      string     `json:"actionId"`
-	Title         string     `json:"title,omitempty"`
-	Description   string     `json:"description,omitempty"`
-	InputSchema   JSONSchema `json:"inputSchema"`
-	OutputSchema  JSONSchema `json:"outputSchema"`
+	ActionID     string     `json:"actionId"`
+	Title        string     `json:"title,omitempty"`
+	Description  string     `json:"description,omitempty"`
+	InputSchema  JSONSchema `json:"inputSchema"`
+	OutputSchema JSONSchema `json:"outputSchema"`
 }
 
 // Capability describes what an agent can do.
 type Capability struct {
-	URN             string    `json:"urn"`
-	Title           string    `json:"title,omitempty"`
-	Description     string    `json:"description,omitempty"`
-	Version         string    `json:"version,omitempty"`
-	Capabilities    []Action  `json:"capabilities"`
-	AuthMethods     []string  `json:"authMethods,omitempty"`
-	RequiredScopes  []string  `json:"requiredScopes,omitempty"`
-	RateLimit       RateLimit `json:"rateLimit,omitempty"`
-	Endpoint        string    `json:"endpoint,omitempty"`
-	Contact         string    `json:"contact,omitempty"`
-	Documentation   string    `json:"documentation,omitempty"`
-	TrustLevel      string    `json:"trustLevel,omitempty"` // self-attested, verified, certified
+	URN            string    `json:"urn"`
+	Title          string    `json:"title,omitempty"`
+	Description    string    `json:"description,omitempty"`
+	Version        string    `json:"version,omitempty"`
+	Capabilities   []Action  `json:"capabilities"`
+	AuthMethods    []string  `json:"authMethods,omitempty"`
+	RequiredScopes []string  `json:"requiredScopes,omitempty"`
+	RateLimit      RateLimit `json:"rateLimit,omitempty"`
+	Endpoint       string    `json:"endpoint,omitempty"`
+	Contact        string    `json:"contact,omitempty"`
+	Documentation  string    `json:"documentation,omitempty"`
+	TrustLevel     string    `json:"trustLevel,omitempty"` // self-attested, verified, certified
 }
 
 // RateLimit describes throttling parameters.
@@ -76,8 +76,8 @@ type RateLimit struct {
 
 // CallerIdentity identifies the invoking agent.
 type CallerIdentity struct {
-	URN        string `json:"urn"`
-	PublicKey  string `json:"publicKey"`  // ed25519:base64...
+	URN       string `json:"urn"`
+	PublicKey string `json:"publicKey"` // ed25519:base64...
 }
 
 // CalleeIdentity identifies the target agent.
@@ -87,8 +87,8 @@ type CalleeIdentity struct {
 
 // RequestPayload contains the invocation inputs and context.
 type RequestPayload struct {
-	Inputs     map[string]interface{} `json:"inputs"`
-	Context    InvocationContext     `json:"context"`
+	Inputs  map[string]interface{} `json:"inputs"`
+	Context InvocationContext      `json:"context"`
 }
 
 // InvocationContext carries metadata about the request.
@@ -100,19 +100,19 @@ type InvocationContext struct {
 
 // InvocationRequest is sent by caller to callee.
 type InvocationRequest struct {
-	MessageID   uuid.UUID        `json:"messageId"`
-	Timestamp   time.Time        `json:"timestamp"`
-	Caller      CallerIdentity   `json:"caller"`
-	Callee      CalleeIdentity   `json:"callee"`
-	Payload     RequestPayload   `json:"payload"`
+	MessageID uuid.UUID      `json:"messageId"`
+	Timestamp time.Time      `json:"timestamp"`
+	Caller    CallerIdentity `json:"caller"`
+	Callee    CalleeIdentity `json:"callee"`
+	Payload   RequestPayload `json:"payload"`
 }
 
 // ExecutionResult describes the outcome of remote execution.
 type ExecutionResult struct {
-	Status      string                 `json:"status"` // success, error, timeout
-	DurationMs  int                    `json:"durationMs,omitempty"`
-	Outputs     map[string]interface{} `json:"outputs,omitempty"`
-	Error       *ExecutionError        `json:"error,omitempty"`
+	Status     string                 `json:"status"` // success, error, timeout
+	DurationMs int                    `json:"durationMs,omitempty"`
+	Outputs    map[string]interface{} `json:"outputs,omitempty"`
+	Error      *ExecutionError        `json:"error,omitempty"`
 }
 
 // ExecutionError describes a failure.
@@ -124,16 +124,16 @@ type ExecutionError struct {
 
 // Receipt is the signed response from callee.
 type Receipt struct {
-	MessageID   uuid.UUID        `json:"messageId"`
-	Timestamp   time.Time        `json:"timestamp"`
-	Callee      URN              `json:"callee"`
-	Caller      URN              `json:"caller"`
-	Execution   ExecutionResult  `json:"execution"`
-	Tracing     *TracingInfo     `json:"tracing,omitempty"`
+	MessageID uuid.UUID       `json:"messageId"`
+	Timestamp time.Time       `json:"timestamp"`
+	Callee    URN             `json:"callee"`
+	Caller    URN             `json:"caller"`
+	Execution ExecutionResult `json:"execution"`
+	Tracing   *TracingInfo    `json:"tracing,omitempty"`
 }
 
 // TracingInfo contains OpenTelemetry identifiers.
 type TracingInfo struct {
-	TraceID  string `json:"traceId,omitempty"`
-	SpanID   string `json:"spanId,omitempty"`
+	TraceID string `json:"traceId,omitempty"`
+	SpanID  string `json:"spanId,omitempty"`
 }

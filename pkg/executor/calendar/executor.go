@@ -64,7 +64,10 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 }
 
 // Execute dispatches to list, create, modify, or delete based on cfg.Action.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.CalendarConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("calendar executor: invalid config type")
@@ -85,7 +88,10 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	case domain.CalendarActionDelete:
 		return e.executeDelete(ctx, cfg)
 	default:
-		return nil, fmt.Errorf("calendar executor: unknown action %q (must be list, create, modify, or delete)", action)
+		return nil, fmt.Errorf(
+			"calendar executor: unknown action %q (must be list, create, modify, or delete)",
+			action,
+		)
 	}
 }
 
@@ -215,8 +221,12 @@ func formatICSDateTime(raw string, allDay *bool) string {
 
 // ─── list ─────────────────────────────────────────────────────────────────────
 
+//
 //nolint:gocognit // list has several orthogonal filter branches; splitting would hurt readability
-func (e *Executor) executeList(ctx *executor.ExecutionContext, cfg *domain.CalendarConfig) (interface{}, error) {
+func (e *Executor) executeList(
+	ctx *executor.ExecutionContext,
+	cfg *domain.CalendarConfig,
+) (interface{}, error) {
 	path := resolvePath(ctx, cfg.FilePath)
 
 	cal, err := loadCalendar(path)
@@ -314,7 +324,10 @@ func parseICSDateTime(s string) (time.Time, error) {
 
 // ─── create ───────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeCreate(ctx *executor.ExecutionContext, cfg *domain.CalendarConfig) (interface{}, error) {
+func (e *Executor) executeCreate(
+	ctx *executor.ExecutionContext,
+	cfg *domain.CalendarConfig,
+) (interface{}, error) {
 	path := resolvePath(ctx, cfg.FilePath)
 
 	cal, err := loadCalendar(path)
@@ -391,8 +404,12 @@ func setEventDateTime(comp *ical.Component, propName, value string, allDay bool)
 
 // ─── modify ───────────────────────────────────────────────────────────────────
 
+//
 //nolint:gocognit // modify applies several independent optional fields; splitting would be artificial
-func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.CalendarConfig) (interface{}, error) {
+func (e *Executor) executeModify(
+	ctx *executor.ExecutionContext,
+	cfg *domain.CalendarConfig,
+) (interface{}, error) {
 	if cfg.UID == "" {
 		return nil, errors.New("calendar executor: modify: uid is required")
 	}
@@ -470,7 +487,10 @@ func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.Cal
 
 // ─── delete ───────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeDelete(ctx *executor.ExecutionContext, cfg *domain.CalendarConfig) (interface{}, error) {
+func (e *Executor) executeDelete(
+	ctx *executor.ExecutionContext,
+	cfg *domain.CalendarConfig,
+) (interface{}, error) {
 	if cfg.UID == "" {
 		return nil, errors.New("calendar executor: delete: uid is required")
 	}

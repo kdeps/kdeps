@@ -36,7 +36,12 @@ type Executor struct{}
 
 // UVManager interface stub for WASM builds.
 type UVManager interface {
-	EnsureVenv(pythonVersion string, packages []string, requirementsFile string, venvName string) (string, error)
+	EnsureVenv(
+		pythonVersion string,
+		packages []string,
+		requirementsFile string,
+		venvName string,
+	) (string, error)
 	GetPythonPath(venvPath string) (string, error)
 }
 

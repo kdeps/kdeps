@@ -116,7 +116,11 @@ func extractTarEntries(tr *tar.Reader, destDir string) error {
 // written so that oversized entries are rejected rather than silently truncated.
 func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error {
 	if header.Size > maxKdepsExtractSize {
-		return fmt.Errorf("archive entry %q exceeds maximum allowed size of %d bytes", header.Name, maxKdepsExtractSize)
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			header.Name,
+			maxKdepsExtractSize,
+		)
 	}
 
 	if mkErr := os.MkdirAll(filepath.Dir(targetPath), 0o750); mkErr != nil {
@@ -129,7 +133,8 @@ func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error
 	}
 	defer out.Close()
 
-	if _, copyErr := io.CopyN(out, tr, maxKdepsExtractSize); copyErr != nil && !errors.Is(copyErr, io.EOF) {
+	if _, copyErr := io.CopyN(out, tr, maxKdepsExtractSize); copyErr != nil &&
+		!errors.Is(copyErr, io.EOF) {
 		return fmt.Errorf("failed to write file %s: %w", targetPath, copyErr)
 	}
 	return nil

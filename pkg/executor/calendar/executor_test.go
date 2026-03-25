@@ -422,7 +422,10 @@ func TestSetEventDateTime_AllDay(t *testing.T) {
 
 func TestSetEventDateTime_DateTime(t *testing.T) {
 	comp := ical.NewComponent(ical.CompEvent)
-	require.NoError(t, setEventDateTime(comp, ical.PropDateTimeStart, "2026-03-16T10:00:00Z", false))
+	require.NoError(
+		t,
+		setEventDateTime(comp, ical.PropDateTimeStart, "2026-03-16T10:00:00Z", false),
+	)
 	prop := comp.Props.Get(ical.PropDateTimeStart)
 	require.NotNil(t, prop)
 	assert.Equal(t, "20260316T100000Z", prop.Value)
@@ -502,7 +505,10 @@ func TestCreate_WithLocation(t *testing.T) {
 	require.NoError(t, err)
 	uid := cr.(map[string]interface{})["uid"].(string)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -522,7 +528,10 @@ func TestCreate_WithRecurrence(t *testing.T) {
 	require.NoError(t, err)
 	uid := cr.(map[string]interface{})["uid"].(string)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -569,7 +578,10 @@ func TestCreate_BadICS_LoadError(t *testing.T) {
 func TestList_EmptyFile(t *testing.T) {
 	e := newExec()
 	ctx := newCtx(t)
-	result, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "empty.ics"})
+	result, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "empty.ics"},
+	)
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.(map[string]interface{})["count"])
 }
@@ -583,7 +595,10 @@ func TestList_AfterCreate(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
-	result, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	result, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	assert.Equal(t, 2, result.(map[string]interface{})["count"])
 }
@@ -744,7 +759,10 @@ func TestList_BadICS(t *testing.T) {
 	ctx := newCtx(t)
 	path := filepath.Join(ctx.FSRoot, "bad.ics")
 	require.NoError(t, os.WriteFile(path, []byte("GARBAGE\n"), 0o600))
-	_, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "bad.ics"})
+	_, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "bad.ics"},
+	)
 	require.Error(t, err)
 }
 
@@ -760,7 +778,10 @@ func TestList_AttendeesInEventMap(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -778,7 +799,10 @@ func TestList_AllDayInEventMap(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -802,7 +826,10 @@ func TestModify_UpdateSummary(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -834,7 +861,10 @@ func TestModify_AllFields(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	events := lr.(map[string]interface{})["events"].([]map[string]interface{})
 	require.Len(t, events, 1)
@@ -850,7 +880,10 @@ func TestModify_AllFields(t *testing.T) {
 func TestModify_MissingUID(t *testing.T) {
 	e := newExec()
 	ctx := newCtx(t)
-	_, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionModify, FilePath: "cal.ics"})
+	_, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionModify, FilePath: "cal.ics"},
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uid is required")
 }
@@ -987,10 +1020,16 @@ func TestDelete_RemovesEvent(t *testing.T) {
 	require.NoError(t, err)
 	uid := cr.(map[string]interface{})["uid"].(string)
 
-	_, err = e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionDelete, FilePath: "cal.ics", UID: uid})
+	_, err = e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionDelete, FilePath: "cal.ics", UID: uid},
+	)
 	require.NoError(t, err)
 
-	lr, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"})
+	lr, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionList, FilePath: "cal.ics"},
+	)
 	require.NoError(t, err)
 	assert.Equal(t, 0, lr.(map[string]interface{})["count"])
 }
@@ -998,7 +1037,10 @@ func TestDelete_RemovesEvent(t *testing.T) {
 func TestDelete_MissingUID(t *testing.T) {
 	e := newExec()
 	ctx := newCtx(t)
-	_, err := e.Execute(ctx, &domain.CalendarConfig{Action: domain.CalendarActionDelete, FilePath: "cal.ics"})
+	_, err := e.Execute(
+		ctx,
+		&domain.CalendarConfig{Action: domain.CalendarActionDelete, FilePath: "cal.ics"},
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "uid is required")
 }

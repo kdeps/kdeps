@@ -85,7 +85,11 @@ func TestServer_ParseRequest_WithFormData(t *testing.T) {
 	server, err := httppkg.NewServer(workflow, nil, slog.Default())
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader("key1=value1&key2=value2"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader("key1=value1&key2=value2"),
+	)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	ctx := server.ParseRequest(req, nil)
@@ -161,7 +165,11 @@ func TestServer_ParseRequest_WithJSONBody(t *testing.T) {
 	server, err := httppkg.NewServer(workflow, nil, slog.Default())
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(stdhttp.MethodPost, "/api/test", strings.NewReader(`{"key": "value"}`))
+	req := httptest.NewRequest(
+		stdhttp.MethodPost,
+		"/api/test",
+		strings.NewReader(`{"key": "value"}`),
+	)
 	req.Header.Set("Content-Type", "application/json")
 
 	ctx := server.ParseRequest(req, nil)

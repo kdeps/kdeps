@@ -74,7 +74,10 @@ func KernelCmdline(arch string) string {
 }
 
 // GenerateConfig creates a LinuxKit configuration from a workflow and image name.
-func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow) (*LinuxKitConfig, error) {
+func GenerateConfig(
+	imageName, hostname, arch string,
+	workflow *domain.Workflow,
+) (*LinuxKitConfig, error) {
 	return GenerateConfigExtended(imageName, hostname, arch, workflow, false)
 }
 
@@ -223,7 +226,10 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			envList = append(envList, fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]))
+			envList = append(
+				envList,
+				fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]),
+			)
 		}
 	}
 
@@ -242,7 +248,12 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 		Capabilities: []string{"all"},
 		Binds:        binds,
 		Env:          envList,
-		Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
+		Command: []string{
+			"/entrypoint.sh",
+			"/usr/bin/supervisord",
+			"-c",
+			"/etc/supervisord.conf",
+		},
 	})
 }
 

@@ -462,7 +462,10 @@ func TestTTS_ElevenLabs_Success_Mock(t *testing.T) {
 		Mode:       domain.TTSModeOnline,
 		Voice:      "21m00Tcm4TlvDq8ikWAM",
 		OutputFile: outFile,
-		Online:     &domain.OnlineTTSConfig{Provider: domain.TTSProviderElevenLabs, APIKey: "xi-key"},
+		Online: &domain.OnlineTTSConfig{
+			Provider: domain.TTSProviderElevenLabs,
+			APIKey:   "xi-key",
+		},
 	}
 	_, err := adp.Execute(newTestContext(), cfg)
 	if err != nil {
@@ -574,7 +577,10 @@ func TestTTS_Azure_NonOK_Mock(t *testing.T) {
 		Text:       "Hello",
 		Mode:       domain.TTSModeOnline,
 		OutputFile: t.TempDir() + "/out.mp3",
-		Online:     &domain.OnlineTTSConfig{Provider: domain.TTSProviderAzure, SubscriptionKey: "bad"},
+		Online: &domain.OnlineTTSConfig{
+			Provider:        domain.TTSProviderAzure,
+			SubscriptionKey: "bad",
+		},
 	}
 	_, err := adp.Execute(newTestContext(), cfg)
 	if err == nil || !strings.Contains(err.Error(), "HTTP") {
@@ -730,9 +736,12 @@ func TestTTS_Coqui_WithModel_BinaryNotFound(t *testing.T) {
 	t.Parallel()
 	adp := newAdapter()
 	cfg := &domain.TTSConfig{
-		Text:    "Hello coqui",
-		Mode:    domain.TTSModeOffline,
-		Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineCoqui, Model: "tts_models/en/ljspeech/tacotron2-DDC"},
+		Text: "Hello coqui",
+		Mode: domain.TTSModeOffline,
+		Offline: &domain.OfflineTTSConfig{
+			Engine: domain.TTSEngineCoqui,
+			Model:  "tts_models/en/ljspeech/tacotron2-DDC",
+		},
 	}
 	_, err := adp.Execute(newTestContext(), cfg)
 	if err == nil || !strings.Contains(err.Error(), "coqui") {

@@ -45,7 +45,10 @@ func (m *mockRunner) CacheImport(_ context.Context, tarPath string) error {
 	return m.cacheImportErr
 }
 
-func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDir, size string) error {
+func (m *mockRunner) Build(
+	_ context.Context,
+	configPath, format, arch, outputDir, size string,
+) error {
 	m.buildCalls = append(m.buildCalls, mockBuildCall{
 		ConfigPath: configPath,
 		Format:     format,

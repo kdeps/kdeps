@@ -1163,13 +1163,21 @@ func TestInputConfig_JSONRoundTrip(t *testing.T) {
 		t.Errorf("Telephony.Type = %v, want %v", restored.Telephony, original.Telephony.Type)
 	}
 	if restored.Telephony.Provider != original.Telephony.Provider {
-		t.Errorf("Telephony.Provider = %v, want %v", restored.Telephony.Provider, original.Telephony.Provider)
+		t.Errorf(
+			"Telephony.Provider = %v, want %v",
+			restored.Telephony.Provider,
+			original.Telephony.Provider,
+		)
 	}
 	if restored.Transcriber == nil {
 		t.Fatal("Transcriber should not be nil after JSON round-trip")
 	}
 	if restored.Transcriber.Mode != original.Transcriber.Mode {
-		t.Errorf("Transcriber.Mode = %v, want %v", restored.Transcriber.Mode, original.Transcriber.Mode)
+		t.Errorf(
+			"Transcriber.Mode = %v, want %v",
+			restored.Transcriber.Mode,
+			original.Transcriber.Mode,
+		)
 	}
 	if restored.Transcriber.Online == nil ||
 		restored.Transcriber.Online.Provider != original.Transcriber.Online.Provider {
@@ -1201,7 +1209,8 @@ settings:
 	if wf.Settings.Input == nil {
 		t.Fatal("Input should not be nil")
 	}
-	if len(wf.Settings.Input.Sources) == 0 || wf.Settings.Input.Sources[0] != domain.InputSourceTelephony {
+	if len(wf.Settings.Input.Sources) == 0 ||
+		wf.Settings.Input.Sources[0] != domain.InputSourceTelephony {
 		t.Errorf("Sources[0] = %v", wf.Settings.Input.Sources[0])
 	}
 	if wf.Settings.Input.Telephony == nil {
@@ -1226,7 +1235,8 @@ settings:
 	if wf2.Settings.Input == nil {
 		t.Fatal("Input should not be nil after round-trip")
 	}
-	if len(wf2.Settings.Input.Sources) == 0 || wf2.Settings.Input.Sources[0] != domain.InputSourceTelephony {
+	if len(wf2.Settings.Input.Sources) == 0 ||
+		wf2.Settings.Input.Sources[0] != domain.InputSourceTelephony {
 		t.Errorf("Sources[0] after round-trip = %v", wf2.Settings.Input.Sources[0])
 	}
 	if wf2.Settings.Input.Telephony == nil {
@@ -1596,10 +1606,18 @@ audio:
 
 func TestInputExecutionTypeConstants(t *testing.T) {
 	if domain.InputExecutionTypePolling != "polling" {
-		t.Errorf("InputExecutionTypePolling = %q, want %q", domain.InputExecutionTypePolling, "polling")
+		t.Errorf(
+			"InputExecutionTypePolling = %q, want %q",
+			domain.InputExecutionTypePolling,
+			"polling",
+		)
 	}
 	if domain.InputExecutionTypeStateless != "stateless" {
-		t.Errorf("InputExecutionTypeStateless = %q, want %q", domain.InputExecutionTypeStateless, "stateless")
+		t.Errorf(
+			"InputExecutionTypeStateless = %q, want %q",
+			domain.InputExecutionTypeStateless,
+			"stateless",
+		)
 	}
 }
 

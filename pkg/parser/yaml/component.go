@@ -115,7 +115,11 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 
 	entries, readErr := os.ReadDir(componentsDir)
 	if readErr != nil {
-		return domain.NewError(domain.ErrCodeParseError, "failed to read components directory", readErr)
+		return domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to read components directory",
+			readErr,
+		)
 	}
 
 	// Build set of existing actionIds so component resources are skipped when overridden.
@@ -157,7 +161,10 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 // processComponentEntry processes a single component directory, returning its resources
 // that are not already present in the existing set. It updates existing with any new
 // actionIds found.
-func (p *Parser) processComponentEntry(compDir string, existing map[string]struct{}) ([]*domain.Resource, error) {
+func (p *Parser) processComponentEntry(
+	compDir string,
+	existing map[string]struct{},
+) ([]*domain.Resource, error) {
 	compFile := FindComponentFile(compDir)
 	if compFile == "" {
 		return nil, nil
@@ -187,7 +194,10 @@ func (p *Parser) processComponentEntry(compDir string, existing map[string]struc
 // processKomponentComponent extracts a .komponent archive and processes the
 // component contained within. It tracks the temporary extraction directory
 // for later cleanup.
-func (p *Parser) processKomponentComponent(pkgPath string, existing map[string]struct{}) ([]*domain.Resource, error) {
+func (p *Parser) processKomponentComponent(
+	pkgPath string,
+	existing map[string]struct{},
+) ([]*domain.Resource, error) {
 	tempDir, _, err := extractKdepsPackage(pkgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract component package: %w", err)
@@ -200,7 +210,10 @@ func (p *Parser) processKomponentComponent(pkgPath string, existing map[string]s
 
 // loadComponentResources loads resources from a component's resources/ directory.
 // It reuses the shared readPreprocessAndValidateYAML + ParseResource logic.
-func (p *Parser) loadComponentResources(component *domain.Component, componentPath string) ([]*domain.Resource, error) {
+func (p *Parser) loadComponentResources(
+	component *domain.Component,
+	componentPath string,
+) ([]*domain.Resource, error) {
 	absPath, err := filepath.Abs(componentPath)
 	if err != nil {
 		absPath = componentPath
@@ -215,7 +228,11 @@ func (p *Parser) loadComponentResources(component *domain.Component, componentPa
 
 	entries, readErr := os.ReadDir(resourcesDir)
 	if readErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read component resources directory", readErr)
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to read component resources directory",
+			readErr,
+		)
 	}
 
 	var resources []*domain.Resource

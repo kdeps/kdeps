@@ -101,7 +101,11 @@ func TestInterpolatedExpressions(t *testing.T) {
 }
 
 // evaluateInterpolatedTemplate parses and evaluates an interpolated template.
-func evaluateInterpolatedTemplate(t *testing.T, template string, env map[string]interface{}) interface{} {
+func evaluateInterpolatedTemplate(
+	t *testing.T,
+	template string,
+	env map[string]interface{},
+) interface{} {
 	t.Helper()
 	parser := expression.NewParser()
 	expr, err := parser.Parse(template)
@@ -123,7 +127,12 @@ func evaluateInterpolatedTemplate(t *testing.T, template string, env map[string]
 }
 
 // validateInterpolatedResult validates the result of an interpolated expression.
-func validateInterpolatedResult(t *testing.T, testName string, result, expected interface{}, _ bool) {
+func validateInterpolatedResult(
+	t *testing.T,
+	testName string,
+	result, expected interface{},
+	_ bool,
+) {
 	t.Helper()
 
 	// Special handling for mixed expression test

@@ -39,7 +39,10 @@ type mockLLMExecutor struct {
 	err      error
 }
 
-func (m *mockLLMExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockLLMExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.executed = true
 	return m.result, m.err
 }
@@ -50,7 +53,10 @@ type mockHTTPExecutor struct {
 	err      error
 }
 
-func (m *mockHTTPExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockHTTPExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.executed = true
 	return m.result, m.err
 }
@@ -61,7 +67,10 @@ type mockSQLExecutor struct {
 	err      error
 }
 
-func (m *mockSQLExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockSQLExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.executed = true
 	return m.result, m.err
 }
@@ -72,7 +81,10 @@ type mockPythonExecutor struct {
 	err      error
 }
 
-func (m *mockPythonExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockPythonExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.executed = true
 	return m.result, m.err
 }
@@ -83,7 +95,10 @@ type mockExecExecutor struct {
 	err      error
 }
 
-func (m *mockExecExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockExecExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.executed = true
 	return m.result, m.err
 }
@@ -1273,7 +1288,11 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		require.NoError(t, err)
 		// apiResponse runs on every iteration → streaming response: a slice of apiResponse maps.
 		results, ok := result.([]interface{})
-		require.True(t, ok, "loop with apiResponse should return a streaming slice of apiResponse maps")
+		require.True(
+			t,
+			ok,
+			"loop with apiResponse should return a streaming slice of apiResponse maps",
+		)
 		assert.Len(t, results, 3)
 		// Each entry should be an apiResponse map with success=true.
 		for _, r := range results {
@@ -1318,38 +1337,41 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 		assert.NotNil(t, val)
 	})
 
-	t.Run("loop.results() provides accumulated results from previous iterations", func(t *testing.T) {
-		t.Setenv("HOME", t.TempDir())
-		engine := executor.NewEngine(slog.Default())
+	t.Run(
+		"loop.results() provides accumulated results from previous iterations",
+		func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			engine := executor.NewEngine(slog.Default())
 
-		ctx, err := executor.NewExecutionContext(&domain.Workflow{
-			APIVersion: "kdeps.io/v1",
-			Kind:       "Workflow",
-			Metadata:   domain.WorkflowMetadata{Name: "loop-results", Version: "1.0.0"},
-		})
-		require.NoError(t, err)
+			ctx, err := executor.NewExecutionContext(&domain.Workflow{
+				APIVersion: "kdeps.io/v1",
+				Kind:       "Workflow",
+				Metadata:   domain.WorkflowMetadata{Name: "loop-results", Version: "1.0.0"},
+			})
+			require.NoError(t, err)
 
-		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "results-loop", Name: "Results Loop"},
-			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{
-					// Stop when we have collected 3 results (parallel to item.values() in items)
-					While:         "len(loop.results()) < 3",
-					MaxIterations: 10,
+			resource := &domain.Resource{
+				Metadata: domain.ResourceMetadata{ActionID: "results-loop", Name: "Results Loop"},
+				Run: domain.RunConfig{
+					Loop: &domain.LoopConfig{
+						// Stop when we have collected 3 results (parallel to item.values() in items)
+						While:         "len(loop.results()) < 3",
+						MaxIterations: 10,
+					},
+					Expr: []domain.Expression{
+						{Raw: "set('count', loop.count())"},
+					},
+					// No apiResponse: loop returns the slice of per-iteration results so we can check len.
 				},
-				Expr: []domain.Expression{
-					{Raw: "set('count', loop.count())"},
-				},
-				// No apiResponse: loop returns the slice of per-iteration results so we can check len.
-			},
-		}
+			}
 
-		result, err := engine.ExecuteWithLoop(resource, ctx)
-		require.NoError(t, err)
-		results, ok := result.([]interface{})
-		require.True(t, ok)
-		assert.Len(t, results, 3, "loop.results() should stop loop after 3 iterations")
-	})
+			result, err := engine.ExecuteWithLoop(resource, ctx)
+			require.NoError(t, err)
+			results, ok := result.([]interface{})
+			require.True(t, ok)
+			assert.Len(t, results, 3, "loop.results() should stop loop after 3 iterations")
+		},
+	)
 
 	t.Run("loop storage type: set and get with 'loop' type hint", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
@@ -1985,7 +2007,8 @@ func TestEngine_shouldHandleError(t *testing.T) {
 	assert.Contains(t, execErr3.Error(), "mock error")
 
 	// Test 4: AppError with additional fields (code, statusCode)
-	appError := domain.NewAppError(domain.ErrCodeValidation, "validation failed").WithResource("test-resource")
+	appError := domain.NewAppError(domain.ErrCodeValidation, "validation failed").
+		WithResource("test-resource")
 	registry2 := executor.NewRegistry()
 	mockHTTP2 := &mockHTTPExecutor{
 		result: nil,
@@ -2048,8 +2071,12 @@ func TestEngine_shouldHandleError(t *testing.T) {
 					OnError: &domain.OnErrorConfig{
 						Action: "continue",
 						When: []domain.Expression{
-							{Raw: "invalid.syntax.expression"},     // This should cause evaluation error
-							{Raw: "error.message contains 'mock'"}, // This should match after first fails
+							{
+								Raw: "invalid.syntax.expression",
+							}, // This should cause evaluation error
+							{
+								Raw: "error.message contains 'mock'",
+							}, // This should match after first fails
 						},
 					},
 					HTTPClient: &domain.HTTPClientConfig{
@@ -2226,7 +2253,8 @@ func TestEngine_executeOnErrorExpressions_AppError(t *testing.T) {
 	registry := executor.NewRegistry()
 
 	// Mock executor that returns an AppError
-	appErr := domain.NewAppError(domain.ErrCodeValidation, "validation failed").WithResource("test-resource")
+	appErr := domain.NewAppError(domain.ErrCodeValidation, "validation failed").
+		WithResource("test-resource")
 	mockHTTP := &mockHTTPExecutor{
 		result: nil,
 		err:    appErr,
@@ -2314,7 +2342,9 @@ func TestEngine_executeOnErrorExpressions_ParseError(t *testing.T) {
 						Action: "continue",
 						Expr: []domain.Expression{
 							{Raw: "invalid.syntax.expression"}, // This will fail to parse
-							{Raw: "set('fallback', true)"},     // This should execute after parse error
+							{
+								Raw: "set('fallback', true)",
+							}, // This should execute after parse error
 						},
 					},
 					HTTPClient: &domain.HTTPClientConfig{
@@ -3260,14 +3290,24 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			Run: domain.RunConfig{
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
-						{Raw: "llm.response('nonexistent') == nil"},     // Should return nil
-						{Raw: "python.stdout('nonexistent') == ''"},     // Should return empty string
-						{Raw: "python.stderr('nonexistent') == ''"},     // Should return empty string
-						{Raw: "python.exitCode('nonexistent') == 0"},    // Should return 0
-						{Raw: "exec.stdout('nonexistent') == ''"},       // Should return empty string
-						{Raw: "exec.stderr('nonexistent') == ''"},       // Should return empty string
-						{Raw: "exec.exitCode('nonexistent') == 0"},      // Should return 0
-						{Raw: "http.responseBody('nonexistent') == ''"}, // Should return empty string
+						{Raw: "llm.response('nonexistent') == nil"}, // Should return nil
+						{
+							Raw: "python.stdout('nonexistent') == ''",
+						}, // Should return empty string
+						{
+							Raw: "python.stderr('nonexistent') == ''",
+						}, // Should return empty string
+						{Raw: "python.exitCode('nonexistent') == 0"}, // Should return 0
+						{
+							Raw: "exec.stdout('nonexistent') == ''",
+						}, // Should return empty string
+						{
+							Raw: "exec.stderr('nonexistent') == ''",
+						}, // Should return empty string
+						{Raw: "exec.exitCode('nonexistent') == 0"}, // Should return 0
+						{
+							Raw: "http.responseBody('nonexistent') == ''",
+						}, // Should return empty string
 					},
 				},
 			},
@@ -3350,9 +3390,13 @@ func TestEngine_buildEvaluationEnvironment_CompleteCoverage(t *testing.T) {
 			Run: domain.RunConfig{
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
-						{Raw: "len(item.values('test-resource')) == 2"},          // Check length
-						{Raw: "item.values('test-resource')[0].id == 1"},         // Check first item
-						{Raw: "item.values('test-resource')[1].name == 'item2'"}, // Check second item
+						{Raw: "len(item.values('test-resource')) == 2"}, // Check length
+						{
+							Raw: "item.values('test-resource')[0].id == 1",
+						}, // Check first item
+						{
+							Raw: "item.values('test-resource')[1].name == 'item2'",
+						}, // Check second item
 					},
 				},
 			},
@@ -3447,10 +3491,12 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 		engine := executor.NewEngine(slog.Default())
 
 		// Override the newExecutionContext function to simulate failure
-		engine.SetAfterEvaluatorInitForTesting(func(_ *executor.Engine, _ *executor.ExecutionContext) {
-			// Simulate a failure in execution context creation by setting a callback
-			// that would cause issues, but for now we'll test the basic path
-		})
+		engine.SetAfterEvaluatorInitForTesting(
+			func(_ *executor.Engine, _ *executor.ExecutionContext) {
+				// Simulate a failure in execution context creation by setting a callback
+				// that would cause issues, but for now we'll test the basic path
+			},
+		)
 
 		workflow := &domain.Workflow{
 			APIVersion: "kdeps.io/v1",
@@ -4548,7 +4594,9 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			Run: domain.RunConfig{
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
-						{Raw: "llm.response('llm-resource') == 'llm response'"}, // Tests llm accessor
+						{
+							Raw: "llm.response('llm-resource') == 'llm response'",
+						}, // Tests llm accessor
 					},
 				},
 			},
@@ -4608,7 +4656,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 		registry := executor.NewRegistry()
 
 		// Mock executor that returns an AppError
-		appErr := domain.NewAppError(domain.ErrCodeValidation, "validation failed").WithResource("test-resource")
+		appErr := domain.NewAppError(domain.ErrCodeValidation, "validation failed").
+			WithResource("test-resource")
 		mockHTTP := &mockHTTPExecutor{
 			result: nil,
 			err:    appErr,
@@ -4635,7 +4684,9 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 						OnError: &domain.OnErrorConfig{
 							Action: "continue",
 							When: []domain.Expression{
-								{Raw: "error.code == 'VALIDATION_ERROR'"}, // Tests error object access
+								{
+									Raw: "error.code == 'VALIDATION_ERROR'",
+								}, // Tests error object access
 							},
 							Expr: []domain.Expression{
 								{Raw: "set('error_handled', true)"},
@@ -4755,7 +4806,9 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			Run: domain.RunConfig{
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
-						{Raw: "item.id == 123 && item.existing == 'value'"}, // Test item context access
+						{
+							Raw: "item.id == 123 && item.existing == 'value'",
+						}, // Test item context access
 					},
 				},
 			},

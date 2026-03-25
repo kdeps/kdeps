@@ -200,8 +200,12 @@ func TestChatbotExample(t *testing.T) {
 		// Note: info('current_time') is implemented, so don't skip on that
 		// Check for LLM/JSON parsing errors (might happen if Ollama returns invalid response)
 		// Check for LLM/JSON parsing errors (might happen if Ollama returns invalid response)
-		if contains(err.Error(), "json") || contains(err.Error(), "parse") || contains(err.Error(), "unexpected end") {
-			t.Logf("Workflow execution failed with LLM/parsing error (may be Ollama response issue): %v", err)
+		if contains(err.Error(), "json") || contains(err.Error(), "parse") ||
+			contains(err.Error(), "unexpected end") {
+			t.Logf(
+				"Workflow execution failed with LLM/parsing error (may be Ollama response issue): %v",
+				err,
+			)
 			// Don't fail - this might be an Ollama response format issue
 			return
 		}
@@ -294,7 +298,10 @@ func TestChatbotExample_ValidationError(t *testing.T) {
 			!strings.Contains(errStr, "validation") {
 			// If LLM fails with empty response, that's also acceptable (means validation didn't catch it but LLM couldn't process)
 			if strings.Contains(errStr, "json") || strings.Contains(errStr, "parse") {
-				t.Logf("Workflow failed with LLM/parsing error (validation may have passed): %v", err)
+				t.Logf(
+					"Workflow failed with LLM/parsing error (validation may have passed): %v",
+					err,
+				)
 				// This is acceptable - validation might pass but LLM fails
 				return
 			}
@@ -595,7 +602,8 @@ func TestSQLAdvancedExample_GET(t *testing.T) {
 			analyticsStr, strOk := analyticsVal.(string)
 			if strOk {
 				// If it's an error message, the database wasn't available - that's expected
-				if strings.Contains(analyticsStr, "error") || strings.Contains(analyticsStr, "connection") ||
+				if strings.Contains(analyticsStr, "error") ||
+					strings.Contains(analyticsStr, "connection") ||
 					strings.Contains(analyticsStr, "database") {
 					t.Skip("Database not available, skipping CSV format verification")
 					return
@@ -811,14 +819,20 @@ func TestCVMatcherExample(t *testing.T) {
 		}
 		for _, dep := range externalDeps {
 			if strings.Contains(errMsg, dep) {
-				t.Skipf("cv-matcher execution skipped (external dependency unavailable): %v", execErr)
+				t.Skipf(
+					"cv-matcher execution skipped (external dependency unavailable): %v",
+					execErr,
+				)
 			}
 		}
 
 		// In CI, any remaining error is assumed to be due to missing external
 		// dependencies (LLM, scrapers, SMTP, etc.), so we skip instead of failing.
 		if os.Getenv("CI") != "" {
-			t.Skipf("cv-matcher execution failed in CI (likely due to external dependencies): %v", execErr)
+			t.Skipf(
+				"cv-matcher execution failed in CI (likely due to external dependencies): %v",
+				execErr,
+			)
 		}
 
 		// Outside CI, execution failures should be actionable test failures.
@@ -851,9 +865,24 @@ func TestComponentKomponentExample(t *testing.T) {
 	for _, r := range workflow.Resources {
 		actionIDs = append(actionIDs, r.Metadata.ActionID)
 	}
-	assert.Contains(t, actionIDs, "sayHello", "component resource 'sayHello' should be loaded from .komponent")
-	assert.Contains(t, actionIDs, "finalResponse", "workflow resource 'finalResponse' should be present")
-	assert.Len(t, actionIDs, 2, "should have exactly 2 resources (sayHello from component + finalResponse)")
+	assert.Contains(
+		t,
+		actionIDs,
+		"sayHello",
+		"component resource 'sayHello' should be loaded from .komponent",
+	)
+	assert.Contains(
+		t,
+		actionIDs,
+		"finalResponse",
+		"workflow resource 'finalResponse' should be present",
+	)
+	assert.Len(
+		t,
+		actionIDs,
+		2,
+		"should have exactly 2 resources (sayHello from component + finalResponse)",
+	)
 
 	// Execute the workflow using the standard executor (no external deps needed)
 	engine := setupExecutor()
@@ -870,7 +899,12 @@ func TestComponentKomponentExample(t *testing.T) {
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok, "result should be a map")
 	assert.Contains(t, resultMap, "message", "result should have 'message' field")
-	assert.Equal(t, "Hello from .komponent!", resultMap["message"], "greeting should be from component")
+	assert.Equal(
+		t,
+		"Hello from .komponent!",
+		resultMap["message"],
+		"greeting should be from component",
+	)
 }
 
 // TestComponentsUnpackedExample tests the components-unpacked example which demonstrates
@@ -897,8 +931,18 @@ func TestComponentsUnpackedExample(t *testing.T) {
 	for _, r := range workflow.Resources {
 		actionIDs = append(actionIDs, r.Metadata.ActionID)
 	}
-	assert.Contains(t, actionIDs, "sayHello", "component resource 'sayHello' should be loaded from unpacked directory")
-	assert.Contains(t, actionIDs, "finalResponse", "workflow resource 'finalResponse' should be present")
+	assert.Contains(
+		t,
+		actionIDs,
+		"sayHello",
+		"component resource 'sayHello' should be loaded from unpacked directory",
+	)
+	assert.Contains(
+		t,
+		actionIDs,
+		"finalResponse",
+		"workflow resource 'finalResponse' should be present",
+	)
 	assert.Len(t, actionIDs, 2, "should have exactly 2 resources")
 
 	// Execute the workflow

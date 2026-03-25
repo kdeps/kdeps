@@ -57,12 +57,18 @@ settings:
     pythonVersion: "3.12"
 `
 	src := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(src, "workflow.yaml"), []byte(workflowContent), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(src, "workflow.yaml"), []byte(workflowContent), 0600),
+	)
 	require.NoError(t, os.Mkdir(filepath.Join(src, "resources"), 0750))
 	// Embed a small data file to make the archive a bit more realistic.
 	dataDir := filepath.Join(src, "data")
 	require.NoError(t, os.Mkdir(dataDir, 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "config.json"), []byte(`{"key":"value"}`), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dataDir, "config.json"), []byte(`{"key":"value"}`), 0600),
+	)
 
 	archivePath := filepath.Join(t.TempDir(), "integration-agent-2.0.0.kdeps")
 	require.NoError(t, createKdepsArchive(archivePath, src))
@@ -135,10 +141,13 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	outDir := t.TempDir()
 	hostArch := runtime.GOOS + "-" + runtime.GOARCH
 
-	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
-		Output: outDir,
-		Arch:   hostArch,
-	}))
+	require.NoError(
+		t,
+		cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
+			Output: outDir,
+			Arch:   hostArch,
+		}),
+	)
 
 	// Locate produced binary.
 	entries, err := os.ReadDir(outDir)
@@ -152,7 +161,12 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	require.NoError(t, err)
 	pkgInfo, err := os.Stat(kdepsFile)
 	require.NoError(t, err)
-	assert.Greater(t, binInfo.Size(), pkgInfo.Size(), "binary must be larger than source .kdeps archive")
+	assert.Greater(
+		t,
+		binInfo.Size(),
+		pkgInfo.Size(),
+		"binary must be larger than source .kdeps archive",
+	)
 
 	// Embedded payload must be detectable.
 	detected, found := cmd.DetectEmbeddedPackage(binPath)
@@ -162,7 +176,12 @@ func TestPrepackageIntegration_FullPipeline(t *testing.T) {
 	// Detected bytes must match the original .kdeps file exactly.
 	original, err := os.ReadFile(kdepsFile)
 	require.NoError(t, err)
-	assert.Equal(t, original, detected, "detected payload must be byte-for-byte identical to source")
+	assert.Equal(
+		t,
+		original,
+		detected,
+		"detected payload must be byte-for-byte identical to source",
+	)
 }
 
 // TestPrepackageIntegration_OutputNaming verifies that the output filename
@@ -172,10 +191,13 @@ func TestPrepackageIntegration_OutputNaming(t *testing.T) {
 	outDir := t.TempDir()
 	hostArch := runtime.GOOS + "-" + runtime.GOARCH
 
-	require.NoError(t, cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
-		Output: outDir,
-		Arch:   hostArch,
-	}))
+	require.NoError(
+		t,
+		cmd.PrePackageWithFlags(t.Context(), []string{kdepsFile}, &cmd.PrePackageFlags{
+			Output: outDir,
+			Arch:   hostArch,
+		}),
+	)
 
 	entries, err := os.ReadDir(outDir)
 	require.NoError(t, err)
@@ -224,7 +246,9 @@ func TestPrepackageIntegration_IdempotentReprepackage(t *testing.T) {
 
 	// Build a second kdeps file with slightly different content.
 	src2 := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(src2, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(src2, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: integration-agent-v2
@@ -233,7 +257,8 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-`), 0600))
+`), 0600),
+	)
 	require.NoError(t, os.Mkdir(filepath.Join(src2, "resources"), 0750))
 	kdepsFile2 := filepath.Join(t.TempDir(), "integration-agent-v2-3.0.0.kdeps")
 	require.NoError(t, createKdepsArchive(kdepsFile2, src2))
@@ -255,12 +280,22 @@ settings:
 
 	original2, err := os.ReadFile(kdepsFile2)
 	require.NoError(t, err)
-	assert.Equal(t, original2, payload, "re-prepackaged binary should contain the second .kdeps payload")
+	assert.Equal(
+		t,
+		original2,
+		payload,
+		"re-prepackaged binary should contain the second .kdeps payload",
+	)
 
 	// Sanity: payload must NOT equal the first kdeps file.
 	original1, err := os.ReadFile(kdepsFile1)
 	require.NoError(t, err)
-	assert.NotEqual(t, original1, payload, "re-prepackaged binary must not contain the first .kdeps payload")
+	assert.NotEqual(
+		t,
+		original1,
+		payload,
+		"re-prepackaged binary must not contain the first .kdeps payload",
+	)
 }
 
 // TestPrepackageIntegration_MagicTrailerConstants verifies that the exported
@@ -268,5 +303,9 @@ settings:
 func TestPrepackageIntegration_MagicTrailerConstants(t *testing.T) {
 	assert.Equal(t, 16, len(cmd.EmbeddedMagic), "EmbeddedMagic should be exactly 16 bytes")
 	assert.Equal(t, 24, cmd.EmbeddedTrailerSize, "EmbeddedTrailerSize should be 24 (8 + 16)")
-	assert.True(t, strings.HasPrefix(cmd.EmbeddedMagic, "KDEPS_PACK"), "magic should start with KDEPS_PACK")
+	assert.True(
+		t,
+		strings.HasPrefix(cmd.EmbeddedMagic, "KDEPS_PACK"),
+		"magic should start with KDEPS_PACK",
+	)
 }

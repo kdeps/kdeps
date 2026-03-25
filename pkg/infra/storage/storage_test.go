@@ -624,7 +624,11 @@ func TestMemoryStorage_Get_InvalidJSON(t *testing.T) {
 	defer storage.DB.Close()
 
 	// Manually insert invalid JSON
-	_, err = storage.DB.Exec("INSERT INTO memory (key, value) VALUES (?, ?)", "invalid_json", "{invalid json")
+	_, err = storage.DB.Exec(
+		"INSERT INTO memory (key, value) VALUES (?, ?)",
+		"invalid_json",
+		"{invalid json",
+	)
 	require.NoError(t, err)
 
 	// Get should return the invalid JSON as a string

@@ -37,7 +37,10 @@ type mockFailingExecutor struct {
 	successValue interface{}
 }
 
-func (m *mockFailingExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
+func (m *mockFailingExecutor) Execute(
+	_ *executor.ExecutionContext,
+	_ interface{},
+) (interface{}, error) {
 	m.callCount++
 	if m.callCount <= m.failCount {
 		return nil, errors.New("simulated failure")
@@ -192,7 +195,12 @@ func TestEngine_OnError_Retry_Success(t *testing.T) {
 	result, err := engine.Execute(workflow, nil)
 	require.NoError(t, err, "Should succeed after retries")
 	assert.Equal(t, "success after retry", result, "Should return success value")
-	assert.Equal(t, 3, mockHTTP.callCount, "Should have called executor 3 times (2 failures + 1 success)")
+	assert.Equal(
+		t,
+		3,
+		mockHTTP.callCount,
+		"Should have called executor 3 times (2 failures + 1 success)",
+	)
 }
 
 func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
@@ -287,7 +295,12 @@ func TestEngine_OnError_Fail(t *testing.T) {
 
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err, "Should return error when action is 'fail'")
-	assert.Contains(t, err.Error(), "simulated failure", "Error should contain original error message")
+	assert.Contains(
+		t,
+		err.Error(),
+		"simulated failure",
+		"Error should contain original error message",
+	)
 }
 
 func TestEngine_OnError_NoConfig(t *testing.T) {

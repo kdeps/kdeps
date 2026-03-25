@@ -414,7 +414,11 @@ command: echo test
 			}
 
 			if config.TimeoutDuration != tt.wantTimeoutDuration {
-				t.Errorf("ExecConfig.TimeoutDuration = %v, want %v", config.TimeoutDuration, tt.wantTimeoutDuration)
+				t.Errorf(
+					"ExecConfig.TimeoutDuration = %v, want %v",
+					config.TimeoutDuration,
+					tt.wantTimeoutDuration,
+				)
 			}
 
 			if config.Command != tt.wantCommand {
@@ -528,7 +532,10 @@ source: https://example.com
 	}
 }
 
-func TestEmbeddingConfig_UnmarshalYAML(t *testing.T) { //nolint:gocognit // table-driven test with many field checks
+//nolint:gocognit // table-driven test with many field checks
+func TestEmbeddingConfig_UnmarshalYAML(
+	t *testing.T,
+) {
 	tests := []struct {
 		name           string
 		yamlData       string

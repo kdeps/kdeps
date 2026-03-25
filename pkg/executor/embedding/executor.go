@@ -101,7 +101,10 @@ func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.Res
 
 // Execute generates embeddings for the input text and performs the requested
 // vector DB operation (index, search, or delete).
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.EmbeddingConfig)
 	if !ok {
 		return nil, errors.New("embedding executor: invalid config type")
@@ -429,8 +432,13 @@ func (e *Executor) operationUpsert(
 
 	result, err := db.ExecContext(
 		context.Background(),
-		fmt.Sprintf("INSERT INTO %s (text, embedding, metadata) VALUES (?, ?, ?)", sanitizeTableName(collection)),
-		inputText, string(vecJSON), string(metaJSON),
+		fmt.Sprintf(
+			"INSERT INTO %s (text, embedding, metadata) VALUES (?, ?, ?)",
+			sanitizeTableName(collection),
+		),
+		inputText,
+		string(vecJSON),
+		string(metaJSON),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("embedding executor: upsert insert: %w", err)
@@ -477,7 +485,11 @@ func (e *Executor) getEmbedding(
 	}
 }
 
-func (e *Executor) ollamaEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) ollamaEmbed(
+	client *http.Client,
+	cfg *domain.EmbeddingConfig,
+	text string,
+) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = defaultOllamaURL
@@ -493,7 +505,12 @@ func (e *Executor) ollamaEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 		return nil, fmt.Errorf("ollama embed: marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		url,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed: new request: %w", err)
 	}
@@ -521,7 +538,11 @@ func (e *Executor) ollamaEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 	return result.Embeddings[0], nil
 }
 
-func (e *Executor) openAIEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) openAIEmbed(
+	client *http.Client,
+	cfg *domain.EmbeddingConfig,
+	text string,
+) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
@@ -537,7 +558,12 @@ func (e *Executor) openAIEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 		return nil, fmt.Errorf("openai embed: marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		url,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("openai embed: new request: %w", err)
 	}
@@ -568,7 +594,11 @@ func (e *Executor) openAIEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 	return result.Data[0].Embedding, nil
 }
 
-func (e *Executor) cohereEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) cohereEmbed(
+	client *http.Client,
+	cfg *domain.EmbeddingConfig,
+	text string,
+) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.cohere.ai"
@@ -586,7 +616,12 @@ func (e *Executor) cohereEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 		return nil, fmt.Errorf("cohere embed: marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		url,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("cohere embed: new request: %w", err)
 	}
@@ -615,7 +650,11 @@ func (e *Executor) cohereEmbed(client *http.Client, cfg *domain.EmbeddingConfig,
 	return result.Embeddings[0], nil
 }
 
-func (e *Executor) huggingFaceEmbed(client *http.Client, cfg *domain.EmbeddingConfig, text string) ([]float64, error) {
+func (e *Executor) huggingFaceEmbed(
+	client *http.Client,
+	cfg *domain.EmbeddingConfig,
+	text string,
+) ([]float64, error) {
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api-inference.huggingface.co"
@@ -634,7 +673,12 @@ func (e *Executor) huggingFaceEmbed(client *http.Client, cfg *domain.EmbeddingCo
 		return nil, fmt.Errorf("huggingface embed: marshal: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		url,
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("huggingface embed: new request: %w", err)
 	}
@@ -795,7 +839,10 @@ func cosineSimilarity(a, b []float64) float64 {
 // ─── Expression evaluation helpers ────────────────────────────────────────────
 
 // evaluateConfigFields evaluates all expression strings in cfg in-place.
-func (e *Executor) evaluateConfigFields(cfg *domain.EmbeddingConfig, ctx *executor.ExecutionContext) {
+func (e *Executor) evaluateConfigFields(
+	cfg *domain.EmbeddingConfig,
+	ctx *executor.ExecutionContext,
+) {
 	cfg.Backend = e.evaluateText(cfg.Backend, ctx)
 	cfg.Operation = e.evaluateText(cfg.Operation, ctx)
 	cfg.Collection = e.evaluateText(cfg.Collection, ctx)
@@ -809,7 +856,10 @@ func (e *Executor) evaluateConfigFields(cfg *domain.EmbeddingConfig, ctx *execut
 
 // evaluateMapFields recursively evaluates expression strings in a
 // map[string]interface{}, returning a new map with all string values resolved.
-func (e *Executor) evaluateMapFields(m map[string]interface{}, ctx *executor.ExecutionContext) map[string]interface{} {
+func (e *Executor) evaluateMapFields(
+	m map[string]interface{},
+	ctx *executor.ExecutionContext,
+) map[string]interface{} {
 	if m == nil {
 		return nil
 	}

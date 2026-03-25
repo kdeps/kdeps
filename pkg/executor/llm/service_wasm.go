@@ -29,7 +29,9 @@ import (
 )
 
 // ErrOllamaNotSupported is returned when Ollama operations are attempted in WASM.
-var ErrOllamaNotSupported = errors.New("ollama is not supported in WASM builds; use online LLM backends only")
+var ErrOllamaNotSupported = errors.New(
+	"ollama is not supported in WASM builds; use online LLM backends only",
+)
 
 // ModelServiceInterface defines the interface for model management services.
 type ModelServiceInterface interface {

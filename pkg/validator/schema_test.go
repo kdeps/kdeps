@@ -634,7 +634,11 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 
 			// Only check for "Available options" if expected (for enum validations, not range validations)
@@ -645,7 +649,11 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			}
 
 			if !contains(errMsg, tt.expectedOption) {
-				t.Errorf("Error message should contain option '%s', got: %s", tt.expectedOption, errMsg)
+				t.Errorf(
+					"Error message should contain option '%s', got: %s",
+					tt.expectedOption,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -793,7 +801,11 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 
 			// Only check for "Available options" if expected (for enum validations, not range validations)
@@ -804,7 +816,11 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 			}
 
 			if !contains(errMsg, tt.expectedOption) {
-				t.Errorf("Error message should contain option '%s', got: %s", tt.expectedOption, errMsg)
+				t.Errorf(
+					"Error message should contain option '%s', got: %s",
+					tt.expectedOption,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -889,7 +905,11 @@ func TestSchemaValidator_EnhancedErrorMessages_PatternAndLength(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 
 			if !contains(errMsg, tt.expectedText) {
@@ -947,7 +967,13 @@ func TestSchemaValidator_IsEnumField(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := validator.IsEnumField(tt.field, tt.schemaType)
 			if result != tt.want {
-				t.Errorf("IsEnumField(%q, %q) = %v, want %v", tt.field, tt.schemaType, result, tt.want)
+				t.Errorf(
+					"IsEnumField(%q, %q) = %v, want %v",
+					tt.field,
+					tt.schemaType,
+					result,
+					tt.want,
+				)
 			}
 		})
 	}
@@ -1152,7 +1178,11 @@ func TestSchemaValidator_GetRangeSuggestion(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if tt.expected != "" && !contains(errMsg, tt.expected) {
-				t.Errorf("Error message should contain range suggestion '%s', got: %s", tt.expected, errMsg)
+				t.Errorf(
+					"Error message should contain range suggestion '%s', got: %s",
+					tt.expected,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -1491,7 +1521,12 @@ func TestSchemaValidator_GetPatternSuggestion_Direct(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := v.GetPatternSuggestion(tt.field)
 			if result != tt.expected {
-				t.Errorf("GetPatternSuggestion(%q) = %q, expected %q", tt.field, result, tt.expected)
+				t.Errorf(
+					"GetPatternSuggestion(%q) = %q, expected %q",
+					tt.field,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}
@@ -1593,7 +1628,13 @@ func TestSchemaValidator_GetFieldExamples_Direct(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := v.GetFieldExamples(tt.field, tt.expectedType)
 			if result != tt.expected {
-				t.Errorf("GetFieldExamples(%q, %q) = %q, expected %q", tt.field, tt.expectedType, result, tt.expected)
+				t.Errorf(
+					"GetFieldExamples(%q, %q) = %q, expected %q",
+					tt.field,
+					tt.expectedType,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}
@@ -1954,7 +1995,12 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_Direct(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := v.GetRequiredFieldSuggestion(tt.field)
 			if result != tt.expected {
-				t.Errorf("GetRequiredFieldSuggestion(%q) = %q, expected %q", tt.field, result, tt.expected)
+				t.Errorf(
+					"GetRequiredFieldSuggestion(%q) = %q, expected %q",
+					tt.field,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}
@@ -2056,7 +2102,10 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 			result := v.IsEnumField(field, "resource")
 			// These should all be recognized as enum fields due to normalization
 			if !result {
-				t.Errorf("Expected field %s to be recognized as enum field after normalization", field)
+				t.Errorf(
+					"Expected field %s to be recognized as enum field after normalization",
+					field,
+				)
 			}
 		})
 	}
@@ -2284,7 +2333,13 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := v.GetTypeSuggestion(tt.field, tt.descStr)
 			if result != tt.expected {
-				t.Errorf("GetTypeSuggestion(%q, %q) = %q, expected %q", tt.field, tt.descStr, result, tt.expected)
+				t.Errorf(
+					"GetTypeSuggestion(%q, %q) = %q, expected %q",
+					tt.field,
+					tt.descStr,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}
@@ -2342,7 +2397,12 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_EdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := v.GetRequiredFieldSuggestion(tt.field)
 			if result != tt.expected {
-				t.Errorf("GetRequiredFieldSuggestion(%q) = %q, expected %q", tt.field, result, tt.expected)
+				t.Errorf(
+					"GetRequiredFieldSuggestion(%q) = %q, expected %q",
+					tt.field,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}

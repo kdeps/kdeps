@@ -73,7 +73,9 @@ func TestLocalOllamaE2E(t *testing.T) {
 	// Get available small model (tinydolphin or llama 1b)
 	model := getAvailableSmallModel()
 	if model == "" {
-		t.Skip("No small model available - run 'ollama pull tinydolphin' or 'ollama pull llama3.2:1b'")
+		t.Skip(
+			"No small model available - run 'ollama pull tinydolphin' or 'ollama pull llama3.2:1b'",
+		)
 		return
 	}
 
@@ -97,7 +99,12 @@ func isOllamaServerRunning() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), ollamaAPITimeoutShort)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:11434/api/tags", nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://localhost:11434/api/tags",
+		nil,
+	)
 	if err != nil {
 		return false
 	}
@@ -118,7 +125,12 @@ func getAvailableSmallModel() string {
 	ctx, cancel := context.WithTimeout(context.Background(), ollamaAPITimeoutMedium)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:11434/api/tags", nil)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		"http://localhost:11434/api/tags",
+		nil,
+	)
 	if err != nil {
 		return ""
 	}

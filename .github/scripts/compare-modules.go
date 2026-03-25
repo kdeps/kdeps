@@ -38,7 +38,11 @@ func main() {
 			break
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: failed to decode module from /tmp/modules_before.json: %v\n", err)
+			fmt.Fprintf(
+				os.Stderr,
+				"error: failed to decode module from /tmp/modules_before.json: %v\n",
+				err,
+			)
 			os.Exit(1)
 		}
 		if m.Version != "" {
@@ -60,7 +64,11 @@ func main() {
 			break
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: failed to decode module from /tmp/modules_after.json: %v\n", err)
+			fmt.Fprintf(
+				os.Stderr,
+				"error: failed to decode module from /tmp/modules_after.json: %v\n",
+				err,
+			)
 			os.Exit(1)
 		}
 		if m.Version != "" {

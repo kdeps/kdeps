@@ -19,6 +19,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,9 +34,13 @@ type KeyManager struct {
 
 // NewKeyManager creates a new KeyManager from an existing private key.
 func NewKeyManager(privateKey ed25519.PrivateKey) *KeyManager {
+	pub, ok := privateKey.Public().(ed25519.PublicKey)
+	if !ok {
+		panic("ed25519.PrivateKey.Public() did not return ed25519.PublicKey")
+	}
 	return &KeyManager{
 		privateKey: privateKey,
-		publicKey:  privateKey.Public().(ed25519.PublicKey),
+		publicKey:  pub,
 	}
 }
 
@@ -51,10 +56,10 @@ func GenerateKeypair() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 // LoadOrCreate loads a private key from path, or creates a new one if not exists.
 func LoadOrCreate(keyPath string) (*KeyManager, error) {
 	// Try to load existing key
-	if _, err := os.Stat(keyPath); err == nil {
-		km, err := LoadKey(keyPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load existing key: %w", err)
+	if _, statErr := os.Stat(keyPath); statErr == nil {
+		km, loadErr := LoadKey(keyPath)
+		if loadErr != nil {
+			return nil, fmt.Errorf("failed to load existing key: %w", loadErr)
 		}
 		return km, nil
 	}
@@ -72,7 +77,8 @@ func LoadOrCreate(keyPath string) (*KeyManager, error) {
 	}
 
 	// Save to disk
-	if err := km.Save(); err != nil {
+	err = km.Save()
+	if err != nil {
 		return nil, fmt.Errorf("failed to save new key: %w", err)
 	}
 
@@ -88,17 +94,21 @@ func LoadKey(path string) (*KeyManager, error) {
 
 	block, _ := pem.Decode(data)
 	if block == nil || block.Type != "ED25519 PRIVATE KEY" {
-		return nil, fmt.Errorf("invalid or missing PEM block")
+		return nil, errors.New("invalid or missing PEM block")
 	}
 
 	privateKey := ed25519.PrivateKey(block.Bytes)
 	if len(privateKey) != ed25519.PrivateKeySize {
-		return nil, fmt.Errorf("invalid Ed25519 private key length")
+		return nil, errors.New("invalid Ed25519 private key length")
 	}
 
+	pub, ok := privateKey.Public().(ed25519.PublicKey)
+	if !ok {
+		return nil, errors.New("ed25519.PrivateKey.Public() did not return ed25519.PublicKey")
+	}
 	km := &KeyManager{
 		privateKey: privateKey,
-		publicKey:  privateKey.Public().(ed25519.PublicKey),
+		publicKey:  pub,
 		keyPath:    path,
 	}
 
@@ -108,7 +118,7 @@ func LoadKey(path string) (*KeyManager, error) {
 // Save writes the private key to disk in PEM format (0600 permissions).
 func (km *KeyManager) Save() error {
 	if km.keyPath == "" {
-		return fmt.Errorf("no key path configured")
+		return errors.New("no key path configured")
 	}
 
 	// Ensure directory exists
@@ -165,18 +175,20 @@ func (km *KeyManager) SavePublicKey(pubKeyPath string) error {
 		return fmt.Errorf("failed to encode public key: %w", err)
 	}
 	if len(pemData) == 0 {
-		return fmt.Errorf("empty public key data")
+		return errors.New("empty public key data")
 	}
 
 	// Ensure directory exists
 	dir := filepath.Dir(pubKeyPath)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	err = os.MkdirAll(dir, 0700)
+	if err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Write with readable permissions
 	tmpPath := pubKeyPath + ".tmp"
-	if err := os.WriteFile(tmpPath, pemData, 0644); err != nil {
+	err = os.WriteFile(tmpPath, pemData, 0644) //nolint:gosec // public key is intentionally world-readable
+	if err != nil {
 		return fmt.Errorf("failed to write public key: %w", err)
 	}
 	return os.Rename(tmpPath, pubKeyPath)
@@ -190,7 +202,7 @@ func (km *KeyManager) SignMessage(data []byte) (*SignedMessage, error) {
 		return nil, err
 	}
 	return &SignedMessage{
-		Data:     data,
+		Data:      data,
 		Signature: sig,
 		PublicKey: km.publicKey,
 	}, nil
@@ -198,9 +210,9 @@ func (km *KeyManager) SignMessage(data []byte) (*SignedMessage, error) {
 
 // SignedMessage represents a signed data payload.
 type SignedMessage struct {
-	Data       []byte
-	Signature  []byte
-	PublicKey  ed25519.PublicKey
+	Data      []byte
+	Signature []byte
+	PublicKey ed25519.PublicKey
 }
 
 // Verify verifies the signed message.
@@ -216,7 +228,7 @@ func WriteKeyToFile(path string, privateKey ed25519.PrivateKey) error {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	der := privateKey.Seed()
+	der := []byte(privateKey) // full 64-byte key (consistent with KeyManager.Save)
 	block := &pem.Block{
 		Type:  "ED25519 PRIVATE KEY",
 		Bytes: der,
@@ -238,7 +250,7 @@ func ReadKeyFromFile(path string) (ed25519.PrivateKey, error) {
 	}
 	block, _ := pem.Decode(data)
 	if block == nil || block.Type != "ED25519 PRIVATE KEY" {
-		return nil, fmt.Errorf("invalid PEM block")
+		return nil, errors.New("invalid PEM block")
 	}
 	return ed25519.PrivateKey(block.Bytes), nil
 }

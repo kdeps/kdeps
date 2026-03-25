@@ -96,7 +96,12 @@ func (e *Evaluator) evaluateDirect(
 	// Debug: Print expression evaluation
 	if e.debugMode {
 		resultJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Fprintf(os.Stderr, "DEBUG [expression] expr='%s' result=%s\n", exprStr, string(resultJSON))
+		fmt.Fprintf(
+			os.Stderr,
+			"DEBUG [expression] expr='%s' result=%s\n",
+			exprStr,
+			string(resultJSON),
+		)
 	}
 
 	return result, nil
@@ -221,10 +226,20 @@ func (e *Evaluator) formatValue(value interface{}) string {
 
 // validTypeHints contains the recognized storage type hints accepted by get().
 var validTypeHints = map[string]bool{ //nolint:gochecknoglobals // immutable lookup table, not mutable state
-	"item": true, "loop": true, "memory": true, "session": true,
-	"output": true, "param": true, "query": true, "header": true,
-	"file": true, "info": true, "data": true, "body": true,
-	"filepath": true, "filetype": true,
+	"item":     true,
+	"loop":     true,
+	"memory":   true,
+	"session":  true,
+	"output":   true,
+	"param":    true,
+	"query":    true,
+	"header":   true,
+	"file":     true,
+	"info":     true,
+	"data":     true,
+	"body":     true,
+	"filepath": true,
+	"filetype": true,
 }
 
 // isValidTypeHint reports whether s is a recognized storage type hint for get().
@@ -242,7 +257,22 @@ func isExprLangSyntax(exprStr string) bool {
 	if strings.Contains(exprStr, "(") {
 		return true
 	}
-	operators := []string{"+", "-", "*", "/", "==", "!=", ">=", "<=", ">", "<", "&&", "||", "?", ":"}
+	operators := []string{
+		"+",
+		"-",
+		"*",
+		"/",
+		"==",
+		"!=",
+		">=",
+		"<=",
+		">",
+		"<",
+		"&&",
+		"||",
+		"?",
+		":",
+	}
 	for _, op := range operators {
 		if strings.Contains(exprStr, op) {
 			return true

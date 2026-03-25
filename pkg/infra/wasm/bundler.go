@@ -207,7 +207,12 @@ func generateDefaultIndex(distDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read default HTML template: %w", err)
 	}
-	return os.WriteFile(filepath.Join(distDir, "index.html"), tmplContent, 0644) //nolint:gosec // static web asset
+	//nolint:gosec // static web asset
+	return os.WriteFile(
+		filepath.Join(distDir, "index.html"),
+		tmplContent,
+		0644,
+	)
 }
 
 // copyFile copies a file from src to dst.

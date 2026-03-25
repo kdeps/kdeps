@@ -38,7 +38,12 @@ import (
 
 // UVManager interface for Python environment management (for testing).
 type UVManager interface {
-	EnsureVenv(pythonVersion string, packages []string, requirementsFile string, venvName string) (string, error)
+	EnsureVenv(
+		pythonVersion string,
+		packages []string,
+		requirementsFile string,
+		venvName string,
+	) (string, error)
 	GetPythonPath(venvPath string) (string, error)
 }
 
@@ -112,7 +117,15 @@ func (e *Executor) Execute(
 	timeout := e.parseTimeout(resolvedConfig)
 
 	// Execute the script
-	return e.executeScript(pythonPath, venvPath, ctx.FSRoot, scriptContent, scriptFile, resolvedConfig.Args, timeout)
+	return e.executeScript(
+		pythonPath,
+		venvPath,
+		ctx.FSRoot,
+		scriptContent,
+		scriptFile,
+		resolvedConfig.Args,
+		timeout,
+	)
 }
 
 // resolveConfig evaluates dynamic fields in Python execution configuration.
@@ -181,7 +194,10 @@ func (e *Executor) getPythonDependencies(ctx *executor.ExecutionContext) ([]stri
 }
 
 // prepareScript determines the script source and prepares it for execution.
-func (e *Executor) prepareScript(ctx *executor.ExecutionContext, config *domain.PythonConfig) (string, string, error) {
+func (e *Executor) prepareScript(
+	ctx *executor.ExecutionContext,
+	config *domain.PythonConfig,
+) (string, string, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	switch {

@@ -83,7 +83,12 @@ settings:
 	// Accept either success or failure - test is about workflow parsing and Dockerfile generation
 	if err != nil {
 		// If it fails, it should be a build-related error, not a workflow parsing error
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not workflow parsing")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not workflow parsing",
+		)
 	}
 	// If it succeeds, that's also fine - Docker is available and working
 }
@@ -121,7 +126,12 @@ settings:
 	// Accept either success or failure - test is about Dockerfile generation and display
 	if err != nil {
 		// If it fails, it should be a build-related error, not a workflow parsing error
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not workflow parsing")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not workflow parsing",
+		)
 	}
 	// If it succeeds, that's also fine - Docker is available and working
 }
@@ -157,7 +167,12 @@ settings:
 	err = cmd.BuildImage(&cobra.Command{}, []string{packagePath})
 	// Accept either success or failure - test is about package extraction
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not package extraction")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not package extraction",
+		)
 	}
 }
 
@@ -192,7 +207,12 @@ settings:
 	err = cmd.BuildImage(&cobra.Command{}, []string{tmpDir})
 	// Accept either success or failure - test is about package discovery in directory
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not package discovery")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not package discovery",
+		)
 	}
 }
 
@@ -227,7 +247,12 @@ settings:
 	err = cmd.BuildImageWithFlagsInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	// Accept either success or failure - test is about GPU flag handling
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not GPU flag handling")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not GPU flag handling",
+		)
 	}
 }
 
@@ -262,7 +287,12 @@ settings:
 	err = cmd.BuildImageWithFlagsInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	// Accept either success or failure - test is about tag flag handling
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not tag flag handling")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not tag flag handling",
+		)
 	}
 }
 
@@ -375,7 +405,12 @@ settings:
 	err = cmd.BuildImageWithFlagsInternal(&cobra.Command{}, []string{tmpDir}, flags)
 	// Accept either success or failure - test is about GPU type handling
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not GPU type handling")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not GPU type handling",
+		)
 	}
 }
 
@@ -434,7 +469,12 @@ run:
 	err = cmd.BuildImage(&cobra.Command{}, []string{tmpDir})
 	// Accept either success or failure - test is about complex workflow handling
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not workflow complexity")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not workflow complexity",
+		)
 	}
 }
 
@@ -497,7 +537,12 @@ run:
 	err = cmd.BuildImage(&cobra.Command{}, []string{tmpDir})
 	// Accept either success or failure - test is about web server mode handling
 	if err != nil {
-		assert.Contains(t, err.Error(), "build", "Error should be build-related, not web server mode")
+		assert.Contains(
+			t,
+			err.Error(),
+			"build",
+			"Error should be build-related, not web server mode",
+		)
 	}
 }
 

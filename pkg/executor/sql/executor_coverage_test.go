@@ -37,7 +37,9 @@ import (
 // TestExecutor_GetConnectionString_NoConnection tests error when no connection specified.
 func TestExecutor_GetConnectionString_NoConnection(t *testing.T) {
 	e := sql.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -96,7 +98,9 @@ func TestExecutor_GetConnectionString_NamedConnectionFound(t *testing.T) {
 // TestExecutor_GetConnectionString_ExpressionEvaluationError tests error evaluating connection string expression.
 func TestExecutor_GetConnectionString_ExpressionEvaluationError(t *testing.T) {
 	e := sql.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -111,7 +115,9 @@ func TestExecutor_GetConnectionString_ExpressionEvaluationError(t *testing.T) {
 // TestExecutor_Execute_ConnectionError tests that connection errors are returned as result data.
 func TestExecutor_Execute_ConnectionError(t *testing.T) {
 	e := sql.NewExecutor()
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -141,7 +147,9 @@ func TestExecutor_Execute_QueryStringEvaluationError(t *testing.T) {
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -166,7 +174,9 @@ func TestExecutor_Execute_TimeoutParsing(t *testing.T) {
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -356,7 +366,9 @@ func TestExecutor_ExecuteTransaction_QueryEvaluationError(t *testing.T) {
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -386,7 +398,9 @@ func TestExecutor_ExecuteTransaction_BeginError(t *testing.T) {
 
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -419,7 +433,9 @@ func TestExecutor_ExecuteTransaction_RollbackOnError(t *testing.T) {
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
@@ -597,7 +613,9 @@ func TestExecutor_ExecuteTransaction_BatchOperations(t *testing.T) {
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test batch insert using transaction with ParamsBatch

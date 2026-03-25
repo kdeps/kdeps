@@ -227,7 +227,9 @@ func TestEngine_ExecuteScraper_NoExecutor(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-scraper"},
-		Run:      domain.RunConfig{Scraper: &domain.ScraperConfig{Source: "https://example.com", Type: "url"}},
+		Run: domain.RunConfig{
+			Scraper: &domain.ScraperConfig{Source: "https://example.com", Type: "url"},
+		},
 	}
 	_, err := eng.ExecuteScraperForTesting(resource, ctx)
 	require.Error(t, err)
@@ -239,7 +241,10 @@ func TestEngine_ExecuteInlineScraper_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	ctx := newTestWorkflowAndCtx(t)
 
-	_, err := eng.ExecuteInlineScraperForTesting(&domain.ScraperConfig{Source: "https://example.com", Type: "url"}, ctx)
+	_, err := eng.ExecuteInlineScraperForTesting(
+		&domain.ScraperConfig{Source: "https://example.com", Type: "url"},
+		ctx,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scraper executor not available")
 }
@@ -265,7 +270,9 @@ func TestEngine_ExecuteEmbedding_NoExecutor(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-embedding"},
-		Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"}},
+		Run: domain.RunConfig{
+			Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"},
+		},
 	}
 	_, err := eng.ExecuteEmbeddingForTesting(resource, ctx)
 	require.Error(t, err)
@@ -380,7 +387,9 @@ func TestEngine_ExecuteCalendar_NoExecutor(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-calendar"},
-		Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList}},
+		Run: domain.RunConfig{
+			Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList},
+		},
 	}
 	_, err := eng.ExecuteCalendarForTesting(resource, ctx)
 	require.Error(t, err)
@@ -392,7 +401,10 @@ func TestEngine_ExecuteInlineCalendar_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	ctx := newTestWorkflowAndCtx(t)
 
-	_, err := eng.ExecuteInlineCalendarForTesting(&domain.CalendarConfig{Action: domain.CalendarActionList}, ctx)
+	_, err := eng.ExecuteInlineCalendarForTesting(
+		&domain.CalendarConfig{Action: domain.CalendarActionList},
+		ctx,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "calendar executor not available")
 }
@@ -430,7 +442,10 @@ func TestEngine_ExecuteInlineSearch_NoExecutor(t *testing.T) {
 	eng := executor.NewEngine(nil)
 	ctx := newTestWorkflowAndCtx(t)
 
-	_, err := eng.ExecuteInlineSearchForTesting(&domain.SearchConfig{Provider: "brave", Query: "test"}, ctx)
+	_, err := eng.ExecuteInlineSearchForTesting(
+		&domain.SearchConfig{Provider: "brave", Query: "test"},
+		ctx,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "search executor not available")
 }
@@ -491,7 +506,9 @@ func TestEngine_ExecuteResource_Scraper(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-scraper"},
-		Run:      domain.RunConfig{Scraper: &domain.ScraperConfig{Source: "https://example.com", Type: "url"}},
+		Run: domain.RunConfig{
+			Scraper: &domain.ScraperConfig{Source: "https://example.com", Type: "url"},
+		},
 	}
 	_, err := eng.ExecuteResource(resource, ctx)
 	require.Error(t, err)
@@ -505,7 +522,9 @@ func TestEngine_ExecuteResource_Embedding(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-embedding"},
-		Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "text"}},
+		Run: domain.RunConfig{
+			Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "text"},
+		},
 	}
 	_, err := eng.ExecuteResource(resource, ctx)
 	require.Error(t, err)
@@ -547,7 +566,9 @@ func TestEngine_ExecuteResource_Calendar(t *testing.T) {
 
 	resource := &domain.Resource{
 		Metadata: domain.ResourceMetadata{ActionID: "test-calendar"},
-		Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList}},
+		Run: domain.RunConfig{
+			Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList},
+		},
 	}
 	_, err := eng.ExecuteResource(resource, ctx)
 	require.Error(t, err)

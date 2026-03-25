@@ -61,7 +61,11 @@ func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 }
 
 // Store saves an uploaded file.
-func (s *TemporaryFileStore) Store(filename string, content []byte, contentType string) (*domain.UploadedFile, error) {
+func (s *TemporaryFileStore) Store(
+	filename string,
+	content []byte,
+	contentType string,
+) (*domain.UploadedFile, error) {
 	// Generate unique ID using hash of content + timestamp
 	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
 	id := hex.EncodeToString(hash[:])[:16]

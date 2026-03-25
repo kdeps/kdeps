@@ -73,7 +73,10 @@ type Executor struct {
 
 // NewAdapter returns a new TTS Executor wrapped as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
-	return NewAdapterWithClient(logger, &http.Client{Timeout: defaultOnlineTimeoutSec * time.Second})
+	return NewAdapterWithClient(
+		logger,
+		&http.Client{Timeout: defaultOnlineTimeoutSec * time.Second},
+	)
 }
 
 // NewAdapterWithClient returns a new TTS Executor using the supplied HTTP client.
@@ -83,7 +86,10 @@ func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.Res
 }
 
 // Execute synthesizes speech from the TTSConfig and returns a result map.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.TTSConfig)
 	if !ok {
 		return nil, errors.New("tts executor: invalid config type")
@@ -427,7 +433,11 @@ func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath
 	case domain.TTSEngineCoqui, "coqui":
 		return e.coqui(text, cfg, outPath)
 	default:
-		return fmt.Errorf("tts executor: unknown offline engine %q (valid: %s)", engine, validOfflineEngines)
+		return fmt.Errorf(
+			"tts executor: unknown offline engine %q (valid: %s)",
+			engine,
+			validOfflineEngines,
+		)
 	}
 }
 
@@ -470,7 +480,10 @@ func parsePiperVoiceName(name string) (string, string, string, string, bool) {
 func downloadPiperVoice(voice, destDir string) error {
 	lang, langCode, speaker, quality, ok := parsePiperVoiceName(voice)
 	if !ok {
-		return fmt.Errorf("piper: cannot parse voice name %q (expected lang_Country-speaker-quality)", voice)
+		return fmt.Errorf(
+			"piper: cannot parse voice name %q (expected lang_Country-speaker-quality)",
+			voice,
+		)
 	}
 	if err := os.MkdirAll(destDir, 0o750); err != nil {
 		return fmt.Errorf("piper: create voices dir: %w", err)
@@ -486,7 +499,8 @@ func downloadPiperVoice(voice, destDir string) error {
 		if _, err := os.Stat(dst); err == nil {
 			continue // already present
 		}
-		resp, err := dlClient.Get(base + suffix) //nolint:noctx // intentional: long download, no deadline
+		//nolint:noctx // intentional: long download, no deadline
+		resp, err := dlClient.Get(base + suffix)
 		if err != nil {
 			return fmt.Errorf("piper: download %s: %w", suffix, err)
 		}
@@ -528,7 +542,11 @@ func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) err
 		if _, statErr := os.Stat(onnxPath); os.IsNotExist(statErr) {
 			e.logger.Info("piper: voice not found locally, downloading", "voice", model)
 			if dlErr := downloadPiperVoice(model, voicesDir); dlErr != nil {
-				e.logger.Warn("piper: voice download failed, trying with name directly", "err", dlErr)
+				e.logger.Warn(
+					"piper: voice download failed, trying with name directly",
+					"err",
+					dlErr,
+				)
 			}
 		}
 		if _, err := os.Stat(onnxPath); err == nil {

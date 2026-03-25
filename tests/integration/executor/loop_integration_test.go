@@ -143,7 +143,11 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 	// The downstream resource returns {"value": 3} (the computed value from the loop).
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok)
-	assert.NotNil(t, resultMap["value"], "downstream resource should read the loop's computed value")
+	assert.NotNil(
+		t,
+		resultMap["value"],
+		"downstream resource should read the loop's computed value",
+	)
 }
 
 // TestLoopIntegration_TuringComplete_Accumulator exercises unbounded accumulation

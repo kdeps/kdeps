@@ -116,7 +116,10 @@ func writeAgencyFixtures(t *testing.T) string {
 	t.Setenv("HOME", t.TempDir())
 
 	// Write agency.yaml.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte(agencyIntegrationAgencyYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte(agencyIntegrationAgencyYAML), 0o600),
+	)
 
 	// Write greeter agent.
 	greeterDir := filepath.Join(dir, "agents", "greeter")
@@ -128,7 +131,10 @@ func writeAgencyFixtures(t *testing.T) string {
 	responderDir := filepath.Join(dir, "agents", "responder")
 	require.NoError(t, os.MkdirAll(responderDir, 0o750))
 	wfResponder := []byte(agencyIntegrationResponderYAML)
-	require.NoError(t, os.WriteFile(filepath.Join(responderDir, "workflow.yaml"), wfResponder, 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(responderDir, "workflow.yaml"), wfResponder, 0o600),
+	)
 
 	return filepath.Join(dir, "agency.yaml")
 }
@@ -146,32 +152,35 @@ func createKdepsPackageInteg(t *testing.T, sourceDir, destPath string) {
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	require.NoError(t, filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		rel, relErr := filepath.Rel(sourceDir, path)
-		if relErr != nil {
-			return relErr
-		}
-		hdr, hdrErr := tar.FileInfoHeader(info, "")
-		if hdrErr != nil {
-			return hdrErr
-		}
-		hdr.Name = rel
-		if wErr := tw.WriteHeader(hdr); wErr != nil {
-			return wErr
-		}
-		if !info.IsDir() {
-			data, rErr := os.ReadFile(path)
-			if rErr != nil {
-				return rErr
+	require.NoError(
+		t,
+		filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			_, wErr := tw.Write(data)
-			return wErr
-		}
-		return nil
-	}))
+			rel, relErr := filepath.Rel(sourceDir, path)
+			if relErr != nil {
+				return relErr
+			}
+			hdr, hdrErr := tar.FileInfoHeader(info, "")
+			if hdrErr != nil {
+				return hdrErr
+			}
+			hdr.Name = rel
+			if wErr := tw.WriteHeader(hdr); wErr != nil {
+				return wErr
+			}
+			if !info.IsDir() {
+				data, rErr := os.ReadFile(path)
+				if rErr != nil {
+					return rErr
+				}
+				_, wErr := tw.Write(data)
+				return wErr
+			}
+			return nil
+		}),
+	)
 }
 
 // newTestEngine creates a fresh engine suitable for integration tests.
@@ -274,7 +283,11 @@ func TestAgencyIntegration_KdepsPackageAgent(t *testing.T) {
 	require.NoError(t, os.MkdirAll(srcDir, 0o750))
 	require.NoError(
 		t,
-		os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600),
+		os.WriteFile(
+			filepath.Join(srcDir, "workflow.yaml"),
+			[]byte(agencyIntegrationResponderYAML),
+			0o600,
+		),
 	)
 	createKdepsPackageInteg(t, srcDir, filepath.Join(agentsDir, "responder.kdeps"))
 
@@ -335,7 +348,11 @@ func TestAgencyIntegration_AutoDiscoverMixedAgents(t *testing.T) {
 	require.NoError(t, os.MkdirAll(srcDir, 0o750))
 	require.NoError(
 		t,
-		os.WriteFile(filepath.Join(srcDir, "workflow.yaml"), []byte(agencyIntegrationResponderYAML), 0o600),
+		os.WriteFile(
+			filepath.Join(srcDir, "workflow.yaml"),
+			[]byte(agencyIntegrationResponderYAML),
+			0o600,
+		),
 	)
 	createKdepsPackageInteg(t, srcDir, filepath.Join(agentsDir, "responder.kdeps"))
 

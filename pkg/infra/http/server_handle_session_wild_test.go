@@ -60,7 +60,9 @@ func TestServer_HandleRequest_SessionIDUpdate2(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Set initial session ID in context
-	req = req.WithContext(context.WithValue(req.Context(), httppkg.SessionIDKey, "initial-session-id"))
+	req = req.WithContext(
+		context.WithValue(req.Context(), httppkg.SessionIDKey, "initial-session-id"),
+	)
 
 	server.HandleRequest(w, req)
 	assert.Equal(t, stdhttp.StatusOK, w.Code)

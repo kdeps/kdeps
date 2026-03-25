@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+const cleanupInterval = 5 * time.Minute
+
 // cacheEntry holds a cached Capability with its expiry time.
 type cacheEntry struct {
 	capability *Capability
@@ -95,9 +97,9 @@ func (rc *RegistryCache) Stop() {
 	}
 }
 
-// cleanupLoop runs every 5 minutes and removes expired cache entries.
+// cleanupLoop runs every cleanupInterval and removes expired cache entries.
 func (rc *RegistryCache) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
 		select {

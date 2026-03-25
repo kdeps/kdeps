@@ -513,9 +513,15 @@ func createTestFiles(t *testing.T, tmpDir string) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test1.txt"), []byte("content1"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test2.txt"), []byte("content2"), 0600))
 	// Add a PDF file for MIME type testing
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "document.pdf"), []byte("PDF content"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(tmpDir, "document.pdf"), []byte("PDF content"), 0600),
+	)
 	// Add an image file for MIME type testing
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "image.png"), []byte("PNG content"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(tmpDir, "image.png"), []byte("PNG content"), 0600),
+	)
 }
 
 // verifySingleFile verifies a single file result.
@@ -1227,11 +1233,23 @@ func TestExecutionContext_IsFilePattern_Basic(t *testing.T) {
 }
 
 func TestExecutionContext_IsMetadataField_Basic(t *testing.T) {
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Test metadata fields through Info API
-	fields := []string{"method", "path", "filecount", "files", "index", "count", "current", "prev", "next"}
+	fields := []string{
+		"method",
+		"path",
+		"filecount",
+		"files",
+		"index",
+		"count",
+		"current",
+		"prev",
+		"next",
+	}
 
 	for _, field := range fields {
 		// These should not error when request context is set properly
@@ -1531,7 +1549,9 @@ func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 
 	// Test getFilteredStringValue edge cases - filtering enabled but param not allowed
 	ctx.Request.Headers = map[string]string{"Content-Type": "application/json"} // Restore headers
-	ctx.SetAllowedParams([]string{"allowed_param"})                             // Enable param filtering
+	ctx.SetAllowedParams(
+		[]string{"allowed_param"},
+	) // Enable param filtering
 	_, getErr = ctx.GetParam(
 		"param1",
 	) // param1 exists but is not in allowedParams
@@ -1540,7 +1560,9 @@ func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 
 	// Test getFromHeaders edge cases - filtering enabled but header not allowed
 	ctx.SetAllowedHeaders([]string{"allowed-header"}) // Enable header filtering
-	_, getErr = ctx.GetHeader("Content-Type")         // Content-Type exists but is not in allowedHeaders
+	_, getErr = ctx.GetHeader(
+		"Content-Type",
+	) // Content-Type exists but is not in allowedHeaders
 	require.Error(t, getErr)
 	assert.Contains(t, getErr.Error(), "not in allowedHeaders list")
 

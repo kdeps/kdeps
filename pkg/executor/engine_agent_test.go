@@ -373,8 +373,10 @@ func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
 				Run: domain.RunConfig{
 					// "World" is the default — no "greeting" param in the request.
 					Agent: &domain.AgentCallConfig{
-						Name:   "param-echo-agent",
-						Params: map[string]interface{}{"greeting": "{{ get('greeting', 'World') }}"},
+						Name: "param-echo-agent",
+						Params: map[string]interface{}{
+							"greeting": "{{ get('greeting', 'World') }}",
+						},
 					},
 				},
 			},

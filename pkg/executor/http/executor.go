@@ -539,7 +539,12 @@ func (e *Executor) prepareRequest(
 
 	// Debug: Log the evaluated URL (check if URL template contains expressions)
 	if strings.Contains(config.URL, "{{") {
-		fmt.Fprintf(os.Stderr, "DEBUG [http] evaluated URL: %s (from template: %s)\n", urlStr, config.URL)
+		fmt.Fprintf(
+			os.Stderr,
+			"DEBUG [http] evaluated URL: %s (from template: %s)\n",
+			urlStr,
+			config.URL,
+		)
 	}
 
 	// Evaluate method (default to GET)
@@ -879,7 +884,10 @@ func (e *Executor) ShouldRetryOnStatusForTesting(retry *domain.RetryConfig, stat
 }
 
 // CalculateBackoffForTesting calls calculateBackoff for testing.
-func (e *Executor) CalculateBackoffForTesting(retry *domain.RetryConfig, attempt int) time.Duration {
+func (e *Executor) CalculateBackoffForTesting(
+	retry *domain.RetryConfig,
+	attempt int,
+) time.Duration {
 	return e.calculateBackoff(retry, attempt)
 }
 
@@ -899,11 +907,25 @@ func (e *Executor) ExecuteRequestWithRetryForTesting(
 		}, nil
 	}
 	defer resp.Body.Close()
-	return e.processResponse(resp, &domain.HTTPClientConfig{}, ctx, req.URL.String(), req.Method, nil)
+	return e.processResponse(
+		resp,
+		&domain.HTTPClientConfig{},
+		ctx,
+		req.URL.String(),
+		req.Method,
+		nil,
+	)
 }
 
 // ProcessResponseForTesting calls processResponse for testing.
 func (e *Executor) ProcessResponseForTesting(resp *http.Response) interface{} {
-	result, _ := e.processResponse(resp, &domain.HTTPClientConfig{}, nil, "http://example.com", "GET", nil)
+	result, _ := e.processResponse(
+		resp,
+		&domain.HTTPClientConfig{},
+		nil,
+		"http://example.com",
+		"GET",
+		nil,
+	)
 	return result
 }

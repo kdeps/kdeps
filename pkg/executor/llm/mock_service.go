@@ -62,6 +62,8 @@ func (m *MockModelService) SetDownloadModelFunc(fn func(backend, model string) e
 }
 
 // SetServeModelFunc sets the mock function for ServeModel.
-func (m *MockModelService) SetServeModelFunc(fn func(backend, model string, host string, port int) error) {
+func (m *MockModelService) SetServeModelFunc(
+	fn func(backend, model string, host string, port int) error,
+) {
 	m.ServeModelFunc = fn
 }

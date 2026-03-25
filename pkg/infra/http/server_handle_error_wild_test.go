@@ -81,7 +81,10 @@ func TestServer_HandleRequest_ExecutionErrorAppError(t *testing.T) {
 	executor := &MockWorkflowExecutor{
 		executeFunc: func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
 			// Return AppError
-			return nil, domain.NewAppError(domain.ErrCodeResourceFailed, "resource execution failed")
+			return nil, domain.NewAppError(
+				domain.ErrCodeResourceFailed,
+				"resource execution failed",
+			)
 		},
 	}
 

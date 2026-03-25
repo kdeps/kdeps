@@ -165,7 +165,10 @@ func TestActivationConfig_YAMLRoundTrip(t *testing.T) {
 		Mode:         domain.TranscriberModeOffline,
 		Sensitivity:  0.8,
 		ChunkSeconds: 4,
-		Offline:      &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineFasterWhisper, Model: "small"},
+		Offline: &domain.OfflineTranscriberConfig{
+			Engine: domain.TranscriberEngineFasterWhisper,
+			Model:  "small",
+		},
 	}
 	if cfg.Phrase != "hey kdeps" {
 		t.Errorf("Phrase = %q", cfg.Phrase)

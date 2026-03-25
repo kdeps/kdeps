@@ -42,7 +42,10 @@ func NewInputValidator() *InputValidator {
 }
 
 // Validate validates data against validation rules.
-func (v *InputValidator) Validate(data map[string]interface{}, rules *domain.ValidationsConfig) error {
+func (v *InputValidator) Validate(
+	data map[string]interface{},
+	rules *domain.ValidationsConfig,
+) error {
 	if rules == nil {
 		return nil
 	}
@@ -80,7 +83,10 @@ func (v *InputValidator) Validate(data map[string]interface{}, rules *domain.Val
 }
 
 // ValidateField validates a single field against its rule.
-func (v *InputValidator) ValidateField(rule domain.FieldRule, value interface{}) *domain.ValidationError {
+func (v *InputValidator) ValidateField(
+	rule domain.FieldRule,
+	value interface{},
+) *domain.ValidationError {
 	// Type validation
 	if err := v.ValidateType(rule.Type, value); err != nil {
 		return &domain.ValidationError{
@@ -99,7 +105,10 @@ func (v *InputValidator) ValidateField(rule domain.FieldRule, value interface{})
 		return v.ValidateNumber(rule, value)
 	case domain.FieldTypeArray:
 		return v.ValidateArray(rule, value)
-	case domain.FieldTypeBoolean, domain.FieldTypeObject, domain.FieldTypeUUID, domain.FieldTypeDate:
+	case domain.FieldTypeBoolean,
+		domain.FieldTypeObject,
+		domain.FieldTypeUUID,
+		domain.FieldTypeDate:
 		// These types have no additional validation rules beyond type checking (already done in validateType)
 		return nil
 	}
@@ -212,7 +221,10 @@ func (v *InputValidator) ValidateType(fieldType domain.FieldType, value interfac
 }
 
 // validateString validates string-specific rules.
-func (v *InputValidator) validateString(rule domain.FieldRule, value interface{}) *domain.ValidationError {
+func (v *InputValidator) validateString(
+	rule domain.FieldRule,
+	value interface{},
+) *domain.ValidationError {
 	str, ok := value.(string)
 	if !ok {
 		return &domain.ValidationError{
@@ -226,20 +238,26 @@ func (v *InputValidator) validateString(rule domain.FieldRule, value interface{}
 	// MinLength
 	if rule.MinLength != nil && len(str) < *rule.MinLength {
 		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "minLength",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must be at least %d characters", *rule.MinLength)),
-			Value:   value,
+			Field: rule.Field,
+			Type:  "minLength",
+			Message: GetErrorMessage(
+				rule.Message,
+				fmt.Sprintf("must be at least %d characters", *rule.MinLength),
+			),
+			Value: value,
 		}
 	}
 
 	// MaxLength
 	if rule.MaxLength != nil && len(str) > *rule.MaxLength {
 		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "maxLength",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must be at most %d characters", *rule.MaxLength)),
-			Value:   value,
+			Field: rule.Field,
+			Type:  "maxLength",
+			Message: GetErrorMessage(
+				rule.Message,
+				fmt.Sprintf("must be at most %d characters", *rule.MaxLength),
+			),
+			Value: value,
 		}
 	}
 
@@ -267,10 +285,13 @@ func (v *InputValidator) validateString(rule domain.FieldRule, value interface{}
 		}
 		if !found {
 			return &domain.ValidationError{
-				Field:   rule.Field,
-				Type:    "enum",
-				Message: GetErrorMessage(rule.Message, fmt.Sprintf("must be one of: %v", rule.Enum)),
-				Value:   value,
+				Field: rule.Field,
+				Type:  "enum",
+				Message: GetErrorMessage(
+					rule.Message,
+					fmt.Sprintf("must be one of: %v", rule.Enum),
+				),
+				Value: value,
 			}
 		}
 	}
@@ -279,7 +300,10 @@ func (v *InputValidator) validateString(rule domain.FieldRule, value interface{}
 }
 
 // ValidateNumber validates number-specific rules.
-func (v *InputValidator) ValidateNumber(rule domain.FieldRule, value interface{}) *domain.ValidationError {
+func (v *InputValidator) ValidateNumber(
+	rule domain.FieldRule,
+	value interface{},
+) *domain.ValidationError {
 	var num float64
 
 	switch val := value.(type) {
@@ -330,7 +354,10 @@ func (v *InputValidator) ValidateNumber(rule domain.FieldRule, value interface{}
 }
 
 // ValidateArray validates array-specific rules.
-func (v *InputValidator) ValidateArray(rule domain.FieldRule, value interface{}) *domain.ValidationError {
+func (v *InputValidator) ValidateArray(
+	rule domain.FieldRule,
+	value interface{},
+) *domain.ValidationError {
 	arr, ok := value.([]interface{})
 	if !ok {
 		return &domain.ValidationError{
@@ -344,20 +371,26 @@ func (v *InputValidator) ValidateArray(rule domain.FieldRule, value interface{})
 	// MinItems
 	if rule.MinItems != nil && len(arr) < *rule.MinItems {
 		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "minItems",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must have at least %d items", *rule.MinItems)),
-			Value:   value,
+			Field: rule.Field,
+			Type:  "minItems",
+			Message: GetErrorMessage(
+				rule.Message,
+				fmt.Sprintf("must have at least %d items", *rule.MinItems),
+			),
+			Value: value,
 		}
 	}
 
 	// MaxItems
 	if rule.MaxItems != nil && len(arr) > *rule.MaxItems {
 		return &domain.ValidationError{
-			Field:   rule.Field,
-			Type:    "maxItems",
-			Message: GetErrorMessage(rule.Message, fmt.Sprintf("must have at most %d items", *rule.MaxItems)),
-			Value:   value,
+			Field: rule.Field,
+			Type:  "maxItems",
+			Message: GetErrorMessage(
+				rule.Message,
+				fmt.Sprintf("must have at most %d items", *rule.MaxItems),
+			),
+			Value: value,
 		}
 	}
 
