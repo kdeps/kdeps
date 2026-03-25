@@ -231,6 +231,7 @@ type RunConfig struct {
 	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
 	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
+	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -253,6 +254,7 @@ type InlineResource struct {
 	Search     *SearchConfig     `yaml:"search,omitempty"`
 	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
 	Browser    *BrowserConfig    `yaml:"browser,omitempty"`
+	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
@@ -337,7 +339,7 @@ func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
 // ChatConfig represents LLM chat configuration.
 type ChatConfig struct {
 	Model            string         `yaml:"model"`
-	Backend          string         `yaml:"backend,omitempty"`       // Local: "ollama" (default). Online providers: "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek"
+	Backend          string         `yaml:"backend,omitempty"`       // Local: "ollama" (default). Online providers: "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek", "openrouter"
 	BaseURL          string         `yaml:"baseUrl,omitempty"`       // Base URL for the backend (defaults to backend-specific defaults, e.g., "http://localhost:16395")
 	APIKey           string         `yaml:"apiKey,omitempty"`        // API key for online LLM backends (falls back to environment variable if not provided)
 	ContextLength    int            `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
@@ -1738,4 +1740,20 @@ func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	return nil
+}
+
+// RemoteAgentConfig configures a remote UAF agent invocation.
+type RemoteAgentConfig struct {
+	URN              string                 `yaml:"urn"`
+	Input            map[string]Expression  `yaml:"input"`
+	Timeout          string                 `yaml:"timeout,omitempty"`
+	RequireTrustLevel string                `yaml:"requireTrustLevel,omitempty"`
+	CacheSpec        bool                   `yaml:"cacheSpec,omitempty"`
+	Fallback         []FallbackConfig       `yaml:"fallback,omitempty"`
+}
+
+// FallbackConfig describes a fallback agent to try if primary fails.
+type FallbackConfig struct {
+	URN     string `yaml:"urn"`
+	Timeout string `yaml:"timeout,omitempty"`
 }

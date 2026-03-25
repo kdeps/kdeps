@@ -99,6 +99,7 @@ func NewBackendRegistry() *BackendRegistry {
 	registry.Register(&PerplexityBackend{})
 	registry.Register(&GroqBackend{})
 	registry.Register(&DeepSeekBackend{})
+	registry.Register(&OpenRouterBackend{})
 
 	return registry
 }
@@ -1177,6 +1178,88 @@ func (b *DeepSeekBackend) convertOpenAIResponse(openAIResp map[string]interface{
 func (b *DeepSeekBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	if apiKey == "" {
 		apiKey = os.Getenv("DEEPSEEK_API_KEY")
+	}
+	if apiKey == "" {
+		return "", ""
+	}
+	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+}
+
+// OpenRouterBackend implements the OpenRouter backend.
+type OpenRouterBackend struct{}
+
+func (b *OpenRouterBackend) Name() string {
+	return "openrouter"
+}
+
+func (b *OpenRouterBackend) DefaultURL() string {
+	return "https://openrouter.ai"
+}
+
+func (b *OpenRouterBackend) ChatEndpoint(baseURL string) string {
+	return fmt.Sprintf("%s/api/v1/chat/completions", baseURL)
+}
+
+func (b *OpenRouterBackend) BuildRequest(
+	model string,
+	messages []map[string]interface{},
+	config ChatRequestConfig,
+) (map[string]interface{}, error) {
+	req := map[string]interface{}{
+		"model":    model,
+		"messages": messages,
+		"stream":   false,
+	}
+
+	if config.ContextLength > 0 {
+		req["max_tokens"] = config.ContextLength
+	}
+
+	if config.JSONResponse {
+		req["response_format"] = map[string]interface{}{
+			"type": "json_object",
+		}
+	}
+
+	if len(config.Tools) > 0 {
+		req["tools"] = config.Tools
+	}
+
+	return req, nil
+}
+
+func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	if resp.StatusCode != stdhttp.StatusOK {
+		var errorBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+		return nil, fmt.Errorf("OpenRouter API error (status %d): %v", resp.StatusCode, errorBody)
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return b.convertOpenAIResponse(response), nil
+}
+
+func (b *OpenRouterBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
+		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
+			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
+				result["message"] = message
+			}
+		}
+	}
+
+	return result
+}
+
+func (b *OpenRouterBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENROUTER_API_KEY")
 	}
 	if apiKey == "" {
 		return "", ""
