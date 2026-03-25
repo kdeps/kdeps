@@ -160,7 +160,11 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 				debugMode := GetDebugMode(r.Context())
 				RespondWithError(w, r, domain.NewAppError(
 					domain.ErrCodeRequestTooLarge,
-					fmt.Sprintf("Request body too large: %d bytes (max: %d)", r.ContentLength, maxFileSize),
+					fmt.Sprintf(
+						"Request body too large: %d bytes (max: %d)",
+						r.ContentLength,
+						maxFileSize,
+					),
 				), debugMode)
 				return
 			}

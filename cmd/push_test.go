@@ -65,7 +65,10 @@ func TestResolveAndReadWorkflow_YAMLFile(t *testing.T) {
 func TestResolveAndReadWorkflow_Directory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(minimalWorkflowYAML), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(minimalWorkflowYAML), 0600),
+	)
 
 	yamlBytes, err := resolveAndReadWorkflow(tmpDir)
 	require.NoError(t, err)
@@ -335,7 +338,12 @@ func TestPushWorkflow_WithExplicitToken(t *testing.T) {
 
 	err := pushWorkflow(wfPath, server.URL, "direct-token")
 	require.NoError(t, err)
-	assert.Equal(t, "Bearer direct-token", gotAuth, "explicit token must be sent as Authorization header")
+	assert.Equal(
+		t,
+		"Bearer direct-token",
+		gotAuth,
+		"explicit token must be sent as Authorization header",
+	)
 }
 
 // TestPushWorkflow_NoWorkflowFieldInResponse tests that a response with status=ok
@@ -432,7 +440,11 @@ func TestDoPushRequest_WrongToken(t *testing.T) {
 // token configured) produces a clear message directing the operator.
 func TestDoPushRequest_ServerTokenUnset(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "management API disabled: set KDEPS_MANAGEMENT_TOKEN to enable", http.StatusServiceUnavailable)
+		http.Error(
+			w,
+			"management API disabled: set KDEPS_MANAGEMENT_TOKEN to enable",
+			http.StatusServiceUnavailable,
+		)
 	}))
 	defer server.Close()
 

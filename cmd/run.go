@@ -53,6 +53,7 @@ import (
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorPDF "github.com/kdeps/kdeps/v2/pkg/executor/pdf"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
+	executorRemoteAgent "github.com/kdeps/kdeps/v2/pkg/executor/remote_agent"
 	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	executorSearch "github.com/kdeps/kdeps/v2/pkg/executor/search"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
@@ -70,6 +71,12 @@ import (
 const (
 	// maxExtractFileSize is the maximum size allowed for extracted files to prevent decompression bombs.
 	maxExtractFileSize = 100 * 1024 * 1024 // 100MB
+
+	agencyFile       = "agency.yaml"
+	agencyYAMLJ2File = "agency.yaml.j2"
+	agencyYMLFile    = "agency.yml"
+	agencyYMLJ2File  = "agency.yml.j2"
+	agencyJ2File     = "agency.j2"
 )
 
 // RunFlags holds the flags for the run command.
@@ -114,7 +121,8 @@ Examples:
 		},
 	}
 
-	runCmd.Flags().IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port
+	runCmd.Flags().
+		IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port for kdeps server
 	runCmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev mode (hot reload)")
 
 	return runCmd
@@ -151,7 +159,7 @@ func resolveKagencyPackage(inputPath string) (string, func(), error) {
 	agencyPath := FindAgencyFile(tempDir)
 	if agencyPath == "" {
 		cleanup()
-		return "", nil, fmt.Errorf("no agency.yaml found inside %s", inputPath)
+		return "", nil, fmt.Errorf("no %s found inside %s", agencyFile, inputPath)
 	}
 
 	fmt.Fprintf(os.Stdout, "Extracted to: %s\n", tempDir)
@@ -172,7 +180,10 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 
 	workflowPath := FindWorkflowFile(tempDir)
 	if workflowPath == "" {
-		workflowPath = filepath.Join(tempDir, "workflow.yaml") // fallback for packages that may use legacy name
+		workflowPath = filepath.Join(
+			tempDir,
+			"workflow.yaml",
+		) // fallback for packages that may use legacy name
 	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
 
@@ -248,11 +259,11 @@ func FindComponentFile(dir string) string {
 // agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
 func FindAgencyFile(dir string) string {
 	candidates := []string{
-		filepath.Join(dir, "agency.yaml"),
-		filepath.Join(dir, "agency.yaml.j2"),
-		filepath.Join(dir, "agency.yml"),
-		filepath.Join(dir, "agency.yml.j2"),
-		filepath.Join(dir, "agency.j2"),
+		filepath.Join(dir, agencyFile),
+		filepath.Join(dir, agencyYAMLJ2File),
+		filepath.Join(dir, agencyYMLFile),
+		filepath.Join(dir, agencyYMLJ2File),
+		filepath.Join(dir, agencyJ2File),
 	}
 	for _, p := range candidates {
 		if _, err := os.Stat(p); err == nil {
@@ -329,11 +340,11 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 // isAgencyFile reports whether path points to an agency file based on its base name.
 func isAgencyFile(path string) bool {
 	base := filepath.Base(path)
-	return base == "agency.yaml" ||
-		base == "agency.yml" ||
-		base == "agency.yaml.j2" ||
-		base == "agency.yml.j2" ||
-		base == "agency.j2"
+	return base == agencyFile ||
+		base == agencyYMLFile ||
+		base == agencyYAMLJ2File ||
+		base == agencyYMLJ2File ||
+		base == agencyJ2File
 }
 
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
@@ -446,7 +457,10 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 
 	// 2. Build the agent name → workflow-path map by parsing each agent's metadata.name.
 	fmt.Fprintln(os.Stdout, "\n[2/3] Indexing agents...")
-	agentNameMap, targetWorkflowPath, err := buildAgentNameMap(agentPaths, agency.Metadata.TargetAgentID)
+	agentNameMap, targetWorkflowPath, err := buildAgentNameMap(
+		agentPaths,
+		agency.Metadata.TargetAgentID,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to index agents: %w", err)
 	}
@@ -471,7 +485,10 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 // name→path map along with the resolved path for the target agent.
 // If targetAgentID is empty and there is exactly one agent, that agent is used
 // as the implicit entry point.
-func buildAgentNameMap(agentPaths []string, targetAgentID string) (map[string]string, string, error) {
+func buildAgentNameMap(
+	agentPaths []string,
+	targetAgentID string,
+) (map[string]string, string, error) {
 	nameMap := make(map[string]string, len(agentPaths))
 
 	for _, p := range agentPaths {
@@ -683,11 +700,17 @@ func printBotRequirements(input *domain.InputConfig) {
 	b := input.Bot
 	if b.Discord != nil {
 		fmt.Fprintln(os.Stdout, "    Discord bot:")
-		fmt.Fprintln(os.Stdout, "      Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)")
+		fmt.Fprintln(
+			os.Stdout,
+			"      Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)",
+		)
 	}
 	if b.Slack != nil {
 		fmt.Fprintln(os.Stdout, "    Slack bot (Socket Mode):")
-		fmt.Fprintln(os.Stdout, "      Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)")
+		fmt.Fprintln(
+			os.Stdout,
+			"      Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)",
+		)
 	}
 	if b.Telegram != nil {
 		fmt.Fprintln(os.Stdout, "    Telegram bot (long-polling):")
@@ -695,7 +718,10 @@ func printBotRequirements(input *domain.InputConfig) {
 	}
 	if b.WhatsApp != nil {
 		fmt.Fprintln(os.Stdout, "    WhatsApp Cloud API (embedded webhook server):")
-		fmt.Fprintln(os.Stdout, "      Requires a Phone Number ID and Access Token from Meta for Developers")
+		fmt.Fprintln(
+			os.Stdout,
+			"      Requires a Phone Number ID and Access Token from Meta for Developers",
+		)
 		fmt.Fprintln(
 			os.Stdout,
 			"      The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
@@ -780,7 +806,10 @@ func printCaptureRequirements(input *domain.InputConfig) {
 				"      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n",
 				notFound(ffmpegOK),
 			)
-			fmt.Fprintln(os.Stdout, "      arecord   — apt install alsa-utils  (Linux, preferred over ffmpeg)")
+			fmt.Fprintln(
+				os.Stdout,
+				"      arecord   — apt install alsa-utils  (Linux, preferred over ffmpeg)",
+			)
 			if runtime.GOOS == "darwin" {
 				fmt.Fprintln(
 					os.Stdout,
@@ -825,10 +854,17 @@ func printOfflineSTTRequirement(engine string, printed map[string]bool) {
 	printed[engine] = true
 	switch engine {
 	case domain.TranscriberEngineWhisper:
-		ok := isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") || isPythonModuleAvailable("whisper")
+		ok := isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") ||
+			isPythonModuleAvailable("whisper")
 		fmt.Fprintf(os.Stdout, "    Transcription (whisper):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      uv tool install whisperx --python 3.12  (auto-installed, recommended)")
-		fmt.Fprintln(os.Stdout, "      OR  uv tool install openai-whisper  /  pip install openai-whisper")
+		fmt.Fprintln(
+			os.Stdout,
+			"      uv tool install whisperx --python 3.12  (auto-installed, recommended)",
+		)
+		fmt.Fprintln(
+			os.Stdout,
+			"      OR  uv tool install openai-whisper  /  pip install openai-whisper",
+		)
 	case domain.TranscriberEngineFasterWhisper:
 		fmt.Fprintln(os.Stdout, "    Transcription (faster-whisper):")
 		fmt.Fprintln(os.Stdout, "      auto-managed via uv (no installation required)")
@@ -917,12 +953,14 @@ func installIOTools(workflow *domain.Workflow) error {
 
 func installInputTools(manager *python.Manager, input *domain.InputConfig) error {
 	seen := make(map[string]bool)
-	if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline && t.Offline != nil {
+	if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline &&
+		t.Offline != nil {
 		if err := installSTTTool(manager, t.Offline.Engine, seen); err != nil {
 			return err
 		}
 	}
-	if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline && a.Offline != nil {
+	if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline &&
+		a.Offline != nil {
 		if err := installSTTTool(manager, a.Offline.Engine, seen); err != nil {
 			return err
 		}
@@ -964,7 +1002,10 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		if python.IOToolPythonBin("faster-whisper") != "" {
 			return nil
 		}
-		fmt.Fprintln(os.Stdout, "  ⏳ Installing faster-whisper venv (first run may take a minute)...")
+		fmt.Fprintln(
+			os.Stdout,
+			"  ⏳ Installing faster-whisper venv (first run may take a minute)...",
+		)
 		ioManager := python.NewManager(python.IOToolsBaseDir())
 		if _, err := ioManager.EnsureVenv(
 			python.IOToolsPythonVersion,
@@ -1068,7 +1109,10 @@ type RequestContextAdapter struct {
 }
 
 // Execute implements http.WorkflowExecutor interface and converts request context types.
-func (a *RequestContextAdapter) Execute(workflow *domain.Workflow, req interface{}) (interface{}, error) {
+func (a *RequestContextAdapter) Execute(
+	workflow *domain.Workflow,
+	req interface{},
+) (interface{}, error) {
 	// If req is nil, pass it through
 	if req == nil {
 		return a.Engine.Execute(workflow, nil)
@@ -1279,7 +1323,11 @@ const gracefulShutdownTimeout = 10 * time.Second
 
 // dispatchExecution selects and starts the correct execution mode for the workflow:
 // server (API/Web/both), bot (polling or stateless), media polling, or single-run stateless.
-func dispatchExecution(workflow *domain.Workflow, workflowPath string, devMode, debugMode bool) error {
+func dispatchExecution(
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode, debugMode bool,
+) error {
 	s := workflow.Settings
 
 	if s.WebServerMode && s.APIServerMode {
@@ -1394,7 +1442,12 @@ func StartMediaRunners(workflow *domain.Workflow, debugMode bool) error {
 // StartHTTPServer starts the HTTP API server (exported for testing).
 //
 
-func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
+func StartHTTPServer(
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode bool,
+	debugMode bool,
+) error {
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
 
@@ -1501,6 +1554,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 	registry.SetCalendarExecutor(executorCalendar.NewAdapter(logger))
 	registry.SetSearchExecutor(executorSearch.NewAdapter())
+	registry.SetRemoteAgentExecutor(executorRemoteAgent.NewAdapter())
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
@@ -1702,7 +1756,11 @@ func startBothServersWithEngine(
 }
 
 // StartBotRunnersWithEngine starts bot runners using a pre-built engine.
-func StartBotRunnersWithEngine(eng *executor.Engine, workflow *domain.Workflow, debugMode bool) error {
+func StartBotRunnersWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	debugMode bool,
+) error {
 	input := workflow.Settings.Input
 	logger := logging.NewLogger(debugMode)
 
@@ -1932,7 +1990,11 @@ func ValidateAndJoinPath(headerName, tempDir string) (string, error) {
 // are rejected rather than silently truncated.
 func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) error {
 	if header.Size > maxExtractFileSize {
-		return fmt.Errorf("archive entry %q exceeds maximum allowed size of %d bytes", header.Name, maxExtractFileSize)
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			header.Name,
+			maxExtractFileSize,
+		)
 	}
 
 	if parentErr := os.MkdirAll(filepath.Dir(targetPath), 0750); parentErr != nil {
@@ -1973,7 +2035,12 @@ func ExecuteSingleRun(workflow *domain.Workflow) error {
 // StartBothServers starts both the API server and WebServer on a single port.
 //
 
-func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
+func StartBothServers(
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode bool,
+	debugMode bool,
+) error {
 	// Create logger
 	logger := logging.NewLogger(debugMode)
 

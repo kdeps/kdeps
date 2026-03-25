@@ -47,10 +47,10 @@ const (
 
 // SchemaValidator validates YAML/JSON against JSON Schema.
 type SchemaValidator struct {
-	workflowSchema   *gojsonschema.Schema
-	resourceSchema   *gojsonschema.Schema
-	agencySchema     *gojsonschema.Schema
-	componentSchema  *gojsonschema.Schema
+	workflowSchema    *gojsonschema.Schema
+	resourceSchema    *gojsonschema.Schema
+	agencySchema      *gojsonschema.Schema
+	componentSchema   *gojsonschema.Schema
 	remoteAgentSchema *gojsonschema.Schema
 }
 
@@ -293,11 +293,15 @@ func (sv *SchemaValidator) ValidateRemoteAgent(data map[string]interface{}) erro
 
 // isTypeError checks if the error is a type-related error.
 func (sv *SchemaValidator) isTypeError(errorType, descStr string) bool {
-	return errorType == "type" || strings.Contains(descStr, "Invalid type") || strings.Contains(descStr, "Expected:")
+	return errorType == "type" || strings.Contains(descStr, "Invalid type") ||
+		strings.Contains(descStr, "Expected:")
 }
 
 // enhanceErrorMessage enhances error messages with available options and suggestions for all fields.
-func (sv *SchemaValidator) enhanceErrorMessage(desc gojsonschema.ResultError, schemaType string) string {
+func (sv *SchemaValidator) enhanceErrorMessage(
+	desc gojsonschema.ResultError,
+	schemaType string,
+) string {
 	field := desc.Field()
 	errorType := desc.Type()
 	descStr := desc.String()
@@ -318,7 +322,8 @@ func (sv *SchemaValidator) enhanceErrorMessage(desc gojsonschema.ResultError, sc
 	suggestion := sv.getFieldSuggestion(field, errorType, descStr, schemaType)
 
 	// For type errors, add examples if available
-	if sv.isTypeError(errorType, descStr) && suggestion != "" && strings.HasPrefix(suggestion, "Expected type: ") {
+	if sv.isTypeError(errorType, descStr) && suggestion != "" &&
+		strings.HasPrefix(suggestion, "Expected type: ") {
 		typePart := strings.TrimPrefix(suggestion, "Expected type: ")
 		// Get field-specific examples
 		example := sv.getFieldExamples(field, strings.ToLower(typePart))
@@ -340,7 +345,8 @@ func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ strin
 	normalizedField := sv.normalizeFieldPath(field)
 
 	// Type error suggestions - check both errorType and description
-	if errorType == "type" || strings.Contains(descStr, "Invalid type") || strings.Contains(descStr, "Expected:") {
+	if errorType == "type" || strings.Contains(descStr, "Invalid type") ||
+		strings.Contains(descStr, "Expected:") {
 		return sv.getTypeSuggestion(normalizedField, descStr)
 	}
 
@@ -356,7 +362,10 @@ func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ strin
 
 	// Range suggestions (min/max) - check multiple formats
 	if strings.Contains(descStr, "minimum") || strings.Contains(descStr, "maximum") ||
-		strings.Contains(descStr, "less than or equal") || strings.Contains(descStr, "greater than or equal") ||
+		strings.Contains(
+			descStr,
+			"less than or equal",
+		) || strings.Contains(descStr, "greater than or equal") ||
 		strings.Contains(descStr, "Must be less") || strings.Contains(descStr, "Must be greater") {
 		return sv.getRangeSuggestion(normalizedField, descStr)
 	}
@@ -684,7 +693,8 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 
 	// Check if normalized field matches any known enum field (for nested paths)
 	for enumField, values := range enumMap {
-		if strings.HasSuffix(normalizedField, "."+enumField) || strings.Contains(normalizedField, enumField) {
+		if strings.HasSuffix(normalizedField, "."+enumField) ||
+			strings.Contains(normalizedField, enumField) {
 			return values
 		}
 	}

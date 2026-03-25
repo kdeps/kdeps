@@ -200,12 +200,24 @@ func TestExtractHostPortFromParsedURL(t *testing.T) {
 				t.Fatalf("Failed to parse URL %s: %v", tt.urlStr, err)
 			}
 
-			gotHost, gotPort := extractHostPortFromParsedURL(parsedURL, tt.defaultHost, tt.defaultPort)
+			gotHost, gotPort := extractHostPortFromParsedURL(
+				parsedURL,
+				tt.defaultHost,
+				tt.defaultPort,
+			)
 			if gotHost != tt.wantHost {
-				t.Errorf("extractHostPortFromParsedURL() gotHost = %v, want %v", gotHost, tt.wantHost)
+				t.Errorf(
+					"extractHostPortFromParsedURL() gotHost = %v, want %v",
+					gotHost,
+					tt.wantHost,
+				)
 			}
 			if gotPort != tt.wantPort {
-				t.Errorf("extractHostPortFromParsedURL() gotPort = %v, want %v", gotPort, tt.wantPort)
+				t.Errorf(
+					"extractHostPortFromParsedURL() gotPort = %v, want %v",
+					gotPort,
+					tt.wantPort,
+				)
 			}
 		})
 	}

@@ -773,8 +773,20 @@ func TestIntegration_IMAP_Read_EmptyMailbox(t *testing.T) {
 
 func TestIntegration_IMAP_Read_Messages(t *testing.T) {
 	msgs := []fakeIMAPMsg{
-		{subject: "First", from: "alice@example.com", to: "bob@example.com", body: "hello", seen: false},
-		{subject: "Second", from: "charlie@example.com", to: "bob@example.com", body: "world", seen: true},
+		{
+			subject: "First",
+			from:    "alice@example.com",
+			to:      "bob@example.com",
+			body:    "hello",
+			seen:    false,
+		},
+		{
+			subject: "Second",
+			from:    "charlie@example.com",
+			to:      "bob@example.com",
+			body:    "world",
+			seen:    true,
+		},
 	}
 	fi := startFakeIMAP(t, msgs)
 
@@ -923,8 +935,20 @@ func TestIntegration_IMAP_Modify_InvalidUID_Skipped(t *testing.T) {
 
 func TestIntegration_IMAP_Modify_BySearch(t *testing.T) {
 	msgs := []fakeIMAPMsg{
-		{subject: "Unread", from: "alice@example.com", to: "bob@example.com", body: "hello", seen: false},
-		{subject: "Also Unread", from: "charlie@example.com", to: "bob@example.com", body: "world", seen: false},
+		{
+			subject: "Unread",
+			from:    "alice@example.com",
+			to:      "bob@example.com",
+			body:    "hello",
+			seen:    false,
+		},
+		{
+			subject: "Also Unread",
+			from:    "charlie@example.com",
+			to:      "bob@example.com",
+			body:    "world",
+			seen:    false,
+		},
 	}
 	fi := startFakeIMAP(t, msgs)
 

@@ -67,7 +67,11 @@ func NewGenerator() (*Generator, error) {
 }
 
 // GenerateProject creates a new project from a Jinja2 template.
-func (g *Generator) GenerateProject(templateName string, outputDir string, data TemplateData) error {
+func (g *Generator) GenerateProject(
+	templateName string,
+	outputDir string,
+	data TemplateData,
+) error {
 	templateDir := filepath.Join("templates", templateName)
 	entries, readErr := templatesFS.ReadDir(templateDir)
 	if readErr != nil {

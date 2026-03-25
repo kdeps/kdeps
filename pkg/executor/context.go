@@ -181,7 +181,10 @@ type FileUpload struct {
 // If not provided, a new session ID will be generated.
 //
 //nolint:gocognit,nestif // session setup requires explicit branching
-func NewExecutionContext(workflow *domain.Workflow, sessionID ...string) (*ExecutionContext, error) {
+func NewExecutionContext(
+	workflow *domain.Workflow,
+	sessionID ...string,
+) (*ExecutionContext, error) {
 	memoryStorage, err := storage.NewMemoryStorage("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create memory storage: %w", err)
@@ -395,7 +398,10 @@ func (ctx *ExecutionContext) getFromBody(name string) (interface{}, error) {
 		// If parameter filtering is enabled and body is nil, this is an error
 		// because we expect the body to be available for filtered access
 		if len(ctx.allowedParams) > 0 {
-			return nil, fmt.Errorf("parameter '%s' not found (request body not available for filtering)", name)
+			return nil, fmt.Errorf(
+				"parameter '%s' not found (request body not available for filtering)",
+				name,
+			)
 		}
 		return nil, errors.New("no body")
 	}
@@ -673,7 +679,10 @@ func (ctx *ExecutionContext) GetParam(name string) (interface{}, error) {
 			}
 		}
 		if !allowed {
-			return nil, fmt.Errorf("query parameter '%s' not found (not in allowedParams list)", name)
+			return nil, fmt.Errorf(
+				"query parameter '%s' not found (not in allowedParams list)",
+				name,
+			)
 		}
 	}
 	if val, ok := ctx.Request.Query[name]; ok {
@@ -873,7 +882,10 @@ func (ctx *ExecutionContext) File(pattern string, selector ...string) (interface
 // HandleGlobPattern processes glob patterns with optional selectors.
 //
 // HandleGlobPattern handles glob pattern matching.
-func (ctx *ExecutionContext) HandleGlobPattern(absPattern, pattern string, selector []string) (interface{}, error) {
+func (ctx *ExecutionContext) HandleGlobPattern(
+	absPattern, pattern string,
+	selector []string,
+) (interface{}, error) {
 	matches, err := filepath.Glob(absPattern)
 	if err != nil {
 		return nil, fmt.Errorf("glob pattern error: %w", err)
@@ -920,7 +932,9 @@ func (ctx *ExecutionContext) handleMimeTypeSelector(
 }
 
 // handleEmptyFilteredResults handles the case when no files match the MIME type filter.
-func (ctx *ExecutionContext) handleEmptyFilteredResults(selector, mimeType, pattern string) (interface{}, error) {
+func (ctx *ExecutionContext) handleEmptyFilteredResults(
+	selector, mimeType, pattern string,
+) (interface{}, error) {
 	switch selector {
 	case itemKeyCount:
 		return 0, nil
@@ -934,7 +948,10 @@ func (ctx *ExecutionContext) handleEmptyFilteredResults(selector, mimeType, patt
 }
 
 // ApplySelector applies a selector to matches.
-func (ctx *ExecutionContext) ApplySelector(matches []string, pattern, selector string) (interface{}, error) {
+func (ctx *ExecutionContext) ApplySelector(
+	matches []string,
+	pattern, selector string,
+) (interface{}, error) {
 	switch selector {
 	case "first":
 		if len(matches) > 0 {
@@ -970,7 +987,10 @@ func (ctx *ExecutionContext) readAllFiles(paths []string) ([]interface{}, error)
 }
 
 // FilterByMimeType filters paths by MIME type.
-func (ctx *ExecutionContext) FilterByMimeType(paths []string, targetMimeType string) ([]string, error) {
+func (ctx *ExecutionContext) FilterByMimeType(
+	paths []string,
+	targetMimeType string,
+) ([]string, error) {
 	filtered := make([]string, 0)
 
 	for _, path := range paths {
@@ -1042,7 +1062,10 @@ func (ctx *ExecutionContext) handleAgentData(pattern string, _ []string) (interf
 
 	parts := strings.SplitN(pattern, "/", agentPathParts)
 	if len(parts) != agentPathParts {
-		return nil, fmt.Errorf("invalid agent data pattern: %s (expected agent:name:version/path)", pattern)
+		return nil, fmt.Errorf(
+			"invalid agent data pattern: %s (expected agent:name:version/path)",
+			pattern,
+		)
 	}
 
 	agentSpec := parts[0] // name:version or name:latest
@@ -1259,7 +1282,8 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 		openBracket := strings.LastIndex(name, "[")
 		if openBracket > 0 {
 			indexStr := name[openBracket+1 : len(name)-1]
-			if index, err := strconv.Atoi(indexStr); err == nil && index >= 0 && index < len(ctx.Request.Files) {
+			if index, err := strconv.Atoi(indexStr); err == nil && index >= 0 &&
+				index < len(ctx.Request.Files) {
 				return &ctx.Request.Files[index], nil
 			}
 		}
@@ -1543,7 +1567,9 @@ func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, 
 // GetHTTPResponseHeader retrieves HTTP response header from resource output.
 //
 //nolint:nestif // nested map checks are explicit
-func (ctx *ExecutionContext) GetHTTPResponseHeader(actionID, headerName string) (interface{}, error) {
+func (ctx *ExecutionContext) GetHTTPResponseHeader(
+	actionID, headerName string,
+) (interface{}, error) {
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)

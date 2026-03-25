@@ -54,7 +54,11 @@ type inputValidator interface {
 }
 
 type exprValidator interface {
-	ValidateCustomRules(rules []domain.CustomRule, evaluator *expression.Evaluator, env map[string]interface{}) error
+	ValidateCustomRules(
+		rules []domain.CustomRule,
+		evaluator *expression.Evaluator,
+		env map[string]interface{},
+	) error
 }
 
 const (
@@ -143,12 +147,18 @@ func (e *Engine) SetAfterEvaluatorInitForTesting(callback func(*Engine, *Executi
 }
 
 // ExecuteAPIResponseForTesting calls executeAPIResponse for testing.
-func (e *Engine) ExecuteAPIResponseForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteAPIResponseForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeAPIResponse(resource, ctx)
 }
 
 // EvaluateResponseValueForTesting calls evaluateResponseValue for testing.
-func (e *Engine) EvaluateResponseValueForTesting(value interface{}, env map[string]interface{}) (interface{}, error) {
+func (e *Engine) EvaluateResponseValueForTesting(
+	value interface{},
+	env map[string]interface{},
+) (interface{}, error) {
 	return e.evaluateResponseValue(value, env)
 }
 
@@ -175,17 +185,26 @@ func SleepForIterationForTesting(atTimes []time.Time, everyDur time.Duration, i 
 }
 
 // ExecuteTTSForTesting exposes the private executeTTS for testing.
-func (e *Engine) ExecuteTTSForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteTTSForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeTTS(resource, ctx)
 }
 
 // ExecuteBotReplyForTesting exposes the private executeBotReply for testing.
-func (e *Engine) ExecuteBotReplyForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteBotReplyForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeBotReply(resource, ctx)
 }
 
 // ExecuteScraperForTesting exposes the private executeScraper for testing.
-func (e *Engine) ExecuteScraperForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteScraperForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeScraper(resource, ctx)
 }
 
@@ -198,7 +217,10 @@ func (e *Engine) ExecuteInlineScraperForTesting(
 }
 
 // ExecuteEmbeddingForTesting exposes the private executeEmbedding for testing.
-func (e *Engine) ExecuteEmbeddingForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteEmbeddingForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeEmbedding(resource, ctx)
 }
 
@@ -211,7 +233,10 @@ func (e *Engine) ExecuteInlineEmbeddingForTesting(
 }
 
 // ExecutePDFForTesting exposes the private executePDF for testing.
-func (e *Engine) ExecutePDFForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecutePDFForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executePDF(resource, ctx)
 }
 
@@ -272,7 +297,10 @@ func (e *Engine) ExecuteInlineSearchForTesting(
 }
 
 // ExecuteBrowserForTesting exposes the private executeBrowser for testing.
-func (e *Engine) ExecuteBrowserForTesting(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) ExecuteBrowserForTesting(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeBrowser(resource, ctx)
 }
 
@@ -808,7 +836,10 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 }
 
 // evaluatePreflightValidation evaluates a single preflight validation expression.
-func (e *Engine) evaluatePreflightValidation(validation domain.Expression, ctx *ExecutionContext) (bool, error) {
+func (e *Engine) evaluatePreflightValidation(
+	validation domain.Expression,
+	ctx *ExecutionContext,
+) (bool, error) {
 	// Parse expression if needed (handle {{ }} syntax)
 	exprStr := validation.Raw
 	if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
@@ -902,7 +933,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Calendar != nil ||
 		resource.Run.Search != nil ||
 		resource.Run.Agent != nil ||
-		resource.Run.Browser != nil
+		resource.Run.Browser != nil ||
+		resource.Run.RemoteAgent != nil
 
 	var primaryResult interface{}
 	var err error
@@ -940,6 +972,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeAgent(resource, ctx)
 		case resource.Run.Browser != nil:
 			primaryResult, err = e.executeBrowser(resource, ctx)
+		case resource.Run.RemoteAgent != nil:
+			primaryResult, err = e.executeRemoteAgent(resource, ctx)
 		}
 
 		if err != nil {
@@ -1226,7 +1260,10 @@ func (e *Engine) executeOnErrorExpressions(
 }
 
 // evaluateFallback evaluates a fallback value, handling expressions.
-func (e *Engine) evaluateFallback(fallback interface{}, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) evaluateFallback(
+	fallback interface{},
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	// Handle string values that might be expressions
 	if str, ok := fallback.(string); ok {
 		parser := expression.NewParser()
@@ -1632,7 +1669,10 @@ func (e *Engine) ExecuteWithItems(
 }
 
 // executeInlineResources executes a list of inline resources.
-func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource, ctx *ExecutionContext) error {
+func (e *Engine) executeInlineResources(
+	inlineResources []domain.InlineResource,
+	ctx *ExecutionContext,
+) error {
 	for i, inline := range inlineResources {
 		e.logger.Debug("Executing inline resource",
 			"index", i,
@@ -1897,7 +1937,7 @@ func (e *Engine) executeExec(
 
 // executeAPIResponse executes an API response resource.
 //
-//nolint:gocognit,nestif // response assembly handles multiple formats
+//nolint:gocognit,nestif,funlen // response assembly handles multiple formats
 func (e *Engine) executeAPIResponse(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -1944,7 +1984,10 @@ func (e *Engine) executeAPIResponse(
 
 		// Add headers if present
 		if apiResponseConfig.Meta.Headers != nil {
-			evaluatedHeaders, evalErr := e.evaluateResponseValue(apiResponseConfig.Meta.Headers, env)
+			evaluatedHeaders, evalErr := e.evaluateResponseValue(
+				apiResponseConfig.Meta.Headers,
+				env,
+			)
 			if evalErr == nil {
 				headers := make(map[string]string)
 				if hMap, ok := evaluatedHeaders.(map[string]interface{}); ok {
@@ -1971,7 +2014,10 @@ func (e *Engine) executeAPIResponse(
 			}
 		}
 		if apiResponseConfig.Meta.Backend != "" {
-			evaluatedBackend, evalErr := e.evaluateResponseValue(apiResponseConfig.Meta.Backend, env)
+			evaluatedBackend, evalErr := e.evaluateResponseValue(
+				apiResponseConfig.Meta.Backend,
+				env,
+			)
 			if evalErr == nil {
 				metaMap["backend"] = fmt.Sprintf("%v", evaluatedBackend)
 			}
@@ -1983,7 +2029,8 @@ func (e *Engine) executeAPIResponse(
 	}
 
 	// Automatically add LLM metadata from execution context (only if LLM resources were used)
-	if ctx != nil && ctx.LLMMetadata != nil && (ctx.LLMMetadata.Model != "" || ctx.LLMMetadata.Backend != "") {
+	if ctx != nil && ctx.LLMMetadata != nil &&
+		(ctx.LLMMetadata.Model != "" || ctx.LLMMetadata.Backend != "") {
 		if metaMap, ok := apiResponse["_meta"].(map[string]interface{}); ok {
 			// Add to existing meta (only if not already specified in YAML)
 			if ctx.LLMMetadata.Model != "" && metaMap["model"] == nil {
@@ -2012,7 +2059,10 @@ func (e *Engine) executeAPIResponse(
 
 // evaluateResponseValue recursively evaluates expressions in response values.
 // Handles maps, arrays, and strings with expressions.
-func (e *Engine) evaluateResponseValue(value interface{}, env map[string]interface{}) (interface{}, error) {
+func (e *Engine) evaluateResponseValue(
+	value interface{},
+	env map[string]interface{},
+) (interface{}, error) {
 	// Handle string values - check if they contain expressions
 	if str, ok := value.(string); ok {
 		parser := expression.NewParser()
@@ -2048,7 +2098,11 @@ func (e *Engine) evaluateResponseValue(value interface{}, env map[string]interfa
 		for i, val := range dataSlice {
 			evaluatedValue, err := e.evaluateResponseValue(val, env)
 			if err != nil {
-				return nil, fmt.Errorf("failed to evaluate response array element at index %d: %w", i, err)
+				return nil, fmt.Errorf(
+					"failed to evaluate response array element at index %d: %w",
+					i,
+					err,
+				)
 			}
 			result[i] = evaluatedValue
 		}
@@ -2362,7 +2416,10 @@ func (e *Engine) updateLLMMetadata(ctx *ExecutionContext, model string, backendN
 }
 
 // executeInlineLLM executes an inline LLM resource.
-func (e *Engine) executeInlineLLM(config *domain.ChatConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineLLM(
+	config *domain.ChatConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	executor := e.registry.GetLLMExecutor()
 	if executor == nil {
 		return nil, errors.New("LLM executor not available")
@@ -2372,7 +2429,10 @@ func (e *Engine) executeInlineLLM(config *domain.ChatConfig, ctx *ExecutionConte
 }
 
 // executeInlineHTTP executes an inline HTTP resource.
-func (e *Engine) executeInlineHTTP(config *domain.HTTPClientConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineHTTP(
+	config *domain.HTTPClientConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	executor := e.registry.GetHTTPExecutor()
 	if executor == nil {
 		return nil, errors.New("HTTP executor not available")
@@ -2382,7 +2442,10 @@ func (e *Engine) executeInlineHTTP(config *domain.HTTPClientConfig, ctx *Executi
 }
 
 // executeInlineSQL executes an inline SQL resource.
-func (e *Engine) executeInlineSQL(config *domain.SQLConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineSQL(
+	config *domain.SQLConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	executor := e.registry.GetSQLExecutor()
 	if executor == nil {
 		return nil, errors.New("SQL executor not available")
@@ -2392,7 +2455,10 @@ func (e *Engine) executeInlineSQL(config *domain.SQLConfig, ctx *ExecutionContex
 }
 
 // executeInlinePython executes an inline Python resource.
-func (e *Engine) executeInlinePython(config *domain.PythonConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlinePython(
+	config *domain.PythonConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	executor := e.registry.GetPythonExecutor()
 	if executor == nil {
 		return nil, errors.New("python executor not available")
@@ -2402,7 +2468,10 @@ func (e *Engine) executeInlinePython(config *domain.PythonConfig, ctx *Execution
 }
 
 // executeInlineExec executes an inline Exec resource.
-func (e *Engine) executeInlineExec(config *domain.ExecConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineExec(
+	config *domain.ExecConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	executor := e.registry.GetExecExecutor()
 	if executor == nil {
 		return nil, errors.New("exec executor not available")
@@ -2429,7 +2498,10 @@ func (e *Engine) executeTTS(
 }
 
 // executeInlineTTS executes an inline TTS resource.
-func (e *Engine) executeInlineTTS(config *domain.TTSConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineTTS(
+	config *domain.TTSConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	ttsExec := e.registry.GetTTSExecutor()
 	if ttsExec == nil {
 		return nil, errors.New("tts executor not available")
@@ -2440,9 +2512,15 @@ func (e *Engine) executeInlineTTS(config *domain.TTSConfig, ctx *ExecutionContex
 
 // executeBotReply executes a botReply resource, sending the reply text to the
 // originating bot platform via the BotSend function set on the execution context.
-func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeBotReply(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.BotReply == nil {
-		return nil, fmt.Errorf("resource %s has no botReply configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no botReply configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 
 	botReplyExec := e.registry.GetBotReplyExecutor()
@@ -2454,9 +2532,15 @@ func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContex
 }
 
 // executeScraper executes a scraper resource.
-func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeScraper(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Scraper == nil {
-		return nil, fmt.Errorf("resource %s has no scraper configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no scraper configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 
 	scraperExec := e.registry.GetScraperExecutor()
@@ -2468,7 +2552,10 @@ func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext
 }
 
 // executeInlineScraper executes an inline scraper resource.
-func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineScraper(
+	config *domain.ScraperConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	scraperExec := e.registry.GetScraperExecutor()
 	if scraperExec == nil {
 		return nil, errors.New("scraper executor not available")
@@ -2479,9 +2566,15 @@ func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *Executi
 
 // executeEmbedding executes an embedding resource, converting text to vector embeddings
 // and storing or querying them in a local vector DB.
-func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeEmbedding(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Embedding == nil {
-		return nil, fmt.Errorf("resource %s has no embedding configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no embedding configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 
 	embeddingExec := e.registry.GetEmbeddingExecutor()
@@ -2493,7 +2586,10 @@ func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionConte
 }
 
 // executeInlineEmbedding executes an inline embedding resource.
-func (e *Engine) executeInlineEmbedding(config *domain.EmbeddingConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineEmbedding(
+	config *domain.EmbeddingConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	embeddingExec := e.registry.GetEmbeddingExecutor()
 	if embeddingExec == nil {
 		return nil, errors.New("embedding executor not available")
@@ -2517,7 +2613,10 @@ func (e *Engine) executePDF(resource *domain.Resource, ctx *ExecutionContext) (i
 }
 
 // executeInlinePDF executes an inline PDF generation resource.
-func (e *Engine) executeInlinePDF(config *domain.PDFConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlinePDF(
+	config *domain.PDFConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	pdfExec := e.registry.GetPDFExecutor()
 	if pdfExec == nil {
 		return nil, errors.New("pdf executor not available")
@@ -2527,7 +2626,10 @@ func (e *Engine) executeInlinePDF(config *domain.PDFConfig, ctx *ExecutionContex
 }
 
 // executeEmail executes an email-sending resource.
-func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeEmail(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Email == nil {
 		return nil, fmt.Errorf("resource %s has no email configuration", resource.Metadata.ActionID)
 	}
@@ -2541,7 +2643,10 @@ func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) 
 }
 
 // executeInlineEmail executes an inline email-sending resource.
-func (e *Engine) executeInlineEmail(config *domain.EmailConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineEmail(
+	config *domain.EmailConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	emailExec := e.registry.GetEmailExecutor()
 	if emailExec == nil {
 		return nil, errors.New("email executor not available")
@@ -2551,9 +2656,15 @@ func (e *Engine) executeInlineEmail(config *domain.EmailConfig, ctx *ExecutionCo
 }
 
 // executeCalendar executes a calendar file resource.
-func (e *Engine) executeCalendar(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeCalendar(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Calendar == nil {
-		return nil, fmt.Errorf("resource %s has no calendar configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no calendar configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 	calExec := e.registry.GetCalendarExecutor()
 	if calExec == nil {
@@ -2563,7 +2674,10 @@ func (e *Engine) executeCalendar(resource *domain.Resource, ctx *ExecutionContex
 }
 
 // executeInlineCalendar executes an inline calendar file resource.
-func (e *Engine) executeInlineCalendar(config *domain.CalendarConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineCalendar(
+	config *domain.CalendarConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	calExec := e.registry.GetCalendarExecutor()
 	if calExec == nil {
 		return nil, errors.New("calendar executor not available")
@@ -2572,9 +2686,15 @@ func (e *Engine) executeInlineCalendar(config *domain.CalendarConfig, ctx *Execu
 }
 
 // executeSearch executes a web or local filesystem search resource.
-func (e *Engine) executeSearch(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeSearch(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Search == nil {
-		return nil, fmt.Errorf("resource %s has no search configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no search configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 	searchExec := e.registry.GetSearchExecutor()
 	if searchExec == nil {
@@ -2584,7 +2704,10 @@ func (e *Engine) executeSearch(resource *domain.Resource, ctx *ExecutionContext)
 }
 
 // executeInlineSearch executes an inline search resource.
-func (e *Engine) executeInlineSearch(config *domain.SearchConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineSearch(
+	config *domain.SearchConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	searchExec := e.registry.GetSearchExecutor()
 	if searchExec == nil {
 		return nil, errors.New("search executor not available")
@@ -2593,9 +2716,15 @@ func (e *Engine) executeInlineSearch(config *domain.SearchConfig, ctx *Execution
 }
 
 // executeBrowser executes a browser automation resource.
-func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeBrowser(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if resource.Run.Browser == nil {
-		return nil, fmt.Errorf("resource %s has no browser configuration", resource.Metadata.ActionID)
+		return nil, fmt.Errorf(
+			"resource %s has no browser configuration",
+			resource.Metadata.ActionID,
+		)
 	}
 	browserExec := e.registry.GetBrowserExecutor()
 	if browserExec == nil {
@@ -2605,7 +2734,10 @@ func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext
 }
 
 // executeInlineBrowser executes an inline browser automation resource.
-func (e *Engine) executeInlineBrowser(config *domain.BrowserConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineBrowser(
+	config *domain.BrowserConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	browserExec := e.registry.GetBrowserExecutor()
 	if browserExec == nil {
 		return nil, errors.New("browser executor not available")
@@ -2616,23 +2748,36 @@ func (e *Engine) executeInlineBrowser(config *domain.BrowserConfig, ctx *Executi
 // executeAgent invokes a sibling agent by name within the same agency.
 // It resolves the agent's workflow path from ctx.AgentPaths, parses the workflow,
 // and executes it in a sub-engine that shares the current registry.
-func (e *Engine) executeAgent(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeAgent(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	return e.executeInlineAgent(resource.Run.Agent, ctx)
 }
 
 // executeInlineAgent executes an agent call from an inline resource block.
-func (e *Engine) executeInlineAgent(cfg *domain.AgentCallConfig, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeInlineAgent(
+	cfg *domain.AgentCallConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
 	if cfg == nil {
 		return nil, errors.New("agent call configuration is nil")
 	}
 
 	if ctx.AgentPaths == nil {
-		return nil, fmt.Errorf("cannot call agent %q: no agency context (AgentPaths not set)", cfg.Name)
+		return nil, fmt.Errorf(
+			"cannot call agent %q: no agency context (AgentPaths not set)",
+			cfg.Name,
+		)
 	}
 
 	agentPath, ok := ctx.AgentPaths[cfg.Name]
 	if !ok {
-		return nil, fmt.Errorf("agent %q not found in agency (available: %v)", cfg.Name, agentPathKeys(ctx.AgentPaths))
+		return nil, fmt.Errorf(
+			"agent %q not found in agency (available: %v)",
+			cfg.Name,
+			agentPathKeys(ctx.AgentPaths),
+		)
 	}
 
 	// Parse the target agent's workflow.
@@ -2676,6 +2821,25 @@ func (e *Engine) executeInlineAgent(cfg *domain.AgentCallConfig, ctx *ExecutionC
 	subEngine.SetNewExecutionContextForAgency(ctx.AgentPaths)
 
 	return subEngine.Execute(workflow, reqCtx)
+}
+
+// executeRemoteAgent invokes a remote agent via the Universal Agent Federation protocol.
+func (e *Engine) executeRemoteAgent(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	if resource.Run.RemoteAgent == nil {
+		return nil, fmt.Errorf(
+			"resource %s has no remoteAgent configuration",
+			resource.Metadata.ActionID,
+		)
+	}
+	remoteCfg := resource.Run.RemoteAgent
+	executor := e.registry.GetRemoteAgentExecutor()
+	if executor == nil {
+		return nil, errors.New("remote agent executor not available")
+	}
+	return executor.Execute(ctx, remoteCfg)
 }
 
 // agentPathKeys returns the map keys as a slice for error messages.

@@ -132,7 +132,10 @@ func TestParseAgency_FileNotFound(t *testing.T) {
 
 func writeWorkflow(t *testing.T, dir string) {
 	t.Helper()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yml"), []byte(minimalWorkflowYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dir, "workflow.yml"), []byte(minimalWorkflowYAML), 0o600),
+	)
 }
 
 func TestDiscoverAgentWorkflows_ExplicitList(t *testing.T) {

@@ -110,7 +110,13 @@ func TestControlFlowTernary(t *testing.T) {
 			}
 
 			if result != tt.expected {
-				t.Errorf("expected %v (type %T), got %v (type %T)", tt.expected, tt.expected, result, result)
+				t.Errorf(
+					"expected %v (type %T), got %v (type %T)",
+					tt.expected,
+					tt.expected,
+					result,
+					result,
+				)
 			}
 		})
 	}

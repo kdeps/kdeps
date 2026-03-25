@@ -81,6 +81,7 @@ run:
 | `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
 | `browser` | Browser automation | Web scraping, form filling, screenshots |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
+| `remoteAgent` | Federated agent invocation (UAF) | Cross-runtime, signed receipts |
 | `apiResponse` | Response formatting | Final output |
 
 ## Metadata

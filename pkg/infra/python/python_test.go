@@ -607,7 +607,10 @@ func TestManager_InstallPackages(t *testing.T) {
 	// Create a real venv for the test if uv is available
 	venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "test-install-pkg")
 	if err != nil {
-		t.Logf("Skipping actual installation test as venv creation failed (likely no uv/python): %v", err)
+		t.Logf(
+			"Skipping actual installation test as venv creation failed (likely no uv/python): %v",
+			err,
+		)
 		return
 	}
 
@@ -624,7 +627,10 @@ func TestManager_InstallRequirements(t *testing.T) {
 	// Create a real venv for the test if uv is available
 	venvPath, err := manager.EnsureVenv("3.12", []string{}, "", "test-install-req")
 	if err != nil {
-		t.Logf("Skipping actual installation test as venv creation failed (likely no uv/python): %v", err)
+		t.Logf(
+			"Skipping actual installation test as venv creation failed (likely no uv/python): %v",
+			err,
+		)
 		return
 	}
 

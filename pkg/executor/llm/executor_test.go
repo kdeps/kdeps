@@ -76,7 +76,9 @@ func TestExecutor_Execute_Success(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -110,7 +112,11 @@ func TestExecutor_Execute_WithScenario(t *testing.T) {
 
 		// System scenario items are prepended before the user message
 		assert.Equal(t, "system", messages[0].(map[string]interface{})["role"])
-		assert.Equal(t, "You are a helpful assistant", messages[0].(map[string]interface{})["content"])
+		assert.Equal(
+			t,
+			"You are a helpful assistant",
+			messages[0].(map[string]interface{})["content"],
+		)
 
 		// Main prompt follows system
 		assert.Equal(t, "user", messages[1].(map[string]interface{})["role"])
@@ -137,7 +143,9 @@ func TestExecutor_Execute_WithScenario(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -187,7 +195,9 @@ func TestExecutor_Execute_JSONResponse(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -223,7 +233,9 @@ func TestExecutor_Execute_JSONResponseWithKeys(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -253,7 +265,9 @@ func TestExecutor_Execute_OllamaError(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -279,7 +293,9 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -321,7 +337,9 @@ func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	// Add test data to context
@@ -378,7 +396,9 @@ func TestExecutor_Execute_WithTools(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -427,7 +447,9 @@ func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := llm.NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -450,7 +472,9 @@ func TestExecutor_Execute_InvalidJSONResponse(t *testing.T) {
 
 func TestExecutor_Execute_MissingModel(t *testing.T) {
 	llmExecutor := llm.NewExecutor("http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
@@ -475,7 +499,9 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 
 func TestExecutor_Execute_MissingPrompt(t *testing.T) {
 	llmExecutor := llm.NewExecutor("http://localhost:11434")
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{

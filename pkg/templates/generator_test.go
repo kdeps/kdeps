@@ -145,7 +145,12 @@ func TestGenerator_ListTemplates(t *testing.T) {
 
 	// Should not include "resources" directory
 	for _, tmpl := range templates {
-		assert.NotEqual(t, "resources", tmpl, "Should not include resources directory in template list")
+		assert.NotEqual(
+			t,
+			"resources",
+			tmpl,
+			"Should not include resources directory in template list",
+		)
 	}
 
 	// Verify templates is not nil and contains expected structure
@@ -257,7 +262,12 @@ func TestGenerator_GenerateProject_WithSubdirectories(t *testing.T) {
 
 	workflowStr := string(workflowContent)
 	assert.Contains(t, workflowStr, "fetchData", "workflow should contain http-client resource")
-	assert.Contains(t, workflowStr, "httpClient", "workflow should contain httpClient configuration")
+	assert.Contains(
+		t,
+		workflowStr,
+		"httpClient",
+		"workflow should contain httpClient configuration",
+	)
 }
 
 func TestGenerator_GenerateFile_ErrorHandling(t *testing.T) {
@@ -1039,7 +1049,13 @@ func TestGenerator_StripTemplateExt_AllPaths(t *testing.T) {
 			// Check if the expected file exists
 			expectedPath := filepath.Join(outputDir, tc.expectedFileName)
 			_, err = os.Stat(expectedPath)
-			assert.NoError(t, err, "Expected file %s should exist: %s", tc.expectedFileName, tc.description)
+			assert.NoError(
+				t,
+				err,
+				"Expected file %s should exist: %s",
+				tc.expectedFileName,
+				tc.description,
+			)
 		})
 	}
 }
@@ -1338,7 +1354,12 @@ func TestGenerator_WalkTemplate_MkdirAllErrorCoverage(t *testing.T) {
 	// This should exercise the MkdirAll error path in walkTemplate
 	err = generator.GenerateProject("api-service", invalidPath, data)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create directory", "Should cover MkdirAll error path")
+	assert.Contains(
+		t,
+		err.Error(),
+		"failed to create directory",
+		"Should cover MkdirAll error path",
+	)
 }
 
 func TestGenerator_GenerateFile_TemplateLookupFailureCoverage(t *testing.T) {

@@ -249,7 +249,12 @@ func (p *Processor) runActivationLoop() error {
 
 	// Use the primary (first) non-API source for probes.
 	primarySource := p.cfg.PrimarySource()
-	probeCapturer, err := capture.NewWithDuration(primarySource, p.cfg, p.detector.ChunkSeconds(), p.logger)
+	probeCapturer, err := capture.NewWithDuration(
+		primarySource,
+		p.cfg,
+		p.detector.ChunkSeconds(),
+		p.logger,
+	)
 	if err != nil {
 		return err
 	}

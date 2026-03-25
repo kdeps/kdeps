@@ -41,7 +41,10 @@ type DefaultLinuxKitRunner struct {
 // Images must be pre-imported into linuxkit's cache via CacheImport before building.
 // Standard LinuxKit images (kernel, init, etc.) are pulled from Docker Hub automatically.
 // If size is non-empty it is passed as --size (e.g. "4096M") to override the default 1024M.
-func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, arch, outputDir, size string) error {
+func (r *DefaultLinuxKitRunner) Build(
+	ctx context.Context,
+	configPath, format, arch, outputDir, size string,
+) error {
 	args := []string{"build", "--docker", "--format", format, "--arch", arch, "--dir", outputDir}
 	if size != "" {
 		args = append(args, "--size", size)

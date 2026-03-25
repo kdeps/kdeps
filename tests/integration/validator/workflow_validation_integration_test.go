@@ -536,7 +536,10 @@ run:
     params:
       query: "hello"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "agent-call.yaml"), []byte(agentResource), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(resourcesDir, "agent-call.yaml"), []byte(agentResource), 0o600),
+	)
 
 	// Write the API-response resource that depends on the agent call.
 	responseResource := `apiVersion: kdeps.io/v1
@@ -639,7 +642,12 @@ settings:
 	for _, res := range workflow.Resources {
 		if res.Metadata.ActionID == "legacy-call" {
 			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
-			assert.Equal(t, "helper-agent", res.Run.Agent.Name, "legacy 'agent:' key should populate Name field")
+			assert.Equal(
+				t,
+				"helper-agent",
+				res.Run.Agent.Name,
+				"legacy 'agent:' key should populate Name field",
+			)
 		}
 	}
 }

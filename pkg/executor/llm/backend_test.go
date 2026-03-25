@@ -1258,7 +1258,10 @@ func TestDeepSeekBackend_GetAPIKeyHeader(t *testing.T) {
 // Test for Google ChatEndpointWithKey.
 func TestGoogleBackend_ChatEndpointWithKey(t *testing.T) {
 	backend := &llm.GoogleBackend{}
-	endpoint := backend.ChatEndpointWithKey("https://generativelanguage.googleapis.com", "test-api-key")
+	endpoint := backend.ChatEndpointWithKey(
+		"https://generativelanguage.googleapis.com",
+		"test-api-key",
+	)
 
 	if !strings.Contains(endpoint, "test-api-key") {
 		t.Errorf("Expected endpoint to contain API key, got '%s'", endpoint)

@@ -83,7 +83,10 @@ func NewAdapter() executor.ResourceExecutor {
 //   - "count":    number of results (int)
 //   - "success":  true/false (bool)
 //   - "error":    error message (string, omitted on success)
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.SearchConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("search executor: invalid config type")
@@ -170,9 +173,16 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 
 // ─── Brave ────────────────────────────────────────────────────────────────────
 
-func (e *Executor) searchBrave(query, apiKey string, limit int, safeSearch bool, region string) ([]interface{}, error) {
+func (e *Executor) searchBrave(
+	query, apiKey string,
+	limit int,
+	safeSearch bool,
+	region string,
+) ([]interface{}, error) {
 	if apiKey == "" {
-		return nil, errors.New("search executor: brave requires an API key (set apiKey or BRAVE_API_KEY)")
+		return nil, errors.New(
+			"search executor: brave requires an API key (set apiKey or BRAVE_API_KEY)",
+		)
 	}
 
 	params := url.Values{}
@@ -238,9 +248,15 @@ func (e *Executor) searchBrave(query, apiKey string, limit int, safeSearch bool,
 
 // ─── SerpAPI ──────────────────────────────────────────────────────────────────
 
-func (e *Executor) searchSerpAPI(query, apiKey string, limit int, region string) ([]interface{}, error) {
+func (e *Executor) searchSerpAPI(
+	query, apiKey string,
+	limit int,
+	region string,
+) ([]interface{}, error) {
 	if apiKey == "" {
-		return nil, errors.New("search executor: serpapi requires an API key (set apiKey or SERPAPI_KEY)")
+		return nil, errors.New(
+			"search executor: serpapi requires an API key (set apiKey or SERPAPI_KEY)",
+		)
 	}
 
 	params := url.Values{}
@@ -408,9 +424,15 @@ func parseDDGResults(html string, limit int) []interface{} {
 
 // ─── Tavily ───────────────────────────────────────────────────────────────────
 
-func (e *Executor) searchTavily(query, apiKey string, limit int, safeSearch bool) ([]interface{}, error) {
+func (e *Executor) searchTavily(
+	query, apiKey string,
+	limit int,
+	safeSearch bool,
+) ([]interface{}, error) {
 	if apiKey == "" {
-		return nil, errors.New("search executor: tavily requires an API key (set apiKey or TAVILY_API_KEY)")
+		return nil, errors.New(
+			"search executor: tavily requires an API key (set apiKey or TAVILY_API_KEY)",
+		)
 	}
 
 	type tavilyRequest struct {
@@ -513,7 +535,8 @@ func searchLocal(root, globPat, query string, limit int) ([]interface{}, error) 
 // It first tries matching against the base name, then against the full relative
 // path (to support ** patterns). Returns true when the pattern is malformed.
 func fileMatchesGlob(root, path, globPat string) bool {
-	if matched, matchErr := filepath.Match(globPat, filepath.Base(path)); matchErr != nil || matched {
+	if matched, matchErr := filepath.Match(globPat, filepath.Base(path)); matchErr != nil ||
+		matched {
 		// Pattern error: include the file. Or base name matches.
 		return true
 	}
@@ -544,7 +567,9 @@ func matchGlob(pattern, path string) (bool, error) {
 
 	// Replace **/ with a placeholder and match the suffix
 	parts := strings.SplitN(pattern, "**/", 2) //nolint:mnd // split into prefix and glob suffix
-	if len(parts) == 2 {                       //nolint:mnd // exactly two parts means "**/" was present
+	if len(
+		parts,
+	) == 2 { //nolint:mnd // exactly two parts means "**/" was present
 		suffix := parts[1]
 		// Match either the path itself or any sub-path against the suffix
 		if matched, err := filepath.Match(suffix, filepath.Base(path)); err == nil && matched {

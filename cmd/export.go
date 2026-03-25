@@ -334,7 +334,11 @@ func performISOBuild(
 }
 
 // resolveOutputPath determines the output file path.
-func resolveOutputPath(output, format string, workflow *domain.Workflow, originalDir string) string {
+func resolveOutputPath(
+	output, format string,
+	workflow *domain.Workflow,
+	originalDir string,
+) string {
 	outputPath := output
 	if outputPath == "" {
 		ext := ".iso"
@@ -625,7 +629,10 @@ func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintf(os.Stdout, "      -cdrom %s -m 4096 -smp 2 %s\n", outputPath, hostfwd)
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "  OVMF_CODE path by platform:")
-	fmt.Fprintln(os.Stdout, "    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(
+		os.Stdout,
+		"    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd",
+	)
 	fmt.Fprintln(os.Stdout, "    macOS (Intel):         /usr/local/share/qemu/edk2-x86_64-code.fd")
 	fmt.Fprintln(os.Stdout, "    Ubuntu/Debian:         /usr/share/OVMF/OVMF_CODE.fd")
 	fmt.Fprintln(os.Stdout, "    Fedora/RHEL:           /usr/share/edk2/ovmf/OVMF_CODE.fd")
@@ -646,7 +653,11 @@ func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")
-	fmt.Fprintf(os.Stdout, "  1. Upload %s to local storage (Datacenter > Storage > ISO Images)\n", fileName)
+	fmt.Fprintf(
+		os.Stdout,
+		"  1. Upload %s to local storage (Datacenter > Storage > ISO Images)\n",
+		fileName,
+	)
 	fmt.Fprintln(os.Stdout, "  2. Create VM: OS type = Linux, BIOS = OVMF (UEFI), Machine = q35")
 	fmt.Fprintln(os.Stdout, "  3. Add CD/DVD drive with the uploaded ISO")
 	fmt.Fprintln(os.Stdout, "  4. Set 2+ GB RAM, 2+ CPU cores, then Start")
@@ -668,11 +679,22 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
-	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=raw,if=virtio \\\n", qemu, outputPath)
+	fmt.Fprintf(
+		os.Stdout,
+		"  %s -cpu host -drive file=%s,format=raw,if=virtio \\\n",
+		qemu,
+		outputPath,
+	)
 	fmt.Fprintf(os.Stdout, "    -m 4096 -smp 2 %s\n", hostfwd)
 	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "  Tip: If you see 'initrd error' or 'kernel failed', try adjusting RAM (-m).")
-	fmt.Fprintln(os.Stdout, "  Note: On Apple Silicon, you must build for arm64 and use qemu-system-aarch64.")
+	fmt.Fprintln(
+		os.Stdout,
+		"  Tip: If you see 'initrd error' or 'kernel failed', try adjusting RAM (-m).",
+	)
+	fmt.Fprintln(
+		os.Stdout,
+		"  Note: On Apple Silicon, you must build for arm64 and use qemu-system-aarch64.",
+	)
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- VMware ---")
@@ -683,7 +705,12 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
 	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
-	fmt.Fprintf(os.Stdout, "    VBoxManage convertfromraw %s %s.vdi --format VDI\n", outputPath, fileName)
+	fmt.Fprintf(
+		os.Stdout,
+		"    VBoxManage convertfromraw %s %s.vdi --format VDI\n",
+		outputPath,
+		fileName,
+	)
 	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk\n", fileName)
 
 	fmt.Fprintln(os.Stdout)
@@ -709,7 +736,10 @@ func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintf(os.Stdout, "      -m 4096 -smp 2 %s\n", hostfwd)
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "  OVMF_CODE path by platform:")
-	fmt.Fprintln(os.Stdout, "    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(
+		os.Stdout,
+		"    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd",
+	)
 	fmt.Fprintln(os.Stdout, "    macOS (Intel):         /usr/local/share/qemu/edk2-x86_64-code.fd")
 	fmt.Fprintln(os.Stdout, "    Ubuntu/Debian:         /usr/share/OVMF/OVMF_CODE.fd")
 	fmt.Fprintln(os.Stdout, "    Fedora/RHEL:           /usr/share/edk2/ovmf/OVMF_CODE.fd")
@@ -723,7 +753,12 @@ func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
 	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
-	fmt.Fprintf(os.Stdout, "    VBoxManage convertfromraw %s %s.vdi --format VDI\n", outputPath, fileName)
+	fmt.Fprintf(
+		os.Stdout,
+		"    VBoxManage convertfromraw %s %s.vdi --format VDI\n",
+		outputPath,
+		fileName,
+	)
 	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk (System > Enable EFI)\n", fileName)
 
 	fmt.Fprintln(os.Stdout)
@@ -736,7 +771,12 @@ func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
 func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
-	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=qcow2,if=virtio \\\n", qemu, outputPath)
+	fmt.Fprintf(
+		os.Stdout,
+		"  %s -cpu host -drive file=%s,format=qcow2,if=virtio \\\n",
+		qemu,
+		outputPath,
+	)
 	fmt.Fprintf(os.Stdout, "    -m 4096 -smp 2 %s\n", hostfwd)
 
 	fmt.Fprintln(os.Stdout)
@@ -748,7 +788,12 @@ func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- VMware ---")
 	fmt.Fprintln(os.Stdout, "  Convert to VMDK first:")
-	fmt.Fprintf(os.Stdout, "    qemu-img convert -f qcow2 -O vmdk %s %s.vmdk\n", outputPath, fileName)
+	fmt.Fprintf(
+		os.Stdout,
+		"    qemu-img convert -f qcow2 -O vmdk %s %s.vmdk\n",
+		outputPath,
+		fileName,
+	)
 	fmt.Fprintf(os.Stdout, "  Then attach %s.vmdk as the VM disk\n", fileName)
 
 	fmt.Fprintln(os.Stdout)

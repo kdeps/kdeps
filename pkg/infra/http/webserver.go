@@ -158,7 +158,10 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 }
 
 // CreateWebHandler creates a handler for a web route.
-func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute) stdhttp.HandlerFunc {
+func (s *WebServer) CreateWebHandler(
+	ctx context.Context,
+	route *domain.WebRoute,
+) stdhttp.HandlerFunc {
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
 		go s.StartAppCommand( //nolint:gosec // G118: ctx is the server-level context, not a per-request context
@@ -181,7 +184,11 @@ func (s *WebServer) CreateWebHandler(ctx context.Context, route *domain.WebRoute
 }
 
 // HandleStaticRequest handles static file serving.
-func (s *WebServer) HandleStaticRequest(w stdhttp.ResponseWriter, r *stdhttp.Request, route *domain.WebRoute) {
+func (s *WebServer) HandleStaticRequest(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	route *domain.WebRoute,
+) {
 	// Resolve public path relative to workflow directory
 	fullPath := route.PublicPath
 	if !filepath.IsAbs(fullPath) {
@@ -202,7 +209,11 @@ func (s *WebServer) HandleStaticRequest(w stdhttp.ResponseWriter, r *stdhttp.Req
 }
 
 // HandleAppRequest handles reverse proxying to apps.
-func (s *WebServer) HandleAppRequest(w stdhttp.ResponseWriter, r *stdhttp.Request, route *domain.WebRoute) {
+func (s *WebServer) HandleAppRequest(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	route *domain.WebRoute,
+) {
 	if route.AppPort == 0 {
 		s.logger.ErrorContext(context.Background(), "app port is required for app server type")
 		stdhttp.Error(w, "Internal Server Error", stdhttp.StatusInternalServerError)
@@ -212,7 +223,9 @@ func (s *WebServer) HandleAppRequest(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	// Build target URL
 	// The proxy target should always be 127.0.0.1 (connect to the local app process)
 	hostIP := "127.0.0.1"
-	targetURL, err := url.Parse(fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))))
+	targetURL, err := url.Parse(
+		fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))),
+	)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
@@ -264,7 +277,14 @@ func (s *WebServer) HandleAppRequest(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	}
 
 	proxy.ErrorHandler = func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
-		s.logger.ErrorContext(context.Background(), "proxy request failed", "url", r.URL.String(), "error", err)
+		s.logger.ErrorContext(
+			context.Background(),
+			"proxy request failed",
+			"url",
+			r.URL.String(),
+			"error",
+			err,
+		)
 		stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
 	}
 
@@ -338,7 +358,12 @@ func (s *WebServer) HandleWebSocketProxy(
 			_ = resp.Body.Close()
 		}()
 		if resp.StatusCode != stdhttp.StatusSwitchingProtocols {
-			s.logger.ErrorContext(context.Background(), "WebSocket handshake failed", "statusCode", resp.StatusCode)
+			s.logger.ErrorContext(
+				context.Background(),
+				"WebSocket handshake failed",
+				"statusCode",
+				resp.StatusCode,
+			)
 			stdhttp.Error(w, "WebSocket handshake failed", stdhttp.StatusBadGateway)
 			return
 		}
@@ -352,7 +377,12 @@ func (s *WebServer) HandleWebSocketProxy(
 	}
 	clientConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.logger.ErrorContext(context.Background(), "failed to upgrade client connection to WebSocket", "error", err)
+		s.logger.ErrorContext(
+			context.Background(),
+			"failed to upgrade client connection to WebSocket",
+			"error",
+			err,
+		)
 		return
 	}
 	defer func() {
@@ -370,7 +400,11 @@ func (s *WebServer) HandleWebSocketProxy(
 		for {
 			messageType, message, readErr := targetConn.ReadMessage()
 			if readErr != nil {
-				if websocket.IsUnexpectedCloseError(readErr, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				if websocket.IsUnexpectedCloseError(
+					readErr,
+					websocket.CloseGoingAway,
+					websocket.CloseAbnormalClosure,
+				) {
 					s.logger.Debug("target WebSocket closed unexpectedly", "error", readErr)
 				}
 				errChan <- readErr
@@ -393,7 +427,11 @@ func (s *WebServer) HandleWebSocketProxy(
 		for {
 			messageType, message, readErr := clientConn.ReadMessage()
 			if readErr != nil {
-				if websocket.IsUnexpectedCloseError(readErr, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				if websocket.IsUnexpectedCloseError(
+					readErr,
+					websocket.CloseGoingAway,
+					websocket.CloseAbnormalClosure,
+				) {
 					s.logger.Debug("client WebSocket closed unexpectedly", "error", readErr)
 				}
 				errChan <- readErr
@@ -425,7 +463,14 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		workDir = filepath.Join(s.WorkflowDir, workDir)
 	}
 
-	s.logger.InfoContext(context.Background(), "starting app command", "command", route.Command, "workDir", workDir)
+	s.logger.InfoContext(
+		context.Background(),
+		"starting app command",
+		"command",
+		route.Command,
+		"workDir",
+		workDir,
+	)
 
 	// Create command
 	//nolint:gosec // G204: route.Command comes from user configuration, which is expected behavior
@@ -450,7 +495,14 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		return
 	}
 
-	s.logger.InfoContext(context.Background(), "app command started", "command", route.Command, "pid", cmd.Process.Pid)
+	s.logger.InfoContext(
+		context.Background(),
+		"app command started",
+		"command",
+		route.Command,
+		"pid",
+		cmd.Process.Pid,
+	)
 
 	// Wait for command to complete
 	if err := cmd.Wait(); err != nil {
@@ -472,9 +524,23 @@ func (s *WebServer) Stop() {
 	s.logger.InfoContext(context.Background(), "stopping web server and cleaning up commands")
 	for path, cmd := range s.Commands {
 		if cmd.Process != nil {
-			s.logger.InfoContext(context.Background(), "stopping command", "path", path, "pid", cmd.Process.Pid)
+			s.logger.InfoContext(
+				context.Background(),
+				"stopping command",
+				"path",
+				path,
+				"pid",
+				cmd.Process.Pid,
+			)
 			if err := cmd.Process.Kill(); err != nil {
-				s.logger.ErrorContext(context.Background(), "failed to stop command", "path", path, "error", err)
+				s.logger.ErrorContext(
+					context.Background(),
+					"failed to stop command",
+					"path",
+					path,
+					"error",
+					err,
+				)
 			}
 		}
 	}

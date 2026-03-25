@@ -73,7 +73,13 @@ var supervisordTemplate string
 type Compiler interface {
 	CreateTempDir() (string, error)
 	RemoveAll(path string) error
-	ExecuteCommand(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error)
+	ExecuteCommand(
+		ctx context.Context,
+		dir string,
+		env []string,
+		name string,
+		args ...string,
+	) ([]byte, error)
 	ReadFile(path string) ([]byte, error)
 	WriteTarHeader(tw *tar.Writer, header *tar.Header) error
 	WriteTarData(tw *tar.Writer, data []byte) error
@@ -265,7 +271,8 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 				return true
 			}
 			// Empty backend defaults to ollama only if no online provider indicators
-			if backend == "" && resource.Run.Chat.APIKey == "" && !isOnlineBaseURL(resource.Run.Chat.BaseURL) {
+			if backend == "" && resource.Run.Chat.APIKey == "" &&
+				!isOnlineBaseURL(resource.Run.Chat.BaseURL) {
 				return true
 			}
 		}

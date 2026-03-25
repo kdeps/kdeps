@@ -287,7 +287,10 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 // ValidateResource validates a single resource.
 //
 //nolint:gocognit // resource validation checks multiple mutually exclusive conditions
-func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow *domain.Workflow) error {
+func (v *WorkflowValidator) ValidateResource(
+	resource *domain.Resource,
+	workflow *domain.Workflow,
+) error {
 	// Validate metadata.
 	if resource.Metadata.ActionID == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource actionID is required", nil)
@@ -379,10 +382,18 @@ func (v *WorkflowValidator) ValidateResource(resource *domain.Resource, workflow
 // ValidateLoopConfig validates a LoopConfig.
 func ValidateLoopConfig(config *domain.LoopConfig) error {
 	if strings.TrimSpace(config.While) == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "loop.while condition is required", nil)
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"loop.while condition is required",
+			nil,
+		)
 	}
 	if config.MaxIterations < 0 {
-		return domain.NewError(domain.ErrCodeInvalidResource, "loop.maxIterations must be non-negative", nil)
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"loop.maxIterations must be non-negative",
+			nil,
+		)
 	}
 	return nil
 }
@@ -401,15 +412,26 @@ func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error 
 }
 
 // ValidateSQLConfig validates SQL configuration.
-func (v *WorkflowValidator) ValidateSQLConfig(config *domain.SQLConfig, workflow *domain.Workflow) error {
+func (v *WorkflowValidator) ValidateSQLConfig(
+	config *domain.SQLConfig,
+	workflow *domain.Workflow,
+) error {
 	// Validate that either query or queries is provided
 	if config.Query == "" && len(config.Queries) == 0 {
-		return domain.NewError(domain.ErrCodeInvalidResource, "sql.query or sql.queries is required", nil)
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"sql.query or sql.queries is required",
+			nil,
+		)
 	}
 
 	// Validate connection: either connection or connectionName must be provided
 	if config.Connection == "" && config.ConnectionName == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "sql.connection or sql.connectionName is required", nil)
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"sql.connection or sql.connectionName is required",
+			nil,
+		)
 	}
 
 	// If connectionName is provided, validate it exists in workflow SQL connections
@@ -428,7 +450,10 @@ func (v *WorkflowValidator) ValidateSQLConfig(config *domain.SQLConfig, workflow
 		if _, exists := workflow.Settings.SQLConnections[config.ConnectionName]; !exists {
 			return domain.NewError(
 				domain.ErrCodeInvalidResource,
-				fmt.Sprintf("sql connection '%s' not found in workflow sqlConnections", config.ConnectionName),
+				fmt.Sprintf(
+					"sql connection '%s' not found in workflow sqlConnections",
+					config.ConnectionName,
+				),
 				nil,
 			)
 		}
@@ -445,7 +470,11 @@ func (v *WorkflowValidator) ValidateSQLConfig(config *domain.SQLConfig, workflow
 			availableOptions := "json, csv, table"
 			return domain.NewError(
 				domain.ErrCodeInvalidResource,
-				fmt.Sprintf("invalid SQL format: %s. Available options: [%s]", config.Format, availableOptions),
+				fmt.Sprintf(
+					"invalid SQL format: %s. Available options: [%s]",
+					config.Format,
+					availableOptions,
+				),
 				nil,
 			)
 		}
@@ -477,7 +506,11 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 		availableOptions := "GET, POST, PUT, DELETE, PATCH"
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			fmt.Sprintf("invalid HTTP method: %s. Available options: [%s]", config.Method, availableOptions),
+			fmt.Sprintf(
+				"invalid HTTP method: %s. Available options: [%s]",
+				config.Method,
+				availableOptions,
+			),
 			nil,
 		)
 	}
@@ -549,7 +582,11 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
 		if source == "" {
-			return domain.NewError(domain.ErrCodeInvalidWorkflow, "input source cannot be empty", nil)
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"input source cannot be empty",
+				nil,
+			)
 		}
 		if !validSources[source] {
 			return domain.NewError(
@@ -615,16 +652,22 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 	if executionType == "" {
 		executionType = domain.BotExecutionTypePolling
 	}
-	if executionType != domain.BotExecutionTypePolling && executionType != domain.BotExecutionTypeStateless {
+	if executionType != domain.BotExecutionTypePolling &&
+		executionType != domain.BotExecutionTypeStateless {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf("input.bot.executionType must be %q or %q, got %q",
-				domain.BotExecutionTypePolling, domain.BotExecutionTypeStateless, cfg.ExecutionType),
+			fmt.Sprintf(
+				"input.bot.executionType must be %q or %q, got %q",
+				domain.BotExecutionTypePolling,
+				domain.BotExecutionTypeStateless,
+				cfg.ExecutionType,
+			),
 			nil,
 		)
 	}
 
-	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil && cfg.WhatsApp == nil
+	noPlatforms := cfg.Discord == nil && cfg.Slack == nil && cfg.Telegram == nil &&
+		cfg.WhatsApp == nil
 	if executionType == domain.BotExecutionTypePolling && noPlatforms {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
@@ -686,7 +729,9 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
 					"input.executionType must be %q or %q, got %q",
-					domain.InputExecutionTypePolling, domain.InputExecutionTypeStateless, config.ExecutionType,
+					domain.InputExecutionTypePolling,
+					domain.InputExecutionTypeStateless,
+					config.ExecutionType,
 				),
 				nil,
 			)
@@ -826,7 +871,9 @@ func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.Transcriber
 }
 
 // ValidateOnlineTranscriberConfig validates online (cloud) transcriber settings.
-func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(config *domain.OnlineTranscriberConfig) error {
+func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(
+	config *domain.OnlineTranscriberConfig,
+) error {
 	validProviders := map[string]bool{
 		domain.TranscriberProviderOpenAIWhisper: true,
 		domain.TranscriberProviderGoogleSTT:     true,
@@ -859,7 +906,9 @@ func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(config *domain.Onlin
 }
 
 // ValidateOfflineTranscriberConfig validates offline (local) transcriber settings.
-func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(config *domain.OfflineTranscriberConfig) error {
+func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(
+	config *domain.OfflineTranscriberConfig,
+) error {
 	validEngines := map[string]bool{
 		domain.TranscriberEngineWhisper:       true,
 		domain.TranscriberEngineFasterWhisper: true,

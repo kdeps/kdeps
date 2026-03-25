@@ -246,11 +246,19 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 
 			errMsg := validateErr.Error()
 			if !contains(errMsg, tt.expectedField) {
-				t.Errorf("Error message should contain field '%s', got: %s", tt.expectedField, errMsg)
+				t.Errorf(
+					"Error message should contain field '%s', got: %s",
+					tt.expectedField,
+					errMsg,
+				)
 			}
 
 			if !contains(errMsg, tt.expectedSuggestion) {
-				t.Errorf("Error message should contain suggestion '%s', got: %s", tt.expectedSuggestion, errMsg)
+				t.Errorf(
+					"Error message should contain suggestion '%s', got: %s",
+					tt.expectedSuggestion,
+					errMsg,
+				)
 			}
 		})
 	}
@@ -267,7 +275,10 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 
 	t.Run("getTypeSuggestion regex extraction", func(t *testing.T) {
 		// Test regex extraction with custom types
-		result := validator.GetTypeSuggestion("run.chat.model", "Invalid type. Expected: customtype123, given: string")
+		result := validator.GetTypeSuggestion(
+			"run.chat.model",
+			"Invalid type. Expected: customtype123, given: string",
+		)
 		expected := "Expected type: customtype123. Example: \"llama3.2:latest\""
 		if result != expected {
 			t.Errorf("GetTypeSuggestion() = %q, expected %q", result, expected)
@@ -276,7 +287,10 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 
 	t.Run("getTypeSuggestion regex failure", func(t *testing.T) {
 		// Test case where regex doesn't match anything
-		result := validator.GetTypeSuggestion("unknown.field", "Invalid type. No expected type mentioned here")
+		result := validator.GetTypeSuggestion(
+			"unknown.field",
+			"Invalid type. No expected type mentioned here",
+		)
 		if result != "" {
 			t.Errorf("GetTypeSuggestion() = %q, expected empty string", result)
 		}
@@ -284,7 +298,10 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 
 	t.Run("getTypeSuggestion no examples for given case", func(t *testing.T) {
 		// Test case where "given" is present but no specific examples exist
-		result := validator.GetTypeSuggestion("unknown.field", "Invalid type. Expected: string, given: integer")
+		result := validator.GetTypeSuggestion(
+			"unknown.field",
+			"Invalid type. Expected: string, given: integer",
+		)
 		expected := "Expected type: string. Example: \"example\""
 		if result != expected {
 			t.Errorf("GetTypeSuggestion() = %q, expected %q", result, expected)
@@ -370,7 +387,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				result := validator.GetTypeSuggestion(tt.field, tt.descStr)
 				if result != tt.expected {
-					t.Errorf("GetTypeSuggestion(%q, %q) = %q, expected %q", tt.field, tt.descStr, result, tt.expected)
+					t.Errorf(
+						"GetTypeSuggestion(%q, %q) = %q, expected %q",
+						tt.field,
+						tt.descStr,
+						result,
+						tt.expected,
+					)
 				}
 			})
 		}
@@ -458,7 +481,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				result := validator.GetRangeSuggestion(tt.field, tt.descStr)
 				if result != tt.expected {
-					t.Errorf("GetRangeSuggestion(%q, %q) = %q, expected %q", tt.field, tt.descStr, result, tt.expected)
+					t.Errorf(
+						"GetRangeSuggestion(%q, %q) = %q, expected %q",
+						tt.field,
+						tt.descStr,
+						result,
+						tt.expected,
+					)
 				}
 			})
 		}
@@ -783,7 +812,13 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				result := validator.GetTypeSuggestion(tt.field, tt.descStr)
 				if result != tt.expected {
-					t.Errorf("GetTypeSuggestion(%q, %q) = %q, expected %q", tt.field, tt.descStr, result, tt.expected)
+					t.Errorf(
+						"GetTypeSuggestion(%q, %q) = %q, expected %q",
+						tt.field,
+						tt.descStr,
+						result,
+						tt.expected,
+					)
 				}
 			})
 		}

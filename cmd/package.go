@@ -92,7 +92,8 @@ Examples:
 	}
 
 	packageCmd.Flags().StringVar(&flags.Output, "output", ".", "Output directory")
-	packageCmd.Flags().StringVar(&flags.Name, "name", "", "Package name (default: from workflow/agency)")
+	packageCmd.Flags().
+		StringVar(&flags.Name, "name", "", "Package name (default: from workflow/agency)")
 
 	return packageCmd
 }
@@ -352,7 +353,11 @@ services:
 }
 
 // CreateArchiveWalkFunc returns a walk function for creating the archive.
-func CreateArchiveWalkFunc(sourceDir string, tarWriter *tar.Writer, ignorePatterns []string) filepath.WalkFunc {
+func CreateArchiveWalkFunc(
+	sourceDir string,
+	tarWriter *tar.Writer,
+	ignorePatterns []string,
+) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -384,7 +389,12 @@ func ShouldSkipFile(info os.FileInfo) bool {
 }
 
 // AddFileToArchive adds a file to the tar archive.
-func AddFileToArchive(path string, info os.FileInfo, sourceDir string, tarWriter *tar.Writer) error {
+func AddFileToArchive(
+	path string,
+	info os.FileInfo,
+	sourceDir string,
+	tarWriter *tar.Writer,
+) error {
 	relPath, relErr := filepath.Rel(sourceDir, path)
 	if relErr != nil {
 		return relErr
@@ -585,7 +595,10 @@ func CreateComponentPackageArchive(componentDir, archivePath string) error {
 	defer tarWriter.Close()
 
 	ignorePatterns := ParseKdepsIgnore(componentDir)
-	return filepath.Walk(componentDir, CreateArchiveWalkFunc(componentDir, tarWriter, ignorePatterns))
+	return filepath.Walk(
+		componentDir,
+		CreateArchiveWalkFunc(componentDir, tarWriter, ignorePatterns),
+	)
 }
 
 // IsKomponentFile reports whether path points to a .komponent archive.

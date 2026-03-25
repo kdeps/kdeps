@@ -86,7 +86,13 @@ func NewAdapter() executor.ResourceExecutor {
 //   - "source":  the evaluated source URL or path (string)
 //   - "content": the extracted text (string)
 //   - "success": true/false (bool)
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) { //nolint:funlen
+//
+//nolint:funlen // function is long due to multiple config handling
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
+	//nolint:funlen // function is long due to multiple config handling
 	cfg, ok := config.(*domain.ScraperConfig)
 	if !ok {
 		return nil, errors.New("scraper executor: invalid config type")
@@ -713,7 +719,8 @@ func stripMarkdownLine(line string) string {
 		}
 	}
 	// Strip fenced code block markers
-	if strings.HasPrefix(strings.TrimSpace(line), "```") || strings.HasPrefix(strings.TrimSpace(line), "~~~") {
+	if strings.HasPrefix(strings.TrimSpace(line), "```") ||
+		strings.HasPrefix(strings.TrimSpace(line), "~~~") {
 		return ""
 	}
 	// Strip horizontal rules

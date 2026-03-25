@@ -129,7 +129,11 @@ func RunScaffoldWithFlags(_ *cobra.Command, args []string, flags *ScaffoldFlags)
 
 		// Check if exists
 		if _, statErr := os.Stat(targetPath); statErr == nil && !flags.Force {
-			fmt.Fprintf(os.Stderr, "  ⚠ Skipped %s (already exists, use --force to overwrite)\n", name)
+			fmt.Fprintf(
+				os.Stderr,
+				"  ⚠ Skipped %s (already exists, use --force to overwrite)\n",
+				name,
+			)
 			continue
 		}
 
@@ -149,8 +153,10 @@ func RunScaffoldWithFlags(_ *cobra.Command, args []string, flags *ScaffoldFlags)
 		fmt.Fprintln(os.Stdout, "  1. Edit the generated resource files in resources/")
 		fmt.Fprintln(os.Stdout, "  2. Resources are automatically loaded from resources/ directory")
 		fmt.Fprintln(os.Stdout, "  3. Run: kdeps run workflow.yaml --dev")
-		fmt.Fprintln(os.Stdout,
-			"\nNote: Resources in resources/ are automatically loaded, no need to manually add them to workflow.yaml")
+		fmt.Fprintln(
+			os.Stdout,
+			"\nNote: Resources in resources/ are automatically loaded, no need to manually add them to workflow.yaml",
+		)
 	}
 
 	return nil

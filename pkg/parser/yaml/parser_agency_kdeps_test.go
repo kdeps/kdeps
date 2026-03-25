@@ -69,32 +69,35 @@ func createKdepsPackage(t *testing.T, sourceDir, destPath string) {
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	require.NoError(t, filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		rel, relErr := filepath.Rel(sourceDir, path)
-		if relErr != nil {
-			return relErr
-		}
-		hdr, hdrErr := tar.FileInfoHeader(info, "")
-		if hdrErr != nil {
-			return hdrErr
-		}
-		hdr.Name = rel
-		if wErr := tw.WriteHeader(hdr); wErr != nil {
-			return wErr
-		}
-		if !info.IsDir() {
-			data, rErr := os.ReadFile(path)
-			if rErr != nil {
-				return rErr
+	require.NoError(
+		t,
+		filepath.Walk(sourceDir, func(path string, info os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
-			_, wErr := tw.Write(data)
-			return wErr
-		}
-		return nil
-	}))
+			rel, relErr := filepath.Rel(sourceDir, path)
+			if relErr != nil {
+				return relErr
+			}
+			hdr, hdrErr := tar.FileInfoHeader(info, "")
+			if hdrErr != nil {
+				return hdrErr
+			}
+			hdr.Name = rel
+			if wErr := tw.WriteHeader(hdr); wErr != nil {
+				return wErr
+			}
+			if !info.IsDir() {
+				data, rErr := os.ReadFile(path)
+				if rErr != nil {
+					return rErr
+				}
+				_, wErr := tw.Write(data)
+				return wErr
+			}
+			return nil
+		}),
+	)
 }
 
 // TestDiscoverAgentWorkflows_ExplicitKdepsPackage verifies that an explicit agent

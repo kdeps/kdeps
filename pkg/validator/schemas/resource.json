@@ -679,6 +679,46 @@
             }
           }
         },
+        "remoteAgent": {
+          "type": "object",
+          "properties": {
+            "urn": {
+              "type": "string"
+            },
+            "input": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "timeout": {
+              "type": "string"
+            },
+            "requireTrustLevel": {
+              "type": "string",
+              "enum": ["self-attested", "verified", "certified"]
+            },
+            "cacheSpec": {
+              "type": "boolean"
+            },
+            "fallback": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["urn"],
+                "properties": {
+                  "urn": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": ["urn", "input"]
+        },
         "onError": {
           "type": "object",
           "description": "Error handling configuration for the resource",

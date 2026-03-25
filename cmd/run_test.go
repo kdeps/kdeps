@@ -1782,7 +1782,11 @@ func TestEnsureOllamaRunning_AlreadyRunning(t *testing.T) {
 	// Since there's a listener on the port, IsOllamaRunning should return true
 	// and startOllamaServer/waitForOllamaReady should not be called
 	assert.NotNil(t, workflow)
-	assert.Equal(t, fmt.Sprintf("http://127.0.0.1:%d", port), workflow.Settings.AgentSettings.OllamaURL)
+	assert.Equal(
+		t,
+		fmt.Sprintf("http://127.0.0.1:%d", port),
+		workflow.Settings.AgentSettings.OllamaURL,
+	)
 }
 
 // TestOllamaURLParsingEdgeCases tests ParseOllamaURL with various edge cases.
@@ -2692,13 +2696,20 @@ func TestFindWorkflowFile(t *testing.T) {
 	t.Run("returns empty string when no workflow file present", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		result := cmd.FindWorkflowFile(tmpDir)
-		assert.Empty(t, result, "FindWorkflowFile should return empty string when no workflow file present")
+		assert.Empty(
+			t,
+			result,
+			"FindWorkflowFile should return empty string when no workflow file present",
+		)
 	})
 
 	t.Run("prefers workflow.yaml over workflow.yaml.j2", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		for _, name := range []string{"workflow.yaml", "workflow.yaml.j2"} {
-			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644))
+			require.NoError(
+				t,
+				os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644),
+			)
 		}
 		result := cmd.FindWorkflowFile(tmpDir)
 		assert.Truef(t, strings.HasSuffix(result, "workflow.yaml"),
@@ -2708,7 +2719,10 @@ func TestFindWorkflowFile(t *testing.T) {
 	t.Run("prefers workflow.yaml.j2 over workflow.j2", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		for _, name := range []string{"workflow.yaml.j2", "workflow.j2"} {
-			require.NoError(t, os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644))
+			require.NoError(
+				t,
+				os.WriteFile(filepath.Join(tmpDir, name), []byte("placeholder"), 0644),
+			)
 		}
 		result := cmd.FindWorkflowFile(tmpDir)
 		assert.Truef(t, strings.HasSuffix(result, "workflow.yaml.j2"),
@@ -2772,7 +2786,10 @@ resources:
         response:
           message: "main"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(workflowYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(workflowDir, "workflow.yaml"), []byte(workflowYAML), 0o600),
+	)
 
 	// Create a component: components/greeter/component.yaml + resources/hello.yaml.
 	compDir := filepath.Join(workflowDir, "components", "greeter")
@@ -2791,7 +2808,10 @@ interface:
       required: true
       default: "Hello"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(compDir, "component.yaml"), []byte(componentYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(compDir, "component.yaml"), []byte(componentYAML), 0o600),
+	)
 
 	compResourcesDir := filepath.Join(compDir, "resources")
 	require.NoError(t, os.Mkdir(compResourcesDir, 0o750))
@@ -2807,7 +2827,10 @@ run:
     response:
       message: "greeted"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(compResourcesDir, "greet.yaml"), []byte(compResYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(compResourcesDir, "greet.yaml"), []byte(compResYAML), 0o600),
+	)
 
 	// Parse the workflow with a real parser (schema validation enabled).
 	sv, err := validator.NewSchemaValidator()

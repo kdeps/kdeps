@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +38,7 @@ type AgentCapability struct {
 	Endpoint    string   `json:"endpoint"` // URL to invoke
 	AuthMethods []string `json:"authMethods"`
 	TrustLevel  string   `json:"trustLevel"` // self-attested, verified, certified
-	PublicKey   string   `json:"publicKey"`   // PEM format
+	PublicKey   string   `json:"publicKey"`  // PEM format
 	RateLimit   int      `json:"rateLimit"`
 
 	// Capabilities list (actionId, schemas)
@@ -46,13 +47,13 @@ type AgentCapability struct {
 
 // Capability describes a single action that the agent can perform.
 type Capability struct {
-	ActionID       string      `json:"actionId"`
-	Title          string      `json:"title"`
-	Description    string      `json:"description"`
-	InputSchemaRef string      `json:"inputSchemaRef"` // JSON Schema URL or local ref
-	OutputSchemaRef string     `json:"outputSchemaRef"`
-	InputExample   interface{} `json:"inputExample,omitempty"`
-	OutputExample  interface{} `json:"outputExample,omitempty"`
+	ActionID        string      `json:"actionId"`
+	Title           string      `json:"title"`
+	Description     string      `json:"description"`
+	InputSchemaRef  string      `json:"inputSchemaRef"` // JSON Schema URL or local ref
+	OutputSchemaRef string      `json:"outputSchemaRef"`
+	InputExample    interface{} `json:"inputExample,omitempty"`
+	OutputExample   interface{} `json:"outputExample,omitempty"`
 }
 
 // Client is a UAF registry client with caching.
@@ -69,6 +70,11 @@ type cachedEntry struct {
 	expiresAt  time.Time
 }
 
+const (
+	defaultClientTimeout = 10 * time.Second
+	defaultCacheTTL      = 5 * time.Minute
+)
+
 // NewClient creates a new registry client.
 func NewClient(baseURL string) *Client {
 	return &Client{
@@ -79,10 +85,10 @@ func NewClient(baseURL string) *Client {
 					MinVersion: tls.VersionTLS12,
 				},
 			},
-			Timeout: 10 * time.Second,
+			Timeout: defaultClientTimeout,
 		},
 		cache: make(map[string]*cachedEntry),
-		ttl:   5 * time.Minute,
+		ttl:   defaultCacheTTL,
 	}
 }
 
@@ -116,10 +122,10 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 		endpoint = fmt.Sprintf("https://%s/.uaf/v1/invoke", urn.Authority)
 	} else {
 		// Query registry
-		var err error
-		endpoint, err = c.lookupEndpoint(ctx, urn)
-		if err != nil {
-			return nil, err
+		var lookupErr error
+		endpoint, lookupErr = c.lookupEndpoint(ctx, urn)
+		if lookupErr != nil {
+			return nil, lookupErr
 		}
 	}
 
@@ -169,17 +175,22 @@ func (c *Client) lookupEndpoint(ctx context.Context, urn *federation.URN) (strin
 	var result struct {
 		Endpoint string `json:"endpoint"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
+	decodeErr := json.NewDecoder(resp.Body).Decode(&result)
+	if decodeErr != nil {
+		return "", decodeErr
 	}
 	if result.Endpoint == "" {
-		return "", fmt.Errorf("agent not found or no endpoint")
+		return "", errors.New("agent not found or no endpoint")
 	}
 	return result.Endpoint, nil
 }
 
 // fetchCapability retrieves the agent's capability description from its endpoint.
-func (c *Client) fetchCapability(ctx context.Context, urn *federation.URN, endpoint string) (*AgentCapability, error) {
+func (c *Client) fetchCapability(
+	ctx context.Context,
+	urn *federation.URN,
+	endpoint string,
+) (*AgentCapability, error) {
 	// Try the well-known endpoint first: /.well-known/agent/{urn-encoded}
 	wellKnownURL := fmt.Sprintf("%s/.well-known/agent/%s", endpoint, urn.String())
 
@@ -204,13 +215,14 @@ func (c *Client) fetchCapability(ctx context.Context, urn *federation.URN, endpo
 	}
 
 	var cap AgentCapability
-	if err := json.Unmarshal(body, &cap); err != nil {
-		return nil, err
+	unmarshalErr := json.Unmarshal(body, &cap)
+	if unmarshalErr != nil {
+		return nil, unmarshalErr
 	}
 
 	// Verify URN matches
 	if cap.URN != urn.String() {
-		return nil, fmt.Errorf("capability URN mismatch")
+		return nil, errors.New("capability URN mismatch")
 	}
 
 	return &cap, nil

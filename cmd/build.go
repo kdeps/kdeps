@@ -233,7 +233,10 @@ func resolveBuildAgencyFile(agencyFilePath string) (string, string, func(), erro
 // resolveBuildAgencyManifest parses the agency file and returns the path to
 // the entry-point agent's workflow file so that Docker/ISO builds can proceed
 // exactly as they would for a standalone workflow.
-func resolveBuildAgencyManifest(agencyFilePath, packageDir string, cleanup func()) (string, string, func(), error) {
+func resolveBuildAgencyManifest(
+	agencyFilePath, packageDir string,
+	cleanup func(),
+) (string, string, func(), error) {
 	agency, agentPaths, agencyParser, err := ParseAgencyFileWithParser(agencyFilePath)
 	if err != nil {
 		if cleanup != nil {
@@ -279,7 +282,11 @@ func resolveBuildAgencyManifest(agencyFilePath, packageDir string, cleanup func(
 		}
 		if !found {
 			combinedCleanup()
-			return "", "", nil, fmt.Errorf("target agent %q not found in agency %s", targetID, agencyFilePath)
+			return "", "", nil, fmt.Errorf(
+				"target agent %q not found in agency %s",
+				targetID,
+				agencyFilePath,
+			)
 		}
 	}
 
@@ -522,7 +529,10 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 		if createdKdeps {
 			defer os.Remove(kdepsFile)
 		}
-		prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(cmd.Context(), kdepsFile)
+		prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(
+			cmd.Context(),
+			kdepsFile,
+		)
 		defer cleanupBinaries()
 		if len(prepackagedBinaries) > 0 {
 			builder.PrepackagedBinaries = prepackagedBinaries
@@ -540,7 +550,10 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 // If packagePath is already a .kdeps file it is used directly.
 // Otherwise a temporary .kdeps archive is created from packageDir and the
 // caller is responsible for removing it (createdTemp == true).
-func ensureKdepsFile(packagePath, packageDir string, workflow *domain.Workflow) (string, bool, error) {
+func ensureKdepsFile(
+	packagePath, packageDir string,
+	workflow *domain.Workflow,
+) (string, bool, error) {
 	if strings.HasSuffix(packagePath, ".kdeps") {
 		if _, statErr := os.Stat(packagePath); statErr == nil {
 			return packagePath, false, nil
@@ -568,7 +581,10 @@ func ensureKdepsFile(packagePath, packageDir string, workflow *domain.Workflow) 
 // for linux/amd64 and linux/arm64 by appending kdepsFile to each base binary.
 // It returns a map of goarch → temp-file-path and a cleanup function that the
 // caller must defer.
-func createPrepackagedBinariesForDocker(ctx context.Context, kdepsFile string) (map[string]string, func()) {
+func createPrepackagedBinariesForDocker(
+	ctx context.Context,
+	kdepsFile string,
+) (map[string]string, func()) {
 	targets := []archTarget{
 		{GOOS: goosLinux, GOARCH: "amd64"},
 		{GOOS: goosLinux, GOARCH: "arm64"},
@@ -579,14 +595,22 @@ func createPrepackagedBinariesForDocker(ctx context.Context, kdepsFile string) (
 	binaries := make(map[string]string, len(targets))
 
 	for _, target := range targets {
-		basePath, baseIsTemporary, resolveErr := resolveBaseBinary(ctx, normaliseVersion(), target, currentExec)
+		basePath, baseIsTemporary, resolveErr := resolveBaseBinary(
+			ctx,
+			normaliseVersion(),
+			target,
+			currentExec,
+		)
 		if resolveErr != nil {
 			fmt.Fprintf(os.Stderr, "  Warning: could not resolve base binary for %s/%s: %v\n",
 				target.GOOS, target.GOARCH, resolveErr)
 			continue
 		}
 
-		outFile, tmpErr := os.CreateTemp("", fmt.Sprintf("kdeps-prepackaged-%s-%s-*", target.GOOS, target.GOARCH))
+		outFile, tmpErr := os.CreateTemp(
+			"",
+			fmt.Sprintf("kdeps-prepackaged-%s-%s-*", target.GOOS, target.GOARCH),
+		)
 		if tmpErr != nil {
 			if baseIsTemporary {
 				_ = os.Remove(basePath)
@@ -830,7 +854,9 @@ func findWASMBinary() (string, error) {
 		return abs, nil
 	}
 
-	return "", errors.New("kdeps.wasm not found; set KDEPS_WASM_BINARY env var or place it next to the kdeps binary")
+	return "", errors.New(
+		"kdeps.wasm not found; set KDEPS_WASM_BINARY env var or place it next to the kdeps binary",
+	)
 }
 
 // findWASMExecJS locates the wasm_exec.js file from the Go SDK.
@@ -870,7 +896,9 @@ func findWASMExecJS(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", errors.New("wasm_exec.js not found; set KDEPS_WASM_EXEC_JS env var or install Go SDK")
+	return "", errors.New(
+		"wasm_exec.js not found; set KDEPS_WASM_EXEC_JS env var or install Go SDK",
+	)
 }
 
 // cloudBuild executes a build via kdeps.io cloud infrastructure.

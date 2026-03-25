@@ -222,7 +222,9 @@ func TestOfflineTranscribe_UnknownEngine_ReturnsError(t *testing.T) {
 func TestOnlineTranscribe_EmptyMediaFile(t *testing.T) {
 	ot := &onlineTranscriber{
 		cfg: &domain.TranscriberConfig{
-			Online: &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderOpenAIWhisper},
+			Online: &domain.OnlineTranscriberConfig{
+				Provider: domain.TranscriberProviderOpenAIWhisper,
+			},
 		},
 		outputMode: domain.TranscriberOutputText,
 		logger:     slog.Default(),

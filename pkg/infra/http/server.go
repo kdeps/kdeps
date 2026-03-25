@@ -115,7 +115,11 @@ func NewFileWatcher() (FileWatcher, error) {
 }
 
 // NewServer creates a new HTTP server.
-func NewServer(workflow *domain.Workflow, executor WorkflowExecutor, logger *slog.Logger) (*Server, error) {
+func NewServer(
+	workflow *domain.Workflow,
+	executor WorkflowExecutor,
+	logger *slog.Logger,
+) (*Server, error) {
 	// Initialize file store for uploads
 	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
 	fileStore, err := NewTemporaryFileStore(uploadDir)
@@ -298,7 +302,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 	if err != nil {
 		// Log error for debugging
-		s.logger.Error("workflow execution failed", "error", err, "path", r.URL.Path, "method", r.Method)
+		s.logger.Error(
+			"workflow execution failed",
+			"error",
+			err,
+			"path",
+			r.URL.Path,
+			"method",
+			r.Method,
+		)
 		// Use new error response formatter
 		debugMode := GetDebugMode(r.Context())
 		RespondWithError(w, r, err, debugMode)
@@ -313,7 +325,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			if !validBool {
 				success = false // treat unparseable as failure
 			}
-			s.logger.Debug("detected API response resource result", "path", r.URL.Path, "success", success)
+			s.logger.Debug(
+				"detected API response resource result",
+				"path",
+				r.URL.Path,
+				"success",
+				success,
+			)
 
 			// This is an API response resource result
 			// Extract meta information if present
@@ -355,7 +373,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Use RespondWithSuccess which handles the standard response format
 			// It will wrap data in {"success": true, "data": {...}, "meta": {...}}
 			if success {
-				s.logger.Debug("sending API response", "path", r.URL.Path, "data_type", fmt.Sprintf("%T", data))
+				s.logger.Debug(
+					"sending API response",
+					"path",
+					r.URL.Path,
+					"data_type",
+					fmt.Sprintf("%T", data),
+				)
 
 				// Set session cookie if session ID is present in context
 				// This ensures cookies are set even when using API response resources
@@ -412,7 +436,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						respContentType,
 					)
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
-						s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
+						s.logger.Error(
+							"failed to write raw API response",
+							"error",
+							writeErr,
+							"path",
+							r.URL.Path,
+						)
 					}
 					if flusher, canFlush := w.(stdhttp.Flusher); canFlush {
 						flusher.Flush()
@@ -443,7 +473,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 				// Encode response to bytes first to check for marshal errors before writing headers
 				responseBytes, marshalErr := json.Marshal(response)
 				if marshalErr != nil {
-					s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
+					s.logger.Error(
+						"failed to marshal API response",
+						"error",
+						marshalErr,
+						"path",
+						r.URL.Path,
+					)
 					debugMode := GetDebugMode(r.Context())
 					RespondWithError(w, r, domain.NewAppError(
 						domain.ErrCodeInternal,
@@ -453,10 +489,22 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 				}
 
 				w.WriteHeader(stdhttp.StatusOK)
-				s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
+				s.logger.Debug(
+					"writing API response",
+					"path",
+					r.URL.Path,
+					"size",
+					len(responseBytes),
+				)
 
 				if _, writeErr := w.Write(responseBytes); writeErr != nil {
-					s.logger.Error("failed to write API response", "error", writeErr, "path", r.URL.Path)
+					s.logger.Error(
+						"failed to write API response",
+						"error",
+						writeErr,
+						"path",
+						r.URL.Path,
+					)
 					return
 				}
 
@@ -513,7 +561,13 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	}
 	regularBytes, marshalErr := json.Marshal(regularResp)
 	if marshalErr != nil {
-		s.logger.Error("failed to marshal regular resource result", "error", marshalErr, "path", r.URL.Path)
+		s.logger.Error(
+			"failed to marshal regular resource result",
+			"error",
+			marshalErr,
+			"path",
+			r.URL.Path,
+		)
 		debugMode := GetDebugMode(r.Context())
 		RespondWithError(w, r, domain.NewAppError(
 			domain.ErrCodeInternal,
@@ -525,14 +579,23 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(stdhttp.StatusOK)
 	if _, writeErr := w.Write(regularBytes); writeErr != nil {
-		s.logger.Error("failed to write regular resource result", "error", writeErr, "path", r.URL.Path)
+		s.logger.Error(
+			"failed to write regular resource result",
+			"error",
+			writeErr,
+			"path",
+			r.URL.Path,
+		)
 	}
 }
 
 // ParseRequest parses HTTP request into RequestContext.
 //
 
-func (s *Server) ParseRequest(r *stdhttp.Request, uploadedFiles []*domain.UploadedFile) *RequestContext {
+func (s *Server) ParseRequest(
+	r *stdhttp.Request,
+	uploadedFiles []*domain.UploadedFile,
+) *RequestContext {
 	// Parse query parameters
 	query := make(map[string]string)
 	for key, values := range r.URL.Query() {
@@ -772,7 +835,13 @@ func (s *Server) SetupHotReload() error {
 		}
 	}); watchErr != nil {
 		// Resources directory might not exist, which is OK
-		s.logger.Debug("failed to watch resources directory (may not exist)", "path", resourcesPath, "error", watchErr)
+		s.logger.Debug(
+			"failed to watch resources directory (may not exist)",
+			"path",
+			resourcesPath,
+			"error",
+			watchErr,
+		)
 	}
 
 	return nil

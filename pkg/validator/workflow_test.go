@@ -1145,16 +1145,22 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 		{
 			name: "valid telephony local",
 			config: &domain.InputConfig{
-				Sources:   []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
+				Sources: []string{domain.InputSourceTelephony},
+				Telephony: &domain.TelephonyConfig{
+					Type:   domain.TelephonyTypeLocal,
+					Device: "/dev/ttyUSB0",
+				},
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid telephony online",
 			config: &domain.InputConfig{
-				Sources:   []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{Type: domain.TelephonyTypeOnline, Provider: "twilio"},
+				Sources: []string{domain.InputSourceTelephony},
+				Telephony: &domain.TelephonyConfig{
+					Type:     domain.TelephonyTypeOnline,
+					Provider: "twilio",
+				},
 			},
 			wantErr: false,
 		},
@@ -1190,13 +1196,17 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "duplicate source rejected",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAudio, domain.InputSourceAudio}},
+			name: "duplicate source rejected",
+			config: &domain.InputConfig{
+				Sources: []string{domain.InputSourceAudio, domain.InputSourceAudio},
+			},
 			wantErr: true,
 		},
 		{
-			name:    "duplicate api source rejected",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceAPI}},
+			name: "duplicate api source rejected",
+			config: &domain.InputConfig{
+				Sources: []string{domain.InputSourceAPI, domain.InputSourceAPI},
+			},
 			wantErr: true,
 		},
 	}
@@ -2021,11 +2031,18 @@ func TestWorkflowValidator_ValidateEmbeddingConfig(t *testing.T) {
 			err := v.ValidateEmbeddingConfig(tt.config)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ValidateEmbeddingConfig() expected error containing %q, got nil", tt.errMsg)
+					t.Errorf(
+						"ValidateEmbeddingConfig() expected error containing %q, got nil",
+						tt.errMsg,
+					)
 					return
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("ValidateEmbeddingConfig() error = %q, want containing %q", err, tt.errMsg)
+					t.Errorf(
+						"ValidateEmbeddingConfig() error = %q, want containing %q",
+						err,
+						tt.errMsg,
+					)
 				}
 			} else if err != nil {
 				t.Errorf("ValidateEmbeddingConfig() unexpected error: %v", err)
@@ -2096,11 +2113,18 @@ func TestValidateSearchConfig(t *testing.T) {
 			err := validator.ValidateSearchConfig(tt.config)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ValidateSearchConfig() expected error containing %q, got nil", tt.errMsg)
+					t.Errorf(
+						"ValidateSearchConfig() expected error containing %q, got nil",
+						tt.errMsg,
+					)
 					return
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("ValidateSearchConfig() error = %q, want containing %q", err, tt.errMsg)
+					t.Errorf(
+						"ValidateSearchConfig() error = %q, want containing %q",
+						err,
+						tt.errMsg,
+					)
 				}
 			} else if err != nil {
 				t.Errorf("ValidateSearchConfig() unexpected error: %v", err)
@@ -2127,12 +2151,18 @@ func TestValidatePDFConfig(t *testing.T) {
 			config: &domain.PDFConfig{Content: "<html>test</html>"},
 		},
 		{
-			name:   "valid html content type",
-			config: &domain.PDFConfig{Content: "<html>test</html>", ContentType: domain.PDFContentTypeHTML},
+			name: "valid html content type",
+			config: &domain.PDFConfig{
+				Content:     "<html>test</html>",
+				ContentType: domain.PDFContentTypeHTML,
+			},
 		},
 		{
-			name:   "valid markdown content type",
-			config: &domain.PDFConfig{Content: "# Hello", ContentType: domain.PDFContentTypeMarkdown},
+			name: "valid markdown content type",
+			config: &domain.PDFConfig{
+				Content:     "# Hello",
+				ContentType: domain.PDFContentTypeMarkdown,
+			},
 		},
 		{
 			name:    "invalid content type",
@@ -2141,16 +2171,22 @@ func TestValidatePDFConfig(t *testing.T) {
 			errMsg:  "pdf.contentType",
 		},
 		{
-			name:   "valid wkhtmltopdf backend",
-			config: &domain.PDFConfig{Content: "<html>test</html>", Backend: domain.PDFBackendWkhtmltopdf},
+			name: "valid wkhtmltopdf backend",
+			config: &domain.PDFConfig{
+				Content: "<html>test</html>",
+				Backend: domain.PDFBackendWkhtmltopdf,
+			},
 		},
 		{
 			name:   "valid pandoc backend",
 			config: &domain.PDFConfig{Content: "# Hello", Backend: domain.PDFBackendPandoc},
 		},
 		{
-			name:   "valid weasyprint backend",
-			config: &domain.PDFConfig{Content: "<html>test</html>", Backend: domain.PDFBackendWeasyprint},
+			name: "valid weasyprint backend",
+			config: &domain.PDFConfig{
+				Content: "<html>test</html>",
+				Backend: domain.PDFBackendWeasyprint,
+			},
 		},
 		{
 			name:    "invalid backend",
@@ -2294,7 +2330,10 @@ func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
 			err := v.ValidateInputConfig(tt.input)
 			if tt.wantErr {
 				if err == nil {
-					t.Errorf("ValidateInputConfig() expected error containing %q, got nil", tt.errMsg)
+					t.Errorf(
+						"ValidateInputConfig() expected error containing %q, got nil",
+						tt.errMsg,
+					)
 					return
 				}
 				if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
@@ -2334,8 +2373,13 @@ func TestWorkflowValidator_ValidateResource_NewTypes(t *testing.T) {
 		{
 			name: "valid Scraper resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{ActionID: "scraper-test", Name: "Scraper Resource"},
-				Run:      domain.RunConfig{Scraper: &domain.ScraperConfig{Type: "url", Source: "https://example.com"}},
+				Metadata: domain.ResourceMetadata{
+					ActionID: "scraper-test",
+					Name:     "Scraper Resource",
+				},
+				Run: domain.RunConfig{
+					Scraper: &domain.ScraperConfig{Type: "url", Source: "https://example.com"},
+				},
 			},
 		},
 		{
@@ -2350,7 +2394,10 @@ func TestWorkflowValidator_ValidateResource_NewTypes(t *testing.T) {
 		{
 			name: "valid Embedding resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{ActionID: "embedding-test", Name: "Embedding Resource"},
+				Metadata: domain.ResourceMetadata{
+					ActionID: "embedding-test",
+					Name:     "Embedding Resource",
+				},
 				Run: domain.RunConfig{
 					Embedding: &domain.EmbeddingConfig{Model: "nomic-embed-text", Input: "hello"},
 				},
@@ -2391,8 +2438,13 @@ func TestWorkflowValidator_ValidateResource_NewTypes(t *testing.T) {
 		{
 			name: "valid Calendar resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{ActionID: "calendar-test", Name: "Calendar Resource"},
-				Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList}},
+				Metadata: domain.ResourceMetadata{
+					ActionID: "calendar-test",
+					Name:     "Calendar Resource",
+				},
+				Run: domain.RunConfig{
+					Calendar: &domain.CalendarConfig{Action: domain.CalendarActionList},
+				},
 			},
 		},
 		{

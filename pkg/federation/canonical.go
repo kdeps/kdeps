@@ -21,12 +21,19 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash"
 	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	hashAlgorithmSHA256 = "sha256"
+	hashAlgorithmSHA512 = "sha512"
+	hashAlgorithmBLAKE3 = "blake3"
 )
 
 // Canonicalizer handles deterministic serialization of YAML specifications
@@ -52,7 +59,7 @@ func (c *Canonicalizer) ComputeHash(yamlBytes []byte, alg string) ([]byte, error
 
 // SHA256 returns the SHA256 hash of canonicalized YAML.
 func (c *Canonicalizer) SHA256(yamlBytes []byte) ([]byte, error) {
-	return c.ComputeHash(yamlBytes, "sha256")
+	return c.ComputeHash(yamlBytes, hashAlgorithmSHA256)
 }
 
 // Canonicalize converts YAML to deterministic JSON for hashing.
@@ -80,7 +87,8 @@ func (c *Canonicalizer) Canonicalize(yamlBytes []byte) ([]byte, error) {
 
 	// Compact (though json.Marshal already does this)
 	var buf bytes.Buffer
-	if err := json.Compact(&buf, jsonBytes); err != nil {
+	err = json.Compact(&buf, jsonBytes)
+	if err != nil {
 		return nil, fmt.Errorf("failed to compact JSON: %w", err)
 	}
 
@@ -145,14 +153,14 @@ func (c *Canonicalizer) normalize(data interface{}) interface{} {
 // newHash creates a hash.Hash for the given algorithm.
 func (c *Canonicalizer) newHash(alg string) (hash.Hash, error) {
 	switch strings.ToLower(alg) {
-	case "sha256":
+	case hashAlgorithmSHA256:
 		return sha256.New(), nil
-	case "sha512":
+	case hashAlgorithmSHA512:
 		return sha512.New(), nil
-	case "blake3":
+	case hashAlgorithmBLAKE3:
 		// BLAKE3 not in standard library; will need golang.org/x/crypto/blake3
 		// For now, return error with helpful message
-		return nil, fmt.Errorf("blake3 not yet implemented; use sha256 or sha512")
+		return nil, errors.New("blake3 not yet implemented; use sha256 or sha512")
 	default:
 		return nil, fmt.Errorf("unsupported hash algorithm %q", alg)
 	}
@@ -173,6 +181,8 @@ func (c *Canonicalizer) ComputeAndFormat(yamlBytes []byte, alg string) (string, 
 }
 
 // DefaultCanonicalizer is a ready-to-use instance.
+//
+//nolint:gochecknoglobals // safe immutable global singleton
 var DefaultCanonicalizer = &Canonicalizer{}
 
 // ComputeHash is a convenience wrapper around DefaultCanonicalizer.ComputeHash.

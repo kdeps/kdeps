@@ -123,7 +123,12 @@ func TestParser_looksLikeURL(t *testing.T) {
 			exprType := parser.Detect(tt.input)
 			// If it's a URL, it should be a literal (not an expression)
 			if tt.expected {
-				assert.Equal(t, domain.ExprTypeLiteral, exprType, "URL should be detected as literal")
+				assert.Equal(
+					t,
+					domain.ExprTypeLiteral,
+					exprType,
+					"URL should be detected as literal",
+				)
 			}
 		})
 	}
@@ -184,7 +189,12 @@ func TestParser_looksLikeMIMEType(t *testing.T) {
 			// Test through Detect method - MIME types should be detected as literals
 			exprType := parser.Detect(tt.input)
 			if tt.expected {
-				assert.Equal(t, domain.ExprTypeLiteral, exprType, "MIME type should be detected as literal")
+				assert.Equal(
+					t,
+					domain.ExprTypeLiteral,
+					exprType,
+					"MIME type should be detected as literal",
+				)
 			}
 		})
 	}
@@ -230,7 +240,12 @@ func TestParser_looksLikeUserAgent(t *testing.T) {
 			// Test through Detect method
 			exprType := parser.Detect(tt.input)
 			if tt.expected {
-				assert.Equal(t, domain.ExprTypeLiteral, exprType, "User agent should be detected as literal")
+				assert.Equal(
+					t,
+					domain.ExprTypeLiteral,
+					exprType,
+					"User agent should be detected as literal",
+				)
 			}
 		})
 	}
@@ -291,7 +306,12 @@ func TestParser_looksLikeAuthToken(t *testing.T) {
 			// Test through Detect method - auth tokens should be detected as literals
 			exprType := parser.Detect(tt.input)
 			if tt.expected {
-				assert.Equal(t, domain.ExprTypeLiteral, exprType, "Auth token should be detected as literal")
+				assert.Equal(
+					t,
+					domain.ExprTypeLiteral,
+					exprType,
+					"Auth token should be detected as literal",
+				)
 			}
 		})
 	}

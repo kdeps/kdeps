@@ -49,7 +49,11 @@ func NewSessionStorage(dbPath string, sessionID string) (*SessionStorage, error)
 }
 
 // NewSessionStorageWithTTL creates a new session storage with TTL.
-func NewSessionStorageWithTTL(dbPath string, sessionID string, defaultTTL time.Duration) (*SessionStorage, error) {
+func NewSessionStorageWithTTL(
+	dbPath string,
+	sessionID string,
+	defaultTTL time.Duration,
+) (*SessionStorage, error) {
 	if dbPath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -121,7 +125,10 @@ func (s *SessionStorage) initSchema() error {
 		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='expires_at'`,
 	).Scan(&expiresAtCount)
 	if err == nil && expiresAtCount == 0 {
-		_, _ = s.DB.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN expires_at INTEGER`)
+		_, _ = s.DB.ExecContext(
+			context.Background(),
+			`ALTER TABLE sessions ADD COLUMN expires_at INTEGER`,
+		)
 	}
 
 	// Check if accessed_at column exists
@@ -131,7 +138,10 @@ func (s *SessionStorage) initSchema() error {
 		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='accessed_at'`,
 	).Scan(&accessedAtCount)
 	if err == nil && accessedAtCount == 0 {
-		_, _ = s.DB.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`)
+		_, _ = s.DB.ExecContext(
+			context.Background(),
+			`ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`,
+		)
 		// Update existing rows
 		_, _ = s.DB.ExecContext(
 			context.Background(),

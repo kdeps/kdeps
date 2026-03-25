@@ -68,4 +68,3 @@ func IsFederationError(err error) bool {
 	}
 	return false
 }
-

@@ -46,7 +46,11 @@ func NewSessionStorage(_ string, sessionID string) (*SessionStorage, error) {
 }
 
 // NewSessionStorageWithTTL creates a new in-memory session storage with TTL for WASM.
-func NewSessionStorageWithTTL(_ string, sessionID string, defaultTTL time.Duration) (*SessionStorage, error) {
+func NewSessionStorageWithTTL(
+	_ string,
+	sessionID string,
+	defaultTTL time.Duration,
+) (*SessionStorage, error) {
 	if sessionID == "" {
 		sessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
 	}

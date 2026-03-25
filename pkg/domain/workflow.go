@@ -429,10 +429,16 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	// 1. Default configuration
 	enabled := true
 	defaults := &CORS{
-		EnableCORS:       &enabled,
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
-		AllowHeaders:     []string{"Content-Type", "Authorization", "Accept", "X-Requested-With", "X-Session-Id"},
+		EnableCORS:   &enabled,
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders: []string{
+			"Content-Type",
+			"Authorization",
+			"Accept",
+			"X-Requested-With",
+			"X-Session-Id",
+		},
 		AllowCredentials: true,
 	}
 

@@ -696,7 +696,9 @@ func TestInputSourcesIntegration_TranscriberValidationErrors(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run: domain.RunConfig{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					},
 				},
 			},
 		}
@@ -768,7 +770,9 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run: domain.RunConfig{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					},
 				},
 			},
 		}
@@ -793,7 +797,9 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 			Activation: &domain.ActivationConfig{
 				Phrase: "hey kdeps",
 				Mode:   domain.TranscriberModeOnline,
-				Online: &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderDeepgram},
+				Online: &domain.OnlineTranscriberConfig{
+					Provider: domain.TranscriberProviderDeepgram,
+				},
 			},
 		})
 		err = workflowValidator.Validate(wf)
@@ -812,7 +818,9 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 				Mode:         domain.TranscriberModeOffline,
 				Sensitivity:  0.7,
 				ChunkSeconds: 4,
-				Offline:      &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineFasterWhisper},
+				Offline: &domain.OfflineTranscriberConfig{
+					Engine: domain.TranscriberEngineFasterWhisper,
+				},
 			},
 		})
 		err = workflowValidator.Validate(wf)
@@ -866,7 +874,9 @@ func TestInputSourcesIntegration_ActivationConfig(t *testing.T) {
 				Phrase:      "hey kdeps",
 				Mode:        domain.TranscriberModeOffline,
 				Sensitivity: 1.5,
-				Offline:     &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
+				Offline: &domain.OfflineTranscriberConfig{
+					Engine: domain.TranscriberEngineWhisper,
+				},
 			},
 		})
 		err = workflowValidator.Validate(wf)
@@ -891,7 +901,9 @@ func TestInputSourcesIntegration_BotSource(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run: domain.RunConfig{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					},
 				},
 			},
 		}
@@ -1005,7 +1017,9 @@ func TestInputSourcesIntegration_BotSourceValidationErrors(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run: domain.RunConfig{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					},
 				},
 			},
 		}
@@ -1132,7 +1146,9 @@ func TestInputSourcesIntegration_MediaExecutionType(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
-					Run:      domain.RunConfig{APIResponse: &domain.APIResponseConfig{Success: true}},
+					Run: domain.RunConfig{
+						APIResponse: &domain.APIResponseConfig{Success: true},
+					},
 				},
 			},
 		}
@@ -1169,7 +1185,10 @@ func TestInputSourcesIntegration_MediaExecutionType(t *testing.T) {
 		wf := makeWorkflow(&domain.InputConfig{
 			Sources:       []string{domain.InputSourceTelephony},
 			ExecutionType: domain.InputExecutionTypePolling,
-			Telephony:     &domain.TelephonyConfig{Type: domain.TelephonyTypeLocal, Device: "/dev/ttyUSB0"},
+			Telephony: &domain.TelephonyConfig{
+				Type:   domain.TelephonyTypeLocal,
+				Device: "/dev/ttyUSB0",
+			},
 		})
 		require.NoError(t, workflowValidator.Validate(wf))
 	})

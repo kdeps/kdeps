@@ -311,7 +311,8 @@ func (e *Executor) callBackendWithEndpoint(
 	}()
 
 	// Use streaming response parser when stream: true was requested (Ollama only for now)
-	if isStreaming, ok := requestBody["stream"].(bool); ok && isStreaming && backend.Name() == backendOllama {
+	if isStreaming, ok := requestBody["stream"].(bool); ok && isStreaming &&
+		backend.Name() == backendOllama {
 		if resp.StatusCode != stdhttp.StatusOK {
 			var errorBody map[string]interface{}
 			_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -383,7 +384,9 @@ func (b *OpenAIBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *OpenAIBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *OpenAIBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -565,7 +568,9 @@ func (b *GoogleBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *GoogleBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *GoogleBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -620,7 +625,9 @@ func (b *CohereBackend) BuildRequest(
 	return req, nil
 }
 
-func (b *CohereBackend) buildCohereMessages(messages []map[string]interface{}) ([]map[string]interface{}, string) {
+func (b *CohereBackend) buildCohereMessages(
+	messages []map[string]interface{},
+) ([]map[string]interface{}, string) {
 	chatHistory := make([]map[string]interface{}, 0)
 	userMessage := ""
 	lastUserMessage := ""
@@ -833,7 +840,9 @@ func (b *MistralBackend) ParseResponse(resp *stdhttp.Response) (map[string]inter
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *MistralBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *MistralBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -915,7 +924,9 @@ func (b *TogetherBackend) ParseResponse(resp *stdhttp.Response) (map[string]inte
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *TogetherBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *TogetherBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -997,7 +1008,9 @@ func (b *PerplexityBackend) ParseResponse(resp *stdhttp.Response) (map[string]in
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *PerplexityBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *PerplexityBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1079,7 +1092,9 @@ func (b *GroqBackend) ParseResponse(resp *stdhttp.Response) (map[string]interfac
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *GroqBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *GroqBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1161,7 +1176,9 @@ func (b *DeepSeekBackend) ParseResponse(resp *stdhttp.Response) (map[string]inte
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *DeepSeekBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *DeepSeekBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1243,7 +1260,9 @@ func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]in
 	return b.convertOpenAIResponse(response), nil
 }
 
-func (b *OpenRouterBackend) convertOpenAIResponse(openAIResp map[string]interface{}) map[string]interface{} {
+func (b *OpenRouterBackend) convertOpenAIResponse(
+	openAIResp map[string]interface{},
+) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {

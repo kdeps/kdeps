@@ -71,7 +71,11 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 			for _, fileHeader := range files {
 				file, err := h.processFileHeader(fileHeader, "file[]")
 				if err != nil {
-					return nil, fmt.Errorf("failed to process file %s: %w", fileHeader.Filename, err)
+					return nil, fmt.Errorf(
+						"failed to process file %s: %w",
+						fileHeader.Filename,
+						err,
+					)
 				}
 				uploadedFiles = append(uploadedFiles, file)
 			}
@@ -83,7 +87,11 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 			for _, fileHeader := range files {
 				file, err := h.processFileHeader(fileHeader, "files")
 				if err != nil {
-					return nil, fmt.Errorf("failed to process file %s: %w", fileHeader.Filename, err)
+					return nil, fmt.Errorf(
+						"failed to process file %s: %w",
+						fileHeader.Filename,
+						err,
+					)
 				}
 				uploadedFiles = append(uploadedFiles, file)
 			}

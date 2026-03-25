@@ -211,7 +211,16 @@ func (b *Builder) buildRawImage(
 	}
 
 	// Data partition build: pass the image name so the assembler can export it.
-	return buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, kdepsImageName, "")
+	return buildRawBIOSWithImage(
+		ctx,
+		b.Runner,
+		assembler,
+		tmpPath,
+		arch,
+		buildDir,
+		kdepsImageName,
+		"",
+	)
 }
 
 // GenerateConfigYAML generates and returns the LinuxKit YAML config as a string.

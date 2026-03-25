@@ -238,7 +238,15 @@ func buildWhisperArgs(mediaFile, model, language, outDir string) (string, []stri
 		bin, args = "uv", append([]string{"tool", "run", "whisperx"}, baseArgs...)
 	default:
 		bin = pythonBin()
-		args = []string{"-m", "whisper", mediaFile, "--output_dir", outDir, "--output_format", "txt"}
+		args = []string{
+			"-m",
+			"whisper",
+			mediaFile,
+			"--output_dir",
+			outDir,
+			"--output_format",
+			"txt",
+		}
 	}
 
 	if model != "" {

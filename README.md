@@ -73,6 +73,7 @@ run:
 - [`browser:`](https://kdeps.com/resources/browser) – Browser automation (Playwright) – navigate, fill, click, screenshot
 - [`botReply:`](https://kdeps.com/concepts/input-sources#chat-bot-platforms) – Send messages to Discord/Slack/Telegram
 - [`agent:`](https://kdeps.com/concepts/agency) – Delegate work to another agent in an agency
+- [`remoteAgent:`](https://kdeps.com/resources/remote-agent) – Federated agent invocation (UAF) with Ed25519-signed receipts
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
 
 ### 🏢 [Agency & Multi-Agent Orchestration](https://kdeps.com/concepts/agency)
@@ -96,5 +97,15 @@ run:
 - `kdeps push` – Live-update running containers
 - `kdeps export iso` – Generate bootable edge ISOs from workflows or agencies
 - `kdeps prepackage` – Bundle a `.kdeps`/`.kagency` file into self-contained executables per arch
+
+### 🌐 Federation (UAF)
+- `kdeps federation keygen --org <name>` – Generate Ed25519 keypair for signing
+- `kdeps federation register` – Register an agent in a UAF registry
+- `kdeps federation trust add` – Add a registry trust anchor (public key)
+- `kdeps federation trust list` – List all configured trust anchors
+- `kdeps federation mesh list` – List remote agents used in the current project
+- `kdeps federation mesh publish` – Preview the registration manifest (dry-run)
+- `kdeps federation receipt verify` – Verify a signed receipt from a remote agent
+- `kdeps federation key-rotate --org <name>` – Rotate keypair (dual-key transition period)
 
 [Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0

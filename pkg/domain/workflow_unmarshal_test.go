@@ -663,7 +663,9 @@ func TestSessionConfig_UnmarshalYAML_TTLFallbackStringSuccess(t *testing.T) {
 					"path": "/tmp/test.db",
 				},
 				"enabled": true,
-				"ttl":     interface{}("45s"), // interface{} containing a string - first cast fails, second succeeds
+				"ttl": interface{}(
+					"45s",
+				), // interface{} containing a string - first cast fails, second succeeds
 			}
 		}
 		return nil
@@ -748,7 +750,8 @@ source: video
 	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(cfg.Sources) != 2 || cfg.Sources[0] != domain.InputSourceAPI || cfg.Sources[1] != domain.InputSourceAudio {
+	if len(cfg.Sources) != 2 || cfg.Sources[0] != domain.InputSourceAPI ||
+		cfg.Sources[1] != domain.InputSourceAudio {
 		t.Errorf("Sources = %v, want [api audio]", cfg.Sources)
 	}
 }
@@ -772,7 +775,8 @@ func TestInputConfig_UnmarshalJSON_AllFields(t *testing.T) {
 	if err := cfg.UnmarshalJSON([]byte(jsonData)); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(cfg.Sources) != 2 || cfg.Sources[0] != domain.InputSourceAudio || cfg.Sources[1] != domain.InputSourceVideo {
+	if len(cfg.Sources) != 2 || cfg.Sources[0] != domain.InputSourceAudio ||
+		cfg.Sources[1] != domain.InputSourceVideo {
 		t.Errorf("Sources = %v, want [audio video]", cfg.Sources)
 	}
 	if cfg.Audio == nil {

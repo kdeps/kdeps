@@ -203,7 +203,11 @@ func GetHTTPStatus(code AppErrorCode) int {
 		return http.StatusGatewayTimeout
 	case ErrCodeServiceUnavail:
 		return http.StatusServiceUnavailable
-	case ErrCodeInternal, ErrCodeDependencyFailed, ErrCodeResourceFailed, ErrCodePreflightFailed, ErrCodeExpressionErr:
+	case ErrCodeInternal,
+		ErrCodeDependencyFailed,
+		ErrCodeResourceFailed,
+		ErrCodePreflightFailed,
+		ErrCodeExpressionErr:
 		return http.StatusInternalServerError
 	default:
 		return http.StatusInternalServerError

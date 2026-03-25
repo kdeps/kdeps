@@ -177,7 +177,12 @@ func (t *onlineTranscriber) deepgram(mediaFile string) (*Result, error) {
 		apiURL += "?language=" + t.cfg.Language
 	}
 
-	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodPost, apiURL, bytes.NewReader(data))
+	req, reqErr := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		apiURL,
+		bytes.NewReader(data),
+	)
 	if reqErr != nil {
 		return nil, fmt.Errorf("deepgram: create request: %w", reqErr)
 	}
@@ -285,7 +290,9 @@ func (t *onlineTranscriber) assemblyAIUpload(data []byte) (string, error) {
 	return uploadResp.UploadURL, nil
 }
 
-func (t *onlineTranscriber) assemblyAISubmit(audioURL string) (*assemblyAITranscriptResponse, error) {
+func (t *onlineTranscriber) assemblyAISubmit(
+	audioURL string,
+) (*assemblyAITranscriptResponse, error) {
 	transcReq := assemblyAITranscriptRequest{
 		AudioURL:     audioURL,
 		LanguageCode: t.cfg.Language,
@@ -403,7 +410,12 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 	}
 
 	apiURL := "https://speech.googleapis.com/v1/speech:recognize?key=" + t.cfg.Online.APIKey
-	req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodPost, apiURL, bytes.NewReader(reqBytes))
+	req, reqErr := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		apiURL,
+		bytes.NewReader(reqBytes),
+	)
 	if reqErr != nil {
 		return nil, fmt.Errorf("google-stt: create request: %w", reqErr)
 	}

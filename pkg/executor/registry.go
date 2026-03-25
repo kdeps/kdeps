@@ -25,20 +25,21 @@ type ResourceExecutor interface {
 
 // Registry holds resource executors.
 type Registry struct {
-	llmExecutor       ResourceExecutor
-	httpExecutor      ResourceExecutor
-	sqlExecutor       ResourceExecutor
-	pythonExecutor    ResourceExecutor
-	execExecutor      ResourceExecutor
-	ttsExecutor       ResourceExecutor
-	botReplyExecutor  ResourceExecutor
-	scraperExecutor   ResourceExecutor
-	embeddingExecutor ResourceExecutor
-	pdfExecutor       ResourceExecutor
-	emailExecutor     ResourceExecutor
-	calendarExecutor  ResourceExecutor
-	searchExecutor    ResourceExecutor
-	browserExecutor   ResourceExecutor
+	llmExecutor         ResourceExecutor
+	httpExecutor        ResourceExecutor
+	sqlExecutor         ResourceExecutor
+	pythonExecutor      ResourceExecutor
+	execExecutor        ResourceExecutor
+	ttsExecutor         ResourceExecutor
+	botReplyExecutor    ResourceExecutor
+	scraperExecutor     ResourceExecutor
+	embeddingExecutor   ResourceExecutor
+	pdfExecutor         ResourceExecutor
+	emailExecutor       ResourceExecutor
+	calendarExecutor    ResourceExecutor
+	searchExecutor      ResourceExecutor
+	browserExecutor     ResourceExecutor
+	remoteAgentExecutor ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -201,4 +202,14 @@ func (r *Registry) SetBrowserExecutor(executor ResourceExecutor) {
 // GetBrowserExecutor returns the browser executor.
 func (r *Registry) GetBrowserExecutor() ResourceExecutor {
 	return r.browserExecutor
+}
+
+// SetRemoteAgentExecutor sets the remote agent executor.
+func (r *Registry) SetRemoteAgentExecutor(executor ResourceExecutor) {
+	r.remoteAgentExecutor = executor
+}
+
+// GetRemoteAgentExecutor returns the remote agent executor.
+func (r *Registry) GetRemoteAgentExecutor() ResourceExecutor {
+	return r.remoteAgentExecutor
 }

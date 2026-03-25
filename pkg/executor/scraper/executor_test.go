@@ -55,7 +55,10 @@ func makeCtx(t *testing.T) *executor.ExecutionContext {
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "m", Name: "M"},
 				Run: domain.RunConfig{
-					Scraper: &domain.ScraperConfig{Type: domain.ScraperTypeURL, Source: "http://example.com"},
+					Scraper: &domain.ScraperConfig{
+						Type:   domain.ScraperTypeURL,
+						Source: "http://example.com",
+					},
 				},
 			},
 		},
@@ -181,7 +184,10 @@ func TestExecute_UnknownType(t *testing.T) {
 
 func TestScrapeURL_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = fmt.Fprint(w, `<html><head><title>T</title></head><body><p>Hello world</p></body></html>`)
+		_, _ = fmt.Fprint(
+			w,
+			`<html><head><title>T</title></head><body><p>Hello world</p></body></html>`,
+		)
 	}))
 	defer srv.Close()
 

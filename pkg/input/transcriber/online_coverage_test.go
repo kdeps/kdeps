@@ -77,7 +77,10 @@ func rawResp(statusCode int, body string) *http.Response {
 	}
 }
 
-func newTestOnlineTranscriber(provider, language, outputMode string, transport http.RoundTripper) *onlineTranscriber {
+func newTestOnlineTranscriber(
+	provider, language, outputMode string,
+	transport http.RoundTripper,
+) *onlineTranscriber {
 	return &onlineTranscriber{
 		cfg: &domain.TranscriberConfig{
 			Language: language,
@@ -282,7 +285,13 @@ func TestAssemblyAI_SuccessFlow(t *testing.T) {
 			// 1. upload
 			jsonResp(assemblyAIUploadResponse{UploadURL: "https://cdn.assemblyai.com/audio/abc"}),
 			// 2. submit transcript
-			jsonResp(assemblyAITranscriptResponse{ID: "t1", Status: "completed", Text: "assembly result"}),
+			jsonResp(
+				assemblyAITranscriptResponse{
+					ID:     "t1",
+					Status: "completed",
+					Text:   "assembly result",
+				},
+			),
 		}},
 	)
 	r, err := tr.assemblyAI(audio)
@@ -462,7 +471,9 @@ func TestAssemblyAIPoll_PollUntilComplete(t *testing.T) {
 	tr := newTestOnlineTranscriber(
 		domain.TranscriberProviderAssemblyAI, "", domain.TranscriberOutputText,
 		&queuedTransport{responses: []*http.Response{
-			jsonResp(assemblyAITranscriptResponse{ID: "j1", Status: "completed", Text: "polled text"}),
+			jsonResp(
+				assemblyAITranscriptResponse{ID: "j1", Status: "completed", Text: "polled text"},
+			),
 		}},
 	)
 	initial := &assemblyAITranscriptResponse{ID: "j1", Status: "processing"}

@@ -686,7 +686,11 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 	// get('param1') returns nil (blocked), so skip condition evaluates to false,
 	// and resource2 executes and returns output.
 	result, err := engine.Execute(workflow, reqCtx)
-	require.NoError(t, err, "resource2 should NOT be skipped when its own params filter blocks param1")
+	require.NoError(
+		t,
+		err,
+		"resource2 should NOT be skipped when its own params filter blocks param1",
+	)
 	assert.NotNil(t, result)
 }
 

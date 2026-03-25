@@ -136,7 +136,11 @@ settings:
   agentSettings:
     timezone: UTC
 `
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(updatedYAML))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString(updatedYAML),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -166,8 +170,13 @@ func TestHandleManagementReload_NoWorkflowPath(t *testing.T) {
 
 	// Should fail because no workflow file at default path
 	// (either 500 or 422 depending on whether file exists)
-	assert.True(t, rec.Code == stdhttp.StatusInternalServerError || rec.Code == stdhttp.StatusUnprocessableEntity,
-		"expected 500 or 422, got %d", rec.Code)
+	assert.True(
+		t,
+		rec.Code == stdhttp.StatusInternalServerError ||
+			rec.Code == stdhttp.StatusUnprocessableEntity,
+		"expected 500 or 422, got %d",
+		rec.Code,
+	)
 }
 
 // TestHandleManagementReload_ValidWorkflow reloads a valid workflow from disk.
@@ -298,7 +307,11 @@ settings:
 	server.SetWorkflowPath(workflowPath)
 	server.SetupManagementRoutes()
 
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(validYAML))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString(validYAML),
+	)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, req)
@@ -327,7 +340,11 @@ func TestHandleManagementUpdateWorkflow_InvalidYAML(t *testing.T) {
 
 	// Send invalid YAML that will fail to parse as a valid workflow
 	invalidContent := "not: valid: yaml: !!!"
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(invalidContent))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString(invalidContent),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -434,7 +451,11 @@ settings:
   agentSettings:
     timezone: UTC
 `
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(updatedYAML))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString(updatedYAML),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -485,7 +506,11 @@ settings:
   agentSettings:
     timezone: UTC
 `
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString(pushedYAML))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString(pushedYAML),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 	require.Equal(t, stdhttp.StatusOK, rec.Code)
@@ -512,7 +537,11 @@ func TestHandleManagementUpdateWorkflow_WriteError(t *testing.T) {
 	server := makeTestServer(t, nil)
 	server.SetWorkflowPath(dirUsedAsFilePath)
 
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString("content"),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -529,7 +558,9 @@ func TestHandleManagementUpdateWorkflow_SetsWorkflowPathWhenEmpty(t *testing.T) 
 	// "workflowPath was empty" branch.  We'll change the working directory to
 	// the temp dir so the fallback "workflow.yaml" points inside it.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(`apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: fallback
@@ -539,7 +570,8 @@ settings:
   portNum: 16395
   agentSettings:
     timezone: UTC
-`), 0600))
+`), 0600),
+	)
 
 	t.Chdir(tmpDir)
 
@@ -669,7 +701,11 @@ func TestGetManagementWorkflowPath_UsesConfiguredPath(t *testing.T) {
 
 	// Trigger getManagementWorkflowPath indirectly by calling HandleManagementUpdateWorkflow
 	// with some content – the write will fail because the path doesn't exist, but that's OK.
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString("content"),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -748,7 +784,11 @@ func TestHandleManagementUpdateWorkflow_MkdirError(t *testing.T) {
 	server := makeTestServer(t, nil)
 	server.SetWorkflowPath(workflowPath)
 
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString("content"),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -778,7 +818,11 @@ func TestGetManagementWorkflowPath_FallbackToRelative(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
 
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString("content"),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 
@@ -824,7 +868,11 @@ func TestGetManagementWorkflowPath_AppDirExists(t *testing.T) {
 	server := makeTestServer(t, nil)
 
 	// Trigger the /app branch via HandleManagementUpdateWorkflow.
-	req := httptest.NewRequest(stdhttp.MethodPut, "/_kdeps/workflow", bytes.NewBufferString("content"))
+	req := httptest.NewRequest(
+		stdhttp.MethodPut,
+		"/_kdeps/workflow",
+		bytes.NewBufferString("content"),
+	)
 	rec := httptest.NewRecorder()
 	server.HandleManagementUpdateWorkflow(rec, req)
 

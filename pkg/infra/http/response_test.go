@@ -337,7 +337,12 @@ func TestRespondWithSuccess_EdgeCases(t *testing.T) {
 		// Check that no session cookie was set
 		cookies := w.Result().Cookies()
 		for _, cookie := range cookies {
-			assert.NotEqual(t, httppkg.SessionCookieName, cookie.Name, "Session cookie should not be set")
+			assert.NotEqual(
+				t,
+				httppkg.SessionCookieName,
+				cookie.Name,
+				"Session cookie should not be set",
+			)
 		}
 	})
 }
@@ -381,7 +386,12 @@ func TestRespondWithError_SessionCookie(t *testing.T) {
 		// Check that no session cookie was set
 		cookies := w.Result().Cookies()
 		for _, cookie := range cookies {
-			assert.NotEqual(t, httppkg.SessionCookieName, cookie.Name, "Session cookie should not be set")
+			assert.NotEqual(
+				t,
+				httppkg.SessionCookieName,
+				cookie.Name,
+				"Session cookie should not be set",
+			)
 		}
 	})
 }

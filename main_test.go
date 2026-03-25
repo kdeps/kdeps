@@ -312,7 +312,12 @@ func TestMain(t *testing.T) {
 
 			// Test RunMainWithConfigOverride directly
 			exitCode := RunMainWithConfigOverride(config)
-			assert.Equal(t, tt.expectedCode, exitCode, "RunMainWithConfigOverride should return correct exit code")
+			assert.Equal(
+				t,
+				tt.expectedCode,
+				exitCode,
+				"RunMainWithConfigOverride should return correct exit code",
+			)
 		})
 	}
 }
@@ -361,7 +366,12 @@ func TestRunMainForTesting(t *testing.T) {
 
 			if tt.expectExit {
 				assert.True(t, exitCalled, "runMain should call OsExit on error")
-				assert.Equal(t, tt.expectedCode, capturedExitCode, "runMain should call OsExit with correct code")
+				assert.Equal(
+					t,
+					tt.expectedCode,
+					capturedExitCode,
+					"runMain should call OsExit with correct code",
+				)
 			} else {
 				assert.False(t, exitCalled, "runMain should not call OsExit on success")
 			}
@@ -416,7 +426,12 @@ func TestMainCoverage(t *testing.T) {
 			// Verify exit behavior
 			if tt.expectExit {
 				assert.True(t, exitCalled, "main should call os.Exit on error")
-				assert.Equal(t, tt.expectedCode, capturedExitCode, "main should exit with correct code")
+				assert.Equal(
+					t,
+					tt.expectedCode,
+					capturedExitCode,
+					"main should exit with correct code",
+				)
 			} else {
 				assert.False(t, exitCalled, "main should not call os.Exit on success")
 			}
@@ -529,7 +544,12 @@ func TestMainWithoutExit(t *testing.T) {
 			// Test mainWithoutExit by temporarily replacing the global config logic
 			// Since mainWithoutExit calls NewAppConfig(), we need to test the logic indirectly
 			exitCode := RunMainWithConfig(config)
-			assert.Equal(t, tt.expectedCode, exitCode, "RunMainWithConfig should return correct exit code")
+			assert.Equal(
+				t,
+				tt.expectedCode,
+				exitCode,
+				"RunMainWithConfig should return correct exit code",
+			)
 
 			// Also test that mainWithoutExit doesn't panic (it uses default config)
 			assert.NotPanics(t, func() {
@@ -569,11 +589,21 @@ func TestGetMain_Direct(t *testing.T) {
 
 			// Test GetMainWithConfigOverride to ensure full coverage
 			exitCode1 := GetMainWithConfigOverride(config)
-			assert.Equal(t, tt.expected, exitCode1, "GetMainWithConfigOverride should return correct exit code")
+			assert.Equal(
+				t,
+				tt.expected,
+				exitCode1,
+				"GetMainWithConfigOverride should return correct exit code",
+			)
 
 			// Also test RunMainWithConfig directly
 			exitCode2 := RunMainWithConfig(config)
-			assert.Equal(t, tt.expected, exitCode2, "RunMainWithConfig should return correct exit code")
+			assert.Equal(
+				t,
+				tt.expected,
+				exitCode2,
+				"RunMainWithConfig should return correct exit code",
+			)
 		})
 	}
 }
@@ -609,7 +639,12 @@ func TestGetMain_Function(t *testing.T) {
 			})
 
 			result := GetMainWithConfigOverride(config)
-			assert.Equal(t, tt.expected, result, "GetMainWithConfigOverride should return correct exit code")
+			assert.Equal(
+				t,
+				tt.expected,
+				result,
+				"GetMainWithConfigOverride should return correct exit code",
+			)
 
 			// Test the actual GetMain function by temporarily replacing the global config
 			_ = NewAppConfig() // We can't actually replace the global config in a test
@@ -674,7 +709,12 @@ func TestMainFunctionLogic(t *testing.T) {
 			// Verify exit behavior matches what main() would do
 			if tt.expectExit {
 				assert.True(t, exitCalled, "main should call os.Exit on error")
-				assert.Equal(t, tt.expectedCode, capturedExitCode, "main should exit with correct code")
+				assert.Equal(
+					t,
+					tt.expectedCode,
+					capturedExitCode,
+					"main should exit with correct code",
+				)
 			} else {
 				assert.False(t, exitCalled, "main should not call os.Exit on success")
 			}

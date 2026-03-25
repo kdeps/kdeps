@@ -138,9 +138,13 @@ func TestTTSIntegration_OfflineMode_EspeakNotFound(t *testing.T) {
 	_, err := eng.Execute(workflow, nil)
 	if err != nil {
 		// Binary not found is expected.
-		assert.True(t, strings.Contains(err.Error(), "espeak") || strings.Contains(err.Error(), "not found") ||
-			strings.Contains(err.Error(), "executable"),
-			"unexpected error: %v", err)
+		assert.True(
+			t,
+			strings.Contains(err.Error(), "espeak") || strings.Contains(err.Error(), "not found") ||
+				strings.Contains(err.Error(), "executable"),
+			"unexpected error: %v",
+			err,
+		)
 	}
 }
 

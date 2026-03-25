@@ -25,7 +25,7 @@ import (
 )
 
 // URN represents a Universal Agent Federation identifier.
-// Format: urn:agent:<authority>/<namespace>:<name>@<version>#<algorithm>:<hash>
+// Format: urn:agent:<authority>/<namespace>:<name>@<version>#<algorithm>:<hash>.
 type URN struct {
 	Authority   string // hostname[:port]
 	Namespace   string // org/entity identifier
@@ -35,7 +35,9 @@ type URN struct {
 	ContentHash []byte // raw hash bytes
 }
 
-var urnRegex = regexp.MustCompile(`^urn:agent:([^/]+)/([^:]+):([^@]+)@([^#]+)#([^:]+):([a-fA-F0-9]+)$`)
+var urnRegex = regexp.MustCompile(
+	`^urn:agent:([^/]+)/([^:]+):([^@]+)@([^#]+)#([^:]+):([a-fA-F0-9]+)$`,
+)
 
 // Parse parses a URN string into its structured components.
 // URNs are case-insensitive in authority, namespace, name, and version,
@@ -162,6 +164,9 @@ func (u *URN) Validate() error {
 }
 
 // MarshalJSON converts URN to JSON as its canonical string representation.
+// NOTE: Pass *URN or &struct to json.Marshal to ensure this is called.
+// In Go, pointer-receiver methods on value fields are only invoked when
+// the containing struct is marshaled via a pointer (e.g. json.Marshal(&receipt)).
 func (u *URN) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }

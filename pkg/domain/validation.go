@@ -148,7 +148,11 @@ type MultipleValidationError struct {
 func (e *MultipleValidationError) Error() string {
 	if len(e.Errors) == 1 {
 		if e.Errors[0].Field != "" {
-			return fmt.Sprintf("validation error on field '%s': %s", e.Errors[0].Field, e.Errors[0].Message)
+			return fmt.Sprintf(
+				"validation error on field '%s': %s",
+				e.Errors[0].Field,
+				e.Errors[0].Message,
+			)
 		}
 		return fmt.Sprintf("validation error: %s", e.Errors[0].Message)
 	}

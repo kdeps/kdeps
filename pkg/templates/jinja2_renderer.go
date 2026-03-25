@@ -47,7 +47,10 @@ func NewJinja2Renderer(fs embed.FS) *Jinja2Renderer {
 }
 
 // RenderFile renders a Jinja2 template file with the provided data.
-func (r *Jinja2Renderer) RenderFile(templatePath string, data map[string]interface{}) (string, error) {
+func (r *Jinja2Renderer) RenderFile(
+	templatePath string,
+	data map[string]interface{},
+) (string, error) {
 	content, err := r.fs.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template file: %w", err)
@@ -58,7 +61,10 @@ func (r *Jinja2Renderer) RenderFile(templatePath string, data map[string]interfa
 
 // Render renders a Jinja2 template string with the provided data.
 // Parsed templates are cached by content to avoid re-parsing on repeated calls.
-func (r *Jinja2Renderer) Render(templateContent string, data map[string]interface{}) (string, error) {
+func (r *Jinja2Renderer) Render(
+	templateContent string,
+	data map[string]interface{},
+) (string, error) {
 	tpl, err := r.getParsedTemplate(templateContent)
 	if err != nil {
 		return "", err

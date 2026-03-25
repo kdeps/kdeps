@@ -61,7 +61,10 @@ func NewAdapter() executor.ResourceExecutor {
 }
 
 // Execute performs browser automation according to the BrowserConfig supplied in config.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.BrowserConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("browser executor: invalid config type")
@@ -69,7 +72,13 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 
 	r := parseConfig(cfg, ctx)
 
-	sess, isNew, err := getOrCreateSession(r.sessionID, r.engineName, r.headless, cfg.Viewport, r.timeout)
+	sess, isNew, err := getOrCreateSession(
+		r.sessionID,
+		r.engineName,
+		r.headless,
+		cfg.Viewport,
+		r.timeout,
+	)
 	if err != nil {
 		return errorResult(err, r.sessionID, nil),
 			fmt.Errorf("browser executor: failed to initialise session: %w", err)
@@ -361,7 +370,8 @@ func executeAction(
 	case domain.BrowserActionUncheck:
 		err = reqSel(action, "uncheck")
 		if err == nil {
-			err = page.Locator(action.Selector).Uncheck(playwright.LocatorUncheckOptions{Timeout: tms})
+			err = page.Locator(action.Selector).
+				Uncheck(playwright.LocatorUncheckOptions{Timeout: tms})
 		}
 
 	case domain.BrowserActionHover:
@@ -439,7 +449,11 @@ func doNavigate(
 	return err
 }
 
-func doUpload(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+func doUpload(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+) error {
 	if err := reqSel(action, "upload"); err != nil {
 		return err
 	}
@@ -488,7 +502,10 @@ func doScroll(page playwright.Page, action domain.BrowserAction, tms *float64) e
 		)
 		return err
 	}
-	_, err := page.Evaluate("(offset) => window.scrollBy(0, parseInt(offset, 10) || 0)", action.Value)
+	_, err := page.Evaluate(
+		"(offset) => window.scrollBy(0, parseInt(offset, 10) || 0)",
+		action.Value,
+	)
 	return err
 }
 
@@ -514,7 +531,11 @@ func doPress(
 	return err
 }
 
-func doEvaluate(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+func doEvaluate(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+) error {
 	if action.Script == "" {
 		return errors.New("evaluate: missing script")
 	}
@@ -525,7 +546,11 @@ func doEvaluate(page playwright.Page, action domain.BrowserAction, base map[stri
 	return err
 }
 
-func doScreenshot(page playwright.Page, action domain.BrowserAction, base map[string]interface{}) error {
+func doScreenshot(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+) error {
 	outFile, err := resolveOutputFile(action.OutputFile)
 	if err != nil {
 		return err
@@ -575,7 +600,9 @@ func doWait(
 		return errors.New("wait: nothing to wait for")
 	}
 	if d, parseErr := time.ParseDuration(target); parseErr == nil {
-		page.WaitForTimeout(float64(d.Milliseconds())) //nolint:staticcheck // deliberate fixed-duration pause
+		page.WaitForTimeout(
+			float64(d.Milliseconds()),
+		)
 		base["waited"] = target
 		return nil
 	}

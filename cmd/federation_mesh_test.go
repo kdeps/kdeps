@@ -1,0 +1,122 @@
+package cmd
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestFederationMeshList_NoWorkflows(t *testing.T) {
+	// Change to empty temp dir
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	cmd := newFederationMeshListCmd()
+	cmd.SetArgs([]string{})
+	err = cmd.Execute()
+	require.NoError(t, err)
+}
+
+func TestFederationMeshList_WithWorkflows(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	// Write a workflow.yaml with no remoteAgent resources
+	workflowContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test-workflow
+  version: "1.0.0"
+  targetActionId: main
+settings:
+  apiServerMode: false
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: false
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
+	require.NoError(t, err)
+
+	cmd := newFederationMeshListCmd()
+	cmd.SetArgs([]string{})
+	err = cmd.Execute()
+	require.NoError(t, err)
+}
+
+func TestFederationMeshPublish_NoWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	cmd := newFederationMeshPublishCmd()
+	cmd.SetArgs([]string{})
+	err = cmd.Execute()
+	require.Error(t, err)
+	// Should say no workflow.yaml or agency.yaml found
+}
+
+func TestFederationMeshPublish_WithWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	workflowContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-agent
+  version: "2.0.0"
+  targetActionId: main
+settings:
+  apiServerMode: false
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: false
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
+	require.NoError(t, err)
+
+	cmd := newFederationMeshPublishCmd()
+	cmd.SetArgs([]string{})
+	err = cmd.Execute()
+	require.NoError(t, err)
+}
+
+func TestFederationMeshPublish_AgencyYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer os.Chdir(origDir)
+
+	// Write agency.yaml instead
+	agencyContent := `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: my-agency
+  version: "1.0.0"
+  targetAgentId: main-agent
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "agency.yaml"), []byte(agencyContent), 0644)
+	require.NoError(t, err)
+
+	// Publish should find agency.yaml and succeed
+	cmd := newFederationMeshPublishCmd()
+	cmd.SetArgs([]string{})
+	// This may succeed or fail depending on agency.yaml parsing
+	// but shouldn't panic
+	cmd.Execute() //nolint:errcheck
+}

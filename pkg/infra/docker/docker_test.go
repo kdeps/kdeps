@@ -562,7 +562,11 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 		"11434",
 	) // Ollama default port (in EXPOSE statement)
 	assert.Contains(t, dockerfile, "python3")
-	assert.NotContains(t, dockerfile, "uv venv") // No Python resource, so uv should not be installed
+	assert.NotContains(
+		t,
+		dockerfile,
+		"uv venv",
+	) // No Python resource, so uv should not be installed
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 }
@@ -761,8 +765,12 @@ func TestBuilder_GenerateDockerfile_SpecialCharactersInPackages(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{
-				PythonVersion:  "3.12",
-				PythonPackages: []string{"package-with-dashes", "package_with_underscores", "package.with.dots"},
+				PythonVersion: "3.12",
+				PythonPackages: []string{
+					"package-with-dashes",
+					"package_with_underscores",
+					"package.with.dots",
+				},
 			},
 		},
 	}
@@ -1856,7 +1864,14 @@ func TestBuilder_GenerateDockerfile_PrepackagedAMD64Only(t *testing.T) {
 func TestBuilder_GenerateDockerfile_FallbackWithoutPrepackagedBinaries(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "workflow.yaml"),
+			[]byte("metadata:\n  name: test\n"),
+			0644,
+		),
+	)
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -1932,7 +1947,11 @@ func TestBuilder_CreateBuildContext_PrepackagedBinaries(t *testing.T) {
 	assert.Contains(t, entries, "kdeps-linux-arm64")
 	// Workflow files must NOT be present.
 	for _, e := range entries {
-		assert.False(t, strings.HasPrefix(e, "workflow.yaml"), "workflow.yaml must not be in context")
+		assert.False(
+			t,
+			strings.HasPrefix(e, "workflow.yaml"),
+			"workflow.yaml must not be in context",
+		)
 		assert.False(t, strings.HasPrefix(e, "resources/"), "resources/ must not be in context")
 		assert.False(t, strings.HasPrefix(e, "data/"), "data/ must not be in context")
 	}
@@ -1958,7 +1977,14 @@ func TestSupervisord_PrepackagedBinary(t *testing.T) {
 	// (CreateBuildContext calls generateSupervisord); use the build context path
 	// to inspect the generated supervisord.conf content.
 	t.Chdir(tmpDir)
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "workflow.yaml"),
+			[]byte("metadata:\n  name: test\n"),
+			0644,
+		),
+	)
 
 	dockerfile := "FROM alpine:latest\n"
 	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
@@ -1992,7 +2018,14 @@ func TestSupervisord_PrepackagedBinary(t *testing.T) {
 func TestSupervisord_FallbackNoPrepackagedBinary(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte("metadata:\n  name: test\n"), 0644))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "workflow.yaml"),
+			[]byte("metadata:\n  name: test\n"),
+			0644,
+		),
+	)
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 

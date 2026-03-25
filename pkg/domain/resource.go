@@ -183,7 +183,12 @@ func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
 			fieldName := mapNode.Content[j].Value
 			var rule FieldRule
 			if err := mapNode.Content[j+1].Decode(&rule); err != nil {
-				return nil, fmt.Errorf("validations.%s: failed to decode rule for field %q: %w", key, fieldName, err)
+				return nil, fmt.Errorf(
+					"validations.%s: failed to decode rule for field %q: %w",
+					key,
+					fieldName,
+					err,
+				)
 			}
 			rule.Field = fieldName
 			rules = append(rules, rule)
@@ -240,20 +245,20 @@ type RunConfig struct {
 // InlineResource represents an inline resource that can be executed before or after the main resource.
 // Only one of the resource types should be set.
 type InlineResource struct {
-	Chat       *ChatConfig       `yaml:"chat,omitempty"`
-	HTTPClient *HTTPClientConfig `yaml:"httpClient,omitempty"`
-	SQL        *SQLConfig        `yaml:"sql,omitempty"`
-	Python     *PythonConfig     `yaml:"python,omitempty"`
-	Exec       *ExecConfig       `yaml:"exec,omitempty"`
-	TTS        *TTSConfig        `yaml:"tts,omitempty"`
-	Scraper    *ScraperConfig    `yaml:"scraper,omitempty"`
-	Embedding  *EmbeddingConfig  `yaml:"embedding,omitempty"`
-	PDF        *PDFConfig        `yaml:"pdf,omitempty"`
-	Email      *EmailConfig      `yaml:"email,omitempty"`
-	Calendar   *CalendarConfig   `yaml:"calendar,omitempty"`
-	Search     *SearchConfig     `yaml:"search,omitempty"`
-	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
-	Browser    *BrowserConfig    `yaml:"browser,omitempty"`
+	Chat        *ChatConfig        `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig  `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig         `yaml:"sql,omitempty"`
+	Python      *PythonConfig      `yaml:"python,omitempty"`
+	Exec        *ExecConfig        `yaml:"exec,omitempty"`
+	TTS         *TTSConfig         `yaml:"tts,omitempty"`
+	Scraper     *ScraperConfig     `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig   `yaml:"embedding,omitempty"`
+	PDF         *PDFConfig         `yaml:"pdf,omitempty"`
+	Email       *EmailConfig       `yaml:"email,omitempty"`
+	Calendar    *CalendarConfig    `yaml:"calendar,omitempty"`
+	Search      *SearchConfig      `yaml:"search,omitempty"`
+	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
+	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
 }
 
@@ -1744,12 +1749,12 @@ func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // RemoteAgentConfig configures a remote UAF agent invocation.
 type RemoteAgentConfig struct {
-	URN              string                 `yaml:"urn"`
-	Input            map[string]Expression  `yaml:"input"`
-	Timeout          string                 `yaml:"timeout,omitempty"`
+	URN               string                `yaml:"urn"`
+	Input             map[string]Expression `yaml:"input"`
+	Timeout           string                `yaml:"timeout,omitempty"`
 	RequireTrustLevel string                `yaml:"requireTrustLevel,omitempty"`
-	CacheSpec        bool                   `yaml:"cacheSpec,omitempty"`
-	Fallback         []FallbackConfig       `yaml:"fallback,omitempty"`
+	CacheSpec         bool                  `yaml:"cacheSpec,omitempty"`
+	Fallback          []FallbackConfig      `yaml:"fallback,omitempty"`
 }
 
 // FallbackConfig describes a fallback agent to try if primary fails.

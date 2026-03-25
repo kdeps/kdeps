@@ -134,7 +134,13 @@ func TestHybridExpressions(t *testing.T) {
 
 			// Check result
 			if !tt.wantErr && result != tt.expected {
-				t.Errorf("Evaluate() = %v (type %T), want %v (type %T)", result, result, tt.expected, tt.expected)
+				t.Errorf(
+					"Evaluate() = %v (type %T), want %v (type %T)",
+					result,
+					result,
+					tt.expected,
+					tt.expected,
+				)
 			}
 		})
 	}
@@ -233,7 +239,13 @@ func TestHybridExpressionsWithAPI(t *testing.T) {
 			}
 
 			if result != tt.expected {
-				t.Errorf("Evaluate() = %v (type %T), want %v (type %T)", result, result, tt.expected, tt.expected)
+				t.Errorf(
+					"Evaluate() = %v (type %T), want %v (type %T)",
+					result,
+					result,
+					tt.expected,
+					tt.expected,
+				)
 			}
 		})
 	}

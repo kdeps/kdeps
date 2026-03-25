@@ -52,7 +52,9 @@ func TestManager_EnsureVenv_WithVenvName(t *testing.T) {
 	venvPath2, err2 := manager.EnsureVenv("3.12", []string{}, "", customVenvName2)
 
 	if err2 != nil {
-		t.Logf("uv not available for second venv, test would verify different names create different paths")
+		t.Logf(
+			"uv not available for second venv, test would verify different names create different paths",
+		)
 		t.Logf("err2: %v", err2)
 	} else if err == nil {
 		// Both succeeded, verify different paths
@@ -74,7 +76,12 @@ func TestManager_EnsureVenv_VenvNameOverridesAutoGeneration(t *testing.T) {
 
 	// If both succeed, paths should be different and contain the venv names
 	if err1 == nil && err2 == nil {
-		assert.NotEqual(t, venvPath1, venvPath2, "Different venv names should result in different paths")
+		assert.NotEqual(
+			t,
+			venvPath1,
+			venvPath2,
+			"Different venv names should result in different paths",
+		)
 		assert.Contains(t, venvPath1, venvName1)
 		assert.Contains(t, venvPath2, venvName2)
 	} else {

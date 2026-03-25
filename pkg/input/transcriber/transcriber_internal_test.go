@@ -123,8 +123,11 @@ func TestBuildWhisperArgs(t *testing.T) {
 
 func TestBuildResult_TextMode(t *testing.T) {
 	cfg := &domain.TranscriberConfig{
-		Mode:   domain.TranscriberModeOnline,
-		Online: &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderOpenAIWhisper, APIKey: "k"},
+		Mode: domain.TranscriberModeOnline,
+		Online: &domain.OnlineTranscriberConfig{
+			Provider: domain.TranscriberProviderOpenAIWhisper,
+			APIKey:   "k",
+		},
 	}
 	tr, err := newOnlineTranscriber(cfg, domain.TranscriberOutputText, slog.Default())
 	require.NoError(t, err)
@@ -141,8 +144,11 @@ func TestBuildResult_MediaMode(t *testing.T) {
 	require.NoError(t, os.WriteFile(src, []byte("audio"), 0600))
 
 	cfg := &domain.TranscriberConfig{
-		Mode:   domain.TranscriberModeOnline,
-		Online: &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderOpenAIWhisper, APIKey: "k"},
+		Mode: domain.TranscriberModeOnline,
+		Online: &domain.OnlineTranscriberConfig{
+			Provider: domain.TranscriberProviderOpenAIWhisper,
+			APIKey:   "k",
+		},
 	}
 	tr, err := newOnlineTranscriber(cfg, domain.TranscriberOutputMedia, slog.Default())
 	require.NoError(t, err)

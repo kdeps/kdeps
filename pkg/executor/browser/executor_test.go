@@ -243,28 +243,44 @@ func TestExecuteAction_UnknownAction(t *testing.T) {
 
 func TestExecuteAction_ClickMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionClick}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionClick},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_FillMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionFill}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionFill},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_TypeMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionType}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionType},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_UploadMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionUpload}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionUpload},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
@@ -281,63 +297,99 @@ func TestExecuteAction_UploadMissingFiles(t *testing.T) {
 
 func TestExecuteAction_SelectMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionSelect}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionSelect},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_CheckMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionCheck}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionCheck},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_UncheckMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionUncheck}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionUncheck},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_HoverMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionHover}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionHover},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_PressMissingKey(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionPress}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionPress},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing key")
 }
 
 func TestExecuteAction_ClearMissingSelector(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionClear}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionClear},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing selector")
 }
 
 func TestExecuteAction_EvaluateMissingScript(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionEvaluate}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionEvaluate},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing script")
 }
 
 func TestExecuteAction_NavigateMissingURL(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionNavigate}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionNavigate},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing url")
 }
 
 func TestExecuteAction_WaitMissingTarget(t *testing.T) {
 	t.Parallel()
-	_, err := executeAction(nil, domain.BrowserAction{Action: domain.BrowserActionWait}, defaultBrowserTimeout)
+	_, err := executeAction(
+		nil,
+		domain.BrowserAction{Action: domain.BrowserActionWait},
+		defaultBrowserTimeout,
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nothing to wait for")
 }
@@ -647,7 +699,10 @@ func TestExecuteAction_PressWithSelectorSuccess(t *testing.T) {
 
 func TestExecuteAction_PressWithSelectorError(t *testing.T) {
 	t.Parallel()
-	pg := &mockPage{locatorResult: &mockLocator{pressErr: errors.New("press failed")}, keyboard: &mockKeyboard{}}
+	pg := &mockPage{
+		locatorResult: &mockLocator{pressErr: errors.New("press failed")},
+		keyboard:      &mockKeyboard{},
+	}
 	_, err := executeAction(pg, domain.BrowserAction{
 		Action:   domain.BrowserActionPress,
 		Selector: "#input",
@@ -973,7 +1028,13 @@ func TestGetOrCreateSession_ExistingSession(t *testing.T) {
 func TestGetOrCreateSession_NewEphemeralFailsWithoutPlaywright(t *testing.T) {
 	t.Parallel()
 	// No playwright installed → newSession fails → error returned gracefully.
-	_, _, err := getOrCreateSession("", domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout)
+	_, _, err := getOrCreateSession(
+		"",
+		domain.BrowserEngineChromium,
+		true,
+		nil,
+		defaultBrowserTimeout,
+	)
 	if err != nil {
 		assert.Contains(t, err.Error(), "playwright")
 	}
@@ -1118,7 +1179,13 @@ func TestGetOrCreateSession_NewNamedSessionFailsWithoutPlaywright(t *testing.T) 
 	t.Parallel()
 	sessID := fmt.Sprintf("new-named-%d", time.Now().UnixNano())
 	t.Cleanup(func() { activeSessions.Delete(sessID) })
-	_, _, err := getOrCreateSession(sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout)
+	_, _, err := getOrCreateSession(
+		sessID,
+		domain.BrowserEngineChromium,
+		true,
+		nil,
+		defaultBrowserTimeout,
+	)
 	// Will fail because playwright binary is not installed.
 	if err != nil {
 		assert.Contains(t, err.Error(), "playwright")

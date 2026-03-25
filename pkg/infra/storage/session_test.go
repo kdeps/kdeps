@@ -164,8 +164,13 @@ func TestSessionStorage_Get_JSONUnmarshalFallback(t *testing.T) {
 	}()
 
 	// Manually insert invalid JSON to test fallback to string
-	_, err = storage.DB.Exec("INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
-		"test-session", "invalid_json", "{invalid json", time.Now().UnixMilli())
+	_, err = storage.DB.Exec(
+		"INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
+		"test-session",
+		"invalid_json",
+		"{invalid json",
+		time.Now().UnixMilli(),
+	)
 	require.NoError(t, err)
 
 	// Get should return the invalid JSON as a string
@@ -478,8 +483,13 @@ func TestSessionStorage_GetAll_InvalidJSON(t *testing.T) {
 	}()
 
 	// Manually insert invalid JSON
-	_, err = storage.DB.Exec("INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
-		"test-session", "invalid_json", "{invalid json", time.Now().UnixMilli())
+	_, err = storage.DB.Exec(
+		"INSERT INTO sessions (session_id, key, value, created_at) VALUES (?, ?, ?, ?)",
+		"test-session",
+		"invalid_json",
+		"{invalid json",
+		time.Now().UnixMilli(),
+	)
 	require.NoError(t, err)
 
 	// GetAll should return invalid JSON as string

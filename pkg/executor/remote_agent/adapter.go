@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/federation"
@@ -80,6 +81,8 @@ func (a *Adapter) setCallerURN(urn string) {
 }
 
 // Execute implements ResourceExecutor.
+//
+//nolint:funlen,cyclop,gocyclo,gocognit // complex but linear workflow
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	cfg, ok := config.(*domain.RemoteAgentConfig)
 	if !ok {
@@ -93,7 +96,7 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	}
 
 	// 2. Resolve agent capability (endpoint, public key, trust level, schemas)
-	cap, err := a.registryClient.ResolveURN(context.Background(), cfg.URN)
+	agentCap, err := a.registryClient.ResolveURN(context.Background(), cfg.URN)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve agent: %w", err)
 	}
@@ -102,14 +105,18 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	if cfg.RequireTrustLevel != "" {
 		// Simple comparison: trust levels are ordered self-attested < verified < certified
 		// For now, require cap.TrustLevel >= required
-		if !trustLevelSatisfies(cap.TrustLevel, cfg.RequireTrustLevel) {
-			return nil, fmt.Errorf("agent trust level %s does not meet required %s", cap.TrustLevel, cfg.RequireTrustLevel)
+		if !trustLevelSatisfies(agentCap.TrustLevel, cfg.RequireTrustLevel) {
+			return nil, fmt.Errorf(
+				"agent trust level %s does not meet required %s",
+				agentCap.TrustLevel,
+				cfg.RequireTrustLevel,
+			)
 		}
 	}
 
 	// 4. Validate and evaluate input payload against remote agent's input schema
 	// For now, we only check required fields presence; detailed schema validation can be added later.
-	if cap.Capabilities == nil || len(cap.Capabilities) == 0 {
+	if agentCap.Capabilities == nil || len(agentCap.Capabilities) == 0 {
 		return nil, errors.New("agent capability has no actions defined")
 	}
 	// Evaluate input expressions
@@ -118,9 +125,9 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	inputs := make(map[string]interface{})
 	for key, expr := range cfg.Input {
 		// Take address of expr to pass to Evaluate (expects *domain.Expression)
-		val, err := evaluator.Evaluate(&expr, env)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate input %s: %w", key, err)
+		val, evalErr := evaluator.Evaluate(&expr, env)
+		if evalErr != nil {
+			return nil, fmt.Errorf("failed to evaluate input %s: %w", key, evalErr)
 		}
 		inputs[key] = val
 	}
@@ -172,18 +179,23 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	}
 
 	// 6. Send HTTP/2 POST to endpoint
-	endpointURL := fmt.Sprintf("%s/.uaf/v1/invoke", cap.Endpoint)
-	httpReq, err := http.NewRequestWithContext(context.Background(), "POST", endpointURL, bytes.NewReader(reqBody))
+	endpointURL := fmt.Sprintf("%s/.uaf/v1/invoke", agentCap.Endpoint)
+	httpReq, err := http.NewRequestWithContext(
+		context.Background(),
+		"POST",
+		endpointURL,
+		bytes.NewReader(reqBody),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("X-UAF-Version", "1.0")
-	httpReq.Header.Set("X-UAF-Message-Id", msgID.String())
-	httpReq.Header.Set("X-UAF-Caller-Urn", callerURNStr)
-	httpReq.Header.Set("X-UAF-Caller-Public-Key", a.publicKeyString())
+	httpReq.Header.Set("X-Uaf-Version", "1.0")
+	httpReq.Header.Set("X-Uaf-Message-Id", msgID.String())
+	httpReq.Header.Set("X-Uaf-Caller-Urn", callerURNStr)
+	httpReq.Header.Set("X-Uaf-Caller-Public-Key", a.publicKeyString())
 	if signature != nil {
-		httpReq.Header.Set("X-UAF-Signature", hex.EncodeToString(signature))
+		httpReq.Header.Set("X-Uaf-Signature", hex.EncodeToString(signature))
 	}
 
 	// Parse timeout
@@ -208,12 +220,16 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	// 7. Verify receipt
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("remote agent returned status %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf(
+			"remote agent returned status %d: %s",
+			resp.StatusCode,
+			string(bodyBytes),
+		)
 	}
 
 	// Parse receipt from header
-	receiptB64 := resp.Header.Get("X-UAF-Receipt")
-	sigB64 := resp.Header.Get("X-UAF-Receipt-Signature")
+	receiptB64 := resp.Header.Get("X-Uaf-Receipt")
+	sigB64 := resp.Header.Get("X-Uaf-Receipt-Signature")
 	if receiptB64 == "" || sigB64 == "" {
 		return nil, errors.New("missing receipt or signature in response")
 	}
@@ -228,12 +244,13 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 
 	// Parse receipt struct
 	var rec federation.Receipt
-	if err := json.Unmarshal(receiptJSON, &rec); err != nil {
+	err = json.Unmarshal(receiptJSON, &rec)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse receipt: %w", err)
 	}
 
 	// Verify signature using callee's public key from capability
-	calleePubKeyPEM := cap.PublicKey
+	calleePubKeyPEM := agentCap.PublicKey
 	// Convert PEM to ed25519.PublicKey
 	pubKey, err := parseEd25519PublicKey([]byte(calleePubKeyPEM))
 	if err != nil {
@@ -248,10 +265,18 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 		return nil, errors.New("receipt message ID mismatch")
 	}
 	if rec.Caller.String() != callerURNStr {
-		return nil, fmt.Errorf("receipt caller URN mismatch: expected %s, got %s", callerURNStr, rec.Caller.String())
+		return nil, fmt.Errorf(
+			"receipt caller URN mismatch: expected %s, got %s",
+			callerURNStr,
+			rec.Caller.String(),
+		)
 	}
 	if rec.Callee.String() != urn.String() {
-		return nil, fmt.Errorf("receipt callee URN mismatch: expected %s, got %s", urn.String(), rec.Callee.String())
+		return nil, fmt.Errorf(
+			"receipt callee URN mismatch: expected %s, got %s",
+			urn.String(),
+			rec.Callee.String(),
+		)
 	}
 
 	// 8. Return outputs
@@ -267,7 +292,11 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 }
 
 // tryFallbacks attempts each fallback agent in order until one succeeds.
-func (a *Adapter) tryFallbacks(fallbacks []domain.FallbackConfig, primary *domain.RemoteAgentConfig, ctx *executor.ExecutionContext) (interface{}, error) {
+func (a *Adapter) tryFallbacks(
+	fallbacks []domain.FallbackConfig,
+	primary *domain.RemoteAgentConfig,
+	ctx *executor.ExecutionContext,
+) (interface{}, error) {
 	var lastErr error
 	for _, fb := range fallbacks {
 		timeout := fb.Timeout
@@ -321,7 +350,7 @@ func (a *Adapter) buildEnvironment(ctx *executor.ExecutionContext) map[string]in
 	return env
 }
 
-// publicKeyString returns the caller's public key in the format "ed25519:<hex>"
+// publicKeyString returns the caller's public key in the format "ed25519:<hex>".
 func (a *Adapter) publicKeyString() string {
 	if a.callerKeyManager == nil {
 		return ""
@@ -330,12 +359,18 @@ func (a *Adapter) publicKeyString() string {
 	return "ed25519:" + hex.EncodeToString(pub[:])
 }
 
+const (
+	trustLevelVerified  = 2
+	trustLevelCertified = 3
+	defaultTimeoutSecs  = 60
+)
+
 // trustLevelSatisfies returns true if candidate >= required in trust hierarchy.
 func trustLevelSatisfies(candidate, required string) bool {
 	levels := map[string]int{
 		"self-attested": 1,
-		"verified":      2,
-		"certified":     3,
+		"verified":      trustLevelVerified,
+		"certified":     trustLevelCertified,
 	}
 	cand, ok1 := levels[candidate]
 	req, ok2 := levels[required]
@@ -359,13 +394,13 @@ func parseEd25519PublicKey(pemData []byte) (ed25519.PublicKey, error) {
 
 // parseTimeout converts a timeout string (e.g., "60s") to time.Duration.
 // Defaults to 60 seconds if empty or invalid.
-func parseTimeout(Timeout string) time.Duration {
-	if Timeout == "" {
-		return 60 * time.Second
+func parseTimeout(timeout string) time.Duration {
+	if timeout == "" {
+		return defaultTimeoutSecs * time.Second
 	}
-	d, err := time.ParseDuration(Timeout)
+	d, err := time.ParseDuration(timeout)
 	if err != nil {
-		return 60 * time.Second
+		return defaultTimeoutSecs * time.Second
 	}
 	return d
 }

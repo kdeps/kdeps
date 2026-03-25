@@ -70,7 +70,10 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 }
 
 // Execute dispatches to send, read, or search based on cfg.Action.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.EmailConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("email executor: invalid config type")
@@ -91,13 +94,19 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	case domain.EmailActionModify:
 		return e.executeModify(ctx, cfg)
 	default:
-		return nil, fmt.Errorf("email executor: unknown action %q (must be send, read, search, or modify)", action)
+		return nil, fmt.Errorf(
+			"email executor: unknown action %q (must be send, read, search, or modify)",
+			action,
+		)
 	}
 }
 
 // ─── Send ─────────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeSend(ctx *executor.ExecutionContext, cfg *domain.EmailConfig) (interface{}, error) {
+func (e *Executor) executeSend(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
 	ev := e.makeEvaluator(ctx)
 	from := ev(cfg.From)
 	subject := ev(cfg.Subject)
@@ -157,7 +166,17 @@ func (e *Executor) executeSend(ctx *executor.ExecutionContext, cfg *domain.Email
 		return nil, fmt.Errorf("email executor: send: %w", sendErr)
 	}
 
-	e.logger.Info("email sent", "from", from, "to", to, "subject", subject, "attachments", len(attachments))
+	e.logger.Info(
+		"email sent",
+		"from",
+		from,
+		"to",
+		to,
+		"subject",
+		subject,
+		"attachments",
+		len(attachments),
+	)
 	return map[string]interface{}{
 		"success":     true,
 		"action":      "send",
@@ -171,7 +190,10 @@ func (e *Executor) executeSend(ctx *executor.ExecutionContext, cfg *domain.Email
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeRead(ctx *executor.ExecutionContext, cfg *domain.EmailConfig) (interface{}, error) {
+func (e *Executor) executeRead(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
 	c, err := e.dialIMAP(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -204,7 +226,10 @@ func (e *Executor) executeRead(ctx *executor.ExecutionContext, cfg *domain.Email
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeSearch(ctx *executor.ExecutionContext, cfg *domain.EmailConfig) (interface{}, error) {
+func (e *Executor) executeSearch(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
 	ev := e.makeEvaluator(ctx)
 
 	c, err := e.dialIMAP(ctx, cfg)
@@ -241,7 +266,10 @@ func (e *Executor) executeSearch(ctx *executor.ExecutionContext, cfg *domain.Ema
 
 // ─── Modify ───────────────────────────────────────────────────────────────────
 
-func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.EmailConfig) (interface{}, error) {
+func (e *Executor) executeModify(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (interface{}, error) {
 	ev := e.makeEvaluator(ctx)
 
 	c, err := e.dialIMAP(ctx, cfg)
@@ -305,7 +333,11 @@ func (e *Executor) executeModify(ctx *executor.ExecutionContext, cfg *domain.Ema
 // resolveModifyUIDs returns the target UID set for a modify operation.
 // It returns (set, true, nil) when UIDs are found, (nil, false, nil) when a
 // search yields no results, and (nil, false, err) on hard errors.
-func resolveModifyUIDs(cfg *domain.EmailConfig, c *imapclient.Client, ev evalFn) (imap.UIDSet, bool, error) {
+func resolveModifyUIDs(
+	cfg *domain.EmailConfig,
+	c *imapclient.Client,
+	ev evalFn,
+) (imap.UIDSet, bool, error) {
 	if len(cfg.UIDs) > 0 {
 		return resolveExplicitUIDs(cfg.UIDs, ev)
 	}
@@ -330,7 +362,11 @@ func resolveExplicitUIDs(rawUIDs []string, ev evalFn) (imap.UIDSet, bool, error)
 	return uidSet, true, nil
 }
 
-func resolveSearchUIDs(cfg *domain.EmailConfig, c *imapclient.Client, ev evalFn) (imap.UIDSet, bool, error) {
+func resolveSearchUIDs(
+	cfg *domain.EmailConfig,
+	c *imapclient.Client,
+	ev evalFn,
+) (imap.UIDSet, bool, error) {
 	criteria := buildSearchCriteria(cfg.Search, ev)
 	searchData, searchErr := c.UIDSearch(&criteria, nil).Wait()
 	if searchErr != nil {
@@ -349,7 +385,13 @@ func resolveSearchUIDs(cfg *domain.EmailConfig, c *imapclient.Client, ev evalFn)
 
 // applyFlagStore sends a UID STORE command for a single flag. Errors are logged
 // but not propagated — flag operations are best-effort.
-func applyFlagStore(c *imapclient.Client, uidSet imap.UIDSet, flag imap.Flag, set *bool, logger *slog.Logger) {
+func applyFlagStore(
+	c *imapclient.Client,
+	uidSet imap.UIDSet,
+	flag imap.Flag,
+	set *bool,
+	logger *slog.Logger,
+) {
 	if set == nil {
 		return
 	}
@@ -376,7 +418,10 @@ func collectAffectedUIDs(uidSet imap.UIDSet) []uint32 {
 
 // ─── IMAP helpers ─────────────────────────────────────────────────────────────
 
-func (e *Executor) dialIMAP(ctx *executor.ExecutionContext, cfg *domain.EmailConfig) (*imapclient.Client, error) {
+func (e *Executor) dialIMAP(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (*imapclient.Client, error) {
 	ev := e.makeEvaluator(ctx)
 	host := ev(cfg.IMAP.Host)
 	user := ev(cfg.IMAP.Username)
@@ -455,7 +500,12 @@ var fetchBodyOpts = &imap.FetchOptions{
 }
 
 // fetchRecent retrieves the last `limit` messages from `mailbox`.
-func fetchRecent(c *imapclient.Client, mailbox string, limit int, markRead bool) ([]EmailMessage, error) {
+func fetchRecent(
+	c *imapclient.Client,
+	mailbox string,
+	limit int,
+	markRead bool,
+) ([]EmailMessage, error) {
 	selData, err := c.Select(mailbox, &imap.SelectOptions{ReadOnly: !markRead}).Wait()
 	if err != nil {
 		return nil, fmt.Errorf("select %q: %w", mailbox, err)
@@ -467,7 +517,7 @@ func fetchRecent(c *imapclient.Client, mailbox string, limit int, markRead bool)
 	total := selData.NumMessages
 	start := uint32(1)
 	if int(total) > limit {
-		start = total - uint32(limit) + 1 //nolint:gosec // G115: limit < total ≤ MaxUint32, conversion is safe.
+		start = total - uint32(limit) + 1 //nolint:gosec // safe conversion: limit < total ≤ MaxUint32
 	}
 	var seqSet imap.SeqSet
 	seqSet.AddRange(start, total)
@@ -588,10 +638,16 @@ func formatAddress(addr imap.Address) string {
 func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCriteria {
 	criteria := imap.SearchCriteria{}
 	if from := ev(s.From); from != "" {
-		criteria.Header = append(criteria.Header, imap.SearchCriteriaHeaderField{Key: "From", Value: from})
+		criteria.Header = append(
+			criteria.Header,
+			imap.SearchCriteriaHeaderField{Key: "From", Value: from},
+		)
 	}
 	if subj := ev(s.Subject); subj != "" {
-		criteria.Header = append(criteria.Header, imap.SearchCriteriaHeaderField{Key: "Subject", Value: subj})
+		criteria.Header = append(
+			criteria.Header,
+			imap.SearchCriteriaHeaderField{Key: "Subject", Value: subj},
+		)
 	}
 	if s.Unseen {
 		criteria.NotFlag = append(criteria.NotFlag, imap.FlagSeen)

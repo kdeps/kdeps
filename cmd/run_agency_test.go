@@ -90,8 +90,14 @@ func TestFindAgencyFile(t *testing.T) {
 
 	t.Run("agency.yaml takes priority over agency.yml", func(t *testing.T) {
 		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte(validAgencyYAML), 0o600))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "agency.yml"), []byte(validAgencyYAML), 0o600))
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, "agency.yaml"), []byte(validAgencyYAML), 0o600),
+		)
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, "agency.yml"), []byte(validAgencyYAML), 0o600),
+		)
 
 		result := cmd.FindAgencyFile(dir)
 		assert.Equal(t, filepath.Join(dir, "agency.yaml"), result)
@@ -154,7 +160,10 @@ func TestParseAgencyFile_Valid(t *testing.T) {
 	// Create agent directory with a workflow.
 	agentDir := filepath.Join(dir, "agents", "bot-a")
 	require.NoError(t, os.MkdirAll(agentDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600),
+	)
 
 	// Write agency file.
 	agencyPath := filepath.Join(dir, "agency.yml")
@@ -237,7 +246,10 @@ func TestParseAgencyFile_TargetAgentId(t *testing.T) {
 
 	agentDir := filepath.Join(dir, "agents", "bot-a")
 	require.NoError(t, os.MkdirAll(agentDir, 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600),
+	)
 
 	agencyPath := filepath.Join(dir, "agency.yml")
 	require.NoError(t, os.WriteFile(agencyPath, []byte(validAgencyWithTargetYAML), 0o600))

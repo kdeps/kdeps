@@ -137,6 +137,9 @@ func addSubcommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(newWorkflowsCmd())
 	rootCmd.AddCommand(newDeploymentsCmd())
 
+	// Add federation commands
+	rootCmd.AddCommand(newFederationCmd())
+
 	// Add Docker client management command
 	rootCmd.AddCommand(newPushCmd())
 

@@ -44,7 +44,10 @@ func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) 
 	case baseOSDebian:
 		templateStr = debianTemplate
 	default:
-		return "", fmt.Errorf("unsupported base OS: %s (supported: alpine, ubuntu, debian)", b.BaseOS)
+		return "", fmt.Errorf(
+			"unsupported base OS: %s (supported: alpine, ubuntu, debian)",
+			b.BaseOS,
+		)
 	}
 
 	tmpl, err := template.New("dockerfile").Parse(templateStr)

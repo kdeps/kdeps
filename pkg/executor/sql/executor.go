@@ -281,7 +281,13 @@ func (e *Executor) executeQuery(
 	}
 
 	if isSelect {
-		selectResults, selectErr := e.ExecuteSelectQuery(queryCtx, db, queryStr, params, config.MaxRows)
+		selectResults, selectErr := e.ExecuteSelectQuery(
+			queryCtx,
+			db,
+			queryStr,
+			params,
+			config.MaxRows,
+		)
 		if selectErr != nil {
 			return nil, selectErr
 		}
@@ -428,7 +434,13 @@ func (e *Executor) executeTransaction(
 		resolvedQueryItem.Query = query
 
 		// Handle paramsBatch for batch operations
-		queryResult, queryErr := e.executeTransactionQuery(ctx, evaluator, tx, resolvedQueryItem, query)
+		queryResult, queryErr := e.executeTransactionQuery(
+			ctx,
+			evaluator,
+			tx,
+			resolvedQueryItem,
+			query,
+		)
 		if queryErr != nil {
 			return nil, queryErr
 		}

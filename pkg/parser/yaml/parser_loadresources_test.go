@@ -116,7 +116,11 @@ run:
     model: llama3.2:1b
     prompt: "test"
 `
-	err = os.WriteFile(filepath.Join(resourcesDir, "resource1.yaml"), []byte(resource1Content), 0600)
+	err = os.WriteFile(
+		filepath.Join(resourcesDir, "resource1.yaml"),
+		[]byte(resource1Content),
+		0600,
+	)
 	require.NoError(t, err)
 
 	resource2Content := `
@@ -231,7 +235,11 @@ run:
   apiResponse:
     success: true
 `
-	err = os.WriteFile(filepath.Join(resourcesDir, "subdir", "resource.yaml"), []byte(resourceInSubdir), 0600)
+	err = os.WriteFile(
+		filepath.Join(resourcesDir, "subdir", "resource.yaml"),
+		[]byte(resourceInSubdir),
+		0600,
+	)
 	require.NoError(t, err)
 
 	// Create resource at root of resources dir

@@ -785,14 +785,22 @@ func TestGet_ChainedWithDefault_Helper(t *testing.T) {
 	ev := newEvaluatorWithBackend(b)
 
 	expr1 := &domain.Expression{Raw: "get('missing', 'fallback')", Type: domain.ExprTypeDirect}
-	expr2 := &domain.Expression{Raw: "default(get('missing'), 'fallback')", Type: domain.ExprTypeDirect}
+	expr2 := &domain.Expression{
+		Raw:  "default(get('missing'), 'fallback')",
+		Type: domain.ExprTypeDirect,
+	}
 
 	r1, err1 := ev.Evaluate(expr1, map[string]interface{}{})
 	r2, err2 := ev.Evaluate(expr2, map[string]interface{}{})
 
 	require.NoError(t, err1)
 	require.NoError(t, err2)
-	assert.Equal(t, r1, r2, "get(key, default) and default(get(key), default) must produce the same result")
+	assert.Equal(
+		t,
+		r1,
+		r2,
+		"get(key, default) and default(get(key), default) must produce the same result",
+	)
 }
 
 func TestGet_TypeHint_InvalidHint_IsNotTreatedAsDefault(t *testing.T) {

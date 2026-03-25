@@ -47,7 +47,10 @@ func NewAdapter() executor.ResourceExecutor {
 
 // Execute evaluates the text expression and sends the reply via ctx.BotSend.
 // It returns a result map compatible with get() expressions.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.BotReplyConfig)
 	if !ok {
 		return nil, errors.New("botreply executor: invalid config type")
@@ -59,7 +62,9 @@ func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (
 	}
 
 	if ctx == nil || ctx.BotSend == nil {
-		return nil, errors.New("botreply executor: no BotSend function available (not running in bot mode?)")
+		return nil, errors.New(
+			"botreply executor: no BotSend function available (not running in bot mode?)",
+		)
 	}
 
 	if err := ctx.BotSend(context.Background(), text); err != nil {

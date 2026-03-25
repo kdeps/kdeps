@@ -389,7 +389,11 @@ func TestWebServer_Stop_WithRunningCommands(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Verify commands are cleaned up (though we can't easily verify process termination in test)
-	assert.Len(t, webServer.Commands, 2) // Commands map still contains entries, but processes should be killed
+	assert.Len(
+		t,
+		webServer.Commands,
+		2,
+	) // Commands map still contains entries, but processes should be killed
 }
 
 // TestWebServer_Stop_CommandAlreadyTerminated tests Stop when command process is nil.

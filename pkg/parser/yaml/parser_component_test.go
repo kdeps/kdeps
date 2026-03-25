@@ -309,7 +309,12 @@ resources:
 	for _, r := range wf.Resources {
 		actionIDs = append(actionIDs, r.Metadata.ActionID)
 	}
-	assert.Contains(t, actionIDs, "comp-action", "expected component resource to be loaded from .komponent")
+	assert.Contains(
+		t,
+		actionIDs,
+		"comp-action",
+		"expected component resource to be loaded from .komponent",
+	)
 
 	// Cleanup parser temp dirs
 	parser.Cleanup()

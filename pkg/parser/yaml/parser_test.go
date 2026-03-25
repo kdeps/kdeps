@@ -33,10 +33,11 @@ import (
 
 // Mock SchemaValidator.
 type mockSchemaValidator struct {
-	validateWorkflowFunc  func(data map[string]interface{}) error
-	validateResourceFunc  func(data map[string]interface{}) error
-	validateAgencyFunc    func(data map[string]interface{}) error
-	validateComponentFunc func(data map[string]interface{}) error
+	validateWorkflowFunc    func(data map[string]interface{}) error
+	validateResourceFunc    func(data map[string]interface{}) error
+	validateAgencyFunc      func(data map[string]interface{}) error
+	validateComponentFunc   func(data map[string]interface{}) error
+	validateRemoteAgentFunc func(data map[string]interface{}) error
 }
 
 func (m *mockSchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
@@ -63,6 +64,13 @@ func (m *mockSchemaValidator) ValidateAgency(data map[string]interface{}) error 
 func (m *mockSchemaValidator) ValidateComponent(data map[string]interface{}) error {
 	if m.validateComponentFunc != nil {
 		return m.validateComponentFunc(data)
+	}
+	return nil
+}
+
+func (m *mockSchemaValidator) ValidateRemoteAgent(data map[string]interface{}) error {
+	if m.validateRemoteAgentFunc != nil {
+		return m.validateRemoteAgentFunc(data)
 	}
 	return nil
 }
@@ -615,13 +623,22 @@ settings:
 			workflow, err := parser.ParseWorkflow(workflowPath)
 
 			if tt.expectError {
-				assert.Error(t, err, "Expected error when parsing workflow with problematic resources")
+				assert.Error(
+					t,
+					err,
+					"Expected error when parsing workflow with problematic resources",
+				)
 				return
 			}
 
 			require.NoError(t, err)
 			require.NotNil(t, workflow)
-			assert.Len(t, workflow.Resources, tt.expectedResources, "Expected correct number of resources to be loaded")
+			assert.Len(
+				t,
+				workflow.Resources,
+				tt.expectedResources,
+				"Expected correct number of resources to be loaded",
+			)
 
 			if tt.expectedResources > 0 && tt.resourceFilename == "test-resource.yaml" {
 				assert.Equal(t, "test-resource", workflow.Resources[0].Metadata.ActionID)
@@ -820,7 +837,12 @@ run:
 			workflow, parseErr := parser.ParseWorkflow(workflowPath)
 			require.NoError(t, parseErr)
 			require.NotNil(t, workflow)
-			require.Len(t, workflow.Resources, 1, "expected exactly one resource loaded from .j2 file")
+			require.Len(
+				t,
+				workflow.Resources,
+				1,
+				"expected exactly one resource loaded from .j2 file",
+			)
 			assert.Equal(t, tt.expectedActionID, workflow.Resources[0].Metadata.ActionID)
 		})
 	}

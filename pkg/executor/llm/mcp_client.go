@@ -167,7 +167,11 @@ func (c *MCPStdioClient) initialize() error {
 		return fmt.Errorf("failed to read initialize response: %w", err)
 	}
 	if resp.Error != nil {
-		return fmt.Errorf("MCP server initialization error %d: %s", resp.Error.Code, resp.Error.Message)
+		return fmt.Errorf(
+			"MCP server initialization error %d: %s",
+			resp.Error.Code,
+			resp.Error.Message,
+		)
 	}
 
 	// Send initialized notification (no response expected)
@@ -211,7 +215,8 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 	var result mcpToolResult
 	if unmarshalErr := json.Unmarshal(*resp.Result, &result); unmarshalErr != nil {
 		// Fallback: return raw JSON
-		return string(*resp.Result), nil //nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
+		//nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
+		return string(*resp.Result), nil
 	}
 
 	if result.IsError {
@@ -280,7 +285,11 @@ func (c *MCPStdioClient) Close() error {
 
 // executeMCPTool starts an MCP server subprocess, calls the named tool, and returns the result.
 // The subprocess is started fresh per tool call and shut down afterwards.
-func executeMCPTool(cfg *domain.MCPConfig, toolName string, arguments map[string]interface{}) (string, error) {
+func executeMCPTool(
+	cfg *domain.MCPConfig,
+	toolName string,
+	arguments map[string]interface{},
+) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), mcpDefaultTimeout)
 	defer cancel()
 

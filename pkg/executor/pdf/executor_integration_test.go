@@ -347,7 +347,10 @@ func TestIntegration_BackendExitNonZero_Error(t *testing.T) {
 	// Fake that always fails.
 	dir := t.TempDir()
 	script := filepath.Join(dir, "wkhtmltopdf")
-	require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal error' >&2\nexit 1\n"), 0o755))
+	require.NoError(
+		t,
+		os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal error' >&2\nexit 1\n"), 0o755),
+	)
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	_, err := newAdapter().Execute(newExecCtx(t), &domain.PDFConfig{

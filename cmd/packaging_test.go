@@ -48,7 +48,10 @@ func TestValidateWorkflowDir(t *testing.T) {
 			name: "valid workflow directory",
 			setup: func(_ *testing.T) string {
 				dir := t.TempDir()
-				require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("test"), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("test"), 0600),
+				)
 				require.NoError(t, os.Mkdir(filepath.Join(dir, "resources"), 0750))
 				return dir
 			},
@@ -70,7 +73,10 @@ func TestValidateWorkflowDir(t *testing.T) {
 			name: "missing resources directory",
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
-				require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("test"), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("test"), 0600),
+				)
 				// Use t for cleanup tracking
 				t.Cleanup(func() { os.RemoveAll(dir) })
 				return dir
@@ -119,13 +125,24 @@ func TestCreatePackageArchive(t *testing.T) {
 				// Create test files
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test workflow"), 0600),
+					os.WriteFile(
+						filepath.Join(sourceDir, "workflow.yaml"),
+						[]byte("test workflow"),
+						0600,
+					),
 				)
-				require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "README.md"), []byte("readme"), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(sourceDir, "README.md"), []byte("readme"), 0600),
+				)
 				require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600),
+					os.WriteFile(
+						filepath.Join(sourceDir, "resources", "test.yaml"),
+						[]byte("resource"),
+						0600,
+					),
 				)
 
 				return sourceDir, archivePath
@@ -194,7 +211,10 @@ func TestCreatePackageArchive(t *testing.T) {
 			name: "output directory creation",
 			setup: func(t *testing.T) (string, string) {
 				sourceDir := t.TempDir()
-				require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test"), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test"), 0600),
+				)
 				require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
 
 				outputDir := filepath.Join(t.TempDir(), "nested", "output")
@@ -346,10 +366,16 @@ func TestCreateArchiveWalkFunc(t *testing.T) {
 	walkFunc := cmd.CreateArchiveWalkFunc(sourceDir, tarWriter, []string{})
 
 	// Create test files
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("workflow"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("workflow"), 0600),
+	)
 	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, ".gitignore"), []byte("ignore"), 0600))
 	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600),
+	)
 
 	// Walk the directory
 	err = filepath.Walk(sourceDir, walkFunc)
@@ -609,7 +635,10 @@ func TestParseKdepsIgnore(t *testing.T) {
 func TestParseKdepsIgnoreFromDir(t *testing.T) {
 	t.Run("root only", func(t *testing.T) {
 		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n*.tmp\n"), 0600))
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n*.tmp\n"), 0600),
+		)
 		patterns := cmd.ParseKdepsIgnore(dir)
 		assert.Equal(t, []string{"*.log", "*.tmp"}, patterns)
 	})
@@ -622,11 +651,20 @@ func TestParseKdepsIgnoreFromDir(t *testing.T) {
 
 	t.Run("multiple subdirectories", func(t *testing.T) {
 		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n"), 0600))
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n"), 0600),
+		)
 		require.NoError(t, os.MkdirAll(filepath.Join(dir, "data"), 0750))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "data", ".kdepsignore"), []byte("*.tmp\n"), 0600))
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, "data", ".kdepsignore"), []byte("*.tmp\n"), 0600),
+		)
 		require.NoError(t, os.MkdirAll(filepath.Join(dir, "scripts"), 0750))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "scripts", ".kdepsignore"), []byte("*.bak\n"), 0600))
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(dir, "scripts", ".kdepsignore"), []byte("*.bak\n"), 0600),
+		)
 		patterns := cmd.ParseKdepsIgnore(dir)
 		assert.Contains(t, patterns, "*.log")
 		assert.Contains(t, patterns, "*.tmp")
@@ -723,17 +761,35 @@ func TestCreatePackageArchiveWithKdepsignore(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "test.kdeps")
 
 	// Create test files
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test workflow"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test workflow"), 0600),
+	)
 	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600),
+	)
 	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "data"), 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "keep.txt"), []byte("keep"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "debug.log"), []byte("log"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "temp.tmp"), []byte("tmp"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "data", "keep.txt"), []byte("keep"), 0600),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "data", "debug.log"), []byte("log"), 0600),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "data", "temp.tmp"), []byte("tmp"), 0600),
+	)
 
 	// Create .kdepsignore
 	ignoreContent := "# Ignore log and tmp files\n*.log\n*.tmp\n"
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, ".kdepsignore"), []byte(ignoreContent), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, ".kdepsignore"), []byte(ignoreContent), 0600),
+	)
 
 	err := cmd.CreatePackageArchive(sourceDir, archivePath, &domain.Workflow{})
 	require.NoError(t, err)
@@ -797,7 +853,11 @@ settings:
 `
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte(workflowContent), 0600),
+					os.WriteFile(
+						filepath.Join(sourceDir, "workflow.yaml"),
+						[]byte(workflowContent),
+						0600,
+					),
 				)
 
 				// Create resources directory and file
@@ -818,7 +878,11 @@ run:
 `
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(resourcesDir, "test-action.yaml"), []byte(resourceContent), 0600),
+					os.WriteFile(
+						filepath.Join(resourcesDir, "test-action.yaml"),
+						[]byte(resourceContent),
+						0600,
+					),
 				)
 
 				return sourceDir, outputDir
@@ -857,7 +921,10 @@ run:
 				outputDir := t.TempDir()
 
 				// Create workflow.yaml but no resources directory
-				require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test"), 0600))
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test"), 0600),
+				)
 
 				return sourceDir, outputDir
 			},
@@ -873,7 +940,11 @@ run:
 				// Create invalid workflow.yaml
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("invalid: yaml: content: ["), 0600),
+					os.WriteFile(
+						filepath.Join(sourceDir, "workflow.yaml"),
+						[]byte("invalid: yaml: content: ["),
+						0600,
+					),
 				)
 
 				// Create resources directory
@@ -907,7 +978,11 @@ settings:
 `
 				require.NoError(
 					t,
-					os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte(workflowContent), 0600),
+					os.WriteFile(
+						filepath.Join(sourceDir, "workflow.yaml"),
+						[]byte(workflowContent),
+						0600,
+					),
 				)
 
 				// Create resources directory
@@ -982,7 +1057,10 @@ settings:
     timezone: "UTC"
 resources: []
 `
-	require.NoError(t, os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), []byte(wfYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(greeterDir, "workflow.yaml"), []byte(wfYAML), 0o600),
+	)
 
 	outputDir := t.TempDir()
 	flags := &cmd.PackageFlags{Output: outputDir}
@@ -1033,7 +1111,10 @@ interface:
       type: string
       required: true
 `
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "component.yaml"), []byte(componentYAML), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dir, "component.yaml"), []byte(componentYAML), 0o600),
+	)
 
 	// Create component resources directory and file.
 	resourcesDir := filepath.Join(dir, "resources")
@@ -1046,7 +1127,10 @@ run:
   response:
     data: "Hello"
 `
-	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "greet.yaml"), []byte(resourceYAML), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(resourcesDir, "greet.yaml"), []byte(resourceYAML), 0600),
+	)
 
 	outputDir := t.TempDir()
 	flags := &cmd.PackageFlags{Output: outputDir}
@@ -1069,13 +1153,25 @@ func TestCreateComponentPackageArchive(t *testing.T) {
 	archivePath := filepath.Join(t.TempDir(), "test.komponent")
 
 	// Create component.yaml and supporting files.
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "component.yaml"), []byte("component"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "component.yaml"), []byte("component"), 0600),
+	)
 	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "resources", "res.yaml"), []byte("resource"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "template.html"), []byte("<html>"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "resources", "res.yaml"), []byte("resource"), 0600),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, "template.html"), []byte("<html>"), 0600),
+	)
 
 	// Create .kdepsignore to test exclusion.
-	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, ".kdepsignore"), []byte("*.log\n"), 0600))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sourceDir, ".kdepsignore"), []byte("*.log\n"), 0600),
+	)
 
 	err := cmd.CreateComponentPackageArchive(sourceDir, archivePath)
 	require.NoError(t, err)

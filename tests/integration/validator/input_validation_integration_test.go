@@ -284,7 +284,8 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 
 							foundField := false
 							for _, e := range errors {
-								if field, fieldOk := e["field"].(string); fieldOk && field == tc.expectedError {
+								if field, fieldOk := e["field"].(string); fieldOk &&
+									field == tc.expectedError {
 									foundField = true
 									break
 								}
@@ -455,7 +456,8 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 
 							foundField := false
 							for _, e := range errors {
-								if field, fieldOk := e["field"].(string); fieldOk && field == tc.expectedError {
+								if field, fieldOk := e["field"].(string); fieldOk &&
+									field == tc.expectedError {
 									foundField = true
 									break
 								}

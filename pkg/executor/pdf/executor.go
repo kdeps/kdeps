@@ -67,7 +67,10 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 }
 
 // Execute renders HTML or Markdown content to a PDF file.
-func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config interface{},
+) (interface{}, error) {
 	cfg, ok := config.(*domain.PDFConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("pdf executor: invalid config type")

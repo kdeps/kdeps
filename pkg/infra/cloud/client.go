@@ -274,7 +274,11 @@ func (c *Client) PollBuild(ctx context.Context, buildID string) (*BuildStatus, e
 }
 
 // StreamBuildLogs polls build status and streams logs until completion.
-func (c *Client) StreamBuildLogs(ctx context.Context, buildID string, w io.Writer) (*BuildStatus, error) {
+func (c *Client) StreamBuildLogs(
+	ctx context.Context,
+	buildID string,
+	w io.Writer,
+) (*BuildStatus, error) {
 	lastLogIndex := 0
 
 	for {

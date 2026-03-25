@@ -143,7 +143,8 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		if startErr := server.Start(ctx); startErr != nil && !errors.Is(startErr, http.ErrServerClosed) {
+		if startErr := server.Start(ctx); startErr != nil &&
+			!errors.Is(startErr, http.ErrServerClosed) {
 			t.Logf("Server start error (expected on shutdown): %v", startErr)
 		}
 	}()
