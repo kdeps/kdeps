@@ -11,23 +11,17 @@ import (
 func TestFederationMeshList_NoWorkflows(t *testing.T) {
 	// Change to empty temp dir
 	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	t.Chdir(tmpDir)
 
 	cmd := newFederationMeshListCmd()
 	cmd.SetArgs([]string{})
-	err = cmd.Execute()
+	err := cmd.Execute()
 	require.NoError(t, err)
 }
 
 func TestFederationMeshList_WithWorkflows(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	t.Chdir(tmpDir)
 
 	// Write a workflow.yaml with no remoteAgent resources
 	workflowContent := `apiVersion: kdeps.io/v1
@@ -43,7 +37,7 @@ settings:
     pythonVersion: "3.12"
     installOllama: false
 `
-	err = os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
 	require.NoError(t, err)
 
 	cmd := newFederationMeshListCmd()
@@ -54,24 +48,18 @@ settings:
 
 func TestFederationMeshPublish_NoWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	t.Chdir(tmpDir)
 
 	cmd := newFederationMeshPublishCmd()
 	cmd.SetArgs([]string{})
-	err = cmd.Execute()
+	err := cmd.Execute()
 	require.Error(t, err)
 	// Should say no workflow.yaml or agency.yaml found
 }
 
 func TestFederationMeshPublish_WithWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	t.Chdir(tmpDir)
 
 	workflowContent := `apiVersion: kdeps.io/v1
 kind: Workflow
@@ -86,7 +74,7 @@ settings:
     pythonVersion: "3.12"
     installOllama: false
 `
-	err = os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
 	require.NoError(t, err)
 
 	cmd := newFederationMeshPublishCmd()
@@ -97,10 +85,7 @@ settings:
 
 func TestFederationMeshPublish_AgencyYAML(t *testing.T) {
 	tmpDir := t.TempDir()
-	origDir, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(tmpDir))
-	defer os.Chdir(origDir)
+	t.Chdir(tmpDir)
 
 	// Write agency.yaml instead
 	agencyContent := `apiVersion: kdeps.io/v1
@@ -110,7 +95,7 @@ metadata:
   version: "1.0.0"
   targetAgentId: main-agent
 `
-	err = os.WriteFile(filepath.Join(tmpDir, "agency.yaml"), []byte(agencyContent), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "agency.yaml"), []byte(agencyContent), 0644)
 	require.NoError(t, err)
 
 	// Publish should find agency.yaml and succeed

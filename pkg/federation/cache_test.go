@@ -58,13 +58,13 @@ func TestRegistryCacheSetGet(t *testing.T) {
 	defer rc.Stop()
 
 	const urn = "urn:agent:example.com/ns:agent@v1.0.0#sha256:0000000000000000000000000000000000000000000000000000000000000001"
-	cap := testCapability(urn)
+	capability := testCapability(urn)
 
-	rc.Set(urn, cap)
+	rc.Set(urn, capability)
 
 	got, err := rc.Get(urn)
 	require.NoError(t, err)
-	assert.Equal(t, cap, got)
+	assert.Equal(t, capability, got)
 	assert.Equal(t, urn, got.URN)
 	assert.Equal(t, "Test Agent", got.Title)
 }
@@ -85,14 +85,14 @@ func TestRegistryCacheTTLExpiry(t *testing.T) {
 	defer rc.Stop()
 
 	const urn = "urn:agent:example.com/ns:expiry@v1.0.0#sha256:0000000000000000000000000000000000000000000000000000000000000003"
-	cap := testCapability(urn)
+	capability := testCapability(urn)
 
-	rc.Set(urn, cap)
+	rc.Set(urn, capability)
 
 	// Should be present immediately after set.
 	got, err := rc.Get(urn)
 	require.NoError(t, err)
-	assert.Equal(t, cap, got)
+	assert.Equal(t, capability, got)
 
 	// Wait for TTL to elapse.
 	time.Sleep(100 * time.Millisecond)
@@ -108,9 +108,9 @@ func TestRegistryCacheInvalidate(t *testing.T) {
 	defer rc.Stop()
 
 	const urn = "urn:agent:example.com/ns:invalidate@v1.0.0#sha256:0000000000000000000000000000000000000000000000000000000000000004"
-	cap := testCapability(urn)
+	capability := testCapability(urn)
 
-	rc.Set(urn, cap)
+	rc.Set(urn, capability)
 
 	// Confirm it is present.
 	_, err := rc.Get(urn)
@@ -191,6 +191,7 @@ func TestRegistryCacheOverwrite(t *testing.T) {
 }
 
 func TestRegistryCacheConcurrent(t *testing.T) {
+	t.Parallel()
 	rc := NewRegistryCache(5 * time.Minute)
 	defer rc.Stop()
 
@@ -217,9 +218,9 @@ func TestRegistryCacheConcurrent(t *testing.T) {
 				"urn:agent:example.com/ns:concurrent%d@v1.0.0#sha256:%064x",
 				idx, idx+1,
 			)
-			cap := testCapability(urn)
+			capability := testCapability(urn)
 			for range iterations {
-				rc.Set(urn, cap)
+				rc.Set(urn, capability)
 			}
 		}(i)
 	}

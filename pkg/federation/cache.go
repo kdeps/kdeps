@@ -64,10 +64,10 @@ func (rc *RegistryCache) Get(urnStr string) (*Capability, error) {
 
 // Set stores the Capability in the cache under the given URN string.
 // The entry expires after the cache TTL.
-func (rc *RegistryCache) Set(urnStr string, cap *Capability) {
+func (rc *RegistryCache) Set(urnStr string, capability *Capability) {
 	rc.mu.Lock()
 	rc.entries[urnStr] = &cacheEntry{
-		capability: cap,
+		capability: capability,
 		expiresAt:  time.Now().Add(rc.ttl),
 	}
 	rc.mu.Unlock()

@@ -323,7 +323,8 @@
                 "together",
                 "perplexity",
                 "groq",
-                "deepseek"
+                "deepseek",
+                "openrouter"
               ]
             },
             "baseUrl": {
@@ -580,11 +581,18 @@
           "properties": {
             "engine": {
               "type": "string",
-              "enum": ["chromium", "firefox", "webkit"],
+              "enum": [
+                "chromium",
+                "firefox",
+                "webkit"
+              ],
               "description": "Browser engine to use (default: chromium)"
             },
             "headless": {
-              "type": ["boolean", "string"],
+              "type": [
+                "boolean",
+                "string"
+              ],
               "description": "Run browser in headless mode (default: true)"
             },
             "url": {
@@ -612,11 +620,17 @@
               "description": "Browser viewport dimensions",
               "properties": {
                 "width": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Viewport width in pixels (default: 1280)"
                 },
                 "height": {
-                  "type": ["integer", "string"],
+                  "type": [
+                    "integer",
+                    "string"
+                  ],
                   "description": "Viewport height in pixels (default: 720)"
                 }
               }
@@ -626,14 +640,28 @@
               "description": "Ordered sequence of browser interactions to perform",
               "items": {
                 "type": "object",
-                "required": ["action"],
+                "required": [
+                  "action"
+                ],
                 "properties": {
                   "action": {
                     "type": "string",
                     "enum": [
-                      "navigate", "click", "fill", "type", "upload",
-                      "select", "check", "uncheck", "hover", "scroll",
-                      "press", "clear", "evaluate", "screenshot", "wait"
+                      "navigate",
+                      "click",
+                      "fill",
+                      "type",
+                      "upload",
+                      "select",
+                      "check",
+                      "uncheck",
+                      "hover",
+                      "scroll",
+                      "press",
+                      "clear",
+                      "evaluate",
+                      "screenshot",
+                      "wait"
                     ],
                     "description": "The browser action to perform"
                   },
@@ -651,7 +679,9 @@
                   },
                   "files": {
                     "type": "array",
-                    "items": {"type": "string"},
+                    "items": {
+                      "type": "string"
+                    },
                     "description": "Local file paths to upload (used with upload action)"
                   },
                   "script": {
@@ -671,7 +701,10 @@
                     "description": "Keyboard key to press (e.g. 'Enter', 'Tab')"
                   },
                   "fullPage": {
-                    "type": ["boolean", "string"],
+                    "type": [
+                      "boolean",
+                      "string"
+                    ],
                     "description": "Capture full scrollable page for screenshot (default: false)"
                   }
                 }
@@ -696,7 +729,11 @@
             },
             "requireTrustLevel": {
               "type": "string",
-              "enum": ["self-attested", "verified", "certified"]
+              "enum": [
+                "self-attested",
+                "verified",
+                "certified"
+              ]
             },
             "cacheSpec": {
               "type": "boolean"
@@ -705,7 +742,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["urn"],
+                "required": [
+                  "urn"
+                ],
                 "properties": {
                   "urn": {
                     "type": "string"
@@ -717,7 +756,10 @@
               }
             }
           },
-          "required": ["urn", "input"]
+          "required": [
+            "urn",
+            "input"
+          ]
         },
         "onError": {
           "type": "object",

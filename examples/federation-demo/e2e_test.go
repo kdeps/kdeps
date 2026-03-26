@@ -185,7 +185,7 @@ func TestE2E_AgentACallsAgentB(t *testing.T) {
 	require.NoError(t, err)
 
 	// Send to agent-b
-	httpReq, err := http.NewRequest("POST", agentBURL+"/.uaf/v1/invoke", bytes.NewReader(reqBody))
+	httpReq, err := http.NewRequest(http.MethodPost, agentBURL+"/.uaf/v1/invoke", bytes.NewReader(reqBody))
 	require.NoError(t, err)
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Uaf-Version", "1.0")

@@ -76,6 +76,9 @@ func runFederationKeyRotate(orgName, privateKeyPath string, backup bool) error {
 	// Check that existing key exists and load it
 	existingKM, err := federation.LoadKey(keyPath)
 	if err != nil {
+		if os.IsNotExist(errors.Unwrap(err)) {
+			return fmt.Errorf("no existing key found at %s", keyPath)
+		}
 		return fmt.Errorf("failed to load existing key: %w", err)
 	}
 	existingPub := existingKM.PublicKey()

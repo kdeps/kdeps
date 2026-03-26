@@ -53,7 +53,7 @@ func NewWellKnownClient() *WellKnownClient {
 				TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12},
 			},
 			// Allow up to wellKnownMaxRedirects redirects.
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			CheckRedirect: func(_ *http.Request, via []*http.Request) error {
 				if len(via) >= wellKnownMaxRedirects {
 					return errors.New("too many redirects")
 				}
@@ -92,7 +92,7 @@ func (c *WellKnownClient) DiscoverFromAuthority(
 	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, "GET", directoryURL, nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, directoryURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
@@ -127,7 +127,7 @@ func (c *WellKnownClient) fetchURL(ctx context.Context, rawURL string) (*WellKno
 	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, "GET", rawURL, nil)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
