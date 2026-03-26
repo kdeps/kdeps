@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package remote_agent
+package remoteagent
 
 import (
 	"bytes"
@@ -116,7 +116,7 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 
 	// 4. Validate and evaluate input payload against remote agent's input schema
 	// For now, we only check required fields presence; detailed schema validation can be added later.
-	if agentCap.Capabilities == nil || len(agentCap.Capabilities) == 0 {
+	if len(agentCap.Capabilities) == 0 {
 		return nil, errors.New("agent capability has no actions defined")
 	}
 	// Evaluate input expressions
@@ -182,7 +182,7 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	endpointURL := fmt.Sprintf("%s/.uaf/v1/invoke", agentCap.Endpoint)
 	httpReq, err := http.NewRequestWithContext(
 		context.Background(),
-		"POST",
+		http.MethodPost,
 		endpointURL,
 		bytes.NewReader(reqBody),
 	)
@@ -210,7 +210,7 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
 		// Try fallback agents if defined
-		if cfg.Fallback != nil && len(cfg.Fallback) > 0 {
+		if len(cfg.Fallback) > 0 {
 			return a.tryFallbacks(cfg.Fallback, cfg, ctx)
 		}
 		return nil, fmt.Errorf("request failed: %w", err)

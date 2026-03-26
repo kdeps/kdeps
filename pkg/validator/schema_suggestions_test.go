@@ -551,6 +551,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"perplexity",
 					"groq",
 					"deepseek",
+					"openrouter",
 				},
 			},
 			{
@@ -640,6 +641,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"perplexity",
 					"groq",
 					"deepseek",
+					"openrouter",
 				},
 			},
 			{
@@ -693,6 +695,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 					"perplexity",
 					"groq",
 					"deepseek",
+					"openrouter",
 				},
 			},
 		}

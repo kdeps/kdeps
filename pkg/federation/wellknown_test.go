@@ -73,7 +73,7 @@ func TestWellKnownDiscover_Success(t *testing.T) {
 		TrustLevel: "verified",
 	}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		encErr := json.NewEncoder(w).Encode(expected)
@@ -102,8 +102,8 @@ func TestWellKnownDiscover_NotFound(t *testing.T) {
 	urn, err := Parse(urnStr)
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.NotFound(w, r)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.NotFound(w, nil)
 	}))
 	defer ts.Close()
 
@@ -122,7 +122,7 @@ func TestWellKnownDiscover_InvalidJSON(t *testing.T) {
 	urn, err := Parse(urnStr)
 	require.NoError(t, err)
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{not valid json`))
@@ -149,7 +149,7 @@ func TestWellKnownDiscover_MissingURN(t *testing.T) {
 		Endpoint: "https://agents.example.com/invoke",
 	}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		encErr := json.NewEncoder(w).Encode(payload)
@@ -184,7 +184,7 @@ func TestWellKnownDiscover_MissingEndpoint(t *testing.T) {
 		Endpoint: "",
 	}
 
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		encErr := json.NewEncoder(w).Encode(payload)
@@ -246,7 +246,7 @@ func TestWellKnownDiscoverFromAuthority_Success(t *testing.T) {
 // TestWellKnownDiscoverFromAuthority_Error verifies that a non-OK status code
 // from the directory endpoint produces an error.
 func TestWellKnownDiscoverFromAuthority_Error(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}))
 	defer ts.Close()

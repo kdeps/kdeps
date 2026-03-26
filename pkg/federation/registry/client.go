@@ -130,7 +130,7 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 	}
 
 	// Fetch capability from the endpoint (or from well-known)
-	cap, err := c.fetchCapability(ctx, urn, endpoint)
+	capability, err := c.fetchCapability(ctx, urn, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch capability: %w", err)
 	}
@@ -138,12 +138,12 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 	// Cache it
 	c.mu.Lock()
 	c.cache[urnKey] = &cachedEntry{
-		capability: cap,
+		capability: capability,
 		expiresAt:  time.Now().Add(c.ttl),
 	}
 	c.mu.Unlock()
 
-	return cap, nil
+	return capability, nil
 }
 
 // isLocalhost checks if the authority indicates a direct endpoint (localhost or IP with port).
@@ -158,7 +158,7 @@ func (c *Client) lookupEndpoint(ctx context.Context, urn *federation.URN) (strin
 	// For now, simple GET /v1/agents/{urn-encoded}
 	url := fmt.Sprintf("%s/v1/agents/%s", c.baseURL, urn.String())
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -194,7 +194,7 @@ func (c *Client) fetchCapability(
 	// Try the well-known endpoint first: /.well-known/agent/{urn-encoded}
 	wellKnownURL := fmt.Sprintf("%s/.well-known/agent/%s", endpoint, urn.String())
 
-	req, err := http.NewRequestWithContext(ctx, "GET", wellKnownURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wellKnownURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -214,18 +214,18 @@ func (c *Client) fetchCapability(
 		return nil, err
 	}
 
-	var cap AgentCapability
-	unmarshalErr := json.Unmarshal(body, &cap)
+	var capability AgentCapability
+	unmarshalErr := json.Unmarshal(body, &capability)
 	if unmarshalErr != nil {
 		return nil, unmarshalErr
 	}
 
 	// Verify URN matches
-	if cap.URN != urn.String() {
+	if capability.URN != urn.String() {
 		return nil, errors.New("capability URN mismatch")
 	}
 
-	return &cap, nil
+	return &capability, nil
 }
 
 // InvalidateCache removes a specific URN from the cache.
