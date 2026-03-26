@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-package remote_agent
+package remoteagent
 
 import (
 	"crypto/ed25519"
@@ -48,12 +48,10 @@ func testCallerURN() string {
 }
 
 // buildTestServers creates a mock registry server and mock agent server for testing.
-// It returns the registry server, agent server, callee private key, and callee KeyManager.
+// It returns the registry server URL.
 //
 //nolint:cyclop,gocyclo,gocognit // test setup with many branches
-func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWithWrongKey bool) (
-	*httptest.Server, *httptest.Server, *federation.KeyManager,
-) {
+func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWithWrongKey bool) *httptest.Server {
 	t.Helper()
 
 	// Generate callee keypair
@@ -288,7 +286,7 @@ func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWi
 		agentServer.Close()
 	})
 
-	return registryServer, agentServer, calleeKM
+	return registryServer
 }
 
 // buildAdapter creates a test Adapter with caller key manager and specified registry URL.
@@ -334,7 +332,7 @@ func buildPublicKeyPEM(pub ed25519.PublicKey) []byte {
 }
 
 func TestAdapter_Execute_Success(t *testing.T) {
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -380,7 +378,7 @@ func TestAdapter_Execute_InvalidURN(t *testing.T) {
 }
 
 func TestAdapter_Execute_TrustLevelInsufficient(t *testing.T) {
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -414,7 +412,7 @@ func TestAdapter_Execute_RegistryFail(t *testing.T) {
 
 func TestAdapter_Execute_RemoteAgentError(t *testing.T) {
 	// Agent returns success HTTP status but receipt with error status
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, false, false)
+	registryServer := buildTestServers(t, http.StatusOK, false, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -431,7 +429,7 @@ func TestAdapter_Execute_RemoteAgentError(t *testing.T) {
 
 func TestAdapter_Execute_SignatureVerifyFail(t *testing.T) {
 	// Agent signs with wrong key
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, true)
+	registryServer := buildTestServers(t, http.StatusOK, true, true)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -448,7 +446,7 @@ func TestAdapter_Execute_SignatureVerifyFail(t *testing.T) {
 
 func TestAdapter_Execute_AgentHTTPError(t *testing.T) {
 	// Agent server returns HTTP 500
-	registryServer, _, _ := buildTestServers(t, http.StatusInternalServerError, false, false)
+	registryServer := buildTestServers(t, http.StatusInternalServerError, false, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -519,7 +517,7 @@ func TestAdapter_parseEd25519PublicKey(t *testing.T) {
 
 	parsed, err := parseEd25519PublicKey(pemData)
 	require.NoError(t, err)
-	assert.Equal(t, ed25519.PublicKey(pub), parsed)
+	assert.Equal(t, pub, parsed)
 }
 
 func TestAdapter_parseEd25519PublicKey_InvalidPEM(t *testing.T) {
@@ -557,7 +555,7 @@ func TestAdapter_publicKeyString_WithKeyManager(t *testing.T) {
 }
 
 func TestAdapter_Execute_NilCallerURN_UsesWorkflowMetadata(t *testing.T) {
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	// Build adapter without caller URN - should derive from workflow
 	callerPriv, _, err := federation.GenerateKeypair()
@@ -604,7 +602,7 @@ func TestAdapter_setCallerURN(t *testing.T) {
 }
 
 func TestAdapter_Execute_WithLiteralInput(t *testing.T) {
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -755,8 +753,8 @@ func TestAdapter_Execute_CacheHit(t *testing.T) {
 
 	var agentServer *httptest.Server
 	agentServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodGet:
+		switch r.Method {
+		case http.MethodGet:
 			callCount++
 			agentCap := registry.AgentCapability{
 				URN:          calleeURN,
@@ -768,7 +766,7 @@ func TestAdapter_Execute_CacheHit(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(agentCap)
 
-		case r.Method == http.MethodPost:
+		case http.MethodPost:
 			var req federation.InvocationRequest
 			_ = json.NewDecoder(r.Body).Decode(&req)
 
@@ -845,7 +843,7 @@ func TestAdapter_Execute_Fallback(t *testing.T) {
 	// This test verifies the fallback logic: when primary fails (no server), try fallback.
 	// We use a URN that we know won't resolve as the primary, and a valid URN as fallback.
 
-	registryServer, _, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()

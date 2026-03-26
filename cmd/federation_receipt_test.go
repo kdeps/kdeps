@@ -27,62 +27,6 @@ func buildReceiptCallerURN() string {
 	return "urn:agent:caller.example.com/test:calling-agent@v1.0.0#sha256:" + receiptTestHash
 }
 
-func makeReceiptEnvelope(
-	t *testing.T,
-	privKey []byte,
-	calleeURNStr, callerURNStr string,
-	signWithWrong bool,
-) (string, []byte) {
-	t.Helper()
-
-	calleeURN, err := federation.Parse(calleeURNStr)
-	require.NoError(t, err)
-	callerURN, err := federation.Parse(callerURNStr)
-	require.NoError(t, err)
-
-	rec := federation.Receipt{
-		MessageID: uuid.New(),
-		Timestamp: time.Now().UTC(),
-		Callee:    *calleeURN,
-		Caller:    *callerURN,
-		Execution: federation.ExecutionResult{
-			Status:  "success",
-			Outputs: map[string]interface{}{"result": "test-output"},
-		},
-	}
-
-	receiptJSON, err := json.Marshal(&rec)
-	require.NoError(t, err)
-
-	var sigKey []byte
-	if signWithWrong {
-		wrongPriv, _, err2 := federation.GenerateKeypair()
-		require.NoError(t, err2)
-		km := federation.NewKeyManager(wrongPriv)
-		sig, err3 := km.Sign(receiptJSON)
-		require.NoError(t, err3)
-		sigKey = sig
-	} else {
-		// privKey is seed (32 bytes) - reconstruct full private key
-		// Since we use SavePublicKey / keygen which writes seed, we need to
-		// reconstruct using LoadKey pattern. Instead, just use NewKeyManager directly.
-		require.Fail(t, "use makeReceiptEnvelopeWithKM instead")
-		_ = privKey
-	}
-
-	envelope := struct {
-		ReceiptB64 string `json:"receipt"`
-		Signature  string `json:"signature"`
-	}{
-		ReceiptB64: base64.StdEncoding.EncodeToString(receiptJSON),
-		Signature:  hex.EncodeToString(sigKey),
-	}
-
-	envelopeJSON, err := json.Marshal(envelope)
-	require.NoError(t, err)
-	return string(envelopeJSON), nil
-}
-
 func makeReceiptEnvelopeWithKM(
 	t *testing.T,
 	km *federation.KeyManager,

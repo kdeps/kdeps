@@ -67,13 +67,13 @@ func TestExecutionContext_Coverage_GetFromQuery(t *testing.T) {
 
 	ctx.Request = &executor.RequestContext{
 		Query: map[string]string{
-			"param1": "value1",
-			"param2": "value2",
+			"queryparam_unique_test":  "value1",
+			"queryparam_unique_test2": "value2",
 		},
 	}
 
 	// Test successful retrieval via auto-detection
-	result, err := ctx.Get("param1")
+	result, err := ctx.Get("queryparam_unique_test")
 	require.NoError(t, err)
 	assert.Equal(t, "value1", result)
 }

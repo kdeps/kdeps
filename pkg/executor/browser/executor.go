@@ -600,9 +600,7 @@ func doWait(
 		return errors.New("wait: nothing to wait for")
 	}
 	if d, parseErr := time.ParseDuration(target); parseErr == nil {
-		page.WaitForTimeout(
-			float64(d.Milliseconds()),
-		)
+		time.Sleep(d)
 		base["waited"] = target
 		return nil
 	}

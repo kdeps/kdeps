@@ -1490,7 +1490,7 @@ func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 	// Set up request context with various data types to improve coverage
 	ctx.Request = &executor.RequestContext{
 		Query: map[string]string{
-			"param1": "value1",
+			"queryparam_unique_edge": "value1",
 		},
 		Headers: map[string]string{
 			"Content-Type": "application/json",
@@ -1515,7 +1515,7 @@ func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
 		wantError bool
 	}{
 		// These test cases help improve coverage of getWithAutoDetection
-		{"query param", "param1", "value1", false},
+		{"query param", "queryparam_unique_edge", "value1", false},
 		{"header", "Content-Type", "application/json", false},
 		{"body field", "field1", "body-value", false},
 		{"nonexistent in body", "missing", nil, true},

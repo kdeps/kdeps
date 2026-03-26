@@ -57,14 +57,3 @@ func getDefaultKeyDir() (string, error) {
 	}
 	return filepath.Join(home, ".config", "kdeps", "keys"), nil
 }
-
-// getDefaultKeyPaths returns the default private and public key paths for an organization.
-func getDefaultKeyPaths(org string) (privPath, pubPath string, err error) {
-	keyDir, err := getDefaultKeyDir()
-	if err != nil {
-		return "", "", err
-	}
-	privPath = filepath.Join(keyDir, fmt.Sprintf("%s.key", org))
-	pubPath = filepath.Join(keyDir, fmt.Sprintf("%s.key.pub", org))
-	return privPath, pubPath, nil
-}

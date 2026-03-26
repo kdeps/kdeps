@@ -227,7 +227,7 @@ func TestReceiptURNSerializedAsString(t *testing.T) {
 }
 
 func TestCapabilityMarshalJSON(t *testing.T) {
-	cap := Capability{
+	capability := Capability{
 		URN:         validURNString,
 		Title:       "Smart Summarizer",
 		Description: "Summarizes text using LLMs",
@@ -266,25 +266,25 @@ func TestCapabilityMarshalJSON(t *testing.T) {
 		Documentation: "https://docs.example.com/summarizer",
 	}
 
-	data, err := json.Marshal(cap)
+	data, err := json.Marshal(capability)
 	require.NoError(t, err)
 
 	var got Capability
 	err = json.Unmarshal(data, &got)
 	require.NoError(t, err)
 
-	assert.Equal(t, cap.URN, got.URN)
-	assert.Equal(t, cap.Title, got.Title)
-	assert.Equal(t, cap.Description, got.Description)
-	assert.Equal(t, cap.Version, got.Version)
-	assert.Equal(t, cap.TrustLevel, got.TrustLevel)
-	assert.Equal(t, cap.Endpoint, got.Endpoint)
-	assert.Equal(t, cap.Contact, got.Contact)
-	assert.Equal(t, cap.Documentation, got.Documentation)
-	assert.Equal(t, cap.AuthMethods, got.AuthMethods)
-	assert.Equal(t, cap.RequiredScopes, got.RequiredScopes)
-	assert.Equal(t, cap.RateLimit.RequestsPerMinute, got.RateLimit.RequestsPerMinute)
-	assert.Equal(t, cap.RateLimit.Burst, got.RateLimit.Burst)
+	assert.Equal(t, capability.URN, got.URN)
+	assert.Equal(t, capability.Title, got.Title)
+	assert.Equal(t, capability.Description, got.Description)
+	assert.Equal(t, capability.Version, got.Version)
+	assert.Equal(t, capability.TrustLevel, got.TrustLevel)
+	assert.Equal(t, capability.Endpoint, got.Endpoint)
+	assert.Equal(t, capability.Contact, got.Contact)
+	assert.Equal(t, capability.Documentation, got.Documentation)
+	assert.Equal(t, capability.AuthMethods, got.AuthMethods)
+	assert.Equal(t, capability.RequiredScopes, got.RequiredScopes)
+	assert.Equal(t, capability.RateLimit.RequestsPerMinute, got.RateLimit.RequestsPerMinute)
+	assert.Equal(t, capability.RateLimit.Burst, got.RateLimit.Burst)
 
 	require.Len(t, got.Capabilities, 1)
 	action := got.Capabilities[0]
