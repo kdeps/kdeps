@@ -48,12 +48,10 @@ func testCallerURN() string {
 }
 
 // buildTestServers creates a mock registry server and mock agent server for testing.
-// It returns the registry server and callee KeyManager.
+// It returns the registry server URL.
 //
 //nolint:cyclop,gocyclo,gocognit // test setup with many branches
-func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWithWrongKey bool) (
-	*httptest.Server, *federation.KeyManager,
-) {
+func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWithWrongKey bool) *httptest.Server {
 	t.Helper()
 
 	// Generate callee keypair
@@ -288,7 +286,7 @@ func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWi
 		agentServer.Close()
 	})
 
-	return registryServer, calleeKM
+	return registryServer
 }
 
 // buildAdapter creates a test Adapter with caller key manager and specified registry URL.
@@ -334,7 +332,7 @@ func buildPublicKeyPEM(pub ed25519.PublicKey) []byte {
 }
 
 func TestAdapter_Execute_Success(t *testing.T) {
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -380,7 +378,7 @@ func TestAdapter_Execute_InvalidURN(t *testing.T) {
 }
 
 func TestAdapter_Execute_TrustLevelInsufficient(t *testing.T) {
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -414,7 +412,7 @@ func TestAdapter_Execute_RegistryFail(t *testing.T) {
 
 func TestAdapter_Execute_RemoteAgentError(t *testing.T) {
 	// Agent returns success HTTP status but receipt with error status
-	registryServer, _ := buildTestServers(t, http.StatusOK, false, false)
+	registryServer := buildTestServers(t, http.StatusOK, false, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -431,7 +429,7 @@ func TestAdapter_Execute_RemoteAgentError(t *testing.T) {
 
 func TestAdapter_Execute_SignatureVerifyFail(t *testing.T) {
 	// Agent signs with wrong key
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, true)
+	registryServer := buildTestServers(t, http.StatusOK, true, true)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -448,7 +446,7 @@ func TestAdapter_Execute_SignatureVerifyFail(t *testing.T) {
 
 func TestAdapter_Execute_AgentHTTPError(t *testing.T) {
 	// Agent server returns HTTP 500
-	registryServer, _ := buildTestServers(t, http.StatusInternalServerError, false, false)
+	registryServer := buildTestServers(t, http.StatusInternalServerError, false, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -557,7 +555,7 @@ func TestAdapter_publicKeyString_WithKeyManager(t *testing.T) {
 }
 
 func TestAdapter_Execute_NilCallerURN_UsesWorkflowMetadata(t *testing.T) {
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	// Build adapter without caller URN - should derive from workflow
 	callerPriv, _, err := federation.GenerateKeypair()
@@ -604,7 +602,7 @@ func TestAdapter_setCallerURN(t *testing.T) {
 }
 
 func TestAdapter_Execute_WithLiteralInput(t *testing.T) {
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()
@@ -845,7 +843,7 @@ func TestAdapter_Execute_Fallback(t *testing.T) {
 	// This test verifies the fallback logic: when primary fails (no server), try fallback.
 	// We use a URN that we know won't resolve as the primary, and a valid URN as fallback.
 
-	registryServer, _ := buildTestServers(t, http.StatusOK, true, false)
+	registryServer := buildTestServers(t, http.StatusOK, true, false)
 
 	adapter := buildAdapter(t, registryServer.URL)
 	ctx := buildMinimalExecutionContext()

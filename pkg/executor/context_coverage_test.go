@@ -67,7 +67,7 @@ func TestExecutionContext_Coverage_GetFromQuery(t *testing.T) {
 
 	ctx.Request = &executor.RequestContext{
 		Query: map[string]string{
-			"queryparam_unique_test": "value1",
+			"queryparam_unique_test":  "value1",
 			"queryparam_unique_test2": "value2",
 		},
 	}

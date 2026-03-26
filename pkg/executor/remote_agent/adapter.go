@@ -82,7 +82,7 @@ func (a *Adapter) setCallerURN(urn string) {
 
 // Execute implements ResourceExecutor.
 //
-//nolint:funlen,cyclop,gocyclo,gocognit // complex but linear workflow
+//nolint:funlen,gocognit // complex but linear workflow
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	cfg, ok := config.(*domain.RemoteAgentConfig)
 	if !ok {
