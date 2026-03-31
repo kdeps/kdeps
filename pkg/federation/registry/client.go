@@ -130,7 +130,7 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 	}
 
 	// Fetch capability from the endpoint (or from well-known)
-	capability, err := c.fetchCapability(ctx, urn, endpoint)
+	agentCap, err := c.fetchCapability(ctx, urn, endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch capability: %w", err)
 	}
@@ -138,12 +138,12 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 	// Cache it
 	c.mu.Lock()
 	c.cache[urnKey] = &cachedEntry{
-		capability: capability,
+		capability: agentCap,
 		expiresAt:  time.Now().Add(c.ttl),
 	}
 	c.mu.Unlock()
 
-	return capability, nil
+	return agentCap, nil
 }
 
 // isLocalhost checks if the authority indicates a direct endpoint (localhost or IP with port).
@@ -214,18 +214,18 @@ func (c *Client) fetchCapability(
 		return nil, err
 	}
 
-	var capability AgentCapability
-	unmarshalErr := json.Unmarshal(body, &capability)
+	var agentCap AgentCapability
+	unmarshalErr := json.Unmarshal(body, &agentCap)
 	if unmarshalErr != nil {
 		return nil, unmarshalErr
 	}
 
 	// Verify URN matches
-	if capability.URN != urn.String() {
+	if agentCap.URN != urn.String() {
 		return nil, errors.New("capability URN mismatch")
 	}
 
-	return &capability, nil
+	return &agentCap, nil
 }
 
 // InvalidateCache removes a specific URN from the cache.

@@ -104,6 +104,7 @@ export default defineConfig({
             { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
             { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
             { text: 'API Response', link: '/resources/api-response' },
+            { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
           ]
         },
         {

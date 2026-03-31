@@ -15,8 +15,7 @@ func TestFederationMeshList_NoWorkflows(t *testing.T) {
 
 	cmd := newFederationMeshListCmd()
 	cmd.SetArgs([]string{})
-	err := cmd.Execute()
-	require.NoError(t, err)
+	require.NoError(t, cmd.Execute())
 }
 
 func TestFederationMeshList_WithWorkflows(t *testing.T) {
@@ -37,13 +36,11 @@ settings:
     pythonVersion: "3.12"
     installOllama: false
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644))
 
 	cmd := newFederationMeshListCmd()
 	cmd.SetArgs([]string{})
-	err = cmd.Execute()
-	require.NoError(t, err)
+	require.NoError(t, cmd.Execute())
 }
 
 func TestFederationMeshPublish_NoWorkflow(t *testing.T) {
@@ -74,13 +71,11 @@ settings:
     pythonVersion: "3.12"
     installOllama: false
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644))
 
 	cmd := newFederationMeshPublishCmd()
 	cmd.SetArgs([]string{})
-	err = cmd.Execute()
-	require.NoError(t, err)
+	require.NoError(t, cmd.Execute())
 }
 
 func TestFederationMeshPublish_AgencyYAML(t *testing.T) {
@@ -95,8 +90,7 @@ metadata:
   version: "1.0.0"
   targetAgentId: main-agent
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "agency.yaml"), []byte(agencyContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "agency.yaml"), []byte(agencyContent), 0644))
 
 	// Publish should find agency.yaml and succeed
 	cmd := newFederationMeshPublishCmd()
