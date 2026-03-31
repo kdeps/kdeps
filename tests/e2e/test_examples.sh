@@ -44,6 +44,9 @@ source "$SCRIPT_DIR/test_examples_tools.sh"
 source "$SCRIPT_DIR/test_examples_webserver_static.sh"
 source "$SCRIPT_DIR/test_examples_webserver_proxy.sh"
 source "$SCRIPT_DIR/test_examples_agency.sh"
+source "$SCRIPT_DIR/test_examples_codeguard_agency.sh"
+source "$SCRIPT_DIR/test_examples_personal_assistant_agency.sh"
+source "$SCRIPT_DIR/test_examples_components.sh"
 
 # --- Examples requiring external services (validation only) ---
 source "$SCRIPT_DIR/test_examples_stateless_bot.sh"

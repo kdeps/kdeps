@@ -236,3 +236,4 @@ musl-binaries/
 *.iso
 /wasm
 *.backup
+*.ics

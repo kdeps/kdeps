@@ -184,8 +184,13 @@ TEXT_CONTENT=$(echo "$TEXT_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    data = d.get('data', d)
-    print(data.get('content', ''))
+    # response resource nests per-type: data.textResult.data.content
+    tr = d.get('data', {}).get('textResult', {})
+    if isinstance(tr, dict):
+        inner = tr.get('data', tr)
+        print(inner.get('content', ''))
+    else:
+        print('')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
@@ -206,8 +211,12 @@ CSV_CONTENT=$(echo "$CSV_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    data = d.get('data', d)
-    print(data.get('content', ''))
+    cr = d.get('data', {}).get('csvResult', {})
+    if isinstance(cr, dict):
+        inner = cr.get('data', cr)
+        print(inner.get('content', ''))
+    else:
+        print('')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
@@ -228,8 +237,12 @@ JSON_CONTENT=$(echo "$JSON_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    data = d.get('data', d)
-    print(data.get('content', ''))
+    jr = d.get('data', {}).get('jsonResult', {})
+    if isinstance(jr, dict):
+        inner = jr.get('data', jr)
+        print(inner.get('content', ''))
+    else:
+        print('')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
