@@ -87,12 +87,12 @@ run:
     routes: [/calendar/ops]
     methods: [POST]
   calendar:
-    calendarFile: "${CAL_FILE}"
-    create:
-      summary: "E2E Test Meeting"
-      dtstart: "20260401T100000Z"
-      dtend: "20260401T110000Z"
-      description: "Created by E2E test"
+    action: create
+    filePath: "${CAL_FILE}"
+    summary: "E2E Test Meeting"
+    start: "2026-04-01T10:00:00Z"
+    end: "2026-04-01T11:00:00Z"
+    description: "Created by E2E test"
   apiResponse:
     success: true
     response:
@@ -108,8 +108,8 @@ metadata:
   requires: [calCreate]
 run:
   calendar:
-    calendarFile: "${CAL_FILE}"
-    list: true
+    action: list
+    filePath: "${CAL_FILE}"
   apiResponse:
     success: true
     response:

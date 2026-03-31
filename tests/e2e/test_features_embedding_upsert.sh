@@ -125,7 +125,7 @@ run:
     methods: [POST]
   embedding:
     operation: upsert
-    content: "The quick brown fox jumps over the lazy dog"
+    input: "The quick brown fox jumps over the lazy dog"
     dbPath: "${DB_PATH}"
     model: "nomic-embed-text"
     backend: "ollama"
@@ -148,7 +148,7 @@ run:
     methods: [POST]
   embedding:
     operation: search
-    content: "quick fox"
+    input: "quick fox"
     topK: 3
     dbPath: "${DB_PATH}"
     model: "nomic-embed-text"
