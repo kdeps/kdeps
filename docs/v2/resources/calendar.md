@@ -167,7 +167,7 @@ run:
   apiResponse:
     success: true
     response:
-      created_uid: "{{get('createMeeting.uid')}}"
+      created_uid: "{{output('createMeeting').uid}}"
 ```
 
 ---
