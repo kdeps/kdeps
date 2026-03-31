@@ -54,7 +54,7 @@ LOG_FILE=$(mktemp)
 MOCK_PID_FILE=$(mktemp)
 MOCK_SCRIPT=$(mktemp /tmp/kdeps_embed_ups_XXXXXX)
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; kill "$(cat "$MOCK_PID_FILE" 2>/dev/null)" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE" "$MOCK_PID_FILE" "$MOCK_SCRIPT"' EXIT
+trap '_mock_pid=$(cat "$MOCK_PID_FILE" 2>/dev/null); kill "$KDEPS_PID" 2>/dev/null; kill "$_mock_pid" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; wait "$_mock_pid" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE" "$MOCK_PID_FILE" "$MOCK_SCRIPT"' EXIT
 
 cat > "$MOCK_SCRIPT" <<PYEOF
 #!/usr/bin/env python3

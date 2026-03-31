@@ -47,7 +47,7 @@ LOG_FILE=$(mktemp)
 
 CAL_FILE="${TEST_DIR}/calendar/events.ics"
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 # Seed empty ICS file
 cat > "$CAL_FILE" <<'ICS'

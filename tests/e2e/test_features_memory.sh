@@ -55,7 +55,7 @@ MOCK_PID_FILE=$(mktemp)
 # macOS BSD mktemp: no suffix support after X pattern
 MOCK_SCRIPT=$(mktemp /tmp/kdeps_mem_embed_XXXXXX)
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; kill "$(cat "$MOCK_PID_FILE" 2>/dev/null)" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE" "$MOCK_PID_FILE" "$MOCK_SCRIPT"' EXIT
+trap '_mock_pid=$(cat "$MOCK_PID_FILE" 2>/dev/null); kill "$KDEPS_PID" 2>/dev/null; kill "$_mock_pid" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; wait "$_mock_pid" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE" "$MOCK_PID_FILE" "$MOCK_SCRIPT"' EXIT
 
 # Mock Ollama embedding server - returns deterministic 4-dim vectors
 cat > "$MOCK_SCRIPT" <<PYEOF

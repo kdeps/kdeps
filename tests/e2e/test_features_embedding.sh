@@ -91,7 +91,7 @@ PYEOF
 
 python3 "$EMBED_SERVER_SCRIPT" &
 EMBED_SERVER_PID=$!
-trap 'kill "$EMBED_SERVER_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
+trap 'kill "$EMBED_SERVER_PID" 2>/dev/null; wait "$EMBED_SERVER_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
 
 # Wait for the mock server to start.
 for i in $(seq 1 20); do
@@ -233,7 +233,7 @@ EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" &
 KDEPS_PID=$!
-trap 'kill "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
+trap 'kill "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; wait "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
 
 # Wait for the API server to be ready.
 KDEPS_STARTED=false
