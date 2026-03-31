@@ -235,5 +235,5 @@ X-UAF-Receipt-Signature: <hex-ed25519-sig>
 ## See Also
 
 - [`agent:`](./overview.md#agent) — In-process delegation within an agency
-- [Federation Demo](../../examples/federation-demo/) — Working end-to-end example
+- [Federation Demo](https://github.com/kdeps/kdeps/tree/main/examples/federation-demo) — Working end-to-end example
 - [Getting Started](../getting-started/quickstart.md) — kdeps quickstart
