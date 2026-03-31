@@ -57,7 +57,7 @@ func TestFederationKeyRotate_MissingKeyFile(t *testing.T) {
 	rotateCmd.SetArgs([]string{"--key", keyPath})
 	err := rotateCmd.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to load existing key")
+	assert.Contains(t, err.Error(), "no existing key found at")
 }
 
 func TestFederationKeyRotate_MissingArgs(t *testing.T) {

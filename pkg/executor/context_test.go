@@ -2482,7 +2482,7 @@ func TestNewExecutionContext_SessionConfigurationEdgeCases(t *testing.T) {
 			Session: &domain.SessionConfig{
 				Enabled: true,
 				TTL:     "1h",
-				Path:    "memory", // Memory storage
+				Type:    "memory", // in-memory SQLite
 			},
 		},
 	}
