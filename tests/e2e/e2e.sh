@@ -66,6 +66,12 @@ source "$SCRIPT_DIR/test_features_input_sources.sh"
 source "$SCRIPT_DIR/test_features_bot_sources.sh"
 source "$SCRIPT_DIR/test_features_tts.sh"
 source "$SCRIPT_DIR/test_features_embedding.sh"
+source "$SCRIPT_DIR/test_features_exec.sh"
+source "$SCRIPT_DIR/test_features_scraper.sh"
+source "$SCRIPT_DIR/test_features_calendar.sh"
+source "$SCRIPT_DIR/test_features_search_local.sh"
+source "$SCRIPT_DIR/test_features_memory.sh"
+source "$SCRIPT_DIR/test_features_embedding_upsert.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"
