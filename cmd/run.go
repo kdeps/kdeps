@@ -51,6 +51,7 @@ import (
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
+	executorMemory "github.com/kdeps/kdeps/v2/pkg/executor/memory"
 	executorPDF "github.com/kdeps/kdeps/v2/pkg/executor/pdf"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
 	executorRemoteAgent "github.com/kdeps/kdeps/v2/pkg/executor/remote_agent"
@@ -1550,6 +1551,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetScraperExecutor(executorScraper.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter(logger))
+	registry.SetMemoryExecutor(executorMemory.NewAdapter(logger))
 	registry.SetPDFExecutor(executorPDF.NewAdapter(logger))
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 	registry.SetCalendarExecutor(executorCalendar.NewAdapter(logger))

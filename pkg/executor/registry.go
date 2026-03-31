@@ -41,6 +41,7 @@ type Registry struct {
 	browserExecutor     ResourceExecutor
 	remoteAgentExecutor ResourceExecutor
 	autopilotExecutor   ResourceExecutor
+	memoryExecutor      ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
@@ -223,4 +224,14 @@ func (r *Registry) SetAutopilotExecutor(exec ResourceExecutor) {
 // GetAutopilotExecutor returns the autopilot executor.
 func (r *Registry) GetAutopilotExecutor() ResourceExecutor {
 	return r.autopilotExecutor
+}
+
+// SetMemoryExecutor sets the memory executor.
+func (r *Registry) SetMemoryExecutor(executor ResourceExecutor) {
+	r.memoryExecutor = executor
+}
+
+// GetMemoryExecutor returns the memory executor.
+func (r *Registry) GetMemoryExecutor() ResourceExecutor {
+	return r.memoryExecutor
 }

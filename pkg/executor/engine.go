@@ -232,6 +232,14 @@ func (e *Engine) ExecuteInlineEmbeddingForTesting(
 	return e.executeInlineEmbedding(config, ctx)
 }
 
+// ExecuteInlineMemoryForTesting exposes the private executeInlineMemory for testing.
+func (e *Engine) ExecuteInlineMemoryForTesting(
+	config *domain.MemoryConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	return e.executeInlineMemory(config, ctx)
+}
+
 // ExecutePDFForTesting exposes the private executePDF for testing.
 func (e *Engine) ExecutePDFForTesting(
 	resource *domain.Resource,
@@ -918,7 +926,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent, memory)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
@@ -935,7 +943,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Agent != nil ||
 		resource.Run.Browser != nil ||
 		resource.Run.RemoteAgent != nil ||
-		resource.Run.Autopilot != nil
+		resource.Run.Autopilot != nil ||
+		resource.Run.Memory != nil
 
 	var primaryResult interface{}
 	var err error
@@ -977,6 +986,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeRemoteAgent(resource, ctx)
 		case resource.Run.Autopilot != nil:
 			primaryResult, err = e.executeAutopilot(resource, ctx)
+		case resource.Run.Memory != nil:
+			primaryResult, err = e.executeMemory(resource, ctx)
 		}
 
 		if err != nil {
@@ -1721,6 +1732,8 @@ func (e *Engine) executeInlineResources(
 			result, err = e.executeInlineAgent(inline.Agent, ctx)
 		case inline.Browser != nil:
 			result, err = e.executeInlineBrowser(inline.Browser, ctx)
+		case inline.Memory != nil:
+			result, err = e.executeInlineMemory(inline.Memory, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2599,6 +2612,39 @@ func (e *Engine) executeInlineEmbedding(
 	}
 
 	return embeddingExec.Execute(ctx, config)
+}
+
+// executeMemory executes a memory resource for semantic experience storage and recall.
+func (e *Engine) executeMemory(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	if resource.Run.Memory == nil {
+		return nil, fmt.Errorf(
+			"resource %s has no memory configuration",
+			resource.Metadata.ActionID,
+		)
+	}
+
+	memExec := e.registry.GetMemoryExecutor()
+	if memExec == nil {
+		return nil, errors.New("memory executor not available")
+	}
+
+	return memExec.Execute(ctx, resource.Run.Memory)
+}
+
+// executeInlineMemory executes an inline memory resource.
+func (e *Engine) executeInlineMemory(
+	config *domain.MemoryConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	memExec := e.registry.GetMemoryExecutor()
+	if memExec == nil {
+		return nil, errors.New("memory executor not available")
+	}
+
+	return memExec.Execute(ctx, config)
 }
 
 // executePDF executes a PDF generation resource.
