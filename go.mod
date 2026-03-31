@@ -15,7 +15,7 @@ require (
 	github.com/go-telegram/bot v1.20.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lib/pq v1.12.0
+	github.com/lib/pq v1.12.1
 	github.com/mattn/go-sqlite3 v1.14.38
 	github.com/nikolalohinski/gonja/v2 v2.7.0
 	github.com/playwright-community/playwright-go v0.5700.1
