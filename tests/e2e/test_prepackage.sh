@@ -71,7 +71,7 @@ test_prepackage_help() {
 test_prepackage_bad_extension() {
     local test_name="prepackage rejects non-.kdeps input"
     local tmp_file
-    tmp_file="$(mktemp --suffix=.yaml)"
+    tmp_file="$(mktemp).yaml"
     if "$KDEPS_BIN" prepackage "$tmp_file" --arch linux-amd64 &>/dev/null; then
         test_failed "$test_name" "Expected error for non-.kdeps file"
     else

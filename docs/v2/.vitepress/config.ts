@@ -98,6 +98,7 @@ export default defineConfig({
             { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'Embedding (Vector DB)', link: '/resources/embedding' },
             { text: 'API Response', link: '/resources/api-response' },
+            { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
           ]
         },
         {

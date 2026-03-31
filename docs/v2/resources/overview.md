@@ -60,6 +60,7 @@ run:
   embedding: { ... }   # Vector DB (index / search / delete)
   browser: { ... }     # Browser automation (Playwright)
   agent: { ... }       # Call another agent (agency)
+  autopilot: { ... }   # Goal-directed workflow synthesis
   apiResponse: { ... } # API response
 ```
 
@@ -82,6 +83,7 @@ run:
 | `browser` | Browser automation | Web scraping, form filling, screenshots |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
 | `remoteAgent` | Federated agent invocation (UAF) | Cross-runtime, signed receipts |
+| `autopilot` | Goal-directed workflow synthesis | Dynamic, exploratory, open-ended tasks |
 | `apiResponse` | Response formatting | Final output |
 
 ## Metadata

@@ -237,6 +237,7 @@ type RunConfig struct {
 	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
+	Autopilot   *AutopilotConfig   `yaml:"autopilot,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -260,6 +261,7 @@ type InlineResource struct {
 	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
 	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
+	Autopilot   *AutopilotConfig   `yaml:"autopilot,omitempty"`
 }
 
 // ErrorConfig represents error configuration.

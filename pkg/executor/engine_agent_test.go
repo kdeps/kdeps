@@ -249,6 +249,7 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 // Before the fix, the raw template string was passed verbatim, so the sub-agent's
 // get('name') would return "{{ get('name') }}" instead of the actual value.
 func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir()
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
@@ -302,6 +303,7 @@ func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
 // TestExecuteAgent_ParamsExpressions_StaticValueUnchanged verifies that a static
 // (non-expression) param value is forwarded to the sub-agent unchanged.
 func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir()
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))
@@ -345,6 +347,7 @@ func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
 // TestExecuteAgent_ParamsExpressions_DefaultValue verifies that get() default values
 // in params work: if the caller has no "name" param, the default kicks in.
 func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	dir := t.TempDir()
 	echoPath := filepath.Join(dir, "echo-workflow.yml")
 	require.NoError(t, os.WriteFile(echoPath, []byte(paramEchoAgentWorkflow), 0o600))

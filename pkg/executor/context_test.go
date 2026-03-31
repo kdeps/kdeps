@@ -1484,6 +1484,7 @@ func TestExecutionContext_GetSessionID_EdgeCases(t *testing.T) {
 }
 
 func TestExecutionContext_Get_EdgeCasesForCoverage(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 

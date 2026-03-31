@@ -314,6 +314,7 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 }
 
 func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
