@@ -235,7 +235,7 @@ run:
 
 ## Accessing the Result
 
-The scraper stores its result under the resource's `actionId`. Use `get()` in downstream
+The scraper stores its result under the resource's `actionId`. Use `output()` in downstream
 resources to access the extracted content.
 
 <div v-pre>
@@ -259,7 +259,7 @@ metadata:
 run:
   chat:
     model: llama3.2:1b
-    prompt: "Summarize this page: {{ get('fetchPage') }}"
+    prompt: "Summarize this page: {{ output('fetchPage').content }}"
 ```
 
 </div>
@@ -273,15 +273,15 @@ The result map returned by the scraper contains:
 | `type` | string | The scraper type used. |
 | `success` | bool | `true` if extraction succeeded. |
 
-Access individual fields with `get('actionId', 'content')` or the full map with `get('actionId')`.
+Access individual fields with `output('actionId').content` or the full result with `output('actionId')`.
 
 <div v-pre>
 
 ```yaml
 run:
   expr:
-    - set('pageText', get('fetchPage', 'content'))
-    - set('didSucceed', get('fetchPage', 'success'))
+    - set('pageText', output('fetchPage').content)
+    - set('didSucceed', output('fetchPage').success)
 ```
 
 </div>

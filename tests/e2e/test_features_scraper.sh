@@ -20,6 +20,8 @@
 # E2E tests for the scraper resource executor.
 #
 # Creates local test data files and verifies text/CSV/JSON scraping end-to-end.
+# ScraperConfig fields: type (required), source (required).
+# Return shape: { type, source, content, success }.
 
 set -uo pipefail
 
@@ -49,9 +51,8 @@ trap 'kill "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 # Seed test data files
 echo "Hello from scraper E2E test" > "$TEST_DIR/data/sample.txt"
-echo "name,value" > "$TEST_DIR/data/sample.csv"
-echo "alice,1" >> "$TEST_DIR/data/sample.csv"
-echo '{"key":"scraped_value"}' > "$TEST_DIR/data/sample.json"
+printf "name,value\nalice,1\nbob,2\n" > "$TEST_DIR/data/sample.csv"
+printf '{"key":"scraped_value"}\n' > "$TEST_DIR/data/sample.json"
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
@@ -87,12 +88,14 @@ run:
     routes: [/scrape/text]
     methods: [POST]
   scraper:
+    type: text
     source: "${TEST_DIR}/data/sample.txt"
-    textContent: true
   apiResponse:
     success: true
     response:
-      textContent: "{{ output('scrapeText').textContent }}"
+      content: "{{ output('scrapeText').content }}"
+      scrapeType: "{{ output('scrapeText').type }}"
+      success: "{{ output('scrapeText').success }}"
 EOF
 
 cat > "$TEST_DIR/resources/csv.yaml" <<EOF
@@ -106,12 +109,13 @@ run:
     routes: [/scrape/csv]
     methods: [POST]
   scraper:
+    type: csv
     source: "${TEST_DIR}/data/sample.csv"
-    csvContent: true
   apiResponse:
     success: true
     response:
-      csvContent: "{{ output('scrapeCSV').csvContent }}"
+      content: "{{ output('scrapeCSV').content }}"
+      success: "{{ output('scrapeCSV').success }}"
 EOF
 
 cat > "$TEST_DIR/resources/json.yaml" <<EOF
@@ -125,12 +129,13 @@ run:
     routes: [/scrape/json]
     methods: [POST]
   scraper:
+    type: json
     source: "${TEST_DIR}/data/sample.json"
-    jsonContent: true
   apiResponse:
     success: true
     response:
-      jsonContent: "{{ output('scrapeJSON').jsonContent }}"
+      content: "{{ output('scrapeJSON').content }}"
+      success: "{{ output('scrapeJSON').success }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
@@ -169,7 +174,7 @@ if [ "$KDEPS_STARTED" = false ]; then
     return 0 2>/dev/null || return 0
 fi
 
-# Test 1: text scraping
+# Test 1: text scraping - check content field
 TEXT_RESP=$(curl -s --max-time 5 \
     -X POST "http://127.0.0.1:${API_PORT}/scrape/text" \
     -H "Content-Type: application/json" \
@@ -180,15 +185,7 @@ import sys, json
 try:
     d = json.load(sys.stdin)
     data = d.get('data', d)
-    tr = data.get('textResult') or {}
-    if isinstance(tr, dict):
-        inner = tr.get('data', tr)
-        if isinstance(inner, dict):
-            print(inner.get('textContent', ''))
-        else:
-            print('')
-    else:
-        print('')
+    print(data.get('content', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo "")
@@ -205,15 +202,17 @@ CSV_RESP=$(curl -s --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{}' 2>&1)
 
-if echo "$CSV_RESP" | python3 -c "
+CSV_CONTENT=$(echo "$CSV_RESP" | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-data = d.get('data', d)
-cr = data.get('csvResult') or {}
-inner = cr.get('data', cr) if isinstance(cr, dict) else {}
-content = inner.get('csvContent', '') if isinstance(inner, dict) else ''
-sys.exit(0 if content else 1)
-" 2>/dev/null; then
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    print(data.get('content', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+
+if [ -n "$CSV_CONTENT" ]; then
     test_passed "Scraper - CSV file scraping"
 else
     test_failed "Scraper - CSV file scraping" "resp='$CSV_RESP'"
@@ -225,18 +224,20 @@ JSON_RESP=$(curl -s --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{}' 2>&1)
 
-if echo "$JSON_RESP" | python3 -c "
+JSON_CONTENT=$(echo "$JSON_RESP" | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-data = d.get('data', d)
-jr = data.get('jsonResult') or {}
-inner = jr.get('data', jr) if isinstance(jr, dict) else {}
-content = inner.get('jsonContent', '') if isinstance(inner, dict) else ''
-sys.exit(0 if content else 1)
-" 2>/dev/null; then
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    print(data.get('content', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+
+if echo "$JSON_CONTENT" | grep -q "scraped_value"; then
     test_passed "Scraper - JSON file scraping"
 else
-    test_failed "Scraper - JSON file scraping" "resp='$JSON_RESP'"
+    test_failed "Scraper - JSON file scraping" "content='$JSON_CONTENT' resp='$JSON_RESP'"
 fi
 
 echo ""

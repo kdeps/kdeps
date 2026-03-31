@@ -27,20 +27,20 @@ metadata:
   actionId: analyze
 run:
   before:
-    - scraper: { url: "{{ get('url') }}" } # Extract text from web/PDF
+    - scraper: { type: url, source: "{{ get('url') }}" } # Extract text from web/PDF
     - embedding:
         operation: search
-        input: "{{ get('scraper') }}"
+        input: "{{ get('scraper').content }}"
         collection: docs
   chat:
     model: gpt-4o
     prompt: |
       Context: {{ get('embedding').results }}
-      Data: {{ get('scraper') }}
+      Data: {{ get('scraper').content }}
       Question: {{ get('q') }}
   apiResponse:
     success: true
-    response: { data: "{{ get('chat') }}" }
+    response: { data: "{{ output('analyze') }}" }
 ```
 
 ## Syntax Cheatsheet

@@ -116,7 +116,7 @@ run:
   apiResponse:
     success: true
     response:
-      passages: "{{ get('searchDocs').results }}"
+      passages: "{{ output('searchDocs').results }}"
 ```
 
 </div>
@@ -238,7 +238,7 @@ run:
 
 ## Accessing Results
 
-The embedding resource output is available via `get('<actionId>')`:
+The embedding resource output is available via `output('<actionId>')`:
 
 <div v-pre>
 
@@ -260,7 +260,7 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexDoc').id }}"
+      id: "{{ output('indexDoc').id }}"
 ```
 
 </div>
@@ -365,7 +365,7 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexChunk').id }}"
+      id: "{{ output('indexChunk').id }}"
 ```
 
 ```yaml
@@ -410,15 +410,15 @@ run:
     prompt: |
       Answer the question using only the context below.
       Context:
-      {{ get('searchChunks').results | map(.text) | join('\n---\n') }}
+      {{ output('searchChunks').results | map(.text) | join('\n---\n') }}
 
       Question: {{ get('q') }}
 
   apiResponse:
     success: true
     response:
-      answer: "{{ get('respond') }}"
-      sources: "{{ get('searchChunks').results }}"
+      answer: "{{ output('respond') }}"
+      sources: "{{ output('searchChunks').results }}"
 ```
 
 </div>
@@ -476,7 +476,7 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexChunk').id }}"
+      id: "{{ output('indexChunk').id }}"
 ```
 
 ```yaml
@@ -525,15 +525,15 @@ run:
     prompt: |
       Answer using only the context below.
       Context:
-      {{ get('searchChunks').results | map(.text) | join('\n---\n') }}
+      {{ output('searchChunks').results | map(.text) | join('\n---\n') }}
 
       Question: {{ get('q') }}
 
   apiResponse:
     success: true
     response:
-      answer: "{{ get('respond') }}"
-      sources: "{{ get('searchChunks').results }}"
+      answer: "{{ output('respond') }}"
+      sources: "{{ output('searchChunks').results }}"
 ```
 
 </div>
@@ -590,7 +590,7 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexChunk').id }}"
+      id: "{{ output('indexChunk').id }}"
 ```
 
 ```yaml
@@ -672,7 +672,7 @@ run:
   apiResponse:
     success: true
     response:
-      id: "{{ get('indexChunk').id }}"
+      id: "{{ output('indexChunk').id }}"
 ```
 
 ```yaml

@@ -243,7 +243,7 @@ run:
 
   llm:
     prompt: |
-      Here are relevant files I found: {{get('search.results')}}
+      Here are relevant files I found: {{output('search').results}}
 
       Answer the user's question: {{get('question')}}
 ```
@@ -284,7 +284,8 @@ summarise it.
 
   run:
     scraper:
-      url: "{{get('webSearch.results[0].url')}}"
+      type: url
+      source: "{{output('webSearch').results[0].url}}"
       timeout: "30s"
 
 # Step 3: LLM summarises the scraped content
@@ -303,7 +304,7 @@ summarise it.
         You are a research assistant. Summarise the following content about
         "{{get('research_topic')}}":
 
-        {{get('scrapeTop.content')}}
+        {{output('scrapeTop').content}}
 
         Provide a concise 3-paragraph summary.
 
@@ -321,9 +322,9 @@ summarise it.
     apiResponse:
       success: true
       response:
-        summary: "{{get('summarise')}}"
-        source_url: "{{get('webSearch.results[0].url')}}"
-        source_title: "{{get('webSearch.results[0].title')}}"
+        summary: "{{output('summarise')}}"
+        source_url: "{{output('webSearch').results[0].url}}"
+        source_title: "{{output('webSearch').results[0].title}}"
 ```
 
 ---
@@ -367,7 +368,7 @@ answer using an LLM.
         The user asked: {{get('question')}}
 
         Relevant files found:
-        {{get('findDocs.results')}}
+        {{output('findDocs').results}}
 
         Answer based on these files. If you cannot find the answer, say so.
 
@@ -385,6 +386,6 @@ answer using an LLM.
     apiResponse:
       success: true
       response:
-        answer: "{{get('answerQuestion')}}"
-        sources_count: "{{get('findDocs.count')}}"
+        answer: "{{output('answerQuestion')}}"
+        sources_count: "{{output('findDocs').count}}"
 ```
