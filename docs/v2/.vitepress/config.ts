@@ -97,6 +97,7 @@ export default defineConfig({
             { text: 'Search', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
             { text: 'Embedding (Vector DB)', link: '/resources/embedding' },
+            { text: 'Memory (Semantic)', link: '/resources/memory' },
             { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'Email', link: '/resources/email' },
             { text: 'Calendar', link: '/resources/calendar' },
@@ -104,7 +105,6 @@ export default defineConfig({
             { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
             { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
             { text: 'API Response', link: '/resources/api-response' },
-            { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
           ]
         },
         {
