@@ -64,11 +64,11 @@ func createRootCommand() *cobra.Command {
 		Long: `KDeps v2 - Build AI agents with YAML configuration
 
 Features:
-  • YAML configuration (no PKL)
-  • Unified API (get, set)
-  • Local-first execution (Docker optional)
-  • SQL integration (PostgreSQL, MySQL, SQLite)
-  • Clean architecture
+  * YAML configuration (no PKL)
+  * Unified API (get, set)
+  * Local-first execution (Docker optional)
+  * SQL integration (PostgreSQL, MySQL, SQLite)
+  * Clean architecture
 
 Examples:
   # Run locally (default)
@@ -92,6 +92,17 @@ Examples:
 
   # Add resources to existing agent
   kdeps scaffold llm sql`,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			fmt.Fprintln(cmd.ErrOrStderr(), "")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  WARNING: HIGHLY EXPERIMENTAL SOFTWARE")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  kdeps is under active development. YAML schemas, CLI flags,")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  APIs, and behaviour can change without notice at any time.")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  Do NOT use in production. Expect breaking changes.")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  Feedback: https://github.com/kdeps/kdeps/issues")
+			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
+			fmt.Fprintln(cmd.ErrOrStderr(), "")
+		},
 	}
 
 	// Add global flags
