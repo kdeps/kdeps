@@ -45,7 +45,7 @@ TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources" "$TEST_DIR/docs"
 LOG_FILE=$(mktemp)
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 # Seed searchable documents
 cat > "$TEST_DIR/docs/alpha.txt" <<'DOC'

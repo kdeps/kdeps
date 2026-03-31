@@ -51,7 +51,7 @@ TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 # -- Workflow ------------------------------------------------------------------
 

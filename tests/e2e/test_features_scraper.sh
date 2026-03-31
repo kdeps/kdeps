@@ -47,7 +47,7 @@ TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources" "$TEST_DIR/data"
 LOG_FILE=$(mktemp)
 
-trap 'kill "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 # Seed test data files
 echo "Hello from scraper E2E test" > "$TEST_DIR/data/sample.txt"
