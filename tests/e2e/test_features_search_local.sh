@@ -100,7 +100,8 @@ run:
     methods: [POST]
   search:
     path: "${TEST_DIR}/docs"
-    keyword: "searchable_token"
+    provider: local
+    query: "searchable_token"
   apiResponse:
     success: true
     response:
@@ -119,6 +120,7 @@ run:
     routes: [/search/glob]
     methods: [POST]
   search:
+    provider: local
     path: "${TEST_DIR}/docs"
     glob: "*.md"
   apiResponse:
@@ -140,7 +142,8 @@ run:
     methods: [POST]
   search:
     path: "${TEST_DIR}/docs"
-    keyword: "searchable_token"
+    provider: local
+    query: "searchable_token"
     limit: 1
   apiResponse:
     success: true
@@ -161,7 +164,8 @@ run:
     methods: [POST]
   search:
     path: "${TEST_DIR}/docs"
-    keyword: "zzz_no_such_keyword_zzz"
+    provider: local
+    query: "zzz_no_such_keyword_zzz"
   onError:
     action: continue
   apiResponse:

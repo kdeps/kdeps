@@ -54,7 +54,7 @@ PY
 # ── Mock embedding server ──────────────────────────────────────────────────────
 # Returns a simple deterministic 4-dimensional embedding for every request.
 
-EMBED_SERVER_SCRIPT=$(mktemp /tmp/embed_server_XXXXXX.py)
+EMBED_SERVER_SCRIPT=$(mktemp /tmp/kdeps_embed_server_XXXXXX)
 cat > "$EMBED_SERVER_SCRIPT" <<PYEOF
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
