@@ -64,6 +64,7 @@ run:
 - [`python:`](https://kdeps.com/resources/python) – Scripts via isolated `uv` environments
 - [`scraper:`](https://kdeps.com/resources/scraper) – Text extraction from 15+ file types
 - [`embedding:`](https://kdeps.com/resources/embedding) – Vector RAG (index or search)
+- [`memory:`](https://kdeps.com/resources/memory) – Semantic agent memory (consolidate, recall, forget) — persistent experience storage across invocations
 - [`tts:`](https://kdeps.com/resources/tts) – Text-to-speech (offline or cloud)
 - [`pdf:`](https://kdeps.com/resources/pdf) – PDF generation from HTML or Markdown
 - [`exec:`](https://kdeps.com/resources/exec) – Shell commands and automation
