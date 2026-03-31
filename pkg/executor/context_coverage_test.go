@@ -62,6 +62,7 @@ func TestExecutionContext_Coverage_GetFromBody_Coverage(t *testing.T) {
 
 // TestExecutionContext_GetFromQuery tests the getFromQuery method.
 func TestExecutionContext_Coverage_GetFromQuery(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 

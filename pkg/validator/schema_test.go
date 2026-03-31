@@ -1421,6 +1421,7 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 				"perplexity",
 				"groq",
 				"deepseek",
+				"openrouter",
 			},
 		},
 		{

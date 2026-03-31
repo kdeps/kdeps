@@ -472,3 +472,11 @@ linters:
         linters: [ gosec ]
       - text: 'G705:'
         linters: [ gosec ]
+      # remote_agent uses underscore in package name intentionally (directory naming convention)
+      - text: 'ST1003: should not use underscores in package names'
+        linters: [ staticcheck ]
+        path: 'pkg/executor/remote_agent/'
+      # playwright WaitForTimeout is the correct API for explicit waits in this context
+      - text: 'SA1019: page.WaitForTimeout is deprecated'
+        linters: [ staticcheck ]
+        path: 'pkg/executor/browser/'

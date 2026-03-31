@@ -934,7 +934,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Search != nil ||
 		resource.Run.Agent != nil ||
 		resource.Run.Browser != nil ||
-		resource.Run.RemoteAgent != nil
+		resource.Run.RemoteAgent != nil ||
+		resource.Run.Autopilot != nil
 
 	var primaryResult interface{}
 	var err error
@@ -974,6 +975,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeBrowser(resource, ctx)
 		case resource.Run.RemoteAgent != nil:
 			primaryResult, err = e.executeRemoteAgent(resource, ctx)
+		case resource.Run.Autopilot != nil:
+			primaryResult, err = e.executeAutopilot(resource, ctx)
 		}
 
 		if err != nil {
@@ -2840,6 +2843,24 @@ func (e *Engine) executeRemoteAgent(
 		return nil, errors.New("remote agent executor not available")
 	}
 	return executor.Execute(ctx, remoteCfg)
+}
+
+func (e *Engine) executeAutopilot(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	if resource.Run.Autopilot == nil {
+		return nil, fmt.Errorf(
+			"resource %s has no autopilot configuration",
+			resource.Metadata.ActionID,
+		)
+	}
+	autopilotCfg := resource.Run.Autopilot
+	autopilotExecutor := e.registry.GetAutopilotExecutor()
+	if autopilotExecutor == nil {
+		return nil, errors.New("autopilot executor not available")
+	}
+	return autopilotExecutor.Execute(ctx, autopilotCfg)
 }
 
 // agentPathKeys returns the map keys as a slice for error messages.

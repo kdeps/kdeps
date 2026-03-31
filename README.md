@@ -74,6 +74,7 @@ run:
 - [`botReply:`](https://kdeps.com/concepts/input-sources#chat-bot-platforms) – Send messages to Discord/Slack/Telegram
 - [`agent:`](https://kdeps.com/concepts/agency) – Delegate work to another agent in an agency
 - [`remoteAgent:`](https://kdeps.com/resources/remote-agent) – Federated agent invocation (UAF) with Ed25519-signed receipts
+- [`autopilot:`](https://kdeps.com/resources/autopilot) – Goal-directed workflow synthesis: describe *what* you want, the engine figures out *how*
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
 
 ### 🏢 [Agency & Multi-Agent Orchestration](https://kdeps.com/concepts/agency)

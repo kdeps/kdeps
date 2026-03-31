@@ -398,7 +398,7 @@ PKG_PUSH_DIR=$(mktemp -d)
 _create_mgmt_workflow "$PKG_PUSH_DIR" "mgmt-test-agent" "4.0.0"
 
 # Package the workflow into a .kdeps archive
-PKG_FILE=$(mktemp --suffix=".kdeps")
+PKG_FILE="$(mktemp).kdeps"
 if "$KDEPS_BIN" package "$PKG_PUSH_DIR/workflow.yaml" --output "$PKG_FILE" > /dev/null 2>&1; then
     # Push the .kdeps archive
     PKG_PUSH_LOG=$(mktemp)
