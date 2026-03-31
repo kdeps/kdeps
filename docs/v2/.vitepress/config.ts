@@ -61,7 +61,6 @@ export default defineConfig({
           text: 'Introduction',
           items: [
             { text: 'What is KDeps?', link: '/' },
-            { text: 'Real-World Showcase', link: '/examples/showcase' },
           ]
         },
         {
@@ -94,11 +93,17 @@ export default defineConfig({
             { text: 'SQL', link: '/resources/sql' },
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
+            { text: 'Scraper', link: '/resources/scraper' },
+            { text: 'Search', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
-            { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'Embedding (Vector DB)', link: '/resources/embedding' },
-            { text: 'API Response', link: '/resources/api-response' },
+            { text: 'TTS (Speech)', link: '/resources/tts' },
+            { text: 'Email', link: '/resources/email' },
+            { text: 'Calendar', link: '/resources/calendar' },
+            { text: 'PDF', link: '/resources/pdf' },
+            { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
             { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
+            { text: 'API Response', link: '/resources/api-response' },
           ]
         },
         {
@@ -106,15 +111,23 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Unified API', link: '/concepts/unified-api' },
+            { text: 'Request Object', link: '/concepts/request-object' },
+            { text: 'Input Sources', link: '/concepts/input-sources' },
+            { text: 'Input Object', link: '/concepts/input-object' },
             { text: 'Expressions', link: '/concepts/expressions' },
+            { text: 'Expression Blocks', link: '/concepts/expr-blocks' },
+            { text: 'Advanced Expressions', link: '/concepts/advanced-expressions' },
             { text: 'Jinja2 Templates', link: '/concepts/jinja2-templates' },
             { text: 'Expression Functions', link: '/concepts/expression-functions-reference' },
             { text: 'Expression Helpers', link: '/concepts/expression-helpers' },
-            { text: 'Request Object', link: '/concepts/request-object' },
-            { text: 'Tools (Function Calling)', link: '/concepts/tools' },
+            { text: 'Inline Resources', link: '/concepts/inline-resources' },
             { text: 'Items Iteration', link: '/concepts/items' },
+            { text: 'Loop (While / Scheduled)', link: '/concepts/loop' },
+            { text: 'Tools (Function Calling)', link: '/concepts/tools' },
             { text: 'Agency & Multi-Agent', link: '/concepts/agency' },
+            { text: 'Components', link: '/concepts/components' },
             { text: 'Validation', link: '/concepts/validation' },
+            { text: 'Validation & Control Flow', link: '/concepts/validation-and-control' },
             { text: 'Error Handling (onError)', link: '/concepts/error-handling' },
             { text: 'Route Restrictions', link: '/concepts/route-restrictions' },
             { text: 'Management API', link: '/concepts/management-api' },
@@ -130,13 +143,12 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Tutorials',
+          text: 'Examples',
           collapsed: false,
           items: [
-            { text: 'Building a Chatbot', link: '/tutorials/chatbot' },
-            { text: 'File Upload Processing', link: '/tutorials/file-upload' },
-            { text: 'Multi-Database Workflow', link: '/tutorials/multi-database' },
-            { text: 'Vision Models', link: '/tutorials/vision' },
+            { text: 'Showcase', link: '/examples/showcase' },
+            { text: 'Stateless Bot', link: '/examples/stateless-bot/' },
+            { text: 'Telegram LLM Bot', link: '/examples/telegram-bot/' },
           ]
         },
       ]
