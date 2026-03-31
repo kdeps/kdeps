@@ -2,6 +2,8 @@
 
 AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
 
+> **Highly experimental.** kdeps is under active development - APIs, YAML schemas, CLI flags, and behaviour can change without notice at any time. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
+
 ## Why kdeps
 
 AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
@@ -84,7 +86,7 @@ run:
 - **`.kagency` archives** – Pack the full agency into one portable file: `kdeps package my-agency/`
 - **Docker / ISO / binary** – `kdeps build`, `kdeps export iso`, and `kdeps prepackage` all accept agencies
 
-###🧩 [Components & Reusable Modules](https://kdeps.com/concepts/components)
+### 🧩 [Components & Reusable Modules](https://kdeps.com/concepts/components)
 - **`component.yaml`** – Define reusable interface (inputs) and resources
 - **Auto-discovery** – Place in `components/<name>/` alongside workflow to auto-load resources
 - **`.komponent` archives** – Package components for distribution: `kdeps package my-component/`

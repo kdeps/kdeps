@@ -92,7 +92,7 @@ Examples:
 
   # Add resources to existing agent
   kdeps scaffold llm sql`,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			fmt.Fprintln(cmd.ErrOrStderr(), "")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  WARNING: HIGHLY EXPERIMENTAL SOFTWARE")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
