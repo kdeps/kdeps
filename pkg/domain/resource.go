@@ -238,6 +238,7 @@ type RunConfig struct {
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
 	Autopilot   *AutopilotConfig   `yaml:"autopilot,omitempty"`
+	Memory      *MemoryConfig      `yaml:"memory,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -262,6 +263,7 @@ type InlineResource struct {
 	Browser     *BrowserConfig     `yaml:"browser,omitempty"`
 	RemoteAgent *RemoteAgentConfig `yaml:"remoteAgent,omitempty"`
 	Autopilot   *AutopilotConfig   `yaml:"autopilot,omitempty"`
+	Memory      *MemoryConfig      `yaml:"memory,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
@@ -1042,6 +1044,94 @@ const EmbeddingOperationUpsert = "upsert"
 // EmbeddingDefaultUpsertThreshold is the minimum cosine-similarity score at which
 // an existing embedding is considered a match for upsert deduplication.
 const EmbeddingDefaultUpsertThreshold = 0.95
+
+// MemoryOperationConsolidate stores an experience into semantic memory.
+const MemoryOperationConsolidate = "consolidate"
+
+// MemoryOperationRecall retrieves relevant memories via semantic search.
+const MemoryOperationRecall = "recall"
+
+// MemoryOperationForget removes memories from the store.
+const MemoryOperationForget = "forget"
+
+// MemoryDefaultTopK is the default number of memories to recall.
+const MemoryDefaultTopK = 5
+
+// MemoryConfig configures a memory resource that stores and retrieves
+// agent experiences using a local vector-backed semantic store.
+type MemoryConfig struct {
+	// Operation is "consolidate" (store), "recall" (search), or "forget" (delete).
+	// Default: "consolidate".
+	Operation string `yaml:"operation,omitempty"`
+
+	// Content is the text to store or search. Expression evaluation supported.
+	// Required for "consolidate" and "recall" operations.
+	Content string `yaml:"content"`
+
+	// Category is the memory collection name (default: "memories").
+	Category string `yaml:"category,omitempty"`
+
+	// TopK is the max number of memories to return for recall (default: 5).
+	TopK int `yaml:"topK,omitempty"`
+
+	// DBPath is the path to the SQLite vector DB file.
+	// Defaults to /tmp/kdeps-memory/<category>.db.
+	DBPath string `yaml:"dbPath,omitempty"`
+
+	// Model is the embedding model (e.g., "nomic-embed-text", "text-embedding-3-small").
+	// Default: "nomic-embed-text".
+	Model string `yaml:"model,omitempty"`
+
+	// Backend is the embedding provider: "ollama" (default), "openai", "cohere", "huggingface".
+	Backend string `yaml:"backend,omitempty"`
+
+	// BaseURL is the optional base URL for the embedding backend.
+	BaseURL string `yaml:"baseUrl,omitempty"`
+
+	// APIKey is the authentication credential for online embedding providers.
+	APIKey string `yaml:"apiKey,omitempty"`
+
+	// Metadata is optional key-value metadata to store alongside a consolidated memory.
+	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+
+	// TimeoutDuration is the timeout for embedding API calls (e.g., "30s", "1m").
+	TimeoutDuration string `yaml:"timeoutDuration,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for TopK.
+func (m *MemoryConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Operation       string                 `yaml:"operation,omitempty"`
+		Content         string                 `yaml:"content"`
+		Category        string                 `yaml:"category,omitempty"`
+		TopK            interface{}            `yaml:"topK,omitempty"`
+		DBPath          string                 `yaml:"dbPath,omitempty"`
+		Model           string                 `yaml:"model,omitempty"`
+		Backend         string                 `yaml:"backend,omitempty"`
+		BaseURL         string                 `yaml:"baseUrl,omitempty"`
+		APIKey          string                 `yaml:"apiKey,omitempty"`
+		Metadata        map[string]interface{} `yaml:"metadata,omitempty"`
+		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+	if i, ok := parseInt(alias.TopK); ok {
+		m.TopK = i
+	}
+	m.Operation = alias.Operation
+	m.Content = alias.Content
+	m.Category = alias.Category
+	m.DBPath = alias.DBPath
+	m.Model = alias.Model
+	m.Backend = alias.Backend
+	m.BaseURL = alias.BaseURL
+	m.APIKey = alias.APIKey
+	m.Metadata = alias.Metadata
+	m.TimeoutDuration = alias.TimeoutDuration
+	return nil
+}
 
 // EmbeddingConfig configures an embedding/vector DB resource that converts
 // text input to vector embeddings and stores or queries them in a local vector index.
