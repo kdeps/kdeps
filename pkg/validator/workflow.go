@@ -307,18 +307,18 @@ func (v *WorkflowValidator) ValidateResource(
 	hasExprBlocks := len(resource.Run.Expr) > 0 ||
 		len(resource.Run.ExprBefore) > 0 ||
 		len(resource.Run.ExprAfter) > 0
-	hasLoop := resource.Run.Loop != nil
 
 	// A resource is valid if it has:
 	//   a) at least one primary execution type, or
 	//   b) an apiResponse block, or
-	//   c) a loop with expression blocks (for Turing-complete while loops).
-	if primaryCount == 0 && !hasAPIResponse && (!hasLoop || !hasExprBlocks) {
+	//   c) expression blocks (expr/exprBefore/exprAfter) used for variable assignment, or
+	//   d) a loop with expression blocks (for Turing-complete while loops).
+	if primaryCount == 0 && !hasAPIResponse && !hasExprBlocks {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
 				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, embedding, pdf, email, calendar, search, agent, apiResponse)",
+				" scraper, embedding, pdf, email, calendar, search, agent, apiResponse, expr)",
 			nil,
 		)
 	}
