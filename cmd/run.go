@@ -1337,11 +1337,13 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 const gracefulShutdownTimeout = 10 * time.Second
 
 // RunSelfTests waits for the server at addr to become ready, then executes all
-// tests defined in workflow.Tests. Returns one Result per test case.
+// tests.  When no explicit tests: block is defined in the workflow, test cases
+// are automatically generated from the configured API routes.
 func RunSelfTests(workflow *domain.Workflow, addr string) []selftest.Result {
-	if len(workflow.Tests) == 0 {
-		fmt.Fprintln(os.Stdout, "\nNo tests defined in workflow - skipping self-test.")
-		return nil
+	tests := workflow.Tests
+	if len(tests) == 0 {
+		fmt.Fprintln(os.Stdout, "\nNo tests defined - generating smoke tests from workflow routes...")
+		tests = selftest.GenerateTests(workflow)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), selfTestOverallTimeout)
 	defer cancel()
@@ -1350,7 +1352,7 @@ func RunSelfTests(workflow *domain.Workflow, addr string) []selftest.Result {
 	if err := runner.WaitReady(ctx); err != nil {
 		return []selftest.Result{{Name: "__startup__", Passed: false, Error: err.Error()}}
 	}
-	return runner.Run(ctx, workflow.Tests)
+	return runner.Run(ctx, tests)
 }
 
 // PrintSelfTestResults writes a formatted self-test summary to w.

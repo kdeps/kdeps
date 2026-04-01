@@ -84,13 +84,15 @@ func TestPrintSelfTestResults_Empty(t *testing.T) {
 	assert.Empty(t, buf.String())
 }
 
-func TestRunSelfTests_NoTests(t *testing.T) {
+func TestRunSelfTests_NoTests_AutoGeneratesHealthCheck(t *testing.T) {
 	srv := startFakeServer(t, nil)
-	// extract just host:port from URL
 	addr := strings.TrimPrefix(srv.URL, "http://")
+	// No tests: block and no API routes - should auto-generate health check only.
 	workflow := &domain.Workflow{}
 	results := cmd.RunSelfTests(workflow, addr)
-	assert.Nil(t, results)
+	require.Len(t, results, 1)
+	assert.Equal(t, "auto: health check", results[0].Name)
+	assert.True(t, results[0].Passed, results[0].Error)
 }
 
 func TestRunSelfTests_PassingTest(t *testing.T) {
