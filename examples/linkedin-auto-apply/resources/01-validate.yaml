@@ -1,0 +1,24 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: validate
+  name: validate
+  description: Ensure all required input fields are present before proceeding.
+
+run:
+  validations:
+    methods: [POST]
+    routes: [/api/v1/apply]
+
+    check:
+      - "get('job_title') != ''"
+      - "get('candidate_name') != ''"
+      - "get('candidate_profile') != ''"
+
+    error:
+      code: 400
+      message: "job_title, candidate_name, and candidate_profile are required"
+
+  expr:
+    - "set('validated', true)"

@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: response
+  name: response
+  description: Return the curated job list with cover letters as JSON.
+  requires: [assemble]
+
+run:
+  apiResponse:
+    success: true
+    response: "{{ get('assemble') }}"

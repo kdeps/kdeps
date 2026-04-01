@@ -1,0 +1,31 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: search-jobs
+  name: search-jobs
+  description: |
+    Fetch job listings from LinkedIn via the JSearch API on RapidAPI.
+
+    Constructs the search query from job_title + location, applies
+    date_posted and remote_only filters, and returns raw API data.
+
+    Set the RAPIDAPI_KEY environment variable or pass rapidapi_key in
+    the request body.
+  requires: [validate]
+
+run:
+  httpClient:
+    method: GET
+    # Query parameters are embedded directly in the URL.
+    # location is appended to the query string when provided; the
+    # JSearch API ignores trailing whitespace so an empty location is safe.
+    url: "https://jsearch.p.rapidapi.com/search?query={{ (get('job_title') ~ ' in ' ~ get('location') | default('')) | trim }}&date_posted={{ get('date_posted') | default('week') }}&remote_jobs_only={{ get('remote_only') | default('false') }}&num_pages=1"
+    headers:
+      X-RapidAPI-Key: "{{ get('rapidapi_key') | default(env('RAPIDAPI_KEY', '')) }}"
+      X-RapidAPI-Host: "jsearch.p.rapidapi.com"
+    timeoutDuration: 30s
+    retry:
+      maxAttempts: 3
+      backoff: 2s
+      retryOn: [500, 502, 503, 504]

@@ -1,0 +1,66 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: linkedin-auto-apply
+  description: |
+    AI-powered LinkedIn job search and application content generator.
+
+    Searches for jobs via the JSearch API (RapidAPI), scores each listing
+    against your candidate profile using a local LLM (Ollama), and
+    generates tailored cover letters for the best matches.
+
+    Pipeline:
+      1. Validate required input fields
+      2. Search LinkedIn jobs via JSearch API (RapidAPI)
+      3. Parse and normalise job listings
+      4. Score every job against the candidate profile (LLM, single batch)
+      5. Filter jobs above the minimum match score
+      6. Generate a tailored cover letter per matched job (LLM, per-job)
+      7. Return curated results with ready-to-submit cover letters
+
+    Requirements:
+      - Ollama running locally with llama3.2 installed
+      - A RapidAPI key with access to the JSearch API (free tier available)
+        https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+
+    API: POST /api/v1/apply
+    Request body (JSON):
+      job_title          string   Job title to search for (required)
+      location           string   Location, e.g. "Amsterdam, Netherlands"
+      candidate_name     string   Full name of the applicant (required)
+      candidate_profile  string   Skills and experience summary (required)
+      min_match_score    number   Minimum match score 0-100 (default: 60)
+      max_results        number   Max jobs to fetch from API (default: 10)
+      date_posted        string   "today","3days","week","month" (default: week)
+      remote_only        bool     Only return remote jobs (default: false)
+      rapidapi_key       string   RapidAPI key (or set env RAPIDAPI_KEY)
+
+    Response (JSON):
+      matched_jobs    array   Jobs at or above min_match_score, each with:
+                              title, company, location, apply_link, is_remote,
+                              match_score, match_reasons, gaps, cover_letter
+      total_searched  number  Total job listings retrieved from API
+      total_matched   number  Jobs that met the score threshold
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16399
+
+  apiServer:
+    routes:
+      - path: "/api/v1/apply"
+        methods: ["POST"]
+    cors:
+      enableCors: true
+      allowedOrigins: ["*"]
+
+  agentSettings:
+    timezone: "UTC"
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2

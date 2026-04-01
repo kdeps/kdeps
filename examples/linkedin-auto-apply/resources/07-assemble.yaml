@@ -1,0 +1,47 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: assemble
+  name: assemble
+  description: |
+    Merge job analysis data with generated cover letters and build the
+    final structured response payload.
+  requires: [generate-letters]
+
+run:
+  python:
+    script: |
+      import json
+
+      filtered = {{get('filter-jobs')  | toJSON()}}
+      letters  = {{get('generate-letters') | toJSON()}}
+      searched = {{get('parse-jobs')   | toJSON()}}
+
+      if not isinstance(filtered, list):
+          filtered = []
+      if not isinstance(letters, list):
+          letters = [letters]
+      if not isinstance(searched, list):
+          searched = []
+
+      matched = []
+      for i, job in enumerate(filtered):
+          letter = letters[i] if i < len(letters) else ''
+          matched.append({
+              'title':         job.get('title', ''),
+              'company':       job.get('company', ''),
+              'location':      job.get('location', ''),
+              'apply_link':    job.get('apply_link', ''),
+              'is_remote':     job.get('is_remote', False),
+              'match_score':   int(job.get('match_score', 0)),
+              'match_reasons': job.get('match_reasons', []),
+              'gaps':          job.get('gaps', []),
+              'cover_letter':  letter if isinstance(letter, str) else str(letter),
+          })
+
+      print(json.dumps({
+          'matched_jobs':   matched,
+          'total_searched': len(searched),
+          'total_matched':  len(matched),
+      }))

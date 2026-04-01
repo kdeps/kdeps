@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: filter-jobs
+  name: filter-jobs
+  description: |
+    Filter analyzed jobs to those that meet the minimum match score,
+    then sort by score descending.  The output drives the items
+    iteration in generate-letters.
+  requires: [analyze-jobs]
+
+run:
+  python:
+    script: |
+      import json
+
+      analyzed  = {{get('analyze-jobs') | toJSON()}}
+      min_score = int({{get('min_match_score') | default(60)}})
+
+      if not isinstance(analyzed, list):
+          analyzed = []
+
+      matched = [j for j in analyzed if int(j.get('match_score', 0)) >= min_score]
+      matched.sort(key=lambda x: int(x.get('match_score', 0)), reverse=True)
+
+      print(json.dumps(matched))

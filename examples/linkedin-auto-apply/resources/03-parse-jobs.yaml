@@ -1,0 +1,41 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: parse-jobs
+  name: parse-jobs
+  description: |
+    Extract and normalise job listings from the raw JSearch API response.
+    Trims descriptions to 2 000 characters so they fit the LLM context.
+  requires: [search-jobs]
+
+run:
+  python:
+    script: |
+      import json, sys
+
+      raw = {{get('search-jobs') | toJSON()}}
+      jobs_raw = raw.get('data', []) if isinstance(raw, dict) else []
+
+      max_results = int({{get('max_results') | default(10)}})
+      jobs = []
+      for job in jobs_raw[:max_results]:
+          desc = (job.get('job_description') or '')[:2000]
+          location_parts = filter(None, [
+              job.get('job_city'),
+              job.get('job_state'),
+              job.get('job_country'),
+          ])
+          jobs.append({
+              'job_id':          job.get('job_id', ''),
+              'title':           job.get('job_title', ''),
+              'company':         job.get('employer_name', ''),
+              'location':        ', '.join(location_parts),
+              'description':     desc,
+              'apply_link':      job.get('job_apply_link', ''),
+              'posted_at':       job.get('job_posted_at_datetime_utc', ''),
+              'employment_type': job.get('job_employment_type', ''),
+              'is_remote':       bool(job.get('job_is_remote', False)),
+          })
+
+      print(json.dumps(jobs))
