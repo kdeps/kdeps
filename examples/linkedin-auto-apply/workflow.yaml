@@ -4,46 +4,55 @@ kind: Workflow
 metadata:
   name: linkedin-auto-apply
   description: |
-    AI-powered LinkedIn job search and application content generator.
+    Automated LinkedIn job applicant using a headless Chromium browser.
 
-    Searches for jobs via the JSearch API (RapidAPI), scores each listing
-    against your candidate profile using a local LLM (Ollama), and
-    generates tailored cover letters for the best matches.
-
-    Pipeline:
-      1. Validate required input fields
-      2. Search LinkedIn jobs via JSearch API (RapidAPI)
-      3. Parse and normalise job listings
-      4. Score every job against the candidate profile (LLM, single batch)
-      5. Filter jobs above the minimum match score
-      6. Generate a tailored cover letter per matched job (LLM, per-job)
-      7. Return curated results with ready-to-submit cover letters
+    Replicates the full auto-apply bot flow natively:
+      1. Validate required inputs and personal details
+      2. Log in to LinkedIn (browser, session persisted)
+      3. Search for jobs and extract listings (browser, JS evaluate)
+      4. Score and filter jobs against the candidate profile (LLM, per-job)
+      5. Apply to each matched job via Easy Apply (browser, per-job):
+         - Click "Easy Apply"
+         - Upload resume
+         - Answer form questions (text, select, radio, checkbox, textarea)
+           using predefined answers + LLM for unknown questions
+         - Submit application
+      6. Return applied/skipped/failed summary
 
     Requirements:
       - Ollama running locally with llama3.2 installed
-      - A RapidAPI key with access to the JSearch API (free tier available)
-        https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
+      - A LinkedIn account (email + password in request body)
+      - A local resume PDF at the path provided in resume_path
 
     API: POST /api/v1/apply
     Request body (JSON):
-      job_title          string   Job title to search for (required)
-      location           string   Location, e.g. "Amsterdam, Netherlands"
-      candidate_name     string   Full name of the applicant (required)
-      candidate_profile  string   Skills and experience summary (required)
-      min_match_score    number   Minimum match score 0-100 (default: 60)
-      max_results        number   Max jobs to fetch from API (default: 10)
-      date_posted        string   "today","3days","week","month" (default: week)
-      remote_only        bool     Only return remote jobs (default: false)
-      rapidapi_key       string   RapidAPI key (or set env RAPIDAPI_KEY)
-
-    Response (JSON):
-      matched_jobs    array   Jobs at or above min_match_score, each with:
-                              title, company, location, apply_link, is_remote,
-                              match_score, match_reasons, gaps, cover_letter
-      total_searched  number  Total job listings retrieved from API
-      total_matched   number  Jobs that met the score threshold
+      linkedin_email         string   LinkedIn login email (required)
+      linkedin_password      string   LinkedIn login password (required)
+      job_title              string   Job title to search for (required)
+      candidate_name         string   Full name (required)
+      candidate_profile      string   Skills and experience summary (required)
+      resume_path            string   Absolute path to resume PDF (required)
+      location               string   Search location (default: "")
+      min_match_score        number   Minimum match score 0-100 (default: 60)
+      max_results            number   Max jobs to apply to (default: 5)
+      date_posted            string   r86400/r604800/r2592000 (default: r604800)
+      remote_only            bool     Remote jobs only (default: false)
+      phone_number           string   Phone number for form questions
+      years_of_experience    string   Years of experience for form questions
+      current_city           string   City for location questions
+      country                string   Country (default: "Netherlands")
+      require_visa           string   "Yes" or "No" (default: "No")
+      desired_salary         string   Expected salary for form questions
+      easy_apply_only        bool     Skip external-apply jobs (default: true)
   version: "1.0.0"
   targetActionId: response
+  resources:
+    - 01-validate.yaml
+    - 02-login.yaml
+    - 03-search-jobs.yaml
+    - 04-analyze-jobs.yaml
+    - 05-apply-job.yaml
+    - 06-response.yaml
 
 settings:
   apiServerMode: true

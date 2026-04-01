@@ -96,6 +96,66 @@ type Workflow struct {
 	Metadata   WorkflowMetadata `yaml:"metadata"`
 	Settings   WorkflowSettings `yaml:"settings"`
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
+	Tests      []TestCase       `yaml:"tests,omitempty"`     // Inline self-test cases run with --self-test.
+}
+
+// TestCase defines a single self-test case executed against the live server.
+type TestCase struct {
+	// Name is a human-readable label for the test (required).
+	Name string `yaml:"name"`
+	// Request describes the HTTP request to send.
+	Request TestRequest `yaml:"request"`
+	// Assert describes the expected response.
+	Assert TestAssert `yaml:"assert"`
+	// Timeout is the per-test timeout (e.g. "30s"). Defaults to 30s.
+	Timeout string `yaml:"timeout,omitempty"`
+}
+
+// TestRequest describes the HTTP request to send for a self-test.
+type TestRequest struct {
+	// Method is the HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to GET.
+	Method string `yaml:"method,omitempty"`
+	// Path is the request path (e.g. /api/v1/chat). Required.
+	Path string `yaml:"path"`
+	// Headers are optional request headers.
+	Headers map[string]string `yaml:"headers,omitempty"`
+	// Body is the request body, marshalled to JSON when sent.
+	Body interface{} `yaml:"body,omitempty"`
+	// Query are optional URL query parameters.
+	Query map[string]string `yaml:"query,omitempty"`
+}
+
+// TestAssert describes what the HTTP response must satisfy.
+type TestAssert struct {
+	// Status is the expected HTTP status code (e.g. 200, 400). Zero means no check.
+	Status int `yaml:"status,omitempty"`
+	// Headers are expected response header values (substring match per header).
+	Headers map[string]string `yaml:"headers,omitempty"`
+	// Body describes response body assertions.
+	Body *TestBodyAssert `yaml:"body,omitempty"`
+}
+
+// TestBodyAssert describes assertions on the response body.
+type TestBodyAssert struct {
+	// Contains checks that the raw response body contains this substring.
+	Contains string `yaml:"contains,omitempty"`
+	// Equals checks that the raw response body exactly equals this string.
+	Equals string `yaml:"equals,omitempty"`
+	// JSONPath is a list of JSONPath assertions evaluated against the parsed body.
+	JSONPath []TestJSONPath `yaml:"jsonPath,omitempty"`
+}
+
+// TestJSONPath describes a single JSONPath assertion.
+// Exactly one of Equals, Contains, or Exists should be set.
+type TestJSONPath struct {
+	// Path is the JSONPath expression (e.g. $.success, $.data.name, $.items[0]).
+	Path string `yaml:"path"`
+	// Equals checks that the resolved value equals this (type-aware comparison).
+	Equals interface{} `yaml:"equals,omitempty"`
+	// Contains checks that the resolved string value contains this substring.
+	Contains string `yaml:"contains,omitempty"`
+	// Exists checks whether the key exists (true) or must be absent (false).
+	Exists *bool `yaml:"exists,omitempty"`
 }
 
 // WorkflowMetadata contains workflow metadata.

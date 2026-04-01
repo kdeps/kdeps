@@ -82,6 +82,11 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 		}
 	}
 
+	// 8. Validate self-test cases (if any)
+	if err := ValidateTestCases(workflow.Tests); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -281,6 +286,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Search != nil {
 		n++
 	}
+	if run.Browser != nil {
+		n++
+	}
 	return n
 }
 
@@ -318,7 +326,7 @@ func (v *WorkflowValidator) ValidateResource(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
 				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, embedding, pdf, email, calendar, search, agent, apiResponse, expr)",
+				" scraper, browser, embedding, pdf, email, calendar, search, agent, apiResponse, expr)",
 			nil,
 		)
 	}
@@ -327,7 +335,7 @@ func (v *WorkflowValidator) ValidateResource(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
 				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, embedding, pdf, email, calendar, search, agent)",
+				" scraper, browser, embedding, pdf, email, calendar, search, agent)",
 			nil,
 		)
 	}
@@ -375,7 +383,37 @@ func (v *WorkflowValidator) ValidateResource(
 			return err
 		}
 	}
+	if resource.Run.Browser != nil {
+		if err := ValidateBrowserConfig(resource.Run.Browser); err != nil {
+			return err
+		}
+	}
 
+	return nil
+}
+
+// ValidateBrowserConfig validates browser automation configuration.
+func ValidateBrowserConfig(config *domain.BrowserConfig) error {
+	if config.URL == "" && len(config.Actions) == 0 {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"browser: must specify at least a url or one action",
+			nil,
+		)
+	}
+	validEngines := map[string]bool{
+		"":                           true, // default (chromium)
+		domain.BrowserEngineChromium: true,
+		domain.BrowserEngineFirefox:  true,
+		domain.BrowserEngineWebKit:   true,
+	}
+	if !validEngines[config.Engine] {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf("browser.engine %q is not valid; use chromium, firefox, or webkit", config.Engine),
+			nil,
+		)
+	}
 	return nil
 }
 
@@ -1118,5 +1156,48 @@ func ValidatePDFConfig(config *domain.PDFConfig) error {
 			fmt.Sprintf("pdf.outputFile %q must end with .pdf", config.OutputFile), nil)
 	}
 
+	return nil
+}
+
+// ValidateTestCases validates self-test case definitions.
+func ValidateTestCases(tests []domain.TestCase) error {
+	validMethods := map[string]bool{
+		"GET": true, "POST": true, "PUT": true,
+		"DELETE": true, "PATCH": true, "": true, // empty defaults to GET
+	}
+	for i, tc := range tests {
+		if tc.Name == "" {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf("tests[%d]: name is required", i),
+				nil,
+			)
+		}
+		if tc.Request.Path == "" {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf("test %q: request.path is required", tc.Name),
+				nil,
+			)
+		}
+		method := strings.ToUpper(tc.Request.Method)
+		if !validMethods[method] {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf(
+					"test %q: invalid method %q (use GET, POST, PUT, DELETE, PATCH)",
+					tc.Name, tc.Request.Method,
+				),
+				nil,
+			)
+		}
+		if tc.Assert.Status != 0 && (tc.Assert.Status < 100 || tc.Assert.Status > 599) {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				fmt.Sprintf("test %q: assert.status %d out of range (100-599)", tc.Name, tc.Assert.Status),
+				nil,
+			)
+		}
+	}
 	return nil
 }

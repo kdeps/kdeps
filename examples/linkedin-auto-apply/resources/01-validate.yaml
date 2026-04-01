@@ -12,13 +12,16 @@ run:
     routes: [/api/v1/apply]
 
     check:
+      - "get('linkedin_email') != ''"
+      - "get('linkedin_password') != ''"
       - "get('job_title') != ''"
       - "get('candidate_name') != ''"
       - "get('candidate_profile') != ''"
+      - "get('resume_path') != ''"
 
     error:
       code: 400
-      message: "job_title, candidate_name, and candidate_profile are required"
+      message: "linkedin_email, linkedin_password, job_title, candidate_name, candidate_profile, and resume_path are required"
 
   expr:
     - "set('validated', true)"

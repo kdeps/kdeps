@@ -822,7 +822,7 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 	}
 
 	// This should fail because the port is already in use
-	err = cmd.StartHTTPServer(workflow, "", false, false)
+	err = cmd.StartHTTPServer(workflow, "", false, false, false, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "API server cannot start")
 }
@@ -885,7 +885,7 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 	// We'll let it run briefly then send SIGINT to trigger graceful shutdown
 	done := make(chan error, 1)
 	go func() {
-		done <- cmd.StartHTTPServer(workflow, workflowPath, false, false)
+		done <- cmd.StartHTTPServer(workflow, workflowPath, false, false, false, false)
 	}()
 
 	// Wait a short time for server to start

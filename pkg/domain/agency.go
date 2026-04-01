@@ -39,6 +39,7 @@ type Agency struct {
 	Kind       string         `yaml:"kind"`
 	Metadata   AgencyMetadata `yaml:"metadata"`
 	Agents     []string       `yaml:"agents,omitempty"`
+	Tests      []TestCase     `yaml:"tests,omitempty"` // Inline self-test cases run with --self-test against the entry-point agent.
 }
 
 // AgencyMetadata contains agency-level metadata.
