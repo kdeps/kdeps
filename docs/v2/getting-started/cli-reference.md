@@ -40,6 +40,9 @@ kdeps run [workflow.yaml | package.kdeps] [flags]
 | `--dev` | Enable hot reload mode | `false` |
 | `--port` | API server port number | From workflow config |
 | `--debug` | Enable debug logging | `false` |
+| `--self-test` | Run `tests:` block after server starts, keep running | `false` |
+| `--self-test-only` | Run `tests:` block then exit (non-zero on failure) | `false` |
+| `--write-tests` | Generate tests from resources and write to workflow file, then exit | `false` |
 
 **Examples:**
 ```bash
@@ -57,6 +60,15 @@ kdeps run workflow.yaml --debug
 
 # Run on specific port
 kdeps run workflow.yaml --port 16395
+
+# Auto-generate tests and write them into workflow.yaml, then exit
+kdeps run workflow.yaml --write-tests
+
+# Start server and run tests once (keep server running afterwards)
+kdeps run workflow.yaml --self-test
+
+# CI/CD: start server, run tests, exit with non-zero status on failure
+kdeps run workflow.yaml --self-test-only
 ```
 
 **Features:**
@@ -64,6 +76,23 @@ kdeps run workflow.yaml --port 16395
 - Hot reload in dev mode
 - Easy debugging
 - No Docker overhead
+- Built-in self-test runner with auto-generation
+
+**Self-test workflow:**
+
+```bash
+# Step 1: scaffold tests from your workflow resources
+kdeps run workflow.yaml --write-tests
+# -> Appends a tests: block to workflow.yaml
+
+# Step 2: review and edit workflow.yaml tests: section
+
+# Step 3: run them in CI
+kdeps run workflow.yaml --self-test-only
+echo "Exit code: $?"
+```
+
+When no explicit `tests:` block is present, `--self-test` and `--self-test-only` auto-generate smoke tests from the workflow routes and resources at runtime (nothing is written to disk).
 
 ---
 
@@ -428,16 +457,23 @@ kdeps scaffold llm http-client
 # 3. Validate configuration
 kdeps validate workflow.yaml
 
-# 4. Run locally with hot reload
+# 4. Generate self-tests from your resources
+kdeps run workflow.yaml --write-tests
+# -> Appends tests: block to workflow.yaml; review and customise
+
+# 5. Run locally with hot reload
 kdeps run workflow.yaml --dev
 
-# 5. Test and iterate
+# 6. Test and iterate
 # (Edit files, server auto-reloads)
 
-# 6. Package for deployment
+# 7. Run tests in CI
+kdeps run workflow.yaml --self-test-only
+
+# 8. Package for deployment
 kdeps package . --output dist/
 
-# 7. Build Docker image (optional)
+# 9. Build Docker image (optional)
 kdeps build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 

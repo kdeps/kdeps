@@ -591,3 +591,95 @@ settings:
 ```
 
 See the [Input Sources guide](../concepts/input-sources) for complete examples, and the [TTS resource](../resources/tts) for the speech output side of voice workflows.
+
+## Self-Tests
+
+An optional `tests:` block lets you define HTTP-level smoke tests that run against the live server when you pass `--self-test` or `--self-test-only` to `kdeps run`.
+
+### Scaffold tests automatically
+
+```bash
+# Generates tests from your resources and appends them to workflow.yaml
+kdeps run workflow.yaml --write-tests
+```
+
+`--write-tests` inspects every resource in your workflow and creates one or more test cases per resource - validation resources get both a valid and an invalid test, LLM resources get a prompt-body test, HTTP client resources with static URLs are tested directly, and so on. A `GET /health -> 200` smoke test is always included.
+
+### Manual tests
+
+```yaml
+tests:
+  - name: "health check"
+    request:
+      method: GET
+      path: /health
+    assert:
+      status: 200
+
+  - name: "chat endpoint"
+    request:
+      method: POST
+      path: /api/v1/chat
+      body:
+        message: "hello"
+    assert:
+      status: 200
+      body:
+        jsonPath:
+          - path: "$.reply"
+            exists: true
+
+  - name: "validation rejects missing fields"
+    request:
+      method: POST
+      path: /api/v1/apply
+      body: {}
+    assert:
+      status: 400
+    timeout: "10s"
+```
+
+### Test case fields
+
+| Field | Description |
+|-------|-------------|
+| `name` | Human-readable label (required) |
+| `request.method` | HTTP method - GET, POST, PUT, DELETE, PATCH (default: GET) |
+| `request.path` | Request path (required) |
+| `request.headers` | Optional map of request headers |
+| `request.body` | Request body, JSON-encoded when sent |
+| `request.query` | Optional map of URL query parameters |
+| `assert.status` | Expected HTTP status code (0 = no check) |
+| `assert.headers` | Expected response header substrings |
+| `assert.body.contains` | Raw body must contain this substring |
+| `assert.body.equals` | Raw body must exactly equal this string |
+| `assert.body.jsonPath` | List of JSONPath assertions (see below) |
+| `timeout` | Per-test timeout, e.g. `"30s"` (default: 30s) |
+
+### JSONPath assertions
+
+Each entry under `assert.body.jsonPath` supports one of:
+
+```yaml
+assert:
+  body:
+    jsonPath:
+      - path: "$.success"       # JSONPath expression
+        equals: true            # value must equal this (type-aware)
+      - path: "$.data.name"
+        contains: "Alice"       # string value must contain this
+      - path: "$.items[0]"
+        exists: true            # key/index must exist (any value)
+```
+
+### Running tests
+
+```bash
+# Start server and run tests once, keep server running
+kdeps run workflow.yaml --self-test
+
+# CI/CD: run tests then exit (non-zero on any failure)
+kdeps run workflow.yaml --self-test-only
+```
+
+When no `tests:` block is present, both flags auto-generate smoke tests from routes and resources at runtime without modifying the file.
