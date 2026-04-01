@@ -685,14 +685,23 @@ func printIORequirements(workflow *domain.Workflow) {
 	input := workflow.Settings.Input
 	hasNonAPIInput := input != nil && input.HasNonAPISource()
 
-	// Collect TTS engines used across all resources (inline before/after included).
+	// Collect TTS engines and browser engines used across all resources.
 	ttsEngines := collectTTSEngines(workflow)
+	browserEngines := collectBrowserEngines(workflow)
 
-	if !hasNonAPIInput && len(ttsEngines) == 0 {
+	if !hasNonAPIInput && len(ttsEngines) == 0 && len(browserEngines) == 0 {
 		return
 	}
 
 	fmt.Fprintln(os.Stdout, "  I/O requirements:")
+
+	if len(browserEngines) > 0 {
+		fmt.Fprintf(
+			os.Stdout,
+			"    Playwright (%s): auto-installed on first run\n",
+			strings.Join(browserEngines, ", "),
+		)
+	}
 
 	if hasNonAPIInput {
 		printBotRequirements(input)
@@ -780,6 +789,58 @@ func addTTSEngine(engines map[string]string, cfg *domain.TTSConfig) {
 	case domain.TTSEngineCoqui:
 		engines[domain.TTSEngineCoqui] = "coqui-tts"
 	}
+}
+
+// collectBrowserEngines returns the set of Playwright browser engines required
+// by any browser resource in the workflow (resources + inline before/after blocks).
+// The default engine when none is specified is chromium.
+func collectBrowserEngines(workflow *domain.Workflow) []string {
+	seen := make(map[string]bool)
+	for _, r := range workflow.Resources {
+		addBrowserEngine(seen, r.Run.Browser)
+		for _, inline := range r.Run.Before {
+			addBrowserEngine(seen, inline.Browser)
+		}
+		for _, inline := range r.Run.After {
+			addBrowserEngine(seen, inline.Browser)
+		}
+	}
+	var engines []string
+	for e := range seen {
+		engines = append(engines, e)
+	}
+	return engines
+}
+
+func addBrowserEngine(seen map[string]bool, cfg *domain.BrowserConfig) {
+	if cfg == nil {
+		return
+	}
+	engine := strings.ToLower(strings.TrimSpace(cfg.Engine))
+	if engine == "" {
+		engine = domain.BrowserEngineChromium
+	}
+	seen[engine] = true
+}
+
+// ensurePlaywrightInstalled installs the Playwright driver and the requested
+// browser engines when they are not already present.
+func ensurePlaywrightInstalled(engines []string) error {
+	alreadyInstalled := executorBrowser.IsInstalled()
+	if !alreadyInstalled {
+		fmt.Fprintf(
+			os.Stdout,
+			"  ⏳ Installing Playwright (%s, first run may take a minute)...\n",
+			strings.Join(engines, ", "),
+		)
+	}
+	if err := executorBrowser.EnsureInstalled(engines, os.Stderr); err != nil {
+		return fmt.Errorf("playwright installation failed: %w", err)
+	}
+	if !alreadyInstalled {
+		fmt.Fprintln(os.Stdout, "  ✓ Playwright installed")
+	}
+	return nil
 }
 
 // isBinaryAvailable returns true when name is found on PATH.
@@ -919,7 +980,21 @@ func printTTSEngineRequirement(engine, _ string) {
 // It is a no-op when uv is not installed or when no I/O tools are required.
 // Errors are returned for failed installs so the user sees a clear message
 // instead of a cryptic runtime failure during transcription or TTS.
+// installBrowserTools installs Playwright when the workflow uses browser resources.
+func installBrowserTools(workflow *domain.Workflow) error {
+	engines := collectBrowserEngines(workflow)
+	if len(engines) == 0 {
+		return nil
+	}
+	return ensurePlaywrightInstalled(engines)
+}
+
 func installIOTools(workflow *domain.Workflow) error {
+	// Browser / Playwright installation is independent of uv.
+	if err := installBrowserTools(workflow); err != nil {
+		return err
+	}
+
 	if !isBinaryAvailable("uv") {
 		return nil // uv not available; user already saw [not found] hints
 	}
