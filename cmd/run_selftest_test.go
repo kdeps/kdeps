@@ -24,11 +24,13 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	goyaml "gopkg.in/yaml.v3"
 
 	cmd "github.com/kdeps/kdeps/v2/cmd"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -149,4 +151,80 @@ func TestRunSelfTests_ServerNotReady(t *testing.T) {
 	require.Len(t, results, 1)
 	assert.False(t, results[0].Passed)
 	assert.Equal(t, "__startup__", results[0].Name)
+}
+
+// ---- WriteTestsToWorkflow ----
+
+func tmpWorkflowFile(t *testing.T) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "workflow-*.yaml")
+	require.NoError(t, err)
+	_, err = f.WriteString("apiVersion: v1\nkind: Workflow\n")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	return f.Name()
+}
+
+func TestWriteTestsToWorkflow_AppendsTests(t *testing.T) {
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{{Path: "/api/v1/chat", Methods: []string{"POST"}}},
+			},
+		},
+	}
+	path := tmpWorkflowFile(t)
+	require.NoError(t, cmd.WriteTestsToWorkflow(wf, path))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(raw)
+	assert.Contains(t, content, "tests:")
+	assert.Contains(t, content, "auto: health check")
+	assert.Contains(t, content, "/api/v1/chat")
+}
+
+func TestWriteTestsToWorkflow_ParseableAfterWrite(t *testing.T) {
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{{Path: "/api/v1/run", Methods: []string{"GET"}}},
+			},
+		},
+	}
+	path := tmpWorkflowFile(t)
+	require.NoError(t, cmd.WriteTestsToWorkflow(wf, path))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	var parsed struct {
+		Tests []domain.TestCase `yaml:"tests"`
+	}
+	require.NoError(t, goyaml.Unmarshal(raw, &parsed))
+	require.NotEmpty(t, parsed.Tests)
+	assert.Equal(t, "auto: health check", parsed.Tests[0].Name)
+}
+
+func TestWriteTestsToWorkflow_ErrorsWhenTestsExist(t *testing.T) {
+	wf := &domain.Workflow{
+		Tests: []domain.TestCase{
+			{Name: "existing", Request: domain.TestRequest{Path: "/health"}, Assert: domain.TestAssert{Status: 200}},
+		},
+	}
+	path := tmpWorkflowFile(t)
+	err := cmd.WriteTestsToWorkflow(wf, path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already has a tests: block")
+}
+
+func TestWriteTestsToWorkflow_WritesHealthCheck_WhenNoResourcesOrRoutes(t *testing.T) {
+	// Empty workflow still produces at least the health check from GenerateTests.
+	wf := &domain.Workflow{}
+	path := tmpWorkflowFile(t)
+	require.NoError(t, cmd.WriteTestsToWorkflow(wf, path))
+
+	raw, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), "auto: health check")
 }

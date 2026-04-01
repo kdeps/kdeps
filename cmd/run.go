@@ -40,6 +40,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -90,6 +91,7 @@ type RunFlags struct {
 	DevMode      bool
 	SelfTest     bool // --self-test: run inline tests after server starts, keep running
 	SelfTestOnly bool // --self-test-only: run inline tests then exit (non-zero on failure)
+	WriteTests   bool // --write-tests: generate tests from workflow and write them to the tests: block, then exit
 }
 
 // newRunCmd creates the run command.
@@ -138,6 +140,10 @@ Examples:
 	runCmd.Flags().BoolVar(
 		&flags.SelfTestOnly, "self-test-only", false,
 		"Run inline tests then exit (non-zero on failure)",
+	)
+	runCmd.Flags().BoolVar(
+		&flags.WriteTests, "write-tests", false,
+		"Generate self-tests from workflow resources and write them to the tests: block in the workflow file, then exit",
 	)
 
 	return runCmd
@@ -391,6 +397,16 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		workflow.Metadata.Version,
 	)
 	fmt.Fprintf(os.Stdout, "  ✓ Resources: %d\n", len(workflow.Resources))
+
+	// --write-tests: generate and persist auto-tests, then exit.
+	if flags.WriteTests {
+		fmt.Fprintln(os.Stdout, "\n[--write-tests] Generating self-tests from workflow...")
+		writeErr := WriteTestsToWorkflow(workflow, workflowPath)
+		if writeErr != nil {
+			return fmt.Errorf("write-tests failed: %w", writeErr)
+		}
+		return nil
+	}
 
 	// 2. Validate workflow
 	fmt.Fprintln(os.Stdout, "\n[2/5] Validating workflow...")
@@ -1451,6 +1467,48 @@ func PrintSelfTestResults(w io.Writer, results []selftest.Result) {
 		}
 	}
 	fmt.Fprintf(w, "\nSelf-test results: %d passed, %d failed\n", passed, failed)
+}
+
+// WriteTestsToWorkflow generates self-tests from workflow resources and appends a
+// tests: block to the workflow YAML file at workflowPath.
+// It returns an error when a tests: block is already present so existing tests
+// are never silently overwritten.
+func WriteTestsToWorkflow(workflow *domain.Workflow, workflowPath string) error {
+	if len(workflow.Tests) > 0 {
+		return fmt.Errorf(
+			"workflow already has a tests: block (%d tests); remove it first to regenerate",
+			len(workflow.Tests),
+		)
+	}
+
+	cases := selftest.GenerateTests(workflow)
+	if len(cases) == 0 {
+		fmt.Fprintln(os.Stdout, "  no tests generated (workflow has no resources or routes)")
+		return nil
+	}
+
+	// Marshal only the tests block.
+	type testsWrapper struct {
+		Tests []domain.TestCase `yaml:"tests"`
+	}
+	block, err := goyaml.Marshal(&testsWrapper{Tests: cases})
+	if err != nil {
+		return fmt.Errorf("failed to marshal tests: %w", err)
+	}
+
+	// Append to the workflow file.
+	f, err := os.OpenFile(workflowPath, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to open workflow file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err = fmt.Fprintf(f, "\n%s", block); err != nil {
+		return fmt.Errorf("failed to write tests block: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "  ✓ Wrote %d test case(s) to %s\n", len(cases), workflowPath)
+	return nil
 }
 
 // dispatchExecution selects and starts the correct execution mode for the workflow:
