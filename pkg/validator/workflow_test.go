@@ -2499,3 +2499,110 @@ func TestWorkflowValidator_ValidateResource_NewTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTestCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		cases   []domain.TestCase
+		wantErr string
+	}{
+		{
+			name:    "empty list is valid",
+			cases:   nil,
+			wantErr: "",
+		},
+		{
+			name: "valid GET test",
+			cases: []domain.TestCase{
+				{Name: "health", Request: domain.TestRequest{Path: "/health"}, Assert: domain.TestAssert{Status: 200}},
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid POST test",
+			cases: []domain.TestCase{
+				{
+					Name:    "create",
+					Request: domain.TestRequest{Method: "POST", Path: "/api/v1/chat"},
+					Assert:  domain.TestAssert{Status: 201},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "method defaults to empty (GET)",
+			cases: []domain.TestCase{
+				{Name: "get", Request: domain.TestRequest{Path: "/"}},
+			},
+			wantErr: "",
+		},
+		{
+			name: "missing name",
+			cases: []domain.TestCase{
+				{Name: "", Request: domain.TestRequest{Path: "/health"}},
+			},
+			wantErr: "name is required",
+		},
+		{
+			name: "missing path",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Method: "GET"}},
+			},
+			wantErr: "request.path is required",
+		},
+		{
+			name: "invalid method",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Method: "INVALID", Path: "/"}},
+			},
+			wantErr: "invalid method",
+		},
+		{
+			name: "status below range",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Assert: domain.TestAssert{Status: 99}},
+			},
+			wantErr: "out of range",
+		},
+		{
+			name: "status above range",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}, Assert: domain.TestAssert{Status: 600}},
+			},
+			wantErr: "out of range",
+		},
+		{
+			name: "status zero means no check",
+			cases: []domain.TestCase{
+				{Name: "test", Request: domain.TestRequest{Path: "/"}},
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid all methods",
+			cases: []domain.TestCase{
+				{Name: "get", Request: domain.TestRequest{Method: "GET", Path: "/"}},
+				{Name: "post", Request: domain.TestRequest{Method: "POST", Path: "/"}},
+				{Name: "put", Request: domain.TestRequest{Method: "PUT", Path: "/"}},
+				{Name: "delete", Request: domain.TestRequest{Method: "DELETE", Path: "/"}},
+				{Name: "patch", Request: domain.TestRequest{Method: "PATCH", Path: "/"}},
+			},
+			wantErr: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateTestCases(tt.cases)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}

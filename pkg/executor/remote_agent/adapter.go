@@ -280,7 +280,7 @@ func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (i
 	}
 
 	// 8. Return outputs
-	if rec.Execution.Status != "success" {
+	if rec.Execution.Status != executionStatusOK {
 		errMsg := "remote agent execution failed"
 		if rec.Execution.Error != nil {
 			errMsg = fmt.Sprintf("%s: %s", errMsg, rec.Execution.Error.Message)
@@ -363,6 +363,7 @@ const (
 	trustLevelVerified  = 2
 	trustLevelCertified = 3
 	defaultTimeoutSecs  = 60
+	executionStatusOK   = "success"
 )
 
 // trustLevelSatisfies returns true if candidate >= required in trust hierarchy.

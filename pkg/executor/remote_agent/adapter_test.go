@@ -121,7 +121,7 @@ func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWi
 					return
 				}
 
-				status := "success"
+				status := executionStatusOK
 				var execError *federation.ExecutionError
 				if !receiptSuccess {
 					status = "error"
@@ -217,7 +217,7 @@ func buildTestServers(t *testing.T, agentStatus int, receiptSuccess bool, signWi
 				return
 			}
 
-			status := "success"
+			status := executionStatusOK
 			var execError *federation.ExecutionError
 			if !receiptSuccess {
 				status = "error"
@@ -779,7 +779,7 @@ func TestAdapter_Execute_CacheHit(t *testing.T) {
 				Callee:    *parsedCallee,
 				Caller:    *parsedCaller,
 				Execution: federation.ExecutionResult{
-					Status:  "success",
+					Status:  executionStatusOK,
 					Outputs: map[string]interface{}{"r": "ok"},
 				},
 			}

@@ -1,48 +1,42 @@
 # linkedin-auto-apply
 
-AI-powered LinkedIn job search and application content generator.
+Automated LinkedIn job applicant powered by a headless Chromium browser and a local LLM.
 
-Searches for relevant jobs, scores each listing against your profile
-with a local LLM, and produces tailored cover letters for the best
-matches - all running offline on your own machine.
+Replicates the full `auto-apply/` bot natively using kdeps browser resources:
+logs in, searches jobs with filters, scores each listing against your profile,
+and runs the complete Easy Apply form flow (fill questions, upload resume,
+submit) for every matched job.
 
 ---
 
-## What it does
+## Pipeline
 
-| Step | Resource | Description |
-|------|----------|-------------|
-| 1 | validate | Check required fields |
-| 2 | search-jobs | Fetch listings from LinkedIn via JSearch API |
-| 3 | parse-jobs | Normalise raw API response |
-| 4 | analyze-jobs | LLM scores every job (0-100) against your profile |
-| 5 | filter-jobs | Keep jobs above your minimum score threshold |
-| 6 | generate-letters | LLM writes a tailored cover letter per matched job |
-| 7 | assemble | Merge analysis + letters into final payload |
-| 8 | response | Return structured JSON |
+| Step | Resource | What it does |
+|------|----------|--------------|
+| 1 | validate | Check all required inputs |
+| 2 | login | Chromium logs in to LinkedIn, session persisted |
+| 3 | search-jobs | Navigate job search, extract listings via JS |
+| 4 | analyze-jobs | LLM scores each job, filters by threshold, writes cover letter |
+| 5 | apply-job | Per matched job: click Easy Apply, fill form, upload resume, submit |
+| 6 | response | Return applied/skipped/failed summary |
 
 ---
 
 ## Prerequisites
 
 - kdeps installed (`kdeps --version`)
-- [Ollama](https://ollama.ai) running locally
+- [Ollama](https://ollama.ai) running locally with `llama3.2`
   ```
   ollama pull llama3.2
   ```
-- A [RapidAPI](https://rapidapi.com) account with the
-  [JSearch API](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch)
-  subscribed (free tier: 200 requests/month)
+- A LinkedIn account with Easy Apply access
+- Your resume as a local PDF file
 
 ---
 
 ## Run
 
 ```bash
-# Export your RapidAPI key
-export RAPIDAPI_KEY=your_key_here
-
-# Start the agent
 kdeps run examples/linkedin-auto-apply
 ```
 
@@ -54,105 +48,101 @@ The API server starts at `http://localhost:16399`.
 
 ### POST /api/v1/apply
 
-**Request body (JSON):**
+**Required fields:**
 
-```json
-{
-  "job_title":         "Software Engineer",
-  "location":          "Amsterdam, Netherlands",
-  "candidate_name":    "Jane Doe",
-  "candidate_profile": "8 years Go and Python. Kubernetes, AWS, Postgres. Led teams of 5+. Open-source contributor.",
-  "min_match_score":   65,
-  "max_results":       10,
-  "date_posted":       "week",
-  "remote_only":       false
-}
-```
+| Field | Type | Notes |
+|-------|------|-------|
+| linkedin_email | string | LinkedIn login email |
+| linkedin_password | string | LinkedIn login password |
+| job_title | string | Search query |
+| candidate_name | string | Used in cover letters and form fields |
+| candidate_profile | string | Skills and experience summary for LLM scoring |
+| resume_path | string | Absolute path to your resume PDF |
 
-| Field | Type | Required | Default | Notes |
-|-------|------|----------|---------|-------|
-| job_title | string | yes | - | Search query sent to LinkedIn |
-| location | string | no | - | City, country, or region |
-| candidate_name | string | yes | - | Used in cover letters |
-| candidate_profile | string | yes | - | Skills and experience summary |
-| min_match_score | number | no | 60 | 0-100; jobs below this are dropped |
-| max_results | number | no | 10 | Max listings to fetch from API |
-| date_posted | string | no | week | today, 3days, week, month |
-| remote_only | bool | no | false | Filter to remote-only jobs |
-| rapidapi_key | string | no | $RAPIDAPI_KEY | Override env var per request |
+**Optional fields (used to answer Easy Apply form questions):**
 
-**Response (JSON):**
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| location | string | "" | Search location |
+| min_match_score | number | 60 | Jobs below this are skipped |
+| max_results | number | 5 | Max jobs to apply to |
+| date_posted | string | r604800 | r86400=day, r604800=week, r2592000=month |
+| remote_only | bool | false | Filter to remote jobs only |
+| easy_apply_only | bool | true | Skip external-apply jobs |
+| phone_number | string | "" | For phone form fields |
+| years_of_experience | string | "" | For experience form fields |
+| current_city | string | "" | For location form fields |
+| country | string | Netherlands | For country select fields |
+| require_visa | string | No | "Yes" or "No" for sponsorship questions |
+| desired_salary | string | "" | For salary form fields |
+| website | string | "" | Portfolio/GitHub URL |
+| linkedin_url | string | "" | LinkedIn profile URL |
 
-```json
-{
-  "matched_jobs": [
-    {
-      "title":         "Senior Software Engineer",
-      "company":       "Acme BV",
-      "location":      "Amsterdam, Netherlands",
-      "apply_link":    "https://www.linkedin.com/jobs/view/...",
-      "is_remote":     false,
-      "match_score":   87,
-      "match_reasons": ["Go expertise matches core requirement", "Kubernetes experience aligns with platform role"],
-      "gaps":          ["Rust experience preferred but not required"],
-      "cover_letter":  "Dear Acme BV Hiring Team,\n\nYour Senior Software Engineer..."
-    }
-  ],
-  "total_searched": 10,
-  "total_matched":  3
-}
-```
-
----
-
-## Example curl
+**Example request:**
 
 ```bash
 curl -s -X POST http://localhost:16399/api/v1/apply \
   -H "Content-Type: application/json" \
   -d '{
-    "job_title": "Backend Engineer",
-    "location": "Amsterdam, Netherlands",
-    "candidate_name": "Jane Doe",
-    "candidate_profile": "8 years Go and Python. Kubernetes, AWS, Postgres. Led teams of 5.",
-    "min_match_score": 65
+    "linkedin_email":      "you@example.com",
+    "linkedin_password":   "your_password",
+    "job_title":           "Backend Engineer",
+    "location":            "Amsterdam, Netherlands",
+    "candidate_name":      "Jane Doe",
+    "candidate_profile":   "8 years Go and Python. Kubernetes, AWS, Postgres. Led teams of 5.",
+    "resume_path":         "/home/jane/resume.pdf",
+    "min_match_score":     65,
+    "phone_number":        "0612345678",
+    "years_of_experience": "8",
+    "current_city":        "Amsterdam",
+    "country":             "Netherlands",
+    "require_visa":        "No"
   }' | jq .
+```
+
+**Response:**
+
+```json
+[
+  { "status": "applied",  "job_id": "3987654321", "title": "Senior Backend Engineer", "company": "Acme BV" },
+  { "status": "skipped",  "job_id": "3987654322", "reason": "match score below threshold" },
+  { "status": "failed",   "job_id": "3987654323", "reason": "no Easy Apply button" }
+]
 ```
 
 ---
 
-## Differences from Selenium-based auto-apply bots
+## How it compares to the Selenium bot
 
-| Feature | Selenium bot | This workflow |
-|---------|-------------|---------------|
-| Job search | Browser automation | JSearch API |
-| Form filling | Selenium click-through | Not included - cover letters are ready to paste |
-| Resume tailoring | AI rewrite | Match reasons highlight what to emphasise |
-| Cover letter | AI generated | Per-job, personalised |
-| Infrastructure | Needs Chrome + driver | Runs headless, no browser |
-| Rate limits | Account ban risk | API rate limited, no ToS violation |
-| Runs offline | No (needs LinkedIn session) | LLM analysis is fully offline |
-
-This workflow focuses on the research and content-generation steps.
-Once you have the `cover_letter` and `apply_link` for each matched job,
-manual submission (or a separate automation layer) applies in seconds.
+| Feature | Selenium bot (`auto-apply/`) | This workflow |
+|---------|------------------------------|---------------|
+| Login | Selenium + credentials | Playwright/Chromium + credentials |
+| Job search | `driver.get(search URL)` | Browser resource navigate |
+| Filters | Click UI filter elements | URL params (f_TPR, f_WT, f_LF) |
+| Job scoring | Not built-in | LLM scores 0-100 against profile |
+| Cover letter | Static text from config | LLM generates per-job |
+| Easy Apply | Selenium click-through | Browser evaluate JS |
+| Form filling | Label-match + config values | Label-match + config values (same logic) |
+| Resume upload | `input.send_keys(path)` | Browser upload action |
+| Submit | `wait_span_click("Submit")` | JS click submit button |
+| Already-applied check | Job state footer text | JS footer text check |
+| Session | Selenium WebDriver | Playwright sessionId |
 
 ---
 
 ## Tuning
 
-**Increase match accuracy** - use a larger model:
+**Use a larger model** for better job scoring in `workflow.yaml`:
 ```yaml
-models:
-  - llama3.2:latest   # or deepseek-r1, mistral, etc.
+model: deepseek-r1
 ```
 
-**Lower the score threshold** to see more options:
+**Lower the score threshold** to apply to more jobs:
 ```json
 { "min_match_score": 40 }
 ```
 
-**Restrict to remote jobs** only:
+**Remote jobs only:**
 ```json
 { "remote_only": true }
 ```

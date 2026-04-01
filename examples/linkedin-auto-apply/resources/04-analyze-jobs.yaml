@@ -5,14 +5,16 @@ metadata:
   actionId: analyze-jobs
   name: analyze-jobs
   description: |
-    Ask the local LLM to score every job listing (0-100) against the
-    candidate profile in a single batch call.
+    Score each extracted job card against the candidate profile and return
+    only jobs that meet the minimum match score threshold.
 
-    Returns a JSON array parallel to parse-jobs, adding:
-      match_score    integer 0-100
-      match_reasons  string[]  skills/experience that align
-      gaps           string[]  required skills the candidate lacks
-  requires: [parse-jobs]
+    Uses items iteration so each job card is scored individually.
+    The LLM returns the original job object enriched with match_score,
+    match_reasons, gaps, and a short cover_letter.
+  requires: [search-jobs]
+
+items:
+  - "{{ get('search-jobs')['actionResults'][0]['result'] | default('[]') }}"
 
 run:
   chat:
@@ -20,48 +22,34 @@ run:
     model: llama3.2
     role: user
     prompt: |
-      You are a job-fit analyst.  Score each job listing against the
-      candidate profile and return ONLY a valid JSON array - no prose,
-      no markdown fences, no extra keys.
+      You are a job-fit analyst and cover letter writer.
+
+      Score the job below 0-100 against the candidate profile. If the score
+      is below {{ get('min_match_score') | default(60) }}, return null.
+      Otherwise return the complete job object with these extra fields added:
+        "match_score"   integer 0-100
+        "match_reasons" array of strings (2-3 reasons the candidate fits)
+        "gaps"          array of strings (skill/experience gaps)
+        "cover_letter"  string (max 200 words, personalised, no placeholders)
 
       Candidate: {{ get('candidate_name') }}
-      Profile:
-      {{ get('candidate_profile') }}
+      Profile:   {{ get('candidate_profile') }}
 
-      Jobs (JSON):
-      {{ get('parse-jobs') | toJSON() }}
+      Job: {{ item | toJSON() }}
 
-      Return one JSON object per job IN THE SAME ORDER as the input:
-      [
-        {
-          "job_id":        "<copied from input>",
-          "title":         "<copied from input>",
-          "company":       "<copied from input>",
-          "location":      "<copied from input>",
-          "apply_link":    "<copied from input>",
-          "is_remote":     true/false,
-          "match_score":   <integer 0-100>,
-          "match_reasons": ["reason 1", "reason 2"],
-          "gaps":          ["gap 1", "gap 2"]
-        }
-      ]
-
-      Scoring guide:
-        90-100  Near-perfect fit - nearly all requirements met
-        70-89   Strong match - most requirements met
-        50-69   Partial match - some requirements met
-        0-49    Poor fit - significant gaps
-
-      match_reasons: skills or experience that directly align with the role.
-      gaps:          required qualifications the candidate appears to lack.
-      Include ALL jobs; do not skip any.
+      Rules:
+      - Return ONLY valid JSON or the single word null - no prose, no fences.
+      - Copy ALL original fields unchanged.
+      - cover_letter: open with company + role, highlight 2-3 matching skills,
+        close with a call to action, sign off with candidate full name.
     jsonResponse: true
     jsonResponseKeys:
       - job_id
       - match_score
-    timeoutDuration: 120s
+    timeoutDuration: 90s
     scenario:
       - role: assistant
         prompt: >-
-          You are a precise job-fit analyst. You return only valid JSON arrays,
-          never prose or markdown.
+          You are a precise job-fit analyst. Return only valid JSON enriched
+          with match_score, match_reasons, gaps, cover_letter — or null if
+          the score is below threshold.
