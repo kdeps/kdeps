@@ -1,0 +1,51 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: generate-letters
+  name: generate-letters
+  description: |
+    Generate a tailored cover letter for each matched job.
+    Runs once per item in filter-jobs (items iteration).
+
+    Each cover letter is personalised with the candidate's name,
+    relevant skills, and a direct link to the job requirements.
+  requires: [filter-jobs]
+
+items:
+  - "{{ get('filter-jobs') }}"
+
+run:
+  chat:
+    backend: ollama
+    model: llama3.2
+    role: user
+    prompt: |
+      Write a concise, professional cover letter (maximum 250 words) for
+      the job below.  The letter must:
+        - Open with a strong hook referencing the company and role
+        - Highlight 2-3 specific skills from the candidate profile that
+          match the job requirements
+        - Close with a clear call to action
+        - Be signed with the candidate's full name
+
+      Do NOT include: date, postal address blocks, subject line, or any
+      placeholder text like "[Your Address]".
+      Return ONLY the cover letter body - no JSON, no markdown.
+
+      Candidate: {{ get('candidate_name') }}
+      Profile:   {{ get('candidate_profile') }}
+
+      Job title:    {{ item.title }}
+      Company:      {{ item.company }}
+      Location:     {{ item.location }}
+      Remote:       {{ item.is_remote }}
+      Match score:  {{ item.match_score }}/100
+      Matched on:   {{ item.match_reasons | join(', ') }}
+      Skill gaps:   {{ item.gaps | join(', ') }}
+    timeoutDuration: 90s
+    scenario:
+      - role: assistant
+        prompt: >-
+          You are an expert career coach and professional copywriter who writes
+          compelling, human-sounding cover letters.
