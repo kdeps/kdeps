@@ -53,6 +53,110 @@ test_validate "$PROJECT_ROOT/examples/shell-exec/workflow.yaml" "Validate shell-
 test_validate "$PROJECT_ROOT/examples/sql-advanced/workflow.yaml" "Validate SQL advanced workflow"
 
 echo ""
+echo "Testing component and agency directory validation..."
+
+# Test: validate a component directory
+COMP_DIR=$(mktemp -d)
+cat > "$COMP_DIR/component.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: e2e-component
+  version: "1.0.0"
+EOF
+if "$KDEPS_BIN" validate "$COMP_DIR" &> /dev/null; then
+    test_passed "Validate component directory"
+else
+    test_failed "Validate component directory" "Expected success for valid component.yaml"
+fi
+rm -rf "$COMP_DIR"
+
+# Test: validate an agency directory
+AGENCY_DIR=$(mktemp -d)
+mkdir -p "$AGENCY_DIR/agents/bot-a/resources"
+cat > "$AGENCY_DIR/agency.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: e2e-agency
+  description: E2E test agency
+  version: "1.0.0"
+agents:
+  - agents/bot-a
+EOF
+cat > "$AGENCY_DIR/agents/bot-a/workflow.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: bot-a
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+EOF
+cat > "$AGENCY_DIR/agents/bot-a/resources/response.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: response
+  name: Response
+run:
+  apiResponse:
+    success: true
+    response:
+      data: "hello"
+EOF
+if "$KDEPS_BIN" validate "$AGENCY_DIR" &> /dev/null; then
+    test_passed "Validate agency directory"
+else
+    test_failed "Validate agency directory" "Expected success for valid agency with agent"
+fi
+rm -rf "$AGENCY_DIR"
+
+# Test: validate by passing workflow.yaml file directly
+WFFILE_DIR=$(mktemp -d)
+mkdir -p "$WFFILE_DIR/resources"
+cat > "$WFFILE_DIR/workflow.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: e2e-direct-wf
+  version: "1.0.0"
+  targetActionId: act
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+EOF
+cat > "$WFFILE_DIR/resources/act.yaml" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: act
+  name: Act
+run:
+  apiResponse:
+    success: true
+    response:
+      msg: "ok"
+EOF
+if "$KDEPS_BIN" validate "$WFFILE_DIR/workflow.yaml" &> /dev/null; then
+    test_passed "Validate workflow.yaml file directly"
+else
+    test_failed "Validate workflow.yaml file directly" "Expected success for valid workflow file"
+fi
+rm -rf "$WFFILE_DIR"
+
+# Test: empty directory gives an error
+EMPTY_DIR=$(mktemp -d)
+if "$KDEPS_BIN" validate "$EMPTY_DIR" &> /dev/null; then
+    test_failed "Empty directory gives error" "Expected failure for empty directory"
+else
+    test_passed "Empty directory gives error"
+fi
+rm -rf "$EMPTY_DIR"
+
+echo ""
 echo "Testing enhanced error messages with available options..."
 
 # Test validation error helper (for non-enum errors)
