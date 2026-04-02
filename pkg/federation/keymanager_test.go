@@ -16,6 +16,8 @@
 package federation
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -125,6 +127,44 @@ func TestSignMessage(t *testing.T) {
 	assert.Len(t, sm.Signature, 64)
 	assert.Equal(t, public, sm.PublicKey)
 	assert.True(t, sm.Verify())
+}
+
+func TestKeyManagerPublicKey(t *testing.T) {
+	private, public, err := GenerateKeypair()
+	assert.NoError(t, err)
+
+	km := NewKeyManager(private)
+	assert.Equal(t, public, km.PublicKey())
+}
+
+func TestWriteAndReadKeyToFile(t *testing.T) {
+	private, _, err := GenerateKeypair()
+	assert.NoError(t, err)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.pem")
+
+	// Write.
+	assert.NoError(t, WriteKeyToFile(path, private))
+
+	// Read back and compare.
+	loaded, err := ReadKeyFromFile(path)
+	assert.NoError(t, err)
+	assert.Equal(t, private, loaded)
+}
+
+func TestReadKeyFromFile_NotFound(t *testing.T) {
+	_, err := ReadKeyFromFile("/nonexistent/path/key.pem")
+	assert.Error(t, err)
+}
+
+func TestReadKeyFromFile_InvalidPEM(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.pem")
+	assert.NoError(t, os.WriteFile(path, []byte("not a pem block"), 0600))
+
+	_, err := ReadKeyFromFile(path)
+	assert.Error(t, err)
 }
 
 func BenchmarkGenerateKeypair(b *testing.B) {
