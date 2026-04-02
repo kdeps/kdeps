@@ -153,3 +153,35 @@ func TestJSONValueEqual(t *testing.T) {
 		assert.Equal(t, tc.eq, jsonValueEqual(tc.got, tc.want))
 	}
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// jsonNumEqual branch tests (int, int64, string fallthrough)
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestJsonNumEqual_Float64Match(t *testing.T) {
+assert.True(t, jsonNumEqual(float64(5), 5))
+}
+
+func TestJsonNumEqual_Float64NoMatch(t *testing.T) {
+assert.False(t, jsonNumEqual(float64(5), 6))
+}
+
+func TestJsonNumEqual_IntMatch(t *testing.T) {
+assert.True(t, jsonNumEqual(int(5), float64(5)))
+}
+
+func TestJsonNumEqual_IntNoMatch(t *testing.T) {
+assert.False(t, jsonNumEqual(int(5), float64(6)))
+}
+
+func TestJsonNumEqual_Int64Match(t *testing.T) {
+assert.True(t, jsonNumEqual(int64(5), float64(5)))
+}
+
+func TestJsonNumEqual_Int64NoMatch(t *testing.T) {
+assert.False(t, jsonNumEqual(int64(5), float64(6)))
+}
+
+func TestJsonNumEqual_StringFallthrough(t *testing.T) {
+assert.False(t, jsonNumEqual("5", float64(5)))
+}
