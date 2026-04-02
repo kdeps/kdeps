@@ -11,8 +11,11 @@
 package iso
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -268,5 +271,88 @@ func TestGenerateConfigYAMLExtended_EmptyHostname(t *testing.T) {
 	_, err := b.GenerateConfigYAMLExtended("my-image:latest", workflow, false)
 	if err != nil {
 		t.Fatalf("expected no error with empty hostname, got: %v", err)
+	}
+}
+
+// ---- linuxkitCacheDir tests ----
+
+func TestLinuxkitCacheDir(t *testing.T) {
+	dir, err := linuxkitCacheDir()
+	if err != nil {
+		t.Fatalf("linuxkitCacheDir returned error: %v", err)
+	}
+	if dir == "" {
+		t.Fatal("expected non-empty cache dir")
+	}
+	// Must be under the user's home directory.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("cannot determine home dir: %v", err)
+	}
+	if !strings.HasPrefix(dir, home) {
+		t.Errorf("cache dir %q is not under home %q", dir, home)
+	}
+}
+
+// ---- LinuxKitDownloadURL tests ----
+
+func TestLinuxKitDownloadURL(t *testing.T) {
+	url := LinuxKitDownloadURL()
+	if url == "" {
+		t.Fatal("expected non-empty download URL")
+	}
+	if !strings.Contains(url, linuxkitVersion) {
+		t.Errorf("URL %q does not contain version %q", url, linuxkitVersion)
+	}
+	if !strings.Contains(url, runtime.GOOS) {
+		t.Errorf("URL %q does not contain GOOS %q", url, runtime.GOOS)
+	}
+	if !strings.Contains(url, runtime.GOARCH) {
+		t.Errorf("URL %q does not contain GOARCH %q", url, runtime.GOARCH)
+	}
+}
+
+// ---- downloadFile tests ----
+
+func TestDownloadFile_Success(t *testing.T) {
+	content := []byte("binary content")
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(content)
+	}))
+	defer ts.Close()
+
+	dest := filepath.Join(t.TempDir(), "downloaded")
+	if err := downloadFile(t.Context(), ts.URL, dest); err != nil {
+		t.Fatalf("downloadFile failed: %v", err)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("failed to read downloaded file: %v", err)
+	}
+	if string(got) != string(content) {
+		t.Errorf("content mismatch: got %q, want %q", got, content)
+	}
+}
+
+func TestDownloadFile_HTTPError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	dest := filepath.Join(t.TempDir(), "should-not-exist")
+	err := downloadFile(t.Context(), ts.URL, dest)
+	if err == nil {
+		t.Fatal("expected error for HTTP 404, got nil")
+	}
+}
+
+func TestDownloadFile_InvalidURL(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "out")
+	err := downloadFile(t.Context(), "://invalid-url", dest)
+	if err == nil {
+		t.Fatal("expected error for invalid URL, got nil")
 	}
 }
