@@ -324,3 +324,56 @@ func mustDecodeHex(s string) []byte {
 	}
 	return b
 }
+
+func TestURNEquals(t *testing.T) {
+	hashHex := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	hash := mustDecodeHex(hashHex)
+
+	base := &URN{
+		Authority:   "agents.example.com",
+		Namespace:   "myns",
+		Name:        "myagent",
+		Version:     "v1.0.0",
+		HashAlg:     hashAlgorithmSHA256,
+		ContentHash: hash,
+	}
+
+	// Equal to itself.
+	assert.True(t, base.Equals(base))
+
+	// Equal copy.
+	other := &URN{
+		Authority:   "agents.example.com",
+		Namespace:   "myns",
+		Name:        "myagent",
+		Version:     "v1.0.0",
+		HashAlg:     hashAlgorithmSHA256,
+		ContentHash: mustDecodeHex(hashHex),
+	}
+	assert.True(t, base.Equals(other))
+
+	// Different authority.
+	diff := *base
+	diff.Authority = "other.example.com"
+	assert.False(t, base.Equals(&diff))
+
+	// Different name.
+	diff2 := *base
+	diff2.Name = "different"
+	assert.False(t, base.Equals(&diff2))
+
+	// Different hash.
+	diff3 := *base
+	diff3.ContentHash = mustDecodeHex("abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789")
+	assert.False(t, base.Equals(&diff3))
+
+	// Nil receiver.
+	var nilURN *URN
+	assert.False(t, nilURN.Equals(base))
+
+	// Both nil.
+	assert.True(t, nilURN.Equals(nil))
+
+	// Nil argument.
+	assert.False(t, base.Equals(nil))
+}

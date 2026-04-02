@@ -253,3 +253,38 @@ func TestRegistryCacheStop(t *testing.T) {
 	// Second Stop must also not panic (channel already closed).
 	assert.NotPanics(t, func() { rc.Stop() })
 }
+
+func TestRegistryCacheEvictExpired(t *testing.T) {
+	// Use a very short TTL so entries expire immediately.
+	rc := NewRegistryCache(time.Millisecond)
+	defer rc.Stop()
+
+	cap1 := &Capability{URN: "urn:agent:test.com/ns:agent1@v1.0.0#sha256:" + fmt.Sprintf("%064x", 1)}
+	rc.Set("key1", cap1)
+
+	// Wait until after TTL.
+	time.Sleep(10 * time.Millisecond)
+
+	// Call evictExpired directly (it is unexported but accessible from within the package).
+	rc.evictExpired()
+
+	// Entry should be gone.
+	_, err := rc.Get("key1")
+	assert.ErrorIs(t, err, ErrCacheMiss)
+}
+
+func TestRegistryCacheEvictExpired_NonExpired(t *testing.T) {
+	// Long TTL so nothing expires.
+	rc := NewRegistryCache(time.Hour)
+	defer rc.Stop()
+
+	cap1 := &Capability{URN: "urn:agent:test.com/ns:agent2@v1.0.0#sha256:" + fmt.Sprintf("%064x", 2)}
+	rc.Set("key2", cap1)
+
+	rc.evictExpired()
+
+	// Entry should still be present.
+	got, err := rc.Get("key2")
+	assert.NoError(t, err)
+	assert.Equal(t, cap1, got)
+}

@@ -257,3 +257,36 @@ func TestWellKnownDiscoverFromAuthority_Error(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "500"), "expected HTTP 500 in error, got: %v", err)
 }
+
+// TestNewWellKnownClient_CheckRedirect verifies that the redirect limit is enforced.
+func TestNewWellKnownClient_CheckRedirect(t *testing.T) {
+	// Build a chain of redirect servers longer than wellKnownMaxRedirects (5).
+	const redirectCount = 10
+	servers := make([]*httptest.Server, redirectCount)
+
+	for i := redirectCount - 1; i >= 0; i-- {
+		idx := i
+		// Capture servers slice so closures reference the final slice.
+		localServers := servers
+		servers[i] = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if idx+1 < len(localServers) && localServers[idx+1] != nil {
+				http.Redirect(w, r, localServers[idx+1].URL, http.StatusFound)
+			} else {
+				w.WriteHeader(http.StatusOK)
+			}
+		}))
+		defer servers[i].Close()
+	}
+
+	// Use a real NewWellKnownClient (not the test redirect wrapper) to exercise CheckRedirect.
+	wkc := NewWellKnownClient()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, servers[0].URL, nil)
+	require.NoError(t, err)
+
+	resp, err := wkc.httpClient.Do(req)
+	if resp != nil {
+		resp.Body.Close()
+	}
+	// After wellKnownMaxRedirects hops the client should refuse with an error.
+	assert.Error(t, err)
+}

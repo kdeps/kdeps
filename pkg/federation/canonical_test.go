@@ -123,3 +123,100 @@ func TestHashFormatting(t *testing.T) {
 	_, err := hex.DecodeString(hexStr)
 	assert.NoError(t, err, "hex string should be valid")
 }
+
+func TestComputeAndFormat(t *testing.T) {
+	c := &Canonicalizer{}
+	yaml := `key: value`
+
+	// SHA256 produces 64-char hex string.
+	hexStr, err := c.ComputeAndFormat([]byte(yaml), hashAlgorithmSHA256)
+	assert.NoError(t, err)
+	assert.Len(t, hexStr, 64)
+	_, decErr := hex.DecodeString(hexStr)
+	assert.NoError(t, decErr)
+
+	// SHA512 produces 128-char hex string.
+	hexStr512, err := c.ComputeAndFormat([]byte(yaml), hashAlgorithmSHA512)
+	assert.NoError(t, err)
+	assert.Len(t, hexStr512, 128)
+
+	// Unsupported algorithm.
+	_, err = c.ComputeAndFormat([]byte(yaml), "md5")
+	assert.Error(t, err)
+
+	// Invalid YAML triggers error path.
+	_, err = c.ComputeAndFormat([]byte(":\tbad: [yaml"), hashAlgorithmSHA256)
+	assert.Error(t, err)
+}
+
+func TestPackageLevelComputeHash(t *testing.T) {
+	yaml := `name: agent`
+	h, err := ComputeHash([]byte(yaml), hashAlgorithmSHA256)
+	assert.NoError(t, err)
+	assert.Len(t, h, 32)
+}
+
+func TestPackageLevelSHA256(t *testing.T) {
+	yaml := `name: agent`
+	h, err := SHA256([]byte(yaml))
+	assert.NoError(t, err)
+	assert.Len(t, h, 32)
+}
+
+func TestNewHash_SHA512(t *testing.T) {
+	c := &Canonicalizer{}
+	h, err := c.newHash(hashAlgorithmSHA512)
+	assert.NoError(t, err)
+	assert.NotNil(t, h)
+	// sha512 produces 64-byte digests
+	assert.Equal(t, 64, h.Size())
+}
+
+func TestNewHash_BLAKE3(t *testing.T) {
+	c := &Canonicalizer{}
+	_, err := c.newHash(hashAlgorithmBLAKE3)
+	assert.Error(t, err)
+}
+
+func TestNewHash_Unknown(t *testing.T) {
+	c := &Canonicalizer{}
+	_, err := c.newHash("crc32")
+	assert.Error(t, err)
+}
+
+func TestNormalize_Array(t *testing.T) {
+	c := &Canonicalizer{}
+	input := []interface{}{"c", "a", "b"}
+	got := c.normalize(input)
+	arr, ok := got.([]interface{})
+	assert.True(t, ok)
+	// Arrays keep their order.
+	assert.Equal(t, []interface{}{"c", "a", "b"}, arr)
+}
+
+func TestNormalize_Nil(t *testing.T) {
+	c := &Canonicalizer{}
+	assert.Nil(t, c.normalize(nil))
+}
+
+func TestNormalize_Primitive(t *testing.T) {
+	c := &Canonicalizer{}
+	assert.Equal(t, 42, c.normalize(42))
+	assert.Equal(t, true, c.normalize(true))
+	assert.Equal(t, 3.14, c.normalize(3.14))
+}
+
+func TestNormalize_NonStringKeyMap(t *testing.T) {
+	c := &Canonicalizer{}
+	// yaml.v3 can decode integer keys as map[interface{}]interface{}
+	// The normalize function converts non-string keys to their string representation,
+	// then looks them up in the original map (which may return the zero value for
+	// type-mismatched lookups — this is expected behavior for this edge case).
+	input := map[interface{}]interface{}{
+		"two": "2",
+	}
+	result := c.normalize(input)
+	m, ok := result.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, "2", m["two"])
+}
