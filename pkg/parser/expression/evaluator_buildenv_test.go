@@ -505,6 +505,26 @@ func TestJSON_StripsFunctions(t *testing.T) {
 	assert.NotContains(t, s, "0x") // no Go pointer strings
 }
 
+func TestWhere_FiltersArrayByNumericKey(t *testing.T) {
+	api := createMockAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{
+		"jobs": []interface{}{
+			map[string]interface{}{"job_link": "https://example.com/1", "match_score": float64(85)},
+			map[string]interface{}{"job_link": "https://example.com/2", "match_score": float64(0)},
+			map[string]interface{}{"job_link": "https://example.com/3", "match_score": float64(72)},
+		},
+	}
+	expr1 := &domain.Expression{Raw: "where(jobs, 'match_score', 60)", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr1, env)
+	require.NoError(t, err)
+	arr, ok := result.([]interface{})
+	require.True(t, ok)
+	assert.Len(t, arr, 2)
+	assert.Equal(t, float64(85), arr[0].(map[string]interface{})["match_score"])
+	assert.Equal(t, float64(72), arr[1].(map[string]interface{})["match_score"])
+}
+
 func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
 	api := createMockAPI()
 	evaluator := expression.NewEvaluator(api)

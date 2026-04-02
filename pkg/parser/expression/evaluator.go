@@ -614,6 +614,53 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 		// Add toJSON() as alias for json()
 		evalEnv["toJSON"] = evalEnv["json"]
 
+		// Add where(array, key, minValue) helper - filters an array of maps keeping
+		// elements where element[key] (numeric) >= minValue.
+		// Example: where(get('analyze-jobs'), 'match_score', 60)
+		evalEnv["where"] = func(arr interface{}, key string, minVal interface{}) interface{} {
+			items, ok := arr.([]interface{})
+			if !ok {
+				return arr
+			}
+			var min float64
+			switch v := minVal.(type) {
+			case float64:
+				min = v
+			case int:
+				min = float64(v)
+			case int64:
+				min = float64(v)
+			default:
+				return arr
+			}
+			out := make([]interface{}, 0, len(items))
+			for _, item := range items {
+				m, okMap := item.(map[string]interface{})
+				if !okMap {
+					continue
+				}
+				val, exists := m[key]
+				if !exists {
+					continue
+				}
+				var score float64
+				switch v := val.(type) {
+				case float64:
+					score = v
+				case int:
+					score = float64(v)
+				case int64:
+					score = float64(v)
+				default:
+					continue
+				}
+				if score >= min {
+					out = append(out, item)
+				}
+			}
+			return out
+		}
+
 		// Add ternary(cond, trueVal, falseVal) helper
 		evalEnv["ternary"] = func(cond interface{}, trueVal, falseVal interface{}) interface{} {
 			if b, ok := cond.(bool); ok && b {
