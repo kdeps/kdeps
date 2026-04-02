@@ -170,7 +170,7 @@ func navigatePage(page playwright.Page, initialURL, waitFor string, timeout time
 	}
 
 	if waitFor != "" {
-		if err := page.Locator(waitFor).WaitFor(playwright.LocatorWaitForOptions{
+		if err := page.Locator(waitFor).First().WaitFor(playwright.LocatorWaitForOptions{
 			Timeout: playwright.Float(float64(timeout.Milliseconds())),
 		}); err != nil {
 			return fmt.Errorf("browser executor: waitFor %q failed: %w", waitFor, err)
@@ -681,7 +681,7 @@ func doWait(
 		base["waited"] = target
 		return nil
 	}
-	err := page.Locator(target).WaitFor(playwright.LocatorWaitForOptions{Timeout: tms})
+	err := page.Locator(target).First().WaitFor(playwright.LocatorWaitForOptions{Timeout: tms})
 	if err == nil {
 		base["waited"] = target
 	}
