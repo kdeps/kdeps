@@ -59,7 +59,9 @@ func Execute(v, c string) error {
 	config.commit = c
 
 	rootCmd := config.GetRootCommand()
-	return rootCmd.Execute()
+	err := rootCmd.Execute()
+	kdeps_debug.Flush()
+	return err
 }
 
 // createRootCommand creates the root cobra command with all subcommands.
