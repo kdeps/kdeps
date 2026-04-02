@@ -27,7 +27,11 @@ import (
 	"sync"
 )
 
-const maxChainLen = 5
+const (
+	maxChainLen = 5
+	ansiCyan    = "\033[36m"
+	ansiReset   = "\033[0m"
+)
 
 //nolint:gochecknoglobals // intentional package-level state for call chain accumulation
 var (
@@ -40,18 +44,67 @@ func Enabled() bool {
 	return os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true"
 }
 
+// colorize wraps s in cyan ANSI codes unless NO_COLOR or TERM=dumb is set.
+func colorize(s string) string {
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
+		return s
+	}
+	return ansiCyan + s + ansiReset
+}
+
+// rle applies run-length encoding to items, collapsing consecutive duplicates
+// into "name(Nx)" form.
+func rle(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(items))
+	i := 0
+	for i < len(items) {
+		j := i + 1
+		for j < len(items) && items[j] == items[i] {
+			j++
+		}
+		if count := j - i; count > 1 {
+			parts = append(parts, fmt.Sprintf("%s(%dx)", items[i], count))
+		} else {
+			parts = append(parts, items[i])
+		}
+		i = j
+	}
+	return strings.Join(parts, " -> ")
+}
+
 // flushGroup writes a complete or partial group as a single terminated line.
+// Consecutive duplicate names are collapsed with rle. If every item in the
+// group is the same function the parens label is omitted: "name(Nx)".
 // Must be called with mu held.
 func flushGroup(group []string) {
 	if len(group) == 0 {
 		return
 	}
 	label := group[0]
-	if len(group) == 1 {
-		fmt.Fprintf(os.Stderr, "(%s)\n", label)
-	} else {
-		fmt.Fprintf(os.Stderr, "(%s) %s\n", label, strings.Join(group[1:], " -> "))
+
+	// Check if the entire group is the same function name.
+	allSame := true
+	for _, name := range group[1:] {
+		if name != label {
+			allSame = false
+			break
+		}
 	}
+
+	var line string
+	switch {
+	case len(group) == 1:
+		line = fmt.Sprintf("(%s)", label)
+	case allSame:
+		line = fmt.Sprintf("%s(%dx)", label, len(group))
+	default:
+		line = fmt.Sprintf("(%s) %s", label, rle(group[1:]))
+	}
+
+	fmt.Fprintf(os.Stderr, "%s\n", colorize(line))
 }
 
 // Log appends the function name to the running call chain. Each group of
@@ -59,6 +112,7 @@ func flushGroup(group []string) {
 //
 //	(operation) a -> b -> c -> d
 //
+// Consecutive duplicate names are collapsed: UnmarshalYAML(4x).
 // Lines are only written when a group fills or Flush is called, so they never
 // interleave with other stderr output mid-line.
 func Log(msg string) {
@@ -72,7 +126,6 @@ func Log(msg string) {
 	chain = append(chain, name)
 	n := len(chain)
 
-	// Write a complete group when it reaches maxChainLen.
 	if n%maxChainLen == 0 {
 		flushGroup(chain[n-maxChainLen:])
 	}
@@ -87,8 +140,7 @@ func Flush() {
 		return
 	}
 	groupStart := (len(chain) / maxChainLen) * maxChainLen
-	partial := chain[groupStart:]
-	flushGroup(partial)
+	flushGroup(chain[groupStart:])
 	chain = chain[:0]
 }
 

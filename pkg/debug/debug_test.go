@@ -61,6 +61,25 @@ func captureStderr(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
+func TestRLE(t *testing.T) {
+	tests := []struct {
+		input []string
+		want  string
+	}{
+		{[]string{"a", "b", "c"}, "a -> b -> c"},
+		{[]string{"a", "a", "a"}, "a(3x)"},
+		{[]string{"a", "b", "b", "c"}, "a -> b(2x) -> c"},
+		{[]string{"a"}, "a"},
+		{nil, ""},
+	}
+	for _, tt := range tests {
+		got := rle(tt.input)
+		if got != tt.want {
+			t.Errorf("rle(%v) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
 func TestLog_Disabled(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "")
 	got := captureStderr(t, func() {
@@ -74,46 +93,59 @@ func TestLog_Disabled(t *testing.T) {
 }
 
 func TestLog_PartialGroupNoOutput(t *testing.T) {
-	// Fewer than maxChainLen calls should produce no output until Flush.
 	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
 	got := captureStderr(t, func() {
 		Reset()
 		Log("enter: alpha")
 		Log("enter: beta")
-		Log("enter: gamma")
 	})
 	if got != "" {
-		t.Errorf("partial group should not write output, got %q", got)
+		t.Errorf("partial group should produce no output, got %q", got)
 	}
 	Reset()
 }
 
-func TestLog_CompleteGroupWritesLine(t *testing.T) {
+func TestLog_CompleteGroup(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
 	got := captureStderr(t, func() {
 		Reset()
 		for _, name := range []string{"a", "b", "c", "d", "e"} {
 			Log("enter: " + name)
 		}
 	})
-	want := "(a) b -> c -> d -> e\n"
-	if got != want {
+	if want := "(a) b -> c -> d -> e\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	Reset()
 }
 
-func TestLog_MultipleGroups(t *testing.T) {
+func TestLog_AllSameCollapsed(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
 	got := captureStderr(t, func() {
 		Reset()
-		names := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
-		for _, name := range names {
+		for range 5 {
+			Log("enter: UnmarshalYAML")
+		}
+	})
+	if want := "UnmarshalYAML(5x)\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	Reset()
+}
+
+func TestLog_PartialDuplicatesInChain(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
+	got := captureStderr(t, func() {
+		Reset()
+		for _, name := range []string{"ValidateResource", "validateRemote", "UnmarshalYAML", "UnmarshalYAML", "UnmarshalYAML"} {
 			Log("enter: " + name)
 		}
 	})
-	want := "(a) b -> c -> d -> e\n(f) g -> h -> i -> j\n"
-	if got != want {
+	if want := "(ValidateResource) validateRemote -> UnmarshalYAML(3x)\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 	Reset()
@@ -121,27 +153,27 @@ func TestLog_MultipleGroups(t *testing.T) {
 
 func TestFlush_WritesPartialGroup(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
 	got := captureStderr(t, func() {
 		Reset()
 		Log("enter: one")
 		Log("enter: two")
 		Flush()
 	})
-	want := "(one) two\n"
-	if got != want {
+	if want := "(one) two\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
 func TestFlush_SingleItem(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
+	t.Setenv("NO_COLOR", "1")
 	got := captureStderr(t, func() {
 		Reset()
 		Log("enter: solo")
 		Flush()
 	})
-	want := "(solo)\n"
-	if got != want {
+	if want := "(solo)\n"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }
@@ -157,18 +189,28 @@ func TestFlush_Empty(t *testing.T) {
 	}
 }
 
-func TestFlush_AfterCompleteGroup(t *testing.T) {
-	// Flush after a full group already written should produce no extra output.
-	t.Setenv("KDEPS_DEBUG", "true")
-	got := captureStderr(t, func() {
-		Reset()
-		for _, name := range []string{"a", "b", "c", "d", "e"} {
-			Log("enter: " + name)
-		}
-		Flush() // chain is already aligned; no partial remainder
-	})
-	want := "(a) b -> c -> d -> e\n"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
+func TestColorize_Enabled(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm")
+	got := colorize("hello")
+	if got != ansiCyan+"hello"+ansiReset {
+		t.Errorf("colorize with color enabled = %q", got)
+	}
+}
+
+func TestColorize_Disabled_NoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	got := colorize("hello")
+	if got != "hello" {
+		t.Errorf("colorize with NO_COLOR = %q, want plain", got)
+	}
+}
+
+func TestColorize_Disabled_DumbTerm(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "dumb")
+	got := colorize("hello")
+	if got != "hello" {
+		t.Errorf("colorize with TERM=dumb = %q, want plain", got)
 	}
 }
