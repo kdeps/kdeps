@@ -464,6 +464,9 @@ func executeAction(
 	case domain.BrowserActionWait:
 		err = doWait(page, action, base, tms)
 
+	case domain.BrowserActionWaitURL:
+		err = doWaitURL(page, action, base, tms)
+
 	default:
 		return failAction(base, "unknown action type: "+action.Action),
 			fmt.Errorf("unknown browser action: %q", action.Action)
@@ -683,6 +686,28 @@ func doWait(
 		base["waited"] = target
 	}
 	return err
+}
+
+func doWaitURL(
+	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
+) error {
+	kdeps_debug.Log("enter: doWaitURL")
+	pattern := action.Wait
+	if pattern == "" {
+		pattern = action.Value
+	}
+	if pattern == "" {
+		return errors.New("waiturl: no URL pattern provided")
+	}
+	opts := playwright.PageWaitForURLOptions{}
+	if tms != nil {
+		opts.Timeout = tms
+	}
+	if err := page.WaitForURL(pattern, opts); err != nil {
+		return fmt.Errorf("waiturl %q failed: %w", pattern, err)
+	}
+	base["waited"] = pattern
+	return nil
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

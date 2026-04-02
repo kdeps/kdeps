@@ -1641,6 +1641,9 @@ const BrowserActionScreenshot = "screenshot"
 // BrowserActionWait waits for an element to appear, or pauses for a fixed duration.
 const BrowserActionWait = "wait"
 
+// BrowserActionWaitURL waits for the page URL to match a glob pattern (e.g. "**/feed/**").
+const BrowserActionWaitURL = "waiturl"
+
 // BrowserEngineChromium uses the Chromium browser engine.
 const BrowserEngineChromium = "chromium"
 
@@ -1656,7 +1659,7 @@ const BrowserEngineWebKit = "webkit"
 type BrowserAction struct {
 	// Action is the operation to perform (required).
 	// One of: navigate, click, fill, type, upload, select, check, uncheck,
-	// hover, scroll, press, clear, evaluate, screenshot, wait.
+	// hover, scroll, press, clear, evaluate, screenshot, wait, waiturl.
 	Action string `yaml:"action"`
 
 	// Selector is the CSS or XPath selector for the target element.
