@@ -43,9 +43,6 @@ run:
       - cover_letter: open with company + role, highlight 2-3 matching skills,
         close with a call to action, sign off with candidate full name.
     jsonResponse: true
-    jsonResponseKeys:
-      - job_id
-      - match_score
     timeoutDuration: 90s
     scenario:
       - role: assistant

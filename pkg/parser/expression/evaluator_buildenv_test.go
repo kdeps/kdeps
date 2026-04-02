@@ -480,6 +480,31 @@ func TestEvaluator_buildEnvironment_HelperFunctions(t *testing.T) {
 	assert.Equal(t, "fallback", result7)
 }
 
+func TestJSON_StripsFunctions(t *testing.T) {
+	// When item contains Go function values (accessor funcs injected by the evaluator),
+	// json(item) must produce valid JSON with those funcs stripped, not a Go fmt string.
+	api := createMockAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{
+		"item": map[string]interface{}{
+			"job_id":  "4371431191",
+			"title":   "SWE",
+			"current": func() interface{} { return nil }, // simulated accessor func
+		},
+	}
+	expr1 := &domain.Expression{
+		Raw:  "json(item)",
+		Type: domain.ExprTypeDirect,
+	}
+	result, err := evaluator.Evaluate(expr1, env)
+	require.NoError(t, err)
+	s, ok := result.(string)
+	require.True(t, ok)
+	assert.Contains(t, s, `"job_id"`)
+	assert.Contains(t, s, `"4371431191"`)
+	assert.NotContains(t, s, "0x") // no Go pointer strings
+}
+
 func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
 	api := createMockAPI()
 	evaluator := expression.NewEvaluator(api)
