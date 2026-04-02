@@ -72,6 +72,22 @@ func TestEnabled(t *testing.T) {
 	}
 }
 
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w //nolint:reassign
+
+	fn()
+
+	w.Close()
+	os.Stderr = oldStderr //nolint:reassign
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String()
+}
+
 func TestLog(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -80,15 +96,15 @@ func TestLog(t *testing.T) {
 		wantOutput string
 	}{
 		{
-			name:       "log writes to stderr when enabled",
+			name:       "log renders chain on stderr when enabled",
 			envEnabled: true,
-			message:    "test message",
-			wantOutput: "test message\n",
+			message:    "enter: testFunc",
+			wantOutput: "\r\033[2Kenter: testFunc",
 		},
 		{
 			name:       "log does nothing when disabled",
 			envEnabled: false,
-			message:    "test message",
+			message:    "enter: testFunc",
 			wantOutput: "",
 		},
 	}
@@ -101,22 +117,62 @@ func TestLog(t *testing.T) {
 				t.Setenv("KDEPS_DEBUG", "")
 			}
 
-			oldStderr := os.Stderr
-			r, w, _ := os.Pipe()
-			os.Stderr = w //nolint:reassign
-
-			Log(tt.message)
-
-			w.Close()
-			os.Stderr = oldStderr //nolint:reassign
-
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			got := buf.String()
+			got := captureStderr(t, func() {
+				Reset()
+				Log(tt.message)
+			})
 
 			if got != tt.wantOutput {
 				t.Errorf("Log() output = %q, want %q", got, tt.wantOutput)
 			}
+			Reset()
 		})
+	}
+}
+
+func TestLog_Chain(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+
+	got := captureStderr(t, func() {
+		Reset()
+		Log("enter: alpha")
+		Log("enter: beta")
+		Log("enter: gamma")
+	})
+
+	// Each call overwrites the line; the final write shows the full chain.
+	want := "\r\033[2Kenter: alpha\r\033[2Kenter: alpha -> beta\r\033[2Kenter: alpha -> beta -> gamma"
+	if got != want {
+		t.Errorf("chain output =\n%q\nwant\n%q", got, want)
+	}
+	Reset()
+}
+
+func TestFlush(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+
+	got := captureStderr(t, func() {
+		Reset()
+		Log("enter: one")
+		Log("enter: two")
+		Flush()
+	})
+
+	want := "\r\033[2Kenter: one\r\033[2Kenter: one -> two\n"
+	if got != want {
+		t.Errorf("Flush() output =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestFlush_Empty(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+
+	got := captureStderr(t, func() {
+		Reset()
+		Flush() // nothing logged — should produce no output
+	})
+
+	if got != "" {
+		t.Errorf("Flush() on empty chain wrote %q, want empty", got)
 	}
 }
