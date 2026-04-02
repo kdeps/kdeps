@@ -35,6 +35,30 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// stripFuncs recursively removes function values from maps so the result is
+// safe to pass to json.Marshal. Slices are recursed. All other values pass through.
+func stripFuncs(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(val))
+		for k, elem := range val {
+			if reflect.TypeOf(elem) != nil && reflect.TypeOf(elem).Kind() == reflect.Func {
+				continue
+			}
+			out[k] = stripFuncs(elem)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, len(val))
+		for i, elem := range val {
+			out[i] = stripFuncs(elem)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
 // Evaluator evaluates expressions using expr-lang/expr.
 type Evaluator struct {
 	api       *domain.UnifiedAPI
@@ -536,11 +560,14 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 			return os.Getenv(name)
 		}
 
-		// Add json() helper function to format data as JSON string
+		// Add json() helper function to format data as JSON string.
+		// Strips non-serializable values (functions) from maps before marshaling
+		// so that {{ item | json() }} works correctly when item contains accessor funcs.
 		evalEnv["json"] = func(data interface{}) interface{} {
-			jsonBytes, err := json.Marshal(data)
+			cleaned := stripFuncs(data)
+			jsonBytes, err := json.Marshal(cleaned)
 			if err != nil {
-				return fmt.Sprintf("%v", data) // Fallback to string representation
+				return fmt.Sprintf("%v", data)
 			}
 			return string(jsonBytes)
 		}

@@ -1030,7 +1030,9 @@ func (e *Executor) parseJSONResponse(
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 	if jsonData == nil {
-		return nil, errors.New("LLM returned null JSON response")
+		// LLM intentionally returned null (e.g. below-threshold score).
+		// Signal caller to skip this item by returning nil result with no error.
+		return nil, nil //nolint:nilnil // intentional: nil result signals ExecuteWithItems to skip this item
 	}
 
 	// If keys specified, extract only those keys

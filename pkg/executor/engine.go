@@ -1721,7 +1721,10 @@ func (e *Engine) ExecuteWithItems(
 				"result", result)
 		}
 
-		results = append(results, result)
+		// Skip nil results (e.g. LLM returned null for below-threshold items).
+		if result != nil {
+			results = append(results, result)
+		}
 	}
 
 	// Clear items context.
