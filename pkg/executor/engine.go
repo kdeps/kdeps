@@ -1716,9 +1716,24 @@ func (e *Engine) ExecuteWithItems(
 		}
 
 		// Skip nil results (e.g. LLM returned null for below-threshold items).
-		if result != nil {
-			results = append(results, result)
+		if result == nil {
+			continue
 		}
+
+		// For LLM resources: merge original item fields into the result so that
+		// source-of-truth values (job_link, job_id, etc.) are never lost to
+		// hallucination. Original item wins on any key conflict.
+		if resource.Run.Chat != nil {
+			if resultMap, okResult := result.(map[string]interface{}); okResult {
+				if itemMap, okItem := itemValue.(map[string]interface{}); okItem {
+					for k, v := range itemMap {
+						resultMap[k] = v
+					}
+				}
+			}
+		}
+
+		results = append(results, result)
 	}
 
 	// Clear items context.

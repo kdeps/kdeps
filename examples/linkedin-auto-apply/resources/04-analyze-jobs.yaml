@@ -28,12 +28,8 @@ run:
       Profile: {{ get('candidate_profile') }}
       Job: {{ item | toJSON() }}
 
-      Respond with ONLY a JSON object using EXACTLY this structure (no prose, no markdown):
+      Respond with ONLY a JSON object (no prose, no markdown fences):
       {
-        "job_link": "<copy job_link from Job exactly>",
-        "job_id": "<copy job_id from Job exactly>",
-        "title": "<copy title from Job exactly>",
-        "company": "<copy company from Job exactly>",
         "match_score": <integer 0-100>,
         "match_reasons": ["reason 1", "reason 2", "reason 3"],
         "gaps": ["gap 1"],
@@ -41,16 +37,12 @@ run:
       }
     jsonResponse: true
     jsonResponseKeys:
-      - job_link
-      - job_id
-      - title
-      - company
       - match_score
       - cover_letter
     timeoutDuration: 90s
     scenario:
       - role: assistant
         prompt: >-
-          I am a job-fit scorer. I return only a JSON object with job_link,
-          job_id, title, company, match_score, match_reasons, gaps, cover_letter
-          — or the single word null if below threshold.
+          I am a job-fit scorer. I return only a JSON object with match_score,
+          match_reasons, gaps, cover_letter — or the single word null if below
+          threshold. I never copy job fields into my response.

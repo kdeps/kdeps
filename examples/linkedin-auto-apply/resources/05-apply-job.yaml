@@ -24,7 +24,7 @@ metadata:
   requires: [analyze-jobs]
 
 items:
-  - "{{ get('analyze-jobs') }}"
+  - "{{ where(get('analyze-jobs'), 'match_score', get('min_match_score') | default(60)) }}"
 
 run:
   browser:
