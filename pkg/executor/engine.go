@@ -671,14 +671,8 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		// Store output.
 		ctx.SetOutput(resource.Metadata.ActionID, output)
 		e.logger.Info("Resource completed",
-			"actionID", resource.Metadata.ActionID)
-
-		// Debug: Print output
-		if e.debugMode {
-			e.logger.Debug("Resource output",
-				"actionID", resource.Metadata.ActionID,
-				"output", output)
-		}
+			"actionID", resource.Metadata.ActionID,
+			"output", output)
 	}
 
 	// Return target resource output.
