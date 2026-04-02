@@ -661,7 +661,8 @@
                       "clear",
                       "evaluate",
                       "screenshot",
-                      "wait"
+                      "wait",
+                      "waiturl"
                     ],
                     "description": "The browser action to perform"
                   },
