@@ -479,3 +479,45 @@ func TestEvaluator_buildEnvironment_HelperFunctions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "fallback", result7)
 }
+
+func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
+	api := createMockAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// urlencode encodes spaces and special chars
+	expr1 := &domain.Expression{
+		Raw:  "urlencode('hello world')",
+		Type: domain.ExprTypeDirect,
+	}
+	result1, err := evaluator.Evaluate(expr1, env)
+	require.NoError(t, err)
+	assert.Equal(t, "hello+world", result1)
+
+	// toJSON is an alias for json()
+	expr2 := &domain.Expression{
+		Raw:  "toJSON(['a', 'b'])",
+		Type: domain.ExprTypeDirect,
+	}
+	result2, err := evaluator.Evaluate(expr2, env)
+	require.NoError(t, err)
+	assert.Equal(t, `["a","b"]`, result2)
+
+	// ternary returns trueVal when cond is true
+	expr3 := &domain.Expression{
+		Raw:  "ternary(true, 'yes', 'no')",
+		Type: domain.ExprTypeDirect,
+	}
+	result3, err := evaluator.Evaluate(expr3, env)
+	require.NoError(t, err)
+	assert.Equal(t, "yes", result3)
+
+	// ternary returns falseVal when cond is false
+	expr4 := &domain.Expression{
+		Raw:  "ternary(false, 'yes', 'no')",
+		Type: domain.ExprTypeDirect,
+	}
+	result4, err := evaluator.Evaluate(expr4, env)
+	require.NoError(t, err)
+	assert.Equal(t, "no", result4)
+}

@@ -1029,6 +1029,9 @@ func (e *Executor) parseJSONResponse(
 	if err := json.Unmarshal([]byte(content), &jsonData); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
+	if jsonData == nil {
+		return nil, errors.New("LLM returned null JSON response")
+	}
 
 	// If keys specified, extract only those keys
 	if len(keys) > 0 {

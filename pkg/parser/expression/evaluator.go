@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"reflect"
 	"strings"
@@ -576,6 +577,22 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 				return fmt.Sprintf("(error marshaling: %v)", err)
 			}
 			return string(jsonBytes)
+		}
+
+		// Add urlencode() helper for URL-encoding strings
+		evalEnv["urlencode"] = func(s interface{}) interface{} {
+			return url.QueryEscape(fmt.Sprintf("%v", s))
+		}
+
+		// Add toJSON() as alias for json()
+		evalEnv["toJSON"] = evalEnv["json"]
+
+		// Add ternary(cond, trueVal, falseVal) helper
+		evalEnv["ternary"] = func(cond interface{}, trueVal, falseVal interface{}) interface{} {
+			if b, ok := cond.(bool); ok && b {
+				return trueVal
+			}
+			return falseVal
 		}
 
 		// Add default() helper function for null coalescing: default(value, fallback)

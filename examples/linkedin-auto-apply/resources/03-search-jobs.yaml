@@ -26,7 +26,7 @@ run:
         script: |
           (() => {
             const cards = Array.from(document.querySelectorAll('li[data-occludable-job-id]'));
-            return JSON.stringify(cards.map(card => {
+            return cards.map(card => {
               const jobId = card.getAttribute('data-occludable-job-id') || '';
               const titleEl = card.querySelector('.job-card-list__title, a[data-tracking-control-name]');
               const title = titleEl ? titleEl.innerText.split('\n')[0].trim() : '';
@@ -40,5 +40,5 @@ run:
               const alreadyApplied = stateEl ? stateEl.innerText.trim() === 'Applied' : false;
               return { job_id: jobId, title, company, location, work_style: workStyle, already_applied: alreadyApplied,
                        job_link: jobId ? 'https://www.linkedin.com/jobs/view/' + jobId : '' };
-            }).filter(j => j.job_id && !j.already_applied));
+            }).filter(j => j.job_id && !j.already_applied);
           })()
