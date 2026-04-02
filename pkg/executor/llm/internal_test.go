@@ -364,3 +364,45 @@ func TestResolveFilesystemImageFile_ByExtension(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "image/png", mime)
 }
+
+func TestParseJSONResponse_NullContent(t *testing.T) {
+	e := NewExecutor("")
+	response := map[string]interface{}{
+		"message": map[string]interface{}{
+			"content": "null",
+		},
+	}
+	_, err := e.parseJSONResponse(response, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "null JSON response")
+}
+
+func TestParseJSONResponse_ValidContent(t *testing.T) {
+	e := NewExecutor("")
+	response := map[string]interface{}{
+		"message": map[string]interface{}{
+			"content": `{"score": 9, "reason": "great match"}`,
+		},
+	}
+	result, err := e.parseJSONResponse(response, nil)
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(9), m["score"])
+}
+
+func TestParseJSONResponse_KeyFilter(t *testing.T) {
+	e := NewExecutor("")
+	response := map[string]interface{}{
+		"message": map[string]interface{}{
+			"content": `{"score": 9, "reason": "great match"}`,
+		},
+	}
+	result, err := e.parseJSONResponse(response, []string{"score"})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(9), m["score"])
+	_, hasReason := m["reason"]
+	assert.False(t, hasReason)
+}

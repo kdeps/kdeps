@@ -7,9 +7,12 @@ KDeps provides several built-in helper functions beyond `get()` and `set()` for 
 | Function | Purpose |
 |----------|---------|
 | `json(data)` | Convert data to JSON string |
+| `toJSON(data)` | Alias for `json()` |
 | `safe(obj, path)` | Safely access nested properties |
 | `debug(obj)` | Format data for debugging |
 | `default(value, fallback)` | Null coalescing |
+| `urlencode(str)` | URL-encode a string |
+| `ternary(cond, trueVal, falseVal)` | Conditional expression |
 | `input(key)` | Access request input |
 | `output(resourceId)` | Access resource output |
 
@@ -242,6 +245,81 @@ run:
         "retries": default(get('retries'), 3),
         "model": default(get('model'), 'llama3.2:1b')
       })
+```
+
+## toJSON()
+
+Alias for `json()`. Converts any data structure to a JSON string.
+
+### Syntax
+
+```yaml
+toJSON(data)
+```
+
+## urlencode()
+
+URL-encodes a string. Useful for building query parameters or form-encoded values.
+
+### Syntax
+
+```yaml
+urlencode(str)
+```
+
+### Examples
+
+<div v-pre>
+
+```yaml
+run:
+  browser:
+    url: "https://www.example.com/search?q={{ get('query') | urlencode }}"
+```
+
+</div>
+
+```yaml
+run:
+  expr:
+    - set('encoded', urlencode(get('searchTerm')))
+    # "hello world" -> "hello+world"
+```
+
+## ternary()
+
+Returns `trueVal` if `cond` is `true`, otherwise returns `falseVal`. Equivalent to a conditional expression.
+
+### Syntax
+
+```yaml
+ternary(condition, trueVal, falseVal)
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `condition` | bool | Boolean condition to test |
+| `trueVal` | any | Value returned when condition is true |
+| `falseVal` | any | Value returned when condition is false |
+
+### Examples
+
+<div v-pre>
+
+```yaml
+run:
+  browser:
+    url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
+```
+
+</div>
+
+```yaml
+run:
+  expr:
+    - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
 ```
 
 ## input()
