@@ -1140,6 +1140,7 @@ func TestBrowserActionConsts(t *testing.T) {
 	assert.Equal(t, "evaluate", domain.BrowserActionEvaluate)
 	assert.Equal(t, "screenshot", domain.BrowserActionScreenshot)
 	assert.Equal(t, "wait", domain.BrowserActionWait)
+	assert.Equal(t, "waiturl", domain.BrowserActionWaitURL)
 }
 
 func TestBrowserEngineConsts(t *testing.T) {
