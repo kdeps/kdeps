@@ -73,21 +73,8 @@ func TestLog_Disabled(t *testing.T) {
 	Reset()
 }
 
-func TestLog_FirstItem(t *testing.T) {
-	t.Setenv("KDEPS_DEBUG", "true")
-	got := captureStderr(t, func() {
-		Reset()
-		Log("enter: alpha")
-	})
-	// First item prints the label in parens, no arrow yet.
-	want := "(alpha)"
-	if got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-	Reset()
-}
-
-func TestLog_ChainWithinGroup(t *testing.T) {
+func TestLog_PartialGroupNoOutput(t *testing.T) {
+	// Fewer than maxChainLen calls should produce no output until Flush.
 	t.Setenv("KDEPS_DEBUG", "true")
 	got := captureStderr(t, func() {
 		Reset()
@@ -95,43 +82,44 @@ func TestLog_ChainWithinGroup(t *testing.T) {
 		Log("enter: beta")
 		Log("enter: gamma")
 	})
-	// Each subsequent call in the group overwrites the line.
-	want := "(alpha)" +
-		"\r\033[2K(alpha) beta" +
-		"\r\033[2K(alpha) beta -> gamma"
-	if got != want {
-		t.Errorf("got\n%q\nwant\n%q", got, want)
+	if got != "" {
+		t.Errorf("partial group should not write output, got %q", got)
 	}
 	Reset()
 }
 
-func TestLog_GroupBoundary(t *testing.T) {
+func TestLog_CompleteGroupWritesLine(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
 	got := captureStderr(t, func() {
 		Reset()
-		// Fill one complete group (5 items).
 		for _, name := range []string{"a", "b", "c", "d", "e"} {
 			Log("enter: " + name)
 		}
-		// Sixth item starts a new group.
-		Log("enter: f")
 	})
-
-	// Group 1 builds up: (a), (a) b, (a) b->c, (a) b->c->d, (a) b->c->d->e
-	// Then \n to end group 1, then (f) on the new line.
-	want := "(a)" +
-		"\r\033[2K(a) b" +
-		"\r\033[2K(a) b -> c" +
-		"\r\033[2K(a) b -> c -> d" +
-		"\r\033[2K(a) b -> c -> d -> e" +
-		"\n(f)"
+	want := "(a) b -> c -> d -> e\n"
 	if got != want {
-		t.Errorf("got\n%q\nwant\n%q", got, want)
+		t.Errorf("got %q, want %q", got, want)
 	}
 	Reset()
 }
 
-func TestFlush(t *testing.T) {
+func TestLog_MultipleGroups(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	got := captureStderr(t, func() {
+		Reset()
+		names := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+		for _, name := range names {
+			Log("enter: " + name)
+		}
+	})
+	want := "(a) b -> c -> d -> e\n(f) g -> h -> i -> j\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	Reset()
+}
+
+func TestFlush_WritesPartialGroup(t *testing.T) {
 	t.Setenv("KDEPS_DEBUG", "true")
 	got := captureStderr(t, func() {
 		Reset()
@@ -139,11 +127,22 @@ func TestFlush(t *testing.T) {
 		Log("enter: two")
 		Flush()
 	})
-	want := "(one)" +
-		"\r\033[2K(one) two" +
-		"\n"
+	want := "(one) two\n"
 	if got != want {
-		t.Errorf("got\n%q\nwant\n%q", got, want)
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestFlush_SingleItem(t *testing.T) {
+	t.Setenv("KDEPS_DEBUG", "true")
+	got := captureStderr(t, func() {
+		Reset()
+		Log("enter: solo")
+		Flush()
+	})
+	want := "(solo)\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
@@ -155,5 +154,21 @@ func TestFlush_Empty(t *testing.T) {
 	})
 	if got != "" {
 		t.Errorf("Flush() on empty chain wrote %q, want empty", got)
+	}
+}
+
+func TestFlush_AfterCompleteGroup(t *testing.T) {
+	// Flush after a full group already written should produce no extra output.
+	t.Setenv("KDEPS_DEBUG", "true")
+	got := captureStderr(t, func() {
+		Reset()
+		for _, name := range []string{"a", "b", "c", "d", "e"} {
+			Log("enter: " + name)
+		}
+		Flush() // chain is already aligned; no partial remainder
+	})
+	want := "(a) b -> c -> d -> e\n"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
