@@ -47,12 +47,12 @@ metadata:
   version: "1.0.0"
   targetActionId: response
   resources:
-    - 01-validate.yaml
-    - 02-login.yaml
-    - 03-search-jobs.yaml
-    - 04-analyze-jobs.yaml
-    - 05-apply-job.yaml
-    - 06-response.yaml
+    - resources/01-validate.yaml
+    - resources/02-login.yaml
+    - resources/03-search-jobs.yaml
+    - resources/04-analyze-jobs.yaml
+    - resources/05-apply-job.yaml
+    - resources/06-response.yaml
 
 settings:
   apiServerMode: true

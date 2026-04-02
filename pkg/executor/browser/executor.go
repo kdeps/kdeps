@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	playwright "github.com/playwright-community/playwright-go"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -57,6 +59,7 @@ type Executor struct{}
 
 // NewAdapter returns a new browser Executor as a ResourceExecutor.
 func NewAdapter() executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Executor{}
 }
 
@@ -65,6 +68,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.BrowserConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("browser executor: invalid config type")
@@ -78,6 +82,8 @@ func (e *Executor) Execute(
 		r.headless,
 		cfg.Viewport,
 		r.timeout,
+		r.userAgent,
+		r.stealthMode,
 	)
 	if err != nil {
 		return errorResult(err, r.sessionID, nil),
@@ -111,22 +117,27 @@ func (e *Executor) Execute(
 
 // browserCfgResolved holds the resolved fields from BrowserConfig.
 type browserCfgResolved struct {
-	engineName string
-	sessionID  string
-	initialURL string
-	waitFor    string
-	timeout    time.Duration
-	headless   bool
+	engineName  string
+	sessionID   string
+	initialURL  string
+	waitFor     string
+	timeout     time.Duration
+	headless    bool
+	userAgent   string
+	stealthMode bool
 }
 
 // parseConfig evaluates expression fields from a BrowserConfig into a resolved value struct.
 func parseConfig(cfg *domain.BrowserConfig, ctx *executor.ExecutionContext) browserCfgResolved {
+	kdeps_debug.Log("enter: parseConfig")
 	r := browserCfgResolved{
-		initialURL: evaluateText(cfg.URL, ctx),
-		sessionID:  evaluateText(cfg.SessionID, ctx),
-		waitFor:    evaluateText(cfg.WaitFor, ctx),
-		timeout:    defaultBrowserTimeout,
-		headless:   true,
+		initialURL:  evaluateText(cfg.URL, ctx),
+		sessionID:   evaluateText(cfg.SessionID, ctx),
+		waitFor:     evaluateText(cfg.WaitFor, ctx),
+		timeout:     defaultBrowserTimeout,
+		headless:    true,
+		userAgent:   evaluateText(cfg.UserAgent, ctx),
+		stealthMode: cfg.StealthMode != nil && *cfg.StealthMode,
 	}
 
 	r.engineName = evaluateText(cfg.Engine, ctx)
@@ -149,6 +160,7 @@ func parseConfig(cfg *domain.BrowserConfig, ctx *executor.ExecutionContext) brow
 
 // navigatePage navigates to the initial URL and waits for a selector when requested.
 func navigatePage(page playwright.Page, initialURL, waitFor string, timeout time.Duration) error {
+	kdeps_debug.Log("enter: navigatePage")
 	if initialURL != "" {
 		if _, err := page.Goto(initialURL, playwright.PageGotoOptions{
 			Timeout: playwright.Float(float64(timeout.Milliseconds())),
@@ -175,6 +187,7 @@ func runActions(
 	ctx *executor.ExecutionContext,
 	timeout time.Duration,
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: runActions")
 	results := make([]interface{}, 0, len(actions))
 
 	for i, action := range actions {
@@ -197,7 +210,10 @@ func getOrCreateSession(
 	headless bool,
 	viewport *domain.BrowserViewportConfig,
 	timeout time.Duration,
+	userAgent string,
+	stealthMode bool,
 ) (*session, bool, error) {
+	kdeps_debug.Log("enter: getOrCreateSession")
 	if sessionID != "" {
 		if v, ok := activeSessions.Load(sessionID); ok {
 			s, _ := v.(*session)
@@ -205,7 +221,7 @@ func getOrCreateSession(
 		}
 	}
 
-	sess, err := newSession(engineName, headless, viewport, timeout)
+	sess, err := newSession(engineName, headless, viewport, timeout, userAgent, stealthMode)
 	if err != nil {
 		return nil, false, err
 	}
@@ -222,21 +238,51 @@ func newSession(
 	headless bool,
 	viewport *domain.BrowserViewportConfig,
 	_ time.Duration,
+	userAgent string,
+	stealthMode bool,
 ) (*session, error) {
+	kdeps_debug.Log("enter: newSession")
 	pw, err := playwright.Run()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %w", err)
 	}
 
-	browser, err := selectBrowserType(pw, engineName).Launch(playwright.BrowserTypeLaunchOptions{
+	// Default realistic user agent if not specified
+	if userAgent == "" {
+		userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+	}
+
+	// Build browser launch options
+	launchOpts := playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
-	})
+		Args:     []string{},
+	}
+
+	// Stealth mode: add args to evade bot detection
+	if stealthMode {
+		launchOpts.Args = []string{
+			"--disable-blink-features=AutomationControlled",
+			"--disable-features=IsolateOrigins,site-per-process",
+			"--disable-web-security",
+			"--disable-site-isolation-trials",
+			"--no-sandbox",
+			"--disable-setuid-sandbox",
+			"--disable-dev-shm-usage",
+			"--disable-accelerated-2d-canvas",
+			"--no-first-run",
+			"--no-zygote",
+			"--disable-gpu",
+			"--window-size=1280,720",
+		}
+	}
+
+	browser, err := selectBrowserType(pw, engineName).Launch(launchOpts)
 	if err != nil {
 		_ = pw.Stop()
 		return nil, fmt.Errorf("could not launch %s browser: %w", engineName, err)
 	}
 
-	bCtx, page, err := createContextAndPage(browser, viewport)
+	bCtx, page, err := createContextAndPage(browser, viewport, userAgent, stealthMode)
 	if err != nil {
 		_ = browser.Close()
 		_ = pw.Stop()
@@ -247,6 +293,7 @@ func newSession(
 }
 
 func selectBrowserType(pw *playwright.Playwright, engineName string) playwright.BrowserType {
+	kdeps_debug.Log("enter: selectBrowserType")
 	switch strings.ToLower(engineName) {
 	case domain.BrowserEngineFirefox:
 		return pw.Firefox
@@ -260,7 +307,10 @@ func selectBrowserType(pw *playwright.Playwright, engineName string) playwright.
 func createContextAndPage(
 	browser playwright.Browser,
 	viewport *domain.BrowserViewportConfig,
+	userAgent string,
+	stealthMode bool,
 ) (playwright.BrowserContext, playwright.Page, error) {
+	kdeps_debug.Log("enter: createContextAndPage")
 	vw, vh := defaultViewportWidth, defaultViewportHeight
 	if viewport != nil {
 		if viewport.Width > 0 {
@@ -271,9 +321,19 @@ func createContextAndPage(
 		}
 	}
 
-	bCtx, err := browser.NewContext(playwright.BrowserNewContextOptions{
-		Viewport: &playwright.Size{Width: vw, Height: vh},
-	})
+	ctxOpts := playwright.BrowserNewContextOptions{
+		Viewport:  &playwright.Size{Width: vw, Height: vh},
+		UserAgent: playwright.String(userAgent),
+	}
+
+	// Stealth mode: add more realistic context options
+	if stealthMode {
+		ctxOpts.Locale = playwright.String("en-US")
+		ctxOpts.TimezoneId = playwright.String("America/New_York")
+		ctxOpts.ColorScheme = playwright.ColorSchemeLight
+	}
+
+	bCtx, err := browser.NewContext(ctxOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create browser context: %w", err)
 	}
@@ -288,6 +348,7 @@ func createContextAndPage(
 }
 
 func cleanupSession(sessionID string, sess *session) {
+	kdeps_debug.Log("enter: cleanupSession")
 	if sessionID != "" {
 		activeSessions.Delete(sessionID)
 	}
@@ -301,6 +362,7 @@ func cleanupSession(sessionID string, sess *session) {
 
 // CloseSession closes and removes a named persistent session.
 func CloseSession(sessionID string) {
+	kdeps_debug.Log("enter: CloseSession")
 	if v, ok := activeSessions.LoadAndDelete(sessionID); ok {
 		s, _ := v.(*session)
 		cleanupSession("", s)
@@ -315,6 +377,7 @@ func executeAction(
 	action domain.BrowserAction,
 	timeout time.Duration,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: executeAction")
 	tms := playwright.Float(float64(timeout.Milliseconds()))
 	base := buildBase(action)
 
@@ -418,6 +481,7 @@ func executeAction(
 // ─── per-action helpers ───────────────────────────────────────────────────────
 
 func buildBase(action domain.BrowserAction) map[string]interface{} {
+	kdeps_debug.Log("enter: buildBase")
 	base := map[string]interface{}{"action": action.Action}
 	if action.Selector != "" {
 		base["selector"] = action.Selector
@@ -426,6 +490,7 @@ func buildBase(action domain.BrowserAction) map[string]interface{} {
 }
 
 func reqSel(action domain.BrowserAction, name string) error {
+	kdeps_debug.Log("enter: reqSel")
 	if action.Selector == "" {
 		return fmt.Errorf("%s: missing selector", name)
 	}
@@ -435,6 +500,7 @@ func reqSel(action domain.BrowserAction, name string) error {
 func doNavigate(
 	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
 ) error {
+	kdeps_debug.Log("enter: doNavigate")
 	dest := action.URL
 	if dest == "" {
 		dest = action.Value
@@ -454,6 +520,7 @@ func doUpload(
 	action domain.BrowserAction,
 	base map[string]interface{},
 ) error {
+	kdeps_debug.Log("enter: doUpload")
 	if err := reqSel(action, "upload"); err != nil {
 		return err
 	}
@@ -482,6 +549,7 @@ func doUpload(
 func doSelect(
 	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
 ) error {
+	kdeps_debug.Log("enter: doSelect")
 	_, err := page.Locator(action.Selector).SelectOption(
 		playwright.SelectOptionValues{Values: playwright.StringSlice(action.Value)},
 		playwright.LocatorSelectOptionOptions{Timeout: tms},
@@ -493,6 +561,7 @@ func doSelect(
 }
 
 func doScroll(page playwright.Page, action domain.BrowserAction, tms *float64) error {
+	kdeps_debug.Log("enter: doScroll")
 	if action.Selector != "" {
 		if err := page.Locator(action.Selector).Hover(playwright.LocatorHoverOptions{Timeout: tms}); err != nil {
 			return err
@@ -512,6 +581,7 @@ func doScroll(page playwright.Page, action domain.BrowserAction, tms *float64) e
 func doPress(
 	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
 ) error {
+	kdeps_debug.Log("enter: doPress")
 	key := action.Key
 	if key == "" {
 		key = action.Value
@@ -536,6 +606,7 @@ func doEvaluate(
 	action domain.BrowserAction,
 	base map[string]interface{},
 ) error {
+	kdeps_debug.Log("enter: doEvaluate")
 	if action.Script == "" {
 		return errors.New("evaluate: missing script")
 	}
@@ -551,6 +622,7 @@ func doScreenshot(
 	action domain.BrowserAction,
 	base map[string]interface{},
 ) error {
+	kdeps_debug.Log("enter: doScreenshot")
 	outFile, err := resolveOutputFile(action.OutputFile)
 	if err != nil {
 		return err
@@ -573,6 +645,7 @@ func doScreenshot(
 }
 
 func resolveOutputFile(outFile string) (string, error) {
+	kdeps_debug.Log("enter: resolveOutputFile")
 	if outFile == "" {
 		if err := os.MkdirAll(defaultScreenshotDir, 0o750); err != nil {
 			return "", fmt.Errorf("screenshot: could not create output dir: %w", err)
@@ -589,6 +662,7 @@ func resolveOutputFile(outFile string) (string, error) {
 func doWait(
 	page playwright.Page, action domain.BrowserAction, base map[string]interface{}, tms *float64,
 ) error {
+	kdeps_debug.Log("enter: doWait")
 	target := action.Wait
 	if target == "" {
 		target = action.Selector
@@ -614,12 +688,14 @@ func doWait(
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 func failAction(base map[string]interface{}, msg string) map[string]interface{} {
+	kdeps_debug.Log("enter: failAction")
 	base["success"] = false
 	base["error"] = msg
 	return base
 }
 
 func errorResult(err error, sessionID string, actionResults []interface{}) map[string]interface{} {
+	kdeps_debug.Log("enter: errorResult")
 	res := map[string]interface{}{
 		"success":   false,
 		"error":     err.Error(),
@@ -632,6 +708,7 @@ func errorResult(err error, sessionID string, actionResults []interface{}) map[s
 }
 
 func resolveAction(a domain.BrowserAction, ctx *executor.ExecutionContext) domain.BrowserAction {
+	kdeps_debug.Log("enter: resolveAction")
 	a.Selector = evaluateText(a.Selector, ctx)
 	a.Value = evaluateText(a.Value, ctx)
 	a.Script = evaluateText(a.Script, ctx)
@@ -646,6 +723,7 @@ func resolveAction(a domain.BrowserAction, ctx *executor.ExecutionContext) domai
 }
 
 func evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

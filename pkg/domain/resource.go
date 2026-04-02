@@ -21,6 +21,8 @@ package domain
 import (
 	"fmt"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -91,6 +93,7 @@ type ValidationsConfig struct {
 // UnmarshalYAML implements custom YAML unmarshaling to support "properties:" and "fields:"
 // as map-style aliases for "rules:". Both formats (array and map) are supported.
 func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type rawValidationsConfig struct {
 		Methods  []string     `yaml:"methods"`
 		Routes   []string     `yaml:"routes"`
@@ -142,6 +145,7 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // yamlNodeKindName returns a human-readable name for a yaml.Kind value.
 func yamlNodeKindName(kind yaml.Kind) string {
+	kdeps_debug.Log("enter: yamlNodeKindName")
 	switch kind {
 	case yaml.DocumentNode:
 		return "document"
@@ -161,6 +165,7 @@ func yamlNodeKindName(kind yaml.Kind) string {
 // mapFieldRulesFromNode extracts a map-style field rules block (e.g. "fields:" or "properties:")
 // from a YAML mapping node and returns it as []FieldRule with Field set from the map key.
 func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
+	kdeps_debug.Log("enter: mapFieldRulesFromNode")
 	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
 		node = node.Content[0]
 	}
@@ -274,6 +279,7 @@ type ErrorConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (e *ErrorConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Code    interface{} `yaml:"code"`
 		Message string      `yaml:"message"`
@@ -318,6 +324,7 @@ type OnErrorConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Action     string       `yaml:"action,omitempty"`
 		MaxRetries interface{}  `yaml:"maxRetries,omitempty"`
@@ -372,6 +379,7 @@ type ChatConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
 func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Model            string         `yaml:"model"`
 		Backend          string         `yaml:"backend,omitempty"`
@@ -486,6 +494,7 @@ type ToolParam struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (t *ToolParam) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Type        string      `yaml:"type"`
 		Description string      `yaml:"description"`
@@ -538,6 +547,7 @@ type HTTPClientConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
 func (h *HTTPClientConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type rawHTTPClientConfig HTTPClientConfig
 	var raw rawHTTPClientConfig
 	if err := node.Decode(&raw); err != nil {
@@ -564,6 +574,7 @@ type RetryConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (r *RetryConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		MaxAttempts interface{} `yaml:"maxAttempts"`
 		Backoff     string      `yaml:"backoff,omitempty"`
@@ -596,6 +607,7 @@ type HTTPCacheConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (h *HTTPCacheConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Enabled interface{} `yaml:"enabled"`
 		TTL     string      `yaml:"ttl,omitempty"`
@@ -637,6 +649,7 @@ type HTTPTLSConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (h *HTTPTLSConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		InsecureSkipVerify interface{} `yaml:"insecureSkipVerify,omitempty"`
 		CertFile           string      `yaml:"certFile,omitempty"`
@@ -677,6 +690,7 @@ type SQLConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
 func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		ConnectionName  string        `yaml:"connectionName,omitempty"`
 		Connection      string        `yaml:"connection,omitempty"`
@@ -743,6 +757,7 @@ type PythonConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
 func (p *PythonConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type rawPythonConfig PythonConfig
 	var raw rawPythonConfig
 	if err := node.Decode(&raw); err != nil {
@@ -771,6 +786,7 @@ type ExecConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
 func (e *ExecConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type rawExecConfig ExecConfig
 	var raw rawExecConfig
 	if err := node.Decode(&raw); err != nil {
@@ -805,6 +821,7 @@ type ResponseMeta struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (r *ResponseMeta) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Headers    map[string]string `yaml:"headers,omitempty"`
 		StatusCode interface{}       `yaml:"statusCode,omitempty"`
@@ -993,6 +1010,7 @@ type ScraperConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias.
 func (s *ScraperConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type rawScraperConfig ScraperConfig
 	var raw rawScraperConfig
 	if err := node.Decode(&raw); err != nil {
@@ -1100,6 +1118,7 @@ type MemoryConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for TopK.
 func (m *MemoryConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Operation       string                 `yaml:"operation,omitempty"`
 		Content         string                 `yaml:"content"`
@@ -1179,6 +1198,7 @@ type EmbeddingConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
 func (e *EmbeddingConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Model           string                 `yaml:"model"`
 		Backend         string                 `yaml:"backend,omitempty"`
@@ -1555,6 +1575,7 @@ type AgentCallConfig struct {
 // UnmarshalYAML implements yaml.Unmarshaler to accept both "name:" (preferred)
 // and the legacy "agent:" key for backward compatibility.
 func (c *AgentCallConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	// Use an alias to avoid infinite recursion during unmarshaling.
 	type agentCallConfigAlias struct {
 		Name   string                 `yaml:"name"`
@@ -1679,6 +1700,7 @@ type BrowserAction struct {
 // UnmarshalYAML implements custom YAML unmarshaling for BrowserAction to support
 // string values for the fullPage boolean field.
 func (b *BrowserAction) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Action     string      `yaml:"action"`
 		Selector   string      `yaml:"selector,omitempty"`
@@ -1724,6 +1746,7 @@ type BrowserViewportConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (v *BrowserViewportConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Width  interface{} `yaml:"width,omitempty"`
 		Height interface{} `yaml:"height,omitempty"`
@@ -1797,11 +1820,22 @@ type BrowserConfig struct {
 	// WaitFor is a CSS selector or URL fragment to wait for before executing
 	// the actions list. Useful when the initial navigation triggers async loading.
 	WaitFor string `yaml:"waitFor,omitempty"`
+
+	// UserAgent sets a custom User-Agent string for the browser.
+	// If not specified, a default realistic User-Agent is used.
+	// Use this to avoid bot detection on sites like LinkedIn.
+	UserAgent string `yaml:"userAgent,omitempty"`
+
+	// StealthMode enables anti-bot detection features when true.
+	// This adds browser arguments to mask automation flags and uses
+	// realistic viewport, timezone, and locale settings.
+	StealthMode *bool `yaml:"stealthMode,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling for BrowserConfig to support
 // string values for the headless boolean field and the timeout alias.
 func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Engine          string                 `yaml:"engine,omitempty"`
 		Headless        interface{}            `yaml:"headless,omitempty"`
@@ -1812,6 +1846,8 @@ func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
 		Timeout         string                 `yaml:"timeout,omitempty"`
 		WaitFor         string                 `yaml:"waitFor,omitempty"`
+		UserAgent       string                 `yaml:"userAgent,omitempty"`
+		StealthMode     interface{}            `yaml:"stealthMode,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -1826,9 +1862,13 @@ func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 	b.TimeoutDuration = alias.TimeoutDuration
 	b.Timeout = alias.Timeout
 	b.WaitFor = alias.WaitFor
+	b.UserAgent = alias.UserAgent
 
 	if bv, ok := ParseBool(alias.Headless); ok {
 		b.Headless = &bv
+	}
+	if sv, ok := ParseBool(alias.StealthMode); ok {
+		b.StealthMode = &sv
 	}
 
 	// Handle timeout alias

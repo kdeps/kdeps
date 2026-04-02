@@ -1018,7 +1018,7 @@ func TestGetOrCreateSession_ExistingSession(t *testing.T) {
 	t.Cleanup(func() { activeSessions.Delete(sessID) })
 
 	got, isNew, err := getOrCreateSession(
-		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout,
+		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false,
 	)
 	require.NoError(t, err)
 	assert.False(t, isNew)
@@ -1034,6 +1034,8 @@ func TestGetOrCreateSession_NewEphemeralFailsWithoutPlaywright(t *testing.T) {
 		true,
 		nil,
 		defaultBrowserTimeout,
+		"",
+		false,
 	)
 	if err != nil {
 		assert.Contains(t, err.Error(), "playwright")
@@ -1185,6 +1187,8 @@ func TestGetOrCreateSession_NewNamedSessionFailsWithoutPlaywright(t *testing.T) 
 		true,
 		nil,
 		defaultBrowserTimeout,
+		"",
+		false,
 	)
 	// Will fail because playwright binary is not installed.
 	if err != nil {
@@ -1200,6 +1204,50 @@ func TestParseConfig_HeadlessFalse(t *testing.T) {
 	cfg := &domain.BrowserConfig{Headless: &headless}
 	r := parseConfig(cfg, nil)
 	assert.False(t, r.headless)
+}
+
+func TestParseConfig_UserAgent(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.BrowserConfig{UserAgent: "Mozilla/5.0 (Custom)"}
+	r := parseConfig(cfg, nil)
+	assert.Equal(t, "Mozilla/5.0 (Custom)", r.userAgent)
+}
+
+func TestParseConfig_DefaultUserAgent(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.BrowserConfig{}
+	r := parseConfig(cfg, nil)
+	assert.Empty(t, r.userAgent)
+}
+
+func TestParseConfig_StealthModeEnabled(t *testing.T) {
+	t.Parallel()
+	stealthMode := true
+	cfg := &domain.BrowserConfig{StealthMode: &stealthMode}
+	r := parseConfig(cfg, nil)
+	assert.True(t, r.stealthMode)
+}
+
+func TestParseConfig_StealthModeDisabled(t *testing.T) {
+	t.Parallel()
+	stealthMode := false
+	cfg := &domain.BrowserConfig{StealthMode: &stealthMode}
+	r := parseConfig(cfg, nil)
+	assert.False(t, r.stealthMode)
+}
+
+func TestParseConfig_DefaultStealthMode(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.BrowserConfig{}
+	r := parseConfig(cfg, nil)
+	assert.False(t, r.stealthMode)
+}
+
+func TestParseConfig_StealthModeNil(t *testing.T) {
+	t.Parallel()
+	cfg := &domain.BrowserConfig{StealthMode: nil}
+	r := parseConfig(cfg, nil)
+	assert.False(t, r.stealthMode)
 }
 
 func TestParseConfig_ValidDuration(t *testing.T) {

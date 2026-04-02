@@ -1,0 +1,41 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: login
+  name: login
+  description: |
+    Log in to LinkedIn using a headless Chromium browser.
+
+    Navigates to the LinkedIn login page, fills in the credentials supplied
+    in the request body, submits the form, and waits for the feed redirect
+    that confirms a successful login.
+
+    The browser session is persisted under sessionId "linkedin-session" so
+    that subsequent resources (search-jobs, apply-job) share the same
+    authenticated context without re-logging in.
+  requires: [validate]
+
+run:
+  browser:
+    engine: chromium
+    headless: true
+    stealthMode: true
+    sessionId: linkedin-session
+    url: "https://www.linkedin.com/login"
+    waitFor: "#username"
+    timeoutDuration: 30s
+    actions:
+      - action: fill
+        selector: "#username"
+        value: "{{ get('linkedin_email') }}"
+
+      - action: fill
+        selector: "#password"
+        value: "{{ get('linkedin_password') }}"
+
+      - action: click
+        selector: "button[type='submit']"
+
+      - action: wait
+        wait: ".global-nav__primary-link, .feed-identity-module, .scaffold-layout"

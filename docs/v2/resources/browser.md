@@ -37,6 +37,8 @@ run:
 | `timeoutDuration` | Global action timeout (e.g. `"30s"`) | `30s` |
 | `viewport.width` | Browser viewport width in pixels | `1280` |
 | `viewport.height` | Browser viewport height in pixels | `720` |
+| `userAgent` | Custom User-Agent string for the browser | *(default Mozilla/5.0)* |
+| `stealthMode` | Enable anti-bot detection features | `false` |
 | `actions` | Ordered list of browser actions | `[]` |
 
 ## Action Types
@@ -309,6 +311,33 @@ Pause execution for a duration or until a CSS selector appears.
 
 ---
 
+## Stealth Mode
+
+Enable `stealthMode: true` to evade bot detection on websites like LinkedIn that block headless browsers. Stealth mode configures the browser with anti-detection settings including:
+
+- Disables `AutomationControlled` blink features
+- Adds realistic viewport, locale (`en-US`), and timezone (`America/New_York`)
+- Removes automation flags (`--disable-blink-features=AutomationControlled`)
+- Sets a realistic User-Agent string
+
+```yaml
+run:
+  browser:
+    engine: chromium
+    headless: true
+    stealthMode: true
+    url: "https://www.linkedin.com/login"
+    actions:
+      - action: fill
+        selector: "#username"
+        value: "{{ get('email') }}"
+```
+
+For sites with sophisticated bot detection, also consider:
+- Setting `headless: false` to run with a visible browser window
+- Using a custom `userAgent` that matches your OS/browser
+- Reusing `sessionId` with pre-authenticated sessions instead of logging in fresh
+
 ## Persistent Sessions
 
 By default each resource runs in a fresh, ephemeral browser context. Set `sessionId` to share a browser context across multiple resources or API calls — cookies, local storage, and page state are preserved.
@@ -347,6 +376,35 @@ run:
 </div>
 
 ## Examples
+
+### Stealth Mode Login (Bot Detection Evasion)
+
+For websites that block headless browsers, enable `stealthMode` and consider using non-headless mode to appear more human-like:
+
+```yaml
+metadata:
+  actionId: linkedinLogin
+
+run:
+  browser:
+    engine: chromium
+    headless: true
+    stealthMode: true
+    sessionId: "linkedin-session"
+    url: "https://www.linkedin.com/login"
+    waitFor: "#username"
+    actions:
+      - action: fill
+        selector: "#username"
+        value: "{{ get('linkedin_email') }}"
+      - action: fill
+        selector: "#password"
+        value: "{{ get('linkedin_password') }}"
+      - action: click
+        selector: "button[type='submit']"
+      - action: wait
+        wait: "3000ms"
+```
 
 ### Form Fill and Submit
 

@@ -1,0 +1,44 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: search-jobs
+  name: search-jobs
+  description: |
+    Navigate to the LinkedIn job search page, apply date/remote filters, and
+    extract all visible job card data as a JSON array via JS evaluate.
+
+    Reuses the authenticated browser session from the login step.
+    Returns: job_id, title, company, location, work_style, job_link for each card.
+  requires: [login]
+
+run:
+  browser:
+    engine: chromium
+    headless: true
+    stealthMode: true
+    sessionId: linkedin-session
+    url: "https://www.linkedin.com/jobs/search/?keywords={{ get('job_title') | urlencode }}&location={{ get('location') | default('') | urlencode }}&f_TPR={{ get('date_posted') | default('r604800') }}&f_WT={{ get('remote_only') | default('false') == 'true' | ternary('2', '') }}&f_LF={{ get('easy_apply_only') | default('true') == 'true' | ternary('f_AL', '') }}"
+    waitFor: "li[data-occludable-job-id]"
+    timeoutDuration: 30s
+    actions:
+      - action: evaluate
+        script: |
+          (() => {
+            const cards = Array.from(document.querySelectorAll('li[data-occludable-job-id]'));
+            return JSON.stringify(cards.map(card => {
+              const jobId = card.getAttribute('data-occludable-job-id') || '';
+              const titleEl = card.querySelector('.job-card-list__title, a[data-tracking-control-name]');
+              const title = titleEl ? titleEl.innerText.split('\n')[0].trim() : '';
+              const subtitleEl = card.querySelector('.artdeco-entity-lockup__subtitle');
+              const subtitle = subtitleEl ? subtitleEl.innerText.trim() : '';
+              const dotIdx = subtitle.indexOf(' \u00b7 ');
+              const company = dotIdx > -1 ? subtitle.slice(0, dotIdx).trim() : subtitle;
+              const location = dotIdx > -1 ? subtitle.slice(dotIdx + 3).replace(/\(.*\)/, '').trim() : '';
+              const workStyle = subtitle.match(/\(([^)]+)\)/)?.[1] || '';
+              const stateEl = card.querySelector('.job-card-container__footer-job-state');
+              const alreadyApplied = stateEl ? stateEl.innerText.trim() === 'Applied' : false;
+              return { job_id: jobId, title, company, location, work_style: workStyle, already_applied: alreadyApplied,
+                       job_link: jobId ? 'https://www.linkedin.com/jobs/view/' + jobId : '' };
+            }).filter(j => j.job_id && !j.already_applied));
+          })()
