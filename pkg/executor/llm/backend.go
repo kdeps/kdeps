@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -82,6 +84,7 @@ type BackendRegistry struct {
 
 // NewBackendRegistry creates a new backend registry.
 func NewBackendRegistry() *BackendRegistry {
+	kdeps_debug.Log("enter: NewBackendRegistry")
 	registry := &BackendRegistry{
 		backends: make(map[string]Backend),
 	}
@@ -106,16 +109,19 @@ func NewBackendRegistry() *BackendRegistry {
 
 // Register registers a backend.
 func (r *BackendRegistry) Register(backend Backend) {
+	kdeps_debug.Log("enter: Register")
 	r.backends[backend.Name()] = backend
 }
 
 // Get returns a backend by name, or nil if not found.
 func (r *BackendRegistry) Get(name string) Backend {
+	kdeps_debug.Log("enter: Get")
 	return r.backends[name]
 }
 
 // GetDefault returns the default backend (ollama).
 func (r *BackendRegistry) GetDefault() Backend {
+	kdeps_debug.Log("enter: GetDefault")
 	if backend := r.backends["ollama"]; backend != nil {
 		return backend
 	}
@@ -130,11 +136,13 @@ func (r *BackendRegistry) GetDefault() Backend {
 
 // SetBackendsForTesting sets the backends map for testing.
 func (r *BackendRegistry) SetBackendsForTesting(backends map[string]Backend) {
+	kdeps_debug.Log("enter: SetBackendsForTesting")
 	r.backends = backends
 }
 
 // GetBackendsForTesting returns the backends map for testing.
 func (r *BackendRegistry) GetBackendsForTesting() map[string]Backend {
+	kdeps_debug.Log("enter: GetBackendsForTesting")
 	return r.backends
 }
 
@@ -142,16 +150,19 @@ func (r *BackendRegistry) GetBackendsForTesting() map[string]Backend {
 type OllamaBackend struct{}
 
 func (b *OllamaBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return backendOllama
 }
 
 // DefaultURL returns the default URL for this backend.
 func (b *OllamaBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "http://localhost:11434"
 }
 
 // ChatEndpoint returns the API endpoint for chat requests.
 func (b *OllamaBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/api/chat", baseURL)
 }
 
@@ -161,6 +172,7 @@ func (b *OllamaBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -180,6 +192,7 @@ func (b *OllamaBackend) BuildRequest(
 
 // ParseResponse parses the response from the backend into a standard format.
 func (b *OllamaBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -196,17 +209,20 @@ func (b *OllamaBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 
 // GetAPIKeyHeader returns the API key header name and value for authentication.
 func (b *OllamaBackend) GetAPIKeyHeader(_ string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	return "", "" // Local backend, no API key needed
 }
 
 // ParseOllamaStreamingResponseForTesting exposes parseOllamaStreamingResponse for tests.
 func ParseOllamaStreamingResponseForTesting(body io.Reader) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseOllamaStreamingResponseForTesting")
 	return parseOllamaStreamingResponse(body)
 }
 
 // parseOllamaStreamingResponse reads NDJSON chunks from an Ollama streaming response
 // and assembles them into the standard single-response format.
 func parseOllamaStreamingResponse(body io.Reader) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: parseOllamaStreamingResponse")
 	scanner := bufio.NewScanner(body)
 	var contentBuilder strings.Builder
 	var lastChunk map[string]interface{}
@@ -258,6 +274,7 @@ func (e *Executor) callBackend(
 	timeout time.Duration,
 	apiKey string,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: callBackend")
 	endpoint := backend.ChatEndpoint(baseURL)
 	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout, apiKey)
 }
@@ -270,6 +287,7 @@ func (e *Executor) callBackendWithEndpoint(
 	timeout time.Duration,
 	apiKey string,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: callBackendWithEndpoint")
 	client := &stdhttp.Client{Timeout: timeout}
 
 	// Marshal request body
@@ -330,14 +348,17 @@ func (e *Executor) callBackendWithEndpoint(
 type OpenAIBackend struct{}
 
 func (b *OpenAIBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "openai"
 }
 
 func (b *OpenAIBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.openai.com"
 }
 
 func (b *OpenAIBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
 }
 
@@ -346,6 +367,7 @@ func (b *OpenAIBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -370,6 +392,7 @@ func (b *OpenAIBackend) BuildRequest(
 }
 
 func (b *OpenAIBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -387,6 +410,7 @@ func (b *OpenAIBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 func (b *OpenAIBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -401,6 +425,7 @@ func (b *OpenAIBackend) convertOpenAIResponse(
 }
 
 func (b *OpenAIBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENAI_API_KEY")
 	}
@@ -414,14 +439,17 @@ func (b *OpenAIBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type AnthropicBackend struct{}
 
 func (b *AnthropicBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "anthropic"
 }
 
 func (b *AnthropicBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.anthropic.com"
 }
 
 func (b *AnthropicBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/messages", baseURL)
 }
 
@@ -430,6 +458,7 @@ func (b *AnthropicBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -452,6 +481,7 @@ func (b *AnthropicBackend) BuildRequest(
 }
 
 func (b *AnthropicBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -480,6 +510,7 @@ func (b *AnthropicBackend) ParseResponse(resp *stdhttp.Response) (map[string]int
 }
 
 func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -495,19 +526,23 @@ func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type GoogleBackend struct{}
 
 func (b *GoogleBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "google"
 }
 
 func (b *GoogleBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://generativelanguage.googleapis.com/v1beta"
 }
 
 func (b *GoogleBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/openai/chat/completions", baseURL)
 }
 
 // ChatEndpointWithKey returns the endpoint with API key as query parameter (used internally).
 func (b *GoogleBackend) ChatEndpointWithKey(baseURL string, apiKey string) string {
+	kdeps_debug.Log("enter: ChatEndpointWithKey")
 	endpoint := fmt.Sprintf("%s/openai/chat/completions", baseURL)
 	// Google Gemini uses API key as query parameter
 	if apiKey == "" {
@@ -530,6 +565,7 @@ func (b *GoogleBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -554,6 +590,7 @@ func (b *GoogleBackend) BuildRequest(
 }
 
 func (b *GoogleBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -571,6 +608,7 @@ func (b *GoogleBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 func (b *GoogleBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -585,6 +623,7 @@ func (b *GoogleBackend) convertOpenAIResponse(
 }
 
 func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	// Google Gemini uses query parameter instead of header
 	// We'll handle this in callBackend by modifying the endpoint URL
 	return "", ""
@@ -594,14 +633,17 @@ func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
 type CohereBackend struct{}
 
 func (b *CohereBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "cohere"
 }
 
 func (b *CohereBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.cohere.ai"
 }
 
 func (b *CohereBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/chat", baseURL)
 }
 
@@ -610,6 +652,7 @@ func (b *CohereBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	chatHistory, finalMessage := b.buildCohereMessages(messages)
 
 	req := map[string]interface{}{
@@ -628,6 +671,7 @@ func (b *CohereBackend) BuildRequest(
 func (b *CohereBackend) buildCohereMessages(
 	messages []map[string]interface{},
 ) ([]map[string]interface{}, string) {
+	kdeps_debug.Log("enter: buildCohereMessages")
 	chatHistory := make([]map[string]interface{}, 0)
 	userMessage := ""
 	lastUserMessage := ""
@@ -655,6 +699,7 @@ func (b *CohereBackend) buildCohereMessages(
 }
 
 func (b *CohereBackend) extractContent(contentRaw interface{}) string {
+	kdeps_debug.Log("enter: extractContent")
 	if contentStr, ok := contentRaw.(string); ok {
 		return contentStr
 	}
@@ -684,6 +729,7 @@ func (b *CohereBackend) handleUserMessage(
 	content string,
 	userMessageCount int,
 ) ([]map[string]interface{}, string, string, int) {
+	kdeps_debug.Log("enter: handleUserMessage")
 	if userMessage != "" {
 		chatHistory = append(chatHistory, map[string]interface{}{
 			"role":    "USER",
@@ -701,6 +747,7 @@ func (b *CohereBackend) handleAssistantMessage(
 	content string,
 	userMessageCount int,
 ) ([]map[string]interface{}, string, string, int) {
+	kdeps_debug.Log("enter: handleAssistantMessage")
 	hadMultipleUserMessages := userMessageCount > 0
 
 	if userMessage != "" {
@@ -727,6 +774,7 @@ func (b *CohereBackend) determineFinalMessage(
 	userMessage string,
 	lastUserMessage string,
 ) string {
+	kdeps_debug.Log("enter: determineFinalMessage")
 	if userMessage != "" {
 		return userMessage
 	}
@@ -749,6 +797,7 @@ func (b *CohereBackend) determineFinalMessage(
 }
 
 func (b *CohereBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -773,6 +822,7 @@ func (b *CohereBackend) ParseResponse(resp *stdhttp.Response) (map[string]interf
 }
 
 func (b *CohereBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("COHERE_API_KEY")
 	}
@@ -786,14 +836,17 @@ func (b *CohereBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type MistralBackend struct{}
 
 func (b *MistralBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "mistral"
 }
 
 func (b *MistralBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.mistral.ai"
 }
 
 func (b *MistralBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
 }
 
@@ -802,6 +855,7 @@ func (b *MistralBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -826,6 +880,7 @@ func (b *MistralBackend) BuildRequest(
 }
 
 func (b *MistralBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -843,6 +898,7 @@ func (b *MistralBackend) ParseResponse(resp *stdhttp.Response) (map[string]inter
 func (b *MistralBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -857,6 +913,7 @@ func (b *MistralBackend) convertOpenAIResponse(
 }
 
 func (b *MistralBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("MISTRAL_API_KEY")
 	}
@@ -870,14 +927,17 @@ func (b *MistralBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type TogetherBackend struct{}
 
 func (b *TogetherBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "together"
 }
 
 func (b *TogetherBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.together.xyz"
 }
 
 func (b *TogetherBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
 }
 
@@ -886,6 +946,7 @@ func (b *TogetherBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -910,6 +971,7 @@ func (b *TogetherBackend) BuildRequest(
 }
 
 func (b *TogetherBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -927,6 +989,7 @@ func (b *TogetherBackend) ParseResponse(resp *stdhttp.Response) (map[string]inte
 func (b *TogetherBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -941,6 +1004,7 @@ func (b *TogetherBackend) convertOpenAIResponse(
 }
 
 func (b *TogetherBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("TOGETHER_API_KEY")
 	}
@@ -954,14 +1018,17 @@ func (b *TogetherBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type PerplexityBackend struct{}
 
 func (b *PerplexityBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "perplexity"
 }
 
 func (b *PerplexityBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.perplexity.ai"
 }
 
 func (b *PerplexityBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/chat/completions", baseURL)
 }
 
@@ -970,6 +1037,7 @@ func (b *PerplexityBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -994,6 +1062,7 @@ func (b *PerplexityBackend) BuildRequest(
 }
 
 func (b *PerplexityBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -1011,6 +1080,7 @@ func (b *PerplexityBackend) ParseResponse(resp *stdhttp.Response) (map[string]in
 func (b *PerplexityBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1025,6 +1095,7 @@ func (b *PerplexityBackend) convertOpenAIResponse(
 }
 
 func (b *PerplexityBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("PERPLEXITY_API_KEY")
 	}
@@ -1038,14 +1109,17 @@ func (b *PerplexityBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type GroqBackend struct{}
 
 func (b *GroqBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "groq"
 }
 
 func (b *GroqBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.groq.com"
 }
 
 func (b *GroqBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/openai/v1/chat/completions", baseURL)
 }
 
@@ -1054,6 +1128,7 @@ func (b *GroqBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -1078,6 +1153,7 @@ func (b *GroqBackend) BuildRequest(
 }
 
 func (b *GroqBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -1095,6 +1171,7 @@ func (b *GroqBackend) ParseResponse(resp *stdhttp.Response) (map[string]interfac
 func (b *GroqBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1109,6 +1186,7 @@ func (b *GroqBackend) convertOpenAIResponse(
 }
 
 func (b *GroqBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("GROQ_API_KEY")
 	}
@@ -1122,14 +1200,17 @@ func (b *GroqBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type DeepSeekBackend struct{}
 
 func (b *DeepSeekBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "deepseek"
 }
 
 func (b *DeepSeekBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://api.deepseek.com"
 }
 
 func (b *DeepSeekBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/v1/chat/completions", baseURL)
 }
 
@@ -1138,6 +1219,7 @@ func (b *DeepSeekBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -1162,6 +1244,7 @@ func (b *DeepSeekBackend) BuildRequest(
 }
 
 func (b *DeepSeekBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -1179,6 +1262,7 @@ func (b *DeepSeekBackend) ParseResponse(resp *stdhttp.Response) (map[string]inte
 func (b *DeepSeekBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1193,6 +1277,7 @@ func (b *DeepSeekBackend) convertOpenAIResponse(
 }
 
 func (b *DeepSeekBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("DEEPSEEK_API_KEY")
 	}
@@ -1206,14 +1291,17 @@ func (b *DeepSeekBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 type OpenRouterBackend struct{}
 
 func (b *OpenRouterBackend) Name() string {
+	kdeps_debug.Log("enter: Name")
 	return "openrouter"
 }
 
 func (b *OpenRouterBackend) DefaultURL() string {
+	kdeps_debug.Log("enter: DefaultURL")
 	return "https://openrouter.ai"
 }
 
 func (b *OpenRouterBackend) ChatEndpoint(baseURL string) string {
+	kdeps_debug.Log("enter: ChatEndpoint")
 	return fmt.Sprintf("%s/api/v1/chat/completions", baseURL)
 }
 
@@ -1222,6 +1310,7 @@ func (b *OpenRouterBackend) BuildRequest(
 	messages []map[string]interface{},
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: BuildRequest")
 	req := map[string]interface{}{
 		"model":    model,
 		"messages": messages,
@@ -1246,6 +1335,7 @@ func (b *OpenRouterBackend) BuildRequest(
 }
 
 func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ParseResponse")
 	if resp.StatusCode != stdhttp.StatusOK {
 		var errorBody map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
@@ -1263,6 +1353,7 @@ func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]in
 func (b *OpenRouterBackend) convertOpenAIResponse(
 	openAIResp map[string]interface{},
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: convertOpenAIResponse")
 	result := make(map[string]interface{})
 
 	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
@@ -1277,6 +1368,7 @@ func (b *OpenRouterBackend) convertOpenAIResponse(
 }
 
 func (b *OpenRouterBackend) GetAPIKeyHeader(apiKey string) (string, string) {
+	kdeps_debug.Log("enter: GetAPIKeyHeader")
 	if apiKey == "" {
 		apiKey = os.Getenv("OPENROUTER_API_KEY")
 	}

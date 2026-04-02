@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -77,6 +79,7 @@ type PrettyHandlerOptions struct {
 
 // NewPrettyHandler creates a new PrettyHandler.
 func NewPrettyHandler(w io.Writer, opts *PrettyHandlerOptions) *PrettyHandler {
+	kdeps_debug.Log("enter: NewPrettyHandler")
 	if opts == nil {
 		opts = &PrettyHandlerOptions{}
 	}
@@ -114,11 +117,13 @@ func NewPrettyHandler(w io.Writer, opts *PrettyHandlerOptions) *PrettyHandler {
 
 // Enabled reports whether the handler handles records at the given level.
 func (h *PrettyHandler) Enabled(_ context.Context, level slog.Level) bool {
+	kdeps_debug.Log("enter: Enabled")
 	return h.enabled[level]
 }
 
 // Handle handles the log record.
 func (h *PrettyHandler) Handle(ctx context.Context, r slog.Record) error {
+	kdeps_debug.Log("enter: Handle")
 	if !h.Enabled(ctx, r.Level) {
 		return nil
 	}
@@ -170,6 +175,7 @@ func (h *PrettyHandler) Handle(ctx context.Context, r slog.Record) error {
 
 // WithAttrs returns a new handler with the given attributes.
 func (h *PrettyHandler) WithAttrs(_ []slog.Attr) slog.Handler {
+	kdeps_debug.Log("enter: WithAttrs")
 	// For simplicity, we'll just return the same handler
 	// In a more sophisticated implementation, we could store attrs
 	return h
@@ -177,12 +183,14 @@ func (h *PrettyHandler) WithAttrs(_ []slog.Attr) slog.Handler {
 
 // WithGroup returns a new handler with the given group name.
 func (h *PrettyHandler) WithGroup(_ string) slog.Handler {
+	kdeps_debug.Log("enter: WithGroup")
 	// For simplicity, we'll just return the same handler
 	return h
 }
 
 // formatLevel formats the log level with color and badge.
 func (h *PrettyHandler) formatLevel(level slog.Level) string {
+	kdeps_debug.Log("enter: formatLevel")
 	var color, badge string
 
 	switch level {
@@ -213,6 +221,7 @@ func (h *PrettyHandler) formatLevel(level slog.Level) string {
 
 // formatAttr formats a single attribute.
 func (h *PrettyHandler) formatAttr(buf *strings.Builder, attr slog.Attr, indent string) {
+	kdeps_debug.Log("enter: formatAttr")
 	key := attr.Key
 	value := attr.Value
 
@@ -227,6 +236,7 @@ func (h *PrettyHandler) formatAttr(buf *strings.Builder, attr slog.Attr, indent 
 
 // formatValue formats a value with proper indentation and pretty printing.
 func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent string) {
+	kdeps_debug.Log("enter: formatValue")
 	switch v.Kind() {
 	case slog.KindString:
 		buf.WriteString(h.colorize(colorGreen, fmt.Sprintf("%q", v.String())))
@@ -274,6 +284,7 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 // FormatAny formats any value type with pretty printing.
 // FormatAny formats any value for testing purposes.
 func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent string) {
+	kdeps_debug.Log("enter: FormatAny")
 	switch val := v.(type) {
 	case string:
 		buf.WriteString(h.colorize(colorGreen, fmt.Sprintf("%q", val)))
@@ -307,6 +318,7 @@ func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent st
 
 // formatMap formats a map with pretty printing.
 func (h *PrettyHandler) formatMap(buf *strings.Builder, m map[string]interface{}, indent string) {
+	kdeps_debug.Log("enter: formatMap")
 	buf.WriteString("{\n")
 	first := true
 	for k, v := range m {
@@ -328,6 +340,7 @@ func (h *PrettyHandler) formatMap(buf *strings.Builder, m map[string]interface{}
 
 // formatSlice formats a slice with pretty printing.
 func (h *PrettyHandler) formatSlice(buf *strings.Builder, s []interface{}, indent string) {
+	kdeps_debug.Log("enter: formatSlice")
 	buf.WriteString("[\n")
 	for i, v := range s {
 		if i > 0 {
@@ -346,6 +359,7 @@ func (h *PrettyHandler) formatSlice(buf *strings.Builder, s []interface{}, inden
 
 // colorize applies color to text if colors are enabled.
 func (h *PrettyHandler) colorize(color, text string) string {
+	kdeps_debug.Log("enter: colorize")
 	if h.opts.DisableColors {
 		return text
 	}
@@ -354,6 +368,7 @@ func (h *PrettyHandler) colorize(color, text string) string {
 
 // isTerminal checks if the file is a terminal.
 func isTerminal(f *os.File) bool {
+	kdeps_debug.Log("enter: isTerminal")
 	stat, err := f.Stat()
 	if err != nil {
 		return false

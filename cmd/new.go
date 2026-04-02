@@ -26,6 +26,8 @@ import (
 	"io"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -45,6 +47,7 @@ type NewFlags struct {
 
 // newNewCmd creates the new command.
 func newNewCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newNewCmd")
 	flags := &NewFlags{}
 
 	newCmd := &cobra.Command{
@@ -84,6 +87,7 @@ Examples:
 //
 
 func RunNew(_ *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: RunNew")
 	// For backward compatibility, use empty flags (default behavior)
 	flags := &NewFlags{}
 	return RunNewWithFlags(nil, args, flags)
@@ -91,6 +95,7 @@ func RunNew(_ *cobra.Command, args []string) error {
 
 // validateArgs validates command arguments.
 func validateArgs(args []string) (string, error) {
+	kdeps_debug.Log("enter: validateArgs")
 	if len(args) != 1 {
 		return "", fmt.Errorf("accepts 1 arg(s), received %d", len(args))
 	}
@@ -99,6 +104,7 @@ func validateArgs(args []string) (string, error) {
 
 // handleExistingDirectory checks and handles existing output directory.
 func handleExistingDirectory(outputDir string, force bool) error {
+	kdeps_debug.Log("enter: handleExistingDirectory")
 	if _, statErr := os.Stat(outputDir); statErr == nil {
 		if !force {
 			return fmt.Errorf("directory already exists: %s (use --force to overwrite)", outputDir)
@@ -113,6 +119,7 @@ func handleExistingDirectory(outputDir string, force bool) error {
 
 // determineTemplateName selects the appropriate template name.
 func determineTemplateName(generator *templates.Generator, flags *NewFlags) (string, error) {
+	kdeps_debug.Log("enter: determineTemplateName")
 	templateName := flags.Template
 	if templateName == "" && !flags.NoPrompt {
 		availableTemplates, listErr := generator.ListTemplates()
@@ -137,6 +144,7 @@ func determineTemplateName(generator *templates.Generator, flags *NewFlags) (str
 
 // collectTemplateData gathers template data based on flags.
 func collectTemplateData(agentName string, flags *NewFlags) (templates.TemplateData, error) {
+	kdeps_debug.Log("enter: collectTemplateData")
 	var data templates.TemplateData
 	if !flags.NoPrompt {
 		var err error
@@ -169,6 +177,7 @@ func generateProject(
 	templateName, outputDir string,
 	data templates.TemplateData,
 ) error {
+	kdeps_debug.Log("enter: generateProject")
 	fmt.Fprintf(os.Stdout, "\nCreating agent: %s\n\n", data.Name)
 
 	if genErr := generator.GenerateProject(templateName, outputDir, data); genErr != nil {
@@ -180,6 +189,7 @@ func generateProject(
 
 // RunNewWithFlags executes the new command with injected flags.
 func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
+	kdeps_debug.Log("enter: RunNewWithFlags")
 	// Validate arguments
 	agentName, validateErr := validateArgs(args)
 	if validateErr != nil {
@@ -223,6 +233,7 @@ func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
 
 // PrintSuccessMessage prints the success message (used for testing).
 func PrintSuccessMessage(w io.Writer, _, dir string) {
+	kdeps_debug.Log("enter: PrintSuccessMessage")
 	fmt.Fprintln(w, "✓ Created", dir+"/")
 	fmt.Fprintln(w, "  ✓ workflow.yaml")
 	fmt.Fprintln(w, "  ✓ resources/")

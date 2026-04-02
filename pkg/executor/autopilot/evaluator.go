@@ -25,6 +25,8 @@ import (
 	"log/slog"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -44,6 +46,7 @@ type LLMEvaluator struct {
 
 // NewLLMEvaluator creates a new LLM-backed evaluator.
 func NewLLMEvaluator(llmExecutor executor.ResourceExecutor, model string, logger *slog.Logger) *LLMEvaluator {
+	kdeps_debug.Log("enter: NewLLMEvaluator")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -61,6 +64,7 @@ func (ev *LLMEvaluator) Evaluate(
 	result interface{},
 	successCriteria string,
 ) (bool, string, error) {
+	kdeps_debug.Log("enter: Evaluate")
 	// If successCriteria is provided, check it as a simple string contains check first.
 	if successCriteria != "" {
 		resultStr := fmt.Sprintf("%v", result)
@@ -109,6 +113,7 @@ func (ev *LLMEvaluator) Evaluate(
 
 // buildEvaluationPrompt constructs the prompt sent to the LLM for goal evaluation.
 func buildEvaluationPrompt(goal, resultJSON string) string {
+	kdeps_debug.Log("enter: buildEvaluationPrompt")
 	const template = "Given the following goal and execution result," +
 		" determine if the goal was successfully accomplished.\n\n" +
 		"Goal: %s\n\n" +

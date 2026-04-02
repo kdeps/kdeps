@@ -27,6 +27,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -39,6 +41,7 @@ const (
 
 // isKdepsPackage reports whether path points to a .kdeps packed agent.
 func isKdepsPackage(path string) bool {
+	kdeps_debug.Log("enter: isKdepsPackage")
 	return strings.HasSuffix(path, kdepsPackageSuffix)
 }
 
@@ -48,6 +51,7 @@ func isKdepsPackage(path string) bool {
 //
 //nolint:unparam // cleanup is returned for flexibility but callers may track temp dirs themselves
 func extractKdepsPackage(packagePath string) (string, func(), error) {
+	kdeps_debug.Log("enter: extractKdepsPackage")
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		return "", nil, fmt.Errorf("kdeps package not found: %s", packagePath)
 	}
@@ -83,6 +87,7 @@ func extractKdepsPackage(packagePath string) (string, func(), error) {
 // extractTarEntries writes all entries from tr into destDir, guarding against
 // directory traversal and decompression bombs.
 func extractTarEntries(tr *tar.Reader, destDir string) error {
+	kdeps_debug.Log("enter: extractTarEntries")
 	for {
 		header, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -115,6 +120,7 @@ func extractTarEntries(tr *tar.Reader, destDir string) error {
 // as needed.  The header is used to enforce the size limit before any bytes are
 // written so that oversized entries are rejected rather than silently truncated.
 func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error {
+	kdeps_debug.Log("enter: extractTarFile")
 	if header.Size > maxKdepsExtractSize {
 		return fmt.Errorf(
 			"archive entry %q exceeds maximum allowed size of %d bytes",
@@ -145,6 +151,7 @@ func extractTarFile(tr *tar.Reader, header *tar.Header, targetPath string) error
 // /tmp/destDir/../other or a destDir that is a string-prefix of another
 // directory are both handled correctly.
 func safeJoinPath(name, destDir string) (string, error) {
+	kdeps_debug.Log("enter: safeJoinPath")
 	target := filepath.Join(destDir, name)
 	rel, err := filepath.Rel(destDir, target)
 	if err != nil || strings.HasPrefix(rel, "..") {

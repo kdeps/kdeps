@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -69,6 +71,7 @@ func NewExecutor(
 	runner WorkflowRunner,
 	logger *slog.Logger,
 ) *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -83,6 +86,7 @@ func NewExecutor(
 
 // Execute runs the autopilot loop.
 func (e *Executor) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.AutopilotConfig)
 	if !ok {
 		return nil, errors.New("autopilot: invalid config type, expected *domain.AutopilotConfig")
@@ -135,6 +139,7 @@ func (e *Executor) runIteration(
 	ctx *executor.ExecutionContext,
 	previous []domain.AutopilotIteration,
 ) (domain.AutopilotIteration, bool) {
+	kdeps_debug.Log("enter: runIteration")
 	iter := domain.AutopilotIteration{Index: i}
 
 	// 1. Synthesize workflow YAML

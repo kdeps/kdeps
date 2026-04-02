@@ -32,6 +32,8 @@ import (
 	"strconv"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -55,6 +57,7 @@ type ExportFlags struct {
 
 // newExportCmd creates the export parent command.
 func newExportCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newExportCmd")
 	exportCmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export workflow to different formats",
@@ -68,6 +71,7 @@ func newExportCmd() *cobra.Command {
 
 // getFormatMap returns a map of user-friendly format names to LinuxKit format strings.
 func getFormatMap() map[string]string {
+	kdeps_debug.Log("enter: getFormatMap")
 	return map[string]string{
 		"iso":      "iso-efi",
 		"raw":      "raw-efi",
@@ -79,6 +83,7 @@ func getFormatMap() map[string]string {
 
 // newExportISOCmd creates the export iso subcommand.
 func newExportISOCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newExportISOCmd")
 	flags := &ExportFlags{}
 
 	isoCmd := &cobra.Command{
@@ -169,6 +174,7 @@ Examples:
 
 // ExportISOWithFlags exports the exportISOInternal function for testing.
 func ExportISOWithFlags(cmd *cobra.Command, args []string, flags *ExportFlags) error {
+	kdeps_debug.Log("enter: ExportISOWithFlags")
 	return exportISOInternal(cmd, args, flags)
 }
 
@@ -176,6 +182,7 @@ const bytesPerMB = 1024 * 1024
 
 // exportISOInternal executes the export iso command.
 func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) error {
+	kdeps_debug.Log("enter: exportISOInternal")
 	if flags.Cloud {
 		arch := flags.Arch
 		if arch == "" {
@@ -244,6 +251,7 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 
 // showLinuxKitConfig generates and prints the LinuxKit YAML config.
 func showLinuxKitConfig(workflow *domain.Workflow, flags *ExportFlags) error {
+	kdeps_debug.Log("enter: showLinuxKitConfig")
 	isoBuilder := iso.NewBuilderWithRunner(nil)
 	isoBuilder.Hostname = flags.Hostname
 	if flags.Arch != "" {
@@ -272,6 +280,7 @@ func performISOBuild(
 	originalDir string,
 	flags *ExportFlags,
 ) error {
+	kdeps_debug.Log("enter: performISOBuild")
 	fmt.Fprintln(os.Stdout, "Step 1: Building Docker image...")
 
 	imageName, err := builder.Build(workflow, packagePath, flags.NoCache)
@@ -339,6 +348,7 @@ func resolveOutputPath(
 	workflow *domain.Workflow,
 	originalDir string,
 ) string {
+	kdeps_debug.Log("enter: resolveOutputPath")
 	outputPath := output
 	if outputPath == "" {
 		ext := ".iso"
@@ -358,6 +368,7 @@ func resolveOutputPath(
 
 // qemuSystem returns the QEMU binary name for the given architecture.
 func qemuSystem(arch string) string {
+	kdeps_debug.Log("enter: qemuSystem")
 	if arch == "arm64" {
 		return "qemu-system-aarch64"
 	}
@@ -367,6 +378,7 @@ func qemuSystem(arch string) string {
 
 // cloudExport executes an export build via kdeps.io cloud infrastructure.
 func cloudExport(packagePath, format, arch string, noCache bool, output string) error {
+	kdeps_debug.Log("enter: cloudExport")
 	config, err := LoadCloudConfig()
 	if err != nil {
 		return err
@@ -426,6 +438,7 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 }
 
 func checkCloudPlan(whoami *cloud.WhoamiResponse, format string) error {
+	kdeps_debug.Log("enter: checkCloudPlan")
 	if !whoami.Plan.Features.APIAccess {
 		return fmt.Errorf(
 			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
@@ -443,6 +456,7 @@ func checkCloudPlan(whoami *cloud.WhoamiResponse, format string) error {
 }
 
 func prepareCloudPackage(packagePath string) (string, error) {
+	kdeps_debug.Log("enter: prepareCloudPackage")
 	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
@@ -476,6 +490,7 @@ func prepareCloudPackage(packagePath string) (string, error) {
 }
 
 func resolveCloudOutputPath(output, format, _ string) string {
+	kdeps_debug.Log("enter: resolveCloudOutputPath")
 	outputPath := output
 	if outputPath == "" {
 		ext := ".iso"
@@ -495,6 +510,7 @@ func resolveCloudOutputPath(output, format, _ string) string {
 }
 
 func handleCloudDownload(ctx context.Context, downloadURL, outputPath string) error {
+	kdeps_debug.Log("enter: handleCloudDownload")
 	fmt.Fprintf(os.Stdout, "\nDownloading artifact to %s...\n", outputPath)
 
 	if dlErr := downloadCloudArtifact(ctx, downloadURL, outputPath); dlErr != nil {
@@ -514,6 +530,7 @@ func handleCloudDownload(ctx context.Context, downloadURL, outputPath string) er
 
 // downloadCloudArtifact downloads a build artifact from the given URL to disk.
 func downloadCloudArtifact(ctx context.Context, url, dest string) error {
+	kdeps_debug.Log("enter: downloadCloudArtifact")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -543,6 +560,7 @@ func downloadCloudArtifact(ctx context.Context, url, dest string) error {
 // workflowPorts extracts the configured ports from a workflow and returns
 // a QEMU hostfwd string and a human-readable port list.
 func workflowPorts(workflow *domain.Workflow) (string, string) {
+	kdeps_debug.Log("enter: workflowPorts")
 	ports := getWorkflowPorts(workflow)
 
 	var fwdParts []string
@@ -558,6 +576,7 @@ func workflowPorts(workflow *domain.Workflow) (string, string) {
 
 // joinStrings joins string slices efficiently using strings.Builder.
 func joinStrings(parts []string, sep string) string {
+	kdeps_debug.Log("enter: joinStrings")
 	result := ""
 	var resultSb546 strings.Builder
 	for i, p := range parts {
@@ -572,6 +591,7 @@ func joinStrings(parts []string, sep string) string {
 
 // printBuildResult prints the build result with deployment instructions.
 func printBuildResult(outputPath, format, arch string, workflow *domain.Workflow) {
+	kdeps_debug.Log("enter: printBuildResult")
 	info, statErr := os.Stat(outputPath)
 	sizeStr := ""
 	if statErr == nil {
@@ -608,6 +628,7 @@ func printBuildResult(outputPath, format, arch string, workflow *domain.Workflow
 }
 
 func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
+	kdeps_debug.Log("enter: printISOInstructions")
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
 	fmt.Fprintln(os.Stdout, "  1. Write to USB drive:")
@@ -671,6 +692,7 @@ func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
 }
 
 func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
+	kdeps_debug.Log("enter: printRawInstructions")
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
 	fmt.Fprintln(os.Stdout, "  Write directly to disk:")
@@ -721,6 +743,7 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 }
 
 func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
+	kdeps_debug.Log("enter: printRawEFIInstructions")
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
 	fmt.Fprintln(os.Stdout, "  Write directly to disk:")
@@ -769,6 +792,7 @@ func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
 }
 
 func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
+	kdeps_debug.Log("enter: printQcow2Instructions")
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
 	fmt.Fprintf(

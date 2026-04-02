@@ -26,6 +26,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const defaultAPIURL = "https://kdeps.io"
@@ -38,6 +40,7 @@ type CloudConfig struct {
 
 // LoadCloudConfig loads the cloud configuration from disk.
 func LoadCloudConfig() (*CloudConfig, error) {
+	kdeps_debug.Log("enter: LoadCloudConfig")
 	path, err := cloudConfigPath()
 	if err != nil {
 		return nil, err
@@ -66,6 +69,7 @@ func LoadCloudConfig() (*CloudConfig, error) {
 
 // SaveCloudConfig saves the cloud configuration to disk.
 func SaveCloudConfig(config *CloudConfig) error {
+	kdeps_debug.Log("enter: SaveCloudConfig")
 	path, err := cloudConfigPath()
 	if err != nil {
 		return err
@@ -89,6 +93,7 @@ func SaveCloudConfig(config *CloudConfig) error {
 
 // RemoveCloudConfig deletes the cloud configuration file.
 func RemoveCloudConfig() error {
+	kdeps_debug.Log("enter: RemoveCloudConfig")
 	path, err := cloudConfigPath()
 	if err != nil {
 		return err
@@ -102,6 +107,7 @@ func RemoveCloudConfig() error {
 }
 
 func cloudConfigPath() (string, error) {
+	kdeps_debug.Log("enter: cloudConfigPath")
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get config directory: %w", err)

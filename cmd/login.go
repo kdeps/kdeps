@@ -28,6 +28,8 @@ import (
 	"os"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
@@ -39,6 +41,7 @@ type loginFlags struct {
 }
 
 func newLoginCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newLoginCmd")
 	flags := &loginFlags{}
 
 	cmd := &cobra.Command{
@@ -66,6 +69,7 @@ Examples:
 }
 
 func runLogin(flags *loginFlags) error {
+	kdeps_debug.Log("enter: runLogin")
 	apiKey := flags.APIKey
 
 	// Interactive prompt if no key provided

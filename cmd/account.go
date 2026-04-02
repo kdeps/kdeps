@@ -25,12 +25,15 @@ import (
 	"fmt"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 )
 
 func newAccountCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newAccountCmd")
 	return &cobra.Command{
 		Use:   "account",
 		Short: "Show account details, plan, and usage",
@@ -46,6 +49,7 @@ Examples:
 }
 
 func runAccount() error {
+	kdeps_debug.Log("enter: runAccount")
 	config, err := LoadCloudConfig()
 	if err != nil {
 		return err
@@ -87,6 +91,7 @@ func runAccount() error {
 }
 
 func printUsageLine(label string, current, limit int) {
+	kdeps_debug.Log("enter: printUsageLine")
 	if limit == -1 {
 		fmt.Fprintf(os.Stdout, "  %-12s %d (unlimited)\n", label+":", current)
 	} else {
@@ -95,6 +100,7 @@ func printUsageLine(label string, current, limit int) {
 }
 
 func printFeatureLine(label string, enabled bool, requiredPlan string) {
+	kdeps_debug.Log("enter: printFeatureLine")
 	if enabled {
 		fmt.Fprintf(os.Stdout, "  %-14s enabled\n", label+":")
 	} else {

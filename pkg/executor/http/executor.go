@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -49,6 +51,7 @@ type DefaultClientFactory struct{}
 
 // CreateClient creates an HTTP client with the given configuration.
 func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
+	kdeps_debug.Log("enter: CreateClient")
 	client := &http.Client{
 		Timeout: DefaultHTTPTimeout,
 	}
@@ -121,11 +124,13 @@ const (
 
 // NewExecutor creates a new HTTP executor with default factory.
 func NewExecutor() *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return NewExecutorWithFactory(&DefaultClientFactory{})
 }
 
 // NewExecutorWithFactory creates a new HTTP executor with custom factory.
 func NewExecutorWithFactory(factory ClientFactory) *Executor {
+	kdeps_debug.Log("enter: NewExecutorWithFactory")
 	return &Executor{
 		clientFactory: factory,
 	}
@@ -136,6 +141,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	// Resolve configuration with evaluated expressions
@@ -187,6 +193,7 @@ func (e *Executor) resolveResolvedConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
 ) (*domain.HTTPClientConfig, error) {
+	kdeps_debug.Log("enter: resolveResolvedConfig")
 	resolvedConfig := *config
 
 	// Evaluate Proxy if it contains expression syntax
@@ -243,6 +250,7 @@ func (e *Executor) resolveRetryConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.RetryConfig,
 ) (*domain.RetryConfig, error) {
+	kdeps_debug.Log("enter: resolveRetryConfig")
 	retryConfig := *config
 
 	if config.Backoff != "" {
@@ -270,6 +278,7 @@ func (e *Executor) resolveCacheConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPCacheConfig,
 ) (*domain.HTTPCacheConfig, error) {
+	kdeps_debug.Log("enter: resolveCacheConfig")
 	cacheConfig := *config
 
 	if config.TTL != "" {
@@ -297,6 +306,7 @@ func (e *Executor) resolveTLSConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPTLSConfig,
 ) (*domain.HTTPTLSConfig, error) {
+	kdeps_debug.Log("enter: resolveTLSConfig")
 	tlsConfig := *config
 
 	if config.CertFile != "" {
@@ -332,6 +342,7 @@ func (e *Executor) evaluateExpression(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateExpression")
 	env := e.BuildEnvironment(ctx)
 
 	parser := expression.NewParser()
@@ -349,6 +360,7 @@ func (e *Executor) EvaluateExpressionForTesting(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateExpressionForTesting")
 	return e.evaluateExpression(evaluator, ctx, exprStr)
 }
 
@@ -359,6 +371,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateStringOrLiteral")
 	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
@@ -373,6 +386,7 @@ func (e *Executor) evaluateStringOrLiteral(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
+	kdeps_debug.Log("enter: containsExpressionSyntax")
 	return strings.Contains(s, "{{")
 }
 
@@ -382,6 +396,7 @@ func (e *Executor) evaluateData(
 	ctx *executor.ExecutionContext,
 	data interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateData")
 	env := e.BuildEnvironment(ctx)
 
 	// If data is a string, treat it as an expression
@@ -417,6 +432,7 @@ func (e *Executor) EvaluateDataForTesting(
 	ctx *executor.ExecutionContext,
 	data interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateDataForTesting")
 	return e.evaluateData(evaluator, ctx, data)
 }
 
@@ -426,11 +442,13 @@ func (e *Executor) EvaluateStringOrLiteralForTesting(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: EvaluateStringOrLiteralForTesting")
 	return e.evaluateStringOrLiteral(evaluator, ctx, value)
 }
 
 // BuildEnvironment builds evaluation environment from context.
 func (e *Executor) BuildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: BuildEnvironment")
 	env := make(map[string]interface{})
 
 	if ctx.Request != nil {
@@ -459,6 +477,7 @@ func (e *Executor) BuildEnvironment(ctx *executor.ExecutionContext) map[string]i
 
 // headersToMap converts http.Header to map[string]string.
 func (e *Executor) headersToMap(headers http.Header) map[string]string {
+	kdeps_debug.Log("enter: headersToMap")
 	result := make(map[string]string)
 	for key, values := range headers {
 		if len(values) > 0 {
@@ -474,6 +493,7 @@ func (e *Executor) handleAuth(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 ) (map[string]string, error) {
+	kdeps_debug.Log("enter: handleAuth")
 	headers := make(map[string]string)
 
 	switch strings.ToLower(auth.Type) {
@@ -528,6 +548,7 @@ func (e *Executor) prepareRequest(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
 ) (string, string, map[string]string, error) {
+	kdeps_debug.Log("enter: prepareRequest")
 	// Evaluate URL (only if it contains expression syntax)
 	urlStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.URL)
 	if err != nil {
@@ -589,6 +610,7 @@ func (e *Executor) prepareRequestBody(
 	config *domain.HTTPClientConfig,
 	headers map[string]string,
 ) (io.Reader, map[string]string, error) {
+	kdeps_debug.Log("enter: prepareRequestBody")
 	if config.Data == nil {
 		return nil, headers, nil
 	}
@@ -642,6 +664,7 @@ func (e *Executor) createRequest(
 	body io.Reader,
 	headers map[string]string,
 ) (*http.Request, *http.Client, error) {
+	kdeps_debug.Log("enter: createRequest")
 	// Create request
 	req, err := http.NewRequestWithContext(context.Background(), method, urlStr, body)
 	if err != nil {
@@ -668,6 +691,7 @@ func (e *Executor) executeRequestWithRetry(
 	req *http.Request,
 	retryConfig *domain.RetryConfig,
 ) (*http.Response, error) {
+	kdeps_debug.Log("enter: executeRequestWithRetry")
 	var lastErr error
 
 	maxAttempts := 1
@@ -712,6 +736,7 @@ func (e *Executor) processResponse(
 	urlStr, method string,
 	headers map[string]string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: processResponse")
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -747,6 +772,7 @@ func (e *Executor) checkCache(
 	url, method string,
 	headers map[string]string,
 ) (interface{}, bool) {
+	kdeps_debug.Log("enter: checkCache")
 	cacheKey := e.buildCacheKey(cache, url, method, headers)
 
 	if cached, exists := ctx.Memory.Get(cacheKey); exists {
@@ -768,6 +794,7 @@ func (e *Executor) cacheResponse(
 	headers map[string]string,
 	response interface{},
 ) {
+	kdeps_debug.Log("enter: cacheResponse")
 	cacheKey := e.buildCacheKey(cache, url, method, headers)
 	// Ignore cache set errors to avoid failing the main request
 	_ = ctx.Memory.Set(cacheKey, response)
@@ -779,6 +806,7 @@ func (e *Executor) buildCacheKey(
 	url, method string,
 	headers map[string]string,
 ) string {
+	kdeps_debug.Log("enter: buildCacheKey")
 	if cache.Key != "" {
 		return fmt.Sprintf("http_cache_%s", cache.Key)
 	}
@@ -796,6 +824,7 @@ func (e *Executor) buildCacheKey(
 
 // shouldRetry determines if we should retry based on error.
 func (e *Executor) shouldRetry(retry *domain.RetryConfig, _ error) bool {
+	kdeps_debug.Log("enter: shouldRetry")
 	if retry == nil {
 		return false
 	}
@@ -806,6 +835,7 @@ func (e *Executor) shouldRetry(retry *domain.RetryConfig, _ error) bool {
 
 // shouldRetryOnStatus determines if we should retry based on HTTP status code.
 func (e *Executor) shouldRetryOnStatus(retry *domain.RetryConfig, statusCode int) bool {
+	kdeps_debug.Log("enter: shouldRetryOnStatus")
 	if retry == nil {
 		return false
 	}
@@ -826,6 +856,7 @@ func (e *Executor) shouldRetryOnStatus(retry *domain.RetryConfig, statusCode int
 
 // calculateBackoff calculates backoff duration for retry attempts.
 func (e *Executor) calculateBackoff(retry *domain.RetryConfig, attempt int) time.Duration {
+	kdeps_debug.Log("enter: calculateBackoff")
 	if retry == nil {
 		return time.Second
 	}
@@ -853,6 +884,7 @@ func (e *Executor) calculateBackoff(retry *domain.RetryConfig, attempt int) time
 
 // ShouldRetryForTesting calls shouldRetry for testing.
 func (e *Executor) ShouldRetryForTesting(retry *domain.RetryConfig, err error) bool {
+	kdeps_debug.Log("enter: ShouldRetryForTesting")
 	return e.shouldRetry(retry, err)
 }
 
@@ -863,6 +895,7 @@ func (e *Executor) HandleAuthForTesting(
 	req *http.Request,
 	auth *domain.HTTPAuthConfig,
 ) error {
+	kdeps_debug.Log("enter: HandleAuthForTesting")
 	headers, err := e.handleAuth(auth, evaluator, ctx)
 	if err != nil {
 		return err
@@ -875,11 +908,13 @@ func (e *Executor) HandleAuthForTesting(
 
 // BuildCacheKeyForTesting calls buildCacheKey for testing.
 func (e *Executor) BuildCacheKeyForTesting(config *domain.HTTPClientConfig) string {
+	kdeps_debug.Log("enter: BuildCacheKeyForTesting")
 	return e.buildCacheKey(config.Cache, config.URL, config.Method, nil)
 }
 
 // ShouldRetryOnStatusForTesting calls shouldRetryOnStatus for testing.
 func (e *Executor) ShouldRetryOnStatusForTesting(retry *domain.RetryConfig, statusCode int) bool {
+	kdeps_debug.Log("enter: ShouldRetryOnStatusForTesting")
 	return e.shouldRetryOnStatus(retry, statusCode)
 }
 
@@ -888,6 +923,7 @@ func (e *Executor) CalculateBackoffForTesting(
 	retry *domain.RetryConfig,
 	attempt int,
 ) time.Duration {
+	kdeps_debug.Log("enter: CalculateBackoffForTesting")
 	return e.calculateBackoff(retry, attempt)
 }
 
@@ -898,6 +934,7 @@ func (e *Executor) ExecuteRequestWithRetryForTesting(
 	timeout time.Duration,
 	retryConfig *domain.RetryConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteRequestWithRetryForTesting")
 	client := &http.Client{Timeout: timeout}
 	resp, err := e.executeRequestWithRetry(client, req, retryConfig)
 	if err != nil {
@@ -919,6 +956,7 @@ func (e *Executor) ExecuteRequestWithRetryForTesting(
 
 // ProcessResponseForTesting calls processResponse for testing.
 func (e *Executor) ProcessResponseForTesting(resp *http.Response) interface{} {
+	kdeps_debug.Log("enter: ProcessResponseForTesting")
 	result, _ := e.processResponse(
 		resp,
 		&domain.HTTPClientConfig{},

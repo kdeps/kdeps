@@ -49,6 +49,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -73,6 +75,7 @@ type Executor struct {
 
 // NewAdapter returns a new memory Executor as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -85,6 +88,7 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 // NewAdapterWithClient returns a new memory Executor using the supplied HTTP client.
 // This allows test code to inject a mock transport without modifying production paths.
 func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapterWithClient")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -99,6 +103,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.MemoryConfig)
 	if !ok {
 		return nil, errors.New("memory executor: invalid config type")
@@ -183,6 +188,7 @@ func (e *Executor) operationConsolidate(
 	backend, contentText, category string,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationConsolidate")
 	vec, err := e.getEmbedding(client, backend, cfg, contentText)
 	if err != nil {
 		return nil, fmt.Errorf("memory executor: get embedding: %w", err)
@@ -240,6 +246,7 @@ func (e *Executor) operationRecall(
 	topK int,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationRecall")
 	queryVec, err := e.getEmbedding(client, backend, cfg, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("memory executor: get query embedding: %w", err)
@@ -325,6 +332,7 @@ func (e *Executor) operationForget(
 	contentText, category string,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationForget")
 	var query string
 	var args []interface{}
 
@@ -357,6 +365,7 @@ func (e *Executor) getEmbedding(
 	cfg *domain.MemoryConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: getEmbedding")
 	switch backend {
 	case domain.EmbeddingBackendOllama:
 		return e.ollamaEmbed(client, cfg, text)
@@ -379,6 +388,7 @@ func (e *Executor) ollamaEmbed(
 	cfg *domain.MemoryConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: ollamaEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = defaultOllamaURL
@@ -432,6 +442,7 @@ func (e *Executor) openAIEmbed(
 	cfg *domain.MemoryConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: openAIEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
@@ -488,6 +499,7 @@ func (e *Executor) cohereEmbed(
 	cfg *domain.MemoryConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: cohereEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.cohere.ai"
@@ -543,6 +555,7 @@ func (e *Executor) huggingFaceEmbed(
 	cfg *domain.MemoryConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: huggingFaceEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api-inference.huggingface.co"
@@ -595,6 +608,7 @@ func (e *Executor) huggingFaceEmbed(
 // parseFlatFloatSlice converts a []interface{} whose elements are all float64
 // into a []float64.
 func parseFlatFloatSlice(v []interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseFlatFloatSlice")
 	result := make([]float64, len(v))
 	for i, val := range v {
 		f, isFloat := val.(float64)
@@ -608,6 +622,7 @@ func parseFlatFloatSlice(v []interface{}) ([]float64, error) {
 
 // parseNestedFloatSlice converts the first element of v into a []float64.
 func parseNestedFloatSlice(inner []interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseNestedFloatSlice")
 	result := make([]float64, len(inner))
 	for i, val := range inner {
 		f, isFloat := val.(float64)
@@ -621,6 +636,7 @@ func parseNestedFloatSlice(inner []interface{}) ([]float64, error) {
 
 // parseHuggingFaceResponse handles both flat []float64 and nested [][]float64 responses.
 func parseHuggingFaceResponse(raw interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseHuggingFaceResponse")
 	v, ok := raw.([]interface{})
 	if !ok {
 		return nil, errors.New("huggingface embed: unexpected response type")
@@ -641,6 +657,7 @@ func parseHuggingFaceResponse(raw interface{}) ([]float64, error) {
 
 // resolveDBPath returns the path for the SQLite DB file.
 func resolveDBPath(cfg *domain.MemoryConfig, category string) (string, error) {
+	kdeps_debug.Log("enter: resolveDBPath")
 	if cfg.DBPath != "" {
 		return cfg.DBPath, nil
 	}
@@ -652,6 +669,7 @@ func resolveDBPath(cfg *domain.MemoryConfig, category string) (string, error) {
 
 // openMemoryDB opens (or creates) the SQLite DB and ensures the category table exists.
 func openMemoryDB(dbPath, category string) (*sql.DB, error) {
+	kdeps_debug.Log("enter: openMemoryDB")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o750); err != nil {
 		return nil, fmt.Errorf("create db dir: %w", err)
 	}
@@ -678,6 +696,7 @@ func openMemoryDB(dbPath, category string) (*sql.DB, error) {
 
 // sanitizeTableName strips characters that are not safe for SQLite table names.
 func sanitizeTableName(name string) string {
+	kdeps_debug.Log("enter: sanitizeTableName")
 	var b strings.Builder
 	for _, r := range name {
 		switch {
@@ -701,6 +720,7 @@ func sanitizeTableName(name string) string {
 
 // cosineSimilarity returns the cosine similarity between two equal-length vectors.
 func cosineSimilarity(a, b []float64) float64 {
+	kdeps_debug.Log("enter: cosineSimilarity")
 	if len(a) != len(b) || len(a) == 0 {
 		return 0
 	}
@@ -724,6 +744,7 @@ func (e *Executor) evaluateConfigFields(
 	cfg *domain.MemoryConfig,
 	ctx *executor.ExecutionContext,
 ) {
+	kdeps_debug.Log("enter: evaluateConfigFields")
 	cfg.Backend = e.evaluateText(cfg.Backend, ctx)
 	cfg.Operation = e.evaluateText(cfg.Operation, ctx)
 	cfg.Category = e.evaluateText(cfg.Category, ctx)
@@ -741,6 +762,7 @@ func (e *Executor) evaluateMapFields(
 	m map[string]interface{},
 	ctx *executor.ExecutionContext,
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: evaluateMapFields")
 	if m == nil {
 		return nil
 	}
@@ -760,6 +782,7 @@ func (e *Executor) evaluateMapFields(
 
 // evaluateText resolves mustache/expr expressions in the input field.
 func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

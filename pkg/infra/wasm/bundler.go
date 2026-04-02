@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 //go:embed templates/*
@@ -61,6 +63,7 @@ type bootstrapData struct {
 // It copies the user's web server files into dist/, adds the WASM binary and
 // bootstrap scripts, and generates nginx + Dockerfile configs.
 func Bundle(config *BundleConfig) error {
+	kdeps_debug.Log("enter: Bundle")
 	distDir := filepath.Join(config.OutputDir, "dist")
 	if err := os.MkdirAll(distDir, 0750); err != nil {
 		return fmt.Errorf("failed to create dist directory: %w", err)
@@ -113,6 +116,7 @@ func Bundle(config *BundleConfig) error {
 
 // renderBootstrap renders the kdeps-bootstrap.js script with the embedded workflow YAML.
 func renderBootstrap(config *BundleConfig, distDir string) error {
+	kdeps_debug.Log("enter: renderBootstrap")
 	tmplContent, err := templateFS.ReadFile("templates/bootstrap.js.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to read bootstrap template: %w", err)
@@ -150,6 +154,7 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 // copyWebServerFiles copies user-provided web server files into the dist directory.
 // Paths like "data/public/index.html" are flattened by stripping the "data/public/" prefix.
 func copyWebServerFiles(files map[string]string, distDir string) error {
+	kdeps_debug.Log("enter: copyWebServerFiles")
 	for path, content := range files {
 		// Strip common webServer prefixes to get the serve path.
 		servePath := path
@@ -169,6 +174,7 @@ func copyWebServerFiles(files map[string]string, distDir string) error {
 
 // hasIndexHTML checks if the user's web server files include an index.html.
 func hasIndexHTML(files map[string]string) bool {
+	kdeps_debug.Log("enter: hasIndexHTML")
 	for path := range files {
 		base := filepath.Base(path)
 		if strings.EqualFold(base, "index.html") {
@@ -181,6 +187,7 @@ func hasIndexHTML(files map[string]string) bool {
 // injectBootstrap adds the WASM bootstrap script tags into the user's index.html
 // right before the closing </body> tag.
 func injectBootstrap(distDir string) error {
+	kdeps_debug.Log("enter: injectBootstrap")
 	indexPath := filepath.Join(distDir, "index.html")
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -203,6 +210,7 @@ func injectBootstrap(distDir string) error {
 
 // generateDefaultIndex creates a minimal index.html that loads the WASM bootstrap.
 func generateDefaultIndex(distDir string) error {
+	kdeps_debug.Log("enter: generateDefaultIndex")
 	tmplContent, err := templateFS.ReadFile("templates/index.html.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to read default HTML template: %w", err)
@@ -217,6 +225,7 @@ func generateDefaultIndex(distDir string) error {
 
 // copyFile copies a file from src to dst.
 func copyFile(src, dst string) error {
+	kdeps_debug.Log("enter: copyFile")
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
@@ -226,6 +235,7 @@ func copyFile(src, dst string) error {
 
 // copyEmbeddedFile copies an embedded file to the destination path.
 func copyEmbeddedFile(embeddedPath, dst string) error {
+	kdeps_debug.Log("enter: copyEmbeddedFile")
 	data, err := templateFS.ReadFile(embeddedPath)
 	if err != nil {
 		return err

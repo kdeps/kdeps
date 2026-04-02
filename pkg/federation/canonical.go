@@ -27,6 +27,8 @@ import (
 	"sort"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,6 +46,7 @@ type Canonicalizer struct{}
 // The spec is canonicalized (deterministic) then hashed with the specified algorithm.
 // If alg is empty, SHA256 is used.
 func (c *Canonicalizer) ComputeHash(yamlBytes []byte, alg string) ([]byte, error) {
+	kdeps_debug.Log("enter: ComputeHash")
 	canonical, err := c.Canonicalize(yamlBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize YAML: %w", err)
@@ -59,6 +62,7 @@ func (c *Canonicalizer) ComputeHash(yamlBytes []byte, alg string) ([]byte, error
 
 // SHA256 returns the SHA256 hash of canonicalized YAML.
 func (c *Canonicalizer) SHA256(yamlBytes []byte) ([]byte, error) {
+	kdeps_debug.Log("enter: SHA256")
 	return c.ComputeHash(yamlBytes, hashAlgorithmSHA256)
 }
 
@@ -71,6 +75,7 @@ func (c *Canonicalizer) SHA256(yamlBytes []byte) ([]byte, error) {
 //   - Convert to JSON with minimal whitespace (json.Compact)
 //   - Use LF line endings (handled by YAML parser)
 func (c *Canonicalizer) Canonicalize(yamlBytes []byte) ([]byte, error) {
+	kdeps_debug.Log("enter: Canonicalize")
 	var data interface{}
 	if err := yaml.Unmarshal(yamlBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
@@ -97,6 +102,7 @@ func (c *Canonicalizer) Canonicalize(yamlBytes []byte) ([]byte, error) {
 
 // normalize recursively processes YAML data to ensure deterministic structure.
 func (c *Canonicalizer) normalize(data interface{}) interface{} {
+	kdeps_debug.Log("enter: normalize")
 	switch v := data.(type) {
 	case map[interface{}]interface{}:
 		// Convert to string-keyed map and sort keys
@@ -152,6 +158,7 @@ func (c *Canonicalizer) normalize(data interface{}) interface{} {
 
 // newHash creates a hash.Hash for the given algorithm.
 func (c *Canonicalizer) newHash(alg string) (hash.Hash, error) {
+	kdeps_debug.Log("enter: newHash")
 	switch strings.ToLower(alg) {
 	case hashAlgorithmSHA256:
 		return sha256.New(), nil
@@ -168,11 +175,13 @@ func (c *Canonicalizer) newHash(alg string) (hash.Hash, error) {
 
 // HashHex returns the hash as a lowercase hex string.
 func (c *Canonicalizer) HashHex(hashBytes []byte) string {
+	kdeps_debug.Log("enter: HashHex")
 	return hex.EncodeToString(hashBytes)
 }
 
 // ComputeAndFormat computes the hash and returns as hex string.
 func (c *Canonicalizer) ComputeAndFormat(yamlBytes []byte, alg string) (string, error) {
+	kdeps_debug.Log("enter: ComputeAndFormat")
 	h, err := c.ComputeHash(yamlBytes, alg)
 	if err != nil {
 		return "", err
@@ -187,10 +196,12 @@ var DefaultCanonicalizer = &Canonicalizer{}
 
 // ComputeHash is a convenience wrapper around DefaultCanonicalizer.ComputeHash.
 func ComputeHash(yamlBytes []byte, alg string) ([]byte, error) {
+	kdeps_debug.Log("enter: ComputeHash")
 	return DefaultCanonicalizer.ComputeHash(yamlBytes, alg)
 }
 
 // SHA256 is a convenience wrapper around DefaultCanonicalizer.SHA256.
 func SHA256(yamlBytes []byte) ([]byte, error) {
+	kdeps_debug.Log("enter: SHA256")
 	return DefaultCanonicalizer.SHA256(yamlBytes)
 }

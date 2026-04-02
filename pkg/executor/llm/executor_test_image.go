@@ -34,6 +34,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,6 +50,7 @@ const (
 
 // createTempPNG creates a temporary 1x1 red PNG file and returns its path and content.
 func createTempPNG(t *testing.T, dir string) (string, []byte) {
+	kdeps_debug.Log("enter: createTempPNG")
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, testImageWidth, testImageHeight))
 	img.Set(0, 0, color.RGBA{R: 255, G: 0, B: 0, A: 255})
@@ -68,6 +71,7 @@ func createTempPNG(t *testing.T, dir string) (string, []byte) {
 }
 
 func imageTestHandler(t *testing.T, expectedBase64 string) http.HandlerFunc {
+	kdeps_debug.Log("enter: imageTestHandler")
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -104,6 +108,7 @@ func imageTestHandler(t *testing.T, expectedBase64 string) http.HandlerFunc {
 }
 
 func TestBuildContentWithLocalImage(t *testing.T) {
+	kdeps_debug.Log("enter: TestBuildContentWithLocalImage")
 	tempDir := t.TempDir()
 	imagePath, imgBytes := createTempPNG(t, tempDir)
 	expectedBase64 := base64.StdEncoding.EncodeToString(imgBytes)
@@ -130,6 +135,7 @@ func TestBuildContentWithLocalImage(t *testing.T) {
 }
 
 func TestBuildContentWithUploadedImage(t *testing.T) {
+	kdeps_debug.Log("enter: TestBuildContentWithUploadedImage")
 	tempDir := t.TempDir()
 	imagePath, imgBytes := createTempPNG(t, tempDir)
 	expectedBase64 := base64.StdEncoding.EncodeToString(imgBytes)

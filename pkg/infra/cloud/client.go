@@ -29,6 +29,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -127,6 +129,7 @@ type BuildStatus struct {
 
 // NewClient creates a new cloud API client.
 func NewClient(apiKey, apiURL string) *Client {
+	kdeps_debug.Log("enter: NewClient")
 	return &Client{
 		APIKey: apiKey,
 		APIURL: apiURL,
@@ -138,6 +141,7 @@ func NewClient(apiKey, apiURL string) *Client {
 
 // Whoami returns the authenticated user's info.
 func (c *Client) Whoami(ctx context.Context) (*WhoamiResponse, error) {
+	kdeps_debug.Log("enter: Whoami")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.APIURL+"/api/cli/whoami", nil)
 	if err != nil {
 		return nil, err
@@ -174,6 +178,7 @@ func (c *Client) StartBuild(
 	format, arch string,
 	noCache bool,
 ) (*BuildResponse, error) {
+	kdeps_debug.Log("enter: StartBuild")
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 
@@ -244,6 +249,7 @@ func (c *Client) StartBuild(
 
 // PollBuild polls the build status until completion or failure.
 func (c *Client) PollBuild(ctx context.Context, buildID string) (*BuildStatus, error) {
+	kdeps_debug.Log("enter: PollBuild")
 	req, err := http.NewRequestWithContext(
 		ctx, http.MethodGet,
 		fmt.Sprintf("%s/api/cli/builds/%s", c.APIURL, buildID),
@@ -279,6 +285,7 @@ func (c *Client) StreamBuildLogs(
 	buildID string,
 	w io.Writer,
 ) (*BuildStatus, error) {
+	kdeps_debug.Log("enter: StreamBuildLogs")
 	lastLogIndex := 0
 
 	for {
@@ -315,16 +322,19 @@ func (c *Client) StreamBuildLogs(
 
 // ListWorkflows returns the user's workflows from the cloud.
 func (c *Client) ListWorkflows(ctx context.Context) ([]WorkflowEntry, error) {
+	kdeps_debug.Log("enter: ListWorkflows")
 	return getJSON[[]WorkflowEntry](ctx, c, "/api/cli/workflows")
 }
 
 // ListDeployments returns the user's deployments from the cloud.
 func (c *Client) ListDeployments(ctx context.Context) ([]DeploymentEntry, error) {
+	kdeps_debug.Log("enter: ListDeployments")
 	return getJSON[[]DeploymentEntry](ctx, c, "/api/cli/deployments")
 }
 
 // getJSON performs an authenticated GET request and decodes the JSON response.
 func getJSON[T any](ctx context.Context, c *Client, path string) (T, error) {
+	kdeps_debug.Log("enter: getJSON")
 	var zero T
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.APIURL+path, nil)

@@ -28,6 +28,8 @@ import (
 	"runtime/debug"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -78,6 +80,7 @@ const (
 
 // RespondWithError sends an error response.
 func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, debugMode bool) {
+	kdeps_debug.Log("enter: RespondWithError")
 	var appErr *domain.AppError
 
 	// Convert to AppError if not already
@@ -147,6 +150,7 @@ func RespondWithSuccess(
 	data any,
 	meta map[string]any,
 ) {
+	kdeps_debug.Log("enter: RespondWithSuccess")
 	if meta == nil {
 		meta = make(map[string]any)
 	}
@@ -186,6 +190,7 @@ func RespondWithValidationErrors(
 	r *stdhttp.Request,
 	validationErrors []*domain.ValidationError,
 ) {
+	kdeps_debug.Log("enter: RespondWithValidationErrors")
 	requestID := GetRequestID(r.Context())
 
 	// Convert validation errors to details
@@ -225,6 +230,7 @@ func RespondWithValidationErrors(
 
 // GetRequestID gets the request ID from context.
 func GetRequestID(ctx context.Context) string {
+	kdeps_debug.Log("enter: GetRequestID")
 	if requestID, ok := ctx.Value(RequestIDKey).(string); ok {
 		return requestID
 	}
@@ -233,6 +239,7 @@ func GetRequestID(ctx context.Context) string {
 
 // GetDebugMode gets the debug mode flag from context.
 func GetDebugMode(ctx context.Context) bool {
+	kdeps_debug.Log("enter: GetDebugMode")
 	if debugMode, ok := ctx.Value(DebugModeKey).(bool); ok {
 		return debugMode
 	}
@@ -241,6 +248,7 @@ func GetDebugMode(ctx context.Context) bool {
 
 // GetSessionID gets the session ID from context.
 func GetSessionID(ctx context.Context) string {
+	kdeps_debug.Log("enter: GetSessionID")
 	if sessionID, ok := ctx.Value(SessionIDKey).(string); ok {
 		return sessionID
 	}
@@ -249,6 +257,7 @@ func GetSessionID(ctx context.Context) string {
 
 // SetSessionCookie sets a secure HTTP cookie for the session ID.
 func SetSessionCookie(w stdhttp.ResponseWriter, r *stdhttp.Request, sessionID string) {
+	kdeps_debug.Log("enter: SetSessionCookie")
 	// Determine if we're in a secure context (HTTPS)
 	// In development, allow HTTP cookies
 	secure := r.TLS != nil
@@ -276,6 +285,7 @@ type headersWrittenChecker interface {
 
 // RecoverPanic recovers from panics and converts them to errors.
 func RecoverPanic(w stdhttp.ResponseWriter, r *stdhttp.Request, debugMode bool) {
+	kdeps_debug.Log("enter: RecoverPanic")
 	if err := recover(); err != nil {
 		// Check if headers have already been written
 		// If headers were written, we can't safely write an error response

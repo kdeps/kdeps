@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -70,6 +72,7 @@ const (
 
 // NewEngine creates a new execution engine.
 func NewEngine(logger *slog.Logger) *Engine {
+	kdeps_debug.Log("enter: NewEngine")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -91,11 +94,13 @@ func NewEngine(logger *slog.Logger) *Engine {
 
 // SetRegistry sets the executor registry.
 func (e *Engine) SetRegistry(registry *Registry) {
+	kdeps_debug.Log("enter: SetRegistry")
 	e.registry = registry
 }
 
 // SetDebugMode enables or disables debug mode.
 func (e *Engine) SetDebugMode(enabled bool) {
+	kdeps_debug.Log("enter: SetDebugMode")
 	e.debugMode = enabled
 }
 
@@ -103,6 +108,7 @@ func (e *Engine) SetDebugMode(enabled bool) {
 // every context created by this engine carries the provided agentPaths map.
 // This allows resources using the `agent` type to call sibling agents by name.
 func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
+	kdeps_debug.Log("enter: SetNewExecutionContextForAgency")
 	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
 		var ctx *ExecutionContext
 		var err error
@@ -123,26 +129,31 @@ func (e *Engine) SetNewExecutionContextForAgency(agentPaths map[string]string) {
 
 // SetEvaluatorForTesting sets the evaluator for testing.
 func (e *Engine) SetEvaluatorForTesting(evaluator *expression.Evaluator) {
+	kdeps_debug.Log("enter: SetEvaluatorForTesting")
 	e.evaluator = evaluator
 }
 
 // GetEvaluatorForTesting returns the evaluator for testing.
 func (e *Engine) GetEvaluatorForTesting() *expression.Evaluator {
+	kdeps_debug.Log("enter: GetEvaluatorForTesting")
 	return e.evaluator
 }
 
 // GetGraphForTesting returns the graph for testing.
 func (e *Engine) GetGraphForTesting() *Graph {
+	kdeps_debug.Log("enter: GetGraphForTesting")
 	return e.graph
 }
 
 // GetRegistryForTesting returns the registry for testing.
 func (e *Engine) GetRegistryForTesting() *Registry {
+	kdeps_debug.Log("enter: GetRegistryForTesting")
 	return e.registry
 }
 
 // SetAfterEvaluatorInitForTesting sets the afterEvaluatorInit callback for testing.
 func (e *Engine) SetAfterEvaluatorInitForTesting(callback func(*Engine, *ExecutionContext)) {
+	kdeps_debug.Log("enter: SetAfterEvaluatorInitForTesting")
 	e.afterEvaluatorInit = callback
 }
 
@@ -151,6 +162,7 @@ func (e *Engine) ExecuteAPIResponseForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteAPIResponseForTesting")
 	return e.executeAPIResponse(resource, ctx)
 }
 
@@ -159,27 +171,32 @@ func (e *Engine) EvaluateResponseValueForTesting(
 	value interface{},
 	env map[string]interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateResponseValueForTesting")
 	return e.evaluateResponseValue(value, env)
 }
 
 // GetDebugModeForTesting returns the debug mode for testing.
 func (e *Engine) GetDebugModeForTesting() bool {
+	kdeps_debug.Log("enter: GetDebugModeForTesting")
 	return e.debugMode
 }
 
 // FormatDurationForTesting calls FormatDuration for testing.
 func (e *Engine) FormatDurationForTesting(d time.Duration) string {
+	kdeps_debug.Log("enter: FormatDurationForTesting")
 	return e.FormatDuration(d)
 }
 
 // ParseAtTimeForTesting exposes the private parseAtTime for testing.
 func ParseAtTimeForTesting(s string) (time.Time, error) {
+	kdeps_debug.Log("enter: ParseAtTimeForTesting")
 	return parseAtTime(s)
 }
 
 // SleepForIterationForTesting exposes the private sleepForIteration for testing.
 // It wraps the call to allow testing the logic without actually sleeping.
 func SleepForIterationForTesting(atTimes []time.Time, everyDur time.Duration, i int) {
+	kdeps_debug.Log("enter: SleepForIterationForTesting")
 	sched := loopSchedule{atTimes: atTimes, everyDur: everyDur}
 	sleepForIteration(sched, i)
 }
@@ -189,6 +206,7 @@ func (e *Engine) ExecuteTTSForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteTTSForTesting")
 	return e.executeTTS(resource, ctx)
 }
 
@@ -197,6 +215,7 @@ func (e *Engine) ExecuteBotReplyForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteBotReplyForTesting")
 	return e.executeBotReply(resource, ctx)
 }
 
@@ -205,6 +224,7 @@ func (e *Engine) ExecuteScraperForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteScraperForTesting")
 	return e.executeScraper(resource, ctx)
 }
 
@@ -213,6 +233,7 @@ func (e *Engine) ExecuteInlineScraperForTesting(
 	config *domain.ScraperConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineScraperForTesting")
 	return e.executeInlineScraper(config, ctx)
 }
 
@@ -221,6 +242,7 @@ func (e *Engine) ExecuteEmbeddingForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteEmbeddingForTesting")
 	return e.executeEmbedding(resource, ctx)
 }
 
@@ -229,6 +251,7 @@ func (e *Engine) ExecuteInlineEmbeddingForTesting(
 	config *domain.EmbeddingConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineEmbeddingForTesting")
 	return e.executeInlineEmbedding(config, ctx)
 }
 
@@ -237,6 +260,7 @@ func (e *Engine) ExecuteInlineMemoryForTesting(
 	config *domain.MemoryConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineMemoryForTesting")
 	return e.executeInlineMemory(config, ctx)
 }
 
@@ -245,6 +269,7 @@ func (e *Engine) ExecutePDFForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecutePDFForTesting")
 	return e.executePDF(resource, ctx)
 }
 
@@ -253,6 +278,7 @@ func (e *Engine) ExecuteInlinePDFForTesting(
 	config *domain.PDFConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlinePDFForTesting")
 	return e.executeInlinePDF(config, ctx)
 }
 
@@ -261,6 +287,7 @@ func (e *Engine) ExecuteEmailForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteEmailForTesting")
 	return e.executeEmail(resource, ctx)
 }
 
@@ -269,6 +296,7 @@ func (e *Engine) ExecuteInlineEmailForTesting(
 	config *domain.EmailConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineEmailForTesting")
 	return e.executeInlineEmail(config, ctx)
 }
 
@@ -277,6 +305,7 @@ func (e *Engine) ExecuteCalendarForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteCalendarForTesting")
 	return e.executeCalendar(resource, ctx)
 }
 
@@ -285,6 +314,7 @@ func (e *Engine) ExecuteInlineCalendarForTesting(
 	config *domain.CalendarConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineCalendarForTesting")
 	return e.executeInlineCalendar(config, ctx)
 }
 
@@ -293,6 +323,7 @@ func (e *Engine) ExecuteSearchForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteSearchForTesting")
 	return e.executeSearch(resource, ctx)
 }
 
@@ -301,6 +332,7 @@ func (e *Engine) ExecuteInlineSearchForTesting(
 	config *domain.SearchConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineSearchForTesting")
 	return e.executeInlineSearch(config, ctx)
 }
 
@@ -309,6 +341,7 @@ func (e *Engine) ExecuteBrowserForTesting(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteBrowserForTesting")
 	return e.executeBrowser(resource, ctx)
 }
 
@@ -317,6 +350,7 @@ func (e *Engine) ExecuteInlineBrowserForTesting(
 	config *domain.BrowserConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineBrowserForTesting")
 	return e.executeInlineBrowser(config, ctx)
 }
 
@@ -325,6 +359,7 @@ func (e *Engine) ExecuteInlineLLMForTesting(
 	config *domain.ChatConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineLLMForTesting")
 	return e.executeInlineLLM(config, ctx)
 }
 
@@ -333,6 +368,7 @@ func (e *Engine) ExecuteInlineTTSForTesting(
 	config *domain.TTSConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteInlineTTSForTesting")
 	return e.executeInlineTTS(config, ctx)
 }
 
@@ -341,6 +377,7 @@ func (e *Engine) ExecuteInlineTTSForTesting(
 //
 //nolint:gocognit,gocyclo,cyclop,nestif,funlen // execution flow needs explicit branching
 func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	// Recover from panics and convert to errors
 	defer func() {
 		if r := recover(); r != nil {
@@ -668,6 +705,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 
 // BuildGraph builds the dependency graph from workflow resources.
 func (e *Engine) BuildGraph(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: BuildGraph")
 	e.graph = NewGraph()
 
 	// Add all resources to graph.
@@ -686,6 +724,7 @@ func (e *Engine) ShouldSkipResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (bool, error) {
+	kdeps_debug.Log("enter: ShouldSkipResource")
 	if resource.Run.Validations == nil || len(resource.Run.Validations.Skip) == 0 {
 		return false, nil
 	}
@@ -728,6 +767,7 @@ func (e *Engine) ShouldSkipResource(
 //
 //nolint:gocognit // restriction checks are intentionally explicit
 func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestContext) bool {
+	kdeps_debug.Log("enter: MatchesRestrictions")
 	// If no restrictions, always match.
 	if resource.Run.Validations == nil ||
 		(len(resource.Run.Validations.Methods) == 0 && len(resource.Run.Validations.Routes) == 0) {
@@ -781,6 +821,7 @@ func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestCont
 // - /api/v1/* (matches /api/v1/anything, /api/v1/users/123, etc.)
 // - /users/* (matches /users/123, /users/abc, etc.)
 func (e *Engine) matchRoutePattern(pattern, path string) bool {
+	kdeps_debug.Log("enter: matchRoutePattern")
 	// Simple pattern matching - supports * wildcard (prefix match)
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
@@ -814,6 +855,7 @@ func (e *Engine) matchRoutePattern(pattern, path string) bool {
 
 // RunPreflightCheck runs preflight validations.
 func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionContext) error {
+	kdeps_debug.Log("enter: RunPreflightCheck")
 	if resource.Run.Validations == nil || len(resource.Run.Validations.Check) == 0 {
 		return nil
 	}
@@ -848,6 +890,7 @@ func (e *Engine) evaluatePreflightValidation(
 	validation domain.Expression,
 	ctx *ExecutionContext,
 ) (bool, error) {
+	kdeps_debug.Log("enter: evaluatePreflightValidation")
 	// Parse expression if needed (handle {{ }} syntax)
 	exprStr := validation.Raw
 	if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
@@ -870,6 +913,7 @@ func (e *Engine) createPreflightError(
 	validation domain.Expression,
 	ctx *ExecutionContext,
 ) error {
+	kdeps_debug.Log("enter: createPreflightError")
 	if resource.Run.Validations.Error != nil {
 		// Evaluate error message if it's an expression
 		msg := resource.Run.Validations.Error.Message
@@ -895,6 +939,7 @@ func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteResource")
 	// Handle Loop (while-loop) iteration – takes priority over Items.
 	// Only enter loop mode when not already inside a loop to prevent recursion.
 	if resource.Run.Loop != nil {
@@ -1045,11 +1090,12 @@ func (e *Engine) ExecuteResource(
 
 // executeResourceWithErrorHandling wraps ExecuteResource with onError handling.
 //
-//nolint:gocognit // error handling is explicitly branched
+//nolint:gocognit,funlen // error handling is explicitly branched
 func (e *Engine) executeResourceWithErrorHandling(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeResourceWithErrorHandling")
 	onError := resource.Run.OnError
 
 	// If no onError config, execute normally
@@ -1175,6 +1221,7 @@ func (e *Engine) shouldHandleError(
 	err error,
 	ctx *ExecutionContext,
 ) bool {
+	kdeps_debug.Log("enter: shouldHandleError")
 	// If no "when" conditions, handle all errors
 	if len(onError.When) == 0 {
 		return true
@@ -1231,6 +1278,7 @@ func (e *Engine) executeOnErrorExpressions(
 	ctx *ExecutionContext,
 	err error,
 ) error {
+	kdeps_debug.Log("enter: executeOnErrorExpressions")
 	onError := resource.Run.OnError
 	if onError == nil || len(onError.Expr) == 0 {
 		return nil
@@ -1278,6 +1326,7 @@ func (e *Engine) evaluateFallback(
 	fallback interface{},
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateFallback")
 	// Handle string values that might be expressions
 	if str, ok := fallback.(string); ok {
 		parser := expression.NewParser()
@@ -1328,6 +1377,7 @@ func (e *Engine) evaluateFallback(
 
 // executeExpressions executes a list of expressions.
 func (e *Engine) executeExpressions(exprs []domain.Expression, ctx *ExecutionContext) error {
+	kdeps_debug.Log("enter: executeExpressions")
 	for _, expr := range exprs {
 		parsed, err := expression.NewParser().Parse(expr.Raw)
 		if err != nil {
@@ -1357,6 +1407,7 @@ const hoursPerDay = 24
 //   - Time-of-day "HH:MM" or "HH:MM:SS" — resolves to next occurrence today or tomorrow
 //   - Date "YYYY-MM-DD" — resolves to midnight (00:00:00) of that date in local time
 func parseAtTime(s string) (time.Time, error) {
+	kdeps_debug.Log("enter: parseAtTime")
 	s = strings.TrimSpace(s)
 	// Try absolute timestamp formats first.
 	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05"} {
@@ -1398,6 +1449,7 @@ type loopSchedule struct {
 //   - every: contains an invalid duration string
 //   - any at: entry cannot be parsed
 func prepareLoopSchedule(cfg *domain.LoopConfig, maxIter *int) (loopSchedule, error) {
+	kdeps_debug.Log("enter: prepareLoopSchedule")
 	var sched loopSchedule
 
 	// every: and at: are mutually exclusive scheduling mechanisms.
@@ -1435,6 +1487,7 @@ func prepareLoopSchedule(cfg *domain.LoopConfig, maxIter *int) (loopSchedule, er
 //   - at: mode — sleep until the scheduled time for that entry (past entries skip immediately)
 //   - every: mode — sleep between iterations (no sleep before the first)
 func sleepForIteration(sched loopSchedule, i int) {
+	kdeps_debug.Log("enter: sleepForIteration")
 	if len(sched.atTimes) > 0 {
 		if delay := time.Until(sched.atTimes[i]); delay > 0 {
 			time.Sleep(delay)
@@ -1454,6 +1507,7 @@ func (e *Engine) ExecuteWithLoop(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteWithLoop")
 	loopCfg := resource.Run.Loop
 
 	// Ensure the evaluator is initialised (it may not be when called outside Execute).
@@ -1554,6 +1608,7 @@ func (e *Engine) ExecuteWithItems(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteWithItems")
 	// First, evaluate all items to get their values.
 	evaluatedItems := make([]interface{}, 0)
 	for i, item := range resource.Items {
@@ -1687,6 +1742,7 @@ func (e *Engine) executeInlineResources(
 	inlineResources []domain.InlineResource,
 	ctx *ExecutionContext,
 ) error {
+	kdeps_debug.Log("enter: executeInlineResources")
 	for i, inline := range inlineResources {
 		e.logger.Debug("Executing inline resource",
 			"index", i,
@@ -1757,6 +1813,7 @@ func (e *Engine) executeInlineResources(
 //
 //nolint:gocognit // LLM execution has multiple configuration paths
 func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeLLM")
 	if resource.Run.Chat == nil {
 		return nil, fmt.Errorf("resource %s has no chat configuration", resource.Metadata.ActionID)
 	}
@@ -1885,6 +1942,7 @@ func (e *Engine) executeHTTP(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeHTTP")
 	if resource.Run.HTTPClient == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no HTTP client configuration",
@@ -1902,6 +1960,7 @@ func (e *Engine) executeHTTP(
 
 // executeSQL executes a SQL resource.
 func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSQL")
 	if resource.Run.SQL == nil {
 		return nil, fmt.Errorf("resource %s has no SQL configuration", resource.Metadata.ActionID)
 	}
@@ -1919,6 +1978,7 @@ func (e *Engine) executePython(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executePython")
 	if resource.Run.Python == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no Python configuration",
@@ -1939,6 +1999,7 @@ func (e *Engine) executeExec(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeExec")
 	if resource.Run.Exec == nil {
 		return nil, fmt.Errorf("resource %s has no exec configuration", resource.Metadata.ActionID)
 	}
@@ -1958,6 +2019,7 @@ func (e *Engine) executeAPIResponse(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeAPIResponse")
 	// Initialize evaluator if not already initialized
 	if e.evaluator == nil {
 		if ctx == nil {
@@ -2079,6 +2141,7 @@ func (e *Engine) evaluateResponseValue(
 	value interface{},
 	env map[string]interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateResponseValue")
 	// Handle string values - check if they contain expressions
 	if str, ok := value.(string); ok {
 		parser := expression.NewParser()
@@ -2136,6 +2199,7 @@ type PreflightError struct {
 }
 
 func (e *PreflightError) Error() string {
+	kdeps_debug.Log("enter: Error")
 	return fmt.Sprintf("preflight error (code %d): %s", e.Code, e.Message)
 }
 
@@ -2143,6 +2207,7 @@ func (e *PreflightError) Error() string {
 //
 //nolint:gocognit,funlen // environment merges multiple sources
 func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEvaluationEnvironment")
 	env := make(map[string]interface{})
 
 	// Add resource-specific accessor objects (always available if ctx exists)
@@ -2352,6 +2417,7 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 // convertToSlice converts a value to a slice of interface{} if it's an array/slice type.
 // Returns nil if the value is not an array/slice.
 func (e *Engine) convertToSlice(value interface{}) []interface{} {
+	kdeps_debug.Log("enter: convertToSlice")
 	if value == nil {
 		return nil
 	}
@@ -2394,6 +2460,7 @@ func (e *Engine) convertToSlice(value interface{}) []interface{} {
 
 // FormatDuration formats a duration like v1 (e.g., "1m 30s", "45s").
 func (e *Engine) FormatDuration(d time.Duration) string {
+	kdeps_debug.Log("enter: FormatDuration")
 	secondsTotal := int(d.Seconds())
 	hours := secondsTotal / secondsPerHour
 	minutes := (secondsTotal % secondsPerHour) / secondsPerMinute
@@ -2411,6 +2478,7 @@ func (e *Engine) FormatDuration(d time.Duration) string {
 
 // updateLLMMetadata evaluates the model string and updates the LLM metadata in the context.
 func (e *Engine) updateLLMMetadata(ctx *ExecutionContext, model string, backendName string) {
+	kdeps_debug.Log("enter: updateLLMMetadata")
 	evaluatedModel := model
 	if modelExpr, parseErr := expression.NewParser().ParseValue(model); parseErr == nil {
 		evaluator := expression.NewEvaluator(ctx.API)
@@ -2436,6 +2504,7 @@ func (e *Engine) executeInlineLLM(
 	config *domain.ChatConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineLLM")
 	executor := e.registry.GetLLMExecutor()
 	if executor == nil {
 		return nil, errors.New("LLM executor not available")
@@ -2449,6 +2518,7 @@ func (e *Engine) executeInlineHTTP(
 	config *domain.HTTPClientConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineHTTP")
 	executor := e.registry.GetHTTPExecutor()
 	if executor == nil {
 		return nil, errors.New("HTTP executor not available")
@@ -2462,6 +2532,7 @@ func (e *Engine) executeInlineSQL(
 	config *domain.SQLConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineSQL")
 	executor := e.registry.GetSQLExecutor()
 	if executor == nil {
 		return nil, errors.New("SQL executor not available")
@@ -2475,6 +2546,7 @@ func (e *Engine) executeInlinePython(
 	config *domain.PythonConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlinePython")
 	executor := e.registry.GetPythonExecutor()
 	if executor == nil {
 		return nil, errors.New("python executor not available")
@@ -2488,6 +2560,7 @@ func (e *Engine) executeInlineExec(
 	config *domain.ExecConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineExec")
 	executor := e.registry.GetExecExecutor()
 	if executor == nil {
 		return nil, errors.New("exec executor not available")
@@ -2501,6 +2574,7 @@ func (e *Engine) executeTTS(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTTS")
 	if resource.Run.TTS == nil {
 		return nil, fmt.Errorf("resource %s has no tts configuration", resource.Metadata.ActionID)
 	}
@@ -2518,6 +2592,7 @@ func (e *Engine) executeInlineTTS(
 	config *domain.TTSConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineTTS")
 	ttsExec := e.registry.GetTTSExecutor()
 	if ttsExec == nil {
 		return nil, errors.New("tts executor not available")
@@ -2532,6 +2607,7 @@ func (e *Engine) executeBotReply(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeBotReply")
 	if resource.Run.BotReply == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no botReply configuration",
@@ -2552,6 +2628,7 @@ func (e *Engine) executeScraper(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeScraper")
 	if resource.Run.Scraper == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no scraper configuration",
@@ -2572,6 +2649,7 @@ func (e *Engine) executeInlineScraper(
 	config *domain.ScraperConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineScraper")
 	scraperExec := e.registry.GetScraperExecutor()
 	if scraperExec == nil {
 		return nil, errors.New("scraper executor not available")
@@ -2586,6 +2664,7 @@ func (e *Engine) executeEmbedding(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeEmbedding")
 	if resource.Run.Embedding == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no embedding configuration",
@@ -2606,6 +2685,7 @@ func (e *Engine) executeInlineEmbedding(
 	config *domain.EmbeddingConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineEmbedding")
 	embeddingExec := e.registry.GetEmbeddingExecutor()
 	if embeddingExec == nil {
 		return nil, errors.New("embedding executor not available")
@@ -2619,6 +2699,7 @@ func (e *Engine) executeMemory(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeMemory")
 	if resource.Run.Memory == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no memory configuration",
@@ -2639,6 +2720,7 @@ func (e *Engine) executeInlineMemory(
 	config *domain.MemoryConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineMemory")
 	memExec := e.registry.GetMemoryExecutor()
 	if memExec == nil {
 		return nil, errors.New("memory executor not available")
@@ -2649,6 +2731,7 @@ func (e *Engine) executeInlineMemory(
 
 // executePDF executes a PDF generation resource.
 func (e *Engine) executePDF(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executePDF")
 	if resource.Run.PDF == nil {
 		return nil, fmt.Errorf("resource %s has no pdf configuration", resource.Metadata.ActionID)
 	}
@@ -2666,6 +2749,7 @@ func (e *Engine) executeInlinePDF(
 	config *domain.PDFConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlinePDF")
 	pdfExec := e.registry.GetPDFExecutor()
 	if pdfExec == nil {
 		return nil, errors.New("pdf executor not available")
@@ -2679,6 +2763,7 @@ func (e *Engine) executeEmail(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeEmail")
 	if resource.Run.Email == nil {
 		return nil, fmt.Errorf("resource %s has no email configuration", resource.Metadata.ActionID)
 	}
@@ -2696,6 +2781,7 @@ func (e *Engine) executeInlineEmail(
 	config *domain.EmailConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineEmail")
 	emailExec := e.registry.GetEmailExecutor()
 	if emailExec == nil {
 		return nil, errors.New("email executor not available")
@@ -2709,6 +2795,7 @@ func (e *Engine) executeCalendar(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeCalendar")
 	if resource.Run.Calendar == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no calendar configuration",
@@ -2727,6 +2814,7 @@ func (e *Engine) executeInlineCalendar(
 	config *domain.CalendarConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineCalendar")
 	calExec := e.registry.GetCalendarExecutor()
 	if calExec == nil {
 		return nil, errors.New("calendar executor not available")
@@ -2739,6 +2827,7 @@ func (e *Engine) executeSearch(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSearch")
 	if resource.Run.Search == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no search configuration",
@@ -2757,6 +2846,7 @@ func (e *Engine) executeInlineSearch(
 	config *domain.SearchConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineSearch")
 	searchExec := e.registry.GetSearchExecutor()
 	if searchExec == nil {
 		return nil, errors.New("search executor not available")
@@ -2769,6 +2859,7 @@ func (e *Engine) executeBrowser(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeBrowser")
 	if resource.Run.Browser == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no browser configuration",
@@ -2787,6 +2878,7 @@ func (e *Engine) executeInlineBrowser(
 	config *domain.BrowserConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineBrowser")
 	browserExec := e.registry.GetBrowserExecutor()
 	if browserExec == nil {
 		return nil, errors.New("browser executor not available")
@@ -2801,6 +2893,7 @@ func (e *Engine) executeAgent(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeAgent")
 	return e.executeInlineAgent(resource.Run.Agent, ctx)
 }
 
@@ -2809,6 +2902,7 @@ func (e *Engine) executeInlineAgent(
 	cfg *domain.AgentCallConfig,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineAgent")
 	if cfg == nil {
 		return nil, errors.New("agent call configuration is nil")
 	}
@@ -2877,6 +2971,7 @@ func (e *Engine) executeRemoteAgent(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeRemoteAgent")
 	if resource.Run.RemoteAgent == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no remoteAgent configuration",
@@ -2895,6 +2990,7 @@ func (e *Engine) executeAutopilot(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeAutopilot")
 	if resource.Run.Autopilot == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no autopilot configuration",
@@ -2911,6 +3007,7 @@ func (e *Engine) executeAutopilot(
 
 // agentPathKeys returns the map keys as a slice for error messages.
 func agentPathKeys(m map[string]string) []string {
+	kdeps_debug.Log("enter: agentPathKeys")
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

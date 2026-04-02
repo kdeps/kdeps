@@ -28,6 +28,8 @@ import (
 	"log/slog"
 	"syscall/js"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -57,6 +59,7 @@ func main() {
 // jsKdepsInit initializes the kdeps runtime with a workflow YAML string.
 // JS signature: kdepsInit(workflowYAML: string, envVars?: object) -> Promise<void>
 func jsKdepsInit(_ js.Value, args []js.Value) interface{} {
+	kdeps_debug.Log("enter: jsKdepsInit")
 	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
 		resolve := promiseArgs[0]
 		reject := promiseArgs[1]
@@ -98,6 +101,7 @@ func jsKdepsInit(_ js.Value, args []js.Value) interface{} {
 // jsKdepsExecute executes the workflow with the given input.
 // JS signature: kdepsExecute(inputJSON: string, callbackFn?: function) -> Promise<object>
 func jsKdepsExecute(_ js.Value, args []js.Value) interface{} {
+	kdeps_debug.Log("enter: jsKdepsExecute")
 	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
 		resolve := promiseArgs[0]
 		reject := promiseArgs[1]
@@ -142,6 +146,7 @@ func jsKdepsExecute(_ js.Value, args []js.Value) interface{} {
 // jsKdepsValidate validates a workflow YAML string.
 // JS signature: kdepsValidate(workflowYAML: string) -> Promise<object>
 func jsKdepsValidate(_ js.Value, args []js.Value) interface{} {
+	kdeps_debug.Log("enter: jsKdepsValidate")
 	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
 		resolve := promiseArgs[0]
 		reject := promiseArgs[1]
@@ -176,6 +181,7 @@ func jsKdepsValidate(_ js.Value, args []js.Value) interface{} {
 
 // createWASMRegistry creates an executor registry with only WASM-compatible executors.
 func createWASMRegistry(ollamaURL string) *executor.Registry {
+	kdeps_debug.Log("enter: createWASMRegistry")
 	logger := slog.Default()
 	_ = logger
 

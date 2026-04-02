@@ -24,6 +24,8 @@ import (
 	"log/slog"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -37,6 +39,7 @@ type LLMSynthesizer struct {
 
 // NewLLMSynthesizer creates a new LLM-backed synthesizer.
 func NewLLMSynthesizer(llmExecutor executor.ResourceExecutor, model string, logger *slog.Logger) *LLMSynthesizer {
+	kdeps_debug.Log("enter: NewLLMSynthesizer")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -53,6 +56,7 @@ func (s *LLMSynthesizer) Synthesize(
 	availableTools []string,
 	previousIterations []domain.AutopilotIteration,
 ) (string, error) {
+	kdeps_debug.Log("enter: Synthesize")
 	prompt := s.buildPrompt(goal, availableTools, previousIterations)
 
 	cfg := &domain.ChatConfig{
@@ -85,6 +89,7 @@ func (s *LLMSynthesizer) buildPrompt(
 	availableTools []string,
 	previousIterations []domain.AutopilotIteration,
 ) string {
+	kdeps_debug.Log("enter: buildPrompt")
 	var sb strings.Builder
 
 	sb.WriteString("Generate a kdeps workflow YAML to accomplish the following goal:\n\n")
@@ -147,6 +152,7 @@ Do not include any explanation or text outside the YAML fences.`)
 
 // extractStringResponse extracts a string from a generic LLM result.
 func extractStringResponse(result interface{}) (string, error) {
+	kdeps_debug.Log("enter: extractStringResponse")
 	if result == nil {
 		return "", errors.New("LLM returned nil result")
 	}
@@ -171,6 +177,7 @@ func extractStringResponse(result interface{}) (string, error) {
 
 // extractYAMLFromResponse extracts YAML content from a response that may contain markdown fences.
 func extractYAMLFromResponse(response string) string {
+	kdeps_debug.Log("enter: extractYAMLFromResponse")
 	// Try to find ```yaml ... ``` fences
 	const yamlFenceOpen = "```yaml"
 	const genericFenceOpen = "```"

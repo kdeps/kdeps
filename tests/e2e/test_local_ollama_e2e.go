@@ -33,6 +33,8 @@ import (
 	"testing"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -60,6 +62,7 @@ const (
 // TestLocalOllamaE2E tests the complete LLM flow using locally running Ollama
 // This test verifies that Ollama is installed and can serve tinydolphin or llama 1b models.
 func TestLocalOllamaE2E(t *testing.T) {
+	kdeps_debug.Log("enter: TestLocalOllamaE2E")
 	// Check if Ollama CLI is installed
 	if !isOllamaInstalled() {
 		t.Fatal("ERROR: Ollama CLI not installed - please install Ollama to run LLM tests")
@@ -90,12 +93,14 @@ func TestLocalOllamaE2E(t *testing.T) {
 
 // isOllamaInstalled checks if Ollama CLI is available.
 func isOllamaInstalled() bool {
+	kdeps_debug.Log("enter: isOllamaInstalled")
 	_, err := exec.LookPath("ollama")
 	return err == nil
 }
 
 // isOllamaServerRunning checks if Ollama server is responding.
 func isOllamaServerRunning() bool {
+	kdeps_debug.Log("enter: isOllamaServerRunning")
 	ctx, cancel := context.WithTimeout(context.Background(), ollamaAPITimeoutShort)
 	defer cancel()
 
@@ -120,6 +125,7 @@ func isOllamaServerRunning() bool {
 
 // getAvailableSmallModel returns the first available small model.
 func getAvailableSmallModel() string {
+	kdeps_debug.Log("enter: getAvailableSmallModel")
 	preferredModels := []string{"tinydolphin", "llama3.2:1b", "qwen2:0.5b", "phi3:mini"}
 
 	ctx, cancel := context.WithTimeout(context.Background(), ollamaAPITimeoutMedium)
@@ -166,6 +172,7 @@ func getAvailableSmallModel() string {
 
 // testDirectOllamaAPI tests basic Ollama API functionality.
 func testDirectOllamaAPI(t *testing.T, model string) {
+	kdeps_debug.Log("enter: testDirectOllamaAPI")
 	t.Log("Testing direct Ollama API call...")
 
 	requestBody := map[string]interface{}{
@@ -217,6 +224,7 @@ func testDirectOllamaAPI(t *testing.T, model string) {
 
 // createTestWorkflowFile creates a temporary workflow file for testing.
 func createTestWorkflowFile(t *testing.T, model string) string {
+	kdeps_debug.Log("enter: createTestWorkflowFile")
 	workflowContent := fmt.Sprintf(`apiVersion: kdeps.io/v1
 kind: Workflow
 
@@ -304,6 +312,7 @@ resources:
 
 // setupTestExecutor creates and configures the executor for testing.
 func setupTestExecutor() *executor.Engine {
+	kdeps_debug.Log("enter: setupTestExecutor")
 	logger := slog.Default()
 	engine := executor.NewEngine(logger)
 
@@ -327,6 +336,7 @@ func executeWorkflowWithTimeout(
 	workflow *domain.Workflow,
 	reqCtx *executor.RequestContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeWorkflowWithTimeout")
 	done := make(chan bool)
 	var result interface{}
 	var execErr error
@@ -347,6 +357,7 @@ func executeWorkflowWithTimeout(
 
 // verifyWorkflowResponse checks the workflow execution response.
 func verifyWorkflowResponse(t *testing.T, result interface{}, execErr error) {
+	kdeps_debug.Log("enter: verifyWorkflowResponse")
 	if execErr != nil {
 		if strings.Contains(execErr.Error(), "connection refused") ||
 			strings.Contains(execErr.Error(), "dial tcp") ||
@@ -389,6 +400,7 @@ func verifyWorkflowResponse(t *testing.T, result interface{}, execErr error) {
 
 // testCompleteWorkflowWithLLM tests the complete workflow execution with real LLM.
 func testCompleteWorkflowWithLLM(t *testing.T, model string) {
+	kdeps_debug.Log("enter: testCompleteWorkflowWithLLM")
 	t.Log("Testing complete workflow with LLM...")
 
 	// Create workflow file

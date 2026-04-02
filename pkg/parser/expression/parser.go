@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -45,6 +47,7 @@ type Function struct {
 
 // NewParser creates a new expression parser.
 func NewParser() *Parser {
+	kdeps_debug.Log("enter: NewParser")
 	return &Parser{
 		functions: make(map[string]Function),
 	}
@@ -52,6 +55,7 @@ func NewParser() *Parser {
 
 // NewParserForTesting creates a new expression parser for testing.
 func NewParserForTesting() *Parser {
+	kdeps_debug.Log("enter: NewParserForTesting")
 	return &Parser{
 		functions: make(map[string]Function),
 	}
@@ -59,11 +63,13 @@ func NewParserForTesting() *Parser {
 
 // GetFunctionsForTesting returns the functions map for testing.
 func (p *Parser) GetFunctionsForTesting() map[string]Function {
+	kdeps_debug.Log("enter: GetFunctionsForTesting")
 	return p.functions
 }
 
 // Parse parses an expression string into a domain Expression.
 func (p *Parser) Parse(expr string) (*domain.Expression, error) {
+	kdeps_debug.Log("enter: Parse")
 	if strings.Count(expr, "{{") != strings.Count(expr, "}}") {
 		return nil, errors.New("unclosed interpolation: missing }}")
 	}
@@ -78,6 +84,7 @@ func (p *Parser) Parse(expr string) (*domain.Expression, error) {
 
 // ParseValue parses any value (could be expression or literal).
 func (p *Parser) ParseValue(value interface{}) (*domain.Expression, error) {
+	kdeps_debug.Log("enter: ParseValue")
 	// Handle string values.
 	if str, ok := value.(string); ok {
 		return p.Parse(str)
@@ -92,6 +99,7 @@ func (p *Parser) ParseValue(value interface{}) (*domain.Expression, error) {
 
 // ParseSlice parses a slice of values.
 func (p *Parser) ParseSlice(values []interface{}) ([]*domain.Expression, error) {
+	kdeps_debug.Log("enter: ParseSlice")
 	result := make([]*domain.Expression, len(values))
 	for i, v := range values {
 		expr, err := p.ParseValue(v)
@@ -105,6 +113,7 @@ func (p *Parser) ParseSlice(values []interface{}) ([]*domain.Expression, error) 
 
 // ParseMap parses a map of values.
 func (p *Parser) ParseMap(values map[string]interface{}) (map[string]*domain.Expression, error) {
+	kdeps_debug.Log("enter: ParseMap")
 	result := make(map[string]*domain.Expression)
 	for k, v := range values {
 		expr, err := p.ParseValue(v)
@@ -118,6 +127,7 @@ func (p *Parser) ParseMap(values map[string]interface{}) (map[string]*domain.Exp
 
 // Detect detects the type of expression.
 func (p *Parser) Detect(value string) domain.ExprType {
+	kdeps_debug.Log("enter: Detect")
 	// Check for interpolation {{ }}.
 	if strings.Contains(value, "{{") && strings.Contains(value, "}}") {
 		// All interpolated expressions now use mixed evaluation
@@ -136,6 +146,7 @@ func (p *Parser) Detect(value string) domain.ExprType {
 
 // isExpression checks if a value looks like an expression.
 func (p *Parser) isExpression(value string) bool {
+	kdeps_debug.Log("enter: isExpression")
 	// Check if it looks like a URL first - if so, treat as literal
 	if p.looksLikeURL(value) {
 		return false
@@ -235,6 +246,7 @@ func (p *Parser) isExpression(value string) bool {
 
 // looksLikeURL checks if a string resembles a URL.
 func (p *Parser) looksLikeURL(value string) bool {
+	kdeps_debug.Log("enter: looksLikeURL")
 	// Check for common URL schemes
 	urlSchemes := []string{
 		"http://",
@@ -276,6 +288,7 @@ func (p *Parser) looksLikeURL(value string) bool {
 
 // looksLikeMIMEType checks if a string resembles a MIME type.
 func (p *Parser) looksLikeMIMEType(value string) bool {
+	kdeps_debug.Log("enter: looksLikeMIMEType")
 	// Common MIME type patterns: type/subtype
 	// MIME types can contain + and . in the subtype (e.g., "application/vnd.github.v3+json")
 	// Pattern: type/subtype where subtype can contain letters, digits, hyphens, underscores, dots, and plus signs
@@ -288,6 +301,7 @@ func (p *Parser) looksLikeMIMEType(value string) bool {
 
 // looksLikeUserAgent checks if a string resembles a User-Agent string.
 func (p *Parser) looksLikeUserAgent(value string) bool {
+	kdeps_debug.Log("enter: looksLikeUserAgent")
 	// User-Agent strings typically follow patterns like:
 	// - Product/Version
 	// - Product/Version (Comment)
@@ -300,6 +314,7 @@ func (p *Parser) looksLikeUserAgent(value string) bool {
 
 // looksLikeAuthToken checks if a string resembles an auth token or API key.
 func (p *Parser) looksLikeAuthToken(value string) bool {
+	kdeps_debug.Log("enter: looksLikeAuthToken")
 	// Auth tokens are typically continuous strings
 	// Common patterns: JWT tokens, API keys, Bearer tokens
 	if len(value) < MinAuthTokenLength {
@@ -332,6 +347,7 @@ func (p *Parser) looksLikeAuthToken(value string) bool {
 
 // containsInvalidChars checks if string contains expression-like characters.
 func (p *Parser) containsInvalidChars(value string) bool {
+	kdeps_debug.Log("enter: containsInvalidChars")
 	invalidChars := []string{"(", ")", "'", `"`, "[", "]", "{", "}", " "}
 	for _, char := range invalidChars {
 		if strings.Contains(value, char) {

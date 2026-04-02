@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
@@ -29,6 +31,7 @@ import (
 
 // newFederationMeshCmd creates the `kdeps federation mesh` command.
 func newFederationMeshCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationMeshCmd")
 	cmd := &cobra.Command{
 		Use:   "mesh",
 		Short: "Inspect mesh relationships in current project",
@@ -47,6 +50,7 @@ trust levels, and status.`,
 
 // newFederationMeshListCmd creates `kdeps federation mesh list`.
 func newFederationMeshListCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationMeshListCmd")
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List remote agents used in current project",
@@ -67,6 +71,7 @@ For each remote agent, shows:
 
 // runFederationMeshList executes the mesh list logic.
 func runFederationMeshList() error {
+	kdeps_debug.Log("enter: runFederationMeshList")
 	workflowPaths, err := findWorkflowFiles(".")
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to scan directory: %w", err)
@@ -86,6 +91,7 @@ func runFederationMeshList() error {
 
 // findWorkflowFiles walks the directory tree to find workflow.yaml and agency.yaml files.
 func findWorkflowFiles(root string) ([]string, error) {
+	kdeps_debug.Log("enter: findWorkflowFiles")
 	var paths []string
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -107,6 +113,7 @@ func findWorkflowFiles(root string) ([]string, error) {
 
 // collectRemoteAgents parses each workflow file and extracts remoteAgent URNs.
 func collectRemoteAgents(workflowPaths []string) []struct{ file, urn string } {
+	kdeps_debug.Log("enter: collectRemoteAgents")
 	parser := yaml.NewParser(nil, nil) // no validation
 	var found []struct{ file, urn string }
 	for _, fp := range workflowPaths {
@@ -126,6 +133,7 @@ func collectRemoteAgents(workflowPaths []string) []struct{ file, urn string } {
 
 // displayFoundAgents prints the list of remote agents to stdout.
 func displayFoundAgents(found []struct{ file, urn string }) {
+	kdeps_debug.Log("enter: displayFoundAgents")
 	fmt.Fprintln(os.Stdout, "Remote agents referenced in this project:")
 	for _, f := range found {
 		fmt.Fprintf(os.Stdout, "  %s: %s\n", f.file, f.urn)
@@ -138,6 +146,7 @@ func displayFoundAgents(found []struct{ file, urn string }) {
 
 // newFederationMeshPublishCmd creates `kdeps federation mesh publish`.
 func newFederationMeshPublishCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationMeshPublishCmd")
 	var (
 		dryRun bool
 		output string

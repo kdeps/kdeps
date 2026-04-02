@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -43,11 +45,13 @@ type Watcher struct {
 
 // NewWatcher creates a new file watcher.
 func NewWatcher() (*Watcher, error) {
+	kdeps_debug.Log("enter: NewWatcher")
 	return NewWatcherWithLogger(nil)
 }
 
 // NewWatcherWithLogger creates a new file watcher with a logger.
 func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
+	kdeps_debug.Log("enter: NewWatcherWithLogger")
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
 	}
@@ -71,6 +75,7 @@ func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
 
 // Watch watches a path for changes.
 func (w *Watcher) Watch(path string, callback func()) error {
+	kdeps_debug.Log("enter: Watch")
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -108,6 +113,7 @@ func (w *Watcher) Watch(path string, callback func()) error {
 
 // watch processes file system events.
 func (w *Watcher) watch() {
+	kdeps_debug.Log("enter: watch")
 	for {
 		select {
 		case event, ok := <-w.watcher.Events:
@@ -127,6 +133,7 @@ func (w *Watcher) watch() {
 
 // handleEvent handles a file system event.
 func (w *Watcher) handleEvent(event fsnotify.Event) {
+	kdeps_debug.Log("enter: handleEvent")
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -142,6 +149,7 @@ func (w *Watcher) handleEvent(event fsnotify.Event) {
 
 // Close closes the watcher.
 func (w *Watcher) Close() error {
+	kdeps_debug.Log("enter: Close")
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -155,11 +163,13 @@ func (w *Watcher) Close() error {
 
 // GetWatcherForTesting returns the underlying watcher for testing.
 func (w *Watcher) GetWatcherForTesting() *fsnotify.Watcher {
+	kdeps_debug.Log("enter: GetWatcherForTesting")
 	return w.watcher
 }
 
 // GetCallbacksForTesting returns the callbacks map for testing.
 func (w *Watcher) GetCallbacksForTesting() map[string][]func() {
+	kdeps_debug.Log("enter: GetCallbacksForTesting")
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.callbacks
@@ -167,6 +177,7 @@ func (w *Watcher) GetCallbacksForTesting() map[string][]func() {
 
 // IsClosedForTesting returns the closed state for testing.
 func (w *Watcher) IsClosedForTesting() bool {
+	kdeps_debug.Log("enter: IsClosedForTesting")
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.closed

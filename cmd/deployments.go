@@ -27,12 +27,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 )
 
 func newDeploymentsCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newDeploymentsCmd")
 	return &cobra.Command{
 		Use:   "deployments",
 		Short: "List your cloud deployments",
@@ -47,6 +50,7 @@ Examples:
 }
 
 func runDeployments() error {
+	kdeps_debug.Log("enter: runDeployments")
 	const (
 		tabPadding    = 2
 		maxDateLength = 10

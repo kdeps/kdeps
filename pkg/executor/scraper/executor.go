@@ -55,6 +55,8 @@ import (
 	"time"
 	"unicode"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -74,6 +76,7 @@ type Executor struct {
 
 // NewAdapter returns a new scraper Executor as a ResourceExecutor.
 func NewAdapter() executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Executor{
 		httpClient: &http.Client{Timeout: defaultTimeout},
 	}
@@ -92,6 +95,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	//nolint:funlen // function is long due to multiple config handling
 	cfg, ok := config.(*domain.ScraperConfig)
 	if !ok {
@@ -188,6 +192,7 @@ func (e *Executor) Execute(
 
 // scrapeURL fetches the URL and returns visible text extracted from the HTML.
 func (e *Executor) scrapeURL(rawURL string, timeout time.Duration) (string, error) {
+	kdeps_debug.Log("enter: scrapeURL")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -214,6 +219,7 @@ func (e *Executor) scrapeURL(rawURL string, timeout time.Duration) (string, erro
 // extractTextFromHTML strips HTML tags and returns visible text content.
 // It removes <script>, <style>, and <head> blocks, then strips remaining tags.
 func extractTextFromHTML(data []byte) string {
+	kdeps_debug.Log("enter: extractTextFromHTML")
 	s := string(data)
 
 	// Remove <head>...</head>
@@ -245,6 +251,7 @@ func extractTextFromHTML(data []byte) string {
 // It matches the exact tag name by requiring the character after the tag name to be
 // either '>', '/', or whitespace, preventing <head> from matching <header>.
 func removeTagBlock(s, tag string) string {
+	kdeps_debug.Log("enter: removeTagBlock")
 	lower := strings.ToLower(s)
 	openPrefix := "<" + tag
 	closeTag := "</" + tag + ">"
@@ -284,6 +291,7 @@ func removeTagBlock(s, tag string) string {
 // newlines and tabs) into a single ASCII space and trims leading/trailing whitespace.
 // Newlines and tabs are not preserved as separate line breaks or tab stops.
 func normalizeWhitespace(s string) string {
+	kdeps_debug.Log("enter: normalizeWhitespace")
 	var out strings.Builder
 	prevSpace := true
 	for _, r := range s {
@@ -308,6 +316,7 @@ func normalizeWhitespace(s string) string {
 // It tries pdftotext (from poppler-utils) first; if unavailable it falls back
 // to scanning the raw PDF bytes for readable ASCII text runs.
 func scrapePDF(ctx context.Context, path string) (string, error) {
+	kdeps_debug.Log("enter: scrapePDF")
 	if _, err := exec.LookPath("pdftotext"); err == nil {
 		return runPDFToText(ctx, path)
 	}
@@ -316,6 +325,7 @@ func scrapePDF(ctx context.Context, path string) (string, error) {
 
 // runPDFToText uses the pdftotext CLI to extract text from a PDF.
 func runPDFToText(ctx context.Context, path string) (string, error) {
+	kdeps_debug.Log("enter: runPDFToText")
 	var out bytes.Buffer
 	cmd := exec.CommandContext(ctx, "pdftotext", "-layout", path, "-")
 	cmd.Stdout = &out
@@ -328,6 +338,7 @@ func runPDFToText(ctx context.Context, path string) (string, error) {
 // extractRawTextFromPDF scans PDF binary data for printable ASCII runs as
 // a best-effort fallback when pdftotext is not installed.
 func extractRawTextFromPDF(path string) (string, error) {
+	kdeps_debug.Log("enter: extractRawTextFromPDF")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot read PDF file: %w", err)
@@ -364,6 +375,7 @@ const minPDFTextRunLen = 4
 
 // scrapeWord extracts plain text from a .docx file (Office Open XML).
 func scrapeWord(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeWord")
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open docx file: %w", err)
@@ -410,6 +422,7 @@ var wordTextElements = map[string]bool{ //nolint:gochecknoglobals // immutable l
 // The output preserves row/column structure: cells are tab-separated within rows,
 // and rows are separated by newlines.
 func scrapeExcel(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeExcel")
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open xlsx file: %w", err)
@@ -448,6 +461,7 @@ func scrapeExcel(path string) (string, error) {
 
 // readSharedStrings parses xl/sharedStrings.xml and returns an indexed slice.
 func readSharedStrings(r *zip.ReadCloser) ([]string, error) { //nolint:gocognit
+	kdeps_debug.Log("enter: readSharedStrings")
 	for _, f := range r.File {
 		if f.Name != "xl/sharedStrings.xml" {
 			continue
@@ -502,6 +516,7 @@ func readSharedStrings(r *zip.ReadCloser) ([]string, error) { //nolint:gocognit
 
 // extractExcelCells reads sheet XML and returns cell values as tab-separated rows.
 func extractExcelCells(r io.Reader, shared []string) (string, error) { //nolint:gocognit,funlen
+	kdeps_debug.Log("enter: extractExcelCells")
 	var out strings.Builder
 	dec := xml.NewDecoder(r)
 	var inRow, inCell, inV bool
@@ -576,6 +591,7 @@ func extractExcelCells(r io.Reader, shared []string) (string, error) { //nolint:
 
 // parseSharedIdx converts a shared-string index string to int.
 func parseSharedIdx(s string) (int, error) {
+	kdeps_debug.Log("enter: parseSharedIdx")
 	var idx int
 	for _, c := range s {
 		if c < '0' || c > '9' {
@@ -592,6 +608,7 @@ func parseSharedIdx(s string) (int, error) {
 
 // scrapeImage runs Tesseract OCR on an image file and returns the recognised text.
 func scrapeImage(ctx context.Context, path, lang string) (string, error) {
+	kdeps_debug.Log("enter: scrapeImage")
 	if _, err := exec.LookPath("tesseract"); err != nil {
 		return "", errors.New("scraper: tesseract is not installed (required for image OCR)")
 	}
@@ -616,6 +633,7 @@ func scrapeImage(ctx context.Context, path, lang string) (string, error) {
 
 // scrapeText reads a local plain-text file and returns its content as-is.
 func scrapeText(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeText")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot read text file: %w", err)
@@ -629,6 +647,7 @@ func scrapeText(path string) (string, error) {
 
 // scrapeHTMLFile reads a local HTML file and extracts visible text content.
 func scrapeHTMLFile(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeHTMLFile")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot read HTML file: %w", err)
@@ -642,6 +661,7 @@ func scrapeHTMLFile(path string) (string, error) {
 
 // scrapeCSV reads a CSV file and returns all rows as tab-separated lines.
 func scrapeCSV(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeCSV")
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open CSV file: %w", err)
@@ -672,6 +692,7 @@ func scrapeCSV(path string) (string, error) {
 // scrapeMarkdown reads a Markdown file and returns plain text with
 // common lightweight markup stripped.
 func scrapeMarkdown(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeMarkdown")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot read Markdown file: %w", err)
@@ -681,6 +702,7 @@ func scrapeMarkdown(path string) (string, error) {
 
 // stripMarkdown removes common Markdown markup from a string.
 func stripMarkdown(s string) string {
+	kdeps_debug.Log("enter: stripMarkdown")
 	var out strings.Builder
 	lines := strings.Split(s, "\n")
 	for _, line := range lines {
@@ -695,6 +717,7 @@ func stripMarkdown(s string) string {
 
 // stripMarkdownLine strips inline and block-level Markdown from a single line.
 func stripMarkdownLine(line string) string {
+	kdeps_debug.Log("enter: stripMarkdownLine")
 	// Strip ATX headings (# ## ### etc.)
 	if idx := strings.IndexFunc(line, func(r rune) bool { return r != '#' && r != ' ' }); idx > 0 {
 		prefix := line[:idx]
@@ -747,6 +770,7 @@ func stripMarkdownLine(line string) string {
 
 // isAllDigits returns true if s consists only of decimal digit characters.
 func isAllDigits(s string) bool {
+	kdeps_debug.Log("enter: isAllDigits")
 	for _, c := range s {
 		if c < '0' || c > '9' {
 			return false
@@ -757,6 +781,7 @@ func isAllDigits(s string) bool {
 
 // stripInlineDelim removes a symmetric delimiter pair (e.g. "**") from a string.
 func stripInlineDelim(s, delim string) string {
+	kdeps_debug.Log("enter: stripInlineDelim")
 	for {
 		start := strings.Index(s, delim)
 		if start == -1 {
@@ -774,6 +799,7 @@ func stripInlineDelim(s, delim string) string {
 
 // stripBetween removes content between open and close rune delimiters.
 func stripBetween(s string, open, closeRune rune) string {
+	kdeps_debug.Log("enter: stripBetween")
 	var out strings.Builder
 	inDelim := false
 	for _, r := range s {
@@ -791,6 +817,7 @@ func stripBetween(s string, open, closeRune rune) string {
 
 // stripMarkdownLinks replaces [text](url) with text.
 func stripMarkdownLinks(s string) string {
+	kdeps_debug.Log("enter: stripMarkdownLinks")
 	for {
 		start := strings.Index(s, "[")
 		if start == -1 {
@@ -814,6 +841,7 @@ func stripMarkdownLinks(s string) string {
 
 // stripMarkdownImages replaces ![alt](url) with alt.
 func stripMarkdownImages(s string) string {
+	kdeps_debug.Log("enter: stripMarkdownImages")
 	for {
 		start := strings.Index(s, "![")
 		if start == -1 {
@@ -842,6 +870,7 @@ func stripMarkdownImages(s string) string {
 // scrapePPTX extracts text from a PowerPoint .pptx file (Office Open XML).
 // Text is extracted from each slide's XML (<a:t> elements in the drawing namespace).
 func scrapePPTX(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapePPTX")
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open pptx file: %w", err)
@@ -881,6 +910,7 @@ func scrapePPTX(path string) (string, error) {
 
 // scrapeJSON reads a JSON file and returns its content pretty-printed as a string.
 func scrapeJSON(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeJSON")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot read JSON file: %w", err)
@@ -903,6 +933,7 @@ func scrapeJSON(path string) (string, error) {
 
 // scrapeXMLFile reads a local XML file and returns all text node content.
 func scrapeXMLFile(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeXMLFile")
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open XML file: %w", err)
@@ -914,6 +945,7 @@ func scrapeXMLFile(path string) (string, error) {
 
 // extractAllXMLText decodes an XML stream and returns all character data joined with spaces.
 func extractAllXMLText(r io.Reader) (string, error) {
+	kdeps_debug.Log("enter: extractAllXMLText")
 	dec := xml.NewDecoder(r)
 	dec.Strict = false
 	dec.AutoClose = xml.HTMLAutoClose
@@ -954,6 +986,7 @@ var odfTextElements = map[string]bool{ //nolint:gochecknoglobals // immutable lo
 // All ODF archives contain a content.xml whose text resides in <text:p> /
 // <text:span> / <text:h> elements (local names p, span, h).
 func scrapeODFFile(path, typeName string) (string, error) {
+	kdeps_debug.Log("enter: scrapeODFFile")
 	r, err := zip.OpenReader(path)
 	if err != nil {
 		return "", fmt.Errorf("scraper: cannot open %s file: %w", typeName, err)
@@ -980,16 +1013,19 @@ func scrapeODFFile(path, typeName string) (string, error) {
 
 // scrapeODT extracts text from an OpenDocument Text (.odt) file.
 func scrapeODT(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeODT")
 	return scrapeODFFile(path, "odt")
 }
 
 // scrapeODS extracts text from an OpenDocument Spreadsheet (.ods) file.
 func scrapeODS(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeODS")
 	return scrapeODFFile(path, "ods")
 }
 
 // scrapeODP extracts text from an OpenDocument Presentation (.odp) file.
 func scrapeODP(path string) (string, error) {
+	kdeps_debug.Log("enter: scrapeODP")
 	return scrapeODFFile(path, "odp")
 }
 
@@ -1001,6 +1037,7 @@ func scrapeODP(path string) (string, error) {
 // content of all elements whose local name appears in wanted (with value true).
 // A depth counter is used so nested wanted elements are handled correctly.
 func extractTextFromXML(r io.Reader, wanted map[string]bool) (string, error) { //nolint:gocognit
+	kdeps_debug.Log("enter: extractTextFromXML")
 	dec := xml.NewDecoder(r)
 	var out strings.Builder
 	depth := 0 // nesting depth inside wanted elements
@@ -1038,107 +1075,128 @@ var _ executor.ResourceExecutor = (*Executor)(nil)
 
 // GetHTTPClient returns the executor's HTTP client (used for testing).
 func (e *Executor) GetHTTPClient() *http.Client {
+	kdeps_debug.Log("enter: GetHTTPClient")
 	return e.httpClient
 }
 
 // ScrapeURLForTesting exposes scrapeURL for testing.
 func (e *Executor) ScrapeURLForTesting(rawURL string, timeout time.Duration) (string, error) {
+	kdeps_debug.Log("enter: ScrapeURLForTesting")
 	return e.scrapeURL(rawURL, timeout)
 }
 
 // ScrapePDFForTesting exposes scrapePDF for testing.
 func ScrapePDFForTesting(ctx context.Context, path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapePDFForTesting")
 	return scrapePDF(ctx, path)
 }
 
 // ScrapeWordForTesting exposes scrapeWord for testing.
 func ScrapeWordForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeWordForTesting")
 	return scrapeWord(path)
 }
 
 // ScrapeExcelForTesting exposes scrapeExcel for testing.
 func ScrapeExcelForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeExcelForTesting")
 	return scrapeExcel(path)
 }
 
 // ExtractTextFromHTMLForTesting exposes extractTextFromHTML for testing.
 func ExtractTextFromHTMLForTesting(data []byte) string {
+	kdeps_debug.Log("enter: ExtractTextFromHTMLForTesting")
 	return extractTextFromHTML(data)
 }
 
 // ScrapeImageForTesting exposes scrapeImage for testing.
 func ScrapeImageForTesting(ctx context.Context, path, lang string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeImageForTesting")
 	return scrapeImage(ctx, path, lang)
 }
 
 // ScrapePDFRawForTesting exposes extractRawTextFromPDF for testing.
 func ScrapePDFRawForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapePDFRawForTesting")
 	return extractRawTextFromPDF(path)
 }
 
 // ScrapeTextForTesting exposes scrapeText for testing.
 func ScrapeTextForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeTextForTesting")
 	return scrapeText(path)
 }
 
 // ScrapeHTMLFileForTesting exposes scrapeHTMLFile for testing.
 func ScrapeHTMLFileForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeHTMLFileForTesting")
 	return scrapeHTMLFile(path)
 }
 
 // ScrapeCSVForTesting exposes scrapeCSV for testing.
 func ScrapeCSVForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeCSVForTesting")
 	return scrapeCSV(path)
 }
 
 // ScrapeMarkdownForTesting exposes scrapeMarkdown for testing.
 func ScrapeMarkdownForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeMarkdownForTesting")
 	return scrapeMarkdown(path)
 }
 
 // StripMarkdownForTesting exposes stripMarkdown for testing.
 func StripMarkdownForTesting(s string) string {
+	kdeps_debug.Log("enter: StripMarkdownForTesting")
 	return stripMarkdown(s)
 }
 
 // ScrapePPTXForTesting exposes scrapePPTX for testing.
 func ScrapePPTXForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapePPTXForTesting")
 	return scrapePPTX(path)
 }
 
 // ScrapeJSONForTesting exposes scrapeJSON for testing.
 func ScrapeJSONForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeJSONForTesting")
 	return scrapeJSON(path)
 }
 
 // ScrapeXMLFileForTesting exposes scrapeXMLFile for testing.
 func ScrapeXMLFileForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeXMLFileForTesting")
 	return scrapeXMLFile(path)
 }
 
 // ExtractAllXMLTextForTesting exposes extractAllXMLText for testing.
 func ExtractAllXMLTextForTesting(r io.Reader) (string, error) {
+	kdeps_debug.Log("enter: ExtractAllXMLTextForTesting")
 	return extractAllXMLText(r)
 }
 
 // ScrapeODTForTesting exposes scrapeODT for testing.
 func ScrapeODTForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeODTForTesting")
 	return scrapeODT(path)
 }
 
 // ScrapeODSForTesting exposes scrapeODS for testing.
 func ScrapeODSForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeODSForTesting")
 	return scrapeODS(path)
 }
 
 // ScrapeODPForTesting exposes scrapeODP for testing.
 func ScrapeODPForTesting(path string) (string, error) {
+	kdeps_debug.Log("enter: ScrapeODPForTesting")
 	return scrapeODP(path)
 }
 
 // evaluateText resolves mustache/expr expressions in text, mirroring the pattern
 // used by the TTS and embedding executors.
 func evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}
@@ -1160,6 +1218,7 @@ func evaluateText(text string, ctx *executor.ExecutionContext) string {
 
 // ResolvePath resolves a relative source path against the FSRoot when it is set.
 func ResolvePath(ctx *executor.ExecutionContext, source string) string {
+	kdeps_debug.Log("enter: ResolvePath")
 	if ctx == nil || ctx.FSRoot == "" {
 		return source
 	}

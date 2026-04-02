@@ -16,6 +16,8 @@ import (
 	"runtime"
 	"sort"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -66,6 +68,7 @@ type LinuxKitFile struct {
 
 // KernelCmdline returns the appropriate kernel console cmdline for the given architecture.
 func KernelCmdline(arch string) string {
+	kdeps_debug.Log("enter: KernelCmdline")
 	if arch == "arm64" {
 		return "console=ttyAMA0 console=tty0"
 	}
@@ -78,6 +81,7 @@ func GenerateConfig(
 	imageName, hostname, arch string,
 	workflow *domain.Workflow,
 ) (*LinuxKitConfig, error) {
+	kdeps_debug.Log("enter: GenerateConfig")
 	return GenerateConfigExtended(imageName, hostname, arch, workflow, false)
 }
 
@@ -87,6 +91,7 @@ func GenerateConfigExtended(
 	workflow *domain.Workflow,
 	thin bool,
 ) (*LinuxKitConfig, error) {
+	kdeps_debug.Log("enter: GenerateConfigExtended")
 	if err := validateGenerateConfigArgs(imageName, workflow); err != nil {
 		return nil, err
 	}
@@ -113,6 +118,7 @@ func GenerateConfigExtended(
 }
 
 func validateGenerateConfigArgs(imageName string, workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: validateGenerateConfigArgs")
 	if workflow == nil {
 		return errors.New("workflow cannot be nil")
 	}
@@ -124,6 +130,7 @@ func validateGenerateConfigArgs(imageName string, workflow *domain.Workflow) err
 }
 
 func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
+	kdeps_debug.Log("enter: buildBaseConfig")
 	return &LinuxKitConfig{
 		Kernel: LinuxKitKernel{
 			Image:   fmt.Sprintf("linuxkit/kernel:%s", linuxkitKernelTag),
@@ -170,6 +177,7 @@ func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
 }
 
 func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
+	kdeps_debug.Log("enter: addThinBuildSteps")
 	config.Onboot = append(config.Onboot, LinuxKitImage{
 		Name:  "mount-data",
 		Image: "alpine:3.19",
@@ -207,6 +215,7 @@ func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
 }
 
 func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
+	kdeps_debug.Log("enter: addFatBuildService")
 	// Build env vars for the service container
 	envList := []string{
 		"KDEPS_BIND_HOST=0.0.0.0",
@@ -259,6 +268,7 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 
 // MarshalConfig marshals a LinuxKitConfig to YAML.
 func MarshalConfig(config *LinuxKitConfig) ([]byte, error) {
+	kdeps_debug.Log("enter: MarshalConfig")
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal LinuxKit config: %w", err)
@@ -269,6 +279,7 @@ func MarshalConfig(config *LinuxKitConfig) ([]byte, error) {
 
 // ShouldInstallOllama determines if Ollama is needed (mirrors docker builder logic).
 func ShouldInstallOllama(workflow *domain.Workflow) bool {
+	kdeps_debug.Log("enter: ShouldInstallOllama")
 	if workflow.Settings.AgentSettings.InstallOllama != nil {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}

@@ -24,10 +24,13 @@ import (
 	"fmt"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 )
 
 func newLogoutCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newLogoutCmd")
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Log out from kdeps.io",
@@ -42,6 +45,7 @@ Examples:
 }
 
 func runLogout() error {
+	kdeps_debug.Log("enter: runLogout")
 	if err := RemoveCloudConfig(); err != nil {
 		return err
 	}

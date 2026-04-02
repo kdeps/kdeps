@@ -17,7 +17,32 @@ All commands support these global flags:
 | Flag | Description |
 |------|-------------|
 | `--verbose` | Enable verbose output |
-| `--debug` | Enable debug logging |
+| `--debug` | Enable debug logging (shows function entry points and internal state) |
+
+### Debug Logging
+
+The `--debug` flag enables detailed debug logging to stderr. When enabled, kdeps prints a log message at the entry point of every function executed, helping you trace the flow of execution through the codebase.
+
+```bash
+# Run with debug logging
+kdeps run workflow.yaml --debug
+
+# Output shows function entry points on stderr
+enter: Execute
+enter: createRootCommand
+enter: addSubcommands
+enter: newRunCmd
+enter: Execute
+...
+```
+
+Debug logging is useful for:
+- Tracing execution flow through resources
+- Identifying where errors occur
+- Understanding the internal call sequence
+- Diagnosing performance bottlenecks
+
+Use `--debug` in combination with `--verbose` for maximum detail.
 
 ## Commands
 

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -48,6 +50,7 @@ type Result struct {
 
 // AnyFailed returns true when at least one result is a failure.
 func AnyFailed(results []Result) bool {
+	kdeps_debug.Log("enter: AnyFailed")
 	for _, r := range results {
 		if !r.Passed {
 			return true
@@ -64,6 +67,7 @@ type Runner struct {
 
 // NewRunner creates a Runner targeting the given base URL (e.g. "http://127.0.0.1:16395").
 func NewRunner(baseURL string) *Runner {
+	kdeps_debug.Log("enter: NewRunner")
 	return &Runner{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		HTTPClient: &http.Client{
@@ -74,6 +78,7 @@ func NewRunner(baseURL string) *Runner {
 
 // WaitReady polls GET /health until it returns 200 or ctx is cancelled.
 func (r *Runner) WaitReady(ctx context.Context) error {
+	kdeps_debug.Log("enter: WaitReady")
 	deadline := time.Now().Add(healthWaitTimeout)
 	for {
 		if time.Now().After(deadline) {
@@ -100,6 +105,7 @@ func (r *Runner) WaitReady(ctx context.Context) error {
 
 // Run executes all test cases and returns one Result per case.
 func (r *Runner) Run(ctx context.Context, tests []domain.TestCase) []Result {
+	kdeps_debug.Log("enter: Run")
 	results := make([]Result, 0, len(tests))
 	for _, tc := range tests {
 		results = append(results, r.runOne(ctx, tc))
@@ -109,6 +115,7 @@ func (r *Runner) Run(ctx context.Context, tests []domain.TestCase) []Result {
 
 // runOne executes a single test case and returns its Result.
 func (r *Runner) runOne(ctx context.Context, tc domain.TestCase) Result {
+	kdeps_debug.Log("enter: runOne")
 	start := time.Now()
 	err := r.execute(ctx, tc)
 	dur := time.Since(start)
@@ -119,6 +126,7 @@ func (r *Runner) runOne(ctx context.Context, tc domain.TestCase) Result {
 }
 
 func (r *Runner) execute(ctx context.Context, tc domain.TestCase) error {
+	kdeps_debug.Log("enter: execute")
 	timeout := defaultTestTimeout
 	if tc.Timeout != "" {
 		if d, err := time.ParseDuration(tc.Timeout); err == nil {
@@ -182,6 +190,7 @@ func (r *Runner) execute(ctx context.Context, tc domain.TestCase) error {
 }
 
 func (r *Runner) assertResponse(assert domain.TestAssert, resp *http.Response, body string) error {
+	kdeps_debug.Log("enter: assertResponse")
 	// Status check
 	if assert.Status != 0 && resp.StatusCode != assert.Status {
 		return fmt.Errorf("expected status %d, got %d", assert.Status, resp.StatusCode)
@@ -204,6 +213,7 @@ func (r *Runner) assertResponse(assert domain.TestAssert, resp *http.Response, b
 }
 
 func (r *Runner) assertBody(b *domain.TestBodyAssert, body string) error {
+	kdeps_debug.Log("enter: assertBody")
 	if b.Contains != "" && !strings.Contains(body, b.Contains) {
 		return fmt.Errorf("body does not contain %q", b.Contains)
 	}
@@ -219,6 +229,7 @@ func (r *Runner) assertBody(b *domain.TestBodyAssert, body string) error {
 }
 
 func (r *Runner) assertJSONPath(assertions []domain.TestJSONPath, body string) error {
+	kdeps_debug.Log("enter: assertJSONPath")
 	var parsed interface{}
 	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
 		return fmt.Errorf("response is not valid JSON (cannot evaluate jsonPath): %w", err)
@@ -232,6 +243,7 @@ func (r *Runner) assertJSONPath(assertions []domain.TestJSONPath, body string) e
 }
 
 func assertOneJSONPath(parsed interface{}, jp domain.TestJSONPath) error {
+	kdeps_debug.Log("enter: assertOneJSONPath")
 	val, exists := EvalJSONPath(parsed, jp.Path)
 
 	if jp.Exists != nil {

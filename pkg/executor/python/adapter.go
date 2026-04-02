@@ -24,6 +24,8 @@ package python
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
@@ -36,6 +38,7 @@ type Adapter struct {
 
 // NewAdapter creates a new Python executor adapter.
 func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	uvManager := python.NewManager("")
 	return &Adapter{
 		executor: NewExecutor(uvManager),
@@ -44,6 +47,7 @@ func NewAdapter() *Adapter {
 
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	pythonConfig, ok := config.(*domain.PythonConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for Python executor")

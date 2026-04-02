@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/federation"
@@ -36,6 +38,7 @@ import (
 func resolvePrivateKey(
 	keyPath, publicKeyPath, urnNamespace string,
 ) (*federation.KeyManager, error) {
+	kdeps_debug.Log("enter: resolvePrivateKey")
 	if keyPath != "" {
 		return federation.LoadKey(keyPath)
 	}
@@ -47,6 +50,7 @@ func resolvePrivateKey(
 
 // resolveKeyFromNamespace loads the default key for the given URN namespace.
 func resolveKeyFromNamespace(urnNamespace string) (*federation.KeyManager, error) {
+	kdeps_debug.Log("enter: resolveKeyFromNamespace")
 	keyDir, err := getDefaultKeyDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default key directory: %w", err)
@@ -61,6 +65,7 @@ func resolveKeyFromNamespace(urnNamespace string) (*federation.KeyManager, error
 
 // resolveKeyFromPublicKeyPath derives the private key path from the public key path.
 func resolveKeyFromPublicKeyPath(publicKeyPath string) (*federation.KeyManager, error) {
+	kdeps_debug.Log("enter: resolveKeyFromPublicKeyPath")
 	privKeyPath := publicKeyPath[:len(publicKeyPath)-4] // remove ".pub"
 	if _, statErr := os.Stat(privKeyPath); os.IsNotExist(statErr) {
 		return nil, fmt.Errorf(
@@ -77,6 +82,7 @@ func resolveKeyFromPublicKeyPath(publicKeyPath string) (*federation.KeyManager, 
 
 // resolvePublicKeyPEM returns the PEM-encoded public key, either from file or derived from km.
 func resolvePublicKeyPEM(publicKeyPath string, km *federation.KeyManager) ([]byte, error) {
+	kdeps_debug.Log("enter: resolvePublicKeyPEM")
 	if publicKeyPath != "" {
 		pubData, err := os.ReadFile(publicKeyPath)
 		if err != nil {
@@ -93,6 +99,7 @@ func resolvePublicKeyPEM(publicKeyPath string, km *federation.KeyManager) ([]byt
 
 // newFederationRegisterCmd creates the `kdeps federation register` command.
 func newFederationRegisterCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationRegisterCmd")
 	var (
 		urnStr        string
 		specPath      string
@@ -153,6 +160,7 @@ func runFederationRegister(
 	cmd *cobra.Command,
 	urnStr, specPath, publicKeyPath, registryURL, contactEmail, keyPath string,
 ) error {
+	kdeps_debug.Log("enter: runFederationRegister")
 	// Validate required flags
 	if err := validateRegisterFlags(urnStr, specPath, registryURL, contactEmail); err != nil {
 		return err
@@ -200,6 +208,7 @@ func runFederationRegister(
 
 // validateRegisterFlags checks that all required flags are provided.
 func validateRegisterFlags(urnStr, specPath, registryURL, contactEmail string) error {
+	kdeps_debug.Log("enter: validateRegisterFlags")
 	if urnStr == "" {
 		return errors.New("URN is required (use --urn)")
 	}
@@ -218,6 +227,7 @@ func validateRegisterFlags(urnStr, specPath, registryURL, contactEmail string) e
 // computeAndVerifySpecHash reads the spec file, computes its canonical hash,
 // and verifies it matches the URN's content hash.
 func computeAndVerifySpecHash(specPath string, urn *federation.URN) ([]byte, error) {
+	kdeps_debug.Log("enter: computeAndVerifySpecHash")
 	specBytes, err := os.ReadFile(specPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read spec file: %w", err)
@@ -255,6 +265,7 @@ func buildRegistrationPayload(
 	computedHash []byte,
 	contactEmail, pubKeyPEM string,
 ) ([]byte, error) {
+	kdeps_debug.Log("enter: buildRegistrationPayload")
 	reg := registrationPayload{
 		URN:          urn.String(),
 		PublicKey:    pubKeyPEM,
@@ -279,6 +290,7 @@ func signAndSendRegistration(
 	regJSON []byte,
 	registryURL string,
 ) (registrationReceipt, []byte, error) {
+	kdeps_debug.Log("enter: signAndSendRegistration")
 	var (
 		receipt  registrationReceipt
 		respBody []byte
@@ -352,6 +364,7 @@ type registrationReceipt struct {
 
 // processRegistrationResponse outputs the result to the user.
 func processRegistrationResponse(respBody []byte, receipt registrationReceipt) error {
+	kdeps_debug.Log("enter: processRegistrationResponse")
 	if receipt.MessageID == "" {
 		// Non-JSON response
 		fmt.Fprintf(os.Stdout, "Registration accepted. Response: %s\n", string(respBody))

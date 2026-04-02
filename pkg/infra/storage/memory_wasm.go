@@ -24,6 +24,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // MemoryStorage provides in-memory key-value storage for WASM builds.
@@ -34,6 +36,7 @@ type MemoryStorage struct {
 
 // NewMemoryStorage creates a new in-memory storage for WASM.
 func NewMemoryStorage(_ string) (*MemoryStorage, error) {
+	kdeps_debug.Log("enter: NewMemoryStorage")
 	return &MemoryStorage{
 		data: make(map[string]string),
 	}, nil
@@ -41,6 +44,7 @@ func NewMemoryStorage(_ string) (*MemoryStorage, error) {
 
 // Get retrieves a value from memory.
 func (m *MemoryStorage) Get(key string) (interface{}, bool) {
+	kdeps_debug.Log("enter: Get")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -60,6 +64,7 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 
 // Set stores a value in memory.
 func (m *MemoryStorage) Set(key string, value interface{}) error {
+	kdeps_debug.Log("enter: Set")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -74,6 +79,7 @@ func (m *MemoryStorage) Set(key string, value interface{}) error {
 
 // Delete removes a value from memory.
 func (m *MemoryStorage) Delete(key string) error {
+	kdeps_debug.Log("enter: Delete")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -83,5 +89,6 @@ func (m *MemoryStorage) Delete(key string) error {
 
 // Close is a no-op for WASM in-memory storage.
 func (m *MemoryStorage) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return nil
 }

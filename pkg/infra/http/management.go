@@ -31,6 +31,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/schema"
 )
 
@@ -58,6 +60,7 @@ const (
 // variable named by managementAuthEnvVar.  If no token is configured, the
 // endpoint returns 503 Service Unavailable to prevent accidental open access.
 func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: requireManagementAuth")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
 		if token == "" {
@@ -90,6 +93,7 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 // the kdeps host to remotely update the workflow and settings of a running kdeps
 // container (client).
 func (s *Server) SetupManagementRoutes() {
+	kdeps_debug.Log("enter: SetupManagementRoutes")
 	// Status and schema discovery are read-only and safe to expose without auth.
 	s.Router.GET(managementPathPrefix+"/status", s.HandleManagementStatus)
 	s.Router.GET(managementPathPrefix+"/openapi", s.HandleManagementOpenAPI)
@@ -109,6 +113,7 @@ func (s *Server) SetupManagementRoutes() {
 // HandleManagementStatus returns the current workflow status.
 // GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementStatus")
 	s.mu.RLock()
 	workflow := s.Workflow
 	s.mu.RUnlock()
@@ -137,6 +142,7 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // writes it to disk, and reloads the workflow.
 // PUT /_kdeps/workflow.
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementUpdateWorkflow")
 	// Read up to maxWorkflowBodySize + 1 bytes so we can detect oversized payloads.
 	// LimitReader stops at maxWorkflowBodySize bytes; the extra +1 lets us distinguish
 	// "exactly at the limit" from "over the limit".
@@ -230,6 +236,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 // HandleManagementReload triggers a workflow reload from disk.
 // POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementReload")
 	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to reload workflow: %v", reloadErr))
@@ -261,6 +268,7 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // extracts it to the workflow directory, and reloads the workflow.
 // PUT /_kdeps/package.
 func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementUpdatePackage")
 	// Read up to maxPackageBodySize + 1 bytes to detect oversized payloads.
 	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxPackageBodySize+1))
 	if err != nil {
@@ -338,6 +346,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 // before being written. Existing files are overwritten; the archive contents
 // may include workflow.yaml, resources/, data/, scripts/, etc.
 func extractKdepsPackage(data []byte, destDir string) error {
+	kdeps_debug.Log("enter: extractKdepsPackage")
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
@@ -388,6 +397,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 // writeExtractedFile creates/overwrites targetPath with content from r,
 // capped at maxPackageFileSize to guard against decompression bombs.
 func writeExtractedFile(targetPath string, r io.Reader) error {
+	kdeps_debug.Log("enter: writeExtractedFile")
 	f, err := os.OpenFile(
 		targetPath,
 		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
@@ -407,6 +417,7 @@ func writeExtractedFile(targetPath string, r io.Reader) error {
 
 // respondManagementError sends a JSON error response for management endpoints.
 func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int, message string) {
+	kdeps_debug.Log("enter: respondManagementError")
 	if s.logger != nil {
 		s.logger.Error("management API error", "status", statusCode, "message", message)
 	}
@@ -424,6 +435,7 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 // the currently loaded workflow.
 // GET /_kdeps/openapi.
 func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementOpenAPI")
 	s.mu.RLock()
 	workflow := s.Workflow
 	s.mu.RUnlock()
@@ -439,6 +451,7 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 // describes the input accepted by the currently loaded workflow.
 // GET /_kdeps/schema.
 func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleManagementSchema")
 	s.mu.RLock()
 	workflow := s.Workflow
 	s.mu.RUnlock()
@@ -457,6 +470,7 @@ func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // Errors are silently ignored because the absence of the directory (or
 // individual file-remove failures) is not fatal.
 func clearResourcesDir(dir string) {
+	kdeps_debug.Log("enter: clearResourcesDir")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return // directory does not exist — nothing to clear
@@ -478,6 +492,7 @@ func clearResourcesDir(dir string) {
 // It prefers the configured path, falls back to /app/workflow.yaml (Docker default),
 // then falls back to workflow.yaml (local default).
 func (s *Server) getManagementWorkflowPath() string {
+	kdeps_debug.Log("enter: getManagementWorkflowPath")
 	s.mu.RLock()
 	path := s.workflowPath
 	s.mu.RUnlock()
@@ -502,6 +517,7 @@ func (s *Server) getManagementWorkflowPath() string {
 // workflow.yml.j2, and workflow.j2 (pure Jinja2, no YAML prefix).
 // Returns an empty string if no workflow file is found.
 func findWorkflowFile(dir string) string {
+	kdeps_debug.Log("enter: findWorkflowFile")
 	candidates := []string{
 		filepath.Join(dir, "workflow.yaml"),
 		filepath.Join(dir, "workflow.yaml.j2"),

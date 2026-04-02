@@ -39,6 +39,8 @@ import (
 	"syscall"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 
@@ -96,6 +98,7 @@ type RunFlags struct {
 
 // newRunCmd creates the run command.
 func newRunCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newRunCmd")
 	flags := &RunFlags{}
 
 	runCmd := &cobra.Command{
@@ -151,6 +154,7 @@ Examples:
 
 // resolveWorkflowPath resolves the workflow path from input arguments.
 func resolveWorkflowPath(inputPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: resolveWorkflowPath")
 	// Check if input is a .kdeps package file
 	if strings.HasSuffix(inputPath, ".kdeps") {
 		return resolveKdepsPackage(inputPath)
@@ -168,6 +172,7 @@ func resolveWorkflowPath(inputPath string) (string, func(), error) {
 // resolveKagencyPackage extracts a .kagency archive to a temp dir and returns
 // the path to the agency manifest file inside it.
 func resolveKagencyPackage(inputPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: resolveKagencyPackage")
 	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", inputPath)
 
 	// Reuse the generic tar.gz extraction from .kdeps infrastructure.
@@ -191,6 +196,7 @@ func resolveKagencyPackage(inputPath string) (string, func(), error) {
 
 // resolveKdepsPackage handles .kdeps package file resolution.
 func resolveKdepsPackage(inputPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: resolveKdepsPackage")
 	fmt.Fprintf(os.Stdout, "Package: %s\n", inputPath)
 
 	// Extract package to temporary directory
@@ -216,6 +222,7 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 
 // ResolveRegularPath handles regular file or directory path resolution.
 func ResolveRegularPath(inputPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: ResolveRegularPath")
 	// Convert to absolute path
 	absPath, err := filepath.Abs(inputPath)
 	if err != nil {
@@ -241,6 +248,7 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 // workflow.yml.j2, and finally workflow.j2 (a pure Jinja2 template with no
 // YAML extension prefix).  Returns an empty string if none of those files exist.
 func FindWorkflowFile(dir string) string {
+	kdeps_debug.Log("enter: FindWorkflowFile")
 	candidates := []string{
 		filepath.Join(dir, "workflow.yaml"),
 		filepath.Join(dir, "workflow.yaml.j2"),
@@ -260,6 +268,7 @@ func FindWorkflowFile(dir string) string {
 // It tries component.yaml first, then Jinja2 variants, then .yml forms.
 // Returns an empty string if none exist.
 func FindComponentFile(dir string) string {
+	kdeps_debug.Log("enter: FindComponentFile")
 	candidates := []string{
 		filepath.Join(dir, "component.yaml"),
 		filepath.Join(dir, "component.yaml.j2"),
@@ -279,6 +288,7 @@ func FindComponentFile(dir string) string {
 // It tries agency.yaml first, then agency.yaml.j2, then agency.yml,
 // agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
 func FindAgencyFile(dir string) string {
+	kdeps_debug.Log("enter: FindAgencyFile")
 	candidates := []string{
 		filepath.Join(dir, agencyFile),
 		filepath.Join(dir, agencyYAMLJ2File),
@@ -297,6 +307,7 @@ func FindAgencyFile(dir string) string {
 // ResolveDirectoryPath resolves workflow path for directory inputs.
 // It prefers an agency file when both an agency.yml and workflow.yaml exist.
 func ResolveDirectoryPath(absPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: ResolveDirectoryPath")
 	// Check for agency file first.
 	if agencyPath := FindAgencyFile(absPath); agencyPath != "" {
 		fmt.Fprintf(os.Stdout, "Agency: %s\n", agencyPath)
@@ -314,6 +325,7 @@ func ResolveDirectoryPath(absPath string) (string, func(), error) {
 
 // RunWorkflow executes the run command with default flags.
 func RunWorkflow(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: RunWorkflow")
 	// For backward compatibility, use empty flags (default behavior)
 	flags := &RunFlags{}
 	return RunWorkflowWithFlags(cmd, args, flags)
@@ -321,6 +333,7 @@ func RunWorkflow(cmd *cobra.Command, args []string) error {
 
 // RunWorkflowWithFlags executes the run command with injected flags.
 func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) error {
+	kdeps_debug.Log("enter: RunWorkflowWithFlags")
 	inputPath := args[0]
 
 	// Check if debug flag is set
@@ -353,6 +366,7 @@ func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) er
 
 // ExecuteWorkflowSteps executes the main workflow steps after path resolution.
 func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
+	kdeps_debug.Log("enter: ExecuteWorkflowSteps")
 	// For backward compatibility, use empty flags (default behavior)
 	flags := &RunFlags{}
 	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
@@ -360,6 +374,7 @@ func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 
 // isAgencyFile reports whether path points to an agency file based on its base name.
 func isAgencyFile(path string) bool {
+	kdeps_debug.Log("enter: isAgencyFile")
 	base := filepath.Base(path)
 	return base == agencyFile ||
 		base == agencyYMLFile ||
@@ -370,6 +385,7 @@ func isAgencyFile(path string) bool {
 
 // ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
 func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
+	kdeps_debug.Log("enter: ExecuteWorkflowStepsWithFlags")
 	// Route to agency execution when an agency file was resolved.
 	if isAgencyFile(workflowPath) {
 		return ExecuteAgencyStepsWithFlags(cmd, workflowPath, flags)
@@ -468,6 +484,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 // executes the agency entry point (targetAgentId) with the full agent map
 // available for inter-agent calls via the `agent` resource type.
 func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *RunFlags) error {
+	kdeps_debug.Log("enter: ExecuteAgencyStepsWithFlags")
 	agencyDir := filepath.Dir(agencyPath)
 
 	// 0. Preprocess all .j2 files in the agency directory.
@@ -520,6 +537,7 @@ func buildAgentNameMap(
 	agentPaths []string,
 	targetAgentID string,
 ) (map[string]string, string, error) {
+	kdeps_debug.Log("enter: buildAgentNameMap")
 	nameMap := make(map[string]string, len(agentPaths))
 
 	for _, p := range agentPaths {
@@ -559,6 +577,7 @@ func executeAgencyEntryPoint(
 	agentNameMap map[string]string,
 	flags *RunFlags,
 ) error {
+	kdeps_debug.Log("enter: executeAgencyEntryPoint")
 	if workflowPath == "" {
 		fmt.Fprintln(os.Stdout, "  (no agents to execute)")
 		return nil
@@ -580,6 +599,7 @@ func executeAgencyEntryPoint(
 
 // ParseWorkflowFile parses a workflow YAML file.
 func ParseWorkflowFile(path string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: ParseWorkflowFile")
 	// Create schema validator.
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
@@ -605,6 +625,7 @@ func ParseWorkflowFile(path string) (*domain.Workflow, error) {
 // ParseAgencyFile parses an agency YAML file and returns the parsed Agency along
 // with the discovered agent workflow paths.
 func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
+	kdeps_debug.Log("enter: ParseAgencyFile")
 	agency, agentPaths, _, err := ParseAgencyFileWithParser(path)
 	return agency, agentPaths, err
 }
@@ -613,6 +634,7 @@ func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
 // parser so the caller can invoke parser.Cleanup() after it is done with the
 // returned paths (important when .kdeps agents were extracted to temp dirs).
 func ParseAgencyFileWithParser(path string) (*domain.Agency, []string, *yaml.Parser, error) {
+	kdeps_debug.Log("enter: ParseAgencyFileWithParser")
 	// Create schema validator.
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
@@ -647,6 +669,7 @@ func LoadResourceFiles(
 	resourcesDir string,
 	yamlParser *yaml.Parser,
 ) error {
+	kdeps_debug.Log("enter: LoadResourceFiles")
 	// Check if resources directory exists.
 	if _, err := os.Stat(resourcesDir); os.IsNotExist(err) {
 		return nil // No resources directory is ok.
@@ -682,6 +705,7 @@ func LoadResourceFiles(
 
 // ValidateWorkflow validates a workflow.
 func ValidateWorkflow(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateWorkflow")
 	// Create schema validator.
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
@@ -698,6 +722,7 @@ func ValidateWorkflow(workflow *domain.Workflow) error {
 // printIORequirements prints the system packages needed for the workflow's I/O features.
 // It is a no-op when the workflow has no non-API input sources and no TTS resources.
 func printIORequirements(workflow *domain.Workflow) {
+	kdeps_debug.Log("enter: printIORequirements")
 	input := workflow.Settings.Input
 	hasNonAPIInput := input != nil && input.HasNonAPISource()
 
@@ -734,6 +759,7 @@ func printIORequirements(workflow *domain.Workflow) {
 
 // printBotRequirements prints a note for each configured bot platform.
 func printBotRequirements(input *domain.InputConfig) {
+	kdeps_debug.Log("enter: printBotRequirements")
 	if !input.HasBotSource() || input.Bot == nil {
 		return
 	}
@@ -772,6 +798,7 @@ func printBotRequirements(input *domain.InputConfig) {
 // collectTTSEngines returns a map of offline TTS engine → descriptive label for
 // every TTS config found in the workflow (resources + inline before/after blocks).
 func collectTTSEngines(workflow *domain.Workflow) map[string]string {
+	kdeps_debug.Log("enter: collectTTSEngines")
 	engines := make(map[string]string)
 	for _, r := range workflow.Resources {
 		if r.Run.TTS != nil {
@@ -792,6 +819,7 @@ func collectTTSEngines(workflow *domain.Workflow) map[string]string {
 }
 
 func addTTSEngine(engines map[string]string, cfg *domain.TTSConfig) {
+	kdeps_debug.Log("enter: addTTSEngine")
 	if cfg.Mode != domain.TTSModeOffline || cfg.Offline == nil {
 		return
 	}
@@ -811,6 +839,7 @@ func addTTSEngine(engines map[string]string, cfg *domain.TTSConfig) {
 // by any browser resource in the workflow (resources + inline before/after blocks).
 // The default engine when none is specified is chromium.
 func collectBrowserEngines(workflow *domain.Workflow) []string {
+	kdeps_debug.Log("enter: collectBrowserEngines")
 	seen := make(map[string]bool)
 	for _, r := range workflow.Resources {
 		addBrowserEngine(seen, r.Run.Browser)
@@ -829,6 +858,7 @@ func collectBrowserEngines(workflow *domain.Workflow) []string {
 }
 
 func addBrowserEngine(seen map[string]bool, cfg *domain.BrowserConfig) {
+	kdeps_debug.Log("enter: addBrowserEngine")
 	if cfg == nil {
 		return
 	}
@@ -842,6 +872,7 @@ func addBrowserEngine(seen map[string]bool, cfg *domain.BrowserConfig) {
 // ensurePlaywrightInstalled installs the Playwright driver and the requested
 // browser engines when they are not already present.
 func ensurePlaywrightInstalled(engines []string) error {
+	kdeps_debug.Log("enter: ensurePlaywrightInstalled")
 	alreadyInstalled := executorBrowser.IsInstalled()
 	if !alreadyInstalled {
 		fmt.Fprintf(
@@ -861,6 +892,7 @@ func ensurePlaywrightInstalled(engines []string) error {
 
 // isBinaryAvailable returns true when name is found on PATH.
 func isBinaryAvailable(name string) bool {
+	kdeps_debug.Log("enter: isBinaryAvailable")
 	_, err := exec.LookPath(name)
 	return err == nil
 }
@@ -868,6 +900,7 @@ func isBinaryAvailable(name string) bool {
 // isPythonModuleAvailable returns true when `python3 -c "import <module>"` exits 0.
 // Falls back to "python" when python3 is not on PATH.
 func isPythonModuleAvailable(module string) bool {
+	kdeps_debug.Log("enter: isPythonModuleAvailable")
 	python := "python3"
 	if !isBinaryAvailable("python3") {
 		python = "python"
@@ -878,6 +911,7 @@ func isPythonModuleAvailable(module string) bool {
 
 // notFound returns "  [not found]" when avail is false, empty string otherwise.
 func notFound(avail bool) string {
+	kdeps_debug.Log("enter: notFound")
 	if avail {
 		return ""
 	}
@@ -885,6 +919,7 @@ func notFound(avail bool) string {
 }
 
 func printCaptureRequirements(input *domain.InputConfig) {
+	kdeps_debug.Log("enter: printCaptureRequirements")
 	ffmpegOK := isBinaryAvailable("ffmpeg")
 	for _, src := range input.Sources {
 		if domain.IsBotSource(src) {
@@ -926,6 +961,7 @@ func printCaptureRequirements(input *domain.InputConfig) {
 }
 
 func printTranscriberRequirements(cfg *domain.TranscriberConfig, printed map[string]bool) {
+	kdeps_debug.Log("enter: printTranscriberRequirements")
 	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
 		return
 	}
@@ -933,6 +969,7 @@ func printTranscriberRequirements(cfg *domain.TranscriberConfig, printed map[str
 }
 
 func printActivationRequirements(cfg *domain.ActivationConfig, printed map[string]bool) {
+	kdeps_debug.Log("enter: printActivationRequirements")
 	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
 		return
 	}
@@ -940,6 +977,7 @@ func printActivationRequirements(cfg *domain.ActivationConfig, printed map[strin
 }
 
 func printOfflineSTTRequirement(engine string, printed map[string]bool) {
+	kdeps_debug.Log("enter: printOfflineSTTRequirement")
 	if printed[engine] {
 		return
 	}
@@ -972,6 +1010,7 @@ func printOfflineSTTRequirement(engine string, printed map[string]bool) {
 }
 
 func printTTSEngineRequirement(engine, _ string) {
+	kdeps_debug.Log("enter: printTTSEngineRequirement")
 	switch engine {
 	case domain.TTSEnginePiper:
 		ok := isPythonModuleAvailable("piper")
@@ -998,6 +1037,7 @@ func printTTSEngineRequirement(engine, _ string) {
 // instead of a cryptic runtime failure during transcription or TTS.
 // installBrowserTools installs Playwright when the workflow uses browser resources.
 func installBrowserTools(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: installBrowserTools")
 	engines := collectBrowserEngines(workflow)
 	if len(engines) == 0 {
 		return nil
@@ -1006,6 +1046,7 @@ func installBrowserTools(workflow *domain.Workflow) error {
 }
 
 func installIOTools(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: installIOTools")
 	// Browser / Playwright installation is independent of uv.
 	if err := installBrowserTools(workflow); err != nil {
 		return err
@@ -1058,6 +1099,7 @@ func installIOTools(workflow *domain.Workflow) error {
 }
 
 func installInputTools(manager *python.Manager, input *domain.InputConfig) error {
+	kdeps_debug.Log("enter: installInputTools")
 	seen := make(map[string]bool)
 	if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline &&
 		t.Offline != nil {
@@ -1075,6 +1117,7 @@ func installInputTools(manager *python.Manager, input *domain.InputConfig) error
 }
 
 func installSTTTool(manager *python.Manager, engine string, seen map[string]bool) error {
+	kdeps_debug.Log("enter: installSTTTool")
 	if seen[engine] {
 		return nil
 	}
@@ -1145,6 +1188,7 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 }
 
 func installTTSTool(manager *python.Manager, engine string) error {
+	kdeps_debug.Log("enter: installTTSTool")
 	switch engine {
 	case domain.TTSEnginePiper:
 		if isBinaryAvailable("piper") || python.IOToolBin("piper", "piper") != "" {
@@ -1179,6 +1223,7 @@ func installTTSTool(manager *python.Manager, engine string) error {
 
 // SetupEnvironment sets up the execution environment.
 func SetupEnvironment(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: SetupEnvironment")
 	// Check if Python is needed
 	pythonVersion := workflow.Settings.AgentSettings.PythonVersion
 	if pythonVersion == "" {
@@ -1219,6 +1264,7 @@ func (a *RequestContextAdapter) Execute(
 	workflow *domain.Workflow,
 	req interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	// If req is nil, pass it through
 	if req == nil {
 		return a.Engine.Execute(workflow, nil)
@@ -1269,6 +1315,7 @@ func (a *RequestContextAdapter) Execute(
 
 // CheckPortAvailable checks if a port is available for binding (exported for testing).
 func CheckPortAvailable(host string, port int) error {
+	kdeps_debug.Log("enter: CheckPortAvailable")
 	addr := fmt.Sprintf("%s:%d", host, port)
 	listener, err := (&net.ListenConfig{
 		Control:   nil,
@@ -1295,6 +1342,7 @@ const (
 
 // IsOllamaRunning checks if Ollama is already running by attempting a TCP connection.
 func IsOllamaRunning(host string, port int) bool {
+	kdeps_debug.Log("enter: IsOllamaRunning")
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	dialer := &net.Dialer{
 		Timeout:       time.Second,
@@ -1319,6 +1367,7 @@ func IsOllamaRunning(host string, port int) bool {
 
 // startOllamaServer starts the Ollama server in the background.
 func startOllamaServer() error {
+	kdeps_debug.Log("enter: startOllamaServer")
 	// Check if ollama command exists
 	_, lookErr := exec.LookPath("ollama")
 	if lookErr != nil {
@@ -1344,6 +1393,7 @@ func startOllamaServer() error {
 
 // waitForOllamaReady waits for Ollama to be ready to accept connections.
 func waitForOllamaReady(host string, port int, timeout time.Duration) error {
+	kdeps_debug.Log("enter: waitForOllamaReady")
 	start := time.Now()
 	for {
 		if IsOllamaRunning(host, port) {
@@ -1360,6 +1410,7 @@ func waitForOllamaReady(host string, port int, timeout time.Duration) error {
 
 // ParseOllamaURL parses the Ollama URL to extract host and port.
 func ParseOllamaURL(ollamaURL string) (string, int) {
+	kdeps_debug.Log("enter: ParseOllamaURL")
 	host := ollamaDefaultHost
 	port := ollamaDefaultPort
 
@@ -1387,6 +1438,7 @@ func ParseOllamaURL(ollamaURL string) (string, int) {
 
 // ensureOllamaRunning ensures that Ollama is running, starting it if necessary.
 func ensureOllamaRunning(ollamaURL string) error {
+	kdeps_debug.Log("enter: ensureOllamaRunning")
 	host, port := ParseOllamaURL(ollamaURL)
 
 	// Check if already running
@@ -1412,6 +1464,7 @@ func ensureOllamaRunning(ollamaURL string) error {
 
 // workflowNeedsOllama checks if any resource in the workflow uses LLM with Ollama backend.
 func workflowNeedsOllama(workflow *domain.Workflow) bool {
+	kdeps_debug.Log("enter: workflowNeedsOllama")
 	for _, resource := range workflow.Resources {
 		if resource.Run.Chat != nil {
 			// Check if backend is ollama or empty (default is ollama)
@@ -1431,6 +1484,7 @@ const gracefulShutdownTimeout = 10 * time.Second
 // tests.  When no explicit tests: block is defined in the workflow, test cases
 // are automatically generated from the configured API routes.
 func RunSelfTests(workflow *domain.Workflow, addr string) []selftest.Result {
+	kdeps_debug.Log("enter: RunSelfTests")
 	tests := workflow.Tests
 	if len(tests) == 0 {
 		fmt.Fprintln(os.Stdout, "\nNo tests defined - generating smoke tests from workflow routes...")
@@ -1448,6 +1502,7 @@ func RunSelfTests(workflow *domain.Workflow, addr string) []selftest.Result {
 
 // PrintSelfTestResults writes a formatted self-test summary to w.
 func PrintSelfTestResults(w io.Writer, results []selftest.Result) {
+	kdeps_debug.Log("enter: PrintSelfTestResults")
 	if len(results) == 0 {
 		return
 	}
@@ -1474,6 +1529,7 @@ func PrintSelfTestResults(w io.Writer, results []selftest.Result) {
 // It returns an error when a tests: block is already present so existing tests
 // are never silently overwritten.
 func WriteTestsToWorkflow(workflow *domain.Workflow, workflowPath string) error {
+	kdeps_debug.Log("enter: WriteTestsToWorkflow")
 	if len(workflow.Tests) > 0 {
 		return fmt.Errorf(
 			"workflow already has a tests: block (%d tests); remove it first to regenerate",
@@ -1519,6 +1575,7 @@ func dispatchExecution(
 	devMode, debugMode bool,
 	selfTest, selfTestOnly bool,
 ) error {
+	kdeps_debug.Log("enter: dispatchExecution")
 	s := workflow.Settings
 
 	if s.WebServerMode && s.APIServerMode {
@@ -1545,6 +1602,7 @@ func dispatchExecution(
 // Stateless mode reads one message from stdin, executes the workflow once, writes the
 // reply to stdout, and returns.
 func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
+	kdeps_debug.Log("enter: StartBotRunners")
 	input := workflow.Settings.Input
 	logger := logging.NewLogger(debugMode)
 	engine := setupEngine(workflow, debugMode)
@@ -1598,6 +1656,7 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 // optionally transcribes it, runs the workflow resources, and then immediately restarts.
 // Blocks until SIGINT/SIGTERM.
 func StartMediaRunners(workflow *domain.Workflow, debugMode bool) error {
+	kdeps_debug.Log("enter: StartMediaRunners")
 	engine := setupEngine(workflow, debugMode)
 
 	fmt.Fprintln(os.Stdout, "  ✓ Starting media input loop (polling mode)")
@@ -1639,6 +1698,7 @@ func StartHTTPServer(
 	selfTest bool,
 	selfTestOnly bool,
 ) error {
+	kdeps_debug.Log("enter: StartHTTPServer")
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
 
@@ -1727,6 +1787,7 @@ func StartHTTPServer(
 }
 
 func printRoutes(serverConfig *domain.APIServerConfig) {
+	kdeps_debug.Log("enter: printRoutes")
 	fmt.Fprintln(os.Stdout, "\nRoutes:")
 	if serverConfig != nil {
 		for _, route := range serverConfig.Routes {
@@ -1742,6 +1803,7 @@ func printRoutes(serverConfig *domain.APIServerConfig) {
 }
 
 func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
+	kdeps_debug.Log("enter: setupEngine")
 	logger := logging.NewLogger(debugMode)
 	engine := executor.NewEngine(logger)
 	engine.SetDebugMode(debugMode)
@@ -1781,6 +1843,7 @@ func setupEngineWithAgentPaths(
 	agentNameMap map[string]string,
 	debugMode bool,
 ) *executor.Engine {
+	kdeps_debug.Log("enter: setupEngineWithAgentPaths")
 	eng := setupEngine(workflow, debugMode)
 	eng.SetNewExecutionContextForAgency(agentNameMap)
 	return eng
@@ -1794,6 +1857,7 @@ func dispatchExecutionWithEngine(
 	workflowPath string,
 	devMode, debugMode bool,
 ) error {
+	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
 	s := workflow.Settings
 
 	// For server and bot modes, the pre-built engine is used where possible.
@@ -1819,6 +1883,7 @@ func dispatchExecutionWithEngine(
 
 // executeSingleRunWithEngine runs a workflow once using the supplied engine.
 func executeSingleRunWithEngine(eng *executor.Engine, workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: executeSingleRunWithEngine")
 	output, err := eng.Execute(workflow, nil)
 	if err != nil {
 		return err
@@ -1837,6 +1902,7 @@ func startHTTPServerWithEngine(
 	workflowPath string,
 	devMode, debugMode bool,
 ) error {
+	kdeps_debug.Log("enter: startHTTPServerWithEngine")
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
 
@@ -1901,6 +1967,7 @@ func startBothServersWithEngine(
 	workflowPath string,
 	devMode, debugMode bool,
 ) error {
+	kdeps_debug.Log("enter: startBothServersWithEngine")
 	logger := logging.NewLogger(debugMode)
 	executorAdapter := &RequestContextAdapter{Engine: eng}
 	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
@@ -1968,6 +2035,7 @@ func StartBotRunnersWithEngine(
 	workflow *domain.Workflow,
 	debugMode bool,
 ) error {
+	kdeps_debug.Log("enter: StartBotRunnersWithEngine")
 	input := workflow.Settings.Input
 	logger := logging.NewLogger(debugMode)
 
@@ -2021,6 +2089,7 @@ func StartBotRunnersWithEngine(
 }
 
 func setupDevMode(httpServer *http.Server, workflowPath string) {
+	kdeps_debug.Log("enter: setupDevMode")
 	// Set workflow path on server for hot reload
 	httpServer.SetWorkflowPath(workflowPath)
 
@@ -2040,6 +2109,7 @@ func setupDevMode(httpServer *http.Server, workflowPath string) {
 
 // StartWebServer starts the web server (static files and app proxying) (exported for testing).
 func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) error {
+	kdeps_debug.Log("enter: StartWebServer")
 	if workflow.Settings.WebServer == nil {
 		return errors.New("webServer configuration is required")
 	}
@@ -2110,6 +2180,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 
 // ExtractPackage extracts a .kdeps package to a temporary directory.
 func ExtractPackage(packagePath string) (string, error) {
+	kdeps_debug.Log("enter: ExtractPackage")
 	// Verify package file exists
 	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
 		return "", fmt.Errorf("package file not found: %s", packagePath)
@@ -2151,6 +2222,7 @@ func ExtractPackage(packagePath string) (string, error) {
 
 // ExtractTarFiles extracts all files from a tar reader to a temporary directory.
 func ExtractTarFiles(tarReader *tar.Reader, tempDir string) error {
+	kdeps_debug.Log("enter: ExtractTarFiles")
 	for {
 		header, nextErr := tarReader.Next()
 		if errors.Is(nextErr, io.EOF) {
@@ -2184,6 +2256,7 @@ func ExtractTarFiles(tarReader *tar.Reader, tempDir string) error {
 // /tmp/destDir/../other or a tempDir that is a string-prefix of another
 // directory are both handled correctly.
 func ValidateAndJoinPath(headerName, tempDir string) (string, error) {
+	kdeps_debug.Log("enter: ValidateAndJoinPath")
 	targetPath := filepath.Join(tempDir, headerName)
 	rel, relErr := filepath.Rel(tempDir, targetPath)
 	if relErr != nil || strings.HasPrefix(rel, "..") {
@@ -2196,6 +2269,7 @@ func ValidateAndJoinPath(headerName, tempDir string) (string, error) {
 // enforce the size limit before any bytes are written so that oversized entries
 // are rejected rather than silently truncated.
 func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) error {
+	kdeps_debug.Log("enter: ExtractFile")
 	if header.Size > maxExtractFileSize {
 		return fmt.Errorf(
 			"archive entry %q exceeds maximum allowed size of %d bytes",
@@ -2223,6 +2297,7 @@ func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) e
 
 // ExecuteSingleRun executes workflow once and exits.
 func ExecuteSingleRun(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ExecuteSingleRun")
 	engine := setupEngine(workflow, false)
 
 	// Execute with no request context (single run mode).
@@ -2248,6 +2323,7 @@ func StartBothServers(
 	devMode bool,
 	debugMode bool,
 ) error {
+	kdeps_debug.Log("enter: StartBothServers")
 	// Create logger
 	logger := logging.NewLogger(debugMode)
 

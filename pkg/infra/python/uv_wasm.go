@@ -22,6 +22,7 @@
 package python
 
 import (
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"errors"
 	"time"
 )
@@ -39,44 +40,67 @@ type Manager struct {
 }
 
 // IOToolsBaseDir returns an empty path — no local venvs in WASM.
-func IOToolsBaseDir() string { return "" }
+func IOToolsBaseDir() string {
+	kdeps_debug.Log("enter: IOToolsBaseDir")
+	return ""
+}
 
 // IOToolVenvPath returns an empty path in WASM.
-func IOToolVenvPath(_ string) string { return "" }
+func IOToolVenvPath(_ string) string {
+	kdeps_debug.Log("enter: IOToolVenvPath")
+	return ""
+}
 
 // IOToolPythonBin returns an empty string in WASM (no Python available).
-func IOToolPythonBin(_ string) string { return "" }
+func IOToolPythonBin(_ string) string {
+	kdeps_debug.Log("enter: IOToolPythonBin")
+	return ""
+}
 
 // IOToolBin returns an empty string in WASM (no local binaries available).
-func IOToolBin(_, _ string) string { return "" }
+func IOToolBin(_, _ string) string {
+	kdeps_debug.Log("enter: IOToolBin")
+	return ""
+}
 
 // NewManager returns a no-op Manager in WASM.
-func NewManager(_ string) *Manager { return &Manager{} }
+func NewManager(_ string) *Manager {
+	kdeps_debug.Log("enter: NewManager")
+	return &Manager{}
+}
 
 // EnsureVenv is unsupported in WASM.
 func (m *Manager) EnsureVenv(_ string, _ []string, _ string, _ string) (string, error) {
+	kdeps_debug.Log("enter: EnsureVenv")
 	return "", errors.New("python: EnsureVenv not supported in WASM")
 }
 
 // GetVenvName returns an empty string in WASM.
-func (m *Manager) GetVenvName(_ string, _ []string, _ string) string { return "" }
+func (m *Manager) GetVenvName(_ string, _ []string, _ string) string {
+	kdeps_debug.Log("enter: GetVenvName")
+	return ""
+}
 
 // InstallPackages is unsupported in WASM.
 func (m *Manager) InstallPackages(_ string, _ []string, _ ...string) error {
+	kdeps_debug.Log("enter: InstallPackages")
 	return errors.New("python: InstallPackages not supported in WASM")
 }
 
 // InstallRequirements is unsupported in WASM.
 func (m *Manager) InstallRequirements(_, _ string) error {
+	kdeps_debug.Log("enter: InstallRequirements")
 	return errors.New("python: InstallRequirements not supported in WASM")
 }
 
 // InstallTool is unsupported in WASM.
 func (m *Manager) InstallTool(_, _ string, _ ...string) error {
+	kdeps_debug.Log("enter: InstallTool")
 	return errors.New("python: InstallTool not supported in WASM")
 }
 
 // GetPythonPath is unsupported in WASM.
 func (m *Manager) GetPythonPath(_ string) (string, error) {
+	kdeps_debug.Log("enter: GetPythonPath")
 	return "", errors.New("python: GetPythonPath not supported in WASM")
 }

@@ -28,6 +28,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -56,6 +58,7 @@ const (
 // .kdeps payload, reading only the EmbeddedTrailerSize-byte trailer.
 // ok is false if the file does not carry a valid embedded package.
 func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
+	kdeps_debug.Log("enter: detectPayloadRange")
 	if fileSize < int64(EmbeddedTrailerSize) {
 		return 0, 0, false
 	}
@@ -87,6 +90,7 @@ func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
 // HasEmbeddedPackage reports whether the binary at execPath carries an
 // embedded .kdeps archive. It reads only the 24-byte trailer — not the payload.
 func HasEmbeddedPackage(execPath string) bool {
+	kdeps_debug.Log("enter: HasEmbeddedPackage")
 	f, err := os.Open(execPath)
 	if err != nil {
 		return false
@@ -105,6 +109,7 @@ func HasEmbeddedPackage(execPath string) bool {
 // DetectEmbeddedPackage inspects the binary at execPath for an appended .kdeps package.
 // Returns the raw package bytes and true when an embedded package is found.
 func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
+	kdeps_debug.Log("enter: DetectEmbeddedPackage")
 	f, err := os.Open(execPath)
 	if err != nil {
 		return nil, false
@@ -134,6 +139,7 @@ func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
 // then appending the magic trailer that DetectEmbeddedPackage looks for.
 // The binary is streamed (not buffered) to keep memory usage constant.
 func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
+	kdeps_debug.Log("enter: AppendEmbeddedPackage")
 	// Open the base binary first so we can get its permissions and stream it.
 	binFile, err := os.Open(binaryPath)
 	if err != nil {
@@ -201,6 +207,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 // temporary file containing only the original binary portion and signals the
 // caller to delete that file when done (second return value = true).
 func cleanBinaryPath(execPath string) (string, bool, error) {
+	kdeps_debug.Log("enter: cleanBinaryPath")
 	f, err := os.Open(execPath)
 	if err != nil {
 		return execPath, false, nil
@@ -254,6 +261,7 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 // execPath to a temporary file and runs it via the standard "run" CLI path.
 // Returns the exit code.
 func RunEmbeddedPackage(ver, commit, execPath string) int {
+	kdeps_debug.Log("enter: RunEmbeddedPackage")
 	f, err := os.Open(execPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open executable %s: %v\n", execPath, err)
@@ -316,6 +324,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 // of f starting at offset and returns ".kagency" if an agency manifest is found,
 // otherwise ".kdeps".
 func detectEmbeddedArchiveType(f *os.File, offset int64) string {
+	kdeps_debug.Log("enter: detectEmbeddedArchiveType")
 	sr := io.NewSectionReader(f, offset, archiveHeaderMaxSize)
 	gz, err := gzip.NewReader(sr)
 	if err != nil {

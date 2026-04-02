@@ -18,6 +18,8 @@
 
 package domain
 
+import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 // Expression represents an expression in the workflow.
 type Expression struct {
 	Raw    string      `yaml:"-"` // Original expression string.
@@ -27,6 +29,7 @@ type Expression struct {
 
 // UnmarshalYAML implements yaml.Unmarshaler for Expression.
 func (e *Expression) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	var raw string
 	if err := unmarshal(&raw); err != nil {
 		return err
@@ -39,6 +42,7 @@ func (e *Expression) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // MarshalYAML implements yaml.Marshaler for Expression.
 func (e Expression) MarshalYAML() (interface{}, error) {
+	kdeps_debug.Log("enter: MarshalYAML")
 	return e.Raw, nil
 }
 

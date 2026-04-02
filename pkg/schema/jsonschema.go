@@ -21,6 +21,8 @@ package schema
 import (
 	"sort"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -49,6 +51,7 @@ type JSONSchema struct {
 // describes the combined input accepted by all resources in the workflow.
 // It returns a minimal (non-nil) schema when the workflow is nil.
 func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
+	kdeps_debug.Log("enter: GenerateJSONSchema")
 	root := &JSONSchema{
 		Schema: "https://json-schema.org/draft/2020-12/schema",
 		Title:  "kdeps agent",
@@ -104,6 +107,7 @@ func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 
 // fieldRuleToJSONSchema converts a domain.FieldRule into a JSONSchema property.
 func fieldRuleToJSONSchema(rule *domain.FieldRule) *JSONSchema {
+	kdeps_debug.Log("enter: fieldRuleToJSONSchema")
 	s := &JSONSchema{}
 	if rule.Message != "" {
 		s.Description = rule.Message

@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/nikolalohinski/gonja/v2"
 	gonjaExec "github.com/nikolalohinski/gonja/v2/exec"
 )
@@ -41,6 +43,7 @@ type Jinja2Renderer struct {
 
 // NewJinja2Renderer creates a new Jinja2 template renderer.
 func NewJinja2Renderer(fs embed.FS) *Jinja2Renderer {
+	kdeps_debug.Log("enter: NewJinja2Renderer")
 	return &Jinja2Renderer{
 		fs: fs,
 	}
@@ -51,6 +54,7 @@ func (r *Jinja2Renderer) RenderFile(
 	templatePath string,
 	data map[string]interface{},
 ) (string, error) {
+	kdeps_debug.Log("enter: RenderFile")
 	content, err := r.fs.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template file: %w", err)
@@ -65,6 +69,7 @@ func (r *Jinja2Renderer) Render(
 	templateContent string,
 	data map[string]interface{},
 ) (string, error) {
+	kdeps_debug.Log("enter: Render")
 	tpl, err := r.getParsedTemplate(templateContent)
 	if err != nil {
 		return "", err
@@ -86,6 +91,7 @@ func (r *Jinja2Renderer) Render(
 
 // getParsedTemplate retrieves a compiled template from the cache, parsing it if not present.
 func (r *Jinja2Renderer) getParsedTemplate(content string) (*gonjaExec.Template, error) {
+	kdeps_debug.Log("enter: getParsedTemplate")
 	if cached, ok := r.cache.Load(content); ok {
 		tpl, valid := cached.(*gonjaExec.Template) //nolint:forcetypeassert // cache always stores *gonjaExec.Template
 		if valid {
@@ -109,6 +115,7 @@ func (g *Generator) walkJinja2Template(
 	data TemplateData,
 	entries []os.DirEntry,
 ) error {
+	kdeps_debug.Log("enter: walkJinja2Template")
 	for _, entry := range entries {
 		sourcePath := filepath.Join(templateDir, entry.Name())
 
@@ -133,6 +140,7 @@ func (g *Generator) processJinja2Directory(
 	data TemplateData,
 	dirName string,
 ) error {
+	kdeps_debug.Log("enter: processJinja2Directory")
 	targetDir := filepath.Join(outputDir, dirName)
 	if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {
 		return mkdirErr
@@ -153,6 +161,7 @@ func (g *Generator) processJinja2File(
 	data TemplateData,
 	fileName string,
 ) error {
+	kdeps_debug.Log("enter: processJinja2File")
 	if !isJinja2Template(fileName) {
 		return renderer.copyFileFromFS(sourcePath, filepath.Join(outputDir, fileName))
 	}
@@ -168,6 +177,7 @@ func (g *Generator) processJinja2File(
 
 // copyFileFromFS copies a file from the renderer's embedded filesystem to a target path.
 func (r *Jinja2Renderer) copyFileFromFS(sourcePath, targetPath string) error {
+	kdeps_debug.Log("enter: copyFileFromFS")
 	content, err := r.fs.ReadFile(sourcePath)
 	if err != nil {
 		return err
@@ -182,6 +192,7 @@ func (g *Generator) generateJinja2File(
 	templatePath, targetPath string,
 	data TemplateData,
 ) error {
+	kdeps_debug.Log("enter: generateJinja2File")
 	jinja2Data := data.ToJinja2Data()
 
 	rendered, err := renderer.RenderFile(templatePath, jinja2Data)
@@ -199,11 +210,13 @@ func (g *Generator) generateJinja2File(
 
 // isJinja2Template checks if a file is a Jinja2 template (.j2 extension).
 func isJinja2Template(filename string) bool {
+	kdeps_debug.Log("enter: isJinja2Template")
 	return strings.HasSuffix(filename, ".j2")
 }
 
 // stripJinja2Ext removes .j2 extension and handles special cases.
 func stripJinja2Ext(filename string) string {
+	kdeps_debug.Log("enter: stripJinja2Ext")
 	if strings.HasSuffix(filename, ".j2") {
 		base := filename[:len(filename)-3]
 		return handleJinja2SpecialCases(base)
@@ -213,6 +226,7 @@ func stripJinja2Ext(filename string) string {
 
 // handleJinja2SpecialCases handles special filename cases for Jinja2 templates.
 func handleJinja2SpecialCases(base string) string {
+	kdeps_debug.Log("enter: handleJinja2SpecialCases")
 	if base == "env.example" {
 		return ".env.example"
 	}
@@ -253,6 +267,7 @@ var rawBlockRe = regexp.MustCompile(`(?s)\{%[ \t]*raw[ \t]*%\}.*?\{%[ \t]*endraw
 // kdeps runtime expressions ({{ get('url') }}, {{ info('time') }}, …) in the
 // same file without needing manual {% raw %} annotations.
 func autoProtectKdepsExpressions(content string) string {
+	kdeps_debug.Log("enter: autoProtectKdepsExpressions")
 	// Record all byte ranges that are already inside {% raw %}...{% endraw %} blocks.
 	rawRanges := rawBlockRe.FindAllStringIndex(content, -1)
 
@@ -291,6 +306,7 @@ func autoProtectKdepsExpressions(content string) string {
 // AutoProtectKdepsExpressions is the exported form of autoProtectKdepsExpressions,
 // exposed for testing. Application code should prefer calling PreprocessYAML directly.
 func AutoProtectKdepsExpressions(content string) string {
+	kdeps_debug.Log("enter: AutoProtectKdepsExpressions")
 	return autoProtectKdepsExpressions(content)
 }
 
@@ -316,6 +332,7 @@ var yamlRenderer = &Jinja2Renderer{} //nolint:gochecknoglobals // shared cache f
 //	    "env": map[string]interface{}{"PORT": "8080", ...},
 //	}
 func PreprocessYAML(content string, vars map[string]interface{}) (string, error) {
+	kdeps_debug.Log("enter: PreprocessYAML")
 	// Only invoke the Jinja2 engine when the content actually contains Jinja2
 	// control or comment tags ({%, {#).  Files that use only runtime {{ }}
 	// expressions (kdeps API calls or other dynamic values) are passed through
@@ -335,6 +352,7 @@ func PreprocessYAML(content string, vars map[string]interface{}) (string, error)
 const envVarParts = 2
 
 func BuildJinja2Context() map[string]interface{} {
+	kdeps_debug.Log("enter: BuildJinja2Context")
 	env := make(map[string]interface{})
 	for _, e := range os.Environ() {
 		if parts := strings.SplitN(e, "=", envVarParts); len(parts) == envVarParts {
@@ -358,6 +376,7 @@ func BuildJinja2Context() map[string]interface{} {
 // Errors encountered while reading, rendering, or writing individual files are
 // returned immediately.
 func processJ2File(root *os.Root, dir, path string, vars map[string]interface{}) error {
+	kdeps_debug.Log("enter: processJ2File")
 	relPath, relErr := filepath.Rel(dir, path)
 	if relErr != nil {
 		return fmt.Errorf("preprocess j2: rel path %s: %w", path, relErr)
@@ -392,6 +411,7 @@ func processJ2File(root *os.Root, dir, path string, vars map[string]interface{})
 }
 
 func PreprocessJ2Files(dir string) error {
+	kdeps_debug.Log("enter: PreprocessJ2Files")
 	vars := BuildJinja2Context()
 	root, err := os.OpenRoot(dir)
 	if err != nil {

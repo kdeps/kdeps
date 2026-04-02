@@ -24,6 +24,8 @@ package python
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -47,6 +49,7 @@ type UVManager interface {
 
 // NewExecutor creates a stub Python executor for WASM.
 func NewExecutor(_ UVManager) *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return &Executor{}
 }
 
@@ -55,6 +58,7 @@ func (e *Executor) Execute(
 	_ *executor.ExecutionContext,
 	_ *domain.PythonConfig,
 ) (any, error) {
+	kdeps_debug.Log("enter: Execute")
 	return nil, ErrNotSupported
 }
 
@@ -63,10 +67,12 @@ type Adapter struct{}
 
 // NewAdapter creates a stub Python adapter for WASM.
 func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Adapter{}
 }
 
 // Execute returns an error since Python is not supported in WASM.
 func (a *Adapter) Execute(_ *executor.ExecutionContext, _ any) (any, error) {
+	kdeps_debug.Log("enter: Execute")
 	return nil, ErrNotSupported
 }

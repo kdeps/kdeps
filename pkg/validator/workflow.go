@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -32,6 +34,7 @@ type WorkflowValidator struct {
 
 // NewWorkflowValidator creates a new workflow validator.
 func NewWorkflowValidator(schemaValidator *SchemaValidator) *WorkflowValidator {
+	kdeps_debug.Log("enter: NewWorkflowValidator")
 	return &WorkflowValidator{
 		SchemaValidator: schemaValidator,
 	}
@@ -39,6 +42,7 @@ func NewWorkflowValidator(schemaValidator *SchemaValidator) *WorkflowValidator {
 
 // Validate validates a workflow.
 func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: Validate")
 	// 1. Validate metadata
 	if err := v.ValidateMetadata(workflow); err != nil {
 		return err
@@ -92,6 +96,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 
 // ValidateMetadata validates workflow metadata.
 func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateMetadata")
 	if workflow.Metadata.Name == "" {
 		return domain.NewError(domain.ErrCodeInvalidWorkflow, "workflow name is required", nil)
 	}
@@ -110,6 +115,7 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 
 // ValidateSettings validates workflow settings.
 func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateSettings")
 	// Validate port if specified
 	port := workflow.Settings.PortNum
 	if port != 0 && (port < 1 || port > 65535) {
@@ -139,6 +145,7 @@ func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 
 // ValidateAPIServerSettings validates API server specific settings.
 func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServerConfig) error {
+	kdeps_debug.Log("enter: ValidateAPIServerSettings")
 	if apiServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
@@ -178,6 +185,7 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 
 // ValidateTargetAction validates that target action exists.
 func (v *WorkflowValidator) ValidateTargetAction(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateTargetAction")
 	targetID := workflow.Metadata.TargetActionID
 
 	for _, resource := range workflow.Resources {
@@ -195,6 +203,7 @@ func (v *WorkflowValidator) ValidateTargetAction(workflow *domain.Workflow) erro
 
 // ValidateUniqueActionIDs validates that all actionIDs are unique.
 func (v *WorkflowValidator) ValidateUniqueActionIDs(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateUniqueActionIDs")
 	seen := make(map[string]bool)
 
 	for _, resource := range workflow.Resources {
@@ -214,6 +223,7 @@ func (v *WorkflowValidator) ValidateUniqueActionIDs(workflow *domain.Workflow) e
 
 // ValidateDependencies validates resource dependencies.
 func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ValidateDependencies")
 	// Build set of all actionIDs.
 	actionIDs := make(map[string]bool)
 	for _, resource := range workflow.Resources {
@@ -243,6 +253,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
 // execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
+	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
 	n := 0
 	if run.Chat != nil {
 		n++
@@ -299,6 +310,7 @@ func (v *WorkflowValidator) ValidateResource(
 	resource *domain.Resource,
 	workflow *domain.Workflow,
 ) error {
+	kdeps_debug.Log("enter: ValidateResource")
 	// Validate metadata.
 	if resource.Metadata.ActionID == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource actionID is required", nil)
@@ -394,6 +406,7 @@ func (v *WorkflowValidator) ValidateResource(
 
 // ValidateBrowserConfig validates browser automation configuration.
 func ValidateBrowserConfig(config *domain.BrowserConfig) error {
+	kdeps_debug.Log("enter: ValidateBrowserConfig")
 	if config.URL == "" && len(config.Actions) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
@@ -419,6 +432,7 @@ func ValidateBrowserConfig(config *domain.BrowserConfig) error {
 
 // ValidateLoopConfig validates a LoopConfig.
 func ValidateLoopConfig(config *domain.LoopConfig) error {
+	kdeps_debug.Log("enter: ValidateLoopConfig")
 	if strings.TrimSpace(config.While) == "" {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
@@ -438,6 +452,7 @@ func ValidateLoopConfig(config *domain.LoopConfig) error {
 
 // ValidateChatConfig validates chat configuration.
 func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error {
+	kdeps_debug.Log("enter: ValidateChatConfig")
 	if config.Model == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "chat.model is required", nil)
 	}
@@ -454,6 +469,7 @@ func (v *WorkflowValidator) ValidateSQLConfig(
 	config *domain.SQLConfig,
 	workflow *domain.Workflow,
 ) error {
+	kdeps_debug.Log("enter: ValidateSQLConfig")
 	// Validate that either query or queries is provided
 	if config.Query == "" && len(config.Queries) == 0 {
 		return domain.NewError(
@@ -523,6 +539,7 @@ func (v *WorkflowValidator) ValidateSQLConfig(
 
 // ValidateHTTPConfig validates HTTP configuration.
 func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) error {
+	kdeps_debug.Log("enter: ValidateHTTPConfig")
 	if config.URL == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "httpClient.url is required", nil)
 	}
@@ -558,6 +575,7 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 
 // ValidateEmbeddingConfig validates embedding configuration.
 func (v *WorkflowValidator) ValidateEmbeddingConfig(config *domain.EmbeddingConfig) error {
+	kdeps_debug.Log("enter: ValidateEmbeddingConfig")
 	if config.Model == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "embedding.model is required", nil)
 	}
@@ -607,6 +625,7 @@ func (v *WorkflowValidator) ValidateEmbeddingConfig(config *domain.EmbeddingConf
 
 // validateSourcesList validates each source entry and per-source config requirements.
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
+	kdeps_debug.Log("enter: validateSourcesList")
 	validSources := map[string]bool{
 		domain.InputSourceAPI:       true,
 		domain.InputSourceAudio:     true,
@@ -686,6 +705,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 // For stateless mode, platform sub-configs are optional.
 // Each configured platform must have the required credentials.
 func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
+	kdeps_debug.Log("enter: validateBotConfig")
 	executionType := cfg.ExecutionType
 	if executionType == "" {
 		executionType = domain.BotExecutionTypePolling
@@ -747,6 +767,7 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 
 // ValidateInputConfig validates the workflow input source configuration.
 func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) error {
+	kdeps_debug.Log("enter: ValidateInputConfig")
 	if len(config.Sources) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
@@ -809,6 +830,7 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 // ValidateTelephonyConfig validates telephony configuration.
 func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConfig) error {
+	kdeps_debug.Log("enter: ValidateTelephonyConfig")
 	validTypes := map[string]bool{
 		domain.TelephonyTypeLocal:  true,
 		domain.TelephonyTypeOnline: true,
@@ -838,6 +860,7 @@ func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConf
 
 // ValidateTranscriberConfig validates transcriber configuration for analog media inputs.
 func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.TranscriberConfig) error {
+	kdeps_debug.Log("enter: ValidateTranscriberConfig")
 	validModes := map[string]bool{
 		domain.TranscriberModeOnline:  true,
 		domain.TranscriberModeOffline: true,
@@ -912,6 +935,7 @@ func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.Transcriber
 func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(
 	config *domain.OnlineTranscriberConfig,
 ) error {
+	kdeps_debug.Log("enter: ValidateOnlineTranscriberConfig")
 	validProviders := map[string]bool{
 		domain.TranscriberProviderOpenAIWhisper: true,
 		domain.TranscriberProviderGoogleSTT:     true,
@@ -947,6 +971,7 @@ func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(
 func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(
 	config *domain.OfflineTranscriberConfig,
 ) error {
+	kdeps_debug.Log("enter: ValidateOfflineTranscriberConfig")
 	validEngines := map[string]bool{
 		domain.TranscriberEngineWhisper:       true,
 		domain.TranscriberEngineFasterWhisper: true,
@@ -978,6 +1003,7 @@ func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(
 
 // ValidateActivationConfig validates wake-phrase activation configuration.
 func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationConfig) error {
+	kdeps_debug.Log("enter: ValidateActivationConfig")
 	validModes := map[string]bool{
 		domain.TranscriberModeOnline:  true,
 		domain.TranscriberModeOffline: true,
@@ -1048,6 +1074,7 @@ func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationCo
 
 // ValidateScraperConfig validates a ScraperConfig.
 func ValidateScraperConfig(config *domain.ScraperConfig) error {
+	kdeps_debug.Log("enter: ValidateScraperConfig")
 	if config.Type == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.type is required", nil)
 	}
@@ -1080,6 +1107,7 @@ func ValidateScraperConfig(config *domain.ScraperConfig) error {
 
 // ValidateSearchConfig validates a SearchConfig.
 func ValidateSearchConfig(config *domain.SearchConfig) error {
+	kdeps_debug.Log("enter: ValidateSearchConfig")
 	if config.Provider == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "search.provider is required", nil)
 	}
@@ -1119,6 +1147,7 @@ func ValidateSearchConfig(config *domain.SearchConfig) error {
 
 // ValidatePDFConfig validates a PDFConfig.
 func ValidatePDFConfig(config *domain.PDFConfig) error {
+	kdeps_debug.Log("enter: ValidatePDFConfig")
 	if config.Content == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "pdf.content is required", nil)
 	}
@@ -1161,6 +1190,7 @@ func ValidatePDFConfig(config *domain.PDFConfig) error {
 
 // ValidateTestCases validates self-test case definitions.
 func ValidateTestCases(tests []domain.TestCase) error {
+	kdeps_debug.Log("enter: ValidateTestCases")
 	validMethods := map[string]bool{
 		"GET": true, "POST": true, "PUT": true,
 		"DELETE": true, "PATCH": true, "": true, // empty defaults to GET

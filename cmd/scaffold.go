@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -38,6 +40,7 @@ type ScaffoldFlags struct {
 
 // newScaffoldCmd creates the scaffold command.
 func newScaffoldCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newScaffoldCmd")
 	flags := &ScaffoldFlags{}
 
 	scaffoldCmd := &cobra.Command{
@@ -76,6 +79,7 @@ Examples:
 
 // RunScaffold is the exported function for running the scaffold command (used for testing).
 func RunScaffold(_ *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: RunScaffold")
 	// For backward compatibility, use empty flags (default behavior)
 	flags := &ScaffoldFlags{}
 	return RunScaffoldWithFlags(nil, args, flags)
@@ -83,6 +87,7 @@ func RunScaffold(_ *cobra.Command, args []string) error {
 
 // RunScaffoldWithFlags executes the scaffold command with injected flags.
 func RunScaffoldWithFlags(_ *cobra.Command, args []string, flags *ScaffoldFlags) error {
+	kdeps_debug.Log("enter: RunScaffoldWithFlags")
 	resourceNames := args
 
 	// Validate directory

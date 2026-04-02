@@ -25,6 +25,8 @@ import (
 	"os"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -32,6 +34,7 @@ import (
 
 // RequestIDMiddleware adds a unique request ID to each request.
 func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: RequestIDMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Check if request ID already exists in header
@@ -54,6 +57,7 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // SessionMiddleware reads session cookie and stores it in context.
 func SessionMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: SessionMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Try to read session ID from cookie
@@ -78,11 +82,13 @@ type ResponseWriterWrapper struct {
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
+	kdeps_debug.Log("enter: WriteHeader")
 	w.headersWritten = true
 	w.ResponseWriter.WriteHeader(code)
 }
 
 func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
+	kdeps_debug.Log("enter: Write")
 	// Writing to the body implicitly calls WriteHeader(200) if not already called
 	if !w.headersWritten {
 		w.headersWritten = true
@@ -92,11 +98,13 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 
 // HeadersWritten returns whether headers have been written.
 func (w *ResponseWriterWrapper) HeadersWritten() bool {
+	kdeps_debug.Log("enter: HeadersWritten")
 	return w.headersWritten
 }
 
 // Flush implements Flusher interface - forwards to underlying writer if it supports it.
 func (w *ResponseWriterWrapper) Flush() {
+	kdeps_debug.Log("enter: Flush")
 	if w.flusher == nil {
 		// Check and cache Flusher on first call
 		if flusher, ok := w.ResponseWriter.(stdhttp.Flusher); ok {
@@ -110,6 +118,7 @@ func (w *ResponseWriterWrapper) Flush() {
 
 // ErrorHandlerMiddleware handles panics and errors.
 func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: ErrorHandlerMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Wrap response writer to track if headers were written
@@ -132,12 +141,14 @@ func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.Ha
 
 // DebugModeMiddleware determines and sets debug mode from environment.
 func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: DebugModeMiddleware")
 	debugMode := os.Getenv("DEBUG") == "true" || os.Getenv("DEBUG") == "1"
 	return ErrorHandlerMiddleware(debugMode)
 }
 
 // LoggingMiddleware logs request information (basic implementation).
 func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: LoggingMiddleware")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		// For now, just pass through. Can be enhanced with structured logging later.
 		next(w, r)
@@ -146,6 +157,7 @@ func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // UploadMiddleware validates upload requests for size limits.
 func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: UploadMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			// Check if this is a multipart form request

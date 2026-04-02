@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // EvalJSONPath evaluates a simple JSONPath expression against a parsed JSON
@@ -38,6 +40,7 @@ import (
 // Returns the resolved value and true on success, or nil and false when the
 // path does not exist.
 func EvalJSONPath(root interface{}, path string) (interface{}, bool) {
+	kdeps_debug.Log("enter: EvalJSONPath")
 	if path == "$" {
 		return root, true
 	}
@@ -78,6 +81,7 @@ func EvalJSONPath(root interface{}, path string) (interface{}, bool) {
 // splitPath splits a JSONPath body (after stripping "$." prefix) into segments,
 // handling array notation like "items[0]" → ["items", "0"].
 func splitPath(path string) []string {
+	kdeps_debug.Log("enter: splitPath")
 	// Split on dots first
 	dotParts := strings.Split(path, ".")
 	var segments []string
@@ -111,6 +115,7 @@ func splitPath(path string) []string {
 // jsonValueEqual reports whether a parsed JSON value equals the expected Go
 // value. Handles numeric type coercion (JSON numbers unmarshal as float64).
 func jsonValueEqual(got interface{}, want interface{}) bool {
+	kdeps_debug.Log("enter: jsonValueEqual")
 	if got == nil && want == nil {
 		return true
 	}
@@ -138,6 +143,7 @@ func jsonValueEqual(got interface{}, want interface{}) bool {
 }
 
 func jsonNumEqual(got interface{}, want float64) bool {
+	kdeps_debug.Log("enter: jsonNumEqual")
 	switch g := got.(type) {
 	case float64:
 		return g == want

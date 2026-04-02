@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -36,6 +38,7 @@ type EngineRunner struct {
 
 // NewEngineRunner creates a new EngineRunner.
 func NewEngineRunner(logger *slog.Logger) *EngineRunner {
+	kdeps_debug.Log("enter: NewEngineRunner")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -44,6 +47,7 @@ func NewEngineRunner(logger *slog.Logger) *EngineRunner {
 
 // Run parses the YAML into a domain.Workflow and executes it using a new Engine instance.
 func (r *EngineRunner) Run(yamlContent string, _ *executor.ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: Run")
 	if yamlContent == "" {
 		return nil, errors.New("workflow YAML must not be empty")
 	}

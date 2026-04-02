@@ -21,6 +21,8 @@ package autopilot
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -38,11 +40,13 @@ type YAMLWorkflowValidator struct{}
 
 // NewYAMLWorkflowValidator creates a new YAML workflow validator.
 func NewYAMLWorkflowValidator() *YAMLWorkflowValidator {
+	kdeps_debug.Log("enter: NewYAMLWorkflowValidator")
 	return &YAMLWorkflowValidator{}
 }
 
 // ValidateYAML parses the YAML and checks that apiVersion, kind, and metadata.name are present.
 func (v *YAMLWorkflowValidator) ValidateYAML(yamlContent string) error {
+	kdeps_debug.Log("enter: ValidateYAML")
 	if yamlContent == "" {
 		return errors.New("workflow YAML must not be empty")
 	}

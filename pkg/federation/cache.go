@@ -17,6 +17,8 @@ package federation
 import (
 	"sync"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const cleanupInterval = 5 * time.Minute
@@ -40,6 +42,7 @@ type RegistryCache struct {
 // NewRegistryCache creates a RegistryCache with the given TTL and starts the
 // background cleanup goroutine. Call Stop() when done to release the goroutine.
 func NewRegistryCache(ttl time.Duration) *RegistryCache {
+	kdeps_debug.Log("enter: NewRegistryCache")
 	rc := &RegistryCache{
 		entries: make(map[string]*cacheEntry),
 		ttl:     ttl,
@@ -52,6 +55,7 @@ func NewRegistryCache(ttl time.Duration) *RegistryCache {
 // Get retrieves the cached Capability for the given URN string.
 // Returns ErrCacheMiss if the entry is absent or expired.
 func (rc *RegistryCache) Get(urnStr string) (*Capability, error) {
+	kdeps_debug.Log("enter: Get")
 	rc.mu.RLock()
 	e, ok := rc.entries[urnStr]
 	rc.mu.RUnlock()
@@ -65,6 +69,7 @@ func (rc *RegistryCache) Get(urnStr string) (*Capability, error) {
 // Set stores the Capability in the cache under the given URN string.
 // The entry expires after the cache TTL.
 func (rc *RegistryCache) Set(urnStr string, capability *Capability) {
+	kdeps_debug.Log("enter: Set")
 	rc.mu.Lock()
 	rc.entries[urnStr] = &cacheEntry{
 		capability: capability,
@@ -75,6 +80,7 @@ func (rc *RegistryCache) Set(urnStr string, capability *Capability) {
 
 // Invalidate removes a specific URN from the cache.
 func (rc *RegistryCache) Invalidate(urnStr string) {
+	kdeps_debug.Log("enter: Invalidate")
 	rc.mu.Lock()
 	delete(rc.entries, urnStr)
 	rc.mu.Unlock()
@@ -82,6 +88,7 @@ func (rc *RegistryCache) Invalidate(urnStr string) {
 
 // Clear removes all entries from the cache.
 func (rc *RegistryCache) Clear() {
+	kdeps_debug.Log("enter: Clear")
 	rc.mu.Lock()
 	rc.entries = make(map[string]*cacheEntry)
 	rc.mu.Unlock()
@@ -89,6 +96,7 @@ func (rc *RegistryCache) Clear() {
 
 // Stop halts the background cleanup goroutine. Safe to call multiple times.
 func (rc *RegistryCache) Stop() {
+	kdeps_debug.Log("enter: Stop")
 	select {
 	case <-rc.stopCh:
 		// already stopped
@@ -99,6 +107,7 @@ func (rc *RegistryCache) Stop() {
 
 // cleanupLoop runs every cleanupInterval and removes expired cache entries.
 func (rc *RegistryCache) cleanupLoop() {
+	kdeps_debug.Log("enter: cleanupLoop")
 	ticker := time.NewTicker(cleanupInterval)
 	defer ticker.Stop()
 	for {
@@ -113,6 +122,7 @@ func (rc *RegistryCache) cleanupLoop() {
 
 // evictExpired removes all entries whose TTL has elapsed.
 func (rc *RegistryCache) evictExpired() {
+	kdeps_debug.Log("enter: evictExpired")
 	now := time.Now()
 	rc.mu.Lock()
 	for k, e := range rc.entries {

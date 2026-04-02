@@ -20,11 +20,14 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 )
 
 // newFederationCmd creates the federation command group.
 func newFederationCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationCmd")
 	federationCmd := &cobra.Command{
 		Use:   "federation",
 		Short: "Federation commands for UAF (Universal Agent Federation)",
@@ -51,6 +54,7 @@ The federation commands allow you to:
 
 // getDefaultKeyDir returns the default keys directory: ~/.config/kdeps/keys.
 func getDefaultKeyDir() (string, error) {
+	kdeps_debug.Log("enter: getDefaultKeyDir")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)

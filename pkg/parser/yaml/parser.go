@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -58,6 +60,7 @@ type ExpressionParser interface {
 
 // NewParser creates a new YAML parser.
 func NewParser(schemaValidator SchemaValidator, exprParser ExpressionParser) *Parser {
+	kdeps_debug.Log("enter: NewParser")
 	return &Parser{
 		schemaValidator: schemaValidator,
 		exprParser:      exprParser,
@@ -66,6 +69,7 @@ func NewParser(schemaValidator SchemaValidator, exprParser ExpressionParser) *Pa
 
 // NewParserForTesting creates a new YAML parser with testing access.
 func NewParserForTesting(schemaValidator SchemaValidator, exprParser ExpressionParser) *Parser {
+	kdeps_debug.Log("enter: NewParserForTesting")
 	return &Parser{
 		schemaValidator: schemaValidator,
 		exprParser:      exprParser,
@@ -75,6 +79,7 @@ func NewParserForTesting(schemaValidator SchemaValidator, exprParser ExpressionP
 // Cleanup removes any temporary directories created during agency agent
 // discovery (e.g. extracted .kdeps packages).  It is safe to call multiple times.
 func (p *Parser) Cleanup() {
+	kdeps_debug.Log("enter: Cleanup")
 	for _, dir := range p.tempDirs {
 		_ = os.RemoveAll(dir)
 	}
@@ -83,16 +88,19 @@ func (p *Parser) Cleanup() {
 
 // GetSchemaValidatorForTesting returns the schema validator for testing.
 func (p *Parser) GetSchemaValidatorForTesting() SchemaValidator {
+	kdeps_debug.Log("enter: GetSchemaValidatorForTesting")
 	return p.schemaValidator
 }
 
 // GetExpressionParserForTesting returns the expression parser for testing.
 func (p *Parser) GetExpressionParserForTesting() ExpressionParser {
+	kdeps_debug.Log("enter: GetExpressionParserForTesting")
 	return p.exprParser
 }
 
 // ParseWorkflow parses a workflow YAML file.
 func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: ParseWorkflow")
 	// Read YAML file.
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -182,6 +190,7 @@ func (p *Parser) loadImportedWorkflows(
 	workflowPath string,
 	visited map[string]struct{},
 ) error {
+	kdeps_debug.Log("enter: loadImportedWorkflows")
 	if len(workflow.Metadata.Workflows) == 0 {
 		return nil
 	}
@@ -256,6 +265,7 @@ func (p *Parser) parseWorkflowForImport(
 	path string,
 	visited map[string]struct{},
 ) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: parseWorkflowForImport")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, domain.NewError(
@@ -311,6 +321,7 @@ func (p *Parser) parseWorkflowForImport(
 //  4. <workflowDir>/name/          — sub-directory (flat-layout fallback)
 //  5. <workflowDir>/name.yaml      — sub-file (flat-layout fallback)
 func resolveWorkflowImport(name, workflowDir string) string {
+	kdeps_debug.Log("enter: resolveWorkflowImport")
 	parentDir := filepath.Dir(workflowDir)
 
 	// Check sibling locations first (standard agency layout).
@@ -342,6 +353,7 @@ func (p *Parser) readPreprocessAndValidateYAML(
 	preprocessErrMsg string,
 	validate func(map[string]interface{}) error,
 ) ([]byte, error) {
+	kdeps_debug.Log("enter: readPreprocessAndValidateYAML")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read file", err)
@@ -372,6 +384,7 @@ func (p *Parser) readPreprocessAndValidateYAML(
 
 // ParseResource parses a resource YAML file.
 func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
+	kdeps_debug.Log("enter: ParseResource")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
 		sv := p.schemaValidator
@@ -413,6 +426,7 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 // validateRemoteAgentIfPresent checks if the resource contains a remoteAgent configuration
 // and validates it if present. This helper reduces nesting in ParseResource's validate function.
 func (p *Parser) validateRemoteAgentIfPresent(rawData map[string]interface{}, sv SchemaValidator) error {
+	kdeps_debug.Log("enter: validateRemoteAgentIfPresent")
 	if run, ok := rawData["run"].(map[string]interface{}); ok {
 		if remoteAgent, hasRemote := run["remoteAgent"].(map[string]interface{}); hasRemote {
 			if validateErr := sv.ValidateRemoteAgent(remoteAgent); validateErr != nil {
@@ -429,6 +443,7 @@ func (p *Parser) validateRemoteAgentIfPresent(rawData map[string]interface{}, sv
 
 // loadResources loads and parses all resource files referenced by the workflow.
 func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) error {
+	kdeps_debug.Log("enter: loadResources")
 	// Convert to absolute path to ensure correct resource directory resolution
 	absWorkflowPath, err := filepath.Abs(workflowPath)
 	if err != nil {
@@ -508,6 +523,7 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 //   - .yml.j2    Jinja2 template that produces YAML when rendered (short form)
 //   - .j2        pure Jinja2 template (no YAML extension prefix) that produces YAML
 func isYAMLFile(name string) bool {
+	kdeps_debug.Log("enter: isYAMLFile")
 	return strings.HasSuffix(name, ".yaml") ||
 		strings.HasSuffix(name, ".yml") ||
 		strings.HasSuffix(name, ".yaml.j2") ||
@@ -519,11 +535,13 @@ func isYAMLFile(name string) bool {
 // of workflow and resource YAML files.  Delegates to templates.BuildJinja2Context so
 // the same context is shared with PreprocessJ2Files for non-YAML .j2 files.
 func buildJinja2Context() map[string]interface{} {
+	kdeps_debug.Log("enter: buildJinja2Context")
 	return templates.BuildJinja2Context()
 }
 
 // ParseAgency parses an agency YAML file (agency.yml / agency.yaml).
 func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
+	kdeps_debug.Log("enter: ParseAgency")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
 		sv := p.schemaValidator
@@ -574,6 +592,7 @@ func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
 // When a .kdeps archive is encountered it is extracted to a temporary directory.
 // The caller should invoke p.Cleanup() when the returned paths are no longer needed.
 func (p *Parser) DiscoverAgentWorkflows(agency *domain.Agency, agencyDir string) ([]string, error) {
+	kdeps_debug.Log("enter: DiscoverAgentWorkflows")
 	if len(agency.Agents) > 0 {
 		return p.resolveExplicitAgents(agency.Agents, agencyDir)
 	}
@@ -584,6 +603,7 @@ func (p *Parser) DiscoverAgentWorkflows(agency *domain.Agency, agencyDir string)
 // Each entry may be a directory (containing a workflow file), a direct workflow
 // file, or a .kdeps packed agent archive.
 func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]string, error) {
+	kdeps_debug.Log("enter: resolveExplicitAgents")
 	var paths []string
 	for _, agentPath := range agents {
 		resolved := agentPath
@@ -630,6 +650,7 @@ func (p *Parser) resolveExplicitAgents(agents []string, agencyDir string) ([]str
 // autoDiscoverAgents globs agents/**/workflow.{yaml,yml,...} AND agents/*.kdeps
 // under agencyDir.
 func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
+	kdeps_debug.Log("enter: autoDiscoverAgents")
 	agentsDir := filepath.Join(agencyDir, "agents")
 	if _, statErr := os.Stat(agentsDir); os.IsNotExist(statErr) {
 		return nil, nil
@@ -688,6 +709,7 @@ func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 // extractAndFindWorkflow extracts a .kdeps package to a temp directory, records the
 // temp dir for later Cleanup(), and returns the path to the workflow file inside it.
 func (p *Parser) extractAndFindWorkflow(packagePath string) (string, error) {
+	kdeps_debug.Log("enter: extractAndFindWorkflow")
 	tempDir, _, err := extractKdepsPackage(packagePath)
 	if err != nil {
 		return "", err
@@ -706,6 +728,7 @@ func (p *Parser) extractAndFindWorkflow(packagePath string) (string, error) {
 // workflow path to paths, and returns the new slice.  agentName is used only in
 // the error message.
 func (p *Parser) appendKdepsWorkflow(paths []string, pkgPath, agentName string) ([]string, error) {
+	kdeps_debug.Log("enter: appendKdepsWorkflow")
 	wf, err := p.extractAndFindWorkflow(pkgPath)
 	if err != nil {
 		return nil, domain.NewError(
@@ -720,6 +743,7 @@ func (p *Parser) appendKdepsWorkflow(paths []string, pkgPath, agentName string) 
 // findWorkflowInDir returns the first workflow file found in dir, or empty string.
 // Mirrors the priority order used by FindWorkflowFile in cmd/run.go.
 func findWorkflowInDir(dir string) string {
+	kdeps_debug.Log("enter: findWorkflowInDir")
 	candidates := []string{
 		filepath.Join(dir, "workflow.yaml"),
 		filepath.Join(dir, "workflow.yaml.j2"),

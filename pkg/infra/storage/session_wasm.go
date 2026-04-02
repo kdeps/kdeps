@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // SessionStorage provides in-memory per-session key-value storage for WASM builds.
@@ -42,6 +44,7 @@ type sessionEntry struct {
 
 // NewSessionStorage creates a new in-memory session storage for WASM.
 func NewSessionStorage(_ string, sessionID string) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorage")
 	return NewSessionStorageWithTTL("", sessionID, 30*time.Minute) //nolint:mnd // default TTL
 }
 
@@ -51,6 +54,7 @@ func NewSessionStorageWithTTL(
 	sessionID string,
 	defaultTTL time.Duration,
 ) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
 	if sessionID == "" {
 		sessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
 	}
@@ -64,6 +68,7 @@ func NewSessionStorageWithTTL(
 
 // Get retrieves a value from session storage.
 func (s *SessionStorage) Get(key string) (interface{}, bool) {
+	kdeps_debug.Log("enter: Get")
 	s.mu.RLock()
 	entry, ok := s.data[key]
 	s.mu.RUnlock()
@@ -97,11 +102,13 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 
 // Set stores a value in session storage.
 func (s *SessionStorage) Set(key string, value interface{}) error {
+	kdeps_debug.Log("enter: Set")
 	return s.SetWithTTL(key, value, s.DefaultTTL)
 }
 
 // SetWithTTL stores a value in session storage with a specific TTL.
 func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Duration) error {
+	kdeps_debug.Log("enter: SetWithTTL")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -124,11 +131,13 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 
 // Touch updates the access time and extends expiration.
 func (s *SessionStorage) Touch(key string) error {
+	kdeps_debug.Log("enter: Touch")
 	return s.TouchWithTTL(key, s.DefaultTTL)
 }
 
 // TouchWithTTL updates the access time and extends expiration with specific TTL.
 func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
+	kdeps_debug.Log("enter: TouchWithTTL")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -146,6 +155,7 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 
 // IsExpired checks if a session key has expired.
 func (s *SessionStorage) IsExpired(key string) (bool, error) {
+	kdeps_debug.Log("enter: IsExpired")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -163,6 +173,7 @@ func (s *SessionStorage) IsExpired(key string) (bool, error) {
 
 // Delete removes a value from session storage.
 func (s *SessionStorage) Delete(key string) error {
+	kdeps_debug.Log("enter: Delete")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -172,6 +183,7 @@ func (s *SessionStorage) Delete(key string) error {
 
 // Clear clears all data for this session.
 func (s *SessionStorage) Clear() error {
+	kdeps_debug.Log("enter: Clear")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -181,6 +193,7 @@ func (s *SessionStorage) Clear() error {
 
 // GetAll retrieves all key-value pairs for this session.
 func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: GetAll")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -206,5 +219,6 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 
 // Close is a no-op for WASM in-memory storage.
 func (s *SessionStorage) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return nil
 }

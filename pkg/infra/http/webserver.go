@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/gorilla/websocket"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -57,6 +59,7 @@ type WebServer struct {
 
 // NewWebServer creates a new web server.
 func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, error) {
+	kdeps_debug.Log("enter: NewWebServer")
 	return &WebServer{
 		Workflow:    workflow,
 		logger:      logger,
@@ -68,11 +71,13 @@ func NewWebServer(workflow *domain.Workflow, logger *slog.Logger) (*WebServer, e
 
 // SetWorkflowDir sets the workflow directory for resolving relative paths.
 func (s *WebServer) SetWorkflowDir(workflowPath string) {
+	kdeps_debug.Log("enter: SetWorkflowDir")
 	s.WorkflowDir = filepath.Dir(workflowPath)
 }
 
 // Start starts the web server.
 func (s *WebServer) Start(ctx context.Context) error {
+	kdeps_debug.Log("enter: Start")
 	if s.Workflow.Settings.WebServer == nil {
 		return errors.New("webServer configuration is required")
 	}
@@ -103,6 +108,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 // Shutdown gracefully shuts down the web server and stops any running commands.
 func (s *WebServer) Shutdown(ctx context.Context) error {
+	kdeps_debug.Log("enter: Shutdown")
 	// Stop all running app commands
 	for name, cmd := range s.Commands {
 		if cmd != nil && cmd.Process != nil {
@@ -121,11 +127,13 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 
 // SetupWebRoutes sets up web server routes.
 func (s *WebServer) SetupWebRoutes(ctx context.Context) {
+	kdeps_debug.Log("enter: SetupWebRoutes")
 	s.RegisterRoutesOn(ctx, s.Router)
 }
 
 // RegisterRoutesOn registers web server routes on an external router.
 func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
+	kdeps_debug.Log("enter: RegisterRoutesOn")
 	config := s.Workflow.Settings.WebServer
 	if config == nil {
 		return
@@ -162,6 +170,7 @@ func (s *WebServer) CreateWebHandler(
 	ctx context.Context,
 	route *domain.WebRoute,
 ) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: CreateWebHandler")
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
 		go s.StartAppCommand( //nolint:gosec // G118: ctx is the server-level context, not a per-request context
@@ -189,6 +198,7 @@ func (s *WebServer) HandleStaticRequest(
 	r *stdhttp.Request,
 	route *domain.WebRoute,
 ) {
+	kdeps_debug.Log("enter: HandleStaticRequest")
 	// Resolve public path relative to workflow directory
 	fullPath := route.PublicPath
 	if !filepath.IsAbs(fullPath) {
@@ -214,6 +224,7 @@ func (s *WebServer) HandleAppRequest(
 	r *stdhttp.Request,
 	route *domain.WebRoute,
 ) {
+	kdeps_debug.Log("enter: HandleAppRequest")
 	if route.AppPort == 0 {
 		s.logger.ErrorContext(context.Background(), "app port is required for app server type")
 		stdhttp.Error(w, "Internal Server Error", stdhttp.StatusInternalServerError)
@@ -300,6 +311,7 @@ func (s *WebServer) HandleWebSocketProxy(
 	targetURL *url.URL,
 	route *domain.WebRoute,
 ) {
+	kdeps_debug.Log("enter: HandleWebSocketProxy")
 	// Create WebSocket dialer
 	dialer := websocket.Dialer{
 		Proxy:            stdhttp.ProxyFromEnvironment,
@@ -453,6 +465,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 // StartAppCommand starts the app command.
 func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute) {
+	kdeps_debug.Log("enter: StartAppCommand")
 	if route.Command == "" {
 		return
 	}
@@ -521,6 +534,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 
 // Stop stops the web server and cleans up running commands.
 func (s *WebServer) Stop() {
+	kdeps_debug.Log("enter: Stop")
 	s.logger.InfoContext(context.Background(), "stopping web server and cleaning up commands")
 	for path, cmd := range s.Commands {
 		if cmd.Process != nil {

@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 )
@@ -37,6 +39,7 @@ import (
 // Modern systems (macOS Homebrew, most Linux distros) ship only python3;
 // "python" is still common in virtual environments and older distros.
 func pythonBin() string {
+	kdeps_debug.Log("enter: pythonBin")
 	if _, err := exec.LookPath("python3"); err == nil {
 		return "python3"
 	}
@@ -149,6 +152,7 @@ func newOfflineTranscriber(
 	outputMode string,
 	logger *slog.Logger,
 ) (Transcriber, error) {
+	kdeps_debug.Log("enter: newOfflineTranscriber")
 	return &offlineTranscriber{
 		cfg:        cfg,
 		outputMode: outputMode,
@@ -158,6 +162,7 @@ func newOfflineTranscriber(
 
 // Transcribe processes mediaFile with the configured engine.
 func (t *offlineTranscriber) Transcribe(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: Transcribe")
 	if mediaFile == "" {
 		return &Result{}, nil
 	}
@@ -192,6 +197,7 @@ func (t *offlineTranscriber) Transcribe(mediaFile string) (*Result, error) {
 func buildFasterWhisperArgs(
 	mediaFile, model, language, outDir string,
 ) (string, []string, string, error) {
+	kdeps_debug.Log("enter: buildFasterWhisperArgs")
 	sf, tmpErr := os.CreateTemp("", "kdeps-fw-*.py")
 	if tmpErr != nil {
 		return "", nil, "", fmt.Errorf("faster-whisper: create temp script: %w", tmpErr)
@@ -221,6 +227,7 @@ func buildFasterWhisperArgs(
 // buildWhisperArgs selects the best available whisper binary and builds
 // the argument list for a standard (non-faster) whisper invocation.
 func buildWhisperArgs(mediaFile, model, language, outDir string) (string, []string) {
+	kdeps_debug.Log("enter: buildWhisperArgs")
 	// Prefer the `whisper` binary (openai-whisper).
 	// Fall back to whisperx venv bin, then whisperx on PATH,
 	// then `uv tool run whisperx`, last resort: python -m whisper.
@@ -262,6 +269,7 @@ func buildWhisperArgs(mediaFile, model, language, outDir string) (string, []stri
 
 // isBinaryOnPath reports whether name can be found on PATH.
 func isBinaryOnPath(name string) bool {
+	kdeps_debug.Log("enter: isBinaryOnPath")
 	_, err := exec.LookPath(name)
 	return err == nil
 }
@@ -270,6 +278,7 @@ func (t *offlineTranscriber) runWhisper(
 	mediaFile, model, language string,
 	faster bool,
 ) (*Result, error) {
+	kdeps_debug.Log("enter: runWhisper")
 	outDir := os.TempDir()
 
 	var bin string
@@ -332,6 +341,7 @@ func (t *offlineTranscriber) runWhisper(
 //
 // Informational lines (model loading, language detection) are skipped.
 func parseWhisperStdout(output string) string {
+	kdeps_debug.Log("enter: parseWhisperStdout")
 	var parts []string
 	for line := range strings.SplitSeq(output, "\n") {
 		line = strings.TrimSpace(line)
@@ -355,6 +365,7 @@ func parseWhisperStdout(output string) string {
 // --------------------------------------------------------------------------
 
 func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: runVosk")
 	outFile, err := os.CreateTemp("", "kdeps-vosk-*.txt")
 	if err != nil {
 		return nil, fmt.Errorf("vosk: create temp: %w", err)
@@ -405,6 +416,7 @@ func (t *offlineTranscriber) runVosk(mediaFile string) (*Result, error) {
 // --------------------------------------------------------------------------
 
 func (t *offlineTranscriber) runWhisperCPP(mediaFile, model, language string) (*Result, error) {
+	kdeps_debug.Log("enter: runWhisperCPP")
 	outFile, err := os.CreateTemp("", "kdeps-whispercpp-*.txt")
 	if err != nil {
 		return nil, fmt.Errorf("whisper-cpp: create temp: %w", err)
@@ -445,6 +457,7 @@ func (t *offlineTranscriber) runWhisperCPP(mediaFile, model, language string) (*
 // produces no output for silent or too-short audio (e.g. whisper exits 0 with
 // nothing to transcribe).
 func (t *offlineTranscriber) readTextResult(txtPath, mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: readTextResult")
 	text, err := os.ReadFile(txtPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

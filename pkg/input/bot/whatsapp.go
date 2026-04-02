@@ -32,6 +32,8 @@ import (
 	"strconv"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -52,12 +54,14 @@ type whatsAppRunner struct {
 }
 
 func newWhatsAppRunner(cfg *domain.WhatsAppConfig, logger *slog.Logger) *whatsAppRunner {
+	kdeps_debug.Log("enter: newWhatsAppRunner")
 	return &whatsAppRunner{cfg: cfg, logger: logger}
 }
 
 // Start starts an embedded HTTP server that receives WhatsApp webhook events
 // and forwards inbound messages to ch. It blocks until ctx is cancelled.
 func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
+	kdeps_debug.Log("enter: Start")
 	port := r.cfg.WebhookPort
 	if port == 0 {
 		port = whatsAppDefaultWebhookPort
@@ -113,6 +117,7 @@ func (r *whatsAppRunner) handleWebhookPost(
 	req *http.Request,
 	ch chan<- Message,
 ) {
+	kdeps_debug.Log("enter: handleWebhookPost")
 	body, err := io.ReadAll(io.LimitReader(req.Body, whatsAppMaxBodyBytes))
 	if err != nil {
 		http.Error(w, "read error", http.StatusBadRequest)
@@ -173,6 +178,7 @@ func (r *whatsAppRunner) handleWebhookPost(
 
 // verifySignature checks the X-Hub-Signature-256 header against the body HMAC.
 func (r *whatsAppRunner) verifySignature(body []byte, sig string) bool {
+	kdeps_debug.Log("enter: verifySignature")
 	if len(sig) < whatsAppSigPrefixLen {
 		return false
 	}
@@ -184,6 +190,7 @@ func (r *whatsAppRunner) verifySignature(body []byte, sig string) bool {
 
 // Reply sends a text message via the WhatsApp Cloud API.
 func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
+	kdeps_debug.Log("enter: Reply")
 	url := fmt.Sprintf("%s/%s/messages", whatsAppAPIBase, r.cfg.PhoneNumberID)
 
 	payload := map[string]interface{}{

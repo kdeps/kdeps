@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 //go:embed templates
@@ -40,6 +42,7 @@ type TemplateData struct {
 
 // ToJinja2Data converts TemplateData to a format suitable for Jinja2 templates.
 func (t TemplateData) ToJinja2Data() map[string]interface{} {
+	kdeps_debug.Log("enter: ToJinja2Data")
 	data := map[string]interface{}{
 		"name":        t.Name,
 		"description": t.Description,
@@ -63,6 +66,7 @@ type Generator struct{}
 
 // NewGenerator creates a new template generator.
 func NewGenerator() (*Generator, error) {
+	kdeps_debug.Log("enter: NewGenerator")
 	return &Generator{}, nil
 }
 
@@ -72,6 +76,7 @@ func (g *Generator) GenerateProject(
 	outputDir string,
 	data TemplateData,
 ) error {
+	kdeps_debug.Log("enter: GenerateProject")
 	templateDir := filepath.Join("templates", templateName)
 	entries, readErr := templatesFS.ReadDir(templateDir)
 	if readErr != nil {
@@ -89,6 +94,7 @@ func (g *Generator) GenerateProject(
 
 // GenerateResource generates a single resource file from a Jinja2 template.
 func (g *Generator) GenerateResource(resourceName string, targetPath string) error {
+	kdeps_debug.Log("enter: GenerateResource")
 	data := TemplateData{
 		Name:      "agent",
 		Version:   "1.0.0",
@@ -112,6 +118,7 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 //
 //nolint:funlen // template generation is intentionally verbose
 func (g *Generator) generateBasicResource(resourceName, targetPath string) error {
+	kdeps_debug.Log("enter: generateBasicResource")
 	// Create directory if needed
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0750); err != nil {
 		return err
@@ -256,6 +263,7 @@ run:
 
 // ListTemplates returns available template names.
 func (g *Generator) ListTemplates() ([]string, error) {
+	kdeps_debug.Log("enter: ListTemplates")
 	entries, err := templatesFS.ReadDir("templates")
 	if err != nil {
 		return nil, err

@@ -21,6 +21,8 @@ package domain
 import (
 	"encoding/json"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -220,6 +222,7 @@ type InputConfig struct {
 // PrimarySource returns the first non-API source, or InputSourceAPI if none.
 // Used by the input processor to select the source for the activation listen loop.
 func (c *InputConfig) PrimarySource() string {
+	kdeps_debug.Log("enter: PrimarySource")
 	for _, s := range c.Sources {
 		if s != InputSourceAPI {
 			return s
@@ -230,6 +233,7 @@ func (c *InputConfig) PrimarySource() string {
 
 // HasNonAPISource reports whether any source in the list is not "api".
 func (c *InputConfig) HasNonAPISource() bool {
+	kdeps_debug.Log("enter: HasNonAPISource")
 	for _, s := range c.Sources {
 		if s != InputSourceAPI {
 			return true
@@ -240,6 +244,7 @@ func (c *InputConfig) HasNonAPISource() bool {
 
 // AllSourcesAPI reports whether all sources are "api" (or the list is empty).
 func (c *InputConfig) AllSourcesAPI() bool {
+	kdeps_debug.Log("enter: AllSourcesAPI")
 	for _, s := range c.Sources {
 		if s != InputSourceAPI {
 			return false
@@ -250,6 +255,7 @@ func (c *InputConfig) AllSourcesAPI() bool {
 
 // HasSource reports whether the given source is in the Sources list.
 func (c *InputConfig) HasSource(source string) bool {
+	kdeps_debug.Log("enter: HasSource")
 	for _, s := range c.Sources {
 		if s == source {
 			return true
@@ -260,12 +266,14 @@ func (c *InputConfig) HasSource(source string) bool {
 
 // HasBotSource reports whether "bot" is in the Sources list.
 func (c *InputConfig) HasBotSource() bool {
+	kdeps_debug.Log("enter: HasBotSource")
 	return c.HasSource(InputSourceBot)
 }
 
 // HasMediaSource reports whether any source is audio, video, or telephony.
 // These sources use hardware capture and support executionType polling/stateless.
 func (c *InputConfig) HasMediaSource() bool {
+	kdeps_debug.Log("enter: HasMediaSource")
 	for _, s := range c.Sources {
 		switch s {
 		case InputSourceAudio, InputSourceVideo, InputSourceTelephony:
@@ -278,6 +286,7 @@ func (c *InputConfig) HasMediaSource() bool {
 // IsBotSource returns true when the given source name is the "bot" source,
 // which bypasses the hardware capture pipeline.
 func IsBotSource(s string) bool {
+	kdeps_debug.Log("enter: IsBotSource")
 	return s == InputSourceBot
 }
 
@@ -296,6 +305,7 @@ type inputConfigRaw struct {
 // If the legacy `source` field is present and `sources` is empty, the single
 // source is promoted to the `sources` list.
 func (c *InputConfig) UnmarshalYAML(value *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	raw := &inputConfigRaw{}
 	if err := value.Decode(raw); err != nil {
 		return err
@@ -311,6 +321,7 @@ func (c *InputConfig) UnmarshalYAML(value *yaml.Node) error {
 // If the legacy `source` field is present and `sources` is empty, the single
 // source is promoted to the `sources` list.
 func (c *InputConfig) UnmarshalJSON(data []byte) error {
+	kdeps_debug.Log("enter: UnmarshalJSON")
 	raw := &inputConfigRaw{}
 	if err := json.Unmarshal(data, raw); err != nil {
 		return err
@@ -470,6 +481,7 @@ type ActivationConfig struct {
 
 // GetHostIP returns the resolved host IP from top-level settings or default.
 func (w *WorkflowSettings) GetHostIP() string {
+	kdeps_debug.Log("enter: GetHostIP")
 	if w.HostIP != "" {
 		return w.HostIP
 	}
@@ -478,6 +490,7 @@ func (w *WorkflowSettings) GetHostIP() string {
 
 // GetPortNum returns the resolved port number from top-level settings or default.
 func (w *WorkflowSettings) GetPortNum() int {
+	kdeps_debug.Log("enter: GetPortNum")
 	if w.PortNum > 0 {
 		return w.PortNum
 	}
@@ -486,6 +499,7 @@ func (w *WorkflowSettings) GetPortNum() int {
 
 // GetCORSConfig returns the CORS configuration, providing defaults if not set.
 func (w *WorkflowSettings) GetCORSConfig() *CORS {
+	kdeps_debug.Log("enter: GetCORSConfig")
 	// 1. Default configuration
 	enabled := true
 	defaults := &CORS{
@@ -547,6 +561,7 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	// Decode into an alias type to avoid recursion, with booleans as interface{}
 	type Alias struct {
 		APIServerMode  interface{}              `yaml:"apiServerMode"`
@@ -646,6 +661,7 @@ type SessionStorageConfig struct {
 //
 //nolint:gocognit,nestif // YAML compatibility logic is intentionally explicit
 func (s *SessionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	// First, try to unmarshal into a raw map to check structure
 	var raw map[string]interface{}
 	if err := unmarshal(&raw); err != nil {
@@ -722,6 +738,7 @@ func (s *SessionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 // GetType returns the storage type, checking both direct field and nested Storage.
 func (s *SessionConfig) GetType() string {
+	kdeps_debug.Log("enter: GetType")
 	if s.Storage != nil && s.Storage.Type != "" {
 		return s.Storage.Type
 	}
@@ -733,6 +750,7 @@ func (s *SessionConfig) GetType() string {
 
 // GetPath returns the storage path, checking both direct field and nested Storage.
 func (s *SessionConfig) GetPath() string {
+	kdeps_debug.Log("enter: GetPath")
 	if s.Storage != nil && s.Storage.Path != "" {
 		return s.Storage.Path
 	}
@@ -748,6 +766,7 @@ type APIServerConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling.
 func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		TrustedProxies []string `yaml:"trustedProxies,omitempty"`
 		Routes         []Route  `yaml:"routes"`
@@ -784,6 +803,7 @@ type CORS struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		EnableCORS       interface{} `yaml:"enableCors"`
 		AllowOrigins     []string    `yaml:"allowOrigins,omitempty"`
@@ -821,6 +841,7 @@ type WebServerConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling.
 func (w *WebServerConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
 		Routes         []WebRoute `yaml:"routes"`
@@ -847,6 +868,7 @@ type WebRoute struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (w *WebRoute) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Path       string      `yaml:"path"`
 		ServerType string      `yaml:"serverType,omitempty"`
@@ -894,6 +916,7 @@ type AgentSettings struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		Timezone         string            `yaml:"timezone"`
 		PythonVersion    string            `yaml:"pythonVersion,omitempty"`
@@ -957,6 +980,7 @@ type PoolConfig struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
 func (p *PoolConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
 		MaxConnections    interface{} `yaml:"maxConnections"`
 		MinConnections    interface{} `yaml:"minConnections"`

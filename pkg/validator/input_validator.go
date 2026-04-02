@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -38,6 +40,7 @@ type InputValidator struct{}
 
 // NewInputValidator creates a new input validator.
 func NewInputValidator() *InputValidator {
+	kdeps_debug.Log("enter: NewInputValidator")
 	return &InputValidator{}
 }
 
@@ -46,6 +49,7 @@ func (v *InputValidator) Validate(
 	data map[string]interface{},
 	rules *domain.ValidationsConfig,
 ) error {
+	kdeps_debug.Log("enter: Validate")
 	if rules == nil {
 		return nil
 	}
@@ -87,6 +91,7 @@ func (v *InputValidator) ValidateField(
 	rule domain.FieldRule,
 	value interface{},
 ) *domain.ValidationError {
+	kdeps_debug.Log("enter: ValidateField")
 	// Type validation
 	if err := v.ValidateType(rule.Type, value); err != nil {
 		return &domain.ValidationError{
@@ -120,6 +125,7 @@ func (v *InputValidator) ValidateField(
 //
 //nolint:gocognit,cyclop,funlen // explicit type checks are clear
 func (v *InputValidator) ValidateType(fieldType domain.FieldType, value interface{}) error {
+	kdeps_debug.Log("enter: ValidateType")
 	switch fieldType {
 	case domain.FieldTypeString:
 		if _, ok := value.(string); !ok {
@@ -225,6 +231,7 @@ func (v *InputValidator) validateString(
 	rule domain.FieldRule,
 	value interface{},
 ) *domain.ValidationError {
+	kdeps_debug.Log("enter: validateString")
 	str, ok := value.(string)
 	if !ok {
 		return &domain.ValidationError{
@@ -304,6 +311,7 @@ func (v *InputValidator) ValidateNumber(
 	rule domain.FieldRule,
 	value interface{},
 ) *domain.ValidationError {
+	kdeps_debug.Log("enter: ValidateNumber")
 	var num float64
 
 	switch val := value.(type) {
@@ -358,6 +366,7 @@ func (v *InputValidator) ValidateArray(
 	rule domain.FieldRule,
 	value interface{},
 ) *domain.ValidationError {
+	kdeps_debug.Log("enter: ValidateArray")
 	arr, ok := value.([]interface{})
 	if !ok {
 		return &domain.ValidationError{
@@ -399,6 +408,7 @@ func (v *InputValidator) ValidateArray(
 
 // IsEmpty checks if a value is considered empty.
 func IsEmpty(value interface{}) bool {
+	kdeps_debug.Log("enter: IsEmpty")
 	if value == nil {
 		return true
 	}
@@ -417,6 +427,7 @@ func IsEmpty(value interface{}) bool {
 
 // GetErrorMessage returns custom message or default.
 func GetErrorMessage(custom, defaultMsg string) string {
+	kdeps_debug.Log("enter: GetErrorMessage")
 	if custom != "" {
 		return custom
 	}
@@ -429,6 +440,7 @@ type MultipleValidationError struct {
 }
 
 func (e *MultipleValidationError) Error() string {
+	kdeps_debug.Log("enter: Error")
 	if len(e.Errors) == 1 {
 		return e.Errors[0].Error()
 	}

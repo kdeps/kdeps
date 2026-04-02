@@ -49,6 +49,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -78,6 +80,7 @@ type Executor struct {
 
 // NewAdapter returns a new embedding Executor as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -90,6 +93,7 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 // NewAdapterWithClient returns a new embedding Executor using the supplied HTTP client.
 // This allows test code to inject a mock transport without modifying production paths.
 func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapterWithClient")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -105,6 +109,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.EmbeddingConfig)
 	if !ok {
 		return nil, errors.New("embedding executor: invalid config type")
@@ -187,6 +192,7 @@ func (e *Executor) operationIndex(
 	backend, inputText, collection string,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationIndex")
 	vec, err := e.getEmbedding(client, backend, cfg, inputText)
 	if err != nil {
 		return nil, fmt.Errorf("embedding executor: get embedding: %w", err)
@@ -238,6 +244,7 @@ func (e *Executor) operationSearch(
 	topK int,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationSearch")
 	queryVec, err := e.getEmbedding(client, backend, cfg, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embedding executor: get query embedding: %w", err)
@@ -326,6 +333,7 @@ func (e *Executor) operationDelete(
 	inputText, collection string,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationDelete")
 	var query string
 	var args []interface{}
 
@@ -365,6 +373,7 @@ func (e *Executor) operationUpsert(
 	backend, inputText, collection string,
 	db *sql.DB,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: operationUpsert")
 	// Generate the embedding for the candidate text.
 	vec, err := e.getEmbedding(client, backend, cfg, inputText)
 	if err != nil {
@@ -468,6 +477,7 @@ func (e *Executor) getEmbedding(
 	cfg *domain.EmbeddingConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: getEmbedding")
 	switch backend {
 	case domain.EmbeddingBackendOllama:
 		return e.ollamaEmbed(client, cfg, text)
@@ -490,6 +500,7 @@ func (e *Executor) ollamaEmbed(
 	cfg *domain.EmbeddingConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: ollamaEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = defaultOllamaURL
@@ -543,6 +554,7 @@ func (e *Executor) openAIEmbed(
 	cfg *domain.EmbeddingConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: openAIEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.openai.com"
@@ -599,6 +611,7 @@ func (e *Executor) cohereEmbed(
 	cfg *domain.EmbeddingConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: cohereEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api.cohere.ai"
@@ -655,6 +668,7 @@ func (e *Executor) huggingFaceEmbed(
 	cfg *domain.EmbeddingConfig,
 	text string,
 ) ([]float64, error) {
+	kdeps_debug.Log("enter: huggingFaceEmbed")
 	baseURL := cfg.BaseURL
 	if baseURL == "" {
 		baseURL = "https://api-inference.huggingface.co"
@@ -708,6 +722,7 @@ func (e *Executor) huggingFaceEmbed(
 // parseFlatFloatSlice converts a []interface{} whose elements are all float64
 // into a []float64. Returns an error if any element is not float64.
 func parseFlatFloatSlice(v []interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseFlatFloatSlice")
 	result := make([]float64, len(v))
 	for i, val := range v {
 		f, isFloat := val.(float64)
@@ -722,6 +737,7 @@ func parseFlatFloatSlice(v []interface{}) ([]float64, error) {
 // parseNestedFloatSlice converts the first element of v (which must be
 // []interface{} of float64) into a []float64.
 func parseNestedFloatSlice(inner []interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseNestedFloatSlice")
 	result := make([]float64, len(inner))
 	for i, val := range inner {
 		f, isFloat := val.(float64)
@@ -735,6 +751,7 @@ func parseNestedFloatSlice(inner []interface{}) ([]float64, error) {
 
 // parseHuggingFaceResponse handles both flat []float64 and nested [][]float64 responses.
 func parseHuggingFaceResponse(raw interface{}) ([]float64, error) {
+	kdeps_debug.Log("enter: parseHuggingFaceResponse")
 	v, ok := raw.([]interface{})
 	if !ok {
 		return nil, errors.New("huggingface embed: unexpected response type")
@@ -757,6 +774,7 @@ func parseHuggingFaceResponse(raw interface{}) ([]float64, error) {
 
 // resolveDBPath returns the path for the SQLite DB file.
 func resolveDBPath(cfg *domain.EmbeddingConfig, collection string) (string, error) {
+	kdeps_debug.Log("enter: resolveDBPath")
 	if cfg.DBPath != "" {
 		return cfg.DBPath, nil
 	}
@@ -768,6 +786,7 @@ func resolveDBPath(cfg *domain.EmbeddingConfig, collection string) (string, erro
 
 // openVectorDB opens (or creates) the SQLite DB and ensures the collection table exists.
 func openVectorDB(dbPath, collection string) (*sql.DB, error) {
+	kdeps_debug.Log("enter: openVectorDB")
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o750); err != nil {
 		return nil, fmt.Errorf("create db dir: %w", err)
 	}
@@ -796,6 +815,7 @@ func openVectorDB(dbPath, collection string) (*sql.DB, error) {
 // Only ASCII letters, digits, and underscores are allowed; everything else is
 // replaced with an underscore.  A leading digit is prefixed with "t_".
 func sanitizeTableName(name string) string {
+	kdeps_debug.Log("enter: sanitizeTableName")
 	var b strings.Builder
 	for _, r := range name {
 		switch {
@@ -820,6 +840,7 @@ func sanitizeTableName(name string) string {
 // cosineSimilarity returns the cosine similarity between two equal-length vectors.
 // Returns 0 when either vector is zero-length or the lengths differ.
 func cosineSimilarity(a, b []float64) float64 {
+	kdeps_debug.Log("enter: cosineSimilarity")
 	if len(a) != len(b) || len(a) == 0 {
 		return 0
 	}
@@ -843,6 +864,7 @@ func (e *Executor) evaluateConfigFields(
 	cfg *domain.EmbeddingConfig,
 	ctx *executor.ExecutionContext,
 ) {
+	kdeps_debug.Log("enter: evaluateConfigFields")
 	cfg.Backend = e.evaluateText(cfg.Backend, ctx)
 	cfg.Operation = e.evaluateText(cfg.Operation, ctx)
 	cfg.Collection = e.evaluateText(cfg.Collection, ctx)
@@ -860,6 +882,7 @@ func (e *Executor) evaluateMapFields(
 	m map[string]interface{},
 	ctx *executor.ExecutionContext,
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: evaluateMapFields")
 	if m == nil {
 		return nil
 	}
@@ -880,6 +903,7 @@ func (e *Executor) evaluateMapFields(
 // evaluateText resolves mustache/expr expressions in the input field,
 // mirroring the pattern used by the TTS and botReply executors.
 func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

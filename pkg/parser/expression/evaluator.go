@@ -27,6 +27,8 @@ import (
 	"reflect"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/expr-lang/expr"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -40,6 +42,7 @@ type Evaluator struct {
 
 // NewEvaluator creates a new expression evaluator.
 func NewEvaluator(api *domain.UnifiedAPI) *Evaluator {
+	kdeps_debug.Log("enter: NewEvaluator")
 	return &Evaluator{
 		api:       api,
 		debugMode: false,
@@ -48,6 +51,7 @@ func NewEvaluator(api *domain.UnifiedAPI) *Evaluator {
 
 // SetDebugMode enables or disables debug mode.
 func (e *Evaluator) SetDebugMode(enabled bool) {
+	kdeps_debug.Log("enter: SetDebugMode")
 	e.debugMode = enabled
 }
 
@@ -56,6 +60,7 @@ func (e *Evaluator) Evaluate(
 	expression *domain.Expression,
 	env map[string]interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Evaluate")
 	switch expression.Type {
 	case domain.ExprTypeLiteral:
 		// Return literal value as-is.
@@ -79,6 +84,7 @@ func (e *Evaluator) evaluateDirect(
 	exprStr string,
 	env map[string]interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateDirect")
 	// Build environment with unified API functions.
 	evalEnv := e.buildEnvironment(env)
 
@@ -115,6 +121,7 @@ func (e *Evaluator) evaluateInterpolated(
 	template string,
 	env map[string]interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateInterpolated")
 	// Check if this is a single interpolation
 	if value, isSingle, err := e.evaluateSingleInterpolation(template, env); isSingle {
 		return value, err
@@ -129,6 +136,7 @@ func (e *Evaluator) evaluateSingleInterpolation(
 	template string,
 	env map[string]interface{},
 ) (interface{}, bool, error) {
+	kdeps_debug.Log("enter: evaluateSingleInterpolation")
 	trimmed := strings.TrimSpace(template)
 	if !strings.HasPrefix(trimmed, "{{") || !strings.HasSuffix(trimmed, "}}") {
 		return nil, false, nil
@@ -156,6 +164,7 @@ func (e *Evaluator) evaluateMultipleInterpolations(
 	template string,
 	env map[string]interface{},
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateMultipleInterpolations")
 	result := template
 
 	// Find all {{ }} blocks.
@@ -189,6 +198,7 @@ func (e *Evaluator) evaluateAndFormatExpression(
 	exprStr string,
 	env map[string]interface{},
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateAndFormatExpression")
 	var value interface{}
 	var err error
 
@@ -207,6 +217,7 @@ func (e *Evaluator) evaluateAndFormatExpression(
 
 // formatValue converts a value to string representation.
 func (e *Evaluator) formatValue(value interface{}) string {
+	kdeps_debug.Log("enter: formatValue")
 	if value == nil {
 		return ""
 	}
@@ -244,11 +255,13 @@ var validTypeHints = map[string]bool{ //nolint:gochecknoglobals // immutable loo
 
 // isValidTypeHint reports whether s is a recognized storage type hint for get().
 func isValidTypeHint(s string) bool {
+	kdeps_debug.Log("enter: isValidTypeHint")
 	return validTypeHints[s]
 }
 
 // isExprLangSyntax returns true when exprStr should be handled by expr-lang, not simple variable lookup.
 func isExprLangSyntax(exprStr string) bool {
+	kdeps_debug.Log("enter: isExprLangSyntax")
 	trimmed := strings.TrimSpace(exprStr)
 	if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
 		(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
@@ -285,6 +298,7 @@ func isExprLangSyntax(exprStr string) bool {
 // isSimpleIdentifier reports whether s is a valid simple variable name
 // (alphanumeric, underscore, dot, and hyphen only).
 func isSimpleIdentifier(s string) bool {
+	kdeps_debug.Log("enter: isSimpleIdentifier")
 	for _, char := range s {
 		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
 			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
@@ -299,6 +313,7 @@ func isSimpleIdentifier(s string) bool {
 // Supports dot notation (e.g., "user.name"). Returns nil if not found or if
 // the expression contains function call syntax.
 func (e *Evaluator) trySimpleVariable(exprStr string, env map[string]interface{}) interface{} {
+	kdeps_debug.Log("enter: trySimpleVariable")
 	if isExprLangSyntax(exprStr) {
 		return nil
 	}
@@ -326,6 +341,7 @@ func (e *Evaluator) trySimpleVariable(exprStr string, env map[string]interface{}
 
 // lookupSimpleValue looks up a value using dot notation (e.g., "user.name").
 func (e *Evaluator) lookupSimpleValue(path string, data map[string]interface{}) interface{} {
+	kdeps_debug.Log("enter: lookupSimpleValue")
 	// Handle dot notation (e.g., "user.name")
 	parts := strings.Split(path, ".")
 
@@ -351,6 +367,7 @@ func (e *Evaluator) lookupSimpleValue(path string, data map[string]interface{}) 
 //
 //nolint:gocognit,gocyclo,cyclop,nestif,funlen // environment assembly is intentionally explicit
 func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	evalEnv := make(map[string]interface{})
 
 	// Copy provided environment.
@@ -607,6 +624,7 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 
 // EvaluateCondition evaluates a boolean condition.
 func (e *Evaluator) EvaluateCondition(exprStr string, env map[string]interface{}) (bool, error) {
+	kdeps_debug.Log("enter: EvaluateCondition")
 	result, err := e.evaluateDirect(exprStr, env)
 	if err != nil {
 		return false, err
