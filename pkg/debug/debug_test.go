@@ -24,20 +24,24 @@ import (
 func TestEnabled(t *testing.T) {
 	tests := []struct {
 		name        string
+		instrument  string
 		kdepsDebug  string
 		debug       string
 		wantEnabled bool
 	}{
-		{name: "KDEPS_DEBUG=true enables debug", kdepsDebug: "true", wantEnabled: true},
-		{name: "DEBUG=true enables debug", debug: "true", wantEnabled: true},
+		{name: "KDEPS_INSTRUMENT=true enables instrumentation", instrument: "true", wantEnabled: true},
+		{name: "KDEPS_DEBUG=true enables debug (legacy)", kdepsDebug: "true", wantEnabled: true},
+		{name: "DEBUG=true enables debug (legacy)", debug: "true", wantEnabled: true},
 		{name: "KDEPS_DEBUG=1 does not enable debug", kdepsDebug: "1", wantEnabled: false},
 		{name: "empty env vars disable debug", wantEnabled: false},
+		{name: "KDEPS_INSTRUMENT=false disables", instrument: "false", wantEnabled: false},
 		{name: "KDEPS_DEBUG=false disables debug", kdepsDebug: "false", wantEnabled: false},
 		{name: "DEBUG=false disables debug", debug: "false", wantEnabled: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("KDEPS_INSTRUMENT", tt.instrument)
 			t.Setenv("KDEPS_DEBUG", tt.kdepsDebug)
 			t.Setenv("DEBUG", tt.debug)
 			got := Enabled()

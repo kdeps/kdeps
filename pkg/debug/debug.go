@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	maxChainLen = 5
-	ansiCyan    = "\033[36m"
-	ansiReset   = "\033[0m"
+	maxChainLen  = 5
+	ansiCyan     = "\033[36m"
+	ansiReset    = "\033[0m"
+	enabledValue = "true"
 )
 
 //nolint:gochecknoglobals // intentional package-level state for call chain accumulation
@@ -39,9 +40,13 @@ var (
 	chain []string
 )
 
-// Enabled returns true if debug logging is enabled via KDEPS_DEBUG or DEBUG env vars.
+// Enabled returns true if call-chain instrumentation is enabled.
+// Primary trigger: KDEPS_INSTRUMENT=true (set by --instrument flag).
+// Legacy fallback: KDEPS_DEBUG=true or DEBUG=true (backward compat).
 func Enabled() bool {
-	return os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true"
+	return os.Getenv("KDEPS_INSTRUMENT") == enabledValue ||
+		os.Getenv("KDEPS_DEBUG") == enabledValue ||
+		os.Getenv("DEBUG") == enabledValue
 }
 
 // colorize wraps s in cyan ANSI codes unless NO_COLOR or TERM=dumb is set.

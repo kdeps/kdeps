@@ -102,9 +102,10 @@ Examples:
   # Add resources to existing agent
   kdeps scaffold llm sql`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			// Activate debug logging if --debug flag is set.
-			if debugFlag, err := cmd.Flags().GetBool("debug"); err == nil && debugFlag {
-				_ = os.Setenv("KDEPS_DEBUG", "true")
+			// --instrument enables call-chain instrumentation (pkg/debug).
+			// --debug enables slog DEBUG level only; these are independent.
+			if instrFlag, err := cmd.Flags().GetBool("instrument"); err == nil && instrFlag {
+				_ = os.Setenv("KDEPS_INSTRUMENT", "true")
 			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  WARNING: HIGHLY EXPERIMENTAL SOFTWARE")
@@ -121,6 +122,7 @@ Examples:
 	// Add global flags
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
 
 	// Add subcommands
 	addSubcommands(rootCmd)
