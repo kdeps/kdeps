@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -45,6 +47,7 @@ type PackageFlags struct {
 
 // newPackageCmd creates the package command.
 func newPackageCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newPackageCmd")
 	flags := &PackageFlags{}
 
 	packageCmd := &cobra.Command{
@@ -101,6 +104,7 @@ Examples:
 // PackageAutoWithFlags auto-detects whether args[0] is a component, agency, or workflow
 // directory and dispatches to the appropriate packaging function.
 func PackageAutoWithFlags(cmd *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageAutoWithFlags")
 	dir := args[0]
 
 	// Detect component first (component.yaml takes precedence).
@@ -117,6 +121,7 @@ func PackageAutoWithFlags(cmd *cobra.Command, args []string, flags *PackageFlags
 
 // PackageWorkflow packages a workflow into a .kdeps file.
 func PackageWorkflow(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: PackageWorkflow")
 	// Read flags from command if they are defined
 	flags := &PackageFlags{}
 	if cmd.Flags().Lookup("output") != nil {
@@ -130,6 +135,7 @@ func PackageWorkflow(cmd *cobra.Command, args []string) error {
 
 // PackageWorkflowWithFlags packages a workflow into a .kdeps file with injected flags.
 func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageWorkflowWithFlags")
 	workflowDir := args[0]
 
 	fmt.Fprintf(os.Stdout, "Packaging: %s\n\n", workflowDir)
@@ -198,6 +204,7 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 
 // ValidateWorkflowDir checks if the directory contains a valid workflow.
 func ValidateWorkflowDir(dir string) error {
+	kdeps_debug.Log("enter: ValidateWorkflowDir")
 	if FindWorkflowFile(dir) == "" {
 		return fmt.Errorf(
 			"no workflow file found in %s"+
@@ -216,6 +223,7 @@ func ValidateWorkflowDir(dir string) error {
 
 // ParseKdepsIgnore walks a directory tree and collects patterns from all .kdepsignore files.
 func ParseKdepsIgnore(dir string) []string {
+	kdeps_debug.Log("enter: ParseKdepsIgnore")
 	var patterns []string
 	root, rootErr := os.OpenRoot(dir)
 	if rootErr != nil {
@@ -252,6 +260,7 @@ func ParseKdepsIgnore(dir string) []string {
 
 // ParseIgnorePatterns parses .kdepsignore content into a pattern list.
 func ParseIgnorePatterns(content string) []string {
+	kdeps_debug.Log("enter: ParseIgnorePatterns")
 	var patterns []string
 	for _, line := range strings.Split(content, "\n") {
 		line = strings.TrimSpace(line)
@@ -265,6 +274,7 @@ func ParseIgnorePatterns(content string) []string {
 
 // IsIgnored checks if a relative path matches any .kdepsignore pattern.
 func IsIgnored(relPath string, patterns []string) bool {
+	kdeps_debug.Log("enter: IsIgnored")
 	if filepath.Base(relPath) == ".kdepsignore" {
 		return true
 	}
@@ -295,6 +305,7 @@ func IsIgnored(relPath string, patterns []string) bool {
 
 // CreatePackageArchive creates a .kdeps tar.gz archive.
 func CreatePackageArchive(sourceDir, archivePath string, _ *domain.Workflow) error {
+	kdeps_debug.Log("enter: CreatePackageArchive")
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0750); err != nil {
 		return err
@@ -324,6 +335,7 @@ func CreatePackageArchive(sourceDir, archivePath string, _ *domain.Workflow) err
 
 // GenerateDockerCompose generates a docker-compose.yml for the package.
 func GenerateDockerCompose(_ string, outputDir, pkgName string, workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: GenerateDockerCompose")
 	composePath := filepath.Join(outputDir, "docker-compose.yml")
 
 	composeContent := fmt.Sprintf(`version: '3.8'
@@ -358,6 +370,7 @@ func CreateArchiveWalkFunc(
 	tarWriter *tar.Writer,
 	ignorePatterns []string,
 ) filepath.WalkFunc {
+	kdeps_debug.Log("enter: CreateArchiveWalkFunc")
 	return func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -385,6 +398,7 @@ func CreateArchiveWalkFunc(
 
 // ShouldSkipFile determines if a file should be skipped.
 func ShouldSkipFile(info os.FileInfo) bool {
+	kdeps_debug.Log("enter: ShouldSkipFile")
 	return strings.HasPrefix(info.Name(), ".")
 }
 
@@ -395,6 +409,7 @@ func AddFileToArchive(
 	sourceDir string,
 	tarWriter *tar.Writer,
 ) error {
+	kdeps_debug.Log("enter: AddFileToArchive")
 	relPath, relErr := filepath.Rel(sourceDir, path)
 	if relErr != nil {
 		return relErr
@@ -419,6 +434,7 @@ func AddFileToArchive(
 
 // WriteFileContent writes file content to the tar archive.
 func WriteFileContent(path string, tarWriter *tar.Writer) error {
+	kdeps_debug.Log("enter: WriteFileContent")
 	sourceFile, openErr := os.Open(path)
 	if openErr != nil {
 		return openErr
@@ -438,6 +454,7 @@ const komponentExtension = ".komponent"
 // PackageAgencyWithFlags packages an agency directory into a .kagency archive.
 // The archive is a tar.gz containing agency.yaml and the entire agents/ sub-tree.
 func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageAgencyWithFlags")
 	agencyDir := args[0]
 
 	fmt.Fprintf(os.Stdout, "Packaging agency: %s\n\n", agencyDir)
@@ -497,6 +514,7 @@ func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags
 //   - agents/   (full sub-tree)
 //   - Any other top-level supporting files (*.j2, data/, etc.) — excluding hidden entries.
 func CreateAgencyPackageArchive(agencyDir, archivePath string) error {
+	kdeps_debug.Log("enter: CreateAgencyPackageArchive")
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -518,11 +536,13 @@ func CreateAgencyPackageArchive(agencyDir, archivePath string) error {
 
 // isKagencyFile reports whether path points to a .kagency archive.
 func isKagencyFile(path string) bool {
+	kdeps_debug.Log("enter: isKagencyFile")
 	return strings.HasSuffix(path, kagencyExtension)
 }
 
 // PackageComponentWithFlags packages a component directory into a .komponent archive.
 func PackageComponentWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageComponentWithFlags")
 	componentDir := args[0]
 
 	fmt.Fprintf(os.Stdout, "Packaging component: %s\n\n", componentDir)
@@ -578,6 +598,7 @@ func PackageComponentWithFlags(_ *cobra.Command, args []string, flags *PackageFl
 //   - HTML/CSS/JS/template files
 //   - Respects .kdepsignore; excludes hidden entries.
 func CreateComponentPackageArchive(componentDir, archivePath string) error {
+	kdeps_debug.Log("enter: CreateComponentPackageArchive")
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0o750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -603,5 +624,6 @@ func CreateComponentPackageArchive(componentDir, archivePath string) error {
 
 // IsKomponentFile reports whether path points to a .komponent archive.
 func IsKomponentFile(path string) bool {
+	kdeps_debug.Log("enter: IsKomponentFile")
 	return strings.HasSuffix(path, komponentExtension)
 }

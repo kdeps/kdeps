@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -45,6 +47,7 @@ func NewDispatcher(
 	engine *executor.Engine,
 	logger *slog.Logger,
 ) (*Dispatcher, error) {
+	kdeps_debug.Log("enter: NewDispatcher")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -100,6 +103,7 @@ func NewDispatcher(
 // Run starts all runners and blocks until ctx is cancelled.
 // Each inbound message is handled in its own goroutine.
 func (d *Dispatcher) Run(ctx context.Context) error {
+	kdeps_debug.Log("enter: Run")
 	ch := make(chan Message, msgChanBuffer)
 
 	for platform, r := range d.runners {
@@ -126,6 +130,7 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 // reply back to the platform via req.BotSend. After this function returns
 // the dispatcher loop immediately waits for the next message (polling restart).
 func (d *Dispatcher) handleMessage(ctx context.Context, msg Message) {
+	kdeps_debug.Log("enter: handleMessage")
 	runner, ok := d.runners[msg.Platform]
 	if !ok {
 		d.logger.WarnContext(ctx, "bot: no runner for platform", "platform", msg.Platform)

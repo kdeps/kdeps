@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // KeyManager handles Ed25519 key operations for federation.
@@ -34,6 +36,7 @@ type KeyManager struct {
 
 // NewKeyManager creates a new KeyManager from an existing private key.
 func NewKeyManager(privateKey ed25519.PrivateKey) *KeyManager {
+	kdeps_debug.Log("enter: NewKeyManager")
 	pub, ok := privateKey.Public().(ed25519.PublicKey)
 	if !ok {
 		panic("ed25519.PrivateKey.Public() did not return ed25519.PublicKey")
@@ -46,6 +49,7 @@ func NewKeyManager(privateKey ed25519.PrivateKey) *KeyManager {
 
 // GenerateKeypair generates a new Ed25519 keypair.
 func GenerateKeypair() (ed25519.PrivateKey, ed25519.PublicKey, error) {
+	kdeps_debug.Log("enter: GenerateKeypair")
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate keypair: %w", err)
@@ -55,6 +59,7 @@ func GenerateKeypair() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 
 // LoadOrCreate loads a private key from path, or creates a new one if not exists.
 func LoadOrCreate(keyPath string) (*KeyManager, error) {
+	kdeps_debug.Log("enter: LoadOrCreate")
 	// Try to load existing key
 	if _, statErr := os.Stat(keyPath); statErr == nil {
 		km, loadErr := LoadKey(keyPath)
@@ -87,6 +92,7 @@ func LoadOrCreate(keyPath string) (*KeyManager, error) {
 
 // LoadKey loads a private key from a PEM file.
 func LoadKey(path string) (*KeyManager, error) {
+	kdeps_debug.Log("enter: LoadKey")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read key file: %w", err)
@@ -117,6 +123,7 @@ func LoadKey(path string) (*KeyManager, error) {
 
 // Save writes the private key to disk in PEM format (0600 permissions).
 func (km *KeyManager) Save() error {
+	kdeps_debug.Log("enter: Save")
 	if km.keyPath == "" {
 		return errors.New("no key path configured")
 	}
@@ -145,11 +152,13 @@ func (km *KeyManager) Save() error {
 
 // PublicKey returns the Ed25519 public key (32 bytes).
 func (km *KeyManager) PublicKey() ed25519.PublicKey {
+	kdeps_debug.Log("enter: PublicKey")
 	return km.publicKey
 }
 
 // PublicKeyPEM returns the public key in PEM format.
 func (km *KeyManager) PublicKeyPEM() ([]byte, error) {
+	kdeps_debug.Log("enter: PublicKeyPEM")
 	block := &pem.Block{
 		Type:  "ED25519 PUBLIC KEY",
 		Bytes: km.publicKey[:],
@@ -159,17 +168,20 @@ func (km *KeyManager) PublicKeyPEM() ([]byte, error) {
 
 // Sign signs the data with the private key.
 func (km *KeyManager) Sign(data []byte) ([]byte, error) {
+	kdeps_debug.Log("enter: Sign")
 	signature := ed25519.Sign(km.privateKey, data)
 	return signature, nil
 }
 
 // Verify verifies a signature against the public key.
 func Verify(publicKey ed25519.PublicKey, data, signature []byte) bool {
+	kdeps_debug.Log("enter: Verify")
 	return ed25519.Verify(publicKey, data, signature)
 }
 
 // SavePublicKey writes the public key to a separate file (0644 permissions).
 func (km *KeyManager) SavePublicKey(pubKeyPath string) error {
+	kdeps_debug.Log("enter: SavePublicKey")
 	pemData, err := km.PublicKeyPEM()
 	if err != nil {
 		return fmt.Errorf("failed to encode public key: %w", err)
@@ -197,6 +209,7 @@ func (km *KeyManager) SavePublicKey(pubKeyPath string) error {
 // SignMessage creates a signed message envelope.
 // This is a convenience that combines the data and signature.
 func (km *KeyManager) SignMessage(data []byte) (*SignedMessage, error) {
+	kdeps_debug.Log("enter: SignMessage")
 	sig, err := km.Sign(data)
 	if err != nil {
 		return nil, err
@@ -217,12 +230,14 @@ type SignedMessage struct {
 
 // Verify verifies the signed message.
 func (sm *SignedMessage) Verify() bool {
+	kdeps_debug.Log("enter: Verify")
 	return ed25519.Verify(sm.PublicKey, sm.Data, sm.Signature)
 }
 
 // WriteKeyToFile writes the private key to the given path, creating the file
 // with secure permissions (0600). Used for CLI commands.
 func WriteKeyToFile(path string, privateKey ed25519.PrivateKey) error {
+	kdeps_debug.Log("enter: WriteKeyToFile")
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
@@ -244,6 +259,7 @@ func WriteKeyToFile(path string, privateKey ed25519.PrivateKey) error {
 
 // ReadKeyFromFile reads an Ed25519 private key from a PEM file.
 func ReadKeyFromFile(path string) (ed25519.PrivateKey, error) {
+	kdeps_debug.Log("enter: ReadKeyFromFile")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read key file: %w", err)

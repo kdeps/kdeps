@@ -54,6 +54,8 @@ import (
 	"runtime"
 	"strconv"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -74,6 +76,7 @@ type Capturer interface {
 
 // New returns a Capturer for the given source using settings from cfg.
 func New(source string, cfg *domain.InputConfig, logger *slog.Logger) (Capturer, error) {
+	kdeps_debug.Log("enter: New")
 	return NewWithDuration(source, cfg, DefaultDurationSeconds, logger)
 }
 
@@ -86,6 +89,7 @@ func NewWithDuration(
 	durationSeconds int,
 	logger *slog.Logger,
 ) (Capturer, error) {
+	kdeps_debug.Log("enter: NewWithDuration")
 	switch source {
 	case domain.InputSourceAudio:
 		device := "default"
@@ -130,7 +134,10 @@ func NewWithDuration(
 // telephony). It returns an empty path so the transcriber is skipped.
 type NoOpCapturer struct{}
 
-func (c *NoOpCapturer) Capture() (string, error) { return "", nil }
+func (c *NoOpCapturer) Capture() (string, error) {
+	kdeps_debug.Log("enter: Capture")
+	return "", nil
+}
 
 // --------------------------------------------------------------------------
 // AudioCapturer
@@ -145,6 +152,7 @@ type AudioCapturer struct {
 
 // Capture records audio from the device and returns the path to a WAV file.
 func (c *AudioCapturer) Capture() (string, error) {
+	kdeps_debug.Log("enter: Capture")
 	dur := c.duration
 	if dur <= 0 {
 		dur = DefaultDurationSeconds
@@ -219,6 +227,7 @@ type VideoCapturer struct {
 
 // Capture records video from the device and returns the path to an MP4 file.
 func (c *VideoCapturer) Capture() (string, error) {
+	kdeps_debug.Log("enter: Capture")
 	dur := c.duration
 	if dur <= 0 {
 		dur = DefaultDurationSeconds
@@ -265,4 +274,7 @@ func (c *VideoCapturer) Capture() (string, error) {
 
 // TempDir returns the directory used for captured media files.
 // It resolves to os.TempDir(), but is exposed so callers can clean up.
-func TempDir() string { return filepath.Join(os.TempDir(), "kdeps-input") }
+func TempDir() string {
+	kdeps_debug.Log("enter: TempDir")
+	return filepath.Join(os.TempDir(), "kdeps-input")
+}

@@ -28,6 +28,8 @@ import (
 	"os/exec"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"log/slog"
 )
 
@@ -44,6 +46,7 @@ type ModelService struct {
 
 // NewModelService creates a new model service.
 func NewModelService(logger *slog.Logger) *ModelService {
+	kdeps_debug.Log("enter: NewModelService")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -54,6 +57,7 @@ func NewModelService(logger *slog.Logger) *ModelService {
 
 // DownloadModel downloads a model for the specified backend.
 func (s *ModelService) DownloadModel(backend, model string) error {
+	kdeps_debug.Log("enter: DownloadModel")
 	switch backend {
 	case backendOllama:
 		return s.downloadOllamaModel(model)
@@ -64,6 +68,7 @@ func (s *ModelService) DownloadModel(backend, model string) error {
 
 // ServeModel starts serving a model with the specified backend.
 func (s *ModelService) ServeModel(backend, model string, host string, port int) error {
+	kdeps_debug.Log("enter: ServeModel")
 	switch backend {
 	case backendOllama:
 		return s.serveOllamaModel(model, host, port)
@@ -74,6 +79,7 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 
 // downloadOllamaModel downloads a model using Ollama.
 func (s *ModelService) downloadOllamaModel(model string) error {
+	kdeps_debug.Log("enter: downloadOllamaModel")
 	s.logger.Info("downloading model with Ollama", "model", model)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -93,6 +99,7 @@ func (s *ModelService) downloadOllamaModel(model string) error {
 
 // serveOllamaModel starts Ollama server with the specified model.
 func (s *ModelService) serveOllamaModel(model string, host string, port int) error {
+	kdeps_debug.Log("enter: serveOllamaModel")
 	s.logger.Info("starting Ollama server", "model", model, "host", host, "port", port)
 
 	// Check if ollama is already running by trying to list models

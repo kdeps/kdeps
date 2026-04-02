@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +32,7 @@ const (
 
 // trustCmd represents the `kdeps federation trust` command with subcommands.
 func newFederationTrustCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationTrustCmd")
 	cmd := &cobra.Command{
 		Use:   "trust",
 		Short: "Manage local trust anchors",
@@ -48,6 +51,7 @@ Use 'trust add' to add a registry's public key, 'trust list' to show all, and 't
 
 // newFederationTrustAddCmd creates `kdeps federation trust add`.
 func newFederationTrustAddCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationTrustAddCmd")
 	var (
 		registryURL   string
 		publicKeyPath string
@@ -114,6 +118,7 @@ Examples:
 
 // newFederationTrustListCmd creates `kdeps federation trust list`.
 func newFederationTrustListCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationTrustListCmd")
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List trust anchors",
@@ -154,6 +159,7 @@ func newFederationTrustListCmd() *cobra.Command {
 
 // removeAllTrustAnchors removes all .pub files from the trust directory.
 func removeAllTrustAnchors(trustDir string) error {
+	kdeps_debug.Log("enter: removeAllTrustAnchors")
 	entries, err := os.ReadDir(trustDir)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to read trust directory: %w", err)
@@ -176,6 +182,7 @@ func removeAllTrustAnchors(trustDir string) error {
 
 // newFederationTrustRemoveCmd creates `kdeps federation trust remove`.
 func newFederationTrustRemoveCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationTrustRemoveCmd")
 	var (
 		registryHost string
 		all          bool
@@ -227,6 +234,7 @@ Examples:
 
 // getTrustDir returns the trust store directory: ~/.config/kdeps/trust.
 func getTrustDir() (string, error) {
+	kdeps_debug.Log("enter: getTrustDir")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
@@ -236,6 +244,7 @@ func getTrustDir() (string, error) {
 
 // extractRegistryHost extracts the hostname from a registry URL.
 func extractRegistryHost(urlStr string) string {
+	kdeps_debug.Log("enter: extractRegistryHost")
 	// Very simple: strip scheme and path, keep host:port if present
 	// For MVP, use regex or strings. Could use net/url but avoid import for simplicity
 	// Strip common schemes

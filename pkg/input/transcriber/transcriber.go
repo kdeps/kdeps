@@ -35,6 +35,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -55,6 +57,7 @@ type Transcriber interface {
 
 // New creates a Transcriber from TranscriberConfig.
 func New(cfg *domain.TranscriberConfig, logger *slog.Logger) (Transcriber, error) {
+	kdeps_debug.Log("enter: New")
 	if logger == nil {
 		logger = slog.Default()
 	}

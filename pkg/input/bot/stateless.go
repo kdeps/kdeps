@@ -27,6 +27,8 @@ import (
 	"log/slog"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -58,6 +60,7 @@ func RunStateless(
 	engine *executor.Engine,
 	_ *slog.Logger,
 ) error {
+	kdeps_debug.Log("enter: RunStateless")
 	msg, err := readStatelessInput(os.Stdin)
 	if err != nil {
 		return fmt.Errorf("bot stateless: read input: %w", err)
@@ -89,6 +92,7 @@ func RunStateless(
 // readStatelessInput reads the stateless message from r (typically os.Stdin).
 // If r is a terminal (empty stdin) or the JSON is empty, all fields come from env vars.
 func readStatelessInput(r io.Reader) (statelessInput, error) {
+	kdeps_debug.Log("enter: readStatelessInput")
 	var msg statelessInput
 
 	data, err := io.ReadAll(r)

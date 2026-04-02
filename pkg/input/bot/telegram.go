@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	telegrambot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
@@ -44,12 +46,14 @@ type telegramRunner struct {
 }
 
 func newTelegramRunner(cfg *domain.TelegramConfig, logger *slog.Logger) *telegramRunner {
+	kdeps_debug.Log("enter: newTelegramRunner")
 	return &telegramRunner{cfg: cfg, logger: logger}
 }
 
 // Start connects to Telegram via long-polling and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
+	kdeps_debug.Log("enter: Start")
 	pollTimeout := defaultTelegramPollTimeout
 	if r.cfg.PollIntervalSeconds > 0 {
 		pollTimeout = time.Duration(r.cfg.PollIntervalSeconds) * time.Second
@@ -89,6 +93,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 
 // Reply sends text to the given Telegram chat ID.
 func (r *telegramRunner) Reply(ctx context.Context, chatID, text string) error {
+	kdeps_debug.Log("enter: Reply")
 	if r.bot == nil {
 		return errors.New("telegram: bot not started")
 	}

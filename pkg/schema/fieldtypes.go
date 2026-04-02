@@ -18,9 +18,12 @@
 
 package schema
 
-import "github.com/kdeps/kdeps/v2/pkg/domain"
-
 // fieldTypeString is the JSON Schema / OpenAPI type name for string fields.
+import (
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
+
 const fieldTypeString = "string"
 
 // fieldTypeSpec holds the type/format/constraint assignments that result from
@@ -41,6 +44,7 @@ type fieldTypeSpec struct {
 // associated constraints. It is shared by both the OpenAPI and JSON Schema
 // generators to avoid duplicating the type-switch logic.
 func mapFieldType(rule *domain.FieldRule) fieldTypeSpec {
+	kdeps_debug.Log("enter: mapFieldType")
 	switch rule.Type {
 	case domain.FieldTypeString:
 		return fieldTypeSpec{

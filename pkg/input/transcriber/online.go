@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -53,6 +55,7 @@ func newOnlineTranscriber(
 	outputMode string,
 	logger *slog.Logger,
 ) (Transcriber, error) {
+	kdeps_debug.Log("enter: newOnlineTranscriber")
 	return &onlineTranscriber{
 		cfg:        cfg,
 		outputMode: outputMode,
@@ -63,6 +66,7 @@ func newOnlineTranscriber(
 
 // Transcribe sends mediaFile to the configured cloud provider and returns the result.
 func (t *onlineTranscriber) Transcribe(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: Transcribe")
 	if mediaFile == "" {
 		return &Result{}, nil
 	}
@@ -96,6 +100,7 @@ type openAIWhisperResponse struct {
 }
 
 func (t *onlineTranscriber) openAIWhisper(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: openAIWhisper")
 	f, err := os.Open(mediaFile)
 	if err != nil {
 		return nil, fmt.Errorf("openai-whisper: open file: %w", err)
@@ -167,6 +172,7 @@ type deepgramResponse struct {
 }
 
 func (t *onlineTranscriber) deepgram(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: deepgram")
 	data, err := os.ReadFile(mediaFile)
 	if err != nil {
 		return nil, fmt.Errorf("deepgram: read file: %w", err)
@@ -239,6 +245,7 @@ type assemblyAITranscriptResponse struct {
 const assemblyAIPollIntervalSeconds = 3
 
 func (t *onlineTranscriber) assemblyAI(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: assemblyAI")
 	data, err := os.ReadFile(mediaFile)
 	if err != nil {
 		return nil, fmt.Errorf("assemblyai: read file: %w", err)
@@ -263,6 +270,7 @@ func (t *onlineTranscriber) assemblyAI(mediaFile string) (*Result, error) {
 }
 
 func (t *onlineTranscriber) assemblyAIUpload(data []byte) (string, error) {
+	kdeps_debug.Log("enter: assemblyAIUpload")
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
 		"https://api.assemblyai.com/v2/upload", bytes.NewReader(data))
 	if err != nil {
@@ -293,6 +301,7 @@ func (t *onlineTranscriber) assemblyAIUpload(data []byte) (string, error) {
 func (t *onlineTranscriber) assemblyAISubmit(
 	audioURL string,
 ) (*assemblyAITranscriptResponse, error) {
+	kdeps_debug.Log("enter: assemblyAISubmit")
 	transcReq := assemblyAITranscriptRequest{
 		AudioURL:     audioURL,
 		LanguageCode: t.cfg.Language,
@@ -329,6 +338,7 @@ func (t *onlineTranscriber) assemblyAISubmit(
 func (t *onlineTranscriber) assemblyAIPoll(
 	transcResp *assemblyAITranscriptResponse,
 ) (*assemblyAITranscriptResponse, error) {
+	kdeps_debug.Log("enter: assemblyAIPoll")
 	for transcResp.Status != "completed" && transcResp.Status != "error" {
 		time.Sleep(assemblyAIPollIntervalSeconds * time.Second)
 
@@ -386,6 +396,7 @@ type googleSTTResponse struct {
 const googleSTTDefaultSampleRate = 16000
 
 func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: googleSTT")
 	data, err := os.ReadFile(mediaFile)
 	if err != nil {
 		return nil, fmt.Errorf("google-stt: read file: %w", err)
@@ -456,6 +467,7 @@ func (t *onlineTranscriber) googleSTT(mediaFile string) (*Result, error) {
 // This implementation uses unsigned HTTP for simplicity; production use should
 // use the AWS SDK for proper SigV4 signing.
 func (t *onlineTranscriber) awsTranscribe(_ string) (*Result, error) {
+	kdeps_debug.Log("enter: awsTranscribe")
 	// AWS Transcribe requires an S3 URI, which is not available via pure REST
 	// without AWS SDK signing. We return a clear error directing users to use
 	// the AWS SDK integration path, or configure an HTTP executor resource for
@@ -475,6 +487,7 @@ func (t *onlineTranscriber) awsTranscribe(_ string) (*Result, error) {
 // (the caller can post-process or copy it). When output is "text", only the
 // transcript text is set.
 func (t *onlineTranscriber) buildResult(text, mediaFile string) (*Result, error) {
+	kdeps_debug.Log("enter: buildResult")
 	if t.outputMode == domain.TranscriberOutputMedia {
 		// Save the media file path for later resource use.
 		savedPath, err := saveMediaForResources(mediaFile)

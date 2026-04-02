@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Manager manages Python virtual environments using uv.
@@ -48,6 +50,7 @@ const (
 // IOToolsBaseDir returns the stable cache directory for I/O tool virtual environments.
 // Venvs here persist across runs so packages only install once.
 func IOToolsBaseDir() string {
+	kdeps_debug.Log("enter: IOToolsBaseDir")
 	if cacheDir, err := os.UserCacheDir(); err == nil {
 		return filepath.Join(cacheDir, "kdeps", "io-venvs")
 	}
@@ -56,12 +59,14 @@ func IOToolsBaseDir() string {
 
 // IOToolVenvPath returns the full path to the venv for a named I/O tool.
 func IOToolVenvPath(toolName string) string {
+	kdeps_debug.Log("enter: IOToolVenvPath")
 	return filepath.Join(IOToolsBaseDir(), toolName)
 }
 
 // IOToolPythonBin returns the python executable path for an I/O tool venv.
 // Returns empty string when the venv does not exist yet.
 func IOToolPythonBin(toolName string) string {
+	kdeps_debug.Log("enter: IOToolPythonBin")
 	p := filepath.Join(IOToolVenvPath(toolName), "bin", "python")
 	if _, err := os.Stat(p); err == nil {
 		return p
@@ -72,6 +77,7 @@ func IOToolPythonBin(toolName string) string {
 // IOToolBin returns the path to a named binary inside an I/O tool venv.
 // Returns empty string when the binary does not exist.
 func IOToolBin(toolName, binName string) string {
+	kdeps_debug.Log("enter: IOToolBin")
 	p := filepath.Join(IOToolVenvPath(toolName), "bin", binName)
 	if _, err := os.Stat(p); err == nil {
 		return p
@@ -81,6 +87,7 @@ func IOToolBin(toolName, binName string) string {
 
 // NewManager creates a new uv manager.
 func NewManager(baseDir string) *Manager {
+	kdeps_debug.Log("enter: NewManager")
 	if baseDir == "" {
 		baseDir = filepath.Join(os.TempDir(), "kdeps-python")
 	}
@@ -96,6 +103,7 @@ func (m *Manager) EnsureVenv(
 	requirementsFile string,
 	venvName string,
 ) (string, error) {
+	kdeps_debug.Log("enter: EnsureVenv")
 	// Use custom venv name if provided, otherwise generate one
 	var finalVenvName string
 	if venvName != "" {
@@ -155,6 +163,7 @@ func (m *Manager) GetVenvName(
 	packages []string,
 	requirementsFile string,
 ) string {
+	kdeps_debug.Log("enter: GetVenvName")
 	parts := []string{"venv", pythonVersion}
 	if requirementsFile != "" {
 		parts = append(parts, filepath.Base(requirementsFile))
@@ -167,6 +176,7 @@ func (m *Manager) GetVenvName(
 // InstallPackages installs packages using uv pip install.
 // extraArgs are appended after the package names (e.g. "--no-build-isolation").
 func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs ...string) error {
+	kdeps_debug.Log("enter: InstallPackages")
 	pythonPath := filepath.Join(venvPath, "bin", "python")
 	if _, err := os.Stat(pythonPath); os.IsNotExist(err) {
 		// Windows
@@ -196,6 +206,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 
 // InstallRequirements installs packages from requirements file.
 func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) error {
+	kdeps_debug.Log("enter: InstallRequirements")
 	pythonPath := filepath.Join(venvPath, "bin", "python")
 	if _, err := os.Stat(pythonPath); os.IsNotExist(err) {
 		// Windows
@@ -223,6 +234,7 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 // It is a no-op when binaryName is already on PATH.
 // extraArgs are appended verbatim (e.g. "--no-build-isolation").
 func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error {
+	kdeps_debug.Log("enter: InstallTool")
 	if _, err := exec.LookPath(binaryName); err == nil {
 		return nil // already installed
 	}
@@ -240,6 +252,7 @@ func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error
 
 // GetPythonPath returns the Python executable path for a venv.
 func (m *Manager) GetPythonPath(venvPath string) (string, error) {
+	kdeps_debug.Log("enter: GetPythonPath")
 	pythonPath := filepath.Join(venvPath, "bin", "python")
 	if _, err := os.Stat(pythonPath); err == nil {
 		return pythonPath, nil

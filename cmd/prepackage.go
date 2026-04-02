@@ -36,6 +36,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/version"
@@ -86,6 +88,7 @@ var httpDownloadClient = &http.Client{
 
 // newPrePackageCmd constructs the cobra.Command for "kdeps prepackage".
 func newPrePackageCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newPrePackageCmd")
 	flags := &PrePackageFlags{}
 
 	cmd := &cobra.Command{
@@ -139,6 +142,7 @@ Examples:
 
 // PrePackageWithFlags implements the core logic of the prepackage command.
 func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
+	kdeps_debug.Log("enter: PrePackageWithFlags")
 	kdepsFile := args[0]
 
 	if !strings.HasSuffix(kdepsFile, ".kdeps") {
@@ -223,6 +227,7 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 // printPrepackageSummary prints the produced/skipped results and returns nil
 // when at least one executable was created, or an error if none were produced.
 func printPrepackageSummary(produced, skipped []string) error {
+	kdeps_debug.Log("enter: printPrepackageSummary")
 	fmt.Fprintln(os.Stdout)
 	if len(produced) > 0 {
 		fmt.Fprintf(os.Stdout, "✅ %d executable(s) created:\n", len(produced))
@@ -255,6 +260,7 @@ func resolveBaseBinary(
 	target archTarget,
 	currentExec string,
 ) (string, bool, error) {
+	kdeps_debug.Log("enter: resolveBaseBinary")
 	isHostArch := runtime.GOOS == target.GOOS && runtime.GOARCH == target.GOARCH
 
 	if isHostArch && currentExec != "" {
@@ -277,6 +283,7 @@ func resolveBaseBinary(
 
 // prepackageOutputName returns the filename for the prepackaged binary.
 func prepackageOutputName(pkgName string, target archTarget) string {
+	kdeps_debug.Log("enter: prepackageOutputName")
 	name := fmt.Sprintf("%s-%s-%s", pkgName, target.GOOS, target.GOARCH)
 	if target.GOOS == goosWindows {
 		name += ".exe"
@@ -287,6 +294,7 @@ func prepackageOutputName(pkgName string, target archTarget) string {
 // resolvePrepackageTargets returns the set of arch targets to build.
 // An empty archFlag means "build all supported targets".
 func resolvePrepackageTargets(archFlag string) ([]archTarget, error) {
+	kdeps_debug.Log("enter: resolvePrepackageTargets")
 	if archFlag == "" {
 		return allArchTargets, nil
 	}
@@ -314,6 +322,7 @@ func resolvePrepackageTargets(archFlag string) ([]archTarget, error) {
 // getPackageName extracts a descriptive name for the output binary from the
 // workflow metadata inside the .kdeps archive.
 func getPackageName(kdepsFile string) (string, error) {
+	kdeps_debug.Log("enter: getPackageName")
 	tempDir, err := ExtractPackage(kdepsFile)
 	if err != nil {
 		return "", err
@@ -340,6 +349,7 @@ func getPackageName(kdepsFile string) (string, error) {
 // goosToReleaseOS maps a GOOS value to the title-cased OS name used in
 // goreleaser archive filenames (e.g. "linux" → "Linux").
 func goosToReleaseOS(goos string) string {
+	kdeps_debug.Log("enter: goosToReleaseOS")
 	switch goos {
 	case goosDarwin:
 		return "Darwin"
@@ -355,6 +365,7 @@ func goosToReleaseOS(goos string) string {
 // goarchToReleaseArch maps a GOARCH value to the arch name used in goreleaser
 // archive filenames (e.g. "amd64" → "x86_64").
 func goarchToReleaseArch(goarch string) string {
+	kdeps_debug.Log("enter: goarchToReleaseArch")
 	if goarch == "amd64" {
 		return "x86_64"
 	}
@@ -371,6 +382,7 @@ func goarchToReleaseArch(goarch string) string {
 var githubReleasesBaseURL = "https://github.com/kdeps/kdeps/releases/download"
 
 func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (string, error) {
+	kdeps_debug.Log("enter: downloadKdepsBinaryToTemp")
 	// Dev builds don't have downloadable release artifacts.
 	if strings.HasSuffix(ver, "-dev") || ver == "dev" {
 		return "", fmt.Errorf(
@@ -443,6 +455,7 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 // It uses httpDownloadClient (which carries an explicit timeout) and caps the
 // response body at maxDownloadBytes to prevent excessive memory consumption.
 func fetchURL(ctx context.Context, url string) ([]byte, error) {
+	kdeps_debug.Log("enter: fetchURL")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -461,6 +474,7 @@ func fetchURL(ctx context.Context, url string) ([]byte, error) {
 // extractFromTarGz finds and returns the contents of a file named filename
 // inside a tar.gz archive.
 func extractFromTarGz(archiveData []byte, filename string) ([]byte, error) {
+	kdeps_debug.Log("enter: extractFromTarGz")
 	gzr, err := gzip.NewReader(bytes.NewReader(archiveData))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open gzip stream: %w", err)
@@ -486,6 +500,7 @@ func extractFromTarGz(archiveData []byte, filename string) ([]byte, error) {
 // extractFromZip finds and returns the contents of a file named filename
 // inside a zip archive.
 func extractFromZip(archiveData []byte, filename string) ([]byte, error) {
+	kdeps_debug.Log("enter: extractFromZip")
 	r, err := zip.NewReader(bytes.NewReader(archiveData), int64(len(archiveData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip archive: %w", err)

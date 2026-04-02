@@ -31,6 +31,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 
@@ -57,6 +59,7 @@ type BuildFlags struct {
 
 // newBuildCmd creates the build command.
 func newBuildCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newBuildCmd")
 	flags := &BuildFlags{}
 
 	buildCmd := &cobra.Command{
@@ -135,6 +138,7 @@ Examples:
 
 // BuildImage exports the buildImage function for testing.
 func BuildImage(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: BuildImage")
 	// For backward compatibility, use empty flags (default behavior)
 	flags := &BuildFlags{}
 	return buildImageInternal(cmd, args, flags)
@@ -142,11 +146,13 @@ func BuildImage(cmd *cobra.Command, args []string) error {
 
 // BuildImageWithFlagsInternal executes the build command with injected flags.
 func BuildImageWithFlagsInternal(cmd *cobra.Command, args []string, flags *BuildFlags) error {
+	kdeps_debug.Log("enter: BuildImageWithFlagsInternal")
 	return buildImageInternal(cmd, args, flags)
 }
 
 // resolveBuildWorkflowPaths determines workflow path and package directory from input.
 func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveBuildWorkflowPaths")
 	// Check if packagePath exists and is a file or directory
 	info, statErr := os.Stat(packagePath)
 	if statErr != nil {
@@ -180,6 +186,7 @@ func resolveBuildWorkflowPaths(packagePath string) (string, string, func(), erro
 
 // resolveBuildKdepsPackage handles .kdeps package file extraction.
 func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveBuildKdepsPackage")
 	fmt.Fprintf(os.Stdout, "Package: %s\n", packagePath)
 
 	// Extract package to temporary directory
@@ -204,6 +211,7 @@ func resolveBuildKdepsPackage(packagePath string) (string, string, func(), error
 // resolveBuildKagencyPackage extracts a .kagency archive to a temp dir and
 // resolves the entry-point agent workflow for Docker/ISO builds.
 func resolveBuildKagencyPackage(packagePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveBuildKagencyPackage")
 	fmt.Fprintf(os.Stdout, "Agency Package: %s\n", packagePath)
 
 	tempDir, err := ExtractPackage(packagePath)
@@ -226,6 +234,7 @@ func resolveBuildKagencyPackage(packagePath string) (string, string, func(), err
 // resolveBuildAgencyFile resolves the entry-point agent workflow from an
 // agency manifest file path (agency.yaml / agency.yml).
 func resolveBuildAgencyFile(agencyFilePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveBuildAgencyFile")
 	agencyDir := filepath.Dir(agencyFilePath)
 	return resolveBuildAgencyManifest(agencyFilePath, agencyDir, nil)
 }
@@ -237,6 +246,7 @@ func resolveBuildAgencyManifest(
 	agencyFilePath, packageDir string,
 	cleanup func(),
 ) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveBuildAgencyManifest")
 	agency, agentPaths, agencyParser, err := ParseAgencyFileWithParser(agencyFilePath)
 	if err != nil {
 		if cleanup != nil {
@@ -299,6 +309,7 @@ func resolveBuildAgencyManifest(
 // resolveDirectoryPackage handles directory-based packages.
 // It checks for agency.yaml first (agencies take priority over workflows).
 func resolveDirectoryPackage(packagePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveDirectoryPackage")
 	// Check for agency manifest first.
 	if agencyFile := FindAgencyFile(packagePath); agencyFile != "" {
 		return resolveBuildAgencyFile(agencyFile)
@@ -317,6 +328,7 @@ func resolveDirectoryPackage(packagePath string) (string, string, func(), error)
 
 // resolveKdepsFileInDirectory looks for .kdeps file in directory.
 func resolveKdepsFileInDirectory(packagePath string) (string, string, func(), error) {
+	kdeps_debug.Log("enter: resolveKdepsFileInDirectory")
 	entries, readErr := os.ReadDir(packagePath)
 	if readErr != nil {
 		return "", "", nil, fmt.Errorf("failed to read directory: %w", readErr)
@@ -339,6 +351,7 @@ func resolveKdepsFileInDirectory(packagePath string) (string, string, func(), er
 
 // parseWorkflow parses the workflow file.
 func parseWorkflow(workflowPath string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: parseWorkflow")
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", err)
@@ -357,6 +370,7 @@ func parseWorkflow(workflowPath string) (*domain.Workflow, error) {
 
 // setupDockerBuilder creates and configures the Docker builder.
 func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
+	kdeps_debug.Log("enter: setupDockerBuilder")
 	// Auto-select OS based on GPU type
 	selectedOS := "alpine"
 	if flags.GPU != "" {
@@ -382,6 +396,7 @@ func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
 
 // handleDockerfileShow shows the generated Dockerfile if requested.
 func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: handleDockerfileShow")
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate Dockerfile: %w", err)
@@ -395,6 +410,7 @@ func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) er
 
 // getWorkflowPorts extracts enabled ports from a workflow.
 func getWorkflowPorts(workflow *domain.Workflow) []int {
+	kdeps_debug.Log("enter: getWorkflowPorts")
 	var ports []int
 	if workflow != nil {
 		// Use resolved port from settings
@@ -418,6 +434,7 @@ func performDockerBuild(
 	packagePath string,
 	flags *BuildFlags,
 ) error {
+	kdeps_debug.Log("enter: performDockerBuild")
 	fmt.Fprintln(os.Stdout, "✓ Package extracted")
 	fmt.Fprintln(os.Stdout, "✓ Dockerfile generated")
 	fmt.Fprintln(os.Stdout, "✓ Building image...")
@@ -456,6 +473,7 @@ func performDockerBuild(
 
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) error {
+	kdeps_debug.Log("enter: buildImageInternal")
 	if flags.Cloud {
 		return cloudBuild(args[0], "docker", "amd64", flags.NoCache)
 	}
@@ -554,6 +572,7 @@ func ensureKdepsFile(
 	packagePath, packageDir string,
 	workflow *domain.Workflow,
 ) (string, bool, error) {
+	kdeps_debug.Log("enter: ensureKdepsFile")
 	if strings.HasSuffix(packagePath, ".kdeps") {
 		if _, statErr := os.Stat(packagePath); statErr == nil {
 			return packagePath, false, nil
@@ -585,6 +604,7 @@ func createPrepackagedBinariesForDocker(
 	ctx context.Context,
 	kdepsFile string,
 ) (map[string]string, func()) {
+	kdeps_debug.Log("enter: createPrepackagedBinariesForDocker")
 	targets := []archTarget{
 		{GOOS: goosLinux, GOARCH: "amd64"},
 		{GOOS: goosLinux, GOARCH: "arm64"},
@@ -646,6 +666,7 @@ func createPrepackagedBinariesForDocker(
 // normaliseVersion returns the current kdeps version without a leading "v"
 // (the format expected by downloadKdepsBinaryToTemp).
 func normaliseVersion() string {
+	kdeps_debug.Log("enter: normaliseVersion")
 	return strings.TrimPrefix(version.Version, "v")
 }
 
@@ -653,6 +674,7 @@ func normaliseVersion() string {
 // It bundles the pre-compiled WASM binary with the workflow YAML and web server files
 // into a lightweight nginx Docker image.
 func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) error {
+	kdeps_debug.Log("enter: buildWASMImage")
 	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
 
 	// Resolve workflow path and package directory.
@@ -750,6 +772,7 @@ func bundleWASMApp(
 	apiRoutes []string,
 	outDir string,
 ) error {
+	kdeps_debug.Log("enter: bundleWASMApp")
 	// Run the WASM bundler.
 	bundleConfig := &wasmPkg.BundleConfig{
 		WASMBinaryPath: wasmBinary,
@@ -768,6 +791,7 @@ func bundleWASMApp(
 }
 
 func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCache bool) error {
+	kdeps_debug.Log("enter: buildWASMDockerImage")
 	fmt.Fprintln(os.Stdout, "✓ Building Docker image...")
 
 	dockerArgs := []string{"build", "-t", imageTag}
@@ -789,6 +813,7 @@ func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCac
 // collectWebServerFiles reads all files under the data/ directory in the package
 // and returns them as a map of relative path -> content for the WASM bundler.
 func collectWebServerFiles(packageDir string) (map[string]string, error) {
+	kdeps_debug.Log("enter: collectWebServerFiles")
 	files := make(map[string]string)
 	dataDir := filepath.Join(packageDir, "data")
 
@@ -836,6 +861,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 // findWASMBinary locates the pre-compiled kdeps.wasm binary.
 // Search order: KDEPS_WASM_BINARY env var, next to kdeps binary, current directory.
 func findWASMBinary() (string, error) {
+	kdeps_debug.Log("enter: findWASMBinary")
 	if p := os.Getenv("KDEPS_WASM_BINARY"); p != "" {
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
@@ -862,6 +888,7 @@ func findWASMBinary() (string, error) {
 // findWASMExecJS locates the wasm_exec.js file from the Go SDK.
 // Search order: KDEPS_WASM_EXEC_JS env var, next to kdeps binary, current directory, Go SDK.
 func findWASMExecJS(ctx context.Context) (string, error) {
+	kdeps_debug.Log("enter: findWASMExecJS")
 	if p := os.Getenv("KDEPS_WASM_EXEC_JS"); p != "" {
 		if _, err := os.Stat(p); err == nil {
 			return p, nil
@@ -903,6 +930,7 @@ func findWASMExecJS(ctx context.Context) (string, error) {
 
 // cloudBuild executes a build via kdeps.io cloud infrastructure.
 func cloudBuild(packagePath, format, arch string, noCache bool) error {
+	kdeps_debug.Log("enter: cloudBuild")
 	config, err := LoadCloudConfig()
 	if err != nil {
 		return err

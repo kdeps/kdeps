@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -46,6 +48,7 @@ type WellKnownClient struct {
 
 // NewWellKnownClient creates a WellKnownClient with a 10-second timeout and TLS 1.2+.
 func NewWellKnownClient() *WellKnownClient {
+	kdeps_debug.Log("enter: NewWellKnownClient")
 	return &WellKnownClient{
 		httpClient: &http.Client{
 			Timeout: wellKnownTimeout,
@@ -67,6 +70,7 @@ func NewWellKnownClient() *WellKnownClient {
 // on the agent's authority host. Falls back to /.well-known/agent (directory listing)
 // if the specific path returns 404.
 func (c *WellKnownClient) Discover(ctx context.Context, urn *URN) (*WellKnownResponse, error) {
+	kdeps_debug.Log("enter: Discover")
 	// Encode the URN for safe use in a URL path segment.
 	encodedURN := url.PathEscape(urn.String())
 
@@ -87,6 +91,7 @@ func (c *WellKnownClient) DiscoverFromAuthority(
 	ctx context.Context,
 	authority string,
 ) ([]*WellKnownResponse, error) {
+	kdeps_debug.Log("enter: DiscoverFromAuthority")
 	directoryURL := fmt.Sprintf("https://%s/.well-known/agent", authority)
 
 	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
@@ -124,6 +129,7 @@ func (c *WellKnownClient) DiscoverFromAuthority(
 
 // fetchURL performs a GET to the given URL and unmarshals the JSON body into WellKnownResponse.
 func (c *WellKnownClient) fetchURL(ctx context.Context, rawURL string) (*WellKnownResponse, error) {
+	kdeps_debug.Log("enter: fetchURL")
 	reqCtx, cancel := context.WithTimeout(ctx, wellKnownTimeout)
 	defer cancel()
 

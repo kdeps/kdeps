@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -34,6 +36,7 @@ import (
 
 // newValidateCmd creates the validate command.
 func newValidateCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newValidateCmd")
 	return &cobra.Command{
 		Use:   "validate [path]",
 		Short: "Validate YAML configuration",
@@ -71,10 +74,12 @@ Examples:
 
 // RunValidateCmd is the exported function for running the validate command (used for testing).
 func RunValidateCmd(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: RunValidateCmd")
 	return runValidateCmd(cmd, args)
 }
 
 func runValidateCmd(_ *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: runValidateCmd")
 	inputPath := args[0]
 
 	info, err := os.Stat(inputPath)
@@ -114,6 +119,7 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 }
 
 func validateWorkflowFile(workflowPath string) error {
+	kdeps_debug.Log("enter: validateWorkflowFile")
 	fmt.Fprintf(os.Stdout, "Validating workflow: %s\n\n", workflowPath)
 
 	workflow, err := ParseWorkflowFile(workflowPath)
@@ -139,6 +145,7 @@ func validateWorkflowFile(workflowPath string) error {
 }
 
 func validateComponentFile(componentPath string) error {
+	kdeps_debug.Log("enter: validateComponentFile")
 	fmt.Fprintf(os.Stdout, "Validating component: %s\n\n", componentPath)
 
 	schemaValidator, err := validator.NewSchemaValidator()
@@ -163,6 +170,7 @@ func validateComponentFile(componentPath string) error {
 }
 
 func validateAgencyFile(agencyPath string) error {
+	kdeps_debug.Log("enter: validateAgencyFile")
 	fmt.Fprintf(os.Stdout, "Validating agency: %s\n\n", agencyPath)
 
 	agency, agentPaths, yamlParser, err := ParseAgencyFileWithParser(agencyPath)

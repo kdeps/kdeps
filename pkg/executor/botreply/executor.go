@@ -32,6 +32,8 @@ import (
 	"fmt"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -42,6 +44,7 @@ type Executor struct{}
 
 // NewAdapter returns a new botReply Executor as a ResourceExecutor.
 func NewAdapter() executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Executor{}
 }
 
@@ -51,6 +54,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.BotReplyConfig)
 	if !ok {
 		return nil, errors.New("botreply executor: invalid config type")
@@ -80,6 +84,7 @@ func (e *Executor) Execute(
 // evaluateText resolves mustache/expr expressions in the text field, mirroring
 // the pattern used by the TTS executor.
 func evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

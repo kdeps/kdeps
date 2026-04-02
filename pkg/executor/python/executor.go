@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -55,6 +57,7 @@ type Executor struct {
 
 // NewExecutor creates a new Python executor.
 func NewExecutor(uvManager UVManager) *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return &Executor{
 		uvManager: uvManager,
 	}
@@ -62,6 +65,7 @@ func NewExecutor(uvManager UVManager) *Executor {
 
 // SetExecCommandForTesting sets the exec command function for testing.
 func (e *Executor) SetExecCommandForTesting(cmdFunc func(name string, arg ...string) *exec.Cmd) {
+	kdeps_debug.Log("enter: SetExecCommandForTesting")
 	e.execCommand = cmdFunc
 }
 
@@ -72,6 +76,7 @@ const (
 
 // newExecCommand creates a new exec command (can be overridden for testing).
 func (e *Executor) newExecCommand(ctx context.Context, name string, arg ...string) *exec.Cmd {
+	kdeps_debug.Log("enter: newExecCommand")
 	if e.execCommand != nil {
 		return e.execCommand(name, arg...)
 	}
@@ -83,6 +88,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.PythonConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	// Resolve configuration with evaluated expressions
@@ -134,6 +140,7 @@ func (e *Executor) resolveConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.PythonConfig,
 ) (*domain.PythonConfig, error) {
+	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
 	// Evaluate VenvName if it contains expression syntax
@@ -172,6 +179,7 @@ func (e *Executor) resolveConfig(
 
 // getPythonVersion extracts Python version from workflow settings.
 func (e *Executor) getPythonVersion(ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: getPythonVersion")
 	if ctx.Workflow.Settings.AgentSettings.PythonVersion != "" {
 		return ctx.Workflow.Settings.AgentSettings.PythonVersion
 	}
@@ -180,6 +188,7 @@ func (e *Executor) getPythonVersion(ctx *executor.ExecutionContext) string {
 
 // getPythonDependencies extracts packages and requirements file from workflow settings.
 func (e *Executor) getPythonDependencies(ctx *executor.ExecutionContext) ([]string, string) {
+	kdeps_debug.Log("enter: getPythonDependencies")
 	var packages []string
 	var requirementsFile string
 
@@ -198,6 +207,7 @@ func (e *Executor) prepareScript(
 	ctx *executor.ExecutionContext,
 	config *domain.PythonConfig,
 ) (string, string, error) {
+	kdeps_debug.Log("enter: prepareScript")
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	switch {
@@ -234,6 +244,7 @@ func (e *Executor) prepareScript(
 
 // parseTimeout parses the timeout duration from config.
 func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
+	kdeps_debug.Log("enter: parseTimeout")
 	timeout := DefaultPythonTimeout
 	if config.TimeoutDuration != "" {
 		if parsedTimeout, err := time.ParseDuration(config.TimeoutDuration); err == nil {
@@ -248,6 +259,7 @@ func (e *Executor) executeScript(
 	pythonPath, venvPath, workDir, scriptContent, scriptFile string,
 	args []string, timeout time.Duration,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeScript")
 	var stdout, stderr bytes.Buffer
 	var cmd *exec.Cmd
 
@@ -304,6 +316,7 @@ func (e *Executor) EvaluateExpression(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateExpression")
 	env := e.buildEnvironment(ctx)
 
 	parser := expression.NewParser()
@@ -322,6 +335,7 @@ func (e *Executor) EvaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: EvaluateStringOrLiteral")
 	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
@@ -336,6 +350,7 @@ func (e *Executor) EvaluateStringOrLiteral(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
+	kdeps_debug.Log("enter: containsExpressionSyntax")
 	return strings.Contains(s, "{{")
 }
 
@@ -345,6 +360,7 @@ func (e *Executor) evaluateInterpolatedString(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateInterpolatedString")
 	env := e.buildEnvironment(ctx)
 
 	parser := expression.NewParser()
@@ -363,6 +379,7 @@ func (e *Executor) evaluateInterpolatedString(
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
 	if ctx.Request != nil {

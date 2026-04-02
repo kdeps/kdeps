@@ -22,6 +22,8 @@ package domain
 import (
 	"fmt"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,6 +59,7 @@ type FieldRule struct {
 
 // UnmarshalYAML implements custom YAML unmarshaling to support both "min"/"max" and "minimum"/"maximum".
 func (f *FieldRule) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML")
 	// Create a temporary struct with all possible fields
 	type rawFieldRule struct {
 		Field     string        `yaml:"field"`
@@ -146,6 +149,7 @@ type MultipleValidationError struct {
 }
 
 func (e *MultipleValidationError) Error() string {
+	kdeps_debug.Log("enter: Error")
 	if len(e.Errors) == 1 {
 		if e.Errors[0].Field != "" {
 			return fmt.Sprintf(

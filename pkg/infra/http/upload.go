@@ -24,6 +24,8 @@ import (
 	"mime/multipart"
 	stdhttp "net/http"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -43,6 +45,7 @@ type UploadHandler struct {
 
 // NewUploadHandler creates a new upload handler.
 func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler {
+	kdeps_debug.Log("enter: NewUploadHandler")
 	if maxFileSize == 0 {
 		maxFileSize = MaxUploadSize
 	}
@@ -57,6 +60,7 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 //
 //nolint:gocognit,nestif // upload handling has explicit validation branches
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
+	kdeps_debug.Log("enter: HandleUpload")
 	// Parse multipart form
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
 		return nil, fmt.Errorf("failed to parse multipart form: %w", err)
@@ -140,6 +144,7 @@ func (h *UploadHandler) processFileHeader(
 	fileHeader *multipart.FileHeader,
 	fieldName string,
 ) (*domain.UploadedFile, error) {
+	kdeps_debug.Log("enter: processFileHeader")
 	// Check file size
 	if fileHeader.Size > h.maxFileSize {
 		return nil, domain.NewAppError(

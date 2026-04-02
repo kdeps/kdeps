@@ -30,6 +30,8 @@ import (
 	"runtime"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -40,6 +42,7 @@ const (
 
 // GetFormatExtension maps LinuxKit output formats to file extensions.
 func GetFormatExtension(format string) string {
+	kdeps_debug.Log("enter: GetFormatExtension")
 	switch format {
 	case "iso-efi":
 		return ".iso"
@@ -68,6 +71,7 @@ type Builder struct {
 // NewBuilder creates a new LinuxKit-based image builder.
 // It locates or downloads the linuxkit binary automatically.
 func NewBuilder() (*Builder, error) {
+	kdeps_debug.Log("enter: NewBuilder")
 	binaryPath, err := EnsureLinuxKit(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("linuxkit not available: %w", err)
@@ -83,6 +87,7 @@ func NewBuilder() (*Builder, error) {
 
 // NewBuilderWithRunner creates a builder with a custom runner (for testing).
 func NewBuilderWithRunner(runner LinuxKitRunner) *Builder {
+	kdeps_debug.Log("enter: NewBuilderWithRunner")
 	return &Builder{
 		Runner:   runner,
 		Hostname: defaultHostname,
@@ -95,6 +100,7 @@ func NewBuilderWithRunner(runner LinuxKitRunner) *Builder {
 // This must be called before Build when using locally built Docker images
 // that aren't available in a remote registry.
 func (b *Builder) CacheImportImage(ctx context.Context, tarPath string) error {
+	kdeps_debug.Log("enter: CacheImportImage")
 	if b.Runner == nil {
 		return errors.New("runner is nil")
 	}
@@ -110,6 +116,7 @@ func (b *Builder) Build(
 	outputPath string,
 	_ bool, // noCache: kept for API compatibility
 ) error {
+	kdeps_debug.Log("enter: Build")
 	if workflow == nil {
 		return errors.New("workflow cannot be nil")
 	}
@@ -203,6 +210,7 @@ func (b *Builder) buildRawImage(
 	ctx context.Context,
 	tmpPath, arch, buildDir, kdepsImageName string,
 ) (string, error) {
+	kdeps_debug.Log("enter: buildRawImage")
 	// Two-step build: linuxkit produces kernel+initrd, then we assemble
 	// the raw disk with our custom assembler which supports a data partition.
 	assembler := b.RawBIOSAssembleFunc
@@ -228,6 +236,7 @@ func (b *Builder) GenerateConfigYAML(
 	kdepsImageName string,
 	workflow *domain.Workflow,
 ) (string, error) {
+	kdeps_debug.Log("enter: GenerateConfigYAML")
 	return b.GenerateConfigYAMLExtended(kdepsImageName, workflow, false)
 }
 
@@ -237,6 +246,7 @@ func (b *Builder) GenerateConfigYAMLExtended(
 	workflow *domain.Workflow,
 	thin bool,
 ) (string, error) {
+	kdeps_debug.Log("enter: GenerateConfigYAMLExtended")
 	if workflow == nil {
 		return "", errors.New("workflow cannot be nil")
 	}
@@ -261,6 +271,7 @@ func (b *Builder) GenerateConfigYAMLExtended(
 
 // findLinuxKitOutput finds the output file produced by linuxkit build in the given directory.
 func findLinuxKitOutput(dir, format string) (string, error) {
+	kdeps_debug.Log("enter: findLinuxKitOutput")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", fmt.Errorf("failed to read build output directory: %w", err)

@@ -21,11 +21,14 @@ package domain
 import (
 	"strconv"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // ParseBool parses a boolean from various types (bool, string, int).
 // Returns the boolean value and true if parsing succeeded.
 func ParseBool(v interface{}) (bool, bool) {
+	kdeps_debug.Log("enter: ParseBool")
 	switch val := v.(type) {
 	case bool:
 		return val, true
@@ -50,6 +53,7 @@ func ParseBool(v interface{}) (bool, bool) {
 // parseInt parses an integer from various types (int, string, float).
 // Returns the integer value and true if parsing succeeded.
 func parseInt(v interface{}) (int, bool) {
+	kdeps_debug.Log("enter: parseInt")
 	switch val := v.(type) {
 	case int:
 		return val, true
@@ -72,6 +76,7 @@ func parseInt(v interface{}) (int, bool) {
 // parseFloat parses a float from various types (float, int, string).
 // Returns the float value and true if parsing succeeded.
 func parseFloat(v interface{}) (float64, bool) {
+	kdeps_debug.Log("enter: parseFloat")
 	switch val := v.(type) {
 	case float64:
 		return val, true
@@ -96,6 +101,7 @@ func parseFloat(v interface{}) (float64, bool) {
 // parseBoolPtr parses a boolean pointer from various types.
 // Returns nil if the value is nil, otherwise returns a pointer to the boolean.
 func parseBoolPtr(v interface{}) *bool {
+	kdeps_debug.Log("enter: parseBoolPtr")
 	if v == nil {
 		return nil
 	}
@@ -108,6 +114,7 @@ func parseBoolPtr(v interface{}) *bool {
 // parseIntPtr parses an integer pointer from various types.
 // Returns nil if the value is nil, otherwise returns a pointer to the integer.
 func parseIntPtr(v interface{}) *int {
+	kdeps_debug.Log("enter: parseIntPtr")
 	if v == nil {
 		return nil
 	}
@@ -120,6 +127,7 @@ func parseIntPtr(v interface{}) *int {
 // parseFloatPtr parses a float pointer from various types.
 // Returns nil if the value is nil, otherwise returns a pointer to the float.
 func parseFloatPtr(v interface{}) *float64 {
+	kdeps_debug.Log("enter: parseFloatPtr")
 	if v == nil {
 		return nil
 	}

@@ -23,26 +23,32 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // newPromise creates a new JavaScript Promise with the given handler.
 // The handler receives (resolve, reject) as arguments.
 func newPromise(handler js.Func) js.Value {
+	kdeps_debug.Log("enter: newPromise")
 	return js.Global().Get("Promise").New(handler)
 }
 
 // jsError creates a JavaScript Error object with the given message.
 func jsError(msg string) js.Value {
+	kdeps_debug.Log("enter: jsError")
 	return js.Global().Get("Error").New(msg)
 }
 
 // consoleLog logs a message to the browser console.
 func consoleLog(msg string) {
+	kdeps_debug.Log("enter: consoleLog")
 	js.Global().Get("console").Call("log", "[kdeps]", msg)
 }
 
 // jsObjectToStringMap converts a JS object to a Go map[string]string.
 func jsObjectToStringMap(obj js.Value) map[string]string {
+	kdeps_debug.Log("enter: jsObjectToStringMap")
 	result := make(map[string]string)
 
 	keys := js.Global().Get("Object").Call("keys", obj)
@@ -61,6 +67,7 @@ func jsObjectToStringMap(obj js.Value) map[string]string {
 
 // jsObjectToMap converts a JS object to a Go map[string]interface{}.
 func jsObjectToMap(obj js.Value) map[string]interface{} {
+	kdeps_debug.Log("enter: jsObjectToMap")
 	result := make(map[string]interface{})
 
 	keys := js.Global().Get("Object").Call("keys", obj)
@@ -77,6 +84,7 @@ func jsObjectToMap(obj js.Value) map[string]interface{} {
 
 // jsToGo converts a JS value to a Go value.
 func jsToGo(val js.Value) interface{} {
+	kdeps_debug.Log("enter: jsToGo")
 	if val.IsUndefined() || val.IsNull() {
 		return nil
 	}
@@ -101,6 +109,7 @@ func jsToGo(val js.Value) interface{} {
 
 // jsArrayToSlice converts a JS array to a Go slice.
 func jsArrayToSlice(arr js.Value) []interface{} {
+	kdeps_debug.Log("enter: jsArrayToSlice")
 	length := arr.Length()
 	result := make([]interface{}, length)
 
@@ -115,6 +124,7 @@ func jsArrayToSlice(arr js.Value) []interface{} {
 //
 //nolint:gocognit // type switch covers all Go→JS conversions
 func goToJS(val interface{}) js.Value {
+	kdeps_debug.Log("enter: goToJS")
 	if val == nil {
 		return js.Null()
 	}
@@ -155,6 +165,7 @@ func goToJS(val interface{}) js.Value {
 
 // invokeCallback safely invokes a JS callback function with the given arguments.
 func invokeCallback(callback *js.Value, args ...interface{}) {
+	kdeps_debug.Log("enter: invokeCallback")
 	if callback == nil || callback.IsUndefined() || callback.IsNull() {
 		return
 	}

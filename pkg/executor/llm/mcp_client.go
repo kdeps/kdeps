@@ -31,6 +31,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -87,6 +89,7 @@ type MCPStdioClient struct {
 
 // newMCPStdioClient starts an MCP server subprocess and performs the initialize handshake.
 func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioClient, error) {
+	kdeps_debug.Log("enter: newMCPStdioClient")
 	if cfg.Server == "" {
 		return nil, errors.New("MCP server command is required")
 	}
@@ -136,11 +139,13 @@ func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioCli
 // pre-opened pipes instead of spawning a subprocess.  The client is created
 // without running the initialize handshake.  Used only in tests.
 func NewMCPStdioClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *MCPStdioClient {
+	kdeps_debug.Log("enter: NewMCPStdioClientForTesting")
 	return &MCPStdioClient{stdin: stdin, stdout: stdout}
 }
 
 // initialize performs the MCP initialize + initialized handshake.
 func (c *MCPStdioClient) initialize() error {
+	kdeps_debug.Log("enter: initialize")
 	id := c.nextID.Add(1)
 
 	req := jsonRPCRequest{
@@ -185,6 +190,7 @@ func (c *MCPStdioClient) initialize() error {
 // CallTool calls an MCP tool with the given name and arguments.
 // It returns the text content from the tool result.
 func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{}) (string, error) {
+	kdeps_debug.Log("enter: CallTool")
 	id := c.nextID.Add(1)
 
 	req := jsonRPCRequest{
@@ -241,6 +247,7 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 
 // send sends a JSON-RPC request to the MCP server.
 func (c *MCPStdioClient) send(req jsonRPCRequest) error {
+	kdeps_debug.Log("enter: send")
 	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal MCP request: %w", err)
@@ -252,6 +259,7 @@ func (c *MCPStdioClient) send(req jsonRPCRequest) error {
 
 // readResponse reads the next JSON-RPC response line from stdout.
 func (c *MCPStdioClient) readResponse() (*jsonRPCResponse, error) {
+	kdeps_debug.Log("enter: readResponse")
 	// Skip notification lines (no id field) until we get a response
 	for c.stdout.Scan() {
 		line := c.stdout.Text()
@@ -276,6 +284,7 @@ func (c *MCPStdioClient) readResponse() (*jsonRPCResponse, error) {
 
 // Close terminates the MCP server subprocess.
 func (c *MCPStdioClient) Close() error {
+	kdeps_debug.Log("enter: Close")
 	_ = c.stdin.Close()
 	if c.cmd != nil && c.cmd.Process != nil {
 		return c.cmd.Process.Kill() //nolint:wrapcheck // direct kill signal
@@ -290,6 +299,7 @@ func executeMCPTool(
 	toolName string,
 	arguments map[string]interface{},
 ) (string, error) {
+	kdeps_debug.Log("enter: executeMCPTool")
 	ctx, cancel := context.WithTimeout(context.Background(), mcpDefaultTimeout)
 	defer cancel()
 

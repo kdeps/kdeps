@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -111,6 +113,7 @@ type FileWatcher interface {
 
 // NewFileWatcher creates a new file watcher.
 func NewFileWatcher() (FileWatcher, error) {
+	kdeps_debug.Log("enter: NewFileWatcher")
 	return fs.NewWatcherWithLogger(nil)
 }
 
@@ -120,6 +123,7 @@ func NewServer(
 	executor WorkflowExecutor,
 	logger *slog.Logger,
 ) (*Server, error) {
+	kdeps_debug.Log("enter: NewServer")
 	// Initialize file store for uploads
 	uploadDir := filepath.Join(os.TempDir(), "kdeps-uploads")
 	fileStore, err := NewTemporaryFileStore(uploadDir)
@@ -143,21 +147,25 @@ func NewServer(
 
 // SetWorkflowPath sets the workflow path for hot reload.
 func (s *Server) SetWorkflowPath(path string) {
+	kdeps_debug.Log("enter: SetWorkflowPath")
 	s.workflowPath = path
 }
 
 // SetParser sets the YAML parser for hot reload.
 func (s *Server) SetParser(parser *yaml.Parser) {
+	kdeps_debug.Log("enter: SetParser")
 	s.parser = parser
 }
 
 // SetWatcher sets the file watcher for hot reload.
 func (s *Server) SetWatcher(watcher FileWatcher) {
+	kdeps_debug.Log("enter: SetWatcher")
 	s.Watcher = watcher
 }
 
 // Start starts the HTTP server.
 func (s *Server) Start(addr string, devMode bool) error {
+	kdeps_debug.Log("enter: Start")
 	// Add core middleware (request ID and error handling)
 	s.Router.Use(RequestIDMiddleware())
 	s.Router.Use(DebugModeMiddleware())
@@ -196,6 +204,7 @@ func (s *Server) Start(addr string, devMode bool) error {
 
 // Shutdown gracefully shuts down the HTTP server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	kdeps_debug.Log("enter: Shutdown")
 	if s.httpServer == nil {
 		return nil
 	}
@@ -205,6 +214,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 // SetupRoutes sets up all API routes.
 func (s *Server) SetupRoutes() {
+	kdeps_debug.Log("enter: SetupRoutes")
 	// Health check endpoint
 	s.Router.GET("/health", s.HandleHealth)
 
@@ -234,6 +244,7 @@ func (s *Server) SetupRoutes() {
 
 // HandleHealth handles health check requests.
 func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleHealth")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(stdhttp.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -249,6 +260,7 @@ func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 //
 //nolint:gocognit,nestif,funlen,gocyclo,cyclop // request handling intentionally explicit
 func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	kdeps_debug.Log("enter: HandleRequest")
 	// Check for file uploads and process them
 	var uploadedFiles []*domain.UploadedFile
 	contentType := r.Header.Get("Content-Type")
@@ -596,6 +608,7 @@ func (s *Server) ParseRequest(
 	r *stdhttp.Request,
 	uploadedFiles []*domain.UploadedFile,
 ) *RequestContext {
+	kdeps_debug.Log("enter: ParseRequest")
 	// Parse query parameters
 	query := make(map[string]string)
 	for key, values := range r.URL.Query() {
@@ -678,6 +691,7 @@ func (s *Server) ParseRequest(
 //
 // Deprecated: Use RespondWithSuccess from response.go instead.
 func (s *Server) RespondSuccess(w stdhttp.ResponseWriter, data interface{}) {
+	kdeps_debug.Log("enter: RespondSuccess")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(stdhttp.StatusOK)
 
@@ -693,6 +707,7 @@ func (s *Server) RespondSuccess(w stdhttp.ResponseWriter, data interface{}) {
 //
 // Deprecated: Use RespondWithError from response.go instead.
 func (s *Server) RespondError(w stdhttp.ResponseWriter, statusCode int, message string, err error) {
+	kdeps_debug.Log("enter: RespondError")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
@@ -711,6 +726,7 @@ func (s *Server) RespondError(w stdhttp.ResponseWriter, statusCode int, message 
 
 // CorsMiddleware handles CORS.
 func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: CorsMiddleware")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		cors := s.Workflow.Settings.GetCORSConfig()
 
@@ -739,6 +755,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // setCorsOrigin sets the CORS origin header.
 func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cors *domain.CORS) {
+	kdeps_debug.Log("enter: setCorsOrigin")
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		return
@@ -760,6 +777,7 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 
 // setCorsMethods sets the CORS methods header.
 func (s *Server) setCorsMethods(w stdhttp.ResponseWriter, cors *domain.CORS) {
+	kdeps_debug.Log("enter: setCorsMethods")
 	if len(cors.AllowMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods", strings.Join(cors.AllowMethods, ", "))
 	} else {
@@ -769,6 +787,7 @@ func (s *Server) setCorsMethods(w stdhttp.ResponseWriter, cors *domain.CORS) {
 
 // setCorsHeaders sets the CORS headers header.
 func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
+	kdeps_debug.Log("enter: setCorsHeaders")
 	if len(cors.AllowHeaders) > 0 {
 		w.Header().Set("Access-Control-Allow-Headers", strings.Join(cors.AllowHeaders, ", "))
 	} else {
@@ -778,6 +797,7 @@ func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
 
 // SetupHotReload sets up file watching for hot reload.
 func (s *Server) SetupHotReload() error {
+	kdeps_debug.Log("enter: SetupHotReload")
 	if s.Watcher == nil {
 		return errors.New("no file watcher configured")
 	}
@@ -849,6 +869,7 @@ func (s *Server) SetupHotReload() error {
 
 // reloadWorkflow reloads the workflow from disk.
 func (s *Server) reloadWorkflow() error {
+	kdeps_debug.Log("enter: reloadWorkflow")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -919,6 +940,7 @@ func (s *Server) reloadWorkflow() error {
 }
 
 func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {
+	kdeps_debug.Log("enter: parseFormData")
 	// ParseForm handles both application/x-www-form-urlencoded and multipart/form-data
 	if err := r.ParseForm(); err != nil {
 		return body
@@ -941,11 +963,13 @@ func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]i
 
 // GetLoggerForTesting returns the logger for testing.
 func (s *Server) GetLoggerForTesting() *slog.Logger {
+	kdeps_debug.Log("enter: GetLoggerForTesting")
 	return s.logger
 }
 
 // GetWorkflowForTesting returns the workflow for testing.
 func (s *Server) GetWorkflowForTesting() *domain.Workflow {
+	kdeps_debug.Log("enter: GetWorkflowForTesting")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.Workflow
@@ -953,20 +977,24 @@ func (s *Server) GetWorkflowForTesting() *domain.Workflow {
 
 // GetUploadHandlerForTesting returns the upload handler for testing.
 func (s *Server) GetUploadHandlerForTesting() *UploadHandler {
+	kdeps_debug.Log("enter: GetUploadHandlerForTesting")
 	return s.uploadHandler
 }
 
 // GetFileStoreForTesting returns the file store for testing.
 func (s *Server) GetFileStoreForTesting() domain.FileStore {
+	kdeps_debug.Log("enter: GetFileStoreForTesting")
 	return s.fileStore
 }
 
 // GetParserForTesting returns the parser for testing.
 func (s *Server) GetParserForTesting() *yaml.Parser {
+	kdeps_debug.Log("enter: GetParserForTesting")
 	return s.parser
 }
 
 // GetWorkflowPathForTesting returns the workflow path for testing.
 func (s *Server) GetWorkflowPathForTesting() string {
+	kdeps_debug.Log("enter: GetWorkflowPathForTesting")
 	return s.workflowPath
 }

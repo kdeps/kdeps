@@ -21,6 +21,8 @@ package domain
 import (
 	"fmt"
 	"net/http"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Error represents a domain error (legacy, kept for backward compatibility).
@@ -52,6 +54,7 @@ const (
 
 // NewError creates a new domain error.
 func NewError(code ErrorCode, message string, cause error) *Error {
+	kdeps_debug.Log("enter: NewError")
 	return &Error{
 		Code:    code,
 		Message: message,
@@ -61,6 +64,7 @@ func NewError(code ErrorCode, message string, cause error) *Error {
 
 // Error implements the error interface.
 func (e *Error) Error() string {
+	kdeps_debug.Log("enter: Error")
 	if e.Cause != nil {
 		return fmt.Sprintf("[%d] %s: %v", e.Code, e.Message, e.Cause)
 	}
@@ -131,6 +135,7 @@ type AppError struct {
 
 // NewAppError creates a new application error.
 func NewAppError(code AppErrorCode, message string) *AppError {
+	kdeps_debug.Log("enter: NewAppError")
 	return &AppError{
 		Code:       code,
 		Message:    message,
@@ -141,6 +146,7 @@ func NewAppError(code AppErrorCode, message string) *AppError {
 
 // Error implements error interface.
 func (e *AppError) Error() string {
+	kdeps_debug.Log("enter: Error")
 	if e.ResourceID != "" {
 		return fmt.Sprintf("[%s] %s (resource: %s)", e.Code, e.Message, e.ResourceID)
 	}
@@ -149,17 +155,20 @@ func (e *AppError) Error() string {
 
 // Unwrap returns the underlying error.
 func (e *AppError) Unwrap() error {
+	kdeps_debug.Log("enter: Unwrap")
 	return e.Err
 }
 
 // WithResource adds resource context to error.
 func (e *AppError) WithResource(resourceID string) *AppError {
+	kdeps_debug.Log("enter: WithResource")
 	e.ResourceID = resourceID
 	return e
 }
 
 // WithDetails adds additional details to error.
 func (e *AppError) WithDetails(key string, value interface{}) *AppError {
+	kdeps_debug.Log("enter: WithDetails")
 	if e.Details == nil {
 		e.Details = make(map[string]interface{})
 	}
@@ -169,6 +178,7 @@ func (e *AppError) WithDetails(key string, value interface{}) *AppError {
 
 // WithError wraps an underlying error.
 func (e *AppError) WithError(err error) *AppError {
+	kdeps_debug.Log("enter: WithError")
 	e.Err = err
 	if e.Message == "" && err != nil {
 		e.Message = err.Error()
@@ -178,12 +188,14 @@ func (e *AppError) WithError(err error) *AppError {
 
 // WithStack adds stack trace (debug mode).
 func (e *AppError) WithStack(stack string) *AppError {
+	kdeps_debug.Log("enter: WithStack")
 	e.Stack = stack
 	return e
 }
 
 // GetHTTPStatus maps error code to HTTP status.
 func GetHTTPStatus(code AppErrorCode) int {
+	kdeps_debug.Log("enter: GetHTTPStatus")
 	switch code {
 	case ErrCodeValidation, ErrCodeBadRequest:
 		return http.StatusBadRequest
@@ -224,6 +236,7 @@ type ValidationError struct {
 
 // NewValidationError creates a new validation error.
 func NewValidationError(field, errType, message string, value interface{}) *ValidationError {
+	kdeps_debug.Log("enter: NewValidationError")
 	return &ValidationError{
 		Field:   field,
 		Type:    errType,
@@ -234,6 +247,7 @@ func NewValidationError(field, errType, message string, value interface{}) *Vali
 
 // Error implements the error interface.
 func (e *ValidationError) Error() string {
+	kdeps_debug.Log("enter: Error")
 	if e.Field != "" {
 		return fmt.Sprintf("validation error on field '%s': %s", e.Field, e.Message)
 	}

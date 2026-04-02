@@ -23,6 +23,8 @@ package llm
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -35,6 +37,7 @@ type Adapter struct {
 
 // NewAdapter creates a new LLM executor adapter.
 func NewAdapter(ollamaURL string) *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	adapter := &Adapter{
 		executor: NewExecutor(ollamaURL),
 	}
@@ -49,6 +52,7 @@ func NewAdapter(ollamaURL string) *Adapter {
 // NewAdapterWithModelService creates a new LLM executor adapter with a custom model service.
 // This is primarily used for testing to inject mock services.
 func NewAdapterWithModelService(ollamaURL string, modelService ModelServiceInterface) *Adapter {
+	kdeps_debug.Log("enter: NewAdapterWithModelService")
 	adapter := &Adapter{
 		executor:     NewExecutor(ollamaURL),
 		modelService: modelService,
@@ -68,6 +72,7 @@ func NewAdapterWithModelService(ollamaURL string, modelService ModelServiceInter
 // NewAdapterWithMockClient creates a new LLM executor adapter with both mock service and mock HTTP client.
 // This is used for fast unit testing to avoid real HTTP calls.
 func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter {
+	kdeps_debug.Log("enter: NewAdapterWithMockClient")
 	// Create executor with mock client directly
 	executor := &Executor{
 		ollamaURL:       ollamaURL,
@@ -92,6 +97,7 @@ func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter 
 // SetModelService sets the model service for downloading and serving models.
 // This method is called by the engine to enable automatic model management.
 func (a *Adapter) SetModelService(service interface{}) {
+	kdeps_debug.Log("enter: SetModelService")
 	if modelService, ok := service.(ModelServiceInterface); ok {
 		a.modelService = modelService
 		// Wire model manager to executor
@@ -107,6 +113,7 @@ func (a *Adapter) SetModelService(service interface{}) {
 
 // SetOfflineMode sets the offline mode on the model manager.
 func (a *Adapter) SetOfflineMode(offline bool) {
+	kdeps_debug.Log("enter: SetOfflineMode")
 	if a.executor != nil && a.executor.modelManager != nil {
 		a.executor.modelManager.SetOfflineMode(offline)
 	}
@@ -117,16 +124,19 @@ func (a *Adapter) SetOfflineMode(offline bool) {
 func (a *Adapter) SetToolExecutor(toolExecutor interface {
 	ExecuteResource(resource *domain.Resource, ctx *executor.ExecutionContext) (interface{}, error)
 }) {
+	kdeps_debug.Log("enter: SetToolExecutor")
 	a.executor.SetToolExecutor(toolExecutor)
 }
 
 // GetExecutorForTesting returns the underlying executor for testing purposes.
 func (a *Adapter) GetExecutorForTesting() *Executor {
+	kdeps_debug.Log("enter: GetExecutorForTesting")
 	return a.executor
 }
 
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	chatConfig, ok := config.(*domain.ChatConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for LLM executor")

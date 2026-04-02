@@ -35,6 +35,8 @@ import (
 	"strings"
 	"text/template"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -89,10 +91,12 @@ type Compiler interface {
 type DefaultCompiler struct{}
 
 func (c *DefaultCompiler) CreateTempDir() (string, error) {
+	kdeps_debug.Log("enter: CreateTempDir")
 	return os.MkdirTemp("", "kdeps-build-*")
 }
 
 func (c *DefaultCompiler) RemoveAll(path string) error {
+	kdeps_debug.Log("enter: RemoveAll")
 	return os.RemoveAll(path)
 }
 
@@ -103,6 +107,7 @@ func (c *DefaultCompiler) ExecuteCommand(
 	name string,
 	args ...string,
 ) ([]byte, error) {
+	kdeps_debug.Log("enter: ExecuteCommand")
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Env = env
@@ -110,14 +115,17 @@ func (c *DefaultCompiler) ExecuteCommand(
 }
 
 func (c *DefaultCompiler) ReadFile(path string) ([]byte, error) {
+	kdeps_debug.Log("enter: ReadFile")
 	return os.ReadFile(path)
 }
 
 func (c *DefaultCompiler) WriteTarHeader(tw *tar.Writer, header *tar.Header) error {
+	kdeps_debug.Log("enter: WriteTarHeader")
 	return tw.WriteHeader(header)
 }
 
 func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
+	kdeps_debug.Log("enter: WriteTarData")
 	_, err := tw.Write(data)
 	return err
 }
@@ -167,11 +175,13 @@ const (
 
 // NewBuilder creates a new Docker builder with default OS (alpine).
 func NewBuilder() (*Builder, error) {
+	kdeps_debug.Log("enter: NewBuilder")
 	return NewBuilderWithOS(baseOSAlpine)
 }
 
 // NewBuilderWithOS creates a new Docker builder with specified base OS.
 func NewBuilderWithOS(baseOS string) (*Builder, error) {
+	kdeps_debug.Log("enter: NewBuilderWithOS")
 	client, err := NewClient()
 	if err != nil {
 		return nil, err
@@ -196,6 +206,7 @@ func NewBuilderWithOS(baseOS string) (*Builder, error) {
 
 // Build builds a Docker image from a workflow.
 func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (string, error) {
+	kdeps_debug.Log("enter: Build")
 	// Validate workflow
 	if workflow == nil {
 		return "", errors.New("workflow cannot be nil")
@@ -258,6 +269,7 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 // shouldInstallOllama determines if Ollama should be installed in the Docker image.
 // Priority: explicit setting > auto-detect from resources/models.
 func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
+	kdeps_debug.Log("enter: shouldInstallOllama")
 	// Check explicit setting first
 	if workflow.Settings.AgentSettings.InstallOllama != nil {
 		return *workflow.Settings.AgentSettings.InstallOllama
@@ -289,6 +301,7 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 // shouldInstallUV determines if uv should be installed in the Docker image.
 // Install if there are Python resources, Python packages, requirements file, or if it's explicitly enabled.
 func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
+	kdeps_debug.Log("enter: shouldInstallUV")
 	// Check if Python packages are defined
 	if len(workflow.Settings.AgentSettings.PythonPackages) > 0 {
 		return true
@@ -311,6 +324,7 @@ func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
 
 // isOnlineBaseURL checks if a baseURL points to an external (non-local) service.
 func isOnlineBaseURL(baseURL string) bool {
+	kdeps_debug.Log("enter: isOnlineBaseURL")
 	if baseURL == "" {
 		return false
 	}
@@ -319,21 +333,25 @@ func isOnlineBaseURL(baseURL string) bool {
 
 // GetBackendPort returns the default port for Ollama.
 func (b *Builder) GetBackendPort(_ string) int {
+	kdeps_debug.Log("enter: GetBackendPort")
 	return defaultOllamaPort
 }
 
 // getAPIPort returns the API server port from workflow or default.
 func (b *Builder) getAPIPort(workflow *domain.Workflow) int {
+	kdeps_debug.Log("enter: getAPIPort")
 	return workflow.Settings.GetPortNum()
 }
 
 // getWebServerPort returns the web server port from workflow or default.
 func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {
+	kdeps_debug.Log("enter: getWebServerPort")
 	return workflow.Settings.GetPortNum()
 }
 
 // getDefaultModel returns the first model from the workflow if available.
 func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
+	kdeps_debug.Log("enter: getDefaultModel")
 	if len(workflow.Settings.AgentSettings.Models) > 0 {
 		return workflow.Settings.AgentSettings.Models[0]
 	}
@@ -347,6 +365,7 @@ func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 
 // prepackagedFlags returns whether amd64/arm64 prepackaged binaries are set.
 func (b *Builder) prepackagedFlags() (bool, bool) {
+	kdeps_debug.Log("enter: prepackagedFlags")
 	var amd64, arm64 bool
 	if b.PrepackagedBinaries != nil {
 		_, amd64 = b.PrepackagedBinaries["amd64"]
@@ -357,6 +376,7 @@ func (b *Builder) prepackagedFlags() (bool, bool) {
 
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
+	kdeps_debug.Log("enter: buildTemplateData")
 	installOllama := b.shouldInstallOllama(workflow)
 	installUV := b.shouldInstallUV(workflow)
 
@@ -469,6 +489,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 
 // GenerateDockerfile generates a Dockerfile (public method for --show-dockerfile).
 func (b *Builder) GenerateDockerfile(workflow *domain.Workflow) (string, error) {
+	kdeps_debug.Log("enter: GenerateDockerfile")
 	return b.generateDockerfile(workflow)
 }
 
@@ -477,6 +498,7 @@ func (b *Builder) CreateBuildContext(
 	workflow *domain.Workflow,
 	dockerfile string,
 ) (io.Reader, error) {
+	kdeps_debug.Log("enter: CreateBuildContext")
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 
@@ -529,6 +551,7 @@ func (b *Builder) CreateBuildContext(
 // binaries to the tar build context. The workflow files are already embedded
 // inside those binaries, so workflow.yaml / resources / data are not added.
 func (b *Builder) addPrepackagedBinariesToContext(tw *tar.Writer) error {
+	kdeps_debug.Log("enter: addPrepackagedBinariesToContext")
 	for arch, binPath := range b.PrepackagedBinaries {
 		entryName := fmt.Sprintf("kdeps-linux-%s", arch)
 		content, readErr := os.ReadFile(binPath)
@@ -545,6 +568,7 @@ func (b *Builder) addPrepackagedBinariesToContext(tw *tar.Writer) error {
 // addWorkflowFilesToContext adds workflow.yaml and optional resources/data
 // directories to the tar build context (fallback mode — no prepackaged binary).
 func (b *Builder) addWorkflowFilesToContext(tw *tar.Writer) error {
+	kdeps_debug.Log("enter: addWorkflowFilesToContext")
 	if addErr := b.addFileFromPath(tw, "workflow.yaml"); addErr != nil {
 		return fmt.Errorf("failed to add workflow.yaml: %w", addErr)
 	}
@@ -556,6 +580,7 @@ func (b *Builder) addWorkflowFilesToContext(tw *tar.Writer) error {
 
 // addFileToTar adds a file to tar archive.
 func (b *Builder) addFileToTar(tw *tar.Writer, name string, content []byte) error {
+	kdeps_debug.Log("enter: addFileToTar")
 	header := &tar.Header{
 		Name: name,
 		Size: int64(len(content)),
@@ -572,6 +597,7 @@ func (b *Builder) addFileToTar(tw *tar.Writer, name string, content []byte) erro
 
 // addFileFromPath adds a file from filesystem to tar archive.
 func (b *Builder) addFileFromPath(tw *tar.Writer, path string) error {
+	kdeps_debug.Log("enter: addFileFromPath")
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -582,6 +608,7 @@ func (b *Builder) addFileFromPath(tw *tar.Writer, path string) error {
 
 // addDirectoryToTar adds a directory to tar archive.
 func (b *Builder) addDirectoryToTar(tw *tar.Writer, dirPath string) error {
+	kdeps_debug.Log("enter: addDirectoryToTar")
 	return filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

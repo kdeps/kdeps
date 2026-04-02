@@ -42,6 +42,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 
@@ -63,6 +65,7 @@ type Executor struct {
 
 // NewAdapter returns a new email Executor as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -74,6 +77,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.EmailConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("email executor: invalid config type")
@@ -107,6 +111,7 @@ func (e *Executor) executeSend(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSend")
 	ev := e.makeEvaluator(ctx)
 	from := ev(cfg.From)
 	subject := ev(cfg.Subject)
@@ -194,6 +199,7 @@ func (e *Executor) executeRead(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeRead")
 	c, err := e.dialIMAP(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -230,6 +236,7 @@ func (e *Executor) executeSearch(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSearch")
 	ev := e.makeEvaluator(ctx)
 
 	c, err := e.dialIMAP(ctx, cfg)
@@ -270,6 +277,7 @@ func (e *Executor) executeModify(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeModify")
 	ev := e.makeEvaluator(ctx)
 
 	c, err := e.dialIMAP(ctx, cfg)
@@ -338,6 +346,7 @@ func resolveModifyUIDs(
 	c *imapclient.Client,
 	ev evalFn,
 ) (imap.UIDSet, bool, error) {
+	kdeps_debug.Log("enter: resolveModifyUIDs")
 	if len(cfg.UIDs) > 0 {
 		return resolveExplicitUIDs(cfg.UIDs, ev)
 	}
@@ -345,6 +354,7 @@ func resolveModifyUIDs(
 }
 
 func resolveExplicitUIDs(rawUIDs []string, ev evalFn) (imap.UIDSet, bool, error) {
+	kdeps_debug.Log("enter: resolveExplicitUIDs")
 	var uidSet imap.UIDSet
 	for _, raw := range rawUIDs {
 		s := strings.TrimSpace(ev(raw))
@@ -367,6 +377,7 @@ func resolveSearchUIDs(
 	c *imapclient.Client,
 	ev evalFn,
 ) (imap.UIDSet, bool, error) {
+	kdeps_debug.Log("enter: resolveSearchUIDs")
 	criteria := buildSearchCriteria(cfg.Search, ev)
 	searchData, searchErr := c.UIDSearch(&criteria, nil).Wait()
 	if searchErr != nil {
@@ -392,6 +403,7 @@ func applyFlagStore(
 	set *bool,
 	logger *slog.Logger,
 ) {
+	kdeps_debug.Log("enter: applyFlagStore")
 	if set == nil {
 		return
 	}
@@ -407,6 +419,7 @@ func applyFlagStore(
 
 // collectAffectedUIDs expands a UIDSet into a flat slice of uint32 values.
 func collectAffectedUIDs(uidSet imap.UIDSet) []uint32 {
+	kdeps_debug.Log("enter: collectAffectedUIDs")
 	uids := make([]uint32, 0)
 	for _, r := range uidSet {
 		for uid := uint32(r.Start); uid <= uint32(r.Stop); uid++ {
@@ -422,6 +435,7 @@ func (e *Executor) dialIMAP(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (*imapclient.Client, error) {
+	kdeps_debug.Log("enter: dialIMAP")
 	ev := e.makeEvaluator(ctx)
 	host := ev(cfg.IMAP.Host)
 	user := ev(cfg.IMAP.Username)
@@ -506,6 +520,7 @@ func fetchRecent(
 	limit int,
 	markRead bool,
 ) ([]EmailMessage, error) {
+	kdeps_debug.Log("enter: fetchRecent")
 	selData, err := c.Select(mailbox, &imap.SelectOptions{ReadOnly: !markRead}).Wait()
 	if err != nil {
 		return nil, fmt.Errorf("select %q: %w", mailbox, err)
@@ -542,6 +557,7 @@ func fetchBySearch(
 	markRead bool,
 	criteria imap.SearchCriteria,
 ) ([]EmailMessage, error) {
+	kdeps_debug.Log("enter: fetchBySearch")
 	selData, err := c.Select(mailbox, &imap.SelectOptions{ReadOnly: !markRead}).Wait()
 	if err != nil {
 		return nil, fmt.Errorf("select %q: %w", mailbox, err)
@@ -576,6 +592,7 @@ func fetchBySearch(
 }
 
 func bufToMessages(bufs []*imapclient.FetchMessageBuffer) []EmailMessage {
+	kdeps_debug.Log("enter: bufToMessages")
 	result := make([]EmailMessage, 0, len(bufs))
 	for _, m := range bufs {
 		msg := EmailMessage{
@@ -605,6 +622,7 @@ func bufToMessages(bufs []*imapclient.FetchMessageBuffer) []EmailMessage {
 }
 
 func markMessagesRead(c *imapclient.Client, msgs []EmailMessage) {
+	kdeps_debug.Log("enter: markMessagesRead")
 	for _, msg := range msgs {
 		if msg.Seen {
 			continue
@@ -620,6 +638,7 @@ func markMessagesRead(c *imapclient.Client, msgs []EmailMessage) {
 }
 
 func hasFlagSeen(flags []imap.Flag) bool {
+	kdeps_debug.Log("enter: hasFlagSeen")
 	for _, f := range flags {
 		if f == imap.FlagSeen {
 			return true
@@ -629,6 +648,7 @@ func hasFlagSeen(flags []imap.Flag) bool {
 }
 
 func formatAddress(addr imap.Address) string {
+	kdeps_debug.Log("enter: formatAddress")
 	if addr.Name != "" {
 		return fmt.Sprintf("%s <%s@%s>", addr.Name, addr.Mailbox, addr.Host)
 	}
@@ -636,6 +656,7 @@ func formatAddress(addr imap.Address) string {
 }
 
 func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCriteria {
+	kdeps_debug.Log("enter: buildSearchCriteria")
 	criteria := imap.SearchCriteria{}
 	if from := ev(s.From); from != "" {
 		criteria.Header = append(
@@ -669,6 +690,7 @@ func buildSearchCriteria(s domain.EmailSearchConfig, ev evalFn) imap.SearchCrite
 }
 
 func emptyCriteria(c imap.SearchCriteria) bool {
+	kdeps_debug.Log("enter: emptyCriteria")
 	return len(c.SeqNum) == 0 &&
 		len(c.UID) == 0 &&
 		c.Since.IsZero() &&
@@ -688,6 +710,7 @@ func emptyCriteria(c imap.SearchCriteria) bool {
 }
 
 func parseDate(s string) (time.Time, error) {
+	kdeps_debug.Log("enter: parseDate")
 	for _, layout := range []string{"2006-01-02", time.RFC3339} {
 		if t, err := time.Parse(layout, s); err == nil {
 			return t, nil
@@ -697,6 +720,7 @@ func parseDate(s string) (time.Time, error) {
 }
 
 func resolveTimeout(cfg *domain.EmailConfig) time.Duration {
+	kdeps_debug.Log("enter: resolveTimeout")
 	ts := cfg.TimeoutDuration
 	if ts == "" {
 		ts = cfg.Timeout
@@ -712,6 +736,7 @@ func resolveTimeout(cfg *domain.EmailConfig) time.Duration {
 // ─── SMTP helpers ─────────────────────────────────────────────────────────────
 
 func resolveAttachmentPaths(fsRoot string, paths []string) []string {
+	kdeps_debug.Log("enter: resolveAttachmentPaths")
 	if fsRoot == "" {
 		return paths
 	}
@@ -728,6 +753,7 @@ func resolveAttachmentPaths(fsRoot string, paths []string) []string {
 
 func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
+	kdeps_debug.Log("enter: sendSTARTTLS")
 	dialer := &net.Dialer{Timeout: timeout}
 	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
@@ -766,6 +792,7 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 
 func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
+	kdeps_debug.Log("enter: sendImplicitTLS")
 	tlsCfg := &tls.Config{
 		ServerName:         host,
 		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in
@@ -798,6 +825,7 @@ func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 }
 
 func doSend(client *smtp.Client, from string, to []string, msg []byte) error {
+	kdeps_debug.Log("enter: doSend")
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("MAIL FROM: %w", err)
 	}
@@ -819,6 +847,7 @@ func doSend(client *smtp.Client, from string, to []string, msg []byte) error {
 // ─── MIME message builder ─────────────────────────────────────────────────────
 
 func sanitizeHeader(field, val string) error {
+	kdeps_debug.Log("enter: sanitizeHeader")
 	if strings.ContainsAny(val, "\r\n") {
 		return fmt.Errorf("email header %q contains CR or LF (header injection)", field)
 	}
@@ -826,6 +855,7 @@ func sanitizeHeader(field, val string) error {
 }
 
 func sanitizeAddressSlice(addrs []string) error {
+	kdeps_debug.Log("enter: sanitizeAddressSlice")
 	for _, addr := range addrs {
 		if strings.ContainsAny(addr, "\r\n") {
 			return errors.New("email recipient address contains CR or LF (header injection)")
@@ -835,6 +865,7 @@ func sanitizeAddressSlice(addrs []string) error {
 }
 
 func writeAttachmentPart(mw *multipart.Writer, path string) error {
+	kdeps_debug.Log("enter: writeAttachmentPart")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read attachment %q: %w", path, err)
@@ -857,6 +888,7 @@ func writeAttachmentPart(mw *multipart.Writer, path string) error {
 
 func buildMessage(from string, to, cc, bcc []string, subject, body string,
 	isHTML bool, attachments []string) ([]byte, error) {
+	kdeps_debug.Log("enter: buildMessage")
 	if err := sanitizeHeader("From", from); err != nil {
 		return nil, err
 	}
@@ -929,6 +961,7 @@ func buildMessage(from string, to, cc, bcc []string, subject, body string,
 type evalFn func(string) string
 
 func (e *Executor) makeEvaluator(ctx *executor.ExecutionContext) evalFn {
+	kdeps_debug.Log("enter: makeEvaluator")
 	if ctx == nil || ctx.API == nil {
 		return func(s string) string { return s }
 	}
@@ -954,6 +987,7 @@ func (e *Executor) makeEvaluator(ctx *executor.ExecutionContext) evalFn {
 }
 
 func evalSlice(items []string, ev evalFn) []string {
+	kdeps_debug.Log("enter: evalSlice")
 	out := make([]string, 0, len(items))
 	for _, item := range items {
 		if v := strings.TrimSpace(ev(item)); v != "" {

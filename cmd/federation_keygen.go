@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/federation"
@@ -28,6 +30,7 @@ import (
 
 // newFederationKeygenCmd creates the `kdeps federation keygen` command.
 func newFederationKeygenCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationKeygenCmd")
 	var (
 		outputPriv string
 		outputPub  string
@@ -75,6 +78,7 @@ Examples:
 
 // runFederationKeygen executes the key generation logic.
 func runFederationKeygen(orgName, outputPriv, outputPub string, overwrite bool) error {
+	kdeps_debug.Log("enter: runFederationKeygen")
 	// Validate orgName
 	if orgName == "" {
 		return errors.New("organization name is required (use --org)")
@@ -103,6 +107,7 @@ func runFederationKeygen(orgName, outputPriv, outputPub string, overwrite bool) 
 func resolveOutputPaths(
 	orgName, outputPriv, outputPub string,
 ) (string, string, error) {
+	kdeps_debug.Log("enter: resolveOutputPaths")
 	if outputPriv != "" && outputPub != "" {
 		return outputPriv, outputPub, nil
 	}
@@ -121,6 +126,7 @@ func resolveOutputPaths(
 
 // checkKeyFilesExist verifies that key files do not exist unless overwrite is true.
 func checkKeyFilesExist(privPath, pubPath string, overwrite bool) error {
+	kdeps_debug.Log("enter: checkKeyFilesExist")
 	if overwrite {
 		return nil
 	}
@@ -141,6 +147,7 @@ func checkKeyFilesExist(privPath, pubPath string, overwrite bool) error {
 
 // generateAndWriteKeys creates a new Ed25519 keypair and writes them to files.
 func generateAndWriteKeys(privPath, pubPath string) error {
+	kdeps_debug.Log("enter: generateAndWriteKeys")
 	// Generate keypair
 	privKey, _, err := federation.GenerateKeypair()
 	if err != nil {

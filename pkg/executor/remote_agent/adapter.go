@@ -32,6 +32,8 @@ import (
 	"path/filepath"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -53,6 +55,7 @@ type Adapter struct {
 
 // NewAdapter creates a new remote agent adapter.
 func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	// Determine key path
 	home, _ := os.UserHomeDir()
 	keyPath := filepath.Join(home, ".config", "kdeps", "keys", "installation.key")
@@ -77,6 +80,7 @@ func NewAdapter() *Adapter {
 
 // setCallerURN sets the URN for this caller (can be derived from workflow).
 func (a *Adapter) setCallerURN(urn string) {
+	kdeps_debug.Log("enter: setCallerURN")
 	a.callerURN = urn
 }
 
@@ -84,6 +88,7 @@ func (a *Adapter) setCallerURN(urn string) {
 //
 //nolint:funlen,gocognit // complex but linear workflow
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.RemoteAgentConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for RemoteAgent executor")
@@ -297,6 +302,7 @@ func (a *Adapter) tryFallbacks(
 	primary *domain.RemoteAgentConfig,
 	ctx *executor.ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: tryFallbacks")
 	var lastErr error
 	for _, fb := range fallbacks {
 		timeout := fb.Timeout
@@ -323,6 +329,7 @@ func (a *Adapter) tryFallbacks(
 
 // buildEnvironment creates an evaluation environment from the execution context.
 func (a *Adapter) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
 	// Include request context if available
@@ -352,6 +359,7 @@ func (a *Adapter) buildEnvironment(ctx *executor.ExecutionContext) map[string]in
 
 // publicKeyString returns the caller's public key in the format "ed25519:<hex>".
 func (a *Adapter) publicKeyString() string {
+	kdeps_debug.Log("enter: publicKeyString")
 	if a.callerKeyManager == nil {
 		return ""
 	}
@@ -368,6 +376,7 @@ const (
 
 // trustLevelSatisfies returns true if candidate >= required in trust hierarchy.
 func trustLevelSatisfies(candidate, required string) bool {
+	kdeps_debug.Log("enter: trustLevelSatisfies")
 	levels := map[string]int{
 		"self-attested": 1,
 		"verified":      trustLevelVerified,
@@ -383,6 +392,7 @@ func trustLevelSatisfies(candidate, required string) bool {
 
 // parseEd25519PublicKey decodes a PEM-encoded Ed25519 public key.
 func parseEd25519PublicKey(pemData []byte) (ed25519.PublicKey, error) {
+	kdeps_debug.Log("enter: parseEd25519PublicKey")
 	block, _ := pem.Decode(pemData)
 	if block == nil || block.Type != "ED25519 PUBLIC KEY" {
 		return nil, errors.New("invalid PEM block for public key")
@@ -396,6 +406,7 @@ func parseEd25519PublicKey(pemData []byte) (ed25519.PublicKey, error) {
 // parseTimeout converts a timeout string (e.g., "60s") to time.Duration.
 // Defaults to 60 seconds if empty or invalid.
 func parseTimeout(timeout string) time.Duration {
+	kdeps_debug.Log("enter: parseTimeout")
 	if timeout == "" {
 		return defaultTimeoutSecs * time.Second
 	}

@@ -25,6 +25,8 @@ import (
 	"os"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"encoding/pem"
 
 	"github.com/spf13/cobra"
@@ -34,6 +36,7 @@ import (
 
 // newFederationReceiptCmd creates the `kdeps federation receipt` command group.
 func newFederationReceiptCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationReceiptCmd")
 	cmd := &cobra.Command{
 		Use:   "receipt",
 		Short: "Verify signed receipts",
@@ -50,6 +53,7 @@ proof of execution, including outputs, duration, and any errors.`,
 
 // newFederationReceiptVerifyCmd creates `kdeps federation receipt verify`.
 func newFederationReceiptVerifyCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationReceiptVerifyCmd")
 	var (
 		receiptPath string
 		calleeURN   string
@@ -126,6 +130,7 @@ func verifyReceiptBytes(
 	receiptJSON, signature []byte,
 	calleeURNStr, callerURNStr, pubKeyPath string,
 ) error {
+	kdeps_debug.Log("enter: verifyReceiptBytes")
 	// Parse receipt
 	var rec federation.Receipt
 	if err := json.Unmarshal(receiptJSON, &rec); err != nil {
@@ -192,6 +197,7 @@ func verifyReceiptBytes(
 
 // parseEd25519PublicKey decodes a PEM-encoded Ed25519 public key.
 func parseEd25519PublicKey(pemData []byte) (ed25519.PublicKey, error) {
+	kdeps_debug.Log("enter: parseEd25519PublicKey")
 	block, _ := pem.Decode(pemData)
 	if block == nil || block.Type != "ED25519 PUBLIC KEY" {
 		return nil, errors.New("invalid PEM block for public key")

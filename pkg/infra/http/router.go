@@ -21,6 +21,8 @@ package http
 import (
 	stdhttp "net/http"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Router is a simple HTTP router.
@@ -31,6 +33,7 @@ type Router struct {
 
 // NewRouter creates a new router.
 func NewRouter() *Router {
+	kdeps_debug.Log("enter: NewRouter")
 	return &Router{
 		Routes:     make(map[string]map[string]stdhttp.HandlerFunc),
 		Middleware: []func(stdhttp.HandlerFunc) stdhttp.HandlerFunc{},
@@ -39,41 +42,49 @@ func NewRouter() *Router {
 
 // Use adds middleware.
 func (r *Router) Use(middleware func(stdhttp.HandlerFunc) stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: Use")
 	r.Middleware = append(r.Middleware, middleware)
 }
 
 // GET registers a GET route.
 func (r *Router) GET(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: GET")
 	r.register("GET", path, handler)
 }
 
 // POST registers a POST route.
 func (r *Router) POST(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: POST")
 	r.register("POST", path, handler)
 }
 
 // PUT registers a PUT route.
 func (r *Router) PUT(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: PUT")
 	r.register("PUT", path, handler)
 }
 
 // DELETE registers a DELETE route.
 func (r *Router) DELETE(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: DELETE")
 	r.register("DELETE", path, handler)
 }
 
 // PATCH registers a PATCH route.
 func (r *Router) PATCH(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: PATCH")
 	r.register("PATCH", path, handler)
 }
 
 // OPTIONS registers an OPTIONS route.
 func (r *Router) OPTIONS(path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: OPTIONS")
 	r.register("OPTIONS", path, handler)
 }
 
 // register registers a route.
 func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
+	kdeps_debug.Log("enter: register")
 	if r.Routes[method] == nil {
 		r.Routes[method] = make(map[string]stdhttp.HandlerFunc)
 	}
@@ -83,6 +94,7 @@ func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 // findHandler returns the best matching handler for the given method and path.
 // It tries an exact match first, then falls back to longest-matching pattern.
 func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: findHandler")
 	methodRoutes, ok := r.Routes[method]
 	if !ok {
 		return nil
@@ -105,6 +117,7 @@ func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
 
 // ServeHTTP implements stdhttp.Handler.
 func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
+	kdeps_debug.Log("enter: ServeHTTP")
 	routeHandler := func(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 		if handler := r.findHandler(req.Method, req.URL.Path); handler != nil {
 			handler(w, req)
@@ -127,6 +140,7 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 // allowedMethods returns all HTTP methods registered for the given path.
 // Used to populate the Allow header on 405 responses.
 func (r *Router) allowedMethods(path string) []string {
+	kdeps_debug.Log("enter: allowedMethods")
 	var allowed []string
 	for method, routes := range r.Routes {
 		if _, ok := routes[path]; ok {
@@ -145,6 +159,7 @@ func (r *Router) allowedMethods(path string) []string {
 
 // MatchPattern matches a route pattern against a path.
 func (r *Router) MatchPattern(pattern, path string) bool {
+	kdeps_debug.Log("enter: MatchPattern")
 	// Simple pattern matching - supports :param and * wildcard (prefix match)
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
@@ -181,6 +196,7 @@ func (r *Router) MatchPattern(pattern, path string) bool {
 
 // ApplyMiddleware applies all middleware to a handler.
 func (r *Router) ApplyMiddleware(handler stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: ApplyMiddleware")
 	for i := len(r.Middleware) - 1; i >= 0; i-- {
 		handler = r.Middleware[i](handler)
 	}

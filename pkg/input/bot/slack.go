@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/slack-go/slack"
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
@@ -40,12 +42,14 @@ type slackRunner struct {
 }
 
 func newSlackRunner(cfg *domain.SlackConfig, logger *slog.Logger) *slackRunner {
+	kdeps_debug.Log("enter: newSlackRunner")
 	return &slackRunner{cfg: cfg, logger: logger}
 }
 
 // Start connects to Slack via Socket Mode and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *slackRunner) Start(ctx context.Context, ch chan<- Message) error {
+	kdeps_debug.Log("enter: Start")
 	api := slack.New(
 		r.cfg.BotToken,
 		slack.OptionAppLevelToken(r.cfg.AppToken),
@@ -70,6 +74,7 @@ func (r *slackRunner) pumpSocketEvents(
 	client *socketmode.Client,
 	ch chan<- Message,
 ) {
+	kdeps_debug.Log("enter: pumpSocketEvents")
 	for {
 		select {
 		case <-ctx.Done():
@@ -90,6 +95,7 @@ func (r *slackRunner) handleSocketEvent(
 	evt socketmode.Event,
 	ch chan<- Message,
 ) {
+	kdeps_debug.Log("enter: handleSocketEvent")
 	if evt.Type != socketmode.EventTypeEventsAPI {
 		return
 	}
@@ -124,6 +130,7 @@ func (r *slackRunner) handleSocketEvent(
 
 // Reply sends text to the given Slack channel.
 func (r *slackRunner) Reply(_ context.Context, chatID, text string) error {
+	kdeps_debug.Log("enter: Reply")
 	if r.client == nil {
 		return errors.New("slack: client not started")
 	}

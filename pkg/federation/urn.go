@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // URN represents a Universal Agent Federation identifier.
@@ -43,6 +45,7 @@ var urnRegex = regexp.MustCompile(
 // URNs are case-insensitive in authority, namespace, name, and version,
 // but the content hash must be lowercase hex.
 func Parse(urnStr string) (*URN, error) {
+	kdeps_debug.Log("enter: Parse")
 	urnStr = strings.TrimSpace(urnStr)
 	matches := urnRegex.FindStringSubmatch(urnStr)
 	if matches == nil {
@@ -96,6 +99,7 @@ func Parse(urnStr string) (*URN, error) {
 // String returns the canonical string representation of the URN.
 // The content hash is always lowercase hex.
 func (u *URN) String() string {
+	kdeps_debug.Log("enter: String")
 	return fmt.Sprintf("urn:agent:%s/%s:%s@%s#%s:%s",
 		u.Authority,
 		u.Namespace,
@@ -107,6 +111,7 @@ func (u *URN) String() string {
 
 // Equals checks if two URNs are identical (byte-for-byte).
 func (u *URN) Equals(other *URN) bool {
+	kdeps_debug.Log("enter: Equals")
 	if u == nil || other == nil {
 		return u == other
 	}
@@ -121,6 +126,7 @@ func (u *URN) Equals(other *URN) bool {
 // Component returns a specific URN component by name.
 // Valid components: "authority", "namespace", "name", "version", "hashalg", "hash".
 func (u *URN) Component(component string) (string, error) {
+	kdeps_debug.Log("enter: Component")
 	switch strings.ToLower(component) {
 	case "authority":
 		return u.Authority, nil
@@ -142,6 +148,7 @@ func (u *URN) Component(component string) (string, error) {
 // Validate checks if the URN meets all structural requirements.
 // Returns nil if valid, error otherwise.
 func (u *URN) Validate() error {
+	kdeps_debug.Log("enter: Validate")
 	if u.Authority == "" {
 		return errors.New("authority cannot be empty")
 	}
@@ -168,11 +175,13 @@ func (u *URN) Validate() error {
 // In Go, pointer-receiver methods on value fields are only invoked when
 // the containing struct is marshaled via a pointer (e.g. json.Marshal(&receipt)).
 func (u *URN) MarshalJSON() ([]byte, error) {
+	kdeps_debug.Log("enter: MarshalJSON")
 	return json.Marshal(u.String())
 }
 
 // UnmarshalJSON parses a URN from a JSON string.
 func (u *URN) UnmarshalJSON(data []byte) error {
+	kdeps_debug.Log("enter: UnmarshalJSON")
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err

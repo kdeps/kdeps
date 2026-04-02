@@ -19,6 +19,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 const (
@@ -45,6 +47,7 @@ func (r *DefaultLinuxKitRunner) Build(
 	ctx context.Context,
 	configPath, format, arch, outputDir, size string,
 ) error {
+	kdeps_debug.Log("enter: Build")
 	args := []string{"build", "--docker", "--format", format, "--arch", arch, "--dir", outputDir}
 	if size != "" {
 		args = append(args, "--size", size)
@@ -67,6 +70,7 @@ func (r *DefaultLinuxKitRunner) Build(
 
 // CacheImport imports a Docker image tar into linuxkit's local cache.
 func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string) error {
+	kdeps_debug.Log("enter: CacheImport")
 	args := []string{"cache", "import", tarPath}
 
 	//nolint:gosec // binary path and args are internal
@@ -86,6 +90,7 @@ func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string)
 // EnsureLinuxKit locates or downloads the linuxkit binary.
 // Search order: PATH → cache dir → download from GitHub releases.
 func EnsureLinuxKit(ctx context.Context) (string, error) {
+	kdeps_debug.Log("enter: EnsureLinuxKit")
 	// 1. Check PATH
 	if path, err := exec.LookPath("linuxkit"); err == nil {
 		return path, nil
@@ -129,6 +134,7 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 }
 
 func linuxkitCacheDir() (string, error) {
+	kdeps_debug.Log("enter: linuxkitCacheDir")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
@@ -139,6 +145,7 @@ func linuxkitCacheDir() (string, error) {
 
 // LinuxKitDownloadURL returns the download URL for the linuxkit binary.
 func LinuxKitDownloadURL() string {
+	kdeps_debug.Log("enter: LinuxKitDownloadURL")
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
@@ -146,6 +153,7 @@ func LinuxKitDownloadURL() string {
 }
 
 func downloadFile(ctx context.Context, url, dest string) error {
+	kdeps_debug.Log("enter: downloadFile")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err

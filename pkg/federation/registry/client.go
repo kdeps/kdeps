@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/federation"
 )
 
@@ -77,6 +79,7 @@ const (
 
 // NewClient creates a new registry client.
 func NewClient(baseURL string) *Client {
+	kdeps_debug.Log("enter: NewClient")
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
@@ -94,6 +97,7 @@ func NewClient(baseURL string) *Client {
 
 // WithCacheTTL sets the cache TTL (default 5 minutes).
 func (c *Client) WithCacheTTL(ttl time.Duration) *Client {
+	kdeps_debug.Log("enter: WithCacheTTL")
 	c.ttl = ttl
 	return c
 }
@@ -101,6 +105,7 @@ func (c *Client) WithCacheTTL(ttl time.Duration) *Client {
 // ResolveURN resolves a URN to an AgentCapability.
 // It uses the cache if entry is fresh.
 func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapability, error) {
+	kdeps_debug.Log("enter: ResolveURN")
 	urn, err := federation.Parse(urnStr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid URN: %w", err)
@@ -148,12 +153,14 @@ func (c *Client) ResolveURN(ctx context.Context, urnStr string) (*AgentCapabilit
 
 // isLocalhost checks if the authority indicates a direct endpoint (localhost or IP with port).
 func (c *Client) isLocalhost(authority string) bool {
+	kdeps_debug.Log("enter: isLocalhost")
 	// Simple heuristic: contains ':' (port) and is localhost or 127.0.0.1 or [::1]
 	return authority == "localhost" || authority == "127.0.0.1" || authority == "[::1]"
 }
 
 // lookupEndpoint queries the registry to find the agent's endpoint.
 func (c *Client) lookupEndpoint(ctx context.Context, urn *federation.URN) (string, error) {
+	kdeps_debug.Log("enter: lookupEndpoint")
 	// Construct registry lookup URL
 	// For now, simple GET /v1/agents/{urn-encoded}
 	url := fmt.Sprintf("%s/v1/agents/%s", c.baseURL, urn.String())
@@ -191,6 +198,7 @@ func (c *Client) fetchCapability(
 	urn *federation.URN,
 	endpoint string,
 ) (*AgentCapability, error) {
+	kdeps_debug.Log("enter: fetchCapability")
 	// Try the well-known endpoint first: /.well-known/agent/{urn-encoded}
 	wellKnownURL := fmt.Sprintf("%s/.well-known/agent/%s", endpoint, urn.String())
 
@@ -230,6 +238,7 @@ func (c *Client) fetchCapability(
 
 // InvalidateCache removes a specific URN from the cache.
 func (c *Client) InvalidateCache(urnStr string) {
+	kdeps_debug.Log("enter: InvalidateCache")
 	c.mu.Lock()
 	delete(c.cache, urnStr)
 	c.mu.Unlock()
@@ -237,6 +246,7 @@ func (c *Client) InvalidateCache(urnStr string) {
 
 // ClearCache empties the entire cache.
 func (c *Client) ClearCache() {
+	kdeps_debug.Log("enter: ClearCache")
 	c.mu.Lock()
 	c.cache = make(map[string]*cachedEntry)
 	c.mu.Unlock()

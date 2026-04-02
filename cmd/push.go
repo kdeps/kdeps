@@ -32,6 +32,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 	goyaml "gopkg.in/yaml.v3"
 )
@@ -54,6 +56,7 @@ const (
 
 // newPushCmd creates the push command.
 func newPushCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newPushCmd")
 	var token string
 
 	cmd := &cobra.Command{
@@ -104,6 +107,7 @@ Examples:
 
 // pushWorkflow sends a workflow update to a running kdeps container.
 func pushWorkflow(sourcePath, target, token string) error {
+	kdeps_debug.Log("enter: pushWorkflow")
 	// Normalize target URL (strip trailing slash)
 	target = strings.TrimRight(target, "/")
 	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
@@ -144,6 +148,7 @@ func pushWorkflow(sourcePath, target, token string) error {
 // The server extracts the full archive (workflow.yaml, resources/, data/, scripts/, etc.)
 // preserving all supporting files, then hot-reloads the workflow.
 func pushKdepsPackage(packagePath, target, token string) error {
+	kdeps_debug.Log("enter: pushKdepsPackage")
 	pkgData, err := os.ReadFile(packagePath)
 	if err != nil {
 		return fmt.Errorf("failed to read package %s: %w", packagePath, err)
@@ -164,6 +169,7 @@ func pushKdepsPackage(packagePath, target, token string) error {
 
 // printPushResult parses the JSON response body and prints a success summary.
 func printPushResult(resp []byte, label string) error {
+	kdeps_debug.Log("enter: printPushResult")
 	var result map[string]interface{}
 	if jsonErr := json.Unmarshal(resp, &result); jsonErr != nil {
 		return fmt.Errorf("unexpected response from server: %s", string(resp))
@@ -197,6 +203,7 @@ func printPushResult(resp []byte, label string) error {
 // resolveAndReadWorkflow resolves the source path to a workflow YAML byte slice.
 // It handles workflow.yaml files, directories containing workflow.yaml, and .kdeps packages.
 func resolveAndReadWorkflow(sourcePath string) ([]byte, error) {
+	kdeps_debug.Log("enter: resolveAndReadWorkflow")
 	workflowPath, cleanupFunc, err := resolveWorkflowPath(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve workflow path: %w", err)
@@ -222,12 +229,14 @@ func resolveAndReadWorkflow(sourcePath string) ([]byte, error) {
 
 // doPushRequest sends the workflow YAML to the management endpoint and returns the response body.
 func doPushRequest(endpoint string, workflowYAML []byte, token string) ([]byte, error) {
+	kdeps_debug.Log("enter: doPushRequest")
 	return doPut(endpoint, "application/yaml", workflowYAML, pushHTTPTimeout, token)
 }
 
 // doPushPackageRequest sends a raw .kdeps archive to the package management endpoint
 // and returns the response body.  A longer timeout is used because packages may be large.
 func doPushPackageRequest(endpoint string, pkgData []byte, token string) ([]byte, error) {
+	kdeps_debug.Log("enter: doPushPackageRequest")
 	return doPut(endpoint, "application/octet-stream", pkgData, pushPackageHTTPTimeout, token)
 }
 
@@ -241,6 +250,7 @@ func doPut(
 	timeout time.Duration,
 	token string,
 ) ([]byte, error) {
+	kdeps_debug.Log("enter: doPut")
 	client := &stdhttp.Client{Timeout: timeout}
 
 	req, err := stdhttp.NewRequestWithContext(

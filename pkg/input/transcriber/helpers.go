@@ -24,16 +24,20 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // encodeBase64 base64-encodes bytes for API payloads.
 func encodeBase64(data []byte) string {
+	kdeps_debug.Log("enter: encodeBase64")
 	return base64.StdEncoding.EncodeToString(data)
 }
 
 // saveMediaForResources copies the source file to a stable temp path that
 // downstream resources can reference via inputMedia.
 func saveMediaForResources(src string) (string, error) {
+	kdeps_debug.Log("enter: saveMediaForResources")
 	if src == "" {
 		return "", nil
 	}

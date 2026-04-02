@@ -33,6 +33,8 @@ import (
 	"strings"
 	"unicode"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input/transcriber"
 )
@@ -58,6 +60,7 @@ type Detector struct {
 
 // New creates a Detector from an ActivationConfig.
 func New(cfg *domain.ActivationConfig, logger *slog.Logger) (*Detector, error) {
+	kdeps_debug.Log("enter: New")
 	if cfg == nil {
 		return nil, errors.New("activation: config is required")
 	}
@@ -102,7 +105,10 @@ func New(cfg *domain.ActivationConfig, logger *slog.Logger) (*Detector, error) {
 }
 
 // ChunkSeconds returns the configured audio probe duration in seconds.
-func (d *Detector) ChunkSeconds() int { return d.chunkSeconds }
+func (d *Detector) ChunkSeconds() int {
+	kdeps_debug.Log("enter: ChunkSeconds")
+	return d.chunkSeconds
+}
 
 // Detect checks whether the wake phrase is present in the transcription of
 // mediaFile. It returns whether the phrase was detected, the normalized
@@ -110,6 +116,7 @@ func (d *Detector) ChunkSeconds() int { return d.chunkSeconds }
 // Transcription errors are non-fatal: the caller receives false and "" so the
 // activation loop continues listening.
 func (d *Detector) Detect(mediaFile string) (bool, string, error) {
+	kdeps_debug.Log("enter: Detect")
 	if mediaFile == "" {
 		return false, "", nil
 	}
@@ -134,6 +141,7 @@ func (d *Detector) Detect(mediaFile string) (bool, string, error) {
 // At sensitivity == 1.0 (default) an exact substring match is required.
 // At lower values a fuzzy word-overlap fraction is used.
 func (d *Detector) matches(transcript string) bool {
+	kdeps_debug.Log("enter: matches")
 	if d.sensitivity >= DefaultSensitivity {
 		return strings.Contains(transcript, d.phrase)
 	}
@@ -163,6 +171,7 @@ func (d *Detector) matches(transcript string) bool {
 
 // normalizeText lowercases and strips punctuation so comparisons are robust.
 func normalizeText(s string) string {
+	kdeps_debug.Log("enter: normalizeText")
 	s = strings.ToLower(s)
 	var b strings.Builder
 	for _, r := range s {

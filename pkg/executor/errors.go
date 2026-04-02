@@ -23,11 +23,14 @@ import (
 	"fmt"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // WrapResourceError wraps an error with resource context.
 func WrapResourceError(resourceID string, err error) error {
+	kdeps_debug.Log("enter: WrapResourceError")
 	var appErr *domain.AppError
 
 	// If already an AppError, just add resource context
@@ -44,6 +47,7 @@ func WrapResourceError(resourceID string, err error) error {
 
 // WrapValidationError wraps validation errors.
 func WrapValidationError(resourceID string, validationErrors []*domain.ValidationError) error {
+	kdeps_debug.Log("enter: WrapValidationError")
 	appErr := domain.NewAppError(
 		domain.ErrCodeValidation,
 		"Input validation failed",
@@ -67,6 +71,7 @@ func WrapValidationError(resourceID string, validationErrors []*domain.Validatio
 
 // WrapPreflightError wraps preflight check failures.
 func WrapPreflightError(resourceID string, err error) error {
+	kdeps_debug.Log("enter: WrapPreflightError")
 	return domain.NewAppError(
 		domain.ErrCodePreflightFailed,
 		fmt.Sprintf("Preflight check failed: %s", err.Error()),
@@ -75,6 +80,7 @@ func WrapPreflightError(resourceID string, err error) error {
 
 // WrapExpressionError wraps expression evaluation errors.
 func WrapExpressionError(resourceID, expr string, err error) error {
+	kdeps_debug.Log("enter: WrapExpressionError")
 	return domain.NewAppError(
 		domain.ErrCodeExpressionErr,
 		"Expression evaluation failed",
@@ -85,6 +91,7 @@ func WrapExpressionError(resourceID, expr string, err error) error {
 
 // WrapTimeoutError wraps timeout errors.
 func WrapTimeoutError(resourceID string, timeout time.Duration) error {
+	kdeps_debug.Log("enter: WrapTimeoutError")
 	return domain.NewAppError(
 		domain.ErrCodeTimeout,
 		fmt.Sprintf("Resource execution timed out after %v", timeout),
@@ -93,6 +100,7 @@ func WrapTimeoutError(resourceID string, timeout time.Duration) error {
 
 // WrapNotFoundError wraps not found errors.
 func WrapNotFoundError(resourceID string, target string) error {
+	kdeps_debug.Log("enter: WrapNotFoundError")
 	return domain.NewAppError(
 		domain.ErrCodeNotFound,
 		fmt.Sprintf("%s not found", target),
@@ -102,6 +110,7 @@ func WrapNotFoundError(resourceID string, target string) error {
 
 // WrapBadRequestError wraps bad request errors.
 func WrapBadRequestError(resourceID string, reason string) error {
+	kdeps_debug.Log("enter: WrapBadRequestError")
 	return domain.NewAppError(
 		domain.ErrCodeBadRequest,
 		reason,
@@ -110,6 +119,7 @@ func WrapBadRequestError(resourceID string, reason string) error {
 
 // WrapDependencyError wraps dependency failures.
 func WrapDependencyError(resourceID string, dependencyName string, err error) error {
+	kdeps_debug.Log("enter: WrapDependencyError")
 	return domain.NewAppError(
 		domain.ErrCodeDependencyFailed,
 		fmt.Sprintf("Dependency '%s' failed: %s", dependencyName, err.Error()),

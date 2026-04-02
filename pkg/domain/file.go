@@ -18,9 +18,11 @@
 
 package domain
 
-import "time"
-
 // UploadedFile represents a file uploaded via HTTP request.
+import (
+	"time"
+)
+
 type UploadedFile struct {
 	// Unique identifier for the file
 	ID string `json:"id"`

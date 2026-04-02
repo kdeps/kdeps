@@ -16,39 +16,23 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
-
-package exec
+// Package debug provides global debug logging utilities that can be used
+// throughout the KDeps codebase when the --debug flag is set.
+package debug
 
 import (
 	"fmt"
-
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"os"
 )
 
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
+// Enabled returns true if debug logging is enabled via KDEPS_DEBUG or DEBUG env vars.
+func Enabled() bool {
+	return os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true"
 }
 
-// NewAdapter creates a new exec adapter.
-func NewAdapter() *Adapter {
-	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{
-		executor: NewExecutor(),
+// Log writes a debug message to stderr if debug is enabled.
+func Log(msg string) {
+	if Enabled() {
+		fmt.Fprintln(os.Stderr, msg)
 	}
-}
-
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	execConfig, ok := config.(*domain.ExecConfig)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
-	}
-
-	return a.executor.Execute(ctx, execConfig)
 }

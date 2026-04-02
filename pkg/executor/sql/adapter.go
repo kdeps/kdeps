@@ -22,6 +22,8 @@ package sql
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -33,6 +35,7 @@ type Adapter struct {
 
 // NewAdapter creates a new SQL executor adapter.
 func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Adapter{
 		executor: NewExecutor(),
 	}
@@ -40,6 +43,7 @@ func NewAdapter() *Adapter {
 
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	sqlConfig, ok := config.(*domain.SQLConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for SQL executor")

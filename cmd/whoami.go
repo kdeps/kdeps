@@ -25,12 +25,15 @@ import (
 	"fmt"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 )
 
 func newWhoamiCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newWhoamiCmd")
 	return &cobra.Command{
 		Use:   "whoami",
 		Short: "Show current authenticated user",
@@ -45,6 +48,7 @@ Examples:
 }
 
 func runWhoami() error {
+	kdeps_debug.Log("enter: runWhoami")
 	config, err := LoadCloudConfig()
 	if err != nil {
 		return err

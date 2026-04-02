@@ -1,8 +1,12 @@
 package federation
 
-import "errors"
-
 // Common federation errors.
+import (
+	"errors"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
+
 var (
 	ErrInvalidURN          = errors.New("invalid URN format")
 	ErrURNMismatch         = errors.New("URN content hash does not match spec")
@@ -32,6 +36,7 @@ var (
 
 // IsFederationError checks if err is a known federation error.
 func IsFederationError(err error) bool {
+	kdeps_debug.Log("enter: IsFederationError")
 	if err == nil {
 		return false
 	}

@@ -21,12 +21,15 @@ package logging
 import (
 	"log/slog"
 	"os"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // NewLogger creates a new logger with pretty formatting.
 // If debug is true, or if KDEPS_DEBUG or DEBUG env var is set,
 // it sets the log level to Debug and enables source location.
 func NewLogger(debug bool) *slog.Logger {
+	kdeps_debug.Log("enter: NewLogger")
 	if !debug {
 		// Check environment variables
 		if os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true" {
@@ -51,6 +54,7 @@ func NewLogger(debug bool) *slog.Logger {
 
 // NewLoggerWithLevel creates a new logger with a specific log level.
 func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
+	kdeps_debug.Log("enter: NewLoggerWithLevel")
 	opts := &PrettyHandlerOptions{
 		Level:      level,
 		AddSource:  addSource,
@@ -64,6 +68,7 @@ func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
 
 // NewLoggerForFile creates a new logger that writes to a file (no colors).
 func NewLoggerForFile(file *os.File, level slog.Level) *slog.Logger {
+	kdeps_debug.Log("enter: NewLoggerForFile")
 	opts := &PrettyHandlerOptions{
 		Level:         level,
 		AddSource:     true,

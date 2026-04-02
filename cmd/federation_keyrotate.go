@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/federation"
@@ -29,6 +31,7 @@ import (
 
 // newFederationKeyRotateCmd creates the `kdeps federation key-rotate` command.
 func newFederationKeyRotateCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newFederationKeyRotateCmd")
 	var (
 		orgName        string
 		privateKeyPath string
@@ -64,6 +67,7 @@ Examples:
 
 // runFederationKeyRotate executes the key rotation logic.
 func runFederationKeyRotate(orgName, privateKeyPath string, backup bool) error {
+	kdeps_debug.Log("enter: runFederationKeyRotate")
 	// Validate input
 	if orgName == "" && privateKeyPath == "" {
 		return errors.New("organization name or key path is required (use --org or --key)")
@@ -99,6 +103,7 @@ func runFederationKeyRotate(orgName, privateKeyPath string, backup bool) error {
 
 // determineKeyPath resolves the private key path from flags.
 func determineKeyPath(orgName, privateKeyPath string) (string, error) {
+	kdeps_debug.Log("enter: determineKeyPath")
 	if privateKeyPath != "" {
 		return privateKeyPath, nil
 	}
@@ -111,6 +116,7 @@ func determineKeyPath(orgName, privateKeyPath string) (string, error) {
 
 // backupOldKey renames the existing key file with a timestamp suffix.
 func backupOldKey(keyPath string) error {
+	kdeps_debug.Log("enter: backupOldKey")
 	backupPath := fmt.Sprintf("%s.backup-%s", keyPath, time.Now().Format("20060102-150405"))
 	if err := os.Rename(keyPath, backupPath); err != nil {
 		return fmt.Errorf("failed to backup old key: %w", err)
@@ -133,6 +139,7 @@ func backupOldKey(keyPath string) error {
 
 // rotateKeyPair generates a new Ed25519 keypair and writes private and public keys.
 func rotateKeyPair(keyPath string) error {
+	kdeps_debug.Log("enter: rotateKeyPair")
 	// Generate new keypair
 	privKey, _, err := federation.GenerateKeypair()
 	if err != nil {
@@ -153,6 +160,7 @@ func rotateKeyPair(keyPath string) error {
 
 // printRotationSuccess outputs the rotation result to the user.
 func printRotationSuccess(orgName, keyPath string, existingPub []byte) {
+	kdeps_debug.Log("enter: printRotationSuccess")
 	fmt.Fprintf(os.Stdout, "Key rotation completed for %s\n", orgName)
 	fmt.Fprintf(os.Stdout, "  New private: %s\n", keyPath)
 	fmt.Fprintf(os.Stdout, "  New public:  %s\n", keyPath+".pub")

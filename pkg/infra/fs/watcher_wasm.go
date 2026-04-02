@@ -21,27 +21,35 @@
 // Package fs provides file system watching capabilities.
 package fs
 
-import "log/slog"
-
 // Watcher is a no-op stub for WASM builds (no filesystem watching).
+import (
+	"log/slog"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
+
 type Watcher struct{}
 
 // NewWatcher creates a no-op file watcher for WASM.
 func NewWatcher() (*Watcher, error) {
+	kdeps_debug.Log("enter: NewWatcher")
 	return &Watcher{}, nil
 }
 
 // NewWatcherWithLogger creates a no-op file watcher for WASM.
 func NewWatcherWithLogger(_ *slog.Logger) (*Watcher, error) {
+	kdeps_debug.Log("enter: NewWatcherWithLogger")
 	return &Watcher{}, nil
 }
 
 // Watch is a no-op in WASM builds.
 func (w *Watcher) Watch(_ string, _ func()) error {
+	kdeps_debug.Log("enter: Watch")
 	return nil
 }
 
 // Close is a no-op in WASM builds.
 func (w *Watcher) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return nil
 }

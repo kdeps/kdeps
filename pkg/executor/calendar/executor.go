@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/emersion/go-ical"
 	"github.com/google/uuid"
 
@@ -57,6 +59,7 @@ type Executor struct {
 
 // NewAdapter returns a new calendar Executor as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -68,6 +71,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.CalendarConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("calendar executor: invalid config type")
@@ -98,6 +102,7 @@ func (e *Executor) Execute(
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 func resolvePath(ctx *executor.ExecutionContext, cfgPath string) string {
+	kdeps_debug.Log("enter: resolvePath")
 	if ctx != nil && ctx.FSRoot != "" && !filepath.IsAbs(cfgPath) {
 		return filepath.Join(ctx.FSRoot, cfgPath)
 	}
@@ -105,6 +110,7 @@ func resolvePath(ctx *executor.ExecutionContext, cfgPath string) string {
 }
 
 func parseEventDate(s string) (time.Time, error) {
+	kdeps_debug.Log("enter: parseEventDate")
 	for _, layout := range []string{time.RFC3339, dateLayout} {
 		if t, err := time.Parse(layout, s); err == nil {
 			return t, nil
@@ -116,6 +122,7 @@ func parseEventDate(s string) (time.Time, error) {
 // loadCalendar reads and parses an ICS file. Returns an empty calendar if the
 // file does not exist yet.
 func loadCalendar(path string) (*ical.Calendar, error) {
+	kdeps_debug.Log("enter: loadCalendar")
 	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		cal := ical.NewCalendar()
@@ -138,6 +145,7 @@ func loadCalendar(path string) (*ical.Calendar, error) {
 // When the calendar has no children the encoder returns an error, so we write
 // a minimal but valid empty VCALENDAR in that case.
 func saveCalendar(path string, cal *ical.Calendar) error {
+	kdeps_debug.Log("enter: saveCalendar")
 	if mkErr := os.MkdirAll(filepath.Dir(path), 0o750); mkErr != nil {
 		return fmt.Errorf("mkdir %q: %w", filepath.Dir(path), mkErr)
 	}
@@ -158,6 +166,7 @@ func saveCalendar(path string, cal *ical.Calendar) error {
 
 // eventToMap converts a VEVENT component to a plain map for JSON serialisation.
 func eventToMap(comp *ical.Component) map[string]interface{} {
+	kdeps_debug.Log("enter: eventToMap")
 	get := func(name string) string {
 		prop := comp.Props.Get(name)
 		if prop == nil {
@@ -204,6 +213,7 @@ func eventToMap(comp *ical.Component) map[string]interface{} {
 // formatICSDateTime converts a raw ICS date/datetime string to a human-readable
 // form. When allDay is non-nil it is set to true for DATE-only values.
 func formatICSDateTime(raw string, allDay *bool) string {
+	kdeps_debug.Log("enter: formatICSDateTime")
 	if len(raw) == icsDateLen { // DATE form YYYYMMDD
 		if allDay != nil {
 			*allDay = true
@@ -227,6 +237,7 @@ func (e *Executor) executeList(
 	ctx *executor.ExecutionContext,
 	cfg *domain.CalendarConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeList")
 	path := resolvePath(ctx, cfg.FilePath)
 
 	cal, err := loadCalendar(path)
@@ -280,6 +291,7 @@ func (e *Executor) executeList(
 
 // skipByDate returns true when comp should be excluded by the since/before filter.
 func skipByDate(comp *ical.Component, since, before time.Time) bool {
+	kdeps_debug.Log("enter: skipByDate")
 	startProp := comp.Props.Get(ical.PropDateTimeStart)
 	if startProp == nil {
 		return false
@@ -299,6 +311,7 @@ func skipByDate(comp *ical.Component, since, before time.Time) bool {
 
 // matchesSearch returns true when comp's summary or description contains search.
 func matchesSearch(comp *ical.Component, search string) bool {
+	kdeps_debug.Log("enter: matchesSearch")
 	summaryProp := comp.Props.Get(ical.PropSummary)
 	descProp := comp.Props.Get(ical.PropDescription)
 	summary := ""
@@ -314,6 +327,7 @@ func matchesSearch(comp *ical.Component, search string) bool {
 
 // parseICSDateTime handles both DATE (YYYYMMDD) and DATE-TIME (YYYYMMDDTHHMMSSZ) forms.
 func parseICSDateTime(s string) (time.Time, error) {
+	kdeps_debug.Log("enter: parseICSDateTime")
 	for _, layout := range []string{"20060102T150405Z", "20060102T150405", "20060102"} {
 		if t, err := time.Parse(layout, s); err == nil {
 			return t, nil
@@ -328,6 +342,7 @@ func (e *Executor) executeCreate(
 	ctx *executor.ExecutionContext,
 	cfg *domain.CalendarConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeCreate")
 	path := resolvePath(ctx, cfg.FilePath)
 
 	cal, err := loadCalendar(path)
@@ -390,6 +405,7 @@ func (e *Executor) executeCreate(
 
 // setEventDateTime writes a DATE or DATE-TIME property onto a VEVENT component.
 func setEventDateTime(comp *ical.Component, propName, value string, allDay bool) error {
+	kdeps_debug.Log("enter: setEventDateTime")
 	t, err := parseEventDate(value)
 	if err != nil {
 		return err
@@ -410,6 +426,7 @@ func (e *Executor) executeModify(
 	ctx *executor.ExecutionContext,
 	cfg *domain.CalendarConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeModify")
 	if cfg.UID == "" {
 		return nil, errors.New("calendar executor: modify: uid is required")
 	}
@@ -491,6 +508,7 @@ func (e *Executor) executeDelete(
 	ctx *executor.ExecutionContext,
 	cfg *domain.CalendarConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeDelete")
 	if cfg.UID == "" {
 		return nil, errors.New("calendar executor: delete: uid is required")
 	}

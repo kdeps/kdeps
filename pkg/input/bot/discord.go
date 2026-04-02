@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/bwmarrin/discordgo"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -39,12 +41,14 @@ type discordRunner struct {
 }
 
 func newDiscordRunner(cfg *domain.DiscordConfig, logger *slog.Logger) *discordRunner {
+	kdeps_debug.Log("enter: newDiscordRunner")
 	return &discordRunner{cfg: cfg, logger: logger}
 }
 
 // Start connects to Discord Gateway and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
+	kdeps_debug.Log("enter: Start")
 	s, err := discordgo.New("Bot " + r.cfg.BotToken)
 	if err != nil {
 		return fmt.Errorf("discord: create session: %w", err)
@@ -90,6 +94,7 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 
 // Reply sends text to the given Discord channel.
 func (r *discordRunner) Reply(_ context.Context, chatID, text string) error {
+	kdeps_debug.Log("enter: Reply")
 	if r.session == nil {
 		return errors.New("discord: session not started")
 	}

@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/input/activation"
 	"github.com/kdeps/kdeps/v2/pkg/input/capture"
@@ -76,6 +78,7 @@ type Processor struct {
 // Bot sources (discord, slack, telegram, whatsapp) are driven by the Dispatcher
 // and also return nil so the hardware pipeline is not started.
 func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, error) {
+	kdeps_debug.Log("enter: NewProcessor")
 	if cfg == nil || !cfg.HasNonAPISource() {
 		return nil, nil //nolint:nilnil // nil processor signals no input processing needed, not an error
 	}
@@ -142,6 +145,7 @@ func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, err
 // Process runs the activation loop (if configured), then captures media from
 // each source and optionally transcribes it, returning an aggregated Result.
 func (p *Processor) Process() (*Result, error) {
+	kdeps_debug.Log("enter: Process")
 	// Run the activation listen loop using the primary (first) source.
 	if p.detector != nil {
 		if err := p.runActivationLoop(); err != nil {
@@ -170,6 +174,7 @@ type captureResult struct {
 
 // captureAndTranscribe runs all sources concurrently, then aggregates results.
 func (p *Processor) captureAndTranscribe() (*Result, error) {
+	kdeps_debug.Log("enter: captureAndTranscribe")
 	// results is pre-allocated with one slot per source. Each goroutine writes only
 	// to its own index (idx), so concurrent writes are safe without a mutex.
 	results := make([]captureResult, len(p.sources))
@@ -192,6 +197,7 @@ func (p *Processor) captureAndTranscribe() (*Result, error) {
 // captureOne performs capture and optional transcription for a single source,
 // writing into results[idx]. Safe to call from a goroutine.
 func (p *Processor) captureOne(idx int, sc sourceCapture, results []captureResult) {
+	kdeps_debug.Log("enter: captureOne")
 	mediaFile, err := sc.capturer.Capture()
 	if err != nil {
 		results[idx].err = err
@@ -222,6 +228,7 @@ func (p *Processor) captureOne(idx int, sc sourceCapture, results []captureResul
 // error encountered is returned immediately. MediaFile is set to the last
 // non-empty value, matching the original sequential behavior.
 func (p *Processor) aggregateResults(results []captureResult) (*Result, error) {
+	kdeps_debug.Log("enter: aggregateResults")
 	result := &Result{}
 	var transcripts []string
 
@@ -245,6 +252,7 @@ func (p *Processor) aggregateResults(results []captureResult) (*Result, error) {
 // runActivationLoop captures short audio probes (using the primary source) and
 // checks for the wake phrase until it is detected, then returns.
 func (p *Processor) runActivationLoop() error {
+	kdeps_debug.Log("enter: runActivationLoop")
 	p.logger.Info("activation: waiting for wake phrase", "phrase", p.cfg.Activation.Phrase)
 
 	// Use the primary (first) non-API source for probes.

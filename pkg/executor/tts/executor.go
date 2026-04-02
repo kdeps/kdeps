@@ -45,6 +45,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
@@ -53,6 +55,7 @@ import (
 
 // pythonBin returns "python3" when it is on PATH, falling back to "python".
 func pythonBin() string {
+	kdeps_debug.Log("enter: pythonBin")
 	if _, err := exec.LookPath("python3"); err == nil {
 		return "python3"
 	}
@@ -73,6 +76,7 @@ type Executor struct {
 
 // NewAdapter returns a new TTS Executor wrapped as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	return NewAdapterWithClient(
 		logger,
 		&http.Client{Timeout: defaultOnlineTimeoutSec * time.Second},
@@ -82,6 +86,7 @@ func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
 // NewAdapterWithClient returns a new TTS Executor using the supplied HTTP client.
 // This allows test code to inject a mock transport without modifying production paths.
 func NewAdapterWithClient(logger *slog.Logger, client *http.Client) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapterWithClient")
 	return &Executor{logger: logger, client: client}
 }
 
@@ -90,6 +95,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.TTSConfig)
 	if !ok {
 		return nil, errors.New("tts executor: invalid config type")
@@ -155,6 +161,7 @@ func (e *Executor) Execute(
 
 // evaluateText resolves mustache/expr expressions in the text field.
 func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}
@@ -179,6 +186,7 @@ func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) str
 
 // resolveOutputPath decides where the audio file will be written.
 func resolveOutputPath(cfg *domain.TTSConfig) (string, error) {
+	kdeps_debug.Log("enter: resolveOutputPath")
 	if cfg.OutputFile != "" {
 		return cfg.OutputFile, nil
 	}
@@ -201,6 +209,7 @@ func resolveOutputPath(cfg *domain.TTSConfig) (string, error) {
 // ─── Online synthesis ────────────────────────────────────────────────────────
 
 func (e *Executor) synthesizeOnline(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: synthesizeOnline")
 	switch cfg.Online.Provider {
 	case domain.TTSProviderOpenAI:
 		return e.openAITTS(text, cfg, outPath)
@@ -224,6 +233,7 @@ func (e *Executor) synthesizeOnline(text string, cfg *domain.TTSConfig, outPath 
 
 // openAITTS calls the OpenAI /v1/audio/speech endpoint.
 func (e *Executor) openAITTS(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: openAITTS")
 	voice := cfg.Voice
 	if voice == "" {
 		voice = "alloy"
@@ -264,6 +274,7 @@ func (e *Executor) openAITTS(text string, cfg *domain.TTSConfig, outPath string)
 
 // googleTTS calls the Google Cloud TTS REST API.
 func (e *Executor) googleTTS(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: googleTTS")
 	lang := cfg.Language
 	if lang == "" {
 		lang = "en-US"
@@ -331,6 +342,7 @@ func (e *Executor) googleTTS(text string, cfg *domain.TTSConfig, outPath string)
 
 // elevenLabsTTS calls the ElevenLabs /v1/text-to-speech endpoint.
 func (e *Executor) elevenLabsTTS(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: elevenLabsTTS")
 	voiceID := cfg.Voice
 	if voiceID == "" {
 		voiceID = "21m00Tcm4TlvDq8ikWAM" // Rachel (ElevenLabs default)
@@ -361,6 +373,7 @@ func (e *Executor) elevenLabsTTS(text string, cfg *domain.TTSConfig, outPath str
 
 // azureTTS calls the Microsoft Azure Cognitive Services TTS REST API.
 func (e *Executor) azureTTS(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: azureTTS")
 	region := cfg.Online.Region
 	if region == "" {
 		region = "eastus"
@@ -395,6 +408,7 @@ func (e *Executor) azureTTS(text string, cfg *domain.TTSConfig, outPath string) 
 
 // doAndSave performs the HTTP request and writes the response body to outPath.
 func (e *Executor) doAndSave(req *http.Request, outPath, provider string) error {
+	kdeps_debug.Log("enter: doAndSave")
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("tts %s: do request: %w", provider, err)
@@ -420,6 +434,7 @@ const (
 )
 
 func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: synthesizeOffline")
 	engine := cfg.Offline.Engine
 	e.logger.Info("offline TTS", "engine", engine)
 
@@ -443,6 +458,7 @@ func (e *Executor) synthesizeOffline(text string, cfg *domain.TTSConfig, outPath
 
 // piperVoicesDir returns the stable cache directory for downloaded piper voice models.
 func piperVoicesDir() string {
+	kdeps_debug.Log("enter: piperVoicesDir")
 	if cacheDir, err := os.UserCacheDir(); err == nil {
 		return filepath.Join(cacheDir, "kdeps", "piper-voices")
 	}
@@ -453,6 +469,7 @@ func piperVoicesDir() string {
 // "{lang}_{Country}-{speaker}-{quality}" (e.g. "en_US-lessac-medium") into its
 // components so we can build the Hugging Face download URL.
 func parsePiperVoiceName(name string) (string, string, string, string, bool) {
+	kdeps_debug.Log("enter: parsePiperVoiceName")
 	dashIdx := strings.Index(name, "-")
 	if dashIdx < 0 {
 		return "", "", "", "", false
@@ -478,6 +495,7 @@ func parsePiperVoiceName(name string) (string, string, string, string, bool) {
 // downloadPiperVoice downloads the .onnx and .onnx.json model files for voice
 // from the rhasspy/piper-voices Hugging Face repository into destDir.
 func downloadPiperVoice(voice, destDir string) error {
+	kdeps_debug.Log("enter: downloadPiperVoice")
 	lang, langCode, speaker, quality, ok := parsePiperVoiceName(voice)
 	if !ok {
 		return fmt.Errorf(
@@ -529,6 +547,7 @@ func downloadPiperVoice(voice, destDir string) error {
 // When the model is a plain voice name (not a file path), the voice is auto-downloaded
 // to ~/.cache/kdeps/piper-voices/ on first use from Hugging Face.
 func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: piper")
 	model := cfg.Offline.Model
 	if model == "" {
 		model = "en_US-lessac-medium"
@@ -581,6 +600,7 @@ func (e *Executor) piper(text string, cfg *domain.TTSConfig, outPath string) err
 // espeak runs eSpeak-NG.
 // Invokes: espeak-ng -v <voice> -s <speed> -w <outPath> "<text>".
 func (e *Executor) espeak(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: espeak")
 	args := []string{"-w", outPath}
 	if cfg.Voice != "" {
 		args = append(args, "-v", cfg.Voice)
@@ -601,6 +621,7 @@ func (e *Executor) espeak(text string, cfg *domain.TTSConfig, outPath string) er
 
 // festival runs the Festival TTS engine.
 func (e *Executor) festival(text string, outPath string) error {
+	kdeps_debug.Log("enter: festival")
 	script := fmt.Sprintf(
 		`(let ((utt (utt.synth (eval (list 'Utterance 'Text "%s")))))
   (utt.save.wave utt "%s"))`,
@@ -620,6 +641,7 @@ func (e *Executor) festival(text string, outPath string) error {
 // Invokes via `uv run --with TTS python -m TTS.bin.synthesize` so the package is
 // downloaded and cached automatically on first use without manual pip install.
 func (e *Executor) coqui(text string, cfg *domain.TTSConfig, outPath string) error {
+	kdeps_debug.Log("enter: coqui")
 	model := cfg.Offline.Model
 	if model == "" {
 		model = "tts_models/en/ljspeech/tacotron2-DDC"

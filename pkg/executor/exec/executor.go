@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -45,6 +47,7 @@ type CommandRunner interface {
 type DefaultCommandRunner struct{}
 
 func (r *DefaultCommandRunner) Run(cmd *exec.Cmd) error {
+	kdeps_debug.Log("enter: Run")
 	return cmd.Run()
 }
 
@@ -60,6 +63,7 @@ const (
 
 // NewExecutor creates a new exec executor with default command runner.
 func NewExecutor() *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return &Executor{
 		commandRunner: &DefaultCommandRunner{},
 	}
@@ -67,6 +71,7 @@ func NewExecutor() *Executor {
 
 // NewExecutorWithRunner creates a new exec executor with custom command runner.
 func NewExecutorWithRunner(runner CommandRunner) *Executor {
+	kdeps_debug.Log("enter: NewExecutorWithRunner")
 	return &Executor{
 		commandRunner: runner,
 	}
@@ -79,6 +84,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ExecConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	// Validate command is not empty
 	if strings.TrimSpace(config.Command) == "" {
 		return nil, errors.New("command cannot be empty")
@@ -164,6 +170,7 @@ func (e *Executor) resolveConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.ExecConfig,
 ) (*domain.ExecConfig, error) {
+	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
 	// Evaluate TimeoutDuration if it contains expression syntax
@@ -211,6 +218,7 @@ func (e *Executor) evaluateArgs(
 	ctx *executor.ExecutionContext,
 	commandStr string,
 ) []string {
+	kdeps_debug.Log("enter: evaluateArgs")
 	args := make([]string, 0, len(config.Args))
 	isShellScript := (commandStr == "sh" && len(config.Args) > 0 && config.Args[0] == "-c") ||
 		(commandStr == "cmd" && len(config.Args) > 0 && config.Args[0] == "/C")
@@ -247,6 +255,7 @@ func (e *Executor) runCommandWithTimeout(
 	fullCommand string,
 	stdout, stderr *bytes.Buffer,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: runCommandWithTimeout")
 	done := make(chan error, 1)
 	go func() {
 		done <- e.commandRunner.Run(cmd)
@@ -295,6 +304,7 @@ func (e *Executor) runCommandWithTimeout(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
+	kdeps_debug.Log("enter: containsExpressionSyntax")
 	return strings.Contains(s, "{{")
 }
 
@@ -304,6 +314,7 @@ func (e *Executor) EvaluateExpression(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateExpression")
 	env := e.buildEnvironment(ctx)
 
 	parser := expression.NewParser()
@@ -319,6 +330,7 @@ func (e *Executor) EvaluateExpression(
 // For strings, it returns them as-is (no extra escaping needed since Go's exec.Command handles it).
 // For other types, it uses fmt.Sprintf.
 func (e *Executor) ValueToString(value interface{}) string {
+	kdeps_debug.Log("enter: ValueToString")
 	if value == nil {
 		return ""
 	}
@@ -336,6 +348,7 @@ func (e *Executor) ValueToString(value interface{}) string {
 // EscapeForShell escapes a string for safe use in a shell command.
 // It wraps the string in single quotes and escapes any single quotes within it.
 func (e *Executor) EscapeForShell(s string) string {
+	kdeps_debug.Log("enter: EscapeForShell")
 	// Replace single quotes with '\'' (end quote, escaped quote, start quote)
 	escaped := strings.ReplaceAll(s, "'", "'\\''")
 	return "'" + escaped + "'"
@@ -348,6 +361,7 @@ func (e *Executor) EvaluateExpressionsInShellScript(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 ) string {
+	kdeps_debug.Log("enter: EvaluateExpressionsInShellScript")
 	// Find all expressions in the script ({{...}})
 	result := script
 	start := 0
@@ -399,6 +413,7 @@ func (e *Executor) EvaluateExpressionsInShellScript(
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
 	if ctx.Request != nil {

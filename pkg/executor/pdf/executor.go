@@ -39,6 +39,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/google/uuid"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -60,6 +62,7 @@ type Executor struct {
 
 // NewAdapter returns a new PDF Executor as a ResourceExecutor.
 func NewAdapter(logger *slog.Logger) executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -71,6 +74,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.PDFConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("pdf executor: invalid config type")
@@ -163,6 +167,7 @@ func (e *Executor) renderWkhtmltopdf(
 	options []string,
 	timeout time.Duration,
 ) error {
+	kdeps_debug.Log("enter: renderWkhtmltopdf")
 	if _, err := exec.LookPath("wkhtmltopdf"); err != nil {
 		return errors.New("pdf executor: wkhtmltopdf is not installed")
 	}
@@ -190,6 +195,7 @@ func (e *Executor) renderPandoc(
 	options []string,
 	timeout time.Duration,
 ) error {
+	kdeps_debug.Log("enter: renderPandoc")
 	if _, err := exec.LookPath("pandoc"); err != nil {
 		return errors.New("pdf executor: pandoc is not installed")
 	}
@@ -215,6 +221,7 @@ func (e *Executor) renderWeasyprint(
 	options []string,
 	timeout time.Duration,
 ) error {
+	kdeps_debug.Log("enter: renderWeasyprint")
 	if _, err := exec.LookPath("weasyprint"); err != nil {
 		return errors.New("pdf executor: weasyprint is not installed")
 	}
@@ -238,6 +245,7 @@ func (e *Executor) renderWeasyprint(
 
 // runCLI executes an external CLI command with a timeout.
 func runCLI(name string, args []string, timeout time.Duration) error {
+	kdeps_debug.Log("enter: runCLI")
 	rctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -261,6 +269,7 @@ func runCLI(name string, args []string, timeout time.Duration) error {
 // writeTempFile creates a temp file with the given pattern and writes content to it.
 // Returns the file path.
 func writeTempFile(pattern, content string) (string, error) {
+	kdeps_debug.Log("enter: writeTempFile")
 	f, err := os.CreateTemp("", pattern)
 	if err != nil {
 		return "", err
@@ -276,6 +285,7 @@ func writeTempFile(pattern, content string) (string, error) {
 // This allows backends that only support HTML (wkhtmltopdf, weasyprint) to
 // render Markdown content with basic monospace formatting.
 func markdownToHTMLSkeleton(md string) string {
+	kdeps_debug.Log("enter: markdownToHTMLSkeleton")
 	return `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8">
@@ -288,6 +298,7 @@ code{background:#f4f4f4;padding:.2em .4em}</style>
 
 // htmlEscape escapes the five HTML special characters.
 func htmlEscape(s string) string {
+	kdeps_debug.Log("enter: htmlEscape")
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
@@ -298,6 +309,7 @@ func htmlEscape(s string) string {
 
 // evaluateText resolves mustache/expr expressions in the content field.
 func (e *Executor) evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

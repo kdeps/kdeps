@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
 )
@@ -185,6 +187,7 @@ func NewExecutionContext(
 	workflow *domain.Workflow,
 	sessionID ...string,
 ) (*ExecutionContext, error) {
+	kdeps_debug.Log("enter: NewExecutionContext")
 	memoryStorage, err := storage.NewMemoryStorage("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create memory storage: %w", err)
@@ -289,12 +292,14 @@ func NewExecutionContext(
 
 // Env retrieves an environment variable value.
 func (ctx *ExecutionContext) Env(name string) (string, error) {
+	kdeps_debug.Log("enter: Env")
 	return os.Getenv(name), nil
 }
 
 // Get retrieves a value with smart auto-detection.
 // Priority: Items → Memory → Session → Output → Param → Header → File → Info.
 func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, error) {
+	kdeps_debug.Log("enter: Get")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -309,6 +314,7 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 
 // getWithAutoDetection performs auto-detection lookup in priority order.
 func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getWithAutoDetection")
 	// 1. Items (iteration context)
 	if val, ok := ctx.Items[name]; ok {
 		return val, nil
@@ -390,6 +396,7 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 
 // getFromBody retrieves value from request body with filtering.
 func (ctx *ExecutionContext) getFromBody(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getFromBody")
 	if ctx.Request == nil {
 		return nil, errors.New("no request")
 	}
@@ -411,6 +418,7 @@ func (ctx *ExecutionContext) getFromBody(name string) (interface{}, error) {
 
 // getFromQuery retrieves value from query parameters with filtering.
 func (ctx *ExecutionContext) getFromQuery(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getFromQuery")
 	if ctx.Request == nil {
 		return nil, errors.New("no request")
 	}
@@ -424,6 +432,7 @@ func (ctx *ExecutionContext) GetFilteredValue(
 	source map[string]interface{},
 	name, sourceType string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: GetFilteredValue")
 	// Check if source map is nil
 	if source == nil {
 		if len(ctx.allowedParams) > 0 {
@@ -455,6 +464,7 @@ func (ctx *ExecutionContext) getFilteredStringValue(
 	source map[string]string,
 	name, sourceType string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: getFilteredStringValue")
 	// Check if source map is nil
 	if source == nil {
 		if len(ctx.allowedParams) > 0 {
@@ -483,6 +493,7 @@ func (ctx *ExecutionContext) getFilteredStringValue(
 
 // getFromHeaders retrieves value from headers with filtering.
 func (ctx *ExecutionContext) getFromHeaders(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getFromHeaders")
 	if ctx.Request == nil {
 		return nil, errors.New("no request")
 	}
@@ -500,6 +511,7 @@ func (ctx *ExecutionContext) getFromHeaders(name string) (interface{}, error) {
 
 // getFromUploadedFiles retrieves file content from uploaded files.
 func (ctx *ExecutionContext) getFromUploadedFiles(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getFromUploadedFiles")
 	if ctx.Request == nil {
 		return nil, errors.New("no request")
 	}
@@ -514,6 +526,7 @@ func (ctx *ExecutionContext) getFromUploadedFiles(name string) (interface{}, err
 // IsParamAllowed checks if a parameter name is in the allowed list.
 // Exported for testing.
 func (ctx *ExecutionContext) IsParamAllowed(name string) bool {
+	kdeps_debug.Log("enter: IsParamAllowed")
 	// If no filtering is set (empty list), allow all parameters
 	if len(ctx.allowedParams) == 0 {
 		return true
@@ -530,6 +543,7 @@ func (ctx *ExecutionContext) IsParamAllowed(name string) bool {
 // IsHeaderAllowed checks if a header name is in the allowed list (case-insensitive).
 // Exported for testing.
 func (ctx *ExecutionContext) IsHeaderAllowed(name string) bool {
+	kdeps_debug.Log("enter: IsHeaderAllowed")
 	// If no filtering is set (empty list), allow all headers
 	if len(ctx.allowedHeaders) == 0 {
 		return true
@@ -546,6 +560,7 @@ func (ctx *ExecutionContext) IsHeaderAllowed(name string) bool {
 
 // findHeaderValue finds a header value with case-insensitive lookup.
 func (ctx *ExecutionContext) findHeaderValue(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: findHeaderValue")
 	// Try exact match first
 	if val, ok := ctx.Request.Headers[name]; ok {
 		return val, nil
@@ -564,6 +579,7 @@ func (ctx *ExecutionContext) findHeaderValue(name string) (interface{}, error) {
 
 // createNotFoundError creates a helpful error message for missing values.
 func (ctx *ExecutionContext) createNotFoundError(name string) error {
+	kdeps_debug.Log("enter: createNotFoundError")
 	return fmt.Errorf(
 		"value '%s' not found in any context. Try: get('%s', 'memory'), get('%s', 'session'), "+
 			"get('%s', 'output'), get('%s', 'param'), get('%s', 'header'), or get('%s', 'file')",
@@ -572,6 +588,7 @@ func (ctx *ExecutionContext) createNotFoundError(name string) error {
 
 // getByType retrieves a value from a specific storage type.
 func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, error) {
+	kdeps_debug.Log("enter: getByType")
 	switch storageType {
 	case storageTypeItem:
 		// For "item" type, use Item() function which handles iteration context
@@ -629,6 +646,7 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 
 // getMemory retrieves a value from Memory storage.
 func (ctx *ExecutionContext) getMemory(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getMemory")
 	if val, exists := ctx.Memory.Get(name); exists {
 		return val, nil
 	}
@@ -637,6 +655,7 @@ func (ctx *ExecutionContext) getMemory(name string) (interface{}, error) {
 
 // getSession retrieves a value from Session storage.
 func (ctx *ExecutionContext) getSession(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getSession")
 	if val, exists := ctx.Session.Get(name); exists {
 		return val, nil
 	}
@@ -645,6 +664,7 @@ func (ctx *ExecutionContext) getSession(name string) (interface{}, error) {
 
 // GetAllSession retrieves all session data as a map.
 func (ctx *ExecutionContext) GetAllSession() (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: GetAllSession")
 	if ctx.Session == nil {
 		return make(map[string]interface{}), nil
 	}
@@ -653,6 +673,7 @@ func (ctx *ExecutionContext) GetAllSession() (map[string]interface{}, error) {
 
 // getOutput retrieves an output value.
 func (ctx *ExecutionContext) getOutput(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getOutput")
 	if val, ok := ctx.Outputs[name]; ok {
 		return val, nil
 	}
@@ -665,6 +686,7 @@ func (ctx *ExecutionContext) getOutput(name string) (interface{}, error) {
 //
 
 func (ctx *ExecutionContext) GetParam(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetParam")
 	if ctx.Request == nil {
 		return nil, errors.New("no request context")
 	}
@@ -701,6 +723,7 @@ func (ctx *ExecutionContext) GetParam(name string) (interface{}, error) {
 //
 
 func (ctx *ExecutionContext) GetHeader(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetHeader")
 	if ctx.Request == nil {
 		return nil, errors.New("no request context")
 	}
@@ -735,6 +758,7 @@ func (ctx *ExecutionContext) GetHeader(name string) (interface{}, error) {
 
 // getBody retrieves a body field value.
 func (ctx *ExecutionContext) getBody(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: getBody")
 	if ctx.Request != nil && ctx.Request.Body != nil {
 		if val, ok := ctx.Request.Body[name]; ok {
 			return val, nil
@@ -748,6 +772,7 @@ func (ctx *ExecutionContext) getBody(name string) (interface{}, error) {
 //
 //nolint:gocognit // request data parsing supports legacy formats
 func (ctx *ExecutionContext) GetRequestData() map[string]interface{} {
+	kdeps_debug.Log("enter: GetRequestData")
 	data := make(map[string]interface{})
 
 	if ctx.Request == nil {
@@ -814,16 +839,19 @@ func (ctx *ExecutionContext) GetRequestData() map[string]interface{} {
 
 // SetAllowedHeaders sets the allowed headers filter for this context.
 func (ctx *ExecutionContext) SetAllowedHeaders(headers []string) {
+	kdeps_debug.Log("enter: SetAllowedHeaders")
 	ctx.allowedHeaders = headers
 }
 
 // SetAllowedParams sets the allowed params filter for this context.
 func (ctx *ExecutionContext) SetAllowedParams(params []string) {
+	kdeps_debug.Log("enter: SetAllowedParams")
 	ctx.allowedParams = params
 }
 
 // Set stores a value in memory or session.
 func (ctx *ExecutionContext) Set(key string, value interface{}, storageType ...string) error {
+	kdeps_debug.Log("enter: Set")
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 
@@ -862,6 +890,7 @@ func (ctx *ExecutionContext) Set(key string, value interface{}, storageType ...s
 // - Agent data: file("agent:weather:latest/data/forecast.json")
 // Selectors: "first", "last", "all", "count", "mime:type/subtype" (or "mime:type/*" for wildcard).
 func (ctx *ExecutionContext) File(pattern string, selector ...string) (interface{}, error) {
+	kdeps_debug.Log("enter: File")
 	// Check for agent data pattern: agent:name:version/path
 	if strings.HasPrefix(pattern, "agent:") {
 		return ctx.handleAgentData(pattern, selector)
@@ -886,6 +915,7 @@ func (ctx *ExecutionContext) HandleGlobPattern(
 	absPattern, pattern string,
 	selector []string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: HandleGlobPattern")
 	matches, err := filepath.Glob(absPattern)
 	if err != nil {
 		return nil, fmt.Errorf("glob pattern error: %w", err)
@@ -911,6 +941,7 @@ func (ctx *ExecutionContext) handleMimeTypeSelector(
 	pattern string,
 	selector []string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: handleMimeTypeSelector")
 	mimeType := strings.TrimPrefix(selector[0], "mime:")
 	filtered, err := ctx.FilterByMimeType(matches, mimeType)
 	if err != nil {
@@ -935,6 +966,7 @@ func (ctx *ExecutionContext) handleMimeTypeSelector(
 func (ctx *ExecutionContext) handleEmptyFilteredResults(
 	selector, mimeType, pattern string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: handleEmptyFilteredResults")
 	switch selector {
 	case itemKeyCount:
 		return 0, nil
@@ -952,6 +984,7 @@ func (ctx *ExecutionContext) ApplySelector(
 	matches []string,
 	pattern, selector string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: ApplySelector")
 	switch selector {
 	case "first":
 		if len(matches) > 0 {
@@ -975,6 +1008,7 @@ func (ctx *ExecutionContext) ApplySelector(
 
 // readAllFiles reads all files in the list.
 func (ctx *ExecutionContext) readAllFiles(paths []string) ([]interface{}, error) {
+	kdeps_debug.Log("enter: readAllFiles")
 	results := make([]interface{}, len(paths))
 	for i, path := range paths {
 		content, fileErr := ReadFile(path)
@@ -991,6 +1025,7 @@ func (ctx *ExecutionContext) FilterByMimeType(
 	paths []string,
 	targetMimeType string,
 ) ([]string, error) {
+	kdeps_debug.Log("enter: FilterByMimeType")
 	filtered := make([]string, 0)
 
 	for _, path := range paths {
@@ -1056,6 +1091,7 @@ func (ctx *ExecutionContext) FilterByMimeType(
 // Format: agent:name:version/path or agent:name:latest/path
 // Example: agent:weather:latest/data/forecast.json.
 func (ctx *ExecutionContext) handleAgentData(pattern string, _ []string) (interface{}, error) {
+	kdeps_debug.Log("enter: handleAgentData")
 	// Parse agent pattern: agent:name:version/path
 	// Remove "agent:" prefix
 	pattern = strings.TrimPrefix(pattern, "agent:")
@@ -1098,6 +1134,7 @@ func (ctx *ExecutionContext) handleAgentData(pattern string, _ []string) (interf
 
 // Info retrieves metadata.
 func (ctx *ExecutionContext) Info(field string) (interface{}, error) {
+	kdeps_debug.Log("enter: Info")
 	// Handle shorthand metadata names
 	switch field {
 	case "method":
@@ -1157,6 +1194,7 @@ func (ctx *ExecutionContext) Info(field string) (interface{}, error) {
 
 // getRequestMethod retrieves the HTTP method.
 func (ctx *ExecutionContext) getRequestMethod() (interface{}, error) {
+	kdeps_debug.Log("enter: getRequestMethod")
 	if ctx.Request != nil {
 		return ctx.Request.Method, nil
 	}
@@ -1165,6 +1203,7 @@ func (ctx *ExecutionContext) getRequestMethod() (interface{}, error) {
 
 // getRequestPath retrieves the request path.
 func (ctx *ExecutionContext) getRequestPath() (interface{}, error) {
+	kdeps_debug.Log("enter: getRequestPath")
 	if ctx.Request != nil {
 		return ctx.Request.Path, nil
 	}
@@ -1173,6 +1212,7 @@ func (ctx *ExecutionContext) getRequestPath() (interface{}, error) {
 
 // getFileCount retrieves the count of uploaded files.
 func (ctx *ExecutionContext) getFileCount() (interface{}, error) {
+	kdeps_debug.Log("enter: getFileCount")
 	if ctx.Request != nil {
 		// Check Files array first (new way)
 		if len(ctx.Request.Files) > 0 {
@@ -1190,6 +1230,7 @@ func (ctx *ExecutionContext) getFileCount() (interface{}, error) {
 
 // getFiles retrieves the uploaded file paths (for backward compatibility with old API).
 func (ctx *ExecutionContext) getFiles() (interface{}, error) {
+	kdeps_debug.Log("enter: getFiles")
 	if ctx.Request != nil && len(ctx.Request.Files) > 0 {
 		return ctx.GetAllFilePaths()
 	}
@@ -1204,6 +1245,7 @@ func (ctx *ExecutionContext) getFiles() (interface{}, error) {
 
 // getItemFromContext retrieves an item from the context or returns an error.
 func (ctx *ExecutionContext) getItemFromContext(key string) (interface{}, error) {
+	kdeps_debug.Log("enter: getItemFromContext")
 	if val, ok := ctx.Items[key]; ok {
 		return val, nil
 	}
@@ -1212,11 +1254,13 @@ func (ctx *ExecutionContext) getItemFromContext(key string) (interface{}, error)
 
 // getCurrentTime retrieves the current time in ISO 8601 format (RFC3339).
 func (ctx *ExecutionContext) getCurrentTime() (interface{}, error) {
+	kdeps_debug.Log("enter: getCurrentTime")
 	return time.Now().UTC().Format(time.RFC3339), nil
 }
 
 // GetSessionID retrieves the session ID (exported for testing).
 func (ctx *ExecutionContext) GetSessionID() (interface{}, error) {
+	kdeps_debug.Log("enter: GetSessionID")
 	// First, check for session ID in request headers (X-Session-ID)
 	if ctx.Request != nil && ctx.Request.Headers != nil {
 		if sessionID, ok := ctx.Request.Headers["X-Session-ID"]; ok && sessionID != "" {
@@ -1248,6 +1292,7 @@ func (ctx *ExecutionContext) GetSessionID() (interface{}, error) {
 
 // GetRequestIP retrieves the client IP address (exported for testing).
 func (ctx *ExecutionContext) GetRequestIP() (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestIP")
 	if ctx.Request != nil {
 		return ctx.Request.IP, nil
 	}
@@ -1257,6 +1302,7 @@ func (ctx *ExecutionContext) GetRequestIP() (interface{}, error) {
 // GetRequestID retrieves the request ID.
 // GetRequestID retrieves the request ID (exported for testing).
 func (ctx *ExecutionContext) GetRequestID() (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestID")
 	if ctx.Request != nil {
 		return ctx.Request.ID, nil
 	}
@@ -1270,6 +1316,7 @@ func (ctx *ExecutionContext) GetRequestID() (interface{}, error) {
 // - Index access: "file[0]" or "file[1]" for array-style access.
 // GetUploadedFile retrieves an uploaded file by name (exported for testing).
 func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
+	kdeps_debug.Log("enter: GetUploadedFile")
 	if ctx.Request == nil {
 		return nil, errors.New("no request context")
 	}
@@ -1314,6 +1361,7 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 
 // GetAllFilePaths gets all file paths from uploaded files.
 func (ctx *ExecutionContext) GetAllFilePaths() ([]string, error) {
+	kdeps_debug.Log("enter: GetAllFilePaths")
 	if ctx.Request == nil {
 		return []string{}, nil
 	}
@@ -1326,6 +1374,7 @@ func (ctx *ExecutionContext) GetAllFilePaths() ([]string, error) {
 
 // GetAllFileNames gets all file names from uploaded files.
 func (ctx *ExecutionContext) GetAllFileNames() ([]string, error) {
+	kdeps_debug.Log("enter: GetAllFileNames")
 	if ctx.Request == nil {
 		return []string{}, nil
 	}
@@ -1338,6 +1387,7 @@ func (ctx *ExecutionContext) GetAllFileNames() ([]string, error) {
 
 // GetAllFileTypes gets all file types from uploaded files.
 func (ctx *ExecutionContext) GetAllFileTypes() ([]string, error) {
+	kdeps_debug.Log("enter: GetAllFileTypes")
 	if ctx.Request == nil {
 		return []string{}, nil
 	}
@@ -1350,6 +1400,7 @@ func (ctx *ExecutionContext) GetAllFileTypes() ([]string, error) {
 
 // GetFilesByType gets files by MIME type.
 func (ctx *ExecutionContext) GetFilesByType(mimeType string) ([]string, error) {
+	kdeps_debug.Log("enter: GetFilesByType")
 	if ctx.Request == nil {
 		return []string{}, nil
 	}
@@ -1364,6 +1415,7 @@ func (ctx *ExecutionContext) GetFilesByType(mimeType string) ([]string, error) {
 
 // GetRequestFileContent retrieves uploaded file content by name.
 func (ctx *ExecutionContext) GetRequestFileContent(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestFileContent")
 	file, err := ctx.GetUploadedFile(name)
 	if err != nil {
 		return nil, err
@@ -1373,6 +1425,7 @@ func (ctx *ExecutionContext) GetRequestFileContent(name string) (interface{}, er
 
 // GetRequestFilePath retrieves uploaded file path by name.
 func (ctx *ExecutionContext) GetRequestFilePath(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestFilePath")
 	file, err := ctx.GetUploadedFile(name)
 	if err != nil {
 		return nil, err
@@ -1382,6 +1435,7 @@ func (ctx *ExecutionContext) GetRequestFilePath(name string) (interface{}, error
 
 // GetRequestFileType retrieves uploaded file MIME type by name.
 func (ctx *ExecutionContext) GetRequestFileType(name string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestFileType")
 	file, err := ctx.GetUploadedFile(name)
 	if err != nil {
 		return nil, err
@@ -1391,11 +1445,13 @@ func (ctx *ExecutionContext) GetRequestFileType(name string) (interface{}, error
 
 // GetRequestFilesByType retrieves file paths filtered by MIME type.
 func (ctx *ExecutionContext) GetRequestFilesByType(mimeType string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetRequestFilesByType")
 	return ctx.GetFilesByType(mimeType)
 }
 
 // GetLLMResponse retrieves LLM response text from resource output.
 func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetLLMResponse")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1430,6 +1486,7 @@ func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error
 
 // GetLLMPrompt retrieves LLM prompt text (not stored in output, would need to be from resource config).
 func (ctx *ExecutionContext) GetLLMPrompt(_ string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetLLMPrompt")
 	// Prompt is not stored in output, would need access to resource config
 	// For now, return nil as this requires additional context
 	return nil, errors.New("prompt not available from output (requires resource config access)")
@@ -1437,6 +1494,7 @@ func (ctx *ExecutionContext) GetLLMPrompt(_ string) (interface{}, error) {
 
 // GetPythonStdout retrieves Python stdout from resource output.
 func (ctx *ExecutionContext) GetPythonStdout(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetPythonStdout")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1459,6 +1517,7 @@ func (ctx *ExecutionContext) GetPythonStdout(actionID string) (interface{}, erro
 
 // GetPythonStderr retrieves Python stderr from resource output.
 func (ctx *ExecutionContext) GetPythonStderr(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetPythonStderr")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1475,6 +1534,7 @@ func (ctx *ExecutionContext) GetPythonStderr(actionID string) (interface{}, erro
 
 // GetPythonExitCode retrieves Python exit code from resource output.
 func (ctx *ExecutionContext) GetPythonExitCode(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetPythonExitCode")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1494,6 +1554,7 @@ func (ctx *ExecutionContext) GetPythonExitCode(actionID string) (interface{}, er
 
 // GetExecStdout retrieves Exec stdout from resource output.
 func (ctx *ExecutionContext) GetExecStdout(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetExecStdout")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1510,6 +1571,7 @@ func (ctx *ExecutionContext) GetExecStdout(actionID string) (interface{}, error)
 
 // GetExecStderr retrieves Exec stderr from resource output.
 func (ctx *ExecutionContext) GetExecStderr(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetExecStderr")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1526,6 +1588,7 @@ func (ctx *ExecutionContext) GetExecStderr(actionID string) (interface{}, error)
 
 // GetExecExitCode retrieves Exec exit code from resource output.
 func (ctx *ExecutionContext) GetExecExitCode(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetExecExitCode")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1545,6 +1608,7 @@ func (ctx *ExecutionContext) GetExecExitCode(actionID string) (interface{}, erro
 
 // GetHTTPResponseBody retrieves HTTP response body from resource output.
 func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetHTTPResponseBody")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1570,6 +1634,7 @@ func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, 
 func (ctx *ExecutionContext) GetHTTPResponseHeader(
 	actionID, headerName string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: GetHTTPResponseHeader")
 	output, ok := ctx.Outputs[actionID]
 	if !ok {
 		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
@@ -1596,6 +1661,7 @@ func (ctx *ExecutionContext) GetHTTPResponseHeader(
 // IsMetadataField checks if a name is a metadata field.
 // IsMetadataField checks if a name is a metadata field (exported for testing).
 func (ctx *ExecutionContext) IsMetadataField(name string) bool {
+	kdeps_debug.Log("enter: IsMetadataField")
 	metadataFields := []string{
 		"method", "path", "filecount", "files", itemKeyIndex, itemKeyCount,
 		itemKeyCurrent, itemKeyPrev, itemKeyNext, "current_time", "timestamp",
@@ -1616,6 +1682,7 @@ func (ctx *ExecutionContext) IsMetadataField(name string) bool {
 // IsFilePattern checks if a name looks like a file pattern or path.
 // IsFilePattern checks if a name is a file pattern (exported for testing).
 func (ctx *ExecutionContext) IsFilePattern(name string) bool {
+	kdeps_debug.Log("enter: IsFilePattern")
 	// Check for wildcards first
 	if strings.Contains(name, "*") {
 		return true
@@ -1691,6 +1758,7 @@ func (ctx *ExecutionContext) IsFilePattern(name string) bool {
 
 // SetOutput stores a resource output.
 func (ctx *ExecutionContext) SetOutput(actionID string, output interface{}) {
+	kdeps_debug.Log("enter: SetOutput")
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	ctx.Outputs[actionID] = output
@@ -1698,6 +1766,7 @@ func (ctx *ExecutionContext) SetOutput(actionID string, output interface{}) {
 
 // GetOutput retrieves a resource output.
 func (ctx *ExecutionContext) GetOutput(actionID string) (interface{}, bool) {
+	kdeps_debug.Log("enter: GetOutput")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 	output, ok := ctx.Outputs[actionID]
@@ -1707,6 +1776,7 @@ func (ctx *ExecutionContext) GetOutput(actionID string) (interface{}, bool) {
 // ReadFile reads a file and returns its content.
 // ReadFile reads a file or directory (exported for testing).
 func ReadFile(path string) (interface{}, error) {
+	kdeps_debug.Log("enter: ReadFile")
 	// Check if file exists.
 	info, err := os.Stat(path)
 	if err != nil {
@@ -1743,6 +1813,7 @@ func (ctx *ExecutionContext) WalkFiles(
 	pattern string,
 	fn func(path string, info fs.FileInfo) error,
 ) error {
+	kdeps_debug.Log("enter: WalkFiles")
 	root := filepath.Join(ctx.FSRoot, pattern)
 	return filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -1758,6 +1829,7 @@ func (ctx *ExecutionContext) WalkFiles(
 //
 //nolint:gocognit // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
+	kdeps_debug.Log("enter: Input")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -1836,6 +1908,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 // Output retrieves resource outputs.
 // Syntax: Output(resourceID).
 func (ctx *ExecutionContext) Output(resourceID string) (interface{}, error) {
+	kdeps_debug.Log("enter: Output")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -1855,6 +1928,7 @@ func (ctx *ExecutionContext) Output(resourceID string) (interface{}, error) {
 // - "count": returns total item count
 // - "all" or "items": returns all items as an array.
 func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
+	kdeps_debug.Log("enter: Item")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -1911,6 +1985,7 @@ func (ctx *ExecutionContext) Item(itemType ...string) (interface{}, error) {
 // - "count": returns current 1-based iteration count
 // - "results": returns accumulated results from previous iterations.
 func (ctx *ExecutionContext) Loop(key string) (interface{}, error) {
+	kdeps_debug.Log("enter: Loop")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -1942,6 +2017,7 @@ func (ctx *ExecutionContext) Loop(key string) (interface{}, error) {
 
 // GetItemValues retrieves all iteration values for a specific action ID.
 func (ctx *ExecutionContext) GetItemValues(actionID string) (interface{}, error) {
+	kdeps_debug.Log("enter: GetItemValues")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
@@ -1957,6 +2033,7 @@ func (ctx *ExecutionContext) GetItemValues(actionID string) (interface{}, error)
 // buildEvaluationEnvironment provides.  It is used by sub-executors (e.g. TTS)
 // that evaluate expressions outside the main engine eval loop.
 func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
+	kdeps_debug.Log("enter: BuildEvaluatorEnv")
 	env := make(map[string]interface{})
 
 	env["llm"] = map[string]interface{}{

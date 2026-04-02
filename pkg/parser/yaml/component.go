@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -33,6 +35,7 @@ import (
 // It tries component.yaml first, then Jinja2 variants, then .yml forms.
 // Returns an empty string if none exist.
 func FindComponentFile(dir string) string {
+	kdeps_debug.Log("enter: FindComponentFile")
 	candidates := []string{
 		filepath.Join(dir, "component.yaml"),
 		filepath.Join(dir, "component.yaml.j2"),
@@ -53,11 +56,13 @@ const komponentExtension = ".komponent"
 
 // isKomponentFile reports whether name is a .komponent archive.
 func isKomponentFile(name string) bool {
+	kdeps_debug.Log("enter: isKomponentFile")
 	return strings.HasSuffix(name, komponentExtension)
 }
 
 // ParseComponent parses a component.yaml file.
 func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
+	kdeps_debug.Log("enter: ParseComponent")
 	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
 		sv := p.schemaValidator
@@ -98,6 +103,7 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 // parses each component.yaml it finds, and prepends its resources to the host
 // workflow (local resources win on actionId conflict, same pattern as loadImportedWorkflows).
 func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) error {
+	kdeps_debug.Log("enter: loadComponents")
 	absWorkflowPath, err := filepath.Abs(workflowPath)
 	if err != nil {
 		absWorkflowPath = workflowPath
@@ -165,6 +171,7 @@ func (p *Parser) processComponentEntry(
 	compDir string,
 	existing map[string]struct{},
 ) ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: processComponentEntry")
 	compFile := FindComponentFile(compDir)
 	if compFile == "" {
 		return nil, nil
@@ -198,6 +205,7 @@ func (p *Parser) processKomponentComponent(
 	pkgPath string,
 	existing map[string]struct{},
 ) ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: processKomponentComponent")
 	tempDir, _, err := extractKdepsPackage(pkgPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract component package: %w", err)
@@ -214,6 +222,7 @@ func (p *Parser) loadComponentResources(
 	component *domain.Component,
 	componentPath string,
 ) ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: loadComponentResources")
 	absPath, err := filepath.Abs(componentPath)
 	if err != nil {
 		absPath = componentPath
@@ -274,11 +283,13 @@ func (p *Parser) loadComponentResources(
 
 // hasJ2Suffix reports whether name ends with ".j2".
 func hasJ2Suffix(name string) bool {
+	kdeps_debug.Log("enter: hasJ2Suffix")
 	return len(name) > 3 && name[len(name)-3:] == ".j2"
 }
 
 // trimJ2Suffix removes the trailing ".j2" from name.
 func trimJ2Suffix(name string) string {
+	kdeps_debug.Log("enter: trimJ2Suffix")
 	if hasJ2Suffix(name) {
 		return name[:len(name)-3]
 	}

@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -64,6 +66,7 @@ const (
 
 // NewExecutor creates a new LLM executor.
 func NewExecutor(ollamaURL string) *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	if ollamaURL == "" {
 		ollamaURL = "http://localhost:11434"
 	}
@@ -79,16 +82,19 @@ func NewExecutor(ollamaURL string) *Executor {
 
 // SetToolExecutor sets the tool executor for executing tool resources.
 func (e *Executor) SetToolExecutor(executor toolExecutorInterface) {
+	kdeps_debug.Log("enter: SetToolExecutor")
 	e.toolExecutor = executor
 }
 
 // SetModelManager sets the model manager for downloading and serving models.
 func (e *Executor) SetModelManager(manager *ModelManager) {
+	kdeps_debug.Log("enter: SetModelManager")
 	e.modelManager = manager
 }
 
 // SetHTTPClientForTesting sets the HTTP client for testing (allows mocking).
 func (e *Executor) SetHTTPClientForTesting(client HTTPClient) {
+	kdeps_debug.Log("enter: SetHTTPClientForTesting")
 	e.client = client
 }
 
@@ -96,6 +102,7 @@ func (e *Executor) SetHTTPClientForTesting(client HTTPClient) {
 // Returns default values if URL is empty or invalid.
 // If defaultHost is empty, "localhost" is used as the default.
 func parseHostPortFromURL(baseURL string, defaultHost string, defaultPort int) (string, int) {
+	kdeps_debug.Log("enter: parseHostPortFromURL")
 	if defaultHost == "" {
 		defaultHost = "localhost"
 	}
@@ -112,6 +119,7 @@ func parseHostPortFromURL(baseURL string, defaultHost string, defaultPort int) (
 }
 
 func extractHostPortManually(baseURL string, defaultHost string, defaultPort int) (string, int) {
+	kdeps_debug.Log("enter: extractHostPortManually")
 	host := defaultHost
 	port := defaultPort
 
@@ -151,6 +159,7 @@ func extractHostPortFromParsedURL(
 	defaultHost string,
 	defaultPort int,
 ) (string, int) {
+	kdeps_debug.Log("enter: extractHostPortFromParsedURL")
 	// URL parsed successfully, extract hostname
 	host := parsedURL.Hostname()
 	if host == "" {
@@ -196,6 +205,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ChatConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	// Resolve configuration with evaluated expressions
@@ -335,6 +345,7 @@ func (e *Executor) resolveConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.ChatConfig,
 ) (*domain.ChatConfig, error) {
+	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
 	// Evaluate Backend if it contains expression syntax
@@ -401,6 +412,7 @@ func (e *Executor) handleToolCalls(
 	response map[string]interface{},
 	timeout time.Duration,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: handleToolCalls")
 	maxIterations := 5
 	currentResponse := response
 	currentMessages := messages
@@ -444,6 +456,7 @@ func (e *Executor) buildMessages(
 	config *domain.ChatConfig,
 	promptStr string,
 ) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: buildMessages")
 	// Build content: text + images for multimodal support
 	content, err := e.buildContent(promptStr, config.Files, ctx, evaluator)
 	if err != nil {
@@ -521,6 +534,7 @@ func (e *Executor) buildMessages(
 
 // buildSystemPrompt builds the system prompt with JSON response instructions (v1 compatibility).
 func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
+	kdeps_debug.Log("enter: buildSystemPrompt")
 	var sb strings.Builder
 
 	// Add JSON response instructions if enabled (v1 style)
@@ -582,6 +596,7 @@ func (e *Executor) buildContent(
 	ctx *executor.ExecutionContext,
 	evaluator *expression.Evaluator,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: buildContent")
 	// If no files, return simple string
 	if len(filePaths) == 0 {
 		return promptStr, nil
@@ -626,6 +641,7 @@ func (e *Executor) loadImageAsBase64(
 	filePath string,
 	ctx *executor.ExecutionContext,
 ) (string, string, error) {
+	kdeps_debug.Log("enter: loadImageAsBase64")
 	fullPath, mimeType, err := e.findAndResolveImageFile(filePath, ctx)
 	if err != nil {
 		return "", "", err
@@ -639,6 +655,7 @@ func (e *Executor) findAndResolveImageFile(
 	filePath string,
 	ctx *executor.ExecutionContext,
 ) (string, string, error) {
+	kdeps_debug.Log("enter: findAndResolveImageFile")
 	// Try to get file from uploaded files first
 	fullPath, mimeType, found := e.findUploadedFile(filePath, ctx)
 	if found {
@@ -654,6 +671,7 @@ func (e *Executor) findUploadedFile(
 	filePath string,
 	ctx *executor.ExecutionContext,
 ) (string, string, bool) {
+	kdeps_debug.Log("enter: findUploadedFile")
 	if ctx.Request == nil || ctx.Request.Files == nil || len(ctx.Request.Files) == 0 {
 		return "", "", false
 	}
@@ -679,6 +697,7 @@ func (e *Executor) resolveFilesystemImageFile(
 	filePath string,
 	ctx *executor.ExecutionContext,
 ) (string, string, error) {
+	kdeps_debug.Log("enter: resolveFilesystemImageFile")
 	// Resolve relative to context FSRoot
 	fullPath := filePath
 	if len(filePath) > 0 && !os.IsPathSeparator(filePath[0]) && ctx.FSRoot != "" {
@@ -696,6 +715,7 @@ func (e *Executor) resolveFilesystemImageFile(
 
 // detectImageMimeType detects MIME type from file extension or content.
 func (e *Executor) detectImageMimeType(filePath string) (string, error) {
+	kdeps_debug.Log("enter: detectImageMimeType")
 	// Try to detect MIME type from file extension
 	ext := filepath.Ext(filePath)
 	switch strings.ToLower(ext) {
@@ -729,6 +749,7 @@ func (e *Executor) detectImageMimeType(filePath string) (string, error) {
 
 // encodeFileToBase64 reads and encodes file to base64 data URI format.
 func (e *Executor) encodeFileToBase64(fullPath, mimeType string) (string, string, error) {
+	kdeps_debug.Log("enter: encodeFileToBase64")
 	// Read file from disk
 	fileData, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -749,6 +770,7 @@ func (e *Executor) encodeFileToBase64(fullPath, mimeType string) (string, string
 
 // min returns the minimum of two integers.
 func minInt(a, b int) int {
+	kdeps_debug.Log("enter: minInt")
 	if a < b {
 		return a
 	}
@@ -765,6 +787,7 @@ func (e *Executor) buildRequestBody(
 	messages []map[string]interface{},
 	config *domain.ChatConfig,
 ) map[string]interface{} {
+	kdeps_debug.Log("enter: buildRequestBody")
 	// Default to ollama backend for legacy calls
 	backend := e.backendRegistry.GetDefault()
 	if backend == nil {
@@ -797,6 +820,7 @@ func (e *Executor) buildRequestBody(
 
 // buildTools builds the tools array for the LLM request.
 func (e *Executor) buildTools(tools []domain.Tool) []map[string]interface{} {
+	kdeps_debug.Log("enter: buildTools")
 	result := make([]map[string]interface{}, len(tools))
 	for i, tool := range tools {
 		functionMap := map[string]interface{}{
@@ -818,6 +842,7 @@ func (e *Executor) buildTools(tools []domain.Tool) []map[string]interface{} {
 
 // buildToolParameters builds the parameters object for a tool.
 func (e *Executor) buildToolParameters(params map[string]domain.ToolParam) map[string]interface{} {
+	kdeps_debug.Log("enter: buildToolParameters")
 	properties := make(map[string]interface{})
 	required := make([]string, 0)
 
@@ -844,6 +869,7 @@ func (e *Executor) evaluateExpression(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateExpression")
 	// Handle nil evaluator
 	if evaluator == nil {
 		return nil, errors.New("expression evaluation not available")
@@ -871,6 +897,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateStringOrLiteral")
 	// Check if value should be treated as a literal (e.g., file paths)
 	if e.shouldTreatAsLiteral(value) || !e.containsExpressionSyntax(value) {
 		return value, nil
@@ -898,12 +925,14 @@ func (e *Executor) evaluateStringOrLiteral(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
+	kdeps_debug.Log("enter: containsExpressionSyntax")
 	return strings.Contains(s, "{{")
 }
 
 // shouldTreatAsLiteral determines if a value should be treated as a literal string
 // rather than an expression, based on patterns like file paths.
 func (e *Executor) shouldTreatAsLiteral(value string) bool {
+	kdeps_debug.Log("enter: shouldTreatAsLiteral")
 	// Check if value looks like a file path (absolute path starting with / or Windows drive)
 	// These should be treated as literals even if they contain characters that might look like expressions
 	if len(value) > 0 && (value[0] == '/' || (len(value) > 1 && value[1] == ':')) {
@@ -917,6 +946,7 @@ func (e *Executor) shouldTreatAsLiteral(value string) bool {
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
 	// Add request data if available
@@ -954,6 +984,7 @@ func (e *Executor) callOllama(
 	requestBody map[string]interface{},
 	timeoutStr string,
 ) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: callOllama")
 	// Parse timeout
 	timeout := DefaultLLMTimeout
 	if timeoutStr != "" {
@@ -981,6 +1012,7 @@ func (e *Executor) parseJSONResponse(
 	response map[string]interface{},
 	keys []string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: parseJSONResponse")
 	// Extract message content
 	message, ok := response["message"].(map[string]interface{})
 	if !ok {
@@ -1021,6 +1053,7 @@ func (e *Executor) parseJSONResponse(
 func (e *Executor) extractToolCalls(
 	response map[string]interface{},
 ) ([]map[string]interface{}, bool) {
+	kdeps_debug.Log("enter: extractToolCalls")
 	message, ok := response["message"].(map[string]interface{})
 	if !ok {
 		return nil, false
@@ -1056,6 +1089,7 @@ func (e *Executor) executeToolCalls(
 	toolDefinitions []domain.Tool,
 	ctx *executor.ExecutionContext,
 ) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: executeToolCalls")
 	results := make([]map[string]interface{}, 0, len(toolCalls))
 
 	// Create tool name to definition map
@@ -1124,6 +1158,7 @@ func (e *Executor) executeTool(
 	argumentsJSON string,
 	ctx *executor.ExecutionContext,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTool")
 	args, err := e.parseToolArguments(argumentsJSON)
 	if err != nil {
 		return nil, err
@@ -1166,6 +1201,7 @@ func (e *Executor) executeTool(
 
 // parseToolArguments parses JSON arguments for a tool.
 func (e *Executor) parseToolArguments(argumentsJSON string) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: parseToolArguments")
 	var args map[string]interface{}
 	if err := json.Unmarshal([]byte(argumentsJSON), &args); err != nil {
 		return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
@@ -1175,6 +1211,7 @@ func (e *Executor) parseToolArguments(argumentsJSON string) (map[string]interfac
 
 // validateToolScript validates that a tool has a script defined.
 func (e *Executor) validateToolScript(tool domain.Tool) error {
+	kdeps_debug.Log("enter: validateToolScript")
 	if tool.Script == "" {
 		return fmt.Errorf("tool '%s' has no script/resource ID defined", tool.Name)
 	}
@@ -1186,6 +1223,7 @@ func (e *Executor) lookupToolResource(
 	tool domain.Tool,
 	ctx *executor.ExecutionContext,
 ) (*domain.Resource, error) {
+	kdeps_debug.Log("enter: lookupToolResource")
 	resource, ok := ctx.Resources[tool.Script]
 	if !ok {
 		return nil, fmt.Errorf(
@@ -1203,6 +1241,7 @@ func (e *Executor) storeToolArguments(
 	args map[string]interface{},
 	ctx *executor.ExecutionContext,
 ) error {
+	kdeps_debug.Log("enter: storeToolArguments")
 	for key, value := range args {
 		// Store with prefixed key
 		argKey := fmt.Sprintf("tool_%s_%s", tool.Name, key)
@@ -1219,6 +1258,7 @@ func (e *Executor) storeToolArguments(
 
 // normalizeToolResult normalizes the result from tool execution.
 func (e *Executor) normalizeToolResult(result interface{}) interface{} {
+	kdeps_debug.Log("enter: normalizeToolResult")
 	// If it's a string that looks like JSON, try to parse it
 	if resultStr, okStr := result.(string); okStr && len(resultStr) > 0 {
 		trimmed := strings.TrimSpace(resultStr)
@@ -1240,6 +1280,7 @@ func (e *Executor) addToolResultsToMessages(
 	toolCalls []map[string]interface{},
 	toolResults []map[string]interface{},
 ) []map[string]interface{} {
+	kdeps_debug.Log("enter: addToolResultsToMessages")
 	// Add assistant message with tool calls
 	messages = append(messages, map[string]interface{}{
 		"role":       "assistant",
@@ -1290,6 +1331,7 @@ type MockHTTPClient struct {
 
 // Do implements the HTTPClient interface for mocking.
 func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
+	kdeps_debug.Log("enter: Do")
 	if m.Error != nil {
 		return nil, m.Error
 	}

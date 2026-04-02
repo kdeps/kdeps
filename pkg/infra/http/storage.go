@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -42,6 +44,7 @@ type TemporaryFileStore struct {
 
 // NewTemporaryFileStore creates a new temporary file store.
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
+	kdeps_debug.Log("enter: NewTemporaryFileStore")
 	// Create base directory if it doesn't exist
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
@@ -66,6 +69,7 @@ func (s *TemporaryFileStore) Store(
 	content []byte,
 	contentType string,
 ) (*domain.UploadedFile, error) {
+	kdeps_debug.Log("enter: Store")
 	// Generate unique ID using hash of content + timestamp
 	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
 	id := hex.EncodeToString(hash[:])[:16]
@@ -102,6 +106,7 @@ func (s *TemporaryFileStore) Store(
 
 // Get retrieves file metadata by ID.
 func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
+	kdeps_debug.Log("enter: Get")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -115,6 +120,7 @@ func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 
 // GetPath returns the filesystem path for a file ID.
 func (s *TemporaryFileStore) GetPath(id string) (string, error) {
+	kdeps_debug.Log("enter: GetPath")
 	file, err := s.Get(id)
 	if err != nil {
 		return "", err
@@ -124,6 +130,7 @@ func (s *TemporaryFileStore) GetPath(id string) (string, error) {
 
 // Delete removes a file.
 func (s *TemporaryFileStore) Delete(id string) error {
+	kdeps_debug.Log("enter: Delete")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -145,6 +152,7 @@ func (s *TemporaryFileStore) Delete(id string) error {
 
 // Cleanup removes files older than TTL.
 func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
+	kdeps_debug.Log("enter: Cleanup")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -168,6 +176,7 @@ func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 
 // Close stops the file store and cleanup background tasks.
 func (s *TemporaryFileStore) Close() error {
+	kdeps_debug.Log("enter: Close")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -189,6 +198,7 @@ func (s *TemporaryFileStore) Close() error {
 
 // cleanupLoop runs periodic cleanup.
 func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
+	kdeps_debug.Log("enter: cleanupLoop")
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 

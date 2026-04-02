@@ -24,10 +24,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // PromptForTemplate asks user to select a template (simplified without promptui for now).
 func PromptForTemplate(templates []string) (string, error) {
+	kdeps_debug.Log("enter: PromptForTemplate")
 	// For now, return first template or default
 	// TODO: Add promptui for interactive selection
 	if len(templates) == 0 {
@@ -38,6 +41,7 @@ func PromptForTemplate(templates []string) (string, error) {
 
 // PromptForResources asks user to select resources (simplified).
 func PromptForResources() ([]string, error) {
+	kdeps_debug.Log("enter: PromptForResources")
 	// For now, return default resources
 	// TODO: Add interactive selection with promptui
 	return []string{"http-client", "llm", "response"}, nil
@@ -45,6 +49,7 @@ func PromptForResources() ([]string, error) {
 
 // PromptForBasicInfo asks for basic agent information (simplified).
 func PromptForBasicInfo(defaultName string) (TemplateData, error) {
+	kdeps_debug.Log("enter: PromptForBasicInfo")
 	data := TemplateData{
 		Name:        defaultName,
 		Description: "AI agent powered by KDeps",
@@ -61,6 +66,7 @@ func PromptForBasicInfo(defaultName string) (TemplateData, error) {
 
 // ParsePort parses port string to int.
 func ParsePort(portStr string) (int, error) {
+	kdeps_debug.Log("enter: ParsePort")
 	port, err := strconv.Atoi(strings.TrimSpace(portStr))
 	if err != nil {
 		return 0, fmt.Errorf("invalid port number: %w", err)

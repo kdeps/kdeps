@@ -42,6 +42,8 @@ import (
 	"strings"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -69,6 +71,7 @@ type Executor struct {
 
 // NewAdapter returns a new search Executor as a ResourceExecutor.
 func NewAdapter() executor.ResourceExecutor {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Executor{
 		httpClient: &http.Client{Timeout: defaultTimeout},
 	}
@@ -87,6 +90,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	cfg, ok := config.(*domain.SearchConfig)
 	if !ok || cfg == nil {
 		return nil, errors.New("search executor: invalid config type")
@@ -179,6 +183,7 @@ func (e *Executor) searchBrave(
 	safeSearch bool,
 	region string,
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: searchBrave")
 	if apiKey == "" {
 		return nil, errors.New(
 			"search executor: brave requires an API key (set apiKey or BRAVE_API_KEY)",
@@ -253,6 +258,7 @@ func (e *Executor) searchSerpAPI(
 	limit int,
 	region string,
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: searchSerpAPI")
 	if apiKey == "" {
 		return nil, errors.New(
 			"search executor: serpapi requires an API key (set apiKey or SERPAPI_KEY)",
@@ -321,6 +327,7 @@ func (e *Executor) searchSerpAPI(
 // ─── DuckDuckGo ───────────────────────────────────────────────────────────────
 
 func (e *Executor) searchDuckDuckGo(query string, limit int) ([]interface{}, error) {
+	kdeps_debug.Log("enter: searchDuckDuckGo")
 	params := url.Values{}
 	params.Set("q", query)
 
@@ -355,6 +362,7 @@ func (e *Executor) searchDuckDuckGo(query string, limit int) ([]interface{}, err
 //
 //nolint:gocognit // sequential HTML scanning is necessarily verbose
 func parseDDGResults(html string, limit int) []interface{} {
+	kdeps_debug.Log("enter: parseDDGResults")
 	const (
 		resultAClass       = `class="result__a"`
 		resultSnippetClass = `class="result__snippet"`
@@ -429,6 +437,7 @@ func (e *Executor) searchTavily(
 	limit int,
 	safeSearch bool,
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: searchTavily")
 	if apiKey == "" {
 		return nil, errors.New(
 			"search executor: tavily requires an API key (set apiKey or TAVILY_API_KEY)",
@@ -502,6 +511,7 @@ func (e *Executor) searchTavily(
 // searchLocal walks root, optionally filters by glob pattern, and optionally
 // does a case-insensitive content grep for query.
 func searchLocal(root, globPat, query string, limit int) ([]interface{}, error) {
+	kdeps_debug.Log("enter: searchLocal")
 	results := make([]interface{}, 0, limit)
 
 	err := filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
@@ -535,6 +545,7 @@ func searchLocal(root, globPat, query string, limit int) ([]interface{}, error) 
 // It first tries matching against the base name, then against the full relative
 // path (to support ** patterns). Returns true when the pattern is malformed.
 func fileMatchesGlob(root, path, globPat string) bool {
+	kdeps_debug.Log("enter: fileMatchesGlob")
 	if matched, matchErr := filepath.Match(globPat, filepath.Base(path)); matchErr != nil ||
 		matched {
 		// Pattern error: include the file. Or base name matches.
@@ -550,6 +561,7 @@ func fileMatchesGlob(root, path, globPat string) bool {
 // fileMatchesQuery reports whether the file at path contains query (case-insensitive).
 // Unreadable files are excluded (returns false).
 func fileMatchesQuery(path, query string) bool {
+	kdeps_debug.Log("enter: fileMatchesQuery")
 	data, readErr := os.ReadFile(path)
 	if readErr != nil {
 		return false // skip unreadable file
@@ -560,6 +572,7 @@ func fileMatchesQuery(path, query string) bool {
 // matchGlob handles simple ** glob expansion by converting to a Go-compatible pattern.
 // Go's filepath.Match does not support **, so we split on "**/" and check prefixes/suffixes.
 func matchGlob(pattern, path string) (bool, error) {
+	kdeps_debug.Log("enter: matchGlob")
 	// Fast path: no ** in pattern, use stdlib directly
 	if !strings.Contains(pattern, "**") {
 		return filepath.Match(pattern, path)
@@ -591,6 +604,7 @@ func matchGlob(pattern, path string) (bool, error) {
 
 // stripHTMLTags removes HTML tags from s.
 func stripHTMLTags(s string) string {
+	kdeps_debug.Log("enter: stripHTMLTags")
 	var out strings.Builder
 	inTag := false
 	for _, r := range s {
@@ -608,6 +622,7 @@ func stripHTMLTags(s string) string {
 
 // truncate returns s truncated to maxLen characters with "..." appended if truncated.
 func truncate(s string, maxLen int) string {
+	kdeps_debug.Log("enter: truncate")
 	if len(s) <= maxLen {
 		return s
 	}
@@ -616,6 +631,7 @@ func truncate(s string, maxLen int) string {
 
 // evaluateText resolves mustache/expr expressions in text.
 func evaluateText(text string, ctx *executor.ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluateText")
 	if !strings.Contains(text, "{{") {
 		return text
 	}

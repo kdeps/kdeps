@@ -18,6 +18,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // mkimageRawBIOSImage is the Docker image used for assembling raw disk images.
@@ -30,6 +32,7 @@ func buildRawBIOSWithImage(
 	assembler RawBIOSAssembleFunc,
 	configPath, arch, buildDir, imageName, bootScript string,
 ) (string, error) {
+	kdeps_debug.Log("enter: buildRawBIOSWithImage")
 	// Step 1: Build kernel+initrd with linuxkit
 	if err := runner.Build(ctx, configPath, "kernel+initrd", arch, buildDir, ""); err != nil {
 		return "", fmt.Errorf("linuxkit kernel+initrd build failed: %w", err)
@@ -61,6 +64,7 @@ func buildRawBIOSWithImage(
 
 // findKernelInitrd locates the kernel, initrd, and cmdline files in the build directory.
 func findKernelInitrd(dir string) (string, string, string, error) {
+	kdeps_debug.Log("enter: findKernelInitrd")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to read build directory: %w", err)
@@ -99,6 +103,7 @@ func assembleRawBIOS(
 	ctx context.Context,
 	kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string,
 ) error {
+	kdeps_debug.Log("enter: assembleRawBIOS")
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
@@ -177,6 +182,7 @@ func assembleRawBIOS(
 
 //nolint:funlen // generating a large shell script
 func writeAssembleScript(path, _ string, _ bool) error {
+	kdeps_debug.Log("enter: writeAssembleScript")
 	const scriptHeader = `#!/bin/sh
 set -ex
 
@@ -316,6 +322,7 @@ echo "Disk image assembled successfully"
 }
 
 func copyFile(src, dst string) error {
+	kdeps_debug.Log("enter: copyFile")
 	in, err := os.Open(src)
 	if err != nil {
 		return err

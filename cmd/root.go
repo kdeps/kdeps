@@ -24,6 +24,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
 )
@@ -36,11 +39,13 @@ type CLIConfig struct {
 
 // NewCLIConfig creates a new CLI configuration.
 func NewCLIConfig() *CLIConfig {
+	kdeps_debug.Log("enter: NewCLIConfig")
 	return &CLIConfig{}
 }
 
 // GetRootCommand returns the root cobra command with proper configuration.
 func (c *CLIConfig) GetRootCommand() *cobra.Command {
+	kdeps_debug.Log("enter: GetRootCommand")
 	rootCmd := createRootCommand()
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s)", c.version, c.commit)
 	return rootCmd
@@ -48,6 +53,7 @@ func (c *CLIConfig) GetRootCommand() *cobra.Command {
 
 // Execute runs the root command.
 func Execute(v, c string) error {
+	kdeps_debug.Log("enter: Execute")
 	config := NewCLIConfig()
 	config.version = v
 	config.commit = c
@@ -58,6 +64,7 @@ func Execute(v, c string) error {
 
 // createRootCommand creates the root cobra command with all subcommands.
 func createRootCommand() *cobra.Command {
+	kdeps_debug.Log("enter: createRootCommand")
 	rootCmd := &cobra.Command{
 		Use:   "kdeps",
 		Short: "KDeps - AI Agent Framework",
@@ -93,6 +100,10 @@ Examples:
   # Add resources to existing agent
   kdeps scaffold llm sql`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			// Activate debug logging if --debug flag is set.
+			if debugFlag, err := cmd.Flags().GetBool("debug"); err == nil && debugFlag {
+				_ = os.Setenv("KDEPS_DEBUG", "true")
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  WARNING: HIGHLY EXPERIMENTAL SOFTWARE")
 			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
@@ -117,6 +128,7 @@ Examples:
 
 // addSubcommands registers all subcommands to the root command.
 func addSubcommands(rootCmd *cobra.Command) {
+	kdeps_debug.Log("enter: addSubcommands")
 	// Add run command
 	rootCmd.AddCommand(newRunCmd())
 

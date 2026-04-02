@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 )
 
@@ -41,6 +43,7 @@ type MemoryStorage struct {
 
 // NewMemoryStorage creates a new memory storage.
 func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
+	kdeps_debug.Log("enter: NewMemoryStorage")
 	if dbPath == "" {
 		// Check for environment variable override (useful for tests)
 		if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
@@ -86,6 +89,7 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 
 // initSchema initializes the database schema.
 func (m *MemoryStorage) initSchema() error {
+	kdeps_debug.Log("enter: initSchema")
 	query := `
 	CREATE TABLE IF NOT EXISTS memory (
 		key TEXT PRIMARY KEY,
@@ -102,6 +106,7 @@ func (m *MemoryStorage) initSchema() error {
 
 // Get retrieves a value from memory.
 func (m *MemoryStorage) Get(key string) (interface{}, bool) {
+	kdeps_debug.Log("enter: Get")
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -127,6 +132,7 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 
 // Set stores a value in memory.
 func (m *MemoryStorage) Set(key string, value interface{}) error {
+	kdeps_debug.Log("enter: Set")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -150,6 +156,7 @@ func (m *MemoryStorage) Set(key string, value interface{}) error {
 
 // Delete removes a value from memory.
 func (m *MemoryStorage) Delete(key string) error {
+	kdeps_debug.Log("enter: Delete")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -159,5 +166,6 @@ func (m *MemoryStorage) Delete(key string) error {
 
 // Close closes the database connection.
 func (m *MemoryStorage) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return m.DB.Close()
 }

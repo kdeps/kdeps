@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
@@ -34,6 +36,7 @@ type ExpressionValidator struct {
 
 // NewExpressionValidator creates a new expression validator.
 func NewExpressionValidator() *ExpressionValidator {
+	kdeps_debug.Log("enter: NewExpressionValidator")
 	return &ExpressionValidator{
 		Parser: expression.NewParser(),
 	}
@@ -41,6 +44,7 @@ func NewExpressionValidator() *ExpressionValidator {
 
 // SetEvaluator sets the evaluator for this validator.
 func (v *ExpressionValidator) SetEvaluator(evaluator *expression.Evaluator) {
+	kdeps_debug.Log("enter: SetEvaluator")
 	v.Evaluator = evaluator
 }
 
@@ -51,6 +55,7 @@ func (v *ExpressionValidator) ValidateCustomRules(
 	evaluator *expression.Evaluator,
 	env map[string]interface{},
 ) error {
+	kdeps_debug.Log("enter: ValidateCustomRules")
 	if len(rules) == 0 {
 		return nil
 	}

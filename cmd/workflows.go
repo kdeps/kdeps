@@ -27,12 +27,15 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 )
 
 func newWorkflowsCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newWorkflowsCmd")
 	return &cobra.Command{
 		Use:   "workflows",
 		Short: "List your cloud workflows",
@@ -47,6 +50,7 @@ Examples:
 }
 
 func runWorkflows() error {
+	kdeps_debug.Log("enter: runWorkflows")
 	const (
 		tabPadding    = 2
 		maxDateLength = 10

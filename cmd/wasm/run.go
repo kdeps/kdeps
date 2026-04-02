@@ -27,6 +27,8 @@ import (
 	"os"
 	"syscall/js"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -46,6 +48,7 @@ func NewRuntime(
 	envVars map[string]string,
 	registry *executor.Registry,
 ) (*Runtime, error) {
+	kdeps_debug.Log("enter: NewRuntime")
 	// Parse workflow from YAML string.
 	workflow, err := parseWorkflowFromString(workflowYAML)
 	if err != nil {
@@ -75,6 +78,7 @@ func NewRuntime(
 // The input can be either a plain body object (e.g. {"prompt": "Hello"}) or a full
 // request context from the fetch interceptor (with _kdeps_request, method, path, etc.).
 func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	// Parse input into request context.
 	var req interface{}
 	if inputJSON != "" {
@@ -125,6 +129,7 @@ func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, er
 
 // parseWorkflowFromString parses a workflow from a YAML string.
 func parseWorkflowFromString(yamlStr string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: parseWorkflowFromString")
 	var workflow domain.Workflow
 	if err := yaml.Unmarshal([]byte(yamlStr), &workflow); err != nil {
 		return nil, fmt.Errorf("failed to parse workflow YAML: %w", err)
@@ -140,6 +145,7 @@ func parseWorkflowFromString(yamlStr string) (*domain.Workflow, error) {
 
 // ValidateWorkflow validates a workflow YAML string and returns any errors.
 func ValidateWorkflow(yamlStr string) []string {
+	kdeps_debug.Log("enter: ValidateWorkflow")
 	var errors []string
 
 	// Parse YAML.
@@ -169,6 +175,7 @@ func ValidateWorkflow(yamlStr string) []string {
 
 // stringFromMap extracts a string from a map with a default fallback.
 func stringFromMap(m map[string]interface{}, key, fallback string) string {
+	kdeps_debug.Log("enter: stringFromMap")
 	if v, ok := m[key]; ok {
 		if s, ok := v.(string); ok {
 			return s
@@ -179,6 +186,7 @@ func stringFromMap(m map[string]interface{}, key, fallback string) string {
 
 // stringMapFromMap extracts a map[string]string from a map[string]interface{}.
 func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
+	kdeps_debug.Log("enter: stringMapFromMap")
 	result := make(map[string]string)
 	if v, ok := m[key]; ok {
 		if sub, ok := v.(map[string]interface{}); ok {
@@ -194,6 +202,7 @@ func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
 
 // validateWASMResource checks a resource for WASM compatibility.
 func validateWASMResource(res *domain.Resource) []string {
+	kdeps_debug.Log("enter: validateWASMResource")
 	var errors []string
 	actionID := res.Metadata.ActionID
 

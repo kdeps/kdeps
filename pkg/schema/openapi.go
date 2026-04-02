@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -119,6 +121,7 @@ type routeKey struct{ path, method string }
 // becomes "{wildcard}" - note that this is a non-standard transformation; API
 // consumers should treat the "wildcard" parameter as an opaque catch-all value.
 func toOpenAPIPath(routerPath string) string {
+	kdeps_debug.Log("enter: toOpenAPIPath")
 	parts := strings.Split(routerPath, "/")
 	for i, part := range parts {
 		if strings.HasPrefix(part, ":") {
@@ -133,6 +136,7 @@ func toOpenAPIPath(routerPath string) string {
 // pathParamNames extracts the names of path parameters from a kdeps router
 // path (e.g. "/api/:id/items/:name" → ["id", "name"]).
 func pathParamNames(routerPath string) []string {
+	kdeps_debug.Log("enter: pathParamNames")
 	var params []string
 	for _, part := range strings.Split(routerPath, "/") {
 		if strings.HasPrefix(part, ":") {
@@ -149,6 +153,7 @@ func pathParamNames(routerPath string) []string {
 //
 //	{ "success": bool, "data": any, "meta": { "requestID": string, "timestamp": string } }
 func successResponse() *OpenAPIResponse {
+	kdeps_debug.Log("enter: successResponse")
 	return &OpenAPIResponse{
 		Description: "Successful response",
 		Content: map[string]*OpenAPIMediaType{
@@ -179,6 +184,7 @@ func successResponse() *OpenAPIResponse {
 //
 //	{ "success": bool, "error": { "code": string, "message": string, ... }, "meta": { ... } }
 func errorResponse() *OpenAPIResponse {
+	kdeps_debug.Log("enter: errorResponse")
 	return &OpenAPIResponse{
 		Description: "Validation or request error",
 		Content: map[string]*OpenAPIMediaType{
@@ -215,6 +221,7 @@ func errorResponse() *OpenAPIResponse {
 // GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.
 // It returns an empty-paths spec (not nil) when the workflow is nil.
 func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
+	kdeps_debug.Log("enter: GenerateOpenAPI")
 	spec := &OpenAPISpec{
 		OpenAPI: "3.0.3",
 		Info: OpenAPIInfo{
@@ -301,6 +308,7 @@ func collectMethodsForPath(
 	workflow *domain.Workflow,
 	resourcesByRoute map[routeKey][]*domain.Resource,
 ) []string {
+	kdeps_debug.Log("enter: collectMethodsForPath")
 	seen := map[string]struct{}{}
 
 	// Check workflow-level routes first.
@@ -345,6 +353,7 @@ func appendParamIfNew(
 	params *[]*OpenAPIParameter,
 	in, name string,
 ) {
+	kdeps_debug.Log("enter: appendParamIfNew")
 	pk := in + ":" + name
 	if _, seen := seenParams[pk]; seen {
 		return
@@ -364,6 +373,7 @@ func collectOperationValidations(
 	resources []*domain.Resource,
 	implicitPathParams []string,
 ) operationValidations {
+	kdeps_debug.Log("enter: collectOperationValidations")
 	result := operationValidations{
 		requiredFields: make(map[string]struct{}),
 		fieldSchemas:   make(map[string]*OpenAPISchema),
@@ -407,6 +417,7 @@ func collectOperationValidations(
 // buildRequestBody constructs the OpenAPIRequestBody for POST/PUT/PATCH methods.
 // Returns nil for other methods or when there are no fields or required fields.
 func buildRequestBody(upperMethod string, ov operationValidations) *OpenAPIRequestBody {
+	kdeps_debug.Log("enter: buildRequestBody")
 	if upperMethod != "POST" && upperMethod != "PUT" && upperMethod != "PATCH" {
 		return nil
 	}
@@ -448,6 +459,7 @@ func buildOperation(
 	implicitPathParams []string,
 	usedOpIDs map[string]struct{},
 ) *OpenAPIOperation {
+	kdeps_debug.Log("enter: buildOperation")
 	op := &OpenAPIOperation{
 		OperationID: operationID(method, path),
 		Responses:   make(map[string]*OpenAPIResponse),
@@ -499,6 +511,7 @@ func buildOperation(
 
 // fieldRuleToSchema converts a domain.FieldRule into an OpenAPISchema.
 func fieldRuleToSchema(rule *domain.FieldRule) *OpenAPISchema {
+	kdeps_debug.Log("enter: fieldRuleToSchema")
 	s := &OpenAPISchema{Description: rule.Message}
 	spec := mapFieldType(rule)
 	s.Type = spec.SchemaType
@@ -519,6 +532,7 @@ func fieldRuleToSchema(rule *domain.FieldRule) *OpenAPISchema {
 // operationID derives a stable operation ID from the HTTP method and path
 // (used when no matching resource is available).
 func operationID(method, path string) string {
+	kdeps_debug.Log("enter: operationID")
 	// e.g. "POST /api/v1/chat" → "post_api_v1_chat"
 	clean := strings.ReplaceAll(strings.Trim(path, "/"), "/", "_")
 	return strings.ToLower(method) + "_" + clean

@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -57,6 +59,7 @@ type Runner interface {
 // platform is one of "discord", "slack", "telegram", "whatsapp".
 // Returns an error if the platform is unsupported or the required config is missing.
 func New(platform string, cfg *domain.BotConfig, logger *slog.Logger) (Runner, error) {
+	kdeps_debug.Log("enter: New")
 	if logger == nil {
 		logger = slog.Default()
 	}

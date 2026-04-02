@@ -31,6 +31,8 @@ import (
 	"os"
 	"path/filepath"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -46,6 +48,7 @@ type Client struct {
 
 // NewClient creates a new Docker client.
 func NewClient() (*Client, error) {
+	kdeps_debug.Log("enter: NewClient")
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -62,6 +65,7 @@ func (c *Client) BuildImage(
 	buildContext io.Reader,
 	noCache bool,
 ) error {
+	kdeps_debug.Log("enter: BuildImage")
 	// Validate inputs
 	if buildContext == nil {
 		return errors.New("reader cannot be nil")
@@ -133,6 +137,7 @@ func (c *Client) RunContainer(
 	imageName string,
 	config *ContainerConfig,
 ) (string, error) {
+	kdeps_debug.Log("enter: RunContainer")
 	// Validate inputs
 	if config == nil {
 		return "", errors.New("config cannot be nil")
@@ -173,11 +178,13 @@ func (c *Client) RunContainer(
 
 // StopContainer stops a Docker container.
 func (c *Client) StopContainer(ctx context.Context, containerID string) error {
+	kdeps_debug.Log("enter: StopContainer")
 	return c.Cli.ContainerStop(ctx, containerID, container.StopOptions{})
 }
 
 // RemoveContainer removes a Docker container.
 func (c *Client) RemoveContainer(ctx context.Context, containerID string) error {
+	kdeps_debug.Log("enter: RemoveContainer")
 	return c.Cli.ContainerRemove(ctx, containerID, container.RemoveOptions{})
 }
 
@@ -188,17 +195,20 @@ type ContainerConfig struct {
 
 // TagImage tags a Docker image.
 func (c *Client) TagImage(ctx context.Context, sourceImage, targetImage string) error {
+	kdeps_debug.Log("enter: TagImage")
 	return c.Cli.ImageTag(ctx, sourceImage, targetImage)
 }
 
 // Close closes the Docker client.
 func (c *Client) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return c.Cli.Close()
 }
 
 // CreateContainerNoStart creates a container without starting it.
 // This is used to extract files from an image via CopyFromContainer.
 func (c *Client) CreateContainerNoStart(ctx context.Context, imageName string) (string, error) {
+	kdeps_debug.Log("enter: CreateContainerNoStart")
 	if imageName == "" {
 		return "", errors.New("image name cannot be empty")
 	}
@@ -222,6 +232,7 @@ func (c *Client) CopyFromContainer(
 	srcPath string,
 	dstPath string,
 ) error {
+	kdeps_debug.Log("enter: CopyFromContainer")
 	reader, _, err := c.Cli.CopyFromContainer(ctx, containerID, srcPath)
 	if err != nil {
 		return fmt.Errorf("failed to copy from container: %w", err)
@@ -262,6 +273,7 @@ func (c *Client) CopyFromContainer(
 
 // SaveImage exports a Docker image to a tar file on disk.
 func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) error {
+	kdeps_debug.Log("enter: SaveImage")
 	if imageName == "" {
 		return errors.New("image name cannot be empty")
 	}
@@ -291,6 +303,7 @@ func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) erro
 
 // RemoveImage removes a Docker image.
 func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
+	kdeps_debug.Log("enter: RemoveImage")
 	if imageName == "" {
 		return errors.New("image name cannot be empty")
 	}
@@ -305,6 +318,7 @@ func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
 
 // ImageSize returns the size of a Docker image in bytes.
 func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error) {
+	kdeps_debug.Log("enter: ImageSize")
 	if imageName == "" {
 		return 0, errors.New("image name cannot be empty")
 	}
@@ -320,6 +334,7 @@ func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error)
 // PruneDanglingImages removes all dangling (untagged) images.
 // This is useful after builds to clean up intermediate images.
 func (c *Client) PruneDanglingImages(ctx context.Context) (uint64, error) {
+	kdeps_debug.Log("enter: PruneDanglingImages")
 	pruneFilters := filters.NewArgs()
 	pruneFilters.Add("dangling", "true")
 

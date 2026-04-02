@@ -23,6 +23,8 @@ package llm
 import (
 	"log/slog"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -35,6 +37,7 @@ type ModelManager struct {
 
 // NewModelManager creates a new model manager.
 func NewModelManager(logger *slog.Logger) *ModelManager {
+	kdeps_debug.Log("enter: NewModelManager")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -47,6 +50,7 @@ func NewModelManager(logger *slog.Logger) *ModelManager {
 
 // NewModelManagerWithOfflineMode creates a new model manager with offline mode setting.
 func NewModelManagerWithOfflineMode(logger *slog.Logger, offlineMode bool) *ModelManager {
+	kdeps_debug.Log("enter: NewModelManagerWithOfflineMode")
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -59,6 +63,7 @@ func NewModelManagerWithOfflineMode(logger *slog.Logger, offlineMode bool) *Mode
 
 // NewModelManagerFromService creates a new model manager from an existing service.
 func NewModelManagerFromService(service *ModelService) *ModelManager {
+	kdeps_debug.Log("enter: NewModelManagerFromService")
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
@@ -68,6 +73,7 @@ func NewModelManagerFromService(service *ModelService) *ModelManager {
 // NewModelManagerFromServiceInterface creates a new model manager from a service interface.
 // This allows injecting mock services for testing.
 func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelManager {
+	kdeps_debug.Log("enter: NewModelManagerFromServiceInterface")
 	return &ModelManager{
 		service: service,
 		logger:  slog.Default(),
@@ -76,12 +82,14 @@ func NewModelManagerFromServiceInterface(service ModelServiceInterface) *ModelMa
 
 // SetOfflineMode sets the offline mode flag.
 func (m *ModelManager) SetOfflineMode(offline bool) {
+	kdeps_debug.Log("enter: SetOfflineMode")
 	m.offlineMode = offline
 }
 
 // EnsureModel ensures a model is downloaded and served for the given chat configuration.
 // This method is called automatically before LLM execution if model manager is configured.
 func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
+	kdeps_debug.Log("enter: EnsureModel")
 	// Determine backend
 	backend := config.Backend
 	if backend == "" {
@@ -144,10 +152,12 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 
 // DownloadModel downloads a model for the specified backend.
 func (m *ModelManager) DownloadModel(backend, model string) error {
+	kdeps_debug.Log("enter: DownloadModel")
 	return m.service.DownloadModel(backend, model)
 }
 
 // ServeModel serves a model with the specified backend.
 func (m *ModelManager) ServeModel(backend, model string, host string, port int) error {
+	kdeps_debug.Log("enter: ServeModel")
 	return m.service.ServeModel(backend, model, host, port)
 }

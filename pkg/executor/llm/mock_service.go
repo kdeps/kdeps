@@ -22,6 +22,8 @@ package llm
 
 import (
 	"log/slog"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // MockModelService is a mock implementation of ModelServiceInterface for testing.
@@ -33,6 +35,7 @@ type MockModelService struct {
 
 // NewMockModelService creates a new mock model service.
 func NewMockModelService() *MockModelService {
+	kdeps_debug.Log("enter: NewMockModelService")
 	return &MockModelService{
 		logger: slog.Default(),
 	}
@@ -40,6 +43,7 @@ func NewMockModelService() *MockModelService {
 
 // DownloadModel mocks the download model operation.
 func (m *MockModelService) DownloadModel(backend, model string) error {
+	kdeps_debug.Log("enter: DownloadModel")
 	if m.DownloadModelFunc != nil {
 		return m.DownloadModelFunc(backend, model)
 	}
@@ -49,6 +53,7 @@ func (m *MockModelService) DownloadModel(backend, model string) error {
 
 // ServeModel mocks the serve model operation.
 func (m *MockModelService) ServeModel(backend, model string, host string, port int) error {
+	kdeps_debug.Log("enter: ServeModel")
 	if m.ServeModelFunc != nil {
 		return m.ServeModelFunc(backend, model, host, port)
 	}
@@ -58,6 +63,7 @@ func (m *MockModelService) ServeModel(backend, model string, host string, port i
 
 // SetDownloadModelFunc sets the mock function for DownloadModel.
 func (m *MockModelService) SetDownloadModelFunc(fn func(backend, model string) error) {
+	kdeps_debug.Log("enter: SetDownloadModelFunc")
 	m.DownloadModelFunc = fn
 }
 
@@ -65,5 +71,6 @@ func (m *MockModelService) SetDownloadModelFunc(fn func(backend, model string) e
 func (m *MockModelService) SetServeModelFunc(
 	fn func(backend, model string, host string, port int) error,
 ) {
+	kdeps_debug.Log("enter: SetServeModelFunc")
 	m.ServeModelFunc = fn
 }

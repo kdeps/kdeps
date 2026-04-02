@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 )
 
@@ -45,6 +47,7 @@ type SessionStorage struct {
 
 // NewSessionStorage creates a new session storage.
 func NewSessionStorage(dbPath string, sessionID string) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorage")
 	return NewSessionStorageWithTTL(dbPath, sessionID, 30*time.Minute)
 }
 
@@ -54,6 +57,7 @@ func NewSessionStorageWithTTL(
 	sessionID string,
 	defaultTTL time.Duration,
 ) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
 	if dbPath == "" {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
@@ -100,6 +104,7 @@ func NewSessionStorageWithTTL(
 
 // initSchema initializes the database schema.
 func (s *SessionStorage) initSchema() error {
+	kdeps_debug.Log("enter: initSchema")
 	// Create sessions table with all columns
 	createTable := `
 	CREATE TABLE IF NOT EXISTS sessions (
@@ -166,6 +171,7 @@ func (s *SessionStorage) initSchema() error {
 
 // cleanup removes expired sessions.
 func (s *SessionStorage) cleanup() {
+	kdeps_debug.Log("enter: cleanup")
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
@@ -185,6 +191,7 @@ func (s *SessionStorage) cleanup() {
 
 // Get retrieves a value from session storage.
 func (s *SessionStorage) Get(key string) (interface{}, bool) {
+	kdeps_debug.Log("enter: Get")
 	s.mu.RLock()
 	var valueStr string
 	var expiresAt sql.NullInt64
@@ -225,11 +232,13 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 
 // Set stores a value in session storage.
 func (s *SessionStorage) Set(key string, value interface{}) error {
+	kdeps_debug.Log("enter: Set")
 	return s.SetWithTTL(key, value, s.DefaultTTL)
 }
 
 // SetWithTTL stores a value in session storage with a specific TTL.
 func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Duration) error {
+	kdeps_debug.Log("enter: SetWithTTL")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -269,11 +278,13 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 
 // Touch updates the accessed_at timestamp and extends expiration if TTL is set.
 func (s *SessionStorage) Touch(key string) error {
+	kdeps_debug.Log("enter: Touch")
 	return s.TouchWithTTL(key, s.DefaultTTL)
 }
 
 // TouchWithTTL updates the accessed_at timestamp and extends expiration.
 func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
+	kdeps_debug.Log("enter: TouchWithTTL")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -301,6 +312,7 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 
 // IsExpired checks if a session key has expired.
 func (s *SessionStorage) IsExpired(key string) (bool, error) {
+	kdeps_debug.Log("enter: IsExpired")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -327,6 +339,7 @@ func (s *SessionStorage) IsExpired(key string) (bool, error) {
 
 // Delete removes a value from session storage.
 func (s *SessionStorage) Delete(key string) error {
+	kdeps_debug.Log("enter: Delete")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -341,6 +354,7 @@ func (s *SessionStorage) Delete(key string) error {
 
 // Clear clears all data for this session.
 func (s *SessionStorage) Clear() error {
+	kdeps_debug.Log("enter: Clear")
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -354,6 +368,7 @@ func (s *SessionStorage) Clear() error {
 
 // GetAll retrieves all key-value pairs for this session.
 func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: GetAll")
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -396,5 +411,6 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 
 // Close closes the database connection.
 func (s *SessionStorage) Close() error {
+	kdeps_debug.Log("enter: Close")
 	return s.DB.Close()
 }

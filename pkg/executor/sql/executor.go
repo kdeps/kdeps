@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -56,6 +58,7 @@ const (
 
 // NewExecutor creates a new SQL executor.
 func NewExecutor() *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return &Executor{
 		Pools: make(map[string]*sql.DB),
 	}
@@ -66,6 +69,7 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.SQLConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
 	// Create a copy of config to store evaluated values
@@ -139,6 +143,7 @@ func (e *Executor) resolvePoolConfig(
 	ctx *executor.ExecutionContext,
 	config *domain.PoolConfig,
 ) (*domain.PoolConfig, error) {
+	kdeps_debug.Log("enter: resolvePoolConfig")
 	poolConfig := *config
 
 	if config.MaxIdleTime != "" {
@@ -165,6 +170,7 @@ func (e *Executor) GetConnectionString(
 	ctx *executor.ExecutionContext,
 	config *domain.SQLConfig,
 ) (string, error) {
+	kdeps_debug.Log("enter: GetConnectionString")
 	// If connection name specified, use named connection
 	if config.ConnectionName != "" {
 		if conn, ok := ctx.Workflow.Settings.SQLConnections[config.ConnectionName]; ok {
@@ -192,6 +198,7 @@ func (e *Executor) getConnection(
 	connectionStr string,
 	poolConfig *domain.PoolConfig,
 ) (*sql.DB, error) {
+	kdeps_debug.Log("enter: getConnection")
 	e.mu.RLock()
 	if db, ok := e.Pools[connectionStr]; ok {
 		e.mu.RUnlock()
@@ -226,6 +233,7 @@ func (e *Executor) getConnection(
 
 // DetectDriver detects database driver from connection string (exported for testing).
 func (e *Executor) DetectDriver(connectionStr string) string {
+	kdeps_debug.Log("enter: DetectDriver")
 	if len(connectionStr) > 0 {
 		lowerStr := strings.ToLower(connectionStr)
 		switch {
@@ -251,6 +259,7 @@ func (e *Executor) executeQuery(
 	db *sql.DB,
 	config *domain.SQLConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeQuery")
 	// Evaluate query (only if it contains expression syntax)
 	queryStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Query)
 	if err != nil {
@@ -314,6 +323,7 @@ func (e *Executor) ExecuteSelectQuery(
 	params []interface{},
 	maxRows int,
 ) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ExecuteSelectQuery")
 	rows, queryErr := db.QueryContext(queryCtx, queryStr, params...)
 	if queryErr != nil {
 		if queryCtx.Err() == context.DeadlineExceeded {
@@ -338,6 +348,7 @@ func (e *Executor) ExecuteDMLQuery(
 	queryStr string,
 	params []interface{},
 ) (int64, int64, error) {
+	kdeps_debug.Log("enter: ExecuteDMLQuery")
 	result, execErr := db.ExecContext(queryCtx, queryStr, params...)
 	if execErr != nil {
 		if queryCtx.Err() == context.DeadlineExceeded {
@@ -365,6 +376,7 @@ func (e *Executor) FormatSelectResults(
 	results []map[string]interface{},
 	format string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: FormatSelectResults")
 	switch strings.ToLower(format) {
 	case "json":
 		jsonData, marshalErr := json.Marshal(results)
@@ -404,6 +416,7 @@ func (e *Executor) executeTransaction(
 	db *sql.DB,
 	config *domain.SQLConfig,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTransaction")
 	// Begin transaction
 	tx, err := db.BeginTx(context.Background(), nil)
 	if err != nil {
@@ -463,6 +476,7 @@ func (e *Executor) executeBatchQuery(
 	queryStr string,
 	paramsBatchExpr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeBatchQuery")
 	// Evaluate the paramsBatch expression to get array of parameter arrays
 	paramsBatch, err := e.evaluateExpression(evaluator, ctx, paramsBatchExpr)
 	if err != nil {
@@ -508,6 +522,7 @@ func (e *Executor) ReadRowsWithLimit(
 	rows *sql.Rows,
 	maxRows int,
 ) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: ReadRowsWithLimit")
 	defer rows.Close()
 
 	columns, err := rows.Columns()
@@ -537,6 +552,7 @@ func (e *Executor) scanRows(
 	columns []string,
 	limit int,
 ) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: scanRows")
 	var results []map[string]interface{}
 	count := 0
 
@@ -558,6 +574,7 @@ func (e *Executor) scanRows(
 }
 
 func (e *Executor) scanRow(rows *sql.Rows, columns []string) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: scanRow")
 	values := make([]interface{}, len(columns))
 	valuePtrs := make([]interface{}, len(columns))
 	for i := range values {
@@ -577,6 +594,7 @@ func (e *Executor) scanRow(rows *sql.Rows, columns []string) (map[string]interfa
 }
 
 func (e *Executor) convertValue(val interface{}) interface{} {
+	kdeps_debug.Log("enter: convertValue")
 	if b, ok := val.([]byte); ok {
 		val = string(b)
 	}
@@ -591,12 +609,14 @@ func (e *Executor) convertValue(val interface{}) interface{} {
 
 // readRows reads all rows from a query result.
 func (e *Executor) readRows(rows *sql.Rows) ([]map[string]interface{}, error) {
+	kdeps_debug.Log("enter: readRows")
 	return e.ReadRowsWithLimit(rows, 0)
 }
 
 // getColumnNames extracts column names from query results.
 // Returns column names sorted alphabetically for consistent ordering.
 func (e *Executor) getColumnNames(results []map[string]interface{}) []string {
+	kdeps_debug.Log("enter: getColumnNames")
 	if len(results) == 0 {
 		return []string{}
 	}
@@ -617,6 +637,7 @@ func (e *Executor) evaluateExpression(
 	ctx *executor.ExecutionContext,
 	exprStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: evaluateExpression")
 	env := e.buildEnvironment(ctx)
 
 	parser := expression.NewParser()
@@ -635,6 +656,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
+	kdeps_debug.Log("enter: evaluateStringOrLiteral")
 	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
@@ -649,6 +671,7 @@ func (e *Executor) evaluateStringOrLiteral(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
+	kdeps_debug.Log("enter: containsExpressionSyntax")
 	return strings.Contains(s, "{{")
 }
 
@@ -658,6 +681,7 @@ func (e *Executor) evaluateSQLParameters(
 	ctx *executor.ExecutionContext,
 	params []interface{},
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: evaluateSQLParameters")
 	evaluatedParams := make([]interface{}, len(params))
 
 	for i, param := range params {
@@ -673,6 +697,7 @@ func (e *Executor) evaluateSQLParameters(
 
 // containsSQLFunctionCalls checks if a string contains SQL-relevant function calls.
 func (e *Executor) containsSQLFunctionCalls(paramStr string) bool {
+	kdeps_debug.Log("enter: containsSQLFunctionCalls")
 	functionPatterns := []string{`get\(`, `set\(`, `file\(`, `info\(`, `len\(`}
 	for _, pattern := range functionPatterns {
 		if matched, _ := regexp.MatchString(pattern, paramStr); matched {
@@ -684,6 +709,7 @@ func (e *Executor) containsSQLFunctionCalls(paramStr string) bool {
 
 // buildEnvironment builds evaluation environment from context.
 func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]interface{} {
+	kdeps_debug.Log("enter: buildEnvironment")
 	env := make(map[string]interface{})
 
 	if ctx.Request != nil {
@@ -704,6 +730,7 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 // FormatAsCSV formats query results as CSV string.
 // FormatAsCSV formats results as CSV (exported for testing).
 func (e *Executor) FormatAsCSV(results []map[string]interface{}) (string, error) {
+	kdeps_debug.Log("enter: FormatAsCSV")
 	if len(results) == 0 {
 		return "", nil
 	}
@@ -746,6 +773,7 @@ func (e *Executor) FormatAsCSV(results []map[string]interface{}) (string, error)
 // ConfigurePool configures database connection pool settings.
 // ConfigurePool configures the database connection pool (exported for testing).
 func (e *Executor) ConfigurePool(db *sql.DB, poolConfig *domain.PoolConfig) {
+	kdeps_debug.Log("enter: ConfigurePool")
 	if poolConfig == nil {
 		// Default pool settings
 		db.SetMaxOpenConns(DefaultMaxOpenConns)
@@ -782,6 +810,7 @@ func (e *Executor) executeTransactionQuery(
 	queryItem domain.QueryItem,
 	queryStr string,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTransactionQuery")
 	if queryItem.ParamsBatch != "" {
 		return e.executeBatchQuery(ctx, evaluator, tx, queryStr, queryItem.ParamsBatch)
 	}
@@ -808,6 +837,7 @@ func (e *Executor) evaluateTransactionParams(
 	ctx *executor.ExecutionContext,
 	params []interface{},
 ) ([]interface{}, error) {
+	kdeps_debug.Log("enter: evaluateTransactionParams")
 	evaluatedParams := make([]interface{}, len(params))
 	for i, param := range params {
 		evaluatedParam, err := e.EvaluateSingleParam(evaluator, ctx, param, i)
@@ -825,6 +855,7 @@ func (e *Executor) executeTransactionSelect(
 	queryStr string,
 	params []interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTransactionSelect")
 	rows, queryErr := tx.QueryContext(context.Background(), queryStr, params...)
 	if queryErr != nil {
 		return nil, fmt.Errorf("query execution failed: %w", queryErr)
@@ -843,6 +874,7 @@ func (e *Executor) executeTransactionDML(
 	queryStr string,
 	params []interface{},
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTransactionDML")
 	result, execErr := tx.ExecContext(context.Background(), queryStr, params...)
 	if execErr != nil {
 		return nil, fmt.Errorf("query execution failed: %w", execErr)
@@ -872,6 +904,7 @@ func (e *Executor) EvaluateSingleParam(
 	param interface{},
 	index int,
 ) (interface{}, error) {
+	kdeps_debug.Log("enter: EvaluateSingleParam")
 	paramStr, ok := param.(string)
 	if !ok {
 		// For non-string parameters, use as-is
@@ -894,5 +927,6 @@ func (e *Executor) EvaluateSingleParam(
 
 // ContainsSQLFunctionCallsForTesting calls containsSQLFunctionCalls for testing.
 func (e *Executor) ContainsSQLFunctionCallsForTesting(paramStr string) bool {
+	kdeps_debug.Log("enter: ContainsSQLFunctionCallsForTesting")
 	return e.containsSQLFunctionCalls(paramStr)
 }

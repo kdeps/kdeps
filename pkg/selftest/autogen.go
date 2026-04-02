@@ -24,6 +24,8 @@ import (
 	"regexp"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -39,6 +41,7 @@ var requestBodyFieldRE = regexp.MustCompile(`request\.body\.([a-zA-Z_][a-zA-Z0-9
 //     type and configuration (validation rules, LLM prompt, HTTP method, etc.).
 //  3. If no resources are defined, fall back to one test per API route.
 func GenerateTests(workflow *domain.Workflow) []domain.TestCase {
+	kdeps_debug.Log("enter: GenerateTests")
 	var cases []domain.TestCase
 
 	cases = append(cases, healthCheckTest())
@@ -59,6 +62,7 @@ func GenerateTests(workflow *domain.Workflow) []domain.TestCase {
 
 // healthCheckTest returns a GET /health → 200 test case.
 func healthCheckTest() domain.TestCase {
+	kdeps_debug.Log("enter: healthCheckTest")
 	return domain.TestCase{
 		Name:    "auto: health check",
 		Request: domain.TestRequest{Method: "GET", Path: "/health"},
@@ -68,6 +72,7 @@ func healthCheckTest() domain.TestCase {
 
 // resourceTests generates test cases for a single resource based on its type.
 func resourceTests(res *domain.Resource, entryPath string) []domain.TestCase {
+	kdeps_debug.Log("enter: resourceTests")
 	id := res.Metadata.ActionID
 	run := res.Run
 
@@ -146,6 +151,7 @@ func resourceTests(res *domain.Resource, entryPath string) []domain.TestCase {
 //   - A "valid" test with all required fields populated.
 //   - An "invalid" test with all required fields omitted, expecting a 4xx.
 func validationTests(id string, v *domain.ValidationsConfig, path string) []domain.TestCase {
+	kdeps_debug.Log("enter: validationTests")
 	if path == "" {
 		return nil
 	}
@@ -188,6 +194,7 @@ func validationTests(id string, v *domain.ValidationsConfig, path string) []doma
 // buildValidBody constructs a request body satisfying the validation config.
 // Required fields from v.Required and v.Rules are populated with type-appropriate values.
 func buildValidBody(v *domain.ValidationsConfig) map[string]interface{} {
+	kdeps_debug.Log("enter: buildValidBody")
 	body := make(map[string]interface{})
 
 	for _, f := range v.Required {
@@ -208,6 +215,7 @@ func buildValidBody(v *domain.ValidationsConfig) map[string]interface{} {
 
 // sampleValue returns a type-appropriate sample value for a field.
 func sampleValue(field string, fieldType string) interface{} {
+	kdeps_debug.Log("enter: sampleValue")
 	switch domain.FieldType(fieldType) {
 	case domain.FieldTypeInteger, domain.FieldTypeNumber:
 		return 1
@@ -235,6 +243,7 @@ func sampleValue(field string, fieldType string) interface{} {
 // chatTest generates a test case for an LLM chat resource.
 // Body fields are extracted from {{ request.body.X }} expressions in the prompt/role.
 func chatTest(id string, c *domain.ChatConfig, path string) domain.TestCase {
+	kdeps_debug.Log("enter: chatTest")
 	if path == "" {
 		return domain.TestCase{Name: "auto: " + id + " (llm - no route)"}
 	}
@@ -258,6 +267,7 @@ func chatTest(id string, c *domain.ChatConfig, path string) domain.TestCase {
 // If the URL is static (no expressions), it tests the URL directly.
 // Otherwise it hits the workflow route to exercise the resource indirectly.
 func httpClientTest(id string, c *domain.HTTPClientConfig) domain.TestCase {
+	kdeps_debug.Log("enter: httpClientTest")
 	url, ok := staticURL(c.URL)
 	if ok {
 		method := strings.ToUpper(c.Method)
@@ -280,6 +290,7 @@ func httpClientTest(id string, c *domain.HTTPClientConfig) domain.TestCase {
 
 // apiResponseTest generates a test that checks the expected API response shape.
 func apiResponseTest(id string, r *domain.APIResponseConfig, path string) domain.TestCase {
+	kdeps_debug.Log("enter: apiResponseTest")
 	if path == "" {
 		return domain.TestCase{Name: "auto: " + id + " (api-response - no route)"}
 	}
@@ -300,6 +311,7 @@ func apiResponseTest(id string, r *domain.APIResponseConfig, path string) domain
 
 // searchTest generates a test for a search resource using a sample query.
 func searchTest(id string, s *domain.SearchConfig, path string) domain.TestCase {
+	kdeps_debug.Log("enter: searchTest")
 	body := extractBodyFields(s)
 	if len(body) == 0 {
 		body = map[string]interface{}{"query": "test"}
@@ -321,6 +333,7 @@ func searchTest(id string, s *domain.SearchConfig, path string) domain.TestCase 
 // scraperTest generates a test for a scraper resource.
 // If the source is a static URL, test it directly; otherwise hit the route.
 func scraperTest(id string, s *domain.ScraperConfig, path string) domain.TestCase {
+	kdeps_debug.Log("enter: scraperTest")
 	if url, ok := staticURL(s.Source); ok {
 		return domain.TestCase{
 			Name:    "auto: " + id + " (scraper) -> " + url,
@@ -345,6 +358,7 @@ func scraperTest(id string, s *domain.ScraperConfig, path string) domain.TestCas
 
 // genericTest generates a route hit test for resources without special handling.
 func genericTest(id, kind, path string, body map[string]interface{}) domain.TestCase {
+	kdeps_debug.Log("enter: genericTest")
 	if path == "" {
 		return domain.TestCase{Name: "auto: " + id + " (" + kind + " - no route)"}
 	}
@@ -365,6 +379,7 @@ func genericTest(id, kind, path string, body map[string]interface{}) domain.Test
 
 // routeSmokeTests generates one test per API route when no resources are defined.
 func routeSmokeTests(workflow *domain.Workflow) []domain.TestCase {
+	kdeps_debug.Log("enter: routeSmokeTests")
 	if workflow.Settings.APIServer == nil {
 		return nil
 	}
@@ -386,6 +401,7 @@ func routeSmokeTests(workflow *domain.Workflow) []domain.TestCase {
 // extractBodyFields JSON-marshals v, then extracts all {{ request.body.X }}
 // field names and returns a body map with sample values.
 func extractBodyFields(v interface{}) map[string]interface{} {
+	kdeps_debug.Log("enter: extractBodyFields")
 	data, err := json.Marshal(v)
 	if err != nil {
 		return nil
@@ -408,6 +424,7 @@ func extractBodyFields(v interface{}) map[string]interface{} {
 
 // firstRoutePath returns the path of the first API route, or "" if none.
 func firstRoutePath(workflow *domain.Workflow) string {
+	kdeps_debug.Log("enter: firstRoutePath")
 	if workflow.Settings.APIServer == nil {
 		return ""
 	}
@@ -419,6 +436,7 @@ func firstRoutePath(workflow *domain.Workflow) string {
 
 // staticURL returns the URL and true when it contains no Jinja2 expressions.
 func staticURL(rawURL string) (string, bool) {
+	kdeps_debug.Log("enter: staticURL")
 	if rawURL == "" {
 		return "", false
 	}
@@ -430,6 +448,7 @@ func staticURL(rawURL string) (string, bool) {
 
 // bodyOrNil returns nil when body is empty (avoids sending empty JSON objects).
 func bodyOrNil(body map[string]interface{}) interface{} {
+	kdeps_debug.Log("enter: bodyOrNil")
 	if len(body) == 0 {
 		return nil
 	}
@@ -439,6 +458,7 @@ func bodyOrNil(body map[string]interface{}) interface{} {
 // firstMethod returns the first method from the list, uppercased,
 // defaulting to POST for API routes when none are declared.
 func firstMethod(methods []string) string {
+	kdeps_debug.Log("enter: firstMethod")
 	for _, m := range methods {
 		m = strings.ToUpper(strings.TrimSpace(m))
 		if m != "" {

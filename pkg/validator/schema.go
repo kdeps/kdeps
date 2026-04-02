@@ -25,6 +25,8 @@ import (
 	"regexp"
 	"strings"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -56,6 +58,7 @@ type SchemaValidator struct {
 
 // NewSchemaValidator creates a new schema validator.
 func NewSchemaValidator() (*SchemaValidator, error) {
+	kdeps_debug.Log("enter: NewSchemaValidator")
 	sv := &SchemaValidator{}
 
 	// Load workflow schema.
@@ -123,36 +126,43 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 
 // NewSchemaValidatorForTesting creates a new schema validator for testing.
 func NewSchemaValidatorForTesting() (*SchemaValidator, error) {
+	kdeps_debug.Log("enter: NewSchemaValidatorForTesting")
 	return NewSchemaValidator()
 }
 
 // GetWorkflowSchemaForTesting returns the workflow schema for testing.
 func (sv *SchemaValidator) GetWorkflowSchemaForTesting() *gojsonschema.Schema {
+	kdeps_debug.Log("enter: GetWorkflowSchemaForTesting")
 	return sv.workflowSchema
 }
 
 // GetResourceSchemaForTesting returns the resource schema for testing.
 func (sv *SchemaValidator) GetResourceSchemaForTesting() *gojsonschema.Schema {
+	kdeps_debug.Log("enter: GetResourceSchemaForTesting")
 	return sv.resourceSchema
 }
 
 // GetAgencySchemaForTesting returns the agency schema for testing.
 func (sv *SchemaValidator) GetAgencySchemaForTesting() *gojsonschema.Schema {
+	kdeps_debug.Log("enter: GetAgencySchemaForTesting")
 	return sv.agencySchema
 }
 
 // GetComponentSchemaForTesting returns the component schema for testing.
 func (sv *SchemaValidator) GetComponentSchemaForTesting() *gojsonschema.Schema {
+	kdeps_debug.Log("enter: GetComponentSchemaForTesting")
 	return sv.componentSchema
 }
 
 // GetRemoteAgentSchemaForTesting returns the remote agent schema for testing.
 func (sv *SchemaValidator) GetRemoteAgentSchemaForTesting() *gojsonschema.Schema {
+	kdeps_debug.Log("enter: GetRemoteAgentSchemaForTesting")
 	return sv.remoteAgentSchema
 }
 
 // ValidateWorkflow validates workflow data against the workflow schema.
 func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateWorkflow")
 	documentLoader := gojsonschema.NewGoLoader(data)
 	result, err := sv.workflowSchema.Validate(documentLoader)
 	if err != nil {
@@ -175,36 +185,43 @@ func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
 
 // GetTypeSuggestion exposes the private getTypeSuggestion method for testing.
 func (sv *SchemaValidator) GetTypeSuggestion(field, descStr string) string {
+	kdeps_debug.Log("enter: GetTypeSuggestion")
 	return sv.getTypeSuggestion(field, descStr)
 }
 
 // GetRequiredFieldSuggestion exposes the private getRequiredFieldSuggestion method for testing.
 func (sv *SchemaValidator) GetRequiredFieldSuggestion(field string) string {
+	kdeps_debug.Log("enter: GetRequiredFieldSuggestion")
 	return sv.getRequiredFieldSuggestion(field)
 }
 
 // GetPatternSuggestion exposes the private getPatternSuggestion method for testing.
 func (sv *SchemaValidator) GetPatternSuggestion(field string) string {
+	kdeps_debug.Log("enter: GetPatternSuggestion")
 	return sv.getPatternSuggestion(field)
 }
 
 // GetRangeSuggestion exposes the private getRangeSuggestion method for testing.
 func (sv *SchemaValidator) GetRangeSuggestion(field, descStr string) string {
+	kdeps_debug.Log("enter: GetRangeSuggestion")
 	return sv.getRangeSuggestion(field, descStr)
 }
 
 // GetFieldExamples exposes the private getFieldExamples method for testing.
 func (sv *SchemaValidator) GetFieldExamples(field, expectedType string) string {
+	kdeps_debug.Log("enter: GetFieldExamples")
 	return sv.getFieldExamples(field, expectedType)
 }
 
 // GetEnumValues exposes the private getEnumValues method for testing.
 func (sv *SchemaValidator) GetEnumValues(field string, schemaType string) []interface{} {
+	kdeps_debug.Log("enter: GetEnumValues")
 	return sv.getEnumValues(field, schemaType)
 }
 
 // ValidateResource validates resource data against the resource schema.
 func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateResource")
 	documentLoader := gojsonschema.NewGoLoader(data)
 	result, err := sv.resourceSchema.Validate(documentLoader)
 	if err != nil {
@@ -227,6 +244,7 @@ func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 
 // ValidateComponent validates component data against the component schema.
 func (sv *SchemaValidator) ValidateComponent(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateComponent")
 	documentLoader := gojsonschema.NewGoLoader(data)
 	result, err := sv.componentSchema.Validate(documentLoader)
 	if err != nil {
@@ -249,6 +267,7 @@ func (sv *SchemaValidator) ValidateComponent(data map[string]interface{}) error 
 
 // ValidateAgency validates agency data against the agency schema.
 func (sv *SchemaValidator) ValidateAgency(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateAgency")
 	documentLoader := gojsonschema.NewGoLoader(data)
 	result, err := sv.agencySchema.Validate(documentLoader)
 	if err != nil {
@@ -271,6 +290,7 @@ func (sv *SchemaValidator) ValidateAgency(data map[string]interface{}) error {
 
 // ValidateRemoteAgent validates remoteAgent configuration against the remote agent schema.
 func (sv *SchemaValidator) ValidateRemoteAgent(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateRemoteAgent")
 	documentLoader := gojsonschema.NewGoLoader(data)
 	result, err := sv.remoteAgentSchema.Validate(documentLoader)
 	if err != nil {
@@ -293,6 +313,7 @@ func (sv *SchemaValidator) ValidateRemoteAgent(data map[string]interface{}) erro
 
 // isTypeError checks if the error is a type-related error.
 func (sv *SchemaValidator) isTypeError(errorType, descStr string) bool {
+	kdeps_debug.Log("enter: isTypeError")
 	return errorType == "type" || strings.Contains(descStr, "Invalid type") ||
 		strings.Contains(descStr, "Expected:")
 }
@@ -302,6 +323,7 @@ func (sv *SchemaValidator) enhanceErrorMessage(
 	desc gojsonschema.ResultError,
 	schemaType string,
 ) string {
+	kdeps_debug.Log("enter: enhanceErrorMessage")
 	field := desc.Field()
 	errorType := desc.Type()
 	descStr := desc.String()
@@ -341,6 +363,7 @@ func (sv *SchemaValidator) enhanceErrorMessage(
 
 // getFieldSuggestion provides helpful suggestions for validation errors.
 func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ string) string {
+	kdeps_debug.Log("enter: getFieldSuggestion")
 	// Normalize field path
 	normalizedField := sv.normalizeFieldPath(field)
 
@@ -377,6 +400,7 @@ func (sv *SchemaValidator) getFieldSuggestion(field, errorType, descStr, _ strin
 
 // normalizeFieldPath normalizes field paths by removing array indices.
 func (sv *SchemaValidator) normalizeFieldPath(field string) string {
+	kdeps_debug.Log("enter: normalizeFieldPath")
 	normalized := field
 	// Replace array indices
 	normalized = strings.ReplaceAll(normalized, ".0.", ".")
@@ -388,6 +412,7 @@ func (sv *SchemaValidator) normalizeFieldPath(field string) string {
 
 // getTypeSuggestion provides type error suggestions.
 func (sv *SchemaValidator) getTypeSuggestion(field string, descStr string) string {
+	kdeps_debug.Log("enter: getTypeSuggestion")
 	// Extract expected type from error message - try multiple formats
 	var expectedType string
 	switch {
@@ -440,6 +465,7 @@ func (sv *SchemaValidator) getTypeSuggestion(field string, descStr string) strin
 
 // getRequiredFieldSuggestion provides suggestions for required fields.
 func (sv *SchemaValidator) getRequiredFieldSuggestion(field string) string {
+	kdeps_debug.Log("enter: getRequiredFieldSuggestion")
 	examples := sv.getFieldExamples(field, "string")
 	if examples != "" && examples != `"example"` {
 		return fmt.Sprintf("This field is required. Example: %s", examples)
@@ -449,6 +475,7 @@ func (sv *SchemaValidator) getRequiredFieldSuggestion(field string) string {
 
 // getPatternSuggestion provides pattern/format suggestions.
 func (sv *SchemaValidator) getPatternSuggestion(field string) string {
+	kdeps_debug.Log("enter: getPatternSuggestion")
 	// Known patterns
 	patternMap := map[string]string{
 		"validations.routes":             "Must start with '/'. Example: '/api/users'",
@@ -467,6 +494,7 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 
 // getRangeSuggestion provides range suggestions.
 func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
+	kdeps_debug.Log("enter: getRangeSuggestion")
 	// Known field ranges (for fields where we know both min and max)
 	knownRanges := map[string]struct {
 		min string
@@ -543,6 +571,7 @@ func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
 
 // getFieldExamples provides example values for fields.
 func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
+	kdeps_debug.Log("enter: getFieldExamples")
 	examples := map[string]string{
 		// Metadata fields
 		"apiVersion":        `"kdeps.io/v1"`,
@@ -618,6 +647,7 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 
 // IsEnumField checks if a field has enum constraints in the schema.
 func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
+	kdeps_debug.Log("enter: IsEnumField")
 	enumValues := sv.getEnumValues(field, schemaType)
 	return len(enumValues) > 0
 }
@@ -626,6 +656,7 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 //
 //nolint:gocognit,nestif // schema traversal is intentionally explicit
 func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []interface{} {
+	kdeps_debug.Log("enter: getEnumValues")
 	// Validate schema type
 	if schemaType != "resource" && schemaType != "workflow" {
 		return nil

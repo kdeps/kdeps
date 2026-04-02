@@ -21,6 +21,8 @@ package executor
 import (
 	"fmt"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -42,6 +44,7 @@ type Node struct {
 
 // NewGraph creates a new dependency graph.
 func NewGraph() *Graph {
+	kdeps_debug.Log("enter: NewGraph")
 	return &Graph{
 		Nodes: make(map[string]*Node),
 		Edges: make(map[string][]string),
@@ -50,6 +53,7 @@ func NewGraph() *Graph {
 
 // AddResource adds a resource to the graph.
 func (g *Graph) AddResource(resource *domain.Resource) error {
+	kdeps_debug.Log("enter: AddResource")
 	actionID := resource.Metadata.ActionID
 
 	// Check for duplicate actionID.
@@ -73,6 +77,7 @@ func (g *Graph) AddResource(resource *domain.Resource) error {
 
 // Build builds the dependency graph.
 func (g *Graph) Build() error {
+	kdeps_debug.Log("enter: Build")
 	// Validate all dependencies exist.
 	for actionID, deps := range g.Edges {
 		for _, dep := range deps {
@@ -100,6 +105,7 @@ func (g *Graph) Build() error {
 
 // DetectCycles detects cycles in the dependency graph.
 func (g *Graph) DetectCycles() error {
+	kdeps_debug.Log("enter: DetectCycles")
 	visited := make(map[string]bool)
 	recursionStack := make(map[string]bool)
 
@@ -120,6 +126,7 @@ func (g *Graph) DetectCycles() error {
 
 // hasCycle checks if there's a cycle starting from the given node.
 func (g *Graph) hasCycle(actionID string, visited, recursionStack map[string]bool) bool {
+	kdeps_debug.Log("enter: hasCycle")
 	visited[actionID] = true
 	recursionStack[actionID] = true
 
@@ -141,6 +148,7 @@ func (g *Graph) hasCycle(actionID string, visited, recursionStack map[string]boo
 
 // TopologicalSort returns resources in topological order (dependencies first).
 func (g *Graph) TopologicalSort() ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: TopologicalSort")
 	// Build the graph if not already built.
 	if err := g.Build(); err != nil {
 		return nil, err
@@ -168,6 +176,7 @@ func (g *Graph) TopologicalSortUtil(
 	visited map[string]bool,
 	result *[]*domain.Resource,
 ) error {
+	kdeps_debug.Log("enter: TopologicalSortUtil")
 	return g.topologicalSortUtilWithStack(actionID, visited, make(map[string]bool), result)
 }
 
@@ -177,6 +186,7 @@ func (g *Graph) topologicalSortUtilWithStack(
 	recursionStack map[string]bool,
 	result *[]*domain.Resource,
 ) error {
+	kdeps_debug.Log("enter: topologicalSortUtilWithStack")
 	// Check for cycle: if node is in recursion stack, we have a cycle
 	if recursionStack[actionID] {
 		return fmt.Errorf("cycle detected in dependency graph involving resource '%s'", actionID)
@@ -210,6 +220,7 @@ func (g *Graph) topologicalSortUtilWithStack(
 
 // GetExecutionOrder returns the execution order for resources based on dependencies.
 func (g *Graph) GetExecutionOrder(targetActionID string) ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: GetExecutionOrder")
 	// Build the graph.
 	if err := g.Build(); err != nil {
 		return nil, err
@@ -244,6 +255,7 @@ func (g *Graph) GetExecutionOrder(targetActionID string) ([]*domain.Resource, er
 
 // GetTransitiveDependencies gets all dependencies (including transitive) of a resource.
 func (g *Graph) GetTransitiveDependencies(actionID string) map[string]bool {
+	kdeps_debug.Log("enter: GetTransitiveDependencies")
 	deps := make(map[string]bool)
 	visited := make(map[string]bool)
 
@@ -254,6 +266,7 @@ func (g *Graph) GetTransitiveDependencies(actionID string) map[string]bool {
 
 // collectDependencies recursively collects dependencies.
 func (g *Graph) collectDependencies(actionID string, deps, visited map[string]bool) {
+	kdeps_debug.Log("enter: collectDependencies")
 	if visited[actionID] {
 		return
 	}
@@ -269,11 +282,13 @@ func (g *Graph) collectDependencies(actionID string, deps, visited map[string]bo
 
 // GetNode returns a node by actionID.
 func (g *Graph) GetNode(actionID string) (*Node, bool) {
+	kdeps_debug.Log("enter: GetNode")
 	node, ok := g.Nodes[actionID]
 	return node, ok
 }
 
 // GetAllNodes returns all nodes in the graph.
 func (g *Graph) GetAllNodes() map[string]*Node {
+	kdeps_debug.Log("enter: GetAllNodes")
 	return g.Nodes
 }

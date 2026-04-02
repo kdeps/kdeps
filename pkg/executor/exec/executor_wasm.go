@@ -23,6 +23,8 @@ package exec
 import (
 	"errors"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -35,6 +37,7 @@ type Executor struct{}
 
 // NewExecutor creates a stub exec executor for WASM.
 func NewExecutor() *Executor {
+	kdeps_debug.Log("enter: NewExecutor")
 	return &Executor{}
 }
 
@@ -43,6 +46,7 @@ func (e *Executor) Execute(
 	_ *executor.ExecutionContext,
 	_ *domain.ExecConfig,
 ) (any, error) {
+	kdeps_debug.Log("enter: Execute")
 	return nil, ErrNotSupported
 }
 
@@ -51,10 +55,12 @@ type Adapter struct{}
 
 // NewAdapter creates a stub exec adapter for WASM.
 func NewAdapter() *Adapter {
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Adapter{}
 }
 
 // Execute returns an error since exec is not supported in WASM.
 func (a *Adapter) Execute(_ *executor.ExecutionContext, _ any) (any, error) {
+	kdeps_debug.Log("enter: Execute")
 	return nil, ErrNotSupported
 }
