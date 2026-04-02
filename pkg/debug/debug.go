@@ -40,9 +40,27 @@ func Enabled() bool {
 	return os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true"
 }
 
-// Log appends the function name to the running call chain. Each line shows up
-// to maxChainLen entries in the format "(operation) a -> b -> c -> d". When a
-// group is full the line is finalised and a new one begins.
+// flushGroup writes a complete or partial group as a single terminated line.
+// Must be called with mu held.
+func flushGroup(group []string) {
+	if len(group) == 0 {
+		return
+	}
+	label := group[0]
+	if len(group) == 1 {
+		fmt.Fprintf(os.Stderr, "(%s)\n", label)
+	} else {
+		fmt.Fprintf(os.Stderr, "(%s) %s\n", label, strings.Join(group[1:], " -> "))
+	}
+}
+
+// Log appends the function name to the running call chain. Each group of
+// maxChainLen entries is written as a single complete line:
+//
+//	(operation) a -> b -> c -> d
+//
+// Lines are only written when a group fills or Flush is called, so they never
+// interleave with other stderr output mid-line.
 func Log(msg string) {
 	if !Enabled() {
 		return
@@ -54,33 +72,24 @@ func Log(msg string) {
 	chain = append(chain, name)
 	n := len(chain)
 
-	// 0-indexed position within the current group of maxChainLen.
-	pos := (n - 1) % maxChainLen
-
-	if pos == 0 {
-		// First item of a new group: end the previous line (if any) and start fresh.
-		if n > 1 {
-			fmt.Fprintln(os.Stderr, "")
-		}
-		fmt.Fprintf(os.Stderr, "(%s)", name)
-	} else {
-		// Subsequent items: overwrite the current line with the full group.
-		groupStart := n - 1 - pos
-		label := chain[groupStart]
-		rest := chain[groupStart+1:]
-		fmt.Fprintf(os.Stderr, "\r\033[2K(%s) %s", label, strings.Join(rest, " -> "))
+	// Write a complete group when it reaches maxChainLen.
+	if n%maxChainLen == 0 {
+		flushGroup(chain[n-maxChainLen:])
 	}
 }
 
-// Flush writes a newline to terminate the current chain line and resets state.
+// Flush writes any buffered partial group as a terminated line and resets state.
 // Call this after each logical execution unit completes.
 func Flush() {
 	mu.Lock()
 	defer mu.Unlock()
-	if len(chain) > 0 {
-		fmt.Fprintln(os.Stderr, "")
-		chain = chain[:0]
+	if len(chain) == 0 {
+		return
 	}
+	groupStart := (len(chain) / maxChainLen) * maxChainLen
+	partial := chain[groupStart:]
+	flushGroup(partial)
+	chain = chain[:0]
 }
 
 // Reset clears the chain without writing output. Used in tests.
