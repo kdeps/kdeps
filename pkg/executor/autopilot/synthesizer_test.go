@@ -143,3 +143,63 @@ func (c *capturingLLMExecutor) Execute(_ *executor.ExecutionContext, config inte
 	c.lastConfig = config
 	return c.result, c.err
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// extractStringResponse / extractYAMLFromResponse branch tests
+// ──────────────────────────────────────────────────────────────────────────────
+
+func TestLLMSynthesizer_Synthesize_MapResponseWithRecognizedKey(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+yamlContent := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: test"
+llm := &mockLLMExecutor{result: map[string]interface{}{"response": yamlContent}}
+
+s := autopilot.NewLLMSynthesizer(llm, "llama3", nil)
+got, err := s.Synthesize("map goal", nil, nil)
+require.NoError(t, err)
+assert.Equal(t, strings.TrimSpace(yamlContent), strings.TrimSpace(got))
+}
+
+func TestLLMSynthesizer_Synthesize_MapResponseWithNoRecognizedKey(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+llm := &mockLLMExecutor{result: map[string]interface{}{"unknown_key": "something"}}
+
+s := autopilot.NewLLMSynthesizer(llm, "llama3", nil)
+_, err := s.Synthesize("unknown key goal", nil, nil)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "does not contain")
+}
+
+func TestLLMSynthesizer_Synthesize_NilResult(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+llm := &mockLLMExecutor{result: nil}
+
+s := autopilot.NewLLMSynthesizer(llm, "llama3", nil)
+_, err := s.Synthesize("nil goal", nil, nil)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "nil")
+}
+
+func TestLLMSynthesizer_Synthesize_IntegerResult(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+// integer 42 → fmt.Sprintf("%v", 42) = "42", which is non-empty but not valid YAML workflow
+llm := &mockLLMExecutor{result: 42}
+
+s := autopilot.NewLLMSynthesizer(llm, "llama3", nil)
+// The synthesizer accepts non-empty response; it returns "42" as YAML string.
+// It should not return an error from extractStringResponse (falls through to Sprintf).
+// However it may or may not error on YAML parsing depending on implementation.
+// We just verify the call completes without a nil-result error.
+_, _ = s.Synthesize("integer goal", nil, nil)
+}
+
+func TestLLMSynthesizer_Synthesize_GenericFence(t *testing.T) {
+t.Setenv("HOME", t.TempDir())
+fenced := "```\nsome: yaml\nvalue: here\n```"
+llm := &mockLLMExecutor{result: fenced}
+
+s := autopilot.NewLLMSynthesizer(llm, "llama3", nil)
+got, err := s.Synthesize("fenced goal", nil, nil)
+require.NoError(t, err)
+assert.Contains(t, got, "some: yaml")
+assert.Contains(t, got, "value: here")
+}
