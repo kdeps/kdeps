@@ -109,6 +109,7 @@ func (m *mockLocator) Screenshot(_ ...playwright.LocatorScreenshotOptions) ([]by
 	return m.screenshotData, m.screenshotErr
 }
 func (m *mockLocator) WaitFor(_ ...playwright.LocatorWaitForOptions) error { return m.waitForErr }
+func (m *mockLocator) First() playwright.Locator                           { return m }
 
 // mockKeyboard stubs playwright.Keyboard.
 type mockKeyboard struct {
