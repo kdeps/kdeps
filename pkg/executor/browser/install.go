@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	playwright "github.com/playwright-community/playwright-go"
 )
 
@@ -33,6 +35,7 @@ const playwrightDriverVersion = "1.57.0"
 // IsInstalled reports whether the Playwright driver CLI is already present on disk.
 // It mirrors playwright-go's own driver-directory convention so no subprocess is needed.
 func IsInstalled() bool {
+	kdeps_debug.Log("enter: IsInstalled")
 	dir, err := driverDirectory()
 	if err != nil {
 		return false
@@ -51,6 +54,7 @@ func IsInstalled() bool {
 // out receives any stderr output from the playwright installer; pass io.Discard
 // to suppress it.
 func EnsureInstalled(engines []string, out io.Writer) error {
+	kdeps_debug.Log("enter: EnsureInstalled")
 	opts := &playwright.RunOptions{
 		Verbose: false,
 		Stdout:  io.Discard,
@@ -66,6 +70,7 @@ func EnsureInstalled(engines []string, out io.Writer) error {
 // It replicates playwright-go's transformRunOptions logic so we can check for the
 // driver without spawning a subprocess.
 func driverDirectory() (string, error) {
+	kdeps_debug.Log("enter: driverDirectory")
 	if env := os.Getenv("PLAYWRIGHT_DRIVER_PATH"); env != "" {
 		return env, nil
 	}
