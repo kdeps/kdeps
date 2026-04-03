@@ -248,6 +248,33 @@ done
 
 ---
 
+## Testing
+
+The file input runner is tested at multiple levels:
+
+| Test level | File | What it covers |
+|------------|------|----------------|
+| Unit (black-box) | `pkg/input/file/runner_test.go` | `readFileInput` — all resolution paths, priority ordering, error cases |
+| Unit (white-box) | `pkg/input/file/runner_internal_test.go` | `runWithReader`, `Run`, `RunWithArg` — success and error paths; 100% statement coverage |
+| E2E integration | `tests/integration/executor/file_e2e_integration_test.go` | Full engine pipeline: raw stdin, `--file` arg, env var, config path, multi-resource, large file, request body keys |
+| Cmd integration | `tests/integration/cmd/file_cmd_integration_test.go` | `StartFileRunner` dispatch, `RunFlags.FileArg` field wiring, error propagation |
+
+Run all file-input tests:
+
+```bash
+# Unit tests (100% coverage)
+go test -v -coverprofile=cover.out ./pkg/input/file/...
+go tool cover -func=cover.out
+
+# E2E integration tests
+go test -v -timeout 60s ./tests/integration/executor/ -run TestE2E_FileInput
+
+# Cmd integration tests
+go test -v -timeout 60s ./tests/integration/cmd/ -run "TestStartFileRunner|TestRunFlags"
+```
+
+---
+
 ## See Also
 
 - [Input Sources](../concepts/input-sources.md) — Full reference for all input source types

@@ -22,6 +22,31 @@ When a workflow configures `sources: [file]`, the file runner:
 | `runner_test.go` | Black-box tests for `readFileInput` (all resolution paths, error cases) |
 | `runner_internal_test.go` | White-box tests for `runWithReader`, `Run`, `RunWithArg` (success + error paths, 100% coverage) |
 
+## Testing
+
+The package maintains **100% statement coverage** across three test files:
+
+| Test file | Type | Scenarios |
+|-----------|------|-----------|
+| `runner_test.go` | Unit (black-box) | Raw content, JSON path/content, env var, config path, `--file` priority, error cases |
+| `runner_internal_test.go` | Unit (white-box) | `runWithReader`/`readFileInput`/`Run`/`RunWithArg` success + error paths |
+| `tests/integration/executor/file_e2e_integration_test.go` | E2E integration | Full engine pipeline with all input modes, multi-resource, large file, request body keys |
+| `tests/integration/cmd/file_cmd_integration_test.go` | Cmd integration | `StartFileRunner` dispatch, `RunFlags.FileArg` wiring, error propagation |
+
+Run unit tests:
+
+```bash
+go test -v -coverprofile=cover.out ./pkg/input/file/...
+go tool cover -func=cover.out  # should show 100.0%
+```
+
+Run integration tests:
+
+```bash
+go test -v -timeout 60s ./tests/integration/executor/ -run TestE2E_FileInput
+go test -v -timeout 60s ./tests/integration/cmd/     -run "TestStartFileRunner|TestRunFlags"
+```
+
 ## Key types / functions
 
 ```go
