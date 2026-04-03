@@ -92,6 +92,9 @@ settings:
 }
 
 func TestExportISO_ValidWorkflow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon and linuxkit")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -127,6 +130,9 @@ settings:
 }
 
 func TestExportISO_UnsupportedFormat(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
