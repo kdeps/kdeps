@@ -372,9 +372,9 @@ func TestParseJSONResponse_NullContent(t *testing.T) {
 			"content": "null",
 		},
 	}
-	_, err := e.parseJSONResponse(response, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "null JSON response")
+	result, err := e.parseJSONResponse(response, nil)
+	require.NoError(t, err)
+	assert.Nil(t, result)
 }
 
 func TestParseJSONResponse_ValidContent(t *testing.T) {

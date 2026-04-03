@@ -5,11 +5,19 @@ metadata:
   actionId: login
   name: login
   description: |
-    Log in to LinkedIn using a headless Chromium browser.
+    Authenticate to LinkedIn using the real Chrome user data directory.
 
-    Navigates to the LinkedIn login page, fills in the credentials supplied
-    in the request body, submits the form, and waits for the feed redirect
-    that confirms a successful login.
+    This is the same technique as auto-apply/modules/open_chrome.py:
+    it passes --user-data-dir pointing at the actual Chrome profile, so
+    the browser arrives with real cookies, history, and fingerprint data
+    that LinkedIn already trusts - no login form, no CAPTCHA.
+
+    The chrome_profile_path request field overrides the default macOS
+    Chrome profile location. On macOS the default is:
+      ~/Library/Application Support/Google/Chrome/Default
+
+    IMPORTANT: Chrome must be fully closed before running the workflow,
+    otherwise Playwright cannot lock the profile directory.
 
     The browser session is persisted under sessionId "linkedin-session" so
     that subsequent resources (search-jobs, apply-job) share the same
@@ -19,23 +27,24 @@ metadata:
 run:
   browser:
     engine: chromium
-    headless: true
+    headless: false
     stealthMode: true
     sessionId: linkedin-session
+    executablePath: "{{ default(get('chrome_executable_path'), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') }}"
+    userDataDir: "{{ default(get('chrome_profile_path'), '/Users/joel/Library/Application Support/Google/Chrome/Default') }}"
     url: "https://www.linkedin.com/login"
-    waitFor: "#username"
-    timeoutDuration: 30s
+    timeoutDuration: 90s
     actions:
-      - action: fill
-        selector: "#username"
-        value: "{{ get('linkedin_email') }}"
-
-      - action: fill
-        selector: "#password"
-        value: "{{ get('linkedin_password') }}"
-
-      - action: click
-        selector: "button[type='submit']"
+      - action: evaluate
+        script: |
+          (() => {
+            const u = document.querySelector('#username');
+            if (u) u.value = '{{ get("linkedin_email") }}';
+            const p = document.querySelector('#password');
+            if (p) p.value = '{{ get("linkedin_password") }}';
+            const btn = document.querySelector('button[type="submit"]');
+            if (btn) btn.click();
+          })()
 
       - action: waiturl
         wait: "**/feed/**"

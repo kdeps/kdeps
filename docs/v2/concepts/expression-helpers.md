@@ -274,7 +274,7 @@ urlencode(str)
 ```yaml
 run:
   browser:
-    url: "https://www.example.com/search?q={{ get('query') | urlencode }}"
+    url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
 ```
 
 </div>

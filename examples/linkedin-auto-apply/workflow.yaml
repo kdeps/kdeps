@@ -7,46 +7,30 @@ metadata:
     Automated LinkedIn job applicant using a headless Chromium browser.
 
     Replicates the full auto-apply bot flow natively:
-      1. Validate required inputs and personal details
-      2. Log in to LinkedIn (browser, session persisted)
-      3. Search for jobs and extract listings (browser, JS evaluate)
-      4. Score and filter jobs against the candidate profile (LLM, per-job)
-      5. Apply to each matched job via Easy Apply (browser, per-job):
+      1. Load candidate profile from joel-profile.md (no API POST needed)
+      2. Validate required inputs and personal details
+      3. Log in to LinkedIn (browser, session persisted)
+      4. Search for jobs and extract listings (browser, JS evaluate)
+      5. Score and filter jobs against the candidate profile (LLM, per-job)
+      6. Apply to each matched job via Easy Apply (browser, per-job):
          - Click "Easy Apply"
          - Upload resume
          - Answer form questions (text, select, radio, checkbox, textarea)
            using predefined answers + LLM for unknown questions
          - Submit application
-      6. Return applied/skipped/failed summary
+      7. Return applied/skipped/failed summary
 
     Requirements:
       - Ollama running locally with llama3.2 installed
-      - A LinkedIn account (email + password in request body)
-      - A local resume PDF at the path provided in resume_path
+      - joel-profile.md (or sample-profile.md) filled in alongside this workflow
+      - Chrome must be fully closed before running (profile lock)
 
-    API: POST /api/v1/apply
-    Request body (JSON):
-      linkedin_email         string   LinkedIn login email (required)
-      linkedin_password      string   LinkedIn login password (required)
-      job_title              string   Job title to search for (required)
-      candidate_name         string   Full name (required)
-      candidate_profile      string   Skills and experience summary (required)
-      resume_path            string   Absolute path to resume PDF (required)
-      location               string   Search location (default: "")
-      min_match_score        number   Minimum match score 0-100 (default: 60)
-      max_results            number   Max jobs to apply to (default: 5)
-      date_posted            string   r86400/r604800/r2592000 (default: r604800)
-      remote_only            bool     Remote jobs only (default: false)
-      phone_number           string   Phone number for form questions
-      years_of_experience    string   Years of experience for form questions
-      current_city           string   City for location questions
-      country                string   Country (default: "Netherlands")
-      require_visa           string   "Yes" or "No" (default: "No")
-      desired_salary         string   Expected salary for form questions
-      easy_apply_only        bool     Skip external-apply jobs (default: true)
+    To run: kdeps run linkedin-auto-apply
   version: "1.0.0"
   targetActionId: response
   resources:
+    - resources/00-load-profile.yaml
+    - resources/00-set-profile.yaml
     - resources/01-validate.yaml
     - resources/02-login.yaml
     - resources/03-search-jobs.yaml
@@ -55,17 +39,7 @@ metadata:
     - resources/06-response.yaml
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16399
-
-  apiServer:
-    routes:
-      - path: "/api/v1/apply"
-        methods: ["POST"]
-    cors:
-      enableCors: true
-      allowedOrigins: ["*"]
+  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"

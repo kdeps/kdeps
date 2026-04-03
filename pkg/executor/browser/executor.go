@@ -20,6 +20,7 @@
 package browser
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -84,6 +85,9 @@ func (e *Executor) Execute(
 		r.timeout,
 		r.userAgent,
 		r.stealthMode,
+		r.storageStatePath,
+		r.userDataDir,
+		r.executablePath,
 	)
 	if err != nil {
 		return errorResult(err, r.sessionID, nil),
@@ -103,6 +107,14 @@ func (e *Executor) Execute(
 		return errorResult(execErr, r.sessionID, actionResults), execErr
 	}
 
+	// Persist storage state (cookies + localStorage) so subsequent runs can
+	// reload the authenticated session without repeating login.
+	if r.storageStatePath != "" {
+		if saveErr := saveStorageState(sess.ctx, r.storageStatePath); saveErr != nil {
+			fmt.Fprintf(os.Stderr, "browser: could not save storage state: %v\n", saveErr)
+		}
+	}
+
 	currentURL := sess.page.URL()
 	title, _ := sess.page.Title()
 
@@ -117,27 +129,33 @@ func (e *Executor) Execute(
 
 // browserCfgResolved holds the resolved fields from BrowserConfig.
 type browserCfgResolved struct {
-	engineName  string
-	sessionID   string
-	initialURL  string
-	waitFor     string
-	timeout     time.Duration
-	headless    bool
-	userAgent   string
-	stealthMode bool
+	engineName       string
+	sessionID        string
+	initialURL       string
+	waitFor          string
+	timeout          time.Duration
+	headless         bool
+	userAgent        string
+	stealthMode      bool
+	storageStatePath string
+	userDataDir      string
+	executablePath   string
 }
 
 // parseConfig evaluates expression fields from a BrowserConfig into a resolved value struct.
 func parseConfig(cfg *domain.BrowserConfig, ctx *executor.ExecutionContext) browserCfgResolved {
 	kdeps_debug.Log("enter: parseConfig")
 	r := browserCfgResolved{
-		initialURL:  evaluateText(cfg.URL, ctx),
-		sessionID:   evaluateText(cfg.SessionID, ctx),
-		waitFor:     evaluateText(cfg.WaitFor, ctx),
-		timeout:     defaultBrowserTimeout,
-		headless:    true,
-		userAgent:   evaluateText(cfg.UserAgent, ctx),
-		stealthMode: cfg.StealthMode != nil && *cfg.StealthMode,
+		initialURL:       evaluateText(cfg.URL, ctx),
+		sessionID:        evaluateText(cfg.SessionID, ctx),
+		waitFor:          evaluateText(cfg.WaitFor, ctx),
+		timeout:          defaultBrowserTimeout,
+		headless:         true,
+		userAgent:        evaluateText(cfg.UserAgent, ctx),
+		stealthMode:      cfg.StealthMode != nil && *cfg.StealthMode,
+		storageStatePath: evaluateText(cfg.StorageStatePath, ctx),
+		userDataDir:      evaluateText(cfg.UserDataDir, ctx),
+		executablePath:   evaluateText(cfg.ExecutablePath, ctx),
 	}
 
 	r.engineName = evaluateText(cfg.Engine, ctx)
@@ -212,6 +230,9 @@ func getOrCreateSession(
 	timeout time.Duration,
 	userAgent string,
 	stealthMode bool,
+	storageStatePath string,
+	userDataDir string,
+	executablePath string,
 ) (*session, bool, error) {
 	kdeps_debug.Log("enter: getOrCreateSession")
 	if sessionID != "" {
@@ -221,7 +242,17 @@ func getOrCreateSession(
 		}
 	}
 
-	sess, err := newSession(engineName, headless, viewport, timeout, userAgent, stealthMode)
+	sess, err := newSession(
+		engineName,
+		headless,
+		viewport,
+		timeout,
+		userAgent,
+		stealthMode,
+		storageStatePath,
+		userDataDir,
+		executablePath,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -240,6 +271,9 @@ func newSession(
 	_ time.Duration,
 	userAgent string,
 	stealthMode bool,
+	storageStatePath string,
+	userDataDir string,
+	executablePath string,
 ) (*session, error) {
 	kdeps_debug.Log("enter: newSession")
 	pw, err := playwright.Run()
@@ -276,13 +310,39 @@ func newSession(
 		}
 	}
 
+	// When userDataDir is set, use a persistent context so the full browser
+	// profile (cookies, cache, fingerprints) is reused across runs.
+	if executablePath != "" {
+		launchOpts.ExecutablePath = playwright.String(executablePath)
+	}
+
+	if userDataDir != "" {
+		return newPersistentSession(
+			pw,
+			engineName,
+			userDataDir,
+			headless,
+			userAgent,
+			stealthMode,
+			viewport,
+			launchOpts.Args,
+			executablePath,
+		)
+	}
+
 	browser, err := selectBrowserType(pw, engineName).Launch(launchOpts)
 	if err != nil {
 		_ = pw.Stop()
 		return nil, fmt.Errorf("could not launch %s browser: %w", engineName, err)
 	}
 
-	bCtx, page, err := createContextAndPage(browser, viewport, userAgent, stealthMode)
+	bCtx, page, err := createContextAndPage(
+		browser,
+		viewport,
+		userAgent,
+		stealthMode,
+		storageStatePath,
+	)
 	if err != nil {
 		_ = browser.Close()
 		_ = pw.Stop()
@@ -290,6 +350,74 @@ func newSession(
 	}
 
 	return &session{pw: pw, browser: browser, ctx: bCtx, page: page}, nil
+}
+
+// newPersistentSession launches a browser with a persistent user-data directory.
+// The full profile (cookies, cache, fingerprints) is preserved between runs,
+// making the session much harder to detect than a clean Playwright context.
+func newPersistentSession(
+	pw *playwright.Playwright,
+	engineName, userDataDir string,
+	headless bool,
+	userAgent string,
+	stealthMode bool,
+	viewport *domain.BrowserViewportConfig,
+	args []string,
+	executablePath string,
+) (*session, error) {
+	kdeps_debug.Log("enter: newPersistentSession")
+	if mkErr := os.MkdirAll(userDataDir, 0o750); mkErr != nil {
+		_ = pw.Stop()
+		return nil, fmt.Errorf("could not create userDataDir: %w", mkErr)
+	}
+	vw, vh := defaultViewportWidth, defaultViewportHeight
+	if viewport != nil {
+		if viewport.Width > 0 {
+			vw = viewport.Width
+		}
+		if viewport.Height > 0 {
+			vh = viewport.Height
+		}
+	}
+	opts := playwright.BrowserTypeLaunchPersistentContextOptions{
+		Headless:  playwright.Bool(headless),
+		UserAgent: playwright.String(userAgent),
+		Viewport:  &playwright.Size{Width: vw, Height: vh},
+		Args:      args,
+	}
+	if stealthMode {
+		opts.Locale = playwright.String("en-US")
+		opts.TimezoneId = playwright.String("America/New_York")
+		opts.ColorScheme = playwright.ColorSchemeLight
+	}
+	if executablePath != "" {
+		opts.ExecutablePath = playwright.String(executablePath)
+	}
+	bCtx, err := selectBrowserType(pw, engineName).LaunchPersistentContext(userDataDir, opts)
+	if err != nil {
+		_ = pw.Stop()
+		return nil, fmt.Errorf("could not launch persistent context: %w", err)
+	}
+	if stealthMode {
+		injectStealthScript(bCtx)
+	}
+	page, err := bCtx.NewPage()
+	if err != nil {
+		_ = bCtx.Close()
+		_ = pw.Stop()
+		return nil, fmt.Errorf("could not open browser page: %w", err)
+	}
+	return &session{pw: pw, ctx: bCtx, page: page}, nil
+}
+
+// stealthInitScript removes automation markers that trigger bot detection.
+// navigator.webdriver is the primary signal LinkedIn checks on every page load.
+const stealthInitScript = `
+Object.defineProperty(navigator, 'webdriver', {get: () => undefined, configurable: true});
+`
+
+func injectStealthScript(bCtx playwright.BrowserContext) {
+	_ = bCtx.AddInitScript(playwright.Script{Content: playwright.String(stealthInitScript)})
 }
 
 func selectBrowserType(pw *playwright.Playwright, engineName string) playwright.BrowserType {
@@ -309,6 +437,7 @@ func createContextAndPage(
 	viewport *domain.BrowserViewportConfig,
 	userAgent string,
 	stealthMode bool,
+	storageStatePath string,
 ) (playwright.BrowserContext, playwright.Page, error) {
 	kdeps_debug.Log("enter: createContextAndPage")
 	vw, vh := defaultViewportWidth, defaultViewportHeight
@@ -333,9 +462,19 @@ func createContextAndPage(
 		ctxOpts.ColorScheme = playwright.ColorSchemeLight
 	}
 
+	// Load persisted storage state (cookies + localStorage) if the file exists.
+	if storageStatePath != "" {
+		if _, statErr := os.Stat(storageStatePath); statErr == nil {
+			ctxOpts.StorageStatePath = playwright.String(storageStatePath)
+		}
+	}
+
 	bCtx, err := browser.NewContext(ctxOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create browser context: %w", err)
+	}
+	if stealthMode {
+		injectStealthScript(bCtx)
 	}
 
 	page, err := bCtx.NewPage()
@@ -347,6 +486,26 @@ func createContextAndPage(
 	return bCtx, page, nil
 }
 
+func saveStorageState(bCtx playwright.BrowserContext, path string) error {
+	kdeps_debug.Log("enter: saveStorageState")
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("could not create storage state dir: %w", err)
+	}
+	storage, err := bCtx.StorageState()
+	if err != nil {
+		return fmt.Errorf("could not get storage state: %w", err)
+	}
+	data, err := json.Marshal(storage)
+	if err != nil {
+		return fmt.Errorf("could not marshal storage state: %w", err)
+	}
+	writeErr := os.WriteFile(path, data, 0o600)
+	if writeErr != nil {
+		return fmt.Errorf("could not write storage state: %w", writeErr)
+	}
+	return nil
+}
+
 func cleanupSession(sessionID string, sess *session) {
 	kdeps_debug.Log("enter: cleanupSession")
 	if sessionID != "" {
@@ -356,7 +515,9 @@ func cleanupSession(sessionID string, sess *session) {
 		return
 	}
 	_ = sess.ctx.Close()
-	_ = sess.browser.Close()
+	if sess.browser != nil {
+		_ = sess.browser.Close()
+	}
 	_ = sess.pw.Stop()
 }
 
@@ -760,6 +921,7 @@ func evaluateText(text string, ctx *executor.ExecutionContext) string {
 	expr := &domain.Expression{Raw: text, Type: domain.ExprTypeInterpolated}
 	result, err := eval.Evaluate(expr, env)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "evaluateText error: %v | input: %s\n", err, text)
 		return text
 	}
 	if s, ok := result.(string); ok {
