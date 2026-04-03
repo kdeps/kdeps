@@ -67,9 +67,14 @@ const (
 	agentSpecParts = 2
 
 	// Context key names for input-processor and TTS outputs.
-	keyTTSOutput       = "ttsOutput"
-	keyInputTranscript = "inputTranscript"
-	keyInputMedia      = "inputMedia"
+	keyTTSOutput        = "ttsOutput"
+	keyInputTranscript  = "inputTranscript"
+	keyInputMedia       = "inputMedia"
+	keyInputFileContent = "inputFileContent"
+	keyInputFilePath    = "inputFilePath"
+
+	// Input type name used in switch statements and form field names.
+	inputTypeFile = "file"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -116,6 +121,14 @@ type ExecutionContext struct {
 	// (audio/video/telephony sources with output: text).
 	// Resources can read this value via the inputTranscript expression function.
 	InputTranscript string
+
+	// InputFileContent is the text content of the file provided via the "file" input
+	// source. Resources can read this value via input("fileContent") or input("file").
+	InputFileContent string
+
+	// InputFilePath is the path of the file provided via the "file" input source.
+	// Resources can read this value via input("filePath").
+	InputFilePath string
 
 	// TTSOutputFile is the path to the audio file produced by a TTS resource.
 	// Resources can read this path via the ttsOutput expression function.
@@ -313,6 +326,8 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 }
 
 // getWithAutoDetection performs auto-detection lookup in priority order.
+//
+//nolint:gocognit // intentional wide auto-detection fan-out
 func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, error) {
 	kdeps_debug.Log("enter: getWithAutoDetection")
 	// 1. Items (iteration context)
@@ -349,6 +364,14 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	case keyTTSOutput:
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
+		}
+	case keyInputFileContent:
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, nil
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, nil
 		}
 	}
 
@@ -610,7 +633,7 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 		return ctx.GetParam(name)
 	case "header":
 		return ctx.GetHeader(name)
-	case "file":
+	case inputTypeFile:
 		// Check uploaded files first, then local files
 		if ctx.Request != nil {
 			if file, err := ctx.GetUploadedFile(name); err == nil {
@@ -1352,7 +1375,7 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 
 	// Handle common form field names that should return first file
 	// "file", "file[]", "files" - all return first uploaded file
-	if name == "file" || name == "file[]" || name == "files" {
+	if name == inputTypeFile || name == "file[]" || name == "files" {
 		return &ctx.Request.Files[0], nil
 	}
 
@@ -1827,7 +1850,7 @@ func (ctx *ExecutionContext) WalkFiles(
 // Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
 //
-//nolint:gocognit // intentional unified access point covering all input types
+//nolint:gocognit,gocyclo,nestif,cyclop,funlen // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	kdeps_debug.Log("enter: Input")
 	ctx.mu.RLock()
@@ -1857,6 +1880,16 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no TTS output file available")
 			}
 			return ctx.TTSOutputFile, nil
+		case inputTypeFile, keyInputFileContent:
+			if ctx.InputFileContent == "" {
+				return nil, errors.New("no file input content available")
+			}
+			return ctx.InputFileContent, nil
+		case keyInputFilePath:
+			if ctx.InputFilePath == "" {
+				return nil, errors.New("no file input path available")
+			}
+			return ctx.InputFilePath, nil
 		default:
 			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
 		}
@@ -1865,6 +1898,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
 	// or the short forms input("transcript") / input("media").
 	// TTS output — accessible as input("ttsOutput") / input("tts").
+	// File input — accessible as input("inputFileContent") / input("file") / input("inputFilePath").
 	switch name {
 	case keyInputTranscript, "transcript":
 		if ctx.InputTranscript != "" {
@@ -1877,6 +1911,14 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	case keyTTSOutput, "tts":
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
+		}
+	case keyInputFileContent, inputTypeFile:
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, nil
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, nil
 		}
 	}
 
