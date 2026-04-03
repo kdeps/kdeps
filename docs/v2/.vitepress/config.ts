@@ -152,6 +152,14 @@ export default defineConfig({
             { text: 'Telegram LLM Bot', link: '/examples/telegram-bot/' },
           ]
         },
+        {
+          text: 'Tutorials',
+          collapsed: false,
+          items: [
+            { text: 'Telegram Bot', link: '/tutorials/bot' },
+            { text: 'File Input (CLI Processor)', link: '/tutorials/file-input' },
+          ]
+        },
       ]
     },
 

@@ -66,6 +66,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/selftest"
@@ -91,9 +92,10 @@ const (
 type RunFlags struct {
 	Port         int
 	DevMode      bool
-	SelfTest     bool // --self-test: run inline tests after server starts, keep running
-	SelfTestOnly bool // --self-test-only: run inline tests then exit (non-zero on failure)
-	WriteTests   bool // --write-tests: generate tests from workflow and write them to the tests: block, then exit
+	SelfTest     bool   // --self-test: run inline tests after server starts, keep running
+	SelfTestOnly bool   // --self-test-only: run inline tests then exit (non-zero on failure)
+	WriteTests   bool   // --write-tests: generate tests from workflow and write them to the tests: block, then exit
+	FileArg      string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
 }
 
 // newRunCmd creates the run command.
@@ -126,7 +128,10 @@ Examples:
   kdeps run workflow.yaml --debug
 
   # Specify port
-  kdeps run workflow.yaml --port 16395`,
+  kdeps run workflow.yaml --port 16395
+
+  # Process a file (file input source) — overrides stdin/KDEPS_FILE_PATH/config
+  kdeps run workflow.yaml --file /path/to/document.txt`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunWorkflowWithFlags(cmd, args, flags)
@@ -147,6 +152,10 @@ Examples:
 	runCmd.Flags().BoolVar(
 		&flags.WriteTests, "write-tests", false,
 		"Generate self-tests from workflow resources and write them to the tests: block in the workflow file, then exit",
+	)
+	runCmd.Flags().StringVar(
+		&flags.FileArg, "file", "",
+		"File path to process (file input source only). Takes priority over stdin, KDEPS_FILE_PATH, and input.file.path config.",
 	)
 
 	return runCmd
@@ -477,7 +486,9 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 
 	// 5. Execute workflow or start HTTP server
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
-	return dispatchExecution(workflow, workflowPath, flags.DevMode, debugMode, flags.SelfTest, flags.SelfTestOnly)
+	return dispatchExecution(
+		workflow, workflowPath, flags.DevMode, debugMode, flags.SelfTest, flags.SelfTestOnly, flags.FileArg,
+	)
 }
 
 // ExecuteAgencyStepsWithFlags parses an agency file, discovers all agents, and
@@ -594,7 +605,7 @@ func executeAgencyEntryPoint(
 	// Set up the engine with the full agent map so agent resource calls work.
 	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
 
-	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode)
+	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg)
 }
 
 // ParseWorkflowFile parses a workflow YAML file.
@@ -1568,12 +1579,13 @@ func WriteTestsToWorkflow(workflow *domain.Workflow, workflowPath string) error 
 }
 
 // dispatchExecution selects and starts the correct execution mode for the workflow:
-// server (API/Web/both), bot (polling or stateless), media polling, or single-run stateless.
+// server (API/Web/both), bot (polling or stateless), file input, media polling, or single-run stateless.
 func dispatchExecution(
 	workflow *domain.Workflow,
 	workflowPath string,
 	devMode, debugMode bool,
 	selfTest, selfTestOnly bool,
+	fileArg string,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
 	s := workflow.Settings
@@ -1589,6 +1601,9 @@ func dispatchExecution(
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
 		return StartBotRunners(workflow, debugMode)
+	}
+	if s.Input != nil && s.Input.HasFileSource() {
+		return StartFileRunner(workflow, debugMode, fileArg)
 	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
@@ -1649,6 +1664,22 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 	}
 	fmt.Fprintln(os.Stdout, "\n✓ Bot stopped")
 	return nil
+}
+
+// StartFileRunner reads file content from fileArg (if non-empty), stdin
+// (or KDEPS_FILE_PATH / configured path), executes the workflow once, and returns.
+// File content and path are available to workflow resources via
+// input("fileContent") / input("filePath").
+func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string) error {
+	kdeps_debug.Log("enter: StartFileRunner")
+	logger := logging.NewLogger(debugMode)
+	engine := setupEngine(workflow, debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
+
+	ctx := context.Background()
+	return fileinput.RunWithArg(ctx, workflow, engine, logger, fileArg)
 }
 
 // StartMediaRunners starts a continuous media capture-execute loop for audio/video/telephony
@@ -1856,6 +1887,7 @@ func dispatchExecutionWithEngine(
 	workflow *domain.Workflow,
 	workflowPath string,
 	devMode, debugMode bool,
+	fileArg string,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
 	s := workflow.Settings
@@ -1873,6 +1905,9 @@ func dispatchExecutionWithEngine(
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
 		return StartBotRunnersWithEngine(eng, workflow, debugMode)
+	}
+	if s.Input != nil && s.Input.HasFileSource() {
+		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
 	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
@@ -2086,6 +2121,18 @@ func StartBotRunnersWithEngine(
 	case chanErr := <-errChan:
 		return chanErr
 	}
+}
+
+// startFileRunnerWithEngine runs the file input runner using a pre-built engine.
+func startFileRunnerWithEngine(eng *executor.Engine, workflow *domain.Workflow, debugMode bool, fileArg string) error {
+	kdeps_debug.Log("enter: startFileRunnerWithEngine")
+	logger := logging.NewLogger(debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
+
+	ctx := context.Background()
+	return fileinput.RunWithArg(ctx, workflow, eng, logger, fileArg)
 }
 
 func setupDevMode(httpServer *http.Server, workflowPath string) {
