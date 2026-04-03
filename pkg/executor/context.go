@@ -72,6 +72,9 @@ const (
 	keyInputMedia       = "inputMedia"
 	keyInputFileContent = "inputFileContent"
 	keyInputFilePath    = "inputFilePath"
+
+	// Input type name used in switch statements and form field names.
+	inputTypeFile = "file"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -323,6 +326,8 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 }
 
 // getWithAutoDetection performs auto-detection lookup in priority order.
+//
+//nolint:gocognit // intentional wide auto-detection fan-out
 func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, error) {
 	kdeps_debug.Log("enter: getWithAutoDetection")
 	// 1. Items (iteration context)
@@ -628,7 +633,7 @@ func (ctx *ExecutionContext) getByType(name, storageType string) (interface{}, e
 		return ctx.GetParam(name)
 	case "header":
 		return ctx.GetHeader(name)
-	case "file":
+	case inputTypeFile:
 		// Check uploaded files first, then local files
 		if ctx.Request != nil {
 			if file, err := ctx.GetUploadedFile(name); err == nil {
@@ -1370,7 +1375,7 @@ func (ctx *ExecutionContext) GetUploadedFile(name string) (*FileUpload, error) {
 
 	// Handle common form field names that should return first file
 	// "file", "file[]", "files" - all return first uploaded file
-	if name == "file" || name == "file[]" || name == "files" {
+	if name == inputTypeFile || name == "file[]" || name == "files" {
 		return &ctx.Request.Files[0], nil
 	}
 
@@ -1845,7 +1850,7 @@ func (ctx *ExecutionContext) WalkFiles(
 // Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
 //
-//nolint:gocognit // intentional unified access point covering all input types
+//nolint:gocognit,gocyclo,nestif,cyclop,funlen // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	kdeps_debug.Log("enter: Input")
 	ctx.mu.RLock()
@@ -1875,7 +1880,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no TTS output file available")
 			}
 			return ctx.TTSOutputFile, nil
-		case "file", keyInputFileContent:
+		case inputTypeFile, keyInputFileContent:
 			if ctx.InputFileContent == "" {
 				return nil, errors.New("no file input content available")
 			}
@@ -1907,7 +1912,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
 		}
-	case keyInputFileContent, "file":
+	case keyInputFileContent, inputTypeFile:
 		if ctx.InputFileContent != "" {
 			return ctx.InputFileContent, nil
 		}

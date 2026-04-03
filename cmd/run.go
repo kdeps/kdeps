@@ -92,9 +92,9 @@ const (
 type RunFlags struct {
 	Port         int
 	DevMode      bool
-	SelfTest     bool // --self-test: run inline tests after server starts, keep running
-	SelfTestOnly bool // --self-test-only: run inline tests then exit (non-zero on failure)
-	WriteTests   bool // --write-tests: generate tests from workflow and write them to the tests: block, then exit
+	SelfTest     bool   // --self-test: run inline tests after server starts, keep running
+	SelfTestOnly bool   // --self-test-only: run inline tests then exit (non-zero on failure)
+	WriteTests   bool   // --write-tests: generate tests from workflow and write them to the tests: block, then exit
 	FileArg      string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
 }
 
@@ -486,7 +486,9 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 
 	// 5. Execute workflow or start HTTP server
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
-	return dispatchExecution(workflow, workflowPath, flags.DevMode, debugMode, flags.SelfTest, flags.SelfTestOnly, flags.FileArg)
+	return dispatchExecution(
+		workflow, workflowPath, flags.DevMode, debugMode, flags.SelfTest, flags.SelfTestOnly, flags.FileArg,
+	)
 }
 
 // ExecuteAgencyStepsWithFlags parses an agency file, discovers all agents, and

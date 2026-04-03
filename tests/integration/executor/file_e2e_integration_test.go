@@ -519,7 +519,7 @@ func TestE2E_FileInput_RequestBodyPopulated(t *testing.T) {
 
 	// We use an AfterEvaluatorInit callback to inspect the RequestContext.
 	var capturedBody map[string]interface{}
-	captureCallback := func(eng *executor.Engine, ctx *executor.ExecutionContext) {
+	captureCallback := func(_ *executor.Engine, ctx *executor.ExecutionContext) {
 		if ctx.Request != nil {
 			capturedBody = ctx.Request.Body
 		}

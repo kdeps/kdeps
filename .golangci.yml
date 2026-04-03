@@ -451,8 +451,10 @@ linters:
           - gosec
           - noctx
           - nolintlint
+          - reassign
           - testifylint
           - testpackage
+          - usetesting
           - wrapcheck
       # Gosec taint-analysis rules produce systematic false positives in a CLI/framework that
       # intentionally handles user-provided paths, URLs, commands, and credential field names.

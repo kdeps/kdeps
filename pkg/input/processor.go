@@ -75,9 +75,13 @@ type Processor struct {
 // NewProcessor creates an input Processor for the given InputConfig.
 // Returns nil (with no error) when config is nil or all sources are "api"
 // (API input is handled directly by the HTTP server and needs no processor).
-// Bot sources (discord, slack, telegram, whatsapp) are driven by the Dispatcher
-// and also return nil so the hardware pipeline is not started.
-// File sources are driven by the file runner and also return nil.
+// NewProcessor returns a Processor for the given InputConfig, or nil when no
+// hardware-backed input is required. Bot sources (discord, slack, telegram,
+// whatsapp) are driven by the Dispatcher and also return nil so the hardware
+// pipeline is not started. File sources are driven by the file runner and also
+// return nil.
+//
+//nolint:gocognit // source-selection fan-out is intentionally wide to cover all input modes
 func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, error) {
 	kdeps_debug.Log("enter: NewProcessor")
 	if cfg == nil || !cfg.HasNonAPISource() {
