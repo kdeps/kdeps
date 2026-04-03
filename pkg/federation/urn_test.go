@@ -339,7 +339,7 @@ func TestURNEquals(t *testing.T) {
 	}
 
 	// Equal to itself.
-	assert.True(t, base.Equals(base))
+	assert.True(t, base.Equals(base)) //nolint:gocritic // intentional: testing reflexivity of Equals
 
 	// Equal copy.
 	other := &URN{

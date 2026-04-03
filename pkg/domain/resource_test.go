@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -629,17 +631,17 @@ timeout: 30s
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestMemoryConfig_UnmarshalYAML(t *testing.T) {
-tests := []struct {
-name      string
-yamlData  string
-wantTopK  int
-wantOp    string
-wantModel string
-wantErr   bool
-}{
-{
-name: "all fields integer topK",
-yamlData: `
+	tests := []struct {
+		name      string
+		yamlData  string
+		wantTopK  int
+		wantOp    string
+		wantModel string
+		wantErr   bool
+	}{
+		{
+			name: "all fields integer topK",
+			yamlData: `
 operation: recall
 content: "hello"
 topK: 5
@@ -648,45 +650,41 @@ model: nomic-embed-text
 backend: ollama
 category: experiences
 `,
-wantTopK:  5,
-wantOp:    "recall",
-wantModel: "nomic-embed-text",
-},
-{
-name: "topK as string",
-yamlData: `
+			wantTopK:  5,
+			wantOp:    "recall",
+			wantModel: "nomic-embed-text",
+		},
+		{
+			name: "topK as string",
+			yamlData: `
 model: nomic-embed-text
 content: test
 topK: "10"
 `,
-wantTopK:  10,
-wantModel: "nomic-embed-text",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-var cfg domain.MemoryConfig
-err := yaml.Unmarshal([]byte(tt.yamlData), &cfg)
-if tt.wantErr {
-if err == nil {
-t.Error("expected error but got none")
-}
-return
-}
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if tt.wantTopK != 0 && cfg.TopK != tt.wantTopK {
-t.Errorf("TopK = %d, want %d", cfg.TopK, tt.wantTopK)
-}
-if tt.wantOp != "" && cfg.Operation != tt.wantOp {
-t.Errorf("Operation = %q, want %q", cfg.Operation, tt.wantOp)
-}
-if tt.wantModel != "" && cfg.Model != tt.wantModel {
-t.Errorf("Model = %q, want %q", cfg.Model, tt.wantModel)
-}
-})
-}
+			wantTopK:  10,
+			wantModel: "nomic-embed-text",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.MemoryConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &cfg)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantTopK != 0 {
+				assert.Equal(t, tt.wantTopK, cfg.TopK)
+			}
+			if tt.wantOp != "" {
+				assert.Equal(t, tt.wantOp, cfg.Operation)
+			}
+			if tt.wantModel != "" {
+				assert.Equal(t, tt.wantModel, cfg.Model)
+			}
+		})
+	}
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -694,80 +692,61 @@ t.Errorf("Model = %q, want %q", cfg.Model, tt.wantModel)
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestBrowserAction_UnmarshalYAML(t *testing.T) {
-tests := []struct {
-name          string
-yamlData      string
-wantAction    string
-wantSelector  string
-wantFullPage  *bool
-wantErr       bool
-}{
-{
-name: "bool fullPage true",
-yamlData: `
+	tests := []struct {
+		name         string
+		yamlData     string
+		wantAction   string
+		wantSelector string
+		wantFullPage *bool
+		wantErr      bool
+	}{
+		{
+			name: "bool fullPage true",
+			yamlData: `
 action: screenshot
 selector: "#main"
 fullPage: true
 `,
-wantAction:   "screenshot",
-wantSelector: "#main",
-wantFullPage: boolPtr(true),
-},
-{
-name: "string fullPage true",
-yamlData: `
+			wantAction:   "screenshot",
+			wantSelector: "#main",
+			wantFullPage: boolPtr(true),
+		},
+		{
+			name: "string fullPage true",
+			yamlData: `
 action: screenshot
 selector: "#main"
 fullPage: "true"
 `,
-wantAction:   "screenshot",
-wantSelector: "#main",
-wantFullPage: boolPtr(true),
-},
-{
-name: "no fullPage",
-yamlData: `
+			wantAction:   "screenshot",
+			wantSelector: "#main",
+			wantFullPage: boolPtr(true),
+		},
+		{
+			name: "no fullPage",
+			yamlData: `
 action: click
 selector: "#btn"
 `,
-wantAction:   "click",
-wantSelector: "#btn",
-wantFullPage: nil,
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-var action domain.BrowserAction
-err := yaml.Unmarshal([]byte(tt.yamlData), &action)
-if tt.wantErr {
-if err == nil {
-t.Error("expected error but got none")
-}
-return
-}
-if err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if action.Action != tt.wantAction {
-t.Errorf("Action = %q, want %q", action.Action, tt.wantAction)
-}
-if action.Selector != tt.wantSelector {
-t.Errorf("Selector = %q, want %q", action.Selector, tt.wantSelector)
-}
-if tt.wantFullPage == nil {
-if action.FullPage != nil {
-t.Errorf("FullPage = %v, want nil", *action.FullPage)
-}
-} else {
-if action.FullPage == nil {
-t.Fatal("FullPage is nil, want non-nil")
-}
-if *action.FullPage != *tt.wantFullPage {
-t.Errorf("FullPage = %v, want %v", *action.FullPage, *tt.wantFullPage)
-}
-}
-})
-}
+			wantAction:   "click",
+			wantSelector: "#btn",
+			wantFullPage: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var action domain.BrowserAction
+			err := yaml.Unmarshal([]byte(tt.yamlData), &action)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAction, action.Action)
+			assert.Equal(t, tt.wantSelector, action.Selector)
+			assert.Equal(t, tt.wantFullPage, action.FullPage)
+		})
+	}
 }
 
 func boolPtr(b bool) *bool { return &b }
@@ -777,39 +756,39 @@ func boolPtr(b bool) *bool { return &b }
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestBrowserViewportConfig_UnmarshalYAML(t *testing.T) {
-tests := []struct {
-name        string
-yamlData    string
-wantWidth   int
-wantHeight  int
-}{
-{
-name:       "integer width and height",
-yamlData:   "width: 1920\nheight: 1080\n",
-wantWidth:  1920,
-wantHeight: 1080,
-},
-{
-name:       "string width and height",
-yamlData:   "width: \"1920\"\nheight: \"1080\"\n",
-wantWidth:  1920,
-wantHeight: 1080,
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-var vp domain.BrowserViewportConfig
-if err := yaml.Unmarshal([]byte(tt.yamlData), &vp); err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if vp.Width != tt.wantWidth {
-t.Errorf("Width = %d, want %d", vp.Width, tt.wantWidth)
-}
-if vp.Height != tt.wantHeight {
-t.Errorf("Height = %d, want %d", vp.Height, tt.wantHeight)
-}
-})
-}
+	tests := []struct {
+		name       string
+		yamlData   string
+		wantWidth  int
+		wantHeight int
+	}{
+		{
+			name:       "integer width and height",
+			yamlData:   "width: 1920\nheight: 1080\n",
+			wantWidth:  1920,
+			wantHeight: 1080,
+		},
+		{
+			name:       "string width and height",
+			yamlData:   "width: \"1920\"\nheight: \"1080\"\n",
+			wantWidth:  1920,
+			wantHeight: 1080,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var vp domain.BrowserViewportConfig
+			if err := yaml.Unmarshal([]byte(tt.yamlData), &vp); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if vp.Width != tt.wantWidth {
+				t.Errorf("Width = %d, want %d", vp.Width, tt.wantWidth)
+			}
+			if vp.Height != tt.wantHeight {
+				t.Errorf("Height = %d, want %d", vp.Height, tt.wantHeight)
+			}
+		})
+	}
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -817,82 +796,69 @@ t.Errorf("Height = %d, want %d", vp.Height, tt.wantHeight)
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestBrowserConfig_UnmarshalYAML(t *testing.T) {
-tests := []struct {
-name               string
-yamlData           string
-wantEngine         string
-wantURL            string
-wantHeadless       *bool
-wantTimeoutDur     string
-wantTimeout        string
-}{
-{
-name: "bool headless false with timeout alias",
-yamlData: `
+	tests := []struct {
+		name           string
+		yamlData       string
+		wantEngine     string
+		wantURL        string
+		wantHeadless   *bool
+		wantTimeoutDur string
+		wantTimeout    string
+	}{
+		{
+			name: "bool headless false with timeout alias",
+			yamlData: `
 engine: chromium
 url: https://example.com
 headless: false
 timeout: 30s
 `,
-wantEngine:     "chromium",
-wantURL:        "https://example.com",
-wantHeadless:   boolPtr(false),
-wantTimeoutDur: "30s",
-wantTimeout:    "30s",
-},
-{
-name: "string headless true",
-yamlData: `
+			wantEngine:     "chromium",
+			wantURL:        "https://example.com",
+			wantHeadless:   boolPtr(false),
+			wantTimeoutDur: "30s",
+			wantTimeout:    "30s",
+		},
+		{
+			name: "string headless true",
+			yamlData: `
 engine: firefox
 url: https://example.com
 headless: "true"
 `,
-wantEngine:   "firefox",
-wantURL:      "https://example.com",
-wantHeadless: boolPtr(true),
-},
-{
-name: "timeoutDuration takes precedence over timeout",
-yamlData: `
+			wantEngine:   "firefox",
+			wantURL:      "https://example.com",
+			wantHeadless: boolPtr(true),
+		},
+		{
+			name: "timeoutDuration takes precedence over timeout",
+			yamlData: `
 url: https://example.com
 timeoutDuration: 60s
 timeout: 30s
 `,
-wantURL:        "https://example.com",
-wantTimeoutDur: "60s",
-wantTimeout:    "30s",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-var cfg domain.BrowserConfig
-if err := yaml.Unmarshal([]byte(tt.yamlData), &cfg); err != nil {
-t.Fatalf("unexpected error: %v", err)
-}
-if tt.wantEngine != "" && cfg.Engine != tt.wantEngine {
-t.Errorf("Engine = %q, want %q", cfg.Engine, tt.wantEngine)
-}
-if tt.wantURL != "" && cfg.URL != tt.wantURL {
-t.Errorf("URL = %q, want %q", cfg.URL, tt.wantURL)
-}
-if tt.wantHeadless == nil {
-if cfg.Headless != nil {
-t.Errorf("Headless = %v, want nil", *cfg.Headless)
-}
-} else {
-if cfg.Headless == nil {
-t.Fatal("Headless is nil, want non-nil")
-}
-if *cfg.Headless != *tt.wantHeadless {
-t.Errorf("Headless = %v, want %v", *cfg.Headless, *tt.wantHeadless)
-}
-}
-if tt.wantTimeoutDur != "" && cfg.TimeoutDuration != tt.wantTimeoutDur {
-t.Errorf("TimeoutDuration = %q, want %q", cfg.TimeoutDuration, tt.wantTimeoutDur)
-}
-if tt.wantTimeout != "" && cfg.Timeout != tt.wantTimeout {
-t.Errorf("Timeout = %q, want %q", cfg.Timeout, tt.wantTimeout)
-}
-})
-}
+			wantURL:        "https://example.com",
+			wantTimeoutDur: "60s",
+			wantTimeout:    "30s",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.BrowserConfig
+			require.NoError(t, yaml.Unmarshal([]byte(tt.yamlData), &cfg))
+			if tt.wantEngine != "" {
+				assert.Equal(t, tt.wantEngine, cfg.Engine)
+			}
+			if tt.wantURL != "" {
+				assert.Equal(t, tt.wantURL, cfg.URL)
+			}
+			assert.Equal(t, tt.wantHeadless, cfg.Headless)
+			if tt.wantTimeoutDur != "" {
+				assert.Equal(t, tt.wantTimeoutDur, cfg.TimeoutDuration)
+			}
+			if tt.wantTimeout != "" {
+				assert.Equal(t, tt.wantTimeout, cfg.Timeout)
+			}
+		})
+	}
 }

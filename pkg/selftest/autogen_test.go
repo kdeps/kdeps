@@ -28,11 +28,11 @@ import (
 )
 
 // workflowWithRoute returns a minimal workflow with an apiServer route.
-func workflowWithRoute(path, method string) *domain.Workflow {
+func workflowWithRoute(path string) *domain.Workflow {
 	return &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
-				Routes: []domain.Route{{Path: path, Methods: []string{method}}},
+				Routes: []domain.Route{{Path: path, Methods: []string{"POST"}}},
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestGenerateTests_NoResources_NoRoutes(t *testing.T) {
 }
 
 func TestGenerateTests_NoResources_WithRoutes(t *testing.T) {
-	wf := workflowWithRoute("/api/v1/chat", "POST")
+	wf := workflowWithRoute("/api/v1/chat")
 	cases := GenerateTests(wf)
 	// health + 1 route smoke test
 	require.Len(t, cases, 2)
@@ -56,7 +56,7 @@ func TestGenerateTests_NoResources_WithRoutes(t *testing.T) {
 }
 
 func TestGenerateTests_WithResources_SkipsRouteFallback(t *testing.T) {
-	wf := workflowWithRoute("/api/v1/chat", "POST")
+	wf := workflowWithRoute("/api/v1/chat")
 	wf.Resources = []*domain.Resource{
 		{
 			Metadata: domain.ResourceMetadata{ActionID: "myRes"},
@@ -401,12 +401,12 @@ func TestFirstMethod_Defaults(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestSampleValue_AdditionalTypes(t *testing.T) {
-assert.Equal(t, 1, sampleValue("x", "number"))
-assert.Equal(t, []interface{}{"test"}, sampleValue("x", "array"))
-assert.Equal(t, map[string]interface{}{"test": "value"}, sampleValue("x", "object"))
-assert.Equal(t, "00000000-0000-0000-0000-000000000000", sampleValue("x", "uuid"))
-assert.Equal(t, "2024-01-01", sampleValue("x", "date"))
-assert.Equal(t, "test x", sampleValue("x", "string"))
+	assert.Equal(t, 1, sampleValue("x", "number"))
+	assert.Equal(t, []interface{}{"test"}, sampleValue("x", "array"))
+	assert.Equal(t, map[string]interface{}{"test": "value"}, sampleValue("x", "object"))
+	assert.Equal(t, "00000000-0000-0000-0000-000000000000", sampleValue("x", "uuid"))
+	assert.Equal(t, "2024-01-01", sampleValue("x", "date"))
+	assert.Equal(t, "test x", sampleValue("x", "string"))
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -414,209 +414,209 @@ assert.Equal(t, "test x", sampleValue("x", "string"))
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestResourceTests_Python(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Python: &domain.PythonConfig{Script: "print('hi')"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "python")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Python: &domain.PythonConfig{Script: "print('hi')"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "python")
 }
 
 func TestResourceTests_Exec(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Exec: &domain.ExecConfig{Command: "echo hi"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "exec")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Exec: &domain.ExecConfig{Command: "echo hi"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "exec")
 }
 
 func TestResourceTests_SQL(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{SQL: &domain.SQLConfig{Query: "SELECT 1"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "sql")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{SQL: &domain.SQLConfig{Query: "SELECT 1"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "sql")
 }
 
 func TestResourceTests_Memory(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Memory: &domain.MemoryConfig{Content: "test"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "memory")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Memory: &domain.MemoryConfig{Content: "test"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "memory")
 }
 
 func TestResourceTests_Embedding(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Input: "test"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "embedding")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Input: "test"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "embedding")
 }
 
 func TestResourceTests_Browser(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Browser: &domain.BrowserConfig{URL: "https://example.com"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "browser")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Browser: &domain.BrowserConfig{URL: "https://example.com"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "browser")
 }
 
 func TestResourceTests_TTS(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{TTS: &domain.TTSConfig{Text: "hello"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "tts")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{TTS: &domain.TTSConfig{Text: "hello"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "tts")
 }
 
 func TestResourceTests_PDF(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{PDF: &domain.PDFConfig{Content: "<h1>Hello</h1>"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "pdf")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{PDF: &domain.PDFConfig{Content: "<h1>Hello</h1>"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "pdf")
 }
 
 func TestResourceTests_Email(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Email: &domain.EmailConfig{To: []string{"test@example.com"}}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "email")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Email: &domain.EmailConfig{To: []string{"test@example.com"}}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "email")
 }
 
 func TestResourceTests_Calendar(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{FilePath: "calendar.ics"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "calendar")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{FilePath: "calendar.ics"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "calendar")
 }
 
 func TestResourceTests_Agent(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Agent: &domain.AgentCallConfig{Name: "my-agent"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "agent")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Agent: &domain.AgentCallConfig{Name: "my-agent"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "agent")
 }
 
 func TestResourceTests_RemoteAgent(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{RemoteAgent: &domain.RemoteAgentConfig{URN: "kdeps://example/agent:1.0.0"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "remote-agent")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{RemoteAgent: &domain.RemoteAgentConfig{URN: "kdeps://example/agent:1.0.0"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "remote-agent")
 }
 
 func TestResourceTests_Autopilot(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{Autopilot: &domain.AutopilotConfig{Goal: "do something"}},
-},
-}
-cases := GenerateTests(wf)
-require.Len(t, cases, 2)
-assert.Contains(t, cases[1].Name, "autopilot")
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{Autopilot: &domain.AutopilotConfig{Goal: "do something"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	require.Len(t, cases, 2)
+	assert.Contains(t, cases[1].Name, "autopilot")
 }
 
 func TestResourceTests_BotReply_Skipped_ViaGenerateTests(t *testing.T) {
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hello"}},
-},
-}
-cases := GenerateTests(wf)
-// BotReply is skipped → only health check
-assert.Len(t, cases, 1)
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hello"}},
+		},
+	}
+	cases := GenerateTests(wf)
+	// BotReply is skipped → only health check
+	assert.Len(t, cases, 1)
 }
 
 func TestResourceTests_Default_NoEntryPath(t *testing.T) {
-// No API routes → entryPath is empty → default case returns nil
-wf := &domain.Workflow{}
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{},
-},
-}
-cases := GenerateTests(wf)
-assert.Len(t, cases, 1) // only health check
+	// No API routes → entryPath is empty → default case returns nil
+	wf := &domain.Workflow{}
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{},
+		},
+	}
+	cases := GenerateTests(wf)
+	assert.Len(t, cases, 1) // only health check
 }
 
 func TestResourceTests_Default_WithEntryPath(t *testing.T) {
-// With API routes → entryPath is set → default case returns genericTest
-wf := workflowWithRoute("/api", "POST")
-wf.Resources = []*domain.Resource{
-{
-Metadata: domain.ResourceMetadata{ActionID: "r1"},
-Run:      domain.RunConfig{},
-},
-}
-cases := GenerateTests(wf)
-assert.Len(t, cases, 2) // health + default resource test
+	// With API routes → entryPath is set → default case returns genericTest
+	wf := workflowWithRoute("/api")
+	wf.Resources = []*domain.Resource{
+		{
+			Metadata: domain.ResourceMetadata{ActionID: "r1"},
+			Run:      domain.RunConfig{},
+		},
+	}
+	cases := GenerateTests(wf)
+	assert.Len(t, cases, 2) // health + default resource test
 }
