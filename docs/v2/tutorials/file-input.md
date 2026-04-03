@@ -13,11 +13,12 @@ This tutorial walks through building a workflow that processes file content pipe
 
 When `sources: [file]` is configured:
 
-1. KDeps reads content from **stdin** (raw text or JSON `{"path":"…","content":"…"}`).
-2. Falls back to the **`KDEPS_FILE_PATH`** environment variable.
-3. Falls back to the configured **`input.file.path`** field.
-4. If only a path is provided, the file is read from disk.
-5. The workflow executes **once** and exits.
+1. Uses the **`--file` CLI argument** if provided (highest priority).
+2. KDeps reads content from **stdin** (raw text or JSON `{"path":"…","content":"…"}`).
+3. Falls back to the **`KDEPS_FILE_PATH`** environment variable.
+4. Falls back to the configured **`input.file.path`** field.
+5. If only a path is provided, the file is read from disk.
+6. The workflow executes **once** and exits.
 
 Resources access the content via `input("fileContent")` and the path via `input("filePath")`.
 
@@ -84,13 +85,21 @@ The `input('fileContent')` expression injects the file's text content into the L
 
 ## Step 3 — Run the Workflow
 
-### Option A — Pipe raw text from stdin
+### Option A — Pass the file path as a CLI argument (highest priority)
+
+```bash
+./kdeps run workflow.yaml --file /path/to/report.txt
+```
+
+This is the simplest and most explicit option — no stdin redirection, no environment variables.
+
+### Option B — Pipe raw text from stdin
 
 ```bash
 cat report.txt | ./kdeps run workflow.yaml
 ```
 
-### Option B — Pipe a JSON object with a file path
+### Option C — Pipe a JSON object with a file path
 
 The file is read from disk automatically:
 
@@ -98,20 +107,20 @@ The file is read from disk automatically:
 echo '{"path":"/tmp/report.txt"}' | ./kdeps run workflow.yaml
 ```
 
-### Option C — Pipe a JSON object with inline content
+### Option D — Pipe a JSON object with inline content
 
 ```bash
 echo '{"path":"/tmp/report.txt","content":"Q1 revenue exceeded targets by 12%..."}' \
   | ./kdeps run workflow.yaml
 ```
 
-### Option D — Use an environment variable
+### Option E — Use an environment variable
 
 ```bash
 KDEPS_FILE_PATH=/tmp/report.txt ./kdeps run workflow.yaml
 ```
 
-### Option E — Use the configured default path
+### Option F — Use the configured default path
 
 Set `input.file.path` in `workflow.yaml` and run without stdin:
 
@@ -233,7 +242,7 @@ The file source is designed for scripting. Here is a shell script that processes
 #!/bin/bash
 for f in /docs/*.txt; do
   echo "=== Summarizing $f ==="
-  KDEPS_FILE_PATH="$f" ./kdeps run workflow.yaml
+  ./kdeps run workflow.yaml --file "$f"
 done
 ```
 

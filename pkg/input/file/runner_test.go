@@ -30,7 +30,7 @@ import (
 )
 
 func TestReadFileInput_RawContent(t *testing.T) {
-	inp, err := readFileInput(strings.NewReader("hello world"), nil)
+	inp, err := readFileInput(strings.NewReader("hello world"), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", inp.Content)
 	assert.Empty(t, inp.Path)
@@ -38,7 +38,7 @@ func TestReadFileInput_RawContent(t *testing.T) {
 
 func TestReadFileInput_JSONWithContent(t *testing.T) {
 	json := `{"path":"/tmp/doc.txt","content":"file body"}`
-	inp, err := readFileInput(strings.NewReader(json), nil)
+	inp, err := readFileInput(strings.NewReader(json), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, "/tmp/doc.txt", inp.Path)
 	assert.Equal(t, "file body", inp.Content)
@@ -54,7 +54,7 @@ func TestReadFileInput_JSONPathOnly_ReadsFile(t *testing.T) {
 	tmp.Close()
 
 	json := `{"path":"` + tmp.Name() + `"}`
-	inp, err := readFileInput(strings.NewReader(json), nil)
+	inp, err := readFileInput(strings.NewReader(json), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, tmp.Name(), inp.Path)
 	assert.Equal(t, "file content from disk", inp.Content)
@@ -71,7 +71,7 @@ func TestReadFileInput_EnvVarPath(t *testing.T) {
 
 	t.Setenv("KDEPS_FILE_PATH", tmp.Name())
 
-	inp, err := readFileInput(strings.NewReader(""), nil)
+	inp, err := readFileInput(strings.NewReader(""), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, tmp.Name(), inp.Path)
 	assert.Equal(t, "env var content", inp.Content)
@@ -91,7 +91,7 @@ func TestReadFileInput_ConfigPath(t *testing.T) {
 		File:    &domain.FileConfig{Path: tmp.Name()},
 	}
 
-	inp, err := readFileInput(strings.NewReader(""), cfg)
+	inp, err := readFileInput(strings.NewReader(""), cfg, "")
 	require.NoError(t, err)
 	assert.Equal(t, tmp.Name(), inp.Path)
 	assert.Equal(t, "config path content", inp.Content)
@@ -100,7 +100,7 @@ func TestReadFileInput_ConfigPath(t *testing.T) {
 func TestReadFileInput_EmptyStdin_NoEnv_NoConfig_Error(t *testing.T) {
 	t.Setenv("KDEPS_FILE_PATH", "")
 
-	_, err := readFileInput(strings.NewReader(""), nil)
+	_, err := readFileInput(strings.NewReader(""), nil, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no file input provided")
 }
@@ -109,7 +109,7 @@ func TestReadFileInput_PathNotFound_Error(t *testing.T) {
 	t.Setenv("KDEPS_FILE_PATH", "")
 
 	json := `{"path":"/nonexistent/path/file.txt"}`
-	_, err := readFileInput(strings.NewReader(json), nil)
+	_, err := readFileInput(strings.NewReader(json), nil, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read file")
 }
@@ -122,7 +122,7 @@ func TestReadFileInput_ConfigPathNotFound_Error(t *testing.T) {
 		File:    &domain.FileConfig{Path: filepath.Join(os.TempDir(), "does-not-exist-kdeps.txt")},
 	}
 
-	_, err := readFileInput(strings.NewReader(""), cfg)
+	_, err := readFileInput(strings.NewReader(""), cfg, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read file")
 }
@@ -130,8 +130,57 @@ func TestReadFileInput_ConfigPathNotFound_Error(t *testing.T) {
 func TestReadFileInput_ContentPriority(t *testing.T) {
 	// JSON with both path and content: content should be used directly without reading the file.
 	json := `{"path":"/nonexistent.txt","content":"inline content wins"}`
-	inp, err := readFileInput(strings.NewReader(json), nil)
+	inp, err := readFileInput(strings.NewReader(json), nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, "inline content wins", inp.Content)
 	assert.Equal(t, "/nonexistent.txt", inp.Path)
+}
+
+func TestReadFileInput_ArgPath(t *testing.T) {
+	// Write a real temp file.
+	tmp, err := os.CreateTemp("", "kdeps-file-arg-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(tmp.Name())
+	_, err = tmp.WriteString("content from arg")
+	require.NoError(t, err)
+	tmp.Close()
+
+	// argPath must override empty stdin.
+	inp, readErr := readFileInput(strings.NewReader(""), nil, tmp.Name())
+	require.NoError(t, readErr)
+	assert.Equal(t, tmp.Name(), inp.Path)
+	assert.Equal(t, "content from arg", inp.Content)
+}
+
+func TestReadFileInput_ArgPath_OverridesEnv(t *testing.T) {
+	// Write two temp files.
+	argFile, err := os.CreateTemp("", "kdeps-file-arg2-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(argFile.Name())
+	_, err = argFile.WriteString("arg content")
+	require.NoError(t, err)
+	argFile.Close()
+
+	envFile, err := os.CreateTemp("", "kdeps-file-env2-*.txt")
+	require.NoError(t, err)
+	defer os.Remove(envFile.Name())
+	_, err = envFile.WriteString("env content")
+	require.NoError(t, err)
+	envFile.Close()
+
+	t.Setenv("KDEPS_FILE_PATH", envFile.Name())
+
+	// argPath must win over KDEPS_FILE_PATH.
+	inp, readErr := readFileInput(strings.NewReader(""), nil, argFile.Name())
+	require.NoError(t, readErr)
+	assert.Equal(t, argFile.Name(), inp.Path)
+	assert.Equal(t, "arg content", inp.Content)
+}
+
+func TestReadFileInput_ArgPath_NotFound_Error(t *testing.T) {
+	t.Setenv("KDEPS_FILE_PATH", "")
+
+	_, err := readFileInput(strings.NewReader(""), nil, "/nonexistent/arg/file.txt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read file")
 }

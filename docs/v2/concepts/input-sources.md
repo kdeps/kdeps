@@ -339,15 +339,16 @@ settings:
 
 ### File Source
 
-The `file` source reads text content from **stdin**, an environment variable, or a configured file path, executes the workflow **once**, and exits. It is ideal for CLI pipelines, batch processing, document analysis, and script automation.
+The `file` source reads text content from a `--file` CLI argument, **stdin**, an environment variable, or a configured file path, executes the workflow **once**, and exits. It is ideal for CLI pipelines, batch processing, document analysis, and script automation.
 
 #### Input Resolution
 
 Content is resolved in the following priority order:
 
-1. **stdin** — piped text or JSON `{"path":"…","content":"…"}`
-2. **`KDEPS_FILE_PATH`** environment variable — file path to read
-3. **`input.file.path`** config field — default file path
+1. **`--file` CLI argument** — highest priority; overrides all other sources
+2. **stdin** — piped text or JSON `{"path":"…","content":"…"}`
+3. **`KDEPS_FILE_PATH`** environment variable — file path to read
+4. **`input.file.path`** config field — default file path
 
 If only a path is provided (no inline content), the file is read from disk automatically.
 
@@ -364,6 +365,9 @@ settings:
 #### Usage Examples
 
 ```bash
+# Pass the file path directly as a CLI argument (highest priority)
+./kdeps run workflow.yaml --file /path/to/document.txt
+
 # Pipe raw file content via stdin
 cat document.txt | ./kdeps run workflow.yaml
 

@@ -17,8 +17,9 @@
 // license notices and attribution when redistributing derived code.
 
 // Package file provides the file input runner for KDeps workflows.
-// It reads file content from stdin (plain text or JSON), a KDEPS_FILE_PATH
-// environment variable, or a configured file path, then executes the workflow once.
+// It reads file content from a CLI --file argument, stdin (plain text or JSON),
+// a KDEPS_FILE_PATH environment variable, or a configured file path, then executes
+// the workflow once.
 package file
 
 import (
@@ -64,20 +65,41 @@ func Run(
 	logger *slog.Logger,
 ) error {
 	kdeps_debug.Log("enter: file.Run")
-	return runWithReader(ctx, workflow, engine, logger, os.Stdin)
+	return RunWithArg(ctx, workflow, engine, logger, "")
 }
 
-// runWithReader is the testable core of Run. It reads from r instead of os.Stdin,
-// allowing unit tests to inject controlled input without touching the real stdin.
+// RunWithArg is like Run but accepts an explicit file path argument (e.g. from --file).
+// When argPath is non-empty it takes highest priority over stdin, KDEPS_FILE_PATH, and
+// the configured file.path, allowing the caller to pass a path directly from the CLI
+// without the user needing to set environment variables or configure the workflow.
+//
+// Usage examples:
+//
+//	./kdeps run workflow.yaml --file /tmp/doc.txt
+func RunWithArg(
+	ctx context.Context,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	logger *slog.Logger,
+	argPath string,
+) error {
+	kdeps_debug.Log("enter: file.RunWithArg")
+	return runWithReader(ctx, workflow, engine, logger, os.Stdin, argPath)
+}
+
+// runWithReader is the testable core of Run/RunWithArg. It reads from r instead of
+// os.Stdin, allowing unit tests to inject controlled input without touching the real stdin.
+// argPath, when non-empty, is the highest-priority file path (from --file CLI flag).
 func runWithReader(
 	_ context.Context,
 	workflow *domain.Workflow,
 	engine *executor.Engine,
 	_ *slog.Logger,
 	r io.Reader,
+	argPath string,
 ) error {
 	kdeps_debug.Log("enter: file.runWithReader")
-	inp, err := readFileInput(r, workflow.Settings.Input)
+	inp, err := readFileInput(r, workflow.Settings.Input, argPath)
 	if err != nil {
 		return fmt.Errorf("file input: read: %w", err)
 	}
@@ -101,20 +123,27 @@ func runWithReader(
 
 // readFileInput reads the file input from r (typically os.Stdin).
 // Resolution order:
-//  1. If r contains data: try JSON unmarshal first, otherwise treat as raw content.
-//  2. If path is still empty: check KDEPS_FILE_PATH env var.
-//  3. If path is still empty: use the configured file.path (cfg.File.Path).
-//  4. If content is still empty and a path is known: read the file at that path.
-func readFileInput(r io.Reader, cfg *domain.InputConfig) (fileInput, error) {
+//  1. argPath (CLI --file argument) — highest priority; overrides all other sources.
+//  2. If r contains data: try JSON unmarshal first, otherwise treat as raw content.
+//  3. If path is still empty: check KDEPS_FILE_PATH env var.
+//  4. If path is still empty: use the configured file.path (cfg.File.Path).
+//  5. If content is still empty and a path is known: read the file at that path.
+func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileInput, error) {
 	kdeps_debug.Log("enter: readFileInput")
 	var inp fileInput
+
+	// CLI --file argument takes highest priority.
+	if argPath != "" {
+		inp.Path = argPath
+	}
 
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return inp, fmt.Errorf("read stdin: %w", err)
 	}
 
-	if len(data) > 0 {
+	// Only parse stdin when no CLI path was provided (CLI arg overrides stdin).
+	if inp.Path == "" && len(data) > 0 {
 		// Try JSON first: {"path":"...","content":"..."}
 		if jsonErr := json.Unmarshal(data, &inp); jsonErr != nil {
 			// Not valid JSON — treat the entire input as raw file content.
@@ -143,7 +172,7 @@ func readFileInput(r io.Reader, cfg *domain.InputConfig) (fileInput, error) {
 
 	if inp.Content == "" && inp.Path == "" {
 		return inp, errors.New(
-			"no file input provided: pipe content via stdin, set KDEPS_FILE_PATH, or configure input.file.path",
+			"no file input provided: use --file, pipe content via stdin, set KDEPS_FILE_PATH, or configure input.file.path",
 		)
 	}
 

@@ -63,7 +63,7 @@ func TestRunWithReader_Success(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	wf := minimalWorkflow()
 
-	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader("hello world"))
+	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader("hello world"), "")
 	require.NoError(t, err)
 }
 
@@ -79,7 +79,7 @@ func TestRunWithReader_ReadInputError(t *testing.T) {
 		// No File.Path configured
 	}
 
-	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader(""))
+	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader(""), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file input: read:")
 }
@@ -112,6 +112,7 @@ func TestRunWithReader_EngineExecuteError(t *testing.T) {
 		engine,
 		slog.Default(),
 		strings.NewReader("hello"),
+		"",
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file input: workflow execution failed:")
@@ -123,8 +124,46 @@ func TestRunWithReader_JSONInput(t *testing.T) {
 	wf := minimalWorkflow()
 
 	json := `{"path":"/tmp/test.txt","content":"json content"}`
-	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader(json))
+	err := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader(json), "")
 	require.NoError(t, err)
+}
+
+// TestRunWithReader_ArgPath tests that argPath takes highest priority over stdin.
+func TestRunWithReader_ArgPath(t *testing.T) {
+	// Write a real temp file for argPath to reference.
+	tmpFile, err := os.CreateTemp(t.TempDir(), "kdeps-file-*.txt")
+	require.NoError(t, err)
+	_, _ = tmpFile.WriteString("from arg path")
+	tmpFile.Close()
+
+	engine := executor.NewEngine(nil)
+	wf := minimalWorkflow()
+
+	// stdin is empty — content must come from argPath.
+	runErr := runWithReader(context.Background(), wf, engine, slog.Default(), strings.NewReader(""), tmpFile.Name())
+	require.NoError(t, runErr)
+}
+
+// TestRunWithArg_Success tests the public RunWithArg function.
+func TestRunWithArg_Success(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "kdeps-arg-*.txt")
+	require.NoError(t, err)
+	_, _ = tmpFile.WriteString("hello from arg")
+	tmpFile.Close()
+
+	// Save and restore os.Stdin so RunWithArg reads from an empty pipe.
+	origStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = origStdin })
+	r, w, pipeErr := os.Pipe()
+	require.NoError(t, pipeErr)
+	os.Stdin = r
+	w.Close() // empty stdin
+
+	engine := executor.NewEngine(nil)
+	wf := minimalWorkflow()
+
+	runErr := RunWithArg(context.Background(), wf, engine, slog.Default(), tmpFile.Name())
+	require.NoError(t, runErr)
 }
 
 // errReader is an io.Reader that always returns an error, used to test the
@@ -136,9 +175,23 @@ func (e *errReader) Read(_ []byte) (int, error) { return 0, e.err }
 // TestReadFileInput_ReadError tests the io.ReadAll error path.
 func TestReadFileInput_ReadError(t *testing.T) {
 	readErr := errors.New("read error")
-	_, err := readFileInput(&errReader{err: readErr}, nil)
+	_, err := readFileInput(&errReader{err: readErr}, nil, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read stdin:")
+}
+
+// TestReadFileInput_ArgPath_HighestPriority verifies CLI arg overrides stdin content.
+func TestReadFileInput_ArgPath_HighestPriority(t *testing.T) {
+	tmpFile, err := os.CreateTemp(t.TempDir(), "kdeps-argprio-*.txt")
+	require.NoError(t, err)
+	_, _ = tmpFile.WriteString("argpath content")
+	tmpFile.Close()
+
+	// Pass stdin text AND an argPath — argPath wins.
+	inp, readErr := readFileInput(strings.NewReader("stdin content"), nil, tmpFile.Name())
+	require.NoError(t, readErr)
+	assert.Equal(t, tmpFile.Name(), inp.Path)
+	assert.Equal(t, "argpath content", inp.Content)
 }
 
 // TestRun_Success tests the public Run function using os.Pipe to inject stdin.

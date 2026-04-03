@@ -6,32 +6,36 @@ File input runner for KDeps workflows.
 
 When a workflow configures `sources: [file]`, the file runner:
 
-1. Reads file content from **stdin** (raw text *or* JSON `{"path":"…","content":"…"}`).
-2. Falls back to the **`KDEPS_FILE_PATH`** environment variable if stdin is empty.
-3. Falls back to the configured **`input.file.path`** field if neither is set.
-4. If only a path was supplied (not inline content), reads the file from disk.
-5. Executes the workflow **once** with the file content available to all resources.
-6. Exits after execution (stateless single-shot mode).
+1. Uses the **`--file` CLI argument** if provided (highest priority).
+2. Reads file content from **stdin** (raw text *or* JSON `{"path":"…","content":"…"}`).
+3. Falls back to the **`KDEPS_FILE_PATH`** environment variable if stdin is empty.
+4. Falls back to the configured **`input.file.path`** field if neither is set.
+5. If only a path was supplied (not inline content), reads the file from disk.
+6. Executes the workflow **once** with the file content available to all resources.
+7. Exits after execution (stateless single-shot mode).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `runner.go` | `Run()` public entry point; `runWithReader()` testable core; `readFileInput()` resolution logic |
+| `runner.go` | `Run()` / `RunWithArg()` public entry points; `runWithReader()` testable core; `readFileInput()` resolution logic |
 | `runner_test.go` | Black-box tests for `readFileInput` (all resolution paths, error cases) |
-| `runner_internal_test.go` | White-box tests for `runWithReader` and `Run` (success + error paths, 100% coverage) |
+| `runner_internal_test.go` | White-box tests for `runWithReader`, `Run`, `RunWithArg` (success + error paths, 100% coverage) |
 
 ## Key types / functions
 
 ```go
-// Public entry point — reads from os.Stdin.
+// Public entry point — reads from os.Stdin (no explicit file arg).
 func Run(ctx context.Context, workflow *domain.Workflow, engine *executor.Engine, logger *slog.Logger) error
 
+// Public entry point with explicit file path — argPath takes highest priority.
+func RunWithArg(ctx context.Context, workflow *domain.Workflow, engine *executor.Engine, logger *slog.Logger, argPath string) error
+
 // Testable core — reads from any io.Reader.
-func runWithReader(ctx context.Context, workflow *domain.Workflow, engine *executor.Engine, logger *slog.Logger, r io.Reader) error
+func runWithReader(ctx context.Context, workflow *domain.Workflow, engine *executor.Engine, logger *slog.Logger, r io.Reader, argPath string) error
 
 // Input resolution — returns parsed fileInput{Path, Content} or an error.
-func readFileInput(r io.Reader, cfg *domain.InputConfig) (fileInput, error)
+func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileInput, error)
 ```
 
 ## Configuration
@@ -47,6 +51,9 @@ settings:
 ## Usage
 
 ```bash
+# Pass file path directly as a CLI argument (highest priority)
+./kdeps run workflow.yaml --file /path/to/document.txt
+
 # Pipe raw text via stdin
 cat document.txt | ./kdeps run workflow.yaml
 
@@ -87,6 +94,8 @@ run:
 ## Input resolution order
 
 ```
+--file CLI argument (highest priority)
+  └─ path is read from disk → content set
 stdin (raw text or JSON)
   └─ JSON {"path": "...", "content": "..."}
        ├─ content present → use inline content directly
