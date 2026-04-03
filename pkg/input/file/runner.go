@@ -58,13 +58,26 @@ type fileInput struct {
 //	echo '{"path":"/tmp/doc.txt"}' | ./kdeps run workflow.yaml
 //	KDEPS_FILE_PATH=/tmp/doc.txt ./kdeps run workflow.yaml
 func Run(
+	ctx context.Context,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	logger *slog.Logger,
+) error {
+	kdeps_debug.Log("enter: file.Run")
+	return runWithReader(ctx, workflow, engine, logger, os.Stdin)
+}
+
+// runWithReader is the testable core of Run. It reads from r instead of os.Stdin,
+// allowing unit tests to inject controlled input without touching the real stdin.
+func runWithReader(
 	_ context.Context,
 	workflow *domain.Workflow,
 	engine *executor.Engine,
 	_ *slog.Logger,
+	r io.Reader,
 ) error {
-	kdeps_debug.Log("enter: file.Run")
-	inp, err := readFileInput(os.Stdin, workflow.Settings.Input)
+	kdeps_debug.Log("enter: file.runWithReader")
+	inp, err := readFileInput(r, workflow.Settings.Input)
 	if err != nil {
 		return fmt.Errorf("file input: read: %w", err)
 	}

@@ -1,6 +1,6 @@
 # Multi-Source Input
 
-KDeps supports multiple input sources simultaneously: HTTP API requests, audio hardware (microphones), video hardware (cameras), telephony devices, and chat bot platforms (Discord, Slack, Telegram, WhatsApp). Sources are configured in the `settings.input` block of your `workflow.yaml`.
+KDeps supports multiple input sources simultaneously: HTTP API requests, audio hardware (microphones), video hardware (cameras), telephony devices, chat bot platforms (Discord, Slack, Telegram, WhatsApp), and file input from stdin. Sources are configured in the `settings.input` block of your `workflow.yaml`.
 
 ## Overview
 
@@ -11,6 +11,7 @@ KDeps supports multiple input sources simultaneously: HTTP API requests, audio h
 | `video` | Camera or V4L2 video capture |
 | `telephony` | Phone call audio (local SIP device or cloud provider) |
 | `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
+| `file` | File content from stdin, env var, or configured path (single-shot) |
 
 Workflows can combine sources:
 
@@ -336,6 +337,68 @@ settings:
 
 ---
 
+### File Source
+
+The `file` source reads text content from **stdin**, an environment variable, or a configured file path, executes the workflow **once**, and exits. It is ideal for CLI pipelines, batch processing, document analysis, and script automation.
+
+#### Input Resolution
+
+Content is resolved in the following priority order:
+
+1. **stdin** — piped text or JSON `{"path":"…","content":"…"}`
+2. **`KDEPS_FILE_PATH`** environment variable — file path to read
+3. **`input.file.path`** config field — default file path
+
+If only a path is provided (no inline content), the file is read from disk automatically.
+
+#### Configuration
+
+```yaml
+settings:
+  input:
+    sources: [file]
+    file:
+      path: /optional/default/path.txt  # fallback when stdin and KDEPS_FILE_PATH are empty
+```
+
+#### Usage Examples
+
+```bash
+# Pipe raw file content via stdin
+cat document.txt | ./kdeps run workflow.yaml
+
+# Pipe JSON with a file path — file is read from disk
+echo '{"path":"/tmp/doc.txt"}' | ./kdeps run workflow.yaml
+
+# Pipe JSON with inline content
+echo '{"path":"/tmp/doc.txt","content":"hello world"}' | ./kdeps run workflow.yaml
+
+# Use environment variable
+KDEPS_FILE_PATH=/tmp/doc.txt ./kdeps run workflow.yaml
+```
+
+#### Accessing File Data in Resources
+
+Inside any resource that runs after the file input:
+
+| Expression | Value |
+|------------|-------|
+| `input("content")` or `input("fileContent")` | The file's text content |
+| `input("path")` or `input("filePath")` | The source file path (if known) |
+| `get("inputFileContent")` | File content via `get()` |
+| `get("inputFilePath")` | File path via `get()` |
+
+Example — summarise a document:
+
+```yaml
+run:
+  chat:
+    model: llama3.2:3b
+    prompt: "Summarise the following document:\n\n{{ input('fileContent') }}"
+```
+
+---
+
 ## Activation (Wake Phrase Detection)
 
 Activation listens continuously for a wake phrase before triggering the main workflow. This is ideal for voice assistants and hands-free operation on edge devices.
@@ -642,3 +705,4 @@ settings:
 - [LLM Resource](../resources/llm) — Language model integration
 - [Docker Deployment](../deployment/docker) — Package for edge deployment
 - [Bot Tutorial](../tutorials/bot.md) — Step-by-step Telegram bot with LLM replies
+- [File Input Tutorial](../tutorials/file-input.md) — Build a CLI document processor with file input
