@@ -399,85 +399,85 @@ func TestExecute_Consolidate_WithMetadata(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func openAIMemoryServer(t *testing.T, vec []float64) *httptest.Server {
-t.Helper()
-return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-assert.Equal(t, "/v1/embeddings", r.URL.Path)
-resp := map[string]interface{}{
-"data": []map[string]interface{}{
-{"embedding": vec},
-},
-}
-w.Header().Set("Content-Type", "application/json")
-_ = json.NewEncoder(w).Encode(resp)
-}))
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/embeddings", r.URL.Path)
+		resp := map[string]interface{}{
+			"data": []map[string]interface{}{
+				{"embedding": vec},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
 }
 
 func TestExecute_OpenAIEmbed_Success(t *testing.T) {
-vec := []float64{0.1, 0.2, 0.3}
-srv := openAIMemoryServer(t, vec)
-defer srv.Close()
+	vec := []float64{0.1, 0.2, 0.3}
+	srv := openAIMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "openai-success")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "openai-success")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "text-embedding-3-small",
-Backend:   domain.EmbeddingBackendOpenAI,
-BaseURL:   srv.URL,
-Content:   "hello openai",
-DBPath:    dbPath,
-Category:  "openai",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "text-embedding-3-small",
+		Backend:   domain.EmbeddingBackendOpenAI,
+		BaseURL:   srv.URL,
+		Content:   "hello openai",
+		DBPath:    dbPath,
+		Category:  "openai",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_OpenAIEmbed_HTTPError(t *testing.T) {
-srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
-defer srv.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "openai-http-err")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "openai-http-err")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "text-embedding-3-small",
-Backend:   domain.EmbeddingBackendOpenAI,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "openai",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "openai embed: HTTP 500")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "text-embedding-3-small",
+		Backend:   domain.EmbeddingBackendOpenAI,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "openai",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "openai embed: HTTP 500")
 }
 
 func TestExecute_OpenAIEmbed_EmptyData(t *testing.T) {
-srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.Header().Set("Content-Type", "application/json")
-_, _ = w.Write([]byte(`{"data":[]}`))
-}))
-defer srv.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[]}`))
+	}))
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "openai-empty-data")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "openai-empty-data")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "text-embedding-3-small",
-Backend:   domain.EmbeddingBackendOpenAI,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "openai",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "empty embedding")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "text-embedding-3-small",
+		Backend:   domain.EmbeddingBackendOpenAI,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "openai",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty embedding")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -485,83 +485,83 @@ assert.Contains(t, err.Error(), "empty embedding")
 // ──────────────────────────────────────────────────────────────────────────────
 
 func cohereMemoryServer(t *testing.T, vec []float64) *httptest.Server {
-t.Helper()
-return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-assert.Equal(t, "/v1/embed", r.URL.Path)
-resp := map[string]interface{}{
-"embeddings": [][]float64{vec},
-}
-w.Header().Set("Content-Type", "application/json")
-_ = json.NewEncoder(w).Encode(resp)
-}))
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/v1/embed", r.URL.Path)
+		resp := map[string]interface{}{
+			"embeddings": [][]float64{vec},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
 }
 
 func TestExecute_CohereEmbed_Success(t *testing.T) {
-vec := []float64{0.1, 0.2, 0.3}
-srv := cohereMemoryServer(t, vec)
-defer srv.Close()
+	vec := []float64{0.1, 0.2, 0.3}
+	srv := cohereMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "cohere-success")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "cohere-success")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "embed-english-v3.0",
-Backend:   domain.EmbeddingBackendCohere,
-BaseURL:   srv.URL,
-Content:   "hello cohere",
-DBPath:    dbPath,
-Category:  "cohere",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "embed-english-v3.0",
+		Backend:   domain.EmbeddingBackendCohere,
+		BaseURL:   srv.URL,
+		Content:   "hello cohere",
+		DBPath:    dbPath,
+		Category:  "cohere",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_CohereEmbed_HTTPError(t *testing.T) {
-srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
-defer srv.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "cohere-http-err")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "cohere-http-err")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "embed-english-v3.0",
-Backend:   domain.EmbeddingBackendCohere,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "cohere",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "cohere embed: HTTP 500")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "embed-english-v3.0",
+		Backend:   domain.EmbeddingBackendCohere,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "cohere",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cohere embed: HTTP 500")
 }
 
 func TestExecute_CohereEmbed_EmptyEmbeddings(t *testing.T) {
-srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.Header().Set("Content-Type", "application/json")
-_, _ = w.Write([]byte(`{"embeddings":[]}`))
-}))
-defer srv.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"embeddings":[]}`))
+	}))
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "cohere-empty")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "cohere-empty")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "embed-english-v3.0",
-Backend:   domain.EmbeddingBackendCohere,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "cohere",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "empty embedding")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "embed-english-v3.0",
+		Backend:   domain.EmbeddingBackendCohere,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "cohere",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty embedding")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -569,117 +569,122 @@ assert.Contains(t, err.Error(), "empty embedding")
 // ──────────────────────────────────────────────────────────────────────────────
 
 func huggingFaceMemoryServer(t *testing.T, respBody string) *httptest.Server {
-t.Helper()
-return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-assert.True(t, strings.HasPrefix(r.URL.Path, "/pipeline/feature-extraction/"), "unexpected path: %s", r.URL.Path)
-w.Header().Set("Content-Type", "application/json")
-_, _ = w.Write([]byte(respBody))
-}))
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.True(
+			t,
+			strings.HasPrefix(r.URL.Path, "/pipeline/feature-extraction/"),
+			"unexpected path: %s",
+			r.URL.Path,
+		)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(respBody))
+	}))
 }
 
 func TestExecute_HuggingFaceEmbed_FlatSuccess(t *testing.T) {
-srv := huggingFaceMemoryServer(t, `[0.1, 0.2, 0.3]`)
-defer srv.Close()
+	srv := huggingFaceMemoryServer(t, `[0.1, 0.2, 0.3]`)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "hf-flat")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "hf-flat")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "sentence-transformers/all-MiniLM-L6-v2",
-Backend:   domain.EmbeddingBackendHuggingFace,
-BaseURL:   srv.URL,
-Content:   "hello huggingface",
-DBPath:    dbPath,
-Category:  "hf",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "sentence-transformers/all-MiniLM-L6-v2",
+		Backend:   domain.EmbeddingBackendHuggingFace,
+		BaseURL:   srv.URL,
+		Content:   "hello huggingface",
+		DBPath:    dbPath,
+		Category:  "hf",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_HuggingFaceEmbed_NestedSuccess(t *testing.T) {
-srv := huggingFaceMemoryServer(t, `[[0.1, 0.2, 0.3]]`)
-defer srv.Close()
+	srv := huggingFaceMemoryServer(t, `[[0.1, 0.2, 0.3]]`)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "hf-nested")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "hf-nested")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "sentence-transformers/all-MiniLM-L6-v2",
-Backend:   domain.EmbeddingBackendHuggingFace,
-BaseURL:   srv.URL,
-Content:   "hello huggingface nested",
-DBPath:    dbPath,
-Category:  "hf",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "sentence-transformers/all-MiniLM-L6-v2",
+		Backend:   domain.EmbeddingBackendHuggingFace,
+		BaseURL:   srv.URL,
+		Content:   "hello huggingface nested",
+		DBPath:    dbPath,
+		Category:  "hf",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_HuggingFaceEmbed_HTTPError(t *testing.T) {
-srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-w.WriteHeader(http.StatusInternalServerError)
-}))
-defer srv.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "hf-http-err")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "hf-http-err")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "sentence-transformers/all-MiniLM-L6-v2",
-Backend:   domain.EmbeddingBackendHuggingFace,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "hf",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "huggingface embed: HTTP 500")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "sentence-transformers/all-MiniLM-L6-v2",
+		Backend:   domain.EmbeddingBackendHuggingFace,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "hf",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "huggingface embed: HTTP 500")
 }
 
 func TestExecute_HuggingFaceEmbed_InvalidResponseType(t *testing.T) {
-srv := huggingFaceMemoryServer(t, `"just a string"`)
-defer srv.Close()
+	srv := huggingFaceMemoryServer(t, `"just a string"`)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "hf-invalid")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "hf-invalid")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "sentence-transformers/all-MiniLM-L6-v2",
-Backend:   domain.EmbeddingBackendHuggingFace,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "hf",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "unexpected response type")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "sentence-transformers/all-MiniLM-L6-v2",
+		Backend:   domain.EmbeddingBackendHuggingFace,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "hf",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected response type")
 }
 
 func TestExecute_HuggingFaceEmbed_EmptyArray(t *testing.T) {
-srv := huggingFaceMemoryServer(t, `[]`)
-defer srv.Close()
+	srv := huggingFaceMemoryServer(t, `[]`)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "hf-empty")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "hf-empty")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "sentence-transformers/all-MiniLM-L6-v2",
-Backend:   domain.EmbeddingBackendHuggingFace,
-BaseURL:   srv.URL,
-Content:   "hello",
-DBPath:    dbPath,
-Category:  "hf",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.Error(t, err)
-assert.Contains(t, err.Error(), "empty response")
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "sentence-transformers/all-MiniLM-L6-v2",
+		Backend:   domain.EmbeddingBackendHuggingFace,
+		BaseURL:   srv.URL,
+		Content:   "hello",
+		DBPath:    dbPath,
+		Category:  "hf",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty response")
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -687,103 +692,103 @@ assert.Contains(t, err.Error(), "empty response")
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestExecute_ResolveDBPath_DefaultDir(t *testing.T) {
-vec := []float64{0.1, 0.2, 0.3}
-srv := ollamaMemoryServer(t, vec)
-defer srv.Close()
+	vec := []float64{0.1, 0.2, 0.3}
+	srv := ollamaMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
 
-// DBPath is intentionally empty so resolveDBPath falls back to /tmp/kdeps-memory/<category>.db
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "nomic-embed-text",
-Backend:   domain.EmbeddingBackendOllama,
-BaseURL:   srv.URL,
-Content:   "default dir test",
-Category:  "defaultdir_test",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	// DBPath is intentionally empty so resolveDBPath falls back to /tmp/kdeps-memory/<category>.db
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "nomic-embed-text",
+		Backend:   domain.EmbeddingBackendOllama,
+		BaseURL:   srv.URL,
+		Content:   "default dir test",
+		Category:  "defaultdir_test",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_SanitizeTableName_SpecialChars(t *testing.T) {
-vec := []float64{0.4, 0.5, 0.6}
-srv := ollamaMemoryServer(t, vec)
-defer srv.Close()
+	vec := []float64{0.4, 0.5, 0.6}
+	srv := ollamaMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "special-chars")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "special-chars")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "nomic-embed-text",
-Backend:   domain.EmbeddingBackendOllama,
-BaseURL:   srv.URL,
-Content:   "special chars test",
-DBPath:    dbPath,
-Category:  "test-special!",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "nomic-embed-text",
+		Backend:   domain.EmbeddingBackendOllama,
+		BaseURL:   srv.URL,
+		Content:   "special chars test",
+		DBPath:    dbPath,
+		Category:  "test-special!",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_SanitizeTableName_DigitPrefix(t *testing.T) {
-vec := []float64{0.7, 0.8, 0.9}
-srv := ollamaMemoryServer(t, vec)
-defer srv.Close()
+	vec := []float64{0.7, 0.8, 0.9}
+	srv := ollamaMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "digit-prefix")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "digit-prefix")
 
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "nomic-embed-text",
-Backend:   domain.EmbeddingBackendOllama,
-BaseURL:   srv.URL,
-Content:   "digit prefix test",
-DBPath:    dbPath,
-Category:  "1starts-with-digit",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "nomic-embed-text",
+		Backend:   domain.EmbeddingBackendOllama,
+		BaseURL:   srv.URL,
+		Content:   "digit prefix test",
+		DBPath:    dbPath,
+		Category:  "1starts-with-digit",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 }
 
 func TestExecute_CosineSimilarity_ZeroVector(t *testing.T) {
-// Store a memory with a real vector, then recall with a zero vector.
-vec := []float64{0.0, 0.0, 0.0}
-srv := ollamaMemoryServer(t, vec)
-defer srv.Close()
+	// Store a memory with a real vector, then recall with a zero vector.
+	vec := []float64{0.0, 0.0, 0.0}
+	srv := ollamaMemoryServer(t, vec)
+	defer srv.Close()
 
-ctx := makeCtx(t)
-exec := NewAdapterWithClient(nil, srv.Client())
-dbPath := tmpDBPath(t, "zero-vector")
+	ctx := makeCtx(t)
+	exec := NewAdapterWithClient(nil, srv.Client())
+	dbPath := tmpDBPath(t, "zero-vector")
 
-// Consolidate with zero vector.
-_, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "nomic-embed-text",
-Backend:   domain.EmbeddingBackendOllama,
-BaseURL:   srv.URL,
-Content:   "zero vector memory",
-DBPath:    dbPath,
-Category:  "zeros",
-Operation: domain.MemoryOperationConsolidate,
-})
-require.NoError(t, err)
+	// Consolidate with zero vector.
+	_, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "nomic-embed-text",
+		Backend:   domain.EmbeddingBackendOllama,
+		BaseURL:   srv.URL,
+		Content:   "zero vector memory",
+		DBPath:    dbPath,
+		Category:  "zeros",
+		Operation: domain.MemoryOperationConsolidate,
+	})
+	require.NoError(t, err)
 
-// Recall — similarity with zero vector should be 0 but should not error.
-result, err := exec.Execute(ctx, &domain.MemoryConfig{
-Model:     "nomic-embed-text",
-Backend:   domain.EmbeddingBackendOllama,
-BaseURL:   srv.URL,
-Content:   "zero",
-DBPath:    dbPath,
-Category:  "zeros",
-Operation: domain.MemoryOperationRecall,
-TopK:      1,
-})
-require.NoError(t, err)
+	// Recall — similarity with zero vector should be 0 but should not error.
+	result, err := exec.Execute(ctx, &domain.MemoryConfig{
+		Model:     "nomic-embed-text",
+		Backend:   domain.EmbeddingBackendOllama,
+		BaseURL:   srv.URL,
+		Content:   "zero",
+		DBPath:    dbPath,
+		Category:  "zeros",
+		Operation: domain.MemoryOperationRecall,
+		TopK:      1,
+	})
+	require.NoError(t, err)
 
-m, ok := result.(map[string]interface{})
-require.True(t, ok)
-assert.Equal(t, 1, m["count"])
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 1, m["count"])
 }
