@@ -622,14 +622,14 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 			if !ok {
 				return arr
 			}
-			var min float64
+			var threshold float64
 			switch v := minVal.(type) {
 			case float64:
-				min = v
+				threshold = v
 			case int:
-				min = float64(v)
+				threshold = float64(v)
 			case int64:
-				min = float64(v)
+				threshold = float64(v)
 			default:
 				return arr
 			}
@@ -654,7 +654,7 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 				default:
 					continue
 				}
-				if score >= min {
+				if score >= threshold {
 					out = append(out, item)
 				}
 			}

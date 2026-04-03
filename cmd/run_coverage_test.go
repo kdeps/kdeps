@@ -328,7 +328,14 @@ func TestCollectTTSEngines_InlineBeforeAfter(t *testing.T) {
 			{
 				Run: domain.RunConfig{
 					Before: []domain.InlineResource{{TTS: ttsInline}},
-					After:  []domain.InlineResource{{TTS: &domain.TTSConfig{Mode: domain.TTSModeOffline, Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineCoqui}}}},
+					After: []domain.InlineResource{
+						{
+							TTS: &domain.TTSConfig{
+								Mode:    domain.TTSModeOffline,
+								Offline: &domain.OfflineTTSConfig{Engine: domain.TTSEngineCoqui},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -449,17 +456,6 @@ func TestCollectBrowserEngines_InlineBeforeAfter(t *testing.T) {
 // ---------------------------------------------------------------------------
 // ParseAgencyFile / ParseAgencyFileWithParser
 // ---------------------------------------------------------------------------
-
-const minimalAgencyYAML = `apiVersion: v1
-kind: Agency
-metadata:
-  name: test-agency
-  description: Test agency
-  targetAgentId: agent1
-agents:
-  - name: agent1
-    path: ./agent1
-`
 
 func TestParseAgencyFile_InvalidPath(t *testing.T) {
 	_, _, err := cmd.ParseAgencyFile("/nonexistent/path/agency.yaml")

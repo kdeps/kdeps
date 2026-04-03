@@ -2612,60 +2612,60 @@ func TestValidateTestCases(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestValidateBrowserConfig(t *testing.T) {
-tests := []struct {
-name    string
-config  *domain.BrowserConfig
-wantErr string
-}{
-{
-name:    "url only no engine",
-config:  &domain.BrowserConfig{URL: "https://example.com"},
-wantErr: "",
-},
-{
-name:    "actions only no url",
-config:  &domain.BrowserConfig{Actions: []domain.BrowserAction{{Action: "click", Selector: "#btn"}}},
-wantErr: "",
-},
-{
-name:    "chromium engine",
-config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "chromium"},
-wantErr: "",
-},
-{
-name:    "firefox engine",
-config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "firefox"},
-wantErr: "",
-},
-{
-name:    "webkit engine",
-config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "webkit"},
-wantErr: "",
-},
-{
-name:    "empty url and empty actions",
-config:  &domain.BrowserConfig{},
-wantErr: "must specify",
-},
-{
-name:    "invalid engine ie",
-config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "ie"},
-wantErr: "not valid",
-},
-}
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-err := validator.ValidateBrowserConfig(tt.config)
-if tt.wantErr != "" {
-if err == nil {
-t.Fatalf("expected error containing %q, got nil", tt.wantErr)
-}
-if !strings.Contains(err.Error(), tt.wantErr) {
-t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
-}
-} else if err != nil {
-t.Errorf("unexpected error: %v", err)
-}
-})
-}
+	tests := []struct {
+		name    string
+		config  *domain.BrowserConfig
+		wantErr string
+	}{
+		{
+			name:    "url only no engine",
+			config:  &domain.BrowserConfig{URL: "https://example.com"},
+			wantErr: "",
+		},
+		{
+			name:    "actions only no url",
+			config:  &domain.BrowserConfig{Actions: []domain.BrowserAction{{Action: "click", Selector: "#btn"}}},
+			wantErr: "",
+		},
+		{
+			name:    "chromium engine",
+			config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "chromium"},
+			wantErr: "",
+		},
+		{
+			name:    "firefox engine",
+			config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "firefox"},
+			wantErr: "",
+		},
+		{
+			name:    "webkit engine",
+			config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "webkit"},
+			wantErr: "",
+		},
+		{
+			name:    "empty url and empty actions",
+			config:  &domain.BrowserConfig{},
+			wantErr: "must specify",
+		},
+		{
+			name:    "invalid engine ie",
+			config:  &domain.BrowserConfig{URL: "https://example.com", Engine: "ie"},
+			wantErr: "not valid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateBrowserConfig(tt.config)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
 }

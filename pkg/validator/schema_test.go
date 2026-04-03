@@ -2656,94 +2656,94 @@ func TestSchemaValidator_ValidateAgency(t *testing.T) {
 // ──────────────────────────────────────────────────────────────────────────────
 
 func TestGetComponentSchemaForTesting(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-schema := v.GetComponentSchemaForTesting()
-if schema == nil {
-t.Fatal("GetComponentSchemaForTesting returned nil")
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	schema := v.GetComponentSchemaForTesting()
+	if schema == nil {
+		t.Fatal("GetComponentSchemaForTesting returned nil")
+	}
 }
 
 func TestGetRemoteAgentSchemaForTesting(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-schema := v.GetRemoteAgentSchemaForTesting()
-if schema == nil {
-t.Fatal("GetRemoteAgentSchemaForTesting returned nil")
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	schema := v.GetRemoteAgentSchemaForTesting()
+	if schema == nil {
+		t.Fatal("GetRemoteAgentSchemaForTesting returned nil")
+	}
 }
 
 func TestSchemaValidator_ValidateComponent_Valid(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-data := map[string]interface{}{
-"apiVersion": "kdeps.io/v1",
-"kind":       "Component",
-"metadata": map[string]interface{}{
-"name": "my-component",
-},
-}
-if compErr := v.ValidateComponent(data); compErr != nil {
-t.Errorf("ValidateComponent() unexpected error: %v", compErr)
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	data := map[string]interface{}{
+		"apiVersion": "kdeps.io/v1",
+		"kind":       "Component",
+		"metadata": map[string]interface{}{
+			"name": "my-component",
+		},
+	}
+	if compErr := v.ValidateComponent(data); compErr != nil {
+		t.Errorf("ValidateComponent() unexpected error: %v", compErr)
+	}
 }
 
 func TestSchemaValidator_ValidateComponent_MissingMetadata(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-data := map[string]interface{}{
-"apiVersion": "kdeps.io/v1",
-"kind":       "Component",
-}
-if compErr := v.ValidateComponent(data); compErr == nil {
-t.Error("ValidateComponent() expected error for missing metadata, got nil")
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	data := map[string]interface{}{
+		"apiVersion": "kdeps.io/v1",
+		"kind":       "Component",
+	}
+	if compErr := v.ValidateComponent(data); compErr == nil {
+		t.Error("ValidateComponent() expected error for missing metadata, got nil")
+	}
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_Valid(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-data := map[string]interface{}{
-"urn":   "kdeps://example/agent:1.0.0",
-"input": map[string]interface{}{"key": "value"},
-}
-if raErr := v.ValidateRemoteAgent(data); raErr != nil {
-t.Errorf("ValidateRemoteAgent() unexpected error: %v", raErr)
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	data := map[string]interface{}{
+		"urn":   "kdeps://example/agent:1.0.0",
+		"input": map[string]interface{}{"key": "value"},
+	}
+	if raErr := v.ValidateRemoteAgent(data); raErr != nil {
+		t.Errorf("ValidateRemoteAgent() unexpected error: %v", raErr)
+	}
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_MissingUrn(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-data := map[string]interface{}{
-"input": map[string]interface{}{"key": "value"},
-}
-if raErr := v.ValidateRemoteAgent(data); raErr == nil {
-t.Error("ValidateRemoteAgent() expected error for missing urn, got nil")
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	data := map[string]interface{}{
+		"input": map[string]interface{}{"key": "value"},
+	}
+	if raErr := v.ValidateRemoteAgent(data); raErr == nil {
+		t.Error("ValidateRemoteAgent() expected error for missing urn, got nil")
+	}
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_MissingInput(t *testing.T) {
-v, err := validator.NewSchemaValidator()
-if err != nil {
-t.Fatalf("NewSchemaValidator failed: %v", err)
-}
-data := map[string]interface{}{
-"urn": "kdeps://example/agent:1.0.0",
-}
-if raErr := v.ValidateRemoteAgent(data); raErr == nil {
-t.Error("ValidateRemoteAgent() expected error for missing input, got nil")
-}
+	v, err := validator.NewSchemaValidator()
+	if err != nil {
+		t.Fatalf("NewSchemaValidator failed: %v", err)
+	}
+	data := map[string]interface{}{
+		"urn": "kdeps://example/agent:1.0.0",
+	}
+	if raErr := v.ValidateRemoteAgent(data); raErr == nil {
+		t.Error("ValidateRemoteAgent() expected error for missing input, got nil")
+	}
 }
