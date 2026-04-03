@@ -1833,6 +1833,26 @@ type BrowserConfig struct {
 	// This adds browser arguments to mask automation flags and uses
 	// realistic viewport, timezone, and locale settings.
 	StealthMode *bool `yaml:"stealthMode,omitempty"`
+
+	// StorageStatePath is a file path used to persist and restore browser
+	// storage state (cookies, localStorage) across workflow runs. If the file
+	// exists it is loaded when the session is created, bypassing login forms.
+	// The state is saved to this path after every successful execution.
+	StorageStatePath string `yaml:"storageStatePath,omitempty"`
+
+	// UserDataDir is a path to a Chromium/Firefox user-data directory.
+	// When set, the browser launches as a persistent context backed by that
+	// directory. All profile data (cookies, cache, fingerprints) is preserved
+	// across runs, making the session indistinguishable from a real user.
+	// Use this instead of storageStatePath when sites employ fingerprint-based
+	// bot detection (e.g. LinkedIn).
+	UserDataDir string `yaml:"userDataDir,omitempty"`
+
+	// ExecutablePath overrides the browser binary. Use this to launch the
+	// real installed Chrome instead of Playwright's bundled Chromium, which
+	// bypasses binary-fingerprint bot detection (e.g. LinkedIn).
+	// macOS: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+	ExecutablePath string `yaml:"executablePath,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling for BrowserConfig to support
@@ -1840,17 +1860,20 @@ type BrowserConfig struct {
 func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
-		Engine          string                 `yaml:"engine,omitempty"`
-		Headless        interface{}            `yaml:"headless,omitempty"`
-		URL             string                 `yaml:"url,omitempty"`
-		Actions         []BrowserAction        `yaml:"actions,omitempty"`
-		SessionID       string                 `yaml:"sessionId,omitempty"`
-		Viewport        *BrowserViewportConfig `yaml:"viewport,omitempty"`
-		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
-		Timeout         string                 `yaml:"timeout,omitempty"`
-		WaitFor         string                 `yaml:"waitFor,omitempty"`
-		UserAgent       string                 `yaml:"userAgent,omitempty"`
-		StealthMode     interface{}            `yaml:"stealthMode,omitempty"`
+		Engine           string                 `yaml:"engine,omitempty"`
+		Headless         interface{}            `yaml:"headless,omitempty"`
+		URL              string                 `yaml:"url,omitempty"`
+		Actions          []BrowserAction        `yaml:"actions,omitempty"`
+		SessionID        string                 `yaml:"sessionId,omitempty"`
+		Viewport         *BrowserViewportConfig `yaml:"viewport,omitempty"`
+		TimeoutDuration  string                 `yaml:"timeoutDuration,omitempty"`
+		Timeout          string                 `yaml:"timeout,omitempty"`
+		WaitFor          string                 `yaml:"waitFor,omitempty"`
+		UserAgent        string                 `yaml:"userAgent,omitempty"`
+		StealthMode      interface{}            `yaml:"stealthMode,omitempty"`
+		StorageStatePath string                 `yaml:"storageStatePath,omitempty"`
+		UserDataDir      string                 `yaml:"userDataDir,omitempty"`
+		ExecutablePath   string                 `yaml:"executablePath,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -1866,6 +1889,9 @@ func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
 	b.Timeout = alias.Timeout
 	b.WaitFor = alias.WaitFor
 	b.UserAgent = alias.UserAgent
+	b.StorageStatePath = alias.StorageStatePath
+	b.UserDataDir = alias.UserDataDir
+	b.ExecutablePath = alias.ExecutablePath
 
 	if bv, ok := ParseBool(alias.Headless); ok {
 		b.Headless = &bv

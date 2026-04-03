@@ -1019,7 +1019,7 @@ func TestGetOrCreateSession_ExistingSession(t *testing.T) {
 	t.Cleanup(func() { activeSessions.Delete(sessID) })
 
 	got, isNew, err := getOrCreateSession(
-		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false,
+		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false, "", "", "",
 	)
 	require.NoError(t, err)
 	assert.False(t, isNew)
@@ -1037,6 +1037,9 @@ func TestGetOrCreateSession_NewEphemeralFailsWithoutPlaywright(t *testing.T) {
 		defaultBrowserTimeout,
 		"",
 		false,
+		"",
+		"",
+		"",
 	)
 	if err != nil {
 		assert.Contains(t, err.Error(), "playwright")
@@ -1191,6 +1194,9 @@ func TestGetOrCreateSession_NewNamedSessionFailsWithoutPlaywright(t *testing.T) 
 		defaultBrowserTimeout,
 		"",
 		false,
+		"",
+		"",
+		"",
 	)
 	// Will fail because playwright binary is not installed.
 	if err != nil {

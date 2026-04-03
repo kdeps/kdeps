@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -614,6 +615,17 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 		// Add toJSON() as alias for json()
 		evalEnv["toJSON"] = evalEnv["json"]
 
+		// Add fromJSON() to parse a JSON string into a Go value (map, slice, scalar).
+		// Returns nil if the input is not valid JSON.
+		evalEnv["fromJSON"] = func(s interface{}) interface{} {
+			str := fmt.Sprintf("%v", s)
+			var out interface{}
+			if err := json.Unmarshal([]byte(str), &out); err != nil {
+				return nil
+			}
+			return out
+		}
+
 		// Add where(array, key, minValue) helper - filters an array of maps keeping
 		// elements where element[key] (numeric) >= minValue.
 		// Example: where(get('analyze-jobs'), 'match_score', 60)
@@ -630,6 +642,12 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 				threshold = float64(v)
 			case int64:
 				threshold = float64(v)
+			case string:
+				parsed, parseErr := strconv.ParseFloat(v, 64)
+				if parseErr != nil {
+					return arr
+				}
+				threshold = parsed
 			default:
 				return arr
 			}

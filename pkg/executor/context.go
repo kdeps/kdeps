@@ -2115,5 +2115,25 @@ func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
 		},
 	}
 
+	// Expose current iteration item (mirrors engine's buildEvaluationEnvironment).
+	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
+		itemCopy := make(map[string]interface{}, len(itemValue))
+		for k, v := range itemValue {
+			itemCopy[k] = v
+		}
+		itemCopy["values"] = func(actionID string) interface{} {
+			val, _ := ctx.GetItemValues(actionID)
+			return val
+		}
+		env["item"] = itemCopy
+	} else {
+		env["item"] = map[string]interface{}{
+			"values": func(actionID string) interface{} {
+				val, _ := ctx.GetItemValues(actionID)
+				return val
+			},
+		}
+	}
+
 	return env
 }

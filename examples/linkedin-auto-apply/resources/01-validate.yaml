@@ -4,24 +4,9 @@ kind: Resource
 metadata:
   actionId: validate
   name: validate
-  description: Ensure all required input fields are present before proceeding.
+  description: Ensure all required profile fields are present before proceeding.
+  requires: [set-profile]
 
 run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/apply]
-
-    check:
-      - "get('linkedin_email') != ''"
-      - "get('linkedin_password') != ''"
-      - "get('job_title') != ''"
-      - "get('candidate_name') != ''"
-      - "get('candidate_profile') != ''"
-      - "get('resume_path') != ''"
-
-    error:
-      code: 400
-      message: "linkedin_email, linkedin_password, job_title, candidate_name, candidate_profile, and resume_path are required"
-
   expr:
-    - "set('validated', true)"
+    - "set('validated', get('job_title') != '' && get('candidate_name') != '' && get('candidate_profile') != '' && get('resume_path') != '')"
