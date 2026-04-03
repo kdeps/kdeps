@@ -32,7 +32,7 @@ kind: Workflow
 
 metadata:
   name: doc-summarizer
-  description: Summarise a document piped via stdin
+  description: Summarize a document piped via stdin
   version: "1.0.0"
   targetActionId: summarize
 
@@ -232,7 +232,7 @@ The file source is designed for scripting. Here is a shell script that processes
 ```bash
 #!/bin/bash
 for f in /docs/*.txt; do
-  echo "=== Summarising $f ==="
+  echo "=== Summarizing $f ==="
   KDEPS_FILE_PATH="$f" ./kdeps run workflow.yaml
 done
 ```

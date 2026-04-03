@@ -388,13 +388,13 @@ Inside any resource that runs after the file input:
 | `get("inputFileContent")` | File content via `get()` |
 | `get("inputFilePath")` | File path via `get()` |
 
-Example — summarise a document:
+Example — Summarize a document:
 
 ```yaml
 run:
   chat:
     model: llama3.2:3b
-    prompt: "Summarise the following document:\n\n{{ input('fileContent') }}"
+    prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
 ```
 
 ---
