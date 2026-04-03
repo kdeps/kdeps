@@ -453,6 +453,20 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		}
 	}
 
+	// Propagate file input from the request context body to dedicated context fields so
+	// resources can access the file content via input("fileContent") / input("file") and
+	// the file path via input("filePath") / get("inputFilePath").
+	if reqCtx != nil && workflow.Settings.Input != nil && workflow.Settings.Input.HasFileSource() {
+		if body := reqCtx.Body; body != nil {
+			if content, ok := body["content"].(string); ok {
+				ctx.InputFileContent = content
+			}
+			if path, ok := body["path"].(string); ok {
+				ctx.InputFilePath = path
+			}
+		}
+	}
+
 	// Initialize evaluator with unified API.
 	if ctx.API == nil {
 		return nil, errors.New("execution context API is nil")
@@ -2421,6 +2435,9 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 		env["inputMedia"] = ctx.InputMediaFile
 		// Expose TTS output file path via ttsOutput expression variable.
 		env["ttsOutput"] = ctx.TTSOutputFile
+		// Expose file input content and path via expression variables.
+		env["inputFileContent"] = ctx.InputFileContent
+		env["inputFilePath"] = ctx.InputFilePath
 	}
 
 	return env

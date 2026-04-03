@@ -118,7 +118,7 @@
               "uniqueItems": true,
               "items": {
                 "type": "string",
-                "enum": ["api", "audio", "video", "telephony", "bot"]
+                "enum": ["api", "audio", "video", "telephony", "bot", "file"]
               }
             },
             "audio": {
@@ -149,6 +149,14 @@
                   "type": "string"
                 },
                 "provider": {
+                  "type": "string"
+                }
+              }
+            },
+            "file": {
+              "type": "object",
+              "properties": {
+                "path": {
                   "type": "string"
                 }
               }

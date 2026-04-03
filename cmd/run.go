@@ -66,6 +66,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/selftest"
@@ -1568,7 +1569,7 @@ func WriteTestsToWorkflow(workflow *domain.Workflow, workflowPath string) error 
 }
 
 // dispatchExecution selects and starts the correct execution mode for the workflow:
-// server (API/Web/both), bot (polling or stateless), media polling, or single-run stateless.
+// server (API/Web/both), bot (polling or stateless), file input, media polling, or single-run stateless.
 func dispatchExecution(
 	workflow *domain.Workflow,
 	workflowPath string,
@@ -1589,6 +1590,9 @@ func dispatchExecution(
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
 		return StartBotRunners(workflow, debugMode)
+	}
+	if s.Input != nil && s.Input.HasFileSource() {
+		return StartFileRunner(workflow, debugMode)
 	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
@@ -1649,6 +1653,21 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 	}
 	fmt.Fprintln(os.Stdout, "\n✓ Bot stopped")
 	return nil
+}
+
+// StartFileRunner reads file content from stdin (or KDEPS_FILE_PATH / configured path),
+// executes the workflow once, and returns. File content and path are available to
+// workflow resources via input("fileContent") / input("filePath").
+func StartFileRunner(workflow *domain.Workflow, debugMode bool) error {
+	kdeps_debug.Log("enter: StartFileRunner")
+	logger := logging.NewLogger(debugMode)
+	engine := setupEngine(workflow, debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
+
+	ctx := context.Background()
+	return fileinput.Run(ctx, workflow, engine, logger)
 }
 
 // StartMediaRunners starts a continuous media capture-execute loop for audio/video/telephony
@@ -1874,6 +1893,9 @@ func dispatchExecutionWithEngine(
 	if s.Input != nil && s.Input.HasBotSource() {
 		return StartBotRunnersWithEngine(eng, workflow, debugMode)
 	}
+	if s.Input != nil && s.Input.HasFileSource() {
+		return startFileRunnerWithEngine(eng, workflow, debugMode)
+	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
 		return StartMediaRunners(workflow, debugMode)
@@ -2086,6 +2108,18 @@ func StartBotRunnersWithEngine(
 	case chanErr := <-errChan:
 		return chanErr
 	}
+}
+
+// startFileRunnerWithEngine runs the file input runner using a pre-built engine.
+func startFileRunnerWithEngine(eng *executor.Engine, workflow *domain.Workflow, debugMode bool) error {
+	kdeps_debug.Log("enter: startFileRunnerWithEngine")
+	logger := logging.NewLogger(debugMode)
+
+	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
+	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
+
+	ctx := context.Background()
+	return fileinput.Run(ctx, workflow, eng, logger)
 }
 
 func setupDevMode(httpServer *http.Server, workflowPath string) {

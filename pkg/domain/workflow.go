@@ -40,6 +40,11 @@ const (
 	InputSourceTelephony = "telephony"
 	// InputSourceBot is the input source for chat-bot platforms (Discord, Slack, Telegram, WhatsApp).
 	InputSourceBot = "bot"
+	// InputSourceFile is the input source for file content read from stdin or a file path.
+	// Reads plain-text content (or JSON {"path":"...","content":"..."}) from stdin,
+	// the KDEPS_FILE_PATH environment variable, or the configured file.path, then
+	// executes the workflow once and exits.
+	InputSourceFile = "file"
 
 	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
 	BotExecutionTypePolling = "polling"
@@ -197,7 +202,7 @@ type WebAppConfig struct {
 // InputConfig specifies the input sources for the workflow.
 //
 // The `sources` field in the workflow YAML is a list of one or more input sources:
-// "api" (default), "audio", "video", "telephony", "bot".
+// "api" (default), "audio", "video", "telephony", "bot", "file".
 //
 // Multiple sources can be active simultaneously (for example, audio + video for a
 // video call). Example:
@@ -215,6 +220,7 @@ type InputConfig struct {
 	Video         *VideoConfig       `yaml:"video,omitempty"         json:"video,omitempty"`
 	Telephony     *TelephonyConfig   `yaml:"telephony,omitempty"     json:"telephony,omitempty"`
 	Bot           *BotConfig         `yaml:"bot,omitempty"           json:"bot,omitempty"`
+	File          *FileConfig        `yaml:"file,omitempty"          json:"file,omitempty"`
 	Transcriber   *TranscriberConfig `yaml:"transcriber,omitempty"   json:"transcriber,omitempty"`
 	Activation    *ActivationConfig  `yaml:"activation,omitempty"    json:"activation,omitempty"`
 }
@@ -288,6 +294,18 @@ func (c *InputConfig) HasMediaSource() bool {
 func IsBotSource(s string) bool {
 	kdeps_debug.Log("enter: IsBotSource")
 	return s == InputSourceBot
+}
+
+// HasFileSource reports whether "file" is in the Sources list.
+func (c *InputConfig) HasFileSource() bool {
+	kdeps_debug.Log("enter: HasFileSource")
+	return c.HasSource(InputSourceFile)
+}
+
+// IsFileSource returns true when the given source name is the "file" source.
+func IsFileSource(s string) bool {
+	kdeps_debug.Log("enter: IsFileSource")
+	return s == InputSourceFile
 }
 
 // inputConfigAlias is used to avoid infinite recursion in the custom unmarshalers.
@@ -394,6 +412,17 @@ type WhatsAppConfig struct {
 	AccessToken   string `yaml:"accessToken"             json:"accessToken"`
 	WebhookSecret string `yaml:"webhookSecret,omitempty" json:"webhookSecret,omitempty"` // for HMAC verification
 	WebhookPort   int    `yaml:"webhookPort,omitempty"   json:"webhookPort,omitempty"`   // default 16396
+}
+
+// FileConfig contains configuration for file input.
+// When the "file" input source is active, the runner reads file content from stdin
+// (plain text or JSON {"path":"...","content":"..."}), from the KDEPS_FILE_PATH
+// environment variable, or from the Path field configured here, then executes
+// the workflow once and exits.
+type FileConfig struct {
+	// Path is the optional default file path to read when stdin is empty and
+	// KDEPS_FILE_PATH is not set.
+	Path string `yaml:"path,omitempty" json:"path,omitempty"`
 }
 
 // TranscriberConfig defines how analog media signals (audio/video/telephony)

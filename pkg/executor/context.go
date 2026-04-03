@@ -67,9 +67,11 @@ const (
 	agentSpecParts = 2
 
 	// Context key names for input-processor and TTS outputs.
-	keyTTSOutput       = "ttsOutput"
-	keyInputTranscript = "inputTranscript"
-	keyInputMedia      = "inputMedia"
+	keyTTSOutput        = "ttsOutput"
+	keyInputTranscript  = "inputTranscript"
+	keyInputMedia       = "inputMedia"
+	keyInputFileContent = "inputFileContent"
+	keyInputFilePath    = "inputFilePath"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -116,6 +118,14 @@ type ExecutionContext struct {
 	// (audio/video/telephony sources with output: text).
 	// Resources can read this value via the inputTranscript expression function.
 	InputTranscript string
+
+	// InputFileContent is the text content of the file provided via the "file" input
+	// source. Resources can read this value via input("fileContent") or input("file").
+	InputFileContent string
+
+	// InputFilePath is the path of the file provided via the "file" input source.
+	// Resources can read this value via input("filePath").
+	InputFilePath string
 
 	// TTSOutputFile is the path to the audio file produced by a TTS resource.
 	// Resources can read this path via the ttsOutput expression function.
@@ -349,6 +359,14 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	case keyTTSOutput:
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
+		}
+	case keyInputFileContent:
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, nil
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, nil
 		}
 	}
 
@@ -1857,6 +1875,16 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no TTS output file available")
 			}
 			return ctx.TTSOutputFile, nil
+		case "file", keyInputFileContent:
+			if ctx.InputFileContent == "" {
+				return nil, errors.New("no file input content available")
+			}
+			return ctx.InputFileContent, nil
+		case keyInputFilePath:
+			if ctx.InputFilePath == "" {
+				return nil, errors.New("no file input path available")
+			}
+			return ctx.InputFilePath, nil
 		default:
 			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
 		}
@@ -1865,6 +1893,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
 	// or the short forms input("transcript") / input("media").
 	// TTS output — accessible as input("ttsOutput") / input("tts").
+	// File input — accessible as input("inputFileContent") / input("file") / input("inputFilePath").
 	switch name {
 	case keyInputTranscript, "transcript":
 		if ctx.InputTranscript != "" {
@@ -1877,6 +1906,14 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	case keyTTSOutput, "tts":
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
+		}
+	case keyInputFileContent, "file":
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, nil
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, nil
 		}
 	}
 

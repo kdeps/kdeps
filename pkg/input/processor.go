@@ -77,32 +77,34 @@ type Processor struct {
 // (API input is handled directly by the HTTP server and needs no processor).
 // Bot sources (discord, slack, telegram, whatsapp) are driven by the Dispatcher
 // and also return nil so the hardware pipeline is not started.
+// File sources are driven by the file runner and also return nil.
 func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, error) {
 	kdeps_debug.Log("enter: NewProcessor")
 	if cfg == nil || !cfg.HasNonAPISource() {
 		return nil, nil //nolint:nilnil // nil processor signals no input processing needed, not an error
 	}
 
-	// If every non-API source is a bot source, the Dispatcher handles input — no hardware pipeline needed.
-	allBotOrAPI := true
+	// If every non-API source is a bot or file source, the Dispatcher/file runner handles
+	// input — no hardware pipeline needed.
+	allBotOrAPIOrFile := true
 	for _, s := range cfg.Sources {
-		if s != domain.InputSourceAPI && !domain.IsBotSource(s) {
-			allBotOrAPI = false
+		if s != domain.InputSourceAPI && !domain.IsBotSource(s) && !domain.IsFileSource(s) {
+			allBotOrAPIOrFile = false
 			break
 		}
 	}
-	if allBotOrAPI {
-		return nil, nil //nolint:nilnil // bot sources are driven by the Dispatcher, not the hardware pipeline
+	if allBotOrAPIOrFile {
+		return nil, nil //nolint:nilnil // bot/file sources are driven by their own runners, not the hardware pipeline
 	}
 
 	if logger == nil {
 		logger = slog.Default()
 	}
 
-	// Create one capturer per non-API source.
+	// Create one capturer per non-API, non-bot, non-file source.
 	var sources []sourceCapture
 	for _, src := range cfg.Sources {
-		if src == domain.InputSourceAPI {
+		if src == domain.InputSourceAPI || domain.IsBotSource(src) || domain.IsFileSource(src) {
 			continue
 		}
 		c, err := capture.New(src, cfg, logger)
