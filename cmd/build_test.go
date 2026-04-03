@@ -56,6 +56,9 @@ func TestBuildImage_InvalidWorkflow(t *testing.T) {
 }
 
 func TestBuildImage_ValidWorkflow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -137,6 +140,9 @@ settings:
 }
 
 func TestBuildImage_KdepsPackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	// Create a test workflow
@@ -177,6 +183,9 @@ settings:
 }
 
 func TestBuildImage_DirectoryWithKdepsFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	// Create a test workflow
@@ -217,6 +226,9 @@ settings:
 }
 
 func TestBuildImage_WithGPUFlag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -257,6 +269,9 @@ settings:
 }
 
 func TestBuildImage_WithTagFlag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -314,6 +329,9 @@ func TestBuildImage_InvalidPackage(t *testing.T) {
 }
 
 func TestBuildImage_DirectoryWithWorkflowFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -377,6 +395,9 @@ func TestBuildImage_NonExistentFile(t *testing.T) {
 }
 
 func TestBuildImage_UnsupportedGPUType(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -415,6 +436,9 @@ settings:
 }
 
 func TestBuildImage_WorkflowWithComplexResources(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -479,6 +503,9 @@ run:
 }
 
 func TestBuildImage_WorkflowWithWebServerMode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping: requires Docker daemon")
+	}
 	tmpDir := t.TempDir()
 
 	workflowContent := `
