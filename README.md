@@ -1,6 +1,6 @@
-# kdeps: AI agents as code.
+# kdeps: Build autonomous AI Agents and AI Agencies.
 
-AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
+Reproducible, repeatable AI pipelines in YAML. Build autonomous AI Agents and self-governing AI Agencies without glue code or legacy infrastructure.
 
 > **Highly experimental.** kdeps is under active development - APIs, YAML schemas, CLI flags, and behaviour can change without notice at any time. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
 
@@ -8,11 +8,11 @@ AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy 
 
 AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
 
-kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems** by design:
+kdeps enforces **reproducible, repeatable** AI agent processes as **Ordered, Repeatable Systems (ORS)** by design — so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
 
-- **Ordered** — Declarative YAML defines every execution step in graph order. No hidden logic, no surprise tool calls.
-- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions.
-- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
+- **Reproducible** — Every agent run is fully auditable. Version-controlled YAML definitions mean you can replay any past run exactly — debug, inspect, and verify outcomes at any time.
+- **Repeatable** — Declarative pipelines execute in the same dependency-ordered graph every time. No hidden logic, no surprise tool calls, no drift between environments. Same inputs always produce same outputs.
+- **Autonomous AI Agencies** — Compose multiple independent AI Agents into a single self-governing **Agency**. Agents delegate, coordinate, and respond without human-in-the-loop intervention. LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
 
 ## 1. Install
 ```bash
@@ -80,7 +80,8 @@ run:
 - [`autopilot:`](https://kdeps.com/resources/autopilot) – Goal-directed workflow synthesis: describe *what* you want, the engine figures out *how*
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
 
-### 🏢 [Agency & Multi-Agent Orchestration](https://kdeps.com/concepts/agency)
+### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
+Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
 - **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point
 - **Auto-discovery** – `agents/**/workflow.*` dirs and `agents/*.kdeps` archives discovered automatically
 - **`.kagency` archives** – Pack the full agency into one portable file: `kdeps package my-agency/`

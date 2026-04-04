@@ -1,17 +1,18 @@
-# Agency — Multi-Agent Orchestration
+# Autonomous AI Agencies — Multi-Agent Orchestration
 
-An **agency** is a collection of kdeps agents that cooperate to handle complex tasks.
-Each agent in the agency has its own `workflow.yaml` (its own resources, routes, and
-settings), but they are bundled together under a single `agency.yaml` manifest.
+An **autonomous AI Agency** is a collection of kdeps AI Agents that cooperate to handle complex tasks entirely without human-in-the-loop intervention. Each agent in the agency has its own `workflow.yaml` (its own resources, routes, and settings), bundled together under a single `agency.yaml` manifest that makes them operate as one self-governing system.
 
-## Why Use an Agency?
+## Why Build an Autonomous AI Agency?
 
-| Single workflow | Agency |
+Agencies are the natural evolution from single AI Agents. Where a single agent handles one workflow, an autonomous AI Agency coordinates many specialised agents — each one a reproducible, repeatable process — into a unified system that can tackle sophisticated, multi-step problems autonomously.
+
+| Single AI Agent | Autonomous AI Agency |
 |---|---|
 | One workflow file, one port | Multiple specialised agents, each on their own port |
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
-| No inter-agent delegation | Resources can delegate work to other agents via `run.agent:` |
+| No inter-agent delegation | Agents delegate work to each other via `run.agent:` |
+| Limited scope | Self-governing system handles complex end-to-end tasks autonomously |
 
 ## Directory Structure
 
