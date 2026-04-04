@@ -4,11 +4,11 @@ An **autonomous AI Agency** is a collection of kdeps AI Agents that cooperate to
 
 ## Why Build an Autonomous AI Agency?
 
-Agencies are the natural evolution from single AI Agents. Where a single agent handles one workflow, an autonomous AI Agency coordinates many specialised agents — each one a reproducible, repeatable process — into a unified system that can tackle sophisticated, multi-step problems autonomously.
+Agencies are the natural evolution from single AI Agents. Where a single agent handles one workflow, an autonomous AI Agency coordinates many specialized agents — each one a reproducible, repeatable process — into a unified system that can tackle sophisticated, multi-step problems autonomously.
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|
-| One workflow file, one port | Multiple specialised agents, each on their own port |
+| One workflow file, one runtime entry point | Multiple specialized agents coordinated within one agency (optionally runnable standalone) |
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
 | No inter-agent delegation | Agents delegate work to each other via `run.agent:` |
