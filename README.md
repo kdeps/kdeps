@@ -1,6 +1,6 @@
-# kdeps: Build autonomous AI Agents and AI Agencies.
+# kdeps: AI agents as code.
 
-Reproducible, repeatable AI pipelines in YAML. Build autonomous AI Agents and self-governing AI Agencies without glue code or legacy infrastructure.
+AI agents in YAML. Build autonomous AI Agents and self-governing AI Agencies that orchestrate LLMs, databases, and APIs without glue or legacy code.
 
 > **Highly experimental.** kdeps is under active development - APIs, YAML schemas, CLI flags, and behaviour can change without notice at any time. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
 
@@ -8,11 +8,11 @@ Reproducible, repeatable AI pipelines in YAML. Build autonomous AI Agents and se
 
 AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
 
-kdeps enforces **reproducible, repeatable** AI agent processes as **Ordered, Repeatable Systems (ORS)** by design — so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
+kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems (ORS)** by design — reproducible and repeatable by construction, so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
 
-- **Reproducible** — Every agent run is fully auditable. Version-controlled YAML definitions mean you can replay any past run exactly — debug, inspect, and verify outcomes at any time. Exact output determinism depends on deterministic models/settings and stable external dependencies.
-- **Repeatable** — Declarative pipelines execute in the same dependency-ordered graph every time. No hidden logic, no surprise tool calls, no drift between environments. Same inputs always produce same outputs. Output determinism depends on the underlying models, settings, and external APIs.
-- **Autonomous AI Agencies** — Compose multiple independent AI Agents into a single self-governing **Agency**. Agents delegate, coordinate, and respond without human-in-the-loop intervention. LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
+- **Ordered** — Declarative YAML defines every execution step in graph order. No hidden logic, no surprise tool calls.
+- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions. Output determinism depends on the underlying models, settings, and external APIs.
+- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges. Compose multiple agents into self-governing **autonomous AI Agencies** that operate without human-in-the-loop intervention.
 
 ## 1. Install
 ```bash
