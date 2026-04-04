@@ -8,7 +8,7 @@ Agencies are the natural evolution from single AI Agents. Where a single agent h
 
 | Single AI Agent | Autonomous AI Agency |
 |---|---|
-| One workflow file, one runtime entry point | Multiple specialized agents coordinated within one agency (optionally runnable standalone) |
+| One workflow file, one port | Multiple specialized agents coordinated within one agency (optionally runnable standalone) |
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
 | No inter-agent delegation | Agents delegate work to each other via `run.agent:` |

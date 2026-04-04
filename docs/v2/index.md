@@ -20,7 +20,7 @@ features:
     details: Compose multiple AI Agents into a self-governing Agency. Agents delegate, coordinate, and act autonomously — no human-in-the-loop required.
   - icon: 🔁
     title: Reproducible & Repeatable (ORS)
-    details: Ordered, Repeatable Systems provide deterministic step ordering and auditable agent runs. With pinned models, tools, and inputs, outputs can be reproduced more reliably by design.
+    details: Ordered, Repeatable Systems ensure every agent run is deterministic and auditable. Same inputs always produce same outputs — full reproducibility by design. With pinned models, tools, and inputs, outputs can be reproduced more reliably.
   - icon: 📝
     title: Agents as Code
     details: No glue code. No boilerplate. Every agent and agency is a readable, version-controlled YAML file you can replay, audit, and share.

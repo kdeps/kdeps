@@ -10,8 +10,8 @@ AI agents fail in production for one reason: **inconsistency**. Same task, diffe
 
 kdeps enforces **reproducible, repeatable** AI agent processes as **Ordered, Repeatable Systems (ORS)** by design — so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
 
-- **Reproducible** — Every agent run is fully auditable. Version-controlled YAML definitions mean you can replay past runs with the same workflow, inputs, and recorded configuration — debug, inspect, and verify outcomes at any time. Exact output determinism depends on deterministic models/settings and stable external dependencies.
-- **Repeatable** — Declarative pipelines execute in the same dependency-ordered graph every time. No hidden logic, no surprise tool calls, and reduced drift between environments. Given the same inputs and stable dependencies, runs follow the same controlled process; output determinism depends on the underlying models, settings, and external APIs.
+- **Reproducible** — Every agent run is fully auditable. Version-controlled YAML definitions mean you can replay any past run exactly — debug, inspect, and verify outcomes at any time. Exact output determinism depends on deterministic models/settings and stable external dependencies.
+- **Repeatable** — Declarative pipelines execute in the same dependency-ordered graph every time. No hidden logic, no surprise tool calls, no drift between environments. Same inputs always produce same outputs. Output determinism depends on the underlying models, settings, and external APIs.
 - **Autonomous AI Agencies** — Compose multiple independent AI Agents into a single self-governing **Agency**. Agents delegate, coordinate, and respond without human-in-the-loop intervention. LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
 
 ## 1. Install
