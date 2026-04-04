@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: AI agents as code.
-  tagline: AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
+  text: Build autonomous AI Agents and AI Agencies.
+  tagline: Reproducible, repeatable AI pipelines in YAML. Create self-governing Agencies of AI Agents without glue code or legacy infrastructure.
   image: false
   actions:
     - theme: brand
@@ -15,16 +15,16 @@ hero:
       link: https://kdeps.io
 
 features:
-  - icon: 📝
-    title: YAML Configuration
-    details: No glue code. No boilerplate. Every agent is a readable, version-controlled YAML file.
+  - icon: 🤖
+    title: Autonomous AI Agencies
+    details: Compose multiple AI Agents into a self-governing Agency. Agents delegate, coordinate, and act autonomously — no human-in-the-loop required.
   - icon: 🔁
-    title: Ordered, Repeatable Systems (ORS)
-    details: Deterministic execution pipelines. Same inputs produce same outputs. No hidden logic, full audit trail.
-  - icon: 🔇
-    title: Local Execution
-    details: Use local LLMs (Ollama) or any cloud provider. Support for offline STT/TTS and vector DBs.
+    title: Reproducible & Repeatable (ORS)
+    details: Ordered, Repeatable Systems ensure every agent run is deterministic and auditable. Same inputs always produce same outputs — full reproducibility by design. With pinned models, tools, and inputs, outputs can be reproduced more reliably.
+  - icon: 📝
+    title: Agents as Code
+    details: No glue code. No boilerplate. Every agent and agency is a readable, version-controlled YAML file you can replay, audit, and share.
   - icon: 🚀
     title: Deploy Anywhere
-    details: Docker or bootable ISO.
+    details: Docker, bootable ISO, or self-contained binary. Agencies run the same way in dev and production.
 ---
