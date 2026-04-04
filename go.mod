@@ -15,8 +15,8 @@ require (
 	github.com/go-telegram/bot v1.20.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/lib/pq v1.12.2
-	github.com/mattn/go-sqlite3 v1.14.39
+	github.com/lib/pq v1.12.3
+	github.com/mattn/go-sqlite3 v1.14.40
 	github.com/nikolalohinski/gonja/v2 v2.7.0
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
@@ -67,10 +67,10 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
-	go.opentelemetry.io/otel v1.42.0 // indirect
+	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.39.0 // indirect
-	go.opentelemetry.io/otel/metric v1.42.0 // indirect
-	go.opentelemetry.io/otel/trace v1.42.0 // indirect
+	go.opentelemetry.io/otel/metric v1.43.0 // indirect
+	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/sys v0.42.0 // indirect
