@@ -1,6 +1,6 @@
 # kdeps: AI agents as code.
 
-AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy code.
+AI agents in YAML. Build autonomous AI Agents and self-governing AI Agencies that orchestrate LLMs, databases, and APIs without glue or legacy code.
 
 > **Highly experimental.** kdeps is under active development - APIs, YAML schemas, CLI flags, and behaviour can change without notice at any time. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
 
@@ -8,11 +8,11 @@ AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue or legacy 
 
 AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
 
-kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems** by design:
+kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems (ORS)** by design — reproducible and repeatable by construction, so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
 
 - **Ordered** — Declarative YAML defines every execution step in graph order. No hidden logic, no surprise tool calls.
-- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions.
-- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges.
+- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions. Output determinism depends on the underlying models, settings, and external APIs.
+- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges. Compose multiple agents into self-governing **autonomous AI Agencies** that operate without human-in-the-loop intervention.
 
 ## 1. Install
 ```bash
@@ -80,7 +80,8 @@ run:
 - [`autopilot:`](https://kdeps.com/resources/autopilot) – Goal-directed workflow synthesis: describe *what* you want, the engine figures out *how*
 - [`apiResponse:`](https://kdeps.com/resources/api-response) – Return data to the HTTP caller
 
-### 🏢 [Agency & Multi-Agent Orchestration](https://kdeps.com/concepts/agency)
+### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
+Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
 - **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point
 - **Auto-discovery** – `agents/**/workflow.*` dirs and `agents/*.kdeps` archives discovered automatically
 - **`.kagency` archives** – Pack the full agency into one portable file: `kdeps package my-agency/`
