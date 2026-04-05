@@ -108,6 +108,13 @@ func RemoveCloudConfig() error {
 
 func cloudConfigPath() (string, error) {
 	kdeps_debug.Log("enter: cloudConfigPath")
+	// Respect XDG_CONFIG_HOME on all platforms (including macOS, which os.UserConfigDir
+	// does not honour). This lets tests redirect the config dir cross-platform by setting
+	// XDG_CONFIG_HOME, and allows power-users to override the location on any OS.
+	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
+		return filepath.Join(xdgConfigHome, "kdeps", "config.json"), nil
+	}
+
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get config directory: %w", err)
