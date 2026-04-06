@@ -48,7 +48,6 @@ type SchemaValidator interface {
 	ValidateResource(data map[string]interface{}) error
 	ValidateAgency(data map[string]interface{}) error
 	ValidateComponent(data map[string]interface{}) error
-	ValidateRemoteAgent(data map[string]interface{}) error
 }
 
 // ExpressionParser parses expressions.
@@ -397,8 +396,7 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 					validateErr,
 				)
 			}
-			// Additional specific validation for remoteAgent
-			return p.validateRemoteAgentIfPresent(rawData, sv)
+			return nil
 		}
 	}
 
@@ -421,24 +419,6 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 	}
 
 	return &resource, nil
-}
-
-// validateRemoteAgentIfPresent checks if the resource contains a remoteAgent configuration
-// and validates it if present. This helper reduces nesting in ParseResource's validate function.
-func (p *Parser) validateRemoteAgentIfPresent(rawData map[string]interface{}, sv SchemaValidator) error {
-	kdeps_debug.Log("enter: validateRemoteAgentIfPresent")
-	if run, ok := rawData["run"].(map[string]interface{}); ok {
-		if remoteAgent, hasRemote := run["remoteAgent"].(map[string]interface{}); hasRemote {
-			if validateErr := sv.ValidateRemoteAgent(remoteAgent); validateErr != nil {
-				return domain.NewError(
-					domain.ErrCodeValidationFailed,
-					"remoteAgent validation failed",
-					validateErr,
-				)
-			}
-		}
-	}
-	return nil
 }
 
 // loadResources loads and parses all resource files referenced by the workflow.
