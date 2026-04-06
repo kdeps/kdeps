@@ -2274,8 +2274,6 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 	if ctx != nil {
 		env["inputTranscript"] = ctx.InputTranscript
 		env["inputMedia"] = ctx.InputMediaFile
-		// Expose TTS output file path via ttsOutput expression variable.
-		env["ttsOutput"] = ctx.TTSOutputFile
 		// Expose file input content and path via expression variables.
 		env["inputFileContent"] = ctx.InputFileContent
 		env["inputFilePath"] = ctx.InputFilePath

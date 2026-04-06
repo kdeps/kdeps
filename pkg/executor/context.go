@@ -66,9 +66,7 @@ const (
 	agentPathParts = 2
 	agentSpecParts = 2
 
-	// Context key names for input-processor and TTS outputs.
-	keyTTSOutput        = "ttsOutput"
-	keyTTSShort         = "tts"
+	// Context key names for input-processor outputs.
 	keyInputTranscript  = "inputTranscript"
 	keyInputMedia       = "inputMedia"
 	keyInputFileContent = "inputFileContent"
@@ -130,10 +128,6 @@ type ExecutionContext struct {
 	// InputFilePath is the path of the file provided via the "file" input source.
 	// Resources can read this value via input("filePath").
 	InputFilePath string
-
-	// TTSOutputFile is the path to the audio file produced by a TTS resource.
-	// Resources can read this path via the ttsOutput expression function.
-	TTSOutputFile string
 
 	// BotSend delivers a reply to the originating bot platform.
 	// Set by the bot dispatcher (polling) or stateless runner before engine.Execute().
@@ -352,7 +346,6 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	}
 
 	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
-	// and TTS output — accessible as get("ttsOutput")
 	switch name {
 	case keyInputTranscript:
 		if ctx.InputTranscript != "" {
@@ -361,10 +354,6 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	case keyInputMedia:
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
-		}
-	case keyTTSOutput:
-		if ctx.TTSOutputFile != "" {
-			return ctx.TTSOutputFile, nil
 		}
 	case keyInputFileContent:
 		if ctx.InputFileContent != "" {
@@ -1848,8 +1837,8 @@ func (ctx *ExecutionContext) WalkFiles(
 }
 
 // Input retrieves input values with unified access.
-// Priority: Input-processor results → TTS output → Query Parameter → Header → Request Body
-// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media"|"ttsOutput").
+// Priority: Input-processor results → Query Parameter → Header → Request Body
+// Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
 //
 //nolint:gocognit,gocyclo,nestif,cyclop,funlen // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
@@ -1876,11 +1865,6 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no input media file available")
 			}
 			return ctx.InputMediaFile, nil
-		case keyTTSOutput, keyTTSShort:
-			if ctx.TTSOutputFile == "" {
-				return nil, errors.New("no TTS output file available")
-			}
-			return ctx.TTSOutputFile, nil
 		case inputTypeFile, keyInputFileContent:
 			if ctx.InputFileContent == "" {
 				return nil, errors.New("no file input content available")
@@ -1898,7 +1882,6 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 
 	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
 	// or the short forms input("transcript") / input("media").
-	// TTS output — accessible as input("ttsOutput") / input("tts").
 	// File input — accessible as input("inputFileContent") / input("file") / input("inputFilePath").
 	switch name {
 	case keyInputTranscript, "transcript":
@@ -1908,10 +1891,6 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 	case keyInputMedia, "media":
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
-		}
-	case keyTTSOutput, keyTTSShort:
-		if ctx.TTSOutputFile != "" {
-			return ctx.TTSOutputFile, nil
 		}
 	case keyInputFileContent, inputTypeFile:
 		if ctx.InputFileContent != "" {
