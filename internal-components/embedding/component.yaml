@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: embedding
+  description: Generate text embeddings via OpenAI API
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: generate-embedding
+    run:
+      httpClient:
+        url: "https://api.openai.com/v1/embeddings"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ get(\"openaiApiKey\") }}"
+          Content-Type: application/json
+        data: '{"model":"{{ get(\"embeddingModel\", \"text-embedding-ada-002\") }}","input":"{{ get(\"embeddingText\") }}"}'

@@ -33,16 +33,16 @@ run:
     stealthMode: true
     sessionId: linkedin-session
     url: "{{ item['job_link'] }}"
-    waitFor: ".jobs-apply-button, .jobs-s-apply"
     timeoutDuration: 60s
     actions:
-      # Upload resume and trigger Easy Apply via JS to avoid React event issues
+      # Click Easy Apply via JS to avoid React event issues
       - action: evaluate
         script: |
           (() => {
             const easyApplyBtn = document.querySelector(
+              'button[aria-label*="Easy Apply"], ' +
               'button.jobs-apply-button[aria-label*="Easy Apply"], ' +
-              'button[aria-label*="Easy Apply"]'
+              'button.jobs-apply-button'
             );
             if (!easyApplyBtn) return JSON.stringify({ status: 'skipped', reason: 'no Easy Apply button' });
             easyApplyBtn.click();
@@ -210,3 +210,8 @@ run:
 
             return runApply();
           })()
+
+onError:
+  action: continue
+  expr:
+    - "set('apply_error_' + string(item['job_id'] | default('')), error.message)"

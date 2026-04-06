@@ -1,0 +1,34 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: email
+  description: Send email via Python smtplib
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: send-email
+    run:
+      python:
+        script: |
+          import smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+          host = get("smtpHost")
+          port = int(get("smtpPort", "587"))
+          user = get("smtpUser")
+          password = get("smtpPass")
+          to = get("emailTo")
+          subject = get("emailSubject")
+          body = get("emailBody")
+          msg = MIMEMultipart()
+          msg["From"] = user
+          msg["To"] = to
+          msg["Subject"] = subject
+          msg.attach(MIMEText(body, "plain"))
+          with smtplib.SMTP(host, port) as server:
+              server.starttls()
+              server.login(user, password)
+              server.sendmail(user, to, msg.as_string())
+          set("emailSent", "true")

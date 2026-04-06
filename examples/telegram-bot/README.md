@@ -55,10 +55,23 @@ Open Telegram, find your bot by its username, and send it a message. It will rep
 
 ```
 telegram-bot/
-├── workflow.yaml          # Bot source config, Telegram credentials, Ollama model
+├── workflow.yaml              # Bot source config, Telegram credentials, Ollama model
+├── components/
+│   └── botreply/
+│       └── component.yaml     # .komponent: sends reply through the bot session
 └── resources/
-    ├── llm.yaml           # LLM chat resource — receives input('message'), applies persona
-    └── reply.yaml         # Sends the LLM reply back to the Telegram user
+    └── llm.yaml               # LLM chat resource — receives input('message'), applies persona
+```
+
+The `botreply` component encapsulates the `run.botReply` executor and is auto-loaded from the
+`components/` directory when the workflow is parsed. This makes the component independently
+distributable — install it once with `kdeps component install botreply` and reuse it across
+multiple Telegram bot workflows.
+
+To package the component as a shareable `.komponent` archive:
+
+```bash
+kdeps package components/botreply --output components/
 ```
 
 ## Key Expressions

@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: tts
+  description: Offline text-to-speech via espeak
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: speak
+      name: Speak Response
+      requires:
+        - respond
+    run:
+      exec:
+        command: "espeak '{{ get(\"respond\") }}'"

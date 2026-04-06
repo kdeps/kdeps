@@ -36,5 +36,13 @@ for f in "$PROJECT_ROOT/examples/telegram-bot/resources/"*.yaml; do
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Telegram Bot - Resource files exist ($RESOURCE_COUNT found)"
 
+# Check component structure
+TB_COMP="$PROJECT_ROOT/examples/telegram-bot/components/botreply/component.yaml"
+if [ -f "$TB_COMP" ]; then
+    test_passed "Telegram Bot - botreply component exists"
+else
+    test_failed "Telegram Bot - botreply component exists" "Missing $TB_COMP"
+fi
+
 test_skipped "Telegram Bot - Server test (requires external service/LLM)"
 echo ""

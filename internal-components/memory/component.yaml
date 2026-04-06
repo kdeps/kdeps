@@ -1,0 +1,32 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: memory
+  description: Key-value memory store via Python with SQLite
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: memory-op
+    run:
+      python:
+        script: |
+          import sqlite3
+          import os
+          db_path = get("memoryDbPath", os.path.expanduser("~/.kdeps/memory.db"))
+          os.makedirs(os.path.dirname(db_path), exist_ok=True)
+          conn = sqlite3.connect(db_path)
+          conn.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
+          conn.commit()
+          action = get("memoryAction", "store")
+          key = get("memoryKey")
+          if action == "store":
+              value = get("memoryValue")
+              conn.execute("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", (key, value))
+              conn.commit()
+              set("memoryResult", "stored")
+          elif action == "retrieve":
+              row = conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
+              set("memoryResult", row[0] if row else "")
+          conn.close()

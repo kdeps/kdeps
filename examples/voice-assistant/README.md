@@ -70,9 +70,22 @@ Once running, say **"hey kdeps"** followed by your question. The assistant will:
 ```
 voice-assistant/
 ├── workflow.yaml              # Input sources, activation, and transcription config
+├── components/
+│   └── tts/
+│       └── component.yaml     # .komponent: offline TTS via espeak
 └── resources/
-    ├── respond.yaml           # LLM chat resource (takes transcribed speech as input)
-    └── speak.yaml             # TTS resource (speaks the LLM response)
+    └── respond.yaml           # LLM chat resource (takes transcribed speech as input)
+```
+
+The `tts` component encapsulates the `run.tts` executor and is auto-loaded from the `components/`
+directory. Swap the TTS engine by replacing the component without touching the workflow:
+
+```bash
+# Build a packaged version to share or version-control
+kdeps package components/tts --output components/
+
+# Or install a community component
+kdeps component install tts
 ```
 
 ## How It Works
@@ -120,8 +133,9 @@ activation:
 
 ### Use eSpeak Instead of Piper (Lighter Weight)
 
+Edit `components/tts/component.yaml`:
+
 ```yaml
-# resources/speak.yaml
 tts:
   mode: offline
   offline:
@@ -148,7 +162,7 @@ transcriber:
 chat:
   model: llama3.2:1b         # Smallest Llama model
 
-# resources/speak.yaml
+# components/tts/component.yaml
 tts:
   offline:
     engine: espeak           # Lightest TTS engine

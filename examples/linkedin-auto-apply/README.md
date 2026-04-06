@@ -13,12 +13,14 @@ submit) for every matched job.
 
 | Step | Resource | What it does |
 |------|----------|--------------|
-| 1 | validate | Check all required inputs |
-| 2 | login | Chromium logs in to LinkedIn, session persisted |
-| 3 | search-jobs | Navigate job search, extract listings via JS |
-| 4 | analyze-jobs | LLM scores each job, filters by threshold, writes cover letter |
-| 5 | apply-job | Per matched job: click Easy Apply, fill form, upload resume, submit |
-| 6 | response | Return applied/skipped/failed summary |
+| 1 | load-profile | Parse YAML front matter from the file input source |
+| 2 | set-profile | Populate kdeps memory from parsed profile JSON |
+| 3 | validate | Check all required inputs |
+| 4 | login | Chromium logs in to LinkedIn, session persisted |
+| 5 | search-jobs | Navigate job search, extract listings via JS |
+| 6 | analyze-jobs | LLM scores each job, filters by threshold, writes cover letter |
+| 7 | apply-job | Per matched job: click Easy Apply, fill form, upload resume, submit |
+| 8 | response | Return applied/skipped/failed summary |
 
 ---
 
@@ -34,81 +36,42 @@ submit) for every matched job.
 
 ---
 
-## Run
+## Profile file
 
-```bash
-kdeps run examples/linkedin-auto-apply
+Copy `sample-profile.md` to `joel-profile.md` (or any name) and fill in your details.
+The file uses YAML front matter between `---` delimiters:
+
+```markdown
+---
+job_title: "Senior Software Engineer"
+location: "Amsterdam, Netherlands"
+candidate_name: "Jane Doe"
+linkedin_email: "jane@example.com"
+linkedin_password: "your-password"
+resume_path: "/Users/jane/resume.pdf"
+# ... see sample-profile.md for all fields
+---
 ```
-
-The API server starts at `http://localhost:16399`.
 
 ---
 
-## API
+## Run
 
-### POST /api/v1/apply
-
-**Required fields:**
-
-| Field | Type | Notes |
-|-------|------|-------|
-| linkedin_email | string | LinkedIn login email |
-| linkedin_password | string | LinkedIn login password |
-| job_title | string | Search query |
-| candidate_name | string | Used in cover letters and form fields |
-| candidate_profile | string | Skills and experience summary for LLM scoring |
-| resume_path | string | Absolute path to your resume PDF |
-
-**Optional fields (used to answer Easy Apply form questions):**
-
-| Field | Type | Default | Notes |
-|-------|------|---------|-------|
-| location | string | "" | Search location |
-| min_match_score | number | 60 | Jobs below this are skipped |
-| max_results | number | 5 | Max jobs to apply to |
-| date_posted | string | r604800 | r86400=day, r604800=week, r2592000=month |
-| remote_only | bool | false | Filter to remote jobs only |
-| easy_apply_only | bool | true | Skip external-apply jobs |
-| phone_number | string | "" | For phone form fields |
-| years_of_experience | string | "" | For experience form fields |
-| current_city | string | "" | For location form fields |
-| country | string | Netherlands | For country select fields |
-| require_visa | string | No | "Yes" or "No" for sponsorship questions |
-| desired_salary | string | "" | For salary form fields |
-| website | string | "" | Portfolio/GitHub URL |
-| linkedin_url | string | "" | LinkedIn profile URL |
-
-**Example request:**
+Pass the profile file via `--file`, stdin, or `KDEPS_FILE_PATH`:
 
 ```bash
-curl -s -X POST http://localhost:16399/api/v1/apply \
-  -H "Content-Type: application/json" \
-  -d '{
-    "linkedin_email":      "you@example.com",
-    "linkedin_password":   "your_password",
-    "job_title":           "Backend Engineer",
-    "location":            "Amsterdam, Netherlands",
-    "candidate_name":      "Jane Doe",
-    "candidate_profile":   "8 years Go and Python. Kubernetes, AWS, Postgres. Led teams of 5.",
-    "resume_path":         "/home/jane/resume.pdf",
-    "min_match_score":     65,
-    "phone_number":        "0612345678",
-    "years_of_experience": "8",
-    "current_city":        "Amsterdam",
-    "country":             "Netherlands",
-    "require_visa":        "No"
-  }' | jq .
+# --file flag (recommended)
+kdeps run examples/linkedin-auto-apply --file joel-profile.md
+
+# stdin pipe
+cat joel-profile.md | kdeps run examples/linkedin-auto-apply
+
+# environment variable
+KDEPS_FILE_PATH=joel-profile.md kdeps run examples/linkedin-auto-apply
 ```
 
-**Response:**
-
-```json
-[
-  { "status": "applied",  "job_id": "3987654321", "title": "Senior Backend Engineer", "company": "Acme BV" },
-  { "status": "skipped",  "job_id": "3987654322", "reason": "match score below threshold" },
-  { "status": "failed",   "job_id": "3987654323", "reason": "no Easy Apply button" }
-]
-```
+The workflow reads the markdown file, parses the YAML front matter, and runs the
+full browser automation pipeline without any API server or HTTP POST required.
 
 ---
 
@@ -127,6 +90,7 @@ curl -s -X POST http://localhost:16399/api/v1/apply \
 | Submit | `wait_span_click("Submit")` | JS click submit button |
 | Already-applied check | Job state footer text | JS footer text check |
 | Session | Selenium WebDriver | Playwright sessionId |
+| Profile input | Python config files | File input source (--file / stdin) |
 
 ---
 
@@ -137,12 +101,13 @@ curl -s -X POST http://localhost:16399/api/v1/apply \
 model: deepseek-r1
 ```
 
-**Lower the score threshold** to apply to more jobs:
-```json
-{ "min_match_score": 40 }
+**Lower the score threshold** in your profile file:
+```yaml
+min_match_score: "40"
 ```
 
 **Remote jobs only:**
-```json
-{ "remote_only": true }
+```yaml
+remote_only: "true"
 ```
+

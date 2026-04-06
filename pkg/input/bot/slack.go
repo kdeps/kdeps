@@ -103,7 +103,9 @@ func (r *slackRunner) handleSocketEvent(
 	if !ok {
 		return
 	}
-	client.Ack(*evt.Request)
+	if err := client.Ack(*evt.Request); err != nil {
+		return
+	}
 
 	if eventsAPIEvent.Type != slackevents.CallbackEvent {
 		return

@@ -132,6 +132,7 @@ export default defineConfig({
             { text: 'Error Handling (onError)', link: '/concepts/error-handling' },
             { text: 'Route Restrictions', link: '/concepts/route-restrictions' },
             { text: 'Management API', link: '/concepts/management-api' },
+            { text: 'Event Stream (--events)', link: '/concepts/events' },
           ]
         },
         {

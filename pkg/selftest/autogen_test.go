@@ -282,67 +282,7 @@ func TestResourceTests_Exec_NoExpressions_UsesGET(t *testing.T) {
 	assert.Equal(t, "GET", cases[0].Request.Method)
 }
 
-// ------- Search / Scraper -------
-
-func TestResourceTests_Search(t *testing.T) {
-	res := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "search"},
-		Run: domain.RunConfig{
-			Search: &domain.SearchConfig{
-				Provider: "brave",
-				Query:    "{{ request.body.q }}",
-			},
-		},
-	}
-	cases := resourceTests(res, "/api/v1/search")
-	require.Len(t, cases, 1)
-	body := cases[0].Request.Body.(map[string]interface{})
-	assert.Contains(t, body, "q")
-}
-
-func TestResourceTests_Scraper_StaticURL(t *testing.T) {
-	res := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "scrape"},
-		Run: domain.RunConfig{
-			Scraper: &domain.ScraperConfig{
-				Type:   "url",
-				Source: "https://example.com",
-			},
-		},
-	}
-	cases := resourceTests(res, "/api/v1/scrape")
-	require.Len(t, cases, 1)
-	assert.Equal(t, "https://example.com", cases[0].Request.Path)
-}
-
-func TestResourceTests_Scraper_DynamicSource(t *testing.T) {
-	res := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "scrape"},
-		Run: domain.RunConfig{
-			Scraper: &domain.ScraperConfig{
-				Type:   "url",
-				Source: "{{ request.body.url }}",
-			},
-		},
-	}
-	cases := resourceTests(res, "/api/v1/scrape")
-	require.Len(t, cases, 1)
-	body := cases[0].Request.Body.(map[string]interface{})
-	assert.Contains(t, body, "url")
-}
-
-// ------- BotReply (skipped) -------
-
-func TestResourceTests_BotReply_Skipped(t *testing.T) {
-	res := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "reply"},
-		Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hello"}},
-	}
-	cases := resourceTests(res, "/api/v1/chat")
-	assert.Empty(t, cases)
-}
-
-// ------- Helper functions -------
+// ------- Agent -------
 
 func TestExtractBodyFields_NoExpressions(t *testing.T) {
 	type S struct{ Prompt string }
@@ -452,97 +392,6 @@ func TestResourceTests_SQL(t *testing.T) {
 	assert.Contains(t, cases[1].Name, "sql")
 }
 
-func TestResourceTests_Memory(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Memory: &domain.MemoryConfig{Content: "test"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "memory")
-}
-
-func TestResourceTests_Embedding(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Embedding: &domain.EmbeddingConfig{Input: "test"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "embedding")
-}
-
-func TestResourceTests_Browser(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Browser: &domain.BrowserConfig{URL: "https://example.com"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "browser")
-}
-
-func TestResourceTests_TTS(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{TTS: &domain.TTSConfig{Text: "hello"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "tts")
-}
-
-func TestResourceTests_PDF(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{PDF: &domain.PDFConfig{Content: "<h1>Hello</h1>"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "pdf")
-}
-
-func TestResourceTests_Email(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Email: &domain.EmailConfig{To: []string{"test@example.com"}}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "email")
-}
-
-func TestResourceTests_Calendar(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Calendar: &domain.CalendarConfig{FilePath: "calendar.ics"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "calendar")
-}
-
 func TestResourceTests_Agent(t *testing.T) {
 	wf := workflowWithRoute("/api")
 	wf.Resources = []*domain.Resource{
@@ -554,45 +403,6 @@ func TestResourceTests_Agent(t *testing.T) {
 	cases := GenerateTests(wf)
 	require.Len(t, cases, 2)
 	assert.Contains(t, cases[1].Name, "agent")
-}
-
-func TestResourceTests_RemoteAgent(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{RemoteAgent: &domain.RemoteAgentConfig{URN: "kdeps://example/agent:1.0.0"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "remote-agent")
-}
-
-func TestResourceTests_Autopilot(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{Autopilot: &domain.AutopilotConfig{Goal: "do something"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	require.Len(t, cases, 2)
-	assert.Contains(t, cases[1].Name, "autopilot")
-}
-
-func TestResourceTests_BotReply_Skipped_ViaGenerateTests(t *testing.T) {
-	wf := workflowWithRoute("/api")
-	wf.Resources = []*domain.Resource{
-		{
-			Metadata: domain.ResourceMetadata{ActionID: "r1"},
-			Run:      domain.RunConfig{BotReply: &domain.BotReplyConfig{Text: "hello"}},
-		},
-	}
-	cases := GenerateTests(wf)
-	// BotReply is skipped → only health check
-	assert.Len(t, cases, 1)
 }
 
 func TestResourceTests_Default_NoEntryPath(t *testing.T) {

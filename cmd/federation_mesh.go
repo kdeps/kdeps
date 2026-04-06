@@ -112,23 +112,10 @@ func findWorkflowFiles(root string) ([]string, error) {
 }
 
 // collectRemoteAgents parses each workflow file and extracts remoteAgent URNs.
-func collectRemoteAgents(workflowPaths []string) []struct{ file, urn string } {
+// RemoteAgent is no longer a supported execution type, so this always returns nil.
+func collectRemoteAgents(_ []string) []struct{ file, urn string } {
 	kdeps_debug.Log("enter: collectRemoteAgents")
-	parser := yaml.NewParser(nil, nil) // no validation
-	var found []struct{ file, urn string }
-	for _, fp := range workflowPaths {
-		wf, err := parser.ParseWorkflow(fp)
-		if err != nil {
-			fmt.Fprintf(os.Stdout, "Warning: could not parse %s: %v\n", fp, err)
-			continue
-		}
-		for _, res := range wf.Resources {
-			if res.Run.RemoteAgent != nil {
-				found = append(found, struct{ file, urn string }{fp, res.Run.RemoteAgent.URN})
-			}
-		}
-	}
-	return found
+	return nil
 }
 
 // displayFoundAgents prints the list of remote agents to stdout.

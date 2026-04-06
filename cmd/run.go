@@ -45,23 +45,13 @@ import (
 	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
-	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
-	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
-	executorCalendar "github.com/kdeps/kdeps/v2/pkg/executor/calendar"
-	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
-	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
-	executorMemory "github.com/kdeps/kdeps/v2/pkg/executor/memory"
-	executorPDF "github.com/kdeps/kdeps/v2/pkg/executor/pdf"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
-	executorRemoteAgent "github.com/kdeps/kdeps/v2/pkg/executor/remote_agent"
-	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
-	executorSearch "github.com/kdeps/kdeps/v2/pkg/executor/search"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
-	executorTTS "github.com/kdeps/kdeps/v2/pkg/executor/tts"
 	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
@@ -96,6 +86,7 @@ type RunFlags struct {
 	SelfTestOnly bool   // --self-test-only: run inline tests then exit (non-zero on failure)
 	WriteTests   bool   // --write-tests: generate tests from workflow and write them to the tests: block, then exit
 	FileArg      string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
+	Events       bool   // --events: emit structured NDJSON execution events to stderr
 }
 
 // newRunCmd creates the run command.
@@ -156,6 +147,10 @@ Examples:
 	runCmd.Flags().StringVar(
 		&flags.FileArg, "file", "",
 		"File path to process (file input source only). Takes priority over stdin, KDEPS_FILE_PATH, and input.file.path config.",
+	)
+	runCmd.Flags().BoolVar(
+		&flags.Events, "events", false,
+		"Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification).",
 	)
 
 	return runCmd
@@ -487,7 +482,10 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	// 5. Execute workflow or start HTTP server
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
 	return dispatchExecution(
-		workflow, workflowPath, flags.DevMode, debugMode, flags.SelfTest, flags.SelfTestOnly, flags.FileArg,
+		workflow, workflowPath,
+		flags.DevMode, debugMode,
+		flags.SelfTest, flags.SelfTestOnly,
+		flags.FileArg, flags.Events,
 	)
 }
 
@@ -731,29 +729,17 @@ func ValidateWorkflow(workflow *domain.Workflow) error {
 }
 
 // printIORequirements prints the system packages needed for the workflow's I/O features.
-// It is a no-op when the workflow has no non-API input sources and no TTS resources.
+// It is a no-op when the workflow has no non-API input sources.
 func printIORequirements(workflow *domain.Workflow) {
 	kdeps_debug.Log("enter: printIORequirements")
 	input := workflow.Settings.Input
 	hasNonAPIInput := input != nil && input.HasNonAPISource()
 
-	// Collect TTS engines and browser engines used across all resources.
-	ttsEngines := collectTTSEngines(workflow)
-	browserEngines := collectBrowserEngines(workflow)
-
-	if !hasNonAPIInput && len(ttsEngines) == 0 && len(browserEngines) == 0 {
+	if !hasNonAPIInput {
 		return
 	}
 
 	fmt.Fprintln(os.Stdout, "  I/O requirements:")
-
-	if len(browserEngines) > 0 {
-		fmt.Fprintf(
-			os.Stdout,
-			"    Playwright (%s): auto-installed on first run\n",
-			strings.Join(browserEngines, ", "),
-		)
-	}
 
 	if hasNonAPIInput {
 		printBotRequirements(input)
@@ -761,10 +747,6 @@ func printIORequirements(workflow *domain.Workflow) {
 		printedSTT := make(map[string]bool)
 		printTranscriberRequirements(input.Transcriber, printedSTT)
 		printActivationRequirements(input.Activation, printedSTT)
-	}
-
-	for engine, label := range ttsEngines {
-		printTTSEngineRequirement(engine, label)
 	}
 }
 
@@ -804,101 +786,6 @@ func printBotRequirements(input *domain.InputConfig) {
 			"      The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
 		)
 	}
-}
-
-// collectTTSEngines returns a map of offline TTS engine → descriptive label for
-// every TTS config found in the workflow (resources + inline before/after blocks).
-func collectTTSEngines(workflow *domain.Workflow) map[string]string {
-	kdeps_debug.Log("enter: collectTTSEngines")
-	engines := make(map[string]string)
-	for _, r := range workflow.Resources {
-		if r.Run.TTS != nil {
-			addTTSEngine(engines, r.Run.TTS)
-		}
-		for _, inline := range r.Run.Before {
-			if inline.TTS != nil {
-				addTTSEngine(engines, inline.TTS)
-			}
-		}
-		for _, inline := range r.Run.After {
-			if inline.TTS != nil {
-				addTTSEngine(engines, inline.TTS)
-			}
-		}
-	}
-	return engines
-}
-
-func addTTSEngine(engines map[string]string, cfg *domain.TTSConfig) {
-	kdeps_debug.Log("enter: addTTSEngine")
-	if cfg.Mode != domain.TTSModeOffline || cfg.Offline == nil {
-		return
-	}
-	switch cfg.Offline.Engine {
-	case domain.TTSEnginePiper:
-		engines[domain.TTSEnginePiper] = "piper"
-	case domain.TTSEngineEspeak:
-		engines[domain.TTSEngineEspeak] = "espeak"
-	case domain.TTSEngineFestival:
-		engines[domain.TTSEngineFestival] = "festival"
-	case domain.TTSEngineCoqui:
-		engines[domain.TTSEngineCoqui] = "coqui-tts"
-	}
-}
-
-// collectBrowserEngines returns the set of Playwright browser engines required
-// by any browser resource in the workflow (resources + inline before/after blocks).
-// The default engine when none is specified is chromium.
-func collectBrowserEngines(workflow *domain.Workflow) []string {
-	kdeps_debug.Log("enter: collectBrowserEngines")
-	seen := make(map[string]bool)
-	for _, r := range workflow.Resources {
-		addBrowserEngine(seen, r.Run.Browser)
-		for _, inline := range r.Run.Before {
-			addBrowserEngine(seen, inline.Browser)
-		}
-		for _, inline := range r.Run.After {
-			addBrowserEngine(seen, inline.Browser)
-		}
-	}
-	var engines []string
-	for e := range seen {
-		engines = append(engines, e)
-	}
-	return engines
-}
-
-func addBrowserEngine(seen map[string]bool, cfg *domain.BrowserConfig) {
-	kdeps_debug.Log("enter: addBrowserEngine")
-	if cfg == nil {
-		return
-	}
-	engine := strings.ToLower(strings.TrimSpace(cfg.Engine))
-	if engine == "" {
-		engine = domain.BrowserEngineChromium
-	}
-	seen[engine] = true
-}
-
-// ensurePlaywrightInstalled installs the Playwright driver and the requested
-// browser engines when they are not already present.
-func ensurePlaywrightInstalled(engines []string) error {
-	kdeps_debug.Log("enter: ensurePlaywrightInstalled")
-	alreadyInstalled := executorBrowser.IsInstalled()
-	if !alreadyInstalled {
-		fmt.Fprintf(
-			os.Stdout,
-			"  ⏳ Installing Playwright (%s, first run may take a minute)...\n",
-			strings.Join(engines, ", "),
-		)
-	}
-	if err := executorBrowser.EnsureInstalled(engines, os.Stderr); err != nil {
-		return fmt.Errorf("playwright installation failed: %w", err)
-	}
-	if !alreadyInstalled {
-		fmt.Fprintln(os.Stdout, "  ✓ Playwright installed")
-	}
-	return nil
 }
 
 // isBinaryAvailable returns true when name is found on PATH.
@@ -1020,55 +907,19 @@ func printOfflineSTTRequirement(engine string, printed map[string]bool) {
 	}
 }
 
-func printTTSEngineRequirement(engine, _ string) {
-	kdeps_debug.Log("enter: printTTSEngineRequirement")
-	switch engine {
-	case domain.TTSEnginePiper:
-		ok := isPythonModuleAvailable("piper")
-		fmt.Fprintf(os.Stdout, "    Text-to-speech (piper):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      pip install piper-tts")
-	case domain.TTSEngineEspeak:
-		ok := isBinaryAvailable("espeak-ng") || isBinaryAvailable("espeak")
-		fmt.Fprintf(os.Stdout, "    Text-to-speech (espeak):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      brew install espeak-ng  /  apt install espeak-ng")
-	case domain.TTSEngineFestival:
-		ok := isBinaryAvailable("festival")
-		fmt.Fprintf(os.Stdout, "    Text-to-speech (festival):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      brew install festival  /  apt install festival")
-	case domain.TTSEngineCoqui:
-		ok := isPythonModuleAvailable("TTS")
-		fmt.Fprintf(os.Stdout, "    Text-to-speech (coqui-tts):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      pip install TTS")
-	}
-}
-
 // installIOTools auto-installs I/O Python tools via uv when they are missing.
 // It is a no-op when uv is not installed or when no I/O tools are required.
 // Errors are returned for failed installs so the user sees a clear message
-// instead of a cryptic runtime failure during transcription or TTS.
-// installBrowserTools installs Playwright when the workflow uses browser resources.
-func installBrowserTools(workflow *domain.Workflow) error {
-	kdeps_debug.Log("enter: installBrowserTools")
-	engines := collectBrowserEngines(workflow)
-	if len(engines) == 0 {
-		return nil
-	}
-	return ensurePlaywrightInstalled(engines)
-}
-
+// instead of a cryptic runtime failure during transcription.
 func installIOTools(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: installIOTools")
-	// Browser / Playwright installation is independent of uv.
-	if err := installBrowserTools(workflow); err != nil {
-		return err
-	}
 
 	if !isBinaryAvailable("uv") {
 		return nil // uv not available; user already saw [not found] hints
 	}
 
 	input := workflow.Settings.Input
-	// hasNonAPIInput is true only for hardware sources (audio/video/telephony),
+	// hasHardwareInput is true only for hardware sources (audio/video/telephony),
 	// not for bot sources which need no Python I/O tools.
 	hasHardwareInput := func() bool {
 		if input == nil {
@@ -1081,9 +932,8 @@ func installIOTools(workflow *domain.Workflow) error {
 		}
 		return false
 	}()
-	ttsEngines := collectTTSEngines(workflow)
 
-	if !hasHardwareInput && len(ttsEngines) == 0 {
+	if !hasHardwareInput {
 		return nil
 	}
 
@@ -1091,17 +941,6 @@ func installIOTools(workflow *domain.Workflow) error {
 
 	if hasHardwareInput {
 		if err := installInputTools(manager, input); err != nil {
-			return err
-		}
-	}
-
-	seenTTS := make(map[string]bool)
-	for engine := range ttsEngines {
-		if seenTTS[engine] {
-			continue
-		}
-		seenTTS[engine] = true
-		if err := installTTSTool(manager, engine); err != nil {
 			return err
 		}
 	}
@@ -1195,40 +1034,6 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		}
 	}
 	_ = manager // manager retained for signature compatibility
-	return nil
-}
-
-func installTTSTool(manager *python.Manager, engine string) error {
-	kdeps_debug.Log("enter: installTTSTool")
-	switch engine {
-	case domain.TTSEnginePiper:
-		if isBinaryAvailable("piper") || python.IOToolBin("piper", "piper") != "" {
-			return nil
-		}
-		fmt.Fprintln(os.Stdout, "  ⏳ Installing piper-tts venv (first run may take a minute)...")
-		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(
-			python.IOToolsPythonVersion,
-			[]string{"piper-tts", "pathvalidate"},
-			"",
-			"piper",
-		); err != nil {
-			return fmt.Errorf("auto-install piper-tts: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "  ✓ Installed piper-tts")
-	case domain.TTSEngineCoqui:
-		if python.IOToolPythonBin("coqui") != "" {
-			return nil
-		}
-		fmt.Fprintln(os.Stdout, "  ⏳ Installing coqui-tts venv (first run may take a minute)...")
-		ioManager := python.NewManager(python.IOToolsBaseDir())
-		// coqui-tts depends on numba→llvmlite which requires Python ≤3.11 for pre-built wheels.
-		if _, err := ioManager.EnsureVenv("3.11", []string{"TTS"}, "", "coqui"); err != nil {
-			return fmt.Errorf("auto-install coqui-tts: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "  ✓ Installed coqui-tts")
-	}
-	_ = manager
 	return nil
 }
 
@@ -1586,6 +1391,7 @@ func dispatchExecution(
 	devMode, debugMode bool,
 	selfTest, selfTestOnly bool,
 	fileArg string,
+	eventsEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
 	s := workflow.Settings
@@ -1603,7 +1409,7 @@ func dispatchExecution(
 		return StartBotRunners(workflow, debugMode)
 	}
 	if s.Input != nil && s.Input.HasFileSource() {
-		return StartFileRunner(workflow, debugMode, fileArg)
+		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
 	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
@@ -1670,10 +1476,13 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 // (or KDEPS_FILE_PATH / configured path), executes the workflow once, and returns.
 // File content and path are available to workflow resources via
 // input("fileContent") / input("filePath").
-func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string) error {
+func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, eventsEnabled bool) error {
 	kdeps_debug.Log("enter: StartFileRunner")
 	logger := logging.NewLogger(debugMode)
 	engine := setupEngine(workflow, debugMode)
+	if eventsEnabled {
+		engine.SetEmitter(events.NewNDJSONEmitter(os.Stderr))
+	}
 
 	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
 	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
@@ -1845,17 +1654,6 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
-	registry.SetTTSExecutor(executorTTS.NewAdapter(logger))
-	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
-	registry.SetScraperExecutor(executorScraper.NewAdapter())
-	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter(logger))
-	registry.SetMemoryExecutor(executorMemory.NewAdapter(logger))
-	registry.SetPDFExecutor(executorPDF.NewAdapter(logger))
-	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
-	registry.SetCalendarExecutor(executorCalendar.NewAdapter(logger))
-	registry.SetSearchExecutor(executorSearch.NewAdapter())
-	registry.SetRemoteAgentExecutor(executorRemoteAgent.NewAdapter())
-	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

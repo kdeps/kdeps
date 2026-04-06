@@ -1,0 +1,18 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: search
+  description: Web search via Tavily API
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: web-search
+    run:
+      httpClient:
+        url: "https://api.tavily.com/search"
+        method: POST
+        headers:
+          Content-Type: application/json
+        data: '{"api_key":"{{ get(\"tavilyApiKey\") }}","query":"{{ get(\"searchQuery\") }}","max_results":{{ get("searchMaxResults", "5") }}}'

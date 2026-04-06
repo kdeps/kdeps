@@ -32,6 +32,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/input"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	parseryaml "github.com/kdeps/kdeps/v2/pkg/parser/yaml"
@@ -49,6 +50,7 @@ type Engine struct {
 	newExecutionContext func(*domain.Workflow, string) (*ExecutionContext, error)
 	afterEvaluatorInit  func(*Engine, *ExecutionContext)
 	debugMode           bool
+	emitter             events.Emitter
 }
 
 type inputValidator interface {
@@ -82,6 +84,7 @@ func NewEngine(logger *slog.Logger) *Engine {
 		registry:       NewRegistry(),
 		inputValidator: validator.NewInputValidator(),
 		exprValidator:  validator.NewExpressionValidator(),
+		emitter:        events.NopEmitter{},
 	}
 	engine.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
 		if sessionID != "" {
@@ -90,6 +93,17 @@ func NewEngine(logger *slog.Logger) *Engine {
 		return NewExecutionContext(workflow)
 	}
 	return engine
+}
+
+// SetEmitter configures the event emitter for this engine.
+// Call before Execute to receive structured lifecycle events.
+func (e *Engine) SetEmitter(em events.Emitter) {
+	kdeps_debug.Log("enter: SetEmitter")
+	if em == nil {
+		e.emitter = events.NopEmitter{}
+		return
+	}
+	e.emitter = em
 }
 
 // SetRegistry sets the executor registry.
@@ -201,159 +215,6 @@ func SleepForIterationForTesting(atTimes []time.Time, everyDur time.Duration, i 
 	sleepForIteration(sched, i)
 }
 
-// ExecuteTTSForTesting exposes the private executeTTS for testing.
-func (e *Engine) ExecuteTTSForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteTTSForTesting")
-	return e.executeTTS(resource, ctx)
-}
-
-// ExecuteBotReplyForTesting exposes the private executeBotReply for testing.
-func (e *Engine) ExecuteBotReplyForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteBotReplyForTesting")
-	return e.executeBotReply(resource, ctx)
-}
-
-// ExecuteScraperForTesting exposes the private executeScraper for testing.
-func (e *Engine) ExecuteScraperForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteScraperForTesting")
-	return e.executeScraper(resource, ctx)
-}
-
-// ExecuteInlineScraperForTesting exposes the private executeInlineScraper for testing.
-func (e *Engine) ExecuteInlineScraperForTesting(
-	config *domain.ScraperConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineScraperForTesting")
-	return e.executeInlineScraper(config, ctx)
-}
-
-// ExecuteEmbeddingForTesting exposes the private executeEmbedding for testing.
-func (e *Engine) ExecuteEmbeddingForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteEmbeddingForTesting")
-	return e.executeEmbedding(resource, ctx)
-}
-
-// ExecuteInlineEmbeddingForTesting exposes the private executeInlineEmbedding for testing.
-func (e *Engine) ExecuteInlineEmbeddingForTesting(
-	config *domain.EmbeddingConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineEmbeddingForTesting")
-	return e.executeInlineEmbedding(config, ctx)
-}
-
-// ExecuteInlineMemoryForTesting exposes the private executeInlineMemory for testing.
-func (e *Engine) ExecuteInlineMemoryForTesting(
-	config *domain.MemoryConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineMemoryForTesting")
-	return e.executeInlineMemory(config, ctx)
-}
-
-// ExecutePDFForTesting exposes the private executePDF for testing.
-func (e *Engine) ExecutePDFForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecutePDFForTesting")
-	return e.executePDF(resource, ctx)
-}
-
-// ExecuteInlinePDFForTesting exposes the private executeInlinePDF for testing.
-func (e *Engine) ExecuteInlinePDFForTesting(
-	config *domain.PDFConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlinePDFForTesting")
-	return e.executeInlinePDF(config, ctx)
-}
-
-// ExecuteEmailForTesting exposes the private executeEmail for testing.
-func (e *Engine) ExecuteEmailForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteEmailForTesting")
-	return e.executeEmail(resource, ctx)
-}
-
-// ExecuteInlineEmailForTesting exposes the private executeInlineEmail for testing.
-func (e *Engine) ExecuteInlineEmailForTesting(
-	config *domain.EmailConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineEmailForTesting")
-	return e.executeInlineEmail(config, ctx)
-}
-
-// ExecuteCalendarForTesting exposes the private executeCalendar for testing.
-func (e *Engine) ExecuteCalendarForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteCalendarForTesting")
-	return e.executeCalendar(resource, ctx)
-}
-
-// ExecuteInlineCalendarForTesting exposes the private executeInlineCalendar for testing.
-func (e *Engine) ExecuteInlineCalendarForTesting(
-	config *domain.CalendarConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineCalendarForTesting")
-	return e.executeInlineCalendar(config, ctx)
-}
-
-// ExecuteSearchForTesting exposes the private executeSearch for testing.
-func (e *Engine) ExecuteSearchForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteSearchForTesting")
-	return e.executeSearch(resource, ctx)
-}
-
-// ExecuteInlineSearchForTesting exposes the private executeInlineSearch for testing.
-func (e *Engine) ExecuteInlineSearchForTesting(
-	config *domain.SearchConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineSearchForTesting")
-	return e.executeInlineSearch(config, ctx)
-}
-
-// ExecuteBrowserForTesting exposes the private executeBrowser for testing.
-func (e *Engine) ExecuteBrowserForTesting(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteBrowserForTesting")
-	return e.executeBrowser(resource, ctx)
-}
-
-// ExecuteInlineBrowserForTesting exposes the private executeInlineBrowser for testing.
-func (e *Engine) ExecuteInlineBrowserForTesting(
-	config *domain.BrowserConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineBrowserForTesting")
-	return e.executeInlineBrowser(config, ctx)
-}
-
 // ExecuteInlineLLMForTesting exposes the private executeInlineLLM for testing.
 func (e *Engine) ExecuteInlineLLMForTesting(
 	config *domain.ChatConfig,
@@ -361,15 +222,6 @@ func (e *Engine) ExecuteInlineLLMForTesting(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ExecuteInlineLLMForTesting")
 	return e.executeInlineLLM(config, ctx)
-}
-
-// ExecuteInlineTTSForTesting exposes the private executeInlineTTS for testing.
-func (e *Engine) ExecuteInlineTTSForTesting(
-	config *domain.TTSConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: ExecuteInlineTTSForTesting")
-	return e.executeInlineTTS(config, ctx)
 }
 
 // Execute executes a workflow.
@@ -490,6 +342,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		)
 	}
 
+	// Emit workflow.started after the graph is built and ready to execute.
+	e.emitter.Emit(events.WorkflowStarted(workflow.Metadata.Name))
+
 	// Get execution order.
 	targetActionID := workflow.Metadata.TargetActionID
 
@@ -523,6 +378,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		e.logger.Info("Executing resource",
 			"name", resource.Metadata.Name,
 			"actionID", resource.Metadata.ActionID)
+		e.emitter.Emit(events.ResourceStarted(
+			workflow.Metadata.Name, resource.Metadata.ActionID, resourceTypeName(resource),
+		))
 
 		// Apply headers/params filters first so get() uses correct allowlists
 		// when skip expressions and other validations are evaluated.
@@ -558,6 +416,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		if skip {
 			e.logger.Info("Skipping resource (skip condition met)",
 				"actionID", resource.Metadata.ActionID)
+			e.emitter.Emit(events.ResourceSkipped(
+				workflow.Metadata.Name, resource.Metadata.ActionID, resourceTypeName(resource),
+			))
 			continue
 		}
 
@@ -565,6 +426,9 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		if reqCtx != nil && !e.MatchesRestrictions(resource, reqCtx) {
 			e.logger.Info("Skipping resource (route/method restriction)",
 				"actionID", resource.Metadata.ActionID)
+			e.emitter.Emit(events.ResourceSkipped(
+				workflow.Metadata.Name, resource.Metadata.ActionID, resourceTypeName(resource),
+			))
 			continue
 		}
 
@@ -675,6 +539,10 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		// Execute resource with error handling.
 		output, execErr := e.executeResourceWithErrorHandling(resource, ctx)
 		if execErr != nil {
+			e.emitter.Emit(events.ResourceFailed(
+				workflow.Metadata.Name, resource.Metadata.ActionID, resourceTypeName(resource), execErr,
+			))
+			e.emitter.Emit(events.WorkflowFailed(workflow.Metadata.Name, execErr))
 			return nil, fmt.Errorf(
 				"resource execution failed for %s: %w",
 				resource.Metadata.ActionID,
@@ -687,12 +555,17 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		e.logger.Info("Resource completed",
 			"actionID", resource.Metadata.ActionID,
 			"output", output)
+		e.emitter.Emit(events.ResourceCompleted(
+			workflow.Metadata.Name, resource.Metadata.ActionID, resourceTypeName(resource),
+		))
 	}
 
 	// Return target resource output.
 	output, ok := ctx.GetOutput(targetActionID)
 	if !ok || output == nil {
-		return nil, fmt.Errorf("target resource '%s' produced no output", targetActionID)
+		noOutputErr := fmt.Errorf("target resource '%s' produced no output", targetActionID)
+		e.emitter.Emit(events.WorkflowFailed(workflow.Metadata.Name, noOutputErr))
+		return nil, noOutputErr
 	}
 
 	// If output is an API response format (has "success" and "data" keys),
@@ -703,12 +576,36 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			// For local execution, return just the data part
 			// HTTP server will handle the full wrapped format
 			if data, hasData := resultMap["data"]; hasData {
+				e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 				return data, nil
 			}
 		}
 	}
 
+	e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 	return output, nil
+}
+
+// resourceTypeName returns a short string identifying the primary resource type.
+func resourceTypeName(r *domain.Resource) string {
+	switch {
+	case r.Run.Exec != nil:
+		return "exec"
+	case r.Run.Python != nil:
+		return "python"
+	case r.Run.Chat != nil:
+		return "llm"
+	case r.Run.SQL != nil:
+		return "sql"
+	case r.Run.HTTPClient != nil:
+		return "http"
+	case r.Run.Agent != nil:
+		return "agent"
+	case r.Run.APIResponse != nil:
+		return "apiResponse"
+	default:
+		return "unknown"
+	}
 }
 
 // BuildGraph builds the dependency graph from workflow resources.
@@ -942,7 +839,7 @@ func (e *Engine) createPreflightError(
 
 // ExecuteResource executes a single resource.
 //
-//nolint:gocognit,gocyclo,cyclop,funlen // resource execution handles multiple pathways
+//nolint:gocognit,gocyclo,cyclop // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -979,25 +876,13 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent, memory)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, agent)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
 		resource.Run.SQL != nil ||
 		resource.Run.Python != nil ||
 		resource.Run.Exec != nil ||
-		resource.Run.TTS != nil ||
-		resource.Run.BotReply != nil ||
-		resource.Run.Scraper != nil ||
-		resource.Run.Embedding != nil ||
-		resource.Run.PDF != nil ||
-		resource.Run.Email != nil ||
-		resource.Run.Calendar != nil ||
-		resource.Run.Search != nil ||
-		resource.Run.Agent != nil ||
-		resource.Run.Browser != nil ||
-		resource.Run.RemoteAgent != nil ||
-		resource.Run.Autopilot != nil ||
-		resource.Run.Memory != nil
+		resource.Run.Agent != nil
 
 	var primaryResult interface{}
 	var err error
@@ -1015,32 +900,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executePython(resource, ctx)
 		case resource.Run.Exec != nil:
 			primaryResult, err = e.executeExec(resource, ctx)
-		case resource.Run.TTS != nil:
-			primaryResult, err = e.executeTTS(resource, ctx)
-		case resource.Run.BotReply != nil:
-			primaryResult, err = e.executeBotReply(resource, ctx)
-		case resource.Run.Scraper != nil:
-			primaryResult, err = e.executeScraper(resource, ctx)
-		case resource.Run.Embedding != nil:
-			primaryResult, err = e.executeEmbedding(resource, ctx)
-		case resource.Run.PDF != nil:
-			primaryResult, err = e.executePDF(resource, ctx)
-		case resource.Run.Email != nil:
-			primaryResult, err = e.executeEmail(resource, ctx)
-		case resource.Run.Calendar != nil:
-			primaryResult, err = e.executeCalendar(resource, ctx)
-		case resource.Run.Search != nil:
-			primaryResult, err = e.executeSearch(resource, ctx)
 		case resource.Run.Agent != nil:
 			primaryResult, err = e.executeAgent(resource, ctx)
-		case resource.Run.Browser != nil:
-			primaryResult, err = e.executeBrowser(resource, ctx)
-		case resource.Run.RemoteAgent != nil:
-			primaryResult, err = e.executeRemoteAgent(resource, ctx)
-		case resource.Run.Autopilot != nil:
-			primaryResult, err = e.executeAutopilot(resource, ctx)
-		case resource.Run.Memory != nil:
-			primaryResult, err = e.executeMemory(resource, ctx)
 		}
 
 		if err != nil {
@@ -1777,9 +1638,7 @@ func (e *Engine) executeInlineResources(
 			"hasSQL", inline.SQL != nil,
 			"hasPython", inline.Python != nil,
 			"hasExec", inline.Exec != nil,
-			"hasEmbedding", inline.Embedding != nil,
-			"hasAgent", inline.Agent != nil,
-			"hasBrowser", inline.Browser != nil)
+			"hasAgent", inline.Agent != nil)
 
 		var result interface{}
 		var err error
@@ -1796,26 +1655,8 @@ func (e *Engine) executeInlineResources(
 			result, err = e.executeInlinePython(inline.Python, ctx)
 		case inline.Exec != nil:
 			result, err = e.executeInlineExec(inline.Exec, ctx)
-		case inline.TTS != nil:
-			result, err = e.executeInlineTTS(inline.TTS, ctx)
-		case inline.Scraper != nil:
-			result, err = e.executeInlineScraper(inline.Scraper, ctx)
-		case inline.Embedding != nil:
-			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
-		case inline.PDF != nil:
-			result, err = e.executeInlinePDF(inline.PDF, ctx)
-		case inline.Email != nil:
-			result, err = e.executeInlineEmail(inline.Email, ctx)
-		case inline.Calendar != nil:
-			result, err = e.executeInlineCalendar(inline.Calendar, ctx)
-		case inline.Search != nil:
-			result, err = e.executeInlineSearch(inline.Search, ctx)
 		case inline.Agent != nil:
 			result, err = e.executeInlineAgent(inline.Agent, ctx)
-		case inline.Browser != nil:
-			result, err = e.executeInlineBrowser(inline.Browser, ctx)
-		case inline.Memory != nil:
-			result, err = e.executeInlineMemory(inline.Memory, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2598,323 +2439,6 @@ func (e *Engine) executeInlineExec(
 	return executor.Execute(ctx, config)
 }
 
-// executeTTS executes a TTS (Text-to-Speech) resource.
-func (e *Engine) executeTTS(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeTTS")
-	if resource.Run.TTS == nil {
-		return nil, fmt.Errorf("resource %s has no tts configuration", resource.Metadata.ActionID)
-	}
-
-	ttsExec := e.registry.GetTTSExecutor()
-	if ttsExec == nil {
-		return nil, errors.New("tts executor not available")
-	}
-
-	return ttsExec.Execute(ctx, resource.Run.TTS)
-}
-
-// executeInlineTTS executes an inline TTS resource.
-func (e *Engine) executeInlineTTS(
-	config *domain.TTSConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineTTS")
-	ttsExec := e.registry.GetTTSExecutor()
-	if ttsExec == nil {
-		return nil, errors.New("tts executor not available")
-	}
-
-	return ttsExec.Execute(ctx, config)
-}
-
-// executeBotReply executes a botReply resource, sending the reply text to the
-// originating bot platform via the BotSend function set on the execution context.
-func (e *Engine) executeBotReply(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeBotReply")
-	if resource.Run.BotReply == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no botReply configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-
-	botReplyExec := e.registry.GetBotReplyExecutor()
-	if botReplyExec == nil {
-		return nil, errors.New("botReply executor not available")
-	}
-
-	return botReplyExec.Execute(ctx, resource.Run.BotReply)
-}
-
-// executeScraper executes a scraper resource.
-func (e *Engine) executeScraper(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeScraper")
-	if resource.Run.Scraper == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no scraper configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-
-	scraperExec := e.registry.GetScraperExecutor()
-	if scraperExec == nil {
-		return nil, errors.New("scraper executor not available")
-	}
-
-	return scraperExec.Execute(ctx, resource.Run.Scraper)
-}
-
-// executeInlineScraper executes an inline scraper resource.
-func (e *Engine) executeInlineScraper(
-	config *domain.ScraperConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineScraper")
-	scraperExec := e.registry.GetScraperExecutor()
-	if scraperExec == nil {
-		return nil, errors.New("scraper executor not available")
-	}
-
-	return scraperExec.Execute(ctx, config)
-}
-
-// executeEmbedding executes an embedding resource, converting text to vector embeddings
-// and storing or querying them in a local vector DB.
-func (e *Engine) executeEmbedding(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeEmbedding")
-	if resource.Run.Embedding == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no embedding configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-
-	embeddingExec := e.registry.GetEmbeddingExecutor()
-	if embeddingExec == nil {
-		return nil, errors.New("embedding executor not available")
-	}
-
-	return embeddingExec.Execute(ctx, resource.Run.Embedding)
-}
-
-// executeInlineEmbedding executes an inline embedding resource.
-func (e *Engine) executeInlineEmbedding(
-	config *domain.EmbeddingConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineEmbedding")
-	embeddingExec := e.registry.GetEmbeddingExecutor()
-	if embeddingExec == nil {
-		return nil, errors.New("embedding executor not available")
-	}
-
-	return embeddingExec.Execute(ctx, config)
-}
-
-// executeMemory executes a memory resource for semantic experience storage and recall.
-func (e *Engine) executeMemory(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeMemory")
-	if resource.Run.Memory == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no memory configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-
-	memExec := e.registry.GetMemoryExecutor()
-	if memExec == nil {
-		return nil, errors.New("memory executor not available")
-	}
-
-	return memExec.Execute(ctx, resource.Run.Memory)
-}
-
-// executeInlineMemory executes an inline memory resource.
-func (e *Engine) executeInlineMemory(
-	config *domain.MemoryConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineMemory")
-	memExec := e.registry.GetMemoryExecutor()
-	if memExec == nil {
-		return nil, errors.New("memory executor not available")
-	}
-
-	return memExec.Execute(ctx, config)
-}
-
-// executePDF executes a PDF generation resource.
-func (e *Engine) executePDF(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
-	kdeps_debug.Log("enter: executePDF")
-	if resource.Run.PDF == nil {
-		return nil, fmt.Errorf("resource %s has no pdf configuration", resource.Metadata.ActionID)
-	}
-
-	pdfExec := e.registry.GetPDFExecutor()
-	if pdfExec == nil {
-		return nil, errors.New("pdf executor not available")
-	}
-
-	return pdfExec.Execute(ctx, resource.Run.PDF)
-}
-
-// executeInlinePDF executes an inline PDF generation resource.
-func (e *Engine) executeInlinePDF(
-	config *domain.PDFConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlinePDF")
-	pdfExec := e.registry.GetPDFExecutor()
-	if pdfExec == nil {
-		return nil, errors.New("pdf executor not available")
-	}
-
-	return pdfExec.Execute(ctx, config)
-}
-
-// executeEmail executes an email-sending resource.
-func (e *Engine) executeEmail(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeEmail")
-	if resource.Run.Email == nil {
-		return nil, fmt.Errorf("resource %s has no email configuration", resource.Metadata.ActionID)
-	}
-
-	emailExec := e.registry.GetEmailExecutor()
-	if emailExec == nil {
-		return nil, errors.New("email executor not available")
-	}
-
-	return emailExec.Execute(ctx, resource.Run.Email)
-}
-
-// executeInlineEmail executes an inline email-sending resource.
-func (e *Engine) executeInlineEmail(
-	config *domain.EmailConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineEmail")
-	emailExec := e.registry.GetEmailExecutor()
-	if emailExec == nil {
-		return nil, errors.New("email executor not available")
-	}
-
-	return emailExec.Execute(ctx, config)
-}
-
-// executeCalendar executes a calendar file resource.
-func (e *Engine) executeCalendar(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeCalendar")
-	if resource.Run.Calendar == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no calendar configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-	calExec := e.registry.GetCalendarExecutor()
-	if calExec == nil {
-		return nil, errors.New("calendar executor not available")
-	}
-	return calExec.Execute(ctx, resource.Run.Calendar)
-}
-
-// executeInlineCalendar executes an inline calendar file resource.
-func (e *Engine) executeInlineCalendar(
-	config *domain.CalendarConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineCalendar")
-	calExec := e.registry.GetCalendarExecutor()
-	if calExec == nil {
-		return nil, errors.New("calendar executor not available")
-	}
-	return calExec.Execute(ctx, config)
-}
-
-// executeSearch executes a web or local filesystem search resource.
-func (e *Engine) executeSearch(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeSearch")
-	if resource.Run.Search == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no search configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-	searchExec := e.registry.GetSearchExecutor()
-	if searchExec == nil {
-		return nil, errors.New("search executor not available")
-	}
-	return searchExec.Execute(ctx, resource.Run.Search)
-}
-
-// executeInlineSearch executes an inline search resource.
-func (e *Engine) executeInlineSearch(
-	config *domain.SearchConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineSearch")
-	searchExec := e.registry.GetSearchExecutor()
-	if searchExec == nil {
-		return nil, errors.New("search executor not available")
-	}
-	return searchExec.Execute(ctx, config)
-}
-
-// executeBrowser executes a browser automation resource.
-func (e *Engine) executeBrowser(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeBrowser")
-	if resource.Run.Browser == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no browser configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-	browserExec := e.registry.GetBrowserExecutor()
-	if browserExec == nil {
-		return nil, errors.New("browser executor not available")
-	}
-	return browserExec.Execute(ctx, resource.Run.Browser)
-}
-
-// executeInlineBrowser executes an inline browser automation resource.
-func (e *Engine) executeInlineBrowser(
-	config *domain.BrowserConfig,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeInlineBrowser")
-	browserExec := e.registry.GetBrowserExecutor()
-	if browserExec == nil {
-		return nil, errors.New("browser executor not available")
-	}
-	return browserExec.Execute(ctx, config)
-}
-
 // executeAgent invokes a sibling agent by name within the same agency.
 // It resolves the agent's workflow path from ctx.AgentPaths, parses the workflow,
 // and executes it in a sub-engine that shares the current registry.
@@ -2993,45 +2517,6 @@ func (e *Engine) executeInlineAgent(
 	subEngine.SetNewExecutionContextForAgency(ctx.AgentPaths)
 
 	return subEngine.Execute(workflow, reqCtx)
-}
-
-// executeRemoteAgent invokes a remote agent via the Universal Agent Federation protocol.
-func (e *Engine) executeRemoteAgent(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeRemoteAgent")
-	if resource.Run.RemoteAgent == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no remoteAgent configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-	remoteCfg := resource.Run.RemoteAgent
-	executor := e.registry.GetRemoteAgentExecutor()
-	if executor == nil {
-		return nil, errors.New("remote agent executor not available")
-	}
-	return executor.Execute(ctx, remoteCfg)
-}
-
-func (e *Engine) executeAutopilot(
-	resource *domain.Resource,
-	ctx *ExecutionContext,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: executeAutopilot")
-	if resource.Run.Autopilot == nil {
-		return nil, fmt.Errorf(
-			"resource %s has no autopilot configuration",
-			resource.Metadata.ActionID,
-		)
-	}
-	autopilotCfg := resource.Run.Autopilot
-	autopilotExecutor := e.registry.GetAutopilotExecutor()
-	if autopilotExecutor == nil {
-		return nil, errors.New("autopilot executor not available")
-	}
-	return autopilotExecutor.Execute(ctx, autopilotCfg)
 }
 
 // agentPathKeys returns the map keys as a slice for error messages.

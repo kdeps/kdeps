@@ -97,7 +97,7 @@ func TestStartFileRunner_WithFileArg(t *testing.T) {
 	os.Stdin = r
 	w.Close()
 
-	err := cmd.StartFileRunner(fileWF(), false, path)
+	err := cmd.StartFileRunner(fileWF(), false, path, false)
 	require.NoError(t, err)
 }
 
@@ -114,7 +114,7 @@ func TestStartFileRunner_NoInput_Error(t *testing.T) {
 	os.Stdin = r
 	w.Close()
 
-	err := cmd.StartFileRunner(fileWF(), false, "")
+	err := cmd.StartFileRunner(fileWF(), false, "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no file input provided")
 }
@@ -133,7 +133,7 @@ func TestStartFileRunner_ArgPath_FileNotFound(t *testing.T) {
 	w.Close()
 
 	nonExistent := filepath.Join(t.TempDir(), "no-such-file.txt")
-	err := cmd.StartFileRunner(fileWF(), false, nonExistent)
+	err := cmd.StartFileRunner(fileWF(), false, nonExistent, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read file")
 }
@@ -152,7 +152,7 @@ func TestStartFileRunner_EnvVar(t *testing.T) {
 	os.Stdin = r
 	w.Close()
 
-	err := cmd.StartFileRunner(fileWF(), false, "")
+	err := cmd.StartFileRunner(fileWF(), false, "", false)
 	require.NoError(t, err)
 }
 

@@ -1,0 +1,21 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: autopilot
+  description: Autonomous task execution via LLM planning
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: plan-and-execute
+    run:
+      chat:
+        model: "{{ get(\"autopilotModel\", \"gpt-4o\") }}"
+        prompt: |
+          You are an autonomous task executor. Given the following task and context, create a step-by-step execution plan and carry it out.
+
+          Task: {{ get("autopilotTask") }}
+          Context: {{ get("autopilotContext", "No additional context provided.") }}
+
+          Provide a detailed plan and execute each step.

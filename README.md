@@ -95,6 +95,8 @@ Compose multiple independent AI Agents into a single **autonomous AI Agency** �
 
 ## CLI Cheatsheet
 - `kdeps run` – Execute workflows or agencies with hot reload
+- `kdeps run --file <path>` – Execute a workflow once with a file as input (file input source)
+- `kdeps run --events` – Emit a structured NDJSON [event stream](https://kdeps.com/concepts/events) to stderr for every lifecycle transition
 - `kdeps new` – Create projects via interactive wizard
 - `kdeps validate` – Check YAML syntax and logic
 - `kdeps package` – Pack a workflow (`.kdeps`), agency (`.kagency`), or component (`.komponent`)

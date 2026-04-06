@@ -251,7 +251,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, tts, botReply, scraper, embedding, pdf, email, calendar, search, agent).
+// execution types set on run (chat, httpClient, sql, python, exec, agent).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
 	n := 0
@@ -270,42 +270,13 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Exec != nil {
 		n++
 	}
-	if run.TTS != nil {
-		n++
-	}
-	if run.BotReply != nil {
-		n++
-	}
-	if run.Scraper != nil {
-		n++
-	}
-	if run.Embedding != nil {
-		n++
-	}
-	if run.PDF != nil {
-		n++
-	}
-	if run.Email != nil {
-		n++
-	}
 	if run.Agent != nil {
-		n++
-	}
-	if run.Calendar != nil {
-		n++
-	}
-	if run.Search != nil {
-		n++
-	}
-	if run.Browser != nil {
 		n++
 	}
 	return n
 }
 
 // ValidateResource validates a single resource.
-//
-//nolint:gocognit // resource validation checks multiple mutually exclusive conditions
 func (v *WorkflowValidator) ValidateResource(
 	resource *domain.Resource,
 	workflow *domain.Workflow,
@@ -320,7 +291,7 @@ func (v *WorkflowValidator) ValidateResource(
 	}
 
 	// Validate execution types.
-	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, tts, botReply, agent.
+	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := countPrimaryExecutionTypes(&resource.Run)
 	hasAPIResponse := resource.Run.APIResponse != nil
@@ -337,8 +308,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, browser, embedding, pdf, email, calendar, search, agent, apiResponse, expr)",
+				" (chat, httpClient, sql, python, exec, agent, apiResponse, expr)",
 			nil,
 		)
 	}
@@ -346,8 +316,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, tts, botReply,"+
-				" scraper, browser, embedding, pdf, email, calendar, search, agent)",
+				" (chat, httpClient, sql, python, exec, agent)",
 			nil,
 		)
 	}
@@ -375,58 +344,7 @@ func (v *WorkflowValidator) ValidateResource(
 			return err
 		}
 	}
-	if resource.Run.Scraper != nil {
-		if err := ValidateScraperConfig(resource.Run.Scraper); err != nil {
-			return err
-		}
-	}
-	if resource.Run.Embedding != nil {
-		if err := v.ValidateEmbeddingConfig(resource.Run.Embedding); err != nil {
-			return err
-		}
-	}
-	if resource.Run.PDF != nil {
-		if err := ValidatePDFConfig(resource.Run.PDF); err != nil {
-			return err
-		}
-	}
-	if resource.Run.Search != nil {
-		if err := ValidateSearchConfig(resource.Run.Search); err != nil {
-			return err
-		}
-	}
-	if resource.Run.Browser != nil {
-		if err := ValidateBrowserConfig(resource.Run.Browser); err != nil {
-			return err
-		}
-	}
 
-	return nil
-}
-
-// ValidateBrowserConfig validates browser automation configuration.
-func ValidateBrowserConfig(config *domain.BrowserConfig) error {
-	kdeps_debug.Log("enter: ValidateBrowserConfig")
-	if config.URL == "" && len(config.Actions) == 0 {
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			"browser: must specify at least a url or one action",
-			nil,
-		)
-	}
-	validEngines := map[string]bool{
-		"":                           true, // default (chromium)
-		domain.BrowserEngineChromium: true,
-		domain.BrowserEngineFirefox:  true,
-		domain.BrowserEngineWebKit:   true,
-	}
-	if !validEngines[config.Engine] {
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf("browser.engine %q is not valid; use chromium, firefox, or webkit", config.Engine),
-			nil,
-		)
-	}
 	return nil
 }
 
@@ -573,56 +491,6 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 	return nil
 }
 
-// ValidateEmbeddingConfig validates embedding configuration.
-func (v *WorkflowValidator) ValidateEmbeddingConfig(config *domain.EmbeddingConfig) error {
-	kdeps_debug.Log("enter: ValidateEmbeddingConfig")
-	if config.Model == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "embedding.model is required", nil)
-	}
-
-	// Validate backend if provided.
-	if config.Backend != "" {
-		validBackends := map[string]bool{
-			domain.EmbeddingBackendOllama:      true,
-			domain.EmbeddingBackendOpenAI:      true,
-			domain.EmbeddingBackendCohere:      true,
-			domain.EmbeddingBackendHuggingFace: true,
-		}
-		if !validBackends[config.Backend] {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"invalid embedding.backend: %s. Available options: [ollama, openai, cohere, huggingface]",
-					config.Backend,
-				),
-				nil,
-			)
-		}
-	}
-
-	// Validate operation if provided.
-	if config.Operation != "" {
-		validOperations := map[string]bool{
-			domain.EmbeddingOperationIndex:  true,
-			domain.EmbeddingOperationSearch: true,
-			domain.EmbeddingOperationDelete: true,
-			domain.EmbeddingOperationUpsert: true,
-		}
-		if !validOperations[config.Operation] {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"invalid embedding.operation: %s. Available options: [index, search, delete, upsert]",
-					config.Operation,
-				),
-				nil,
-			)
-		}
-	}
-
-	return nil
-}
-
 // validateSourcesList validates each source entry and per-source config requirements.
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: validateSourcesList")
@@ -632,6 +500,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 		domain.InputSourceVideo:     true,
 		domain.InputSourceTelephony: true,
 		domain.InputSourceBot:       true,
+		domain.InputSourceFile:      true,
 	}
 
 	hasTelephony := false
@@ -649,7 +518,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, audio, video, telephony, bot]",
+					"invalid input source: %s. Available options: [api, audio, video, telephony, bot, file]",
 					source,
 				),
 				nil,
@@ -1067,122 +936,6 @@ func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationCo
 		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-// ValidateScraperConfig validates a ScraperConfig.
-func ValidateScraperConfig(config *domain.ScraperConfig) error {
-	kdeps_debug.Log("enter: ValidateScraperConfig")
-	if config.Type == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.type is required", nil)
-	}
-
-	switch config.Type {
-	case domain.ScraperTypeURL, domain.ScraperTypePDF, domain.ScraperTypeWord,
-		domain.ScraperTypeExcel, domain.ScraperTypeImage, domain.ScraperTypeText,
-		domain.ScraperTypeHTML, domain.ScraperTypeCSV, domain.ScraperTypeMarkdown,
-		domain.ScraperTypePPTX, domain.ScraperTypeJSON, domain.ScraperTypeXML,
-		domain.ScraperTypeODT, domain.ScraperTypeODS, domain.ScraperTypeODP:
-		// valid
-	default:
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf(
-				"scraper.type %q is not valid"+
-					" (expected: url, pdf, word, excel, image, text, html, csv, markdown, pptx, json, xml, odt, ods, odp)",
-				config.Type,
-			),
-			nil,
-		)
-	}
-
-	if config.Source == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "scraper.source is required", nil)
-	}
-
-	return nil
-}
-
-// ValidateSearchConfig validates a SearchConfig.
-func ValidateSearchConfig(config *domain.SearchConfig) error {
-	kdeps_debug.Log("enter: ValidateSearchConfig")
-	if config.Provider == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "search.provider is required", nil)
-	}
-
-	switch config.Provider {
-	case domain.SearchProviderBrave, domain.SearchProviderSerpAPI,
-		domain.SearchProviderDuckDuckGo, domain.SearchProviderTavily,
-		domain.SearchProviderLocal:
-		// valid
-	default:
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf(
-				"search.provider %q is not valid (expected: brave, serpapi, duckduckgo, tavily, local)",
-				config.Provider,
-			),
-			nil,
-		)
-	}
-
-	if config.Provider == domain.SearchProviderLocal {
-		if config.Glob == "" && config.Query == "" {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				"search: local provider requires at least one of glob or query",
-				nil,
-			)
-		}
-	} else {
-		if config.Query == "" {
-			return domain.NewError(domain.ErrCodeInvalidResource, "search.query is required", nil)
-		}
-	}
-
-	return nil
-}
-
-// ValidatePDFConfig validates a PDFConfig.
-func ValidatePDFConfig(config *domain.PDFConfig) error {
-	kdeps_debug.Log("enter: ValidatePDFConfig")
-	if config.Content == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "pdf.content is required", nil)
-	}
-
-	switch config.ContentType {
-	case "", domain.PDFContentTypeHTML, domain.PDFContentTypeMarkdown:
-		// valid
-	default:
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf(
-				"pdf.contentType %q is not valid (expected: html, markdown)",
-				config.ContentType,
-			),
-			nil,
-		)
-	}
-
-	switch config.Backend {
-	case "", domain.PDFBackendWkhtmltopdf, domain.PDFBackendPandoc, domain.PDFBackendWeasyprint:
-		// valid
-	default:
-		return domain.NewError(
-			domain.ErrCodeInvalidResource,
-			fmt.Sprintf(
-				"pdf.backend %q is not valid (expected: wkhtmltopdf, pandoc, weasyprint)",
-				config.Backend,
-			),
-			nil,
-		)
-	}
-
-	if config.OutputFile != "" && !strings.HasSuffix(strings.ToLower(config.OutputFile), ".pdf") {
-		return domain.NewError(domain.ErrCodeInvalidResource,
-			fmt.Sprintf("pdf.outputFile %q must end with .pdf", config.OutputFile), nil)
 	}
 
 	return nil

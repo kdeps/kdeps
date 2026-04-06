@@ -22,8 +22,8 @@
 package python
 
 import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"errors"
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"time"
 )
 

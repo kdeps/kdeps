@@ -237,3 +237,23 @@ musl-binaries/
 /wasm
 *.backup
 *.ics
+
+# Private/personal files - not for repo
+CLAUDE.md
+FEDERATION_PLAN.md
+README.md.1
+cv-jd-matcher/
+cv-matcher-deepseek-1.0.0-darwin-amd64
+docker-compose.yml
+examples/cv-matcher/
+examples/cv-matcher-deepseek/
+examples/cv-matcher-online/
+examples/linkedin-auto-apply/joel-profile.md
+examples/linkedin-auto-apply/sample-profile.md
+examples/linkedin-auto-apply/resources/00-load-profile.yaml
+examples/linkedin-auto-apply/resources/00-set-profile.yaml
+auto-apply/
+claw-code/
+email-campaign/
+kdeps-pitch-deck.pdf
+kdeps-pitch-deck.pdf

@@ -1,0 +1,18 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: botreply
+  description: Telegram bot reply via HTTP API
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: send-message
+    run:
+      httpClient:
+        url: "https://api.telegram.org/bot{{ get(\"telegramBotToken\") }}/sendMessage"
+        method: POST
+        headers:
+          Content-Type: application/json
+        data: '{"chat_id":"{{ get(\"chatId\") }}","text":"{{ get(\"replyText\") }}"}'

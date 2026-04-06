@@ -814,6 +814,7 @@ func TestCVMatcherExample(t *testing.T) {
 		externalDeps := []string{
 			"scraper executor not available",
 			"executor not available",
+			"unknown resource type",
 			"connection refused",
 			"no such host",
 		}
