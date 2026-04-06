@@ -141,7 +141,7 @@ func (sv *SchemaValidator) GetComponentSchemaForTesting() *gojsonschema.Schema {
 	return sv.componentSchema
 }
 
-// isTypeError checks if the error is a type-related error.
+// ValidateWorkflow validates workflow data against the workflow schema.
 func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
 	kdeps_debug.Log("enter: ValidateWorkflow")
 	documentLoader := gojsonschema.NewGoLoader(data)

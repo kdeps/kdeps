@@ -1840,7 +1840,7 @@ func (ctx *ExecutionContext) WalkFiles(
 // Priority: Input-processor results → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
 //
-//nolint:gocognit,gocyclo,nestif,cyclop,funlen // intentional unified access point covering all input types
+//nolint:gocognit,funlen // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	kdeps_debug.Log("enter: Input")
 	ctx.mu.RLock()
