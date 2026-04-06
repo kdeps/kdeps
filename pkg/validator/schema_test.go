@@ -2667,14 +2667,7 @@ func TestGetComponentSchemaForTesting(t *testing.T) {
 }
 
 func TestGetRemoteAgentSchemaForTesting(t *testing.T) {
-	v, err := validator.NewSchemaValidator()
-	if err != nil {
-		t.Fatalf("NewSchemaValidator failed: %v", err)
-	}
-	schema := v.GetRemoteAgentSchemaForTesting()
-	if schema == nil {
-		t.Fatal("GetRemoteAgentSchemaForTesting returned nil")
-	}
+	t.Skip("remoteAgent executor removed; schema no longer available")
 }
 
 func TestSchemaValidator_ValidateComponent_Valid(t *testing.T) {
@@ -2709,41 +2702,13 @@ func TestSchemaValidator_ValidateComponent_MissingMetadata(t *testing.T) {
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_Valid(t *testing.T) {
-	v, err := validator.NewSchemaValidator()
-	if err != nil {
-		t.Fatalf("NewSchemaValidator failed: %v", err)
-	}
-	data := map[string]interface{}{
-		"urn":   "kdeps://example/agent:1.0.0",
-		"input": map[string]interface{}{"key": "value"},
-	}
-	if raErr := v.ValidateRemoteAgent(data); raErr != nil {
-		t.Errorf("ValidateRemoteAgent() unexpected error: %v", raErr)
-	}
+	t.Skip("remoteAgent executor removed; validation no longer available")
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_MissingUrn(t *testing.T) {
-	v, err := validator.NewSchemaValidator()
-	if err != nil {
-		t.Fatalf("NewSchemaValidator failed: %v", err)
-	}
-	data := map[string]interface{}{
-		"input": map[string]interface{}{"key": "value"},
-	}
-	if raErr := v.ValidateRemoteAgent(data); raErr == nil {
-		t.Error("ValidateRemoteAgent() expected error for missing urn, got nil")
-	}
+	t.Skip("remoteAgent executor removed; validation no longer available")
 }
 
 func TestSchemaValidator_ValidateRemoteAgent_MissingInput(t *testing.T) {
-	v, err := validator.NewSchemaValidator()
-	if err != nil {
-		t.Fatalf("NewSchemaValidator failed: %v", err)
-	}
-	data := map[string]interface{}{
-		"urn": "kdeps://example/agent:1.0.0",
-	}
-	if raErr := v.ValidateRemoteAgent(data); raErr == nil {
-		t.Error("ValidateRemoteAgent() expected error for missing input, got nil")
-	}
+	t.Skip("remoteAgent executor removed; validation no longer available")
 }
