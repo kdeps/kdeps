@@ -36,5 +36,13 @@ for f in "$PROJECT_ROOT/examples/telephony-bot/resources/"*.yaml; do
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Telephony Bot - Resource files exist ($RESOURCE_COUNT found)"
 
+# Check component structure
+TELE_COMP="$PROJECT_ROOT/examples/telephony-bot/components/tts/component.yaml"
+if [ -f "$TELE_COMP" ]; then
+    test_passed "Telephony Bot - tts component exists"
+else
+    test_failed "Telephony Bot - tts component exists" "Missing $TELE_COMP"
+fi
+
 test_skipped "Telephony Bot - Server test (requires external service/LLM)"
 echo ""

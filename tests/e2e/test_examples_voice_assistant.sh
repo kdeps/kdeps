@@ -36,5 +36,13 @@ for f in "$PROJECT_ROOT/examples/voice-assistant/resources/"*.yaml; do
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Voice Assistant - Resource files exist ($RESOURCE_COUNT found)"
 
+# Check component structure
+VA_TTS_COMP="$PROJECT_ROOT/examples/voice-assistant/components/tts/component.yaml"
+if [ -f "$VA_TTS_COMP" ]; then
+    test_passed "Voice Assistant - tts component exists"
+else
+    test_failed "Voice Assistant - tts component exists" "Missing $VA_TTS_COMP"
+fi
+
 test_skipped "Voice Assistant - Server test (requires external service/LLM)"
 echo ""

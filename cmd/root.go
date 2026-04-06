@@ -172,4 +172,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add prepackage command
 	rootCmd.AddCommand(newPrePackageCmd())
+
+	// Add component management command
+	rootCmd.AddCommand(newComponentCmd())
 }

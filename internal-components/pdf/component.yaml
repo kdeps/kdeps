@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: pdf
+  description: Generate PDF via Python pdfkit
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: generate-pdf
+    run:
+      python:
+        script: |
+          import pdfkit
+          content = get("pdfContent")
+          output_file = get("pdfOutputFile", "/tmp/output.pdf")
+          pdfkit.from_string(content, output_file)
+          set("pdfGenerated", output_file)

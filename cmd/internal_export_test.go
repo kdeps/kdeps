@@ -72,23 +72,33 @@ var IsBinaryAvailable = isBinaryAvailable //nolint:gochecknoglobals // test-only
 // IsPythonModuleAvailable exposes the unexported isPythonModuleAvailable helper for unit testing.
 var IsPythonModuleAvailable = isPythonModuleAvailable //nolint:gochecknoglobals // test-only export
 
-// CollectTTSEngines exposes the unexported collectTTSEngines helper for unit testing.
-var CollectTTSEngines = collectTTSEngines //nolint:gochecknoglobals // test-only export
-
-// AddTTSEngine exposes the unexported addTTSEngine helper for unit testing.
-var AddTTSEngine = addTTSEngine //nolint:gochecknoglobals // test-only export
-
-// CollectBrowserEngines exposes the unexported collectBrowserEngines helper for unit testing.
-var CollectBrowserEngines = collectBrowserEngines //nolint:gochecknoglobals // test-only export
-
-// AddBrowserEngine exposes the unexported addBrowserEngine helper for unit testing.
-var AddBrowserEngine = addBrowserEngine //nolint:gochecknoglobals // test-only export
-
 // PrintRoutes exposes the unexported printRoutes helper for unit testing.
 var PrintRoutes = printRoutes //nolint:gochecknoglobals // test-only export
 
 // PrintBotRequirements exposes the unexported printBotRequirements helper for unit testing.
 var PrintBotRequirements = printBotRequirements //nolint:gochecknoglobals // test-only export
 
-// PrintTTSEngineRequirement exposes the unexported printTTSEngineRequirement helper for unit testing.
-var PrintTTSEngineRequirement = printTTSEngineRequirement //nolint:gochecknoglobals // test-only export
+// NewComponentCmd exposes newComponentCmd for white-box unit tests.
+var NewComponentCmd = newComponentCmd //nolint:gochecknoglobals // test-only export
+
+// ComponentDownloadBaseURL allows tests to override the base URL used when
+// downloading .komponent archives. Tests should restore the original value via t.Cleanup().
+var ComponentDownloadBaseURL = &componentDownloadBaseURL //nolint:gochecknoglobals // test-only export
+
+// ComponentInstallDir exposes the unexported componentInstallDir helper for unit testing.
+var ComponentInstallDir = componentInstallDir //nolint:gochecknoglobals // test-only export
+
+// KnownComponents exposes the unexported knownComponents helper for unit testing.
+var KnownComponents = knownComponents //nolint:gochecknoglobals // test-only export
+
+// InstallComponent exposes the unexported installComponent helper for unit testing.
+var InstallComponent = installComponent //nolint:gochecknoglobals // test-only export
+
+// ListKomponentFiles exposes the unexported listKomponentFiles helper for unit testing.
+var ListKomponentFiles = listKomponentFiles //nolint:gochecknoglobals // test-only export
+
+// ListLocalComponents exposes the unexported listLocalComponents helper for unit testing.
+var ListLocalComponents = listLocalComponents //nolint:gochecknoglobals // test-only export
+
+// ListInternalComponents exposes the unexported listInternalComponents helper for unit testing.
+var ListInternalComponents = listInternalComponents //nolint:gochecknoglobals // test-only export

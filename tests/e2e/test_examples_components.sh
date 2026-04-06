@@ -190,3 +190,134 @@ else
 fi
 
 echo ""
+
+# ── component-based examples: voice-assistant, telegram-bot, telephony-bot ───
+
+VA_WF="$PROJECT_ROOT/examples/voice-assistant/workflow.yaml"
+VA_TTS_COMP="$PROJECT_ROOT/examples/voice-assistant/components/tts/component.yaml"
+
+if [ ! -f "$VA_WF" ]; then
+    test_skipped "voice-assistant component (workflow.yaml not found)"
+else
+    # Test 21: voice-assistant component directory exists
+    if [ -f "$VA_TTS_COMP" ]; then
+        test_passed "voice-assistant - components/tts/component.yaml exists"
+    else
+        test_failed "voice-assistant - components/tts/component.yaml exists" "File not found: $VA_TTS_COMP"
+    fi
+
+    # Test 22: tts component declares kind: Component
+    if grep -q "kind: Component" "$VA_TTS_COMP" 2>/dev/null; then
+        test_passed "voice-assistant - tts component has kind: Component"
+    else
+        test_failed "voice-assistant - tts component has kind: Component" "kind: Component not found in $VA_TTS_COMP"
+    fi
+
+    # Test 23: tts component provides speak action
+    if grep -q "actionId: speak" "$VA_TTS_COMP" 2>/dev/null; then
+        test_passed "voice-assistant - tts component exports speak action"
+    else
+        test_failed "voice-assistant - tts component exports speak action" "actionId: speak not found in $VA_TTS_COMP"
+    fi
+
+    # Test 24: speak.yaml removed (logic in component)
+    if [ ! -f "$PROJECT_ROOT/examples/voice-assistant/resources/speak.yaml" ]; then
+        test_passed "voice-assistant - speak.yaml removed (moved to component)"
+    else
+        test_failed "voice-assistant - speak.yaml removed (moved to component)" "speak.yaml still exists as a resource"
+    fi
+
+    # Test 25: workflow targets speak action (from component)
+    if grep -q "targetActionId: speak" "$VA_WF" 2>/dev/null; then
+        test_passed "voice-assistant - workflow targetActionId is speak (component action)"
+    else
+        test_failed "voice-assistant - workflow targetActionId is speak" "targetActionId: speak not found in $VA_WF"
+    fi
+fi
+
+TB_WF="$PROJECT_ROOT/examples/telegram-bot/workflow.yaml"
+TB_COMP="$PROJECT_ROOT/examples/telegram-bot/components/botreply/component.yaml"
+
+if [ ! -f "$TB_WF" ]; then
+    test_skipped "telegram-bot component (workflow.yaml not found)"
+else
+    # Test 26: botreply component exists
+    if [ -f "$TB_COMP" ]; then
+        test_passed "telegram-bot - components/botreply/component.yaml exists"
+    else
+        test_failed "telegram-bot - components/botreply/component.yaml exists" "File not found: $TB_COMP"
+    fi
+
+    # Test 27: botreply component declares kind: Component
+    if grep -q "kind: Component" "$TB_COMP" 2>/dev/null; then
+        test_passed "telegram-bot - botreply component has kind: Component"
+    else
+        test_failed "telegram-bot - botreply component has kind: Component" "kind: Component not found in $TB_COMP"
+    fi
+
+    # Test 28: botreply component provides reply action
+    if grep -q "actionId: reply" "$TB_COMP" 2>/dev/null; then
+        test_passed "telegram-bot - botreply component exports reply action"
+    else
+        test_failed "telegram-bot - botreply component exports reply action" "actionId: reply not found in $TB_COMP"
+    fi
+
+    # Test 29: reply.yaml removed (logic in component)
+    if [ ! -f "$PROJECT_ROOT/examples/telegram-bot/resources/reply.yaml" ]; then
+        test_passed "telegram-bot - reply.yaml removed (moved to component)"
+    else
+        test_failed "telegram-bot - reply.yaml removed (moved to component)" "reply.yaml still exists as a resource"
+    fi
+
+    # Test 30: workflow targets reply action (from component)
+    if grep -q "targetActionId: reply" "$TB_WF" 2>/dev/null; then
+        test_passed "telegram-bot - workflow targetActionId is reply (component action)"
+    else
+        test_failed "telegram-bot - workflow targetActionId is reply" "targetActionId: reply not found in $TB_WF"
+    fi
+fi
+
+TELE_WF="$PROJECT_ROOT/examples/telephony-bot/workflow.yaml"
+TELE_COMP="$PROJECT_ROOT/examples/telephony-bot/components/tts/component.yaml"
+
+if [ ! -f "$TELE_WF" ]; then
+    test_skipped "telephony-bot component (workflow.yaml not found)"
+else
+    # Test 31: telephony-bot tts component exists
+    if [ -f "$TELE_COMP" ]; then
+        test_passed "telephony-bot - components/tts/component.yaml exists"
+    else
+        test_failed "telephony-bot - components/tts/component.yaml exists" "File not found: $TELE_COMP"
+    fi
+
+    # Test 32: telephony-bot tts component has kind: Component
+    if grep -q "kind: Component" "$TELE_COMP" 2>/dev/null; then
+        test_passed "telephony-bot - tts component has kind: Component"
+    else
+        test_failed "telephony-bot - tts component has kind: Component" "kind: Component not found in $TELE_COMP"
+    fi
+
+    # Test 33: telephony-bot tts component provides ttsResponse action
+    if grep -q "actionId: ttsResponse" "$TELE_COMP" 2>/dev/null; then
+        test_passed "telephony-bot - tts component exports ttsResponse action"
+    else
+        test_failed "telephony-bot - tts component exports ttsResponse action" "actionId: ttsResponse not found in $TELE_COMP"
+    fi
+
+    # Test 34: tts-response.yaml removed (logic in component)
+    if [ ! -f "$PROJECT_ROOT/examples/telephony-bot/resources/tts-response.yaml" ]; then
+        test_passed "telephony-bot - tts-response.yaml removed (moved to component)"
+    else
+        test_failed "telephony-bot - tts-response.yaml removed (moved to component)" "tts-response.yaml still exists as a resource"
+    fi
+
+    # Test 35: call-response.yaml still requires ttsResponse (component-provided)
+    CALL_RES="$PROJECT_ROOT/examples/telephony-bot/resources/call-response.yaml"
+    if grep -q "ttsResponse" "$CALL_RES" 2>/dev/null; then
+        test_passed "telephony-bot - call-response.yaml still requires ttsResponse"
+    else
+        test_failed "telephony-bot - call-response.yaml requires ttsResponse" "ttsResponse not found in $CALL_RES"
+    fi
+fi
+
+echo ""

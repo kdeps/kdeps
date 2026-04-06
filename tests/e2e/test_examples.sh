@@ -47,6 +47,7 @@ source "$SCRIPT_DIR/test_examples_agency.sh"
 source "$SCRIPT_DIR/test_examples_codeguard_agency.sh"
 source "$SCRIPT_DIR/test_examples_personal_assistant_agency.sh"
 source "$SCRIPT_DIR/test_examples_components.sh"
+source "$SCRIPT_DIR/test_examples_component_cli.sh"
 
 # --- Examples requiring external services (validation only) ---
 source "$SCRIPT_DIR/test_examples_stateless_bot.sh"

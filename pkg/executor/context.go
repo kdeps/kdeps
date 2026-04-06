@@ -68,6 +68,7 @@ const (
 
 	// Context key names for input-processor and TTS outputs.
 	keyTTSOutput        = "ttsOutput"
+	keyTTSShort         = "tts"
 	keyInputTranscript  = "inputTranscript"
 	keyInputMedia       = "inputMedia"
 	keyInputFileContent = "inputFileContent"
@@ -1875,7 +1876,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 				return nil, errors.New("no input media file available")
 			}
 			return ctx.InputMediaFile, nil
-		case keyTTSOutput, "tts":
+		case keyTTSOutput, keyTTSShort:
 			if ctx.TTSOutputFile == "" {
 				return nil, errors.New("no TTS output file available")
 			}
@@ -1908,7 +1909,7 @@ func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{
 		if ctx.InputMediaFile != "" {
 			return ctx.InputMediaFile, nil
 		}
-	case keyTTSOutput, "tts":
+	case keyTTSOutput, keyTTSShort:
 		if ctx.TTSOutputFile != "" {
 			return ctx.TTSOutputFile, nil
 		}

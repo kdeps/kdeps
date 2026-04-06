@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: calendar
+  description: Generate iCalendar (.ics) events via Python
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: create-event
+    run:
+      python:
+        script: |
+          from icalendar import Calendar, Event
+          from datetime import datetime
+          import os
+          cal = Calendar()
+          cal.add("prodid", "-//kdeps//calendar//EN")
+          cal.add("version", "2.0")
+          event = Event()
+          event.add("summary", get("calendarTitle"))
+          event.add("dtstart", datetime.fromisoformat(get("calendarStart")))
+          event.add("dtend", datetime.fromisoformat(get("calendarEnd")))
+          desc = get("calendarDescription", "")
+          if desc:
+              event.add("description", desc)
+          cal.add_component(event)
+          output_file = get("calendarOutputFile", "/tmp/event.ics")
+          ics_data = cal.to_ical().decode("utf-8")
+          with open(output_file, "wb") as f:
+              f.write(cal.to_ical())
+          set("calendarICS", ics_data)

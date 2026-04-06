@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: scraper
+  description: Web scraper using Python requests and BeautifulSoup
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: scrape-url
+    run:
+      python:
+        script: |
+          import requests
+          from bs4 import BeautifulSoup
+          url = get("scraperUrl")
+          selector = get("scraperSelector", "")
+          resp = requests.get(url, timeout=30)
+          resp.raise_for_status()
+          soup = BeautifulSoup(resp.text, "html.parser")
+          if selector:
+              elements = soup.select(selector)
+              result = "\n".join(e.get_text(strip=True) for e in elements)
+          else:
+              result = soup.get_text(separator="\n", strip=True)
+          set("scraperResult", result)

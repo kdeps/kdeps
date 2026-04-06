@@ -21,7 +21,7 @@ You need:
 
 ### 1. Configure API Keys
 
-Edit `workflow.yaml` and `resources/tts-response.yaml` with your keys:
+Edit `workflow.yaml` and `components/tts/component.yaml` with your keys:
 
 ```yaml
 # workflow.yaml — Deepgram key for transcription
@@ -29,7 +29,7 @@ transcriber:
   online:
     apiKey: "dg-your-key-here"
 
-# resources/tts-response.yaml — OpenAI key for TTS
+# components/tts/component.yaml — OpenAI key for TTS
 tts:
   online:
     apiKey: "sk-your-key-here"
@@ -109,10 +109,23 @@ When a call comes in, Twilio sends the caller's audio to the workflow's webhook 
 ```
 telephony-bot/
 ├── workflow.yaml              # Telephony source, Twilio + Deepgram config
+├── components/
+│   └── tts/
+│       └── component.yaml     # .komponent: online TTS via OpenAI (alloy voice)
 └── resources/
     ├── llm-response.yaml      # LLM chat (takes inputTranscript as prompt)
-    ├── tts-response.yaml      # OpenAI TTS (converts LLM text to speech)
     └── call-response.yaml     # API response with transcript + answer + audio
+```
+
+The `tts` component encapsulates the `run.tts` executor. Swap TTS providers by replacing the
+component without touching the rest of the workflow:
+
+```bash
+# Build a packaged version for sharing
+kdeps package components/tts --output components/
+
+# Or install a community component
+kdeps component install tts
 ```
 
 ## Key Expressions
@@ -138,7 +151,7 @@ transcriber:
 ### Use ElevenLabs for More Natural TTS
 
 ```yaml
-# resources/tts-response.yaml
+# components/tts/component.yaml
 tts:
   mode: online
   voice: "21m00Tcm4TlvDq8ikWAM"   # ElevenLabs voice ID

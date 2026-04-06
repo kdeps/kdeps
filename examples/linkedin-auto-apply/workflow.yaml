@@ -7,7 +7,7 @@ metadata:
     Automated LinkedIn job applicant using a headless Chromium browser.
 
     Replicates the full auto-apply bot flow natively:
-      1. Load candidate profile from joel-profile.md (no API POST needed)
+      1. Load candidate profile from the file input source (--file, stdin, or KDEPS_FILE_PATH)
       2. Validate required inputs and personal details
       3. Log in to LinkedIn (browser, session persisted)
       4. Search for jobs and extract listings (browser, JS evaluate)
@@ -22,10 +22,13 @@ metadata:
 
     Requirements:
       - Ollama running locally with llama3.2 installed
-      - joel-profile.md (or sample-profile.md) filled in alongside this workflow
+      - A profile markdown file (joel-profile.md or sample-profile.md) with YAML front matter
       - Chrome must be fully closed before running (profile lock)
 
-    To run: kdeps run linkedin-auto-apply
+    To run:
+      kdeps run examples/linkedin-auto-apply --file sample-profile.md
+      cat joel-profile.md | kdeps run examples/linkedin-auto-apply
+      KDEPS_FILE_PATH=joel-profile.md kdeps run examples/linkedin-auto-apply
   version: "1.0.0"
   targetActionId: response
   resources:
@@ -40,6 +43,11 @@ metadata:
 
 settings:
   apiServerMode: false
+
+  input:
+    sources: ["file"]
+    file:
+      path: sample-profile.md
 
   agentSettings:
     timezone: "UTC"

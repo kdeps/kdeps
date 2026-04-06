@@ -40,14 +40,6 @@ func TestExecutorRegistry_Getters(t *testing.T) {
 	assert.Nil(t, registry.GetSQLExecutor())
 	assert.Nil(t, registry.GetPythonExecutor())
 	assert.Nil(t, registry.GetExecExecutor())
-	assert.Nil(t, registry.GetTTSExecutor())
-	assert.Nil(t, registry.GetBotReplyExecutor())
-	assert.Nil(t, registry.GetScraperExecutor())
-	assert.Nil(t, registry.GetEmbeddingExecutor())
-	assert.Nil(t, registry.GetPDFExecutor())
-	assert.Nil(t, registry.GetEmailExecutor())
-	assert.Nil(t, registry.GetCalendarExecutor())
-	assert.Nil(t, registry.GetSearchExecutor())
 }
 
 func TestExecutorRegistry_Setters(t *testing.T) {
@@ -59,14 +51,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	mockSQL := &mockExecutor{}
 	mockPython := &mockExecutor{}
 	mockExec := &mockExecutor{}
-	mockTTS := &mockExecutor{}
-	mockBotReply := &mockExecutor{}
-	mockScraper := &mockExecutor{}
-	mockEmbedding := &mockExecutor{}
-	mockPDF := &mockExecutor{}
-	mockEmail := &mockExecutor{}
-	mockCalendar := &mockExecutor{}
-	mockSearch := &mockExecutor{}
 
 	// Set executors
 	registry.SetLLMExecutor(mockLLM)
@@ -74,14 +58,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	registry.SetSQLExecutor(mockSQL)
 	registry.SetPythonExecutor(mockPython)
 	registry.SetExecExecutor(mockExec)
-	registry.SetTTSExecutor(mockTTS)
-	registry.SetBotReplyExecutor(mockBotReply)
-	registry.SetScraperExecutor(mockScraper)
-	registry.SetEmbeddingExecutor(mockEmbedding)
-	registry.SetPDFExecutor(mockPDF)
-	registry.SetEmailExecutor(mockEmail)
-	registry.SetCalendarExecutor(mockCalendar)
-	registry.SetSearchExecutor(mockSearch)
 
 	// Verify getters return the set values
 	assert.Equal(t, mockLLM, registry.GetLLMExecutor())
@@ -89,14 +65,6 @@ func TestExecutorRegistry_Setters(t *testing.T) {
 	assert.Equal(t, mockSQL, registry.GetSQLExecutor())
 	assert.Equal(t, mockPython, registry.GetPythonExecutor())
 	assert.Equal(t, mockExec, registry.GetExecExecutor())
-	assert.Equal(t, mockTTS, registry.GetTTSExecutor())
-	assert.Equal(t, mockBotReply, registry.GetBotReplyExecutor())
-	assert.Equal(t, mockScraper, registry.GetScraperExecutor())
-	assert.Equal(t, mockEmbedding, registry.GetEmbeddingExecutor())
-	assert.Equal(t, mockPDF, registry.GetPDFExecutor())
-	assert.Equal(t, mockEmail, registry.GetEmailExecutor())
-	assert.Equal(t, mockCalendar, registry.GetCalendarExecutor())
-	assert.Equal(t, mockSearch, registry.GetSearchExecutor())
 }
 
 // mockExecutor is a simple mock implementation for testing.
@@ -104,4 +72,57 @@ type mockExecutor struct{}
 
 func (m *mockExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) (interface{}, error) {
 	return "mock result", nil
+}
+
+func TestRegistry_RegisterAndGetByName(t *testing.T) {
+	r := executor.NewRegistry()
+
+	mock := &mockExecutor{}
+	r.Register("custom-type", mock)
+
+	got, ok := r.GetByName("custom-type")
+	assert.True(t, ok)
+	assert.Equal(t, mock, got)
+}
+
+func TestRegistry_GetByName_Missing(t *testing.T) {
+	r := executor.NewRegistry()
+	got, ok := r.GetByName("nonexistent")
+	assert.False(t, ok)
+	assert.Nil(t, got)
+}
+
+func TestRegistry_Registered(t *testing.T) {
+	r := executor.NewRegistry()
+	r.Register("alpha", &mockExecutor{})
+	r.Register("beta", &mockExecutor{})
+
+	names := r.Registered()
+	assert.Len(t, names, 2)
+	assert.ElementsMatch(t, []string{"alpha", "beta"}, names)
+}
+
+func TestRegistry_RegisterOverridesTypedSetters(t *testing.T) {
+	r := executor.NewRegistry()
+	original := &mockExecutor{}
+	override := &mockExecutor{}
+
+	r.SetLLMExecutor(original)
+	assert.Equal(t, original, r.GetLLMExecutor())
+
+	// Register under the same name should override.
+	r.Register(executor.ExecutorLLM, override)
+	assert.Equal(t, override, r.GetLLMExecutor())
+}
+
+func TestRegistry_TypedSettersUseMap(t *testing.T) {
+	r := executor.NewRegistry()
+	mock := &mockExecutor{}
+	r.SetLLMExecutor(mock)
+
+	// GetByName and the typed getter must return the same instance.
+	byName, ok := r.GetByName(executor.ExecutorLLM)
+	assert.True(t, ok)
+	assert.Equal(t, mock, byName)
+	assert.Equal(t, mock, r.GetLLMExecutor())
 }

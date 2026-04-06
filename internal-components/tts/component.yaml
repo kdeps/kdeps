@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: tts
+  description: Text-to-speech synthesis (offline via espeak, online via OpenAI)
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: speak-offline
+    run:
+      exec:
+        command: "espeak '{{ get(\"ttsText\") }}'"
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: speak-online
+    run:
+      httpClient:
+        url: "https://api.openai.com/v1/audio/speech"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ get(\"openaiApiKey\") }}"
+          Content-Type: application/json
+        data: '{"model":"tts-1","input":"{{ get(\"ttsText\") }}","voice":"{{ get(\"ttsVoice\", \"alloy\") }}"}'

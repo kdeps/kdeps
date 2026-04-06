@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: tts
+  description: Online text-to-speech via OpenAI TTS
+  version: "1.0.0"
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: ttsResponse
+      name: TTS Response
+      requires:
+        - llmResponse
+    run:
+      httpClient:
+        url: "https://api.openai.com/v1/audio/speech"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ env(\"OPENAI_API_KEY\") }}"
+          Content-Type: application/json
+        data: '{"model":"tts-1","input":"{{ get(\"llmResponse\") }}","voice":"alloy"}'

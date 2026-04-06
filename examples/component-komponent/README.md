@@ -8,10 +8,9 @@ This example demonstrates how `.komponent` archives can be automatically loaded 
 component-komponent/
 ├── workflow.yaml
 ├── resources/
-│   ├── init.yaml      # Sets the 'name' parameter
 │   └── response.yaml  # Final API response
 └── components/
-    └── greeter-1.0.0.komponent  # Pre-packaged component
+    └── greeter.komponent  # Pre-packaged component
 ```
 
 ## How It Works
@@ -26,13 +25,10 @@ component-komponent/
    - Merges the component's resources into the workflow
 
 3. **Component Resources**: The `greeter` component provides a `sayHello` resource that:
-   - Requires `setName` (from `init.yaml`) to run first
-   - Creates a greeting using the `name` input
-   - Sets the `greeting` variable
+   - Creates a greeting and sets the `greeting` variable
 
 4. **Workflow Flow**:
-   - `setName` → sets `name = "World"`
-   - `sayHello` (from component) → reads `name`, sets `greeting = "Hello, World!"`
+   - `sayHello` (from component) → sets `greeting = "Hello from .komponent!"`
    - `finalResponse` → returns `greeting` as JSON
 
 ## Running the Example
@@ -46,7 +42,7 @@ Expected output:
 ```json
 {
   "success": true,
-  "message": "Hello, World!"
+  "message": "Hello from .komponent!"
 }
 ```
 

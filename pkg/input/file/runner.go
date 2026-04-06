@@ -124,10 +124,13 @@ func runWithReader(
 // readFileInput reads the file input from r (typically os.Stdin).
 // Resolution order:
 //  1. argPath (CLI --file argument) — highest priority; overrides all other sources.
-//  2. If r contains data: try JSON unmarshal first, otherwise treat as raw content.
-//  3. If path is still empty: check KDEPS_FILE_PATH env var.
-//  4. If path is still empty: use the configured file.path (cfg.File.Path).
+//  2. KDEPS_FILE_PATH environment variable.
+//  3. Configured file.path in the workflow settings.
+//  4. If no path is known yet: read from r (stdin) — plain text or JSON {"path":"...","content":"..."}.
 //  5. If content is still empty and a path is known: read the file at that path.
+//
+// Stdin is only read when no path has been resolved from steps 1-3, preventing
+// terminal blocking when --file, KDEPS_FILE_PATH, or file.path are in use.
 func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileInput, error) {
 	kdeps_debug.Log("enter: readFileInput")
 	var inp fileInput
@@ -137,28 +140,29 @@ func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileIn
 		inp.Path = argPath
 	}
 
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return inp, fmt.Errorf("read stdin: %w", err)
-	}
-
-	// Only parse stdin when no CLI path was provided (CLI arg overrides stdin).
-	if inp.Path == "" && len(data) > 0 {
-		// Try JSON first: {"path":"...","content":"..."}
-		if jsonErr := json.Unmarshal(data, &inp); jsonErr != nil {
-			// Not valid JSON — treat the entire input as raw file content.
-			inp.Content = string(data)
-		}
-	}
-
-	// Fall back to KDEPS_FILE_PATH environment variable for the path.
+	// Resolve path from env var or config before touching stdin, so that
+	// non-interactive invocations (--file, KDEPS_FILE_PATH, file.path) never
+	// block waiting for terminal input.
 	if inp.Path == "" {
 		inp.Path = os.Getenv("KDEPS_FILE_PATH")
 	}
-
-	// Fall back to the configured file.path.
 	if inp.Path == "" && cfg != nil && cfg.File != nil {
 		inp.Path = cfg.File.Path
+	}
+
+	// Only read stdin when no path has been resolved yet (piped content).
+	if inp.Path == "" {
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return inp, fmt.Errorf("read stdin: %w", err)
+		}
+		if len(data) > 0 {
+			// Try JSON first: {"path":"...","content":"..."}
+			if jsonErr := json.Unmarshal(data, &inp); jsonErr != nil {
+				// Not valid JSON — treat the entire input as raw file content.
+				inp.Content = string(data)
+			}
+		}
 	}
 
 	// If content is still empty but a path is known, read the file.

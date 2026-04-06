@@ -26,6 +26,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -147,8 +148,9 @@ func (e *Executor) Execute(
 		cmd.Dir = ctx.FSRoot
 	}
 
-	// Set environment variables
+	// Set environment variables — inherit parent environment and add/override custom vars.
 	if len(resolvedConfig.Env) > 0 {
+		cmd.Env = os.Environ()
 		for k, v := range resolvedConfig.Env {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 		}

@@ -18,7 +18,11 @@
 
 package executor
 
-import kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+import (
+	"sync"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
 
 // ResourceExecutor is the interface for resource executors.
 type ResourceExecutor interface {
@@ -26,249 +30,74 @@ type ResourceExecutor interface {
 }
 
 // Registry holds resource executors.
+// Executors are stored in a dynamic map keyed by resource type name so that
+// plugins can register additional executors at runtime without requiring
+// changes to this struct.
 type Registry struct {
-	llmExecutor         ResourceExecutor
-	httpExecutor        ResourceExecutor
-	sqlExecutor         ResourceExecutor
-	pythonExecutor      ResourceExecutor
-	execExecutor        ResourceExecutor
-	ttsExecutor         ResourceExecutor
-	botReplyExecutor    ResourceExecutor
-	scraperExecutor     ResourceExecutor
-	embeddingExecutor   ResourceExecutor
-	pdfExecutor         ResourceExecutor
-	emailExecutor       ResourceExecutor
-	calendarExecutor    ResourceExecutor
-	searchExecutor      ResourceExecutor
-	browserExecutor     ResourceExecutor
-	remoteAgentExecutor ResourceExecutor
-	autopilotExecutor   ResourceExecutor
-	memoryExecutor      ResourceExecutor
+	mu        sync.RWMutex
+	executors map[string]ResourceExecutor
 }
 
 // NewRegistry creates a new executor registry.
-// Executors are initialized lazily to avoid import cycles.
 func NewRegistry() *Registry {
 	kdeps_debug.Log("enter: NewRegistry")
-	return &Registry{}
+	return &Registry{executors: make(map[string]ResourceExecutor)}
 }
 
-// GetLLMExecutor returns the LLM executor.
-func (r *Registry) GetLLMExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetLLMExecutor")
-	return r.llmExecutor
+// Register stores an executor under the given resource type name.
+// This is the primary registration path used by both built-in executors
+// and runtime-loaded plugins.
+func (r *Registry) Register(name string, exec ResourceExecutor) {
+	kdeps_debug.Log("enter: Register")
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.executors[name] = exec
 }
 
-// SetHTTPExecutor sets the HTTP executor.
-func (r *Registry) SetHTTPExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetHTTPExecutor")
-	r.httpExecutor = executor
+// GetByName retrieves an executor by resource type name.
+// Returns (nil, false) when no executor is registered for that name.
+func (r *Registry) GetByName(name string) (ResourceExecutor, bool) {
+	kdeps_debug.Log("enter: GetByName")
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	exec, ok := r.executors[name]
+	return exec, ok
 }
 
-// SetSQLExecutor sets the SQL executor.
-func (r *Registry) SetSQLExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetSQLExecutor")
-	r.sqlExecutor = executor
-}
-
-// SetPythonExecutor sets the Python executor.
-func (r *Registry) SetPythonExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetPythonExecutor")
-	r.pythonExecutor = executor
-}
-
-// SetLLMExecutor sets the LLM executor.
-func (r *Registry) SetLLMExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetLLMExecutor")
-	r.llmExecutor = executor
-}
-
-// SetExecExecutor sets the exec executor.
-func (r *Registry) SetExecExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetExecExecutor")
-	r.execExecutor = executor
-}
-
-// GetHTTPExecutor returns the HTTP executor, initializing if needed.
-func (r *Registry) GetHTTPExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetHTTPExecutor")
-	if r.httpExecutor == nil {
-		// This will be set by the actual executor package
-		return nil
+// Registered returns the names of all currently registered executors.
+func (r *Registry) Registered() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	names := make([]string, 0, len(r.executors))
+	for name := range r.executors {
+		names = append(names, name)
 	}
-	return r.httpExecutor
+	return names
 }
 
-// GetSQLExecutor returns the SQL executor, initializing if needed.
-func (r *Registry) GetSQLExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetSQLExecutor")
-	if r.sqlExecutor == nil {
-		// This will be set by the actual executor package
-		return nil
-	}
-	return r.sqlExecutor
-}
+// --- Typed convenience wrappers (backward-compatible) ---
+// Each delegates to Register/GetByName so that existing call sites in
+// engine.go and cmd/run.go continue to compile unchanged.
 
-// GetPythonExecutor returns the Python executor, initializing if needed.
+const (
+	ExecutorLLM    = "llm"
+	ExecutorHTTP   = "httpClient"
+	ExecutorSQL    = "sql"
+	ExecutorPython = "python"
+	ExecutorExec   = "exec"
+)
+
+func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
+func (r *Registry) SetHTTPExecutor(exec ResourceExecutor)   { r.Register(ExecutorHTTP, exec) }
+func (r *Registry) SetSQLExecutor(exec ResourceExecutor)    { r.Register(ExecutorSQL, exec) }
+func (r *Registry) SetPythonExecutor(exec ResourceExecutor) { r.Register(ExecutorPython, exec) }
+func (r *Registry) SetExecExecutor(exec ResourceExecutor)   { r.Register(ExecutorExec, exec) }
+
+func (r *Registry) GetLLMExecutor() ResourceExecutor  { e, _ := r.GetByName(ExecutorLLM); return e }
+func (r *Registry) GetHTTPExecutor() ResourceExecutor { e, _ := r.GetByName(ExecutorHTTP); return e }
+func (r *Registry) GetSQLExecutor() ResourceExecutor  { e, _ := r.GetByName(ExecutorSQL); return e }
 func (r *Registry) GetPythonExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetPythonExecutor")
-	if r.pythonExecutor == nil {
-		// This will be set by the actual executor package
-		return nil
-	}
-	return r.pythonExecutor
+	e, _ := r.GetByName(ExecutorPython)
+	return e
 }
-
-// GetExecExecutor returns the exec executor, initializing if needed.
-func (r *Registry) GetExecExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetExecExecutor")
-	if r.execExecutor == nil {
-		// This will be set by the actual executor package
-		return nil
-	}
-	return r.execExecutor
-}
-
-// SetTTSExecutor sets the TTS executor.
-func (r *Registry) SetTTSExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetTTSExecutor")
-	r.ttsExecutor = executor
-}
-
-// GetTTSExecutor returns the TTS executor.
-func (r *Registry) GetTTSExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetTTSExecutor")
-	return r.ttsExecutor
-}
-
-// SetBotReplyExecutor sets the bot reply executor.
-func (r *Registry) SetBotReplyExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetBotReplyExecutor")
-	r.botReplyExecutor = executor
-}
-
-// GetBotReplyExecutor returns the bot reply executor.
-func (r *Registry) GetBotReplyExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetBotReplyExecutor")
-	return r.botReplyExecutor
-}
-
-// SetScraperExecutor sets the scraper executor.
-func (r *Registry) SetScraperExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetScraperExecutor")
-	r.scraperExecutor = executor
-}
-
-// GetScraperExecutor returns the scraper executor.
-func (r *Registry) GetScraperExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetScraperExecutor")
-	return r.scraperExecutor
-}
-
-// SetEmbeddingExecutor sets the embedding executor.
-func (r *Registry) SetEmbeddingExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetEmbeddingExecutor")
-	r.embeddingExecutor = executor
-}
-
-// GetEmbeddingExecutor returns the embedding executor.
-func (r *Registry) GetEmbeddingExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetEmbeddingExecutor")
-	return r.embeddingExecutor
-}
-
-// SetPDFExecutor sets the PDF generation executor.
-func (r *Registry) SetPDFExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetPDFExecutor")
-	r.pdfExecutor = executor
-}
-
-// GetPDFExecutor returns the PDF generation executor.
-func (r *Registry) GetPDFExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetPDFExecutor")
-	return r.pdfExecutor
-}
-
-// SetEmailExecutor sets the email executor.
-func (r *Registry) SetEmailExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetEmailExecutor")
-	r.emailExecutor = executor
-}
-
-// GetEmailExecutor returns the email executor.
-func (r *Registry) GetEmailExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetEmailExecutor")
-	return r.emailExecutor
-}
-
-// SetCalendarExecutor sets the calendar executor.
-func (r *Registry) SetCalendarExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetCalendarExecutor")
-	r.calendarExecutor = executor
-}
-
-// GetCalendarExecutor returns the calendar executor.
-func (r *Registry) GetCalendarExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetCalendarExecutor")
-	return r.calendarExecutor
-}
-
-// SetSearchExecutor sets the search executor.
-func (r *Registry) SetSearchExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetSearchExecutor")
-	r.searchExecutor = executor
-}
-
-// GetSearchExecutor returns the search executor.
-func (r *Registry) GetSearchExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetSearchExecutor")
-	return r.searchExecutor
-}
-
-// SetBrowserExecutor sets the browser executor.
-func (r *Registry) SetBrowserExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetBrowserExecutor")
-	r.browserExecutor = executor
-}
-
-// GetBrowserExecutor returns the browser executor.
-func (r *Registry) GetBrowserExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetBrowserExecutor")
-	return r.browserExecutor
-}
-
-// SetRemoteAgentExecutor sets the remote agent executor.
-func (r *Registry) SetRemoteAgentExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetRemoteAgentExecutor")
-	r.remoteAgentExecutor = executor
-}
-
-// GetRemoteAgentExecutor returns the remote agent executor.
-func (r *Registry) GetRemoteAgentExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetRemoteAgentExecutor")
-	return r.remoteAgentExecutor
-}
-
-// SetAutopilotExecutor sets the autopilot executor.
-func (r *Registry) SetAutopilotExecutor(exec ResourceExecutor) {
-	kdeps_debug.Log("enter: SetAutopilotExecutor")
-	r.autopilotExecutor = exec
-}
-
-// GetAutopilotExecutor returns the autopilot executor.
-func (r *Registry) GetAutopilotExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetAutopilotExecutor")
-	return r.autopilotExecutor
-}
-
-// SetMemoryExecutor sets the memory executor.
-func (r *Registry) SetMemoryExecutor(executor ResourceExecutor) {
-	kdeps_debug.Log("enter: SetMemoryExecutor")
-	r.memoryExecutor = executor
-}
-
-// GetMemoryExecutor returns the memory executor.
-func (r *Registry) GetMemoryExecutor() ResourceExecutor {
-	kdeps_debug.Log("enter: GetMemoryExecutor")
-	return r.memoryExecutor
-}
+func (r *Registry) GetExecExecutor() ResourceExecutor { e, _ := r.GetByName(ExecutorExec); return e }

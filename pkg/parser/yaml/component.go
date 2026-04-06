@@ -102,6 +102,9 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 // loadComponents scans the ./components/ directory alongside the workflow file,
 // parses each component.yaml it finds, and prepends its resources to the host
 // workflow (local resources win on actionId conflict, same pattern as loadImportedWorkflows).
+// It also scans the global ~/.kdeps/components/ directory (override with
+// $KDEPS_COMPONENT_DIR) so that globally-installed .komponent packages are
+// available to every workflow without needing a local copy.
 func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) error {
 	kdeps_debug.Log("enter: loadComponents")
 	absWorkflowPath, err := filepath.Abs(workflowPath)
@@ -109,24 +112,6 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 		absWorkflowPath = workflowPath
 	}
 	workflowDir := filepath.Dir(absWorkflowPath)
-	componentsDir := filepath.Join(workflowDir, "components")
-
-	info, statErr := os.Stat(componentsDir)
-	if os.IsNotExist(statErr) || (statErr == nil && !info.IsDir()) {
-		return nil
-	}
-	if statErr != nil {
-		return statErr
-	}
-
-	entries, readErr := os.ReadDir(componentsDir)
-	if readErr != nil {
-		return domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to read components directory",
-			readErr,
-		)
-	}
 
 	// Build set of existing actionIds so component resources are skipped when overridden.
 	existing := make(map[string]struct{}, len(workflow.Resources))
@@ -136,32 +121,92 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 
 	var allComponentResources []*domain.Resource
 
-	for _, entry := range entries {
-		entryName := entry.Name()
-
-		var resources []*domain.Resource
-		var compErr error
-
-		if entry.IsDir() {
-			// Process as regular unpacked component directory
-			compDir := filepath.Join(componentsDir, entryName)
-			resources, compErr = p.processComponentEntry(compDir, existing)
-		} else if isKomponentFile(entryName) {
-			// Handle .komponent archive
-			resources, compErr = p.processKomponentComponent(filepath.Join(componentsDir, entryName), existing)
+	// Scan global components dir first (lowest priority).
+	if globalDir := globalComponentsDir(); globalDir != "" {
+		global, globalErr := p.scanComponentsDir(globalDir, existing)
+		if globalErr != nil {
+			return globalErr
 		}
-
-		if compErr != nil {
-			return fmt.Errorf("failed to process component %s: %w", entryName, compErr)
-		}
-		allComponentResources = append(allComponentResources, resources...)
+		allComponentResources = append(allComponentResources, global...)
 	}
+
+	// Scan local components dir (higher priority - local wins).
+	localDir := filepath.Join(workflowDir, "components")
+	local, localErr := p.scanComponentsDir(localDir, existing)
+	if localErr != nil {
+		return localErr
+	}
+	allComponentResources = append(allComponentResources, local...)
 
 	if len(allComponentResources) > 0 {
 		workflow.Resources = append(allComponentResources, workflow.Resources...)
 	}
 
 	return nil
+}
+
+// globalComponentsDir returns the global component install directory.
+// Respects $KDEPS_COMPONENT_DIR; defaults to ~/.kdeps/components/.
+// Returns "" if the home directory cannot be determined.
+func globalComponentsDir() string {
+	kdeps_debug.Log("enter: globalComponentsDir")
+	if d := os.Getenv("KDEPS_COMPONENT_DIR"); d != "" {
+		return d
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".kdeps", "components")
+}
+
+// scanComponentsDir scans a single components directory and returns resources
+// from all components found (directories and .komponent archives).
+// It updates existing with any new actionIds it encounters.
+func (p *Parser) scanComponentsDir(
+	dir string,
+	existing map[string]struct{},
+) ([]*domain.Resource, error) {
+	kdeps_debug.Log("enter: scanComponentsDir")
+	info, statErr := os.Stat(dir)
+	if os.IsNotExist(statErr) || (statErr == nil && !info.IsDir()) {
+		return nil, nil
+	}
+	if statErr != nil {
+		return nil, statErr
+	}
+
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		return nil, domain.NewError(
+			domain.ErrCodeParseError,
+			"failed to read components directory",
+			readErr,
+		)
+	}
+
+	var resources []*domain.Resource
+
+	for _, entry := range entries {
+		entryName := entry.Name()
+
+		var entryResources []*domain.Resource
+		var compErr error
+
+		if entry.IsDir() {
+			compDir := filepath.Join(dir, entryName)
+			entryResources, compErr = p.processComponentEntry(compDir, existing)
+		} else if isKomponentFile(entryName) {
+			entryResources, compErr = p.processKomponentComponent(filepath.Join(dir, entryName), existing)
+		}
+
+		if compErr != nil {
+			return nil, fmt.Errorf("failed to process component %s: %w", entryName, compErr)
+		}
+		resources = append(resources, entryResources...)
+	}
+
+	return resources, nil
 }
 
 // processComponentEntry processes a single component directory, returning its resources

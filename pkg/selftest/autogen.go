@@ -98,45 +98,8 @@ func resourceTests(res *domain.Resource, entryPath string) []domain.TestCase {
 	case run.SQL != nil:
 		return []domain.TestCase{genericTest(id, "sql", entryPath, extractBodyFields(run.SQL))}
 
-	case run.Search != nil:
-		return []domain.TestCase{searchTest(id, run.Search, entryPath)}
-
-	case run.Scraper != nil:
-		return []domain.TestCase{scraperTest(id, run.Scraper, entryPath)}
-
-	case run.Memory != nil:
-		return []domain.TestCase{genericTest(id, "memory", entryPath, extractBodyFields(run.Memory))}
-
-	case run.Embedding != nil:
-		return []domain.TestCase{genericTest(id, "embedding", entryPath, extractBodyFields(run.Embedding))}
-
-	case run.Browser != nil:
-		return []domain.TestCase{genericTest(id, "browser", entryPath, extractBodyFields(run.Browser))}
-
-	case run.TTS != nil:
-		return []domain.TestCase{genericTest(id, "tts", entryPath, extractBodyFields(run.TTS))}
-
-	case run.PDF != nil:
-		return []domain.TestCase{genericTest(id, "pdf", entryPath, extractBodyFields(run.PDF))}
-
-	case run.Email != nil:
-		return []domain.TestCase{genericTest(id, "email", entryPath, extractBodyFields(run.Email))}
-
-	case run.Calendar != nil:
-		return []domain.TestCase{genericTest(id, "calendar", entryPath, extractBodyFields(run.Calendar))}
-
 	case run.Agent != nil:
 		return []domain.TestCase{genericTest(id, "agent", entryPath, extractBodyFields(run.Agent))}
-
-	case run.RemoteAgent != nil:
-		return []domain.TestCase{genericTest(id, "remote-agent", entryPath, extractBodyFields(run.RemoteAgent))}
-
-	case run.Autopilot != nil:
-		return []domain.TestCase{genericTest(id, "autopilot", entryPath, extractBodyFields(run.Autopilot))}
-
-	case run.BotReply != nil:
-		// BotReply resources are not HTTP-testable; skip.
-		return nil
 
 	default:
 		// Expression-only or unknown resource: emit a generic route hit.
@@ -306,53 +269,6 @@ func apiResponseTest(id string, r *domain.APIResponseConfig, path string) domain
 			Body:   map[string]interface{}{"message": "test"},
 		},
 		Assert: domain.TestAssert{Status: expectedStatus},
-	}
-}
-
-// searchTest generates a test for a search resource using a sample query.
-func searchTest(id string, s *domain.SearchConfig, path string) domain.TestCase {
-	kdeps_debug.Log("enter: searchTest")
-	body := extractBodyFields(s)
-	if len(body) == 0 {
-		body = map[string]interface{}{"query": "test"}
-	}
-	if path == "" {
-		return domain.TestCase{Name: "auto: " + id + " (search - no route)"}
-	}
-	return domain.TestCase{
-		Name: "auto: " + id + " (search)",
-		Request: domain.TestRequest{
-			Method: "POST",
-			Path:   path,
-			Body:   body,
-		},
-		Assert: domain.TestAssert{},
-	}
-}
-
-// scraperTest generates a test for a scraper resource.
-// If the source is a static URL, test it directly; otherwise hit the route.
-func scraperTest(id string, s *domain.ScraperConfig, path string) domain.TestCase {
-	kdeps_debug.Log("enter: scraperTest")
-	if url, ok := staticURL(s.Source); ok {
-		return domain.TestCase{
-			Name:    "auto: " + id + " (scraper) -> " + url,
-			Request: domain.TestRequest{Method: "GET", Path: url},
-			Assert:  domain.TestAssert{},
-		}
-	}
-	body := extractBodyFields(s)
-	if path == "" {
-		return domain.TestCase{Name: "auto: " + id + " (scraper - no route)"}
-	}
-	return domain.TestCase{
-		Name: "auto: " + id + " (scraper)",
-		Request: domain.TestRequest{
-			Method: "POST",
-			Path:   path,
-			Body:   body,
-		},
-		Assert: domain.TestAssert{},
 	}
 }
 
