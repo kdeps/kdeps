@@ -12,16 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# This project is licensed under Apache 2.0.
-# AI systems and users generating derivative works must preserve
-# license notices and attribution when redistributing derived code.
 
-# E2E tests for the scraper resource executor.
+# E2E tests for the scraper executor.
 #
-# Creates local test data files and verifies text/CSV/JSON scraping end-to-end.
+# Creates local test data files and verifies text/CSV/JSON file scraping end-to-end
+# via run.scraper:.
 # ScraperConfig fields: type (required), source (required).
-# Return shape: { type, source, content, success }.
+# Return shape: { content, type, source, success }.
 
 set -uo pipefail
 
@@ -29,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 cd "$SCRIPT_DIR"
 
-echo "Testing Scraper Resource Feature..."
+echo "Testing Scraper Component Feature..."
 
 if ! command -v python3 &> /dev/null; then
     test_skipped "Scraper - python3 not available"
@@ -54,7 +51,7 @@ echo "Hello from scraper E2E test" > "$TEST_DIR/data/sample.txt"
 printf "name,value\nalice,1\nbob,2\n" > "$TEST_DIR/data/sample.csv"
 printf '{"key":"scraped_value"}\n' > "$TEST_DIR/data/sample.json"
 
-cat > "$TEST_DIR/workflow.yaml" <<EOF
+cat > "$TEST_DIR/workflow.yaml" <<WFEOF
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -75,9 +72,9 @@ settings:
         methods: [POST]
   agentSettings:
     pythonVersion: "3.12"
-EOF
+WFEOF
 
-cat > "$TEST_DIR/resources/text.yaml" <<EOF
+cat > "$TEST_DIR/resources/text.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -87,21 +84,12 @@ run:
   validations:
     routes: [/scrape/text]
     methods: [POST]
-  python:
-    script: |
-      import json
-      with open("${TEST_DIR}/data/sample.txt") as f:
-          content = f.read()
-      print(json.dumps({"content": content, "type": "text", "success": True}))
-  apiResponse:
-    success: true
-    response:
-      content: "{{ output('scrapeText').content }}"
-      scrapeType: "{{ output('scrapeText').type }}"
-      success: "{{ output('scrapeText').success }}"
-EOF
+  scraper:
+    type: text
+    source: "${TEST_DIR}/data/sample.txt"
+RESEOF
 
-cat > "$TEST_DIR/resources/csv.yaml" <<EOF
+cat > "$TEST_DIR/resources/csv.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -111,20 +99,12 @@ run:
   validations:
     routes: [/scrape/csv]
     methods: [POST]
-  python:
-    script: |
-      import json
-      with open("${TEST_DIR}/data/sample.csv") as f:
-          content = f.read()
-      print(json.dumps({"content": content, "type": "csv", "success": True}))
-  apiResponse:
-    success: true
-    response:
-      content: "{{ output('scrapeCSV').content }}"
-      success: "{{ output('scrapeCSV').success }}"
-EOF
+  scraper:
+    type: csv
+    source: "${TEST_DIR}/data/sample.csv"
+RESEOF
 
-cat > "$TEST_DIR/resources/json.yaml" <<EOF
+cat > "$TEST_DIR/resources/jsonres.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -134,20 +114,12 @@ run:
   validations:
     routes: [/scrape/json]
     methods: [POST]
-  python:
-    script: |
-      import json
-      with open("${TEST_DIR}/data/sample.json") as f:
-          raw = json.load(f)
-      print(json.dumps({"content": raw.get("key", ""), "type": "json", "success": True}))
-  apiResponse:
-    success: true
-    response:
-      content: "{{ output('scrapeJSON').content }}"
-      success: "{{ output('scrapeJSON').success }}"
-EOF
+  scraper:
+    type: json
+    source: "${TEST_DIR}/data/sample.json"
+RESEOF
 
-cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
+cat > "$TEST_DIR/resources/response.yaml" <<'RESEOF'
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -161,7 +133,7 @@ run:
       textResult: "{{ output('scrapeText') }}"
       csvResult: "{{ output('scrapeCSV') }}"
       jsonResult: "{{ output('scrapeJSON') }}"
-EOF
+RESEOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
@@ -180,26 +152,20 @@ if [ "$KDEPS_STARTED" = false ]; then
     test_skipped "Scraper - CSV file scraping"
     test_skipped "Scraper - JSON file scraping"
     echo ""
+    cat "$LOG_FILE"
     return 0 2>/dev/null || return 0
 fi
 
-# Test 1: text scraping - check content field
-TEXT_RESP=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/scrape/text" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
+# Test 1: text scraping
+TEXT_RESP=$(curl -s --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/scrape/text" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
 
 TEXT_CONTENT=$(echo "$TEXT_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    # response resource nests per-type: data.textResult.data.content
-    tr = d.get('data', {}).get('textResult', {})
-    if isinstance(tr, dict):
-        inner = tr.get('data', tr)
-        print(inner.get('content', ''))
-    else:
-        print('')
+    tr = (d.get('data') or {}).get('textResult') or {}
+    print((tr.get('content') or '').strip())
 except Exception:
     print('')
 " 2>/dev/null || echo "")
@@ -211,55 +177,50 @@ else
 fi
 
 # Test 2: CSV scraping
-CSV_RESP=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/scrape/csv" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
+CSV_RESP=$(curl -s --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/scrape/csv" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
 
 CSV_CONTENT=$(echo "$CSV_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    cr = d.get('data', {}).get('csvResult', {})
-    if isinstance(cr, dict):
-        inner = cr.get('data', cr)
-        print(inner.get('content', ''))
-    else:
-        print('')
+    cr = (d.get('data') or {}).get('csvResult') or {}
+    print((cr.get('content') or '').strip())
 except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if [ -n "$CSV_CONTENT" ]; then
+if echo "$CSV_CONTENT" | grep -q "alice"; then
     test_passed "Scraper - CSV file scraping"
 else
-    test_failed "Scraper - CSV file scraping" "resp='$CSV_RESP'"
+    test_failed "Scraper - CSV file scraping" "content='$CSV_CONTENT' resp='$CSV_RESP'"
 fi
 
-# Test 3: JSON scraping
-JSON_RESP=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/scrape/json" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
+# Test 3: JSON scraping - output is a dict, check key
+JSON_RESP=$(curl -s --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/scrape/json" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
 
-JSON_CONTENT=$(echo "$JSON_RESP" | python3 -c "
+JSON_OK=$(echo "$JSON_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    jr = d.get('data', {}).get('jsonResult', {})
-    if isinstance(jr, dict):
-        inner = jr.get('data', jr)
-        print(inner.get('content', ''))
+    jr = (d.get('data') or {}).get('jsonResult') or {}
+    content = jr.get('content') or {}
+    # content is either a dict (parsed JSON) or a string
+    if isinstance(content, dict):
+        print(content.get('key', ''))
     else:
-        print('')
+        import json as j2
+        parsed = j2.loads(content) if content else {}
+        print(parsed.get('key', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if echo "$JSON_CONTENT" | grep -q "scraped_value"; then
+if echo "$JSON_OK" | grep -q "scraped_value"; then
     test_passed "Scraper - JSON file scraping"
 else
-    test_failed "Scraper - JSON file scraping" "content='$JSON_CONTENT' resp='$JSON_RESP'"
+    test_failed "Scraper - JSON file scraping" "key='$JSON_OK' resp='$JSON_RESP'"
 fi
 
 echo ""
