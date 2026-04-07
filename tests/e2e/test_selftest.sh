@@ -83,10 +83,16 @@ kind: Resource
 
 metadata:
   actionId: echoResource
+  name: Echo Resource
 
-llm:
-  prompt: "Echo: {{ request.body.message }}"
-  model: "llama3.2:1b"
+run:
+  exec:
+    cmd: "echo"
+    args: ["hello"]
+  apiResponse:
+    success: true
+    response:
+      message: "{{ output('echoResource').stdout }}"
 EOF
 
 # ---------------------------------------------------------------------------

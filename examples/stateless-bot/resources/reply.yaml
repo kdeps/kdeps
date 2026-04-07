@@ -8,5 +8,8 @@ metadata:
     - llm
 
 run:
-  botReply:
-    text: "{{ get('llm') }}"
+  exec:
+    command: sh
+    args:
+      - "-c"
+      - "printf '%s' '{{ get('llm') }}'"

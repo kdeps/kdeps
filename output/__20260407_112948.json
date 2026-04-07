@@ -1,0 +1,13 @@
+{
+  "repository": "{{get('owner') + '/' + get('repo')}}",
+  "analyzed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "stats": {
+    "stars": ,
+    "forks": ,
+    "open_issues": ,
+    "commits_analyzed": 3,
+    "contributors": 3
+  },
+  "analysis": map[analysis:map[engagement:Moderate health:Healthy status:Under Active Development]],
+  "recommendations": map[recommendations:[map[description:Conduct regular code reviews, refactor outdated or redundant code, implement best practices (e.g., dependency management, testing), and optimize performance to ensure the repository remains maintainable and efficient. title:Refactor and Optimize Codebase] map[description:Host AMAs (Ask Me Anything) with key contributors, collaborate with other open-source projects on relevant topics, establish a Discord channel or forum for discussion, and encourage pull requests and code contributions from the community. title:Enhance Community Engagement] map[description:Develop a comprehensive README, create tutorial guides for new users, establish clear contributing guidelines, and implement automated tests to ensure documentation accuracy. Regularly update documentation to reflect changes in the repository. title:Improve Documentation and Onboarding]]]
+}

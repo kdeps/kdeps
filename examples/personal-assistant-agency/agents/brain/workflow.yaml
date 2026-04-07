@@ -116,10 +116,11 @@ resources:
       actionId: web-scrape-tool
       name: Web Scrape Tool
     run:
-      scraper:
-        type: url
-        source: "{{ get('url') }}"
-        timeoutDuration: 30s
+      component:
+        name: scraper
+        with:
+          url: "{{ get('url') }}"
+          timeout: 30
 
   # ── Tool 3: send email ───────────────────────────────────────────────────────
   # Configure via SMTP_HOST / SMTP_USER / SMTP_PASS environment variables.
@@ -129,37 +130,47 @@ resources:
       actionId: send-email-tool
       name: Send Email Tool
     run:
-      email:
-        action: send
-        smtp:
-          host: "{{ env('SMTP_HOST', 'smtp.gmail.com') }}"
-          port: 587
-          username: "{{ env('SMTP_USER') }}"
-          password: "{{ env('SMTP_PASS') }}"
-        from: "{{ env('SMTP_USER') }}"
-        to:
-          - "{{ get('to') }}"
-        subject: "{{ get('subject', 'Message from your AI assistant') }}"
-        body: "{{ get('body') }}"
+      component:
+        name: email
+        with:
+          to: "{{ get('to') }}"
+          subject: "{{ get('subject', 'Message from your AI assistant') }}"
+          body: "{{ get('body') }}"
+          smtpHost: "{{ env('SMTP_HOST', 'smtp.gmail.com') }}"
+          smtpPort: 587
+          smtpUser: "{{ env('SMTP_USER') }}"
+          smtpPass: "{{ env('SMTP_PASS') }}"
 
   # ── Tool 4: read email ───────────────────────────────────────────────────────
-  # Reads recent messages from the configured IMAP inbox.
-  # Uses the same IMAP_HOST / SMTP_USER / SMTP_PASS environment variables.
+  # Reads recent messages from the configured IMAP inbox via Python imaplib.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: read-email-tool
       name: Read Email Tool
     run:
-      email:
-        action: read
-        imap:
-          host: "{{ env('IMAP_HOST', 'imap.gmail.com') }}"
-          username: "{{ env('SMTP_USER') }}"
-          password: "{{ env('SMTP_PASS') }}"
-        mailbox: "{{ get('mailbox', 'INBOX') }}"
-        limit: 10
-        markRead: false
+      python:
+        script: |
+          import imaplib, email, json, os
+          host = os.environ.get("IMAP_HOST", "imap.gmail.com")
+          user = os.environ.get("SMTP_USER", "")
+          pwd  = os.environ.get("SMTP_PASS", "")
+          mailbox = get("mailbox", "INBOX")
+          try:
+              conn = imaplib.IMAP4_SSL(host)
+              conn.login(user, pwd)
+              conn.select(mailbox)
+              _, data = conn.search(None, "ALL")
+              ids = data[0].split()[-10:]
+              msgs = []
+              for mid in reversed(ids):
+                  _, mdata = conn.fetch(mid, "(RFC822)")
+                  msg = email.message_from_bytes(mdata[0][1])
+                  msgs.append({"from": msg["From"], "subject": msg["Subject"], "date": msg["Date"]})
+              conn.logout()
+              print(json.dumps(msgs))
+          except Exception as ex:
+              print(json.dumps({"error": str(ex)}))
 
   # ── Tool 5: run shell command ────────────────────────────────────────────────
   # Safe read-only system queries. Restrict in production via allow-list.
@@ -204,21 +215,36 @@ resources:
               print(json.dumps({"error": str(ex), "expression": expr}))
 
   # ── Tool 7: calendar list ────────────────────────────────────────────────────
-  # Lists upcoming events from /tmp/pa-memory/calendar.ics.
-  # The file is created automatically on the first calendar_add call.
+  # Lists upcoming events from /tmp/pa-memory/calendar.ics via Python icalendar.
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: calendar-list-tool
       name: Calendar List Tool
     run:
-      calendar:
-        action: list
-        filePath: "/tmp/pa-memory/calendar.ics"
-        since: "{{ get('since', '') }}"
-        before: "{{ get('before', '') }}"
-        limit: 20
-        search: "{{ get('search', '') }}"
+      python:
+        script: |
+          import json, os
+          path = "/tmp/pa-memory/calendar.ics"
+          if not os.path.exists(path):
+              print(json.dumps([]))
+          else:
+              try:
+                  from icalendar import Calendar
+                  with open(path, "rb") as f:
+                      cal = Calendar.from_ical(f.read())
+                  events = []
+                  for component in cal.walk():
+                      if component.name == "VEVENT":
+                          events.append({
+                              "summary": str(component.get("SUMMARY", "")),
+                              "start": str(component.get("DTSTART").dt),
+                              "end": str(component.get("DTEND").dt),
+                              "description": str(component.get("DESCRIPTION", "")),
+                          })
+                  print(json.dumps(events))
+              except Exception as ex:
+                  print(json.dumps({"error": str(ex)}))
 
   # ── Tool 8: calendar add ─────────────────────────────────────────────────────
   # Adds a new event to /tmp/pa-memory/calendar.ics.
@@ -228,15 +254,14 @@ resources:
       actionId: calendar-add-tool
       name: Calendar Add Tool
     run:
-      calendar:
-        action: create
-        filePath: "/tmp/pa-memory/calendar.ics"
-        summary: "{{ get('summary') }}"
-        description: "{{ get('description', '') }}"
-        location: "{{ get('location', '') }}"
-        start: "{{ get('start') }}"
-        end: "{{ get('end', '') }}"
-        allDay: false
+      component:
+        name: calendar
+        with:
+          title: "{{ get('summary') }}"
+          start: "{{ get('start') }}"
+          end: "{{ get('end', '') }}"
+          description: "{{ get('description', '') }}"
+          outputFile: "/tmp/pa-memory/calendar.ics"
 
   # ── Tool 9: take note ────────────────────────────────────────────────────────
   # Appends a timestamped note to /tmp/pa-memory/notes.md.
