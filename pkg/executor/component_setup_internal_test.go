@@ -20,7 +20,9 @@ package executor
 
 import (
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -174,7 +176,104 @@ func TestCommandExists_NonExistent(t *testing.T) {
 	assert.False(t, commandExists("__nonexistent_kdeps_test"))
 }
 
-// ---- runShellCommand --------------------------------------------------------
+// ---- collectPythonPackages --------------------------------------------------
+
+func TestCollectPythonPackages_NoSetup(t *testing.T) {
+	comp := &domain.Component{}
+	setup := &domain.ComponentSetup{}
+	pkgs := collectPythonPackages(comp, setup)
+	assert.Empty(t, pkgs)
+}
+
+func TestCollectPythonPackages_WithSetup(t *testing.T) {
+	comp := &domain.Component{}
+	setup := &domain.ComponentSetup{PythonPackages: []string{"requests", "bs4"}}
+	pkgs := collectPythonPackages(comp, setup)
+	assert.Equal(t, []string{"requests", "bs4"}, pkgs)
+}
+
+func TestCollectPythonPackages_LegacyAndSetup(t *testing.T) {
+	comp := &domain.Component{}
+	comp.PythonPackages = []string{"old-pkg"} //nolint:staticcheck
+	setup := &domain.ComponentSetup{PythonPackages: []string{"new-pkg"}}
+	pkgs := collectPythonPackages(comp, setup)
+	assert.Contains(t, pkgs, "old-pkg")
+	assert.Contains(t, pkgs, "new-pkg")
+}
+
+func TestCollectPythonPackages_Deduplication(t *testing.T) {
+	comp := &domain.Component{}
+	comp.PythonPackages = []string{"shared"} //nolint:staticcheck
+	setup := &domain.ComponentSetup{PythonPackages: []string{"shared", "extra"}}
+	pkgs := collectPythonPackages(comp, setup)
+	count := 0
+	for _, p := range pkgs {
+		if p == "shared" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count, "deduplication should keep only one copy of shared")
+}
+
+// ---- scaffoldComponentFilesIfNeeded -----------------------------------------
+
+func TestScaffoldComponentFilesIfNeeded_CreatesFiles(t *testing.T) {
+	dir := t.TempDir()
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-comp"},
+		Dir:      dir,
+	}
+	eng := newTestEngine()
+	eng.scaffoldComponentFilesIfNeeded(comp)
+
+	_, err := os.Stat(filepath.Join(dir, "README.md"))
+	assert.NoError(t, err, "README.md should exist after scaffolding")
+
+	_, err = os.Stat(filepath.Join(dir, ".env"))
+	assert.NoError(t, err, ".env should exist after scaffolding")
+}
+
+func TestScaffoldComponentFilesIfNeeded_EmptyDir_NoOp(t *testing.T) {
+	comp := &domain.Component{Dir: ""}
+	eng := newTestEngine()
+	assert.NotPanics(t, func() {
+		eng.scaffoldComponentFilesIfNeeded(comp)
+	})
+}
+
+func TestScaffoldComponentFilesIfNeeded_PreservesExisting(t *testing.T) {
+	dir := t.TempDir()
+	existingReadme := []byte("# My Custom README\n")
+	existingEnv := []byte("MY_KEY=value\n")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), existingReadme, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), existingEnv, 0o600))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-comp"},
+		Dir:      dir,
+	}
+	eng := newTestEngine()
+	eng.scaffoldComponentFilesIfNeeded(comp)
+
+	got, _ := os.ReadFile(filepath.Join(dir, "README.md"))
+	assert.Equal(t, existingReadme, got, "README.md should not be overwritten")
+
+	got, _ = os.ReadFile(filepath.Join(dir, ".env"))
+	assert.Equal(t, existingEnv, got, ".env should not be overwritten")
+}
+
+// ---- installOSPackages (additional) ----------------------------------------
+
+func TestInstallOSPackages_AlreadyInstalledBinary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("sh not available on Windows")
+	}
+	// "sh" is universally present; should be detected as installed and skipped.
+	err := installOSPackages([]string{"sh"})
+	// May succeed (sh found) or fail (no supported PM on this OS - acceptable).
+	// Either way it must not panic.
+	_ = err
+}
 
 func TestRunShellCommand_Success(t *testing.T) {
 	err := runShellCommand("echo hello")
@@ -199,4 +298,15 @@ func TestRunCommand_Failure(t *testing.T) {
 	}
 	err := runCommand("false", []string{})
 	assert.Error(t, err)
+}
+
+// ---- installComponentPackages -----------------------------------------------
+
+func TestInstallComponentPackages_EmptySetup(_ *testing.T) {
+	eng := newTestEngine()
+	ctx := minimalCtx()
+	comp := &domain.Component{Metadata: domain.ComponentMetadata{Name: "empty-pkgs"}}
+	setup := &domain.ComponentSetup{PythonPackages: []string{}, OsPackages: []string{}}
+	// installComponentPackages returns no value; must not panic.
+	eng.installComponentPackages(comp, setup, ctx)
 }

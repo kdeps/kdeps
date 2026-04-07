@@ -24,6 +24,10 @@ import (
 	"fmt"
 )
 
+// ScanComponentEnvVars exposes the internal scanComponentEnvVars for black-box
+// testing from the executor_test package.
+var ScanComponentEnvVars = scanComponentEnvVars //nolint:gochecknoglobals
+
 // LoadComponentDotEnvForTest loads a component's .env file from dir into ctx,
 // simulating what executeComponentCall does lazily at runtime.
 // Exposed for testing only.

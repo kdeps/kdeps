@@ -490,6 +490,41 @@ kdeps component show tts
 
 ---
 
+#### `kdeps component update <path>`
+
+Scaffold or merge component files (`.env` and `README.md`) for every component under `<path>`.
+
+`<path>` can be:
+- A component directory (contains `component.yaml`)
+- An agent directory (contains `workflow.yaml`)
+- An agency directory (contains `agency.yaml`)
+
+```bash
+kdeps component update <path>
+```
+
+**Actions per component:**
+
+| File | Behavior |
+|------|----------|
+| `README.md` | Created from `component.yaml` metadata when absent. Existing files are **never overwritten**. |
+| `.env` | Created with all detected `env()` vars when absent. If already present, only **missing** vars are appended; existing values are never overwritten. |
+
+**Examples:**
+
+```bash
+# Update a single component directory
+kdeps component update ./components/scraper
+
+# Update all components used by an agent
+kdeps component update ./my-agent
+
+# Update all components in an agency
+kdeps component update ./my-agency
+```
+
+---
+
 ### `kdeps component info`
 
 Show README for a local component, agent, agency, or a remote GitHub-hosted workflow.
@@ -520,6 +555,41 @@ kdeps component info jjuliano/my-ai-agent
 
 # Show README for a subdirectory of a GitHub repo
 kdeps component info jjuliano/my-ai-agent:my-scraper
+```
+
+---
+
+### `kdeps component update`
+
+Scaffold or merge component files (`.env` and `README.md`) for every component under `<path>`.
+
+**Usage:**
+```bash
+kdeps component update <path>
+```
+
+**`<path>` can be:**
+- A component directory (contains `component.yaml`)
+- An agent directory (contains `workflow.yaml`)
+- An agency directory (contains `agency.yaml`)
+
+**Actions per component:**
+
+| File | Behavior |
+|------|----------|
+| `README.md` | Created from `component.yaml` metadata when absent. Existing files are **never overwritten**. |
+| `.env` | Created with all detected `env()` vars as blank entries when absent. If already present, only **missing** vars are appended; existing values are never overwritten. |
+
+**Examples:**
+```bash
+# Update a single component directory
+kdeps component update ./components/scraper
+
+# Update all components used by an agent
+kdeps component update ./my-agent
+
+# Update all components in an agency
+kdeps component update ./my-agency
 ```
 
 ---

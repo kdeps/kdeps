@@ -527,6 +527,28 @@ When a component runs for the first time, KDeps auto-creates these files in the 
 
 Existing files are never overwritten.
 
+### `kdeps component update`
+
+Run `kdeps component update <path>` to explicitly scaffold or merge `.env` and `README.md` at any time — without waiting for first run.
+
+`<path>` can be a component directory, agent directory, or agency directory:
+
+```bash
+# Scaffold/merge a single component
+kdeps component update ./components/scraper
+
+# Update all components in an agent
+kdeps component update ./my-agent
+
+# Update all components in an agency
+kdeps component update ./my-agency
+```
+
+**Behaviour:**
+- If `.env` does not exist, a full template is created with all detected `env()` vars.
+- If `.env` already exists, only **missing** vars are appended. Existing values are never overwritten.
+- `README.md` is created from `component.yaml` metadata only when absent.
+
 ## Example: Greeter Component
 
 **`components/greeter/component.yaml`**
@@ -579,6 +601,42 @@ run:
 After execution, access the result with `output('main')`.
 
 Running `kdeps run my-workflow/` will automatically load the `greeter` component from `components/greeter/` and make its `greet` action available.
+
+## Managing Component Files: `kdeps component update`
+
+The `kdeps component update <path>` command scaffolds or merges component support files without touching existing content.
+
+### What It Does
+
+For each component found under `<path>`:
+
+1. **`README.md`** — Generated from `component.yaml` metadata (name, description, inputs, env vars). Created only when absent; existing files are never overwritten.
+2. **`.env`** — Template listing all `env()` variable references detected in the component's resources. If absent, a full template is created. If already present, only **missing** entries are appended; existing values are preserved.
+
+### File Priority (`.env`)
+
+When the same component runs, KDeps resolves `env('VAR')` in this order:
+
+1. `{COMPONENT_PREFIX}_{VAR}` in the process environment (scoped override)
+2. `VAR` in the process environment
+3. Value from the component's `.env` file (lowest priority)
+
+### Example
+
+```bash
+kdeps component update ./components/scraper
+```
+
+Output:
+```
+/path/to/components/scraper/README.md  created
+/path/to/components/scraper/.env       created
+```
+
+If `.env` already exists with some vars filled in, only missing vars are appended:
+```
+/path/to/components/scraper/.env       merged (2 new)
+```
 
 ## Best Practices
 
