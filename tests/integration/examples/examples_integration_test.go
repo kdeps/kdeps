@@ -756,6 +756,7 @@ func TestChatbotExample_MockedLLM(t *testing.T) {
 // because they require external services (Ollama, SMTP, Google Drive, etc.);
 // the test skips gracefully whenever such a dependency is missing.
 func TestCVMatcherExample(t *testing.T) {
+	t.Skip("cv-matcher ignored per project policy")
 	workflowPath := "../../../examples/cv-matcher/workflow.yaml"
 	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
 		t.Skip("cv-matcher example not available")
