@@ -4,9 +4,10 @@ metadata:
   name: scraper
   description: Web scraper using Python requests and BeautifulSoup
   version: "1.0.0"
-pythonPackages:
-  - requests
-  - beautifulsoup4
+setup:
+  pythonPackages:
+    - requests
+    - beautifulsoup4
 interface:
   inputs:
     - name: url
@@ -31,17 +32,21 @@ resources:
     run:
       python:
         script: |
-          import requests
+          import requests, json
           from bs4 import BeautifulSoup
-          url = get("scraper.url")
-          selector = get("scraper.selector", "")
-          timeout = int(get("scraper.timeout", "30"))
+          url = "{{ get('scraper.url') }}"
+          selector = "{{ get('scraper.selector', '') }}"
+          timeout = int("{{ get('scraper.timeout', '30') }}")
           resp = requests.get(url, timeout=timeout)
           resp.raise_for_status()
-          soup = BeautifulSoup(resp.text, "html.parser")
-          if selector:
-              elements = soup.select(selector)
-              result = "\n".join(e.get_text(strip=True) for e in elements)
+          ct = resp.headers.get("content-type", "text/html").lower()
+          if "html" in ct:
+              soup = BeautifulSoup(resp.text, "html.parser")
+              if selector:
+                  elements = soup.select(selector)
+                  content = "\n".join(e.get_text(strip=True) for e in elements)
+              else:
+                  content = soup.get_text(separator="\n", strip=True)
           else:
-              result = soup.get_text(separator="\n", strip=True)
-          set("scraper.result", result)
+              content = resp.text
+          print(json.dumps({"content": content, "url": url, "status": resp.status_code}))

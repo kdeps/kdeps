@@ -118,3 +118,15 @@ run:
 - Online mode returns a binary MP3 audio stream. To save it to a file, pass the response through a `run.exec:` step (e.g. with `curl -o output.mp3`).
 - Store `apiKey` in an environment variable — never hardcode it in workflow YAML.
 - The OpenAI TTS model used is `tts-1` (standard quality). For high-definition audio use `tts-1-hd` — switch by using `run.httpClient:` directly.
+
+## Automatic Setup
+
+This component automatically installs its OS-level dependency when first used:
+
+```yaml
+setup:
+  osPackages:
+    - espeak
+```
+
+`espeak` is installed via the system package manager (apt-get / apk / brew). No manual configuration is needed.

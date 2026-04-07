@@ -825,6 +825,9 @@ func TestCVMatcherExample(t *testing.T) {
 			"no such host",
 			"ModuleNotFoundError",
 			"No module named",
+			"pdfkit",
+			"wkhtmltopdf",
+			"No formulae or casks found",
 		}
 		for _, dep := range externalDeps {
 			if strings.Contains(errMsg, dep) {

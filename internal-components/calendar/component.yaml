@@ -4,6 +4,9 @@ metadata:
   name: calendar
   description: Generate iCalendar (.ics) events via Python
   version: "1.0.0"
+setup:
+  pythonPackages:
+    - icalendar
 interface:
   inputs:
     - name: title
@@ -36,21 +39,22 @@ resources:
     run:
       python:
         script: |
+          import json
           from icalendar import Calendar, Event
           from datetime import datetime
           cal = Calendar()
           cal.add("prodid", "-//kdeps//calendar//EN")
           cal.add("version", "2.0")
           event = Event()
-          event.add("summary", get("calendar.title"))
-          event.add("dtstart", datetime.fromisoformat(get("calendar.start")))
-          event.add("dtend", datetime.fromisoformat(get("calendar.end")))
-          desc = get("calendar.description", "")
+          event.add("summary", "{{ get('calendar.title') }}")
+          event.add("dtstart", datetime.fromisoformat("{{ get('calendar.start') }}"))
+          event.add("dtend", datetime.fromisoformat("{{ get('calendar.end') }}"))
+          desc = "{{ get('calendar.description', '') }}"
           if desc:
               event.add("description", desc)
           cal.add_component(event)
-          output_file = get("calendar.outputFile", "/tmp/event.ics")
+          output_file = "{{ get('calendar.outputFile', '/tmp/event.ics') }}"
           ics_data = cal.to_ical().decode("utf-8")
           with open(output_file, "wb") as f:
               f.write(cal.to_ical())
-          set("calendar.ics", ics_data)
+          print(json.dumps({"ics": ics_data, "file": output_file}))

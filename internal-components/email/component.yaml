@@ -44,16 +44,16 @@ resources:
     run:
       python:
         script: |
-          import smtplib
+          import smtplib, json
           from email.mime.text import MIMEText
           from email.mime.multipart import MIMEMultipart
-          host = get("email.smtpHost")
-          port = int(get("email.smtpPort", "587"))
-          user = get("email.smtpUser")
-          password = get("email.smtpPass")
-          to = get("email.to")
-          subject = get("email.subject")
-          body = get("email.body")
+          host = "{{ get('email.smtpHost') }}"
+          port = int("{{ get('email.smtpPort', '587') }}")
+          user = "{{ get('email.smtpUser') }}"
+          password = "{{ get('email.smtpPass') }}"
+          to = "{{ get('email.to') }}"
+          subject = "{{ get('email.subject') }}"
+          body = "{{ get('email.body') }}"
           msg = MIMEMultipart()
           msg["From"] = user
           msg["To"] = to
@@ -63,4 +63,4 @@ resources:
               server.starttls()
               server.login(user, password)
               server.sendmail(user, to, msg.as_string())
-          set("email.sent", "true")
+          print(json.dumps({"sent": True, "to": to}))
