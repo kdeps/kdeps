@@ -112,6 +112,23 @@ run:
 
 The `with:` map is validated against the component's declared `interface.inputs`. Missing required inputs return an error; optional inputs use their declared defaults. Results are stored under `output('<actionId>')`.
 
+**Components can be exposed as LLM tools (function calling)** via the `componentTools:` allowlist. By default no components are registered as tools — list only the ones the LLM should be able to call:
+
+```yaml
+# kdeps component install scraper
+# kdeps component install search
+
+run:
+  chat:
+    model: gpt-4o
+    prompt: "Research and summarize: {{ get('q') }}"
+    componentTools:
+      - scraper   # uncomment to enable as LLM tool
+      - search    # uncomment to enable as LLM tool
+```
+
+Explicit `tools:` declarations take precedence. If a component name matches an explicit tool, the explicit definition is used and the component entry is skipped.
+
 **Call the same component twice with different inputs** — inputs are scoped to the calling resource's `actionId` so there's no collision:
 
 ```yaml
@@ -150,6 +167,7 @@ Compose multiple independent AI Agents into a single **autonomous AI Agency** �
 - `kdeps component list` – List installed components (internal, global, local)
 - `kdeps component remove <name>` – Remove an installed component
 - `kdeps component show <name>` – Show README for a component
+- `kdeps clone <owner/repo[:subdir]>` – Download and install a component, agent, or agency from GitHub
 - `kdeps info <ref>` – Show README for a local component, agent, agency, or remote GitHub repo (`owner/repo` or `owner/repo:subdir`)
 
 ### 🌐 Federation (UAF)

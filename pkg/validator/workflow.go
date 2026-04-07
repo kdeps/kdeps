@@ -251,7 +251,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, agent).
+// execution types set on run (chat, httpClient, sql, python, exec, agent, component).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
 	n := 0
@@ -271,6 +271,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 		n++
 	}
 	if run.Agent != nil {
+		n++
+	}
+	if run.Component != nil {
 		n++
 	}
 	return n
@@ -308,7 +311,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, apiResponse, expr)",
+				" (chat, httpClient, sql, python, exec, agent, component, apiResponse, expr)",
 			nil,
 		)
 	}
@@ -316,7 +319,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, agent)",
+				" (chat, httpClient, sql, python, exec, agent, component)",
 			nil,
 		)
 	}

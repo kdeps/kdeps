@@ -266,3 +266,280 @@ func TestDetectCloneType_Unknown(t *testing.T) {
 	assert.Equal(t, "", typ)
 	assert.Equal(t, "", manifest)
 }
+
+// ---------------------------------------------------------------------------
+// cloneAsComponent tests
+// ---------------------------------------------------------------------------
+
+func TestCloneAsComponent_WithKomponent(t *testing.T) {
+	// Source dir contains a pre-built .komponent archive.
+	srcDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "mycomp.komponent"), []byte("fake"), 0o644))
+
+	installDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
+
+	require.NoError(t, cmd.CloneAsComponent("mycomp", srcDir))
+	assert.FileExists(t, filepath.Join(installDir, "mycomp.komponent"))
+}
+
+func TestCloneAsComponent_DirectoryCopy(t *testing.T) {
+	// Source dir has no .komponent file — copy whole directory.
+	srcDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(srcDir, "component.yaml"),
+		[]byte("apiVersion: kdeps.io/v1\n"),
+		0o644,
+	))
+
+	installDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
+
+	require.NoError(t, cmd.CloneAsComponent("mycomp", srcDir))
+	assert.FileExists(t, filepath.Join(installDir, "mycomp", "component.yaml"))
+}
+
+// ---------------------------------------------------------------------------
+// findFileWithSuffix tests
+// ---------------------------------------------------------------------------
+
+func TestFindFileWithSuffix_Found(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "foo.komponent"), []byte("x"), 0o644))
+	result := cmd.FindFileWithSuffix(dir, ".komponent")
+	assert.Equal(t, filepath.Join(dir, "foo.komponent"), result)
+}
+
+func TestFindFileWithSuffix_NotFound(t *testing.T) {
+	result := cmd.FindFileWithSuffix(t.TempDir(), ".komponent")
+	assert.Empty(t, result)
+}
+
+func TestFindFileWithSuffix_NonExistentDir(t *testing.T) {
+	result := cmd.FindFileWithSuffix("/nonexistent/path", ".komponent")
+	assert.Empty(t, result)
+}
+
+// ---------------------------------------------------------------------------
+// installComponentFromArchive tests
+// ---------------------------------------------------------------------------
+
+func TestInstallComponentFromArchive_Success(t *testing.T) {
+	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
+		"mycomp.komponent": "fake-komponent-content",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	installDir := t.TempDir()
+	err := cmd.InstallComponentFromArchive("owner", "myrepo", "", "mycomp", installDir)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(installDir, "mycomp.komponent"))
+}
+
+func TestInstallComponentFromArchive_NoKomponent(t *testing.T) {
+	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
+		"README.md": "# Nothing here\n",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	err := cmd.InstallComponentFromArchive("owner", "myrepo", "", "mycomp", t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no .komponent file")
+}
+
+func TestInstallComponentFromArchive_WithSubdir(t *testing.T) {
+	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
+		"mysubdir/mycomp.komponent": "fake-content",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	installDir := t.TempDir()
+	err := cmd.InstallComponentFromArchive("owner", "myrepo", "mysubdir", "mycomp", installDir)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(installDir, "mycomp.komponent"))
+}
+
+// ---------------------------------------------------------------------------
+// Clone component type
+// ---------------------------------------------------------------------------
+
+func TestCloneFromRemote_ComponentType(t *testing.T) {
+	archiveData := buildTarGz(t, "my-comp-abc123", map[string]string{
+		"component.yaml":    "apiVersion: kdeps.io/v1\nkind: Component\nmetadata:\n  name: my-comp\n",
+		"my-comp.komponent": "fake",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	installDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	err := cmd.CloneFromRemote("owner/my-comp")
+	require.NoError(t, err)
+	// Component should be installed into KDEPS_COMPONENT_DIR.
+	assert.FileExists(t, filepath.Join(installDir, "my-comp.komponent"))
+}
+
+// ---------------------------------------------------------------------------
+// downloadAndExtract / downloadFileTo edge cases
+// ---------------------------------------------------------------------------
+
+func TestDownloadAndExtract_ServerError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	err := cmd.CloneFromRemote("owner/repo")
+	assert.Error(t, err)
+}
+
+func TestInstallComponentFromRemote_ViaArchive(t *testing.T) {
+	archiveData := buildTarGz(t, "my-component-abc123", map[string]string{
+		"my-component.komponent": "fake-komponent",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Release download fails; archive download succeeds.
+		if r.URL.Path == "/owner/my-component/releases/latest/download/my-component.komponent" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origDownload := *cmd.ComponentDownloadBaseURL
+	*cmd.ComponentDownloadBaseURL = ts.URL
+	defer func() { *cmd.ComponentDownloadBaseURL = origDownload }()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	installDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
+
+	err := cmd.InstallComponentFromRemote("owner/my-component")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(installDir, "my-component.komponent"))
+}
+
+// ---------------------------------------------------------------------------
+// newCloneCmd cobra RunE coverage
+// ---------------------------------------------------------------------------
+
+func TestNewCloneCmd_Execute(t *testing.T) {
+	archiveData := buildTarGz(t, "clonetest-abc123", map[string]string{
+		"workflow.yaml": "apiVersion: kdeps.io/v1\nkind: Workflow\n",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	cloneCmd := cmd.NewCloneCmd()
+	cloneCmd.SetArgs([]string{"owner/clonetest"})
+	cloneCmd.SilenceUsage = true
+	cloneCmd.SilenceErrors = true
+	require.NoError(t, cloneCmd.Execute())
+	assert.FileExists(t, filepath.Join(dir, "agents", "clonetest", "workflow.yaml"))
+}
+
+func TestNewCloneCmd_ExecuteError(t *testing.T) {
+	cloneCmd := cmd.NewCloneCmd()
+	cloneCmd.SetArgs([]string{"badref-no-slash"})
+	cloneCmd.SilenceUsage = true
+	cloneCmd.SilenceErrors = true
+	assert.Error(t, cloneCmd.Execute())
+}
+
+// ---------------------------------------------------------------------------
+// unwrapArchiveRoot edge cases
+// ---------------------------------------------------------------------------
+
+func TestUnwrapArchiveRoot_SingleDir(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "repo-abc123")
+	require.NoError(t, os.Mkdir(sub, 0o755))
+
+	result, err := cmd.UnwrapArchiveRoot(dir)
+	require.NoError(t, err)
+	assert.Equal(t, sub, result)
+}
+
+func TestUnwrapArchiveRoot_MultipleEntries(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "dir1"), 0o755))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "dir2"), 0o755))
+
+	result, err := cmd.UnwrapArchiveRoot(dir)
+	require.NoError(t, err)
+	assert.Equal(t, dir, result)
+}
+
+func TestUnwrapArchiveRoot_FileEntry(t *testing.T) {
+	// Single file (not dir) - falls through to returning dir itself.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0o644))
+
+	result, err := cmd.UnwrapArchiveRoot(dir)
+	require.NoError(t, err)
+	assert.Equal(t, dir, result)
+}
