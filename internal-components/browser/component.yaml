@@ -4,6 +4,26 @@ metadata:
   name: browser
   description: Browser automation via Python playwright
   version: "1.0.0"
+interface:
+  inputs:
+    - name: url
+      type: string
+      required: true
+      description: URL to navigate to
+    - name: action
+      type: string
+      required: false
+      default: navigate
+      description: Action to perform - "navigate", "screenshot", or "getText"
+    - name: selector
+      type: string
+      required: false
+      description: CSS selector for getText action
+    - name: screenshotPath
+      type: string
+      required: false
+      default: /tmp/screenshot.png
+      description: File path for screenshot action output
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -13,23 +33,23 @@ resources:
       python:
         script: |
           from playwright.sync_api import sync_playwright
-          url = get("browserUrl")
-          action = get("browserAction", "navigate")
-          selector = get("browserSelector", "")
+          url = get("browser.url")
+          action = get("browser.action", "navigate")
+          selector = get("browser.selector", "")
           with sync_playwright() as p:
               browser = p.chromium.launch(headless=True)
               page = browser.new_page()
               page.goto(url)
               if action == "screenshot":
-                  path = get("browserScreenshotPath", "/tmp/screenshot.png")
+                  path = get("browser.screenshotPath", "/tmp/screenshot.png")
                   page.screenshot(path=path)
-                  set("browserResult", path)
+                  set("browser.result", path)
               elif action == "getText":
                   if selector:
                       text = page.locator(selector).inner_text()
                   else:
                       text = page.content()
-                  set("browserResult", text)
+                  set("browser.result", text)
               else:
-                  set("browserResult", page.url)
+                  set("browser.result", page.url)
               browser.close()

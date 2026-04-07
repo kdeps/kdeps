@@ -4,6 +4,29 @@ metadata:
   name: calendar
   description: Generate iCalendar (.ics) events via Python
   version: "1.0.0"
+interface:
+  inputs:
+    - name: title
+      type: string
+      required: true
+      description: Event title / summary
+    - name: start
+      type: string
+      required: true
+      description: Event start datetime in ISO 8601 format (e.g. 2024-01-15T10:00:00)
+    - name: end
+      type: string
+      required: true
+      description: Event end datetime in ISO 8601 format
+    - name: description
+      type: string
+      required: false
+      description: Optional event description
+    - name: outputFile
+      type: string
+      required: false
+      default: /tmp/event.ics
+      description: Path to write the .ics file
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -14,20 +37,19 @@ resources:
         script: |
           from icalendar import Calendar, Event
           from datetime import datetime
-          import os
           cal = Calendar()
           cal.add("prodid", "-//kdeps//calendar//EN")
           cal.add("version", "2.0")
           event = Event()
-          event.add("summary", get("calendarTitle"))
-          event.add("dtstart", datetime.fromisoformat(get("calendarStart")))
-          event.add("dtend", datetime.fromisoformat(get("calendarEnd")))
-          desc = get("calendarDescription", "")
+          event.add("summary", get("calendar.title"))
+          event.add("dtstart", datetime.fromisoformat(get("calendar.start")))
+          event.add("dtend", datetime.fromisoformat(get("calendar.end")))
+          desc = get("calendar.description", "")
           if desc:
               event.add("description", desc)
           cal.add_component(event)
-          output_file = get("calendarOutputFile", "/tmp/event.ics")
+          output_file = get("calendar.outputFile", "/tmp/event.ics")
           ics_data = cal.to_ical().decode("utf-8")
           with open(output_file, "wb") as f:
               f.write(cal.to_ical())
-          set("calendarICS", ics_data)
+          set("calendar.ics", ics_data)

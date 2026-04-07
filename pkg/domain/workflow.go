@@ -104,6 +104,11 @@ type Workflow struct {
 	Settings   WorkflowSettings `yaml:"settings"`
 	Resources  []*Resource      `yaml:"resources,omitempty"` // Can be inline or loaded from resources/ directory.
 	Tests      []TestCase       `yaml:"tests,omitempty"`     // Inline self-test cases run with --self-test.
+
+	// Components maps component name -> parsed Component definition.
+	// Populated by the parser when loading components alongside the workflow.
+	// Engine uses this map to execute run.component: calls.
+	Components map[string]*Component `yaml:"-"`
 }
 
 // TestCase defines a single self-test case executed against the live server.

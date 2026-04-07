@@ -4,6 +4,17 @@ metadata:
   name: pdf
   description: Generate PDF via Python pdfkit
   version: "1.0.0"
+interface:
+  inputs:
+    - name: content
+      type: string
+      required: true
+      description: HTML or plain text content to convert to PDF
+    - name: outputFile
+      type: string
+      required: false
+      default: /tmp/output.pdf
+      description: Path to write the generated PDF
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -13,7 +24,7 @@ resources:
       python:
         script: |
           import pdfkit
-          content = get("pdfContent")
-          output_file = get("pdfOutputFile", "/tmp/output.pdf")
+          content = get("pdf.content")
+          output_file = get("pdf.outputFile", "/tmp/output.pdf")
           pdfkit.from_string(content, output_file)
-          set("pdfGenerated", output_file)
+          set("pdf.generated", output_file)

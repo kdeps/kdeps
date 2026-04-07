@@ -4,6 +4,20 @@ metadata:
   name: botreply
   description: Telegram bot reply via HTTP API
   version: "1.0.0"
+interface:
+  inputs:
+    - name: token
+      type: string
+      required: true
+      description: Telegram bot token
+    - name: chatId
+      type: string
+      required: true
+      description: Telegram chat ID to reply to
+    - name: text
+      type: string
+      required: true
+      description: Message text to send
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -11,8 +25,8 @@ resources:
       actionId: send-message
     run:
       httpClient:
-        url: "https://api.telegram.org/bot{{ get(\"telegramBotToken\") }}/sendMessage"
+        url: "https://api.telegram.org/bot{{ get("botreply.token") }}/sendMessage"
         method: POST
         headers:
           Content-Type: application/json
-        data: '{"chat_id":"{{ get(\"chatId\") }}","text":"{{ get(\"replyText\") }}"}'
+        data: '{"chat_id":"{{ get("botreply.chatId") }}","text":"{{ get("botreply.text") }}"}'

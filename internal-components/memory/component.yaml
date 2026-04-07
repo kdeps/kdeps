@@ -4,6 +4,26 @@ metadata:
   name: memory
   description: Key-value memory store via Python with SQLite
   version: "1.0.0"
+interface:
+  inputs:
+    - name: action
+      type: string
+      required: false
+      default: store
+      description: Operation to perform - "store" or "retrieve"
+    - name: key
+      type: string
+      required: true
+      description: Key to store or retrieve
+    - name: value
+      type: string
+      required: false
+      description: Value to store (required when action is "store")
+    - name: dbPath
+      type: string
+      required: false
+      default: ~/.kdeps/memory.db
+      description: Path to the SQLite database file
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -14,19 +34,19 @@ resources:
         script: |
           import sqlite3
           import os
-          db_path = get("memoryDbPath", os.path.expanduser("~/.kdeps/memory.db"))
+          db_path = get("memory.dbPath", os.path.expanduser("~/.kdeps/memory.db"))
           os.makedirs(os.path.dirname(db_path), exist_ok=True)
           conn = sqlite3.connect(db_path)
           conn.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
           conn.commit()
-          action = get("memoryAction", "store")
-          key = get("memoryKey")
+          action = get("memory.action", "store")
+          key = get("memory.key")
           if action == "store":
-              value = get("memoryValue")
+              value = get("memory.value")
               conn.execute("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", (key, value))
               conn.commit()
-              set("memoryResult", "stored")
+              set("memory.result", "stored")
           elif action == "retrieve":
               row = conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
-              set("memoryResult", row[0] if row else "")
+              set("memory.result", row[0] if row else "")
           conn.close()
