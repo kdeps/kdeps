@@ -121,3 +121,16 @@ var ResolveInfoReadme = resolveInfoReadme //nolint:gochecknoglobals // test-only
 // GithubRawBaseURL allows tests to override the GitHub raw content base URL.
 // Tests should restore the original value via t.Cleanup().
 var GithubRawBaseURL = &githubRawBaseURL //nolint:gochecknoglobals // test-only export
+
+// CloneFromRemote exposes the unexported cloneFromRemote helper for unit testing.
+var CloneFromRemote = cloneFromRemote //nolint:gochecknoglobals // test-only export
+
+// DetectCloneType exposes the unexported detectCloneType helper for unit testing.
+var DetectCloneType = detectCloneType //nolint:gochecknoglobals // test-only export
+
+// InstallComponentFromRemote exposes the unexported installComponentFromRemote helper for unit testing.
+var InstallComponentFromRemote = installComponentFromRemote //nolint:gochecknoglobals // test-only export
+
+// GithubArchiveBaseURL allows tests to override the GitHub archive download base URL.
+// Tests should restore the original value via t.Cleanup().
+var GithubArchiveBaseURL = &githubArchiveBaseURL //nolint:gochecknoglobals // test-only export

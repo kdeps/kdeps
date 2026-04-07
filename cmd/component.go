@@ -95,30 +95,43 @@ available to any workflow run from that machine.`,
 func newComponentInstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newComponentInstallCmd")
 	return &cobra.Command{
-		Use:   "install <name>",
+		Use:   "install <name|owner/repo[:subdir]>",
 		Short: "Install a component",
 		Long: `Download and install a kdeps component (.komponent package).
 
-Available components: email, calendar, tts, browser, botreply, pdf, autopilot, scraper, search, embedding, remoteagent, memory, federation
+Accepts a short name from the built-in registry, or a GitHub reference:
+
+  <name>                  Built-in registry (email, scraper, tts, …)
+  <owner>/<repo>          Latest release .komponent from that repo
+  <owner>/<repo>:<subdir> .komponent from a subdirectory of the repo archive
 
 Examples:
   kdeps component install browser
-  kdeps component install email`,
+  kdeps component install email
+  kdeps component install jjuliano/kdeps-component-scraper
+  kdeps component install jjuliano/my-components:scraper`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: component install RunE")
-			name := strings.ToLower(args[0])
+			ref := strings.ToLower(args[0])
+
+			// Remote ref: owner/repo[:subdir]
+			if strings.Contains(ref, "/") {
+				return installComponentFromRemote(ref)
+			}
+
+			// Built-in registry name
 			registry := knownComponents()
-			repo, ok := registry[name]
+			repo, ok := registry[ref]
 			if !ok {
 				names := make([]string, 0, len(registry))
 				for n := range registry {
 					names = append(names, n)
 				}
 				return fmt.Errorf("unknown component %q - available: %s",
-					name, strings.Join(names, ", "))
+					ref, strings.Join(names, ", "))
 			}
-			return installComponent(name, repo)
+			return installComponent(ref, repo)
 		},
 	}
 }
@@ -508,6 +521,107 @@ Examples:
 //
 //nolint:gochecknoglobals // overridable by tests
 var componentDownloadBaseURL = "https://github.com"
+
+// githubArchiveBaseURL is the base URL for downloading GitHub repo archives.
+//
+//nolint:gochecknoglobals // overridable by tests
+var githubArchiveBaseURL = "https://codeload.github.com"
+
+// installComponentFromRemote installs a component from an owner/repo[:subdir]
+// GitHub reference. It first tries the repo's latest release (looking for any
+// .komponent file), then falls back to downloading the repo archive and
+// searching within it.
+func installComponentFromRemote(ref string) error {
+	kdeps_debug.Log("enter: installComponentFromRemote")
+	const maxParts = 2
+
+	colonParts := strings.SplitN(ref, ":", maxParts)
+	repoRef := colonParts[0]
+	var subdir string
+	if len(colonParts) == maxParts {
+		subdir = strings.Trim(colonParts[1], "/")
+	}
+
+	slashParts := strings.SplitN(repoRef, "/", maxParts)
+	if len(slashParts) != maxParts || slashParts[0] == "" || slashParts[1] == "" {
+		return fmt.Errorf("invalid component ref %q: expected owner/repo or owner/repo:subdir", ref)
+	}
+	owner, repo := slashParts[0], slashParts[1]
+
+	// Derive a component name from the repo or subdir.
+	name := repo
+	if subdir != "" {
+		name = filepath.Base(subdir)
+	}
+	// Strip common prefixes like "kdeps-component-".
+	name = strings.TrimPrefix(name, "kdeps-component-")
+
+	dir, err := componentInstallDir()
+	if err != nil {
+		return err
+	}
+	if mkErr := os.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("create component directory: %w", mkErr)
+	}
+
+	// 1. Try latest release from the repo.
+	filename := name + komponentExtension
+	releaseURL := fmt.Sprintf(
+		"%s/%s/%s/releases/latest/download/%s",
+		componentDownloadBaseURL, owner, repo, filename,
+	)
+	fmt.Fprintf(os.Stdout, "Trying release download: %s ...\n", releaseURL)
+	if err = downloadFileTo(releaseURL, filepath.Join(dir, filename)); err == nil {
+		fmt.Fprintf(os.Stdout, "Installed component: %s -> %s\n", name, filepath.Join(dir, filename))
+		return nil
+	}
+
+	// 2. Fall back: download repo archive and find a .komponent inside.
+	fmt.Fprintf(os.Stdout, "Release not found, trying repo archive ...\n")
+	return installComponentFromArchive(owner, repo, subdir, name, dir)
+}
+
+// installComponentFromArchive downloads the repo as a tar.gz and searches for
+// a .komponent file in the (optional) subdir, installing it to destDir.
+func installComponentFromArchive(owner, repo, subdir, name, destDir string) error {
+	kdeps_debug.Log("enter: installComponentFromArchive")
+
+	tempDir, err := os.MkdirTemp("", "kdeps-clone-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempDir) }()
+
+	if err = downloadAndExtractGitHubArchive(owner, repo, tempDir); err != nil {
+		return err
+	}
+
+	// GitHub archives wrap content in a top-level "<repo>-<branch>/" directory.
+	// Unwrap it.
+	root, unwrapErr := unwrapArchiveRoot(tempDir)
+	if unwrapErr != nil {
+		return unwrapErr
+	}
+
+	searchDir := root
+	if subdir != "" {
+		searchDir = filepath.Join(root, subdir)
+	}
+
+	// Find the first .komponent file in searchDir.
+	komponentPath := findFileWithSuffix(searchDir, komponentExtension)
+	if komponentPath == "" {
+		return fmt.Errorf("no .komponent file found in %s/%s (subdir=%q)", owner, repo, subdir)
+	}
+
+	destPath := filepath.Join(destDir, name+komponentExtension)
+	if copyErr := copyFile(komponentPath, destPath); copyErr != nil {
+		return fmt.Errorf("copy component: %w", copyErr)
+	}
+
+	fmt.Fprintf(os.Stdout, "Installed component: %s -> %s\n", name, destPath)
+	return nil
+}
 
 // installComponent downloads a .komponent archive from GitHub releases and saves
 // it to the global component install directory.
