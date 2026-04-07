@@ -73,6 +73,15 @@ source "$SCRIPT_DIR/test_features_search_local.sh"
 source "$SCRIPT_DIR/test_features_memory.sh"
 source "$SCRIPT_DIR/test_features_embedding_upsert.sh"
 
+# CLI subcommand E2E tests
+source "$SCRIPT_DIR/test_bundle_export.sh"
+source "$SCRIPT_DIR/test_cloud_cli.sh"
+source "$SCRIPT_DIR/test_federation_cli.sh"
+source "$SCRIPT_DIR/test_completion_cmd.sh"
+source "$SCRIPT_DIR/test_features_clone_info.sh"
+source "$SCRIPT_DIR/test_examples_component_cli.sh"
+source "$SCRIPT_DIR/test_internal_components.sh"
+
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"
 source "$SCRIPT_DIR/test_local_ollama_e2e.sh"
