@@ -98,17 +98,17 @@ single portable **`.kagency`** archive (a gzip-compressed tar).
 
 ```bash
 # Pack the agency → produces my-agency-1.0.0.kagency
-kdeps package my-agency/
+kdeps bundle package my-agency/
 
 # Custom name / output directory
-kdeps package my-agency/ --name my-agency-1.0.0 --output dist/
+kdeps bundle package my-agency/ --name my-agency-1.0.0 --output dist/
 ```
 
 The resulting `.kagency` archive can then be used just like a directory:
 
 ```bash
 kdeps run     my-agency-1.0.0.kagency
-kdeps build   my-agency-1.0.0.kagency   # build Docker image
+kdeps bundle build   my-agency-1.0.0.kagency   # build Docker image
 kdeps export iso my-agency-1.0.0.kagency # export bootable ISO
 ```
 
@@ -116,10 +116,10 @@ kdeps export iso my-agency-1.0.0.kagency # export bootable ISO
 
 ```bash
 # Build a Docker image from the entry-point agent (greeter-agent in this example)
-kdeps build my-agency/
+kdeps bundle build my-agency/
 
 # Or from a packed archive
-kdeps build my-agency-1.0.0.kagency --tag myregistry/my-agency:latest
+kdeps bundle build my-agency-1.0.0.kagency --tag myregistry/my-agency:latest
 ```
 
 The generated Docker image runs the entry-point agent (`targetAgentId`) inside a
@@ -144,7 +144,7 @@ A `.kagency` archive (or a plain `.kdeps` workflow archive) can be embedded dire
 into the kdeps binary, producing a **zero-dependency single binary**:
 
 ```bash
-kdeps prepackage my-agency-1.0.0.kagency --output my-agency-binary
+kdeps bundle prepackage my-agency-1.0.0.kagency --output my-agency-binary
 
 # The binary auto-detects the embedded archive and runs it
 ./my-agency-binary

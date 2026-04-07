@@ -133,14 +133,14 @@ test_full_container_e2e() {
     PACKAGE_FILE="$TMP_DIR/chatbot-test.kdeps"
 
     # Package the chatbot example
-    if ! "$KDEPS_BIN" package "$example_dir" --output "$PACKAGE_FILE" &> /dev/null; then
+    if ! "$KDEPS_BIN" bundle package "$example_dir" --output "$PACKAGE_FILE" &> /dev/null; then
         test_skipped "$test_name (failed to package chatbot example)"
         rm -rf "$TMP_DIR"
         return 0
     fi
 
     # Build the container
-    if ! timeout 600 "$KDEPS_BIN" build "$PACKAGE_FILE" --tag "$container_name:latest" &> /dev/null; then
+    if ! timeout 600 "$KDEPS_BIN" bundle build "$PACKAGE_FILE" --tag "$container_name:latest" &> /dev/null; then
         test_skipped "$test_name (build failed, may be environment-specific)"
         rm -rf "$TMP_DIR"
         return 0

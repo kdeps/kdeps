@@ -610,7 +610,7 @@ run_container_behavior_tests() {
 
     # Package the workflow
     local package_dir="$tmp_dir/package-output"
-    if ! "$KDEPS_BIN" package "$workflow_dir" --output "$package_dir" 2>/dev/null; then
+    if ! "$KDEPS_BIN" bundle package "$workflow_dir" --output "$package_dir" 2>/dev/null; then
         test_failed "$test_name" "Failed to package test workflow"
         rm -rf "$tmp_dir"
         return 1
@@ -626,7 +626,7 @@ run_container_behavior_tests() {
 
     # Build the container (with timeout)
     local build_output
-    build_output=$(timeout 600 "$KDEPS_BIN" build "$package_file" --tag "$image_name" 2>&1)
+    build_output=$(timeout 600 "$KDEPS_BIN" bundle build "$package_file" --tag "$image_name" 2>&1)
     local build_exit=$?
 
     if [ $build_exit -ne 0 ]; then

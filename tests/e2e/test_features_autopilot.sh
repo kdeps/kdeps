@@ -48,13 +48,13 @@ EOF
     # Use kdeps to validate/parse the workflow file. We expect the binary to
     # parse it without rejecting the autopilot key as unknown.
     # The "package" command is available and does parse the workflow.
-    if "$KDEPS_BIN" package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
+    if "$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
         test_passed "autopilot resource type recognized in workflow YAML"
     else
         # If packaging fails (environment-specific, e.g. no Docker), check if
         # the failure is due to autopilot being unrecognized vs environment.
         local output
-        output=$("$KDEPS_BIN" package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
+        output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
         if echo "$output" | grep -qi "unknown\|unrecognized\|invalid.*autopilot"; then
             test_failed "autopilot resource type recognized" "Binary rejects autopilot as unknown field: $output"
         else
@@ -94,11 +94,11 @@ EOF
 
     # The empty goal check happens at runtime (executor.Execute), not at parse time.
     # Packaging should succeed (YAML is syntactically valid).
-    if "$KDEPS_BIN" package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
+    if "$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" &>/dev/null 2>&1; then
         test_passed "autopilot empty goal YAML parses successfully (runtime validation expected)"
     else
         local output
-        output=$("$KDEPS_BIN" package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
+        output=$("$KDEPS_BIN" bundle package "$tmpdir" --output "$tmpdir/out.kdeps" 2>&1 || true)
         if echo "$output" | grep -qi "goal.*empty\|empty.*goal"; then
             test_passed "autopilot empty goal rejected at parse time"
         else

@@ -52,7 +52,7 @@ test_build() {
     # Build may fail for various reasons (network, image issues, etc.)
     # We'll be lenient and mark as passed if the command runs
     # Use timeout to avoid hanging builds
-    if timeout 300 "$KDEPS_BIN" build "$package_path" &> /dev/null; then
+    if timeout 300 "$KDEPS_BIN" bundle build "$package_path" &> /dev/null; then
         test_passed "$test_name"
     else
         # Build failed, but this might be environment-specific
@@ -71,7 +71,7 @@ test_build() {
 TMP_BUILD_DIR=$(mktemp -d)
 PACKAGE_FILE="$TMP_BUILD_DIR/shell-exec-test.kdeps"
 
-if "$KDEPS_BIN" package "$PROJECT_ROOT/examples/shell-exec" --output "$PACKAGE_FILE" &> /dev/null; then
+if "$KDEPS_BIN" bundle package "$PROJECT_ROOT/examples/shell-exec" --output "$PACKAGE_FILE" &> /dev/null; then
     test_build "$PACKAGE_FILE" "Build shell-exec package"
     rm -rf "$PACKAGE_FILE"
 fi
