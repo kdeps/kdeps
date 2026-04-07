@@ -123,8 +123,8 @@ run:
     model: gpt-4o
     prompt: "Research and summarize: {{ get('q') }}"
     componentTools:
-      - scraper   # uncomment to enable as LLM tool
-      - search    # uncomment to enable as LLM tool
+      - scraper
+      - search
 ```
 
 Explicit `tools:` declarations take precedence. If a component name matches an explicit tool, the explicit definition is used and the component entry is skipped.

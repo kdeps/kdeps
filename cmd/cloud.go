@@ -28,9 +28,40 @@ import (
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
+	"github.com/spf13/cobra"
 )
 
 const defaultAPIURL = "https://kdeps.io"
+
+// newCloudCmd creates the cloud command group.
+func newCloudCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newCloudCmd")
+	cloudCmd := &cobra.Command{
+		Use:   "cloud",
+		Short: "Manage your kdeps.io cloud account",
+		Long: `Authenticate and interact with your kdeps.io cloud account.
+
+Commands:
+  login        Authenticate with kdeps.io
+  logout       Log out from kdeps.io
+  whoami       Show current authenticated user
+  account      Show account details, plan, and usage
+  push         Push workflow to a running kdeps container
+  deployments  List your cloud deployments
+  workflows    List your cloud workflows`,
+	}
+
+	cloudCmd.AddCommand(newLoginCmd())
+	cloudCmd.AddCommand(newLogoutCmd())
+	cloudCmd.AddCommand(newWhoamiCmd())
+	cloudCmd.AddCommand(newAccountCmd())
+	cloudCmd.AddCommand(newPushCmd())
+	cloudCmd.AddCommand(newDeploymentsCmd())
+	cloudCmd.AddCommand(newWorkflowsCmd())
+
+	return cloudCmd
+}
 
 // CloudConfig holds the CLI cloud configuration.
 type CloudConfig struct {
