@@ -170,3 +170,6 @@ var ComponentUpdateInternal = componentUpdateInternal //nolint:gochecknoglobals 
 
 // FindUpdateTargetComponentDirs exposes findUpdateTargetComponentDirs for unit testing.
 var FindUpdateTargetComponentDirs = findUpdateTargetComponentDirs //nolint:gochecknoglobals // test-only export
+
+// NewRunCmdForTest exposes newRunCmd for use in external unit tests.
+var NewRunCmdForTest = newRunCmd //nolint:gochecknoglobals // test-only export

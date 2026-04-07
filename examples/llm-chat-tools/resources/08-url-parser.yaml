@@ -1,0 +1,43 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: urlParserTool
+  name: URL Parser Tool
+
+run:
+  python:
+    script: |
+      import json
+      from urllib.parse import urlparse, parse_qs, urlunparse, urlencode, quote, unquote
+
+      url = "{{ get('url', 'memory') }}"
+      action = "{{ get('action', 'memory') }}".lower().strip() or "parse"
+
+      try:
+          if action == "parse":
+              parsed = urlparse(url)
+              query_params = parse_qs(parsed.query)
+              # Flatten single-value lists
+              flat_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+              print(json.dumps({
+                  "scheme": parsed.scheme,
+                  "host": parsed.hostname,
+                  "port": parsed.port,
+                  "path": parsed.path,
+                  "query": parsed.query,
+                  "query_params": flat_params,
+                  "fragment": parsed.fragment,
+                  "username": parsed.username,
+                  "password": parsed.password,
+                  "netloc": parsed.netloc,
+                  "is_absolute": bool(parsed.scheme and parsed.netloc),
+              }))
+          elif action == "encode":
+              print(json.dumps({"encoded": quote(url, safe=":/?#[]@!$&'()*+,;=")}))
+          elif action == "decode":
+              print(json.dumps({"decoded": unquote(url)}))
+          else:
+              print(json.dumps({"error": f"Unknown action {action!r}. Use 'parse', 'encode', or 'decode'."}))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))

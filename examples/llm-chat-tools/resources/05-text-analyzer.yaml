@@ -1,0 +1,51 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: textAnalyzerTool
+  name: Text Analyzer Tool
+
+run:
+  python:
+    script: |
+      import json, re, collections
+
+      text = "{{ get('text', 'memory') }}"
+
+      if not text:
+          print(json.dumps({"error": "No text provided"}))
+          raise SystemExit(0)
+
+      words = re.findall(r"\b\w+\b", text.lower())
+      sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
+      paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+      freq = collections.Counter(words)
+      stopwords = {"the","a","an","and","or","but","in","on","at","to","for","of","with","is","are","was","were","it","this","that","i","you","he","she","we","they"}
+      top_words = [(w, c) for w, c in freq.most_common(10) if w not in stopwords][:10]
+      avg_word_len = round(sum(len(w) for w in words) / len(words), 2) if words else 0
+      avg_sentence_len = round(len(words) / len(sentences), 1) if sentences else 0
+
+      # Flesch Reading Ease approximation
+      syllables = sum(max(1, len(re.findall(r"[aeiouAEIOU]", w))) for w in words)
+      flesch = round(206.835 - 1.015 * (len(words) / max(len(sentences), 1)) - 84.6 * (syllables / max(len(words), 1)), 1)
+      if flesch >= 90: readability = "Very Easy"
+      elif flesch >= 70: readability = "Easy"
+      elif flesch >= 60: readability = "Standard"
+      elif flesch >= 50: readability = "Fairly Difficult"
+      elif flesch >= 30: readability = "Difficult"
+      else: readability = "Very Difficult"
+
+      print(json.dumps({
+          "character_count": len(text),
+          "character_count_no_spaces": len(text.replace(" ", "")),
+          "word_count": len(words),
+          "unique_words": len(set(words)),
+          "sentence_count": len(sentences),
+          "paragraph_count": len(paragraphs),
+          "avg_word_length": avg_word_len,
+          "avg_sentence_length_words": avg_sentence_len,
+          "reading_time_seconds": round(len(words) / 200 * 60),
+          "top_words": top_words,
+          "flesch_reading_ease": flesch,
+          "readability": readability,
+      }))

@@ -2856,3 +2856,47 @@ run:
 	assert.True(t, hasMain, "workflow should have its own resource")
 	assert.True(t, hasGreet, "workflow should include component resource")
 }
+
+// ── --interactive flag tests ───────────────────────────────────────────────
+
+// TestRunFlags_InteractiveDefault verifies the Interactive field exists and
+// defaults to false when RunFlags is zero-initialised.
+func TestRunFlags_InteractiveDefault(t *testing.T) {
+	var flags cmd.RunFlags
+	assert.False(t, flags.Interactive, "Interactive should default to false")
+}
+
+// TestRunFlags_InteractiveSet verifies the Interactive field can be set.
+func TestRunFlags_InteractiveSet(t *testing.T) {
+	flags := cmd.RunFlags{Interactive: true}
+	assert.True(t, flags.Interactive)
+}
+
+// TestNewRunCmd_HasInteractiveFlag verifies that the run command registers an
+// --interactive boolean flag via cobra.
+func TestNewRunCmd_HasInteractiveFlag(t *testing.T) {
+	root := &cobra.Command{Use: "kdeps"}
+	root.AddCommand(cmd.NewRunCmdForTest())
+	runCmd, _, err := root.Find([]string{"run"})
+	require.NoError(t, err)
+	require.NotNil(t, runCmd)
+
+	flag := runCmd.Flags().Lookup("interactive")
+	require.NotNil(t, flag, "--interactive flag should be registered on the run command")
+	assert.Equal(t, "bool", flag.Value.Type())
+	assert.Equal(t, "false", flag.DefValue)
+}
+
+// TestRunFlags_InteractiveFalseByDefault verifies that a RunFlags built by
+// newRunCmd (via cobra parsing) leaves Interactive as false when the flag is
+// not provided.
+func TestRunFlags_InteractiveFalseByDefault(t *testing.T) {
+	flags := &cmd.RunFlags{}
+	assert.False(t, flags.Interactive, "Interactive should be false when not set")
+	assert.False(t, flags.DevMode, "DevMode should also be false")
+	assert.False(t, flags.SelfTest)
+	assert.False(t, flags.SelfTestOnly)
+	assert.False(t, flags.WriteTests)
+	assert.False(t, flags.Events)
+	assert.Equal(t, "", flags.FileArg)
+}

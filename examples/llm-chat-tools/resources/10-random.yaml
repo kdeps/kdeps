@@ -1,0 +1,60 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: randomTool
+  name: Random Generator Tool
+
+run:
+  python:
+    script: |
+      import json, random, string, uuid
+
+      kind = "{{ get('kind', 'memory') }}".lower().strip() or "number"
+      count_str = "{{ get('count', 'memory') }}" or "1"
+      min_str = "{{ get('min', 'memory') }}" or "1"
+      max_str = "{{ get('max', 'memory') }}" or "100"
+      length_str = "{{ get('length', 'memory') }}" or "12"
+
+      try:
+          count = min(int(count_str), 100)
+          min_val = float(min_str)
+          max_val = float(max_str)
+          length = min(int(length_str), 256)
+      except (ValueError, TypeError):
+          count, min_val, max_val, length = 1, 1, 100, 12
+
+      try:
+          if kind in ("number", "int", "integer"):
+              results = [random.randint(int(min_val), int(max_val)) for _ in range(count)]
+          elif kind in ("float", "decimal"):
+              results = [round(random.uniform(min_val, max_val), 6) for _ in range(count)]
+          elif kind in ("string", "password"):
+              charset = string.ascii_letters + string.digits + "!@#$%^&*"
+              results = ["".join(random.choices(charset, k=length)) for _ in range(count)]
+          elif kind in ("uuid", "guid"):
+              results = [str(uuid.uuid4()) for _ in range(count)]
+          elif kind in ("hex", "token"):
+              import secrets
+              results = [secrets.token_hex(length // 2) for _ in range(count)]
+          elif kind in ("choice", "pick"):
+              # min_str treated as comma-separated choices
+              choices = [c.strip() for c in "{{ get('choices', 'memory') }}".split(",") if c.strip()]
+              if not choices:
+                  raise ValueError("Provide 'choices' as a comma-separated list for kind=choice")
+              results = random.choices(choices, k=count)
+          elif kind in ("coin", "flip"):
+              results = [random.choice(["heads", "tails"]) for _ in range(count)]
+          elif kind in ("dice", "die"):
+              sides = max(2, int(max_val))
+              results = [random.randint(1, sides) for _ in range(count)]
+          else:
+              raise ValueError(f"Unknown kind {kind!r}. Options: number, float, string, uuid, hex, choice, coin, dice")
+
+          print(json.dumps({
+              "kind": kind,
+              "count": count,
+              "results": results if count > 1 else results[0],
+          }))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))

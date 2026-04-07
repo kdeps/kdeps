@@ -1209,6 +1209,18 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "valid component source",
+			config:  &domain.InputConfig{Sources: []string{domain.InputSourceComponent}},
+			wantErr: false,
+		},
+		{
+			name: "valid component source mixed with api",
+			config: &domain.InputConfig{
+				Sources: []string{domain.InputSourceAPI, domain.InputSourceComponent},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

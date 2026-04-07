@@ -13,6 +13,7 @@ KDeps supports multiple input sources simultaneously: HTTP API requests, audio h
 | `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
 | `component` | Invokable only via `run.component` from a parent workflow (no listener started) |
+| `llm` | Interactive LLM REPL (stdin/stdout) or API server for chat; use with `--interactive` flag |
 
 Workflows can combine sources:
 

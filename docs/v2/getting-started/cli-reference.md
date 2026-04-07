@@ -65,6 +65,7 @@ kdeps run [workflow.yaml | package.kdeps] [flags]
 | `--dev` | Enable hot reload mode | `false` |
 | `--port` | API server port number | From workflow config |
 | `--debug` | Enable debug logging | `false` |
+| `--interactive` | Open an interactive LLM REPL (stdin/stdout) alongside the running workflow. Supports `/run`, `/list`, `/help`, `/quit` slash commands | `false` |
 | `--self-test` | Run `tests:` block after server starts, keep running | `false` |
 | `--self-test-only` | Run `tests:` block then exit (non-zero on failure) | `false` |
 | `--write-tests` | Generate tests from resources and write to workflow file, then exit | `false` |
@@ -94,6 +95,9 @@ kdeps run workflow.yaml --self-test
 
 # CI/CD: start server, run tests, exit with non-zero status on failure
 kdeps run workflow.yaml --self-test-only
+
+# Start interactive LLM REPL alongside normal workflow execution
+kdeps run workflow.yaml --interactive
 ```
 
 **Features:**

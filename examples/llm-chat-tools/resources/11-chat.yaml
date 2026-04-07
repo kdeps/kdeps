@@ -1,0 +1,219 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: chat
+  name: LLM Chat with Tools
+
+run:
+  chat:
+    model: "llama3.2:1b"
+    role: "user"
+    prompt: "{{ input('message') }}"
+    system: |
+      You are a helpful assistant with access to 13 tools. Use them whenever the user asks for calculations,
+      weather, time, unit conversions, text analysis, JSON formatting, base64 encoding/decoding,
+      URL parsing, hash generation, random data generation, markdown rendering, CSV analysis,
+      or color conversions.
+      Always call the appropriate tool rather than answering from memory when factual data is needed.
+    tools:
+      - name: calculate
+        description: "Perform mathematical calculations. Supports arithmetic (+, -, *, /, **), math functions (sqrt, sin, cos, tan, log, exp, factorial, etc.), and constants (pi, e, tau)."
+        script: "calcTool"
+        parameters:
+          expression:
+            type: "string"
+            description: "Mathematical expression to evaluate, e.g. '2 + 2', 'sqrt(16)', 'sin(pi/2)', 'factorial(10)'"
+            required: true
+
+      - name: get_weather
+        description: "Get current weather conditions for any city or location."
+        script: "weatherTool"
+        parameters:
+          location:
+            type: "string"
+            description: "City name or location, e.g. 'London', 'New York', 'Tokyo, Japan'"
+            required: true
+          unit:
+            type: "string"
+            description: "Temperature unit: 'celsius' or 'fahrenheit'"
+            required: false
+
+      - name: get_time
+        description: "Get the current date and time for a given timezone."
+        script: "timeTool"
+        parameters:
+          timezone:
+            type: "string"
+            description: "Timezone abbreviation: UTC, EST, PST, GMT, CET, IST, JST, AEST, etc."
+            required: false
+
+      - name: convert_units
+        description: "Convert values between different units of measurement. Supports length, weight, speed, volume, area, temperature, and data sizes."
+        script: "unitConverterTool"
+        parameters:
+          value:
+            type: "string"
+            description: "Numeric value to convert, e.g. '100', '3.14'"
+            required: true
+          from_unit:
+            type: "string"
+            description: "Source unit, e.g. 'km', 'kg', 'celsius', 'mph', 'gb'"
+            required: true
+          to_unit:
+            type: "string"
+            description: "Target unit, e.g. 'mi', 'lb', 'fahrenheit', 'km/h', 'mb'"
+            required: true
+
+      - name: analyze_text
+        description: "Analyze text and return statistics: word count, sentence count, readability score, top words, reading time, and more."
+        script: "textAnalyzerTool"
+        parameters:
+          text:
+            type: "string"
+            description: "The text to analyze"
+            required: true
+
+      - name: format_json
+        description: "Validate and pretty-print JSON, with optional key sorting."
+        script: "jsonFormatterTool"
+        parameters:
+          input:
+            type: "string"
+            description: "Raw JSON string to format"
+            required: true
+          indent:
+            type: "string"
+            description: "Indentation spaces (default: 2)"
+            required: false
+          sort_keys:
+            type: "string"
+            description: "Sort keys alphabetically: 'true' or 'false'"
+            required: false
+
+      - name: base64
+        description: "Encode or decode data using Base64 (standard or URL-safe variant)."
+        script: "base64Tool"
+        parameters:
+          action:
+            type: "string"
+            description: "'encode' or 'decode'"
+            required: true
+          data:
+            type: "string"
+            description: "The string to encode or decode"
+            required: true
+          variant:
+            type: "string"
+            description: "Base64 variant: 'standard' (default) or 'url'"
+            required: false
+
+      - name: parse_url
+        description: "Parse a URL into its components (scheme, host, path, query params) or encode/decode URL-encoded strings."
+        script: "urlParserTool"
+        parameters:
+          url:
+            type: "string"
+            description: "The URL or string to process"
+            required: true
+          action:
+            type: "string"
+            description: "'parse' (default), 'encode', or 'decode'"
+            required: false
+
+      - name: hash
+        description: "Generate a cryptographic hash or HMAC of a string. Supports MD5, SHA1, SHA256, SHA512, SHA3_256, SHA3_512, BLAKE2b, BLAKE2s."
+        script: "hashTool"
+        parameters:
+          data:
+            type: "string"
+            description: "The string to hash"
+            required: true
+          algorithm:
+            type: "string"
+            description: "Hash algorithm: md5, sha1, sha256 (default), sha512, sha3_256, sha3_512, blake2b, blake2s"
+            required: false
+          secret:
+            type: "string"
+            description: "If provided, generates an HMAC instead of a plain hash"
+            required: false
+          encoding:
+            type: "string"
+            description: "Output encoding: 'hex' (default) or 'base64'"
+            required: false
+
+      - name: random
+        description: "Generate random values: numbers, floats, passwords/strings, UUIDs, hex tokens, dice rolls, coin flips, or random choices from a list."
+        script: "randomTool"
+        parameters:
+          kind:
+            type: "string"
+            description: "Type: number, float, string (password), uuid, hex, choice, coin, dice"
+            required: false
+          count:
+            type: "string"
+            description: "How many values to generate (default: 1, max: 100)"
+            required: false
+          min:
+            type: "string"
+            description: "Minimum value for numbers / minimum dice sides"
+            required: false
+          max:
+            type: "string"
+            description: "Maximum value for numbers / dice sides"
+            required: false
+          length:
+            type: "string"
+            description: "Length for strings/hex tokens (default: 12)"
+            required: false
+          choices:
+            type: "string"
+            description: "Comma-separated list of choices for kind=choice, e.g. 'apple,banana,cherry'"
+            required: false
+
+      - name: render_markdown
+        description: "Render Markdown text to HTML. Useful for displaying formatted documentation, READMEs, or any Markdown content."
+        script: "markdownTool"
+        parameters:
+          text:
+            type: "string"
+            description: "Markdown text to render to HTML"
+            required: true
+          output_format:
+            type: "string"
+            description: "Output format: 'html' (default) or 'plain'"
+            required: false
+
+      - name: analyze_csv
+        description: "Analyze CSV data and return a formatted table with statistics. Supports column summaries, row counts, and configurable table styles."
+        script: "csvTool"
+        parameters:
+          data:
+            type: "string"
+            description: "CSV data as a string (first row is treated as header)"
+            required: true
+          table_format:
+            type: "string"
+            description: "Table display format: 'grid' (default), 'simple', 'pipe', 'html'"
+            required: false
+          max_rows:
+            type: "string"
+            description: "Maximum number of data rows to display (default: 20)"
+            required: false
+
+      - name: convert_color
+        description: "Convert a color value between formats: HEX, RGB, HSV, HLS, and CSS color names."
+        script: "colorTool"
+        parameters:
+          color:
+            type: "string"
+            description: "Color value to convert, e.g. '#ff5733', 'rgb(255,87,51)', 'red'"
+            required: true
+          from_format:
+            type: "string"
+            description: "Input format: 'hex' (default), 'rgb', 'hsv', 'hls', 'name'"
+            required: false
+          to_format:
+            type: "string"
+            description: "Output format: 'all' (default, returns all formats), 'hex', 'rgb', 'hsv', 'hls'"
+            required: false

@@ -1,0 +1,57 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: jsonFormatterTool
+  name: JSON Formatter Tool
+
+run:
+  python:
+    script: |
+      import json
+
+      raw = "{{ get('input', 'memory') }}"
+      indent_str = "{{ get('indent', 'memory') }}" or "2"
+      sort_keys_str = "{{ get('sort_keys', 'memory') }}" or "false"
+
+      try:
+          indent = int(indent_str)
+      except (ValueError, TypeError):
+          indent = 2
+
+      sort_keys = sort_keys_str.lower() in ("true", "1", "yes")
+
+      try:
+          parsed = json.loads(raw)
+          formatted = json.dumps(parsed, indent=indent, sort_keys=sort_keys, ensure_ascii=False)
+
+          def depth(obj, d=0):
+              if isinstance(obj, dict): return max((depth(v, d+1) for v in obj.values()), default=d)
+              if isinstance(obj, list): return max((depth(v, d+1) for v in obj), default=d)
+              return d
+
+          key_count = sum(1 for _ in _flatten_keys(parsed))
+
+          def _flatten_keys(o):
+              if isinstance(o, dict):
+                  for k, v in o.items():
+                      yield k
+                      yield from _flatten_keys(v)
+              elif isinstance(o, list):
+                  for item in o:
+                      yield from _flatten_keys(item)
+
+          print(json.dumps({
+              "formatted": formatted,
+              "valid": True,
+              "type": type(parsed).__name__,
+              "depth": depth(parsed),
+              "size_bytes": len(formatted.encode()),
+          }))
+      except json.JSONDecodeError as exc:
+          print(json.dumps({
+              "valid": False,
+              "error": str(exc),
+              "line": exc.lineno,
+              "column": exc.colno,
+          }))

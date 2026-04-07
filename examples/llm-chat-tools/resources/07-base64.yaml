@@ -1,0 +1,47 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: base64Tool
+  name: Base64 Encode/Decode Tool
+
+run:
+  python:
+    script: |
+      import json, base64
+
+      action = "{{ get('action', 'memory') }}".lower().strip() or "encode"
+      data = "{{ get('data', 'memory') }}"
+      variant = "{{ get('variant', 'memory') }}".lower().strip() or "standard"
+
+      try:
+          if action in ("encode", "enc"):
+              raw = data.encode("utf-8")
+              if variant == "url":
+                  result = base64.urlsafe_b64encode(raw).decode("ascii")
+              else:
+                  result = base64.b64encode(raw).decode("ascii")
+              print(json.dumps({
+                  "action": "encode",
+                  "variant": variant,
+                  "input_length": len(data),
+                  "output": result,
+                  "output_length": len(result),
+              }))
+          elif action in ("decode", "dec"):
+              raw = data.strip()
+              if variant == "url":
+                  decoded = base64.urlsafe_b64decode(raw + "==").decode("utf-8")
+              else:
+                  decoded = base64.b64decode(raw + "==").decode("utf-8")
+              print(json.dumps({
+                  "action": "decode",
+                  "variant": variant,
+                  "input_length": len(data),
+                  "output": decoded,
+                  "output_length": len(decoded),
+              }))
+          else:
+              print(json.dumps({"error": f"Unknown action {action!r}. Use 'encode' or 'decode'."}))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))
