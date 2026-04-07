@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  name: LLM Chat
+  actionId: chat
+
+run:
+  chat:
+    model: llama3.2:1b
+    role: assistant
+    prompt: "{{ input('message') }}"
+    scenario:
+      - role: system
+        prompt: |
+          You are a helpful AI assistant. Answer questions clearly and concisely.
+          The user's message is: {{ input('message') }}

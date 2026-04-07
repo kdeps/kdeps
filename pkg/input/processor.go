@@ -88,27 +88,31 @@ func NewProcessor(cfg *domain.InputConfig, logger *slog.Logger) (*Processor, err
 		return nil, nil //nolint:nilnil // nil processor signals no input processing needed, not an error
 	}
 
-	// If every non-API source is a bot or file source, the Dispatcher/file runner handles
-	// input — no hardware pipeline needed.
+	// If every non-API source is a bot, file, or LLM source, the Dispatcher/file/LLM runner
+	// handles input — no hardware pipeline needed.
 	allBotOrAPIOrFile := true
 	for _, s := range cfg.Sources {
-		if s != domain.InputSourceAPI && !domain.IsBotSource(s) && !domain.IsFileSource(s) {
+		if s != domain.InputSourceAPI && !domain.IsBotSource(s) && !domain.IsFileSource(s) && !domain.IsLLMSource(s) {
 			allBotOrAPIOrFile = false
 			break
 		}
 	}
 	if allBotOrAPIOrFile {
-		return nil, nil //nolint:nilnil // bot/file sources are driven by their own runners, not the hardware pipeline
+		return nil, nil //nolint:nilnil // bot/file/llm sources are driven by their own runners, not the hardware pipeline
 	}
 
 	if logger == nil {
 		logger = slog.Default()
 	}
 
-	// Create one capturer per non-API, non-bot, non-file source.
+	// Create one capturer per non-API, non-bot, non-file, non-llm source.
 	var sources []sourceCapture
 	for _, src := range cfg.Sources {
-		if src == domain.InputSourceAPI || domain.IsBotSource(src) || domain.IsFileSource(src) {
+		isNonCapture := src == domain.InputSourceAPI ||
+			domain.IsBotSource(src) ||
+			domain.IsFileSource(src) ||
+			domain.IsLLMSource(src)
+		if isNonCapture {
 			continue
 		}
 		c, err := capture.New(src, cfg, logger)

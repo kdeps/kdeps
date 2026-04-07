@@ -118,7 +118,7 @@
               "uniqueItems": true,
               "items": {
                 "type": "string",
-                "enum": ["api", "audio", "video", "telephony", "bot", "file", "component"]
+                "enum": ["api", "audio", "video", "telephony", "bot", "file", "component", "llm"]
               }
             },
             "audio": {
@@ -165,6 +165,21 @@
               "type": "object",
               "properties": {
                 "description": {
+                  "type": "string"
+                }
+              }
+            },
+            "llm": {
+              "type": "object",
+              "properties": {
+                "executionType": {
+                  "type": "string",
+                  "enum": ["stdin", "apiServer"]
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "sessionId": {
                   "type": "string"
                 }
               }
