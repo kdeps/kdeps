@@ -69,7 +69,7 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("info: %w", err)
 			}
-			fmt.Fprint(os.Stdout, readme)
+			fmt.Fprint(os.Stdout, renderMarkdown(readme))
 			return nil
 		},
 	}

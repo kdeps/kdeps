@@ -151,13 +151,21 @@ func newComponentListCmd() *cobra.Command {
 				return err
 			}
 
-			internalNames := listInternalComponents()
+			coreNames := listCoreExecutors()
+			builtinNames := listBuiltinLibraryComponents()
 			globalNames := listKomponentFiles(globalDir)
 			localNames := listLocalComponents("components")
 
-			fmt.Fprintln(os.Stdout, "Internal components (built-in):")
-			for _, n := range internalNames {
+			fmt.Fprintln(os.Stdout, "Core executors (always available):")
+			for _, n := range coreNames {
 				fmt.Fprintf(os.Stdout, "  %s\n", n)
+			}
+
+			if len(builtinNames) > 0 {
+				fmt.Fprintln(os.Stdout, "Built-in component library:")
+				for _, n := range builtinNames {
+					fmt.Fprintf(os.Stdout, "  %s\n", n)
+				}
 			}
 
 			if len(globalNames) > 0 {
@@ -179,9 +187,9 @@ func newComponentListCmd() *cobra.Command {
 	}
 }
 
-// listInternalComponents returns the sorted names of all built-in executor types.
-func listInternalComponents() []string {
-	kdeps_debug.Log("enter: listInternalComponents")
+// listCoreExecutors returns the sorted names of all built-in executor types.
+func listCoreExecutors() []string {
+	kdeps_debug.Log("enter: listCoreExecutors")
 	names := []string{
 		executor.ExecutorLLM,
 		executor.ExecutorHTTP,
@@ -191,6 +199,20 @@ func listInternalComponents() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// listBuiltinLibraryComponents scans the internal-components/ directory
+// alongside the binary and returns the names of all built-in library components.
+func listBuiltinLibraryComponents() []string {
+	kdeps_debug.Log("enter: listBuiltinLibraryComponents")
+	return listLocalComponents("internal-components")
+}
+
+// listInternalComponents returns the sorted names of all built-in executor types.
+//
+// Deprecated: use listCoreExecutors instead.
+func listInternalComponents() []string {
+	return listCoreExecutors()
 }
 
 // listKomponentFiles returns the bare names of every .komponent file in dir.
@@ -511,7 +533,7 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("show component: %w", err)
 			}
-			fmt.Fprint(os.Stdout, readme)
+			fmt.Fprint(os.Stdout, renderMarkdown(readme))
 			return nil
 		},
 	}
