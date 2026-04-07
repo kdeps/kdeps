@@ -6,13 +6,13 @@ KDeps can package your AI agent into optimized Docker images for production depl
 
 ```bash
 # Package workflow into .kdeps file
-kdeps package workflow.yaml
+kdeps bundle package workflow.yaml
 
 # Build Docker image
-kdeps build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
+kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 
 # Or with GPU support
-kdeps build myagent-1.0.0.kdeps --gpu cuda --tag myregistry/myagent:latest-gpu
+kdeps bundle build myagent-1.0.0.kdeps --gpu cuda --tag myregistry/myagent:latest-gpu
 ```
 
 ## Packaging
@@ -20,7 +20,7 @@ kdeps build myagent-1.0.0.kdeps --gpu cuda --tag myregistry/myagent:latest-gpu
 The `package` command creates a `.kdeps` archive containing your workflow and resources:
 
 ```bash
-kdeps package path/to/workflow.yaml
+kdeps bundle package path/to/workflow.yaml
 ```
 
 This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
@@ -38,7 +38,7 @@ This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
 ### Basic Build
 
 ```bash
-kdeps build myagent-1.0.0.kdeps
+kdeps bundle build myagent-1.0.0.kdeps
 ```
 
 Creates image: `kdeps-myagent:1.0.0`
@@ -46,7 +46,7 @@ Creates image: `kdeps-myagent:1.0.0`
 ### Custom Tag
 
 ```bash
-kdeps build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
+kdeps bundle build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 ```
 
 ### Show Dockerfile
@@ -54,7 +54,7 @@ kdeps build myagent-1.0.0.kdeps --tag myregistry/myagent:latest
 View the generated Dockerfile without building:
 
 ```bash
-kdeps build myagent-1.0.0.kdeps --show-dockerfile
+kdeps bundle build myagent-1.0.0.kdeps --show-dockerfile
 ```
 
 ## GPU Support
@@ -63,16 +63,16 @@ Build images with GPU acceleration:
 
 ```bash
 # NVIDIA CUDA
-kdeps build myagent-1.0.0.kdeps --gpu cuda
+kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 
 # AMD ROCm
-kdeps build myagent-1.0.0.kdeps --gpu rocm
+kdeps bundle build myagent-1.0.0.kdeps --gpu rocm
 
 # Intel oneAPI
-kdeps build myagent-1.0.0.kdeps --gpu intel
+kdeps bundle build myagent-1.0.0.kdeps --gpu intel
 
 # Vulkan (cross-platform)
-kdeps build myagent-1.0.0.kdeps --gpu vulkan
+kdeps bundle build myagent-1.0.0.kdeps --gpu vulkan
 ```
 
 ### GPU Runtime
@@ -98,10 +98,10 @@ The OS is automatically chosen to ensure compatibility:
 
 ```bash
 # CPU-only: Uses Alpine (smallest)
-kdeps build myagent-1.0.0.kdeps
+kdeps bundle build myagent-1.0.0.kdeps
 
 # GPU: Uses Ubuntu (required for GPU drivers)
-kdeps build myagent-1.0.0.kdeps --gpu cuda
+kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 ```
 
 ### Why Auto-Selection?
@@ -112,11 +112,11 @@ kdeps build myagent-1.0.0.kdeps --gpu cuda
 
 | Configuration | Base OS | Image Size | Use Case |
 |---------------|---------|------------|----------|
-| `kdeps build .` | **Alpine** | ~300MB | CPU-only, edge deployment |
-| `kdeps build . --gpu cuda` | **Ubuntu** | ~800MB+ | NVIDIA GPU inference |
-| `kdeps build . --gpu rocm` | **Ubuntu** | ~800MB+ | AMD GPU inference |
-| `kdeps build . --gpu intel` | **Ubuntu** | ~600MB+ | Intel GPU inference |
-| `kdeps build . --gpu vulkan` | **Ubuntu** | ~600MB+ | Cross-platform GPU |
+| `kdeps bundle build .` | **Alpine** | ~300MB | CPU-only, edge deployment |
+| `kdeps bundle build . --gpu cuda` | **Ubuntu** | ~800MB+ | NVIDIA GPU inference |
+| `kdeps bundle build . --gpu rocm` | **Ubuntu** | ~800MB+ | AMD GPU inference |
+| `kdeps bundle build . --gpu intel` | **Ubuntu** | ~600MB+ | Intel GPU inference |
+| `kdeps bundle build . --gpu vulkan` | **Ubuntu** | ~600MB+ | Cross-platform GPU |
 
 ## Offline Mode
 
@@ -134,7 +134,7 @@ settings:
 Build with models included:
 
 ```bash
-kdeps build myagent-1.0.0.kdeps
+kdeps bundle build myagent-1.0.0.kdeps
 ```
 
 The resulting image contains all models and doesn't require internet access.
@@ -305,10 +305,10 @@ services:
 
 ```bash
 # Good
-kdeps build app.kdeps --tag myregistry/myagent:1.0.0
+kdeps bundle build app.kdeps --tag myregistry/myagent:1.0.0
 
 # Avoid
-kdeps build app.kdeps --tag myregistry/myagent:latest
+kdeps bundle build app.kdeps --tag myregistry/myagent:latest
 ```
 
 ### 2. Set Resource Limits
@@ -432,7 +432,7 @@ spec:
 
 ```bash
 # Show detailed output
-kdeps build app.kdeps --show-dockerfile
+kdeps bundle build app.kdeps --show-dockerfile
 
 # Check Docker daemon
 docker info
@@ -471,17 +471,17 @@ docker run -e KDEPS_MANAGEMENT_TOKEN=mysecret -p 16395:16395 myregistry/myagent:
 
 ```bash
 # Push a local workflow directory
-kdeps push --token mysecret ./my-agent http://localhost:16395
+kdeps cloud push --token mysecret ./my-agent http://localhost:16395
 
 # Push a packaged .kdeps archive
-kdeps push --token mysecret myagent-2.0.0.kdeps http://localhost:16395
+kdeps cloud push --token mysecret myagent-2.0.0.kdeps http://localhost:16395
 ```
 
 The token can also be supplied via the environment so it is not in shell history:
 
 ```bash
 export KDEPS_MANAGEMENT_TOKEN=mysecret
-kdeps push ./my-agent http://localhost:16395
+kdeps cloud push ./my-agent http://localhost:16395
 ```
 
 ### Check Workflow Status

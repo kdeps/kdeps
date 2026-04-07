@@ -9,16 +9,16 @@ binary — just copy it to the target machine and execute it.
 
 ```bash
 # Bundle for all architectures
-kdeps prepackage myagent-1.0.0.kdeps
+kdeps bundle prepackage myagent-1.0.0.kdeps
 
 # Bundle for a single target
-kdeps prepackage myagent-1.0.0.kdeps --arch linux-amd64
+kdeps bundle prepackage myagent-1.0.0.kdeps --arch linux-amd64
 
 # Write to a custom directory
-kdeps prepackage myagent-1.0.0.kdeps --output dist/
+kdeps bundle prepackage myagent-1.0.0.kdeps --output dist/
 
 # Pin a specific kdeps runtime version
-kdeps prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
+kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 ```
 
 ## How It Works
@@ -52,10 +52,10 @@ kdeps new my-agent
 kdeps run my-agent/
 
 # 3. Package the workflow
-kdeps package my-agent/ --output dist/
+kdeps bundle package my-agent/ --output dist/
 
 # 4. Prepackage as standalone binaries
-kdeps prepackage dist/my-agent-1.0.0.kdeps --output dist/
+kdeps bundle prepackage dist/my-agent-1.0.0.kdeps --output dist/
 
 # 5. Distribute and run
 ./dist/my-agent-1.0.0-linux-amd64
@@ -91,10 +91,10 @@ This means cross-arch builds require:
 
 ```bash
 # Works immediately for the host arch — no download required
-kdeps prepackage myagent.kdeps --arch linux-amd64  # on a Linux/amd64 host
+kdeps bundle prepackage myagent.kdeps --arch linux-amd64  # on a Linux/amd64 host
 
 # Requires download from GitHub Releases
-kdeps prepackage myagent.kdeps --arch linux-arm64
+kdeps bundle prepackage myagent.kdeps --arch linux-arm64
 ```
 
 ::: tip Dev builds
@@ -111,10 +111,10 @@ This means you can safely re-prepackage a binary with an updated workflow:
 
 ```bash
 # First release
-kdeps prepackage myagent-1.0.0.kdeps --output dist/
+kdeps bundle prepackage myagent-1.0.0.kdeps --output dist/
 
 # Updated workflow — re-prepackage the same output binary
-kdeps prepackage myagent-1.1.0.kdeps --output dist/
+kdeps bundle prepackage myagent-1.1.0.kdeps --output dist/
 ```
 
 ## Using with CI/CD
@@ -123,12 +123,12 @@ A typical GitHub Actions workflow:
 
 ```yaml
 - name: Package workflow
-  run: kdeps package my-agent/ --output dist/
+  run: kdeps bundle package my-agent/ --output dist/
 
 - name: Prepackage for all architectures
   run: |
     VERSION=$(cat my-agent/workflow.yaml | grep 'version:' | head -1 | awk '{print $2}' | tr -d '"')
-    kdeps prepackage dist/my-agent-${VERSION}.kdeps \
+    kdeps bundle prepackage dist/my-agent-${VERSION}.kdeps \
       --output dist/ \
       --kdeps-version ${{ env.KDEPS_VERSION }}
 

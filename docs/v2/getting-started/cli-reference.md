@@ -121,13 +121,13 @@ When no explicit `tests:` block is present, `--self-test` and `--self-test-only`
 
 ---
 
-### `kdeps push`
+### `kdeps cloud push`
 
 Push a workflow update to a running kdeps container without rebuilding the image.
 
 **Usage:**
 ```bash
-kdeps push [workflow_path] [target] [flags]
+kdeps cloud push [workflow_path] [target] [flags]
 ```
 
 **Arguments:**
@@ -146,10 +146,10 @@ The target server must have `KDEPS_MANAGEMENT_TOKEN` set. Supply the token via t
 ```bash
 # Via environment variable
 export KDEPS_MANAGEMENT_TOKEN=mysecret
-kdeps push workflow.yaml http://localhost:16395
+kdeps cloud push workflow.yaml http://localhost:16395
 
 # Via --token flag (takes precedence over env var)
-kdeps push --token mysecret workflow.yaml http://localhost:16395
+kdeps cloud push --token mysecret workflow.yaml http://localhost:16395
 ```
 
 The token is **never stored** in any workflow file or configuration.
@@ -164,19 +164,19 @@ The token is **never stored** in any workflow file or configuration.
 **Examples:**
 ```bash
 # Push from a directory
-kdeps push ./my-agent http://localhost:16395
+kdeps cloud push ./my-agent http://localhost:16395
 
 # Push a single YAML file
-kdeps push workflow.yaml http://localhost:16395
+kdeps cloud push workflow.yaml http://localhost:16395
 
 # Push a .kdeps package archive
-kdeps push myagent-1.0.0.kdeps http://localhost:16395
+kdeps cloud push myagent-1.0.0.kdeps http://localhost:16395
 
 # Push with explicit token
-kdeps push --token s3cr3t myagent-1.0.0.kdeps http://prod-server:16395
+kdeps cloud push --token s3cr3t myagent-1.0.0.kdeps http://prod-server:16395
 
 # Push to a remote server
-kdeps push workflow.yaml http://my-server:16395
+kdeps cloud push workflow.yaml http://my-server:16395
 ```
 
 **Error responses:**
@@ -490,13 +490,13 @@ kdeps component show tts
 
 ---
 
-### `kdeps info`
+### `kdeps component info`
 
 Show README for a local component, agent, agency, or a remote GitHub-hosted workflow.
 
 **Usage:**
 ```bash
-kdeps info <ref>
+kdeps component info <ref>
 ```
 
 **Reference formats:**
@@ -510,27 +510,27 @@ kdeps info <ref>
 **Examples:**
 ```bash
 # Show README for a local component
-kdeps info scraper
+kdeps component info scraper
 
 # Show README for a local agent or agency
-kdeps info my-agent
+kdeps component info my-agent
 
 # Show README for a GitHub repo
-kdeps info jjuliano/my-ai-agent
+kdeps component info jjuliano/my-ai-agent
 
 # Show README for a subdirectory of a GitHub repo
-kdeps info jjuliano/my-ai-agent:my-scraper
+kdeps component info jjuliano/my-ai-agent:my-scraper
 ```
 
 ---
 
-### `kdeps clone`
+### `kdeps component clone`
 
 Download and install an agent, agency, or component from a GitHub repository.
 
 **Usage:**
 ```bash
-kdeps clone <owner/repo[:subdir]>
+kdeps component clone <owner/repo[:subdir]>
 ```
 
 **Reference formats:**
@@ -545,21 +545,21 @@ Automatically detects the artifact type (component `.komponent`, workflow `.kdep
 **Examples:**
 ```bash
 # Install a component from GitHub
-kdeps clone jjuliano/kdeps-component-scraper
+kdeps component clone jjuliano/kdeps-component-scraper
 
 # Install a specific subdirectory (e.g. a single agent from a multi-agent repo)
-kdeps clone jjuliano/my-ai-agents:scraper-agent
+kdeps component clone jjuliano/my-ai-agents:scraper-agent
 ```
 
 ---
 
-### `kdeps package`
+### `kdeps bundle package`
 
 Package workflow or component into an archive for distribution.
 
 **Usage:**
 ```bash
-kdeps package [directory] [flags]
+kdeps bundle package [directory] [flags]
 ```
 
 **Arguments:**
@@ -589,19 +589,19 @@ kdeps package [directory] [flags]
 **Examples:**
 ```bash
 # Package a workflow (creates my-agent-1.0.0.kdeps)
-kdeps package my-agent/
+kdeps bundle package my-agent/
 
 # Package an agency (creates my-agency-1.0.0.kagency)
-kdeps package my-agency/
+kdeps bundle package my-agency/
 
 # Package a component (creates greeter-1.0.0.komponent)
-kdeps package my-component/
+kdeps bundle package my-component/
 
 # Specify output path
-kdeps package my-agent/ --output dist/
+kdeps bundle package my-agent/ --output dist/
 
 # Create with custom name
-kdeps package my-agent/ --name custom-agent
+kdeps bundle package my-agent/ --name custom-agent
 ```
 
 **Output:**
@@ -609,13 +609,13 @@ Creates `{name}-{version}.{kdeps|kagency|komponent}` archive containing all file
 
 ---
 
-### `kdeps build`
+### `kdeps bundle build`
 
 Build Docker image from workflow (optional, for deployment).
 
 **Usage:**
 ```bash
-kdeps build [path] [flags]
+kdeps bundle build [path] [flags]
 ```
 
 **Arguments:**
@@ -638,25 +638,25 @@ kdeps build [path] [flags]
 **Examples:**
 ```bash
 # Build from directory (CPU-only on Alpine)
-kdeps build examples/chatbot
+kdeps bundle build examples/chatbot
 
 # Build from workflow file
-kdeps build examples/chatbot/workflow.yaml
+kdeps bundle build examples/chatbot/workflow.yaml
 
 # Build with GPU support (NVIDIA CUDA on Ubuntu)
-kdeps build examples/chatbot --gpu cuda
+kdeps bundle build examples/chatbot --gpu cuda
 
 # Build with AMD ROCm GPU support
-kdeps build examples/chatbot --gpu rocm
+kdeps bundle build examples/chatbot --gpu rocm
 
 # Build with custom tag
-kdeps build examples/chatbot --tag my-agent:v1.0.0
+kdeps bundle build examples/chatbot --tag my-agent:v1.0.0
 
 # Build from package
-kdeps build myapp-1.0.0.kdeps
+kdeps bundle build myapp-1.0.0.kdeps
 
 # Build and push to registry
-kdeps build examples/chatbot --tag registry.com/my-agent:v1.0.0 --push
+kdeps bundle build examples/chatbot --tag registry.com/my-agent:v1.0.0 --push
 ```
 
 **Features:**
@@ -700,10 +700,10 @@ kdeps run workflow.yaml --dev
 kdeps run workflow.yaml --self-test-only
 
 # 8. Package for deployment
-kdeps package . --output dist/
+kdeps bundle package . --output dist/
 
 # 9. Build Docker image (optional)
-kdeps build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
+kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 
 ### Production Deployment Flow
@@ -713,15 +713,15 @@ kdeps build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 kdeps validate workflow.yaml
 
 # 2. Package workflow
-kdeps package . --output dist/
+kdeps bundle package . --output dist/
 
 # 3. Build Docker image
-kdeps build dist/my-agent-1.0.0.kdeps \
+kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --tag registry.com/my-agent:v1.0.0 \
   --gpu cuda
 
 # 4. Push to registry
-kdeps build dist/my-agent-1.0.0.kdeps \
+kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --tag registry.com/my-agent:v1.0.0 \
   --push
 ```

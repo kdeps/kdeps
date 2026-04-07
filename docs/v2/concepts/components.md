@@ -391,11 +391,11 @@ run:
 
 
 
-Use `kdeps package` to create a portable `.komponent` archive:
+Use `kdeps bundle package` to create a portable `.komponent` archive:
 
 ```bash
 # From a component directory (containing component.yaml)
-kdeps package ./my-component
+kdeps bundle package ./my-component
 
 # Output: my-component-1.0.0.komponent
 ```

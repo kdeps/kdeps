@@ -54,7 +54,7 @@ YAML
 test_prepackage_help() {
     local test_name="prepackage --help shows flags"
     local output
-    if output=$("$KDEPS_BIN" prepackage --help 2>&1); then
+    if output=$("$KDEPS_BIN" bundle prepackage --help 2>&1); then
         if echo "$output" | grep -q "\-\-arch" && \
            echo "$output" | grep -q "\-\-output" && \
            echo "$output" | grep -q "\-\-kdeps-version"; then
@@ -72,7 +72,7 @@ test_prepackage_bad_extension() {
     local test_name="prepackage rejects non-.kdeps input"
     local tmp_file
     tmp_file="$(mktemp).yaml"
-    if "$KDEPS_BIN" prepackage "$tmp_file" --arch linux-amd64 &>/dev/null; then
+    if "$KDEPS_BIN" bundle prepackage "$tmp_file" --arch linux-amd64 &>/dev/null; then
         test_failed "$test_name" "Expected error for non-.kdeps file"
     else
         test_passed "$test_name"
@@ -83,7 +83,7 @@ test_prepackage_bad_extension() {
 # Test 3: prepackage rejects nonexistent file
 test_prepackage_missing_file() {
     local test_name="prepackage rejects nonexistent .kdeps file"
-    if "$KDEPS_BIN" prepackage /nonexistent/path/agent.kdeps --arch linux-amd64 &>/dev/null; then
+    if "$KDEPS_BIN" bundle prepackage /nonexistent/path/agent.kdeps --arch linux-amd64 &>/dev/null; then
         test_failed "$test_name" "Expected error for missing file"
     else
         test_passed "$test_name"
@@ -100,10 +100,10 @@ test_prepackage_bad_arch() {
 
     # Package first
     local pkg_file="$tmp_out/e2e-agent-1.0.0.kdeps"
-    "$KDEPS_BIN" package "$workflow_dir" --output "$tmp_out" &>/dev/null
+    "$KDEPS_BIN" bundle package "$workflow_dir" --output "$tmp_out" &>/dev/null
 
     if [ -f "$pkg_file" ]; then
-        if "$KDEPS_BIN" prepackage "$pkg_file" --arch "plan9-386" --output "$tmp_out" &>/dev/null; then
+        if "$KDEPS_BIN" bundle prepackage "$pkg_file" --arch "plan9-386" --output "$tmp_out" &>/dev/null; then
             test_failed "$test_name" "Expected error for unsupported arch"
         else
             test_passed "$test_name"
@@ -124,7 +124,7 @@ test_prepackage_host_arch() {
     tmp_out="$(mktemp -d)"
 
     # Package the workflow
-    if ! "$KDEPS_BIN" package "$workflow_dir" --output "$tmp_out" &>/dev/null; then
+    if ! "$KDEPS_BIN" bundle package "$workflow_dir" --output "$tmp_out" &>/dev/null; then
         test_skipped "$test_name (package step failed)"
         rm -rf "$workflow_dir" "$tmp_out"
         return 0
@@ -148,7 +148,7 @@ test_prepackage_host_arch() {
     local bin_dir="$tmp_out/bin"
     mkdir -p "$bin_dir"
 
-    if "$KDEPS_BIN" prepackage "$pkg_file" --arch "$host_arch" --output "$bin_dir" &>/dev/null; then
+    if "$KDEPS_BIN" bundle prepackage "$pkg_file" --arch "$host_arch" --output "$bin_dir" &>/dev/null; then
         # At least one binary should exist in bin_dir
         local binary
         binary="$(find "$bin_dir" -type f | head -1)"

@@ -206,7 +206,7 @@ _create_mgmt_workflow "$PUSH_DIR" "mgmt-test-agent" "2.0.0"
 
 # Run kdeps push — token is read from the env by the push command
 PUSH_LOG=$(mktemp)
-if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:${MGMT_PORT}" > "$PUSH_LOG" 2>&1; then
+if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" cloud push "$PUSH_DIR" "http://127.0.0.1:${MGMT_PORT}" > "$PUSH_LOG" 2>&1; then
     test_passed "Management API - kdeps push succeeds"
 else
     test_failed "Management API - kdeps push succeeds" "$(cat "$PUSH_LOG")"
@@ -253,7 +253,7 @@ fi
 # ---------------------------------------------------------------------------
 
 BAD_PUSH_LOG=$(mktemp)
-if ! "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:1" > "$BAD_PUSH_LOG" 2>&1; then
+if ! "$KDEPS_BIN" cloud push "$PUSH_DIR" "http://127.0.0.1:1" > "$BAD_PUSH_LOG" 2>&1; then
     test_passed "Management API - kdeps push fails gracefully with bad target"
 else
     test_failed "Management API - kdeps push fails gracefully with bad target" "push should have failed"
@@ -369,7 +369,7 @@ _create_mgmt_workflow "$PUSH3_DIR" "mgmt-test-agent" "3.0.0"
 
 # Unset env token, pass via flag instead
 FLAG_PUSH_LOG=$(mktemp)
-if KDEPS_MANAGEMENT_TOKEN="" "$KDEPS_BIN" push --token "$MGMT_TOKEN" "$PUSH3_DIR" \
+if KDEPS_MANAGEMENT_TOKEN="" "$KDEPS_BIN" cloud push --token "$MGMT_TOKEN" "$PUSH3_DIR" \
     "http://127.0.0.1:${MGMT_PORT}" > "$FLAG_PUSH_LOG" 2>&1; then
     test_passed "Management API - kdeps push --token flag works"
 else
@@ -399,10 +399,10 @@ _create_mgmt_workflow "$PKG_PUSH_DIR" "mgmt-test-agent" "4.0.0"
 
 # Package the workflow into a .kdeps archive
 PKG_FILE="$(mktemp).kdeps"
-if "$KDEPS_BIN" package "$PKG_PUSH_DIR/workflow.yaml" --output "$PKG_FILE" > /dev/null 2>&1; then
+if "$KDEPS_BIN" bundle package "$PKG_PUSH_DIR/workflow.yaml" --output "$PKG_FILE" > /dev/null 2>&1; then
     # Push the .kdeps archive
     PKG_PUSH_LOG=$(mktemp)
-    if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" push "$PKG_FILE" \
+    if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" cloud push "$PKG_FILE" \
         "http://127.0.0.1:${MGMT_PORT}" > "$PKG_PUSH_LOG" 2>&1; then
         test_passed "Management API - kdeps push .kdeps package succeeds"
     else

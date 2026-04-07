@@ -48,7 +48,7 @@ test_package() {
     # Remove file/dir if it exists
     rm -rf "$package_file" 2>/dev/null || true
     
-    if "$KDEPS_BIN" package "$workflow_dir" --output "$package_file" &> /dev/null; then
+    if "$KDEPS_BIN" bundle package "$workflow_dir" --output "$package_file" &> /dev/null; then
         # Package might create a directory or file - check both
         if [ -f "$package_file" ] || [ -d "$package_file" ]; then
             test_passed "$test_name"
