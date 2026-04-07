@@ -179,6 +179,17 @@ export EMBEDDING_OPENAI_API_KEY=sk-embed  # overrides just for embedding
 
 No changes to component YAML needed - scoping is automatic.
 
+Components also load a `.env` file from their directory as a lowest-priority fallback:
+
+```
+# components/scraper/.env
+OPENAI_API_KEY=sk-my-key
+```
+
+Priority: `SCRAPER_OPENAI_API_KEY` (scoped os env) > `OPENAI_API_KEY` (plain os env) > `.env` file
+
+On first run, kdeps auto-scaffolds `.env` (with all `env()` vars listed as blanks) and `README.md` if absent.
+
 ### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
 Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
 - **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point

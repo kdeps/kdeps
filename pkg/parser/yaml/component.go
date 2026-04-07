@@ -157,20 +157,44 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 	return nil
 }
 
-// mergeComponentPackages adds a component's declared Python packages to the
-// workflow's agentSettings so they are installed before execution.
+// mergeComponentPackages merges a component's declared Python and OS packages into
+// the workflow's agentSettings so they are installed before execution.
+// Handles both the legacy top-level pythonPackages field and the new setup block.
 func mergeComponentPackages(workflow *domain.Workflow, comp *domain.Component) {
-	if len(comp.PythonPackages) == 0 {
+	// Collect all Python packages: legacy top-level + setup block.
+	pythonPkgs := make([]string, 0, len(comp.PythonPackages)) //nolint:staticcheck // backward compat read
+	pythonPkgs = append(pythonPkgs, comp.PythonPackages...)   //nolint:staticcheck // backward compat read
+	if comp.Setup != nil {
+		pythonPkgs = append(pythonPkgs, comp.Setup.PythonPackages...)
+	}
+	if len(pythonPkgs) > 0 {
+		existing := make(map[string]struct{}, len(workflow.Settings.AgentSettings.PythonPackages))
+		for _, p := range workflow.Settings.AgentSettings.PythonPackages {
+			existing[p] = struct{}{}
+		}
+		for _, pkg := range pythonPkgs {
+			if _, ok := existing[pkg]; !ok {
+				workflow.Settings.AgentSettings.PythonPackages = append(
+					workflow.Settings.AgentSettings.PythonPackages, pkg,
+				)
+				existing[pkg] = struct{}{}
+			}
+		}
+	}
+
+	// Merge OS packages from setup block into agentSettings (used by Docker builder
+	// and runtime OS package installer).
+	if comp.Setup == nil || len(comp.Setup.OsPackages) == 0 {
 		return
 	}
-	existing := make(map[string]struct{}, len(workflow.Settings.AgentSettings.PythonPackages))
-	for _, p := range workflow.Settings.AgentSettings.PythonPackages {
+	existing := make(map[string]struct{}, len(workflow.Settings.AgentSettings.OSPackages))
+	for _, p := range workflow.Settings.AgentSettings.OSPackages {
 		existing[p] = struct{}{}
 	}
-	for _, pkg := range comp.PythonPackages {
+	for _, pkg := range comp.Setup.OsPackages {
 		if _, ok := existing[pkg]; !ok {
-			workflow.Settings.AgentSettings.PythonPackages = append(
-				workflow.Settings.AgentSettings.PythonPackages, pkg,
+			workflow.Settings.AgentSettings.OSPackages = append(
+				workflow.Settings.AgentSettings.OSPackages, pkg,
 			)
 			existing[pkg] = struct{}{}
 		}
@@ -265,6 +289,9 @@ func (p *Parser) processComponentEntry(
 	if parseErr != nil {
 		return nil, nil, fmt.Errorf("failed to parse component: %w", parseErr)
 	}
+
+	// Store the component directory so the engine can locate .env and README.
+	component.Dir = compDir
 
 	// Load resources from the component's resources/ sub-directory.
 	componentResources, loadErr := p.loadComponentResources(component, compFile)
