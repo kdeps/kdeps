@@ -388,6 +388,7 @@ kdeps component install <name>
 | `memory` | Persistent semantic agent memory |
 | `browser` | Browser automation via Playwright |
 | `autopilot` | Goal-directed workflow synthesis |
+| `federation` | UAF node management and agent registration |
 
 **Examples:**
 ```bash
@@ -421,10 +422,19 @@ kdeps component list
 
 **Output:**
 ```
-Installed components:
-  scraper    v1.2.0   Content extraction
-  tts        v1.0.1   Text-to-Speech synthesis
-  pdf        v1.1.0   PDF generation
+Internal components (built-in):
+  exec
+  httpClient
+  llm
+  python
+  sql
+
+Global components:
+  scraper
+  tts
+
+Local components (./components/):
+  pdf
 ```
 
 ---
@@ -444,6 +454,62 @@ kdeps component remove <name>
 **Examples:**
 ```bash
 kdeps component remove scraper
+```
+
+---
+
+#### `kdeps component show <name>`
+
+Display the README for an installed or built-in component.
+
+**Usage:**
+```bash
+kdeps component show <name>
+```
+
+**Arguments:**
+- `name` - Component name (e.g. `scraper`, `tts`)
+
+Searches in order: internal (built-in) components, global install dir (`~/.kdeps/components/`), local `./components/`. Falls back to component.yaml metadata when no README.md exists.
+
+**Examples:**
+```bash
+kdeps component show scraper
+kdeps component show tts
+```
+
+---
+
+### `kdeps info`
+
+Show README for a local component, agent, agency, or a remote GitHub-hosted workflow.
+
+**Usage:**
+```bash
+kdeps info <ref>
+```
+
+**Reference formats:**
+
+| Format | Description |
+|--------|-------------|
+| `<name>` | Local component, agent, or agency by name |
+| `<owner>/<repo>` | Root README of a GitHub repository |
+| `<owner>/<repo>:<subdir>` | README inside a subdirectory of a GitHub repository |
+
+**Examples:**
+```bash
+# Show README for a local component
+kdeps info scraper
+
+# Show README for a local agent or agency
+kdeps info my-agent
+
+# Show README for a GitHub repo
+kdeps info jjuliano/my-ai-agent
+
+# Show README for a subdirectory of a GitHub repo
+kdeps info jjuliano/my-ai-agent:my-scraper
 ```
 
 ---
