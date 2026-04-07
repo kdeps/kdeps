@@ -23,10 +23,11 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Plan and Execute
       actionId: plan-and-execute
     run:
       chat:
-        model: "{{ get("autopilot.model", "gpt-4o") }}"
+        model: "{{ get('autopilot.model', 'gpt-4o') }}"
         prompt: |
           You are an autonomous task executor. Given the following task and context, create a step-by-step execution plan and carry it out.
 

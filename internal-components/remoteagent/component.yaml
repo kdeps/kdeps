@@ -18,11 +18,12 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Call Agent
       actionId: call-agent
     run:
       httpClient:
-        url: "{{ get("remoteagent.url") }}"
+        url: "{{ get('remoteagent.url') }}"
         method: POST
         headers:
           Content-Type: application/json
-        data: '{"query":"{{ get("remoteagent.query") }}"}'
+        data: '{"query":"{{ get(''remoteagent.query'') }}"}'

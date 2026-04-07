@@ -28,6 +28,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Browser Action
       actionId: browser-action
     run:
       python:

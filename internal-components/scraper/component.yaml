@@ -23,6 +23,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Scrape Url
       actionId: scrape-url
     run:
       python:

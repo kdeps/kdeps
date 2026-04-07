@@ -28,6 +28,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Memory Op
       actionId: memory-op
     run:
       python:
@@ -35,21 +36,28 @@ resources:
           import sqlite3
           import os
           import json
-          db_path = "{{ get('memory.dbPath', os.path.expanduser('~/.kdeps/memory.db')) }}"
-          os.makedirs(os.path.dirname(db_path), exist_ok=True)
+          db_path_raw = "{{ get('memory.dbPath', '~/.kdeps/memory.db') }}"
+          db_path = os.path.expanduser(db_path_raw)
+          db_dir = os.path.dirname(db_path)
+          if db_dir:
+              os.makedirs(db_dir, exist_ok=True)
           conn = sqlite3.connect(db_path)
           conn.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
           conn.commit()
           action = "{{ get('memory.action', 'store') }}"
           key = "{{ get('memory.key') }}"
           if action == "store":
-              value = "{{ get('memory.value') }}"
+              value = """{{ get('memory.value') }}"""
               conn.execute("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", (key, value))
               conn.commit()
               result = "stored"
           elif action == "retrieve":
               row = conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
               result = row[0] if row else ""
+          elif action == "forget":
+              conn.execute("DELETE FROM kv WHERE key=?", (key,))
+              conn.commit()
+              result = "forgotten"
           else:
               result = ""
           conn.close()

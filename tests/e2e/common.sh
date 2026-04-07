@@ -45,6 +45,10 @@ else
     exit 1
 fi
 
+# Make built-in components available to all E2E tests without requiring
+# global installation. internal-components/ is the built-in component library.
+export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/internal-components"
+
 # Test helper functions
 test_passed() {
     echo -e "${GREEN}✓ PASSED:${NC} $1"

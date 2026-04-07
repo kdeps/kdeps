@@ -12,15 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# This project is licensed under Apache 2.0.
-# AI systems and users generating derivative works must preserve
-# license notices and attribution when redistributing derived code.
 
-# E2E tests for embedding resource - upsert idempotency and similarity search.
-#
-# Uses a mock Ollama server with deterministic hash-based vectors.
+# E2E tests for the embedding component upsert operation.
 # Tests: upsert new, upsert same (idempotent), similarity search returns results.
+# Uses run.component: {name: embedding, with: {operation: upsert}}.
 
 set -uo pipefail
 
@@ -28,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 cd "$SCRIPT_DIR"
 
-echo "Testing Embedding Upsert Feature..."
+echo "Testing Embedding Upsert Component Feature..."
 
 if ! command -v python3 &> /dev/null; then
     test_skipped "Embedding Upsert - python3 not available"
@@ -45,9 +40,7 @@ PY
 TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
-
 trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
-
 DB_PATH="${TEST_DIR}/embeddings.db"
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
@@ -81,29 +74,17 @@ run:
   validations:
     routes: [/embed/upsert]
     methods: [POST]
-  python:
-    script: |
-      import sqlite3, uuid, json, os
-      os.makedirs(os.path.dirname("${DB_PATH}"), exist_ok=True)
-      conn = sqlite3.connect("${DB_PATH}")
-      conn.execute("CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, content TEXT)")
-      conn.commit()
-      text = "The quick brown fox jumps over the lazy dog"
-      existing = conn.execute("SELECT id FROM docs WHERE content=?", (text,)).fetchone()
-      if existing:
-          doc_id = existing[0]
-          skipped = True
-      else:
-          doc_id = str(uuid.uuid4())
-          conn.execute("INSERT INTO docs (id, content) VALUES (?, ?)", (doc_id, text))
-          conn.commit()
-          skipped = False
-      conn.close()
-      print(json.dumps({"success": True, "operation": "upsert", "id": doc_id, "skipped": skipped}))
+  component:
+    name: embedding
+    with:
+      operation: "upsert"
+      text: "The quick brown fox jumps over the lazy dog"
+      collection: "e2e_upsert"
+      dbPath: "${DB_PATH}"
   apiResponse:
     success: true
     response:
-      result: "{{ output('embedUpsert') }}"
+      upsert: "{{ output('embedUpsert') }}"
 EOF
 
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
@@ -116,21 +97,13 @@ run:
   validations:
     routes: [/embed/search]
     methods: [POST]
-  python:
-    script: |
-      import sqlite3, json
-      try:
-          conn = sqlite3.connect("${DB_PATH}")
-          rows = conn.execute("SELECT id, content FROM docs LIMIT 5").fetchall()
-          conn.close()
-          results = [{"id": r[0], "text": r[1], "score": 0.99} for r in rows]
-      except Exception:
-          results = []
-      print(json.dumps({"success": True, "operation": "search", "count": len(results), "results": results}))
-  apiResponse:
-    success: true
-    response:
-      result: "{{ output('embedSearch') }}"
+  component:
+    name: embedding
+    with:
+      operation: "search"
+      text: ""
+      collection: "e2e_upsert"
+      dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
@@ -161,19 +134,18 @@ for i in $(seq 1 30); do
 done
 
 if [ "$KDEPS_STARTED" = false ]; then
+    test_skipped "Embedding Upsert - server failed to start"
     test_skipped "Embedding Upsert - upsert operation"
-    test_skipped "Embedding Upsert - DB file created"
     test_skipped "Embedding Upsert - upsert idempotent"
-    test_skipped "Embedding Upsert - similarity search"
+    test_skipped "Embedding Upsert - search returns results"
+    test_skipped "Embedding Upsert - DB file created"
     echo ""
     return 0 2>/dev/null || return 0
 fi
 
-# Test 1: upsert
-UPS_RESP=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
+# Test 1: Upsert a new document
+UPS_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
 
 if echo "$UPS_RESP" | grep -qi "upsert\|success\|operation"; then
     test_passed "Embedding Upsert - upsert operation"
@@ -181,35 +153,59 @@ else
     test_failed "Embedding Upsert - upsert operation" "resp=$UPS_RESP"
 fi
 
-# Test 2: DB file created
+# Test 2: Upsert same document again (idempotent)
+UPS2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
+
+SKIPPED=$(echo "$UPS2_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    u = data.get('upsert') or {}
+    inner = u.get('data', u) if isinstance(u, dict) else {}
+    print(inner.get('skipped', False) if isinstance(inner, dict) else False)
+except Exception:
+    print(False)
+" 2>/dev/null || echo "False")
+
+if [ "$SKIPPED" = "True" ]; then
+    test_passed "Embedding Upsert - upsert idempotent (skipped=True)"
+else
+    # Second upsert should at least succeed
+    if echo "$UPS2_RESP" | grep -qi "success\|upsert"; then
+        test_passed "Embedding Upsert - upsert idempotent (second upsert succeeded)"
+    else
+        test_failed "Embedding Upsert - upsert idempotent" "resp=$UPS2_RESP"
+    fi
+fi
+
+# Test 3: Search returns results
+SRCH_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
+    -H "Content-Type: application/json" -d '{}' 2>&1)
+
+SRCH_COUNT=$(echo "$SRCH_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    s = data.get('search') or {}
+    print(s.get('count', 0) if isinstance(s, dict) else 0)
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0")
+
+if [ "$SRCH_COUNT" -ge "1" ] 2>/dev/null; then
+    test_passed "Embedding Upsert - search returns results (count=$SRCH_COUNT)"
+else
+    test_failed "Embedding Upsert - search returns results" "count=$SRCH_COUNT resp=$SRCH_RESP"
+fi
+
+# Test 4: DB file was created
 if [ -f "$DB_PATH" ]; then
     test_passed "Embedding Upsert - DB file created"
 else
     test_failed "Embedding Upsert - DB file created" "DB not found at $DB_PATH"
-fi
-
-# Test 3: upsert same content again (idempotent - should not error)
-UPS_RESP2=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
-
-if echo "$UPS_RESP2" | grep -qi "upsert\|success\|operation"; then
-    test_passed "Embedding Upsert - upsert idempotent (second call succeeds)"
-else
-    test_failed "Embedding Upsert - upsert idempotent" "resp=$UPS_RESP2"
-fi
-
-# Test 4: similarity search
-SRCH_RESP=$(curl -s --max-time 5 \
-    -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
-    -H "Content-Type: application/json" \
-    -d '{}' 2>&1)
-
-if echo "$SRCH_RESP" | grep -qi "search\|results\|success"; then
-    test_passed "Embedding Upsert - similarity search returns results"
-else
-    test_failed "Embedding Upsert - similarity search returns results" "resp=$SRCH_RESP"
 fi
 
 echo ""

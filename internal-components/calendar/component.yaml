@@ -31,6 +31,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Create Event
       actionId: create-event
     run:
       python:

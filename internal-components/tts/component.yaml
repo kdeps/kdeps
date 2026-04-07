@@ -23,19 +23,21 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Speak Offline
       actionId: speak-offline
     run:
       exec:
-        command: "espeak '{{ get("tts.text") }}'"
+        command: "espeak '{{ get('tts.text') }}'"
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Speak Online
       actionId: speak-online
     run:
       httpClient:
         url: "https://api.openai.com/v1/audio/speech"
         method: POST
         headers:
-          Authorization: "Bearer {{ get("tts.apiKey") }}"
+          Authorization: "Bearer {{ get('tts.apiKey') }}"
           Content-Type: application/json
-        data: '{"model":"tts-1","input":"{{ get("tts.text") }}","voice":"{{ get("tts.voice", "alloy") }}"}'
+        data: '{"model":"tts-1","input":"{{ get(''tts.text'') }}","voice":"{{ get(''tts.voice'', ''alloy'') }}"}'
