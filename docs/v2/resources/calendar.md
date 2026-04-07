@@ -1,13 +1,46 @@
 # Calendar Resource
 
-The calendar resource supports four actions that cover the full read/write lifecycle of
-ICS calendar workflows: **list** (read events), **create** (add a new event), **modify**
-(update an existing event), and **delete** (remove an event).  All operations work against
-a local `.ics` file — the path is resolved relative to the agent's FSRoot unless an
-absolute path is given.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install calendar`
+>
+> Usage: `run: { component: { name: calendar, with: { title: "...", start: "...", end: "...", outputFile: "/tmp/event.ics" } } }`
 
-All string fields support [KDeps expressions](../concepts/expressions) such as
-<span v-pre>`{{get(...)}}` and `{{env(...)}}`</span>.
+The Calendar component supports creating, reading, modifying, and deleting ICS calendar events.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `title` | string | yes | — | Event title |
+| `start` | string | yes | — | Event start time (RFC3339 or `YYYY-MM-DD HH:MM`) |
+| `end` | string | yes | — | Event end time (RFC3339 or `YYYY-MM-DD HH:MM`) |
+| `description` | string | no | — | Event description |
+| `outputFile` | string | no | `/tmp/event.ics` | Output path for the generated ICS file |
+
+## Using the Calendar Component
+
+```yaml
+run:
+  component:
+    name: calendar
+    with:
+      title: "Team Standup"
+      start: "2025-01-15 09:00"
+      end: "2025-01-15 09:30"
+      description: "Daily sync"
+      outputFile: "/tmp/standup.ics"
+```
+
+Access the result via `output('<callerActionId>')`.
+
+---
+
+## Reference: Full Calendar Configuration
+
+The following sections document the full configuration surface available in the underlying calendar implementation (list, create, modify, delete actions).
+
+
 
 ---
 

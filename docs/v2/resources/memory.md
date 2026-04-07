@@ -1,10 +1,56 @@
 # Memory Resource
 
-The `memory` resource gives agents **semantic, persistent experience storage** across invocations. Agents consolidate what they have learned, recall relevant past context by meaning (not exact match), and forget stale or incorrect entries — all backed by a local SQLite vector index.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install memory`
+>
+> Usage: `run: { component: { name: memory, with: { action: "store", key: "...", value: "..." } } }`
 
-It uses the same multi-backend embedding infrastructure as the [`embedding`](./embedding) resource, so any embedding provider that works for RAG also works for memory.
+The Memory component gives agents **semantic, persistent experience storage** across invocations. Agents can store, retrieve, and forget facts backed by a local SQLite vector index.
 
-It can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `action` | string | no | `store` | Operation: `store` or `retrieve` |
+| `key` | string | yes | — | Key identifier for the memory entry |
+| `value` | string | no | — | Value to store (required when `action: store`) |
+| `dbPath` | string | no | — | Path to the SQLite database file (uses default if omitted) |
+
+## Using the Memory Component
+
+**Store a fact:**
+
+```yaml
+run:
+  component:
+    name: memory
+    with:
+      action: store
+      key: "user-preference-theme"
+      value: "dark"
+```
+
+**Retrieve a fact:**
+
+```yaml
+run:
+  component:
+    name: memory
+    with:
+      action: retrieve
+      key: "user-preference-theme"
+```
+
+Access the result via `output('<callerActionId>')`.
+
+---
+
+## Reference: Full Memory Configuration
+
+The following sections document the full configuration surface available in the underlying memory implementation (semantic search, consolidation, forgetting policies, embedding providers).
+
+
 
 ## Basic Usage
 

@@ -1,27 +1,40 @@
 # PDF Resource
 
-The PDF resource generates a PDF file from HTML or Markdown content using one of three rendering backends. It can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install pdf`
+>
+> Usage: `run: { component: { name: pdf, with: { content: "...", outputFile: "/tmp/output.pdf" } } }`
 
-## Basic Usage
+The PDF component generates a PDF file from HTML or Markdown content.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `content` | string | yes | — | HTML or Markdown source to render |
+| `outputFile` | string | no | `/tmp/output.pdf` | Destination path for the generated PDF |
+
+## Using the PDF Component
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: generateReport
-  name: Generate Report
-
 run:
-  pdf:
-    content: "<h1>Hello, World!</h1><p>This is a PDF report.</p>"
-    contentType: html
-    backend: wkhtmltopdf
+  component:
+    name: pdf
+    with:
+      content: "<h1>Hello, World!</h1><p>This is a PDF report.</p>"
+      outputFile: "/tmp/report.pdf"
 ```
+
+Access the result via `output('<callerActionId>')`. The result map includes `success`, `outputFile`, `sizeBytes`, and `backend`.
 
 ---
 
-## Configuration Options
+## Reference: Full PDF Configuration
+
+The following sections document the full configuration surface available in the underlying PDF implementation (backends, options, etc.).
+
+
 
 | Option | Type | Description |
 |--------|------|-------------|

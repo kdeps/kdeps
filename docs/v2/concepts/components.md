@@ -119,7 +119,193 @@ When a workflow is parsed, KDeps automatically scans for `components/<name>/comp
 3. Resources from auto-discovered components (alphabetical by component name)
 4. Local workflow `resources/` directory
 
-## Packaging Components
+## Installing Components from the Registry
+
+The 12 standard capability extensions are distributed as pre-built `.komponent` archives and can be installed with a single command:
+
+```bash
+kdeps component install scraper
+kdeps component install search
+kdeps component install embedding
+kdeps component install botreply
+kdeps component install remoteagent
+kdeps component install tts
+kdeps component install email
+kdeps component install calendar
+kdeps component install pdf
+kdeps component install memory
+kdeps component install browser
+kdeps component install autopilot
+```
+
+Installed components are placed in the `components/` directory of your workflow and are auto-discovered at run time — no changes to `workflow.yaml` are needed.
+
+```bash
+kdeps component list           # List installed components
+kdeps component remove scraper # Uninstall a component
+```
+
+## Calling a Component: `run.component:` Syntax
+
+Once a component is installed, resources invoke it using the `run.component:` block instead of a raw executor key. The `with:` map passes typed inputs that are validated against the component's `interface.inputs` declaration.
+
+```yaml
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://example.com"
+      selector: ".article"
+      timeout: 15
+```
+
+### Input Validation
+
+When the resource executes, kdeps validates the `with:` map against the component manifest:
+
+| Condition | Behaviour |
+|-----------|-----------|
+| Required input missing | Error — execution stops |
+| Unknown key in `with:` | Warning logged; key is ignored |
+| Optional input omitted | Component default value is applied |
+
+### Input Scoping
+
+Inputs supplied via `with:` are injected into the shared context under **two** scoped keys, so the same component can be called twice in a single workflow with different inputs:
+
+| Key pattern | Example |
+|-------------|---------|
+| `<callerActionId>.<inputName>` | `fetch-cv.url` |
+| `<componentName>.<inputName>` | `scraper.url` |
+
+Inside component resources, reference inputs with either key or via `inputs.<inputName>` expressions.
+
+### Accessing Component Output
+
+After `run.component:` executes, results are stored under the caller resource's `actionId` and retrieved with `output('<callerActionId>')`:
+
+<div v-pre>
+
+```yaml
+metadata:
+  actionId: fetch-article
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://example.com/article"
+      selector: ".content"
+
+---
+
+metadata:
+  actionId: summarize
+  requires: [fetch-article]
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: "Summarize: {{ output('fetch-article').content }}"
+```
+
+</div>
+
+### Calling the Same Component Twice
+
+Because inputs are scoped to the caller's `actionId`, you can use the same component twice with different configurations:
+
+<div v-pre>
+
+```yaml
+# First call — fetch the job description
+metadata:
+  actionId: fetch-jd
+run:
+  component:
+    name: scraper
+    with:
+      url: "{{ get('jd_url') }}"
+
+# Second call — fetch the company page
+metadata:
+  actionId: fetch-company
+run:
+  component:
+    name: scraper
+    with:
+      url: "{{ get('company_url') }}"
+      timeout: 60
+```
+
+</div>
+
+`output('fetch-jd')` and `output('fetch-company')` are independent result maps.
+
+### Complete Example: Scraper Component
+
+Install, call, and consume results from the `scraper` component in one workflow:
+
+```bash
+kdeps component install scraper
+```
+
+<div v-pre>
+
+```yaml
+# resources/scrape-page.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: scrape-page
+  name: Scrape Article
+
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://news.example.com/article"
+      selector: ".article-body"
+      timeout: 30
+
+---
+
+# resources/summarize.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: summarize
+  name: Summarize Article
+  requires:
+    - scrape-page
+
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
+
+---
+
+# resources/respond.yaml
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: respond
+  name: Return Summary
+  requires:
+    - summarize
+
+run:
+  apiResponse:
+    success: true
+    response:
+      summary: "{{ output('summarize') }}"
+```
+
+</div>
+
+
 
 Use `kdeps package` to create a portable `.komponent` archive:
 
@@ -189,29 +375,28 @@ resources:
         command: "echo '{{ inputs.message }}, {{ inputs.recipient }}!'"
 ```
 
-**`my-workflow/workflow.yaml`**
+**`my-workflow/resources/main.yaml`**
+
+Call the `greeter` component from a workflow resource using `run.component:`:
+
 ```yaml
 apiVersion: kdeps.io/v1
-kind: Workflow
+kind: Resource
+
 metadata:
-  name: my-workflow
-  version: "1.0.0"
-  targetActionId: main
-settings:
-  agentSettings:
-    timezone: "UTC"
-    offlineMode: true
-resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: main
-    run:
-      exec:
-        command: "kdeps run greet --message 'Hello'"
+  actionId: main
+
+run:
+  component:
+    name: greeter
+    with:
+      message: "Hello"
+      recipient: "KDeps"
 ```
 
-Running `kdeps run my-workflow/` will automatically load the `greeter` component and make its `greet` action available.
+After execution, access the result with `output('main')`.
+
+Running `kdeps run my-workflow/` will automatically load the `greeter` component from `components/greeter/` and make its `greet` action available.
 
 ## Best Practices
 

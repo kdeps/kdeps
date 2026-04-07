@@ -349,6 +349,105 @@ kdeps scaffold sql --force
 
 ---
 
+### `kdeps component`
+
+Manage installable components from the component registry.
+
+**Usage:**
+```bash
+kdeps component <subcommand> [flags]
+```
+
+---
+
+#### `kdeps component install <name>`
+
+Install a component from the registry into the current workflow's `components/` directory.
+
+**Usage:**
+```bash
+kdeps component install <name>
+```
+
+**Arguments:**
+- `name` — Name of the component to install (e.g. `scraper`, `tts`, `pdf`)
+
+**Available components:**
+
+| Name | Description |
+|------|-------------|
+| `scraper` | Content extraction from web pages, PDFs, documents, and images |
+| `search` | Web and local filesystem search |
+| `embedding` | Vector embeddings and semantic search (RAG) |
+| `botreply` | Chat bot replies (Discord, Slack, Telegram, WhatsApp) |
+| `remoteagent` | Federated remote agent invocation (UAF) |
+| `tts` | Text-to-Speech synthesis |
+| `email` | Email send/read/search via SMTP and IMAP |
+| `calendar` | ICS calendar event read/write |
+| `pdf` | PDF generation from HTML or Markdown |
+| `memory` | Persistent semantic agent memory |
+| `browser` | Browser automation via Playwright |
+| `autopilot` | Goal-directed workflow synthesis |
+
+**Examples:**
+```bash
+# Install the scraper component
+kdeps component install scraper
+
+# Install multiple components
+kdeps component install pdf email tts
+```
+
+Once installed, the component is available in `components/<name>/` and auto-discovered at run time. Call it from any resource with `run.component:`:
+
+```yaml
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://example.com"
+```
+
+---
+
+#### `kdeps component list`
+
+List all components currently installed in the workflow.
+
+**Usage:**
+```bash
+kdeps component list
+```
+
+**Output:**
+```
+Installed components:
+  scraper    v1.2.0   Content extraction
+  tts        v1.0.1   Text-to-Speech synthesis
+  pdf        v1.1.0   PDF generation
+```
+
+---
+
+#### `kdeps component remove <name>`
+
+Remove an installed component from the workflow.
+
+**Usage:**
+```bash
+kdeps component remove <name>
+```
+
+**Arguments:**
+- `name` — Name of the component to remove
+
+**Examples:**
+```bash
+kdeps component remove scraper
+```
+
+---
+
 ### `kdeps package`
 
 Package workflow or component into an archive for distribution.

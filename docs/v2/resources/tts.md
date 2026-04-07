@@ -1,28 +1,42 @@
 # TTS (Text-to-Speech) Resource
 
-The TTS resource synthesizes speech from text, producing an audio file that can be accessed by downstream resources via the `ttsOutput` expression function. It supports both cloud (online) and local (offline) synthesis engines and can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install tts`
+>
+> Usage: `run: { component: { name: tts, with: { text: "...", voice: "alloy", apiKey: "..." } } }`
 
-## Basic Usage
+The TTS component synthesizes speech from text, producing an audio file accessible by downstream resources.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `text` | string | yes | — | Text to synthesize |
+| `voice` | string | no | `alloy` | Voice identifier (provider-specific) |
+| `apiKey` | string | no | — | API key for cloud TTS providers |
+
+## Using the TTS Component
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: speakResponse
-  name: Speak Response
-
 run:
-  tts:
-    text: "Hello, welcome to KDeps!"
-    mode: offline
-    offline:
-      engine: espeak
+  component:
+    name: tts
+    with:
+      text: "Hello, welcome to KDeps!"
+      voice: alloy
+      apiKey: "sk-..."
 ```
+
+Access the output audio file path via `output('<callerActionId>')`.
 
 ---
 
-## Configuration Options
+## Reference: Full TTS Configuration
+
+The following sections document the full configuration surface available in the underlying TTS implementation (online cloud providers and offline engines).
+
+
 
 | Option | Type | Description |
 |--------|------|-------------|

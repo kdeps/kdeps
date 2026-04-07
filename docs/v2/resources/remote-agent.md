@@ -1,34 +1,38 @@
 # Remote Agent Resource (UAF)
 
-The `remoteAgent` resource invokes a remote federated agent using the **Universal Agent Federation (UAF)** protocol. Requests are cryptographically signed with Ed25519, and responses include a signed receipt that verifies the callee's identity and output integrity.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install remoteagent`
+>
+> Usage: `run: { component: { name: remoteagent, with: { url: "...", query: "..." } } }`
 
-## Basic Usage
+The Remote Agent component invokes a remote federated agent using the **Universal Agent Federation (UAF)** protocol. Requests are cryptographically signed with Ed25519, and responses include a signed receipt verifying the callee's identity and output integrity.
 
-<div v-pre>
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | string | yes | — | Base URL of the remote agent |
+| `query` | string | yes | — | Query or payload to send to the remote agent |
+
+## Using the Remote Agent Component
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: callExternalAgent
-  description: Call a remote translation agent
-
 run:
-  remoteAgent:
-    urn: "urn:agent:api.partner.io/io.partner:translator@v2.1.0#sha256:a1b2c3d4e5f6..."
-    input:
-      text: "{{ get('q') }}"
-      targetLanguage: "es"
-    timeout: "30s"
-
-  apiResponse:
-    success: true
-    response:
-      translation: "{{ get('callExternalAgent').translated }}"
+  component:
+    name: remoteagent
+    with:
+      url: "https://remote-agent.example.com"
+      query: "Translate 'Hello, world!' to French"
 ```
 
-</div>
+Access the result via `output('<callerActionId>')`. The result includes the agent's response and a signed receipt for auditability.
+
+---
+
+## Reference: Full Remote Agent Configuration
+
+The following sections document the full configuration surface available in the underlying UAF implementation (signing, receipts, federation protocol).
 
 ## URN Format
 

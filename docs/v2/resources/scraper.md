@@ -1,29 +1,69 @@
 # Scraper Resource
 
-The Scraper resource extracts text content from 15 source types — web pages, documents,
-spreadsheets, images, and structured data files — without requiring external services for most
-formats. It can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install scraper`
+>
+> Usage: `run: { component: { name: scraper, with: { url: "...", selector: "...", timeout: 30 } } }`
 
-## Basic Usage
+The Scraper component extracts text content from 15 source types — web pages, documents,
+spreadsheets, images, and structured data files — without requiring external services for most
+formats.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | string | yes | — | URL or file path to scrape |
+| `selector` | string | no | — | CSS selector to scope extraction (URL type only) |
+| `timeout` | integer | no | `30` | Maximum fetch time in seconds |
+
+## Using the Scraper Component
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: scrapeWebPage
-  name: Scrape Web Page
-
 run:
-  scraper:
-    type: url
-    source: "https://example.com"
-    timeoutDuration: 30s
+  component:
+    name: scraper
+    with:
+      url: "https://example.com"
+      selector: ".article"
+      timeout: 15
 ```
+
+Access the result via `output('<callerActionId>')`:
+
+<div v-pre>
+
+```yaml
+metadata:
+  actionId: fetch-page
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://example.com"
 
 ---
 
-## Configuration Options
+metadata:
+  actionId: summarize
+  requires: [fetch-page]
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: "Summarize: {{ output('fetch-page').content }}"
+```
+
+</div>
+
+---
+
+## Reference: Supported Source Types
+
+The following source types are supported via the underlying scraper implementation.
+When using the component, the source type is inferred automatically from the `url` input.
+
+
 
 | Option | Type | Description |
 |--------|------|-------------|

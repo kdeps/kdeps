@@ -1,10 +1,46 @@
 # Autopilot Resource
 
-The `autopilot` resource is kdeps' goal-directed workflow synthesis engine. You describe **what you want to achieve** in plain language; the autopilot synthesizes a kdeps workflow YAML, executes it, evaluates the result against the goal, and retries with reflection if it fell short — all automatically.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install autopilot`
+>
+> Usage: `run: { component: { name: autopilot, with: { task: "...", context: "...", model: "gpt-4o" } } }`
+
+The Autopilot component is kdeps' goal-directed workflow synthesis engine. Describe **what you want to achieve** in plain language; autopilot synthesizes a kdeps workflow, executes it, evaluates the result, and retries with reflection if needed.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `task` | string | yes | — | Plain-language description of the goal |
+| `context` | string | no | — | Additional context or constraints for the task |
+| `model` | string | no | `gpt-4o` | LLM model to use for synthesis and evaluation |
+
+## Using the Autopilot Component
+
+```yaml
+run:
+  component:
+    name: autopilot
+    with:
+      task: "Research the top 5 open-source LLM frameworks and summarize their strengths"
+      context: "Focus on frameworks that support local inference"
+      model: "gpt-4o"
+```
+
+Access the result via `output('<callerActionId>')`.
 
 ::: info When to use Autopilot
 Use `autopilot` when the exact sequence of steps is not known ahead of time and needs to be determined dynamically. For well-understood, repeatable pipelines, declarative resources are faster and more predictable.
 :::
+
+---
+
+## Reference: Full Autopilot Configuration
+
+The following sections document the full configuration surface available in the underlying autopilot implementation.
+
+
 
 ## How It Works
 

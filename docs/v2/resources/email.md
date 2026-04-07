@@ -1,13 +1,50 @@
 # Email Resource
 
-The email resource supports four actions that cover the full send/receive lifecycle of
-email workflows: **send** (SMTP), **read** (IMAP), **search** (IMAP), and **modify**
-(IMAP).  Use `send` to deliver plain-text or HTML messages with optional attachments;
-use `read` and `search` to pull messages from a mailbox; use `modify` to flag, move,
-or delete messages after processing.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install email`
+>
+> Usage: `run: { component: { name: email, with: { to: "...", subject: "...", body: "...", smtpHost: "...", smtpUser: "...", smtpPass: "..." } } }`
 
-All string fields support [KDeps expressions](../concepts/expressions) such as
-<span v-pre>`{{get(...)}}` and `{{env(...)}}`</span>.
+The Email component supports sending email via SMTP, as well as reading, searching, and modifying messages via IMAP.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `to` | string | yes | — | Recipient email address |
+| `subject` | string | yes | — | Email subject line |
+| `body` | string | yes | — | Email body (plain text or HTML) |
+| `smtpHost` | string | yes | — | SMTP server hostname |
+| `smtpPort` | integer | no | `587` | SMTP server port |
+| `smtpUser` | string | yes | — | SMTP authentication username |
+| `smtpPass` | string | yes | — | SMTP authentication password |
+
+## Using the Email Component
+
+```yaml
+run:
+  component:
+    name: email
+    with:
+      to: "recipient@example.com"
+      subject: "Hello from KDeps"
+      body: "Your workflow completed successfully."
+      smtpHost: "smtp.example.com"
+      smtpPort: 587
+      smtpUser: "user@example.com"
+      smtpPass: "app-password"
+```
+
+Access the result via `output('<callerActionId>')`. The result map includes `success`, `action`, `from`, `to`, and `attachments`.
+
+---
+
+## Reference: Full Email Configuration
+
+The following sections document the full configuration surface available in the underlying email implementation (actions, IMAP, attachments, etc.).
+
+
 
 ---
 
