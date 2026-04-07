@@ -1,0 +1,40 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: file-processor
+  description: |
+    Single-shot document summarizer that reads a file from --file, stdin,
+    or KDEPS_FILE_PATH and returns a structured summary.
+
+    Usage:
+      # Pass a file path directly
+      kdeps run examples/file-processor --file /path/to/document.txt
+
+      # Pipe content via stdin
+      cat document.txt | kdeps run examples/file-processor
+
+      # Use environment variable
+      KDEPS_FILE_PATH=/tmp/doc.txt kdeps run examples/file-processor
+
+      # Pipe JSON with inline content
+      echo '{"path":"/tmp/doc.txt","content":"..."}' | kdeps run examples/file-processor
+
+    The workflow reads the file content, extracts key facts, and returns
+    a JSON response with title, summary, and key points.
+
+    Requirements:
+      - Ollama running locally with llama3.2 (or adjust model in resources)
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
+    models:
+      - llama3.2:latest
+  input:
+    sources: [file]
+    file:
+      path: ""   # override via --file or stdin

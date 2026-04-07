@@ -1,0 +1,70 @@
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: word-counter
+  description: |
+    Counts words, sentences, and unique words in a text block.
+    Demonstrates setup (python packages + OS tools) and teardown (cleanup).
+  version: "1.0.0"
+  targetActionId: count
+
+# setup runs once per component version.
+# pythonPackages are installed into the isolated uv venv.
+# osPackages are installed via apt-get / apk / brew (skipped if already present).
+# commands run after packages are ready (e.g. post-install initialization).
+setup:
+  pythonPackages:
+    - nltk
+  osPackages:
+    - wc        # standard Unix word-count utility (already present on most systems)
+  commands:
+    - "python3 -c \"import nltk; nltk.download('punkt', quiet=True)\""
+
+# teardown runs after every invocation.
+# Use it for per-run cleanup (temp files, locks, etc.).
+teardown:
+  commands:
+    - "rm -f /tmp/word-counter-*.tmp"
+
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: The text to analyze.
+    - name: label
+      type: string
+      required: false
+      description: An optional label for the result (default "untitled").
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: count
+      name: Count Words
+    run:
+      exec:
+        command: |
+          python3 - <<'PYEOF'
+          import sys, json, re
+
+          text  = """{{ input('text') }}"""
+          label = """{{ input('label') }}"""
+          if not label:
+              label = "untitled"
+
+          words     = text.split()
+          sentences = re.split(r'[.!?]+', text)
+          sentences = [s.strip() for s in sentences if s.strip()]
+          unique    = set(w.lower().strip('.,!?;:') for w in words)
+
+          print(json.dumps({
+              "label":         label,
+              "word_count":    len(words),
+              "sentence_count":len(sentences),
+              "unique_words":  len(unique),
+              "avg_word_len":  round(sum(len(w) for w in words) / max(len(words), 1), 2),
+          }))
+          PYEOF

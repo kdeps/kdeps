@@ -12,6 +12,7 @@ KDeps supports multiple input sources simultaneously: HTTP API requests, audio h
 | `telephony` | Phone call audio (local SIP device or cloud provider) |
 | `bot` | Chat bot platforms (Discord, Slack, Telegram, WhatsApp) |
 | `file` | File content from stdin, env var, or configured path (single-shot) |
+| `component` | Invokable only via `run.component` from a parent workflow (no listener started) |
 
 Workflows can combine sources:
 
@@ -696,6 +697,63 @@ settings:
       offline:
         engine: faster-whisper
         model: small
+```
+
+---
+
+### Component Source
+
+The `component` source signals that a workflow is designed to be invoked exclusively via `run.component` from a parent workflow. No HTTP server, bot listener, file reader, or media pipeline is started when this source is declared - the workflow is driven entirely by component invocations.
+
+```yaml
+settings:
+  input:
+    sources: [component]
+    component:
+      description: "Accepts a text query and returns a processed result"
+```
+
+The optional `description` field documents what the workflow expects and what it returns. It is surfaced by `kdeps component info` and `kdeps component list`.
+
+#### When to Use
+
+Use `component` source when you want to build a reusable workflow sub-module:
+- A shared preprocessing step called by multiple parent workflows
+- A validated transformation (e.g., JSON sanitizer, formatter) with documented inputs
+- A multi-step LLM pipeline that other workflows can call like a function
+
+#### Inputs
+
+Inputs come from the calling resource's `with:` block, exactly as they do for any component:
+
+**Parent workflow resource:**
+```yaml
+run:
+  component:
+    name: summarizer
+    with:
+      text: "{{ get('fetchDocs.body') }}"
+      maxWords: 200
+```
+
+**`summarizer` workflow (sources: [component]):**
+```yaml
+run:
+  chat:
+    model: llama3.2:3b
+    prompt: |
+      Summarize the following in at most {{ input('maxWords') }} words:
+      {{ input('text') }}
+```
+
+#### Combining with API
+
+A workflow can declare both `component` and `api` sources if it should respond to both HTTP requests and component invocations:
+
+```yaml
+settings:
+  input:
+    sources: [component, api]
 ```
 
 ---

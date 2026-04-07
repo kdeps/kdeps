@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: component-setup-teardown
+  description: |
+    Demonstrates component auto-setup and teardown lifecycle hooks.
+
+    A local custom component (word-counter) declares:
+      - setup.pythonPackages   - installed once via uv pip before first run
+      - setup.osPackages       - installed once via apt-get / apk / brew
+      - setup.commands         - run once after packages are ready
+      - teardown.commands      - run after each invocation (cleanup)
+
+    The workflow calls the component twice with different texts to show
+    that setup only runs once (cached per component version).
+
+    Run:
+      kdeps run examples/component-setup-teardown
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"

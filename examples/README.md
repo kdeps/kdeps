@@ -162,6 +162,65 @@ Session management with persistent storage.
 cd session-auth && kdeps run workflow.yaml --dev
 ```
 
+### 🔌 [Component Input Source](./component-input-source/)
+A sub-workflow designed to be called exclusively via `run.component`. Declares `sources: [component]` so no HTTP server or listener is started.
+- `sources: [component]` - no listener started, driven by parent
+- Reusable text-transformation sub-module
+- Access via `run.component` from any parent workflow
+- Demonstrates `component.description` field
+
+**Invoke from a parent:**
+```bash
+# This workflow has no standalone entry-point.
+# Call it from a parent workflow resource:
+#   run:
+#     component:
+#       name: component-input-source
+#       with:
+#         text: "hello world"
+#         style: title
+kdeps validate examples/component-input-source
+```
+
+### 🔁 [Component Setup/Teardown](./component-setup-teardown/)
+Demonstrates automatic dependency installation and per-run cleanup via `setup` and `teardown` lifecycle hooks in a custom local component.
+- `setup.pythonPackages` — installed once via `uv pip`
+- `setup.osPackages` — installed once via `apt-get` / `apk` / `brew`
+- `setup.commands` — run once after packages are ready
+- `teardown.commands` — run after every invocation
+
+**Run:**
+```bash
+cd component-setup-teardown && kdeps run workflow.yaml
+```
+
+### 📄 [File Processor](./file-processor/)
+Single-shot document summarizer using the `file` input source. Reads content from `--file`, stdin, or `KDEPS_FILE_PATH` and returns a structured AI analysis.
+- `sources: [file]` — runs once and exits
+- Input via `--file`, stdin pipe, or `KDEPS_FILE_PATH`
+- `input('fileContent')` / `input('filePath')` in resources
+- Structured JSON output with title, summary, key points
+
+**Run:**
+```bash
+cd file-processor
+echo "The Eiffel Tower was built in 1889 for the World's Fair." | kdeps run workflow.yaml
+# or
+kdeps run workflow.yaml --file /path/to/document.txt
+```
+
+### 🎛️ [Input Component](./input-component/)
+Shows the built-in `input` component — pre-installed, no `kdeps component install` needed. Collects named input slots and returns structured JSON.
+- Uses the built-in `input` component with `query`, `text`, and `key` slots
+- 14 named slots: `query`, `prompt`, `text`, `data`, `key`, `value`, `a`–`h`
+- Passes collected inputs to an LLM for Q&A
+- Access component output with `output('actionId')`
+
+**Run:**
+```bash
+cd input-component && kdeps run workflow.yaml
+```
+
 ## Quick Start
 
 1. Choose an example directory

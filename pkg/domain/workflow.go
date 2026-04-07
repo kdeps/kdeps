@@ -45,6 +45,13 @@ const (
 	// the KDEPS_FILE_PATH environment variable, or the configured file.path, then
 	// executes the workflow once and exits.
 	InputSourceFile = "file"
+	// InputSourceComponent is the input source for component-mode workflows.
+	// A workflow that declares sources: [component] is designed to be invoked
+	// exclusively via run.component from a parent workflow.  No HTTP server, bot
+	// listener, file reader, or media capture loop is started; the workflow is
+	// driven entirely by component invocations and receives its inputs through the
+	// caller's with: block (accessible via input('key') or get('callerActionId.key')).
+	InputSourceComponent = "component"
 
 	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
 	BotExecutionTypePolling = "polling"
@@ -204,10 +211,17 @@ type WebAppConfig struct {
 	Scripts     string `yaml:"scripts,omitempty"     json:"scripts,omitempty"`
 }
 
+// ComponentInputConfig holds optional metadata for a workflow that declares
+// input.sources: [component].  The description field is surfaced by
+// `kdeps component info` and in auto-generated README.md files.
+type ComponentInputConfig struct {
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+}
+
 // InputConfig specifies the input sources for the workflow.
 //
 // The `sources` field in the workflow YAML is a list of one or more input sources:
-// "api" (default), "audio", "video", "telephony", "bot", "file".
+// "api" (default), "audio", "video", "telephony", "bot", "file", "component".
 //
 // Multiple sources can be active simultaneously (for example, audio + video for a
 // video call). Example:
@@ -218,46 +232,56 @@ type WebAppConfig struct {
 //	    # audio configuration...
 //	  video:
 //	    # video configuration...
+//
+// Use "component" to mark a workflow as component-only — no external listener is
+// started; the workflow is driven entirely by run.component invocations from a
+// parent workflow.
 type InputConfig struct {
-	Sources       []string           `yaml:"sources"                 json:"sources"`
-	ExecutionType string             `yaml:"executionType,omitempty" json:"executionType,omitempty"`
-	Audio         *AudioConfig       `yaml:"audio,omitempty"         json:"audio,omitempty"`
-	Video         *VideoConfig       `yaml:"video,omitempty"         json:"video,omitempty"`
-	Telephony     *TelephonyConfig   `yaml:"telephony,omitempty"     json:"telephony,omitempty"`
-	Bot           *BotConfig         `yaml:"bot,omitempty"           json:"bot,omitempty"`
-	File          *FileConfig        `yaml:"file,omitempty"          json:"file,omitempty"`
-	Transcriber   *TranscriberConfig `yaml:"transcriber,omitempty"   json:"transcriber,omitempty"`
-	Activation    *ActivationConfig  `yaml:"activation,omitempty"    json:"activation,omitempty"`
+	Sources       []string              `yaml:"sources"                 json:"sources"`
+	ExecutionType string                `yaml:"executionType,omitempty" json:"executionType,omitempty"`
+	Audio         *AudioConfig          `yaml:"audio,omitempty"         json:"audio,omitempty"`
+	Video         *VideoConfig          `yaml:"video,omitempty"         json:"video,omitempty"`
+	Telephony     *TelephonyConfig      `yaml:"telephony,omitempty"     json:"telephony,omitempty"`
+	Bot           *BotConfig            `yaml:"bot,omitempty"           json:"bot,omitempty"`
+	File          *FileConfig           `yaml:"file,omitempty"          json:"file,omitempty"`
+	Component     *ComponentInputConfig `yaml:"component,omitempty"     json:"component,omitempty"`
+	Transcriber   *TranscriberConfig    `yaml:"transcriber,omitempty"   json:"transcriber,omitempty"`
+	Activation    *ActivationConfig     `yaml:"activation,omitempty"    json:"activation,omitempty"`
 }
 
-// PrimarySource returns the first non-API source, or InputSourceAPI if none.
-// Used by the input processor to select the source for the activation listen loop.
+// PrimarySource returns the first non-API, non-component source, or
+// InputSourceAPI if none. Used by the input processor to select the source for
+// the activation listen loop. "component" is excluded because it has no capture
+// pipeline — the workflow is driven by run.component invocations.
 func (c *InputConfig) PrimarySource() string {
 	kdeps_debug.Log("enter: PrimarySource")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI {
+		if s != InputSourceAPI && s != InputSourceComponent {
 			return s
 		}
 	}
 	return InputSourceAPI
 }
 
-// HasNonAPISource reports whether any source in the list is not "api".
+// HasNonAPISource reports whether any source in the list is not "api" or "component".
+// "component" workflows have no external listener, so they are treated like "api"
+// for the purposes of deciding whether a media/bot/file pipeline is needed.
 func (c *InputConfig) HasNonAPISource() bool {
 	kdeps_debug.Log("enter: HasNonAPISource")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI {
+		if s != InputSourceAPI && s != InputSourceComponent {
 			return true
 		}
 	}
 	return false
 }
 
-// AllSourcesAPI reports whether all sources are "api" (or the list is empty).
+// AllSourcesAPI reports whether all sources are "api" or "component" (or the list is empty).
+// Both sources share the same no-external-listener behaviour.
 func (c *InputConfig) AllSourcesAPI() bool {
 	kdeps_debug.Log("enter: AllSourcesAPI")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI {
+		if s != InputSourceAPI && s != InputSourceComponent {
 			return false
 		}
 	}
@@ -279,6 +303,14 @@ func (c *InputConfig) HasSource(source string) bool {
 func (c *InputConfig) HasBotSource() bool {
 	kdeps_debug.Log("enter: HasBotSource")
 	return c.HasSource(InputSourceBot)
+}
+
+// HasComponentSource reports whether "component" is in the Sources list.
+// A workflow with this source is intended to be invoked exclusively via
+// run.component from a parent workflow; no external listener is started.
+func (c *InputConfig) HasComponentSource() bool {
+	kdeps_debug.Log("enter: HasComponentSource")
+	return c.HasSource(InputSourceComponent)
 }
 
 // HasMediaSource reports whether any source is audio, video, or telephony.
