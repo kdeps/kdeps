@@ -611,6 +611,24 @@
               "description": "Conditions for when to apply this error handler (has access to 'error' object)"
             }
           }
+        },
+        "component": {
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the component to call"
+            },
+            "with": {
+              "type": "object",
+              "description": "Input values scoped to the calling resource actionId",
+              "additionalProperties": true
+            }
+          }
         }
       }
     }

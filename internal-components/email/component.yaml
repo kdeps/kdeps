@@ -4,6 +4,37 @@ metadata:
   name: email
   description: Send email via Python smtplib
   version: "1.0.0"
+interface:
+  inputs:
+    - name: to
+      type: string
+      required: true
+      description: Recipient email address
+    - name: subject
+      type: string
+      required: true
+      description: Email subject line
+    - name: body
+      type: string
+      required: true
+      description: Email body (plain text)
+    - name: smtpHost
+      type: string
+      required: true
+      description: SMTP server hostname
+    - name: smtpPort
+      type: integer
+      required: false
+      default: 587
+      description: SMTP server port
+    - name: smtpUser
+      type: string
+      required: true
+      description: SMTP username / sender address
+    - name: smtpPass
+      type: string
+      required: true
+      description: SMTP password
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -15,13 +46,13 @@ resources:
           import smtplib
           from email.mime.text import MIMEText
           from email.mime.multipart import MIMEMultipart
-          host = get("smtpHost")
-          port = int(get("smtpPort", "587"))
-          user = get("smtpUser")
-          password = get("smtpPass")
-          to = get("emailTo")
-          subject = get("emailSubject")
-          body = get("emailBody")
+          host = get("email.smtpHost")
+          port = int(get("email.smtpPort", "587"))
+          user = get("email.smtpUser")
+          password = get("email.smtpPass")
+          to = get("email.to")
+          subject = get("email.subject")
+          body = get("email.body")
           msg = MIMEMultipart()
           msg["From"] = user
           msg["To"] = to
@@ -31,4 +62,4 @@ resources:
               server.starttls()
               server.login(user, password)
               server.sendmail(user, to, msg.as_string())
-          set("emailSent", "true")
+          set("email.sent", "true")

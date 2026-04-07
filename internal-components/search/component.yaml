@@ -4,6 +4,21 @@ metadata:
   name: search
   description: Web search via Tavily API
   version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Search query string
+    - name: apiKey
+      type: string
+      required: true
+      description: Tavily API key
+    - name: maxResults
+      type: integer
+      required: false
+      default: 5
+      description: Maximum number of results to return
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -15,4 +30,4 @@ resources:
         method: POST
         headers:
           Content-Type: application/json
-        data: '{"api_key":"{{ get(\"tavilyApiKey\") }}","query":"{{ get(\"searchQuery\") }}","max_results":{{ get("searchMaxResults", "5") }}}'
+        data: '{"api_key":"{{ get("search.apiKey") }}","query":"{{ get("search.query") }}","max_results":{{ get("search.maxResults", "5") }}}'

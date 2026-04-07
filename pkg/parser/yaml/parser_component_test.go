@@ -445,7 +445,7 @@ func TestIsKomponentFile(t *testing.T) {
 
 func TestScanComponentsDir_NonExistent(t *testing.T) {
 	p := newMockComponentParser()
-	resources, err := p.ScanComponentsDir("/nonexistent/path/to/nowhere", map[string]struct{}{})
+	resources, _, err := p.ScanComponentsDir("/nonexistent/path/to/nowhere", map[string]struct{}{})
 	require.NoError(t, err)
 	assert.Nil(t, resources)
 }
@@ -456,7 +456,7 @@ func TestScanComponentsDir_PathIsFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(f, []byte("x"), 0o600))
 
 	p := newMockComponentParser()
-	resources, err := p.ScanComponentsDir(f, map[string]struct{}{})
+	resources, _, err := p.ScanComponentsDir(f, map[string]struct{}{})
 	require.NoError(t, err)
 	assert.Nil(t, resources)
 }
@@ -464,7 +464,7 @@ func TestScanComponentsDir_PathIsFile(t *testing.T) {
 func TestScanComponentsDir_EmptyDir(t *testing.T) {
 	tmp := t.TempDir()
 	p := newMockComponentParser()
-	resources, err := p.ScanComponentsDir(tmp, map[string]struct{}{})
+	resources, _, err := p.ScanComponentsDir(tmp, map[string]struct{}{})
 	require.NoError(t, err)
 	assert.Empty(t, resources)
 }
@@ -492,7 +492,7 @@ resources:
 	require.NoError(t, err)
 	p := yaml.NewParser(sv, &mockExprParser{})
 
-	resources, scanErr := p.ScanComponentsDir(tmp, map[string]struct{}{})
+	resources, _, scanErr := p.ScanComponentsDir(tmp, map[string]struct{}{})
 	require.NoError(t, scanErr)
 	assert.NotEmpty(t, resources)
 	actionIDs := make([]string, 0)
@@ -527,7 +527,7 @@ resources:
 
 	// Pre-populate existing so the resource is skipped
 	existing := map[string]struct{}{"send-email": {}}
-	resources, scanErr := p.ScanComponentsDir(tmp, existing)
+	resources, _, scanErr := p.ScanComponentsDir(tmp, existing)
 	require.NoError(t, scanErr)
 	assert.Empty(t, resources)
 	p.Cleanup()
@@ -944,7 +944,7 @@ func TestScanComponentsDir_ReadDirError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(tmp, 0o755) })
 
 	p := newMockComponentParser()
-	_, err := p.ScanComponentsDir(tmp, map[string]struct{}{})
+	_, _, err := p.ScanComponentsDir(tmp, map[string]struct{}{})
 	require.Error(t, err)
 }
 
@@ -993,7 +993,7 @@ func TestScanComponentsDir_StatError(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
 
 	p := newMockComponentParser()
-	_, err := p.ScanComponentsDir(child, map[string]struct{}{})
+	_, _, err := p.ScanComponentsDir(child, map[string]struct{}{})
 	require.Error(t, err)
 }
 
@@ -1029,4 +1029,92 @@ settings:
 	p := yaml.NewParser(sv, &mockExprParser{})
 	_, parseErr := p.ParseWorkflow(wfPath)
 	require.Error(t, parseErr)
+}
+
+// ---------------------------------------------------------------------------
+// interface.inputs and workflow.Components map
+// ---------------------------------------------------------------------------
+
+const componentWithInterface = `apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: scraper
+  description: Test scraper
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: url
+      type: string
+      required: true
+      description: URL to scrape
+    - name: selector
+      type: string
+      required: false
+      description: CSS selector
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: scrape-url
+    run:
+      exec:
+        command: echo ok
+`
+
+func TestLoadComponents_PopulatesWorkflowComponentsMap(t *testing.T) {
+	projectDir := t.TempDir()
+	compDir := filepath.Join(projectDir, "components", "scraper")
+	require.NoError(t, os.MkdirAll(compDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(compDir, "component.yaml"),
+		[]byte(componentWithInterface),
+		0o600,
+	))
+
+	wfContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test
+  targetActionId: action1
+settings:
+  apiServerMode: false
+`
+	wfPath := filepath.Join(projectDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(wfContent), 0o600))
+
+	sv, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	p := yaml.NewParser(sv, &mockExprParser{})
+	wf, parseErr := p.ParseWorkflow(wfPath)
+	require.NoError(t, parseErr)
+
+	require.NotNil(t, wf.Components)
+	comp, ok := wf.Components["scraper"]
+	require.True(t, ok, "expected 'scraper' in workflow.Components")
+	assert.Equal(t, "scraper", comp.Metadata.Name)
+	require.NotNil(t, comp.Interface)
+	assert.Len(t, comp.Interface.Inputs, 2)
+	assert.Equal(t, "url", comp.Interface.Inputs[0].Name)
+	assert.True(t, comp.Interface.Inputs[0].Required)
+	assert.Equal(t, "selector", comp.Interface.Inputs[1].Name)
+	assert.False(t, comp.Interface.Inputs[1].Required)
+}
+
+func TestScanComponentsDir_ReturnsComponentMap(t *testing.T) {
+	tmp := t.TempDir()
+	compDir := filepath.Join(tmp, "mycomp")
+	require.NoError(t, os.Mkdir(compDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(compDir, "component.yaml"),
+		[]byte(componentWithInterface),
+		0o600,
+	))
+
+	p := newMockComponentParser()
+	_, comps, err := p.ScanComponentsDir(tmp, map[string]struct{}{})
+	require.NoError(t, err)
+	require.NotNil(t, comps)
+	comp, ok := comps["scraper"]
+	require.True(t, ok)
+	assert.Equal(t, "1.0.0", comp.Metadata.Version)
 }

@@ -35,7 +35,10 @@ var TrimJ2Suffix = trimJ2Suffix //nolint:gochecknoglobals // test-only export
 var IsKomponentFileInternal = isKomponentFile //nolint:gochecknoglobals // test-only export
 
 // ScanComponentsDir exposes the unexported scanComponentsDir method for unit testing.
-func (p *Parser) ScanComponentsDir(dir string, existing map[string]struct{}) ([]*domain.Resource, error) {
+func (p *Parser) ScanComponentsDir(
+	dir string,
+	existing map[string]struct{},
+) ([]*domain.Resource, map[string]*domain.Component, error) {
 	return p.scanComponentsDir(dir, existing)
 }
 

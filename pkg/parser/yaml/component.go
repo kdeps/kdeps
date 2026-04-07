@@ -119,24 +119,34 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 		existing[r.Metadata.ActionID] = struct{}{}
 	}
 
+	if workflow.Components == nil {
+		workflow.Components = make(map[string]*domain.Component)
+	}
+
 	var allComponentResources []*domain.Resource
 
 	// Scan global components dir first (lowest priority).
 	if globalDir := globalComponentsDir(); globalDir != "" {
-		global, globalErr := p.scanComponentsDir(globalDir, existing)
+		global, globalComponents, globalErr := p.scanComponentsDir(globalDir, existing)
 		if globalErr != nil {
 			return globalErr
 		}
 		allComponentResources = append(allComponentResources, global...)
+		for name, comp := range globalComponents {
+			workflow.Components[name] = comp
+		}
 	}
 
 	// Scan local components dir (higher priority - local wins).
 	localDir := filepath.Join(workflowDir, "components")
-	local, localErr := p.scanComponentsDir(localDir, existing)
+	local, localComponents, localErr := p.scanComponentsDir(localDir, existing)
 	if localErr != nil {
 		return localErr
 	}
 	allComponentResources = append(allComponentResources, local...)
+	for name, comp := range localComponents {
+		workflow.Components[name] = comp
+	}
 
 	if len(allComponentResources) > 0 {
 		workflow.Resources = append(allComponentResources, workflow.Resources...)
@@ -163,22 +173,23 @@ func globalComponentsDir() string {
 // scanComponentsDir scans a single components directory and returns resources
 // from all components found (directories and .komponent archives).
 // It updates existing with any new actionIds it encounters.
+// It also returns a map of component name -> Component for run.component: calls.
 func (p *Parser) scanComponentsDir(
 	dir string,
 	existing map[string]struct{},
-) ([]*domain.Resource, error) {
+) ([]*domain.Resource, map[string]*domain.Component, error) {
 	kdeps_debug.Log("enter: scanComponentsDir")
 	info, statErr := os.Stat(dir)
 	if os.IsNotExist(statErr) || (statErr == nil && !info.IsDir()) {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if statErr != nil {
-		return nil, statErr
+		return nil, nil, statErr
 	}
 
 	entries, readErr := os.ReadDir(dir)
 	if readErr != nil {
-		return nil, domain.NewError(
+		return nil, nil, domain.NewError(
 			domain.ErrCodeParseError,
 			"failed to read components directory",
 			readErr,
@@ -186,27 +197,33 @@ func (p *Parser) scanComponentsDir(
 	}
 
 	var resources []*domain.Resource
+	components := make(map[string]*domain.Component)
 
 	for _, entry := range entries {
 		entryName := entry.Name()
 
 		var entryResources []*domain.Resource
+		var entryComponent *domain.Component
 		var compErr error
 
 		if entry.IsDir() {
 			compDir := filepath.Join(dir, entryName)
-			entryResources, compErr = p.processComponentEntry(compDir, existing)
+			entryResources, entryComponent, compErr = p.processComponentEntry(compDir, existing)
 		} else if isKomponentFile(entryName) {
-			entryResources, compErr = p.processKomponentComponent(filepath.Join(dir, entryName), existing)
+			pkgPath := filepath.Join(dir, entryName)
+			entryResources, entryComponent, compErr = p.processKomponentComponent(pkgPath, existing)
 		}
 
 		if compErr != nil {
-			return nil, fmt.Errorf("failed to process component %s: %w", entryName, compErr)
+			return nil, nil, fmt.Errorf("failed to process component %s: %w", entryName, compErr)
 		}
 		resources = append(resources, entryResources...)
+		if entryComponent != nil && entryComponent.Metadata.Name != "" {
+			components[entryComponent.Metadata.Name] = entryComponent
+		}
 	}
 
-	return resources, nil
+	return resources, components, nil
 }
 
 // processComponentEntry processes a single component directory, returning its resources
@@ -215,22 +232,22 @@ func (p *Parser) scanComponentsDir(
 func (p *Parser) processComponentEntry(
 	compDir string,
 	existing map[string]struct{},
-) ([]*domain.Resource, error) {
+) ([]*domain.Resource, *domain.Component, error) {
 	kdeps_debug.Log("enter: processComponentEntry")
 	compFile := FindComponentFile(compDir)
 	if compFile == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	component, parseErr := p.ParseComponent(compFile)
 	if parseErr != nil {
-		return nil, fmt.Errorf("failed to parse component: %w", parseErr)
+		return nil, nil, fmt.Errorf("failed to parse component: %w", parseErr)
 	}
 
 	// Load resources from the component's resources/ sub-directory.
 	componentResources, loadErr := p.loadComponentResources(component, compFile)
 	if loadErr != nil {
-		return nil, loadErr
+		return nil, nil, loadErr
 	}
 
 	var resources []*domain.Resource
@@ -240,7 +257,7 @@ func (p *Parser) processComponentEntry(
 			existing[r.Metadata.ActionID] = struct{}{}
 		}
 	}
-	return resources, nil
+	return resources, component, nil
 }
 
 // processKomponentComponent extracts a .komponent archive and processes the
@@ -249,11 +266,11 @@ func (p *Parser) processComponentEntry(
 func (p *Parser) processKomponentComponent(
 	pkgPath string,
 	existing map[string]struct{},
-) ([]*domain.Resource, error) {
+) ([]*domain.Resource, *domain.Component, error) {
 	kdeps_debug.Log("enter: processKomponentComponent")
 	tempDir, _, err := extractKdepsPackage(pkgPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract component package: %w", err)
+		return nil, nil, fmt.Errorf("failed to extract component package: %w", err)
 	}
 	// Track temp dir for later cleanup
 	p.tempDirs = append(p.tempDirs, tempDir)

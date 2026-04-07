@@ -4,6 +4,21 @@ metadata:
   name: tts
   description: Text-to-speech synthesis (offline via espeak, online via OpenAI)
   version: "1.0.0"
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: Text to convert to speech
+    - name: voice
+      type: string
+      required: false
+      default: alloy
+      description: Voice to use for OpenAI TTS (alloy, echo, fable, onyx, nova, shimmer)
+    - name: apiKey
+      type: string
+      required: false
+      description: OpenAI API key (required for speak-online resource)
 resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -11,7 +26,7 @@ resources:
       actionId: speak-offline
     run:
       exec:
-        command: "espeak '{{ get(\"ttsText\") }}'"
+        command: "espeak '{{ get("tts.text") }}'"
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
@@ -21,6 +36,6 @@ resources:
         url: "https://api.openai.com/v1/audio/speech"
         method: POST
         headers:
-          Authorization: "Bearer {{ get(\"openaiApiKey\") }}"
+          Authorization: "Bearer {{ get("tts.apiKey") }}"
           Content-Type: application/json
-        data: '{"model":"tts-1","input":"{{ get(\"ttsText\") }}","voice":"{{ get(\"ttsVoice\", \"alloy\") }}"}'
+        data: '{"model":"tts-1","input":"{{ get("tts.text") }}","voice":"{{ get("tts.voice", "alloy") }}"}'

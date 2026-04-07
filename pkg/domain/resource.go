@@ -225,13 +225,14 @@ type RunConfig struct {
 	After  []InlineResource `yaml:"after,omitempty"`
 
 	// Action blocks (only one primary type should be set, apiResponse can be combined).
-	Chat        *ChatConfig        `yaml:"chat,omitempty"`
-	HTTPClient  *HTTPClientConfig  `yaml:"httpClient,omitempty"`
-	SQL         *SQLConfig         `yaml:"sql,omitempty"`
-	Python      *PythonConfig      `yaml:"python,omitempty"`
-	Exec        *ExecConfig        `yaml:"exec,omitempty"`
-	Agent       *AgentCallConfig   `yaml:"agent,omitempty"`
-	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
+	Chat        *ChatConfig          `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig           `yaml:"sql,omitempty"`
+	Python      *PythonConfig        `yaml:"python,omitempty"`
+	Exec        *ExecConfig          `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
+	APIResponse *APIResponseConfig   `yaml:"apiResponse,omitempty"`
+	Component   *ComponentCallConfig `yaml:"component,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -240,12 +241,32 @@ type RunConfig struct {
 // InlineResource represents an inline resource that can be executed before or after the main resource.
 // Only one of the resource types should be set.
 type InlineResource struct {
-	Chat       *ChatConfig       `yaml:"chat,omitempty"`
-	HTTPClient *HTTPClientConfig `yaml:"httpClient,omitempty"`
-	SQL        *SQLConfig        `yaml:"sql,omitempty"`
-	Python     *PythonConfig     `yaml:"python,omitempty"`
-	Exec       *ExecConfig       `yaml:"exec,omitempty"`
-	Agent      *AgentCallConfig  `yaml:"agent,omitempty"`
+	Chat       *ChatConfig          `yaml:"chat,omitempty"`
+	HTTPClient *HTTPClientConfig    `yaml:"httpClient,omitempty"`
+	SQL        *SQLConfig           `yaml:"sql,omitempty"`
+	Python     *PythonConfig        `yaml:"python,omitempty"`
+	Exec       *ExecConfig          `yaml:"exec,omitempty"`
+	Agent      *AgentCallConfig     `yaml:"agent,omitempty"`
+	Component  *ComponentCallConfig `yaml:"component,omitempty"`
+}
+
+// ComponentCallConfig configures a call to a named component.
+// The With map supplies typed inputs to the component, scoped to the calling resource's actionId.
+// Each key in With is injected as set("<callerActionId>.<key>", value) before executing
+// the component's resources, so the same component can be called multiple times with different
+// configurations in a single workflow.
+//
+// Example:
+//
+//	run:
+//	  component:
+//	    name: scraper
+//	    with:
+//	      url: "https://example.com"
+//	      selector: ".article"
+type ComponentCallConfig struct {
+	Name string                 `yaml:"name"`
+	With map[string]interface{} `yaml:"with,omitempty"`
 }
 
 // ErrorConfig represents error configuration.
