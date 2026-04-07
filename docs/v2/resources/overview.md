@@ -46,25 +46,23 @@ run:
     - set('also_post', 'value')
 
   # Action (only one per resource)
-  chat: { ... }        # LLM chat
-  httpClient: { ... }  # HTTP request
-  sql: { ... }         # Database query
-  python: { ... }      # Python script
-  exec: { ... }        # Shell command
-  scraper: { ... }     # Content scraping
-  tts: { ... }         # Text-to-Speech
-  pdf: { ... }         # PDF generation
-  calendar: { ... }    # ICS calendar file
-  search: { ... }      # Web or local filesystem search
-  botReply: { ... }    # Bot reply
-  embedding: { ... }   # Vector DB (index / search / delete)
-  browser: { ... }     # Browser automation (Playwright)
-  agent: { ... }       # Call another agent (agency)
-  autopilot: { ... }   # Goal-directed workflow synthesis
-  apiResponse: { ... } # API response
+  chat: { ... }        # LLM chat (core)
+  httpClient: { ... }  # HTTP request (core)
+  sql: { ... }         # Database query (core)
+  python: { ... }      # Python script (core)
+  exec: { ... }        # Shell command (core)
+  agent: { ... }       # Call another agent — agency mode (core)
+  apiResponse: { ... } # API response (core)
+  component:           # Installable component (e.g. scraper, tts, pdf…)
+    name: scraper
+    with:
+      url: "https://example.com"
+      selector: ".article"
 ```
 
 ## Resource Types
+
+### Core executors (built into the binary)
 
 | Type | Description | Use Case |
 |------|-------------|----------|
@@ -73,18 +71,27 @@ run:
 | `sql` | Database queries | Data retrieval, updates |
 | `python` | Python scripts | Data processing, ML |
 | `exec` | Shell commands | System operations |
-| `scraper` | Content extraction | Web pages, PDFs, documents, images |
-| `tts` | Text-to-Speech synthesis | Voice output, audio responses |
-| `pdf` | PDF generation | Reports, letters, tailored documents |
-| `calendar` | ICS calendar read/write | Schedule management, event creation |
-| `search` | Web or local filesystem search | Content discovery, research pipelines |
-| `botReply` | Chat bot reply | Discord, Slack, Telegram, WhatsApp |
-| `embedding` | Vector embeddings & search | RAG pipelines, semantic search |
-| `browser` | Browser automation | Web scraping, form filling, screenshots |
 | `agent` | Inter-agent delegation | Multi-agent agencies |
-| `remoteAgent` | Federated agent invocation (UAF) | Cross-runtime, signed receipts |
-| `autopilot` | Goal-directed workflow synthesis | Dynamic, exploratory, open-ended tasks |
 | `apiResponse` | Response formatting | Final output |
+
+### Components (installable via `kdeps component install`)
+
+| Type | Install name | Description |
+|------|-------------|----------|
+| `component: { name: scraper }` | `scraper` | Content extraction from web pages, PDFs, documents, images |
+| `component: { name: tts }` | `tts` | Text-to-Speech synthesis |
+| `component: { name: pdf }` | `pdf` | PDF generation from HTML or Markdown |
+| `component: { name: calendar }` | `calendar` | ICS calendar read/write |
+| `component: { name: search }` | `search` | Web or local filesystem search |
+| `component: { name: botreply }` | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
+| `component: { name: embedding }` | `embedding` | Vector embeddings & semantic search |
+| `component: { name: browser }` | `browser` | Browser automation (Playwright) |
+| `component: { name: remoteagent }` | `remoteagent` | Federated agent invocation (UAF) |
+| `component: { name: memory }` | `memory` | Persistent semantic memory store |
+| `component: { name: email }` | `email` | Email send/read/search (SMTP/IMAP) |
+| `component: { name: autopilot }` | `autopilot` | Goal-directed workflow synthesis |
+
+See the [Components guide](../concepts/components) for installation and usage details.
 
 ## Metadata
 
@@ -408,12 +415,6 @@ Set realistic `timeoutDuration` values based on expected execution time.
 - [SQL Resource](sql) - Database operations
 - [Python Resource](python) - Script execution
 - [Exec Resource](exec) - Shell commands
-- [Scraper Resource](scraper) - Content extraction
-- [TTS Resource](tts) - Text-to-Speech synthesis
-- [PDF Resource](pdf) - PDF generation from HTML or Markdown
-- [Calendar Resource](calendar) - ICS calendar read/write
-- [Search Resource](search) - Web and local filesystem search
-- [Browser Automation](browser) - Playwright-based web browser control
-- [Embedding Resource](embedding) - Vector DB & semantic search
 - [API Response](api-response) - Response formatting
 - [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration
+- [Components](../concepts/components) - Installable capability extensions (scraper, tts, pdf, email, and more)

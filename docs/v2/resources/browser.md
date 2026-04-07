@@ -1,6 +1,43 @@
 # Browser Automation Resource
 
-The Browser resource enables full browser automation via [Playwright](https://playwright.dev/), allowing you to navigate web pages, fill forms, click elements, extract data with JavaScript, capture screenshots, and maintain stateful browser sessions across multiple resources.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install browser`
+>
+> Usage: `run: { component: { name: browser, with: { url: "...", action: "navigate", selector: "...", screenshotPath: "..." } } }`
+
+The Browser component enables full browser automation via [Playwright](https://playwright.dev/), allowing you to navigate web pages, fill forms, click elements, extract data, and capture screenshots.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `url` | string | yes | — | URL to navigate to |
+| `action` | string | no | `navigate` | Browser action: `navigate`, `screenshot`, or `getText` |
+| `selector` | string | no | — | CSS selector for scoped text extraction or interaction |
+| `screenshotPath` | string | no | — | File path to save a screenshot (used with `action: screenshot`) |
+
+## Using the Browser Component
+
+```yaml
+run:
+  component:
+    name: browser
+    with:
+      url: "https://example.com"
+      action: screenshot
+      screenshotPath: "/tmp/page.png"
+```
+
+Access the result via `output('<callerActionId>')`.
+
+---
+
+## Reference: Full Browser Configuration
+
+The following sections document the full configuration surface available in the underlying browser implementation (sessions, JavaScript execution, form automation, etc.).
+
+
 
 ## Basic Usage
 

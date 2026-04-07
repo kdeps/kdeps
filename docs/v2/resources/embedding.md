@@ -1,8 +1,42 @@
 # Embedding (Vector DB) Resource
 
-The `embedding` resource converts text into vector embeddings and stores or queries them in a local SQLite-backed vector index. It is the building block for Retrieval-Augmented Generation (RAG) pipelines — index your documents once, then search for the most relevant passages at query time.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install embedding`
+>
+> Usage: `run: { component: { name: embedding, with: { text: "...", apiKey: "...", model: "text-embedding-ada-002" } } }`
 
-It can be used as a primary resource or as an [inline resource](../concepts/inline-resources) inside `before` / `after` blocks.
+The Embedding component converts text into vector embeddings and stores or queries them in a local SQLite-backed vector index. It is the building block for Retrieval-Augmented Generation (RAG) pipelines.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `text` | string | yes | — | Text to embed |
+| `apiKey` | string | yes | — | API key for the embedding provider |
+| `model` | string | no | `text-embedding-ada-002` | Embedding model name |
+
+## Using the Embedding Component
+
+```yaml
+run:
+  component:
+    name: embedding
+    with:
+      text: "The quick brown fox jumps over the lazy dog."
+      apiKey: "sk-..."
+      model: "text-embedding-ada-002"
+```
+
+Access the result via `output('<callerActionId>')`. The result includes the embedding vector and metadata.
+
+---
+
+## Reference: Full Embedding Configuration
+
+The following sections document the full configuration surface available in the underlying embedding implementation (index, search, delete operations, provider options).
+
+
 
 ## Basic Usage
 

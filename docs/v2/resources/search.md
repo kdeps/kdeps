@@ -1,11 +1,42 @@
 # Search Resource
 
-The search resource discovers content — either from the web via a provider API or from the
-local filesystem — and returns a list of results (title, URL, snippet) for downstream
-processing, typically by a [`scraper`](./scraper.md) or [`llm`](./llm.md) resource.
+> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
+>
+> Install: `kdeps component install search`
+>
+> Usage: `run: { component: { name: search, with: { query: "...", apiKey: "...", maxResults: 5 } } }`
 
-All string fields support [KDeps expressions](../concepts/expressions) such as
-<span v-pre>`{{get(...)}}` and `{{env(...)}}`</span>.
+The Search component discovers content from the web via a provider API or from the local filesystem, returning a list of results (title, URL, snippet) for downstream processing.
+
+## Component Inputs
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `query` | string | yes | — | Search query string |
+| `apiKey` | string | yes | — | API key for the search provider |
+| `maxResults` | integer | no | `5` | Maximum number of results to return |
+
+## Using the Search Component
+
+```yaml
+run:
+  component:
+    name: search
+    with:
+      query: "kdeps AI agent framework"
+      apiKey: "your-search-api-key"
+      maxResults: 10
+```
+
+Access the result via `output('<callerActionId>')`. The result is a list of objects with `title`, `url`, and `snippet` fields.
+
+---
+
+## Reference: Full Search Configuration
+
+The following sections document the full configuration surface available in the underlying search implementation (providers, local filesystem search, etc.).
+
+
 
 ---
 
