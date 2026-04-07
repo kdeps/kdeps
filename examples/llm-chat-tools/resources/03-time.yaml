@@ -1,0 +1,45 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: timeTool
+  name: Time Tool
+
+run:
+  python:
+    script: |
+      import json, datetime
+
+      timezone = "{{ get('timezone', 'memory') }}" or "UTC"
+
+      # Offset table for common timezones (no external dependency required).
+      TZ_OFFSETS = {
+          "UTC": 0, "GMT": 0,
+          "EST": -5, "EDT": -4, "CST": -6, "CDT": -5,
+          "MST": -7, "MDT": -6, "PST": -8, "PDT": -7,
+          "CET": 1,  "CEST": 2, "EET": 2,  "EEST": 3,
+          "IST": 5,  "JST": 9,  "AEST": 10, "AEDT": 11,
+          "NZST": 12, "HKT": 8, "SGT": 8, "KST": 9,
+          "BRT": -3, "ART": -3, "CLT": -4,
+      }
+      tz_upper = timezone.upper().strip()
+      offset = TZ_OFFSETS.get(tz_upper, None)
+
+      now_utc = datetime.datetime.utcnow()
+      if offset is not None:
+          local = now_utc + datetime.timedelta(hours=offset)
+          sign = "+" if offset >= 0 else ""
+          tz_label = f"UTC{sign}{offset}"
+      else:
+          local = now_utc
+          tz_label = "UTC (unknown timezone, fell back to UTC)"
+
+      print(json.dumps({
+          "timezone": timezone,
+          "local_time": local.strftime("%Y-%m-%d %H:%M:%S"),
+          "utc_time": now_utc.strftime("%Y-%m-%d %H:%M:%S"),
+          "offset": tz_label,
+          "day_of_week": local.strftime("%A"),
+          "week_number": local.strftime("%V"),
+          "unix_timestamp": int(now_utc.timestamp()),
+      }))

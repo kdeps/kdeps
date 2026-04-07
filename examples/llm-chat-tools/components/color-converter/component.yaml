@@ -1,0 +1,123 @@
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: color-converter
+  description: |
+    Converts colors between HEX, RGB, HSL, and HSV formats.
+    Generates accessible contrast ratios and luminance.
+    No extra packages needed — uses Python stdlib colorsys.
+  version: "1.0.0"
+  targetActionId: convertColor
+
+interface:
+  inputs:
+    - name: color
+      type: string
+      required: true
+      description: "Input color value. HEX (#rrggbb or #rgb), RGB (r,g,b), HSL (h,s%,l%), or color name."
+    - name: from_format
+      type: string
+      required: false
+      description: "Source format: 'hex', 'rgb', 'hsl', 'hsv', or 'auto' (default)."
+    - name: to_format
+      type: string
+      required: false
+      description: "Target format: 'all' (default), 'hex', 'rgb', 'hsl', 'hsv'."
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: convertColor
+      name: Convert Color
+    run:
+      python:
+        script: |
+          import json, colorsys, re
+
+          color  = """{{ input('color') }}""".strip()
+          from_f = """{{ input('from_format') }}""".lower().strip() or "auto"
+          to_f   = """{{ input('to_format') }}""".lower().strip() or "all"
+
+          # Named CSS colors (common subset)
+          NAMED = {
+              "red": "#ff0000", "green": "#008000", "blue": "#0000ff",
+              "white": "#ffffff", "black": "#000000", "yellow": "#ffff00",
+              "cyan": "#00ffff", "magenta": "#ff00ff", "orange": "#ffa500",
+              "purple": "#800080", "pink": "#ffc0cb", "brown": "#a52a2a",
+              "gray": "#808080", "grey": "#808080", "lime": "#00ff00",
+              "navy": "#000080", "teal": "#008080", "silver": "#c0c0c0",
+              "gold": "#ffd700", "coral": "#ff7f50", "salmon": "#fa8072",
+          }
+
+          def hex_to_rgb(h):
+              h = h.lstrip("#")
+              if len(h) == 3:
+                  h = "".join(c*2 for c in h)
+              return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+          def rgb_to_hex(r, g, b):
+              return "#{:02x}{:02x}{:02x}".format(int(r), int(g), int(b))
+
+          def luminance(r, g, b):
+              def srgb(c):
+                  c /= 255
+                  return c/12.92 if c <= 0.03928 else ((c+0.055)/1.055)**2.4
+              return 0.2126*srgb(r) + 0.7152*srgb(g) + 0.0722*srgb(b)
+
+          def contrast_ratio(lum1, lum2):
+              lighter, darker = max(lum1, lum2), min(lum1, lum2)
+              return round((lighter + 0.05) / (darker + 0.05), 2)
+
+          try:
+              # Resolve named colors
+              if color.lower() in NAMED:
+                  color = NAMED[color.lower()]
+                  from_f = "hex"
+
+              # Parse input to RGB 0-255
+              if from_f in ("hex", "auto") and re.match(r"^#?[0-9a-fA-F]{3,8}$", color):
+                  r, g, b = hex_to_rgb(color if color.startswith("#") else "#" + color)
+              elif from_f in ("rgb", "auto") and re.match(r"^\d", color):
+                  parts = re.split(r"[,\s]+", color.strip("rgb() "))
+                  r, g, b = [float(p.strip("%")) for p in parts[:3]]
+              elif from_f == "hsl" or (from_f == "auto" and "%" in color):
+                  parts = re.split(r"[,\s]+", color.strip("hsl() "))
+                  h, s, l = float(parts[0])/360, float(parts[1].strip("%"))/100, float(parts[2].strip("%"))/100
+                  r_f, g_f, b_f = colorsys.hls_to_rgb(h, l, s)
+                  r, g, b = r_f*255, g_f*255, b_f*255
+              elif from_f == "hsv":
+                  parts = re.split(r"[,\s]+", color.strip("hsv() "))
+                  h, s, v = float(parts[0])/360, float(parts[1].strip("%"))/100, float(parts[2].strip("%"))/100
+                  r_f, g_f, b_f = colorsys.hsv_to_rgb(h, s, v)
+                  r, g, b = r_f*255, g_f*255, b_f*255
+              else:
+                  raise ValueError(f"Cannot parse color {color!r} with format {from_f!r}")
+
+              r, g, b = round(r), round(g), round(b)
+              h_f, l_f, s_f = colorsys.rgb_to_hls(r/255, g/255, b/255)
+              h_v, s_v, v_v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+              lum = luminance(r, g, b)
+
+              result = {
+                  "hex": rgb_to_hex(r, g, b),
+                  "rgb": {"r": r, "g": g, "b": b, "css": f"rgb({r},{g},{b})"},
+                  "hsl": {"h": round(h_f*360, 1), "s": round(s_f*100, 1), "l": round(l_f*100, 1),
+                          "css": f"hsl({round(h_f*360,1)},{round(s_f*100,1)}%,{round(l_f*100,1)}%)"},
+                  "hsv": {"h": round(h_v*360, 1), "s": round(s_v*100, 1), "v": round(v_v*100, 1)},
+                  "luminance": round(lum, 4),
+                  "contrast_on_white": contrast_ratio(lum, 1.0),
+                  "contrast_on_black": contrast_ratio(lum, 0.0),
+                  "wcag_on_white": "AAA" if contrast_ratio(lum,1.0)>=7 else ("AA" if contrast_ratio(lum,1.0)>=4.5 else "Fail"),
+                  "wcag_on_black": "AAA" if contrast_ratio(lum,0.0)>=7 else ("AA" if contrast_ratio(lum,0.0)>=4.5 else "Fail"),
+              }
+
+              if to_f != "all":
+                  output = {to_f: result[to_f]} if to_f in result else result
+              else:
+                  output = result
+
+              print(json.dumps(output))
+          except Exception as exc:
+              print(json.dumps({"error": str(exc)}))

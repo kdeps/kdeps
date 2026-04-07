@@ -51,7 +51,30 @@ run:
     response: { data: "{{ output('analyze') }}" }
 ```
 
-## Syntax Cheatsheet
+## 3. Interactive LLM Chat with Tools (`llm-chat-tools`)
+Start a REPL chat powered by 10 built-in tool components (calculator, weather, hash, unit converter, …).
+
+```bash
+kdeps run examples/llm-chat-tools/workflow.yaml --dev
+```
+
+The `--interactive` flag works with **any** workflow to open a REPL alongside the running agent:
+
+```bash
+kdeps run workflow.yaml --interactive
+```
+
+REPL slash commands:
+| Command | Description |
+|---------|-------------|
+| `/run <prompt>` | Send a prompt to the LLM and execute it through the workflow |
+| `/list` | List available resources and components in the current workflow |
+| `/help` | Show available REPL commands |
+| `/quit` or `/exit` | Exit the interactive session |
+
+The `llm-chat-tools` example wires 10 component tools to an LLM resource so the model can autonomously call `calculate`, `hash`, `convert_units`, `get_weather`, `get_time`, `analyze_text`, `format_json`, `base64`, `parse_url`, and `random` during a conversation. See [`examples/llm-chat-tools/README.md`](examples/llm-chat-tools/README.md) for the full component list.
+
+
 
 ### ⚡ [Syntax & Logic](https://kdeps.com/concepts/expressions)
 - [`get('q')`](https://kdeps.com/concepts/unified-api) – Get data (body, query, header, output)
@@ -235,6 +258,7 @@ Compose multiple independent AI Agents into a single **autonomous AI Agency** �
 
 ## CLI Cheatsheet
 - `kdeps run` – Execute workflows or agencies with hot reload
+- `kdeps run --interactive` – Open an interactive LLM REPL (stdin/stdout) alongside the running workflow. Slash commands: `/run`, `/list`, `/help`, `/quit`
 - `kdeps run --file <path>` – Execute a workflow once with a file as input (file input source)
 - `kdeps run --events` – Emit a structured NDJSON [event stream](https://kdeps.com/concepts/events) to stderr for every lifecycle transition
 - `kdeps new` – Create projects via interactive wizard

@@ -280,3 +280,261 @@ func TestRunWithIO_NonStringResult(t *testing.T) {
 		t.Errorf("expected '42' in output, got: %q", w.String())
 	}
 }
+
+// ── slash command tests ────────────────────────────────────────────────────
+
+// workflowWithResources builds a workflow that has two named resources.
+func workflowWithResources(resources []*domain.Resource) *domain.Workflow {
+	return &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test",
+			TargetActionID: "chat",
+		},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{domain.InputSourceLLM},
+			},
+		},
+		Resources: resources,
+	}
+}
+
+func TestRunWithIO_HelpCommand(t *testing.T) {
+	eng := buildEngine("should not be called")
+	wf := workflowWith(nil)
+	r := strings.NewReader("/help\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := w.String()
+	if !strings.Contains(out, "/run") {
+		t.Errorf("expected /run in help output, got: %q", out)
+	}
+	if !strings.Contains(out, "/list") {
+		t.Errorf("expected /list in help output, got: %q", out)
+	}
+}
+
+func TestRunWithIO_QuestionMarkHelp(t *testing.T) {
+	eng := buildEngine("nope")
+	wf := workflowWith(nil)
+	r := strings.NewReader("/?\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(w.String(), "/run") {
+		t.Errorf("expected help output for /?, got: %q", w.String())
+	}
+}
+
+func TestRunWithIO_ListCommand_NoResources(t *testing.T) {
+	eng := buildEngine("nope")
+	wf := workflowWith(nil) // no Resources slice
+	r := strings.NewReader("/list\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(w.String(), "none") {
+		t.Errorf("expected '(none)' in /list output, got: %q", w.String())
+	}
+}
+
+func TestRunWithIO_ListCommand_ShowsResources(t *testing.T) {
+	resources := []*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator Tool"}},
+		{Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "LLM Chat"}},
+	}
+	eng := buildEngine("nope")
+	wf := workflowWithResources(resources)
+	r := strings.NewReader("/ls\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := w.String()
+	if !strings.Contains(out, "calcTool") {
+		t.Errorf("expected calcTool in /ls output, got: %q", out)
+	}
+	if !strings.Contains(out, "chat") {
+		t.Errorf("expected chat in /ls output, got: %q", out)
+	}
+	if !strings.Contains(out, "(target)") {
+		t.Errorf("expected '(target)' marker for targetActionId, got: %q", out)
+	}
+}
+
+func TestRunWithIO_RunCommand_UnknownActionID(t *testing.T) {
+	eng := buildEngine("should not reach engine")
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+	})
+	r := strings.NewReader("/run nonExistentAction\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(w.String(), "unknown actionId") {
+		t.Errorf("expected 'unknown actionId' error, got: %q", w.String())
+	}
+}
+
+func TestRunWithIO_RunCommand_KnownActionID_InvokesEngine(t *testing.T) {
+	var gotTargetID string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotTargetID = wf.Metadata.TargetActionID
+		return "calc result", nil
+	})
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+	})
+	r := strings.NewReader("/run calcTool expression=2+2\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotTargetID != "calcTool" {
+		t.Errorf("expected engine called with targetActionID=calcTool, got %q", gotTargetID)
+	}
+	if !strings.Contains(w.String(), "calc result") {
+		t.Errorf("expected 'calc result' in output, got: %q", w.String())
+	}
+}
+
+func TestRunWithIO_RunCommand_ParamsPassedToEngine(t *testing.T) {
+	var gotBody map[string]interface{}
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
+		if rc, ok := req.(*executor.RequestContext); ok {
+			gotBody = rc.Body
+		}
+		return "ok", nil
+	})
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+	})
+	r := strings.NewReader("/run calcTool expression=sqrt(16) mode=safe\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotBody == nil {
+		t.Fatal("engine was never called")
+	}
+	if gotBody["expression"] != "sqrt(16)" {
+		t.Errorf("expected expression=sqrt(16), got %v", gotBody["expression"])
+	}
+	if gotBody["mode"] != "safe" {
+		t.Errorf("expected mode=safe, got %v", gotBody["mode"])
+	}
+}
+
+func TestRunWithIO_ToolAlias_InvokesEngine(t *testing.T) {
+	var gotTarget string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotTarget = wf.Metadata.TargetActionID
+		return "tool result", nil
+	})
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "hashTool", Name: "Hash Tool"}},
+	})
+	r := strings.NewReader("/tool hashTool data=hello\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotTarget != "hashTool" {
+		t.Errorf("expected /tool to invoke hashTool, got %q", gotTarget)
+	}
+}
+
+func TestRunWithIO_ComponentAlias_InvokesEngine(t *testing.T) {
+	var gotTarget string
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(wf *domain.Workflow, _ interface{}) (interface{}, error) {
+		gotTarget = wf.Metadata.TargetActionID
+		return "component result", nil
+	})
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "markdownTool", Name: "Markdown"}},
+	})
+	r := strings.NewReader("/component markdownTool text=hello\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotTarget != "markdownTool" {
+		t.Errorf("expected /component to invoke markdownTool, got %q", gotTarget)
+	}
+}
+
+func TestRunWithIO_RunNoArgs_ShowsUsage(t *testing.T) {
+	eng := buildEngine("nope")
+	wf := workflowWith(nil)
+	r := strings.NewReader("/run\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(w.String(), "Usage:") {
+		t.Errorf("expected usage hint for /run with no args, got: %q", w.String())
+	}
+}
+
+func TestRunWithIO_UnknownSlashCommand_ForwardsToLLM(t *testing.T) {
+	calls := 0
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		calls++
+		return "llm reply", nil
+	})
+	wf := workflowWith(nil)
+	// /unknowncmd is not handled — should fall through to the LLM
+	r := strings.NewReader("/unknowncmd do something\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("expected unknown slash command to be forwarded to LLM (1 call), got %d", calls)
+	}
+}
+
+func TestRunWithIO_OriginalWorkflowNotMutated(t *testing.T) {
+	originalTarget := "chat"
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	wf := workflowWithResources([]*domain.Resource{
+		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+	})
+	wf.Metadata.TargetActionID = originalTarget
+
+	r := strings.NewReader("/run calcTool\n/quit\n")
+	var w bytes.Buffer
+
+	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The original workflow's TargetActionID must not be mutated.
+	if wf.Metadata.TargetActionID != originalTarget {
+		t.Errorf("original workflow TargetActionID was mutated: got %q, want %q",
+			wf.Metadata.TargetActionID, originalTarget)
+	}
+}

@@ -1,0 +1,87 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: unitConverterTool
+  name: Unit Converter Tool
+
+run:
+  python:
+    script: |
+      import json
+
+      value_str = "{{ get('value', 'memory') }}"
+      from_unit = "{{ get('from_unit', 'memory') }}".lower().strip()
+      to_unit = "{{ get('to_unit', 'memory') }}".lower().strip()
+
+      try:
+          value = float(value_str)
+      except (ValueError, TypeError):
+          print(json.dumps({"error": f"Invalid value: {value_str!r}"}))
+          raise SystemExit(0)
+
+      # Conversion table: (factor to SI base unit, SI base unit)
+      # Length → metres; Weight → kg; Temperature special; Speed → m/s; Volume → litres; Area → m²
+      CONVERSIONS = {
+          # Length
+          "m": ("length", 1.0), "km": ("length", 1000), "cm": ("length", 0.01),
+          "mm": ("length", 0.001), "mi": ("length", 1609.344),
+          "mile": ("length", 1609.344), "miles": ("length", 1609.344),
+          "ft": ("length", 0.3048), "feet": ("length", 0.3048),
+          "in": ("length", 0.0254), "inch": ("length", 0.0254), "inches": ("length", 0.0254),
+          "yd": ("length", 0.9144), "yard": ("length", 0.9144),
+          "nm": ("length", 1852),  # nautical mile
+          # Weight / Mass
+          "kg": ("weight", 1.0), "g": ("weight", 0.001), "mg": ("weight", 1e-6),
+          "lb": ("weight", 0.453592), "lbs": ("weight", 0.453592),
+          "oz": ("weight", 0.0283495), "t": ("weight", 1000),
+          "ton": ("weight", 1000), "tonne": ("weight", 1000),
+          # Speed
+          "m/s": ("speed", 1.0), "km/h": ("speed", 1/3.6), "kmh": ("speed", 1/3.6),
+          "mph": ("speed", 0.44704), "knot": ("speed", 0.514444), "knots": ("speed", 0.514444),
+          # Volume
+          "l": ("volume", 1.0), "ml": ("volume", 0.001), "cl": ("volume", 0.01),
+          "liter": ("volume", 1.0), "litre": ("volume", 1.0),
+          "gallon": ("volume", 3.78541), "gal": ("volume", 3.78541),
+          "quart": ("volume", 0.946353), "qt": ("volume", 0.946353),
+          "pint": ("volume", 0.473176), "pt": ("volume", 0.473176),
+          "cup": ("volume", 0.236588), "fl oz": ("volume", 0.0295735),
+          # Area
+          "m2": ("area", 1.0), "km2": ("area", 1e6), "cm2": ("area", 0.0001),
+          "ft2": ("area", 0.092903), "in2": ("area", 0.00064516),
+          "acre": ("area", 4046.86), "hectare": ("area", 10000), "ha": ("area", 10000),
+          # Data
+          "b": ("data", 1), "kb": ("data", 1024), "mb": ("data", 1024**2),
+          "gb": ("data", 1024**3), "tb": ("data", 1024**4),
+          "kib": ("data", 1024), "mib": ("data", 1024**2), "gib": ("data", 1024**3),
+      }
+      TEMP_UNITS = {"c", "celsius", "f", "fahrenheit", "k", "kelvin"}
+
+      def to_celsius(v, u):
+          if u in ("c", "celsius"): return v
+          if u in ("f", "fahrenheit"): return (v - 32) * 5/9
+          if u in ("k", "kelvin"): return v - 273.15
+      def from_celsius(v, u):
+          if u in ("c", "celsius"): return v
+          if u in ("f", "fahrenheit"): return v * 9/5 + 32
+          if u in ("k", "kelvin"): return v + 273.15
+
+      try:
+          if from_unit in TEMP_UNITS and to_unit in TEMP_UNITS:
+              result = from_celsius(to_celsius(value, from_unit), to_unit)
+          elif from_unit in CONVERSIONS and to_unit in CONVERSIONS:
+              kind_f, factor_f = CONVERSIONS[from_unit]
+              kind_t, factor_t = CONVERSIONS[to_unit]
+              if kind_f != kind_t:
+                  raise ValueError(f"Cannot convert {from_unit} ({kind_f}) to {to_unit} ({kind_t})")
+              result = value * factor_f / factor_t
+          else:
+              raise ValueError(f"Unknown unit(s): {from_unit!r}, {to_unit!r}")
+          print(json.dumps({
+              "input": f"{value} {from_unit}",
+              "result": round(result, 8),
+              "output_unit": to_unit,
+              "formatted": f"{round(result, 6)} {to_unit}",
+          }))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))

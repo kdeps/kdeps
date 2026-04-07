@@ -1,0 +1,70 @@
+apiVersion: kdeps.io/v1
+kind: Component
+
+metadata:
+  name: markdown-renderer
+  description: |
+    Renders Markdown to plain text or HTML, with optional section extraction.
+    Demonstrates component setup: installs the `mistune` Python package once.
+  version: "1.0.0"
+  targetActionId: renderMarkdown
+
+setup:
+  pythonPackages:
+    - mistune
+
+teardown:
+  commands:
+    - "rm -f /tmp/md-render-*.tmp"
+
+interface:
+  inputs:
+    - name: text
+      type: string
+      required: true
+      description: Markdown source text to render.
+    - name: output_format
+      type: string
+      required: false
+      description: "Output format: 'plain' (default) or 'html'."
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: renderMarkdown
+      name: Render Markdown
+    run:
+      python:
+        script: |
+          import json, re, html as html_mod
+
+          text = """{{ input('text') }}"""
+          fmt  = """{{ input('output_format') }}""".lower().strip() or "plain"
+
+          try:
+              import mistune
+              if fmt == "html":
+                  rendered = mistune.html(text)
+                  print(json.dumps({"format": "html", "output": rendered, "length": len(rendered)}))
+              else:
+                  # Render to HTML first, then strip tags for plain text
+                  raw_html = mistune.html(text)
+                  plain = re.sub(r"<[^>]+>", "", raw_html)
+                  plain = html_mod.unescape(plain).strip()
+                  headings = re.findall(r"<h[1-6][^>]*>(.*?)</h[1-6]>", raw_html)
+                  headings_clean = [re.sub(r"<[^>]+>", "", h) for h in headings]
+                  word_count = len(plain.split())
+                  print(json.dumps({
+                      "format": "plain",
+                      "output": plain,
+                      "length": len(plain),
+                      "word_count": word_count,
+                      "headings": headings_clean,
+                  }))
+          except ImportError:
+              # Fallback: minimal strip without mistune
+              plain = re.sub(r"[*_`#>~\[\]!]", "", text).strip()
+              print(json.dumps({"format": "plain", "output": plain, "note": "mistune not available; minimal strip applied"}))
+          except Exception as exc:
+              print(json.dumps({"error": str(exc)}))

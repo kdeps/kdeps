@@ -25,6 +25,12 @@
 //	            to stdout. A consistent session ID is used across turns so the LLM
 //	            retains multi-turn conversation context.
 //
+//	            Slash commands give direct access to resources, tools, and components:
+//	              /run <actionId> [key=value ...]  — execute a resource directly
+//	              /list                            — list available resources/components
+//	              /help                            — show available commands
+//	              /quit  /exit                     — exit the REPL
+//
 //	apiServer — delegates to the HTTP API server so that REST clients can drive
 //	            the LLM workflow (handled in cmd/run.go via StartHTTPServer).
 package llm
@@ -36,6 +42,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -111,6 +118,14 @@ func RunWithIO(
 			return nil
 		}
 
+		// Slash commands bypass the LLM and invoke resources/tools/components directly.
+		if strings.HasPrefix(line, "/") {
+			if handled := dispatchCommand(w, workflow, engine, sessionID, line); handled {
+				continue
+			}
+			// Unknown command — fall through to the LLM so the model can interpret it.
+		}
+
 		req := &executor.RequestContext{
 			Method:    "POST",
 			Path:      "/llm",
@@ -128,6 +143,188 @@ func RunWithIO(
 
 		fmt.Fprintln(w, formatResult(result))
 	}
+}
+
+// dispatchCommand handles a line that starts with '/'. Returns true if the
+// command was recognised and handled (even on error), false if it should be
+// forwarded to the LLM as a normal message.
+func dispatchCommand(
+	w io.Writer,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	sessionID string,
+	line string,
+) bool {
+	parts := strings.Fields(line)
+	if len(parts) == 0 {
+		return false
+	}
+	cmd := strings.ToLower(parts[0])
+	args := parts[1:]
+
+	switch cmd {
+	case "/help", "/?":
+		printHelp(w)
+		return true
+
+	case "/list", "/ls":
+		printResources(w, workflow)
+		return true
+
+	case "/run", "/tool", "/component":
+		if len(args) == 0 {
+			fmt.Fprintf(w, "Usage: %s <actionId> [key=value ...]\n", cmd)
+			fmt.Fprintln(w, "       Use /list to see available actionIds.")
+			return true
+		}
+		actionID := args[0]
+		params := parseParams(args[1:])
+		runAction(w, workflow, engine, sessionID, actionID, params)
+		return true
+	}
+
+	return false
+}
+
+// runAction executes the resource identified by actionID, passing params as
+// request body entries. A shallow copy of the workflow is made so that the
+// TargetActionID override does not mutate the original.
+func runAction(
+	w io.Writer,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	sessionID string,
+	actionID string,
+	params map[string]interface{},
+) {
+	// Verify the actionId is known.
+	known := resourceActionIDs(workflow)
+	if _, exists := known[actionID]; !exists {
+		fmt.Fprintf(w, "Error: unknown actionId %q\n", actionID)
+		fmt.Fprintln(w, "       Use /list to see available actionIds.")
+		return
+	}
+
+	// Shallow-copy the workflow and override the target so only this resource
+	// (and its required chain) is executed.
+	wfCopy := *workflow
+	metaCopy := workflow.Metadata
+	metaCopy.TargetActionID = actionID
+	wfCopy.Metadata = metaCopy
+
+	body := map[string]interface{}{}
+	for k, v := range params {
+		body[k] = v
+	}
+
+	req := &executor.RequestContext{
+		Method:    "POST",
+		Path:      "/run/" + actionID,
+		SessionID: sessionID,
+		Body:      body,
+	}
+
+	result, err := engine.Execute(&wfCopy, req)
+	if err != nil {
+		fmt.Fprintf(w, "Error: %v\n", err)
+		return
+	}
+	fmt.Fprintln(w, formatResult(result))
+}
+
+// printHelp writes the available REPL commands to w.
+func printHelp(w io.Writer) {
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Available commands:")
+	fmt.Fprintln(w, "  /run <actionId> [key=value ...]  Execute a resource, tool, or component directly")
+	fmt.Fprintln(w, "  /tool <actionId> [key=value ...]  Alias for /run (tool context)")
+	fmt.Fprintln(w, "  /component <actionId> [key=value ...]  Alias for /run (component context)")
+	fmt.Fprintln(w, "  /list  (/ls)                     List available resources and components")
+	fmt.Fprintln(w, "  /help  (/?)                      Show this help message")
+	fmt.Fprintln(w, "  /quit  /exit                     Exit the interactive REPL")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Any other input is forwarded to the LLM as a chat message.")
+	fmt.Fprintln(w, "")
+}
+
+// printResources writes the list of resources and components for workflow to w.
+func printResources(w io.Writer, workflow *domain.Workflow) {
+	fmt.Fprintln(w, "")
+
+	if len(workflow.Resources) == 0 {
+		fmt.Fprintln(w, "Resources: (none)")
+	} else {
+		targetID := workflow.Metadata.TargetActionID
+		fmt.Fprintf(w, "Resources (%d):\n", len(workflow.Resources))
+
+		// Sort by actionId for stable output.
+		sorted := make([]*domain.Resource, len(workflow.Resources))
+		copy(sorted, workflow.Resources)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Metadata.ActionID < sorted[j].Metadata.ActionID
+		})
+
+		for _, res := range sorted {
+			id := res.Metadata.ActionID
+			name := res.Metadata.Name
+			suffix := ""
+			if id == targetID {
+				suffix = " (target)"
+			}
+			fmt.Fprintf(w, "  %-24s %s%s\n", id, name, suffix)
+		}
+	}
+
+	if len(workflow.Components) > 0 {
+		names := make([]string, 0, len(workflow.Components))
+		for name := range workflow.Components {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+
+		fmt.Fprintf(w, "\nComponents (%d):\n", len(names))
+		for _, name := range names {
+			comp := workflow.Components[name]
+			ver := comp.Metadata.Version
+			desc := comp.Metadata.Description
+			if desc == "" {
+				desc = comp.Metadata.Name
+			}
+			// Trim description to first line.
+			if idx := strings.IndexByte(desc, '\n'); idx >= 0 {
+				desc = strings.TrimSpace(desc[:idx])
+			}
+			fmt.Fprintf(w, "  %-24s v%s — %s\n", name, ver, desc)
+		}
+	}
+	fmt.Fprintln(w, "")
+}
+
+// parseParams converts ["key=value", "key2=value2"] into a map.
+// Values may contain '=' (only the first '=' is treated as the separator).
+func parseParams(args []string) map[string]interface{} {
+	params := make(map[string]interface{}, len(args))
+	for _, arg := range args {
+		idx := strings.IndexByte(arg, '=')
+		if idx < 0 {
+			// bare flag — treat as key=true
+			params[arg] = "true"
+			continue
+		}
+		params[arg[:idx]] = arg[idx+1:]
+	}
+	return params
+}
+
+// resourceActionIDs returns a set of all actionIds defined in the workflow.
+func resourceActionIDs(workflow *domain.Workflow) map[string]struct{} {
+	ids := make(map[string]struct{}, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		if r.Metadata.ActionID != "" {
+			ids[r.Metadata.ActionID] = struct{}{}
+		}
+	}
+	return ids
 }
 
 // llmConfig returns the LLMInputConfig from the workflow, or an empty config

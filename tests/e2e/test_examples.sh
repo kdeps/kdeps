@@ -58,6 +58,7 @@ source "$SCRIPT_DIR/test_examples_telegram_bot.sh"
 source "$SCRIPT_DIR/test_examples_telephony_bot.sh"
 source "$SCRIPT_DIR/test_examples_new_features.sh"
 source "$SCRIPT_DIR/test_examples_llm_chat.sh"
+source "$SCRIPT_DIR/test_examples_llm_chat_tools.sh"
 # source "$SCRIPT_DIR/test_examples_cv_matcher.sh"
 # source "$SCRIPT_DIR/test_examples_cv_matcher_deepseek.sh"
 

@@ -88,6 +88,7 @@ type RunFlags struct {
 	WriteTests   bool   // --write-tests: generate tests from workflow and write them to the tests: block, then exit
 	FileArg      string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
 	Events       bool   // --events: emit structured NDJSON execution events to stderr
+	Interactive  bool   // --interactive: force interactive LLM REPL for any workflow/agency regardless of configured input source
 }
 
 // newRunCmd creates the run command.
@@ -123,7 +124,11 @@ Examples:
   kdeps run workflow.yaml --port 16395
 
   # Process a file (file input source) — overrides stdin/KDEPS_FILE_PATH/config
-  kdeps run workflow.yaml --file /path/to/document.txt`,
+  kdeps run workflow.yaml --file /path/to/document.txt
+
+  # Start interactive LLM REPL alongside normal workflow execution
+  kdeps run workflow.yaml --interactive
+  kdeps run my-agency.kagency --interactive`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunWorkflowWithFlags(cmd, args, flags)
@@ -152,6 +157,11 @@ Examples:
 	runCmd.Flags().BoolVar(
 		&flags.Events, "events", false,
 		"Emit structured NDJSON execution events to stderr (resource lifecycle, failure classification).",
+	)
+	runCmd.Flags().BoolVar(
+		&flags.Interactive, "interactive", false,
+		"Run the workflow as normal and simultaneously open an interactive LLM REPL in the terminal. "+
+			"Lets you invoke the workflow, tools, and components interactively alongside the running agent or agency.",
 	)
 
 	return runCmd
@@ -482,6 +492,10 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 
 	// 5. Execute workflow or start HTTP server
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
+	if flags.Interactive {
+		eng := setupEngine(workflow, debugMode)
+		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
+	}
 	return dispatchExecution(
 		workflow, workflowPath,
 		flags.DevMode, debugMode,
@@ -604,6 +618,9 @@ func executeAgencyEntryPoint(
 	// Set up the engine with the full agent map so agent resource calls work.
 	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
 
+	if flags.Interactive {
+		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
+	}
 	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg)
 }
 
@@ -1511,7 +1528,10 @@ func StartLLMRunner(
 	selfTest, selfTestOnly bool,
 ) error {
 	kdeps_debug.Log("enter: StartLLMRunner")
-	llmCfg := workflow.Settings.Input.LLM
+	var llmCfg *domain.LLMInputConfig
+	if workflow.Settings.Input != nil {
+		llmCfg = workflow.Settings.Input.LLM
+	}
 	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
 		return StartHTTPServer(workflow, workflowPath, devMode, debugMode, selfTest, selfTestOnly)
 	}
@@ -1534,7 +1554,10 @@ func startLLMRunnerWithEngine(
 	devMode bool,
 ) error {
 	kdeps_debug.Log("enter: startLLMRunnerWithEngine")
-	llmCfg := workflow.Settings.Input.LLM
+	var llmCfg *domain.LLMInputConfig
+	if workflow.Settings.Input != nil {
+		llmCfg = workflow.Settings.Input.LLM
+	}
 	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
 		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	}
@@ -1544,6 +1567,41 @@ func startLLMRunnerWithEngine(
 	fmt.Fprintln(os.Stdout, "")
 
 	ctx := context.Background()
+	return llminput.Run(ctx, workflow, eng, logger)
+}
+
+// startInteractiveMode runs the workflow's normal execution concurrently with an
+// interactive REPL. The workflow dispatch (server, bot, single-run, etc.) runs in a
+// background goroutine unchanged. The REPL runs in the foreground: each line the user
+// types is forwarded to the workflow engine as input("message") and the result is
+// printed back. Exiting the REPL (/quit, /exit, Ctrl+D) returns from this function;
+// the background dispatch goroutine is abandoned and cleaned up when the process exits.
+func startInteractiveMode(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	workflowPath string,
+	flags *RunFlags,
+	debugMode bool,
+) error {
+	kdeps_debug.Log("enter: startInteractiveMode")
+
+	// Start the normal workflow dispatch (server/bot/single-run/etc.) in background.
+	go func() {
+		dispErr := dispatchExecutionWithEngine(
+			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg,
+		)
+		if dispErr != nil {
+			fmt.Fprintf(os.Stderr, "  [workflow] %v\n", dispErr)
+		}
+	}()
+
+	fmt.Fprintf(os.Stdout, "  ✓ Workflow '%s' running in background\n", workflow.Metadata.Name)
+	fmt.Fprintln(os.Stdout, "  ✓ Interactive prompt active — invoke workflows, tools, and components")
+	fmt.Fprintln(os.Stdout, "  ✓ Type /quit or /exit to stop, Ctrl+D for EOF")
+	fmt.Fprintln(os.Stdout, "")
+
+	ctx := context.Background()
+	logger := logging.NewLogger(debugMode)
 	return llminput.Run(ctx, workflow, eng, logger)
 }
 

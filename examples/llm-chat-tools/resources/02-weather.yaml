@@ -1,0 +1,36 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: weatherTool
+  name: Weather Tool
+
+run:
+  python:
+    script: |
+      import json, random, datetime
+
+      location = "{{ get('location', 'memory') }}"
+      unit = "{{ get('unit', 'memory') }}" or "celsius"
+
+      # Mock weather data — replace with a real API call (e.g. OpenWeatherMap) in production.
+      conditions = ["sunny", "partly cloudy", "overcast", "light rain", "thunderstorm", "foggy", "snowy"]
+      random.seed(hash(location) % (2**31))
+      condition = random.choice(conditions)
+      temp_c = round(random.uniform(-5, 38), 1)
+      temp_f = round(temp_c * 9 / 5 + 32, 1)
+      humidity = random.randint(30, 95)
+      wind_kmh = round(random.uniform(0, 80), 1)
+
+      temp = temp_c if unit.lower() in ("celsius", "c", "") else temp_f
+      unit_label = "°C" if unit.lower() in ("celsius", "c", "") else "°F"
+
+      print(json.dumps({
+          "location": location,
+          "condition": condition,
+          "temperature": f"{temp}{unit_label}",
+          "humidity": f"{humidity}%",
+          "wind": f"{wind_kmh} km/h",
+          "retrieved_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+          "note": "Mock data — connect to a real weather API for production use.",
+      }))

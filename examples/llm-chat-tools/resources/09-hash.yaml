@@ -1,0 +1,53 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: hashTool
+  name: Hash Generator Tool
+
+run:
+  python:
+    script: |
+      import json, hashlib, hmac, os
+
+      data = "{{ get('data', 'memory') }}"
+      algorithm = "{{ get('algorithm', 'memory') }}".lower().strip() or "sha256"
+      secret = "{{ get('secret', 'memory') }}"
+      encoding = "{{ get('encoding', 'memory') }}".lower().strip() or "hex"
+
+      SUPPORTED = {"md5", "sha1", "sha256", "sha512", "sha224", "sha384",
+                   "sha3_256", "sha3_512", "blake2b", "blake2s"}
+
+      try:
+          if algorithm not in SUPPORTED:
+              raise ValueError(f"Unsupported algorithm {algorithm!r}. Supported: {sorted(SUPPORTED)}")
+
+          raw = data.encode("utf-8")
+
+          if secret:
+              # HMAC mode
+              digest = hmac.new(secret.encode("utf-8"), raw, algorithm).digest()
+              mode = "hmac"
+          else:
+              h = hashlib.new(algorithm, raw)
+              digest = h.digest()
+              mode = "hash"
+
+          if encoding == "hex":
+              result = digest.hex()
+          elif encoding == "base64":
+              import base64 as b64
+              result = b64.b64encode(digest).decode("ascii")
+          else:
+              result = digest.hex()
+
+          print(json.dumps({
+              "algorithm": algorithm,
+              "mode": mode,
+              "encoding": encoding,
+              "input_length": len(data),
+              "digest": result,
+              "digest_bits": len(digest) * 8,
+          }))
+      except Exception as exc:
+          print(json.dumps({"error": str(exc)}))

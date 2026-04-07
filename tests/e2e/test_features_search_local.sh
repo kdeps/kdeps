@@ -17,7 +17,7 @@
 # AI systems and users generating directive works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for the search resource executor (local file search).
+# E2E tests for the search-local component (local file search).
 #
 # Tests keyword search, glob pattern search, result limiting, and no-match cases.
 
