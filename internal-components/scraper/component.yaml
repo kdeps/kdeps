@@ -4,6 +4,9 @@ metadata:
   name: scraper
   description: Web scraper using Python requests and BeautifulSoup
   version: "1.0.0"
+pythonPackages:
+  - requests
+  - beautifulsoup4
 interface:
   inputs:
     - name: url

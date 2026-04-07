@@ -134,6 +134,7 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 		allComponentResources = append(allComponentResources, global...)
 		for name, comp := range globalComponents {
 			workflow.Components[name] = comp
+			mergeComponentPackages(workflow, comp)
 		}
 	}
 
@@ -146,6 +147,7 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 	allComponentResources = append(allComponentResources, local...)
 	for name, comp := range localComponents {
 		workflow.Components[name] = comp
+		mergeComponentPackages(workflow, comp)
 	}
 
 	if len(allComponentResources) > 0 {
@@ -153,6 +155,26 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 	}
 
 	return nil
+}
+
+// mergeComponentPackages adds a component's declared Python packages to the
+// workflow's agentSettings so they are installed before execution.
+func mergeComponentPackages(workflow *domain.Workflow, comp *domain.Component) {
+	if len(comp.PythonPackages) == 0 {
+		return
+	}
+	existing := make(map[string]struct{}, len(workflow.Settings.AgentSettings.PythonPackages))
+	for _, p := range workflow.Settings.AgentSettings.PythonPackages {
+		existing[p] = struct{}{}
+	}
+	for _, pkg := range comp.PythonPackages {
+		if _, ok := existing[pkg]; !ok {
+			workflow.Settings.AgentSettings.PythonPackages = append(
+				workflow.Settings.AgentSettings.PythonPackages, pkg,
+			)
+			existing[pkg] = struct{}{}
+		}
+	}
 }
 
 // globalComponentsDir returns the global component install directory.
