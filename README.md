@@ -146,8 +146,10 @@ Compose multiple independent AI Agents into a single **autonomous AI Agency** �
 
 ### 🧩 Component CLI
 - `kdeps component install <name>` – Install a component from the registry to `~/.kdeps/components/`
-- `kdeps component list` – List installed components (local and global)
+- `kdeps component list` – List installed components (internal, global, local)
 - `kdeps component remove <name>` – Remove an installed component
+- `kdeps component show <name>` – Show README for a component
+- `kdeps info <ref>` – Show README for a local component, agent, agency, or remote GitHub repo (`owner/repo` or `owner/repo:subdir`)
 
 ### 🌐 Federation (UAF)
 - `kdeps federation keygen --org <name>` – Generate Ed25519 keypair for signing
