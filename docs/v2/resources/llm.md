@@ -293,6 +293,27 @@ run:
 
 The LLM automatically decides when to call tools based on the prompt.
 
+### Component Tools (Opt-In Allowlist)
+
+Use `componentTools:` to expose installed components as LLM function-calling tools. By default no components are registered — list only the ones the LLM should be able to call:
+
+```bash
+kdeps component install scraper
+kdeps component install search
+```
+
+```yaml
+run:
+  chat:
+    model: gpt-4o
+    prompt: "Research {{ get('q') }} and summarize the findings."
+    componentTools:
+      - scraper
+      - search
+```
+
+The component's `interface.inputs` become the tool's JSON Schema parameter definition. Explicit `tools:` entries take precedence when names conflict — no duplication. See the [Components guide](../concepts/components#components-as-llm-tools-opt-in) for full details.
+
 ## Examples
 
 ### Simple Q&A

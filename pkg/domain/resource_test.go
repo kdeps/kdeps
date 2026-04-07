@@ -469,3 +469,50 @@ func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 		})
 	}
 }
+
+// TestChatConfig_ComponentTools_YAML verifies that componentTools is correctly
+// parsed from YAML into ChatConfig.ComponentTools.
+func TestChatConfig_ComponentTools_YAML(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		wantList []string
+	}{
+		{
+			name:     "populated list",
+			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools:\n  - scraper\n  - search\n",
+			wantList: []string{"scraper", "search"},
+		},
+		{
+			name:     "absent field",
+			yaml:     "model: gpt-4o\nprompt: hi\n",
+			wantList: nil,
+		},
+		{
+			name:     "empty list",
+			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools: []\n",
+			wantList: []string{},
+		},
+		{
+			name:     "single entry",
+			yaml:     "model: gpt-4o\nprompt: hi\ncomponentTools:\n  - email\n",
+			wantList: []string{"email"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cfg domain.ChatConfig
+			if err := yaml.Unmarshal([]byte(tt.yaml), &cfg); err != nil {
+				t.Fatalf("UnmarshalYAML error: %v", err)
+			}
+			if len(cfg.ComponentTools) != len(tt.wantList) {
+				t.Fatalf("ComponentTools = %v, want %v", cfg.ComponentTools, tt.wantList)
+			}
+			for i, name := range tt.wantList {
+				if cfg.ComponentTools[i] != name {
+					t.Errorf("ComponentTools[%d] = %q, want %q", i, cfg.ComponentTools[i], name)
+				}
+			}
+		})
+	}
+}
