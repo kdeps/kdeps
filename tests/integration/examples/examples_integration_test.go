@@ -761,6 +761,12 @@ func TestCVMatcherExample(t *testing.T) {
 		t.Skip("cv-matcher example not available")
 	}
 
+	// Point the parser at the built-in internal-components so that components
+	// like "embedding", "scraper", etc. are resolved without a local install.
+	internalComponents, err := filepath.Abs("../../../internal-components")
+	require.NoError(t, err)
+	t.Setenv("KDEPS_COMPONENT_DIR", internalComponents)
+
 	// Parse and validate the workflow structure.
 	schemaValidator, err := validator.NewSchemaValidator()
 	require.NoError(t, err)
@@ -817,8 +823,8 @@ func TestCVMatcherExample(t *testing.T) {
 			"unknown resource type",
 			"connection refused",
 			"no such host",
-			"component",
-			"not found; install",
+			"ModuleNotFoundError",
+			"No module named",
 		}
 		for _, dep := range externalDeps {
 			if strings.Contains(errMsg, dep) {

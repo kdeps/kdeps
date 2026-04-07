@@ -64,6 +64,14 @@
       },
       "additionalProperties": false
     },
+    "pythonPackages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Python packages required by this component. Merged into the workflow's agentSettings.pythonPackages at load time."
+    },
     "resources": {
       "type": "array"
     }

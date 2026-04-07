@@ -62,8 +62,9 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 		)
 	}
 
-	// 4. Validate target action exists (skip for WebServer mode without resources)
-	if len(workflow.Resources) > 0 {
+	// 4. Validate target action exists (skip for WebServer mode or when no
+	//    original resources were defined)
+	if len(workflow.Resources) > 0 && !workflow.Settings.WebServerMode {
 		if err := v.ValidateTargetAction(workflow); err != nil {
 			return err
 		}

@@ -44,11 +44,12 @@ package domain
 //	      required: false
 //	      default: 0.7
 type Component struct {
-	APIVersion string              `yaml:"apiVersion"`
-	Kind       string              `yaml:"kind"`
-	Metadata   ComponentMetadata   `yaml:"metadata"`
-	Interface  *ComponentInterface `yaml:"interface,omitempty"`
-	Resources  []*Resource         `yaml:"resources,omitempty"`
+	APIVersion     string              `yaml:"apiVersion"`
+	Kind           string              `yaml:"kind"`
+	Metadata       ComponentMetadata   `yaml:"metadata"`
+	Interface      *ComponentInterface `yaml:"interface,omitempty"`
+	Resources      []*Resource         `yaml:"resources,omitempty"`
+	PythonPackages []string            `yaml:"pythonPackages,omitempty"`
 }
 
 // ComponentMetadata contains component-level metadata.
