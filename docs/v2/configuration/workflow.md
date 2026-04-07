@@ -190,7 +190,7 @@ settings:
     baseOS: alpine                 # Base OS: alpine, ubuntu, debian
 
     # LLM settings
-    models:                        # Ollama models to include
+    models:                        # Ollama models to include (also enforced as allowlist)
       - llama3.2:1b
       - llama3.2-vision
     offlineMode: false            # Pre-bake models in image
@@ -242,6 +242,23 @@ offlineMode: true      # Models baked into Docker image
 models:
   - llama3.2:1b
 ```
+
+### Model Allowlist Enforcement
+
+When `agentSettings.models` is set, it acts as an **allowlist**: any resource or component that requests a model not in the list is automatically overridden with `models[0]` (the first listed model), and a red error is logged.
+
+```yaml
+agentSettings:
+  models:
+    - llama3.3:latest   # ← Only this model is permitted at runtime
+```
+
+If a resource specifies `model: llama3.2:1b` but the allowlist only contains `llama3.3:latest`, the request will use `llama3.3:latest` and log:
+```
+model not in workflow allowlist — overriding with first allowlisted model
+```
+
+This ensures a consistent, auditable model selection across all resources in a workflow.
 
 ## SQL Connections
 

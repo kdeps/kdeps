@@ -525,3 +525,138 @@ func TestNewExecutor_EmptyURL(t *testing.T) {
 	executor := llm.NewExecutor("")
 	assert.NotNil(t, executor)
 }
+
+func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var gotModel string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&req)
+		gotModel = req["model"].(string)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"model":   gotModel,
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		})
+	}))
+	defer server.Close()
+
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Models: []string{"llama3.3:latest"},
+			},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+
+	// Resource has no model set — should use workflow default.
+	cfg := &domain.ChatConfig{Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"llama3.3:latest",
+		gotModel,
+		"empty resource model should fall back to workflow model",
+	)
+}
+
+func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var gotModel string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&req)
+		gotModel = req["model"].(string)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"model":   gotModel,
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		})
+	}))
+	defer server.Close()
+
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Models: []string{"llama3.3:latest"},
+			},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+
+	// Resource specifies a model NOT in the allowlist — should be overridden.
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		"llama3.3:latest",
+		gotModel,
+		"model not in allowlist should be overridden to first allowlisted model",
+	)
+}
+
+func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var gotModel string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&req)
+		gotModel = req["model"].(string)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"model":   gotModel,
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		})
+	}))
+	defer server.Close()
+
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Models: []string{"llama3.3:latest", "mistral:7b"},
+			},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+
+	// Resource specifies a model that IS in the allowlist — should be kept.
+	cfg := &domain.ChatConfig{Model: "mistral:7b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "mistral:7b", gotModel, "allowlisted model should be used as-is")
+}
+
+func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var gotModel string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req map[string]interface{}
+		json.NewDecoder(r.Body).Decode(&req)
+		gotModel = req["model"].(string)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"model":   gotModel,
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		})
+	}))
+	defer server.Close()
+
+	// No agentSettings.models — resource model is used unchanged.
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+
+	cfg := &domain.ChatConfig{Model: "gpt-4o", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-4o", gotModel, "without allowlist, resource model should be used")
+}

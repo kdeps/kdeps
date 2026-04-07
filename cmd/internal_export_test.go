@@ -173,3 +173,7 @@ var FindUpdateTargetComponentDirs = findUpdateTargetComponentDirs //nolint:goche
 
 // NewRunCmdForTest exposes newRunCmd for use in external unit tests.
 var NewRunCmdForTest = newRunCmd //nolint:gochecknoglobals // test-only export
+
+// DispatchExecutionWithEngine exposes the unexported dispatchExecutionWithEngine
+// helper for white-box unit tests.
+var DispatchExecutionWithEngine = dispatchExecutionWithEngine //nolint:gochecknoglobals // test-only export

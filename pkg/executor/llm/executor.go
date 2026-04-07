@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	stdhttp "net/http"
 	"net/url"
 	"os"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
@@ -57,6 +59,7 @@ type Executor struct {
 	toolExecutor    toolExecutorInterface // Interface for tool execution (avoid import cycle)
 	backendRegistry *BackendRegistry
 	modelManager    *ModelManager // Optional: for model download/serving
+	logger          *slog.Logger
 }
 
 const (
@@ -77,6 +80,7 @@ func NewExecutor(ollamaURL string) *Executor {
 			Timeout: DefaultLLMTimeout,
 		},
 		backendRegistry: NewBackendRegistry(),
+		logger:          logging.NewLogger(false),
 	}
 }
 
@@ -218,6 +222,27 @@ func (e *Executor) Execute(
 	modelStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate model: %w", err)
+	}
+
+	// Enforce workflow-level model allowlist: if agentSettings.models is set,
+	// only those models may be used. An empty or non-allowlisted resource model
+	// is replaced with the first allowlisted model.
+	if ctx.Workflow != nil {
+		allowed := ctx.Workflow.Settings.AgentSettings.Models
+		resolved := resolveAllowedModel(modelStr, allowed)
+		if resolved != modelStr && len(allowed) > 0 {
+			e.logger.Error(
+				"model not in workflow allowlist — overriding with first allowlisted model",
+				"requested", modelStr,
+				"using", resolved,
+				"fix", fmt.Sprintf(
+					"add %s to agentSettings.models in workflow.yaml, "+
+						"or this resource will always run with %s instead",
+					modelStr, resolved,
+				),
+			)
+		}
+		modelStr = resolved
 	}
 
 	// Ensure model is downloaded and served if model manager is available
@@ -1440,4 +1465,19 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 	}
 	response.Header.Set("Content-Type", "application/json")
 	return response, nil
+}
+
+// resolveAllowedModel enforces the workflow model allowlist.
+// If allowed is empty, model is returned unchanged.
+// If model is empty or not in allowed, the first element of allowed is returned.
+func resolveAllowedModel(model string, allowed []string) string {
+	if len(allowed) == 0 {
+		return model
+	}
+	for _, m := range allowed {
+		if m == model {
+			return model
+		}
+	}
+	return allowed[0]
 }
