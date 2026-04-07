@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# E2E tests for the embedding component (local SQLite document store).
-# Tests index / search / delete operations via run.component: {name: embedding}.
+# E2E tests for the embedding executor.
+# Tests index/search/delete operations via run.embedding:.
+# Uses Ollama + nomic-embed-text when available, falls back to keyword search.
 
 set -uo pipefail
 
@@ -38,9 +39,19 @@ PY
 
 TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
-DB_PATH="$TEST_DIR/embeddings.db"
+LOG_FILE=$(mktemp)
+DB_PATH="${TEST_DIR}/embeddings.db"
 
-cat > "$TEST_DIR/workflow.yaml" <<EOF
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
+
+# Check if Ollama has nomic-embed-text (optional - enables semantic mode)
+EMBED_URL="http://127.0.0.1:11434"
+HAS_EMBED_MODEL=false
+if curl -sf --max-time 2 "${EMBED_URL}/api/tags" 2>/dev/null | grep -q "nomic-embed-text"; then
+    HAS_EMBED_MODEL=true
+fi
+
+cat > "$TEST_DIR/workflow.yaml" <<WFEOF
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -61,9 +72,9 @@ settings:
         methods: [POST]
   agentSettings:
     pythonVersion: "3.12"
-EOF
+WFEOF
 
-cat > "$TEST_DIR/resources/index.yaml" <<EOF
+cat > "$TEST_DIR/resources/index.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -73,21 +84,17 @@ run:
   validations:
     routes: [/embed/index]
     methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "index"
-      text: "{{ get('text', 'test document') }}"
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      id: "{{ output('indexDoc').id }}"
-      dimensions: "{{ output('indexDoc').dimensions }}"
-EOF
+  embedding:
+    operation: index
+    input: "{{ get('text', 'The quick brown fox jumps over the lazy dog') }}"
+    collection: "e2e_docs"
+    model: "nomic-embed-text"
+    backend: "ollama"
+    baseUrl: "${EMBED_URL}"
+    dbPath: "${DB_PATH}"
+RESEOF
 
-cat > "$TEST_DIR/resources/search.yaml" <<EOF
+cat > "$TEST_DIR/resources/search.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -97,21 +104,18 @@ run:
   validations:
     routes: [/embed/search]
     methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "search"
-      text: ""
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('searchDocs').count }}"
-      results: "{{ output('searchDocs').results }}"
-EOF
+  embedding:
+    operation: search
+    input: "{{ get('q', 'fox') }}"
+    collection: "e2e_docs"
+    model: "nomic-embed-text"
+    backend: "ollama"
+    baseUrl: "${EMBED_URL}"
+    topK: 5
+    dbPath: "${DB_PATH}"
+RESEOF
 
-cat > "$TEST_DIR/resources/delete.yaml" <<EOF
+cat > "$TEST_DIR/resources/delete.yaml" <<RESEOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -121,20 +125,14 @@ run:
   validations:
     routes: [/embed/delete]
     methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "delete"
-      text: "{{ get('text', '') }}"
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      deleted: "{{ output('deleteDoc').deleted }}"
-EOF
+  embedding:
+    operation: delete
+    input: "{{ get('text', 'The quick brown fox jumps over the lazy dog') }}"
+    collection: "e2e_docs"
+    dbPath: "${DB_PATH}"
+RESEOF
 
-cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
+cat > "$TEST_DIR/resources/response.yaml" <<'RESEOF'
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -148,7 +146,7 @@ run:
       indexResult: "{{ output('indexDoc') }}"
       searchResult: "{{ output('searchDocs') }}"
       deleteResult: "{{ output('deleteDoc') }}"
-EOF
+RESEOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" &
 KDEPS_PID=$!
@@ -170,85 +168,117 @@ if [ "$KDEPS_STARTED" = false ]; then
 fi
 
 # Test 1: Index a document
-INDEX_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
-    -H "Content-Type: application/json" -d '{"text": "KDeps is a declarative YAML workflow framework."}' 2>&1)
+IDX_RESP=$(curl -sf --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
+    -H "Content-Type: application/json" \
+    -d '{"text":"The quick brown fox jumps over the lazy dog"}' 2>&1)
 
-if echo "$INDEX_RESP" | grep -q '"success"'; then
+IDX_ID=$(echo "$IDX_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    r = (d.get('data') or {}).get('indexResult') or {}
+    print(r.get('id', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+
+if [ -n "$IDX_ID" ]; then
     test_passed "Embedding - index document"
 else
-    test_failed "Embedding - index document" "Response: $INDEX_RESP"
+    test_failed "Embedding - index document" "id='$IDX_ID' resp=$IDX_RESP"
 fi
 
 # Test 2: Index a second document
-INDEX2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
-    -H "Content-Type: application/json" -d '{"text": "Vector embeddings enable semantic search."}' 2>&1)
+IDX2_RESP=$(curl -sf --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/embed/index" \
+    -H "Content-Type: application/json" \
+    -d '{"text":"A completely different sentence about cats and dogs"}' 2>&1)
 
-if echo "$INDEX2_RESP" | grep -q '"success"'; then
+IDX2_ID=$(echo "$IDX2_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    r = (d.get('data') or {}).get('indexResult') or {}
+    print(r.get('id', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+
+if [ -n "$IDX2_ID" ]; then
     test_passed "Embedding - index second document"
 else
-    test_failed "Embedding - index second document" "Response: $INDEX2_RESP"
+    test_failed "Embedding - index second document" "id='$IDX2_ID' resp=$IDX2_RESP"
 fi
 
-# Test 3: Search documents
-SEARCH_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
-    -H "Content-Type: application/json" -d '{}' 2>&1)
+# Test 3: Search - should find results
+SRCH_RESP=$(curl -sf --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
+    -H "Content-Type: application/json" \
+    -d '{"q":"fox"}' 2>&1)
 
-if echo "$SEARCH_RESP" | grep -q '"searchResult"'; then
+SRCH_COUNT=$(echo "$SRCH_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    r = (d.get('data') or {}).get('searchResult') or {}
+    print(r.get('count', 0))
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0")
+
+if [ "$SRCH_COUNT" -ge 1 ] 2>/dev/null; then
     test_passed "Embedding - search documents"
 else
-    test_failed "Embedding - search documents" "Response: $SEARCH_RESP"
+    test_failed "Embedding - search documents" "count=$SRCH_COUNT resp=$SRCH_RESP"
 fi
 
-# Test 4: Search returns results
-SEARCH_COUNT=$(echo "$SEARCH_RESP" | python3 -c "
+if [ "$SRCH_COUNT" -ge 2 ] 2>/dev/null; then
+    test_passed "Embedding - search returns results (count=$SRCH_COUNT)"
+else
+    test_failed "Embedding - search returns results" "count=$SRCH_COUNT"
+fi
+
+# Test 4: Delete - remove the first document
+DEL_RESP=$(curl -sf --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/embed/delete" \
+    -H "Content-Type: application/json" \
+    -d '{"text":"The quick brown fox jumps over the lazy dog"}' 2>&1)
+
+DEL_OK=$(echo "$DEL_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    data = d.get('data', d)
-    sr = data.get('searchResult') or {}
-    inner = sr.get('data', sr) if isinstance(sr, dict) else {}
-    print(inner.get('count', 0) if isinstance(inner, dict) else 0)
+    r = (d.get('data') or {}).get('deleteResult') or {}
+    print(r.get('deleted', False))
 except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
+    print(False)
+" 2>/dev/null || echo "False")
 
-if [ "$SEARCH_COUNT" -ge "1" ] 2>/dev/null; then
-    test_passed "Embedding - search returns results (count=$SEARCH_COUNT)"
-else
-    test_failed "Embedding - search returns results" "count=$SEARCH_COUNT"
-fi
-
-# Test 5: Delete a document
-DELETE_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/delete" \
-    -H "Content-Type: application/json" -d '{"text": "KDeps is a declarative YAML workflow framework."}' 2>&1)
-
-if echo "$DELETE_RESP" | grep -q '"success"'; then
+if [ "$DEL_OK" = "True" ] || [ "$DEL_OK" = "true" ]; then
     test_passed "Embedding - delete document"
 else
-    test_failed "Embedding - delete document" "Response: $DELETE_RESP"
+    test_failed "Embedding - delete document" "deleted=$DEL_OK resp=$DEL_RESP"
 fi
 
-# Test 6: Search count decreased after delete
-SEARCH2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
-    -H "Content-Type: application/json" -d '{}' 2>&1)
+# Test 5: Search count decreased after delete
+SRCH2_RESP=$(curl -sf --max-time 10 -X POST "http://127.0.0.1:${API_PORT}/embed/search" \
+    -H "Content-Type: application/json" \
+    -d '{"q":"fox"}' 2>&1)
 
-SEARCH2_COUNT=$(echo "$SEARCH2_RESP" | python3 -c "
+SRCH2_COUNT=$(echo "$SRCH2_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    data = d.get('data', d)
-    sr = data.get('searchResult') or {}
-    inner = sr.get('data', sr) if isinstance(sr, dict) else {}
-    print(inner.get('count', 0) if isinstance(inner, dict) else 0)
+    r = (d.get('data') or {}).get('searchResult') or {}
+    print(r.get('count', 0))
 except Exception:
     print(0)
 " 2>/dev/null || echo "0")
 
-if [ "$SEARCH2_COUNT" -lt "$SEARCH_COUNT" ] 2>/dev/null; then
-    test_passed "Embedding - search count decreased after delete ($SEARCH_COUNT → $SEARCH2_COUNT)"
+if [ "$SRCH2_COUNT" -lt "$SRCH_COUNT" ] 2>/dev/null; then
+    test_passed "Embedding - search count decreased after delete ($SRCH_COUNT → $SRCH2_COUNT)"
 else
-    test_failed "Embedding - search count decreased after delete" "before=$SEARCH_COUNT after=$SEARCH2_COUNT"
+    test_failed "Embedding - search count decreased after delete" "before=$SRCH_COUNT after=$SRCH2_COUNT"
 fi
 
+kill "$KDEPS_PID" 2>/dev/null
+echo "✓ Server stopped"
 echo ""
 echo "Embedding E2E tests complete."

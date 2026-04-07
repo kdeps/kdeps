@@ -629,6 +629,58 @@
               "additionalProperties": true
             }
           }
+        },
+        "memory": {
+          "type": "object",
+          "required": ["operation"],
+          "additionalProperties": false,
+          "properties": {
+            "operation": { "type": "string", "enum": ["consolidate", "recall", "forget"] },
+            "content":   { "type": "string" },
+            "category":  { "type": "string" },
+            "dbPath":    { "type": "string" },
+            "model":     { "type": "string" },
+            "backend":   { "type": "string" },
+            "baseUrl":   { "type": "string" },
+            "topK":      { "type": "integer" }
+          }
+        },
+        "embedding": {
+          "type": "object",
+          "required": ["operation"],
+          "additionalProperties": false,
+          "properties": {
+            "operation":  { "type": "string", "enum": ["index", "search", "delete", "upsert"] },
+            "input":      { "type": "string" },
+            "collection": { "type": "string" },
+            "dbPath":     { "type": "string" },
+            "model":      { "type": "string" },
+            "backend":    { "type": "string" },
+            "baseUrl":    { "type": "string" },
+            "topK":       { "type": "integer" }
+          }
+        },
+        "scraper": {
+          "type": "object",
+          "required": ["source"],
+          "additionalProperties": false,
+          "properties": {
+            "type":     { "type": "string", "enum": ["text", "csv", "json", "url"] },
+            "source":   { "type": "string" },
+            "selector": { "type": "string" },
+            "timeout":  { "type": "integer" }
+          }
+        },
+        "search": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": { "type": "string" },
+            "path":     { "type": "string" },
+            "query":    { "type": "string" },
+            "glob":     { "type": "string" },
+            "limit":    { "type": "integer" }
+          }
         }
       }
     }
