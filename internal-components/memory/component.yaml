@@ -1,0 +1,64 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: memory
+  description: Key-value memory store via Python with SQLite
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: action
+      type: string
+      required: false
+      default: store
+      description: Operation to perform - "store" or "retrieve"
+    - name: key
+      type: string
+      required: true
+      description: Key to store or retrieve
+    - name: value
+      type: string
+      required: false
+      description: Value to store (required when action is "store")
+    - name: dbPath
+      type: string
+      required: false
+      default: ~/.kdeps/memory.db
+      description: Path to the SQLite database file
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      name: Memory Op
+      actionId: memory-op
+    run:
+      python:
+        script: |
+          import sqlite3
+          import os
+          import json
+          db_path_raw = "{{ get('memory.dbPath', '~/.kdeps/memory.db') }}"
+          db_path = os.path.expanduser(db_path_raw)
+          db_dir = os.path.dirname(db_path)
+          if db_dir:
+              os.makedirs(db_dir, exist_ok=True)
+          conn = sqlite3.connect(db_path)
+          conn.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
+          conn.commit()
+          action = "{{ get('memory.action', 'store') }}"
+          key = "{{ get('memory.key') }}"
+          if action == "store":
+              value = """{{ get('memory.value') }}"""
+              conn.execute("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", (key, value))
+              conn.commit()
+              result = "stored"
+          elif action == "retrieve":
+              row = conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
+              result = row[0] if row else ""
+          elif action == "forget":
+              conn.execute("DELETE FROM kv WHERE key=?", (key,))
+              conn.commit()
+              result = "forgotten"
+          else:
+              result = ""
+          conn.close()
+          print(json.dumps({"result": result, "action": action, "key": key}))

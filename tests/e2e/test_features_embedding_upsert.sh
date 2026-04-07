@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# E2E tests for the embedding executor upsert operation.
+# E2E tests for the embedding component upsert operation.
 # Tests: upsert new, upsert same (idempotent), similarity search returns results.
-# Uses run.embedding: {operation: upsert}.
+# Uses run.component: {name: embedding, with: {operation: upsert}}.
 
 set -uo pipefail
 
@@ -74,11 +74,13 @@ run:
   validations:
     routes: [/embed/upsert]
     methods: [POST]
-  embedding:
-    operation: upsert
-    input: "The quick brown fox jumps over the lazy dog"
-    collection: "e2e_upsert"
-    dbPath: "${DB_PATH}"
+  component:
+    name: embedding
+    with:
+      operation: "upsert"
+      text: "The quick brown fox jumps over the lazy dog"
+      collection: "e2e_upsert"
+      dbPath: "${DB_PATH}"
   apiResponse:
     success: true
     response:
@@ -95,11 +97,13 @@ run:
   validations:
     routes: [/embed/search]
     methods: [POST]
-  embedding:
-    operation: search
-    input: ""
-    collection: "e2e_upsert"
-    dbPath: "${DB_PATH}"
+  component:
+    name: embedding
+    with:
+      operation: "search"
+      text: ""
+      collection: "e2e_upsert"
+      dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'

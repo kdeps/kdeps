@@ -233,10 +233,6 @@ type RunConfig struct {
 	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
 	APIResponse *APIResponseConfig   `yaml:"apiResponse,omitempty"`
 	Component   *ComponentCallConfig `yaml:"component,omitempty"`
-	Memory      *MemoryConfig        `yaml:"memory,omitempty"`
-	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
-	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
-	Search      *SearchConfig        `yaml:"search,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -252,10 +248,6 @@ type InlineResource struct {
 	Exec       *ExecConfig          `yaml:"exec,omitempty"`
 	Agent      *AgentCallConfig     `yaml:"agent,omitempty"`
 	Component  *ComponentCallConfig `yaml:"component,omitempty"`
-	Memory     *MemoryConfig        `yaml:"memory,omitempty"`
-	Embedding  *EmbeddingConfig     `yaml:"embedding,omitempty"`
-	Scraper    *ScraperConfig       `yaml:"scraper,omitempty"`
-	Search     *SearchConfig        `yaml:"search,omitempty"`
 }
 
 // ComponentCallConfig configures a call to a named component.
@@ -275,88 +267,6 @@ type InlineResource struct {
 type ComponentCallConfig struct {
 	Name string                 `yaml:"name"`
 	With map[string]interface{} `yaml:"with,omitempty"`
-}
-
-// MemoryConfig configures the memory executor (semantic key-value memory store).
-// Uses Ollama embeddings when model/backend are set; falls back to keyword matching.
-//
-// Example:
-//
-//	run:
-//	  memory:
-//	    operation: consolidate
-//	    content: "The meeting was on Tuesday"
-//	    category: "notes"
-//	    model: nomic-embed-text
-//	    backend: ollama
-//	    baseUrl: "http://localhost:11434"
-type MemoryConfig struct {
-	Operation string `yaml:"operation"` // consolidate, recall, forget
-	Content   string `yaml:"content"`
-	Category  string `yaml:"category"`
-	DBPath    string `yaml:"dbPath"`
-	Model     string `yaml:"model"`
-	Backend   string `yaml:"backend"`
-	BaseURL   string `yaml:"baseUrl"`
-	TopK      int    `yaml:"topK"`
-}
-
-// EmbeddingConfig configures the embedding executor (vector document store).
-// Uses Ollama embeddings when model/backend are set; falls back to keyword search.
-//
-// Example:
-//
-//	run:
-//	  embedding:
-//	    operation: index
-//	    input: "{{ get('text') }}"
-//	    collection: my-docs
-//	    model: nomic-embed-text
-//	    backend: ollama
-//	    baseUrl: "http://localhost:11434"
-//	    topK: 5
-type EmbeddingConfig struct {
-	Operation  string `yaml:"operation"` // index, search, delete, upsert
-	Input      string `yaml:"input"`
-	Collection string `yaml:"collection"`
-	DBPath     string `yaml:"dbPath"`
-	Model      string `yaml:"model"`
-	Backend    string `yaml:"backend"`
-	BaseURL    string `yaml:"baseUrl"`
-	TopK       int    `yaml:"topK"`
-}
-
-// ScraperConfig configures the scraper executor (file and web content extraction).
-//
-// Example:
-//
-//	run:
-//	  scraper:
-//	    type: text
-//	    source: "/path/to/file.txt"
-type ScraperConfig struct {
-	Type     string `yaml:"type"` // text, csv, json, url
-	Source   string `yaml:"source"`
-	Selector string `yaml:"selector"` // CSS selector (url type only)
-	Timeout  int    `yaml:"timeout"`
-}
-
-// SearchConfig configures the search executor (local file keyword/glob search).
-//
-// Example:
-//
-//	run:
-//	  search:
-//	    provider: local
-//	    path: "./docs"
-//	    query: "error handling"
-//	    limit: 10
-type SearchConfig struct {
-	Provider string `yaml:"provider"` // local
-	Path     string `yaml:"path"`
-	Query    string `yaml:"query"`
-	Glob     string `yaml:"glob"`
-	Limit    int    `yaml:"limit"`
 }
 
 // ErrorConfig represents error configuration.
