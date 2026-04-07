@@ -1,0 +1,67 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: search-local
+  description: Search local files by keyword or glob pattern
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: path
+      type: string
+      required: true
+      description: Directory path to search in
+    - name: query
+      type: string
+      required: false
+      description: Keyword to search for within file contents
+    - name: glob
+      type: string
+      required: false
+      description: Glob pattern to match filenames (e.g. "*.md")
+    - name: limit
+      type: integer
+      required: false
+      default: 0
+      description: Maximum number of results (0 = unlimited)
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      name: Local Search
+      actionId: local-search
+    run:
+      python:
+        script: |
+          import os, json
+          import glob as glob_mod
+
+          search_dir = """{{ get("search-local.path", ".") }}"""
+          query = """{{ get("search-local.query", "") }}"""
+          pattern = """{{ get("search-local.glob", "") }}"""
+          try:
+              limit = int("""{{ get("search-local.limit", "0") }}""")
+          except (ValueError, TypeError):
+              limit = 0
+
+          results = []
+
+          if pattern:
+              full_pattern = os.path.join(search_dir, pattern)
+              for f in sorted(glob_mod.glob(full_pattern, recursive=True)):
+                  if os.path.isfile(f):
+                      results.append({"file": f})
+                      if limit > 0 and len(results) >= limit:
+                          break
+          elif query:
+              for f in sorted(glob_mod.glob(os.path.join(search_dir, "**", "*"), recursive=True)):
+                  if os.path.isfile(f):
+                      try:
+                          content = open(f, errors="replace").read()
+                          if query.lower() in content.lower():
+                              results.append({"file": f, "snippet": content[:200]})
+                              if limit > 0 and len(results) >= limit:
+                                  break
+                      except Exception:
+                          pass
+
+          print(json.dumps({"results": results, "count": len(results)}))

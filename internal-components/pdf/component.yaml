@@ -19,6 +19,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Generate Pdf
       actionId: generate-pdf
     run:
       python:

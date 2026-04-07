@@ -98,21 +98,11 @@ run:
   validations:
     routes: [/search/keyword]
     methods: [POST]
-  python:
-    script: |
-      import os, json, glob as glob_mod
-      search_dir = "${TEST_DIR}/docs"
-      query = "searchable_token"
-      results = []
-      for f in glob_mod.glob(os.path.join(search_dir, "**", "*"), recursive=True):
-          if os.path.isfile(f):
-              try:
-                  content = open(f).read()
-                  if query.lower() in content.lower():
-                      results.append({"file": f, "snippet": content[:100]})
-              except Exception:
-                  pass
-      print(json.dumps({"results": results, "count": len(results)}))
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "searchable_token"
   apiResponse:
     success: true
     response:
@@ -130,14 +120,11 @@ run:
   validations:
     routes: [/search/glob]
     methods: [POST]
-  python:
-    script: |
-      import os, json, glob as glob_mod
-      search_dir = "${TEST_DIR}/docs"
-      pattern = os.path.join(search_dir, "*.md")
-      files = [f for f in glob_mod.glob(pattern) if os.path.isfile(f)]
-      results = [{"file": f} for f in files]
-      print(json.dumps({"results": results, "count": len(results)}))
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      glob: "*.md"
   apiResponse:
     success: true
     response:
@@ -155,24 +142,12 @@ run:
   validations:
     routes: [/search/limit]
     methods: [POST]
-  python:
-    script: |
-      import os, json, glob as glob_mod
-      search_dir = "${TEST_DIR}/docs"
-      query = "searchable_token"
-      limit = 1
-      results = []
-      for f in glob_mod.glob(os.path.join(search_dir, "**", "*"), recursive=True):
-          if len(results) >= limit:
-              break
-          if os.path.isfile(f):
-              try:
-                  content = open(f).read()
-                  if query.lower() in content.lower():
-                      results.append({"file": f})
-              except Exception:
-                  pass
-      print(json.dumps({"results": results, "count": len(results)}))
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "searchable_token"
+      limit: 1
   apiResponse:
     success: true
     response:
@@ -190,21 +165,11 @@ run:
   validations:
     routes: [/search/nomatch]
     methods: [POST]
-  python:
-    script: |
-      import os, json, glob as glob_mod
-      search_dir = "${TEST_DIR}/docs"
-      query = "zzz_no_such_keyword_zzz"
-      results = []
-      for f in glob_mod.glob(os.path.join(search_dir, "**", "*"), recursive=True):
-          if os.path.isfile(f):
-              try:
-                  content = open(f).read()
-                  if query.lower() in content.lower():
-                      results.append({"file": f})
-              except Exception:
-                  pass
-      print(json.dumps({"results": results, "count": len(results)}))
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "zzz_no_such_keyword_zzz"
   onError:
     action: continue
   apiResponse:

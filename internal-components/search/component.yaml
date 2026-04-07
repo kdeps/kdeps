@@ -23,6 +23,7 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Web Search
       actionId: web-search
     run:
       httpClient:

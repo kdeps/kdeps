@@ -22,11 +22,12 @@ resources:
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
+      name: Send Message
       actionId: send-message
     run:
       httpClient:
-        url: "https://api.telegram.org/bot{{ get("botreply.token") }}/sendMessage"
+        url: "https://api.telegram.org/bot{{ get('botreply.token') }}/sendMessage"
         method: POST
         headers:
           Content-Type: application/json
-        data: '{"chat_id":"{{ get("botreply.chatId") }}","text":"{{ get("botreply.text") }}"}'
+        data: '{"chat_id":"{{ get(''botreply.chatId'') }}","text":"{{ get(''botreply.text'') }}"}'
