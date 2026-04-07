@@ -34,19 +34,23 @@ resources:
         script: |
           import sqlite3
           import os
-          db_path = get("memory.dbPath", os.path.expanduser("~/.kdeps/memory.db"))
+          import json
+          db_path = "{{ get('memory.dbPath', os.path.expanduser('~/.kdeps/memory.db')) }}"
           os.makedirs(os.path.dirname(db_path), exist_ok=True)
           conn = sqlite3.connect(db_path)
           conn.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
           conn.commit()
-          action = get("memory.action", "store")
-          key = get("memory.key")
+          action = "{{ get('memory.action', 'store') }}"
+          key = "{{ get('memory.key') }}"
           if action == "store":
-              value = get("memory.value")
+              value = "{{ get('memory.value') }}"
               conn.execute("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", (key, value))
               conn.commit()
-              set("memory.result", "stored")
+              result = "stored"
           elif action == "retrieve":
               row = conn.execute("SELECT value FROM kv WHERE key=?", (key,)).fetchone()
-              set("memory.result", row[0] if row else "")
+              result = row[0] if row else ""
+          else:
+              result = ""
           conn.close()
+          print(json.dumps({"result": result, "action": action, "key": key}))

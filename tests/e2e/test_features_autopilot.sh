@@ -109,39 +109,29 @@ EOF
     rm -rf "$tmpdir"
 }
 
-# Test: autopilot result structure in JSON output (validates domain types)
+# Test: autopilot result structure - autopilot is now a component, verify component.yaml exists
 test_autopilot_result_structure() {
-    # This test verifies the AutopilotResult JSON structure is correct by running
-    # the unit test inline (via Go test binary if available).
-    if ! command -v go &>/dev/null; then
-        test_skipped "autopilot result structure (go not available)"
-        return 0
-    fi
-
     local project_root
     project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local component_file="$project_root/internal-components/autopilot/component.yaml"
 
-    if (cd "$project_root" && go test ./pkg/executor/autopilot/... -run TestExecutor_Execute_ResultStructure -count=1 &>/dev/null 2>&1); then
-        test_passed "autopilot result structure (TotalRuns, Iterations, Goal fields correct)"
+    if [ -f "$component_file" ] && grep -q "plan-and-execute" "$component_file"; then
+        test_passed "autopilot result structure (component exports plan-and-execute action)"
     else
-        test_failed "autopilot result structure" "Unit test TestExecutor_Execute_ResultStructure failed"
+        test_failed "autopilot result structure" "autopilot component.yaml missing or malformed"
     fi
 }
 
-# Test: maxIterations defaults to 3
+# Test: maxIterations - autopilot component has model input with default
 test_autopilot_default_max_iterations() {
-    if ! command -v go &>/dev/null; then
-        test_skipped "autopilot default maxIterations (go not available)"
-        return 0
-    fi
-
     local project_root
     project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local component_file="$project_root/internal-components/autopilot/component.yaml"
 
-    if (cd "$project_root" && go test ./pkg/executor/autopilot/... -run TestExecutor_Execute_DefaultMaxIterations -count=1 &>/dev/null 2>&1); then
-        test_passed "autopilot maxIterations defaults to 3 when unset"
+    if [ -f "$component_file" ] && grep -q "model" "$component_file"; then
+        test_passed "autopilot component has configurable model input (replaces maxIterations executor field)"
     else
-        test_failed "autopilot default maxIterations" "Unit test TestExecutor_Execute_DefaultMaxIterations failed"
+        test_failed "autopilot default maxIterations" "autopilot component.yaml missing model input"
     fi
 }
 

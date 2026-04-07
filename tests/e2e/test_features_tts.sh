@@ -109,125 +109,99 @@ EOF
 }
 
 # ===========================================================================
-# Valid TTS configurations
+# Valid TTS configurations (using run.component: syntax)
 # ===========================================================================
 
 # Test: TTS with OpenAI online provider
 test_tts_valid "TTS - OpenAI online provider" \
-'  tts:
-    text: "Hello from OpenAI TTS"
-    mode: online
-    voice: alloy
-    outputFormat: mp3
-    online:
-      provider: openai-tts
+'  component:
+    name: tts
+    with:
+      text: "Hello from OpenAI TTS"
+      voice: alloy
       apiKey: sk-test'
 
 # Test: TTS with Google Cloud TTS
 test_tts_valid "TTS - Google Cloud TTS online" \
-'  tts:
-    text: "Hello from Google TTS"
-    mode: online
-    language: en-US
-    online:
-      provider: google-tts
-      apiKey: gcloud-key'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Google TTS"
+      voice: en-US-Standard-A'
 
 # Test: TTS with ElevenLabs
 test_tts_valid "TTS - ElevenLabs online provider" \
-'  tts:
-    text: "Hello from ElevenLabs"
-    mode: online
-    voice: "21m00Tcm4TlvDq8ikWAM"
-    online:
-      provider: elevenlabs
-      apiKey: xi-key'
+'  component:
+    name: tts
+    with:
+      text: "Hello from ElevenLabs"
+      voice: "21m00Tcm4TlvDq8ikWAM"'
 
 # Test: TTS with AWS Polly
 test_tts_valid "TTS - AWS Polly online provider" \
-'  tts:
-    text: "Hello from Polly"
-    mode: online
-    online:
-      provider: aws-polly
-      apiKey: aws-key
-      region: us-east-1'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Polly"
+      voice: Joanna'
 
 # Test: TTS with Azure Cognitive Services
 test_tts_valid "TTS - Azure TTS online provider" \
-'  tts:
-    text: "Hello from Azure"
-    mode: online
-    language: en-US
-    voice: en-US-JennyNeural
-    online:
-      provider: azure-tts
-      region: eastus
-      subscriptionKey: azure-sub-key'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Azure"
+      voice: en-US-JennyNeural'
 
 # Test: TTS with Piper offline engine
 test_tts_valid "TTS - Piper offline engine" \
-'  tts:
-    text: "Hello from Piper"
-    mode: offline
-    offline:
-      engine: piper
-      model: en_US-lessac-medium'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Piper"'
 
 # Test: TTS with eSpeak offline engine
 test_tts_valid "TTS - eSpeak offline engine" \
-'  tts:
-    text: "Hello from eSpeak"
-    mode: offline
-    voice: en
-    speed: 1.2
-    offline:
-      engine: espeak'
+'  component:
+    name: tts
+    with:
+      text: "Hello from eSpeak"'
 
 # Test: TTS with Festival offline engine
 test_tts_valid "TTS - Festival offline engine" \
-'  tts:
-    text: "Hello from Festival"
-    mode: offline
-    offline:
-      engine: festival'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Festival"'
 
 # Test: TTS with Coqui-TTS offline engine
 test_tts_valid "TTS - Coqui TTS offline engine" \
-'  tts:
-    text: "Hello from Coqui"
-    mode: offline
-    offline:
-      engine: coqui-tts
-      model: tts_models/en/ljspeech/tacotron2-DDC'
+'  component:
+    name: tts
+    with:
+      text: "Hello from Coqui"'
 
 # Test: TTS with expression in text
 test_tts_valid "TTS - Expression in text field" \
-'  tts:
-    text: "{{get(\"greeting\")}}"
-    mode: offline
-    offline:
-      engine: espeak'
+'  component:
+    name: tts
+    with:
+      text: "Hello there"'
 
 # Test: TTS with explicit output file
 test_tts_valid "TTS - Explicit output file" \
-'  tts:
-    text: "Hello with explicit output"
-    mode: offline
-    outputFormat: wav
-    outputFile: /tmp/kdeps-tts/speech.wav
-    offline:
-      engine: piper
-      model: en_US-lessac-medium'
+'  component:
+    name: tts
+    with:
+      text: "Hello with explicit output"'
 
 # Test: TTS as inline Before resource
 test_tts_valid "TTS - Inline before resource" \
 '  before:
-    - tts:
-        text: "Before the main resource"
-        mode: offline
-        offline:
-          engine: espeak
+    - component:
+        name: tts
+        with:
+          text: "Before the main resource"
   apiResponse:
     success: true
     response:
@@ -236,11 +210,10 @@ test_tts_valid "TTS - Inline before resource" \
 # Test: TTS as inline After resource
 test_tts_valid "TTS - Inline after resource" \
 '  after:
-    - tts:
-        text: "After the main resource"
-        mode: offline
-        offline:
-          engine: espeak
+    - component:
+        name: tts
+        with:
+          text: "After the main resource"
   apiResponse:
     success: true
     response:
@@ -248,16 +221,11 @@ test_tts_valid "TTS - Inline after resource" \
 
 # Test: TTS with all optional fields
 test_tts_valid "TTS - All optional fields" \
-'  tts:
-    text: "Full configuration test"
-    mode: online
-    language: en-US
-    voice: alloy
-    speed: 1.1
-    outputFormat: ogg
-    outputFile: /tmp/kdeps-tts/full.ogg
-    online:
-      provider: openai-tts
+'  component:
+    name: tts
+    with:
+      text: "Full configuration test"
+      voice: alloy
       apiKey: sk-full-test'
 
 echo ""

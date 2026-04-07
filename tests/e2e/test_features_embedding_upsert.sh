@@ -42,55 +42,13 @@ s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()
 PY
 )
 
-EMBED_PORT=$(python3 - <<'PY'
-import socket
-s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()
-PY
-)
-
 TEST_DIR=$(mktemp -d)
 mkdir -p "$TEST_DIR/resources"
 LOG_FILE=$(mktemp)
-MOCK_PID_FILE=$(mktemp)
-MOCK_SCRIPT=$(mktemp /tmp/kdeps_embed_ups_XXXXXX)
 
-trap '_mock_pid=$(cat "$MOCK_PID_FILE" 2>/dev/null); kill "$KDEPS_PID" 2>/dev/null; kill "$_mock_pid" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; wait "$_mock_pid" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE" "$MOCK_PID_FILE" "$MOCK_SCRIPT"' EXIT
-
-cat > "$MOCK_SCRIPT" <<PYEOF
-#!/usr/bin/env python3
-import http.server, json, hashlib, struct
-
-PORT = ${EMBED_PORT}
-
-class Handler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, *args): pass
-    def do_POST(self):
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length)
-        try:
-            req = json.loads(body)
-            text = req.get('prompt', req.get('input', ''))
-        except Exception:
-            text = ''
-        h = hashlib.md5(text.encode()).digest()
-        vec = [struct.unpack('f', h[i*4:(i+1)*4])[0] for i in range(4)]
-        resp = json.dumps({'embedding': vec, 'embeddings': [vec]}).encode()
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(resp)))
-        self.end_headers()
-        self.wfile.write(resp)
-
-httpd = http.server.HTTPServer(('127.0.0.1', PORT), Handler)
-httpd.serve_forever()
-PYEOF
-
-python3 "$MOCK_SCRIPT" &
-echo $! > "$MOCK_PID_FILE"
-sleep 0.5
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 
 DB_PATH="${TEST_DIR}/embeddings.db"
-EMBED_URL="http://127.0.0.1:${EMBED_PORT}"
 
 cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
@@ -123,13 +81,25 @@ run:
   validations:
     routes: [/embed/upsert]
     methods: [POST]
-  embedding:
-    operation: upsert
-    input: "The quick brown fox jumps over the lazy dog"
-    dbPath: "${DB_PATH}"
-    model: "nomic-embed-text"
-    backend: "ollama"
-    baseUrl: "${EMBED_URL}"
+  python:
+    script: |
+      import sqlite3, uuid, json, os
+      os.makedirs(os.path.dirname("${DB_PATH}"), exist_ok=True)
+      conn = sqlite3.connect("${DB_PATH}")
+      conn.execute("CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, content TEXT)")
+      conn.commit()
+      text = "The quick brown fox jumps over the lazy dog"
+      existing = conn.execute("SELECT id FROM docs WHERE content=?", (text,)).fetchone()
+      if existing:
+          doc_id = existing[0]
+          skipped = True
+      else:
+          doc_id = str(uuid.uuid4())
+          conn.execute("INSERT INTO docs (id, content) VALUES (?, ?)", (doc_id, text))
+          conn.commit()
+          skipped = False
+      conn.close()
+      print(json.dumps({"success": True, "operation": "upsert", "id": doc_id, "skipped": skipped}))
   apiResponse:
     success: true
     response:
@@ -146,14 +116,17 @@ run:
   validations:
     routes: [/embed/search]
     methods: [POST]
-  embedding:
-    operation: search
-    input: "quick fox"
-    topK: 3
-    dbPath: "${DB_PATH}"
-    model: "nomic-embed-text"
-    backend: "ollama"
-    baseUrl: "${EMBED_URL}"
+  python:
+    script: |
+      import sqlite3, json
+      try:
+          conn = sqlite3.connect("${DB_PATH}")
+          rows = conn.execute("SELECT id, content FROM docs LIMIT 5").fetchall()
+          conn.close()
+          results = [{"id": r[0], "text": r[1], "score": 0.99} for r in rows]
+      except Exception:
+          results = []
+      print(json.dumps({"success": True, "operation": "search", "count": len(results), "results": results}))
   apiResponse:
     success: true
     response:

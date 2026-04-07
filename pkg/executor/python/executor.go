@@ -23,6 +23,7 @@ package python
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -306,8 +307,14 @@ func (e *Executor) executeScript(
 
 	result["exitCode"] = 0
 
-	// Return stdout as primary result
-	return stdout.String(), nil
+	// Return stdout as primary result. If stdout is valid JSON, return the
+	// parsed value so that output().field access works in expressions.
+	out := stdout.String()
+	var parsed map[string]interface{}
+	if err2 := json.Unmarshal([]byte(out), &parsed); err2 == nil {
+		return parsed, nil
+	}
+	return out, nil
 }
 
 // EvaluateExpression evaluates an expression string.

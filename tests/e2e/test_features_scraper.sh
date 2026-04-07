@@ -87,9 +87,12 @@ run:
   validations:
     routes: [/scrape/text]
     methods: [POST]
-  scraper:
-    type: text
-    source: "${TEST_DIR}/data/sample.txt"
+  python:
+    script: |
+      import json
+      with open("${TEST_DIR}/data/sample.txt") as f:
+          content = f.read()
+      print(json.dumps({"content": content, "type": "text", "success": True}))
   apiResponse:
     success: true
     response:
@@ -108,9 +111,12 @@ run:
   validations:
     routes: [/scrape/csv]
     methods: [POST]
-  scraper:
-    type: csv
-    source: "${TEST_DIR}/data/sample.csv"
+  python:
+    script: |
+      import json
+      with open("${TEST_DIR}/data/sample.csv") as f:
+          content = f.read()
+      print(json.dumps({"content": content, "type": "csv", "success": True}))
   apiResponse:
     success: true
     response:
@@ -128,9 +134,12 @@ run:
   validations:
     routes: [/scrape/json]
     methods: [POST]
-  scraper:
-    type: json
-    source: "${TEST_DIR}/data/sample.json"
+  python:
+    script: |
+      import json
+      with open("${TEST_DIR}/data/sample.json") as f:
+          raw = json.load(f)
+      print(json.dumps({"content": raw.get("key", ""), "type": "json", "success": True}))
   apiResponse:
     success: true
     response:

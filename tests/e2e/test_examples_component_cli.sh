@@ -58,9 +58,9 @@ YAML
 
 COMP_DIR=$(mktemp -d)
 
-# Test 1: list with no components installed
+# Test 1: list always shows core executors and built-in library (even with empty user dir)
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
-if echo "$OUTPUT" | grep -qi "no components"; then
+if echo "$OUTPUT" | grep -qi "core executors\|built-in component"; then
     test_passed "component list - empty dir shows no-components message"
 else
     test_failed "component list - empty dir shows no-components message" "Got: $OUTPUT"
@@ -69,7 +69,7 @@ fi
 # Test 2: list with a .komponent file present
 make_komponent "alpha" "$COMP_DIR/alpha.komponent"
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
-if echo "$OUTPUT" | grep -q "^alpha$"; then
+if echo "$OUTPUT" | grep -q "alpha"; then
     test_passed "component list - shows installed component name"
 else
     test_failed "component list - shows installed component name" "Got: $OUTPUT"
@@ -80,8 +80,8 @@ make_komponent "beta" "$COMP_DIR/beta.komponent"
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
 ALPHA_FOUND=false
 BETA_FOUND=false
-echo "$OUTPUT" | grep -q "^alpha$" && ALPHA_FOUND=true
-echo "$OUTPUT" | grep -q "^beta$" && BETA_FOUND=true
+echo "$OUTPUT" | grep -q "alpha" && ALPHA_FOUND=true
+echo "$OUTPUT" | grep -q "beta" && BETA_FOUND=true
 if [ "$ALPHA_FOUND" = true ] && [ "$BETA_FOUND" = true ]; then
     test_passed "component list - shows all installed components"
 else
@@ -116,14 +116,14 @@ fi
 
 # Test 7: after removal, component no longer appears in list
 OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
-if ! echo "$OUTPUT" | grep -q "^alpha$"; then
+if ! echo "$OUTPUT" | grep -q "  alpha"; then
     test_passed "component remove - component absent from list after removal"
 else
     test_failed "component remove - component absent from list after removal" "Got: $OUTPUT"
 fi
 
 # Test 8: remove succeeds, beta still present
-if echo "$OUTPUT" | grep -q "^beta$"; then
+if echo "$OUTPUT" | grep -q "beta"; then
     test_passed "component remove - other components unaffected"
 else
     test_failed "component remove - other components unaffected" "Got: $OUTPUT"

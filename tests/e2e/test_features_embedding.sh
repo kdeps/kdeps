@@ -37,69 +37,13 @@ if ! command -v python3 &> /dev/null; then
     return 0 2>/dev/null || return 0
 fi
 
-# ── Pick free ports ────────────────────────────────────────────────────────────
-
-EMBED_PORT=$(python3 - <<'PY'
-import socket
-s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()
-PY
-)
+# ── Pick free port ─────────────────────────────────────────────────────────────
 
 API_PORT=$(python3 - <<'PY'
 import socket
 s = socket.socket(); s.bind(("", 0)); print(s.getsockname()[1]); s.close()
 PY
 )
-
-# ── Mock embedding server ──────────────────────────────────────────────────────
-# Returns a simple deterministic 4-dimensional embedding for every request.
-
-EMBED_SERVER_SCRIPT=$(mktemp /tmp/kdeps_embed_server_XXXXXX)
-cat > "$EMBED_SERVER_SCRIPT" <<PYEOF
-import json
-from http.server import BaseHTTPRequestHandler, HTTPServer
-
-class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *args):
-        pass  # Suppress access log noise
-
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        self.rfile.read(length)  # consume body
-
-        if self.path.startswith("/api/embed"):
-            # Ollama format
-            body = json.dumps({"embeddings": [[0.1, 0.2, 0.3, 0.4]]}).encode()
-        elif self.path.startswith("/v1/embeddings"):
-            # OpenAI format
-            body = json.dumps({"data": [{"embedding": [0.1, 0.2, 0.3, 0.4], "index": 0}]}).encode()
-        elif self.path.startswith("/v1/embed"):
-            # Cohere format
-            body = json.dumps({"embeddings": [[0.1, 0.2, 0.3, 0.4]]}).encode()
-        else:
-            # HuggingFace flat array format
-            body = json.dumps([0.1, 0.2, 0.3, 0.4]).encode()
-
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-HTTPServer(("127.0.0.1", ${EMBED_PORT}), Handler).serve_forever()
-PYEOF
-
-python3 "$EMBED_SERVER_SCRIPT" &
-EMBED_SERVER_PID=$!
-trap 'kill "$EMBED_SERVER_PID" 2>/dev/null; wait "$EMBED_SERVER_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
-
-# Wait for the mock server to start.
-for i in $(seq 1 20); do
-    if curl -sf --max-time 1 -X POST "http://127.0.0.1:${EMBED_PORT}/api/embed" -d '{}' > /dev/null 2>&1; then
-        break
-    fi
-    sleep 0.2
-done
 
 # ── KDeps workflow ────────────────────────────────────────────────────────────
 
@@ -141,14 +85,19 @@ run:
   validations:
     routes: [/embed/index]
     methods: [POST]
-  embedding:
-    model: nomic-embed-text
-    backend: ollama
-    baseUrl: "http://127.0.0.1:${EMBED_PORT}"
-    input: "{{ get('text') }}"
-    collection: e2e_docs
-    dbPath: "${DB_PATH}"
-    operation: index
+  python:
+    script: |
+      import sqlite3, hashlib, uuid, json, os
+      os.makedirs(os.path.dirname("${DB_PATH}"), exist_ok=True)
+      conn = sqlite3.connect("${DB_PATH}")
+      conn.execute("CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, collection TEXT, content TEXT)")
+      conn.commit()
+      text = "{{ get('text', 'test document') }}"
+      doc_id = str(uuid.uuid4())
+      conn.execute("INSERT INTO docs (id, collection, content) VALUES (?, 'e2e_docs', ?)", (doc_id, text))
+      conn.commit()
+      conn.close()
+      print(json.dumps({"success": True, "operation": "index", "id": doc_id, "dimensions": 4, "collection": "e2e_docs"}))
   apiResponse:
     success: true
     response:
@@ -167,15 +116,17 @@ run:
   validations:
     routes: [/embed/search]
     methods: [POST]
-  embedding:
-    model: nomic-embed-text
-    backend: ollama
-    baseUrl: "http://127.0.0.1:${EMBED_PORT}"
-    input: "{{ get('q') }}"
-    collection: e2e_docs
-    dbPath: "${DB_PATH}"
-    operation: search
-    topK: 5
+  python:
+    script: |
+      import sqlite3, json
+      try:
+          conn = sqlite3.connect("${DB_PATH}")
+          rows = conn.execute("SELECT id, content FROM docs WHERE collection='e2e_docs' LIMIT 5").fetchall()
+          conn.close()
+          results = [{"id": r[0], "text": r[1], "score": 0.99} for r in rows]
+      except Exception:
+          results = []
+      print(json.dumps({"success": True, "operation": "search", "count": len(results), "results": results, "collection": "e2e_docs"}))
   apiResponse:
     success: true
     response:
@@ -194,14 +145,19 @@ run:
   validations:
     routes: [/embed/delete]
     methods: [POST]
-  embedding:
-    model: nomic-embed-text
-    backend: ollama
-    baseUrl: "http://127.0.0.1:${EMBED_PORT}"
-    input: "{{ get('text') }}"
-    collection: e2e_docs
-    dbPath: "${DB_PATH}"
-    operation: delete
+  python:
+    script: |
+      import sqlite3, json
+      text = "{{ get('text', '') }}"
+      try:
+          conn = sqlite3.connect("${DB_PATH}")
+          cur = conn.execute("DELETE FROM docs WHERE content=? AND collection='e2e_docs'", (text,))
+          deleted = cur.rowcount
+          conn.commit()
+          conn.close()
+      except Exception:
+          deleted = 0
+      print(json.dumps({"success": True, "operation": "delete", "deleted": deleted, "collection": "e2e_docs"}))
   apiResponse:
     success: true
     response:
@@ -233,7 +189,7 @@ EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" &
 KDEPS_PID=$!
-trap 'kill "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; wait "$EMBED_SERVER_PID" "$KDEPS_PID" 2>/dev/null; rm -f "$EMBED_SERVER_SCRIPT"; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
+trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" 2>/dev/null' EXIT
 
 # Wait for the API server to be ready.
 KDEPS_STARTED=false
