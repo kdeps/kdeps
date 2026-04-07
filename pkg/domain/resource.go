@@ -361,6 +361,7 @@ type ChatConfig struct {
 	Prompt           string         `yaml:"prompt"`
 	Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
 	Tools            []Tool         `yaml:"tools,omitempty"`
+	ComponentTools   []string       `yaml:"componentTools,omitempty"` // Allowlist of installed component names to auto-register as LLM tools. Empty/absent = none registered.
 	Files            []string       `yaml:"files,omitempty"`
 	JSONResponse     bool           `yaml:"jsonResponse"`
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
@@ -388,6 +389,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 		Prompt           string         `yaml:"prompt"`
 		Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
 		Tools            []Tool         `yaml:"tools,omitempty"`
+		ComponentTools   []string       `yaml:"componentTools,omitempty"`
 		Files            []string       `yaml:"files,omitempty"`
 		JSONResponse     interface{}    `yaml:"jsonResponse"`
 		JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
@@ -433,6 +435,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	c.Prompt = alias.Prompt
 	c.Scenario = alias.Scenario
 	c.Tools = alias.Tools
+	c.ComponentTools = alias.ComponentTools
 	c.Files = alias.Files
 	c.JSONResponseKeys = alias.JSONResponseKeys
 	c.TimeoutDuration = alias.TimeoutDuration

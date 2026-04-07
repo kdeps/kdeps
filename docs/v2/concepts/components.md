@@ -197,6 +197,38 @@ kdeps component list           # List installed components
 kdeps component remove scraper # Uninstall a component
 ```
 
+## Components as LLM Tools (Opt-In)
+
+Installed components can be exposed as LLM function-calling tools via the `componentTools:` allowlist on the `chat:` resource. **By default no components are registered** — you must explicitly name which ones the LLM may call.
+
+```yaml
+# kdeps component install scraper
+# kdeps component install search
+
+run:
+  chat:
+    model: gpt-4o
+    prompt: "Research {{ get('q') }} and summarize the findings."
+    componentTools:
+      - scraper
+      - search
+```
+
+The component's `interface.inputs` become the tool's parameter schema. The LLM uses this schema to decide when and how to call the tool.
+
+**Rules:**
+
+- `componentTools:` absent or empty — no components are registered (default).
+- Names in `componentTools:` that are not installed are silently ignored.
+- Explicit `tools:` entries always take precedence over `componentTools:` entries with the same name — no duplication.
+
+| Priority | Source |
+|----------|--------|
+| 1 (highest) | Explicit `tools:` in the resource YAML |
+| 2 | `componentTools:` allowlist |
+
+---
+
 ## Calling a Component: `run.component:` Syntax
 
 Once a component is installed, resources invoke it using the `run.component:` block instead of a raw executor key. The `with:` map passes typed inputs that are validated against the component's `interface.inputs` declaration.
