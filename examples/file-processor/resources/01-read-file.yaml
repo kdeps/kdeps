@@ -1,0 +1,15 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: readFile
+  name: Read File Content
+
+run:
+  exec:
+    command: echo "file content loaded"
+  apiResponse:
+    success: true
+    response:
+      path: "{{ input('filePath') }}"
+      preview: "{{ input('fileContent') | truncate(200) }}"

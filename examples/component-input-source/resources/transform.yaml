@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: transform
+  name: Transform Text
+
+run:
+  exec:
+    command: |
+      python3 - <<'PYEOF'
+      import sys, json
+
+      text  = """{{ input('text') }}"""
+      style = """{{ input('style') }}"""
+
+      if not text:
+          print(json.dumps({"error": "input 'text' is required"}))
+          sys.exit(1)
+
+      if not style:
+          style = "uppercase"
+
+      style = style.strip().lower()
+      if style == "lowercase":
+          result = text.lower()
+      elif style == "title":
+          result = text.title()
+      else:
+          result = text.upper()
+
+      print(json.dumps({"original": text, "style": style, "result": result}))
+      PYEOF

@@ -1,0 +1,38 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: component-input-source
+  description: |
+    A reusable text-transformation sub-workflow designed to be called via
+    run.component from a parent workflow.
+
+    Declares sources: [component] so no HTTP server, bot listener, or file
+    reader is started.  All input arrives through the calling resource's
+    with: map.
+
+    Inputs (passed by parent via run.component with:):
+      - text    (required) - the text to transform
+      - style   (optional) - "uppercase" | "lowercase" | "title"  (default: uppercase)
+
+    Output:
+      run.component result stored under the calling actionId;
+      access with output('<callerActionId>') or get('<callerActionId>').
+
+    To invoke from a parent workflow:
+      run:
+        component:
+          name: component-input-source
+          with:
+            text: "hello world"
+            style: title
+  version: "1.0.0"
+  targetActionId: transform
+
+settings:
+  agentSettings:
+    pythonVersion: "3.12"
+  input:
+    sources: [component]
+    component:
+      description: "Transforms text to uppercase, lowercase, or title case."

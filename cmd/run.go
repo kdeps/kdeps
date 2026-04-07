@@ -1411,6 +1411,11 @@ func dispatchExecution(
 	if s.Input != nil && s.Input.HasFileSource() {
 		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
 	}
+	if s.Input != nil && s.Input.HasComponentSource() {
+		// Component-mode workflow: no external listener. Execute once inline,
+		// driven by run.component invocations from a parent workflow.
+		return ExecuteSingleRun(workflow)
+	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {
 		return StartMediaRunners(workflow, debugMode)
@@ -1706,6 +1711,10 @@ func dispatchExecutionWithEngine(
 	}
 	if s.Input != nil && s.Input.HasFileSource() {
 		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
+	}
+	if s.Input != nil && s.Input.HasComponentSource() {
+		// Component-mode workflow: no external listener. Execute once inline.
+		return executeSingleRunWithEngine(eng, workflow)
 	}
 	if s.Input != nil && s.Input.HasMediaSource() &&
 		s.Input.ExecutionType == domain.InputExecutionTypePolling {

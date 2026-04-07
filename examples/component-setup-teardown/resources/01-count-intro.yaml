@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: countIntro
+  name: Count Intro Text
+
+run:
+  component:
+    name: word-counter
+    with:
+      text: "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs."
+      label: "intro"

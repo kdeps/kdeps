@@ -1,0 +1,101 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: input
+  description: >
+    Reads workflow inputs and returns them as a structured JSON object.
+    Designed for use with workflows that declare input.sources: [component].
+    Accepts up to eight generic named slots (a through h) plus query, prompt,
+    text, data, key, and value for convenience.  All inputs are optional — only
+    non-empty values are included in the output.
+  version: "1.0.0"
+  targetActionId: read-inputs
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: false
+      description: Convenience slot for a query string.
+    - name: prompt
+      type: string
+      required: false
+      description: Convenience slot for an LLM prompt.
+    - name: text
+      type: string
+      required: false
+      description: Convenience slot for plain text.
+    - name: data
+      type: string
+      required: false
+      description: Convenience slot for arbitrary data.
+    - name: key
+      type: string
+      required: false
+      description: Convenience slot for a key name.
+    - name: value
+      type: string
+      required: false
+      description: Convenience slot for a value.
+    - name: a
+      type: string
+      required: false
+      description: Generic input slot A.
+    - name: b
+      type: string
+      required: false
+      description: Generic input slot B.
+    - name: c
+      type: string
+      required: false
+      description: Generic input slot C.
+    - name: d
+      type: string
+      required: false
+      description: Generic input slot D.
+    - name: e
+      type: string
+      required: false
+      description: Generic input slot E.
+    - name: f
+      type: string
+      required: false
+      description: Generic input slot F.
+    - name: g
+      type: string
+      required: false
+      description: Generic input slot G.
+    - name: h
+      type: string
+      required: false
+      description: Generic input slot H.
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: read-inputs
+      name: Read Inputs
+      description: Collects all non-empty input slots and returns them as JSON.
+    run:
+      exec:
+        command: |
+          python3 - <<'PYEOF'
+          import json
+          inputs = {
+              "query":  """{{ input('query') }}""",
+              "prompt": """{{ input('prompt') }}""",
+              "text":   """{{ input('text') }}""",
+              "data":   """{{ input('data') }}""",
+              "key":    """{{ input('key') }}""",
+              "value":  """{{ input('value') }}""",
+              "a": """{{ input('a') }}""",
+              "b": """{{ input('b') }}""",
+              "c": """{{ input('c') }}""",
+              "d": """{{ input('d') }}""",
+              "e": """{{ input('e') }}""",
+              "f": """{{ input('f') }}""",
+              "g": """{{ input('g') }}""",
+              "h": """{{ input('h') }}""",
+          }
+          result = {k: v for k, v in inputs.items() if v}
+          print(json.dumps(result))
+          PYEOF

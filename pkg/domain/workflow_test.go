@@ -1776,3 +1776,92 @@ func TestIsBotSource(t *testing.T) {
 		t.Error("IsBotSource('') should be false")
 	}
 }
+
+func TestInputSourceComponent_Constant(t *testing.T) {
+	if domain.InputSourceComponent != "component" {
+		t.Errorf("InputSourceComponent = %v, want component", domain.InputSourceComponent)
+	}
+}
+
+func TestInputConfig_HasComponentSource(t *testing.T) {
+	cWith := &domain.InputConfig{Sources: []string{domain.InputSourceComponent}}
+	cWithout := &domain.InputConfig{Sources: []string{domain.InputSourceAPI}}
+	cMixed := &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceComponent}}
+
+	if !cWith.HasComponentSource() {
+		t.Error("HasComponentSource() should be true when component is in sources")
+	}
+	if cWithout.HasComponentSource() {
+		t.Error("HasComponentSource() should be false when component is not in sources")
+	}
+	if !cMixed.HasComponentSource() {
+		t.Error("HasComponentSource() should be true in mixed sources")
+	}
+}
+
+func TestInputConfig_PrimarySource_ComponentSkipped(t *testing.T) {
+	// "component" should be skipped by PrimarySource - it has no capture loop.
+	c := &domain.InputConfig{Sources: []string{domain.InputSourceComponent}}
+	if got := c.PrimarySource(); got != domain.InputSourceAPI {
+		t.Errorf("PrimarySource() with component source = %q, want %q", got, domain.InputSourceAPI)
+	}
+	// Mixed: component + audio -> audio should be primary.
+	c2 := &domain.InputConfig{Sources: []string{domain.InputSourceComponent, domain.InputSourceAudio}}
+	if got := c2.PrimarySource(); got != domain.InputSourceAudio {
+		t.Errorf("PrimarySource() component+audio = %q, want audio", got)
+	}
+}
+
+func TestInputConfig_HasNonAPISource_ComponentIsLikeAPI(t *testing.T) {
+	// "component" should not be treated as a media/bot/file source.
+	c := &domain.InputConfig{Sources: []string{domain.InputSourceComponent}}
+	if c.HasNonAPISource() {
+		t.Error("HasNonAPISource() should be false for component-only source")
+	}
+	c2 := &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceComponent}}
+	if c2.HasNonAPISource() {
+		t.Error("HasNonAPISource() should be false for api+component sources")
+	}
+	c3 := &domain.InputConfig{Sources: []string{domain.InputSourceComponent, domain.InputSourceAudio}}
+	if !c3.HasNonAPISource() {
+		t.Error("HasNonAPISource() should be true when audio is also present")
+	}
+}
+
+func TestInputConfig_AllSourcesAPI_ComponentIncluded(t *testing.T) {
+	// "component" counts as API-equivalent for AllSourcesAPI.
+	c := &domain.InputConfig{Sources: []string{domain.InputSourceComponent}}
+	if !c.AllSourcesAPI() {
+		t.Error("AllSourcesAPI() should be true for component-only source")
+	}
+	c2 := &domain.InputConfig{Sources: []string{domain.InputSourceAPI, domain.InputSourceComponent}}
+	if !c2.AllSourcesAPI() {
+		t.Error("AllSourcesAPI() should be true for api+component sources")
+	}
+	c3 := &domain.InputConfig{Sources: []string{domain.InputSourceComponent, domain.InputSourceBot}}
+	if c3.AllSourcesAPI() {
+		t.Error("AllSourcesAPI() should be false when bot is also present")
+	}
+}
+
+func TestComponentInputConfig_YAMLRoundTrip(t *testing.T) {
+	raw := `
+sources:
+  - component
+component:
+  description: "My component workflow"
+`
+	var cfg domain.InputConfig
+	if err := yaml.Unmarshal([]byte(raw), &cfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !cfg.HasComponentSource() {
+		t.Error("HasComponentSource() should be true after unmarshal")
+	}
+	if cfg.Component == nil {
+		t.Fatal("Component field should be non-nil")
+	}
+	if cfg.Component.Description != "My component workflow" {
+		t.Errorf("Component.Description = %q, want %q", cfg.Component.Description, "My component workflow")
+	}
+}

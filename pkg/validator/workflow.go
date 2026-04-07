@@ -505,6 +505,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 		domain.InputSourceTelephony: true,
 		domain.InputSourceBot:       true,
 		domain.InputSourceFile:      true,
+		domain.InputSourceComponent: true,
 	}
 
 	hasTelephony := false
@@ -522,7 +523,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, audio, video, telephony, bot, file]",
+					"invalid input source: %s. Available options: [api, audio, video, telephony, bot, file, component]",
 					source,
 				),
 				nil,

@@ -143,6 +143,42 @@ Explicit `tools:` declarations take precedence. If a component name matches an e
 
 See the [Components guide](https://kdeps.com/concepts/components) for full documentation.
 
+### 🔀 Input Sources
+
+Workflows declare which input channels they accept via `settings.input.sources`:
+
+| Source | Use Case |
+|--------|----------|
+| `api` | HTTP API requests (default) |
+| `audio` | Microphone / line-in audio capture |
+| `video` | Camera / V4L2 video capture |
+| `telephony` | Phone call audio (local or cloud) |
+| `bot` | Chat platforms (Discord, Slack, Telegram, WhatsApp) |
+| `file` | One-shot: reads content from `--file`, stdin, or `KDEPS_FILE_PATH` |
+| `component` | Invokable only via `run.component` from a parent workflow |
+
+A `component` source workflow starts no listener. It is driven exclusively by the parent that calls it:
+
+```yaml
+# mylib/workflow.yaml
+settings:
+  input:
+    sources: [component]
+    component:
+      description: "Summarize a block of text"
+```
+
+```yaml
+# caller resource
+run:
+  component:
+    name: mylib
+    with:
+      text: "{{ get('fetchDocs.body') }}"
+```
+
+See [Input Sources](https://kdeps.com/concepts/input-sources) for full documentation.
+
 ### Automatic Dependency Installation
 
 Components declare their own dependencies. When first invoked, kdeps automatically installs them:

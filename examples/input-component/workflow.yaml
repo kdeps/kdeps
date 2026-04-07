@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: input-component-example
+  description: |
+    Demonstrates the built-in "input" component, which collects named input
+    slots from a parent caller and returns them as structured JSON.
+
+    The built-in input component is pre-installed and requires no
+    kdeps component install.  It accepts up to 14 named slots:
+    query, prompt, text, data, key, value, a, b, c, d, e, f, g, h.
+
+    This example workflow:
+      1. Calls the input component with three slots (query, text, key)
+      2. Logs the collected inputs as a JSON blob
+      3. Passes the query slot to the LLM as a prompt
+      4. Returns the LLM answer together with the original inputs
+
+    Run:
+      kdeps run examples/input-component
+
+    Requirements:
+      - Ollama running locally with llama3.2
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
+    models:
+      - llama3.2:latest

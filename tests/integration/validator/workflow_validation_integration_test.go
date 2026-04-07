@@ -651,3 +651,63 @@ settings:
 		}
 	}
 }
+
+func TestWorkflowValidationIntegration_ComponentSource(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	tmpDir := t.TempDir()
+
+	workflowYAML := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: my-component-workflow
+  version: "1.0.0"
+  targetActionId: main
+settings:
+  agentSettings:
+    models:
+      - llama3.2:latest
+  input:
+    sources:
+      - component
+    component:
+      description: "Accepts text and returns processed output"
+`
+	wfPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(wfPath, []byte(workflowYAML), 0644))
+
+	resourcesDir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0755))
+	mainResource := `apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: main
+  name: Main
+run:
+  exec:
+    command: echo hello
+`
+	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "main.yaml"), []byte(mainResource), 0644))
+
+	wf, err := yamlParser.ParseWorkflow(wfPath)
+	require.NoError(t, err, "ParseWorkflow should succeed for component source workflow")
+	require.NotNil(t, wf.Settings.Input, "Input should not be nil after parsing")
+
+	assert.True(t, wf.Settings.Input.HasComponentSource(), "HasComponentSource() should be true")
+	require.NotNil(t, wf.Settings.Input.Component, "Component field should be non-nil")
+	assert.Equal(t, "Accepts text and returns processed output", wf.Settings.Input.Component.Description)
+
+	require.NoError(t, workflowValidator.Validate(wf), "workflow with component source should pass validation")
+
+	assert.Equal(t, domain.InputSourceAPI, wf.Settings.Input.PrimarySource(),
+		"PrimarySource should fall back to api for component-only source")
+	assert.False(t, wf.Settings.Input.HasNonAPISource(),
+		"component source should not trigger media/bot/file pipeline")
+	assert.True(t, wf.Settings.Input.AllSourcesAPI(),
+		"component source should count as api-equivalent")
+}

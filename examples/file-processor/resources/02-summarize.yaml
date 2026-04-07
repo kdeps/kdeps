@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: summarize
+  name: Summarize Document
+  requires:
+    - readFile
+
+run:
+  chat:
+    model: llama3.2:latest
+    prompt: |
+      You are a document analyst. Analyze the following document and return a
+      JSON object with exactly these keys:
+        - "title": a short descriptive title (max 10 words)
+        - "summary": a 2-3 sentence summary
+        - "key_points": an array of 3-5 bullet-point strings
+
+      Document:
+      {{ input('fileContent') }}
+
+      Return only valid JSON. No markdown, no explanation.
