@@ -178,4 +178,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add info command
 	rootCmd.AddCommand(newInfoCmd())
+
+	// Add clone command
+	rootCmd.AddCommand(newCloneCmd())
 }
