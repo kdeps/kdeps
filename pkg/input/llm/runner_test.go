@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -704,4 +705,61 @@ func TestRun_Signature(t *testing.T) {
 	var w bytes.Buffer
 	err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w)
 	assert.NoError(t, err)
+}
+
+// ─── scanner error path ───────────────────────────────────────────────────────
+
+// errReader always returns the given error from Read, simulating a broken pipe.
+type errReader struct{ err error }
+
+func (e *errReader) Read(_ []byte) (int, error) { return 0, e.err }
+
+// TestRunWithIO_ScannerError verifies that a read error from the underlying
+// io.Reader is wrapped and returned as an error by RunWithIO.
+func TestRunWithIO_ScannerError(t *testing.T) {
+	eng := buildEngine("x")
+	wf := workflowWith(nil)
+	var w bytes.Buffer
+
+	readErr := errors.New("simulated read error")
+	err := llminput.RunWithIO(context.Background(), wf, eng, nil, &errReader{err: readErr}, &w)
+	if err == nil {
+		t.Fatal("expected error from scanner error path, got nil")
+	}
+	if !strings.Contains(err.Error(), "llm repl: read") {
+		t.Errorf("expected 'llm repl: read' in error, got: %v", err)
+	}
+}
+
+// ─── Run function (os.Stdin/os.Stdout delegation) ─────────────────────────────
+
+// TestRun_PipedStdin exercises the Run function by redirecting os.Stdin to a
+// pipe whose write end is closed immediately (EOF). This verifies the Run →
+// RunWithIO delegation path.
+func TestRun_PipedStdin(t *testing.T) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	// Close the write end immediately → read end returns EOF.
+	pw.Close()
+
+	origStdin := os.Stdin
+	origStdout := os.Stdout
+	os.Stdin = pr
+	// Redirect stdout to discard output (avoid polluting test output).
+	devNull, _ := os.Open(os.DevNull)
+	os.Stdout = devNull
+	t.Cleanup(func() {
+		os.Stdin = origStdin
+		os.Stdout = origStdout
+		pr.Close()
+		devNull.Close()
+	})
+
+	eng := buildEngine("hello")
+	wf := workflowWith(nil)
+
+	runErr := llminput.Run(context.Background(), wf, eng, nil)
+	assert.NoError(t, runErr)
 }
