@@ -134,3 +134,33 @@ var InstallComponentFromRemote = installComponentFromRemote //nolint:gochecknogl
 // GithubArchiveBaseURL allows tests to override the GitHub archive download base URL.
 // Tests should restore the original value via t.Cleanup().
 var GithubArchiveBaseURL = &githubArchiveBaseURL //nolint:gochecknoglobals // test-only export
+
+// CloneAsComponent exposes the unexported cloneAsComponent helper for unit testing.
+var CloneAsComponent = cloneAsComponent //nolint:gochecknoglobals // test-only export
+
+// FindFileWithSuffix exposes the unexported findFileWithSuffix helper for unit testing.
+var FindFileWithSuffix = findFileWithSuffix //nolint:gochecknoglobals // test-only export
+
+// ExtractKomponent exposes the unexported extractKomponent helper for unit testing.
+var ExtractKomponent = extractKomponent //nolint:gochecknoglobals // test-only export
+
+// InstallComponentFromArchive exposes the unexported installComponentFromArchive helper for unit testing.
+var InstallComponentFromArchive = installComponentFromArchive //nolint:gochecknoglobals // test-only export
+
+// ReadReadmeFromKomponent exposes the unexported readReadmeFromKomponent helper for unit testing.
+var ReadReadmeFromKomponent = readReadmeFromKomponent //nolint:gochecknoglobals // test-only export
+
+// ResolveLocalReadme exposes the unexported resolveLocalReadme helper for unit testing.
+var ResolveLocalReadme = resolveLocalReadme //nolint:gochecknoglobals // test-only export
+
+// NewInfoCmd exposes newInfoCmd for cobra command testing.
+var NewInfoCmd = newInfoCmd //nolint:gochecknoglobals // test-only export
+
+// NewComponentShowCmd exposes newComponentShowCmd for cobra command testing.
+var NewComponentShowCmd = newComponentShowCmd //nolint:gochecknoglobals // test-only export
+
+// NewCloneCmd exposes newCloneCmd for cobra command testing.
+var NewCloneCmd = newCloneCmd //nolint:gochecknoglobals // test-only export
+
+// UnwrapArchiveRoot exposes the unexported unwrapArchiveRoot helper for unit testing.
+var UnwrapArchiveRoot = unwrapArchiveRoot //nolint:gochecknoglobals // test-only export

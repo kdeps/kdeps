@@ -351,7 +351,13 @@ kdeps scaffold sql --force
 
 ### `kdeps component`
 
-Manage installable components from the component registry.
+Manage KDeps components. There are three kinds:
+
+| Kind | How to use | Example |
+|------|-----------|---------|
+| **Built-in (internal)** | Always available, no install needed | `chat:`, `httpClient:`, `sql:`, `python:`, `exec:` |
+| **Registry** | Install once with `kdeps component install` | `scraper`, `tts`, `email`, ... |
+| **Custom** | Place `component.yaml` in `components/<name>/` | Your own `.komponent` package |
 
 **Usage:**
 ```bash
@@ -362,7 +368,7 @@ kdeps component <subcommand> [flags]
 
 #### `kdeps component install <name>`
 
-Install a component from the registry into the current workflow's `components/` directory.
+Download and install a registry component to `~/.kdeps/components/`.
 
 **Usage:**
 ```bash
@@ -370,24 +376,24 @@ kdeps component install <name>
 ```
 
 **Arguments:**
-- `name` — Name of the component to install (e.g. `scraper`, `tts`, `pdf`)
+- `name` — Name of the registry component to install
 
-**Available components:**
+**Available registry components:**
 
 | Name | Description |
 |------|-------------|
-| `scraper` | Content extraction from web pages, PDFs, documents, and images |
-| `search` | Web and local filesystem search |
-| `embedding` | Vector embeddings and semantic search (RAG) |
+| `scraper` | Content extraction from web pages, PDFs, documents, and images (type auto-detected) |
+| `search` | Web search via Tavily API |
+| `embedding` | Vector embeddings via OpenAI |
 | `botreply` | Chat bot replies (Discord, Slack, Telegram, WhatsApp) |
-| `remoteagent` | Federated remote agent invocation (UAF) |
-| `tts` | Text-to-Speech synthesis |
-| `email` | Email send/read/search via SMTP and IMAP |
-| `calendar` | ICS calendar event read/write |
-| `pdf` | PDF generation from HTML or Markdown |
-| `memory` | Persistent semantic agent memory |
-| `browser` | Browser automation via Playwright |
-| `autopilot` | Goal-directed workflow synthesis |
+| `remoteagent` | Invoke a remote kdeps agent over HTTP |
+| `tts` | Text-to-Speech via OpenAI TTS or espeak |
+| `email` | Email sending via SMTP |
+| `calendar` | ICS calendar event file creation |
+| `pdf` | PDF generation from HTML via pdfkit |
+| `memory` | Persistent key-value storage (SQLite) |
+| `browser` | Browser automation via Playwright (navigate/screenshot/getText) |
+| `autopilot` | LLM-directed task execution |
 | `federation` | UAF node management and agent registration |
 
 **Examples:**
@@ -514,6 +520,35 @@ kdeps info jjuliano/my-ai-agent
 
 # Show README for a subdirectory of a GitHub repo
 kdeps info jjuliano/my-ai-agent:my-scraper
+```
+
+---
+
+### `kdeps clone`
+
+Download and install an agent, agency, or component from a GitHub repository.
+
+**Usage:**
+```bash
+kdeps clone <owner/repo[:subdir]>
+```
+
+**Reference formats:**
+
+| Format | Description |
+|--------|-------------|
+| `<owner>/<repo>` | Clone the root of the repository |
+| `<owner>/<repo>:<subdir>` | Clone only the specified subdirectory |
+
+Automatically detects the artifact type (component `.komponent`, workflow `.kdeps`, agency `.kagency`, or raw directory) and installs it in the appropriate location. Components are installed to `~/.kdeps/components/` by default.
+
+**Examples:**
+```bash
+# Install a component from GitHub
+kdeps clone jjuliano/kdeps-component-scraper
+
+# Install a specific subdirectory (e.g. a single agent from a multi-agent repo)
+kdeps clone jjuliano/my-ai-agents:scraper-agent
 ```
 
 ---
