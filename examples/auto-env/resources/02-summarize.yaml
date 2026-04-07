@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: summarize
+  name: Summarize a Paragraph
+
+run:
+  component:
+    name: summarizer
+    with:
+      text: |
+        Artificial intelligence has made remarkable progress over the past decade.
+        Large language models can now write code, answer complex questions, and even
+        engage in nuanced conversation. Yet challenges remain: models can hallucinate
+        facts, carry implicit biases, and consume enormous amounts of energy to train.
+        Researchers are actively working on making AI systems more reliable, efficient,
+        and interpretable so that the technology can be deployed responsibly at scale.
+      max_sentences: "2"
