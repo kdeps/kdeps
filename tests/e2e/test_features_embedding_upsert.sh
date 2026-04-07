@@ -157,7 +157,7 @@ fi
 UPS2_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/embed/upsert" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
-SKIPPED=$(echo "$UPS2_RESP" | python3 -c "
+UPSERT_SKIPPED=$(echo "$UPS2_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
@@ -169,7 +169,7 @@ except Exception:
     print(False)
 " 2>/dev/null || echo "False")
 
-if [ "$SKIPPED" = "True" ]; then
+if [ "$UPSERT_SKIPPED" = "True" ]; then
     test_passed "Embedding Upsert - upsert idempotent (skipped=True)"
 else
     # Second upsert should at least succeed

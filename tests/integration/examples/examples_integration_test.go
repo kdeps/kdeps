@@ -817,6 +817,8 @@ func TestCVMatcherExample(t *testing.T) {
 			"unknown resource type",
 			"connection refused",
 			"no such host",
+			"component",
+			"not found; install",
 		}
 		for _, dep := range externalDeps {
 			if strings.Contains(errMsg, dep) {
