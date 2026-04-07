@@ -139,6 +139,11 @@ type ExecutionContext struct {
 	// type can locate sibling agents by name.
 	AgentPaths map[string]string
 
+	// CurrentComponent is set to the active component name during executeComponentCall.
+	// The Env() method uses it to check for component-scoped env vars first
+	// (e.g. SCRAPER_OPENAI_API_KEY before OPENAI_API_KEY for component "scraper").
+	CurrentComponent string
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
@@ -299,9 +304,37 @@ func NewExecutionContext(
 }
 
 // Env retrieves an environment variable value.
+// When executing inside a component, it first checks for a component-scoped
+// env var using the convention {COMPONENT_PREFIX}_{name}, then falls back to
+// the plain {name}. For example, component "scraper" looking up "OPENAI_API_KEY"
+// will check "SCRAPER_OPENAI_API_KEY" first.
 func (ctx *ExecutionContext) Env(name string) (string, error) {
 	kdeps_debug.Log("enter: Env")
+	if ctx.CurrentComponent != "" {
+		prefix := componentEnvPrefix(ctx.CurrentComponent)
+		scoped := prefix + "_" + name
+		if val := os.Getenv(scoped); val != "" {
+			return val, nil
+		}
+	}
 	return os.Getenv(name), nil
+}
+
+// componentEnvPrefix converts a component name to an uppercase env var prefix.
+// Non-alphanumeric characters are replaced with underscores.
+// E.g. "my-bot" -> "MY_BOT", "scraper" -> "SCRAPER".
+func componentEnvPrefix(name string) string {
+	kdeps_debug.Log("enter: componentEnvPrefix")
+	var b strings.Builder
+	b.Grow(len(name))
+	for _, r := range strings.ToUpper(name) {
+		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
 }
 
 // Get retrieves a value with smart auto-detection.

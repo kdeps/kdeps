@@ -27,6 +27,7 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -51,6 +52,7 @@ type Engine struct {
 	afterEvaluatorInit  func(*Engine, *ExecutionContext)
 	debugMode           bool
 	emitter             events.Emitter
+	componentSetupCache sync.Map // keyed by component name, value struct{}{}
 }
 
 type inputValidator interface {
@@ -2586,6 +2588,17 @@ func (e *Engine) executeComponentCall(
 		"component", cfg.Name,
 		"inputs", len(injected),
 	)
+
+	// Set the active component name on the context so that env() lookups
+	// automatically check {COMPONENT_PREFIX}_{VAR} before the plain {VAR}.
+	prev := ctx.CurrentComponent
+	ctx.CurrentComponent = cfg.Name
+	defer func() { ctx.CurrentComponent = prev }()
+
+	if err := e.runComponentSetup(comp, ctx); err != nil {
+		return nil, fmt.Errorf("component %q setup failed: %w", cfg.Name, err)
+	}
+	defer e.runComponentTeardown(comp)
 
 	return e.runComponentResources(comp, cfg.Name, callerID, ctx)
 }
