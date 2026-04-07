@@ -621,7 +621,7 @@ func executeAgencyEntryPoint(
 	if flags.Interactive {
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
-	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg)
+	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, false)
 }
 
 // ParseWorkflowFile parses a workflow YAML file.
@@ -1586,9 +1586,11 @@ func startInteractiveMode(
 	kdeps_debug.Log("enter: startInteractiveMode")
 
 	// Start the normal workflow dispatch (server/bot/single-run/etc.) in background.
+	// Pass skipLLMRepl=true so the background goroutine does not start a second
+	// stdin REPL (the foreground already owns stdin via llminput.Run below).
 	go func() {
 		dispErr := dispatchExecutionWithEngine(
-			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg,
+			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
 		)
 		if dispErr != nil {
 			fmt.Fprintf(os.Stderr, "  [workflow] %v\n", dispErr)
@@ -1800,6 +1802,7 @@ func dispatchExecutionWithEngine(
 	workflowPath string,
 	devMode, debugMode bool,
 	fileArg string,
+	skipLLMRepl bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
 	s := workflow.Settings
@@ -1822,6 +1825,11 @@ func dispatchExecutionWithEngine(
 		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
 	}
 	if s.Input != nil && s.Input.HasLLMSource() {
+		if skipLLMRepl {
+			// --interactive already owns stdin; skip the background LLM REPL to
+			// avoid two goroutines competing on stdin.
+			return nil
+		}
 		return startLLMRunnerWithEngine(eng, workflow, debugMode, workflowPath, devMode)
 	}
 	if s.Input != nil && s.Input.HasComponentSource() {

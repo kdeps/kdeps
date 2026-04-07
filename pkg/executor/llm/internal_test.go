@@ -406,3 +406,30 @@ func TestParseJSONResponse_KeyFilter(t *testing.T) {
 	_, hasReason := m["reason"]
 	assert.False(t, hasReason)
 }
+
+// ─── resolveAllowedModel ─────────────────────────────────────────────────────
+
+func TestResolveAllowedModel_EmptyAllowed_ReturnsModel(t *testing.T) {
+	got := resolveAllowedModel("llama3.2:1b", nil)
+	assert.Equal(t, "llama3.2:1b", got)
+}
+
+func TestResolveAllowedModel_EmptyAllowedSlice_ReturnsModel(t *testing.T) {
+	got := resolveAllowedModel("gpt-4o", []string{})
+	assert.Equal(t, "gpt-4o", got)
+}
+
+func TestResolveAllowedModel_ModelInAllowed_ReturnsModel(t *testing.T) {
+	got := resolveAllowedModel("mistral:7b", []string{"llama3.3:latest", "mistral:7b"})
+	assert.Equal(t, "mistral:7b", got)
+}
+
+func TestResolveAllowedModel_ModelNotInAllowed_ReturnsFirst(t *testing.T) {
+	got := resolveAllowedModel("llama3.2:1b", []string{"llama3.3:latest", "mistral:7b"})
+	assert.Equal(t, "llama3.3:latest", got)
+}
+
+func TestResolveAllowedModel_EmptyModel_ReturnsFirst(t *testing.T) {
+	got := resolveAllowedModel("", []string{"llama3.3:latest"})
+	assert.Equal(t, "llama3.3:latest", got)
+}

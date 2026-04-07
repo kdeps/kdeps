@@ -38,6 +38,7 @@ import (
 
 	cmd "github.com/kdeps/kdeps/v2/cmd"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -2899,4 +2900,53 @@ func TestRunFlags_InteractiveFalseByDefault(t *testing.T) {
 	assert.False(t, flags.WriteTests)
 	assert.False(t, flags.Events)
 	assert.Equal(t, "", flags.FileArg)
+}
+
+// ── dispatchExecutionWithEngine tests ─────────────────────────────────────
+
+// TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil verifies that when
+// skipLLMRepl=true and the workflow has sources: [llm], the function returns nil
+// immediately without attempting to start the LLM REPL.
+func TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-llm",
+			TargetActionID: "chat",
+		},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources:       []string{domain.InputSourceLLM},
+				ExecutionType: domain.LLMInputExecutionTypeStdin,
+			},
+		},
+	}
+
+	eng := executor.NewEngine(nil)
+
+	// skipLLMRepl=true: must return nil immediately (no REPL started).
+	err := cmd.DispatchExecutionWithEngine(eng, wf, t.TempDir(), false, false, "", true)
+	assert.NoError(t, err)
+}
+
+// TestDispatchExecutionWithEngine_SkipFalse_NoLLMSource verifies that when
+// skipLLMRepl=false but the workflow has no LLM source, the function falls
+// through to executeSingleRunWithEngine without panicking.
+func TestDispatchExecutionWithEngine_SkipFalse_NoLLMSource(t *testing.T) {
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "done", nil
+	})
+
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-no-source",
+			TargetActionID: "action",
+		},
+		Settings: domain.WorkflowSettings{},
+	}
+
+	// No LLM source, skipLLMRepl=false: falls through to executeSingleRunWithEngine.
+	// We just verify it doesn't panic.
+	err := cmd.DispatchExecutionWithEngine(eng, wf, t.TempDir(), false, false, "", false)
+	assert.NoError(t, err)
 }

@@ -74,6 +74,8 @@ REPL slash commands:
 
 The `llm-chat-tools` example wires 10 component tools to an LLM resource so the model can autonomously call `calculate`, `hash`, `convert_units`, `get_weather`, `get_time`, `analyze_text`, `format_json`, `base64`, `parse_url`, and `random` during a conversation. See [`examples/llm-chat-tools/README.md`](examples/llm-chat-tools/README.md) for the full component list.
 
+> **Model Allowlist**: `agentSettings.models` also acts as a runtime allowlist — resources requesting unlisted models are overridden with `models[0]`.
+
 
 
 ### ⚡ [Syntax & Logic](https://kdeps.com/concepts/expressions)

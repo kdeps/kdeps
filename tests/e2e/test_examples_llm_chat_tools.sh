@@ -167,4 +167,40 @@ else
     test_failed "llm-chat-tools - workflow targetActionId is chat" "targetActionId: chat not found in $WF"
 fi
 
+# T_NEW1: 11-chat.yaml does NOT contain a requires: block
+if ! grep -q "^  requires:" "$CHAT_RES" && ! grep -q "^requires:" "$CHAT_RES"; then
+    test_passed "llm-chat-tools - 11-chat.yaml has no requires: block (component tools)"
+else
+    test_failed "llm-chat-tools - 11-chat.yaml has no requires: block" "requires: found in $CHAT_RES"
+fi
+
+# T_NEW2: 11-chat.yaml has exactly 13 tools (10 Python + 3 component)
+all_tool_count=$(grep -c "^      - name:" "$CHAT_RES" 2>/dev/null || echo 0)
+if [ "$all_tool_count" -eq 13 ]; then
+    test_passed "llm-chat-tools - 11-chat.yaml defines exactly 13 tools (10 Python + 3 component)"
+else
+    test_failed "llm-chat-tools - 11-chat.yaml defines exactly 13 tools" "Found $all_tool_count tools"
+fi
+
+# T_NEW3: component tool render_markdown exists
+if grep -q "name: render_markdown" "$CHAT_RES"; then
+    test_passed "llm-chat-tools - render_markdown component tool defined"
+else
+    test_failed "llm-chat-tools - render_markdown component tool defined" "render_markdown not found in $CHAT_RES"
+fi
+
+# T_NEW4: component tool analyze_csv exists
+if grep -q "name: analyze_csv" "$CHAT_RES"; then
+    test_passed "llm-chat-tools - analyze_csv component tool defined"
+else
+    test_failed "llm-chat-tools - analyze_csv component tool defined" "analyze_csv not found in $CHAT_RES"
+fi
+
+# T_NEW5: component tool convert_color exists
+if grep -q "name: convert_color" "$CHAT_RES"; then
+    test_passed "llm-chat-tools - convert_color component tool defined"
+else
+    test_failed "llm-chat-tools - convert_color component tool defined" "convert_color not found in $CHAT_RES"
+fi
+
 echo ""
