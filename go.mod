@@ -16,7 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.12.3
-	github.com/mattn/go-sqlite3 v1.14.40
+	github.com/mattn/go-sqlite3 v1.14.41
 	github.com/nikolalohinski/gonja/v2 v2.7.0
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
