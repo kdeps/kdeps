@@ -594,12 +594,10 @@ run:
   chat:
     model: llama3.2:1b
     prompt: "{{ inputTranscript }}"
-  tts:
-    text: "{{ get('voiceChat') }}"
-    mode: offline
-    offline:
-      engine: piper
-      model: en_US-lessac-medium
+  component:
+    name: tts
+    with:
+      text: "{{ get('voiceChat') }}"
 ```
 
 ### Video Surveillance + AI Analysis

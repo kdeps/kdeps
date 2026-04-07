@@ -93,18 +93,24 @@ export default defineConfig({
             { text: 'SQL', link: '/resources/sql' },
             { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
+            { text: 'API Response', link: '/resources/api-response' },
+          ]
+        },
+        {
+          text: 'Components',
+          collapsed: false,
+          items: [
             { text: 'Scraper', link: '/resources/scraper' },
             { text: 'Search', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
-            { text: 'Embedding (Vector DB)', link: '/resources/embedding' },
-            { text: 'Memory (Semantic)', link: '/resources/memory' },
+            { text: 'Embedding', link: '/resources/embedding' },
+            { text: 'Memory', link: '/resources/memory' },
             { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'Email', link: '/resources/email' },
             { text: 'Calendar', link: '/resources/calendar' },
             { text: 'PDF', link: '/resources/pdf' },
             { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
-            { text: 'Autopilot (Goal-Directed)', link: '/resources/autopilot' },
-            { text: 'API Response', link: '/resources/api-response' },
+            { text: 'Autopilot', link: '/resources/autopilot' },
           ]
         },
         {

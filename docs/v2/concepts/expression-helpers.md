@@ -273,8 +273,11 @@ urlencode(str)
 
 ```yaml
 run:
-  browser:
-    url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
+  component:
+    name: browser
+    with:
+      url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
+      action: getText
 ```
 
 </div>
@@ -310,8 +313,11 @@ ternary(condition, trueVal, falseVal)
 
 ```yaml
 run:
-  browser:
-    url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
+  component:
+    name: browser
+    with:
+      url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
+      action: getText
 ```
 
 </div>

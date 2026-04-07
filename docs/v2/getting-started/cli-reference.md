@@ -413,7 +413,7 @@ run:
 
 #### `kdeps component list`
 
-List all components currently installed in the workflow.
+List all components: built-in (internal), globally installed, and local.
 
 **Usage:**
 ```bash
@@ -429,13 +429,17 @@ Internal components (built-in):
   python
   sql
 
-Global components:
+Global components (~/.kdeps/components/):
   scraper
   tts
 
 Local components (./components/):
   pdf
 ```
+
+- **Internal (built-in)** - the 5 core executors compiled into the binary; always available, no install needed.
+- **Global** - registry components installed via `kdeps component install`; available to all workflows on the machine.
+- **Local** - custom components in the current project's `components/` directory.
 
 ---
 

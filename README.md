@@ -65,37 +65,38 @@ run:
 - [`input('m')`](https://kdeps.com/concepts/expression-functions-reference#input-name-type) – Access bot/hardware input data
 - [`info('dt')`](https://kdeps.com/concepts/expression-functions-reference#info-field) – Access system metadata
 
-### 🤖 Core Executors (built-in)
+### 🤖 Built-in Components (internal)
 
-These are the 5 built-in resource types always available in every workflow:
+Five executors are compiled into the binary and always available — no install needed. `kdeps component list` shows them as "Internal components (built-in)":
 
-| Executor | Description | Docs |
+| YAML key | Description | Docs |
 |---|---|---|
 | [`chat:`](https://kdeps.com/resources/llm) | LLM (Ollama, OpenAI, Anthropic, Groq, etc.) | streaming, MCP tools |
 | [`httpClient:`](https://kdeps.com/resources/http-client) | REST APIs (GET, POST, PUT, DELETE, …) | auth, retries |
 | [`sql:`](https://kdeps.com/resources/sql) | Databases (Postgres, MySQL, SQLite, Oracle) | prepared statements |
 | [`python:`](https://kdeps.com/resources/python) | Python scripts via isolated `uv` environments | pip packages |
 | [`exec:`](https://kdeps.com/resources/exec) | Shell commands and system automation | env, timeout |
-| [`agent:`](https://kdeps.com/concepts/agency) | Delegate to a sibling agent (agency mode) | |
-| [`apiResponse:`](https://kdeps.com/resources/api-response) | Return data to the HTTP caller | streaming |
 
-### 🧩 Components (installable)
+Plus two always-available resource keys: [`agent:`](https://kdeps.com/concepts/agency) (agency delegation) and [`apiResponse:`](https://kdeps.com/resources/api-response) (HTTP response).
 
-Additional capabilities are provided as installable `.komponent` components. Install them once and call them from any workflow with a clean typed config:
+### 🧩 Registry Components (installable)
+
+Additional capabilities distributed as `.komponent` archives. Install once globally, call from any workflow via `run.component:`:
 
 ```bash
-kdeps component install scraper    # web/PDF text extraction
-kdeps component install search     # web search (Tavily)
-kdeps component install embedding  # vector embeddings (OpenAI)
-kdeps component install tts        # text-to-speech (espeak / OpenAI)
-kdeps component install email      # send email via SMTP
-kdeps component install calendar   # generate .ics calendar files
-kdeps component install pdf        # generate PDFs from HTML
-kdeps component install memory     # key-value store via SQLite
-kdeps component install browser    # browser automation (Playwright)
-kdeps component install botreply   # Telegram bot replies
-kdeps component install remoteagent # call a remote kdeps agent
-kdeps component install autopilot  # goal-directed LLM planning
+kdeps component install scraper     # web/PDF/doc text extraction (type auto-detected)
+kdeps component install search      # web search (Tavily)
+kdeps component install embedding   # vector embeddings (OpenAI)
+kdeps component install tts         # text-to-speech (espeak / OpenAI)
+kdeps component install email       # send email via SMTP
+kdeps component install calendar    # generate .ics calendar event files
+kdeps component install pdf         # generate PDFs from HTML (pdfkit)
+kdeps component install memory      # persistent key-value store (SQLite)
+kdeps component install browser     # browser automation (navigate/screenshot/getText)
+kdeps component install botreply    # chat bot replies (Telegram, Discord, Slack)
+kdeps component install remoteagent # call a remote kdeps agent over HTTP
+kdeps component install autopilot   # LLM-directed task execution
+kdeps component install federation  # UAF node management and agent registration
 ```
 
 **Use a component in any resource:**
