@@ -162,6 +162,21 @@ Session management with persistent storage.
 cd session-auth && kdeps run workflow.yaml --dev
 ```
 
+### 🌍 [Auto-Env](./auto-env/)
+Demonstrates automatic environment variable scoping per component, auto-scaffolded `.env` templates, and `kdeps component update`.
+- `TRANSLATOR_OPENAI_API_KEY` overrides `OPENAI_API_KEY` inside `translator` only
+- On first run, kdeps auto-creates `.env` template with all `env()` vars listed blank
+- On first run, kdeps auto-creates `README.md` from component metadata
+- `kdeps component update` merges new vars into an existing `.env`
+- Summarizer falls back to extractive summary when no API key is set
+
+**Run:**
+```bash
+export OPENAI_API_KEY=sk-...          # global fallback
+export TRANSLATOR_OPENAI_API_KEY=sk-... # translator only (optional)
+cd auto-env && kdeps run workflow.yaml
+```
+
 ### 🔌 [Component Input Source](./component-input-source/)
 A sub-workflow designed to be called exclusively via `run.component`. Declares `sources: [component]` so no HTTP server or listener is started.
 - `sources: [component]` - no listener started, driven by parent

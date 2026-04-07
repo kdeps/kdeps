@@ -1,0 +1,47 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: auto-env
+  description: |
+    Demonstrates kdeps automatic environment variable scoping for components.
+
+    Features shown:
+      1. Per-component env var overrides - each component sees its own API key
+         via {COMPONENT_NAME_UPPER}_VAR before falling back to the plain var.
+      2. Auto-scaffolded .env - on first run kdeps creates a .env template
+         listing every env() var found in the component's resources (blank values).
+      3. Auto-scaffolded README.md - generated from component metadata on first run.
+      4. Lowest-priority .env fallback - values in the component's .env file are
+         used only when no matching os env var is set.
+
+    Two local components: translator and summarizer. Both call OpenAI but use
+    different API keys so you can rotate / restrict them independently.
+
+    Priority for env('OPENAI_API_KEY') inside translator:
+      TRANSLATOR_OPENAI_API_KEY  (scoped, highest)
+        -> OPENAI_API_KEY          (plain os env)
+        -> value in translator/.env (lowest)
+
+    Setup:
+      export OPENAI_API_KEY=sk-global              # used as fallback
+      export TRANSLATOR_OPENAI_API_KEY=sk-translate # translator only (optional)
+      export SUMMARIZER_OPENAI_API_KEY=sk-summary   # summarizer only (optional)
+
+    Run:
+      kdeps run examples/auto-env
+
+    After the first run, inspect the auto-created .env files:
+      cat examples/auto-env/components/translator/.env
+      cat examples/auto-env/components/summarizer/.env
+      cat examples/auto-env/components/translator/README.md
+
+    Explicitly regenerate / merge .env and README.md:
+      kdeps component update examples/auto-env
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
