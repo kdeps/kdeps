@@ -104,6 +104,45 @@ resources:
     # ... resource definition
 ```
 
+## Dependency Lifecycle: `setup` and `teardown`
+
+Components can declare their own dependencies - Python packages, OS-level packages, and arbitrary shell commands - that are automatically installed before any component resource executes.
+
+### `setup` Block
+
+```yaml
+setup:
+  pythonPackages:     # Python packages installed into the workflow venv via uv
+    - requests
+    - beautifulsoup4
+  osPackages:         # OS packages installed via apt-get / apk / brew
+    - wkhtmltopdf
+  commands:           # Shell commands run after package installation
+    - "playwright install chromium"
+```
+
+**Behaviour:**
+- `setup` runs **once per component per engine lifetime** (cached - subsequent calls for the same component are no-ops).
+- `pythonPackages` are installed via `uv pip install` into the workflow's Python venv. Packages already present are skipped.
+- `osPackages` are installed via the detected system package manager (apk on Alpine, apt-get on Debian/Ubuntu, brew on macOS). Already-installed packages are skipped. If no supported package manager is found, a warning is logged and execution continues.
+- `commands` run in order after package installs. A non-zero exit terminates setup with an error.
+
+### `teardown` Block
+
+```yaml
+teardown:
+  commands:           # Shell commands run after component resources finish
+    - "rm -rf /tmp/mycomponent-*"
+```
+
+**Behaviour:**
+- `teardown.commands` run after **every invocation** of the component (not cached).
+- Errors in teardown commands are **logged as warnings** but do not propagate - teardown is best-effort.
+
+### Legacy Field
+
+The top-level `pythonPackages:` field on `Component` is **deprecated** but still works. Prefer `setup.pythonPackages:` for new components.
+
 ### Fields
 
 | Field | Type | Required | Description |
@@ -113,6 +152,10 @@ resources:
 | `metadata.name` | string | yes | Unique component name within the workflow |
 | `metadata.version` | string | no | Component version (used for packaging) |
 | `metadata.targetActionId` | string | no | Default resource `actionId` when component is invoked |
+| `setup.pythonPackages` | `[]string` | no | Python packages installed via `uv pip install` |
+| `setup.osPackages` | `[]string` | no | OS packages installed via system package manager |
+| `setup.commands` | `[]string` | no | Shell commands run after package installs |
+| `teardown.commands` | `[]string` | no | Shell commands run after every component invocation |
 | `interface.inputs[].name` | string | yes | Input parameter name |
 | `interface.inputs[].type` | enum | yes | Data type: `string`, `integer`, `number`, `boolean` |
 | `interface.inputs[].required` | bool | no | Whether input is required (default: false) |
@@ -420,14 +463,36 @@ Hidden files and `.kdepsignore` patterns are respected.
 
 ## Environment Variable Auto-Derivation
 
-After component resources are loaded, KDeps automatically scans for environment variable references:
+When a component executes, KDeps automatically checks for a **component-scoped env var** before falling back to the plain name. The naming convention is:
 
-- String fields containing <span v-pre>`{{ env('VAR_NAME') }}`</span>
-- `ChatConfig.APIKey` with `env:` prefix
-- `MCPConfig.Env` and `PythonConfig.Env` maps
-- Any `env('VAR')` expression in resource fields
+```
+{COMPONENT_NAME_UPPER}_{VAR_NAME}
+```
 
-Detected variables are tracked as required by the component. The parent workflow must provide them via `agentSettings.env` or the runtime environment. This ensures all external dependencies are explicit.
+Non-alphanumeric characters in the component name are replaced with underscores.
+
+| Component name | `env('OPENAI_API_KEY')` checks first | then falls back to |
+|---|---|---|
+| `scraper` | `SCRAPER_OPENAI_API_KEY` | `OPENAI_API_KEY` |
+| `my-bot` | `MY_BOT_TELEGRAM_TOKEN` | `TELEGRAM_TOKEN` |
+| `remote-agent` | `REMOTE_AGENT_AUTH_TOKEN` | `AUTH_TOKEN` |
+
+This lets you configure multiple components independently without naming conflicts. The lookup is automatic - no changes to component YAML required.
+
+**Example:**
+
+```bash
+# Global fallback (used by any component that needs it)
+export OPENAI_API_KEY=sk-global
+
+# Override just for the scraper component
+export SCRAPER_OPENAI_API_KEY=sk-scraper-specific
+
+# Override just for the embedding component
+export EMBEDDING_OPENAI_API_KEY=sk-embedding-specific
+```
+
+Inside the component, <span v-pre>`{{ env('OPENAI_API_KEY') }}`</span> resolves to the scoped value when available, plain value otherwise.
 
 ## Example: Greeter Component
 

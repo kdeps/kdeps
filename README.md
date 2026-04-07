@@ -143,6 +143,42 @@ Explicit `tools:` declarations take precedence. If a component name matches an e
 
 See the [Components guide](https://kdeps.com/concepts/components) for full documentation.
 
+### Automatic Dependency Installation
+
+Components declare their own dependencies. When first invoked, kdeps automatically installs them:
+
+```yaml
+# In component.yaml
+setup:
+  pythonPackages:
+    - requests
+    - beautifulsoup4
+  osPackages:
+    - wkhtmltopdf          # installed via apt-get / apk / brew
+  commands:
+    - "playwright install chromium"
+
+teardown:
+  commands:
+    - "rm -rf /tmp/cache-*"
+```
+
+- **Python packages** - installed via `uv pip install` into the isolated venv
+- **OS packages** - installed via `apt-get` / `apk` / `brew` (already-installed packages skipped)
+- **Commands** - run once on first use; teardown runs after each invocation
+
+### Automatic Environment Variable Scoping
+
+Components automatically get per-component env var overrides. When a component runs, `env('VAR')` first checks `{COMPONENT_NAME_UPPER}_VAR`, then falls back to `VAR`:
+
+```bash
+export OPENAI_API_KEY=sk-global           # used by all components
+export SCRAPER_OPENAI_API_KEY=sk-scraper  # overrides just for scraper
+export EMBEDDING_OPENAI_API_KEY=sk-embed  # overrides just for embedding
+```
+
+No changes to component YAML needed - scoping is automatic.
+
 ### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
 Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
 - **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point

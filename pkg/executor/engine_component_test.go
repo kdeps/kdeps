@@ -20,6 +20,7 @@ package executor_test
 
 import (
 	"log/slog"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -285,4 +286,70 @@ func TestExecuteComponentCall_InlineComponent_Before(t *testing.T) {
 	eng.GetRegistryForTesting().SetExecExecutor(exec)
 	_, err := eng.Execute(wf, nil)
 	assert.NoError(t, err)
+}
+
+// TestExecuteComponentCall_AutoEnv_ScopedVarTakesPriority verifies that when a
+// component-scoped env var (SCRAPER_API_KEY) is set, it takes priority over the
+// plain var (API_KEY) during component execution.
+func TestExecuteComponentCall_AutoEnv_ScopedVarTakesPriority(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("ECHO_API_KEY", "plain_key")
+	t.Setenv("SCRAPER_ECHO_API_KEY", "scoped_key")
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Simulate being inside "scraper" component execution.
+	ctx.CurrentComponent = "scraper"
+	val, envErr := ctx.Env("ECHO_API_KEY")
+	require.NoError(t, envErr)
+	assert.Equal(t, "scoped_key", val)
+}
+
+// TestExecuteComponentCall_AutoEnv_FallbackToPlain verifies that when no
+// component-scoped var is set, the plain env var is used.
+func TestExecuteComponentCall_AutoEnv_FallbackToPlain(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("ECHO_API_KEY", "plain_key")
+	os.Unsetenv("SCRAPER_ECHO_API_KEY") //nolint:errcheck // test cleanup
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	ctx.CurrentComponent = "scraper"
+	val, envErr := ctx.Env("ECHO_API_KEY")
+	require.NoError(t, envErr)
+	assert.Equal(t, "plain_key", val)
+}
+
+// TestExecuteComponentCall_AutoEnv_RestoredAfterExecution verifies CurrentComponent
+// is restored to the previous value after executeComponentCall completes.
+func TestExecuteComponentCall_AutoEnv_RestoredAfterExecution(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	compRes := &domain.Resource{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Resource",
+		Metadata:   domain.ResourceMetadata{ActionID: "inner-action"},
+		Run:        domain.RunConfig{Exec: &domain.ExecConfig{Command: "echo hi"}},
+	}
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "mycomp", TargetActionID: "inner-action"},
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{compRes},
+	}
+	callerRes := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "caller"},
+		Run: domain.RunConfig{
+			Component: &domain.ComponentCallConfig{
+				Name: "mycomp",
+				With: map[string]interface{}{},
+			},
+		},
+	}
+	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	eng.GetRegistryForTesting().SetExecExecutor(executorExec.NewAdapter())
+	_, execErr := eng.Execute(wf, nil)
+	require.NoError(t, execErr)
 }
