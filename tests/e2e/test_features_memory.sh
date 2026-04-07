@@ -13,9 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# E2E tests for the memory executor (SQLite-backed semantic memory store).
-# Tests consolidate/recall/forget operations via run.memory:.
-# Uses keyword fallback when Ollama/nomic-embed-text is unavailable.
+# E2E tests for the memory component (SQLite-backed key-value store).
+# Tests store / retrieve / forget operations via run.component: {name: memory}.
 
 set -uo pipefail
 
@@ -43,7 +42,7 @@ LOG_FILE=$(mktemp)
 trap 'kill "$KDEPS_PID" 2>/dev/null; wait "$KDEPS_PID" 2>/dev/null; rm -rf "$TEST_DIR" "$LOG_FILE"' EXIT
 DB_PATH="${TEST_DIR}/memory.db"
 
-cat > "$TEST_DIR/workflow.yaml" <<WFEOF
+cat > "$TEST_DIR/workflow.yaml" <<EOF
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -56,52 +55,54 @@ settings:
   portNum: ${API_PORT}
   apiServer:
     routes:
-      - path: /memory/consolidate
+      - path: /mem/store
         methods: [POST]
-      - path: /memory/recall
+      - path: /mem/retrieve
         methods: [POST]
-      - path: /memory/forget
+      - path: /mem/forget
         methods: [POST]
   agentSettings:
     pythonVersion: "3.12"
-WFEOF
+EOF
 
-cat > "$TEST_DIR/resources/consolidate.yaml" <<RESEOF
+cat > "$TEST_DIR/resources/store.yaml" <<EOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
-  actionId: memConsolidate
-  name: Memory Consolidate
+  actionId: memStore
+  name: Memory Store
 run:
   validations:
-    routes: [/memory/consolidate]
+    routes: [/mem/store]
     methods: [POST]
-  memory:
-    operation: consolidate
-    content: "The E2E test ran successfully on this date"
-    category: "e2e-tests"
-    dbPath: "${DB_PATH}"
-RESEOF
+  component:
+    name: memory
+    with:
+      action: "store"
+      key: "e2e_test_key"
+      value: "hello from e2e test"
+      dbPath: "${DB_PATH}"
+EOF
 
-cat > "$TEST_DIR/resources/recall.yaml" <<RESEOF
+cat > "$TEST_DIR/resources/retrieve.yaml" <<EOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
-  actionId: memRecall
-  name: Memory Recall
+  actionId: memRetrieve
+  name: Memory Retrieve
 run:
   validations:
-    routes: [/memory/recall]
+    routes: [/mem/retrieve]
     methods: [POST]
-  memory:
-    operation: recall
-    content: "E2E test"
-    category: "e2e-tests"
-    topK: 3
-    dbPath: "${DB_PATH}"
-RESEOF
+  component:
+    name: memory
+    with:
+      action: "retrieve"
+      key: "e2e_test_key"
+      dbPath: "${DB_PATH}"
+EOF
 
-cat > "$TEST_DIR/resources/forget.yaml" <<RESEOF
+cat > "$TEST_DIR/resources/forget.yaml" <<EOF
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
@@ -109,30 +110,31 @@ metadata:
   name: Memory Forget
 run:
   validations:
-    routes: [/memory/forget]
+    routes: [/mem/forget]
     methods: [POST]
-  memory:
-    operation: forget
-    content: "E2E test"
-    category: "e2e-tests"
-    dbPath: "${DB_PATH}"
-RESEOF
+  component:
+    name: memory
+    with:
+      action: "forget"
+      key: "e2e_test_key"
+      dbPath: "${DB_PATH}"
+EOF
 
-cat > "$TEST_DIR/resources/response.yaml" <<'RESEOF'
+cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: response
   name: Response
-  requires: [memConsolidate, memRecall, memForget]
+  requires: [memStore, memRetrieve, memForget]
 run:
   apiResponse:
     success: true
     response:
-      consolidateResult: "{{ output('memConsolidate') }}"
-      recallResult: "{{ output('memRecall') }}"
+      storeResult: "{{ output('memStore') }}"
+      retrieveResult: "{{ output('memRetrieve') }}"
       forgetResult: "{{ output('memForget') }}"
-RESEOF
+EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &
 KDEPS_PID=$!
@@ -148,60 +150,50 @@ done
 
 if [ "$KDEPS_STARTED" = false ]; then
     test_skipped "Memory - server failed to start"
-    cat "$LOG_FILE"
     echo ""
     return 0 2>/dev/null || return 0
 fi
 
-# Test 1: Consolidate (store) a memory entry
-CONS_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/memory/consolidate" \
+# Test 1: Store a value
+STORE_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/mem/store" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
-CONS_RESULT=$(echo "$CONS_RESP" | python3 -c "
+STORE_RESULT=$(echo "$STORE_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    r = (d.get('data') or {}).get('consolidateResult') or {}
-    print(r.get('result', ''))
+    data = d.get('data', d)
+    store = data.get('storeResult') or {}
+    print(store.get('result', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-if [ "$CONS_RESULT" = "consolidated" ]; then
+if [ "$STORE_RESULT" = "stored" ]; then
     test_passed "Memory - store value"
 else
-    test_failed "Memory - store value" "result=$CONS_RESULT resp=$CONS_RESP"
+    test_failed "Memory - store value" "result=$STORE_RESULT resp=$STORE_RESP"
 fi
 
-# Test 2: Recall - should find the stored entry
-RECALL_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/memory/recall" \
+# Test 2: Retrieve the stored value
+RETR_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/mem/retrieve" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
-RECALL_RESULT=$(echo "$RECALL_RESP" | python3 -c "
+RETR_RESULT=$(echo "$RETR_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    r = (d.get('data') or {}).get('recallResult') or {}
-    print(r.get('result', ''))
+    data = d.get('data', d)
+    retr = data.get('retrieveResult') or {}
+    print(retr.get('result', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-RECALL_ENTRIES=$(echo "$RECALL_RESP" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    r = (d.get('data') or {}).get('recallResult') or {}
-    entries = r.get('entries', [])
-    print(len(entries))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-if [ "$RECALL_RESULT" = "recalled" ] && [ "$RECALL_ENTRIES" -ge 1 ] 2>/dev/null; then
+if [ "$RETR_RESULT" = "hello from e2e test" ]; then
     test_passed "Memory - retrieve value"
 else
-    test_failed "Memory - retrieve value" "result='$RECALL_RESULT' entries=$RECALL_ENTRIES resp=$RECALL_RESP"
+    test_failed "Memory - retrieve value" "result='$RETR_RESULT' resp=$RETR_RESP"
 fi
 
 # Test 3: SQLite DB file was created
@@ -211,16 +203,17 @@ else
     test_failed "Memory - SQLite DB file created" "DB not found at $DB_PATH"
 fi
 
-# Test 4: Forget - remove the entry
-FORGET_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/memory/forget" \
+# Test 4: Forget the key
+FORGET_RESP=$(curl -sf --max-time 5 -X POST "http://127.0.0.1:${API_PORT}/mem/forget" \
     -H "Content-Type: application/json" -d '{}' 2>&1)
 
 FORGET_RESULT=$(echo "$FORGET_RESP" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    r = (d.get('data') or {}).get('forgetResult') or {}
-    print(r.get('result', ''))
+    data = d.get('data', d)
+    forget = data.get('forgetResult') or {}
+    print(forget.get('result', ''))
 except Exception:
     print('')
 " 2>/dev/null || echo "")

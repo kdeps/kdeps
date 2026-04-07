@@ -98,9 +98,11 @@ run:
   validations:
     routes: [/search/keyword]
     methods: [POST]
-  search:
-    path: "${TEST_DIR}/docs"
-    query: "searchable_token"
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "searchable_token"
   apiResponse:
     success: true
     response:
@@ -118,9 +120,11 @@ run:
   validations:
     routes: [/search/glob]
     methods: [POST]
-  search:
-    path: "${TEST_DIR}/docs"
-    glob: "*.md"
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      glob: "*.md"
   apiResponse:
     success: true
     response:
@@ -138,10 +142,12 @@ run:
   validations:
     routes: [/search/limit]
     methods: [POST]
-  search:
-    path: "${TEST_DIR}/docs"
-    query: "searchable_token"
-    limit: 1
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "searchable_token"
+      limit: 1
   apiResponse:
     success: true
     response:
@@ -159,9 +165,11 @@ run:
   validations:
     routes: [/search/nomatch]
     methods: [POST]
-  search:
-    path: "${TEST_DIR}/docs"
-    query: "zzz_no_such_keyword_zzz"
+  component:
+    name: search-local
+    with:
+      path: "${TEST_DIR}/docs"
+      query: "zzz_no_such_keyword_zzz"
   onError:
     action: continue
   apiResponse:

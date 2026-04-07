@@ -251,8 +251,7 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 }
 
 // countPrimaryExecutionTypes returns the number of mutually-exclusive primary
-// execution types set on run (chat, httpClient, sql, python, exec, agent, component,
-// memory, embedding, scraper, search).
+// execution types set on run (chat, httpClient, sql, python, exec, agent, component).
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
 	n := 0
@@ -275,18 +274,6 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 		n++
 	}
 	if run.Component != nil {
-		n++
-	}
-	if run.Memory != nil {
-		n++
-	}
-	if run.Embedding != nil {
-		n++
-	}
-	if run.Scraper != nil {
-		n++
-	}
-	if run.Search != nil {
 		n++
 	}
 	return n

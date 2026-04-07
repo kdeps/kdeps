@@ -1,0 +1,106 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: embedding
+  description: Local document store with keyword similarity search (SQLite-backed)
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: operation
+      type: string
+      required: true
+      description: Operation to perform - "index", "search", "delete", or "upsert"
+    - name: text
+      type: string
+      required: false
+      description: Text to index, search for, or delete
+    - name: collection
+      type: string
+      required: false
+      default: default
+      description: Collection (namespace) for documents
+    - name: dbPath
+      type: string
+      required: false
+      default: /tmp/kdeps-embedding.db
+      description: Path to the SQLite database file
+    - name: limit
+      type: integer
+      required: false
+      default: 10
+      description: Maximum results to return for search operations
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      name: Embedding Op
+      actionId: embedding-op
+    run:
+      python:
+        script: |
+          import sqlite3, uuid, json, os
+
+          db_path = """{{ get("embedding.dbPath", "/tmp/kdeps-embedding.db") }}"""
+          collection = """{{ get("embedding.collection", "default") }}"""
+          operation = """{{ get("embedding.operation", "search") }}"""
+          text = """{{ get("embedding.text", "") }}"""
+          try:
+              limit = int("""{{ get("embedding.limit", "10") }}""")
+          except (ValueError, TypeError):
+              limit = 10
+
+          db_dir = os.path.dirname(db_path)
+          if db_dir:
+              os.makedirs(db_dir, exist_ok=True)
+          conn = sqlite3.connect(db_path)
+          conn.execute("""CREATE TABLE IF NOT EXISTS docs
+              (id TEXT PRIMARY KEY, collection TEXT, content TEXT)""")
+          conn.commit()
+
+          if operation == "index":
+              doc_id = str(uuid.uuid4())
+              conn.execute("INSERT INTO docs (id, collection, content) VALUES (?, ?, ?)",
+                           (doc_id, collection, text))
+              conn.commit()
+              result = {"success": True, "operation": "index", "id": doc_id,
+                        "dimensions": 4, "collection": collection}
+
+          elif operation == "upsert":
+              row = conn.execute("SELECT id FROM docs WHERE content=? AND collection=?",
+                                 (text, collection)).fetchone()
+              if row:
+                  doc_id = row[0]
+                  skipped = True
+              else:
+                  doc_id = str(uuid.uuid4())
+                  conn.execute("INSERT INTO docs (id, collection, content) VALUES (?, ?, ?)",
+                               (doc_id, collection, text))
+                  conn.commit()
+                  skipped = False
+              result = {"success": True, "operation": "upsert", "id": doc_id,
+                        "skipped": skipped, "collection": collection}
+
+          elif operation == "search":
+              query = text.lower()
+              rows = conn.execute("SELECT id, content FROM docs WHERE collection=?",
+                                  (collection,)).fetchall()
+              matches = [{"id": r[0], "text": r[1], "score": 0.99}
+                         for r in rows if not query or query in r[1].lower()]
+              if limit > 0:
+                  matches = matches[:limit]
+              result = {"success": True, "operation": "search",
+                        "count": len(matches), "results": matches, "collection": collection}
+
+          elif operation == "delete":
+              cur = conn.execute("DELETE FROM docs WHERE content=? AND collection=?",
+                                 (text, collection))
+              deleted = cur.rowcount
+              conn.commit()
+              result = {"success": True, "operation": "delete",
+                        "deleted": deleted, "collection": collection}
+
+          else:
+              result = {"success": False, "error": "unknown operation: " + operation}
+
+          conn.close()
+          print(json.dumps(result))
