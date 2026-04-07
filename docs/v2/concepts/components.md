@@ -494,6 +494,39 @@ export EMBEDDING_OPENAI_API_KEY=sk-embedding-specific
 
 Inside the component, <span v-pre>`{{ env('OPENAI_API_KEY') }}`</span> resolves to the scoped value when available, plain value otherwise.
 
+### `.env` File Support
+
+Components automatically load a `.env` file from their directory as a **lowest-priority fallback**. When the component runs, KDeps checks:
+
+1. `{COMPONENT_PREFIX}_{VAR}` in the process env (scoped override)
+2. Plain `{VAR}` in the process env
+3. The value in the component's `.env` file
+
+```
+components/
+  scraper/
+    component.yaml
+    .env            ← auto-loaded when scraper runs
+    README.md       ← auto-generated if absent
+```
+
+Example `.env` for the `scraper` component:
+
+```bash
+# components/scraper/.env
+OPENAI_API_KEY=sk-my-key
+SCRAPER_TIMEOUT=30
+```
+
+### Auto-Scaffolded Files
+
+When a component runs for the first time, KDeps auto-creates these files in the component directory **if they don't already exist**:
+
+- **`.env`** - template listing all `env()` variables found in the component's resources, with empty values to fill in
+- **`README.md`** - generated from `component.yaml` metadata including usage example and env var docs
+
+Existing files are never overwritten.
+
 ## Example: Greeter Component
 
 **`components/greeter/component.yaml`**

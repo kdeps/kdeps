@@ -144,6 +144,11 @@ type ExecutionContext struct {
 	// (e.g. SCRAPER_OPENAI_API_KEY before OPENAI_API_KEY for component "scraper").
 	CurrentComponent string
 
+	// componentDotEnv caches parsed .env files keyed by component name.
+	// Values are loaded lazily when a component starts executing.
+	// Priority for env() lookups: scoped os env > plain os env > .env file.
+	componentDotEnv map[string]map[string]string
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
@@ -276,14 +281,15 @@ func NewExecutionContext(
 	}
 
 	ctx := &ExecutionContext{
-		Workflow:   workflow,
-		Resources:  make(map[string]*domain.Resource),
-		Outputs:    make(map[string]interface{}),
-		Items:      make(map[string]interface{}),
-		ItemValues: make(map[string][]interface{}),
-		Memory:     memoryStorage,
-		Session:    sessionStorage,
-		FSRoot:     ".",
+		Workflow:        workflow,
+		Resources:       make(map[string]*domain.Resource),
+		Outputs:         make(map[string]interface{}),
+		Items:           make(map[string]interface{}),
+		ItemValues:      make(map[string][]interface{}),
+		Memory:          memoryStorage,
+		Session:         sessionStorage,
+		FSRoot:          ".",
+		componentDotEnv: make(map[string]map[string]string),
 	}
 
 	// Initialize unified API.
@@ -304,10 +310,10 @@ func NewExecutionContext(
 }
 
 // Env retrieves an environment variable value.
-// When executing inside a component, it first checks for a component-scoped
-// env var using the convention {COMPONENT_PREFIX}_{name}, then falls back to
-// the plain {name}. For example, component "scraper" looking up "OPENAI_API_KEY"
-// will check "SCRAPER_OPENAI_API_KEY" first.
+// Priority when executing inside a component:
+//  1. Scoped os env: {COMPONENT_PREFIX}_{name} (e.g. SCRAPER_OPENAI_API_KEY)
+//  2. Plain os env: {name}
+//  3. Component .env file: value from the component's .env file
 func (ctx *ExecutionContext) Env(name string) (string, error) {
 	kdeps_debug.Log("enter: Env")
 	if ctx.CurrentComponent != "" {
@@ -317,7 +323,18 @@ func (ctx *ExecutionContext) Env(name string) (string, error) {
 			return val, nil
 		}
 	}
-	return os.Getenv(name), nil
+	if val := os.Getenv(name); val != "" {
+		return val, nil
+	}
+	// Final fallback: component .env file (lowest priority).
+	if ctx.CurrentComponent != "" {
+		if dotEnv, hasDotEnv := ctx.componentDotEnv[ctx.CurrentComponent]; hasDotEnv {
+			if dotVal, hasKey := dotEnv[name]; hasKey {
+				return dotVal, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 // componentEnvPrefix converts a component name to an uppercase env var prefix.

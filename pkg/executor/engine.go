@@ -2595,6 +2595,22 @@ func (e *Engine) executeComponentCall(
 	ctx.CurrentComponent = cfg.Name
 	defer func() { ctx.CurrentComponent = prev }()
 
+	// Lazily load the component's .env file the first time this component runs.
+	if _, loaded := ctx.componentDotEnv[cfg.Name]; !loaded && comp.Dir != "" {
+		dotEnv, dotErr := loadComponentDotEnv(comp.Dir)
+		switch {
+		case dotErr == nil:
+			ctx.componentDotEnv[cfg.Name] = dotEnv
+		case errors.Is(dotErr, errNoDotEnv):
+			// No .env file - mark as loaded so we don't retry.
+			ctx.componentDotEnv[cfg.Name] = map[string]string{}
+		default:
+			e.logger.Warn("failed to load component .env file",
+				"component", cfg.Name, "dir", comp.Dir, "error", dotErr)
+			ctx.componentDotEnv[cfg.Name] = map[string]string{}
+		}
+	}
+
 	if err := e.runComponentSetup(comp, ctx); err != nil {
 		return nil, fmt.Errorf("component %q setup failed: %w", cfg.Name, err)
 	}

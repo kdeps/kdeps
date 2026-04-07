@@ -18,6 +18,27 @@
 
 package domain
 
+// ComponentSetup declares dependencies and commands that are automatically run
+// before the component's resources execute (once per engine lifetime, cached).
+//
+//   - PythonPackages: installed via "uv pip install" into the workflow venv.
+//   - OsPackages: installed via the detected system package manager
+//     (apt-get on Debian/Ubuntu, apk on Alpine, brew on macOS).
+//     Installation is skipped when the manager is unavailable or the package
+//     is already present.
+//   - Commands: arbitrary shell commands executed in order.
+type ComponentSetup struct {
+	PythonPackages []string `yaml:"pythonPackages,omitempty"`
+	OsPackages     []string `yaml:"osPackages,omitempty"`
+	Commands       []string `yaml:"commands,omitempty"`
+}
+
+// ComponentTeardown declares commands that are run after the component's
+// resources finish executing (runs on every invocation).
+type ComponentTeardown struct {
+	Commands []string `yaml:"commands,omitempty"`
+}
+
 // Component represents a reusable KDeps component that can be shared across workflows.
 // A component.yaml file sits at the root of a component directory and declares the
 // component's interface (named inputs) and optional resources.  Components are
@@ -33,6 +54,12 @@ package domain
 //	  description: A reusable LLM component
 //	  version: "1.0.0"
 //	  targetActionId: main-resource
+//	setup:
+//	  pythonPackages: [requests, beautifulsoup4]
+//	  osPackages: [libssl-dev]
+//	  commands: ["echo setup complete"]
+//	teardown:
+//	  commands: ["rm -rf /tmp/my-*"]
 //	interface:
 //	  inputs:
 //	    - name: user_query
@@ -44,12 +71,18 @@ package domain
 //	      required: false
 //	      default: 0.7
 type Component struct {
-	APIVersion     string              `yaml:"apiVersion"`
-	Kind           string              `yaml:"kind"`
-	Metadata       ComponentMetadata   `yaml:"metadata"`
-	Interface      *ComponentInterface `yaml:"interface,omitempty"`
-	Resources      []*Resource         `yaml:"resources,omitempty"`
-	PythonPackages []string            `yaml:"pythonPackages,omitempty"`
+	APIVersion string              `yaml:"apiVersion"`
+	Kind       string              `yaml:"kind"`
+	Metadata   ComponentMetadata   `yaml:"metadata"`
+	Setup      *ComponentSetup     `yaml:"setup,omitempty"`
+	Teardown   *ComponentTeardown  `yaml:"teardown,omitempty"`
+	Interface  *ComponentInterface `yaml:"interface,omitempty"`
+	Resources  []*Resource         `yaml:"resources,omitempty"`
+	// Deprecated: use setup.pythonPackages. Kept for backward compatibility.
+	PythonPackages []string `yaml:"pythonPackages,omitempty"`
+	// Dir is the component's directory path, set at load time (not serialised).
+	// Used to locate the component's .env file and README.md at runtime.
+	Dir string `yaml:"-"`
 }
 
 // ComponentMetadata contains component-level metadata.
