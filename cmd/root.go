@@ -175,4 +175,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add component management command
 	rootCmd.AddCommand(newComponentCmd())
+
+	// Add info command
+	rootCmd.AddCommand(newInfoCmd())
 }

@@ -102,3 +102,22 @@ var ListLocalComponents = listLocalComponents //nolint:gochecknoglobals // test-
 
 // ListInternalComponents exposes the unexported listInternalComponents helper for unit testing.
 var ListInternalComponents = listInternalComponents //nolint:gochecknoglobals // test-only export
+
+// ReadReadmeForComponent exposes the unexported readReadmeForComponent helper for unit testing.
+var ReadReadmeForComponent = readReadmeForComponent //nolint:gochecknoglobals // test-only export
+
+// FindReadmeInDir exposes the unexported findReadmeInDir helper for unit testing.
+var FindReadmeInDir = findReadmeInDir //nolint:gochecknoglobals // test-only export
+
+// ParseRemoteRef exposes the unexported parseRemoteRef helper for unit testing.
+var ParseRemoteRef = parseRemoteRef //nolint:gochecknoglobals // test-only export
+
+// FetchRemoteReadme exposes the unexported fetchRemoteReadme helper for unit testing.
+var FetchRemoteReadme = fetchRemoteReadme //nolint:gochecknoglobals // test-only export
+
+// ResolveInfoReadme exposes the unexported resolveInfoReadme helper for unit testing.
+var ResolveInfoReadme = resolveInfoReadme //nolint:gochecknoglobals // test-only export
+
+// GithubRawBaseURL allows tests to override the GitHub raw content base URL.
+// Tests should restore the original value via t.Cleanup().
+var GithubRawBaseURL = &githubRawBaseURL //nolint:gochecknoglobals // test-only export

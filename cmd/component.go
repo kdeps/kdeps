@@ -21,6 +21,8 @@
 package cmd
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"fmt"
 	"io"
 	stdhttp "net/http"
@@ -30,9 +32,11 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 // componentInstallDir returns the global component install directory.
@@ -84,6 +88,7 @@ available to any workflow run from that machine.`,
 	cmd.AddCommand(newComponentInstallCmd())
 	cmd.AddCommand(newComponentListCmd())
 	cmd.AddCommand(newComponentRemoveCmd())
+	cmd.AddCommand(newComponentShowCmd())
 	return cmd
 }
 
@@ -244,6 +249,259 @@ func newComponentRemoveCmd() *cobra.Command {
 	}
 }
 
+// readmeFileNames is the ordered list of README filename candidates to probe.
+//
+//nolint:gochecknoglobals // package-level slice shared across functions, not mutable state
+var readmeFileNames = []string{"README.md", "README.MD", "readme.md", "Readme.md"}
+
+// findReadmeInDir returns the contents of the first README file found in dir,
+// or "" if none exist.
+func findReadmeInDir(dir string) string {
+	kdeps_debug.Log("enter: findReadmeInDir")
+	for _, name := range readmeFileNames {
+		p := filepath.Join(dir, name)
+		data, err := os.ReadFile(p)
+		if err == nil {
+			return string(data)
+		}
+	}
+	return ""
+}
+
+// readReadmeForComponent resolves a README for the named component by searching:
+//  1. Internal embedded component (internal-components/<name>/)
+//  2. Global install dir (~/.kdeps/components/<name>.komponent) — extracts archive
+//  3. Local ./components/<name>/ directory
+//
+// Falls back to a minimal summary generated from the component.yaml metadata when
+// no README.md exists.
+func readReadmeForComponent(name string) (string, error) {
+	kdeps_debug.Log("enter: readReadmeForComponent")
+
+	// 1. Internal component (embedded in binary directory or beside the binary)
+	internalDir := filepath.Join("internal-components", name)
+	if readme := findReadmeInDir(internalDir); readme != "" {
+		return readme, nil
+	}
+
+	// 2. Global installed .komponent archive
+	globalDir, err := componentInstallDir()
+	if err == nil {
+		pkgPath := filepath.Join(globalDir, name+komponentExtension)
+		if readme, readErr := readReadmeFromKomponent(pkgPath); readErr == nil && readme != "" {
+			return readme, nil
+		}
+	}
+
+	// 3. Local ./components/<name>/ directory
+	localDir := filepath.Join("components", name)
+	if readme := findReadmeInDir(localDir); readme != "" {
+		return readme, nil
+	}
+
+	// 4. Fallback: generate from component.yaml metadata
+	return generateFallbackReadme(name)
+}
+
+// readReadmeFromKomponent extracts a .komponent archive to a temp dir and reads
+// the README.md from it.
+func readReadmeFromKomponent(pkgPath string) (string, error) {
+	kdeps_debug.Log("enter: readReadmeFromKomponent")
+	if _, err := os.Stat(pkgPath); err != nil {
+		return "", err
+	}
+
+	tempDir, cleanup, err := extractKomponent(pkgPath)
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+
+	if readme := findReadmeInDir(tempDir); readme != "" {
+		return readme, nil
+	}
+	return "", nil
+}
+
+// extractKomponent extracts a .komponent archive to a temp dir.
+// Caller must invoke the returned cleanup func.
+func extractKomponent(pkgPath string) (string, func(), error) {
+	kdeps_debug.Log("enter: extractKomponent")
+	tempDir, err := os.MkdirTemp("", "kdeps-komponent-*")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temp dir: %w", err)
+	}
+	cleanup := func() { _ = os.RemoveAll(tempDir) }
+
+	f, err := os.Open(pkgPath)
+	if err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("open komponent: %w", err)
+	}
+	defer f.Close()
+
+	if err = cmdExtractTarGz(f, tempDir); err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("extract komponent: %w", err)
+	}
+	return tempDir, cleanup, nil
+}
+
+// generateFallbackReadme produces a minimal README from component.yaml metadata.
+func generateFallbackReadme(name string) (string, error) {
+	kdeps_debug.Log("enter: generateFallbackReadme")
+
+	// Search for component.yaml in the usual locations.
+	dirs := []string{
+		filepath.Join("internal-components", name),
+		filepath.Join("components", name),
+	}
+
+	if globalDir, err := componentInstallDir(); err == nil {
+		dirs = append(dirs, filepath.Join(globalDir, name))
+	}
+
+	for _, dir := range dirs {
+		compFile := componentYAMLPath(dir)
+		if compFile == "" {
+			continue
+		}
+		data, err := os.ReadFile(compFile)
+		if err != nil {
+			continue
+		}
+		// Extract name/description from YAML minimally.
+		type meta struct {
+			Metadata struct {
+				Name        string `yaml:"name"`
+				Description string `yaml:"description"`
+				Version     string `yaml:"version"`
+			} `yaml:"metadata"`
+		}
+		var m meta
+		if yamlErr := yaml.Unmarshal(data, &m); yamlErr == nil && m.Metadata.Name != "" {
+			out := fmt.Sprintf("# %s\n\n", m.Metadata.Name)
+			if m.Metadata.Description != "" {
+				out += m.Metadata.Description + "\n\n"
+			}
+			if m.Metadata.Version != "" {
+				out += fmt.Sprintf("Version: %s\n\n", m.Metadata.Version)
+			}
+			out += fmt.Sprintf("Install with: kdeps component install %s\n\n", name)
+			out += fmt.Sprintf(
+				"Usage:\n```yaml\nrun:\n  component:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
+				name,
+			)
+			return out, nil
+		}
+	}
+
+	return fmt.Sprintf(
+		"# %s\n\nNo README.md found for component %q.\n\nInstall with: kdeps component install %s\n",
+		name,
+		name,
+		name,
+	), nil
+}
+
+// componentYAMLPath probes for component.yaml variants in dir.
+func componentYAMLPath(dir string) string {
+	kdeps_debug.Log("enter: componentYAMLPath")
+	for _, name := range []string{"component.yaml", "component.yml", "component.yaml.j2"} {
+		p := filepath.Join(dir, name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// cmdExtractTarGz extracts a gzip-compressed tar stream into destDir.
+func cmdExtractTarGz(r io.Reader, destDir string) error {
+	kdeps_debug.Log("enter: cmdExtractTarGz")
+	gz, gzErr := gzip.NewReader(r)
+	if gzErr != nil {
+		return fmt.Errorf("gzip reader: %w", gzErr)
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		header, nextErr := tr.Next()
+		if nextErr == io.EOF {
+			break
+		}
+		if nextErr != nil {
+			return fmt.Errorf("tar next: %w", nextErr)
+		}
+		if err := cmdExtractTarEntry(tr, header, destDir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// cmdExtractTarEntry writes a single tar entry to destDir.
+func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) error {
+	kdeps_debug.Log("enter: cmdExtractTarEntry")
+	// Sanitize path to prevent directory traversal.
+	cleanName := filepath.Clean(header.Name)
+	if strings.HasPrefix(cleanName, "..") {
+		return nil
+	}
+	target := filepath.Join(destDir, cleanName)
+
+	switch header.Typeflag {
+	case tar.TypeDir:
+		if mkErr := os.MkdirAll(target, 0o750); mkErr != nil {
+			return fmt.Errorf("mkdir %s: %w", target, mkErr)
+		}
+	case tar.TypeReg:
+		if mkErr := os.MkdirAll(filepath.Dir(target), 0o750); mkErr != nil {
+			return fmt.Errorf("mkdir parent: %w", mkErr)
+		}
+		f, createErr := os.Create(target)
+		if createErr != nil {
+			return fmt.Errorf("create %s: %w", target, createErr)
+		}
+		_, copyErr := io.Copy(f, tr)
+		if closeErr := f.Close(); closeErr != nil && copyErr == nil {
+			return fmt.Errorf("close %s: %w", target, closeErr)
+		}
+		if copyErr != nil {
+			return fmt.Errorf("copy %s: %w", target, copyErr)
+		}
+	}
+	return nil
+}
+
+func newComponentShowCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newComponentShowCmd")
+	return &cobra.Command{
+		Use:   "show <name>",
+		Short: "Show README for a component",
+		Long: `Display the README.md for an installed or internal component.
+
+Searches in order: internal components, global install dir, local ./components/.
+Falls back to component.yaml metadata when no README.md exists.
+
+Examples:
+  kdeps component show scraper
+  kdeps component show tts`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			kdeps_debug.Log("enter: component show RunE")
+			name := strings.ToLower(args[0])
+			readme, err := readReadmeForComponent(name)
+			if err != nil {
+				return fmt.Errorf("show component: %w", err)
+			}
+			fmt.Fprint(os.Stdout, readme)
+			return nil
+		},
+	}
+}
+
 // componentDownloadBaseURL is the base URL for downloading component packages.
 // Tests override this via the ComponentDownloadBaseURL pointer in
 // internal_export_test.go.
@@ -264,7 +522,12 @@ func installComponent(name, repo string) error {
 	}
 
 	filename := name + komponentExtension
-	url := fmt.Sprintf("%s/%s/releases/latest/download/%s", componentDownloadBaseURL, repo, filename)
+	url := fmt.Sprintf(
+		"%s/%s/releases/latest/download/%s",
+		componentDownloadBaseURL,
+		repo,
+		filename,
+	)
 
 	fmt.Fprintf(os.Stdout, "Downloading %s from %s ...\n", filename, url)
 
