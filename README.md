@@ -1,294 +1,170 @@
 # kdeps: AI agents as code.
 
-AI agents in YAML. Build autonomous AI Agents and self-governing AI Agencies that orchestrate LLMs, databases, and APIs without glue or legacy code.
+Build autonomous AI agents in YAML — wire LLMs, APIs, databases, and Python scripts with no glue code.
 
-> **Highly experimental.** kdeps is under active development - APIs, YAML schemas, CLI flags, and behaviour can change without notice at any time. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
+> **Highly experimental.** APIs, YAML schemas, and CLI flags can change without notice. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
 
-## Why kdeps
+## Install
 
-AI agents fail in production for one reason: **inconsistency**. Same task, different results. No audit trail. No way to debug or reproduce.
-
-kdeps enforces deterministic AI agents, as **Ordered, Repeatable Systems (ORS)** by design — reproducible and repeatable by construction, so you can build truly **autonomous AI Agents** and compose them into full-scale **autonomous AI Agencies**:
-
-- **Ordered** — Declarative YAML defines every execution step in graph order. No hidden logic, no surprise tool calls.
-- **Repeatable** — Same inputs produce same outputs. Deterministic pipelines, version-controlled agent definitions. Output determinism depends on the underlying models, settings, and external APIs.
-- **Systems** — LLMs, databases, and APIs unified in one spec. No glue code, no legacy bridges. Compose multiple agents into self-governing **autonomous AI Agencies** that operate without human-in-the-loop intervention.
-
-## 1. Install
 ```bash
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-## 2. Multi-Model RAG Example
-Call the scraper and search components, then pass results to an LLM.
+## Your first agent in 60 seconds
+
+```bash
+kdeps new                    # scaffolds a project interactively
+kdeps run workflow.yaml --dev  # hot-reload, no Docker needed
+```
+
+A minimal agent that answers questions via an LLM:
 
 ```yaml
+# resources/chat.yaml
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
-  actionId: fetch-context
+  actionId: chat
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: "{{ get('message') }}"
+  apiResponse:
+    response: "{{ output('chat') }}"
+```
+
+That's it. kdeps handles the Ollama server, request routing, and output wiring automatically.
+
+## Add a tool
+
+Install a component, then call it from any resource:
+
+```bash
+kdeps component install scraper
+```
+
+```yaml
+metadata:
+  actionId: fetch
 run:
   component:
     name: scraper
     with:
       url: "{{ get('url') }}"
-      selector: ".article"
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
 metadata:
-  actionId: analyze
-  requires: [fetch-context]
+  actionId: summarize
+  requires: [fetch]
 run:
   chat:
-    model: gpt-4o
-    prompt: |
-      Context: {{ output('fetch-context') }}
-      Question: {{ get('q') }}
+    model: llama3.2:1b
+    prompt: "Summarize: {{ output('fetch') }}"
   apiResponse:
-    success: true
-    response: { data: "{{ output('analyze') }}" }
+    response: "{{ output('summarize') }}"
 ```
 
-## 3. Interactive LLM Chat with Tools (`llm-chat-tools`)
-Start a REPL chat powered by 10 built-in tool components (calculator, weather, hash, unit converter, …).
+## Interactive chat with tools
 
 ```bash
 kdeps run examples/llm-chat-tools/workflow.yaml --dev
 ```
 
-The `--interactive` flag works with **any** workflow to open a REPL alongside the running agent:
+Or add `--interactive` to any workflow to open a REPL alongside it:
 
 ```bash
 kdeps run workflow.yaml --interactive
+# /run <actionId>   — invoke a resource directly
+# /list             — list resources and components
+# /help             — show all commands
+# /quit             — exit
 ```
 
-REPL slash commands:
-| Command | Description |
+## Key concepts
+
+| Concept | What it does |
 |---------|-------------|
-| `/run <prompt>` | Send a prompt to the LLM and execute it through the workflow |
-| `/list` | List available resources and components in the current workflow |
-| `/help` | Show available REPL commands |
-| `/quit` or `/exit` | Exit the interactive session |
+| `requires:` | Declare execution order — dependencies run first |
+| `get('key')` | Read from request body, query, headers, or memory |
+| `output('id')` | Read the result of another resource |
+| `run.component:` | Call an installed component with typed inputs |
+| `run.chat:` | Call any LLM (Ollama, OpenAI, Anthropic, Groq, …) |
+| `run.python:` | Run a Python script in an isolated `uv` environment |
+| `run.exec:` | Run a shell command |
+| `run.sql:` | Query a database (Postgres, MySQL, SQLite, Oracle) |
+| `run.httpClient:` | Call any REST API |
+| `loop:` | Schedule or repeat a resource (`every:`, `at:`) |
+| `items:` | Iterate over arrays |
+| `validations:` | Guard clauses and error handling |
 
-The `llm-chat-tools` example wires 10 component tools to an LLM resource so the model can autonomously call `calculate`, `hash`, `convert_units`, `get_weather`, `get_time`, `analyze_text`, `format_json`, `base64`, `parse_url`, and `random` during a conversation. See [`examples/llm-chat-tools/README.md`](examples/llm-chat-tools/README.md) for the full component list.
+Full expression reference: [kdeps.com/concepts/expressions](https://kdeps.com/concepts/expressions)
 
-> **Model Allowlist**: `agentSettings.models` also acts as a runtime allowlist — resources requesting unlisted models are overridden with `models[0]`.
+## Components
 
-
-
-### ⚡ [Syntax & Logic](https://kdeps.com/concepts/expressions)
-- [`get('q')`](https://kdeps.com/concepts/unified-api) – Get data (body, query, header, output)
-- [`set('k', v)`](https://kdeps.com/concepts/expression-functions-reference#set-key-value-storage) – Store in memory or session
-- [`items:`](https://kdeps.com/concepts/items) – Iterate over arrays/collections
-- [`loop:`](https://kdeps.com/concepts/loop) – Conditional while-loop, repeated tasks (`every:`), and scheduled fire times (`at:`)
-- [`validations:`](https://kdeps.com/concepts/validation) – Validation, filtering & control flow
-- [`env('KEY')`](https://kdeps.com/concepts/expression-functions-reference#get-key-typehint) – Access environment variables
-- [`session()`](https://kdeps.com/concepts/expression-functions-reference#session) – Access persistent session data
-- [`file('*')`](https://kdeps.com/concepts/expression-functions-reference#file-pattern-selector) – Access uploaded or local files
-- [`input('m')`](https://kdeps.com/concepts/expression-functions-reference#input-name-type) – Access bot/hardware input data
-- [`info('dt')`](https://kdeps.com/concepts/expression-functions-reference#info-field) – Access system metadata
-
-### 🤖 Built-in Components (internal)
-
-Five executors are compiled into the binary and always available — no install needed. `kdeps component list` shows them as "Internal components (built-in)":
-
-| YAML key | Description | Docs |
-|---|---|---|
-| [`chat:`](https://kdeps.com/resources/llm) | LLM (Ollama, OpenAI, Anthropic, Groq, etc.) | streaming, MCP tools |
-| [`httpClient:`](https://kdeps.com/resources/http-client) | REST APIs (GET, POST, PUT, DELETE, …) | auth, retries |
-| [`sql:`](https://kdeps.com/resources/sql) | Databases (Postgres, MySQL, SQLite, Oracle) | prepared statements |
-| [`python:`](https://kdeps.com/resources/python) | Python scripts via isolated `uv` environments | pip packages |
-| [`exec:`](https://kdeps.com/resources/exec) | Shell commands and system automation | env, timeout |
-
-Plus two always-available resource keys: [`agent:`](https://kdeps.com/concepts/agency) (agency delegation) and [`apiResponse:`](https://kdeps.com/resources/api-response) (HTTP response).
-
-### 🧩 Registry Components (installable)
-
-Additional capabilities distributed as `.komponent` archives. Install once globally, call from any workflow via `run.component:`:
+Components are self-contained capability packages. Install globally, call from anywhere.
 
 ```bash
-kdeps component install scraper     # web/PDF/doc text extraction (type auto-detected)
-kdeps component install search      # web search (Tavily)
-kdeps component install embedding   # vector embeddings (OpenAI)
-kdeps component install tts         # text-to-speech (espeak / OpenAI)
-kdeps component install email       # send email via SMTP
-kdeps component install calendar    # generate .ics calendar event files
-kdeps component install pdf         # generate PDFs from HTML (pdfkit)
-kdeps component install memory      # persistent key-value store (SQLite)
-kdeps component install browser     # browser automation (navigate/screenshot/getText)
-kdeps component install botreply    # chat bot replies (Telegram, Discord, Slack)
-kdeps component install remoteagent # call a remote kdeps agent over HTTP
-kdeps component install autopilot   # LLM-directed task execution
-kdeps component install federation  # UAF node management and agent registration
+kdeps component install <name>   # install from registry
+kdeps component list             # list installed
+kdeps component show <name>      # show README
+kdeps component clone owner/repo # install from GitHub
 ```
 
-**Use a component in any resource:**
+Available: `scraper`, `search`, `embedding`, `memory`, `browser`, `tts`, `email`, `calendar`, `pdf`, `botreply`, `remoteagent`, `autopilot`, `federation`
+
+Components declare their own dependencies — kdeps auto-installs them on first use:
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com"
-      selector: ".article"
-```
-
-The `with:` map is validated against the component's declared `interface.inputs`. Missing required inputs return an error; optional inputs use their declared defaults. Results are stored under `output('<actionId>')`.
-
-**Components can be exposed as LLM tools (function calling)** via the `componentTools:` allowlist. By default no components are registered as tools — list only the ones the LLM should be able to call:
-
-```yaml
-# kdeps component install scraper
-# kdeps component install search
-
-run:
-  chat:
-    model: gpt-4o
-    prompt: "Research and summarize: {{ get('q') }}"
-    componentTools:
-      - scraper
-      - search
-```
-
-Explicit `tools:` declarations take precedence. If a component name matches an explicit tool, the explicit definition is used and the component entry is skipped.
-
-**Call the same component twice with different inputs** — inputs are scoped to the calling resource's `actionId` so there's no collision:
-
-```yaml
-- actionId: fetch-home
-  run:
-    component: { name: scraper, with: { url: "https://example.com" } }
-
-- actionId: fetch-docs
-  run:
-    component: { name: scraper, with: { url: "https://example.com/docs" } }
-```
-
-See the [Components guide](https://kdeps.com/concepts/components) for full documentation.
-
-### 🔀 Input Sources
-
-Workflows declare which input channels they accept via `settings.input.sources`:
-
-| Source | Use Case |
-|--------|----------|
-| `api` | HTTP API requests (default) |
-| `audio` | Microphone / line-in audio capture |
-| `video` | Camera / V4L2 video capture |
-| `telephony` | Phone call audio (local or cloud) |
-| `bot` | Chat platforms (Discord, Slack, Telegram, WhatsApp) |
-| `file` | One-shot: reads content from `--file`, stdin, or `KDEPS_FILE_PATH` |
-| `component` | Invokable only via `run.component` from a parent workflow |
-
-A `component` source workflow starts no listener. It is driven exclusively by the parent that calls it:
-
-```yaml
-# mylib/workflow.yaml
-settings:
-  input:
-    sources: [component]
-    component:
-      description: "Summarize a block of text"
-```
-
-```yaml
-# caller resource
-run:
-  component:
-    name: mylib
-    with:
-      text: "{{ get('fetchDocs.body') }}"
-```
-
-See [Input Sources](https://kdeps.com/concepts/input-sources) for full documentation.
-
-### Automatic Dependency Installation
-
-Components declare their own dependencies. When first invoked, kdeps automatically installs them:
-
-```yaml
-# In component.yaml
+# component.yaml
 setup:
-  pythonPackages:
-    - requests
-    - beautifulsoup4
-  osPackages:
-    - wkhtmltopdf          # installed via apt-get / apk / brew
-  commands:
-    - "playwright install chromium"
-
-teardown:
-  commands:
-    - "rm -rf /tmp/cache-*"
+  pythonPackages: [requests, beautifulsoup4]
+  osPackages: [wkhtmltopdf]
 ```
 
-- **Python packages** - installed via `uv pip install` into the isolated venv
-- **OS packages** - installed via `apt-get` / `apk` / `brew` (already-installed packages skipped)
-- **Commands** - run once on first use; teardown runs after each invocation
+## Input sources
 
-### Automatic Environment Variable Scoping
+Declare how your agent receives input via `settings.input.sources`:
 
-Components automatically get per-component env var overrides. When a component runs, `env('VAR')` first checks `{COMPONENT_NAME_UPPER}_VAR`, then falls back to `VAR`:
+| Source | Use case |
+|--------|----------|
+| `api` | HTTP API (default) |
+| `bot` | Telegram, Discord, Slack, WhatsApp |
+| `file` | One-shot from `--file`, stdin, or env |
+| `llm` | Interactive stdin REPL |
+| `audio` / `video` / `telephony` | Hardware media capture |
+| `component` | Invokable only from a parent workflow |
+
+## Agencies
+
+Compose multiple agents into a self-governing **Agency**:
 
 ```bash
-export OPENAI_API_KEY=sk-global           # used by all components
-export SCRAPER_OPENAI_API_KEY=sk-scraper  # overrides just for scraper
-export EMBEDDING_OPENAI_API_KEY=sk-embed  # overrides just for embedding
+kdeps bundle package my-agency/   # produces .kagency archive
+kdeps run my-agency.kagency --dev
 ```
 
-No changes to component YAML needed - scoping is automatic.
+Agents in an agency communicate via `run.agent:` — no network calls, no ports.
 
-Components also load a `.env` file from their directory as a lowest-priority fallback:
+## Model allowlist
 
+Lock a workflow to specific models via `agentSettings.models`. Resources requesting any other model are automatically overridden to `models[0]` and a warning is logged:
+
+```yaml
+# workflow.yaml
+settings:
+  agentSettings:
+    models: [llama3.3:latest]
 ```
-# components/scraper/.env
-OPENAI_API_KEY=sk-my-key
+
+## Build and deploy
+
+```bash
+kdeps bundle build          # Docker image
+kdeps bundle export iso     # bootable edge ISO
+kdeps bundle prepackage     # self-contained binary per arch
+kdeps cloud push            # live-update a running container
 ```
 
-Priority: `SCRAPER_OPENAI_API_KEY` (scoped os env) > `OPENAI_API_KEY` (plain os env) > `.env` file
-
-On first run, kdeps auto-scaffolds `.env` (with all `env()` vars listed as blanks) and `README.md` if absent. Run `kdeps component update <path>` to explicitly scaffold or merge `.env` and `README.md` for all components under a path (component, agent, or agency directory).
-
-### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
-Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
-- **`agency.yaml`** – Bundle multiple agents under one manifest with a `targetAgentId` entry point
-- **Auto-discovery** – `agents/**/workflow.*` dirs and `agents/*.kdeps` archives discovered automatically
-- **`.kagency` archives** – Pack the full agency into one portable file: `kdeps bundle package my-agency/`
-- **Docker / ISO / binary** – `kdeps bundle build`, `kdeps bundle export iso`, and `kdeps bundle prepackage` all accept agencies
-
-## CLI Cheatsheet
-- `kdeps run` – Execute workflows or agencies with hot reload
-- `kdeps run --interactive` – Open an interactive LLM REPL (stdin/stdout) alongside the running workflow. Slash commands: `/run`, `/list`, `/help`, `/quit`
-- `kdeps run --file <path>` – Execute a workflow once with a file as input (file input source)
-- `kdeps run --events` – Emit a structured NDJSON [event stream](https://kdeps.com/concepts/events) to stderr for every lifecycle transition
-- `kdeps new` – Create projects via interactive wizard
-- `kdeps validate` – Check YAML syntax and logic
-- `kdeps bundle package` – Pack a workflow (`.kdeps`), agency (`.kagency`), or component (`.komponent`)
-- `kdeps bundle build` – Create Docker images from workflows or agencies
-- `kdeps cloud push` – Live-update running containers
-- `kdeps bundle export iso` – Generate bootable edge ISOs from workflows or agencies
-- `kdeps bundle prepackage` – Bundle a `.kdeps`/`.kagency` file into self-contained executables per arch
-
-### 🧩 Component CLI
-- `kdeps component install <name>` – Install a component from the registry to `~/.kdeps/components/`
-- `kdeps component list` – List installed components (internal, global, local)
-- `kdeps component remove <name>` – Remove an installed component
-- `kdeps component show <name>` – Show README for a component
-- `kdeps component update <path>` – Scaffold or merge `.env` and `README.md` for all components under a path
-- `kdeps component clone <owner/repo[:subdir]>` – Download and install a component, agent, or agency from GitHub
-- `kdeps component info <ref>` – Show README for a local component, agent, agency, or remote GitHub repo (`owner/repo` or `owner/repo:subdir`)
-
-### 🌐 Federation (UAF)
-- `kdeps federation keygen --org <name>` – Generate Ed25519 keypair for signing
-- `kdeps federation register` – Register an agent in a UAF registry
-- `kdeps federation trust add` – Add a registry trust anchor (public key)
-- `kdeps federation trust list` – List all configured trust anchors
-- `kdeps federation mesh list` – List remote agents used in the current project
-- `kdeps federation mesh publish` – Preview the registration manifest (dry-run)
-- `kdeps federation receipt verify` – Verify a signed receipt from a remote agent
-- `kdeps federation key-rotate --org <name>` – Rotate keypair (dual-key transition period)
+---
 
 [Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0
-
