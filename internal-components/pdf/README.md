@@ -72,3 +72,17 @@ run:
 - For best results with HTML, use absolute URLs for images and stylesheets, or embed them inline.
 - The generated PDF path is returned so it can be passed to the `email` component as an attachment path (in a custom send step) or served via a file response.
 - Page size defaults to A4 — use wkhtmltopdf options by extending with a `run.exec:` resource if you need custom paper sizes.
+
+## Automatic Setup
+
+This component automatically installs its dependencies when first used:
+
+```yaml
+setup:
+  pythonPackages:
+    - pdfkit
+  osPackages:
+    - wkhtmltopdf
+```
+
+No manual `agentSettings.pythonPackages` declaration is needed. `wkhtmltopdf` is installed via the system package manager (apt-get / apk / brew).

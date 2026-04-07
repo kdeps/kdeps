@@ -70,7 +70,39 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "Python packages required by this component. Merged into the workflow's agentSettings.pythonPackages at load time."
+      "description": "Deprecated: use setup.pythonPackages. Python packages merged into workflow agentSettings at load time."
+    },
+    "setup": {
+      "type": "object",
+      "properties": {
+        "pythonPackages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Python packages installed via 'uv pip install' before component resources run."
+        },
+        "osPackages": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "OS packages installed via apt-get/apk/brew before component resources run."
+        },
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Shell commands run once before component resources execute."
+        }
+      },
+      "additionalProperties": false
+    },
+    "teardown": {
+      "type": "object",
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Shell commands run after component resources finish executing."
+        }
+      },
+      "additionalProperties": false
     },
     "resources": {
       "type": "array"

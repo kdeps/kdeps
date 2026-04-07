@@ -82,3 +82,17 @@ run:
 - Screenshots are always PNG format.
 - Playwright launches a new browser and page for each invocation; it does not maintain session state between calls.
 - JavaScript-heavy SPAs are fully supported since a real browser is used.
+
+## Automatic Setup
+
+This component automatically installs its dependencies when first used:
+
+```yaml
+setup:
+  pythonPackages:
+    - playwright
+  commands:
+    - "playwright install chromium"
+```
+
+No manual `agentSettings.pythonPackages` declaration is needed.

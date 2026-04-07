@@ -147,7 +147,7 @@ run:
   apiResponse:
     success: true
     response:
-      result: "{{ output('scrapePlain').result }}"
+      result: "{{ output('scrapePlain').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/html.yaml" <<EOF
@@ -167,7 +167,7 @@ run:
   apiResponse:
     success: true
     response:
-      result: "{{ output('scrapeHtml').result }}"
+      result: "{{ output('scrapeHtml').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/selector.yaml" <<EOF
@@ -188,7 +188,7 @@ run:
   apiResponse:
     success: true
     response:
-      result: "{{ output('scrapeSelector').result }}"
+      result: "{{ output('scrapeSelector').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'

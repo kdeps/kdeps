@@ -4,6 +4,9 @@ metadata:
   name: tts
   description: Text-to-speech synthesis (offline via espeak, online via OpenAI)
   version: "1.0.0"
+setup:
+  osPackages:
+    - espeak
 interface:
   inputs:
     - name: text

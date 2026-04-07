@@ -92,3 +92,16 @@ Pipe scraped content into an LLM:
 - HTTP errors (4xx, 5xx) raise an exception and cause the resource to fail.
 - Does not support JavaScript-rendered content. Use the `browser` component for pages that require JS execution.
 - For authenticated endpoints, use `run.httpClient:` directly with custom headers instead.
+
+## Automatic Setup
+
+This component automatically installs its dependencies when first used:
+
+```yaml
+setup:
+  pythonPackages:
+    - requests
+    - beautifulsoup4
+```
+
+No manual `agentSettings.pythonPackages` declaration is needed.

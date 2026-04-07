@@ -4,6 +4,11 @@ metadata:
   name: browser
   description: Browser automation via Python playwright
   version: "1.0.0"
+setup:
+  pythonPackages:
+    - playwright
+  commands:
+    - "playwright install chromium"
 interface:
   inputs:
     - name: url
@@ -33,24 +38,26 @@ resources:
     run:
       python:
         script: |
+          import json
           from playwright.sync_api import sync_playwright
-          url = get("browser.url")
-          action = get("browser.action", "navigate")
-          selector = get("browser.selector", "")
+          url = "{{ get('browser.url') }}"
+          action = "{{ get('browser.action', 'navigate') }}"
+          selector = "{{ get('browser.selector', '') }}"
+          screenshot_path = "{{ get('browser.screenshotPath', '/tmp/screenshot.png') }}"
+          result = ""
           with sync_playwright() as p:
               browser = p.chromium.launch(headless=True)
               page = browser.new_page()
               page.goto(url)
               if action == "screenshot":
-                  path = get("browser.screenshotPath", "/tmp/screenshot.png")
-                  page.screenshot(path=path)
-                  set("browser.result", path)
+                  page.screenshot(path=screenshot_path)
+                  result = screenshot_path
               elif action == "getText":
                   if selector:
-                      text = page.locator(selector).inner_text()
+                      result = page.locator(selector).inner_text()
                   else:
-                      text = page.content()
-                  set("browser.result", text)
+                      result = page.content()
               else:
-                  set("browser.result", page.url)
+                  result = page.url
               browser.close()
+          print(json.dumps({"result": result, "url": url, "action": action}))

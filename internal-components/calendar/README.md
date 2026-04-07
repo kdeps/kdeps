@@ -66,3 +66,15 @@ run:
 - The `.ics` output conforms to [RFC 5545](https://tools.ietf.org/html/rfc5545) and is compatible with all major calendar applications.
 - To create recurring events, use the `ics` output string and post-process it, or extend the workflow with a `run.python:` resource.
 - All-day events: use `YYYY-MM-DD` date strings without a time component.
+
+## Automatic Setup
+
+This component automatically installs its dependencies when first used:
+
+```yaml
+setup:
+  pythonPackages:
+    - icalendar
+```
+
+No manual `agentSettings.pythonPackages` declaration is needed.

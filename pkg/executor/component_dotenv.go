@@ -30,6 +30,8 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+
+	"gopkg.in/yaml.v3"
 )
 
 // envExprPattern matches env('VAR_NAME') or env("VAR_NAME") in any field value.
@@ -295,4 +297,123 @@ func writeReadmeEnvVars(sb *strings.Builder, comp *domain.Component, name string
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// ParseComponentForUpdate parses raw component.yaml bytes and sets Dir to compDir.
+// Intended for use by the `kdeps component update` command, which does not go
+// through the full parser pipeline.
+func ParseComponentForUpdate(data []byte, compDir string) (*domain.Component, error) {
+	kdeps_debug.Log("enter: ParseComponentForUpdate")
+	var comp domain.Component
+	if err := yaml.Unmarshal(data, &comp); err != nil {
+		return nil, fmt.Errorf("parse component.yaml: %w", err)
+	}
+	comp.Dir = compDir
+
+	// Load inline resources from the resources/ sub-directory so that
+	// env() scanning covers file-based resources too.
+	resourcesDir := filepath.Join(compDir, "resources")
+	entries, err := os.ReadDir(resourcesDir)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("read resources dir: %w", err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+		rData, readErr := os.ReadFile(filepath.Join(resourcesDir, name))
+		if readErr != nil {
+			continue
+		}
+		var r domain.Resource
+		if unmarshalErr := yaml.Unmarshal(rData, &r); unmarshalErr == nil {
+			comp.Resources = append(comp.Resources, &r)
+		}
+	}
+	return &comp, nil
+}
+
+// UpdateComponentFiles is the explicit update path used by `kdeps component update`.
+// It scaffolds README.md if absent (never overwrites) and creates or merges .env:
+//   - If .env is absent: create a full template (same as ScaffoldComponentFiles).
+//   - If .env exists: append only the missing var entries (existing values preserved).
+//
+// Returns a map of file -> action ("created" or "merged") for reporting.
+func UpdateComponentFiles(comp *domain.Component, compDir string) (map[string]string, error) {
+	kdeps_debug.Log("enter: UpdateComponentFiles")
+	result := make(map[string]string)
+
+	// README: create only when absent.
+	if w, err := scaffoldReadme(comp, compDir); err != nil {
+		return result, err
+	} else if w {
+		result[filepath.Join(compDir, "README.md")] = "created"
+	}
+
+	// .env: create or merge.
+	dotEnvPath := filepath.Join(compDir, ".env")
+	if fileExists(dotEnvPath) {
+		merged, err := mergeDotEnv(comp, dotEnvPath)
+		if err != nil {
+			return result, err
+		}
+		if merged > 0 {
+			result[dotEnvPath] = fmt.Sprintf("merged (%d new)", merged)
+		}
+	} else if w, err := scaffoldDotEnv(comp, compDir); err != nil {
+		return result, err
+	} else if w {
+		result[dotEnvPath] = "created"
+	}
+
+	return result, nil
+}
+
+// mergeDotEnv appends env var entries that are present in the component's
+// resources but absent from the existing .env file. Returns the number of vars appended.
+func mergeDotEnv(comp *domain.Component, dotEnvPath string) (int, error) {
+	kdeps_debug.Log("enter: mergeDotEnv")
+
+	// Load existing keys.
+	existing, err := loadComponentDotEnv(filepath.Dir(dotEnvPath))
+	if err != nil && !errors.Is(err, errNoDotEnv) {
+		return 0, fmt.Errorf("read existing .env: %w", err)
+	}
+	if existing == nil {
+		existing = map[string]string{}
+	}
+
+	// Find vars not yet in the file.
+	allVars := scanComponentEnvVars(comp)
+	var missing []string
+	for _, v := range allVars {
+		if _, ok := existing[v]; !ok {
+			missing = append(missing, v)
+		}
+	}
+	if len(missing) == 0 {
+		return 0, nil
+	}
+
+	// Append missing vars.
+	f, openErr := os.OpenFile(dotEnvPath, os.O_APPEND|os.O_WRONLY, 0o600)
+	if openErr != nil {
+		return 0, fmt.Errorf("open .env for append: %w", openErr)
+	}
+	defer f.Close()
+
+	var sb strings.Builder
+	sb.WriteString("\n# Added by kdeps component update\n")
+	for _, v := range missing {
+		sb.WriteString(v)
+		sb.WriteString("=\n")
+	}
+	if _, writeErr := f.WriteString(sb.String()); writeErr != nil {
+		return 0, fmt.Errorf("append to .env: %w", writeErr)
+	}
+	return len(missing), nil
 }
