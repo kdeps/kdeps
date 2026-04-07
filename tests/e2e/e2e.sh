@@ -81,6 +81,7 @@ source "$SCRIPT_DIR/test_completion_cmd.sh"
 source "$SCRIPT_DIR/test_features_clone_info.sh"
 source "$SCRIPT_DIR/test_examples_component_cli.sh"
 source "$SCRIPT_DIR/test_internal_components.sh"
+source "$SCRIPT_DIR/test_component_update.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"

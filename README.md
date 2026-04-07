@@ -188,7 +188,7 @@ OPENAI_API_KEY=sk-my-key
 
 Priority: `SCRAPER_OPENAI_API_KEY` (scoped os env) > `OPENAI_API_KEY` (plain os env) > `.env` file
 
-On first run, kdeps auto-scaffolds `.env` (with all `env()` vars listed as blanks) and `README.md` if absent.
+On first run, kdeps auto-scaffolds `.env` (with all `env()` vars listed as blanks) and `README.md` if absent. Run `kdeps component update <path>` to explicitly scaffold or merge `.env` and `README.md` for all components under a path (component, agent, or agency directory).
 
 ### 🏢 [Autonomous AI Agencies](https://kdeps.com/concepts/agency)
 Compose multiple independent AI Agents into a single **autonomous AI Agency** — a self-governing system where agents delegate tasks, coordinate workflows, and respond without human-in-the-loop intervention.
@@ -214,6 +214,7 @@ Compose multiple independent AI Agents into a single **autonomous AI Agency** �
 - `kdeps component list` – List installed components (internal, global, local)
 - `kdeps component remove <name>` – Remove an installed component
 - `kdeps component show <name>` – Show README for a component
+- `kdeps component update <path>` – Scaffold or merge `.env` and `README.md` for all components under a path
 - `kdeps component clone <owner/repo[:subdir]>` – Download and install a component, agent, or agency from GitHub
 - `kdeps component info <ref>` – Show README for a local component, agent, agency, or remote GitHub repo (`owner/repo` or `owner/repo:subdir`)
 

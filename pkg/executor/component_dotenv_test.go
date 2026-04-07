@@ -212,3 +212,183 @@ func TestEnv_NoDotEnvFile_NoError(t *testing.T) {
 	require.NoError(t, envErr)
 	assert.Equal(t, "", val)
 }
+
+// --- ParseComponentForUpdate tests ---
+
+func TestParseComponentForUpdate_Basic(t *testing.T) {
+	dir := t.TempDir()
+	data := []byte(`
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: test
+  description: Test component
+  version: "1.0.0"
+`)
+	comp, err := executor.ParseComponentForUpdate(data, dir)
+	require.NoError(t, err)
+	assert.Equal(t, "test", comp.Metadata.Name)
+	assert.Equal(t, dir, comp.Dir)
+}
+
+func TestParseComponentForUpdate_WithResourcesDir(t *testing.T) {
+	dir := t.TempDir()
+	resDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resDir, 0o755))
+
+	resYAML := []byte(`
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: doThing
+  name: Do Thing
+run:
+  exec:
+    command: "echo {{ env('MY_VAR') }}"
+`)
+	require.NoError(t, os.WriteFile(filepath.Join(resDir, "thing.yaml"), resYAML, 0o644))
+
+	compYAML := []byte(`
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: test
+`)
+	comp, err := executor.ParseComponentForUpdate(compYAML, dir)
+	require.NoError(t, err)
+	assert.Len(t, comp.Resources, 1)
+}
+
+func TestParseComponentForUpdate_NonExistentResourcesDir(t *testing.T) {
+	dir := t.TempDir()
+	data := []byte(`apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: nodir
+`)
+	comp, err := executor.ParseComponentForUpdate(data, dir)
+	require.NoError(t, err)
+	assert.Equal(t, "nodir", comp.Metadata.Name)
+	assert.Empty(t, comp.Resources)
+}
+
+// --- UpdateComponentFiles tests ---
+
+func TestUpdateComponentFiles_CreatesFiles(t *testing.T) {
+	dir := t.TempDir()
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "mycomp", Description: "My component"},
+		Dir:      dir,
+	}
+	result, err := executor.UpdateComponentFiles(comp, dir)
+	require.NoError(t, err)
+	assert.Contains(t, result[filepath.Join(dir, "README.md")], "created")
+	assert.Contains(t, result[filepath.Join(dir, ".env")], "created")
+}
+
+func TestUpdateComponentFiles_MergesExistingDotEnv(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte("EXISTING_VAR=value\n"), 0o600))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "mycomp"},
+		Dir:      dir,
+		Resources: []*domain.Resource{
+			{Run: domain.RunConfig{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('NEW_VAR') }}"`},
+			}},
+		},
+	}
+	result, err := executor.UpdateComponentFiles(comp, dir)
+	require.NoError(t, err)
+
+	val, ok := result[filepath.Join(dir, ".env")]
+	assert.True(t, ok)
+	assert.Contains(t, val, "merged")
+
+	content, _ := os.ReadFile(filepath.Join(dir, ".env"))
+	assert.Contains(t, string(content), "NEW_VAR")
+	assert.Contains(t, string(content), "EXISTING_VAR=value")
+}
+
+func TestUpdateComponentFiles_NoMergeWhenAllPresent(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte("MY_VAR=set\n"), 0o600))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "mycomp"},
+		Dir:      dir,
+		Resources: []*domain.Resource{
+			{Run: domain.RunConfig{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
+			}},
+		},
+	}
+	result, err := executor.UpdateComponentFiles(comp, dir)
+	require.NoError(t, err)
+	_, ok := result[filepath.Join(dir, ".env")]
+	assert.False(t, ok, ".env should not be in result when all vars already present")
+}
+
+func TestUpdateComponentFiles_NoOverwriteExistingReadme(t *testing.T) {
+	dir := t.TempDir()
+	original := []byte("# Custom README\n")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), original, 0o644))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "mycomp"},
+		Dir:      dir,
+	}
+	_, err := executor.UpdateComponentFiles(comp, dir)
+	require.NoError(t, err)
+
+	got, _ := os.ReadFile(filepath.Join(dir, "README.md"))
+	assert.Equal(t, original, got)
+}
+
+// --- scanResourceEnvVars tests ---
+
+func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
+	vars := executor.ScanComponentEnvVars(&domain.Component{
+		Resources: []*domain.Resource{
+			{Run: domain.RunConfig{
+				HTTPClient: &domain.HTTPClientConfig{
+					URL:     `{{ env('HTTP_URL') }}`,
+					Headers: map[string]string{"Authorization": `Bearer {{ env('HTTP_TOKEN') }}`},
+					Auth: &domain.HTTPAuthConfig{
+						Username: `{{ env('HTTP_USER') }}`,
+					},
+				},
+			}},
+		},
+	})
+	assert.Contains(t, vars, "HTTP_URL")
+	assert.Contains(t, vars, "HTTP_TOKEN")
+	assert.Contains(t, vars, "HTTP_USER")
+}
+
+func TestScanResourceEnvVars_ChatConfig(t *testing.T) {
+	vars := executor.ScanComponentEnvVars(&domain.Component{
+		Resources: []*domain.Resource{
+			{Run: domain.RunConfig{
+				Chat: &domain.ChatConfig{
+					APIKey: `{{ env('CHAT_API_KEY') }}`,
+				},
+			}},
+		},
+	})
+	assert.Contains(t, vars, "CHAT_API_KEY")
+}
+
+func TestScanResourceEnvVars_PythonScript(t *testing.T) {
+	vars := executor.ScanComponentEnvVars(&domain.Component{
+		Resources: []*domain.Resource{
+			{Run: domain.RunConfig{
+				Python: &domain.PythonConfig{
+					Script: `import os; key = "{{ env('PY_SECRET') }}"`,
+				},
+			}},
+		},
+	})
+	assert.Contains(t, vars, "PY_SECRET")
+}

@@ -164,3 +164,9 @@ var NewCloneCmd = newCloneCmd //nolint:gochecknoglobals // test-only export
 
 // UnwrapArchiveRoot exposes the unexported unwrapArchiveRoot helper for unit testing.
 var UnwrapArchiveRoot = unwrapArchiveRoot //nolint:gochecknoglobals // test-only export
+
+// ComponentUpdateInternal exposes componentUpdateInternal for unit testing.
+var ComponentUpdateInternal = componentUpdateInternal //nolint:gochecknoglobals // test-only export
+
+// FindUpdateTargetComponentDirs exposes findUpdateTargetComponentDirs for unit testing.
+var FindUpdateTargetComponentDirs = findUpdateTargetComponentDirs //nolint:gochecknoglobals // test-only export
