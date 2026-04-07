@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: llm-chat
+  description: Interactive LLM chat - stdin REPL mode
+  version: "1.0.0"
+  targetActionId: chat
+
+settings:
+  # sources: [llm] enables the LLM input source.
+  # executionType: stdin starts an interactive REPL on stdin/stdout.
+  # executionType: apiServer starts the HTTP API server instead.
+  input:
+    sources: [llm]
+    llm:
+      executionType: stdin
+      prompt: "You: "
+      sessionId: "llm-chat-session"
+
+  hostIp: "0.0.0.0"
+  portNum: 16400
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2:1b

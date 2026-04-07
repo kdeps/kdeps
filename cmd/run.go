@@ -57,6 +57,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
 	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
+	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/selftest"
@@ -1411,6 +1412,9 @@ func dispatchExecution(
 	if s.Input != nil && s.Input.HasFileSource() {
 		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
 	}
+	if s.Input != nil && s.Input.HasLLMSource() {
+		return StartLLMRunner(workflow, debugMode, workflowPath, devMode, selfTest, selfTestOnly)
+	}
 	if s.Input != nil && s.Input.HasComponentSource() {
 		// Component-mode workflow: no external listener. Execute once inline,
 		// driven by run.component invocations from a parent workflow.
@@ -1494,6 +1498,53 @@ func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, 
 
 	ctx := context.Background()
 	return fileinput.RunWithArg(ctx, workflow, engine, logger, fileArg)
+}
+
+// StartLLMRunner starts the LLM interactive runner.
+// When executionType is "apiServer" (or the workflow has apiServerMode enabled),
+// the HTTP API server is started. Otherwise an interactive stdin REPL is started.
+func StartLLMRunner(
+	workflow *domain.Workflow,
+	debugMode bool,
+	workflowPath string,
+	devMode bool,
+	selfTest, selfTestOnly bool,
+) error {
+	kdeps_debug.Log("enter: StartLLMRunner")
+	llmCfg := workflow.Settings.Input.LLM
+	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
+		return StartHTTPServer(workflow, workflowPath, devMode, debugMode, selfTest, selfTestOnly)
+	}
+
+	engine := setupEngine(workflow, debugMode)
+	logger := logging.NewLogger(debugMode)
+	fmt.Fprintln(os.Stdout, "  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)")
+	fmt.Fprintln(os.Stdout, "")
+
+	ctx := context.Background()
+	return llminput.Run(ctx, workflow, engine, logger)
+}
+
+// startLLMRunnerWithEngine is like StartLLMRunner but uses a pre-built engine.
+func startLLMRunnerWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	debugMode bool,
+	workflowPath string,
+	devMode bool,
+) error {
+	kdeps_debug.Log("enter: startLLMRunnerWithEngine")
+	llmCfg := workflow.Settings.Input.LLM
+	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
+		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+	}
+
+	logger := logging.NewLogger(debugMode)
+	fmt.Fprintln(os.Stdout, "  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)")
+	fmt.Fprintln(os.Stdout, "")
+
+	ctx := context.Background()
+	return llminput.Run(ctx, workflow, eng, logger)
 }
 
 // StartMediaRunners starts a continuous media capture-execute loop for audio/video/telephony
@@ -1711,6 +1762,9 @@ func dispatchExecutionWithEngine(
 	}
 	if s.Input != nil && s.Input.HasFileSource() {
 		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
+	}
+	if s.Input != nil && s.Input.HasLLMSource() {
+		return startLLMRunnerWithEngine(eng, workflow, debugMode, workflowPath, devMode)
 	}
 	if s.Input != nil && s.Input.HasComponentSource() {
 		// Component-mode workflow: no external listener. Execute once inline.

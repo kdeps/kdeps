@@ -52,6 +52,18 @@ const (
 	// driven entirely by component invocations and receives its inputs through the
 	// caller's with: block (accessible via input('key') or get('callerActionId.key')).
 	InputSourceComponent = "component"
+	// InputSourceLLM is the input source for LLM interactive chat.
+	// Two execution types are supported:
+	//   executionType: stdin     — interactive REPL loop on stdin/stdout (default)
+	//   executionType: apiServer — starts the HTTP API server for REST-based chat
+	InputSourceLLM = "llm"
+
+	// LLMInputExecutionTypeStdin is an interactive stdin REPL: reads prompts line-by-line,
+	// executes the workflow for each turn, and prints the LLM response to stdout.
+	LLMInputExecutionTypeStdin = "stdin"
+	// LLMInputExecutionTypeAPIServer starts the HTTP API server so that chat clients
+	// can interact with the LLM workflow via REST requests.
+	LLMInputExecutionTypeAPIServer = "apiServer"
 
 	// BotExecutionTypePolling is the default long-running polling/WebSocket execution mode.
 	BotExecutionTypePolling = "polling"
@@ -221,7 +233,7 @@ type ComponentInputConfig struct {
 // InputConfig specifies the input sources for the workflow.
 //
 // The `sources` field in the workflow YAML is a list of one or more input sources:
-// "api" (default), "audio", "video", "telephony", "bot", "file", "component".
+// "api" (default), "audio", "video", "telephony", "bot", "file", "component", "llm".
 //
 // Multiple sources can be active simultaneously (for example, audio + video for a
 // video call). Example:
@@ -245,43 +257,57 @@ type InputConfig struct {
 	Bot           *BotConfig            `yaml:"bot,omitempty"           json:"bot,omitempty"`
 	File          *FileConfig           `yaml:"file,omitempty"          json:"file,omitempty"`
 	Component     *ComponentInputConfig `yaml:"component,omitempty"     json:"component,omitempty"`
+	LLM           *LLMInputConfig       `yaml:"llm,omitempty"           json:"llm,omitempty"`
 	Transcriber   *TranscriberConfig    `yaml:"transcriber,omitempty"   json:"transcriber,omitempty"`
 	Activation    *ActivationConfig     `yaml:"activation,omitempty"    json:"activation,omitempty"`
 }
 
-// PrimarySource returns the first non-API, non-component source, or
+// LLMInputConfig holds optional configuration for the "llm" input source.
+type LLMInputConfig struct {
+	// ExecutionType controls how the LLM source is driven:
+	//   "stdin"     — interactive REPL loop on stdin/stdout (default)
+	//   "apiServer" — start the HTTP API server for REST-based chat
+	ExecutionType string `yaml:"executionType,omitempty" json:"executionType,omitempty"`
+	// Prompt is the text printed before each stdin read. Defaults to "> ".
+	Prompt string `yaml:"prompt,omitempty" json:"prompt,omitempty"`
+	// SessionID pins all REPL turns to a single session so the LLM retains
+	// conversation context across turns. Defaults to "llm-repl-session".
+	SessionID string `yaml:"sessionId,omitempty" json:"sessionId,omitempty"`
+}
+
+// PrimarySource returns the first non-API, non-component, non-llm source, or
 // InputSourceAPI if none. Used by the input processor to select the source for
-// the activation listen loop. "component" is excluded because it has no capture
-// pipeline — the workflow is driven by run.component invocations.
+// the activation listen loop. "component" and "llm" are excluded because they
+// have no capture pipeline.
 func (c *InputConfig) PrimarySource() string {
 	kdeps_debug.Log("enter: PrimarySource")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI && s != InputSourceComponent {
+		if s != InputSourceAPI && s != InputSourceComponent && s != InputSourceLLM {
 			return s
 		}
 	}
 	return InputSourceAPI
 }
 
-// HasNonAPISource reports whether any source in the list is not "api" or "component".
-// "component" workflows have no external listener, so they are treated like "api"
+// HasNonAPISource reports whether any source in the list is not "api", "component", or "llm".
+// "component" and "llm" workflows have no hardware pipeline, so they are treated like "api"
 // for the purposes of deciding whether a media/bot/file pipeline is needed.
 func (c *InputConfig) HasNonAPISource() bool {
 	kdeps_debug.Log("enter: HasNonAPISource")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI && s != InputSourceComponent {
+		if s != InputSourceAPI && s != InputSourceComponent && s != InputSourceLLM {
 			return true
 		}
 	}
 	return false
 }
 
-// AllSourcesAPI reports whether all sources are "api" or "component" (or the list is empty).
-// Both sources share the same no-external-listener behaviour.
+// AllSourcesAPI reports whether all sources are "api", "component", or "llm" (or the list is empty).
+// These sources share the same no-hardware-listener behaviour.
 func (c *InputConfig) AllSourcesAPI() bool {
 	kdeps_debug.Log("enter: AllSourcesAPI")
 	for _, s := range c.Sources {
-		if s != InputSourceAPI && s != InputSourceComponent {
+		if s != InputSourceAPI && s != InputSourceComponent && s != InputSourceLLM {
 			return false
 		}
 	}
@@ -343,6 +369,18 @@ func (c *InputConfig) HasFileSource() bool {
 func IsFileSource(s string) bool {
 	kdeps_debug.Log("enter: IsFileSource")
 	return s == InputSourceFile
+}
+
+// HasLLMSource reports whether "llm" is in the Sources list.
+func (c *InputConfig) HasLLMSource() bool {
+	kdeps_debug.Log("enter: HasLLMSource")
+	return c.HasSource(InputSourceLLM)
+}
+
+// IsLLMSource returns true when the given source name is the "llm" source.
+func IsLLMSource(s string) bool {
+	kdeps_debug.Log("enter: IsLLMSource")
+	return s == InputSourceLLM
 }
 
 // inputConfigAlias is used to avoid infinite recursion in the custom unmarshalers.

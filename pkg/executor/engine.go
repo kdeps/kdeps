@@ -50,6 +50,10 @@ type Engine struct {
 	exprValidator       exprValidator
 	newExecutionContext func(*domain.Workflow, string) (*ExecutionContext, error)
 	afterEvaluatorInit  func(*Engine, *ExecutionContext)
+	// executeFunc, when set via SetExecuteFunc, replaces the full Execute body.
+	// Used by tests (e.g. pkg/input/llm) to inject a stub engine without the
+	// full executor stack.
+	executeFunc         func(*domain.Workflow, interface{}) (interface{}, error)
 	debugMode           bool
 	emitter             events.Emitter
 	componentSetupCache sync.Map // keyed by component name, value struct{}{}
@@ -173,6 +177,14 @@ func (e *Engine) SetAfterEvaluatorInitForTesting(callback func(*Engine, *Executi
 	e.afterEvaluatorInit = callback
 }
 
+// SetExecuteFunc replaces the Execute implementation with fn. When set, every call to
+// Execute delegates to fn instead of running the full executor pipeline. This is
+// intended for unit tests that need a lightweight engine stub (e.g. pkg/input/llm).
+func (e *Engine) SetExecuteFunc(fn func(*domain.Workflow, interface{}) (interface{}, error)) {
+	kdeps_debug.Log("enter: SetExecuteFunc")
+	e.executeFunc = fn
+}
+
 // ExecuteAPIResponseForTesting calls executeAPIResponse for testing.
 func (e *Engine) ExecuteAPIResponseForTesting(
 	resource *domain.Resource,
@@ -232,6 +244,10 @@ func (e *Engine) ExecuteInlineLLMForTesting(
 //nolint:gocognit,gocyclo,cyclop,nestif,funlen // execution flow needs explicit branching
 func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	// Delegate to stub when injected by tests.
+	if e.executeFunc != nil {
+		return e.executeFunc(workflow, req)
+	}
 	// Recover from panics and convert to errors
 	defer func() {
 		if r := recover(); r != nil {
