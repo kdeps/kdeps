@@ -1,10 +1,62 @@
 # Components
 
-Components are reusable, shareable subsets of a workflow that expose a clean interface (named inputs) and encapsulate resources and UI assets. They enable modular architecture and code reuse across multiple KDeps projects.
+KDeps has three categories of components. Understanding the difference is important before reading anything else here.
 
-## Overview
+## Types of Components
 
-A component is defined by a `component.yaml` manifest and lives in a `components/<name>/` directory alongside your workflow. When the workflow runs, all component resources are automatically loaded and merged with the workflow's own resources.
+### 1. Built-in components (internal)
+
+The five core executors are always available in every workflow — no installation required. The CLI surfaces them as "Internal components (built-in)" when you run `kdeps component list`:
+
+| Component | YAML key | Description |
+|-----------|----------|-------------|
+| LLM | `chat:` | LLM interaction (Ollama, OpenAI, Anthropic, etc.) |
+| HTTP | `httpClient:` | REST API calls |
+| SQL | `sql:` | Database queries (Postgres, MySQL, SQLite) |
+| Python | `python:` | Python scripts via isolated `uv` environments |
+| Exec | `exec:` | Shell commands |
+
+These are compiled into the `kdeps` binary and require no `kdeps component install`.
+
+### 2. Registry components (installable)
+
+Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow on the machine:
+
+```bash
+kdeps component install scraper     # web/doc text extraction
+kdeps component install search      # web search (Tavily)
+kdeps component install tts         # text-to-speech
+kdeps component install email       # send email via SMTP
+kdeps component install pdf         # generate PDFs
+kdeps component install calendar    # generate .ics event files
+kdeps component install embedding   # vector embeddings (OpenAI)
+kdeps component install memory      # key-value store (SQLite)
+kdeps component install browser     # browser automation (Playwright)
+kdeps component install botreply    # chat bot replies
+kdeps component install remoteagent # call a remote kdeps agent
+kdeps component install autopilot   # LLM-directed task execution
+kdeps component install federation  # UAF node management
+```
+
+Invoked with `run.component:` in any resource:
+
+```yaml
+run:
+  component:
+    name: scraper
+    with:
+      url: "https://example.com"
+```
+
+### 3. Custom components (user-defined)
+
+Components you build yourself: a `component.yaml` manifest plus resource files in a `components/<name>/` directory. Auto-discovered at run time — no changes to `workflow.yaml` needed.
+
+---
+
+## Custom Component Structure
+
+A custom component is defined by a `component.yaml` manifest and lives in a `components/<name>/` directory alongside your workflow. When the workflow runs, all component resources are automatically loaded and merged with the workflow's own resources.
 
 ### Key Benefits
 
@@ -13,7 +65,7 @@ A component is defined by a `component.yaml` manifest and lives in a `components
 - **Shareable**: Package as `.komponent` archives for distribution
 - **Auto-discovery**: No need to declare components in `workflow.yaml`; just place them in `components/`
 
-## Component Structure
+## Directory Layout
 
 ```
 my-workflow/

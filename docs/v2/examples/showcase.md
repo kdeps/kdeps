@@ -154,16 +154,15 @@ metadata:
   actionId: respond
 run:
   before:
-    - embedding:
-        model: nomic-embed-text
-        input: "{{ get('q') }}"
-        collection: my-docs
-        operation: search
-        topK: 5
+    - component:
+        name: embedding
+        with:
+          text: "{{ get('q') }}"
+          apiKey: "{{ env('OPENAI_API_KEY') }}"
   chat:
     model: llama3.2
     prompt: |
-      Context: {{ get('embedding').results }}
+      Context: {{ get('embedding').embedding }}
       Question: {{ get('q') }}
       Answer using only the context above.
   apiResponse:
@@ -215,8 +214,10 @@ metadata:
   actionId: respond
 run:
   before:
-    - scraper:
-        url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
+    - component:
+        name: scraper
+        with:
+          url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
   chat:
     model: gpt-4o-mini
     prompt: |

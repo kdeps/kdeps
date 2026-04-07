@@ -62,34 +62,42 @@ run:
 
 ## Resource Types
 
-### Core executors (built into the binary)
+### Built-in components (internal)
 
-| Type | Description | Use Case |
-|------|-------------|----------|
+These five executors are compiled into the `kdeps` binary and are always available — no installation required. They appear as "Internal components (built-in)" when you run `kdeps component list`.
+
+| YAML key | Description | Use Case |
+|----------|-------------|----------|
 | `chat` | LLM interaction | AI responses, text generation |
 | `httpClient` | HTTP requests | External APIs, webhooks |
 | `sql` | Database queries | Data retrieval, updates |
 | `python` | Python scripts | Data processing, ML |
 | `exec` | Shell commands | System operations |
-| `agent` | Inter-agent delegation | Multi-agent agencies |
-| `apiResponse` | Response formatting | Final output |
 
-### Components (installable via `kdeps component install`)
+These additional keys are also always available as part of the core resource model:
+
+| YAML key | Description |
+|----------|-------------|
+| `agent` | Inter-agent delegation (agency mode) |
+| `apiResponse` | Return data to the HTTP caller |
+
+### Registry components (installable via `kdeps component install`)
 
 | Type | Install name | Description |
 |------|-------------|----------|
-| `component: { name: scraper }` | `scraper` | Content extraction from web pages, PDFs, documents, images |
-| `component: { name: tts }` | `tts` | Text-to-Speech synthesis |
-| `component: { name: pdf }` | `pdf` | PDF generation from HTML or Markdown |
-| `component: { name: calendar }` | `calendar` | ICS calendar read/write |
-| `component: { name: search }` | `search` | Web or local filesystem search |
+| `component: { name: scraper }` | `scraper` | Content extraction from web pages, PDFs, documents, and images (type auto-detected) |
+| `component: { name: tts }` | `tts` | Text-to-Speech via OpenAI TTS (online) or espeak (offline) |
+| `component: { name: pdf }` | `pdf` | PDF generation from HTML or plain text via pdfkit |
+| `component: { name: calendar }` | `calendar` | ICS calendar event creation |
+| `component: { name: search }` | `search` | Web search via Tavily API |
 | `component: { name: botreply }` | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
-| `component: { name: embedding }` | `embedding` | Vector embeddings & semantic search |
-| `component: { name: browser }` | `browser` | Browser automation (Playwright) |
-| `component: { name: remoteagent }` | `remoteagent` | Federated agent invocation (UAF) |
-| `component: { name: memory }` | `memory` | Persistent semantic memory store |
-| `component: { name: email }` | `email` | Email send/read/search (SMTP/IMAP) |
-| `component: { name: autopilot }` | `autopilot` | Goal-directed workflow synthesis |
+| `component: { name: embedding }` | `embedding` | Vector embeddings via OpenAI Embeddings API |
+| `component: { name: browser }` | `browser` | Browser automation via Playwright (navigate, screenshot, getText) |
+| `component: { name: remoteagent }` | `remoteagent` | Invoke a remote kdeps agent over HTTP |
+| `component: { name: memory }` | `memory` | Persistent key-value storage backed by SQLite |
+| `component: { name: email }` | `email` | Email sending via SMTP |
+| `component: { name: autopilot }` | `autopilot` | LLM-directed task execution |
+| `component: { name: federation }` | `federation` | UAF node management and agent registration |
 
 See the [Components guide](../concepts/components) for installation and usage details.
 
