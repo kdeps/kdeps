@@ -72,35 +72,23 @@ func createRootCommand() *cobra.Command {
 		Short: "KDeps - AI Agent Framework",
 		Long: `KDeps v2 - Build AI agents with YAML configuration
 
-Features:
-  * YAML configuration (no PKL)
-  * Unified API (get, set)
-  * Local-first execution (Docker optional)
-  * SQL integration (PostgreSQL, MySQL, SQLite)
-  * Clean architecture
+  new         Create a new AI agent
+  run         Run workflow locally
+  validate    Validate YAML configuration
+  scaffold    Add resources to existing agent
+  component   Manage components (install, list, show, clone, info)
+  cloud       Cloud account operations (login, push, deployments...)
+  bundle      Package for distribution (build, package, export...)
+  federation  Universal Agent Federation (UAF)
 
 Examples:
-  # Run locally (default)
-  kdeps run workflow.yaml
-
-  # Run from .kdeps package
-  kdeps run myapp.kdeps
-
-  # Validate configuration
-  kdeps validate workflow.yaml
-
-  # Package for Docker
-  kdeps package workflow.yaml
-  kdeps build myAgent-1.0.0.kdeps
-
-  # Prepackage as standalone executable (no Docker required)
-  kdeps prepackage myAgent-1.0.0.kdeps
-
-  # Create new agent
   kdeps new my-agent
-
-  # Add resources to existing agent
-  kdeps scaffold llm sql`,
+  kdeps run workflow.yaml
+  kdeps validate workflow.yaml
+  kdeps component show scraper
+  kdeps component clone jjuliano/kdeps-component-scraper
+  kdeps cloud login
+  kdeps bundle package workflow.yaml`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// --instrument enables call-chain instrumentation (pkg/debug).
 			// --debug enables slog DEBUG level only; these are independent.
@@ -133,52 +121,21 @@ Examples:
 // addSubcommands registers all subcommands to the root command.
 func addSubcommands(rootCmd *cobra.Command) {
 	kdeps_debug.Log("enter: addSubcommands")
-	// Add run command
+	// Core agent development
 	rootCmd.AddCommand(newRunCmd())
-
-	// Add build command
-	rootCmd.AddCommand(newBuildCmd())
-
-	// Add validate command
 	rootCmd.AddCommand(newValidateCmd())
-
-	// Add package command
-	rootCmd.AddCommand(newPackageCmd())
-
-	// Add new command
 	rootCmd.AddCommand(newNewCmd())
-
-	// Add scaffold command
 	rootCmd.AddCommand(newScaffoldCmd())
 
-	// Add export command
-	rootCmd.AddCommand(newExportCmd())
-
-	// Add cloud auth commands
-	rootCmd.AddCommand(newLoginCmd())
-	rootCmd.AddCommand(newWhoamiCmd())
-	rootCmd.AddCommand(newLogoutCmd())
-
-	// Add cloud management commands
-	rootCmd.AddCommand(newAccountCmd())
-	rootCmd.AddCommand(newWorkflowsCmd())
-	rootCmd.AddCommand(newDeploymentsCmd())
-
-	// Add federation commands
-	rootCmd.AddCommand(newFederationCmd())
-
-	// Add Docker client management command
-	rootCmd.AddCommand(newPushCmd())
-
-	// Add prepackage command
-	rootCmd.AddCommand(newPrePackageCmd())
-
-	// Add component management command
+	// Component management (includes clone and info)
 	rootCmd.AddCommand(newComponentCmd())
 
-	// Add info command
-	rootCmd.AddCommand(newInfoCmd())
+	// Cloud operations (login, logout, whoami, account, push, deployments, workflows)
+	rootCmd.AddCommand(newCloudCmd())
 
-	// Add clone command
-	rootCmd.AddCommand(newCloneCmd())
+	// Bundle for distribution (build, package, prepackage, export)
+	rootCmd.AddCommand(newBundleCmd())
+
+	// Federation
+	rootCmd.AddCommand(newFederationCmd())
 }

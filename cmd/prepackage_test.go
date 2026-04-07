@@ -31,6 +31,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -380,18 +381,27 @@ func TestPrePackageOutputNames(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestPrePackageCmdRegistered(t *testing.T) {
-	// Verify that the "prepackage" command is present in the root command.
+	// Verify that the "prepackage" command is present under the "bundle" group.
 	config := cmd.NewCLIConfig()
 	rootCmd := config.GetRootCommand()
 
-	var found bool
+	var bundleCmd *cobra.Command
 	for _, sub := range rootCmd.Commands() {
+		if sub.Use == "bundle" {
+			bundleCmd = sub
+			break
+		}
+	}
+	require.NotNil(t, bundleCmd, "bundle command should be registered under root")
+
+	var found bool
+	for _, sub := range bundleCmd.Commands() {
 		if sub.Use == "prepackage [.kdeps-file]" {
 			found = true
 			break
 		}
 	}
-	assert.True(t, found, "prepackage command should be registered under the root command")
+	assert.True(t, found, "prepackage command should be registered under the bundle command")
 }
 
 // ---------------------------------------------------------------------------

@@ -89,6 +89,8 @@ available to any workflow run from that machine.`,
 	cmd.AddCommand(newComponentListCmd())
 	cmd.AddCommand(newComponentRemoveCmd())
 	cmd.AddCommand(newComponentShowCmd())
+	cmd.AddCommand(newCloneCmd())
+	cmd.AddCommand(newInfoCmd())
 	return cmd
 }
 

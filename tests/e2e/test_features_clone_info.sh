@@ -132,7 +132,7 @@ cat > "$LOCAL_COMP_DIR/README.md" << 'MD'
 Persistent key-value store.
 MD
 
-(cd "$TMPDIR_INFO" && KDEPS_COMPONENT_DIR="$TMPDIR_INFO/comps" "$KDEPS_BIN" info memory 2>&1) | grep -q "Memory Component" \
+(cd "$TMPDIR_INFO" && KDEPS_COMPONENT_DIR="$TMPDIR_INFO/comps" "$KDEPS_BIN" component info memory 2>&1) | grep -q "Memory Component" \
     && test_passed "kdeps info - local component README displayed" \
     || test_failed "kdeps info - local component README displayed" "Memory README not found"
 
@@ -146,7 +146,7 @@ cat > "$AGENT_DIR/README.md" << 'MD'
 Scrapes web pages.
 MD
 
-(cd "$TMPDIR_AGENT" && "$KDEPS_BIN" info my-scraper 2>&1) | grep -q "My Scraper Agent" \
+(cd "$TMPDIR_AGENT" && "$KDEPS_BIN" component info my-scraper 2>&1) | grep -q "My Scraper Agent" \
     && test_passed "kdeps info - local agent README displayed" \
     || test_failed "kdeps info - local agent README displayed" "Agent README not found"
 
@@ -160,14 +160,14 @@ cat > "$AGENCY_DIR/README.md" << 'MD'
 Orchestrates multiple agents.
 MD
 
-(cd "$TMPDIR_AGENCY" && "$KDEPS_BIN" info my-pipeline 2>&1) | grep -q "My Pipeline Agency" \
+(cd "$TMPDIR_AGENCY" && "$KDEPS_BIN" component info my-pipeline 2>&1) | grep -q "My Pipeline Agency" \
     && test_passed "kdeps info - local agency README displayed" \
     || test_failed "kdeps info - local agency README displayed" "Agency README not found"
 
 # ── Test 7: kdeps info - minimal fallback for unknown ref ────────────────────
 
 TMPDIR_UNK=$(mktemp -d)
-OUTPUT=$((cd "$TMPDIR_UNK" && "$KDEPS_BIN" info totally-unknown-ghost-component 2>&1) || true)
+OUTPUT=$((cd "$TMPDIR_UNK" && "$KDEPS_BIN" component info totally-unknown-ghost-component 2>&1) || true)
 if [ -n "$OUTPUT" ]; then
     test_passed "kdeps info - minimal fallback returned for unknown local ref"
 else
@@ -176,7 +176,7 @@ fi
 
 # ── Test 8: kdeps clone - invalid ref returns error ──────────────────────────
 
-CLONE_ERR_OUTPUT=$("$KDEPS_BIN" clone "noslash" 2>&1 || true)
+CLONE_ERR_OUTPUT=$("$KDEPS_BIN" component clone "noslash" 2>&1 || true)
 if echo "$CLONE_ERR_OUTPUT" | grep -q "expected owner/repo"; then
     test_passed "kdeps clone - invalid ref gives clear error"
 else
@@ -185,7 +185,7 @@ fi
 
 # ── Test 9: kdeps clone --help works ─────────────────────────────────────────
 
-if "$KDEPS_BIN" clone --help 2>&1 | grep -q "owner/repo"; then
+if "$KDEPS_BIN" component clone --help 2>&1 | grep -q "owner/repo"; then
     test_passed "kdeps clone - --help shows usage"
 else
     test_failed "kdeps clone - --help shows usage" "Help text missing owner/repo"
@@ -193,7 +193,7 @@ fi
 
 # ── Test 10: kdeps info --help works ─────────────────────────────────────────
 
-if "$KDEPS_BIN" info --help 2>&1 | grep -qiE "readme|component|agent|ref"; then
+if "$KDEPS_BIN" component info --help 2>&1 | grep -qiE "readme|component|agent|ref"; then
     test_passed "kdeps info - --help shows usage"
 else
     test_failed "kdeps info - --help shows usage" "Help text missing expected content"
@@ -281,7 +281,7 @@ fi
 if network_available; then
     TMPDIR_CLONE=$(mktemp -d)
     cd "$TMPDIR_CLONE"
-    if KDEPS_COMPONENT_DIR="$TMPDIR_CLONE/comps" "$KDEPS_BIN" clone kdeps/kdeps-component-scraper 2>&1 | grep -qE "Cloned|Installed"; then
+    if KDEPS_COMPONENT_DIR="$TMPDIR_CLONE/comps" "$KDEPS_BIN" component clone kdeps/kdeps-component-scraper 2>&1 | grep -qE "Cloned|Installed"; then
         test_passed "kdeps clone - clones from GitHub (network)"
     else
         test_skipped "kdeps clone - clones from GitHub (network, clone output unexpected)"
@@ -295,7 +295,7 @@ fi
 # ── Test 14: kdeps info for a remote ref (network-dependent) ─────────────────
 
 if network_available; then
-    OUTPUT=$("$KDEPS_BIN" info kdeps/kdeps 2>&1 || true)
+    OUTPUT=$("$KDEPS_BIN" component info kdeps/kdeps 2>&1 || true)
     if echo "$OUTPUT" | grep -qiE "kdeps|agent|workflow"; then
         test_passed "kdeps info - fetches remote README from GitHub (network)"
     else
