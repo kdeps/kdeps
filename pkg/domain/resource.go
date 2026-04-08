@@ -233,6 +233,9 @@ type RunConfig struct {
 	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
 	APIResponse *APIResponseConfig   `yaml:"apiResponse,omitempty"`
 	Component   *ComponentCallConfig `yaml:"component,omitempty"`
+	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -241,13 +244,16 @@ type RunConfig struct {
 // InlineResource represents an inline resource that can be executed before or after the main resource.
 // Only one of the resource types should be set.
 type InlineResource struct {
-	Chat       *ChatConfig          `yaml:"chat,omitempty"`
-	HTTPClient *HTTPClientConfig    `yaml:"httpClient,omitempty"`
-	SQL        *SQLConfig           `yaml:"sql,omitempty"`
-	Python     *PythonConfig        `yaml:"python,omitempty"`
-	Exec       *ExecConfig          `yaml:"exec,omitempty"`
-	Agent      *AgentCallConfig     `yaml:"agent,omitempty"`
-	Component  *ComponentCallConfig `yaml:"component,omitempty"`
+	Chat        *ChatConfig          `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig           `yaml:"sql,omitempty"`
+	Python      *PythonConfig        `yaml:"python,omitempty"`
+	Exec        *ExecConfig          `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
+	Component   *ComponentCallConfig `yaml:"component,omitempty"`
+	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
 }
 
 // ComponentCallConfig configures a call to a named component.
@@ -879,4 +885,28 @@ func (c *AgentCallConfig) UnmarshalYAML(unmarshal func(interface{}) error) error
 	}
 	c.Params = alias.Params
 	return nil
+}
+
+// ScraperConfig represents web scraper configuration.
+type ScraperConfig struct {
+	URL      string `yaml:"url"`
+	Selector string `yaml:"selector,omitempty"`
+	Timeout  int    `yaml:"timeout,omitempty"` // seconds, default 30
+}
+
+// EmbeddingConfig represents embedding/vector store configuration.
+type EmbeddingConfig struct {
+	Operation  string `yaml:"operation"` // index | search | upsert | delete
+	Text       string `yaml:"text,omitempty"`
+	Collection string `yaml:"collection,omitempty"`
+	DBPath     string `yaml:"dbPath,omitempty"`
+	Limit      int    `yaml:"limit,omitempty"`
+}
+
+// SearchLocalConfig represents local filesystem search configuration.
+type SearchLocalConfig struct {
+	Path  string `yaml:"path"`
+	Query string `yaml:"query,omitempty"`
+	Glob  string `yaml:"glob,omitempty"`
+	Limit int    `yaml:"limit,omitempty"` // 0 = unlimited
 }

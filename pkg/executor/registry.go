@@ -80,11 +80,14 @@ func (r *Registry) Registered() []string {
 // engine.go and cmd/run.go continue to compile unchanged.
 
 const (
-	ExecutorLLM    = "llm"
-	ExecutorHTTP   = "httpClient"
-	ExecutorSQL    = "sql"
-	ExecutorPython = "python"
-	ExecutorExec   = "exec"
+	ExecutorLLM         = "llm"
+	ExecutorHTTP        = "httpClient"
+	ExecutorSQL         = "sql"
+	ExecutorPython      = "python"
+	ExecutorExec        = "exec"
+	ExecutorScraper     = "scraper"
+	ExecutorEmbedding   = "embedding"
+	ExecutorSearchLocal = "searchLocal"
 )
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
@@ -101,3 +104,22 @@ func (r *Registry) GetPythonExecutor() ResourceExecutor {
 	return e
 }
 func (r *Registry) GetExecExecutor() ResourceExecutor { e, _ := r.GetByName(ExecutorExec); return e }
+
+func (r *Registry) SetScraperExecutor(exec ResourceExecutor)   { r.Register(ExecutorScraper, exec) }
+func (r *Registry) SetEmbeddingExecutor(exec ResourceExecutor) { r.Register(ExecutorEmbedding, exec) }
+func (r *Registry) SetSearchLocalExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorSearchLocal, exec)
+}
+
+func (r *Registry) GetScraperExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorScraper)
+	return e
+}
+func (r *Registry) GetEmbeddingExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorEmbedding)
+	return e
+}
+func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorSearchLocal)
+	return e
+}

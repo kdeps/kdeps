@@ -3,6 +3,7 @@ module github.com/kdeps/kdeps/v2
 go 1.25.7
 
 require (
+	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/denisenkom/go-mssqldb v0.12.3
@@ -30,6 +31,7 @@ require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

@@ -47,10 +47,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
 	executorLLM "github.com/kdeps/kdeps/v2/pkg/executor/llm"
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
+	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
+	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
@@ -1770,6 +1773,9 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetSQLExecutor(executorSQL.NewAdapter())
 	registry.SetPythonExecutor(executorPython.NewAdapter())
 	registry.SetExecExecutor(executorExec.NewAdapter())
+	registry.SetScraperExecutor(executorScraper.NewAdapter())
+	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
+	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

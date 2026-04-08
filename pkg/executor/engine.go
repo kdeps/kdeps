@@ -624,6 +624,12 @@ func resourceTypeName(r *domain.Resource) string {
 		return "agent"
 	case r.Run.APIResponse != nil:
 		return "apiResponse"
+	case r.Run.Scraper != nil:
+		return ExecutorScraper
+	case r.Run.Embedding != nil:
+		return ExecutorEmbedding
+	case r.Run.SearchLocal != nil:
+		return ExecutorSearchLocal
 	default:
 		return "unknown"
 	}
@@ -904,7 +910,10 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Python != nil ||
 		resource.Run.Exec != nil ||
 		resource.Run.Agent != nil ||
-		resource.Run.Component != nil
+		resource.Run.Component != nil ||
+		resource.Run.Scraper != nil ||
+		resource.Run.Embedding != nil ||
+		resource.Run.SearchLocal != nil
 
 	var primaryResult interface{}
 	var err error
@@ -926,6 +935,12 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeAgent(resource, ctx)
 		case resource.Run.Component != nil:
 			primaryResult, err = e.executeComponentCall(resource, ctx)
+		case resource.Run.Scraper != nil:
+			primaryResult, err = e.executeScraper(resource, ctx)
+		case resource.Run.Embedding != nil:
+			primaryResult, err = e.executeEmbedding(resource, ctx)
+		case resource.Run.SearchLocal != nil:
+			primaryResult, err = e.executeSearchLocal(resource, ctx)
 		}
 
 		if err != nil {
@@ -1689,6 +1704,12 @@ func (e *Engine) executeInlineResources(
 				Run:      domain.RunConfig{Component: inline.Component},
 			}
 			result, err = e.executeComponentCall(synthetic, ctx)
+		case inline.Scraper != nil:
+			result, err = e.executeInlineScraper(inline.Scraper, ctx)
+		case inline.Embedding != nil:
+			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
+		case inline.SearchLocal != nil:
+			result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -1911,7 +1932,78 @@ func (e *Engine) executeExec(
 	return executor.Execute(ctx, resource.Run.Exec)
 }
 
-// executeAPIResponse executes an API response resource.
+// executeScraper executes a scraper resource.
+func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeScraper")
+	if resource.Run.Scraper == nil {
+		return nil, fmt.Errorf("resource %s has no scraper configuration", resource.Metadata.ActionID)
+	}
+	exec := e.registry.GetScraperExecutor()
+	if exec == nil {
+		return nil, errors.New("scraper executor not available")
+	}
+	return exec.Execute(ctx, resource.Run.Scraper)
+}
+
+// executeEmbedding executes an embedding resource.
+func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeEmbedding")
+	if resource.Run.Embedding == nil {
+		return nil, fmt.Errorf("resource %s has no embedding configuration", resource.Metadata.ActionID)
+	}
+	exec := e.registry.GetEmbeddingExecutor()
+	if exec == nil {
+		return nil, errors.New("embedding executor not available")
+	}
+	return exec.Execute(ctx, resource.Run.Embedding)
+}
+
+// executeSearchLocal executes a searchLocal resource.
+func (e *Engine) executeSearchLocal(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSearchLocal")
+	if resource.Run.SearchLocal == nil {
+		return nil, fmt.Errorf("resource %s has no searchLocal configuration", resource.Metadata.ActionID)
+	}
+	exec := e.registry.GetSearchLocalExecutor()
+	if exec == nil {
+		return nil, errors.New("searchLocal executor not available")
+	}
+	return exec.Execute(ctx, resource.Run.SearchLocal)
+}
+
+// executeInlineScraper executes an inline scraper resource.
+func (e *Engine) executeInlineScraper(config *domain.ScraperConfig, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineScraper")
+	exec := e.registry.GetScraperExecutor()
+	if exec == nil {
+		return nil, errors.New("scraper executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
+// executeInlineEmbedding executes an inline embedding resource.
+func (e *Engine) executeInlineEmbedding(config *domain.EmbeddingConfig, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineEmbedding")
+	exec := e.registry.GetEmbeddingExecutor()
+	if exec == nil {
+		return nil, errors.New("embedding executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
+// executeInlineSearchLocal executes an inline searchLocal resource.
+func (e *Engine) executeInlineSearchLocal(
+	config *domain.SearchLocalConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineSearchLocal")
+	exec := e.registry.GetSearchLocalExecutor()
+	if exec == nil {
+		return nil, errors.New("searchLocal executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
 //
 //nolint:gocognit,nestif,funlen // response assembly handles multiple formats
 func (e *Engine) executeAPIResponse(
