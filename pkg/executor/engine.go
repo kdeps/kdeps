@@ -630,6 +630,8 @@ func resourceTypeName(r *domain.Resource) string {
 		return ExecutorEmbedding
 	case r.Run.SearchLocal != nil:
 		return ExecutorSearchLocal
+	case r.Run.SearchWeb != nil:
+		return ExecutorSearchWeb
 	default:
 		return "unknown"
 	}
@@ -913,7 +915,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Component != nil ||
 		resource.Run.Scraper != nil ||
 		resource.Run.Embedding != nil ||
-		resource.Run.SearchLocal != nil
+		resource.Run.SearchLocal != nil ||
+		resource.Run.SearchWeb != nil
 
 	var primaryResult interface{}
 	var err error
@@ -941,6 +944,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeEmbedding(resource, ctx)
 		case resource.Run.SearchLocal != nil:
 			primaryResult, err = e.executeSearchLocal(resource, ctx)
+		case resource.Run.SearchWeb != nil:
+			primaryResult, err = e.executeSearchWeb(resource, ctx)
 		}
 
 		if err != nil {
@@ -1710,6 +1715,8 @@ func (e *Engine) executeInlineResources(
 			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
 		case inline.SearchLocal != nil:
 			result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
+		case inline.SearchWeb != nil:
+			result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2000,6 +2007,32 @@ func (e *Engine) executeInlineSearchLocal(
 	exec := e.registry.GetSearchLocalExecutor()
 	if exec == nil {
 		return nil, errors.New("searchLocal executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
+// executeSearchWeb executes a searchWeb resource.
+func (e *Engine) executeSearchWeb(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeSearchWeb")
+	if resource.Run.SearchWeb == nil {
+		return nil, fmt.Errorf("resource %s has no searchWeb configuration", resource.Metadata.ActionID)
+	}
+	exec := e.registry.GetSearchWebExecutor()
+	if exec == nil {
+		return nil, errors.New("searchWeb executor not available")
+	}
+	return exec.Execute(ctx, resource.Run.SearchWeb)
+}
+
+// executeInlineSearchWeb executes an inline searchWeb resource.
+func (e *Engine) executeInlineSearchWeb(
+	config *domain.SearchWebConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineSearchWeb")
+	exec := e.registry.GetSearchWebExecutor()
+	if exec == nil {
+		return nil, errors.New("searchWeb executor not available")
 	}
 	return exec.Execute(ctx, config)
 }

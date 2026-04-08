@@ -88,6 +88,7 @@ const (
 	ExecutorScraper     = "scraper"
 	ExecutorEmbedding   = "embedding"
 	ExecutorSearchLocal = "searchLocal"
+	ExecutorSearchWeb   = "searchWeb"
 )
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
@@ -121,5 +122,11 @@ func (r *Registry) GetEmbeddingExecutor() ResourceExecutor {
 }
 func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 	e, _ := r.GetByName(ExecutorSearchLocal)
+	return e
+}
+
+func (r *Registry) SetSearchWebExecutor(exec ResourceExecutor) { r.Register(ExecutorSearchWeb, exec) }
+func (r *Registry) GetSearchWebExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorSearchWeb)
 	return e
 }

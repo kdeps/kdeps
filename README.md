@@ -61,6 +61,14 @@ run:
     text: "{{ get('content') }}"
     collection: "docs"
     dbPath: "/data/store.db"
+
+# Web search (DuckDuckGo by default, no API key needed)
+run:
+  searchWeb:
+    query: "{{ get('query') }}"
+    maxResults: 5
+    # provider: brave  # optional: ddg (default) | brave | bing | tavily
+    # apiKey: "..."    # required for non-DDG providers
 ```
 
 Wire them together in a pipeline:

@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: answer
+  requires: [search]
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: |
+      Based on these search results, answer the question: {{ get('query') }}
+
+      Search results:
+      {% for r in output('search').results %}
+      - {{ r.title }}: {{ r.url }}
+        {{ r.snippet }}
+      {% endfor %}

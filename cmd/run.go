@@ -54,6 +54,7 @@ import (
 	executorPython "github.com/kdeps/kdeps/v2/pkg/executor/python"
 	executorScraper "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
@@ -1776,6 +1777,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetScraperExecutor(executorScraper.NewAdapter())
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
+	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

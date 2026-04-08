@@ -236,6 +236,7 @@ type RunConfig struct {
 	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
 	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
+	SearchWeb   *SearchWebConfig     `yaml:"searchWeb,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -254,6 +255,7 @@ type InlineResource struct {
 	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
 	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
+	SearchWeb   *SearchWebConfig     `yaml:"searchWeb,omitempty"`
 }
 
 // ComponentCallConfig configures a call to a named component.
@@ -909,4 +911,13 @@ type SearchLocalConfig struct {
 	Query string `yaml:"query,omitempty"`
 	Glob  string `yaml:"glob,omitempty"`
 	Limit int    `yaml:"limit,omitempty"` // 0 = unlimited
+}
+
+// SearchWebConfig represents web search configuration.
+type SearchWebConfig struct {
+	Query      string `yaml:"query"`
+	Provider   string `yaml:"provider,omitempty"`   // ddg (default) | brave | bing | tavily
+	APIKey     string `yaml:"apiKey,omitempty"`     // required for brave/bing/tavily
+	MaxResults int    `yaml:"maxResults,omitempty"` // default 5
+	Timeout    int    `yaml:"timeout,omitempty"`    // seconds, default 15
 }

@@ -34,6 +34,7 @@ import (
 	embeddingexec "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	scraperexec "github.com/kdeps/kdeps/v2/pkg/executor/scraper"
 	searchlocalexec "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
+	searchwebexec "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 )
 
 func newCtx(t *testing.T) *executor.ExecutionContext {
@@ -182,4 +183,44 @@ func TestIntegration_SearchLocal_Combined(t *testing.T) {
 	assert.Equal(t, 1, m["count"])
 	results := m["results"].([]map[string]interface{})
 	assert.Equal(t, "match.go", results[0]["name"])
+}
+
+// --- SearchWeb ---
+
+func TestIntegration_SearchWeb_DDG(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html><body><a class="result__a" data-href="https://example.com">DDG Result</a></body></html>`))
+	}))
+	defer srv.Close()
+	t.Setenv("KDEPS_DDG_URL", srv.URL)
+
+	e := searchwebexec.NewExecutor()
+	res, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "integration test"})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.GreaterOrEqual(t, m["count"].(int), 1)
+}
+
+func TestIntegration_SearchWeb_Brave(t *testing.T) {
+	payload := `{"web":{"results":[{"title":"Brave","url":"https://brave.com","description":"brave desc"}]}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+	t.Setenv("KDEPS_BRAVE_URL", srv.URL)
+
+	e := searchwebexec.NewExecutor()
+	res, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave", APIKey: "key"})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, 1, m["count"])
+}
+
+func TestIntegration_SearchWeb_MissingKey(t *testing.T) {
+	e := searchwebexec.NewExecutor()
+	_, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "apiKey required")
 }

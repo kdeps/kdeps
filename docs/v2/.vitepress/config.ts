@@ -103,6 +103,7 @@ export default defineConfig({
             { text: 'Scraper', link: '/resources/scraper' },
             { text: 'Embedding (Keyword Store)', link: '/resources/embedding' },
             { text: 'Search Local', link: '/resources/search-local' },
+            { text: 'Search Web', link: '/resources/search-web' },
           ]
         },
         {

@@ -76,6 +76,7 @@ These five executors are compiled into the `kdeps` binary and are always availab
 | `scraper` | Web scraping | Fetch URL, optional CSS selector |
 | `embedding` | Keyword store | SQLite index/search/upsert/delete |
 | `searchLocal` | File search | Glob + keyword search across local files |
+| `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
 
 These additional keys are also always available as part of the core resource model:
 

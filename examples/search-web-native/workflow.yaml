@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: search-web-native
+  description: Web search using the native searchWeb executor (DuckDuckGo by default)
+  version: "1.0.0"
+  targetActionId: response
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16398
+  apiServer:
+    routes:
+      - path: /search
+        methods: [POST]
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    models:
+      - llama3.2:1b
