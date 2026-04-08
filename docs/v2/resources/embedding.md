@@ -1,133 +1,127 @@
-# Embedding (Vector DB) Resource
+# Embedding Resource
 
-> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
->
-> Install: `kdeps component install embedding`
->
-> Usage: `run: { component: { name: embedding, with: { text: "...", apiKey: "...", model: "text-embedding-ada-002" } } }`
+The `embedding` executor is built into the `kdeps` binary — no installation required. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
 
-The Embedding component converts text into vector embeddings using the OpenAI Embeddings API.
-It is the building block for Retrieval-Augmented Generation (RAG) pipelines.
-
-> **Note**: The component generates embeddings via OpenAI only. For local embedding (Ollama, Cohere, HuggingFace) or for index/search/delete vector store operations, use a Python resource directly.
-
-## Component Inputs
-
-| Input | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `text` | string | yes | — | Text to embed |
-| `apiKey` | string | yes | — | OpenAI API key |
-| `model` | string | no | `text-embedding-ada-002` | Embedding model: `text-embedding-ada-002`, `text-embedding-3-small`, `text-embedding-3-large` |
-
-## Using the Embedding Component
+## Configuration
 
 ```yaml
 run:
-  component:
-    name: embedding
-    with:
-      text: "The quick brown fox jumps over the lazy dog."
-      apiKey: "sk-..."
-      model: "text-embedding-3-small"
+  embedding:
+    operation: "index"                    # required: index | search | upsert | delete
+    text: "document content here"         # required for index/search/upsert (optional for delete-all)
+    collection: "default"                 # optional namespace (default: "default")
+    dbPath: "/data/kdeps-store.db"       # optional path (default: "kdeps-embedding.db")
+    limit: 10                             # optional max search results (default: 10)
 ```
 
-Access the result via `output('<callerActionId>')`. The result includes the embedding vector.
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `operation` | string | yes | — | `index`, `search`, `upsert`, or `delete` |
+| `text` | string | yes* | — | Text to index, query, or delete. *Optional for `delete` (omit to delete entire collection) |
+| `collection` | string | no | `"default"` | Namespace for documents |
+| `dbPath` | string | no | `"kdeps-embedding.db"` | SQLite database file path |
+| `limit` | integer | no | `10` | Max results for `search` |
 
----
+## Operations
 
-## Result Map
+| Operation | Description |
+|-----------|-------------|
+| `index` | Insert text (ignored if duplicate) |
+| `upsert` | Insert or replace text |
+| `search` | Case-insensitive keyword search via LIKE |
+| `delete` | Delete by text, or whole collection if text is empty |
+
+## Output
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `success` | bool | `true` if embedding was generated. |
-| `embedding` | []float | The embedding vector. |
-| `model` | string | Model used. |
-| `dimensions` | int | Vector dimensions. |
+| `operation` | string | The operation that was performed |
+| `collection` | string | The collection used |
+| `success` | bool | `true` on success |
+| `results` | []string | Matching texts (search only) |
+| `count` | integer | Number of results (search only) |
+| `affected` | integer | Rows deleted (delete only) |
+| `json` | string | Full result as JSON string |
 
----
+## Examples
 
-## Expression Support
-
-The `text` field supports [KDeps expressions](../concepts/expressions):
+### Build a RAG pipeline
 
 <div v-pre>
 
 ```yaml
+# Step 1: Scrape content
+metadata:
+  actionId: fetch
 run:
-  component:
-    name: embedding
-    with:
-      text: "{{ get('document_text') }}"
-      apiKey: "{{ env('OPENAI_API_KEY') }}"
-      model: text-embedding-3-small
+  scraper:
+    url: "{{ get('url') }}"
+
+# Step 2: Index it
+metadata:
+  actionId: storeDoc
+  requires: [fetch]
+run:
+  embedding:
+    operation: "index"
+    text: "{{ output('fetch').content }}"
+    collection: "knowledge"
+    dbPath: "/data/store.db"
+
+# Step 3: Search on user query
+metadata:
+  actionId: findDocs
+run:
+  embedding:
+    operation: "search"
+    text: "{{ get('query') }}"
+    collection: "knowledge"
+    dbPath: "/data/store.db"
+    limit: 5
+
+# Step 4: Answer with context
+metadata:
+  actionId: answer
+  requires: [findDocs]
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: |
+      Context: {{ output('findDocs').results }}
+      Question: {{ get('query') }}
+  apiResponse:
+    response: "{{ output('answer') }}"
 ```
 
 </div>
 
----
+## Collections
 
-## Full Example: RAG Pipeline
-
-This pipeline embeds a document chunk at index time, then uses the vector in a query.
-
-<div v-pre>
+Use `collection` to namespace documents — useful for multi-tenant or multi-topic stores:
 
 ```yaml
-# Step 1: Embed a document chunk
-- apiVersion: kdeps.io/v1
-  kind: Resource
+# Index into separate collections
+embedding:
+  operation: "index"
+  text: "..."
+  collection: "contracts"
 
-  metadata:
-    actionId: embedChunk
-    name: Embed Document Chunk
-
-  run:
-    component:
-      name: embedding
-      with:
-        text: "{{ get('chunk_text') }}"
-        apiKey: "{{ env('OPENAI_API_KEY') }}"
-        model: text-embedding-3-small
-
-# Step 2: Store the embedding in a SQL table (using the sql resource)
-- apiVersion: kdeps.io/v1
-  kind: Resource
-
-  metadata:
-    actionId: storeChunk
-    name: Store Chunk
-    requires: [embedChunk]
-
-  run:
-    sql:
-      dsn: "sqlite:///data/kb.db"
-      query: |
-        INSERT INTO chunks (text, embedding)
-        VALUES ('{{ get("chunk_text") }}', '{{ output("embedChunk").embedding | toJSON }}')
-
-# Step 3: Return confirmation
-- apiVersion: kdeps.io/v1
-  kind: Resource
-
-  metadata:
-    actionId: confirmIndex
-    name: Confirm Indexed
-    requires: [storeChunk]
-
-  run:
-    apiResponse:
-      success: true
-      response:
-        indexed: true
-        dimensions: "{{ output('embedChunk').dimensions }}"
+# Search only within one collection
+embedding:
+  operation: "search"
+  text: "termination clause"
+  collection: "contracts"
 ```
 
-</div>
-
 ---
+
+> **Note**: This uses keyword (LIKE) matching, not vector similarity. For OpenAI vector embeddings, install the component:
+> ```bash
+> kdeps component install embedding
+> ```
 
 ## Next Steps
 
-- [SQL Resource](sql) - Store and query embeddings in SQLite or Postgres
-- [LLM Resource](llm) - Generate answers from retrieved context
-- [Scraper Resource](scraper) - Extract text from documents before embedding
+- [Scraper Resource](scraper) - Fetch content to index
+- [Search Local Resource](search-local) - Search local files by keyword or glob
+- [LLM Resource](llm) - Use search results as context

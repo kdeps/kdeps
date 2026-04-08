@@ -97,13 +97,20 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Components',
+          text: 'Native (Built-in)',
           collapsed: false,
           items: [
             { text: 'Scraper', link: '/resources/scraper' },
-            { text: 'Search', link: '/resources/search' },
+            { text: 'Embedding (Keyword Store)', link: '/resources/embedding' },
+            { text: 'Search Local', link: '/resources/search-local' },
+          ]
+        },
+        {
+          text: 'Components',
+          collapsed: false,
+          items: [
+            { text: 'Search (Web / Tavily)', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
-            { text: 'Embedding', link: '/resources/embedding' },
             { text: 'Memory', link: '/resources/memory' },
             { text: 'TTS (Speech)', link: '/resources/tts' },
             { text: 'Email', link: '/resources/email' },

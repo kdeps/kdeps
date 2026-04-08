@@ -35,22 +35,42 @@ run:
 
 That's it. kdeps handles the Ollama server, request routing, and output wiring automatically.
 
-## Add a tool
+## Fetch, search, and store — no installs
 
-Install a component, then call it from any resource:
+Three capabilities are built into the binary — no `kdeps component install` needed:
 
-```bash
-kdeps component install scraper
+```yaml
+# Scrape a web page
+run:
+  scraper:
+    url: "{{ get('url') }}"
+    selector: "article"   # optional CSS selector
+
+# Keyword search across local files
+run:
+  searchLocal:
+    path: "/data/docs"
+    query: "invoice"
+    glob: "*.txt"         # optional filename filter
+    limit: 10
+
+# SQLite-backed keyword store (index/search/upsert/delete)
+run:
+  embedding:
+    operation: "index"
+    text: "{{ get('content') }}"
+    collection: "docs"
+    dbPath: "/data/store.db"
 ```
+
+Wire them together in a pipeline:
 
 ```yaml
 metadata:
   actionId: fetch
 run:
-  component:
-    name: scraper
-    with:
-      url: "{{ get('url') }}"
+  scraper:
+    url: "{{ get('url') }}"
 
 ---
 metadata:
@@ -59,9 +79,17 @@ metadata:
 run:
   chat:
     model: llama3.2:1b
-    prompt: "Summarize: {{ output('fetch') }}"
+    prompt: "Summarize: {{ output('fetch').content }}"
   apiResponse:
     response: "{{ output('summarize') }}"
+```
+
+Need more capabilities? Install a component:
+
+```bash
+kdeps component install pdf
+kdeps component install tts
+kdeps component install browser
 ```
 
 ## Interactive chat with tools

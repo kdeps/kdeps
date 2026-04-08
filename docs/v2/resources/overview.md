@@ -73,6 +73,9 @@ These five executors are compiled into the `kdeps` binary and are always availab
 | `sql` | Database queries | Data retrieval, updates |
 | `python` | Python scripts | Data processing, ML |
 | `exec` | Shell commands | System operations |
+| `scraper` | Web scraping | Fetch URL, optional CSS selector |
+| `embedding` | Keyword store | SQLite index/search/upsert/delete |
+| `searchLocal` | File search | Glob + keyword search across local files |
 
 These additional keys are also always available as part of the core resource model:
 
