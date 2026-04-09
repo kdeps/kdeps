@@ -1,0 +1,8 @@
+name: telegram-bot
+version: "1.0.0"
+type: workflow
+description: Telegram bot that answers messages using a local LLM (Ollama)
+tags:
+  - telegram
+  - bot
+  - llm

@@ -1,0 +1,7 @@
+name: file-processor
+version: "1.0.0"
+type: workflow
+description: Single-shot document summarizer that reads a file from --file, stdin, or KDEPS_FILE_PATH and returns a structured summary.
+tags:
+  - file
+  - summarizer

@@ -1,0 +1,7 @@
+name: chatbot
+version: "1.0.0"
+type: workflow
+description: Simple LLM chatbot
+tags:
+  - llm
+  - chatbot

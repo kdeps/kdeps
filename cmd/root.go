@@ -138,4 +138,11 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Federation
 	rootCmd.AddCommand(newFederationCmd())
+
+	// Registry commands (install, publish, search, registry-info, update).
+	rootCmd.AddCommand(newInstallCmd())
+	rootCmd.AddCommand(newPublishCmd())
+	rootCmd.AddCommand(newSearchCmd())
+	rootCmd.AddCommand(newRegistryInfoCmd())
+	rootCmd.AddCommand(newUpdateCmd())
 }
