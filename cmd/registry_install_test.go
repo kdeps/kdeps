@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// testCreateTarGz builds a .kdeps archive from a map of filename->content.
 func testCreateTarGz(t *testing.T, files map[string]string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -51,8 +52,30 @@ func testCreateTarGz(t *testing.T, files map[string]string) []byte {
 	return buf.Bytes()
 }
 
-func TestRegistryInstall_WithVersion(t *testing.T) {
-	archiveData := testCreateTarGz(t, map[string]string{"agent.yaml": "name: test"})
+// testWorkflowArchive creates an archive with a manifest declaring type: workflow.
+func testWorkflowArchive(t *testing.T, name string) []byte {
+	t.Helper()
+	manifest := "name: " + name + "\nversion: 1.0.0\ntype: workflow\ndescription: Test agent\n"
+	return testCreateTarGz(t, map[string]string{
+		"kdeps.pkg.yaml": manifest,
+		"workflow.yaml":  "kind: Workflow\nmetadata:\n  name: " + name + "\n",
+		".env.example":   "# API keys\n",
+		"README.md":      "# " + name + "\nA test agent.\n",
+	})
+}
+
+// testComponentArchive creates an archive with a manifest declaring type: component.
+func testComponentArchive(t *testing.T, name string) []byte {
+	t.Helper()
+	manifest := "name: " + name + "\nversion: 1.0.0\ntype: component\ndescription: Test component\n"
+	return testCreateTarGz(t, map[string]string{
+		"kdeps.pkg.yaml": manifest,
+		"component.yaml": "kind: Component\nmetadata:\n  name: " + name + "\n",
+	})
+}
+
+func TestRegistryInstall_WorkflowWithVersion(t *testing.T) {
+	archiveData := testWorkflowArchive(t, "my-agent")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
@@ -60,27 +83,33 @@ func TestRegistryInstall_WithVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	outputDir := t.TempDir()
+	// Install extracts to CWD — use a temp dir as working directory.
+	workDir := t.TempDir()
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(workDir))
+	defer func() { _ = os.Chdir(orig) }()
+
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL, outputDir)
+	err = doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
 	require.NoError(t, err)
-	assert.Contains(t, out.String(), "Installed")
-	assert.Contains(t, out.String(), "my-agent@1.0.0")
-	_, statErr := os.Stat(filepath.Join(outputDir, "my-agent", "agent.yaml"))
+	assert.Contains(t, out.String(), "my-agent")
+	assert.Contains(t, out.String(), "kdeps run")
+	assert.Contains(t, out.String(), ".env")
+	_, statErr := os.Stat(filepath.Join(workDir, "my-agent", "workflow.yaml"))
 	assert.NoError(t, statErr)
 }
 
-func TestRegistryInstall_WithoutVersion(t *testing.T) {
-	archiveData := testCreateTarGz(t, map[string]string{"agent.yaml": "name: test"})
+func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
+	archiveData := testWorkflowArchive(t, "my-agent")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/packages/my-agent" {
-			info := map[string]string{"latestVersion": "2.0.0"}
-			body, _ := json.Marshal(info)
+		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
+			body, _ := json.Marshal(map[string]string{"latestVersion": "2.0.0"})
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(stdhttp.StatusOK)
 			_, _ = w.Write(body)
@@ -91,15 +120,81 @@ func TestRegistryInstall_WithoutVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	outputDir := t.TempDir()
+	workDir := t.TempDir()
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(workDir))
+	defer func() { _ = os.Chdir(orig) }()
+
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "my-agent", srv.URL, outputDir)
+	err = doRegistryInstall(cmd, "my-agent", srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "2.0.0")
+}
+
+func TestRegistryInstall_ComponentGlobal(t *testing.T) {
+	archiveData := testComponentArchive(t, "scraper")
+
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer srv.Close()
+
+	// Not a kdeps project dir — global install.
+	workDir := t.TempDir()
+	globalDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", globalDir)
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(workDir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err = doRegistryInstall(cmd, "scraper@1.0.0", srv.URL)
+	require.NoError(t, err)
+	assert.Contains(t, out.String(), "scraper")
+	assert.Contains(t, out.String(), "kdeps component info scraper")
+	_, statErr := os.Stat(filepath.Join(globalDir, "scraper", "component.yaml"))
+	assert.NoError(t, statErr)
+}
+
+func TestRegistryInstall_ComponentInProject(t *testing.T) {
+	archiveData := testComponentArchive(t, "embedder")
+
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer srv.Close()
+
+	// Set up a kdeps project dir.
+	workDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "workflow.yaml"), []byte("kind: Workflow\n"), 0600))
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(workDir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err = doRegistryInstall(cmd, "embedder@1.0.0", srv.URL)
+	require.NoError(t, err)
+	_, statErr := os.Stat(filepath.Join(workDir, "components", "embedder", "component.yaml"))
+	assert.NoError(t, statErr)
 }
 
 func TestRegistryInstall_ServerError(t *testing.T) {
@@ -108,14 +203,41 @@ func TestRegistryInstall_ServerError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	outputDir := t.TempDir()
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL, outputDir)
+	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
 	require.Error(t, err)
+}
+
+func TestRegistryInstall_DirectoryExists(t *testing.T) {
+	archiveData := testWorkflowArchive(t, "existing-agent")
+
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer srv.Close()
+
+	workDir := t.TempDir()
+	// Pre-create the target directory to trigger conflict error.
+	require.NoError(t, os.MkdirAll(filepath.Join(workDir, "existing-agent"), 0750))
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(workDir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err = doRegistryInstall(cmd, "existing-agent@1.0.0", srv.URL)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already exists")
 }
 
 func TestExtractArchive(t *testing.T) {
@@ -140,4 +262,44 @@ func TestExtractArchive(t *testing.T) {
 	content, err = os.ReadFile(filepath.Join(destDir, "top.txt"))
 	require.NoError(t, err)
 	assert.Equal(t, "top level", string(content))
+}
+
+func TestPeekManifest_WorkflowType(t *testing.T) {
+	data := testWorkflowArchive(t, "peek-test")
+	archivePath := filepath.Join(t.TempDir(), "test.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, data, 0600))
+
+	manifest, err := peekManifest(archivePath)
+	require.NoError(t, err)
+	require.NotNil(t, manifest)
+	assert.Equal(t, "peek-test", manifest.Name)
+	assert.Equal(t, "workflow", manifest.Type)
+}
+
+func TestPeekManifest_ComponentType(t *testing.T) {
+	data := testComponentArchive(t, "peek-comp")
+	archivePath := filepath.Join(t.TempDir(), "test.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, data, 0600))
+
+	manifest, err := peekManifest(archivePath)
+	require.NoError(t, err)
+	require.NotNil(t, manifest)
+	assert.Equal(t, "component", manifest.Type)
+}
+
+func TestPeekManifest_NoManifest(t *testing.T) {
+	data := testCreateTarGz(t, map[string]string{"workflow.yaml": "kind: Workflow\n"})
+	archivePath := filepath.Join(t.TempDir(), "test.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, data, 0600))
+
+	manifest, err := peekManifest(archivePath)
+	require.NoError(t, err)
+	assert.Nil(t, manifest)
+}
+
+func TestIsKdepsProjectDir(t *testing.T) {
+	dir := t.TempDir()
+	assert.False(t, isKdepsProjectDir(dir))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(""), 0600))
+	assert.True(t, isKdepsProjectDir(dir))
 }

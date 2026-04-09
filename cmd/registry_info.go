@@ -45,10 +45,12 @@ func newRegistryInfoCmd() *cobra.Command {
 	}
 }
 
+const registryInfoTimeout = 30 * time.Second
+
 func doRegistryInfo(cmd *cobra.Command, name, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
 	client := registry.NewClient("", baseURL)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), registryInfoTimeout)
 	defer cancel()
 
 	pkg, err := client.GetPackage(ctx, name)

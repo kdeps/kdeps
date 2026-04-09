@@ -48,9 +48,15 @@ func ParseKdepsPkg(path string) (*KdepsPkg, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
+	return ParseKdepsPkgFromBytes(data)
+}
+
+// ParseKdepsPkgFromBytes parses a KdepsPkg manifest from raw YAML bytes.
+func ParseKdepsPkgFromBytes(data []byte) (*KdepsPkg, error) {
+	kdeps_debug.Log("enter: ParseKdepsPkgFromBytes")
 	var pkg KdepsPkg
 	if unmarshalErr := yaml.Unmarshal(data, &pkg); unmarshalErr != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", path, unmarshalErr)
+		return nil, fmt.Errorf("failed to parse kdeps.pkg.yaml: %w", unmarshalErr)
 	}
 	return &pkg, nil
 }

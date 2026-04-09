@@ -37,6 +37,7 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 const (
@@ -44,30 +45,39 @@ const (
 	registryInstallMaxResponseSize     = 500 * 1024 * 1024
 	registryInstallInfoTimeout         = 30 * time.Second
 	registryInstallMaxInfoResponseSize = 1 * 1024 * 1024
-	registryInstallDefaultOutputDir    = "./packages"
 	registryInstallDirPerm             = 0750
 	registryInstallFilePerm            = 0600
 	registryInstallVersionParts        = 2
+	registryInstallManifestMaxSize     = 64 * 1024
 )
 
 // newRegistryInstallCmd creates the registry install subcommand.
 func newRegistryInstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryInstallCmd")
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "install <package[@version]>",
-		Short: "Install a package from the kdeps registry.",
-		Args:  cobra.ExactArgs(1),
+		Short: "Install a workflow, agency, or component from the kdeps registry.",
+		Long: `Install a package from the kdeps registry.
+
+Behavior depends on package type:
+
+  workflow / agency:
+    Extracts into a new subdirectory in the current path (like git clone).
+    Prints instructions for setting up .env and running locally with kdeps run.
+
+  component:
+    Installs to the project components/ dir if run inside a kdeps project,
+    otherwise installs globally to ~/.kdeps/components/.
+    Run "kdeps component info <name>" to read the component README.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInstallCmd.RunE")
-			outputDir, _ := cmd.Flags().GetString("output")
-			return doRegistryInstall(cmd, args[0], registryURL(cmd), outputDir)
+			return doRegistryInstall(cmd, args[0], registryURL(cmd))
 		},
 	}
-	cmd.Flags().StringP("output", "o", registryInstallDefaultOutputDir, "Output directory for installed packages")
-	return cmd
 }
 
-func doRegistryInstall(cmd *cobra.Command, pkg, baseURL, outputDir string) error {
+func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInstall")
 	parts := strings.SplitN(pkg, "@", registryInstallVersionParts)
 	name := parts[0]
@@ -84,33 +94,161 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL, outputDir string) error
 		}
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Installing %s@%s...\n", name, version)
+	fmt.Fprintf(cmd.OutOrStdout(), "Downloading %s@%s from registry...\n", name, version)
 
-	if err := os.MkdirAll(outputDir, registryInstallDirPerm); err != nil {
-		return fmt.Errorf("create output dir: %w", err)
+	tmpDir, err := os.MkdirTemp("", "kdeps-install-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath := filepath.Join(tmpDir, name+"-"+version+".kdeps")
+	downloadURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", baseURL, name, version)
+
+	if downloadErr := downloadArchive(downloadURL, archivePath); downloadErr != nil {
+		return downloadErr
 	}
 
-	archivePath := filepath.Join(outputDir, name+"-"+version+".kdeps")
-	downloadURL := baseURL + "/api/packages/" + name + "/download/" + version
-
-	if err := downloadArchive(downloadURL, archivePath); err != nil {
-		return err
+	manifest, peekErr := peekManifest(archivePath)
+	if peekErr != nil || manifest == nil {
+		manifest = &domain.KdepsPkg{Name: name, Version: version, Type: "workflow"}
 	}
-	defer os.Remove(archivePath)
-
-	destPath := filepath.Join(outputDir, name)
-	if err := extractArchive(archivePath, destPath); err != nil {
-		return err
+	if manifest.Name == "" {
+		manifest.Name = name
 	}
 
-	fmt.Fprintf(cmd.OutOrStdout(), "Installed %s@%s to %s\n", name, version, destPath)
+	switch strings.ToLower(manifest.Type) {
+	case "component":
+		return installRegistryComponent(cmd, manifest, archivePath, version)
+	default:
+		return installWorkflowOrAgency(cmd, manifest, archivePath, version)
+	}
+}
+
+// installWorkflowOrAgency extracts into the current directory (like git clone).
+func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, archivePath, version string) error {
+	kdeps_debug.Log("enter: installWorkflowOrAgency")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	destDir := filepath.Join(cwd, manifest.Name)
+	if _, statErr := os.Stat(destDir); statErr == nil {
+		return fmt.Errorf("directory %q already exists; remove it first", destDir)
+	}
+
+	if extractErr := extractArchive(archivePath, destDir); extractErr != nil {
+		return extractErr
+	}
+
+	w := cmd.OutOrStdout()
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "✓ Installed %s (%s) @%s\n", manifest.Name, manifest.Type, version)
+	if manifest.Description != "" {
+		fmt.Fprintf(w, "  %s\n", manifest.Description)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Next steps:")
+	fmt.Fprintf(w, "  cd %s\n", manifest.Name)
+	fmt.Fprintln(w, "  cp .env.example .env   # configure API keys and settings")
+	fmt.Fprintln(w, "  $EDITOR .env")
+	fmt.Fprintln(w, "  kdeps run              # start the agent locally")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Tip: read the README.md inside for full usage instructions.")
 	return nil
+}
+
+// installRegistryComponent installs the archive into the components directory.
+func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, archivePath, version string) error {
+	kdeps_debug.Log("enter: installRegistryComponent")
+	compDir, err := componentInstallDir()
+	if err != nil {
+		return err
+	}
+	// Prefer ./components/ if inside a kdeps project.
+	if isKdepsProjectDir(".") {
+		compDir = filepath.Join(".", "components")
+	}
+
+	if mkdirErr := os.MkdirAll(compDir, registryInstallDirPerm); mkdirErr != nil {
+		return fmt.Errorf("create components dir: %w", mkdirErr)
+	}
+
+	destDir := filepath.Join(compDir, manifest.Name)
+	if extractErr := extractArchive(archivePath, destDir); extractErr != nil {
+		return extractErr
+	}
+
+	w := cmd.OutOrStdout()
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "✓ Component %s @%s installed to %s\n", manifest.Name, version, destDir)
+	if manifest.Description != "" {
+		fmt.Fprintf(w, "  %s\n", manifest.Description)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Usage in your workflow:")
+	fmt.Fprintln(w, "  run:")
+	fmt.Fprintln(w, "    component:")
+	fmt.Fprintf(w, "      name: %s\n", manifest.Name)
+	fmt.Fprintln(w, "      with:")
+	fmt.Fprintf(w, "        # see kdeps component info %s for available inputs\n", manifest.Name)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Documentation: kdeps component info %s\n", manifest.Name)
+	return nil
+}
+
+// isKdepsProjectDir returns true if dir contains a workflow or agency manifest.
+func isKdepsProjectDir(dir string) bool {
+	kdeps_debug.Log("enter: isKdepsProjectDir")
+	for _, f := range []string{"workflow.yaml", "workflow.yml", "agency.yaml", "agency.yml"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// peekManifest reads kdeps.pkg.yaml from the archive without full extraction.
+func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
+	kdeps_debug.Log("enter: peekManifest")
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return nil, fmt.Errorf("open archive: %w", err)
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, fmt.Errorf("gzip reader: %w", err)
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		hdr, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			return nil, fmt.Errorf("tar next: %w", nextErr)
+		}
+		base := filepath.Base(hdr.Name)
+		if base == "kdeps.pkg.yaml" || base == "kdeps.pkg.yml" {
+			data, readErr := io.ReadAll(io.LimitReader(tr, registryInstallManifestMaxSize))
+			if readErr != nil {
+				return nil, fmt.Errorf("read manifest: %w", readErr)
+			}
+			return domain.ParseKdepsPkgFromBytes(data)
+		}
+	}
+	return nil, nil //nolint:nilnil // nil manifest means no kdeps.pkg.yaml found; caller handles this
 }
 
 func resolveVersion(name, baseURL string) (string, error) {
 	kdeps_debug.Log("enter: resolveVersion")
 	client := &stdhttp.Client{Timeout: registryInstallInfoTimeout}
-	rawURL := baseURL + "/api/packages/" + name
+	rawURL := baseURL + "/api/v1/registry/packages/" + name
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -154,12 +292,12 @@ func downloadArchive(rawURL, destPath string) error {
 	if resp.StatusCode != stdhttp.StatusOK {
 		return fmt.Errorf("download returned status %d", resp.StatusCode)
 	}
-	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, registryInstallFilePerm)
+	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, registryInstallFilePerm)
 	if err != nil {
 		return fmt.Errorf("create archive file: %w", err)
 	}
-	defer f.Close()
-	if _, copyErr := io.Copy(f, io.LimitReader(resp.Body, registryInstallMaxResponseSize)); copyErr != nil {
+	defer out.Close()
+	if _, copyErr := io.Copy(out, io.LimitReader(resp.Body, registryInstallMaxResponseSize)); copyErr != nil {
 		return fmt.Errorf("write archive: %w", copyErr)
 	}
 	return nil
@@ -210,12 +348,12 @@ func extractFile(target string, r io.Reader) error {
 	if mkdirErr := os.MkdirAll(filepath.Dir(target), registryInstallDirPerm); mkdirErr != nil {
 		return fmt.Errorf("mkdir parent %s: %w", filepath.Dir(target), mkdirErr)
 	}
-	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, registryInstallFilePerm)
+	out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, registryInstallFilePerm)
 	if err != nil {
 		return fmt.Errorf("create file %s: %w", target, err)
 	}
-	defer f.Close()
-	if _, copyErr := io.Copy(f, r); copyErr != nil {
+	defer out.Close()
+	if _, copyErr := io.Copy(out, r); copyErr != nil {
 		return fmt.Errorf("write file %s: %w", target, copyErr)
 	}
 	return nil
