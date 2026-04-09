@@ -141,10 +141,4 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Registry subcommand group (search, info, install, publish).
 	rootCmd.AddCommand(newRegistryCmd())
-
-	// Registry commands (install, publish, search, update).
-	rootCmd.AddCommand(newInstallCmd())
-	rootCmd.AddCommand(newPublishCmd())
-	rootCmd.AddCommand(newSearchCmd())
-	rootCmd.AddCommand(newUpdateCmd())
 }
