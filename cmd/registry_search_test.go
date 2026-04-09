@@ -23,27 +23,26 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"net/http/httptest"
-	"testing"
-
 	stdhttp "net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegistryInfo_Success(t *testing.T) {
-	info := registryPackageInfo{
-		Name:          "my-agent",
-		Type:          "workflow",
-		Description:   "A test agent",
-		Author:        "alice",
-		LatestVersion: "1.0.0",
-		Versions:      []string{"1.0.0", "0.9.0"},
-		Readme:        "# My Agent\nThis is a test.",
+func TestRegistrySearch_Success(t *testing.T) {
+	pkgs := searchResponse{
+		Packages: []registryPackage{
+			{
+				Name: "my-agent", Type: "workflow", Description: "A test agent",
+				Author: "alice", StarsCount: 5, LatestVersion: "1.0.0",
+			},
+		},
 	}
-	body, _ := json.Marshal(info)
+	body, _ := json.Marshal(pkgs)
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(stdhttp.StatusOK)
@@ -56,15 +55,17 @@ func TestRegistryInfo_Success(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInfo(cmd, "my-agent", srv.URL)
+	err := doRegistrySearch(cmd, "agent", "", registrySearchDefaultLimit, srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "my-agent")
-	assert.Contains(t, out.String(), "alice")
 }
 
-func TestRegistryInfo_NotFound(t *testing.T) {
+func TestRegistrySearch_NoResults(t *testing.T) {
+	body, _ := json.Marshal(searchResponse{Packages: []registryPackage{}})
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(stdhttp.StatusOK)
+		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
 
@@ -73,12 +74,12 @@ func TestRegistryInfo_NotFound(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInfo(cmd, "missing-pkg", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	err := doRegistrySearch(cmd, "nothing", "", registrySearchDefaultLimit, srv.URL)
+	require.NoError(t, err)
+	assert.Contains(t, out.String(), "No packages found")
 }
 
-func TestRegistryInfo_ServerError(t *testing.T) {
+func TestRegistrySearch_ServerError(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusInternalServerError)
 	}))
@@ -89,7 +90,7 @@ func TestRegistryInfo_ServerError(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInfo(cmd, "some-pkg", srv.URL)
+	err := doRegistrySearch(cmd, "agent", "", registrySearchDefaultLimit, srv.URL)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
+	assert.True(t, strings.Contains(err.Error(), "500") || strings.Contains(err.Error(), "status"))
 }

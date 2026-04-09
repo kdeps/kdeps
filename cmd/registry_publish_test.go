@@ -22,74 +22,83 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
-	"net/http/httptest"
-	"testing"
-
 	stdhttp "net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegistryInfo_Success(t *testing.T) {
-	info := registryPackageInfo{
-		Name:          "my-agent",
-		Type:          "workflow",
-		Description:   "A test agent",
-		Author:        "alice",
-		LatestVersion: "1.0.0",
-		Versions:      []string{"1.0.0", "0.9.0"},
-		Readme:        "# My Agent\nThis is a test.",
-	}
-	body, _ := json.Marshal(info)
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.Header().Set("Content-Type", "application/json")
+func TestRegistryPublish_Success(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		assert.Equal(t, stdhttp.MethodPost, r.Method)
 		w.WriteHeader(stdhttp.StatusOK)
-		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
 
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err := doRegistryInfo(cmd, "my-agent", srv.URL)
+	dir := t.TempDir()
+	mf := "name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: A test\n"
+	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
 	require.NoError(t, err)
-	assert.Contains(t, out.String(), "my-agent")
-	assert.Contains(t, out.String(), "alice")
-}
-
-func TestRegistryInfo_NotFound(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusNotFound)
-	}))
-	defer srv.Close()
 
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInfo(cmd, "missing-pkg", srv.URL)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not found")
+	err = doRegistryPublish(cmd, dir, srv.URL, "test-token")
+	require.NoError(t, err)
+	assert.Contains(t, out.String(), "Published test-agent@1.0.0")
 }
 
-func TestRegistryInfo_ServerError(t *testing.T) {
+func TestRegistryPublish_NoManifest(t *testing.T) {
+	dir := t.TempDir()
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := doRegistryPublish(cmd, dir, "http://localhost", "token")
+	require.Error(t, err)
+}
+
+func TestRegistryPublish_InvalidManifest(t *testing.T) {
+	dir := t.TempDir()
+	mf := "name: \nversion: \ntype: \ndescription: Missing fields\n"
+	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
+	require.NoError(t, err)
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err = doRegistryPublish(cmd, dir, "http://localhost", "token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required")
+}
+
+func TestRegistryPublish_ServerError(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
+	dir := t.TempDir()
+	mf := "name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: A test\n"
+	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
+	require.NoError(t, err)
+
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryInfo(cmd, "some-pkg", srv.URL)
+	err = doRegistryPublish(cmd, dir, srv.URL, "token")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
 }
