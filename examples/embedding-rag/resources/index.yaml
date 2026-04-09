@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: indexDoc
+run:
+  validations:
+    methods: [POST]
+    routes: [/index]
+    check:
+      - get('text') != ''
+    error:
+      code: 400
+      message: "text is required"
+  embedding:
+    operation: upsert
+    text: "{{ get('text') }}"
+    collection: "{{ get('collection', 'docs') }}"

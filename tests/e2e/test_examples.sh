@@ -49,6 +49,12 @@ source "$SCRIPT_DIR/test_examples_personal_assistant_agency.sh"
 source "$SCRIPT_DIR/test_examples_components.sh"
 source "$SCRIPT_DIR/test_examples_component_cli.sh"
 
+# --- Native executor examples ---
+source "$SCRIPT_DIR/test_examples_scraper_native.sh"
+source "$SCRIPT_DIR/test_examples_embedding_rag.sh"
+source "$SCRIPT_DIR/test_examples_search_local_files.sh"
+source "$SCRIPT_DIR/test_examples_search_web_native.sh"
+
 # --- Examples requiring external services (validation only) ---
 source "$SCRIPT_DIR/test_examples_stateless_bot.sh"
 source "$SCRIPT_DIR/test_examples_vision.sh"
