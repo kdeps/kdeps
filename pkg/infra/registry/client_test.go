@@ -47,7 +47,7 @@ func TestNewClient(t *testing.T) {
 // TestClient_Search_Success verifies a successful search response.
 func TestClient_Search_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/registry/packages", r.URL.Path)
+		assert.Equal(t, "/api/packages", r.URL.Path)
 		assert.Equal(t, "chatbot", r.URL.Query().Get("q"))
 		resp := map[string]interface{}{
 			"packages": []map[string]interface{}{
@@ -80,7 +80,7 @@ func TestClient_Search_ServerError(t *testing.T) {
 // TestClient_GetPackage_Success verifies successful package retrieval.
 func TestClient_GetPackage_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/registry/packages/chatbot", r.URL.Path)
+		assert.Equal(t, "/api/packages/chatbot", r.URL.Path)
 		resp := registry.PackageDetail{
 			Name:    "chatbot",
 			Version: "1.0.0",
@@ -156,7 +156,7 @@ func TestClient_Publish_Unauthorized(t *testing.T) {
 // TestClient_Download_Success verifies successful package download.
 func TestClient_Download_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v1/registry/packages/chatbot/1.0.0/download", r.URL.Path)
+		assert.Equal(t, "/api/packages/chatbot/download/1.0.0", r.URL.Path)
 		_, _ = w.Write([]byte("fake archive content"))
 	}))
 	defer server.Close()

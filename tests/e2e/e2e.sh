@@ -86,6 +86,9 @@ source "$SCRIPT_DIR/test_examples_component_setup_teardown.sh"
 source "$SCRIPT_DIR/test_examples_file_processor.sh"
 source "$SCRIPT_DIR/test_examples_input_component.sh"
 source "$SCRIPT_DIR/test_examples_auto_env.sh"
+source "$SCRIPT_DIR/test_registry_verify.sh"
+source "$SCRIPT_DIR/test_install_exec.sh"
+source "$SCRIPT_DIR/test_global_config.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"

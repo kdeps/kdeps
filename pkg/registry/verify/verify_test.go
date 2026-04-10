@@ -227,3 +227,74 @@ func TestResult_ErrorMessageContainsAll(t *testing.T) {
 	assert.Contains(t, err.Error(), "pre-publish verification failed")
 	assert.Contains(t, err.Error(), "f.yaml")
 }
+
+func TestVerifyDir_UnreadableDir(t *testing.T) {
+	_, err := verify.Dir("/nonexistent/path/xyz123")
+	assert.Error(t, err)
+}
+
+func TestVerifyDir_NonYAMLFilesIgnored(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("apiKey: real-key"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "script.sh"), []byte("TOKEN=realtoken"), 0600))
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, result.Findings)
+}
+
+func TestVerifyDir_SequenceNodeWithCredentials(t *testing.T) {
+	dir := t.TempDir()
+	// A sequence containing mapping nodes with credential fields.
+	writeYAML(t, dir, "resource.yaml", `
+items:
+  - apiKey: "secret-in-sequence"
+    model: gpt-4o
+`)
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.True(t, result.HasErrors())
+}
+
+func TestVerifyDir_MultipleResourceFiles(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "resources"), 0750))
+	writeYAML(t, dir, "workflow.yaml", `name: test`)
+	writeYAML(t, filepath.Join(dir, "resources"), "r1.yaml", `run:
+  chat:
+    apiKey: sk-secret1`)
+	writeYAML(t, filepath.Join(dir, "resources"), "r2.yaml", `run:
+  http:
+    auth:
+      token: real-token`)
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.True(t, result.HasErrors())
+	assert.Len(t, result.Findings, 2)
+}
+
+func TestVerifyDir_HasErrorsFalseOnWarnOnly(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, "resource.yaml", "model: gpt-4o\n")
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.False(t, result.HasErrors())
+	assert.Len(t, result.Findings, 1)
+	assert.Equal(t, verify.SeverityWarn, result.Findings[0].Severity)
+}
+
+func TestVerifyDir_EmptyYAMLFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "empty.yaml"), []byte(""), 0600))
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, result.Findings)
+}
+
+func TestVerifyDir_InvalidYAMLSkipped(t *testing.T) {
+	dir := t.TempDir()
+	// Jinja2 templates and other non-parseable YAML should not cause errors.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "template.yaml"), []byte("{% if x %}foo{% endif %}"), 0600))
+	result, err := verify.Dir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, result.Findings)
+}

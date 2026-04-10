@@ -34,6 +34,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // testCreateTarGz builds a .kdeps archive from a map of filename->content.
@@ -302,4 +304,70 @@ func TestIsKdepsProjectDir(t *testing.T) {
 	assert.False(t, isKdepsProjectDir(dir))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(""), 0600))
 	assert.True(t, isKdepsProjectDir(dir))
+}
+
+func TestKdepsAgentsDir_DefaultPath(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_AGENTS_DIR"))
+	dir, err := kdepsAgentsDir()
+	require.NoError(t, err)
+	home, _ := os.UserHomeDir()
+	assert.Equal(t, filepath.Join(home, ".kdeps", "agents"), dir)
+}
+
+func TestKdepsAgentsDir_EnvOverride(t *testing.T) {
+	custom := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", custom)
+	dir, err := kdepsAgentsDir()
+	require.NoError(t, err)
+	assert.Equal(t, custom, dir)
+}
+
+func TestInstallWorkflowOrAgency_AlreadyInstalled(t *testing.T) {
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
+
+	// Pre-create destination to trigger "already installed" error.
+	require.NoError(t, os.MkdirAll(filepath.Join(agentsDir, "dup-agent"), 0750))
+
+	manifest := testWorkflowArchive(t, "dup-agent")
+	archivePath := filepath.Join(t.TempDir(), "dup-agent.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, manifest, 0600))
+
+	pkg := peekManifestFromBytes(t, manifest)
+	cmd := &cobra.Command{}
+	err := installWorkflowOrAgency(cmd, pkg, archivePath, "1.0.0")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already installed")
+}
+
+func TestInstallWorkflowOrAgency_Success(t *testing.T) {
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
+
+	archiveData := testWorkflowArchive(t, "new-agent")
+	archivePath := filepath.Join(t.TempDir(), "new-agent.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, archiveData, 0600))
+
+	pkg := peekManifestFromBytes(t, archiveData)
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+	err := installWorkflowOrAgency(cmd, pkg, archivePath, "1.0.0")
+	require.NoError(t, err)
+
+	destDir := filepath.Join(agentsDir, "new-agent")
+	assert.DirExists(t, destDir)
+	assert.FileExists(t, filepath.Join(destDir, "workflow.yaml"))
+	assert.Contains(t, buf.String(), "kdeps exec new-agent")
+}
+
+// peekManifestFromBytes is a helper for tests that need a manifest from archive bytes.
+func peekManifestFromBytes(t *testing.T, data []byte) *domain.KdepsPkg {
+	t.Helper()
+	archivePath := filepath.Join(t.TempDir(), "tmp.kdeps")
+	require.NoError(t, os.WriteFile(archivePath, data, 0600))
+	pkg, err := peekManifest(archivePath)
+	require.NoError(t, err)
+	require.NotNil(t, pkg)
+	return pkg
 }
