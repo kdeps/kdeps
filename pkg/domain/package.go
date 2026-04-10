@@ -30,15 +30,15 @@ import (
 
 // KdepsPkg represents the kdeps.pkg.yaml package manifest.
 type KdepsPkg struct {
-	Name         string            `yaml:"name"`
-	Version      string            `yaml:"version"`
-	Type         string            `yaml:"type"`
-	Description  string            `yaml:"description"`
-	Author       string            `yaml:"author,omitempty"`
-	License      string            `yaml:"license,omitempty"`
-	Tags         []string          `yaml:"tags,omitempty"`
-	Homepage     string            `yaml:"homepage,omitempty"`
-	Dependencies map[string]string `yaml:"dependencies,omitempty"`
+	Name         string            `yaml:"name"                   json:"name"`
+	Version      string            `yaml:"version"                json:"version"`
+	Type         string            `yaml:"type"                   json:"type"`
+	Description  string            `yaml:"description"            json:"description"`
+	Author       string            `yaml:"author,omitempty"       json:"author,omitempty"`
+	License      string            `yaml:"license,omitempty"      json:"license,omitempty"`
+	Tags         []string          `yaml:"tags,omitempty"         json:"tags,omitempty"`
+	Homepage     string            `yaml:"homepage,omitempty"     json:"homepage,omitempty"`
+	Dependencies map[string]string `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
 }
 
 // ParseKdepsPkg reads and parses a kdeps.pkg.yaml file from the given path.

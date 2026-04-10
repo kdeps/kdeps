@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
@@ -79,6 +80,12 @@ func createRootCommand() *cobra.Command {
 		Short: "KDeps - AI Agent Framework",
 		Long:  `Build AI agents with YAML configuration.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			// Load global config (~/.kdeps/config.yaml) and scaffold if missing.
+			// Values are applied as env vars only when not already set.
+			_ = config.Scaffold()
+			if _, loadErr := config.Load(); loadErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not load ~/.kdeps/config.yaml: %v\n", loadErr)
+			}
 			// --instrument enables call-chain instrumentation (pkg/debug).
 			// --debug enables slog DEBUG level only; these are independent.
 			if instrFlag, err := cmd.Flags().GetBool("instrument"); err == nil && instrFlag {
@@ -150,6 +157,10 @@ func addSubcommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(componentCmd)
 
 	// Deploy
+	execCmd := newExecCmd()
+	execCmd.GroupID = groupDeploy
+	rootCmd.AddCommand(execCmd)
+
 	pushCmd := newPushCmd()
 	pushCmd.GroupID = groupDeploy
 	rootCmd.AddCommand(pushCmd)

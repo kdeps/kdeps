@@ -55,30 +55,34 @@ type Client struct {
 // PackageEntry represents a package in the registry search results.
 type PackageEntry struct {
 	Name        string   `json:"name"`
-	Version     string   `json:"version"`
+	Version     string   `json:"latestVersion"`
 	Type        string   `json:"type"`
 	Description string   `json:"description"`
-	Author      string   `json:"author"`
+	Author      string   `json:"authorName"`
 	Tags        []string `json:"tags"`
-	Downloads   int      `json:"downloads"`
+	Downloads   int      `json:"downloadsCount"`
 	UpdatedAt   string   `json:"updatedAt"`
+}
+
+// PackageVersion represents a single version entry from the registry.
+type PackageVersion struct {
+	Version string `json:"version"`
 }
 
 // PackageDetail represents detailed package information.
 type PackageDetail struct {
-	Name         string            `json:"name"`
-	Version      string            `json:"version"`
-	Type         string            `json:"type"`
-	Description  string            `json:"description"`
-	Author       string            `json:"author"`
-	License      string            `json:"license"`
-	Tags         []string          `json:"tags"`
-	Homepage     string            `json:"homepage"`
-	Downloads    int               `json:"downloads"`
-	Dependencies map[string]string `json:"dependencies"`
-	Versions     []string          `json:"versions"`
-	CreatedAt    string            `json:"createdAt"`
-	UpdatedAt    string            `json:"updatedAt"`
+	Name        string           `json:"name"`
+	Version     string           `json:"latestVersion"`
+	Type        string           `json:"type"`
+	Description string           `json:"description"`
+	Author      string           `json:"authorName"`
+	License     string           `json:"license"`
+	Tags        []string         `json:"tags"`
+	Homepage    string           `json:"homepage"`
+	Downloads   int              `json:"downloadsCount"`
+	Versions    []PackageVersion `json:"versions"`
+	CreatedAt   string           `json:"createdAt"`
+	UpdatedAt   string           `json:"updatedAt"`
 }
 
 // PublishResponse represents the publish API response.
@@ -116,7 +120,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 	if limit > 0 {
 		params.Set("limit", strconv.Itoa(limit))
 	}
-	reqURL := c.APIURL + "/api/v1/registry/packages?" + params.Encode()
+	reqURL := c.APIURL + "/api/packages?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -139,7 +143,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 // GetPackage retrieves detailed information about a package.
 func (c *Client) GetPackage(ctx context.Context, name string) (*PackageDetail, error) {
 	kdeps_debug.Log("enter: GetPackage")
-	reqURL := c.APIURL + "/api/v1/registry/packages/" + name
+	reqURL := c.APIURL + "/api/packages/" + name
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -171,8 +175,14 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	}
 	defer f.Close()
 
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+	}
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("manifest", string(manifestJSON))
 	part, err := writer.CreateFormFile("package", filepath.Base(archivePath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create form file: %w", err)
@@ -180,15 +190,11 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	if _, copyErr := io.Copy(part, f); copyErr != nil {
 		return nil, fmt.Errorf("failed to write package data: %w", copyErr)
 	}
-	_ = writer.WriteField("name", manifest.Name)
-	_ = writer.WriteField("version", manifest.Version)
-	_ = writer.WriteField("type", manifest.Type)
-	_ = writer.WriteField("description", manifest.Description)
 	if closeErr := writer.Close(); closeErr != nil {
 		return nil, fmt.Errorf("failed to close multipart writer: %w", closeErr)
 	}
 
-	reqURL := c.APIURL + "/api/v1/registry/packages/publish"
+	reqURL := c.APIURL + "/api/packages"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, &body)
 	if err != nil {
 		return nil, err
@@ -204,7 +210,7 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, errors.New("invalid API key. Run 'kdeps login' to re-authenticate")
+		return nil, errors.New("invalid API key")
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
@@ -219,7 +225,7 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 // Download downloads a package archive from the registry.
 func (c *Client) Download(ctx context.Context, name, version, destDir string) (string, error) {
 	kdeps_debug.Log("enter: Download")
-	reqURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", c.APIURL, name, version)
+	reqURL := fmt.Sprintf("%s/api/packages/%s/download/%s", c.APIURL, name, version)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return "", err

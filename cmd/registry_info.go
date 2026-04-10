@@ -73,7 +73,11 @@ func doRegistryInfo(cmd *cobra.Command, name, baseURL string) error {
 		fmt.Fprintf(w, "Homepage:    %s\n", pkg.Homepage)
 	}
 	if len(pkg.Versions) > 0 {
-		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(pkg.Versions, ", "))
+		vs := make([]string, len(pkg.Versions))
+		for i, v := range pkg.Versions {
+			vs[i] = v.Version
+		}
+		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(vs, ", "))
 	}
 	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
 	return nil

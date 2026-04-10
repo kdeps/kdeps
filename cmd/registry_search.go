@@ -47,7 +47,7 @@ type registryPackage struct {
 	Name           string `json:"name"`
 	Type           string `json:"type"`
 	Description    string `json:"description"`
-	Author         string `json:"author"`
+	Author         string `json:"authorName"`
 	StarsCount     int    `json:"starsCount"`
 	DownloadsCount int    `json:"downloadsCount"`
 	LatestVersion  string `json:"latestVersion"`

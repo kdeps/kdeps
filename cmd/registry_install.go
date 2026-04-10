@@ -103,7 +103,7 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, name+"-"+version+".kdeps")
-	downloadURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", baseURL, name, version)
+	downloadURL := fmt.Sprintf("%s/api/packages/%s/download/%s", baseURL, name, version)
 
 	if downloadErr := downloadArchive(downloadURL, archivePath); downloadErr != nil {
 		return downloadErr
@@ -125,17 +125,20 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	}
 }
 
-// installWorkflowOrAgency extracts into the current directory (like git clone).
+// installWorkflowOrAgency extracts into ~/.kdeps/agents/<name>/ (like a home-local install).
 func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, archivePath, version string) error {
 	kdeps_debug.Log("enter: installWorkflowOrAgency")
-	cwd, err := os.Getwd()
+	agentsDir, err := kdepsAgentsDir()
 	if err != nil {
-		return fmt.Errorf("get working directory: %w", err)
+		return err
+	}
+	if mkdirErr := os.MkdirAll(agentsDir, registryInstallDirPerm); mkdirErr != nil {
+		return fmt.Errorf("create agents dir: %w", mkdirErr)
 	}
 
-	destDir := filepath.Join(cwd, manifest.Name)
+	destDir := filepath.Join(agentsDir, manifest.Name)
 	if _, statErr := os.Stat(destDir); statErr == nil {
-		return fmt.Errorf("directory %q already exists; remove it first", destDir)
+		return fmt.Errorf("agent %q is already installed at %s; remove it first to reinstall", manifest.Name, destDir)
 	}
 
 	if extractErr := extractArchive(archivePath, destDir); extractErr != nil {
@@ -150,13 +153,26 @@ func installWorkflowOrAgency(cmd *cobra.Command, manifest *domain.KdepsPkg, arch
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Next steps:")
-	fmt.Fprintf(w, "  cd %s\n", manifest.Name)
-	fmt.Fprintln(w, "  cp .env.example .env   # configure API keys and settings")
-	fmt.Fprintln(w, "  $EDITOR .env")
-	fmt.Fprintln(w, "  kdeps run              # start the agent locally")
+	fmt.Fprintf(w, "  Edit ~/.kdeps/config.yaml to set your LLM API keys\n")
+	fmt.Fprintf(w, "  kdeps exec %s\n", manifest.Name)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Tip: read the README.md inside for full usage instructions.")
+	fmt.Fprintf(w, "     %s\n", destDir)
 	return nil
+}
+
+// kdepsAgentsDir returns the directory where agents are installed.
+// Override with $KDEPS_AGENTS_DIR; default is ~/.kdeps/agents/.
+func kdepsAgentsDir() (string, error) {
+	kdeps_debug.Log("enter: kdepsAgentsDir")
+	if d := os.Getenv("KDEPS_AGENTS_DIR"); d != "" {
+		return d, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("could not determine home directory: %w", err)
+	}
+	return filepath.Join(home, ".kdeps", "agents"), nil
 }
 
 // installRegistryComponent installs the archive into the components directory.
@@ -248,7 +264,7 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 func resolveVersion(name, baseURL string) (string, error) {
 	kdeps_debug.Log("enter: resolveVersion")
 	client := &stdhttp.Client{Timeout: registryInstallInfoTimeout}
-	rawURL := baseURL + "/api/v1/registry/packages/" + name
+	rawURL := baseURL + "/api/packages/" + name
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
