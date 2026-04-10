@@ -85,24 +85,20 @@ func TestRegistryInstall_WorkflowWithVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// Install extracts to CWD — use a temp dir as working directory.
-	workDir := t.TempDir()
-	orig, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(workDir))
-	defer func() { _ = os.Chdir(orig) }()
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
 
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
+	err := doRegistryInstall(cmd, "my-agent@1.0.0", srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "my-agent")
-	assert.Contains(t, out.String(), "kdeps run")
-	assert.Contains(t, out.String(), ".env")
-	_, statErr := os.Stat(filepath.Join(workDir, "my-agent", "workflow.yaml"))
+	assert.Contains(t, out.String(), "kdeps exec")
+	assert.Contains(t, out.String(), "config.yaml")
+	_, statErr := os.Stat(filepath.Join(agentsDir, "my-agent", "workflow.yaml"))
 	assert.NoError(t, statErr)
 }
 
@@ -110,7 +106,7 @@ func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 	archiveData := testWorkflowArchive(t, "my-agent")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
+		if r.URL.Path == "/api/packages/my-agent" {
 			body, _ := json.Marshal(map[string]string{"latestVersion": "2.0.0"})
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(stdhttp.StatusOK)
@@ -122,18 +118,15 @@ func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	workDir := t.TempDir()
-	orig, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(workDir))
-	defer func() { _ = os.Chdir(orig) }()
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
 
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryInstall(cmd, "my-agent", srv.URL)
+	err := doRegistryInstall(cmd, "my-agent", srv.URL)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "2.0.0")
 }
@@ -223,23 +216,19 @@ func TestRegistryInstall_DirectoryExists(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	workDir := t.TempDir()
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
 	// Pre-create the target directory to trigger conflict error.
-	require.NoError(t, os.MkdirAll(filepath.Join(workDir, "existing-agent"), 0750))
-
-	orig, err := os.Getwd()
-	require.NoError(t, err)
-	require.NoError(t, os.Chdir(workDir))
-	defer func() { _ = os.Chdir(orig) }()
+	require.NoError(t, os.MkdirAll(filepath.Join(agentsDir, "existing-agent"), 0750))
 
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryInstall(cmd, "existing-agent@1.0.0", srv.URL)
+	err := doRegistryInstall(cmd, "existing-agent@1.0.0", srv.URL)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "already exists")
+	assert.Contains(t, err.Error(), "already installed")
 }
 
 func TestExtractArchive(t *testing.T) {
