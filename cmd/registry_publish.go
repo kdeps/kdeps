@@ -38,6 +38,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
+	"github.com/kdeps/kdeps/v2/pkg/registry/verify"
 )
 
 const (
@@ -77,6 +78,20 @@ func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string) error {
 	}
 	if validateErr := manifest.Validate(m); validateErr != nil {
 		return validateErr
+	}
+
+	// Pre-publish: verify the package is LLM-agnostic (no hardcoded secrets).
+	result, verifyErr := verify.Dir(dir)
+	if verifyErr != nil {
+		return fmt.Errorf("verify package: %w", verifyErr)
+	}
+	for _, f := range result.Findings {
+		if f.Severity == verify.SeverityWarn {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  warn: %s\n", f)
+		}
+	}
+	if result.HasErrors() {
+		return result.Error()
 	}
 
 	readmeBytes, _ := os.ReadFile(filepath.Join(dir, "README.md"))
