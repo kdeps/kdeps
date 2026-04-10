@@ -70,15 +70,7 @@ func createRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kdeps",
 		Short: "KDeps - AI Agent Framework",
-		Long: `Build AI agents with YAML configuration.
-
-Examples:
-  kdeps new my-agent
-  kdeps run workflow.yaml
-  kdeps validate workflow.yaml
-  kdeps component install scraper
-  kdeps bundle package workflow.yaml
-  kdeps registry publish my-agent.kdeps`,
+		Long: `Build AI agents with YAML configuration.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// --instrument enables call-chain instrumentation (pkg/debug).
 			// --debug enables slog DEBUG level only; these are independent.
@@ -111,24 +103,51 @@ Examples:
 // addSubcommands registers all subcommands to the root command.
 func addSubcommands(rootCmd *cobra.Command) {
 	kdeps_debug.Log("enter: addSubcommands")
-	// Core agent development
-	rootCmd.AddCommand(newRunCmd())
-	rootCmd.AddCommand(newValidateCmd())
-	rootCmd.AddCommand(newNewCmd())
-	rootCmd.AddCommand(newScaffoldCmd())
 
-	// Component management (includes clone and info)
-	rootCmd.AddCommand(newComponentCmd())
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "develop", Title: "Develop:"},
+		&cobra.Group{ID: "package", Title: "Package:"},
+		&cobra.Group{ID: "distribute", Title: "Distribute:"},
+		&cobra.Group{ID: "deploy", Title: "Deploy:"},
+	)
 
-	// Bundle for distribution (build, package, prepackage, export)
-	rootCmd.AddCommand(newBundleCmd())
+	// Develop
+	newCmd := newNewCmd()
+	newCmd.GroupID = "develop"
+	rootCmd.AddCommand(newCmd)
 
-	// Federation
-	rootCmd.AddCommand(newFederationCmd())
+	scaffoldCmd := newScaffoldCmd()
+	scaffoldCmd.GroupID = "develop"
+	rootCmd.AddCommand(scaffoldCmd)
 
-	// Registry subcommand group (search, info, install, publish).
-	rootCmd.AddCommand(newRegistryCmd())
+	validateCmd := newValidateCmd()
+	validateCmd.GroupID = "develop"
+	rootCmd.AddCommand(validateCmd)
 
-	// Push to local management API server.
-	rootCmd.AddCommand(newPushCmd())
+	runCmd := newRunCmd()
+	runCmd.GroupID = "develop"
+	rootCmd.AddCommand(runCmd)
+
+	// Package
+	bundleCmd := newBundleCmd()
+	bundleCmd.GroupID = "package"
+	rootCmd.AddCommand(bundleCmd)
+
+	// Distribute
+	registryCmd := newRegistryCmd()
+	registryCmd.GroupID = "distribute"
+	rootCmd.AddCommand(registryCmd)
+
+	componentCmd := newComponentCmd()
+	componentCmd.GroupID = "distribute"
+	rootCmd.AddCommand(componentCmd)
+
+	// Deploy
+	pushCmd := newPushCmd()
+	pushCmd.GroupID = "deploy"
+	rootCmd.AddCommand(pushCmd)
+
+	federationCmd := newFederationCmd()
+	federationCmd.GroupID = "deploy"
+	rootCmd.AddCommand(federationCmd)
 }
