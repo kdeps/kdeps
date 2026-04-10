@@ -471,3 +471,6 @@ linters:
         linters: [ gosec ]
       - text: 'G705:'
         linters: [ gosec ]
+      # G115: uintptr→int conversion for os.Stdin.Fd() is idiomatic for terminal detection.
+      - text: 'G115:'
+        linters: [ gosec ]

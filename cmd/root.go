@@ -80,9 +80,11 @@ func createRootCommand() *cobra.Command {
 		Short: "KDeps - AI Agent Framework",
 		Long:  `Build AI agents with YAML configuration.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			// Load global config (~/.kdeps/config.yaml) and scaffold if missing.
-			// Values are applied as env vars only when not already set.
-			_ = config.Scaffold()
+			// On first run (no config file), bootstrap interactively.
+			// In non-interactive environments Bootstrap falls back to Scaffold.
+			if bootErr := config.Bootstrap(os.Stdout); bootErr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: bootstrap failed: %v\n", bootErr)
+			}
 			if _, loadErr := config.Load(); loadErr != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not load ~/.kdeps/config.yaml: %v\n", loadErr)
 			}

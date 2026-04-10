@@ -32,7 +32,6 @@ import (
 func renderMarkdown(content string) string {
 	// Detect terminal width; fall back to 80 columns.
 	width := 80
-	//nolint:gosec // G115: uintptr→int safe for fd values
 	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
 		width = w
 	}

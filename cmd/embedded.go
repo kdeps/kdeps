@@ -77,13 +77,11 @@ func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
 		return 0, 0, false
 	}
 
-	//nolint:gosec // safe uint64->int64 conversion, kdepsSize validated by range check
 	off := fileSize - int64(EmbeddedTrailerSize) - int64(kdepsSize)
 	if off < 0 {
 		return 0, 0, false
 	}
 
-	//nolint:gosec // safe uint64->int64 conversion
 	return off, int64(kdepsSize), true
 }
 
@@ -189,7 +187,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 
 	// 3. Size field (8-byte big-endian uint64).
 	sizeBuf := make([]byte, EmbeddedSizeFieldLen)
-	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize)) //nolint:gosec // kdepsSize is non-negative
+	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize))
 	if _, writeErr := out.Write(sizeBuf); writeErr != nil {
 		return fmt.Errorf("failed to write size trailer: %w", writeErr)
 	}
@@ -229,7 +227,6 @@ func cleanBinaryPath(execPath string) (string, bool, error) {
 	}
 
 	kdepsSize := binary.BigEndian.Uint64(trailer[:8])
-	//nolint:gosec // safe uint64->int64 conversion
 	cleanSize := info.Size() - int64(EmbeddedTrailerSize) - int64(kdepsSize)
 	if cleanSize <= 0 {
 		return execPath, false, nil
