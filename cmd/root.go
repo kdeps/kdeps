@@ -31,6 +31,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	groupDevelop    = "develop"
+	groupPackage    = "package"
+	groupDistribute = "distribute"
+	groupDeploy     = "deploy"
+)
+
 // CLIConfig holds the CLI configuration.
 type CLIConfig struct {
 	version string
@@ -70,7 +77,7 @@ func createRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kdeps",
 		Short: "KDeps - AI Agent Framework",
-		Long: `Build AI agents with YAML configuration.`,
+		Long:  `Build AI agents with YAML configuration.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// --instrument enables call-chain instrumentation (pkg/debug).
 			// --debug enables slog DEBUG level only; these are independent.
@@ -105,49 +112,49 @@ func addSubcommands(rootCmd *cobra.Command) {
 	kdeps_debug.Log("enter: addSubcommands")
 
 	rootCmd.AddGroup(
-		&cobra.Group{ID: "develop", Title: "Develop:"},
-		&cobra.Group{ID: "package", Title: "Package:"},
-		&cobra.Group{ID: "distribute", Title: "Distribute:"},
-		&cobra.Group{ID: "deploy", Title: "Deploy:"},
+		&cobra.Group{ID: groupDevelop, Title: "Develop:"},
+		&cobra.Group{ID: groupPackage, Title: "Package:"},
+		&cobra.Group{ID: groupDistribute, Title: "Distribute:"},
+		&cobra.Group{ID: groupDeploy, Title: "Deploy:"},
 	)
 
 	// Develop
 	newCmd := newNewCmd()
-	newCmd.GroupID = "develop"
+	newCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(newCmd)
 
 	scaffoldCmd := newScaffoldCmd()
-	scaffoldCmd.GroupID = "develop"
+	scaffoldCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(scaffoldCmd)
 
 	validateCmd := newValidateCmd()
-	validateCmd.GroupID = "develop"
+	validateCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(validateCmd)
 
 	runCmd := newRunCmd()
-	runCmd.GroupID = "develop"
+	runCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(runCmd)
 
 	// Package
 	bundleCmd := newBundleCmd()
-	bundleCmd.GroupID = "package"
+	bundleCmd.GroupID = groupPackage
 	rootCmd.AddCommand(bundleCmd)
 
 	// Distribute
 	registryCmd := newRegistryCmd()
-	registryCmd.GroupID = "distribute"
+	registryCmd.GroupID = groupDistribute
 	rootCmd.AddCommand(registryCmd)
 
 	componentCmd := newComponentCmd()
-	componentCmd.GroupID = "distribute"
+	componentCmd.GroupID = groupDistribute
 	rootCmd.AddCommand(componentCmd)
 
 	// Deploy
 	pushCmd := newPushCmd()
-	pushCmd.GroupID = "deploy"
+	pushCmd.GroupID = groupDeploy
 	rootCmd.AddCommand(pushCmd)
 
 	federationCmd := newFederationCmd()
-	federationCmd.GroupID = "deploy"
+	federationCmd.GroupID = groupDeploy
 	rootCmd.AddCommand(federationCmd)
 }
