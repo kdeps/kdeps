@@ -24,11 +24,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -37,7 +34,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 )
@@ -51,7 +47,6 @@ type ExportFlags struct {
 	Hostname   string
 	Format     string
 	Arch       string
-	Cloud      bool
 	Size       string
 }
 
@@ -165,8 +160,6 @@ Examples:
 	isoCmd.Flags().
 		StringVar(&flags.Arch, "arch", "", "Target architecture: amd64 (default), arm64")
 	isoCmd.Flags().
-		BoolVar(&flags.Cloud, "cloud", false, "Build using kdeps.io cloud infrastructure (no local Docker/LinuxKit needed)")
-	isoCmd.Flags().
 		StringVar(&flags.Size, "size", "", "Disk image size (e.g. 4096M, 8G). Auto-computed from Docker image if not set.")
 
 	return isoCmd
@@ -183,15 +176,6 @@ const bytesPerMB = 1024 * 1024
 // exportISOInternal executes the export iso command.
 func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) error {
 	kdeps_debug.Log("enter: exportISOInternal")
-	if flags.Cloud {
-		arch := flags.Arch
-		if arch == "" {
-			arch = runtime.GOARCH
-		}
-
-		return cloudExport(args[0], flags.Format, arch, flags.NoCache, flags.Output)
-	}
-
 	packagePath := args[0]
 
 	fmt.Fprintf(os.Stdout, "Exporting workflow from: %s\n\n", packagePath)
@@ -374,187 +358,6 @@ func qemuSystem(arch string) string {
 	}
 
 	return "qemu-system-x86_64"
-}
-
-// cloudExport executes an export build via kdeps.io cloud infrastructure.
-func cloudExport(packagePath, format, arch string, noCache bool, output string) error {
-	kdeps_debug.Log("enter: cloudExport")
-	config, err := LoadCloudConfig()
-	if err != nil {
-		return err
-	}
-
-	client := cloud.NewClient(config.APIKey, config.APIURL)
-	ctx := context.Background()
-
-	whoami, whoamiErr := client.Whoami(ctx)
-	if whoamiErr != nil {
-		return fmt.Errorf("failed to verify account: %w", whoamiErr)
-	}
-
-	if planErr := checkCloudPlan(whoami, format); planErr != nil {
-		return planErr
-	}
-
-	// Package workflow to temp .kdeps file
-	tmpPath, err := prepareCloudPackage(packagePath)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpPath)
-
-	file, err := os.Open(tmpPath)
-	if err != nil {
-		return fmt.Errorf("failed to open package: %w", err)
-	}
-	defer file.Close()
-
-	fmt.Fprintf(os.Stdout, "Uploading to kdeps.io cloud (format: %s, arch: %s)...\n", format, arch)
-
-	buildResp, err := client.StartBuild(ctx, file, format, arch, noCache)
-	if err != nil {
-		return fmt.Errorf("cloud build failed: %w", err)
-	}
-
-	fmt.Fprintf(os.Stdout, "Build started (ID: %s)\n\n", buildResp.BuildID)
-
-	status, err := client.StreamBuildLogs(ctx, buildResp.BuildID, os.Stdout)
-	if err != nil {
-		return err
-	}
-
-	// Determine output path
-	outputPath := resolveCloudOutputPath(output, format, buildResp.BuildID)
-
-	// Download artifact if URL is provided
-	if status.DownloadURL != "" {
-		if dlErr := handleCloudDownload(ctx, status.DownloadURL, outputPath); dlErr != nil {
-			return dlErr
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, "\nCloud export completed successfully!")
-	return nil
-}
-
-func checkCloudPlan(whoami *cloud.WhoamiResponse, format string) error {
-	kdeps_debug.Log("enter: checkCloudPlan")
-	if !whoami.Plan.Features.APIAccess {
-		return fmt.Errorf(
-			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
-			whoami.Plan.Name,
-		)
-	}
-
-	if !whoami.Plan.Features.ExportISO && format != "docker" {
-		return fmt.Errorf(
-			"ISO/raw/qcow2 cloud exports require a Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
-			whoami.Plan.Name,
-		)
-	}
-	return nil
-}
-
-func prepareCloudPackage(packagePath string) (string, error) {
-	kdeps_debug.Log("enter: prepareCloudPackage")
-	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
-	if err != nil {
-		return "", fmt.Errorf("failed to create temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	if closeErr := tmpFile.Close(); closeErr != nil {
-		_ = os.Remove(tmpPath)
-		return "", fmt.Errorf("failed to close temp file: %w", closeErr)
-	}
-
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
-	if err != nil {
-		_ = os.Remove(tmpPath)
-		return "", err
-	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
-
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		_ = os.Remove(tmpPath)
-		return "", err
-	}
-
-	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
-		_ = os.Remove(tmpPath)
-		return "", fmt.Errorf("failed to package workflow: %w", archiveErr)
-	}
-	return tmpPath, nil
-}
-
-func resolveCloudOutputPath(output, format, _ string) string {
-	kdeps_debug.Log("enter: resolveCloudOutputPath")
-	outputPath := output
-	if outputPath == "" {
-		ext := ".iso"
-		if linuxkitFormat, ok := getFormatMap()[format]; ok {
-			if fmtExt := iso.GetFormatExtension(linuxkitFormat); fmtExt != "" {
-				ext = fmtExt
-			}
-		}
-		// In cloudExport we don't have the full workflow object easily available
-		// without parsing it again or passing it down.
-		// For now we use a generic name if output is empty, or we could pass workflow.
-		// Actually let's just use "exported-workflow" if we don't have it.
-		// But wait, we DO have it in prepareCloudPackage... let's just use a default.
-		outputPath = "exported-workflow" + ext
-	}
-	return outputPath
-}
-
-func handleCloudDownload(ctx context.Context, downloadURL, outputPath string) error {
-	kdeps_debug.Log("enter: handleCloudDownload")
-	fmt.Fprintf(os.Stdout, "\nDownloading artifact to %s...\n", outputPath)
-
-	if dlErr := downloadCloudArtifact(ctx, downloadURL, outputPath); dlErr != nil {
-		return fmt.Errorf("failed to download artifact: %w", dlErr)
-	}
-
-	info, statErr := os.Stat(outputPath)
-	sizeStr := ""
-	if statErr == nil {
-		sizeMB := float64(info.Size()) / float64(bytesPerMB)
-		sizeStr = fmt.Sprintf(" (%.1f MB)", sizeMB)
-	}
-
-	fmt.Fprintf(os.Stdout, "Downloaded: %s%s\n", outputPath, sizeStr)
-	return nil
-}
-
-// downloadCloudArtifact downloads a build artifact from the given URL to disk.
-func downloadCloudArtifact(ctx context.Context, url, dest string) error {
-	kdeps_debug.Log("enter: downloadCloudArtifact")
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
-	}
-
-	out, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-
-	return err
 }
 
 // workflowPorts extracts the configured ports from a workflow and returns

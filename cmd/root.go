@@ -77,8 +77,8 @@ func createRootCommand() *cobra.Command {
   validate    Validate YAML configuration
   scaffold    Add resources to existing agent
   component   Manage components (install, list, show, clone, info)
-  cloud       Cloud account operations (login, push, deployments...)
   bundle      Package for distribution (build, package, export...)
+  registry    File registry (search, info, install, publish)
   federation  Universal Agent Federation (UAF)
 
 Examples:
@@ -87,7 +87,6 @@ Examples:
   kdeps validate workflow.yaml
   kdeps component show scraper
   kdeps component clone jjuliano/kdeps-component-scraper
-  kdeps cloud login
   kdeps bundle package workflow.yaml`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// --instrument enables call-chain instrumentation (pkg/debug).
@@ -129,9 +128,6 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Component management (includes clone and info)
 	rootCmd.AddCommand(newComponentCmd())
-
-	// Cloud operations (login, logout, whoami, account, push, deployments, workflows)
-	rootCmd.AddCommand(newCloudCmd())
 
 	// Bundle for distribution (build, package, prepackage, export)
 	rootCmd.AddCommand(newBundleCmd())
