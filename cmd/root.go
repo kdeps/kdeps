@@ -70,24 +70,15 @@ func createRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "kdeps",
 		Short: "KDeps - AI Agent Framework",
-		Long: `KDeps v2 - Build AI agents with YAML configuration
-
-  new         Create a new AI agent
-  run         Run workflow locally
-  validate    Validate YAML configuration
-  scaffold    Add resources to existing agent
-  component   Manage components (install, list, show, clone, info)
-  bundle      Package for distribution (build, package, export...)
-  registry    File registry (search, info, install, publish)
-  federation  Universal Agent Federation (UAF)
+		Long: `Build AI agents with YAML configuration.
 
 Examples:
   kdeps new my-agent
   kdeps run workflow.yaml
   kdeps validate workflow.yaml
-  kdeps component show scraper
-  kdeps component clone jjuliano/kdeps-component-scraper
-  kdeps bundle package workflow.yaml`,
+  kdeps component install scraper
+  kdeps bundle package workflow.yaml
+  kdeps registry publish my-agent.kdeps`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// --instrument enables call-chain instrumentation (pkg/debug).
 			// --debug enables slog DEBUG level only; these are independent.
