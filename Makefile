@@ -139,7 +139,7 @@ test-all: test
 lint:
 	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
 	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --config=.golangci.yml ./...; \
+		golangci-lint run --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...; \
 	else \
 		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
 		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
