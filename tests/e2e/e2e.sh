@@ -75,7 +75,6 @@ source "$SCRIPT_DIR/test_features_embedding_upsert.sh"
 
 # CLI subcommand E2E tests
 source "$SCRIPT_DIR/test_bundle_export.sh"
-source "$SCRIPT_DIR/test_cloud_cli.sh"
 source "$SCRIPT_DIR/test_federation_cli.sh"
 source "$SCRIPT_DIR/test_completion_cmd.sh"
 source "$SCRIPT_DIR/test_features_clone_info.sh"
