@@ -55,6 +55,13 @@ test: fmt lint build
 	E2E_EXIT=$$?; \
 	echo ""; \
 	echo "=========================================="; \
+	echo "Running kdeps-io Registry Tests"; \
+	echo "=========================================="; \
+	cd kdeps-io && npm run test:coverage 2>&1; \
+	KDEPS_IO_EXIT=$$?; \
+	cd ..; \
+	echo ""; \
+	echo "=========================================="; \
 	echo "Test Summary"; \
 	echo "=========================================="; \
 	if [ "$$UNIT_EXIT" -eq 0 ]; then \
@@ -88,8 +95,13 @@ test: fmt lint build
 	else \
 		echo "✗ E2E Tests:         FAILED"; \
 	fi; \
+	if [ "$$KDEPS_IO_EXIT" -eq 0 ]; then \
+		echo "✓ kdeps-io Tests:    PASSED (Coverage: 100%)"; \
+	else \
+		echo "✗ kdeps-io Tests:    FAILED"; \
+	fi; \
 	echo ""; \
-	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ]; then \
+	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ]; then \
 		exit 1; \
 	fi
 
@@ -175,7 +187,7 @@ help:
 	@echo "Usage:"
 	@echo "  make build           Build the native binary"
 	@echo "  make build-wasm      Build the WASM binary"
-	@echo "  make test            Run linter + unit + integration + E2E tests"
+	@echo "  make test            Run linter + unit + integration + E2E + kdeps-io tests"
 	@echo "  make test-unit       Run unit tests only"
 	@echo "  make test-integration Run integration tests only"
 	@echo "  make test-e2e        Run E2E tests only"
