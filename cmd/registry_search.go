@@ -78,7 +78,7 @@ func newRegistrySearchCmd() *cobra.Command {
 
 func doRegistrySearch(cmd *cobra.Command, query, pkgType string, limit int, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistrySearch")
-	u, err := url.Parse(baseURL + "/api/packages")
+	u, err := url.Parse(baseURL + "/api/v1/registry/packages")
 	if err != nil {
 		return fmt.Errorf("parse URL: %w", err)
 	}
