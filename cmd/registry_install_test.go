@@ -106,7 +106,7 @@ func TestRegistryInstall_WorkflowWithoutVersion(t *testing.T) {
 	archiveData := testWorkflowArchive(t, "my-agent")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/packages/my-agent" {
+		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
 			body, _ := json.Marshal(map[string]string{"latestVersion": "2.0.0"})
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(stdhttp.StatusOK)

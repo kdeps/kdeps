@@ -103,7 +103,7 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, name+"-"+version+".kdeps")
-	downloadURL := fmt.Sprintf("%s/api/packages/%s/download/%s", baseURL, name, version)
+	downloadURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", baseURL, name, version)
 
 	if downloadErr := downloadArchive(downloadURL, archivePath); downloadErr != nil {
 		return downloadErr
@@ -264,7 +264,7 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 func resolveVersion(name, baseURL string) (string, error) {
 	kdeps_debug.Log("enter: resolveVersion")
 	client := &stdhttp.Client{Timeout: registryInstallInfoTimeout}
-	rawURL := baseURL + "/api/packages/" + name
+	rawURL := baseURL + "/api/v1/registry/packages/" + name
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
