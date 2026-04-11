@@ -102,17 +102,17 @@ func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string) error {
 		return fmt.Errorf("create archive: %w", err)
 	}
 
-	manifestBytes, err := os.ReadFile(filepath.Join(dir, manifest.ManifestFile))
-	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
-	}
-
-	rawURL := baseURL + "/api/packages"
+	rawURL := baseURL + "/api/v1/registry/packages/publish"
 	req, err := buildPublishRequest(publishRequestParams{
 		ctx:          context.Background(),
 		rawURL:       rawURL,
 		archiveBytes: archiveBytes,
-		manifestText: string(manifestBytes),
+		name:         m.Name,
+		version:      m.Version,
+		pkgType:      m.Type,
+		description:  m.Description,
+		license:      m.License,
+		tags:         m.Tags,
 		readme:       readme,
 		token:        token,
 	})
@@ -197,7 +197,12 @@ type publishRequestParams struct {
 	ctx          context.Context
 	rawURL       string
 	archiveBytes []byte
-	manifestText string
+	name         string
+	version      string
+	pkgType      string
+	description  string
+	license      string
+	tags         []string
 	readme       string
 	token        string
 }
@@ -207,15 +212,25 @@ func buildPublishRequest(p publishRequestParams) (*stdhttp.Request, error) {
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 
-	if err := mw.WriteField("manifest", p.manifestText); err != nil {
-		return nil, fmt.Errorf("write manifest field: %w", err)
+	fields := map[string]string{
+		"name":        p.name,
+		"version":     p.version,
+		"type":        p.pkgType,
+		"description": p.description,
+		"license":     p.license,
+		"tags":        strings.Join(p.tags, ","),
+	}
+	for k, v := range fields {
+		if err := mw.WriteField(k, v); err != nil {
+			return nil, fmt.Errorf("write field %s: %w", k, err)
+		}
 	}
 	if p.readme != "" {
 		if err := mw.WriteField("readme", p.readme); err != nil {
 			return nil, fmt.Errorf("write readme field: %w", err)
 		}
 	}
-	part, err := mw.CreateFormFile("archive", "package.tar.gz")
+	part, err := mw.CreateFormFile("package", "package.kdeps")
 	if err != nil {
 		return nil, fmt.Errorf("create archive part: %w", err)
 	}
