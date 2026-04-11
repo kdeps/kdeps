@@ -33,10 +33,8 @@ echo "Testing install + exec subcommands..."
 
 # Helper: capture exit code without || true masking it
 run_capturing() {
-    set +e
-    OUTPUT=$("$@" 2>&1)
-    EXIT_CODE=$?
-    set -e
+    EXIT_CODE=0
+    OUTPUT=$("$@" 2>&1) || EXIT_CODE=$?
 }
 
 # --- Test: exec help ---

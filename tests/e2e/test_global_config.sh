@@ -32,10 +32,8 @@ echo "Testing global config bootstrapping..."
 
 # Helper: run with piped stdin (non-interactive) and capture exit code
 run_noninteractive() {
-    set +e
-    OUTPUT=$(echo "" | env "$@" 2>&1)
-    EXIT_CODE=$?
-    set -e
+    EXIT_CODE=0
+    OUTPUT=$(echo "" | env "$@" 2>&1) || EXIT_CODE=$?
 }
 
 # --- Test: non-interactive scaffold creates config file ---
@@ -80,10 +78,8 @@ fi
 rm -rf "$CONFIG_DIR2"
 
 # --- Test: binary runs when config dir does not exist ---
-set +e
-OUTPUT=$(echo "" | env "KDEPS_CONFIG_PATH=/nonexistent/dir/config.yaml" "$KDEPS_BIN" validate /dev/null 2>&1)
-EXIT_CODE=$?
-set -e
+EXIT_CODE=0
+OUTPUT=$(echo "" | env "KDEPS_CONFIG_PATH=/nonexistent/dir/config.yaml" "$KDEPS_BIN" validate /dev/null 2>&1) || EXIT_CODE=$?
 # Should exit cleanly (even if config can't be written, the binary should not crash)
 if echo "$OUTPUT" | grep -qiE "validate|workflow|error|no such"; then
     test_passed "global config - binary runs when config path dir is missing"
