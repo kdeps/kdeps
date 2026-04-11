@@ -178,13 +178,17 @@ func (e *Executor) resolveConfig(
 	return &resolvedConfig, nil
 }
 
-// getPythonVersion extracts Python version from workflow settings.
+// getPythonVersion extracts Python version from workflow settings,
+// falling back to KDEPS_PYTHON_VERSION env var, then "3.12".
 func (e *Executor) getPythonVersion(ctx *executor.ExecutionContext) string {
 	kdeps_debug.Log("enter: getPythonVersion")
 	if ctx.Workflow.Settings.AgentSettings.PythonVersion != "" {
 		return ctx.Workflow.Settings.AgentSettings.PythonVersion
 	}
-	return "3.12" // Default
+	if v := os.Getenv("KDEPS_PYTHON_VERSION"); v != "" {
+		return v
+	}
+	return "3.12"
 }
 
 // getPythonDependencies extracts packages and requirements file from workflow settings.

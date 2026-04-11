@@ -304,6 +304,48 @@ my-agent/
 
 ---
 
+### `kdeps edit`
+
+Open the global kdeps configuration file (`~/.kdeps/config.yaml`) in your editor. If the file doesn't exist, it is scaffolded first.
+
+**Usage:**
+```bash
+kdeps edit [flags]
+```
+
+**Editor resolution order:**
+1. `$KDEPS_EDITOR`
+2. `$VISUAL`
+3. `$EDITOR`
+4. `vi` (fallback)
+
+**Example:**
+```bash
+kdeps edit
+KDEPS_EDITOR=code kdeps edit   # open in VS Code
+```
+
+**Configuration file structure:**
+```yaml
+# ~/.kdeps/config.yaml
+
+llm:
+  # ollama_host: http://localhost:11434
+  # model: llama3.2          # global default model
+  # openai_api_key: ""
+  # anthropic_api_key: ""
+  # ... other provider keys
+
+defaults:
+  # timezone: UTC
+  # python_version: "3.12"
+  # offline_mode: false
+```
+
+All values are exported as environment variables before workflow execution. Explicit environment variables always take precedence over config file values.
+
+---
+
 ### `kdeps scaffold`
 
 Add resource files to an existing agent.
@@ -814,7 +856,14 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 | Variable | Description |
 |----------|-------------|
 | `KDEPS_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, `error` |
-| `KDEPS_CONFIG_PATH` | Path to config file (if supported) |
+| `KDEPS_EDITOR` | Editor for `kdeps edit` (overrides `VISUAL`/`EDITOR`) |
+| `VISUAL` | Fallback editor for `kdeps edit` |
+| `EDITOR` | Second fallback editor for `kdeps edit` (falls back to `vi`) |
+| `KDEPS_DEFAULT_MODEL` | Global default LLM model (used when resource omits `model:`) |
+| `KDEPS_PYTHON_VERSION` | Global Python version (e.g. `3.12`) |
+| `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
+| `OLLAMA_HOST` | Ollama server URL (e.g. `http://localhost:11434`) |
+| `TZ` | Timezone applied to all workflow runs |
 
 ## Tips
 

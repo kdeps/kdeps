@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -1807,12 +1808,13 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		adapter.SetToolExecutor(e)
 	}
 
-	// Configure offline mode from workflow settings if adapter supports it
+	// Configure offline mode from workflow settings if adapter supports it.
+	// Falls back to KDEPS_OFFLINE_MODE env var set by global config defaults.
 	if adapter, ok := executor.(interface {
 		SetOfflineMode(bool)
 	}); ok {
-		offlineMode := false
-		if ctx.Workflow.Settings.AgentSettings.OfflineMode {
+		offlineMode := ctx.Workflow.Settings.AgentSettings.OfflineMode
+		if !offlineMode && os.Getenv("KDEPS_OFFLINE_MODE") == "true" {
 			offlineMode = true
 		}
 		adapter.SetOfflineMode(offlineMode)

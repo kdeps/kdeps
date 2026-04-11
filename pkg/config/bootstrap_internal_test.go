@@ -16,6 +16,7 @@
 package config
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,9 +36,9 @@ func TestWriteConfig_AllEmpty(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 	assert.Contains(t, content, "llm:")
-	assert.Contains(t, content, "registry:")
-	assert.Contains(t, content, "storage:")
-	// All empty fields should be commented out.
+	// registry and storage sections are gone; all empty fields commented out.
+	assert.NotContains(t, content, "registry:")
+	assert.NotContains(t, content, "storage:")
 	assert.Contains(t, content, "# ")
 }
 
@@ -45,20 +46,21 @@ func TestWriteConfig_WithValues(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	cfg := Config{
-		LLM:      LLMKeys{OpenAI: "sk-test", Anthropic: "ant-test"},
-		Registry: RegistryConfig{URL: "https://r.example.com", Token: "tok"},
-		Storage:  StorageConfig{AgentsDir: "/agents", ComponentsDir: "/comps"},
+		LLM: LLMKeys{
+			OllamaHost:   "http://localhost:11434",
+			DefaultModel: "llama3.2",
+			OpenAI:       "sk-test",
+			Anthropic:    "ant-test",
+		},
 	}
 	require.NoError(t, writeConfig(path, cfg))
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	content := string(data)
+	assert.Contains(t, content, `ollama_host: "http://localhost:11434"`)
+	assert.Contains(t, content, `model: "llama3.2"`)
 	assert.Contains(t, content, `openai_api_key: "sk-test"`)
 	assert.Contains(t, content, `anthropic_api_key: "ant-test"`)
-	assert.Contains(t, content, `url: "https://r.example.com"`)
-	assert.Contains(t, content, `token: "tok"`)
-	assert.Contains(t, content, `agents_dir: "/agents"`)
-	assert.Contains(t, content, `components_dir: "/comps"`)
 }
 
 func TestWriteConfig_MkdirError(t *testing.T) {
@@ -80,7 +82,194 @@ func TestWriteConfig_QuotesInValue(t *testing.T) {
 	assert.Contains(t, string(data), `key\"with\"quotes`)
 }
 
-// --- appendField ---
+// --- bootstrapInteractive ---
+
+// testWriter implements bootstrapWriter for tests.
+type testWriter struct{ strings.Builder }
+
+func (tw *testWriter) WriteString(s string) (int, error) { return tw.Builder.WriteString(s) }
+
+func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Input: choose "1" (ollama), accept default host, default model
+	input := "1\n\n\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, "ollama_host")
+	assert.Contains(t, content, "llama3.2")
+}
+
+func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Input: choose "1" (ollama), custom host, custom model
+	input := "1\nhttp://myserver:11434\nmistral\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, `ollama_host: "http://myserver:11434"`)
+	assert.Contains(t, content, `model: "mistral"`)
+}
+
+func TestBootstrapInteractive_OnlineProvider(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Input: choose "2" (openai), then API key via fallback reader
+	input := "2\nsk-mykey\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `openai_api_key: "sk-mykey"`)
+}
+
+func TestBootstrapInteractive_Skip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Input: skip (0)
+	reader := bufio.NewReader(strings.NewReader("0\n"))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	// Config should still be written, all keys commented out.
+	assert.Contains(t, string(data), "llm:")
+	assert.Contains(t, string(data), "# ")
+}
+
+func TestBootstrapInteractive_InvalidChoice_DefaultsToFirst(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// Input: invalid choice ("99"), then hits out-of-range → no provider chosen
+	reader := bufio.NewReader(strings.NewReader("99\n"))
+	var out testWriter
+	require.NoError(t, bootstrapInteractive(&out, reader, path))
+	// Should complete without error even with invalid choice
+	_, err := os.Stat(path)
+	assert.NoError(t, err)
+}
+
+func TestBootstrapInteractive_WriteError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0600))
+	path := filepath.Join(blocker, "sub", "config.yaml")
+
+	reader := bufio.NewReader(strings.NewReader("0\n"))
+	var out testWriter
+	err := bootstrapInteractive(&out, reader, path)
+	assert.Error(t, err)
+}
+
+func TestPromptLine_DefaultOnEmpty(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("\n"))
+	result := promptLine(os.Stdout, r, "prompt: ", "mydefault")
+	assert.Equal(t, "mydefault", result)
+}
+
+func TestPromptLine_ReturnsInput(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("uservalue\n"))
+	result := promptLine(os.Stdout, r, "prompt: ", "def")
+	assert.Equal(t, "uservalue", result)
+}
+
+func TestPromptLine_TrimsWhitespace(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("  hello  \n"))
+	result := promptLine(os.Stdout, r, "prompt: ", "def")
+	assert.Equal(t, "hello", result)
+}
+
+// --- readSecret (non-terminal path) ---
+
+func TestReadSecret_NonTerminal(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("mysecret\n"))
+	val, err := readSecret(r)
+	require.NoError(t, err)
+	assert.Equal(t, "mysecret", val)
+}
+
+func TestReadSecret_EmptyLine(t *testing.T) {
+	r := bufio.NewReader(strings.NewReader("\n"))
+	val, err := readSecret(r)
+	require.NoError(t, err)
+	assert.Equal(t, "", val)
+}
+
+// --- providerMetaMap ollama setter ---
+
+func TestProviderMetaMap_OllamaSetterWorks(t *testing.T) {
+	meta := providerMetaMap()
+	cfg := &Config{}
+	meta["ollama"].setter(cfg, "http://myhost:11434")
+	assert.Equal(t, "http://myhost:11434", cfg.LLM.OllamaHost)
+}
+
+// --- applyEnv offline_mode ---
+
+func TestApplyEnv_OfflineMode(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_OFFLINE_MODE"))
+	cfg := Config{Defaults: Defaults{OfflineMode: true}}
+	applyEnv(cfg)
+	assert.Equal(t, "true", os.Getenv("KDEPS_OFFLINE_MODE"))
+	// Cleanup
+	require.NoError(t, os.Unsetenv("KDEPS_OFFLINE_MODE"))
+}
+
+func TestApplyEnv_OfflineMode_NotOverwritten(t *testing.T) {
+	t.Setenv("KDEPS_OFFLINE_MODE", "existing")
+	cfg := Config{Defaults: Defaults{OfflineMode: true}}
+	applyEnv(cfg)
+	assert.Equal(t, "existing", os.Getenv("KDEPS_OFFLINE_MODE"))
+}
+
+func TestApplyEnv_Timezone(t *testing.T) {
+	require.NoError(t, os.Unsetenv("TZ"))
+	cfg := Config{Defaults: Defaults{Timezone: "America/New_York"}}
+	applyEnv(cfg)
+	assert.Equal(t, "America/New_York", os.Getenv("TZ"))
+	require.NoError(t, os.Unsetenv("TZ"))
+}
+
+func TestApplyEnv_PythonVersion(t *testing.T) {
+	require.NoError(t, os.Unsetenv("KDEPS_PYTHON_VERSION"))
+	cfg := Config{Defaults: Defaults{PythonVersion: "3.11"}}
+	applyEnv(cfg)
+	assert.Equal(t, "3.11", os.Getenv("KDEPS_PYTHON_VERSION"))
+	require.NoError(t, os.Unsetenv("KDEPS_PYTHON_VERSION"))
+}
+
+// --- writeConfig with defaults ---
+
+func TestWriteConfig_WithDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	cfg := Config{
+		Defaults: Defaults{Timezone: "UTC", PythonVersion: "3.11"},
+	}
+	require.NoError(t, writeConfig(path, cfg))
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, `timezone: "UTC"`)
+	assert.Contains(t, content, `python_version: "3.11"`)
+	assert.Contains(t, content, "defaults:")
+}
 
 func TestAppendField_Empty(t *testing.T) {
 	var lines []string
@@ -127,9 +316,10 @@ func TestDirOf_Root(t *testing.T) {
 func TestProviderNames_NonEmpty(t *testing.T) {
 	names := providerNames()
 	assert.NotEmpty(t, names)
+	assert.Contains(t, names, "ollama")
 	assert.Contains(t, names, "openai")
 	assert.Contains(t, names, "anthropic")
-	assert.Len(t, names, 10)
+	assert.Len(t, names, 11)
 }
 
 // --- providerMetaMap ---

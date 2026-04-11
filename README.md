@@ -201,6 +201,40 @@ kdeps bundle prepackage     # self-contained binary per arch
 kdeps cloud push            # live-update a running container
 ```
 
+## Global configuration
+
+`~/.kdeps/config.yaml` holds your LLM credentials and global defaults. It is created on first run — edit it with:
+
+```bash
+kdeps edit
+```
+
+```yaml
+# ~/.kdeps/config.yaml
+
+llm:
+  # Local inference via Ollama (no API key needed)
+  # ollama_host: http://localhost:11434
+  # model: llama3.2          # global default; overridden per resource
+
+  # Online providers — set only the ones you use
+  # openai_api_key: ""
+  # anthropic_api_key: ""
+  # google_api_key: ""
+  # groq_api_key: ""
+  # deepseek_api_key: ""
+  # openrouter_api_key: ""
+  # ... and more
+
+# Global defaults applied to all workflows that don't override them
+defaults:
+  # timezone: UTC
+  # python_version: "3.12"
+  # offline_mode: false
+```
+
+All values are applied as environment variables at startup. Explicit env vars always take precedence over the config file.
+
 ---
 
 [Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0

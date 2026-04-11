@@ -32,7 +32,7 @@ func TestLoad_NoFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, cfg)
 	assert.Empty(t, cfg.LLM.OpenAI)
-	assert.Empty(t, cfg.Registry.URL)
+	assert.Empty(t, cfg.LLM.OllamaHost)
 }
 
 func TestLoad_ValidFile(t *testing.T) {
@@ -40,37 +40,29 @@ func TestLoad_ValidFile(t *testing.T) {
 	path := filepath.Join(dir, "config.yaml")
 	content := `
 llm:
+  ollama_host: http://localhost:11434
+  model: llama3.2
   openai_api_key: sk-test
   anthropic_api_key: ant-test
-registry:
-  url: https://custom.registry.example
-  token: tok-abc
-storage:
-  agents_dir: /tmp/agents
-  components_dir: /tmp/components
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 	// Unset any pre-existing values so setIfUnset has room to act.
-	for _, k := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "KDEPS_REGISTRY_URL",
-		"KDEPS_REGISTRY_TOKEN", "KDEPS_AGENTS_DIR", "KDEPS_COMPONENT_DIR"} {
-		t.Setenv(k, "") // mark as set-but-empty; we need to actually unset
+	for _, k := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_HOST", "KDEPS_DEFAULT_MODEL"} {
 		require.NoError(t, os.Unsetenv(k))
 	}
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
 	assert.Equal(t, "sk-test", cfg.LLM.OpenAI)
-	assert.Equal(t, "https://custom.registry.example", cfg.Registry.URL)
-	assert.Equal(t, "/tmp/agents", cfg.Storage.AgentsDir)
+	assert.Equal(t, "http://localhost:11434", cfg.LLM.OllamaHost)
+	assert.Equal(t, "llama3.2", cfg.LLM.DefaultModel)
 
 	// Env vars should be populated.
 	assert.Equal(t, "sk-test", os.Getenv("OPENAI_API_KEY"))
 	assert.Equal(t, "ant-test", os.Getenv("ANTHROPIC_API_KEY"))
-	assert.Equal(t, "https://custom.registry.example", os.Getenv("KDEPS_REGISTRY_URL"))
-	assert.Equal(t, "tok-abc", os.Getenv("KDEPS_REGISTRY_TOKEN"))
-	assert.Equal(t, "/tmp/agents", os.Getenv("KDEPS_AGENTS_DIR"))
-	assert.Equal(t, "/tmp/components", os.Getenv("KDEPS_COMPONENT_DIR"))
+	assert.Equal(t, "http://localhost:11434", os.Getenv("OLLAMA_HOST"))
+	assert.Equal(t, "llama3.2", os.Getenv("KDEPS_DEFAULT_MODEL"))
 }
 
 func TestLoad_EnvVarWins(t *testing.T) {
@@ -95,6 +87,59 @@ func TestLoad_Malformed(t *testing.T) {
 
 	_, err := config.Load()
 	assert.Error(t, err)
+}
+
+func TestLoad_UnreadableFile(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("llm:\n"), 0600))
+	require.NoError(t, os.Chmod(path, 0000))
+	t.Cleanup(func() { _ = os.Chmod(path, 0600) })
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	_, err := config.Load()
+	assert.Error(t, err)
+}
+
+func TestScaffold_MkdirFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", filepath.Join(blocker, "sub", "config.yaml"))
+
+	err := config.Scaffold()
+	assert.Error(t, err)
+}
+
+func TestLoad_Defaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := `
+defaults:
+  timezone: UTC
+  python_version: "3.11"
+  offline_mode: true
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.Unsetenv("TZ"))
+	require.NoError(t, os.Unsetenv("KDEPS_PYTHON_VERSION"))
+	require.NoError(t, os.Unsetenv("KDEPS_OFFLINE_MODE"))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "UTC", cfg.Defaults.Timezone)
+	assert.Equal(t, "3.11", cfg.Defaults.PythonVersion)
+	assert.True(t, cfg.Defaults.OfflineMode)
+	assert.Equal(t, "UTC", os.Getenv("TZ"))
+	assert.Equal(t, "3.11", os.Getenv("KDEPS_PYTHON_VERSION"))
+	assert.Equal(t, "true", os.Getenv("KDEPS_OFFLINE_MODE"))
 }
 
 func TestScaffold_CreatesFile(t *testing.T) {
@@ -134,12 +179,4 @@ func TestAgentsDir_EnvOverride(t *testing.T) {
 	dir, err := config.AgentsDir(nil)
 	require.NoError(t, err)
 	assert.Equal(t, "/custom/agents", dir)
-}
-
-func TestAgentsDir_ConfigOverride(t *testing.T) {
-	require.NoError(t, os.Unsetenv("KDEPS_AGENTS_DIR"))
-	cfg := &config.Config{Storage: config.StorageConfig{AgentsDir: "/cfg/agents"}}
-	dir, err := config.AgentsDir(cfg)
-	require.NoError(t, err)
-	assert.Equal(t, "/cfg/agents", dir)
 }

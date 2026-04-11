@@ -37,8 +37,21 @@ const (
 	configFilePerm = 0600
 )
 
-// LLMKeys holds per-provider API keys.
+// Defaults holds global defaults for workflow agent settings.
+// These apply when a workflow's agentSettings does not specify a value.
+type Defaults struct {
+	Timezone      string `yaml:"timezone"`       // e.g. "UTC" or "America/New_York" — sets TZ env var
+	PythonVersion string `yaml:"python_version"` // e.g. "3.12" — sets KDEPS_PYTHON_VERSION
+	OfflineMode   bool   `yaml:"offline_mode"`   // sets KDEPS_OFFLINE_MODE=true when enabled
+}
+
+// LLMKeys holds per-provider API keys and global LLM defaults.
 type LLMKeys struct {
+	// Ollama — local inference, no API key needed.
+	OllamaHost   string `yaml:"ollama_host"` // default: http://localhost:11434
+	DefaultModel string `yaml:"model"`       // global default model; overridden per-resource
+
+	// Online provider API keys.
 	OpenAI     string `yaml:"openai_api_key"`
 	Anthropic  string `yaml:"anthropic_api_key"`
 	Google     string `yaml:"google_api_key"`
@@ -51,25 +64,10 @@ type LLMKeys struct {
 	OpenRouter string `yaml:"openrouter_api_key"`
 }
 
-// RegistryConfig holds registry connection settings.
-type RegistryConfig struct {
-	URL   string `yaml:"url"`
-	Token string `yaml:"token"`
-}
-
-// StorageConfig controls where kdeps stores data on disk.
-type StorageConfig struct {
-	// AgentsDir overrides the default ~/.kdeps/agents/ install location.
-	AgentsDir string `yaml:"agents_dir"`
-	// ComponentsDir overrides the default ~/.kdeps/components/ install location.
-	ComponentsDir string `yaml:"components_dir"`
-}
-
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
-	LLM      LLMKeys        `yaml:"llm"`
-	Registry RegistryConfig `yaml:"registry"`
-	Storage  StorageConfig  `yaml:"storage"`
+	LLM      LLMKeys  `yaml:"llm"`
+	Defaults Defaults `yaml:"defaults"`
 }
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
@@ -131,14 +129,10 @@ func Scaffold() error {
 }
 
 // AgentsDir returns the directory where installed agents are stored.
-// Env var KDEPS_AGENTS_DIR takes precedence, then Storage.AgentsDir from
-// config, then the default ~/.kdeps/agents/.
-func AgentsDir(cfg *Config) (string, error) {
+// Env var KDEPS_AGENTS_DIR takes precedence, then the default ~/.kdeps/agents/.
+func AgentsDir(_ *Config) (string, error) {
 	if d := os.Getenv("KDEPS_AGENTS_DIR"); d != "" {
 		return d, nil
-	}
-	if cfg != nil && cfg.Storage.AgentsDir != "" {
-		return cfg.Storage.AgentsDir, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -159,6 +153,18 @@ func setIfUnset(key, value string) {
 
 // applyEnv maps config fields to environment variables.
 func applyEnv(cfg Config) {
+	// Global agent defaults.
+	setIfUnset("TZ", cfg.Defaults.Timezone)
+	setIfUnset("KDEPS_PYTHON_VERSION", cfg.Defaults.PythonVersion)
+	if cfg.Defaults.OfflineMode {
+		setIfUnset("KDEPS_OFFLINE_MODE", "true")
+	}
+
+	// Ollama — local inference.
+	setIfUnset("OLLAMA_HOST", cfg.LLM.OllamaHost)
+	// Global default model (used when a resource does not specify model:).
+	setIfUnset("KDEPS_DEFAULT_MODEL", cfg.LLM.DefaultModel)
+
 	// LLM API keys — map to the standard env vars that pkg/executor/llm/backend.go reads.
 	setIfUnset("OPENAI_API_KEY", cfg.LLM.OpenAI)
 	setIfUnset("ANTHROPIC_API_KEY", cfg.LLM.Anthropic)
@@ -170,14 +176,6 @@ func applyEnv(cfg Config) {
 	setIfUnset("GROQ_API_KEY", cfg.LLM.Groq)
 	setIfUnset("DEEPSEEK_API_KEY", cfg.LLM.DeepSeek)
 	setIfUnset("OPENROUTER_API_KEY", cfg.LLM.OpenRouter)
-
-	// Registry settings.
-	setIfUnset("KDEPS_REGISTRY_URL", cfg.Registry.URL)
-	setIfUnset("KDEPS_REGISTRY_TOKEN", cfg.Registry.Token)
-
-	// Storage paths.
-	setIfUnset("KDEPS_AGENTS_DIR", cfg.Storage.AgentsDir)
-	setIfUnset("KDEPS_COMPONENT_DIR", cfg.Storage.ComponentsDir)
 }
 
 const defaultConfigTemplate = `# kdeps global configuration
@@ -185,9 +183,18 @@ const defaultConfigTemplate = `# kdeps global configuration
 #
 # Values set here are applied as defaults. Explicit environment variables and
 # local .env files always take precedence.
+#
+# Edit at any time with:  kdeps edit
 
 llm:
-  # API keys for LLM providers. Set only the providers you use.
+  # ── Ollama (local, no API key needed) ──────────────────────────────────────
+  # ollama_host: http://localhost:11434
+
+  # Global default model — used when a resource does not specify model:
+  # Examples: llama3.2  |  llama3.2:3b  |  qwen2.5:7b  |  gpt-4o  |  claude-3-5-sonnet-20241022
+  # model: llama3.2
+
+  # ── Online provider API keys (set only the ones you use) ───────────────────
   # openai_api_key: ""
   # anthropic_api_key: ""
   # google_api_key: ""
@@ -199,15 +206,9 @@ llm:
   # deepseek_api_key: ""
   # openrouter_api_key: ""
 
-registry:
-  # Base URL of the kdeps registry (default: https://registry.kdeps.io).
-  # url: https://registry.kdeps.io
-  # API token for publishing packages.
-  # token: ""
-
-storage:
-  # Override where 'kdeps install' places downloaded agents.
-  # agents_dir: ""
-  # Override where components are installed globally.
-  # components_dir: ""
+# Global defaults — applied to all workflows that don't override them.
+defaults:
+  # timezone: UTC
+  # python_version: "3.12"
+  # offline_mode: false
 `

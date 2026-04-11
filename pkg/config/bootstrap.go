@@ -30,8 +30,10 @@ type providerKey struct {
 }
 
 // providerNames returns the ordered list of supported LLM provider names.
+// "ollama" is the local option (no API key needed).
 func providerNames() []string {
 	return []string{
+		"ollama",
 		"openai", "anthropic", "google", "cohere",
 		"mistral", "together", "perplexity", "groq", "deepseek", "openrouter",
 	}
@@ -40,6 +42,7 @@ func providerNames() []string {
 // providerMetaMap returns the metadata for each provider.
 func providerMetaMap() map[string]providerKey {
 	return map[string]providerKey{
+		"ollama":     {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
 		"openai":     {"OPENAI_API_KEY", func(c *Config, v string) { c.LLM.OpenAI = v }},
 		"anthropic":  {"ANTHROPIC_API_KEY", func(c *Config, v string) { c.LLM.Anthropic = v }},
 		"google":     {"GOOGLE_API_KEY", func(c *Config, v string) { c.LLM.Google = v }},
@@ -73,20 +76,33 @@ func Bootstrap(out *os.File) error {
 		return Scaffold()
 	}
 
-	fmt.Fprintln(out, "")
-	fmt.Fprintln(out, "  Welcome to kdeps!")
-	fmt.Fprintln(out, "  No configuration found. Let's set up ~/.kdeps/config.yaml.")
-	fmt.Fprintln(out, "")
+	reader := bufio.NewReader(os.Stdin)
+	return bootstrapInteractive(out, reader, path)
+}
+
+// bootstrapWriter is an io.Writer-like interface used by bootstrapInteractive.
+type bootstrapWriter interface {
+	WriteString(string) (int, error)
+}
+
+// bootstrapInteractive runs the interactive setup wizard.
+// Separated from Bootstrap so it can be tested without a real TTY.
+func bootstrapInteractive(out bootstrapWriter, reader *bufio.Reader, path string) error {
+	w := &fmtWriter{out}
+
+	w.println("")
+	w.println("  Welcome to kdeps!")
+	w.println("  No configuration found. Let's set up ~/.kdeps/config.yaml.")
+	w.println("")
 
 	// --- LLM provider selection ---
-	fmt.Fprintln(out, "  Which LLM provider do you want to use?")
+	w.println("  Which LLM provider do you want to use?")
 	for i, p := range providerNames() {
-		fmt.Fprintf(out, "    [%d] %s\n", i+1, p)
+		w.printf("    [%d] %s\n", i+1, p)
 	}
-	fmt.Fprintln(out, "    [0] Skip (configure later)")
-	fmt.Fprintln(out, "")
+	w.println("    [0] Skip (configure later)")
+	w.println("")
 
-	reader := bufio.NewReader(os.Stdin)
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 
 	var cfg Config
@@ -100,38 +116,37 @@ func Bootstrap(out *os.File) error {
 	}
 
 	if chosenProvider != "" {
-		meta := providerMetaMap()[chosenProvider]
-		fmt.Fprintf(out, "\n  Enter your %s API key (input hidden): ", chosenProvider)
-		apiKey, readErr := readSecret(reader)
-		fmt.Fprintln(out, "")
-		if readErr == nil && strings.TrimSpace(apiKey) != "" {
-			meta.setter(&cfg, strings.TrimSpace(apiKey))
+		if err := configureProvider(out, reader, w, &cfg, chosenProvider); err != nil {
+			return err
 		}
-	}
-
-	// --- Registry token (optional) ---
-	fmt.Fprintln(out, "")
-	tokenRaw := promptLine(out, reader, "  kdeps registry token (optional, press Enter to skip): ", "")
-	if strings.TrimSpace(tokenRaw) != "" {
-		cfg.Registry.Token = strings.TrimSpace(tokenRaw)
 	}
 
 	if writeErr := writeConfig(path, cfg); writeErr != nil {
 		return writeErr
 	}
 
-	fmt.Fprintln(out, "")
-	fmt.Fprintf(out, "  ✓ Configuration written to %s\n", path)
-	fmt.Fprintln(out, "  You can edit it at any time to add more providers or change settings.")
-	fmt.Fprintln(out, "")
+	w.println("")
+	w.printf("  ✓ Configuration written to %s\n", path)
+	w.println("  You can edit it at any time to add more providers or change settings.")
+	w.println("")
 
 	applyEnv(cfg)
 	return nil
 }
 
+// fmtWriter wraps a WriteString-capable writer for fmt calls.
+type fmtWriter struct {
+	w bootstrapWriter
+}
+
+func (f *fmtWriter) println(s string) { _, _ = f.w.WriteString(s + "\n") }
+func (f *fmtWriter) printf(format string, args ...interface{}) {
+	_, _ = f.w.WriteString(fmt.Sprintf(format, args...))
+}
+
 // promptLine prints prompt, reads a line, returns def if the line is blank.
-func promptLine(out *os.File, r *bufio.Reader, prompt, def string) string {
-	fmt.Fprint(out, prompt)
+func promptLine(out bootstrapWriter, r *bufio.Reader, prompt, def string) string {
+	_, _ = out.WriteString(prompt)
 	line, _ := r.ReadString('\n')
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -164,6 +179,8 @@ func writeConfig(path string, cfg Config) error {
 	lines = append(lines, "")
 
 	lines = append(lines, "llm:")
+	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
+	appendField(&lines, "  model", cfg.LLM.DefaultModel)
 	appendField(&lines, "  openai_api_key", cfg.LLM.OpenAI)
 	appendField(&lines, "  anthropic_api_key", cfg.LLM.Anthropic)
 	appendField(&lines, "  google_api_key", cfg.LLM.Google)
@@ -174,16 +191,11 @@ func writeConfig(path string, cfg Config) error {
 	appendField(&lines, "  groq_api_key", cfg.LLM.Groq)
 	appendField(&lines, "  deepseek_api_key", cfg.LLM.DeepSeek)
 	appendField(&lines, "  openrouter_api_key", cfg.LLM.OpenRouter)
-
 	lines = append(lines, "")
-	lines = append(lines, "registry:")
-	appendField(&lines, "  url", cfg.Registry.URL)
-	appendField(&lines, "  token", cfg.Registry.Token)
 
-	lines = append(lines, "")
-	lines = append(lines, "storage:")
-	appendField(&lines, "  agents_dir", cfg.Storage.AgentsDir)
-	appendField(&lines, "  components_dir", cfg.Storage.ComponentsDir)
+	lines = append(lines, "defaults:")
+	appendField(&lines, "  timezone", cfg.Defaults.Timezone)
+	appendField(&lines, "  python_version", cfg.Defaults.PythonVersion)
 	lines = append(lines, "")
 
 	content := strings.Join(lines, "\n")
@@ -210,4 +222,29 @@ func dirOf(path string) string {
 		}
 	}
 	return "."
+}
+
+// configureProvider handles interactive setup for one provider (ollama or online).
+func configureProvider(
+	out bootstrapWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
+) error {
+	meta := providerMetaMap()[chosenProvider]
+	if chosenProvider == "ollama" {
+		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
+		if strings.TrimSpace(hostRaw) != "" {
+			meta.setter(cfg, strings.TrimSpace(hostRaw))
+		}
+		modelRaw := promptLine(out, reader, "  Default model [llama3.2]: ", "llama3.2")
+		if strings.TrimSpace(modelRaw) != "" {
+			cfg.LLM.DefaultModel = strings.TrimSpace(modelRaw)
+		}
+		return nil
+	}
+	w.printf("\n  Enter your %s API key (input hidden): ", chosenProvider)
+	apiKey, readErr := readSecret(reader)
+	w.println("")
+	if readErr == nil && strings.TrimSpace(apiKey) != "" {
+		meta.setter(cfg, strings.TrimSpace(apiKey))
+	}
+	return nil
 }

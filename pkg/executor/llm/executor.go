@@ -224,6 +224,11 @@ func (e *Executor) Execute(
 		return nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
 
+	// Fall back to global default model from config when resource model is empty.
+	if modelStr == "" {
+		modelStr = os.Getenv("KDEPS_DEFAULT_MODEL")
+	}
+
 	// Enforce workflow-level model allowlist: if agentSettings.models is set,
 	// only those models may be used. An empty or non-allowlisted resource model
 	// is replaced with the first allowlisted model.
