@@ -44,13 +44,11 @@ const (
 )
 
 type registryPackage struct {
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	Description    string `json:"description"`
-	Author         string `json:"authorName"`
-	StarsCount     int    `json:"starsCount"`
-	DownloadsCount int    `json:"downloadsCount"`
-	LatestVersion  string `json:"latestVersion"`
+	Name          string `json:"name"`
+	Type          string `json:"type"`
+	Description   string `json:"description"`
+	Author        string `json:"authorName"`
+	LatestVersion string `json:"latestVersion"`
 }
 
 type searchResponse struct {
@@ -130,14 +128,14 @@ func printRegistrySearchResults(cmd *cobra.Command, pkgs []registryPackage, quer
 		fmt.Fprintf(cmd.OutOrStdout(), "No packages found for query: %s\n", query)
 		return
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %6s %s\n",
-		"Name", "Type", "Description", "Author", "Stars", "Version")
+	fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %s\n",
+		"Name", "Type", "Description", "Author", "Version")
 	for _, p := range pkgs {
 		desc := p.Description
 		if len(desc) > registrySearchDescMaxLen {
 			desc = desc[:registrySearchDescTruncLen] + "..."
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %6d %s\n",
-			p.Name, p.Type, desc, p.Author, p.StarsCount, p.LatestVersion)
+		fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %s\n",
+			p.Name, p.Type, desc, p.Author, p.LatestVersion)
 	}
 }

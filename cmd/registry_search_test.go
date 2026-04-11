@@ -38,7 +38,7 @@ func TestRegistrySearch_Success(t *testing.T) {
 		Packages: []registryPackage{
 			{
 				Name: "my-agent", Type: "workflow", Description: "A test agent",
-				Author: "alice", StarsCount: 5, LatestVersion: "1.0.0",
+				Author: "alice", LatestVersion: "1.0.0",
 			},
 		},
 	}
