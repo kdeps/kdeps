@@ -1,0 +1,8 @@
+name: tools
+version: "1.0.0"
+type: workflow
+description: "LLM tool/function calling: declare available functions for the LLM to invoke"
+tags:
+  - llm
+  - tools
+  - function-calling

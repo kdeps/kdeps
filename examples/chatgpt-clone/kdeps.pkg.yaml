@@ -1,0 +1,8 @@
+name: chatgpt-clone
+version: "1.0.0"
+type: workflow
+description: "ChatGPT-like web UI powered by local LLMs via Ollama"
+tags:
+  - llm
+  - ui
+  - chatbot

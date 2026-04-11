@@ -1,0 +1,7 @@
+name: agency
+version: "1.0.0"
+type: agency
+description: "Simple two-agent agency demonstrating inter-agent calls and agency packaging"
+tags:
+  - agency
+  - multi-agent

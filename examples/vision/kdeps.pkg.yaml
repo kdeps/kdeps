@@ -1,0 +1,8 @@
+name: vision
+version: "1.0.0"
+type: workflow
+description: "Vision model integration for analyzing images with multimodal LLMs"
+tags:
+  - vision
+  - images
+  - multimodal

@@ -1,0 +1,7 @@
+name: input-component
+version: "1.0.0"
+type: workflow
+description: "Built-in input component that collects named input slots and returns structured JSON"
+tags:
+  - input
+  - components

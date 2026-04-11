@@ -1,0 +1,8 @@
+name: shared-workflow
+version: "1.0.0"
+type: workflow
+description: "Workflow import pattern: shared base workflow with authentication inherited by others"
+tags:
+  - shared
+  - workflow
+  - imports

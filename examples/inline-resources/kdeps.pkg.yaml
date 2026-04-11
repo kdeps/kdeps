@@ -1,0 +1,8 @@
+name: inline-resources
+version: "1.0.0"
+type: workflow
+description: "Inline resources: LLM, HTTP, Exec, SQL, and Python running before/after main resource"
+tags:
+  - inline
+  - resources
+  - advanced

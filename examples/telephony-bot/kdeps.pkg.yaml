@@ -1,0 +1,8 @@
+name: telephony-bot
+version: "1.0.0"
+type: workflow
+description: "AI phone call handler: Twilio telephony, Deepgram STT, OpenAI TTS"
+tags:
+  - telephony
+  - voice
+  - twilio

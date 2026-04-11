@@ -1,0 +1,7 @@
+name: component-komponent
+version: "1.0.0"
+type: workflow
+description: "Auto-loading .komponent archives from the components/ directory"
+tags:
+  - components
+  - komponent

@@ -1,0 +1,7 @@
+name: components-advanced
+version: "1.0.0"
+type: workflow
+description: "Advanced components: unpacked directories and packed .komponent archives"
+tags:
+  - components
+  - advanced

@@ -1,0 +1,7 @@
+name: component-input-source
+version: "1.0.0"
+type: workflow
+description: "Workflow driven exclusively by run.component calls (no HTTP server or file reader)"
+tags:
+  - components
+  - input-source

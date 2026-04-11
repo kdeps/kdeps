@@ -1,0 +1,8 @@
+name: session-auth
+version: "1.0.0"
+type: workflow
+description: "Session management with persistent SQLite storage for authentication"
+tags:
+  - session
+  - auth
+  - sqlite

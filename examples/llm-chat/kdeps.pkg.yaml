@@ -1,0 +1,7 @@
+name: llm-chat
+version: "1.0.0"
+type: workflow
+description: "Interactive LLM chat using the llm input source (stdin REPL)"
+tags:
+  - llm
+  - chat

@@ -1,0 +1,8 @@
+name: personal-assistant-agency
+version: "1.0.0"
+type: agency
+description: "OpenClaw-style personal AI assistant: Gateway, Brain, Memory, Skills, and Heartbeat agents"
+tags:
+  - assistant
+  - agency
+  - multi-agent

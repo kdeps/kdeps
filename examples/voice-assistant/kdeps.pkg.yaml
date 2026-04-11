@@ -1,0 +1,8 @@
+name: voice-assistant
+version: "1.0.0"
+type: workflow
+description: "Fully offline voice assistant: wake phrase, STT, LLM response, TTS - no cloud"
+tags:
+  - voice
+  - stt
+  - tts

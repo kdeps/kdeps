@@ -1,0 +1,8 @@
+name: sql-advanced
+version: "1.0.0"
+type: workflow
+description: "Advanced SQL features: transactions, prepared statements, migrations, and aggregations"
+tags:
+  - sql
+  - database
+  - advanced

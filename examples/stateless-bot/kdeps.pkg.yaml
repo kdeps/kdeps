@@ -1,0 +1,8 @@
+name: stateless-bot
+version: "1.0.0"
+type: workflow
+description: "One-shot bot: reads from stdin, processes with LLM, writes reply to stdout"
+tags:
+  - bot
+  - stdin
+  - llm

@@ -1,0 +1,8 @@
+name: linkedin-auto-apply
+version: "1.0.0"
+type: workflow
+description: "Automated LinkedIn job applications with headless Chromium and local LLM"
+tags:
+  - browser
+  - automation
+  - llm

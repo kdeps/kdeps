@@ -1,0 +1,8 @@
+name: codeguard-agency
+version: "1.0.0"
+type: agency
+description: "AI code review agency running security and quality analysis in parallel"
+tags:
+  - code-review
+  - security
+  - agency

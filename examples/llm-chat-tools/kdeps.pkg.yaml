@@ -1,0 +1,8 @@
+name: llm-chat-tools
+version: "1.0.0"
+type: workflow
+description: "Interactive LLM chat REPL with 10 built-in tools for factual data and computation"
+tags:
+  - llm
+  - tools
+  - function-calling

@@ -1,0 +1,8 @@
+name: file-upload
+version: "1.0.0"
+type: workflow
+description: "File upload handling with multipart form-data support"
+tags:
+  - file
+  - upload
+  - http

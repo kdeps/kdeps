@@ -1,0 +1,7 @@
+name: component-setup-teardown
+version: "1.0.0"
+type: workflow
+description: "Component lifecycle hooks: automatic dependency installation and per-run cleanup"
+tags:
+  - components
+  - lifecycle

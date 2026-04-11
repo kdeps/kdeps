@@ -1,0 +1,8 @@
+name: video-analysis
+version: "1.0.0"
+type: workflow
+description: "Continuous AI camera surveillance: capture frames, analyze with vision LLM, log detections"
+tags:
+  - vision
+  - video
+  - surveillance

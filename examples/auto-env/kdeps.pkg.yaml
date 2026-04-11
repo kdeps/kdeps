@@ -1,0 +1,8 @@
+name: auto-env
+version: "1.0.0"
+type: workflow
+description: "Automatic environment variable scoping for components"
+tags:
+  - components
+  - env
+  - config

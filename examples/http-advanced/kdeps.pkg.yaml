@@ -1,0 +1,8 @@
+name: http-advanced
+version: "1.0.0"
+type: workflow
+description: "Advanced HTTP client: auth, retries, custom headers, streaming, and webhooks"
+tags:
+  - http
+  - client
+  - advanced

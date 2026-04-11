@@ -1,0 +1,7 @@
+name: components-unpacked
+version: "1.0.0"
+type: workflow
+description: "Using unpacked component directories alongside .komponent archives"
+tags:
+  - components
+  - komponent

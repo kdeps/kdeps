@@ -1,0 +1,8 @@
+name: cv-matcher-deepseek
+version: "1.0.0"
+type: workflow
+description: "CV/JD matching pipeline using DeepSeek API for LLM and Ollama for embeddings"
+tags:
+  - cv
+  - ai
+  - deepseek

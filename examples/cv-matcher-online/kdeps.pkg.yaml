@@ -1,0 +1,8 @@
+name: cv-matcher-online
+version: "1.0.0"
+type: workflow
+description: "Online AI-powered CV/JD matching pipeline using cloud LLM APIs"
+tags:
+  - cv
+  - ai
+  - matching

@@ -1,0 +1,7 @@
+name: jinja2-expressions
+version: "1.0.0"
+type: workflow
+description: "Jinja2 preprocessing in workflow and resource YAML files"
+tags:
+  - jinja2
+  - templates
