@@ -177,3 +177,12 @@ var NewRunCmdForTest = newRunCmd //nolint:gochecknoglobals // test-only export
 // DispatchExecutionWithEngine exposes the unexported dispatchExecutionWithEngine
 // helper for white-box unit tests.
 var DispatchExecutionWithEngine = dispatchExecutionWithEngine //nolint:gochecknoglobals // test-only export
+
+// NewRegistryUninstallCmd exposes newRegistryUninstallCmd for integration tests.
+var NewRegistryUninstallCmd = newRegistryUninstallCmd //nolint:gochecknoglobals // test-only export
+
+// NewRegistryUpdateCmd exposes newRegistryUpdateCmd for integration tests.
+var NewRegistryUpdateCmd = newRegistryUpdateCmd //nolint:gochecknoglobals // test-only export
+
+// KdepsAgentsDir exposes kdepsAgentsDir for integration tests.
+var KdepsAgentsDir = kdepsAgentsDir //nolint:gochecknoglobals // test-only export

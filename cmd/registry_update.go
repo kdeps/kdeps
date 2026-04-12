@@ -112,3 +112,9 @@ func findInstalledPackage(name string) (bool, string, error) {
 
 	return false, "", nil
 }
+
+// DoRegistryUpdate is an exported wrapper for doRegistryUpdate, for use in
+// integration and external tests.
+func DoRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
+	return doRegistryUpdate(cmd, pkg, baseURL)
+}

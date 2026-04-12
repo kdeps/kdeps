@@ -85,7 +85,8 @@ func uninstallAgent(cmd *cobra.Command, name string) (bool, error) {
 		return false, nil
 	}
 	if removeErr := os.RemoveAll(destDir); removeErr != nil {
-		return false, fmt.Errorf("remove agent %q: %w", name, removeErr)
+		// Infrastructure error — content is descriptive enough.
+		return false, fmt.Errorf("remove agent %q: %w", name, removeErr) //nolint:golines // nolint explanation makes line long
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled agent %q from %s\n", name, destDir)
 	return true, nil
@@ -122,4 +123,10 @@ func uninstallComponent(cmd *cobra.Command, name string) (bool, error) {
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, destDir)
 	return true, nil
+}
+
+// DoRegistryUninstall is an exported wrapper for doRegistryUninstall, for use in
+// integration and external tests.
+func DoRegistryUninstall(cmd *cobra.Command, name string) error {
+	return doRegistryUninstall(cmd, name)
 }
