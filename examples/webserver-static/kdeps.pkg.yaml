@@ -1,8 +1,0 @@
-name: webserver-static
-version: "1.0.0"
-type: workflow
-description: "kdeps WebServer mode for serving static files"
-tags:
-  - webserver
-  - static
-  - http

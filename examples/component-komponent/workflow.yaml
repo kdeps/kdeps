@@ -1,8 +1,0 @@
-apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: component-komponent-example
-  description: Demonstrates auto-loading a .komponent component
-  targetActionId: finalResponse
-settings:
-  apiServerMode: false

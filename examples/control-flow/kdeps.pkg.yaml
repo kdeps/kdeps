@@ -1,7 +1,0 @@
-name: control-flow
-version: "1.0.0"
-type: workflow
-description: "Control flow with if-else ternary, logical operators, and conditional skipping"
-tags:
-  - control-flow
-  - conditions

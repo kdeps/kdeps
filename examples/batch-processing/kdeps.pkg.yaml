@@ -1,8 +1,0 @@
-name: batch-processing
-version: "1.0.0"
-type: workflow
-description: "Batch processing with items iteration for parallel or sequential array processing"
-tags:
-  - batch
-  - parallel
-  - items

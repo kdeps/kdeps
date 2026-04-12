@@ -1,8 +1,0 @@
-name: scraper-native
-version: "1.0.0"
-type: workflow
-description: Web scraping + AI summarization using the native scraper executor
-tags:
-  - scraper
-  - ai
-  - summarization

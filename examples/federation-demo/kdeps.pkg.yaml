@@ -1,8 +1,0 @@
-name: federation-demo
-version: "1.0.0"
-type: agency
-description: "Universal Agent Federation demo: agent-to-agent HTTP calls with cryptographic signing"
-tags:
-  - federation
-  - security
-  - agency

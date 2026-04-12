@@ -1,7 +1,0 @@
-name: hybrid-expressions
-version: "1.0.0"
-type: workflow
-description: "Hybrid expressions mixing get() API calls with arithmetic operators"
-tags:
-  - expressions
-  - advanced

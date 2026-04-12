@@ -1,7 +1,0 @@
-name: docker-config
-version: "1.0.0"
-type: workflow
-description: "All Docker configuration features in kdeps: volumes, networks, env, resources"
-tags:
-  - docker
-  - configuration

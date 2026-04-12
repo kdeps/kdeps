@@ -1,8 +1,0 @@
-name: webserver-proxy
-version: "1.0.0"
-type: workflow
-description: "kdeps WebServer mode with reverse proxying to a backend application"
-tags:
-  - webserver
-  - proxy
-  - http

@@ -1,7 +1,0 @@
-name: search-web-native
-version: "1.0.0"
-type: workflow
-description: Web search using the native searchWeb executor (DuckDuckGo by default)
-tags:
-  - search
-  - web

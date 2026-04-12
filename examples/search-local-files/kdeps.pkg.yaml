@@ -1,7 +1,0 @@
-name: search-local-files
-version: "1.0.0"
-type: workflow
-description: Local filesystem search using the native searchLocal executor
-tags:
-  - search
-  - filesystem

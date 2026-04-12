@@ -1,8 +1,0 @@
-name: complex-workflow
-version: "1.0.0"
-type: workflow
-description: "Multi-resource workflow with parallel execution, dependencies, and data flow"
-tags:
-  - parallel
-  - workflow
-  - advanced

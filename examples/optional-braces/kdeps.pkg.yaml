@@ -1,7 +1,0 @@
-name: optional-braces
-version: "1.0.0"
-type: workflow
-description: "{{ }} braces are optional for direct expressions but required for string interpolation"
-tags:
-  - expressions
-  - syntax
