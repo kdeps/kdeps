@@ -132,10 +132,6 @@ func addSubcommands(rootCmd *cobra.Command) {
 	newCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(newCmd)
 
-	scaffoldCmd := newScaffoldCmd()
-	scaffoldCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(scaffoldCmd)
-
 	editCmd := newEditCmd()
 	editCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(editCmd)
