@@ -97,14 +97,14 @@ available to any workflow run from that machine.`,
 
 func newComponentInstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newComponentInstallCmd")
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "install <name|owner/repo[:subdir]>",
 		Short: "Install a component",
 		Long: `Download and install a kdeps component (.komponent package).
 
-Accepts a short name from the built-in registry, or a GitHub reference:
+Accepts a short name from the kdeps registry, or a GitHub reference:
 
-  <name>                  Built-in registry (email, scraper, tts, …)
+  <name>                  Registry lookup (email, scraper, tts, …)
   <owner>/<repo>          Latest release .komponent from that repo
   <owner>/<repo>:<subdir> .komponent from a subdirectory of the repo archive
 
@@ -114,7 +114,7 @@ Examples:
   kdeps component install jjuliano/kdeps-component-scraper
   kdeps component install jjuliano/my-components:scraper`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: component install RunE")
 			ref := strings.ToLower(args[0])
 
@@ -123,20 +123,12 @@ Examples:
 				return installComponentFromRemote(ref)
 			}
 
-			// Built-in registry name
-			registry := knownComponents()
-			repo, ok := registry[ref]
-			if !ok {
-				names := make([]string, 0, len(registry))
-				for n := range registry {
-					names = append(names, n)
-				}
-				return fmt.Errorf("unknown component %q - available: %s",
-					ref, strings.Join(names, ", "))
-			}
-			return installComponent(ref, repo)
+			// Registry lookup via kdeps-io
+			return installComponentFromRegistry(cmd, ref, registryURL(cmd))
 		},
 	}
+	cmd.Flags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
+	return cmd
 }
 
 func newComponentListCmd() *cobra.Command {
@@ -644,6 +636,53 @@ func installComponentFromArchive(owner, repo, subdir, name, destDir string) erro
 		return fmt.Errorf("copy component: %w", copyErr)
 	}
 
+	fmt.Fprintf(os.Stdout, "Installed component: %s -> %s\n", name, destPath)
+	return nil
+}
+
+// installComponentFromRegistry resolves a component name via the kdeps-io registry.
+// If the registry reports type=component (built-in), it prints usage instructions.
+// Otherwise it downloads the archive and installs it.
+func installComponentFromRegistry(cmd *cobra.Command, name, baseURL string) error {
+	kdeps_debug.Log("enter: installComponentFromRegistry")
+	info, err := resolvePackageInfo(name, baseURL)
+	if err != nil {
+		// Fall back to knownComponents + GitHub if not found in registry
+		if repo, ok := knownComponents()[name]; ok {
+			return installComponent(name, repo)
+		}
+		return err
+	}
+
+	// Built-in component: ships with kdeps, nothing to download.
+	if strings.EqualFold(info.Type, "component") {
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "\n✓ %s is a built-in kdeps component — no installation needed.\n\n", name)
+		fmt.Fprintln(w, "Use it directly in your workflow resource:")
+		fmt.Fprintln(w, "")
+		fmt.Fprintln(w, "  run:")
+		fmt.Fprintf(w, "    %s:\n", name)
+		fmt.Fprintln(w, "      # see docs for available options")
+		fmt.Fprintln(w, "")
+		fmt.Fprintf(w, "Full reference: https://registry.kdeps.io/packages/%s\n\n", name)
+		return nil
+	}
+
+	// Downloadable package from the registry.
+	version := info.LatestVersion
+	downloadURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", baseURL, name, version)
+	dir, err := componentInstallDir()
+	if err != nil {
+		return err
+	}
+	if mkErr := os.MkdirAll(dir, 0o750); mkErr != nil {
+		return fmt.Errorf("create component directory: %w", mkErr)
+	}
+	destPath := filepath.Join(dir, name+komponentExtension)
+	fmt.Fprintf(os.Stdout, "Downloading %s@%s from registry...\n", name, version)
+	if dlErr := downloadFileTo(downloadURL, destPath); dlErr != nil {
+		return fmt.Errorf("download component: %w", dlErr)
+	}
 	fmt.Fprintf(os.Stdout, "Installed component: %s -> %s\n", name, destPath)
 	return nil
 }

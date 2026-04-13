@@ -295,7 +295,10 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode != stdhttp.StatusOK {
 		if resp.StatusCode == stdhttp.StatusNotFound {
-			return nil, fmt.Errorf("package %q not found in registry\n\n  Browse available packages: https://registry.kdeps.io/packages", name)
+			return nil, fmt.Errorf(
+				"package %q not found in registry\n\n  Browse available packages: https://registry.kdeps.io/packages",
+				name,
+			)
 		}
 		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
 	}
@@ -327,7 +330,9 @@ func downloadArchive(rawURL, destPath string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode != stdhttp.StatusOK {
 		if resp.StatusCode == stdhttp.StatusNotFound {
-			return fmt.Errorf("package archive not found\n\n  Browse available packages: https://registry.kdeps.io/packages")
+			return errors.New(
+				"package archive not found\n\n  Browse available packages: https://registry.kdeps.io/packages",
+			)
 		}
 		return fmt.Errorf("download returned status %d", resp.StatusCode)
 	}
