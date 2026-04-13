@@ -98,12 +98,9 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	if strings.EqualFold(info.Type, "component") {
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n✓ %s is a built-in kdeps component — no installation needed.\n\n", name)
-		fmt.Fprintln(w, "Use it directly in your workflow resource:")
-		fmt.Fprintln(w, "")
-		fmt.Fprintln(w, "  run:")
-		fmt.Fprintf(w, "    %s:\n", name)
-		fmt.Fprintln(w, "      # see docs for available options")
-		fmt.Fprintln(w, "")
+		if info.Readme != "" {
+			fmt.Fprintln(w, info.Readme)
+		}
 		fmt.Fprintf(w, "Full reference: https://registry.kdeps.io/packages/%s\n\n", name)
 		return nil
 	}
@@ -278,6 +275,8 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 type packageInfo struct {
 	LatestVersion string `json:"latestVersion"`
 	Type          string `json:"type"`
+	Readme        string `json:"readme"`
+	Description   string `json:"description"`
 }
 
 func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {

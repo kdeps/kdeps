@@ -658,12 +658,9 @@ func installComponentFromRegistry(cmd *cobra.Command, name, baseURL string) erro
 	if strings.EqualFold(info.Type, "component") {
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "\n✓ %s is a built-in kdeps component — no installation needed.\n\n", name)
-		fmt.Fprintln(w, "Use it directly in your workflow resource:")
-		fmt.Fprintln(w, "")
-		fmt.Fprintln(w, "  run:")
-		fmt.Fprintf(w, "    %s:\n", name)
-		fmt.Fprintln(w, "      # see docs for available options")
-		fmt.Fprintln(w, "")
+		if info.Readme != "" {
+			fmt.Fprintln(w, info.Readme)
+		}
 		fmt.Fprintf(w, "Full reference: https://registry.kdeps.io/packages/%s\n\n", name)
 		return nil
 	}
