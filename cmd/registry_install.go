@@ -86,12 +86,26 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 		version = parts[1]
 	}
 
+	info, err := resolvePackageInfo(name, baseURL)
+	if err != nil {
+		return err
+	}
 	if version == "" {
-		var err error
-		version, err = resolveVersion(name, baseURL)
-		if err != nil {
-			return err
-		}
+		version = info.LatestVersion
+	}
+
+	// Built-in components ship with kdeps — no archive to download.
+	if strings.EqualFold(info.Type, "component") {
+		w := cmd.OutOrStdout()
+		fmt.Fprintf(w, "\n✓ %s is a built-in kdeps component — no installation needed.\n\n", name)
+		fmt.Fprintln(w, "Use it directly in your workflow resource:")
+		fmt.Fprintln(w, "")
+		fmt.Fprintln(w, "  run:")
+		fmt.Fprintf(w, "    %s:\n", name)
+		fmt.Fprintln(w, "      # see docs for available options")
+		fmt.Fprintln(w, "")
+		fmt.Fprintf(w, "Full reference: https://registry.kdeps.io/packages/%s\n\n", name)
+		return nil
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Downloading %s@%s from registry...\n", name, version)
@@ -261,36 +275,42 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 	return nil, nil //nolint:nilnil // nil manifest means no kdeps.pkg.yaml found; caller handles this
 }
 
-func resolveVersion(name, baseURL string) (string, error) {
-	kdeps_debug.Log("enter: resolveVersion")
+type packageInfo struct {
+	LatestVersion string `json:"latestVersion"`
+	Type          string `json:"type"`
+}
+
+func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
+	kdeps_debug.Log("enter: resolvePackageInfo")
 	client := &stdhttp.Client{Timeout: registryInstallInfoTimeout}
 	rawURL := baseURL + "/api/v1/registry/packages/" + name
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("registry request: %w", err)
+		return nil, fmt.Errorf("registry request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != stdhttp.StatusOK {
-		return "", fmt.Errorf("registry returned status %d", resp.StatusCode)
+		if resp.StatusCode == stdhttp.StatusNotFound {
+			return nil, fmt.Errorf("package %q not found in registry\n\n  Browse available packages: https://registry.kdeps.io/packages", name)
+		}
+		return nil, fmt.Errorf("registry returned status %d", resp.StatusCode)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, registryInstallMaxInfoResponseSize))
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
-	var info struct {
-		LatestVersion string `json:"latestVersion"`
-	}
+	var info packageInfo
 	if unmarshalErr := json.Unmarshal(body, &info); unmarshalErr != nil {
-		return "", fmt.Errorf("decode response: %w", unmarshalErr)
+		return nil, fmt.Errorf("decode response: %w", unmarshalErr)
 	}
 	if info.LatestVersion == "" {
-		return "", fmt.Errorf("no version found for package %s", name)
+		return nil, fmt.Errorf("no version found for package %s", name)
 	}
-	return info.LatestVersion, nil
+	return &info, nil
 }
 
 func downloadArchive(rawURL, destPath string) error {
@@ -306,6 +326,9 @@ func downloadArchive(rawURL, destPath string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != stdhttp.StatusOK {
+		if resp.StatusCode == stdhttp.StatusNotFound {
+			return fmt.Errorf("package archive not found\n\n  Browse available packages: https://registry.kdeps.io/packages")
+		}
 		return fmt.Errorf("download returned status %d", resp.StatusCode)
 	}
 	out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, registryInstallFilePerm)
