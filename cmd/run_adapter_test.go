@@ -118,6 +118,6 @@ func TestStartHTTPServer_InvalidAddr(t *testing.T) {
 		},
 	}
 
-	err := cmd.StartHTTPServer(workflow, "workflow.yaml", true, false, false, false)
+	err := cmd.StartHTTPServer(workflow, "workflow.yaml", true, false)
 	require.Error(t, err)
 }

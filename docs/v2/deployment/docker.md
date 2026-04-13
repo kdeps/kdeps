@@ -455,35 +455,6 @@ ollama pull llama3.2:1b
 offlineMode: true
 ```
 
-## Live Workflow Updates (Management API)
-
-Every running kdeps container exposes a built-in management API that lets you update the workflow without rebuilding or redeploying the image.
-
-### Enable the Management API
-
-Set `KDEPS_MANAGEMENT_TOKEN` when starting the container:
-
-```bash
-docker run -e KDEPS_MANAGEMENT_TOKEN=mysecret -p 16395:16395 myregistry/myagent:latest
-```
-
-### Push a New Workflow
-
-```bash
-# Push a local workflow directory
-kdeps cloud push --token mysecret ./my-agent http://localhost:16395
-
-# Push a packaged .kdeps archive
-kdeps cloud push --token mysecret myagent-2.0.0.kdeps http://localhost:16395
-```
-
-The token can also be supplied via the environment so it is not in shell history:
-
-```bash
-export KDEPS_MANAGEMENT_TOKEN=mysecret
-kdeps cloud push ./my-agent http://localhost:16395
-```
-
 ### Check Workflow Status
 
 ```bash

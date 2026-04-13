@@ -101,7 +101,6 @@ These additional keys are also always available as part of the core resource mod
 | `component: { name: memory }` | `memory` | Persistent key-value storage backed by SQLite |
 | `component: { name: email }` | `email` | Email sending via SMTP |
 | `component: { name: autopilot }` | `autopilot` | LLM-directed task execution |
-| `component: { name: federation }` | `federation` | UAF node management and agent registration |
 
 See the [Components guide](../concepts/components) for installation and usage details.
 

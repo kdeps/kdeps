@@ -57,8 +57,6 @@ Examples:
 
 	cmd.Flags().IntVarP(&flags.Port, "port", "p", 0, "Override the port the agent listens on")
 	cmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev/hot-reload mode")
-	cmd.Flags().BoolVar(&flags.SelfTest, "self-test", false, "Run inline tests after agent starts")
-	cmd.Flags().BoolVar(&flags.SelfTestOnly, "self-test-only", false, "Run inline tests then exit")
 	cmd.Flags().StringVar(&flags.FileArg, "file", "", "Path to input file (file-source agents only)")
 	cmd.Flags().BoolVar(&flags.Events, "events", false, "Emit structured NDJSON events to stderr")
 	cmd.Flags().BoolVar(&flags.Interactive, "interactive", false, "Force interactive LLM REPL")

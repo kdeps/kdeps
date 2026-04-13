@@ -33,7 +33,6 @@ import (
 func TestRunNew_NoPromptDefaults(t *testing.T) {
 	flags := &cmd.NewFlags{
 		Template: "",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -48,7 +47,6 @@ func TestRunNew_NoPromptDefaults(t *testing.T) {
 func TestRunNew_ExistingDirWithoutForce(t *testing.T) {
 	flags := &cmd.NewFlags{
 		Template: "",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -72,7 +70,6 @@ func TestPrintSuccessMessage_Output(t *testing.T) {
 func TestRunNew_WithForceFlag(t *testing.T) {
 	flags := &cmd.NewFlags{
 		Template: "",
-		NoPrompt: true,
 		Force:    true,
 	}
 
@@ -99,7 +96,6 @@ func TestRunNew_WithForceFlag(t *testing.T) {
 func TestRunNew_WithTemplateFlag(t *testing.T) {
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -114,7 +110,6 @@ func TestRunNew_WithTemplateFlag(t *testing.T) {
 func TestRunNew_ForceFlagRemoveFailure(t *testing.T) {
 	flags := &cmd.NewFlags{
 		Template: "",
-		NoPrompt: true,
 		Force:    true,
 	}
 

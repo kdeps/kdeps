@@ -35,7 +35,6 @@ kdeps component install browser     # browser automation (Playwright)
 kdeps component install botreply    # chat bot replies
 kdeps component install remoteagent # call a remote kdeps agent
 kdeps component install autopilot   # LLM-directed task execution
-kdeps component install federation  # UAF node management
 ```
 
 Invoked with `run.component:` in any resource:

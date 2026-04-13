@@ -64,7 +64,6 @@ func TestRunNew_ExistingDirectoryWithoutForce(t *testing.T) {
 	// Set flags to avoid prompts
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -96,7 +95,6 @@ func TestRunNew_ExistingDirectoryWithForce(t *testing.T) {
 	// Set flags
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    true,
 	}
 
@@ -120,7 +118,6 @@ func TestRunNew_InvalidTemplate(t *testing.T) {
 	// Set flags for invalid template
 	flags := &cmd.NewFlags{
 		Template: "nonexistent-template",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -164,7 +161,6 @@ func TestRunNew_WithPrompt(t *testing.T) {
 	// Set flags to enable prompting
 	flags := &cmd.NewFlags{
 		Template: "",
-		NoPrompt: false,
 		Force:    false,
 	}
 
@@ -194,7 +190,6 @@ func TestRunNew_DirectoryCreationFailure(t *testing.T) {
 	// Set flags
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -218,7 +213,6 @@ func TestRunNew_SuccessPath(t *testing.T) {
 	// Set flags for a potentially valid template
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    false,
 	}
 
@@ -250,7 +244,6 @@ func TestRunNew_ForceOverwrite(t *testing.T) {
 	// Set flags with force enabled
 	flags := &cmd.NewFlags{
 		Template: "api-service",
-		NoPrompt: true,
 		Force:    true,
 	}
 
@@ -282,7 +275,6 @@ func TestRunNew_InvalidAgentName(t *testing.T) {
 			// Set flags
 			flags := &cmd.NewFlags{
 				Template: "api-service",
-				NoPrompt: true,
 				Force:    false,
 			}
 
@@ -324,7 +316,6 @@ func TestRunNew_TemplateValidation(t *testing.T) {
 			// Set flags
 			flags := &cmd.NewFlags{
 				Template: template,
-				NoPrompt: true,
 				Force:    false,
 			}
 

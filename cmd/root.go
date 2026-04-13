@@ -166,12 +166,4 @@ func addSubcommands(rootCmd *cobra.Command) {
 	execCmd := newExecCmd()
 	execCmd.GroupID = groupDeploy
 	rootCmd.AddCommand(execCmd)
-
-	pushCmd := newPushCmd()
-	pushCmd.GroupID = groupDeploy
-	rootCmd.AddCommand(pushCmd)
-
-	federationCmd := newFederationCmd()
-	federationCmd.GroupID = groupDeploy
-	rootCmd.AddCommand(federationCmd)
 }

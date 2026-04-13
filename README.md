@@ -146,7 +146,7 @@ kdeps component show <name>      # show README
 kdeps component clone owner/repo # install from GitHub
 ```
 
-Available: `scraper`, `search`, `embedding`, `memory`, `browser`, `tts`, `email`, `calendar`, `pdf`, `botreply`, `remoteagent`, `autopilot`, `federation`
+Available: `scraper`, `search`, `embedding`, `memory`, `browser`, `tts`, `email`, `calendar`, `pdf`, `botreply`, `remoteagent`, `autopilot`
 
 Components declare their own dependencies — kdeps auto-installs them on first use:
 

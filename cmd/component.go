@@ -63,7 +63,6 @@ func knownComponents() map[string]string {
 		"botreply":    "kdeps/kdeps-component-botreply",
 		"pdf":         "kdeps/kdeps-component-pdf",
 		"autopilot":   "kdeps/kdeps-component-autopilot",
-		"federation":  "kdeps/kdeps-component-federation",
 		"scraper":     "kdeps/kdeps-component-scraper",
 		"search":      "kdeps/kdeps-component-search",
 		"embedding":   "kdeps/kdeps-component-embedding",

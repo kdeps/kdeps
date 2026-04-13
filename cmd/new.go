@@ -21,7 +21,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,7 +40,6 @@ const (
 // NewFlags holds the flags for the new command.
 type NewFlags struct {
 	Template string
-	NoPrompt bool
 	Force    bool
 }
 
@@ -53,23 +51,11 @@ func newNewCmd() *cobra.Command {
 	newCmd := &cobra.Command{
 		Use:   "new [agent-name]",
 		Short: "Create a new AI agent",
-		Long: `Create a new AI agent with interactive prompts.
-
-This command guides you through creating a new agent by:
-  • Selecting an agent template
-  • Choosing required resources
-  • Configuring basic settings
-  • Generating project files
+		Long: `Create a new AI agent from a template.
 
 Examples:
-  # Interactive mode
   kdeps new my-agent
-
-  # Quick start with template
-  kdeps new my-agent --template api-service
-
-  # Non-interactive mode
-  kdeps new my-agent --template api-service --no-prompt`,
+  kdeps new my-agent --template api-service`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunNewWithFlags(cmd, args, flags)
@@ -77,7 +63,6 @@ Examples:
 	}
 
 	newCmd.Flags().StringVarP(&flags.Template, "template", "t", "", "Agent template to use")
-	newCmd.Flags().BoolVar(&flags.NoPrompt, "no-prompt", false, "Skip interactive prompts")
 	newCmd.Flags().BoolVar(&flags.Force, "force", false, "Overwrite existing directory")
 
 	return newCmd
@@ -118,57 +103,25 @@ func handleExistingDirectory(outputDir string, force bool) error {
 }
 
 // determineTemplateName selects the appropriate template name.
-func determineTemplateName(generator *templates.Generator, flags *NewFlags) (string, error) {
+func determineTemplateName(_ *templates.Generator, flags *NewFlags) string {
 	kdeps_debug.Log("enter: determineTemplateName")
-	templateName := flags.Template
-	if templateName == "" && !flags.NoPrompt {
-		availableTemplates, listErr := generator.ListTemplates()
-		if listErr != nil {
-			return "", fmt.Errorf("failed to list templates: %w", listErr)
-		}
-
-		if len(availableTemplates) == 0 {
-			return "", errors.New("no templates available")
-		}
-
-		var err error
-		templateName, err = templates.PromptForTemplate(availableTemplates)
-		if err != nil {
-			return "", fmt.Errorf("template selection failed: %w", err)
-		}
-	} else if templateName == "" {
-		templateName = defaultTemplate // Default
+	if flags.Template != "" {
+		return flags.Template
 	}
-	return templateName, nil
+	return defaultTemplate
 }
 
 // collectTemplateData gathers template data based on flags.
-func collectTemplateData(agentName string, flags *NewFlags) (templates.TemplateData, error) {
+func collectTemplateData(agentName string, _ *NewFlags) templates.TemplateData {
 	kdeps_debug.Log("enter: collectTemplateData")
-	var data templates.TemplateData
-	if !flags.NoPrompt {
-		var err error
-		data, err = templates.PromptForBasicInfo(agentName)
-		if err != nil {
-			return data, fmt.Errorf("failed to collect info: %w", err)
-		}
-
-		data.Resources, err = templates.PromptForResources()
-		if err != nil {
-			return data, fmt.Errorf("failed to select resources: %w", err)
-		}
-	} else {
-		// Non-interactive defaults
-		data = templates.TemplateData{
-			Name:        agentName,
-			Description: "AI agent powered by KDeps",
-			Version:     "1.0.0",
-			Port:        defaultPort,
-			Resources:   []string{"http-client", "llm", "response"},
-			Features:    make(map[string]bool),
-		}
+	return templates.TemplateData{
+		Name:        agentName,
+		Description: "AI agent powered by KDeps",
+		Version:     "1.0.0",
+		Port:        defaultPort,
+		Resources:   []string{"http-client", "llm", "response"},
+		Features:    make(map[string]bool),
 	}
-	return data, nil
 }
 
 // generateProject creates the project using the generator.
@@ -209,16 +162,10 @@ func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
 	}
 
 	// Determine template
-	templateName, templateErr := determineTemplateName(generator, flags)
-	if templateErr != nil {
-		return templateErr
-	}
+	templateName := determineTemplateName(generator, flags)
 
 	// Collect data
-	data, collectErr := collectTemplateData(agentName, flags)
-	if collectErr != nil {
-		return collectErr
-	}
+	data := collectTemplateData(agentName, flags)
 
 	// Generate project
 	if projectErr := generateProject(generator, templateName, outputDir, data); projectErr != nil {

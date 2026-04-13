@@ -1,4 +1,4 @@
-# Remote Agent Resource (UAF)
+# Remote Agent Resource
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
@@ -7,8 +7,6 @@
 > Usage: `run: { component: { name: remoteagent, with: { url: "...", query: "..." } } }`
 
 The Remote Agent component invokes a remote kdeps agent over HTTP, sending a query and returning the agent's response.
-
-> **Note**: The component uses simple HTTP invocation (`url` + `query`). For the full UAF federation protocol (Ed25519 signing, URN-based identity, receipts, trust levels, fallback agents), use the `kdeps federation` CLI commands and configure the federation workflow directly.
 
 ## Component Inputs
 
@@ -101,19 +99,6 @@ run:
 
 ---
 
-## Federation CLI Reference
-
-For advanced UAF federation (key management, agent registration, receipts):
-
-| Command | Description |
-|---------|-------------|
-| `kdeps federation keygen --org <name>` | Generate Ed25519 keypair |
-| `kdeps federation register ...` | Register agent in UAF registry |
-| `kdeps federation trust add ...` | Add registry trust anchor |
-| `kdeps federation mesh list` | List remote agents in project |
-| `kdeps federation receipt verify ...` | Verify signed receipt |
-
 ## See Also
 
 - [`agent:`](./overview.md#agent) - In-process delegation within an agency
-- [Federation Demo](https://github.com/kdeps/kdeps/tree/main/examples/federation-demo) - Working end-to-end example

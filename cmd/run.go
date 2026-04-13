@@ -42,7 +42,6 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/spf13/cobra"
-	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
@@ -64,7 +63,6 @@ import (
 	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/selftest"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
@@ -72,9 +70,6 @@ import (
 const (
 	// maxExtractFileSize is the maximum size allowed for extracted files to prevent decompression bombs.
 	maxExtractFileSize = 100 * 1024 * 1024 // 100MB
-
-	// selfTestOverallTimeout is the maximum time allowed for the entire self-test suite.
-	selfTestOverallTimeout = 5 * time.Minute
 
 	agencyFile       = "agency.yaml"
 	agencyYAMLJ2File = "agency.yaml.j2"
@@ -85,14 +80,11 @@ const (
 
 // RunFlags holds the flags for the run command.
 type RunFlags struct {
-	Port         int
-	DevMode      bool
-	SelfTest     bool   // --self-test: run inline tests after server starts, keep running
-	SelfTestOnly bool   // --self-test-only: run inline tests then exit (non-zero on failure)
-	WriteTests   bool   // --write-tests: generate tests from workflow and write them to the tests: block, then exit
-	FileArg      string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
-	Events       bool   // --events: emit structured NDJSON execution events to stderr
-	Interactive  bool   // --interactive: force interactive LLM REPL for any workflow/agency regardless of configured input source
+	Port        int
+	DevMode     bool
+	FileArg     string // --file: path to the file to process (file input source only; overrides stdin/KDEPS_FILE_PATH/config)
+	Events      bool   // --events: emit structured NDJSON execution events to stderr
+	Interactive bool   // --interactive: force interactive LLM REPL for any workflow/agency regardless of configured input source
 }
 
 // newRunCmd creates the run command.
@@ -142,18 +134,6 @@ Examples:
 	runCmd.Flags().
 		IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port for kdeps server
 	runCmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev mode (hot reload)")
-	runCmd.Flags().BoolVar(
-		&flags.SelfTest, "self-test", false,
-		"Run inline tests from tests: block after server starts",
-	)
-	runCmd.Flags().BoolVar(
-		&flags.SelfTestOnly, "self-test-only", false,
-		"Run inline tests then exit (non-zero on failure)",
-	)
-	runCmd.Flags().BoolVar(
-		&flags.WriteTests, "write-tests", false,
-		"Generate self-tests from workflow resources and write them to the tests: block in the workflow file, then exit",
-	)
 	runCmd.Flags().StringVar(
 		&flags.FileArg, "file", "",
 		"File path to process (file input source only). Takes priority over stdin, KDEPS_FILE_PATH, and input.file.path config.",
@@ -433,16 +413,6 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	)
 	fmt.Fprintf(os.Stdout, "  ✓ Resources: %d\n", len(workflow.Resources))
 
-	// --write-tests: generate and persist auto-tests, then exit.
-	if flags.WriteTests {
-		fmt.Fprintln(os.Stdout, "\n[--write-tests] Generating self-tests from workflow...")
-		writeErr := WriteTestsToWorkflow(workflow, workflowPath)
-		if writeErr != nil {
-			return fmt.Errorf("write-tests failed: %w", writeErr)
-		}
-		return nil
-	}
-
 	// 2. Validate workflow
 	fmt.Fprintln(os.Stdout, "\n[2/5] Validating workflow...")
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
@@ -503,7 +473,6 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	return dispatchExecution(
 		workflow, workflowPath,
 		flags.DevMode, debugMode,
-		flags.SelfTest, flags.SelfTestOnly,
 		flags.FileArg, flags.Events,
 	)
 }
@@ -1318,100 +1287,12 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
 const gracefulShutdownTimeout = 10 * time.Second
 
-// RunSelfTests waits for the server at addr to become ready, then executes all
-// tests.  When no explicit tests: block is defined in the workflow, test cases
-// are automatically generated from the configured API routes.
-func RunSelfTests(workflow *domain.Workflow, addr string) []selftest.Result {
-	kdeps_debug.Log("enter: RunSelfTests")
-	tests := workflow.Tests
-	if len(tests) == 0 {
-		fmt.Fprintln(os.Stdout, "\nNo tests defined - generating smoke tests from workflow routes...")
-		tests = selftest.GenerateTests(workflow)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), selfTestOverallTimeout)
-	defer cancel()
-	baseURL := "http://" + addr
-	runner := selftest.NewRunner(baseURL)
-	if err := runner.WaitReady(ctx); err != nil {
-		return []selftest.Result{{Name: "__startup__", Passed: false, Error: err.Error()}}
-	}
-	return runner.Run(ctx, tests)
-}
-
-// PrintSelfTestResults writes a formatted self-test summary to w.
-func PrintSelfTestResults(w io.Writer, results []selftest.Result) {
-	kdeps_debug.Log("enter: PrintSelfTestResults")
-	if len(results) == 0 {
-		return
-	}
-	total := len(results)
-	passed, failed := 0, 0
-	fmt.Fprintf(w, "\nRunning self-tests (%d total)...\n", total)
-	for _, r := range results {
-		if r.Passed {
-			passed++
-			fmt.Fprintf(w, "  ✓ %s (%s)\n", r.Name, r.Duration.Round(time.Millisecond))
-		} else {
-			failed++
-			fmt.Fprintf(w, "  ✗ %s\n", r.Name)
-			if r.Error != "" {
-				fmt.Fprintf(w, "    %s\n", r.Error)
-			}
-		}
-	}
-	fmt.Fprintf(w, "\nSelf-test results: %d passed, %d failed\n", passed, failed)
-}
-
-// WriteTestsToWorkflow generates self-tests from workflow resources and appends a
-// tests: block to the workflow YAML file at workflowPath.
-// It returns an error when a tests: block is already present so existing tests
-// are never silently overwritten.
-func WriteTestsToWorkflow(workflow *domain.Workflow, workflowPath string) error {
-	kdeps_debug.Log("enter: WriteTestsToWorkflow")
-	if len(workflow.Tests) > 0 {
-		return fmt.Errorf(
-			"workflow already has a tests: block (%d tests); remove it first to regenerate",
-			len(workflow.Tests),
-		)
-	}
-
-	cases := selftest.GenerateTests(workflow)
-	if len(cases) == 0 {
-		fmt.Fprintln(os.Stdout, "  no tests generated (workflow has no resources or routes)")
-		return nil
-	}
-
-	// Marshal only the tests block.
-	type testsWrapper struct {
-		Tests []domain.TestCase `yaml:"tests"`
-	}
-	block, err := goyaml.Marshal(&testsWrapper{Tests: cases})
-	if err != nil {
-		return fmt.Errorf("failed to marshal tests: %w", err)
-	}
-
-	// Append to the workflow file.
-	f, err := os.OpenFile(workflowPath, os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("failed to open workflow file: %w", err)
-	}
-	defer func() { _ = f.Close() }()
-
-	if _, err = fmt.Fprintf(f, "\n%s", block); err != nil {
-		return fmt.Errorf("failed to write tests block: %w", err)
-	}
-
-	fmt.Fprintf(os.Stdout, "  ✓ Wrote %d test case(s) to %s\n", len(cases), workflowPath)
-	return nil
-}
-
 // dispatchExecution selects and starts the correct execution mode for the workflow:
 // server (API/Web/both), bot (polling or stateless), file input, media polling, or single-run stateless.
 func dispatchExecution(
 	workflow *domain.Workflow,
 	workflowPath string,
 	devMode, debugMode bool,
-	selfTest, selfTestOnly bool,
 	fileArg string,
 	eventsEnabled bool,
 ) error {
@@ -1425,7 +1306,7 @@ func dispatchExecution(
 		return StartWebServer(workflow, workflowPath, devMode)
 	}
 	if s.APIServerMode {
-		return StartHTTPServer(workflow, workflowPath, devMode, debugMode, selfTest, selfTestOnly)
+		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
 		return StartBotRunners(workflow, debugMode)
@@ -1434,7 +1315,7 @@ func dispatchExecution(
 		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
 	}
 	if s.Input != nil && s.Input.HasLLMSource() {
-		return StartLLMRunner(workflow, debugMode, workflowPath, devMode, selfTest, selfTestOnly)
+		return StartLLMRunner(workflow, debugMode, workflowPath, devMode)
 	}
 	if s.Input != nil && s.Input.HasComponentSource() {
 		// Component-mode workflow: no external listener. Execute once inline,
@@ -1529,7 +1410,6 @@ func StartLLMRunner(
 	debugMode bool,
 	workflowPath string,
 	devMode bool,
-	selfTest, selfTestOnly bool,
 ) error {
 	kdeps_debug.Log("enter: StartLLMRunner")
 	var llmCfg *domain.LLMInputConfig
@@ -1537,7 +1417,7 @@ func StartLLMRunner(
 		llmCfg = workflow.Settings.Input.LLM
 	}
 	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
-		return StartHTTPServer(workflow, workflowPath, devMode, debugMode, selfTest, selfTestOnly)
+		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
 	}
 
 	engine := setupEngine(workflow, debugMode)
@@ -1655,8 +1535,6 @@ func StartHTTPServer(
 	workflowPath string,
 	devMode bool,
 	debugMode bool,
-	selfTest bool,
-	selfTestOnly bool,
 ) error {
 	kdeps_debug.Log("enter: StartHTTPServer")
 	hostIP := workflow.Settings.GetHostIP()
@@ -1711,21 +1589,6 @@ func StartHTTPServer(
 	go func() {
 		errChan <- httpServer.Start(addr, devMode)
 	}()
-
-	// Launch self-test runner in a goroutine after server is ready
-	if selfTest || selfTestOnly {
-		go func() {
-			results := RunSelfTests(workflow, addr)
-			PrintSelfTestResults(os.Stdout, results)
-			if selfTestOnly {
-				// Signal shutdown; exit non-zero if any test failed
-				sigChan <- syscall.SIGTERM
-				if selftest.AnyFailed(results) {
-					os.Exit(1)
-				}
-			}
-		}()
-	}
 
 	// Wait for signal or error
 	select {
