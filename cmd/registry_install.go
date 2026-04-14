@@ -49,26 +49,33 @@ const (
 	registryInstallFilePerm            = 0600
 	registryInstallVersionParts        = 2
 	registryInstallManifestMaxSize     = 64 * 1024
+	pkgTypeComponent                   = "component"
 )
 
 // newRegistryInstallCmd creates the registry install subcommand.
 func newRegistryInstallCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistryInstallCmd")
 	return &cobra.Command{
-		Use:   "install <package[@version]>",
-		Short: "Install a workflow, agency, or component from the kdeps registry.",
-		Long: `Install a package from the kdeps registry.
+		Use:   "install <package[@version] | owner/repo[:subdir] | /path/to/file.kdeps>",
+		Short: "Install a workflow, agency, or component from the registry, GitHub, or a local file.",
+		Long: `Install a package from the kdeps registry, a GitHub repository, or a local archive.
+
+Source is auto-detected from the ref format:
+
+  Local file   Path starting with ./ ../ / ~ or ending with .kdeps .kagency .komponent
+  GitHub       owner/repo[:subdir]  (contains "/" after ruling out local path)
+  Registry     package[@version]    (everything else)
 
 Behavior depends on package type:
 
   workflow / agency:
-    Extracts into a new subdirectory in the current path (like git clone).
+    Extracts into ~/.kdeps/agents/<name>/ (registry) or ./agents/<name>/ (GitHub/local).
     Prints instructions for setting up .env and running locally with kdeps run.
 
   component:
     Installs to the project components/ dir if run inside a kdeps project,
     otherwise installs globally to ~/.kdeps/components/.
-    Run "kdeps component info <name>" to read the component README.`,
+    Run "kdeps registry info <name>" to read the component README.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registryInstallCmd.RunE")
@@ -77,8 +84,71 @@ Behavior depends on package type:
 	}
 }
 
+// isLocalFilePath reports whether ref should be treated as a local filesystem path.
+func isLocalFilePath(ref string) bool {
+	return strings.HasPrefix(ref, "./") ||
+		strings.HasPrefix(ref, "../") ||
+		strings.HasPrefix(ref, "/") ||
+		strings.HasPrefix(ref, "~") ||
+		strings.HasSuffix(ref, ".kdeps") ||
+		strings.HasSuffix(ref, ".kagency") ||
+		strings.HasSuffix(ref, ".komponent")
+}
+
+// installLocalFile installs a package from a local archive path.
+func installLocalFile(cmd *cobra.Command, path string) error {
+	kdeps_debug.Log("enter: installLocalFile")
+
+	// Expand leading ~.
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("expand home dir: %w", err)
+		}
+		path = filepath.Join(home, path[2:])
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("local file %q: %w", path, err)
+	}
+
+	manifest, _ := peekManifest(path)
+	if manifest == nil {
+		// Infer type from extension, name from basename without extension.
+		base := filepath.Base(path)
+		switch {
+		case strings.HasSuffix(base, ".komponent"):
+			manifest = &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".komponent"), Type: pkgTypeComponent}
+		case strings.HasSuffix(base, ".kagency"):
+			manifest = &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".kagency"), Type: "agency"}
+		default:
+			manifest = &domain.KdepsPkg{Name: strings.TrimSuffix(base, ".kdeps"), Type: "workflow"}
+		}
+	}
+
+	fmt.Fprintf(cmd.OutOrStdout(), "Installing from local file: %s\n", path)
+
+	switch strings.ToLower(manifest.Type) {
+	case pkgTypeComponent:
+		return installRegistryComponent(cmd, manifest, path, manifest.Version)
+	default:
+		return installWorkflowOrAgency(cmd, manifest, path, manifest.Version)
+	}
+}
+
 func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInstall")
+
+	// Local file path: ./ ../ / ~ prefix or known archive extension.
+	if isLocalFilePath(pkg) {
+		return installLocalFile(cmd, pkg)
+	}
+
+	// GitHub ref: owner/repo[:subdir] — delegate to clone logic.
+	if strings.Contains(pkg, "/") {
+		return cloneFromRemote(pkg)
+	}
+
 	parts := strings.SplitN(pkg, "@", registryInstallVersionParts)
 	name := parts[0]
 	version := ""
@@ -92,17 +162,6 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	}
 	if version == "" {
 		version = info.LatestVersion
-	}
-
-	// Built-in components ship with kdeps — no archive to download.
-	if strings.EqualFold(info.Type, "component") {
-		w := cmd.OutOrStdout()
-		fmt.Fprintf(w, "\n✓ %s is a built-in kdeps component — no installation needed.\n\n", name)
-		if info.Readme != "" {
-			fmt.Fprintln(w, info.Readme)
-		}
-		fmt.Fprintf(w, "Full reference: https://registry.kdeps.io/packages/%s\n\n", name)
-		return nil
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "Downloading %s@%s from registry...\n", name, version)
@@ -129,7 +188,7 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	}
 
 	switch strings.ToLower(manifest.Type) {
-	case "component":
+	case pkgTypeComponent:
 		return installRegistryComponent(cmd, manifest, archivePath, version)
 	default:
 		return installWorkflowOrAgency(cmd, manifest, archivePath, version)
@@ -219,9 +278,9 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, arc
 	fmt.Fprintln(w, "    component:")
 	fmt.Fprintf(w, "      name: %s\n", manifest.Name)
 	fmt.Fprintln(w, "      with:")
-	fmt.Fprintf(w, "        # see kdeps component info %s for available inputs\n", manifest.Name)
+	fmt.Fprintf(w, "        # see kdeps registry info %s for available inputs\n", manifest.Name)
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Documentation: kdeps component info %s\n", manifest.Name)
+	fmt.Fprintf(w, "Documentation: kdeps registry info %s\n", manifest.Name)
 	return nil
 }
 

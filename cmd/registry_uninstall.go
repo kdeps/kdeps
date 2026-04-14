@@ -114,15 +114,28 @@ func uninstallComponent(cmd *cobra.Command, name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// Try unpacked directory first.
 	destDir := filepath.Join(globalDir, name)
-	if _, statErr := os.Stat(destDir); os.IsNotExist(statErr) {
-		return false, nil
+	if _, statErr := os.Stat(destDir); statErr == nil {
+		if removeErr := os.RemoveAll(destDir); removeErr != nil {
+			return false, fmt.Errorf("remove component %q: %w", name, removeErr)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, destDir)
+		return true, nil
 	}
-	if removeErr := os.RemoveAll(destDir); removeErr != nil {
-		return false, fmt.Errorf("remove component %q: %w", name, removeErr)
+
+	// Also check for a bare .komponent archive file.
+	archivePath := filepath.Join(globalDir, name+komponentExtension)
+	if _, statErr := os.Stat(archivePath); statErr == nil {
+		if removeErr := os.Remove(archivePath); removeErr != nil {
+			return false, fmt.Errorf("remove component %q: %w", name, removeErr)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, archivePath)
+		return true, nil
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, destDir)
-	return true, nil
+
+	return false, nil
 }
 
 // DoRegistryUninstall is an exported wrapper for doRegistryUninstall, for use in

@@ -27,6 +27,7 @@ import (
 	stdhttp "net/http"
 	"os"
 	"strings"
+	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -89,7 +90,7 @@ func resolveInfoReadme(ref string) (string, error) {
 }
 
 // resolveLocalReadme searches for a README for a locally-named item.
-// It probes: internal-components, global component dir, ./components/, ./agents/.
+// It probes: global component dir, ./components/, ./agents/, ./agencies/.
 func resolveLocalReadme(name string) (string, error) {
 	kdeps_debug.Log("enter: resolveLocalReadme")
 
@@ -179,13 +180,16 @@ func parseRemoteRef(ref string) (string, string, string, error) {
 	return slashParts[0], slashParts[1], subdir, nil
 }
 
-// fetchReadmeURL performs a GET and returns the response body as a string.
-// Returns an error for non-200 status codes.
+// fetchReadmeURLTimeout is the per-request timeout for README fetches.
+const fetchReadmeURLTimeout = 15 * time.Second
+
 // fetchReadmeURL performs a GET and returns the response body as a string.
 // Returns an error for non-200 status codes.
 func fetchReadmeURL(rawURL string) (string, error) {
 	kdeps_debug.Log("enter: fetchReadmeURL")
-	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), fetchReadmeURLTimeout)
+	defer cancel()
+	req, err := stdhttp.NewRequestWithContext(ctx, stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("build request: %w", err)
 	}

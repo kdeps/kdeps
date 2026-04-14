@@ -68,53 +68,35 @@ Examples:
 	return newCmd
 }
 
-// RunNew is the exported function for running the new command (used for testing).
-//
-
-func RunNew(_ *cobra.Command, args []string) error {
-	kdeps_debug.Log("enter: RunNew")
-	// For backward compatibility, use empty flags (default behavior)
-	flags := &NewFlags{}
-	return RunNewWithFlags(nil, args, flags)
-}
-
-// validateArgs validates command arguments.
-func validateArgs(args []string) (string, error) {
-	kdeps_debug.Log("enter: validateArgs")
+// RunNewWithFlags executes the new command with injected flags.
+func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
+	kdeps_debug.Log("enter: RunNewWithFlags")
 	if len(args) != 1 {
-		return "", fmt.Errorf("accepts 1 arg(s), received %d", len(args))
+		return fmt.Errorf("accepts 1 arg(s), received %d", len(args))
 	}
-	return args[0], nil
-}
+	agentName := args[0]
+	outputDir := agentName
 
-// handleExistingDirectory checks and handles existing output directory.
-func handleExistingDirectory(outputDir string, force bool) error {
-	kdeps_debug.Log("enter: handleExistingDirectory")
 	if _, statErr := os.Stat(outputDir); statErr == nil {
-		if !force {
+		if !flags.Force {
 			return fmt.Errorf("directory already exists: %s (use --force to overwrite)", outputDir)
 		}
-		// Remove existing directory if force
 		if removeErr := os.RemoveAll(outputDir); removeErr != nil {
 			return fmt.Errorf("failed to remove existing directory: %w", removeErr)
 		}
 	}
-	return nil
-}
 
-// determineTemplateName selects the appropriate template name.
-func determineTemplateName(_ *templates.Generator, flags *NewFlags) string {
-	kdeps_debug.Log("enter: determineTemplateName")
-	if flags.Template != "" {
-		return flags.Template
+	generator, genErr := templates.NewGenerator()
+	if genErr != nil {
+		return fmt.Errorf("failed to initialize generator: %w", genErr)
 	}
-	return defaultTemplate
-}
 
-// collectTemplateData gathers template data based on flags.
-func collectTemplateData(agentName string, _ *NewFlags) templates.TemplateData {
-	kdeps_debug.Log("enter: collectTemplateData")
-	return templates.TemplateData{
+	templateName := defaultTemplate
+	if flags.Template != "" {
+		templateName = flags.Template
+	}
+
+	data := templates.TemplateData{
 		Name:        agentName,
 		Description: "AI agent powered by KDeps",
 		Version:     "1.0.0",
@@ -122,59 +104,13 @@ func collectTemplateData(agentName string, _ *NewFlags) templates.TemplateData {
 		Resources:   []string{"http-client", "llm", "response"},
 		Features:    make(map[string]bool),
 	}
-}
 
-// generateProject creates the project using the generator.
-func generateProject(
-	generator *templates.Generator,
-	templateName, outputDir string,
-	data templates.TemplateData,
-) error {
-	kdeps_debug.Log("enter: generateProject")
-	fmt.Fprintf(os.Stdout, "\nCreating agent: %s\n\n", data.Name)
-
-	if genErr := generator.GenerateProject(templateName, outputDir, data); genErr != nil {
-		return fmt.Errorf("failed to generate project: %w", genErr)
+	fmt.Fprintf(os.Stdout, "\nCreating agent: %s\n\n", agentName)
+	if projectErr := generator.GenerateProject(templateName, outputDir, data); projectErr != nil {
+		return fmt.Errorf("failed to generate project: %w", projectErr)
 	}
 
-	return nil
-}
-
-// RunNewWithFlags executes the new command with injected flags.
-func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
-	kdeps_debug.Log("enter: RunNewWithFlags")
-	// Validate arguments
-	agentName, validateErr := validateArgs(args)
-	if validateErr != nil {
-		return validateErr
-	}
-	outputDir := agentName
-
-	// Handle existing directory
-	if handleErr := handleExistingDirectory(outputDir, flags.Force); handleErr != nil {
-		return handleErr
-	}
-
-	// Initialize generator
-	generator, genErr := templates.NewGenerator()
-	if genErr != nil {
-		return fmt.Errorf("failed to initialize generator: %w", genErr)
-	}
-
-	// Determine template
-	templateName := determineTemplateName(generator, flags)
-
-	// Collect data
-	data := collectTemplateData(agentName, flags)
-
-	// Generate project
-	if projectErr := generateProject(generator, templateName, outputDir, data); projectErr != nil {
-		return projectErr
-	}
-
-	// Success message
 	PrintSuccessMessage(os.Stdout, agentName, outputDir)
-
 	return nil
 }
 

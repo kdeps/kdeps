@@ -30,9 +30,12 @@ import (
 	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"github.com/spf13/cobra"
 )
+
+// githubArchiveBaseURL is the base URL for downloading GitHub repo archives.
+//
+//nolint:gochecknoglobals // overridable by tests
+var githubArchiveBaseURL = "https://codeload.github.com"
 
 // cloneTypeNames maps detected manifest filenames to a human label.
 var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-level const map
@@ -42,35 +45,6 @@ var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-le
 	"workflow.yml":   "agent",
 	"component.yaml": "component",
 	"component.yml":  "component",
-}
-
-func newCloneCmd() *cobra.Command {
-	kdeps_debug.Log("enter: newCloneCmd")
-	return &cobra.Command{
-		Use:   "clone <owner/repo[:subdir]>",
-		Short: "Clone an agent, agency, or component from GitHub",
-		Long: `Download and install an agent, agency, or component from a GitHub repository.
-
-The ref can be:
-  <owner>/<repo>          Clone the root of the repository
-  <owner>/<repo>:<subdir> Clone only the specified subdirectory
-
-The type (agent, agency, component) is auto-detected from the manifest file
-present (workflow.yaml → agent, agency.yml → agency, component.yaml → component).
-
-Agents and agencies are extracted into ./agents/<name>/ or ./agencies/<name>/
-in the current directory. Components are installed to ~/.kdeps/components/.
-
-Examples:
-  kdeps clone jjuliano/my-agent
-  kdeps clone jjuliano/my-agency
-  kdeps clone jjuliano/my-ai-agent:my-scraper`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			kdeps_debug.Log("enter: clone RunE")
-			return cloneFromRemote(args[0])
-		},
-	}
 }
 
 // cloneFromRemote resolves owner/repo[:subdir] and clones it locally.
@@ -240,36 +214,6 @@ func downloadAndExtract(url, destDir string) error {
 	}
 
 	return cmdExtractTarGz(resp.Body, destDir)
-}
-
-// downloadFileTo performs a GET and saves the response body to destPath.
-func downloadFileTo(url, destPath string) error {
-	kdeps_debug.Log("enter: downloadFileTo")
-	req, err := stdhttp.NewRequestWithContext(
-		context.Background(), stdhttp.MethodGet, url, nil,
-	)
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-	resp, err := stdhttp.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("download: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != stdhttp.StatusOK {
-		return fmt.Errorf("download: server returned %s", resp.Status)
-	}
-
-	f, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-	_, copyErr := io.Copy(f, resp.Body)
-	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
-		return fmt.Errorf("close file: %w", closeErr)
-	}
-	return copyErr
 }
 
 // unwrapArchiveRoot returns the single top-level directory extracted from a
