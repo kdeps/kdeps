@@ -121,7 +121,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 	if limit > 0 {
 		params.Set("limit", strconv.Itoa(limit))
 	}
-	reqURL := c.APIURL + "/api/packages?" + params.Encode()
+	reqURL := c.APIURL + "/api/v1/registry/packages?" + params.Encode()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (c *Client) Search(ctx context.Context, query, pkgType string, limit int) (
 // GetPackage retrieves detailed information about a package.
 func (c *Client) GetPackage(ctx context.Context, name string) (*PackageDetail, error) {
 	kdeps_debug.Log("enter: GetPackage")
-	reqURL := c.APIURL + "/api/packages/" + name
+	reqURL := c.APIURL + "/api/v1/registry/packages/" + name
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 		return nil, fmt.Errorf("failed to close multipart writer: %w", closeErr)
 	}
 
-	reqURL := c.APIURL + "/api/packages"
+	reqURL := c.APIURL + "/api/v1/registry/packages/publish"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, &body)
 	if err != nil {
 		return nil, err
@@ -226,7 +226,7 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 // Download downloads a package archive from the registry.
 func (c *Client) Download(ctx context.Context, name, version, destDir string) (string, error) {
 	kdeps_debug.Log("enter: Download")
-	reqURL := fmt.Sprintf("%s/api/packages/%s/download/%s", c.APIURL, name, version)
+	reqURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", c.APIURL, name, version)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return "", err

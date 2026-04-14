@@ -58,7 +58,10 @@ Examples:
 	}
 }
 
-const registryInfoTimeout = 30 * time.Second
+const (
+	registryInfoTimeout = 30 * time.Second
+	registrySearchLimit = 20
+)
 
 func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
@@ -86,9 +89,12 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 
 	pkg, err := client.GetPackage(ctx, ref)
 	if err != nil {
-		// /api/packages/:name route unavailable (not yet deployed) — fall back to
-		// searching for the package, downloading its archive, and extracting README.
-		if readme := readmeFromRegistryArchive(ctx, client, ref); readme != "" {
+		// GetPackage failed — fall back to searching for the package, downloading
+		// its archive, and extracting the README. Use a fresh context so a slow
+		// GetPackage call doesn't starve the download.
+		archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+		defer archCancel()
+		if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
 			fmt.Fprint(os.Stdout, renderMarkdown(readme))
 			return nil
 		}
@@ -97,6 +103,11 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		return nil
 	}
 
+	printPackageDetail(cmd, ref, pkg)
+	return nil
+}
+
+func printPackageDetail(cmd *cobra.Command, ref string, pkg *registry.PackageDetail) {
 	w := cmd.OutOrStdout()
 	fmt.Fprintf(w, "Name:        %s\n", pkg.Name)
 	fmt.Fprintf(w, "Version:     %s\n", pkg.Version)
@@ -119,8 +130,10 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		fmt.Fprintf(w, "Versions:    %s\n", strings.Join(vs, ", "))
 	}
 	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
+	printPackageReadme(w, ref, pkg)
+}
 
-	// Show README: local install > registry readme field > GitHub homepage.
+func printPackageReadme(w interface{ Write([]byte) (int, error) }, ref string, pkg *registry.PackageDetail) {
 	readme, readmeErr := resolveLocalReadme(ref)
 	switch {
 	case readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref):
@@ -137,7 +150,6 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 			}
 		}
 	}
-	return nil
 }
 
 // readmeFromRegistryArchive searches for the named package, downloads its
@@ -147,7 +159,7 @@ func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, nam
 	kdeps_debug.Log("enter: readmeFromRegistryArchive")
 
 	// Search to resolve the latest version.
-	entries, err := client.Search(ctx, name, "", 20)
+	entries, err := client.Search(ctx, name, "", registrySearchLimit)
 	if err != nil {
 		return ""
 	}
