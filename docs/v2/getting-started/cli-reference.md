@@ -192,7 +192,6 @@ kdeps new [agent-name] [flags]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--template, -t` | Agent template to use | Interactive selection |
-| `--no-prompt` | Skip interactive prompts | `false` |
 | `--force` | Overwrite existing directory | `false` |
 
 **Available Templates:**
@@ -208,9 +207,6 @@ kdeps new my-agent
 
 # Quick start with template
 kdeps new my-agent --template api-service
-
-# Non-interactive mode
-kdeps new my-agent --template api-service --no-prompt
 
 # Overwrite existing directory
 kdeps new my-agent --force
@@ -278,324 +274,38 @@ All values are exported as environment variables before workflow execution. Expl
 
 ---
 
-### `kdeps scaffold`
+### `kdeps registry`
 
-Add resource files to an existing agent.
+Search, install, and manage packages from the kdeps registry.
 
 **Usage:**
 ```bash
-kdeps scaffold [resource-names...] [flags]
+kdeps registry <subcommand> [flags]
 ```
 
-**Arguments:**
-- `resource-names...` - One or more resource types to add
+**Subcommands:**
 
-**Available Resources:**
-- `http-client` - HTTP client for API calls
-- `llm` - Large Language Model interaction
-- `sql` - SQL database queries
-- `python` - Python script execution
-- `exec` - Shell command execution
-- `response` - API response handling
-
-**Flags:**
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--dir` | Target directory | `.` (current) |
-| `--force` | Overwrite existing files | `false` |
+| Subcommand | Description |
+|------------|-------------|
+| `search` | Search for packages in the kdeps registry |
+| `info` | Show metadata and README for a package, local component/agent, or GitHub repo |
+| `install` | Install from the registry, a GitHub repo (`owner/repo`), or a local archive (`.kdeps` `.kagency` `.komponent`) |
+| `uninstall` | Uninstall an agent or component installed from the registry |
+| `update` | Update an installed agent or component to a newer version |
+| `list` | List installed and local components |
+| `publish` | Publish a package (runs LLM-agnostic verification automatically; `--skip-verify` to bypass) |
 
 **Examples:**
 ```bash
-# Add single resource
-kdeps scaffold llm
-
-# Add multiple resources
-kdeps scaffold http-client llm response
-
-# Add to specific directory
-kdeps scaffold llm --dir my-agent/
-
-# Overwrite existing files
-kdeps scaffold sql --force
-```
-
-**What it does:**
-- Creates resource YAML files in `resources/` directory
-- Auto-updates `workflow.yaml` with new resources
-- Generates resource templates with examples
-- Preserves existing resources
-
----
-
-### `kdeps component`
-
-Manage KDeps components. There are three kinds:
-
-| Kind | How to use | Example |
-|------|-----------|---------|
-| **Built-in (internal)** | Always available, no install needed | `chat:`, `httpClient:`, `sql:`, `python:`, `exec:` |
-| **Registry** | Install once with `kdeps component install` | `scraper`, `tts`, `email`, ... |
-| **Custom** | Place `component.yaml` in `components/<name>/` | Your own `.komponent` package |
-
-**Usage:**
-```bash
-kdeps component <subcommand> [flags]
-```
-
----
-
-#### `kdeps component install <name>`
-
-Download and install a registry component to `~/.kdeps/components/`.
-
-**Usage:**
-```bash
-kdeps component install <name>
-```
-
-**Arguments:**
-- `name` — Name of the registry component to install
-
-**Available registry components:**
-
-| Name | Description |
-|------|-------------|
-| `scraper` | Content extraction from web pages, PDFs, documents, and images (type auto-detected) |
-| `search` | Web search via Tavily API |
-| `embedding` | Vector embeddings via OpenAI |
-| `botreply` | Chat bot replies (Discord, Slack, Telegram, WhatsApp) |
-| `remoteagent` | Invoke a remote kdeps agent over HTTP |
-| `tts` | Text-to-Speech via OpenAI TTS or espeak |
-| `email` | Email sending via SMTP |
-| `calendar` | ICS calendar event file creation |
-| `pdf` | PDF generation from HTML via pdfkit |
-| `memory` | Persistent key-value storage (SQLite) |
-| `browser` | Browser automation via Playwright (navigate/screenshot/getText) |
-| `autopilot` | LLM-directed task execution |
-
-**Examples:**
-```bash
-# Install the scraper component
-kdeps component install scraper
-
-# Install multiple components
-kdeps component install pdf email tts
-```
-
-Once installed, the component is available in `components/<name>/` and auto-discovered at run time. Call it from any resource with `run.component:`:
-
-```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com"
-```
-
----
-
-#### `kdeps component list`
-
-List all components: built-in (internal), globally installed, and local.
-
-**Usage:**
-```bash
-kdeps component list
-```
-
-**Output:**
-```
-Internal components (built-in):
-  exec
-  httpClient
-  llm
-  python
-  sql
-
-Global components (~/.kdeps/components/):
-  scraper
-  tts
-
-Local components (./components/):
-  pdf
-```
-
-- **Internal (built-in)** - the 5 core executors compiled into the binary; always available, no install needed.
-- **Global** - registry components installed via `kdeps component install`; available to all workflows on the machine.
-- **Local** - custom components in the current project's `components/` directory.
-
----
-
-#### `kdeps component remove <name>`
-
-Remove an installed component from the workflow.
-
-**Usage:**
-```bash
-kdeps component remove <name>
-```
-
-**Arguments:**
-- `name` — Name of the component to remove
-
-**Examples:**
-```bash
-kdeps component remove scraper
-```
-
----
-
-#### `kdeps component show <name>`
-
-Display the README for an installed or built-in component.
-
-**Usage:**
-```bash
-kdeps component show <name>
-```
-
-**Arguments:**
-- `name` - Component name (e.g. `scraper`, `tts`)
-
-Searches in order: internal (built-in) components, global install dir (`~/.kdeps/components/`), local `./components/`. Falls back to component.yaml metadata when no README.md exists.
-
-**Examples:**
-```bash
-kdeps component show scraper
-kdeps component show tts
-```
-
----
-
-#### `kdeps component update <path>`
-
-Scaffold or merge component files (`.env` and `README.md`) for every component under `<path>`.
-
-`<path>` can be:
-- A component directory (contains `component.yaml`)
-- An agent directory (contains `workflow.yaml`)
-- An agency directory (contains `agency.yaml`)
-
-```bash
-kdeps component update <path>
-```
-
-**Actions per component:**
-
-| File | Behavior |
-|------|----------|
-| `README.md` | Created from `component.yaml` metadata when absent. Existing files are **never overwritten**. |
-| `.env` | Created with all detected `env()` vars when absent. If already present, only **missing** vars are appended; existing values are never overwritten. |
-
-**Examples:**
-
-```bash
-# Update a single component directory
-kdeps component update ./components/scraper
-
-# Update all components used by an agent
-kdeps component update ./my-agent
-
-# Update all components in an agency
-kdeps component update ./my-agency
-```
-
----
-
-### `kdeps component info`
-
-Show README for a local component, agent, agency, or a remote GitHub-hosted workflow.
-
-**Usage:**
-```bash
-kdeps component info <ref>
-```
-
-**Reference formats:**
-
-| Format | Description |
-|--------|-------------|
-| `<name>` | Local component, agent, or agency by name |
-| `<owner>/<repo>` | Root README of a GitHub repository |
-| `<owner>/<repo>:<subdir>` | README inside a subdirectory of a GitHub repository |
-
-**Examples:**
-```bash
-# Show README for a local component
-kdeps component info scraper
-
-# Show README for a local agent or agency
-kdeps component info my-agent
-
-# Show README for a GitHub repo
-kdeps component info jjuliano/my-ai-agent
-
-# Show README for a subdirectory of a GitHub repo
-kdeps component info jjuliano/my-ai-agent:my-scraper
-```
-
----
-
-### `kdeps component update`
-
-Scaffold or merge component files (`.env` and `README.md`) for every component under `<path>`.
-
-**Usage:**
-```bash
-kdeps component update <path>
-```
-
-**`<path>` can be:**
-- A component directory (contains `component.yaml`)
-- An agent directory (contains `workflow.yaml`)
-- An agency directory (contains `agency.yaml`)
-
-**Actions per component:**
-
-| File | Behavior |
-|------|----------|
-| `README.md` | Created from `component.yaml` metadata when absent. Existing files are **never overwritten**. |
-| `.env` | Created with all detected `env()` vars as blank entries when absent. If already present, only **missing** vars are appended; existing values are never overwritten. |
-
-**Examples:**
-```bash
-# Update a single component directory
-kdeps component update ./components/scraper
-
-# Update all components used by an agent
-kdeps component update ./my-agent
-
-# Update all components in an agency
-kdeps component update ./my-agency
-```
-
----
-
-### `kdeps component clone`
-
-Download and install an agent, agency, or component from a GitHub repository.
-
-**Usage:**
-```bash
-kdeps component clone <owner/repo[:subdir]>
-```
-
-**Reference formats:**
-
-| Format | Description |
-|--------|-------------|
-| `<owner>/<repo>` | Clone the root of the repository |
-| `<owner>/<repo>:<subdir>` | Clone only the specified subdirectory |
-
-Automatically detects the artifact type (component `.komponent`, workflow `.kdeps`, agency `.kagency`, or raw directory) and installs it in the appropriate location. Components are installed to `~/.kdeps/components/` by default.
-
-**Examples:**
-```bash
-# Install a component from GitHub
-kdeps component clone jjuliano/kdeps-component-scraper
-
-# Install a specific subdirectory (e.g. a single agent from a multi-agent repo)
-kdeps component clone jjuliano/my-ai-agents:scraper-agent
+kdeps registry search scraper
+kdeps registry install scraper
+kdeps registry install scraper@2.1.0
+kdeps registry install jjuliano/kdeps-component-scraper
+kdeps registry install ./scraper-1.0.0.komponent
+kdeps registry list
+kdeps registry info scraper
+kdeps registry uninstall scraper
+kdeps registry update scraper
 ```
 
 ---
@@ -726,30 +436,27 @@ kdeps bundle build examples/chatbot --tag registry.com/my-agent:v1.0.0 --push
 # 1. Create new agent
 kdeps new my-agent
 
-# 2. Add resources
+# 2. Validate configuration
 cd my-agent
-kdeps scaffold llm http-client
-
-# 3. Validate configuration
 kdeps validate workflow.yaml
 
-# 4. Generate self-tests from your resources
+# 3. Generate self-tests from your resources
 kdeps run workflow.yaml --write-tests
 # -> Appends tests: block to workflow.yaml; review and customise
 
-# 5. Run locally with hot reload
+# 4. Run locally with hot reload
 kdeps run workflow.yaml --dev
 
-# 6. Test and iterate
+# 5. Test and iterate
 # (Edit files, server auto-reloads)
 
-# 7. Run tests in CI
+# 6. Run tests in CI
 kdeps run workflow.yaml --self-test-only
 
-# 8. Package for deployment
+# 7. Package for deployment
 kdeps bundle package . --output dist/
 
-# 9. Build Docker image (optional)
+# 8. Build Docker image (optional)
 kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 

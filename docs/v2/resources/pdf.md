@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install pdf`
+> Install: `kdeps registry install pdf`
 >
 > Usage: `run: { component: { name: pdf, with: { content: "...", outputFile: "/tmp/output.pdf" } } }`
 

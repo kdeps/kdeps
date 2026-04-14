@@ -35,9 +35,9 @@ run:
 
 That's it. kdeps handles the Ollama server, request routing, and output wiring automatically.
 
-## Fetch, search, and store — no installs
+## Fetch, search, and store
 
-Three capabilities are built into the binary — no `kdeps component install` needed:
+Three native capabilities compiled into the binary:
 
 ```yaml
 # Scrape a web page
@@ -95,9 +95,9 @@ run:
 Need more capabilities? Install a component:
 
 ```bash
-kdeps component install pdf
-kdeps component install tts
-kdeps component install browser
+kdeps registry install pdf
+kdeps registry install tts
+kdeps registry install browser
 ```
 
 ## Interactive chat with tools
@@ -140,10 +140,11 @@ Full expression reference: [kdeps.com/concepts/expressions](https://kdeps.com/co
 Components are self-contained capability packages. Install globally, call from anywhere.
 
 ```bash
-kdeps component install <name>   # install from registry
-kdeps component list             # list installed
-kdeps component show <name>      # show README
-kdeps component clone owner/repo # install from GitHub
+kdeps registry install <name>              # install from registry
+kdeps registry install owner/repo          # install from GitHub
+kdeps registry install ./archive.komponent # install from local file
+kdeps registry list                        # list installed
+kdeps registry info <name>                 # show metadata and README
 ```
 
 Available: `scraper`, `search`, `embedding`, `memory`, `browser`, `tts`, `email`, `calendar`, `pdf`, `botreply`, `remoteagent`, `autopilot`

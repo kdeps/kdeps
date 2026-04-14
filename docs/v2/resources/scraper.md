@@ -1,6 +1,6 @@
 # Scraper Resource
 
-The `scraper` executor is built into the `kdeps` binary — no installation required. It fetches a URL and returns the text content, with optional CSS selector filtering.
+The `scraper` executor is a native capability compiled into the `kdeps` binary. It fetches a URL and returns the text content, with optional CSS selector filtering.
 
 ## Configuration
 
@@ -88,7 +88,7 @@ run:
 
 > **Need more?** For PDF extraction, OCR, and document types (.docx, .xlsx), install the component:
 > ```bash
-> kdeps component install scraper
+> kdeps registry install scraper
 > ```
 
 ## Next Steps

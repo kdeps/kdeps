@@ -714,7 +714,7 @@ settings:
       description: "Accepts a text query and returns a processed result"
 ```
 
-The optional `description` field documents what the workflow expects and what it returns. It is surfaced by `kdeps component info` and `kdeps component list`.
+The optional `description` field documents what the workflow expects and what it returns. It is surfaced by `kdeps registry info` and `kdeps registry list`.
 
 #### When to Use
 

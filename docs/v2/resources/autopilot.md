@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install autopilot`
+> Install: `kdeps registry install autopilot`
 >
 > Usage: `run: { component: { name: autopilot, with: { task: "...", context: "...", model: "gpt-4o" } } }`
 

@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install memory`
+> Install: `kdeps registry install memory`
 >
 > Usage: `run: { component: { name: memory, with: { action: "store", key: "...", value: "..." } } }`
 

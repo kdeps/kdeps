@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install tts`
+> Install: `kdeps registry install tts`
 >
 > Usage: `run: { component: { name: tts, with: { text: "...", voice: "alloy", apiKey: "..." } } }`
 

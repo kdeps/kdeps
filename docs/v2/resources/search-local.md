@@ -1,6 +1,6 @@
 # Search Local Resource
 
-The `searchLocal` executor is built into the `kdeps` binary — no installation required. It walks a local directory and returns matching files by filename glob pattern and/or content keyword.
+The `searchLocal` executor is a native capability compiled into the `kdeps` binary. It walks a local directory and returns matching files by filename glob pattern and/or content keyword.
 
 ## Configuration
 

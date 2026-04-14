@@ -62,9 +62,9 @@ run:
 
 ## Resource Types
 
-### Built-in components (internal)
+### Native executors (always available)
 
-These five executors are compiled into the `kdeps` binary and are always available — no installation required. They appear as "Internal components (built-in)" when you run `kdeps component list`.
+These executors are compiled into the `kdeps` binary and require no installation.
 
 | YAML key | Description | Use Case |
 |----------|-------------|----------|
@@ -85,7 +85,7 @@ These additional keys are also always available as part of the core resource mod
 | `agent` | Inter-agent delegation (agency mode) |
 | `apiResponse` | Return data to the HTTP caller |
 
-### Registry components (installable via `kdeps component install`)
+### Registry components (installable via `kdeps registry install`)
 
 | Type | Install name | Description |
 |------|-------------|----------|

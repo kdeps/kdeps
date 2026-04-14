@@ -298,8 +298,8 @@ The LLM automatically decides when to call tools based on the prompt.
 Use `componentTools:` to expose installed components as LLM function-calling tools. By default no components are registered — list only the ones the LLM should be able to call:
 
 ```bash
-kdeps component install scraper
-kdeps component install search
+kdeps registry install scraper
+kdeps registry install search
 ```
 
 ```yaml

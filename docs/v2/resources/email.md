@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install email`
+> Install: `kdeps registry install email`
 >
 > Usage: `run: { component: { name: email, with: { to: "...", subject: "...", body: "...", smtpHost: "...", smtpUser: "...", smtpPass: "..." } } }`
 

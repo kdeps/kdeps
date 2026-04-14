@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install calendar`
+> Install: `kdeps registry install calendar`
 >
 > Usage: `run: { component: { name: calendar, with: { title: "...", start: "...", end: "...", outputFile: "/tmp/event.ics" } } }`
 

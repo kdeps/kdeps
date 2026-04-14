@@ -1,6 +1,6 @@
 # Embedding Resource
 
-The `embedding` executor is built into the `kdeps` binary — no installation required. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
+The `embedding` executor is a native capability compiled into the `kdeps` binary. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
 
 ## Configuration
 
@@ -117,7 +117,7 @@ embedding:
 
 > **Note**: This uses keyword (LIKE) matching, not vector similarity. For OpenAI vector embeddings, install the component:
 > ```bash
-> kdeps component install embedding
+> kdeps registry install embedding
 > ```
 
 ## Next Steps

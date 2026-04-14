@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install browser`
+> Install: `kdeps registry install browser`
 >
 > Usage: `run: { component: { name: browser, with: { url: "...", action: "navigate", selector: "...", screenshotPath: "..." } } }`
 

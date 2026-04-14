@@ -2,7 +2,7 @@
 
 > **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
 >
-> Install: `kdeps component install search`
+> Install: `kdeps registry install search`
 >
 > Usage: `run: { component: { name: search, with: { query: "...", apiKey: "...", maxResults: 5 } } }`
 

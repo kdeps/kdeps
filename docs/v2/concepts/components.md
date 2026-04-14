@@ -1,40 +1,26 @@
 # Components
 
-KDeps has three categories of components. Understanding the difference is important before reading anything else here.
+KDeps has two categories of components. Understanding the difference is important before reading anything else here.
 
 ## Types of Components
 
-### 1. Built-in components (internal)
-
-The five core executors are always available in every workflow — no installation required. The CLI surfaces them as "Internal components (built-in)" when you run `kdeps component list`:
-
-| Component | YAML key | Description |
-|-----------|----------|-------------|
-| LLM | `chat:` | LLM interaction (Ollama, OpenAI, Anthropic, etc.) |
-| HTTP | `httpClient:` | REST API calls |
-| SQL | `sql:` | Database queries (Postgres, MySQL, SQLite) |
-| Python | `python:` | Python scripts via isolated `uv` environments |
-| Exec | `exec:` | Shell commands |
-
-These are compiled into the `kdeps` binary and require no `kdeps component install`.
-
-### 2. Registry components (installable)
+### 1. Registry components (installable)
 
 Pre-built capability extensions distributed as `.komponent` archives. Install once, available to any workflow on the machine:
 
 ```bash
-kdeps component install scraper     # web/doc text extraction
-kdeps component install search      # web search (Tavily)
-kdeps component install tts         # text-to-speech
-kdeps component install email       # send email via SMTP
-kdeps component install pdf         # generate PDFs
-kdeps component install calendar    # generate .ics event files
-kdeps component install embedding   # vector embeddings (OpenAI)
-kdeps component install memory      # key-value store (SQLite)
-kdeps component install browser     # browser automation (Playwright)
-kdeps component install botreply    # chat bot replies
-kdeps component install remoteagent # call a remote kdeps agent
-kdeps component install autopilot   # LLM-directed task execution
+kdeps registry install scraper     # web/doc text extraction
+kdeps registry install search      # web search (Tavily)
+kdeps registry install tts         # text-to-speech
+kdeps registry install email       # send email via SMTP
+kdeps registry install pdf         # generate PDFs
+kdeps registry install calendar    # generate .ics event files
+kdeps registry install embedding   # vector embeddings (OpenAI)
+kdeps registry install memory      # key-value store (SQLite)
+kdeps registry install browser     # browser automation (Playwright)
+kdeps registry install botreply    # chat bot replies
+kdeps registry install remoteagent # call a remote kdeps agent
+kdeps registry install autopilot   # LLM-directed task execution
 ```
 
 Invoked with `run.component:` in any resource:
@@ -47,7 +33,7 @@ run:
       url: "https://example.com"
 ```
 
-### 3. Custom components (user-defined)
+### 2. Custom components (user-defined)
 
 Components you build yourself: a `component.yaml` manifest plus resource files in a `components/<name>/` directory. Auto-discovered at run time — no changes to `workflow.yaml` needed.
 
@@ -218,25 +204,25 @@ When a workflow is parsed, KDeps automatically scans for `components/<name>/comp
 The 12 standard capability extensions are distributed as pre-built `.komponent` archives and can be installed with a single command:
 
 ```bash
-kdeps component install scraper
-kdeps component install search
-kdeps component install embedding
-kdeps component install botreply
-kdeps component install remoteagent
-kdeps component install tts
-kdeps component install email
-kdeps component install calendar
-kdeps component install pdf
-kdeps component install memory
-kdeps component install browser
-kdeps component install autopilot
+kdeps registry install scraper
+kdeps registry install search
+kdeps registry install embedding
+kdeps registry install botreply
+kdeps registry install remoteagent
+kdeps registry install tts
+kdeps registry install email
+kdeps registry install calendar
+kdeps registry install pdf
+kdeps registry install memory
+kdeps registry install browser
+kdeps registry install autopilot
 ```
 
 Installed components are placed in the `components/` directory of your workflow and are auto-discovered at run time — no changes to `workflow.yaml` are needed.
 
 ```bash
-kdeps component list           # List installed components
-kdeps component remove scraper # Uninstall a component
+kdeps registry list           # List installed components
+kdeps registry uninstall scraper # Uninstall a component
 ```
 
 ## Components as LLM Tools (Opt-In)
@@ -244,8 +230,8 @@ kdeps component remove scraper # Uninstall a component
 Installed components can be exposed as LLM function-calling tools via the `componentTools:` allowlist on the `chat:` resource. **By default no components are registered** — you must explicitly name which ones the LLM may call.
 
 ```yaml
-# kdeps component install scraper
-# kdeps component install search
+# kdeps registry install scraper
+# kdeps registry install search
 
 run:
   chat:
@@ -371,7 +357,7 @@ run:
 Install, call, and consume results from the `scraper` component in one workflow:
 
 ```bash
-kdeps component install scraper
+kdeps registry install scraper
 ```
 
 <div v-pre>
@@ -526,21 +512,21 @@ When a component runs for the first time, KDeps auto-creates these files in the 
 
 Existing files are never overwritten.
 
-### `kdeps component update`
+### `kdeps registry update`
 
-Run `kdeps component update <path>` to explicitly scaffold or merge `.env` and `README.md` at any time — without waiting for first run.
+Run `kdeps registry update <path>` to explicitly scaffold or merge `.env` and `README.md` at any time — without waiting for first run.
 
 `<path>` can be a component directory, agent directory, or agency directory:
 
 ```bash
 # Scaffold/merge a single component
-kdeps component update ./components/scraper
+kdeps registry update ./components/scraper
 
 # Update all components in an agent
-kdeps component update ./my-agent
+kdeps registry update ./my-agent
 
 # Update all components in an agency
-kdeps component update ./my-agency
+kdeps registry update ./my-agency
 ```
 
 **Behaviour:**
@@ -601,9 +587,9 @@ After execution, access the result with `output('main')`.
 
 Running `kdeps run my-workflow/` will automatically load the `greeter` component from `components/greeter/` and make its `greet` action available.
 
-## Managing Component Files: `kdeps component update`
+## Managing Component Files: `kdeps registry update`
 
-The `kdeps component update <path>` command scaffolds or merges component support files without touching existing content.
+The `kdeps registry update <path>` command scaffolds or merges component support files without touching existing content.
 
 ### What It Does
 
@@ -623,7 +609,7 @@ When the same component runs, KDeps resolves `env('VAR')` in this order:
 ### Example
 
 ```bash
-kdeps component update ./components/scraper
+kdeps registry update ./components/scraper
 ```
 
 Output:

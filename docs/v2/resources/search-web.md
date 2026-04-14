@@ -1,6 +1,6 @@
 # Search Web
 
-The `searchWeb` executor is a **native built-in** capability -- no `kdeps component install` needed.
+The `searchWeb` executor is a native capability compiled into the `kdeps` binary.
 
 It queries the web and returns structured results. The default provider is **DuckDuckGo** (no API key required).
 
