@@ -115,14 +115,22 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	}
 	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
 
-	// Show README: prefer local install, fall back to registry-stored readme.
+	// Show README: local install > registry readme field > GitHub homepage.
 	readme, readmeErr := resolveLocalReadme(ref)
-	if readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref) {
+	switch {
+	case readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref):
 		fmt.Fprintln(w)
 		fmt.Fprint(os.Stdout, renderMarkdown(readme))
-	} else if pkg.Readme != "" {
+	case pkg.Readme != "":
 		fmt.Fprintln(w)
 		fmt.Fprint(os.Stdout, renderMarkdown(pkg.Readme))
+	case pkg.Homepage != "":
+		if ghRef := githubURLToRef(pkg.Homepage); ghRef != "" {
+			if ghReadme, ghErr := fetchRemoteReadme(ghRef); ghErr == nil {
+				fmt.Fprintln(w)
+				fmt.Fprint(os.Stdout, renderMarkdown(ghReadme))
+			}
+		}
 	}
 	return nil
 }

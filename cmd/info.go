@@ -217,3 +217,39 @@ func fetchReadmeURL(rawURL string) (string, error) {
 	}
 	return string(data), nil
 }
+
+// githubURLToRef converts a GitHub URL (https://github.com/owner/repo[/tree/branch/subdir])
+// into an owner/repo or owner/repo:subdir ref suitable for fetchRemoteReadme.
+// Returns "" if the URL is not a recognisable GitHub URL.
+func githubURLToRef(rawURL string) string {
+	kdeps_debug.Log("enter: githubURLToRef")
+	const githubHost = "github.com"
+
+	// Strip scheme and host.
+	s := rawURL
+	for _, prefix := range []string{"https://", "http://"} {
+		s = strings.TrimPrefix(s, prefix)
+	}
+	if !strings.HasPrefix(s, githubHost) {
+		return ""
+	}
+	s = strings.TrimPrefix(s, githubHost)
+	s = strings.Trim(s, "/")
+	if s == "" {
+		return ""
+	}
+
+	// s is now "owner/repo" or "owner/repo/tree/branch/subdir/..."
+	parts := strings.SplitN(s, "/", 5) //nolint:mnd // 5 = owner/repo/tree/branch/subdir
+	const minOwnerRepo = 2
+	if len(parts) < minOwnerRepo {
+		return ""
+	}
+	owner, repo := parts[0], parts[1]
+	// If there's a subdir after /tree/<branch>/, include it.
+	if len(parts) >= 5 && parts[2] == "tree" {
+		// parts[3] = branch, parts[4] = subdir path
+		return owner + "/" + repo + ":" + parts[4]
+	}
+	return owner + "/" + repo
+}
