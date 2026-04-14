@@ -355,3 +355,96 @@ func TestFindInstalledPackage_CompDirError(t *testing.T) {
 	assert.False(t, found)
 	assert.Empty(t, dir)
 }
+
+// TestUninstallAgent_RemoveAllError covers the RemoveAll error branch in uninstallAgent.
+func TestUninstallAgent_RemoveAllError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("cannot test permission errors as root")
+	}
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", tmp)
+
+	// Create agent dir with a file inside, then make parent read-only so RemoveAll fails.
+	agentDir := filepath.Join(tmp, "locked")
+	require.NoError(t, os.MkdirAll(agentDir, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "file.txt"), []byte("x"), 0600))
+	require.NoError(t, os.Chmod(tmp, 0500))
+	t.Cleanup(func() { _ = os.Chmod(tmp, 0750) })
+
+	c := &cobra.Command{}
+	ok, err := uninstallAgent(c, "locked")
+	require.Error(t, err)
+	assert.False(t, ok)
+	assert.Contains(t, err.Error(), "remove agent")
+}
+
+// TestUninstallComponent_RemoveAllError covers RemoveAll error in the global components path.
+func TestUninstallComponent_RemoveAllError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("cannot test permission errors as root")
+	}
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", tmp)
+	t.Setenv("HOME", tmp)
+
+	// Create global component dir, then make its parent read-only.
+	globalDir := filepath.Join(tmp, ".kdeps", "components")
+	compDir := filepath.Join(globalDir, "locked-comp")
+	require.NoError(t, os.MkdirAll(compDir, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(compDir, "file.txt"), []byte("x"), 0600))
+	require.NoError(t, os.Chmod(globalDir, 0500))
+	t.Cleanup(func() { _ = os.Chmod(globalDir, 0750) })
+
+	c := &cobra.Command{}
+	ok, err := uninstallComponent(c, "locked-comp")
+	require.Error(t, err)
+	assert.False(t, ok)
+	assert.Contains(t, err.Error(), "remove component")
+}
+
+// TestDoRegistryUninstall_Wrapper exercises the exported DoRegistryUninstall wrapper.
+func TestDoRegistryUninstall_Wrapper(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", tmp)
+
+	agentDir := filepath.Join(tmp, "wrap-agent")
+	require.NoError(t, os.MkdirAll(agentDir, 0750))
+
+	var out bytes.Buffer
+	c := &cobra.Command{}
+	c.SetOut(&out)
+
+	require.NoError(t, DoRegistryUninstall(c, "wrap-agent"))
+	assert.Contains(t, out.String(), "Uninstalled agent")
+	assert.NoDirExists(t, agentDir)
+}
+
+// TestDoRegistryUpdate_Wrapper exercises the exported DoRegistryUpdate wrapper.
+func TestDoRegistryUpdate_Wrapper(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", tmp)
+	t.Setenv("HOME", tmp)
+
+	agentDir := filepath.Join(tmp, "wrap-agent2")
+	require.NoError(t, os.MkdirAll(agentDir, 0750))
+
+	archive := testWorkflowArchive(t, "wrap-agent2")
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		switch r.URL.Path {
+		case "/api/v1/registry/packages/wrap-agent2":
+			_ = json.NewEncoder(w).Encode(map[string]string{"latestVersion": "2.0.0"})
+		case "/api/v1/registry/packages/wrap-agent2/2.0.0/download":
+			_, _ = w.Write(archive)
+		default:
+			w.WriteHeader(stdhttp.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	var out bytes.Buffer
+	c := &cobra.Command{}
+	c.SetOut(&out)
+
+	require.NoError(t, DoRegistryUpdate(c, "wrap-agent2", srv.URL))
+	assert.Contains(t, out.String(), "Removing existing installation")
+}

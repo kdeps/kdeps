@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -205,36 +206,6 @@ func TestCloneFromRemote_AlreadyExists(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 }
 
-// --- component install from remote ---
-
-func TestInstallComponentFromRemote_ViaRelease(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/owner/my-component/releases/latest/download/my-component.komponent" {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("fake-komponent-data"))
-			return
-		}
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer ts.Close()
-
-	origDownload := *cmd.ComponentDownloadBaseURL
-	*cmd.ComponentDownloadBaseURL = ts.URL
-	defer func() { *cmd.ComponentDownloadBaseURL = origDownload }()
-
-	origDir := t.TempDir()
-	t.Setenv("KDEPS_COMPONENT_DIR", origDir)
-
-	err := cmd.InstallComponentFromRemote("owner/my-component")
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(origDir, "my-component.komponent"))
-}
-
-func TestInstallComponentFromRemote_InvalidRef(t *testing.T) {
-	err := cmd.InstallComponentFromRemote("noslash")
-	assert.Error(t, err)
-}
-
 // --- detect clone type ---
 
 func TestDetectCloneType_Agency(t *testing.T) {
@@ -321,72 +292,6 @@ func TestFindFileWithSuffix_NonExistentDir(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// installComponentFromArchive tests
-// ---------------------------------------------------------------------------
-
-func TestInstallComponentFromArchive_Success(t *testing.T) {
-	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
-		"mycomp.komponent": "fake-komponent-content",
-	})
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(archiveData)
-	}))
-	defer ts.Close()
-
-	origArchive := *cmd.GithubArchiveBaseURL
-	*cmd.GithubArchiveBaseURL = ts.URL
-	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
-
-	installDir := t.TempDir()
-	err := cmd.InstallComponentFromArchive("owner", "myrepo", "", "mycomp", installDir)
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(installDir, "mycomp.komponent"))
-}
-
-func TestInstallComponentFromArchive_NoKomponent(t *testing.T) {
-	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
-		"README.md": "# Nothing here\n",
-	})
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(archiveData)
-	}))
-	defer ts.Close()
-
-	origArchive := *cmd.GithubArchiveBaseURL
-	*cmd.GithubArchiveBaseURL = ts.URL
-	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
-
-	err := cmd.InstallComponentFromArchive("owner", "myrepo", "", "mycomp", t.TempDir())
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no .komponent file")
-}
-
-func TestInstallComponentFromArchive_WithSubdir(t *testing.T) {
-	archiveData := buildTarGz(t, "myrepo-abc123", map[string]string{
-		"mysubdir/mycomp.komponent": "fake-content",
-	})
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(archiveData)
-	}))
-	defer ts.Close()
-
-	origArchive := *cmd.GithubArchiveBaseURL
-	*cmd.GithubArchiveBaseURL = ts.URL
-	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
-
-	installDir := t.TempDir()
-	err := cmd.InstallComponentFromArchive("owner", "myrepo", "mysubdir", "mycomp", installDir)
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(installDir, "mycomp.komponent"))
-}
-
-// ---------------------------------------------------------------------------
 // Clone component type
 // ---------------------------------------------------------------------------
 
@@ -438,43 +343,11 @@ func TestDownloadAndExtract_ServerError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInstallComponentFromRemote_ViaArchive(t *testing.T) {
-	archiveData := buildTarGz(t, "my-component-abc123", map[string]string{
-		"my-component.komponent": "fake-komponent",
-	})
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Release download fails; archive download succeeds.
-		if r.URL.Path == "/owner/my-component/releases/latest/download/my-component.komponent" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(archiveData)
-	}))
-	defer ts.Close()
-
-	origDownload := *cmd.ComponentDownloadBaseURL
-	*cmd.ComponentDownloadBaseURL = ts.URL
-	defer func() { *cmd.ComponentDownloadBaseURL = origDownload }()
-
-	origArchive := *cmd.GithubArchiveBaseURL
-	*cmd.GithubArchiveBaseURL = ts.URL
-	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
-
-	installDir := t.TempDir()
-	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
-
-	err := cmd.InstallComponentFromRemote("owner/my-component")
-	require.NoError(t, err)
-	assert.FileExists(t, filepath.Join(installDir, "my-component.komponent"))
-}
-
 // ---------------------------------------------------------------------------
-// newCloneCmd cobra RunE coverage
+// registry install GitHub path (formerly newRegistryCloneCmd) cobra RunE coverage
 // ---------------------------------------------------------------------------
 
-func TestNewCloneCmd_Execute(t *testing.T) {
+func TestRegistryInstall_GitHubRef_Execute(t *testing.T) {
 	archiveData := buildTarGz(t, "clonetest-abc123", map[string]string{
 		"workflow.yaml": "apiVersion: kdeps.io/v1\nkind: Workflow\n",
 	})
@@ -494,20 +367,19 @@ func TestNewCloneCmd_Execute(t *testing.T) {
 	require.NoError(t, os.Chdir(dir))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
-	cloneCmd := cmd.NewCloneCmd()
-	cloneCmd.SetArgs([]string{"owner/clonetest"})
-	cloneCmd.SilenceUsage = true
-	cloneCmd.SilenceErrors = true
-	require.NoError(t, cloneCmd.Execute())
+	// Exercise via exported DoRegistryInstall (GitHub ref path).
+	c := cobra.Command{}
+	err := cmd.DoRegistryInstall(&c, "owner/clonetest", "http://unused")
+	require.NoError(t, err)
 	assert.FileExists(t, filepath.Join(dir, "agents", "clonetest", "workflow.yaml"))
 }
 
-func TestNewCloneCmd_ExecuteError(t *testing.T) {
-	cloneCmd := cmd.NewCloneCmd()
-	cloneCmd.SetArgs([]string{"badref-no-slash"})
-	cloneCmd.SilenceUsage = true
-	cloneCmd.SilenceErrors = true
-	assert.Error(t, cloneCmd.Execute())
+func TestRegistryInstall_GitHubRef_ExecuteError(t *testing.T) {
+	// A ref without "/" should go to registry path, not GitHub path.
+	// Use an unreachable registry URL to confirm it hits the registry branch.
+	c := cobra.Command{}
+	err := cmd.DoRegistryInstall(&c, "badref-no-slash", "http://127.0.0.1:1")
+	require.Error(t, err)
 }
 
 // ---------------------------------------------------------------------------

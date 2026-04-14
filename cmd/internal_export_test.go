@@ -78,30 +78,14 @@ var PrintRoutes = printRoutes //nolint:gochecknoglobals // test-only export
 // PrintBotRequirements exposes the unexported printBotRequirements helper for unit testing.
 var PrintBotRequirements = printBotRequirements //nolint:gochecknoglobals // test-only export
 
-// NewComponentCmd exposes newComponentCmd for white-box unit tests.
-var NewComponentCmd = newComponentCmd //nolint:gochecknoglobals // test-only export
-
-// ComponentDownloadBaseURL allows tests to override the base URL used when
-// downloading .komponent archives. Tests should restore the original value via t.Cleanup().
-var ComponentDownloadBaseURL = &componentDownloadBaseURL //nolint:gochecknoglobals // test-only export
-
 // ComponentInstallDir exposes the unexported componentInstallDir helper for unit testing.
 var ComponentInstallDir = componentInstallDir //nolint:gochecknoglobals // test-only export
-
-// KnownComponents exposes the unexported knownComponents helper for unit testing.
-var KnownComponents = knownComponents //nolint:gochecknoglobals // test-only export
-
-// InstallComponent exposes the unexported installComponent helper for unit testing.
-var InstallComponent = installComponent //nolint:gochecknoglobals // test-only export
 
 // ListKomponentFiles exposes the unexported listKomponentFiles helper for unit testing.
 var ListKomponentFiles = listKomponentFiles //nolint:gochecknoglobals // test-only export
 
 // ListLocalComponents exposes the unexported listLocalComponents helper for unit testing.
 var ListLocalComponents = listLocalComponents //nolint:gochecknoglobals // test-only export
-
-// ListInternalComponents exposes the unexported listInternalComponents helper for unit testing.
-var ListInternalComponents = listInternalComponents //nolint:gochecknoglobals // test-only export
 
 // ReadReadmeForComponent exposes the unexported readReadmeForComponent helper for unit testing.
 var ReadReadmeForComponent = readReadmeForComponent //nolint:gochecknoglobals // test-only export
@@ -128,9 +112,6 @@ var CloneFromRemote = cloneFromRemote //nolint:gochecknoglobals // test-only exp
 // DetectCloneType exposes the unexported detectCloneType helper for unit testing.
 var DetectCloneType = detectCloneType //nolint:gochecknoglobals // test-only export
 
-// InstallComponentFromRemote exposes the unexported installComponentFromRemote helper for unit testing.
-var InstallComponentFromRemote = installComponentFromRemote //nolint:gochecknoglobals // test-only export
-
 // GithubArchiveBaseURL allows tests to override the GitHub archive download base URL.
 // Tests should restore the original value via t.Cleanup().
 var GithubArchiveBaseURL = &githubArchiveBaseURL //nolint:gochecknoglobals // test-only export
@@ -144,9 +125,6 @@ var FindFileWithSuffix = findFileWithSuffix //nolint:gochecknoglobals // test-on
 // ExtractKomponent exposes the unexported extractKomponent helper for unit testing.
 var ExtractKomponent = extractKomponent //nolint:gochecknoglobals // test-only export
 
-// InstallComponentFromArchive exposes the unexported installComponentFromArchive helper for unit testing.
-var InstallComponentFromArchive = installComponentFromArchive //nolint:gochecknoglobals // test-only export
-
 // ReadReadmeFromKomponent exposes the unexported readReadmeFromKomponent helper for unit testing.
 var ReadReadmeFromKomponent = readReadmeFromKomponent //nolint:gochecknoglobals // test-only export
 
@@ -156,11 +134,11 @@ var ResolveLocalReadme = resolveLocalReadme //nolint:gochecknoglobals // test-on
 // NewInfoCmd exposes newInfoCmd for cobra command testing.
 var NewInfoCmd = newInfoCmd //nolint:gochecknoglobals // test-only export
 
-// NewComponentShowCmd exposes newComponentShowCmd for cobra command testing.
-var NewComponentShowCmd = newComponentShowCmd //nolint:gochecknoglobals // test-only export
+// NewRegistryListCmd exposes newRegistryListCmd for unit testing.
+var NewRegistryListCmd = newRegistryListCmd //nolint:gochecknoglobals // test-only export
 
-// NewCloneCmd exposes newCloneCmd for cobra command testing.
-var NewCloneCmd = newCloneCmd //nolint:gochecknoglobals // test-only export
+// NewRegistryInfoCmd exposes newRegistryInfoCmd for unit testing.
+var NewRegistryInfoCmd = newRegistryInfoCmd //nolint:gochecknoglobals // test-only export
 
 // UnwrapArchiveRoot exposes the unexported unwrapArchiveRoot helper for unit testing.
 var UnwrapArchiveRoot = unwrapArchiveRoot //nolint:gochecknoglobals // test-only export
@@ -186,3 +164,9 @@ var NewRegistryUpdateCmd = newRegistryUpdateCmd //nolint:gochecknoglobals // tes
 
 // KdepsAgentsDir exposes kdepsAgentsDir for integration tests.
 var KdepsAgentsDir = kdepsAgentsDir //nolint:gochecknoglobals // test-only export
+
+// IsLocalFilePath exposes the unexported isLocalFilePath helper for unit testing.
+var IsLocalFilePath = isLocalFilePath //nolint:gochecknoglobals // test-only export
+
+// InstallLocalFile exposes the unexported installLocalFile helper for unit testing.
+var InstallLocalFile = installLocalFile //nolint:gochecknoglobals // test-only export

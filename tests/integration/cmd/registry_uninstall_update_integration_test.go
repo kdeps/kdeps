@@ -191,11 +191,17 @@ func TestRegistryUpdate_Integration_PinnedVersion(t *testing.T) {
 	archive := buildIntegrationArchive(t, "pinned-agent", "3.0.0", "workflow")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		if r.URL.Path == "/api/v1/registry/packages/pinned-agent/3.0.0/download" {
+		switch r.URL.Path {
+		case "/api/v1/registry/packages/pinned-agent":
+			// resolvePackageInfo needs the info endpoint even when version is explicit.
+			body, _ := json.Marshal(map[string]string{"latestVersion": "3.0.0", "type": "workflow"})
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(body)
+		case "/api/v1/registry/packages/pinned-agent/3.0.0/download":
 			_, _ = w.Write(archive)
-			return
+		default:
+			w.WriteHeader(stdhttp.StatusNotFound)
 		}
-		w.WriteHeader(stdhttp.StatusNotFound)
 	}))
 	defer srv.Close()
 

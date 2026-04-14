@@ -100,6 +100,13 @@ func TestRegistryUpdate_WithExplicitVersion(t *testing.T) {
 	archive := testWorkflowArchive(t, "my-agent")
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
+			body, _ := json.Marshal(map[string]interface{}{"latestVersion": "3.0.0", "type": "workflow"})
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(stdhttp.StatusOK)
+			_, _ = w.Write(body)
+			return
+		}
 		if r.URL.Path == "/api/v1/registry/packages/my-agent/3.0.0/download" {
 			_, _ = w.Write(archive)
 			return

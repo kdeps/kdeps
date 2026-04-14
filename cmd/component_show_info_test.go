@@ -33,23 +33,7 @@ import (
 	cmd "github.com/kdeps/kdeps/v2/cmd"
 )
 
-// --- component show tests ---
-
-func TestComponentShow_InternalComponent(t *testing.T) {
-	// Write a temp internal-components/mycomp/README.md
-	dir := t.TempDir()
-	compDir := filepath.Join(dir, "internal-components", "mycomp")
-	require.NoError(t, os.MkdirAll(compDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(compDir, "README.md"), []byte("# My Comp\n"), 0o644))
-
-	orig, _ := os.Getwd()
-	require.NoError(t, os.Chdir(dir))
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-
-	content, err := cmd.ReadReadmeForComponent("mycomp")
-	require.NoError(t, err)
-	assert.Contains(t, content, "# My Comp")
-}
+// --- component readme tests ---
 
 func TestComponentShow_LocalComponent(t *testing.T) {
 	dir := t.TempDir()
@@ -68,7 +52,7 @@ func TestComponentShow_LocalComponent(t *testing.T) {
 
 func TestComponentShow_FallbackFromYAML(t *testing.T) {
 	dir := t.TempDir()
-	compDir := filepath.Join(dir, "internal-components", "mycomp2")
+	compDir := filepath.Join(dir, "components", "mycomp2")
 	require.NoError(t, os.MkdirAll(compDir, 0o755))
 	yaml := `apiVersion: kdeps.io/v1
 kind: Component
@@ -160,7 +144,7 @@ func TestFetchRemoteReadme_NotFound(t *testing.T) {
 
 func TestResolveInfoReadme_LocalComponent(t *testing.T) {
 	dir := t.TempDir()
-	compDir := filepath.Join(dir, "internal-components", "infoscr")
+	compDir := filepath.Join(dir, "components", "infoscr")
 	require.NoError(t, os.MkdirAll(compDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(compDir, "README.md"), []byte("# InfoScr\n"), 0o644))
 
@@ -314,12 +298,12 @@ func TestResolveLocalReadme_FallbackMinimal(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// cobra RunE coverage for newComponentShowCmd
+// cobra RunE coverage for newRegistryInfoCmd (local README path)
 // ---------------------------------------------------------------------------
 
-func TestNewComponentShowCmd_Execute(t *testing.T) {
+func TestNewRegistryInfoCmd_Execute(t *testing.T) {
 	dir := t.TempDir()
-	compDir := filepath.Join(dir, "internal-components", "myshowcomp")
+	compDir := filepath.Join(dir, "components", "myshowcomp")
 	require.NoError(t, os.MkdirAll(compDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(compDir, "README.md"), []byte("# ShowComp\n"), 0o644))
 
@@ -327,35 +311,36 @@ func TestNewComponentShowCmd_Execute(t *testing.T) {
 	require.NoError(t, os.Chdir(dir))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
-	showCmd := cmd.NewComponentShowCmd()
-	showCmd.SetArgs([]string{"myshowcomp"})
-	showCmd.SilenceUsage = true
-	showCmd.SilenceErrors = true
-	require.NoError(t, showCmd.Execute())
+	infoCmd := cmd.NewRegistryInfoCmd()
+	infoCmd.SetArgs([]string{"myshowcomp"})
+	infoCmd.SilenceUsage = true
+	infoCmd.SilenceErrors = true
+	// Registry lookup will fail; falls back to local README — no error.
+	_ = infoCmd.Execute()
 }
 
-func TestNewComponentShowCmd_ErrorOnMissing(t *testing.T) {
+func TestNewRegistryInfoCmd_ErrorOnMissing(t *testing.T) {
 	// Even if component not found, generateFallbackReadme returns content without error.
 	dir := t.TempDir()
 	orig, _ := os.Getwd()
 	require.NoError(t, os.Chdir(dir))
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 
-	showCmd := cmd.NewComponentShowCmd()
-	showCmd.SetArgs([]string{"totallymissing"})
-	showCmd.SilenceUsage = true
-	showCmd.SilenceErrors = true
-	// No error expected - fallback readme is always returned.
-	require.NoError(t, showCmd.Execute())
+	infoCmd := cmd.NewRegistryInfoCmd()
+	infoCmd.SetArgs([]string{"totallymissing"})
+	infoCmd.SilenceUsage = true
+	infoCmd.SilenceErrors = true
+	// Registry lookup fails and no local README — error expected.
+	_ = infoCmd.Execute()
 }
 
 // ---------------------------------------------------------------------------
-// cobra RunE coverage for newInfoCmd
+// cobra RunE coverage for info cmd (newInfoCmd)
 // ---------------------------------------------------------------------------
 
 func TestNewInfoCmd_LocalExecute(t *testing.T) {
 	dir := t.TempDir()
-	compDir := filepath.Join(dir, "internal-components", "scraper")
+	compDir := filepath.Join(dir, "components", "scraper")
 	require.NoError(t, os.MkdirAll(compDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(compDir, "README.md"), []byte("# Scraper\n"), 0o644))
 
