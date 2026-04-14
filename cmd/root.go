@@ -154,10 +154,6 @@ func addSubcommands(rootCmd *cobra.Command) {
 	registryCmd.GroupID = groupDistribute
 	rootCmd.AddCommand(registryCmd)
 
-	componentCmd := newComponentCmd()
-	componentCmd.GroupID = groupDistribute
-	rootCmd.AddCommand(componentCmd)
-
 	// Deploy
 	execCmd := newExecCmd()
 	execCmd.GroupID = groupDeploy

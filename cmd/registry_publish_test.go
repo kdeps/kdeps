@@ -50,7 +50,7 @@ func TestRegistryPublish_Success(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryPublish(cmd, dir, srv.URL, "test-token")
+	err = doRegistryPublish(cmd, dir, srv.URL, "test-token", false)
 	require.NoError(t, err)
 	assert.Contains(t, out.String(), "Published test-agent@1.0.0")
 }
@@ -62,7 +62,7 @@ func TestRegistryPublish_NoManifest(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err := doRegistryPublish(cmd, dir, "http://localhost", "token")
+	err := doRegistryPublish(cmd, dir, "http://localhost", "token", false)
 	require.Error(t, err)
 }
 
@@ -77,7 +77,7 @@ func TestRegistryPublish_InvalidManifest(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryPublish(cmd, dir, "http://localhost", "token")
+	err = doRegistryPublish(cmd, dir, "http://localhost", "token", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "required")
 }
@@ -98,7 +98,80 @@ func TestRegistryPublish_ServerError(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	err = doRegistryPublish(cmd, dir, srv.URL, "token")
+	err = doRegistryPublish(cmd, dir, srv.URL, "token", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
+}
+
+func TestRegistryPublish_SkipVerify(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"),
+		[]byte("name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: Test\n"), 0600))
+	// Hardcoded key that would normally block publish.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "res.yaml"),
+		[]byte("run:\n  chat:\n    apiKey: \"sk-hardcoded\"\n"), 0600))
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	// Without skip-verify should fail due to hardcoded key.
+	err := doRegistryPublish(cmd, dir, srv.URL, "token", false)
+	require.Error(t, err)
+
+	// With skip-verify should succeed.
+	err = doRegistryPublish(cmd, dir, srv.URL, "token", true)
+	require.NoError(t, err)
+}
+
+func TestDoRegistryVerify_CleanDir(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("name: test\n"), 0600))
+
+	c := &cobra.Command{}
+	var buf bytes.Buffer
+	c.SetOut(&buf)
+	err := doRegistryVerify(c, dir)
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "Ready to publish")
+}
+
+func TestDoRegistryVerify_WithErrors(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "res.yaml"), []byte(`
+run:
+  chat:
+    apiKey: "sk-hardcoded-key"
+`), 0600))
+
+	c := &cobra.Command{}
+	var buf bytes.Buffer
+	c.SetOut(&buf)
+	err := doRegistryVerify(c, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error(s)")
+}
+
+func TestDoRegistryVerify_WarningsOnly(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "res.yaml"), []byte("model: gpt-4o\n"), 0600))
+
+	c := &cobra.Command{}
+	var buf bytes.Buffer
+	c.SetOut(&buf)
+	err := doRegistryVerify(c, dir)
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "warning")
+}
+
+func TestDoRegistryVerify_UnreadableDir(t *testing.T) {
+	c := &cobra.Command{}
+	err := doRegistryVerify(c, "/nonexistent/xyz999")
+	assert.Error(t, err)
 }

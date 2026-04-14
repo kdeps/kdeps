@@ -687,43 +687,6 @@ func (s *Server) ParseRequest(
 	}
 }
 
-// RespondSuccess sends a successful response.
-//
-// Deprecated: Use RespondWithSuccess from response.go instead.
-func (s *Server) RespondSuccess(w stdhttp.ResponseWriter, data interface{}) {
-	kdeps_debug.Log("enter: RespondSuccess")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"data":    data,
-	}); err != nil {
-		s.logger.Error("failed to encode response", "error", err)
-	}
-}
-
-// RespondError sends an error response.
-//
-// Deprecated: Use RespondWithError from response.go instead.
-func (s *Server) RespondError(w stdhttp.ResponseWriter, statusCode int, message string, err error) {
-	kdeps_debug.Log("enter: RespondError")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	errorMsg := message
-	if err != nil {
-		errorMsg = fmt.Sprintf("%s: %v", message, err)
-	}
-
-	if encodeErr := json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": false,
-		"error":   errorMsg,
-	}); encodeErr != nil {
-		s.logger.Error("failed to encode error response", "error", encodeErr)
-	}
-}
-
 // CorsMiddleware handles CORS.
 func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: CorsMiddleware")

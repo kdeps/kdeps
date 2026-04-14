@@ -63,14 +63,16 @@ func newRegistryPublishCmd() *cobra.Command {
 			if token == "" {
 				token = os.Getenv("KDEPS_REGISTRY_TOKEN")
 			}
-			return doRegistryPublish(cmd, dir, registryURL(cmd), token)
+			skipVerify, _ := cmd.Flags().GetBool("skip-verify")
+			return doRegistryPublish(cmd, dir, registryURL(cmd), token, skipVerify)
 		},
 	}
 	cmd.Flags().StringP("token", "t", "", "Registry authentication token (or KDEPS_REGISTRY_TOKEN env)")
+	cmd.Flags().Bool("skip-verify", false, "Skip LLM-agnostic verification before publishing")
 	return cmd
 }
 
-func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string) error {
+func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string, skipVerify bool) error {
 	kdeps_debug.Log("enter: doRegistryPublish")
 	m, err := manifest.Load(dir)
 	if err != nil {
@@ -81,17 +83,19 @@ func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string) error {
 	}
 
 	// Pre-publish: verify the package is LLM-agnostic (no hardcoded secrets).
-	result, verifyErr := verify.Dir(dir)
-	if verifyErr != nil {
-		return fmt.Errorf("verify package: %w", verifyErr)
-	}
-	for _, f := range result.Findings {
-		if f.Severity == verify.SeverityWarn {
-			fmt.Fprintf(cmd.ErrOrStderr(), "  warn: %s\n", f)
+	if !skipVerify {
+		result, verifyErr := verify.Dir(dir)
+		if verifyErr != nil {
+			return fmt.Errorf("verify package: %w", verifyErr)
 		}
-	}
-	if result.HasErrors() {
-		return result.Error()
+		for _, f := range result.Findings {
+			if f.Severity == verify.SeverityWarn {
+				fmt.Fprintf(cmd.ErrOrStderr(), "  warn: %s\n", f)
+			}
+		}
+		if result.HasErrors() {
+			return result.Error()
+		}
 	}
 
 	readmeBytes, _ := os.ReadFile(filepath.Join(dir, "README.md"))
@@ -250,4 +254,44 @@ func buildPublishRequest(p publishRequestParams) (*stdhttp.Request, error) {
 		req.Header.Set("Authorization", "Bearer "+p.token)
 	}
 	return req, nil
+}
+
+func doRegistryVerify(cmd *cobra.Command, dir string) error {
+	kdeps_debug.Log("enter: doRegistryVerify")
+	result, err := verify.Dir(dir)
+	if err != nil {
+		return fmt.Errorf("verify: %w", err)
+	}
+
+	w := cmd.OutOrStdout()
+	if len(result.Findings) == 0 {
+		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to publish.")
+		return nil
+	}
+
+	for _, f := range result.Findings {
+		fmt.Fprintln(w, " ", f.String())
+	}
+
+	fmt.Fprintln(w)
+	if result.HasErrors() {
+		return fmt.Errorf(
+			"found %d error(s) — fix them before publishing (see 'kdeps registry publish --help')",
+			countBySeverity(result.Findings, verify.SeverityError),
+		)
+	}
+
+	warnCount := countBySeverity(result.Findings, verify.SeverityWarn)
+	fmt.Fprintf(w, "%d warning(s) — review before publishing\n", warnCount)
+	return nil
+}
+
+func countBySeverity(findings []verify.Finding, sev verify.Severity) int {
+	n := 0
+	for _, f := range findings {
+		if f.Severity == sev {
+			n++
+		}
+	}
+	return n
 }

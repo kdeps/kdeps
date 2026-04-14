@@ -1,8 +1,0 @@
-name: cv-matcher
-version: "1.0.0"
-type: workflow
-description: Fully offline AI-powered CV / Job Description matching pipeline using Ollama for LLM inference.
-tags:
-  - cv
-  - ai
-  - matching

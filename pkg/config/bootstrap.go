@@ -17,6 +17,7 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -80,14 +81,9 @@ func Bootstrap(out *os.File) error {
 	return bootstrapInteractive(out, reader, path)
 }
 
-// bootstrapWriter is an io.Writer-like interface used by bootstrapInteractive.
-type bootstrapWriter interface {
-	WriteString(string) (int, error)
-}
-
 // bootstrapInteractive runs the interactive setup wizard.
 // Separated from Bootstrap so it can be tested without a real TTY.
-func bootstrapInteractive(out bootstrapWriter, reader *bufio.Reader, path string) error {
+func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string) error {
 	w := &fmtWriter{out}
 
 	w.println("")
@@ -136,7 +132,7 @@ func bootstrapInteractive(out bootstrapWriter, reader *bufio.Reader, path string
 
 // fmtWriter wraps a WriteString-capable writer for fmt calls.
 type fmtWriter struct {
-	w bootstrapWriter
+	w io.StringWriter
 }
 
 func (f *fmtWriter) println(s string) { _, _ = f.w.WriteString(s + "\n") }
@@ -145,7 +141,7 @@ func (f *fmtWriter) printf(format string, args ...interface{}) {
 }
 
 // promptLine prints prompt, reads a line, returns def if the line is blank.
-func promptLine(out bootstrapWriter, r *bufio.Reader, prompt, def string) string {
+func promptLine(out io.StringWriter, r *bufio.Reader, prompt, def string) string {
 	_, _ = out.WriteString(prompt)
 	line, _ := r.ReadString('\n')
 	line = strings.TrimSpace(line)
@@ -226,7 +222,7 @@ func dirOf(path string) string {
 
 // configureProvider handles interactive setup for one provider (ollama or online).
 func configureProvider(
-	out bootstrapWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
+	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
 ) error {
 	meta := providerMetaMap()[chosenProvider]
 	if chosenProvider == "ollama" {

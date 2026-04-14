@@ -193,45 +193,6 @@ func TestServer_SetupRoutes_AllMethods(t *testing.T) {
 	assert.NotNil(t, server.Router)
 }
 
-// TestServer_RespondSuccess_Coverage tests RespondSuccess method (coverage variant).
-func TestServer_RespondSuccess_Coverage(t *testing.T) {
-	server, err := httppkg.NewServer(nil, nil, nil)
-	require.NoError(t, err)
-
-	w := httptest.NewRecorder()
-	data := map[string]interface{}{"result": "success"}
-
-	server.RespondSuccess(w, data)
-
-	assert.Equal(t, stdhttp.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-	var response map[string]interface{}
-	err = json.NewDecoder(w.Body).Decode(&response)
-	require.NoError(t, err)
-	assert.True(t, response["success"].(bool))
-	assert.Equal(t, data, response["data"])
-}
-
-// TestServer_RespondError_Coverage tests RespondError method (coverage variant).
-func TestServer_RespondError_Coverage(t *testing.T) {
-	server, err := httppkg.NewServer(nil, nil, nil)
-	require.NoError(t, err)
-
-	w := httptest.NewRecorder()
-	testErr := assert.AnError
-
-	server.RespondError(w, stdhttp.StatusBadRequest, "Bad request", testErr)
-
-	assert.Equal(t, stdhttp.StatusBadRequest, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-	var response map[string]interface{}
-	err = json.NewDecoder(w.Body).Decode(&response)
-	require.NoError(t, err)
-	assert.False(t, response["success"].(bool))
-}
-
 // TestServer_CorsMiddleware_NoCORS tests CORS middleware when CORS is disabled.
 func TestServer_CorsMiddleware_NoCORS(t *testing.T) {
 	workflow := &domain.Workflow{
