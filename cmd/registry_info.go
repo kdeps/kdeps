@@ -86,7 +86,12 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 
 	pkg, err := client.GetPackage(ctx, ref)
 	if err != nil {
-		// Registry unavailable — emit the fallback stub and return without error.
+		// /api/packages/:name route unavailable (not yet deployed) — fall back to
+		// searching for the package, downloading its archive, and extracting README.
+		if readme := readmeFromRegistryArchive(ctx, client, ref); readme != "" {
+			fmt.Fprint(os.Stdout, renderMarkdown(readme))
+			return nil
+		}
 		readme, _ := resolveLocalReadme(ref)
 		fmt.Fprint(os.Stdout, renderMarkdown(readme))
 		return nil
@@ -133,4 +138,43 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		}
 	}
 	return nil
+}
+
+// readmeFromRegistryArchive searches for the named package, downloads its
+// archive to a temp directory, and extracts the README from it.
+// Returns "" on any failure so the caller can fall through gracefully.
+func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, name string) string {
+	kdeps_debug.Log("enter: readmeFromRegistryArchive")
+
+	// Search to resolve the latest version.
+	entries, err := client.Search(ctx, name, "", 20)
+	if err != nil {
+		return ""
+	}
+	var version string
+	for _, e := range entries {
+		if e.Name == name {
+			version = e.Version
+			break
+		}
+	}
+	if version == "" {
+		return ""
+	}
+
+	// Download archive to a temp dir.
+	tmpDir, err := os.MkdirTemp("", "kdeps-info-*")
+	if err != nil {
+		return ""
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath, err := client.Download(ctx, name, version, tmpDir)
+	if err != nil {
+		return ""
+	}
+
+	// Extract README from the archive (same tar.gz format as .komponent).
+	readme, _ := readReadmeFromKomponent(archivePath)
+	return readme
 }
