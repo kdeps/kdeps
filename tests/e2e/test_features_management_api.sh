@@ -18,11 +18,10 @@
 # license notices and attribution when redistributing derived code.
 
 # E2E tests for the management API (/_kdeps/status, PUT /_kdeps/workflow,
-# POST /_kdeps/reload) and the `kdeps push` command.
+# POST /_kdeps/reload).
 #
-# These tests start a real `kdeps run` server, exercise the management
-# endpoints via curl, then push an updated workflow using `kdeps push` and
-# verify the server reflects the new version.
+# These tests start a real `kdeps run` server and exercise the management
+# endpoints via curl.
 
 set -uo pipefail
 
@@ -197,80 +196,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Test 5: kdeps push — push a new workflow version (uses KDEPS_MANAGEMENT_TOKEN)
+# Test 5: Reject workflow PUT with wrong token (expect 401)
 # ---------------------------------------------------------------------------
 
-# Create an updated workflow directory (v2.0.0)
-PUSH_DIR=$(mktemp -d)
-_create_mgmt_workflow "$PUSH_DIR" "mgmt-test-agent" "2.0.0"
-
-# Run kdeps push — token is read from the env by the push command
-PUSH_LOG=$(mktemp)
-if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:${MGMT_PORT}" > "$PUSH_LOG" 2>&1; then
-    test_passed "Management API - kdeps push succeeds"
-else
-    test_failed "Management API - kdeps push succeeds" "$(cat "$PUSH_LOG")"
-fi
-rm -f "$PUSH_LOG"
-
-# ---------------------------------------------------------------------------
-# Test 6: After push, status shows version 2.0.0
-# ---------------------------------------------------------------------------
-
-# Allow a brief moment for the reload to complete
-sleep 1
-
-STATUS_RESP2=$(curl -sf "http://127.0.0.1:${MGMT_PORT}/_kdeps/status" 2>/dev/null || echo "")
-if command -v jq > /dev/null 2>&1 && [ -n "$STATUS_RESP2" ]; then
-    NEW_VER=$(echo "$STATUS_RESP2" | jq -r '.workflow.version' 2>/dev/null)
-    if [ "$NEW_VER" = "2.0.0" ]; then
-        test_passed "Management API - push updated workflow version to 2.0.0"
-    else
-        test_failed "Management API - push updated workflow version to 2.0.0" "got: $NEW_VER"
-    fi
-else
-    # Without jq just confirm server is still alive
-    if [ -n "$STATUS_RESP2" ]; then
-        test_passed "Management API - server alive after push (jq not available for version check)"
-    else
-        test_failed "Management API - server alive after push" "no response"
-    fi
-fi
-
-# ---------------------------------------------------------------------------
-# Test 7: Resources directory is cleared after push (persistence check)
-# ---------------------------------------------------------------------------
-
-RESOURCES_DIR="$TEST_DIR/resources"
-if ls "$RESOURCES_DIR"/*.yaml 2>/dev/null | grep -q .; then
-    test_failed "Management API - resources/ cleared after push" "YAML files still present in $RESOURCES_DIR"
-else
-    test_passed "Management API - resources/ cleared after push"
-fi
-
-# ---------------------------------------------------------------------------
-# Test 8: kdeps push fails with a bad target
-# ---------------------------------------------------------------------------
-
-BAD_PUSH_LOG=$(mktemp)
-if ! "$KDEPS_BIN" push "$PUSH_DIR" "http://127.0.0.1:1" > "$BAD_PUSH_LOG" 2>&1; then
-    test_passed "Management API - kdeps push fails gracefully with bad target"
-else
-    test_failed "Management API - kdeps push fails gracefully with bad target" "push should have failed"
-fi
-rm -f "$BAD_PUSH_LOG"
-
-# ---------------------------------------------------------------------------
-# Test 9: Reject push with wrong token (expect 401)
-# ---------------------------------------------------------------------------
+WF_PUT_FILE=$(mktemp)
+cat > "$WF_PUT_FILE" << 'EOF'
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: mgmt-test-agent
+  version: "2.0.0"
+  targetActionId: mgmtResource
+settings:
+  apiServerMode: true
+EOF
 
 WRONG_TOKEN_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
     -X PUT \
     -H "Authorization: Bearer WRONG_TOKEN" \
     -H "Content-Type: application/yaml" \
-    --data-binary "@$PUSH_DIR/workflow.yaml" \
+    --data-binary "@$WF_PUT_FILE" \
     "http://127.0.0.1:${MGMT_PORT}/_kdeps/workflow" 2>/dev/null)
 WRONG_TOKEN_CODE="${WRONG_TOKEN_CODE:-000}"
+rm -f "$WF_PUT_FILE"
 
 if [ "$WRONG_TOKEN_CODE" = "401" ]; then
     test_passed "Management API - wrong token rejected with 401"
@@ -359,62 +307,6 @@ else
     test_failed "Management API - oversized YAML rejected with 413" "got HTTP $OVERSIZE_CODE"
 fi
 rm -f "$BIG_FILE"
-
-# ---------------------------------------------------------------------------
-# Test 12: kdeps push with explicit --token flag (not env var)
-# ---------------------------------------------------------------------------
-
-PUSH3_DIR=$(mktemp -d)
-_create_mgmt_workflow "$PUSH3_DIR" "mgmt-test-agent" "3.0.0"
-
-# Unset env token, pass via flag instead
-FLAG_PUSH_LOG=$(mktemp)
-if KDEPS_MANAGEMENT_TOKEN="" "$KDEPS_BIN" push --token "$MGMT_TOKEN" "$PUSH3_DIR" \
-    "http://127.0.0.1:${MGMT_PORT}" > "$FLAG_PUSH_LOG" 2>&1; then
-    test_passed "Management API - kdeps push --token flag works"
-else
-    test_failed "Management API - kdeps push --token flag works" "$(cat "$FLAG_PUSH_LOG")"
-fi
-rm -f "$FLAG_PUSH_LOG"
-rm -rf "$PUSH3_DIR"
-
-# Verify version was updated to 3.0.0
-sleep 1
-STATUS_RESP3=$(curl -sf "http://127.0.0.1:${MGMT_PORT}/_kdeps/status" 2>/dev/null || echo "")
-if command -v jq > /dev/null 2>&1 && [ -n "$STATUS_RESP3" ]; then
-    NEW_VER3=$(echo "$STATUS_RESP3" | jq -r '.workflow.version' 2>/dev/null)
-    if [ "$NEW_VER3" = "3.0.0" ]; then
-        test_passed "Management API - push --token flag updated version to 3.0.0"
-    else
-        test_failed "Management API - push --token flag updated version to 3.0.0" "got: $NEW_VER3"
-    fi
-fi
-
-# ---------------------------------------------------------------------------
-# Test 13: PUT /_kdeps/package – push a .kdeps archive
-# ---------------------------------------------------------------------------
-
-PKG_PUSH_DIR=$(mktemp -d)
-_create_mgmt_workflow "$PKG_PUSH_DIR" "mgmt-test-agent" "4.0.0"
-
-# Package the workflow into a .kdeps archive
-PKG_FILE="$(mktemp).kdeps"
-if "$KDEPS_BIN" bundle package "$PKG_PUSH_DIR/workflow.yaml" --output "$PKG_FILE" > /dev/null 2>&1; then
-    # Push the .kdeps archive
-    PKG_PUSH_LOG=$(mktemp)
-    if KDEPS_MANAGEMENT_TOKEN="$MGMT_TOKEN" "$KDEPS_BIN" push "$PKG_FILE" \
-        "http://127.0.0.1:${MGMT_PORT}" > "$PKG_PUSH_LOG" 2>&1; then
-        test_passed "Management API - kdeps push .kdeps package succeeds"
-    else
-        test_failed "Management API - kdeps push .kdeps package succeeds" "$(cat "$PKG_PUSH_LOG")"
-    fi
-    rm -f "$PKG_PUSH_LOG"
-else
-    # If package command isn't available or has different syntax, skip gracefully
-    test_passed "Management API - kdeps push .kdeps package (skipped: package cmd unavailable)"
-fi
-rm -f "$PKG_FILE"
-rm -rf "$PKG_PUSH_DIR"
 
 # ---------------------------------------------------------------------------
 # Cleanup

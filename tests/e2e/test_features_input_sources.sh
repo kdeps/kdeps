@@ -514,7 +514,7 @@ test_input_source_valid "Component source - no media pipeline triggered" \
 KDEPS_BIN="${PROJECT_ROOT}/kdeps"
 [ -x "$KDEPS_BIN" ] || KDEPS_BIN=$(command -v kdeps 2>/dev/null || true)
 if [ -x "$KDEPS_BIN" ]; then
-    if "$KDEPS_BIN" component list 2>/dev/null | grep -q "input"; then
+    if "$KDEPS_BIN" registry list 2>/dev/null | grep -q "input"; then
         test_passed "Component list includes input"
     else
         test_passed "Component list includes input (kdeps not built yet, skip)"

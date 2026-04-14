@@ -113,7 +113,7 @@ EOF
 test_autopilot_result_structure() {
     local project_root
     project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    local component_file="$project_root/internal-components/autopilot/component.yaml"
+    local component_file="$project_root/contrib/components/autopilot/component.yaml"
 
     if [ -f "$component_file" ] && grep -q "plan-and-execute" "$component_file"; then
         test_passed "autopilot result structure (component exports plan-and-execute action)"
@@ -126,7 +126,7 @@ test_autopilot_result_structure() {
 test_autopilot_default_max_iterations() {
     local project_root
     project_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    local component_file="$project_root/internal-components/autopilot/component.yaml"
+    local component_file="$project_root/contrib/components/autopilot/component.yaml"
 
     if [ -f "$component_file" ] && grep -q "model" "$component_file"; then
         test_passed "autopilot component has configurable model input (replaces maxIterations executor field)"

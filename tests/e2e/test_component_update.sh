@@ -55,7 +55,7 @@ resources:
         command: "echo {{ env('MY_SECRET') }}"
 EOF
 
-"$KDEPS_BIN" component update "$T/components/mycomp"
+"\$KDEPS_BIN" registry update "$T/components/mycomp"
 
 if [ -f "$T/components/mycomp/README.md" ]; then
     test_passed "component update - creates README.md"
@@ -77,7 +77,7 @@ fi
 
 # ── Test 2: update is idempotent (README never overwritten) ──────────────────
 echo "Custom README" > "$T/components/mycomp/README.md"
-"$KDEPS_BIN" component update "$T/components/mycomp"
+"\$KDEPS_BIN" registry update "$T/components/mycomp"
 
 if [ "$(cat "$T/components/mycomp/README.md")" = "Custom README" ]; then
     test_passed "component update - does not overwrite existing README.md"
@@ -104,7 +104,7 @@ resources:
       exec:
         command: "echo {{ env('NEW_VAR') }}"
 EOF
-"$KDEPS_BIN" component update "$T/components/mycomp"
+"\$KDEPS_BIN" registry update "$T/components/mycomp"
 
 if grep -q "NEW_VAR" "$T/components/mycomp/.env" 2>/dev/null; then
     test_passed "component update - merges new env vars into existing .env"
@@ -120,7 +120,7 @@ fi
 
 # ── Test 4: non-component dir gives appropriate error ────────────────────────
 EMPTY=$(mktemp -d)
-OUTPUT=$("$KDEPS_BIN" component update "$EMPTY" 2>&1 || true)
+OUTPUT=$("\$KDEPS_BIN" registry update "$EMPTY" 2>&1 || true)
 if echo "$OUTPUT" | grep -qi "component\|agency\|workflow"; then
     test_passed "component update - non-component dir gives descriptive message"
 else

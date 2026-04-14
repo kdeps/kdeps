@@ -45,9 +45,34 @@ else
     exit 1
 fi
 
-# Make built-in components available to all E2E tests without requiring
-# global installation. internal-components/ is the built-in component library.
-export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/internal-components"
+# Make contrib components available to all E2E tests without requiring
+# global installation. contrib/ holds the reference component library.
+export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/contrib/components"
+
+# Start a local mock registry server that immediately returns 404 for all
+# requests, so no e2e test ever calls the real registry.kdeps.io server.
+_MOCK_PORT=$(python3 -c "
+import socket
+s = socket.socket()
+s.bind(('127.0.0.1', 0))
+print(s.getsockname()[1])
+s.close()
+")
+_MOCK_SCRIPT=$(mktemp /tmp/mock_registry_XXXXXX.py)
+cat > "$_MOCK_SCRIPT" << 'PYEOF'
+import http.server, sys, os, signal
+signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self): self.send_response(404); self.end_headers()
+    def do_POST(self): self.send_response(404); self.end_headers()
+    def log_message(self, *a): pass
+http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
+PYEOF
+python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" &
+_MOCK_PID=$!
+sleep 0.2
+trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
+export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
 
 # Test helper functions
 test_passed() {

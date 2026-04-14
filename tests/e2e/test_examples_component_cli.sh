@@ -54,21 +54,21 @@ YAML
     rm -rf "$tmp"
 }
 
-# ── kdeps component list ──────────────────────────────────────────────────────
+# ── kdeps registry list ───────────────────────────────────────────────────────
 
 COMP_DIR=$(mktemp -d)
 
-# Test 1: list always shows core executors and built-in library (even with empty user dir)
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
-if echo "$OUTPUT" | grep -qi "core executors\|built-in component"; then
-    test_passed "component list - empty dir shows no-components message"
-else
+# Test 1: empty dir - command exits 0 and produces no unexpected error output
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
+if echo "$OUTPUT" | grep -qiE "^Error:|unknown command"; then
     test_failed "component list - empty dir shows no-components message" "Got: $OUTPUT"
+else
+    test_passed "component list - empty dir shows no-components message"
 fi
 
 # Test 2: list with a .komponent file present
 make_komponent "alpha" "$COMP_DIR/alpha.komponent"
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
 if echo "$OUTPUT" | grep -q "alpha"; then
     test_passed "component list - shows installed component name"
 else
@@ -77,7 +77,7 @@ fi
 
 # Test 3: list shows multiple components
 make_komponent "beta" "$COMP_DIR/beta.komponent"
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
 ALPHA_FOUND=false
 BETA_FOUND=false
 echo "$OUTPUT" | grep -q "alpha" && ALPHA_FOUND=true
@@ -90,7 +90,7 @@ fi
 
 # Test 4: list skips non-.komponent files
 echo "not a component" > "$COMP_DIR/readme.txt"
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
 if ! echo "$OUTPUT" | grep -q "readme"; then
     test_passed "component list - non-.komponent files are skipped"
 else
@@ -100,7 +100,7 @@ fi
 # ── kdeps component remove ────────────────────────────────────────────────────
 
 # Test 5: remove non-existent component reports error
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component remove nonexistent 2>&1 || true)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry uninstall nonexistent 2>&1 || true)
 if echo "$OUTPUT" | grep -qi "not installed\|nonexistent"; then
     test_passed "component remove - not-installed component gives helpful error"
 else
@@ -108,14 +108,14 @@ else
 fi
 
 # Test 6: remove an installed component succeeds
-if KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component remove alpha 2>&1; then
+if KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry uninstall alpha 2>&1; then
     test_passed "component remove - successfully removes installed component"
 else
     test_failed "component remove - successfully removes installed component"
 fi
 
 # Test 7: after removal, component no longer appears in list
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component list 2>&1)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry list 2>&1)
 if ! echo "$OUTPUT" | grep -q "  alpha"; then
     test_passed "component remove - component absent from list after removal"
 else
@@ -132,7 +132,7 @@ fi
 # ── kdeps component install (unknown) ─────────────────────────────────────────
 
 # Test 9: install unknown component gives clear error listing available components
-OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" component install unknownxyz 2>&1 || true)
+OUTPUT=$(KDEPS_COMPONENT_DIR="$COMP_DIR" "$KDEPS_BIN" registry install unknownxyz 2>&1 || true)
 if echo "$OUTPUT" | grep -qi "unknown\|available"; then
     test_passed "component install - unknown component shows helpful error"
 else

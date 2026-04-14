@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for scaffolding commands (new, scaffold)
+# E2E tests for the new command
 
 set -uo pipefail
 
@@ -32,10 +32,10 @@ test_new() {
     local agent_name="$1"
     local test_name="$2"
     local tmp_dir=$(mktemp -d)
-    
+
     cd "$tmp_dir" || return 0
-    
-    if "$KDEPS_BIN" new "$agent_name" --template api-service --no-prompt &> /dev/null; then
+
+    if "$KDEPS_BIN" new "$agent_name" --template api-service &> /dev/null; then
         if [ -d "$agent_name" ] && [ -f "$agent_name/workflow.yaml" ]; then
             test_passed "$test_name"
         else
@@ -44,34 +44,7 @@ test_new() {
     else
         test_failed "$test_name" "New command failed"
     fi
-    
-    cd - > /dev/null || true
-    rm -rf "$tmp_dir"
-    return 0
-}
 
-# Test scaffold command
-test_scaffold() {
-    local resource_name="$1"
-    local test_name="$2"
-    local tmp_dir=$(mktemp -d)
-    
-    cd "$tmp_dir" || return 0
-    
-    # Create a basic project first
-    "$KDEPS_BIN" new test-agent --template api-service --no-prompt &> /dev/null
-    cd test-agent || return 0
-    
-    if "$KDEPS_BIN" scaffold "$resource_name" &> /dev/null; then
-        if [ -f "resources/$resource_name.yaml" ]; then
-            test_passed "$test_name"
-        else
-            test_failed "$test_name" "Resource file not created"
-        fi
-    else
-        test_failed "$test_name" "Scaffold command failed"
-    fi
-    
     cd - > /dev/null || true
     rm -rf "$tmp_dir"
     return 0
@@ -79,7 +52,5 @@ test_scaffold() {
 
 # Run tests
 test_new "test-api-agent" "New API service agent"
-test_scaffold "sql" "Scaffold SQL resource"
-test_scaffold "http-client" "Scaffold HTTP client resource"
 
 echo ""

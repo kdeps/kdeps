@@ -254,20 +254,20 @@ else
         test_failed "input-component - answer resource uses output('collectInputs')" "output('collectInputs') not found in $IC_RES2"
     fi
 
-    # T29: built-in input component exists in internal-components
-    BUILTIN_INPUT="$PROJECT_ROOT/internal-components/input/component.yaml"
+    # T29: contrib input component exists
+    BUILTIN_INPUT="$PROJECT_ROOT/contrib/components/input/component.yaml"
     if [ -f "$BUILTIN_INPUT" ]; then
-        test_passed "input-component - built-in input/component.yaml exists"
+        test_passed "input-component - contrib/components/input/component.yaml exists"
     else
-        test_failed "input-component - built-in input/component.yaml exists" "File not found: $BUILTIN_INPUT"
+        test_failed "input-component - contrib/components/input/component.yaml exists" "File not found: $BUILTIN_INPUT"
     fi
 
-    # T30: built-in input component declares 14 input slots
+    # T30: contrib input component declares input slots
     SLOT_COUNT=$(grep -c "^    - name:" "$BUILTIN_INPUT" 2>/dev/null || echo 0)
     if [ "$SLOT_COUNT" -ge 14 ]; then
-        test_passed "input-component - built-in component has >= 14 input slots"
+        test_passed "input-component - contrib component has >= 14 input slots"
     else
-        test_failed "input-component - built-in component has >= 14 input slots" "Found $SLOT_COUNT slots, expected >= 14"
+        test_failed "input-component - contrib component has >= 14 input slots" "Found $SLOT_COUNT slots, expected >= 14"
     fi
 fi
 
