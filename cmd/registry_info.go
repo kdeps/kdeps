@@ -115,11 +115,14 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	}
 	fmt.Fprintf(w, "Updated:     %s\n", pkg.UpdatedAt)
 
-	// Append README if available from local install.
+	// Show README: prefer local install, fall back to registry-stored readme.
 	readme, readmeErr := resolveLocalReadme(ref)
 	if readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref) {
 		fmt.Fprintln(w)
 		fmt.Fprint(os.Stdout, renderMarkdown(readme))
+	} else if pkg.Readme != "" {
+		fmt.Fprintln(w)
+		fmt.Fprint(os.Stdout, renderMarkdown(pkg.Readme))
 	}
 	return nil
 }

@@ -80,6 +80,7 @@ type PackageDetail struct {
 	Tags        []string         `json:"tags"`
 	Homepage    string           `json:"homepage"`
 	Downloads   int              `json:"downloadsCount"`
+	Readme      string           `json:"readme"`
 	Versions    []PackageVersion `json:"versions"`
 	CreatedAt   string           `json:"createdAt"`
 	UpdatedAt   string           `json:"updatedAt"`
