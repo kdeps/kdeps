@@ -26,6 +26,7 @@ import (
 	"io"
 	stdhttp "net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -90,7 +91,7 @@ func resolveInfoReadme(ref string) (string, error) {
 }
 
 // resolveLocalReadme searches for a README for a locally-named item.
-// It probes: global component dir, ./components/, ./agents/, ./agencies/.
+// It probes: global component dir, ./components/, ~/.kdeps/agents/, ./agents/, ./agencies/.
 func resolveLocalReadme(name string) (string, error) {
 	kdeps_debug.Log("enter: resolveLocalReadme")
 
@@ -100,7 +101,14 @@ func resolveLocalReadme(name string) (string, error) {
 		return readme, nil
 	}
 
-	// 2. Try local agents/<name>/ or agencies/<name>/
+	// 2. Global agents dir (~/.kdeps/agents/<name>/)
+	if agentsDir, agentsDirErr := kdepsAgentsDir(); agentsDirErr == nil {
+		if content := findReadmeInDir(filepath.Join(agentsDir, name)); content != "" {
+			return content, nil
+		}
+	}
+
+	// 3. Local agents/<name>/ or agencies/<name>/
 	for _, base := range []string{"agents", "agencies"} {
 		dir := fmt.Sprintf("%s/%s", base, name)
 		if content := findReadmeInDir(dir); content != "" {
