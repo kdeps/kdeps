@@ -51,15 +51,20 @@ export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/contrib/components"
 
 # Start a local mock registry server that immediately returns 404 for all
 # requests, so no e2e test ever calls the real registry.kdeps.io server.
-_MOCK_PORT=$(python3 -c "
+# Guard against being sourced multiple times (each sub-script sources common.sh).
+if [ -z "${_KDEPS_MOCK_REGISTRY_STARTED:-}" ]; then
+    export _KDEPS_MOCK_REGISTRY_STARTED=1
+
+    _MOCK_PORT=$(python3 -c "
 import socket
 s = socket.socket()
 s.bind(('127.0.0.1', 0))
 print(s.getsockname()[1])
 s.close()
 ")
-_MOCK_SCRIPT=$(mktemp /tmp/mock_registry_XXXXXX.py)
-cat > "$_MOCK_SCRIPT" << 'PYEOF'
+    # macOS mktemp does not support suffixes after the X placeholders — omit .py
+    _MOCK_SCRIPT=$(mktemp /tmp/mock_registry_XXXXXX)
+    cat > "$_MOCK_SCRIPT" << 'PYEOF'
 import http.server, sys, os, signal
 signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
 class H(http.server.BaseHTTPRequestHandler):
@@ -68,11 +73,12 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PYEOF
-python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" &
-_MOCK_PID=$!
-sleep 0.2
-trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
-export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
+    python3 "$_MOCK_SCRIPT" "$_MOCK_PORT" &
+    _MOCK_PID=$!
+    sleep 0.2
+    trap 'kill "$_MOCK_PID" 2>/dev/null; rm -f "$_MOCK_SCRIPT"' EXIT INT TERM
+    export KDEPS_REGISTRY_URL="http://127.0.0.1:$_MOCK_PORT"
+fi
 
 # Test helper functions
 test_passed() {
