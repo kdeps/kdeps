@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	stdhttp "net/http"
 	"os"
@@ -435,6 +436,12 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 							), debugMode)
 							return
 						}
+					}
+
+					// Prevent reflected XSS when writing browser-rendered content.
+					// Escape untrusted output for HTML responses before writing.
+					if strings.HasPrefix(respContentType, "text/html") {
+						rawBytes = []byte(html.EscapeString(string(rawBytes)))
 					}
 
 					w.WriteHeader(stdhttp.StatusOK)
