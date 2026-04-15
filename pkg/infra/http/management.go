@@ -370,8 +370,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 
-		relPath := filepath.Clean(hdr.Name)
+		relPath := filepath.Clean(filepath.FromSlash(hdr.Name))
 		if relPath == "." || relPath == "" || filepath.IsAbs(relPath) {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
+		if relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
@@ -381,8 +384,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to resolve package path %s: %w", relPath, absErr)
 		}
 
-		baseWithSep := baseDirAbs + string(os.PathSeparator)
-		if targetPathAbs != baseDirAbs && !strings.HasPrefix(targetPathAbs, baseWithSep) {
+		relToBase, relErr := filepath.Rel(baseDirAbs, targetPathAbs)
+		if relErr != nil {
+			return fmt.Errorf("failed to validate package path %s: %w", relPath, relErr)
+		}
+		if relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
