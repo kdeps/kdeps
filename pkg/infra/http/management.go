@@ -406,6 +406,7 @@ func writeExtractedFile(targetPath string, r io.Reader) error {
 	if err != nil {
 		return err
 	}
+		_ = f.Close()
 
 	if _, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize)); copyErr != nil {
 		_ = f.Close()
