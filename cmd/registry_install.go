@@ -374,7 +374,7 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 	return &info, nil
 }
 
-func downloadArchive(rawURL, destPath string) error {
+func downloadArchive(rawURL, destPath string) (err error) {
 	kdeps_debug.Log("enter: downloadArchive")
 	client := &stdhttp.Client{Timeout: registryInstallTimeout}
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
@@ -398,7 +398,11 @@ func downloadArchive(rawURL, destPath string) error {
 	if err != nil {
 		return fmt.Errorf("create archive file: %w", err)
 	}
-	defer out.Close()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("close archive file: %w", closeErr)
+		}
+	}()
 	if _, copyErr := io.Copy(out, io.LimitReader(resp.Body, registryInstallMaxResponseSize)); copyErr != nil {
 		return fmt.Errorf("write archive: %w", copyErr)
 	}
