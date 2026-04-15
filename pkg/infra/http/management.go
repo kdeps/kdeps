@@ -347,6 +347,12 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 // may include workflow.yaml, resources/, data/, scripts/, etc.
 func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
+
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve destination directory: %w", err)
+	}
+
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
@@ -365,16 +371,25 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 
-		// Security: reject absolute paths and traversal sequences.
+		// Security: normalise entry path and ensure final target remains inside destDir.
 		relPath := filepath.Clean(hdr.Name)
-		if filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+		if relPath == "." || filepath.IsAbs(relPath) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
-		targetPath := filepath.Join(destDir, relPath)
+		targetPath := filepath.Join(absDestDir, relPath)
+		absTargetPath, absTargetErr := filepath.Abs(targetPath)
+		if absTargetErr != nil {
+			return fmt.Errorf("failed to resolve target path %s: %w", relPath, absTargetErr)
+		}
+
+		relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
+		if relErr != nil || relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) || filepath.IsAbs(relToBase) {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
 
 		if hdr.FileInfo().IsDir() {
-			if mkdirErr := os.MkdirAll(targetPath, 0750); mkdirErr != nil {
+			if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
 				return fmt.Errorf("failed to create directory %s: %w", relPath, mkdirErr)
 			}
 
@@ -382,11 +397,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		}
 
 		// Create parent directories if needed.
-		if mkdirErr := os.MkdirAll(filepath.Dir(targetPath), 0750); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create parent directory for %s: %w", relPath, mkdirErr)
 		}
 
-		if writeErr := writeExtractedFile(targetPath, tr); writeErr != nil {
+		if writeErr := writeExtractedFile(absTargetPath, tr); writeErr != nil {
 			return fmt.Errorf("failed to extract %s: %w", relPath, writeErr)
 		}
 	}
