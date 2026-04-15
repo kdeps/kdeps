@@ -3,7 +3,7 @@
     "cline": "^1.0.9"
   },
   "devDependencies": {
-    "puppeteer": "^23.11.1"
+    "puppeteer": "^24.40.0"
   },
   "scripts": {
     "test:browser": "node tests/e2e/browser/chatgpt-clone.test.js"
