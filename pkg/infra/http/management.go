@@ -353,6 +353,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	}
 	defer gzr.Close()
 
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve destination directory: %w", err)
+	}
+
 	tr := tar.NewReader(gzr)
 
 	for {
@@ -367,14 +372,23 @@ func extractKdepsPackage(data []byte, destDir string) error {
 
 		// Security: reject absolute paths and traversal sequences.
 		relPath := filepath.Clean(hdr.Name)
-		if filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+		if filepath.IsAbs(relPath) || relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
-		targetPath := filepath.Join(destDir, relPath)
+		targetPath := filepath.Join(absDestDir, relPath)
+		absTargetPath, absErr := filepath.Abs(targetPath)
+		if absErr != nil {
+			return fmt.Errorf("failed to resolve target path for %s: %w", relPath, absErr)
+		}
+
+		relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
+		if relErr != nil || relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
 
 		if hdr.FileInfo().IsDir() {
-			if mkdirErr := os.MkdirAll(targetPath, 0750); mkdirErr != nil {
+			if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
 				return fmt.Errorf("failed to create directory %s: %w", relPath, mkdirErr)
 			}
 
@@ -382,11 +396,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		}
 
 		// Create parent directories if needed.
-		if mkdirErr := os.MkdirAll(filepath.Dir(targetPath), 0750); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create parent directory for %s: %w", relPath, mkdirErr)
 		}
 
-		if writeErr := writeExtractedFile(targetPath, tr); writeErr != nil {
+		if writeErr := writeExtractedFile(absTargetPath, tr); writeErr != nil {
 			return fmt.Errorf("failed to extract %s: %w", relPath, writeErr)
 		}
 	}
