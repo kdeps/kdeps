@@ -167,7 +167,11 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create output file %s: %w", outputPath, err)
 	}
-	defer out.Close()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			kdeps_debug.Debugf("warning: failed to close output file %s: %v", outputPath, closeErr)
+		}
+	}()
 
 	// 1. Stream the original binary without buffering the whole file.
 	if _, copyErr := io.Copy(out, binFile); copyErr != nil {
