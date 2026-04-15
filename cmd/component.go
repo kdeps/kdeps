@@ -284,30 +284,50 @@ func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) erro
 	kdeps_debug.Log("enter: cmdExtractTarEntry")
 	// Sanitize path to prevent directory traversal.
 	cleanName := filepath.Clean(header.Name)
-	if strings.HasPrefix(cleanName, "..") {
+	if cleanName == "." || strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
 		return nil
 	}
-	target := filepath.Join(destDir, cleanName)
+
+	baseDir, baseErr := filepath.Abs(destDir)
+	if baseErr != nil {
+		return fmt.Errorf("resolve dest dir: %w", baseErr)
+	}
+	baseDir = filepath.Clean(baseDir)
+
+	target := filepath.Join(baseDir, cleanName)
+	absTarget, targetErr := filepath.Abs(target)
+	if targetErr != nil {
+		return fmt.Errorf("resolve target path: %w", targetErr)
+	}
+	absTarget = filepath.Clean(absTarget)
+
+	rel, relErr := filepath.Rel(baseDir, absTarget)
+	if relErr != nil {
+		return fmt.Errorf("validate target path: %w", relErr)
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return nil
+	}
 
 	switch header.Typeflag {
 	case tar.TypeDir:
-		if mkErr := os.MkdirAll(target, 0o750); mkErr != nil {
-			return fmt.Errorf("mkdir %s: %w", target, mkErr)
+		if mkErr := os.MkdirAll(absTarget, 0o750); mkErr != nil {
+			return fmt.Errorf("mkdir %s: %w", absTarget, mkErr)
 		}
 	case tar.TypeReg:
-		if mkErr := os.MkdirAll(filepath.Dir(target), 0o750); mkErr != nil {
+		if mkErr := os.MkdirAll(filepath.Dir(absTarget), 0o750); mkErr != nil {
 			return fmt.Errorf("mkdir parent: %w", mkErr)
 		}
-		f, createErr := os.Create(target)
+		f, createErr := os.Create(absTarget)
 		if createErr != nil {
-			return fmt.Errorf("create %s: %w", target, createErr)
+			return fmt.Errorf("create %s: %w", absTarget, createErr)
 		}
 		_, copyErr := io.Copy(f, tr)
 		if closeErr := f.Close(); closeErr != nil && copyErr == nil {
-			return fmt.Errorf("close %s: %w", target, closeErr)
+			return fmt.Errorf("close %s: %w", absTarget, closeErr)
 		}
 		if copyErr != nil {
-			return fmt.Errorf("copy %s: %w", target, copyErr)
+			return fmt.Errorf("copy %s: %w", absTarget, copyErr)
 		}
 	}
 	return nil
