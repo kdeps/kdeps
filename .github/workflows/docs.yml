@@ -37,7 +37,7 @@ jobs:
             docs/v2/package-lock.json
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v6
 
       - name: Install dependencies (v1)
         run: npm ci
