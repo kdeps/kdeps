@@ -445,7 +445,7 @@ func extractArchive(archivePath, destDir string) error {
 	return nil
 }
 
-func extractFile(target string, r io.Reader) error {
+func extractFile(target string, r io.Reader) (retErr error) {
 	kdeps_debug.Log("enter: extractFile")
 	if mkdirErr := os.MkdirAll(filepath.Dir(target), registryInstallDirPerm); mkdirErr != nil {
 		return fmt.Errorf("mkdir parent %s: %w", filepath.Dir(target), mkdirErr)
@@ -454,7 +454,11 @@ func extractFile(target string, r io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("create file %s: %w", target, err)
 	}
-	defer out.Close()
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil && retErr == nil {
+			retErr = fmt.Errorf("close file %s: %w", target, closeErr)
+		}
+	}()
 	if _, copyErr := io.Copy(out, r); copyErr != nil {
 		return fmt.Errorf("write file %s: %w", target, copyErr)
 	}
