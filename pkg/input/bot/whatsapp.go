@@ -77,6 +77,11 @@ func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 			token := req.URL.Query().Get("hub.verify_token")
 			challenge := req.URL.Query().Get("hub.challenge")
 			if mode == "subscribe" && token == r.cfg.WebhookSecret {
+				if _, err := strconv.Atoi(challenge); err != nil {
+					http.Error(w, "bad request", http.StatusBadRequest)
+					return
+				}
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(challenge))
 				return
