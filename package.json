@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "cline": "^1.0.9"
+    "cline": "^2.14.0"
   },
   "devDependencies": {
     "puppeteer": "^24.40.0"
