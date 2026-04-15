@@ -353,6 +353,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	}
 	defer gzr.Close()
 
+	absDestDir, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve destination directory: %w", err)
+	}
+
 	tr := tar.NewReader(gzr)
 
 	for {
@@ -365,13 +370,21 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 
-		// Security: reject absolute paths and traversal sequences.
+		// Security: canonicalize and ensure extraction stays within destination.
 		relPath := filepath.Clean(hdr.Name)
-		if filepath.IsAbs(relPath) || strings.HasPrefix(relPath, "..") {
+		if relPath == "." || relPath == "" || filepath.IsAbs(relPath) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
-		targetPath := filepath.Join(destDir, relPath)
+		targetPath, absErr := filepath.Abs(filepath.Join(absDestDir, relPath))
+		if absErr != nil {
+			return fmt.Errorf("failed to resolve target path for %s: %w", relPath, absErr)
+		}
+
+		relToDest, relErr := filepath.Rel(absDestDir, targetPath)
+		if relErr != nil || relToDest == ".." || strings.HasPrefix(relToDest, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
 
 		if hdr.FileInfo().IsDir() {
 			if mkdirErr := os.MkdirAll(targetPath, 0750); mkdirErr != nil {
