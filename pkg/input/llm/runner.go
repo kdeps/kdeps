@@ -38,6 +38,7 @@ package llm
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -45,8 +46,10 @@ import (
 	"sort"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	"github.com/chzyer/readline"
+	"golang.org/x/term"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -54,12 +57,17 @@ import (
 const (
 	defaultPrompt    = "> "
 	defaultSessionID = "llm-repl-session"
+	replHistoryLimit = 500
 )
 
 // Run starts the LLM interactive REPL on os.Stdin/os.Stdout using the
 // configuration in workflow.Settings.Input.LLM. Each line typed by the
 // user is forwarded to the workflow as input("message"); the target
 // resource output is printed back to the user.
+//
+// When stdin is a terminal, readline is used so arrow keys, history
+// (up/down), and Ctrl+R reverse search work out of the box. When stdin
+// is not a terminal (pipe, test), the plain bufio.Scanner path is used.
 //
 // The loop runs until EOF (Ctrl+D) or SIGINT. Use the /quit or /exit
 // commands to exit without EOF.
@@ -70,7 +78,108 @@ func Run(
 	logger *slog.Logger,
 ) error {
 	kdeps_debug.Log("enter: llm.Run")
-	return RunWithIO(ctx, workflow, engine, logger, os.Stdin, os.Stdout)
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return RunWithIO(ctx, workflow, engine, logger, os.Stdin, os.Stdout)
+	}
+
+	cfg := llmConfig(workflow)
+	prompt := cfg.Prompt
+	if prompt == "" {
+		prompt = defaultPrompt
+	}
+	sessionID := cfg.SessionID
+	if sessionID == "" {
+		sessionID = defaultSessionID
+	}
+
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          prompt,
+		HistoryLimit:    replHistoryLimit,
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		// Fall back to plain scanner if readline init fails.
+		return RunWithIO(ctx, workflow, engine, logger, os.Stdin, os.Stdout)
+	}
+	defer rl.Close()
+
+	var done bool
+	var stepErr error
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+
+		done, stepErr = readlineStep(rl, workflow, engine, sessionID)
+		if stepErr != nil {
+			return stepErr
+		}
+		if done {
+			return nil
+		}
+	}
+}
+
+// readlineStep reads one line via readline and dispatches it.
+// Returns (true, nil) when the loop should stop cleanly, (false, err) on error.
+func readlineStep(
+	rl *readline.Instance,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	sessionID string,
+) (bool, error) {
+	line, rlErr := rl.Readline()
+	if errors.Is(rlErr, readline.ErrInterrupt) {
+		if line == "" {
+			fmt.Fprintln(os.Stdout)
+			return true, nil
+		}
+		return false, nil
+	}
+	if errors.Is(rlErr, io.EOF) {
+		fmt.Fprintln(os.Stdout)
+		return true, nil
+	}
+	if rlErr != nil {
+		return false, fmt.Errorf("llm repl: read: %w", rlErr)
+	}
+
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return false, nil
+	}
+	if line == "/quit" || line == "/exit" {
+		fmt.Fprintln(os.Stdout, "Goodbye!")
+		return true, nil
+	}
+
+	if strings.HasPrefix(line, "/") {
+		if handled := dispatchCommand(os.Stdout, workflow, engine, sessionID, line); handled {
+			return false, nil
+		}
+	}
+
+	req := &executor.RequestContext{
+		Method:    "POST",
+		Path:      "/llm",
+		SessionID: sessionID,
+		Body: map[string]interface{}{
+			"message": line,
+		},
+	}
+
+	result, execErr := engine.Execute(workflow, req)
+	if execErr != nil {
+		fmt.Fprintf(os.Stdout, "Error: %v\n", execErr)
+		return false, nil
+	}
+
+	fmt.Fprintln(os.Stdout, formatResult(result))
+	return false, nil
 }
 
 // RunWithIO is the testable core: it reads from r and writes to w instead of
