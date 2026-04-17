@@ -1,0 +1,26 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: llamafile-chat
+  description: LLM chatbot using a local llamafile binary (file backend)
+  version: "1.0.0"
+  targetActionId: responseResource
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  apiServer:
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"

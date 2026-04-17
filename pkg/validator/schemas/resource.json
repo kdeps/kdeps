@@ -315,6 +315,7 @@
               "type": "string",
               "enum": [
                 "ollama",
+                "file",
                 "openai",
                 "anthropic",
                 "google",

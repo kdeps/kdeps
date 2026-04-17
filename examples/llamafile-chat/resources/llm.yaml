@@ -1,0 +1,36 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: llmResource
+  name: Llamafile Chat
+
+run:
+  validations:
+    methods: [POST]
+    routes: [/api/v1/chat]
+
+    check:
+      - get('q') != ''
+    error:
+      code: 400
+      message: Query parameter 'q' is required
+
+  chat:
+    # file backend: runs a llamafile binary as a local OpenAI-compatible server.
+    # The model field accepts:
+    #   - Remote URL  (auto-downloaded and cached in ~/.kdeps/models/)
+    #   - Absolute path  (/path/to/model.llamafile)
+    #   - Relative path  (./models/model.llamafile)
+    #   - Bare filename  (model.llamafile  - looked up in ~/.kdeps/models/)
+    backend: file
+    model: "{{ env('LLAMAFILE_MODEL', 'model.llamafile') }}"
+    role: user
+    prompt: "{{ get('q') }}"
+    scenario:
+      - role: assistant
+        prompt: You are a helpful AI assistant.
+    jsonResponse: true
+    jsonResponseKeys:
+      - answer
+    timeoutDuration: 120s
