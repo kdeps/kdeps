@@ -369,7 +369,13 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 }
 
 // extractPackageEntry writes a single tar entry into the destination directory.
-func extractPackageEntry(hdr *tar.Header, absTargetPath string, tr *tar.Reader) error {
+// baseDirAbs is the resolved destination root; absTargetPath must already have
+// been validated by resolvePackageEntryPath, but we re-check the prefix here
+// so that static-analysis tools can see the guard in this call frame.
+func extractPackageEntry(hdr *tar.Header, baseDirAbs, absTargetPath string, tr *tar.Reader) error {
+	if !strings.HasPrefix(absTargetPath, baseDirAbs+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid path in package: %s", filepath.Clean(hdr.Name))
+	}
 	if hdr.FileInfo().IsDir() {
 		if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create directory %s: %w", filepath.Clean(hdr.Name), mkdirErr)
@@ -379,7 +385,7 @@ func extractPackageEntry(hdr *tar.Header, absTargetPath string, tr *tar.Reader) 
 	if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create parent directory for %s: %w", filepath.Clean(hdr.Name), mkdirErr)
 	}
-	if writeErr := writeExtractedFile(absTargetPath, tr); writeErr != nil {
+	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr); writeErr != nil {
 		return fmt.Errorf("failed to extract %s: %w", filepath.Clean(hdr.Name), writeErr)
 	}
 	return nil
@@ -411,7 +417,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		if pathErr != nil {
 			return pathErr
 		}
-		if entryErr := extractPackageEntry(hdr, absTargetPath, tr); entryErr != nil {
+		if entryErr := extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr); entryErr != nil {
 			return entryErr
 		}
 	}
@@ -421,8 +427,13 @@ func extractKdepsPackage(data []byte, destDir string) error {
 
 // writeExtractedFile creates/overwrites targetPath with content from r,
 // capped at maxPackageFileSize to guard against decompression bombs.
-func writeExtractedFile(targetPath string, r io.Reader) error {
+// baseDirAbs is the resolved destination root; the prefix is re-checked here
+// so that static-analysis tools can see the guard in this call frame.
+func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader) error {
 	kdeps_debug.Log("enter: writeExtractedFile")
+	if !strings.HasPrefix(targetPath, baseDirAbs+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
+	}
 	f, err := os.OpenFile(
 		targetPath,
 		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,

@@ -409,18 +409,19 @@ func downloadArchive(rawURL, destPath string) (err error) {
 	return nil
 }
 
+// safeArchiveTarget returns the absolute target path for a tar entry.
+// Returns ("", false, nil) for entries that should be skipped, or an error
+// if the path cannot be resolved safely.
 func safeArchiveTarget(absDest, entryName string) (string, bool, error) {
 	cleanName := filepath.Clean(entryName)
 	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
 		return "", false, nil
 	}
-
 	target := filepath.Join(absDest, cleanName)
 	absTarget, err := filepath.Abs(target)
 	if err != nil {
 		return "", false, fmt.Errorf("abs target %s: %w", target, err)
 	}
-
 	rel, err := filepath.Rel(absDest, absTarget)
 	if err != nil {
 		return "", false, fmt.Errorf("rel target %s from %s: %w", absTarget, absDest, err)
@@ -428,7 +429,6 @@ func safeArchiveTarget(absDest, entryName string) (string, bool, error) {
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return "", false, nil
 	}
-
 	return absTarget, true, nil
 }
 
