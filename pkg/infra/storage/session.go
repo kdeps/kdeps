@@ -36,6 +36,8 @@ import (
 	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 )
 
+const sqliteMemoryDSN = ":memory:"
+
 // SessionStorage provides per-session key-value storage using SQLite.
 type SessionStorage struct {
 	DB         *sql.DB
@@ -59,14 +61,9 @@ func NewSessionStorageWithTTL(
 ) (*SessionStorage, error) {
 	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
 	if dbPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			// Fallback to temp directory if home directory is not available
-			tmpDir := os.TempDir()
-			dbPath = filepath.Join(tmpDir, ".kdeps", "sessions.db")
-		} else {
-			dbPath = filepath.Join(homeDir, ".kdeps", "sessions.db")
-		}
+		// Empty path means in-memory SQLite (unique per connection, safe for tests
+		// and memory-only session config).
+		dbPath = sqliteMemoryDSN
 	}
 
 	if sessionID == "" {
@@ -74,12 +71,18 @@ func NewSessionStorageWithTTL(
 	}
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
+	if dbPath != sqliteMemoryDSN {
+		if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
+			return nil, fmt.Errorf("failed to create directory: %w", err)
+		}
 	}
 
-	// Open database
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
+	// Open database. In-memory SQLite does not support WAL mode.
+	dsn := dbPath
+	if dbPath != sqliteMemoryDSN {
+		dsn = dbPath + "?_journal_mode=WAL"
+	}
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
