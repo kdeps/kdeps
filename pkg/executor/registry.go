@@ -29,6 +29,36 @@ type ResourceExecutor interface {
 	Execute(ctx *ExecutionContext, config interface{}) (interface{}, error)
 }
 
+// telephonySessionKey is the Items key used to store the TelephonySession
+// across resource executions within the same workflow run.
+// It is defined here (in the executor package) to avoid an import cycle
+// between executor and executor/telephony.
+const telephonySessionKey = "_telephony_session"
+
+// TelephonyEnvAccessor is implemented by telephony.Session. It exposes a map
+// of expression accessor functions for the "telephony" eval namespace.
+// Using an interface here breaks the executor <-> executor/telephony import cycle.
+type TelephonyEnvAccessor interface {
+	ToEnvMap() map[string]any
+}
+
+// emptyTelephonyEnv returns a telephony env map with zero-value accessors,
+// used when no session has been created yet.
+func emptyTelephonyEnv() map[string]any {
+	return map[string]any{
+		"callId":     func() string { return "" },
+		"from":       func() string { return "" },
+		"to":         func() string { return "" },
+		"status":     func() string { return "" },
+		"utterance":  func() string { return "" },
+		"digits":     func() string { return "" },
+		"speech":     func() string { return "" },
+		"confidence": func() float64 { return 0 },
+		"twiml":      func() string { return "" },
+		"match":      func() bool { return false },
+	}
+}
+
 // Registry holds resource executors.
 // Executors are stored in a dynamic map keyed by resource type name so that
 // plugins can register additional executors at runtime without requiring
@@ -89,6 +119,7 @@ const (
 	ExecutorEmbedding   = "embedding"
 	ExecutorSearchLocal = "searchLocal"
 	ExecutorSearchWeb   = "searchWeb"
+	ExecutorTelephony   = "telephony"
 )
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
@@ -128,5 +159,13 @@ func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
 func (r *Registry) SetSearchWebExecutor(exec ResourceExecutor) { r.Register(ExecutorSearchWeb, exec) }
 func (r *Registry) GetSearchWebExecutor() ResourceExecutor {
 	e, _ := r.GetByName(ExecutorSearchWeb)
+	return e
+}
+
+func (r *Registry) SetTelephonyExecutor(exec ResourceExecutor) {
+	r.Register(ExecutorTelephony, exec)
+}
+func (r *Registry) GetTelephonyExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorTelephony)
 	return e
 }

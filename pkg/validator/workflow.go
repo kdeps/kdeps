@@ -277,6 +277,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Component != nil {
 		n++
 	}
+	if run.Telephony != nil {
+		n++
+	}
 	return n
 }
 
@@ -312,7 +315,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, apiResponse, expr)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, apiResponse, expr)",
 			nil,
 		)
 	}
@@ -320,7 +323,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony)",
 			nil,
 		)
 	}
@@ -332,7 +335,15 @@ func (v *WorkflowValidator) ValidateResource(
 		}
 	}
 
-	// Validate specific execution types.
+	return v.validateResourceExecutionTypes(resource, workflow)
+}
+
+// validateResourceExecutionTypes validates the execution-type-specific fields
+// of a resource. Extracted to keep ValidateResource within complexity limits.
+func (v *WorkflowValidator) validateResourceExecutionTypes(
+	resource *domain.Resource,
+	workflow *domain.Workflow,
+) error {
 	if resource.Run.Chat != nil {
 		if err := v.ValidateChatConfig(resource.Run.Chat); err != nil {
 			return err
@@ -348,7 +359,11 @@ func (v *WorkflowValidator) ValidateResource(
 			return err
 		}
 	}
-
+	if resource.Run.Telephony != nil {
+		if err := v.ValidateTelephonyActionConfig(resource.Run.Telephony); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -987,6 +1002,63 @@ func ValidateTestCases(tests []domain.TestCase) error {
 				nil,
 			)
 		}
+	}
+	return nil
+}
+
+// ValidateTelephonyActionConfig validates a run.telephony block.
+func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.TelephonyActionConfig) error {
+	kdeps_debug.Log("enter: ValidateTelephonyActionConfig")
+	validActions := map[string]bool{
+		"answer":   true,
+		"say":      true,
+		"ask":      true,
+		"menu":     true,
+		"dial":     true,
+		"record":   true,
+		"mute":     true,
+		"unmute":   true,
+		"hangup":   true,
+		"reject":   true,
+		"redirect": true,
+	}
+	if config.Action == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"telephony.action is required",
+			nil,
+		)
+	}
+	if !validActions[config.Action] {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			fmt.Sprintf(
+				"invalid telephony.action %q. Available: [answer, say, ask, menu, dial, record, mute, unmute, hangup, reject, redirect]",
+				config.Action,
+			),
+			nil,
+		)
+	}
+	// ask and menu require at least one input specification.
+	if config.Action == "ask" || config.Action == "menu" {
+		if config.Grammar == "" && config.GrammarURL == "" && config.Limit == 0 && len(config.Matches) == 0 {
+			return domain.NewError(
+				domain.ErrCodeInvalidResource,
+				fmt.Sprintf(
+					"telephony action %q requires at least one of: grammar, grammarUrl, limit, matches",
+					config.Action,
+				),
+				nil,
+			)
+		}
+	}
+	// dial requires at least one target.
+	if config.Action == "dial" && len(config.To) == 0 {
+		return domain.NewError(
+			domain.ErrCodeInvalidResource,
+			"telephony action \"dial\" requires at least one entry in to",
+			nil,
+		)
 	}
 	return nil
 }

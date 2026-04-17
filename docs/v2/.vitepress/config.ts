@@ -119,6 +119,7 @@ export default defineConfig({
             { text: 'PDF', link: '/resources/pdf' },
             { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
             { text: 'Autopilot', link: '/resources/autopilot' },
+            { text: 'Telephony (IVR)', link: '/resources/telephony' },
           ]
         },
         {

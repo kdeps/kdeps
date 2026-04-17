@@ -1,0 +1,12 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: repeatMenu
+  name: Repeat Menu (no-match / no-input fallback)
+  requires: []
+
+run:
+  telephony:
+    action: say
+    say: "Sorry, I did not understand your selection."

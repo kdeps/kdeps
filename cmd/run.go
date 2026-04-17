@@ -55,6 +55,7 @@ import (
 	executorSearchLocal "github.com/kdeps/kdeps/v2/pkg/executor/searchlocal"
 	executorSearchWeb "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
 	executorSQL "github.com/kdeps/kdeps/v2/pkg/executor/sql"
+	executorTelephony "github.com/kdeps/kdeps/v2/pkg/executor/telephony"
 	"github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/infra/python"
@@ -1641,6 +1642,7 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetEmbeddingExecutor(executorEmbedding.NewAdapter())
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())
+	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if workflow.Settings.AgentSettings.OllamaURL != "" {

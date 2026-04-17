@@ -1,0 +1,23 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: mainMenu
+  name: Main Menu
+  requires:
+    - answer
+
+run:
+  telephony:
+    action: menu
+    say: "Welcome. Press 1 for sales. Press 2 for support. Press 3 to leave a message."
+    timeout: 8s
+    matches:
+      - keys: ["1"]
+        invoke: salesGreeting
+      - keys: ["2"]
+        invoke: supportGreeting
+      - keys: ["3"]
+        invoke: recordVoicemail
+    onNoMatch: repeatMenu
+    onNoInput: repeatMenu

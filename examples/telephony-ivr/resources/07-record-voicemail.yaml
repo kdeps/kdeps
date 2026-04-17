@@ -1,0 +1,14 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: recordVoicemail
+  name: Record Voicemail
+  requires: []
+
+run:
+  telephony:
+    action: record
+    say: "Please leave your message after the beep. Press pound when done."
+    maxDuration: 60s
+    interruptible: true

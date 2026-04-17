@@ -1,0 +1,15 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: dialSupport
+  name: Dial Support Agent
+  requires:
+    - supportGreeting
+
+run:
+  telephony:
+    action: dial
+    to:
+      - sip:support@pbx.example.com
+    for: 30s
