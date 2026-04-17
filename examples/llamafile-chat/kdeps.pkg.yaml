@@ -1,0 +1,9 @@
+name: llamafile-chat
+version: "1.0.0"
+type: workflow
+description: LLM chatbot using a local llamafile binary (file backend)
+tags:
+  - llm
+  - chatbot
+  - llamafile
+  - local

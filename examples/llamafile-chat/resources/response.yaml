@@ -1,0 +1,11 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: responseResource
+  name: Response
+
+run:
+  response:
+    data: get('llmResource')
+    query: get('q')

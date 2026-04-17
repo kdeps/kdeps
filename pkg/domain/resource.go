@@ -363,7 +363,7 @@ func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
 // ChatConfig represents LLM chat configuration.
 type ChatConfig struct {
 	Model            string         `yaml:"model"`
-	Backend          string         `yaml:"backend,omitempty"`       // Local: "ollama" (default). Online providers: "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek", "openrouter"
+	Backend          string         `yaml:"backend,omitempty"`       // Local: "ollama" (default), "file" (llamafile). Online providers: "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek", "openrouter"
 	BaseURL          string         `yaml:"baseUrl,omitempty"`       // Base URL for the backend (defaults to backend-specific defaults, e.g., "http://localhost:16395")
 	APIKey           string         `yaml:"apiKey,omitempty"`        // API key for online LLM backends (falls back to environment variable if not provided)
 	ContextLength    int            `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)

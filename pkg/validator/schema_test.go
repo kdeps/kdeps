@@ -1412,6 +1412,7 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 			schemaType: "resource",
 			expected: []interface{}{
 				"ollama",
+				"file",
 				"openai",
 				"anthropic",
 				"google",
