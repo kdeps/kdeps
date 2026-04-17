@@ -421,6 +421,10 @@ func extractArchive(archivePath, destDir string) error {
 		return fmt.Errorf("gzip reader: %w", err)
 	}
 	defer gz.Close()
+	absDest, err := filepath.Abs(destDir)
+	if err != nil {
+		return fmt.Errorf("abs dest dir: %w", err)
+	}
 	tr := tar.NewReader(gz)
 	for {
 		hdr, nextErr := tr.Next()
@@ -430,18 +434,39 @@ func extractArchive(archivePath, destDir string) error {
 		if nextErr != nil {
 			return fmt.Errorf("tar next: %w", nextErr)
 		}
-		target := filepath.Join(destDir, filepath.Clean(hdr.Name))
-		cleanDest := filepath.Clean(destDir)
-		if target != cleanDest && !strings.HasPrefix(target, cleanDest+string(os.PathSeparator)) {
+
+		cleanName := filepath.Clean(hdr.Name)
+		if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
 			continue
 		}
+		parts := strings.Split(cleanName, string(os.PathSeparator))
+		unsafe := false
+		for _, p := range parts {
+			if p == ".." {
+				unsafe = true
+				break
+			}
+		}
+		if unsafe {
+			continue
+		}
+
+		target := filepath.Join(absDest, cleanName)
+		absTarget, absErr := filepath.Abs(target)
+		if absErr != nil {
+			return fmt.Errorf("abs target %s: %w", target, absErr)
+		}
+		if absTarget != absDest && !strings.HasPrefix(absTarget, absDest+string(os.PathSeparator)) {
+			continue
+		}
+
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if mkdirErr := os.MkdirAll(target, registryInstallDirPerm); mkdirErr != nil {
-				return fmt.Errorf("mkdir %s: %w", target, mkdirErr)
+			if mkdirErr := os.MkdirAll(absTarget, registryInstallDirPerm); mkdirErr != nil {
+				return fmt.Errorf("mkdir %s: %w", absTarget, mkdirErr)
 			}
 		case tar.TypeReg:
-			if extractErr := extractFile(target, tr); extractErr != nil {
+			if extractErr := extractFile(absTarget, tr); extractErr != nil {
 				return extractErr
 			}
 		}
