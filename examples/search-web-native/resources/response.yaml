@@ -1,0 +1,8 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: response
+  requires: [answer]
+run:
+  apiResponse:
+    response: "{{ output('answer') }}"

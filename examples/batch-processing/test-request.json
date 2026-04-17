@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "org": "kubernetes",
+      "repo": "kubernetes"
+    },
+    {
+      "org": "docker",
+      "repo": "docker"
+    },
+    {
+      "org": "golang",
+      "repo": "go"
+    },
+    {
+      "org": "nodejs",
+      "repo": "node"
+    },
+    {
+      "org": "rust-lang",
+      "repo": "rust"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: validate
+  name: validate
+  description: Ensure all required profile fields are present before proceeding.
+  requires: [set-profile]
+
+run:
+  expr:
+    - "set('validated', get('job_title') != '' && get('candidate_name') != '' && get('candidate_profile') != '' && get('resume_path') != '')"

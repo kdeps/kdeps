@@ -1,0 +1,15 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: echoResource
+  description: Echo back the input message with a timestamp
+
+run:
+  apiResponse:
+    success: true
+    response:
+      data:
+        echoed: "{{ get('message') }}"
+        timestamp: "{{ info('datetime') }}"
+        agentId: "federation-agent-b"

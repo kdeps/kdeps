@@ -1,0 +1,8 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: components-unpacked-example
+  description: Demonstrates auto-loading unpacked component directories
+  targetActionId: finalResponse
+settings:
+  apiServerMode: false
