@@ -633,6 +633,8 @@ func resourceTypeName(r *domain.Resource) string {
 		return ExecutorSearchLocal
 	case r.Run.SearchWeb != nil:
 		return ExecutorSearchWeb
+	case r.Run.Telephony != nil:
+		return ExecutorTelephony
 	default:
 		return "unknown"
 	}
@@ -917,7 +919,8 @@ func (e *Engine) ExecuteResource(
 		resource.Run.Scraper != nil ||
 		resource.Run.Embedding != nil ||
 		resource.Run.SearchLocal != nil ||
-		resource.Run.SearchWeb != nil
+		resource.Run.SearchWeb != nil ||
+		resource.Run.Telephony != nil
 
 	var primaryResult interface{}
 	var err error
@@ -947,6 +950,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeSearchLocal(resource, ctx)
 		case resource.Run.SearchWeb != nil:
 			primaryResult, err = e.executeSearchWeb(resource, ctx)
+		case resource.Run.Telephony != nil:
+			primaryResult, err = e.executeTelephony(resource, ctx)
 		}
 
 		if err != nil {
@@ -1718,6 +1723,8 @@ func (e *Engine) executeInlineResources(
 			result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
 		case inline.SearchWeb != nil:
 			result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
+		case inline.Telephony != nil:
+			result, err = e.executeInlineTelephony(inline.Telephony, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
@@ -2039,6 +2046,32 @@ func (e *Engine) executeInlineSearchWeb(
 	return exec.Execute(ctx, config)
 }
 
+// executeTelephony executes a telephony action resource.
+func (e *Engine) executeTelephony(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeTelephony")
+	if resource.Run.Telephony == nil {
+		return nil, fmt.Errorf("resource %s has no telephony configuration", resource.Metadata.ActionID)
+	}
+	exec := e.registry.GetTelephonyExecutor()
+	if exec == nil {
+		return nil, errors.New("telephony executor not available")
+	}
+	return exec.Execute(ctx, resource.Run.Telephony)
+}
+
+// executeInlineTelephony executes an inline telephony action.
+func (e *Engine) executeInlineTelephony(
+	config *domain.TelephonyActionConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineTelephony")
+	exec := e.registry.GetTelephonyExecutor()
+	if exec == nil {
+		return nil, errors.New("telephony executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
 //
 //nolint:gocognit,nestif,funlen // response assembly handles multiple formats
 func (e *Engine) executeAPIResponse(
@@ -2316,6 +2349,16 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 				}
 				return val
 			},
+		}
+
+		// Expose telephony session accessors when a session exists in context.
+		// The session is stored as a TelephonyEnvAccessor in Items[telephonySessionKey]
+		// to avoid an import cycle between executor and executor/telephony.
+		if s, ok := ctx.Items[telephonySessionKey].(TelephonyEnvAccessor); ok && s != nil {
+			env["telephony"] = s.ToEnvMap()
+		} else {
+			// No active session yet; provide zero-value accessors.
+			env["telephony"] = emptyTelephonyEnv()
 		}
 	}
 

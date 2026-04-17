@@ -225,18 +225,19 @@ type RunConfig struct {
 	After  []InlineResource `yaml:"after,omitempty"`
 
 	// Action blocks (only one primary type should be set, apiResponse can be combined).
-	Chat        *ChatConfig          `yaml:"chat,omitempty"`
-	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
-	SQL         *SQLConfig           `yaml:"sql,omitempty"`
-	Python      *PythonConfig        `yaml:"python,omitempty"`
-	Exec        *ExecConfig          `yaml:"exec,omitempty"`
-	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
-	APIResponse *APIResponseConfig   `yaml:"apiResponse,omitempty"`
-	Component   *ComponentCallConfig `yaml:"component,omitempty"`
-	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
-	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
-	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
-	SearchWeb   *SearchWebConfig     `yaml:"searchWeb,omitempty"`
+	Chat        *ChatConfig            `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig             `yaml:"sql,omitempty"`
+	Python      *PythonConfig          `yaml:"python,omitempty"`
+	Exec        *ExecConfig            `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
+	APIResponse *APIResponseConfig     `yaml:"apiResponse,omitempty"`
+	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
+	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
+	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
+	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
@@ -245,17 +246,18 @@ type RunConfig struct {
 // InlineResource represents an inline resource that can be executed before or after the main resource.
 // Only one of the resource types should be set.
 type InlineResource struct {
-	Chat        *ChatConfig          `yaml:"chat,omitempty"`
-	HTTPClient  *HTTPClientConfig    `yaml:"httpClient,omitempty"`
-	SQL         *SQLConfig           `yaml:"sql,omitempty"`
-	Python      *PythonConfig        `yaml:"python,omitempty"`
-	Exec        *ExecConfig          `yaml:"exec,omitempty"`
-	Agent       *AgentCallConfig     `yaml:"agent,omitempty"`
-	Component   *ComponentCallConfig `yaml:"component,omitempty"`
-	Scraper     *ScraperConfig       `yaml:"scraper,omitempty"`
-	Embedding   *EmbeddingConfig     `yaml:"embedding,omitempty"`
-	SearchLocal *SearchLocalConfig   `yaml:"searchLocal,omitempty"`
-	SearchWeb   *SearchWebConfig     `yaml:"searchWeb,omitempty"`
+	Chat        *ChatConfig            `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig             `yaml:"sql,omitempty"`
+	Python      *PythonConfig          `yaml:"python,omitempty"`
+	Exec        *ExecConfig            `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
+	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
+	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
+	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
+	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 }
 
 // ComponentCallConfig configures a call to a named component.
@@ -920,4 +922,76 @@ type SearchWebConfig struct {
 	APIKey     string `yaml:"apiKey,omitempty"`     // required for brave/bing/tavily
 	MaxResults int    `yaml:"maxResults,omitempty"` // default 5
 	Timeout    int    `yaml:"timeout,omitempty"`    // seconds, default 15
+}
+
+// TelephonyActionConfig represents an in-call telephony action.
+// It maps to Adhearsion's CallController methods: answer, say, ask, menu,
+// dial, record, mute, unmute, hangup, reject, redirect.
+//
+// Example (IVR menu):
+//
+//	run:
+//	  telephony:
+//	    action: menu
+//	    say: "Press 1 for sales, press 2 for support."
+//	    mode: dtmf
+//	    tries: 3
+//	    timeout: 5s
+//	    matches:
+//	      - keys: ["1"]
+//	        invoke: salesFlow
+//	      - keys: ["2"]
+//	        invoke: supportFlow
+//	    onNoMatch: |
+//	      say("Sorry, that option is not available.")
+//	    onFailure: |
+//	      telephony.action("hangup")
+type TelephonyActionConfig struct {
+	// Action is the operation to perform.
+	// Valid: "answer", "say", "ask", "menu", "dial", "record",
+	// "mute", "unmute", "hangup", "reject", "redirect".
+	Action string `yaml:"action"`
+
+	// --- Output (say / prompt) ---
+	Say   string `yaml:"say,omitempty"`   // TTS text to speak
+	Voice string `yaml:"voice,omitempty"` // TTS voice name
+	Audio string `yaml:"audio,omitempty"` // URL or path to audio file
+
+	// --- Input collection (ask / menu) ---
+	Mode              string `yaml:"mode,omitempty"`              // "dtmf" | "speech" | "both" (default: "dtmf")
+	Grammar           string `yaml:"grammar,omitempty"`           // inline GRXML grammar
+	GrammarURL        string `yaml:"grammarUrl,omitempty"`        // external grammar URL
+	Limit             int    `yaml:"limit,omitempty"`             // max digits to collect
+	Terminator        string `yaml:"terminator,omitempty"`        // digit that ends input, e.g. "#"
+	Timeout           string `yaml:"timeout,omitempty"`           // no-input timeout, e.g. "5s"
+	InterDigitTimeout string `yaml:"interDigitTimeout,omitempty"` // between-digit timeout
+
+	// --- Menu ---
+	Tries     int              `yaml:"tries,omitempty"`     // retry count (default: 1)
+	Matches   []TelephonyMatch `yaml:"matches,omitempty"`   // input -> action mappings
+	OnNoMatch string           `yaml:"onNoMatch,omitempty"` // expr on nomatch
+	OnNoInput string           `yaml:"onNoInput,omitempty"` // expr on noinput
+	OnFailure string           `yaml:"onFailure,omitempty"` // expr after all tries exhausted
+
+	// --- Dial ---
+	To   []string `yaml:"to,omitempty"`   // SIP URIs or tel: numbers
+	From string   `yaml:"from,omitempty"` // caller ID override
+	For  string   `yaml:"for,omitempty"`  // dial timeout, e.g. "30s"
+
+	// --- Record ---
+	MaxDuration   string `yaml:"maxDuration,omitempty"`   // e.g. "60s"
+	Interruptible bool   `yaml:"interruptible,omitempty"` // allow keypress to stop recording
+	Format        string `yaml:"format,omitempty"`        // "wav" | "mp3" (default: "wav")
+
+	// --- Hangup / Reject ---
+	Reason  string            `yaml:"reason,omitempty"`  // e.g. "busy", "decline"
+	Headers map[string]string `yaml:"headers,omitempty"` // SIP headers
+}
+
+// TelephonyMatch maps one or more input keys to a downstream action.
+// Mirrors Adhearsion's menu { match(1, 2) { ... } } block.
+type TelephonyMatch struct {
+	Keys   []string     `yaml:"keys"`             // DTMF digits or speech phrases to match
+	Invoke string       `yaml:"invoke,omitempty"` // component name to invoke on match
+	Expr   []Expression `yaml:"expr,omitempty"`   // inline expressions to run on match
 }

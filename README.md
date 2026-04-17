@@ -129,6 +129,7 @@ kdeps run workflow.yaml --interactive
 | `run.exec:` | Run a shell command |
 | `run.sql:` | Query a database (Postgres, MySQL, SQLite, Oracle) |
 | `run.httpClient:` | Call any REST API |
+| `run.telephony:` | Programmable IVR: answer, say, ask, menu, dial, record, hangup |
 | `loop:` | Schedule or repeat a resource (`every:`, `at:`) |
 | `items:` | Iterate over arrays |
 | `validations:` | Guard clauses and error handling |

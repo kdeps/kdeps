@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: supportGreeting
+  name: Support Greeting
+  requires: []
+
+run:
+  telephony:
+    action: say
+    say: "Connecting you to support. Your call is important to us."
+    voice: alice

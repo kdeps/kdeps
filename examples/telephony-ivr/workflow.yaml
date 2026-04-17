@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: telephony-ivr
+  description: Programmable IVR using run.telephony actions (Adhearsion-style)
+  version: "1.0.0"
+  targetActionId: answer
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16396
+
+  input:
+    sources: [telephony]
+    telephony:
+      type: online
+      provider: twilio

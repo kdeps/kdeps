@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: goodbye
+  name: Goodbye
+  requires:
+    - recordVoicemail
+
+run:
+  telephony:
+    action: say
+    say: "Thank you for your message. We will call you back shortly. Goodbye."

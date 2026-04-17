@@ -1,0 +1,16 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: dialSales
+  name: Dial Sales Agent
+  requires:
+    - salesGreeting
+
+run:
+  telephony:
+    action: dial
+    to:
+      - sip:sales@pbx.example.com
+      - "+15005550001"
+    for: 30s
