@@ -409,26 +409,27 @@ func downloadArchive(rawURL, destPath string) (err error) {
 	return nil
 }
 
-// safeArchivePath returns the absolute target path for a tar entry, or "" if
-// the entry should be skipped for security reasons.
-func safeArchivePath(absDest, entryName string) string {
+func safeArchiveTarget(absDest, entryName string) (string, bool, error) {
 	cleanName := filepath.Clean(entryName)
 	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
-		return ""
+		return "", false, nil
 	}
-	for _, p := range strings.Split(cleanName, string(os.PathSeparator)) {
-		if p == ".." {
-			return ""
-		}
-	}
-	absTarget, err := filepath.Abs(filepath.Join(absDest, cleanName))
+
+	target := filepath.Join(absDest, cleanName)
+	absTarget, err := filepath.Abs(target)
 	if err != nil {
-		return ""
+		return "", false, fmt.Errorf("abs target %s: %w", target, err)
 	}
-	if absTarget != absDest && !strings.HasPrefix(absTarget, absDest+string(os.PathSeparator)) {
-		return ""
+
+	rel, err := filepath.Rel(absDest, absTarget)
+	if err != nil {
+		return "", false, fmt.Errorf("rel target %s from %s: %w", absTarget, absDest, err)
 	}
-	return absTarget
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", false, nil
+	}
+
+	return absTarget, true, nil
 }
 
 func extractArchive(archivePath, destDir string) error {
@@ -456,10 +457,14 @@ func extractArchive(archivePath, destDir string) error {
 		if nextErr != nil {
 			return fmt.Errorf("tar next: %w", nextErr)
 		}
-		absTarget := safeArchivePath(absDest, hdr.Name)
-		if absTarget == "" {
+		absTarget, ok, targetErr := safeArchiveTarget(absDest, hdr.Name)
+		if targetErr != nil {
+			return targetErr
+		}
+		if !ok {
 			continue
 		}
+
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if mkdirErr := os.MkdirAll(absTarget, registryInstallDirPerm); mkdirErr != nil {
