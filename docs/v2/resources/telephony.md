@@ -1,6 +1,6 @@
 # Telephony Resource
 
-The `run.telephony` resource provides programmable call control inspired by [Adhearsion's](https://adhearsion.com) `CallController` model. It generates TwiML responses for Twilio webhooks, giving you `say`, `ask`, `menu`, `dial`, `record`, `hangup`, `reject`, `redirect`, `mute`, and `unmute` actions.
+The `run.telephony` resource provides programmable call control that generates TwiML responses for Twilio webhooks. Supported actions: `say`, `ask`, `menu`, `dial`, `record`, `hangup`, `reject`, `redirect`, `mute`, and `unmute`.
 
 ## Basic Usage
 
@@ -87,7 +87,7 @@ run:
 
 ### `menu`
 
-Gather a single digit and branch based on the caller's selection. Mirrors Adhearsion's `menu` block.
+Gather a single digit and branch based on the caller's selection.
 
 | Option      | Description                                               |
 |-------------|-----------------------------------------------------------|

@@ -925,8 +925,8 @@ type SearchWebConfig struct {
 }
 
 // TelephonyActionConfig represents an in-call telephony action.
-// It maps to Adhearsion's CallController methods: answer, say, ask, menu,
-// dial, record, mute, unmute, hangup, reject, redirect.
+// Supported actions: answer, say, ask, menu, dial, record, mute, unmute,
+// hangup, reject, redirect.
 //
 // Example (IVR menu):
 //
@@ -989,7 +989,6 @@ type TelephonyActionConfig struct {
 }
 
 // TelephonyMatch maps one or more input keys to a downstream action.
-// Mirrors Adhearsion's menu { match(1, 2) { ... } } block.
 type TelephonyMatch struct {
 	Keys   []string     `yaml:"keys"`             // DTMF digits or speech phrases to match
 	Invoke string       `yaml:"invoke,omitempty"` // component name to invoke on match

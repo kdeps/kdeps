@@ -3,7 +3,7 @@ kind: Workflow
 
 metadata:
   name: telephony-ivr
-  description: Programmable IVR using run.telephony actions (Adhearsion-style)
+  description: Programmable IVR using run.telephony actions
   version: "1.0.0"
   targetActionId: answer
 

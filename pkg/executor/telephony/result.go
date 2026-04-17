@@ -18,7 +18,7 @@
 
 // Package telephony implements the run.telephony resource executor.
 // It models in-call actions (answer, say, ask, menu, dial, record, hangup, etc.)
-// inspired by Adhearsion's CallController programming model.
+// for Twilio-compatible telephony providers.
 //
 // For online telephony providers (Twilio, etc.) the executor reads inbound
 // webhook fields from the HTTP request body and builds a TwiML response that
@@ -65,7 +65,6 @@ const (
 )
 
 // Result holds the outcome of a telephony ask or menu action.
-// It mirrors Adhearsion's Input::Result struct.
 type Result struct {
 	// Status is the completion reason.
 	Status ResultStatus

@@ -1,8 +1,8 @@
 # telephony-ivr
 
-Programmable IVR (Interactive Voice Response) using `run.telephony` actions.
-Mirrors the Adhearsion `CallController` model with `answer`, `menu`, `say`, `dial`,
-`record`, `ask`, `hangup`, `reject`, `redirect`, `mute`, and `unmute` actions.
+Programmable IVR (Interactive Voice Response) using `run.telephony` actions:
+`answer`, `menu`, `say`, `dial`, `record`, `ask`, `hangup`, `reject`, `redirect`,
+`mute`, and `unmute`.
 
 ## Flow
 

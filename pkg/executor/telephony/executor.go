@@ -30,7 +30,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Action constants mirror Adhearsion's CallController method names.
+// Action constants for the telephony resource.
 const (
 	ActionAnswer   = "answer"
 	ActionSay      = "say"
@@ -216,7 +216,6 @@ func (e *Executor) execSay(s *Session, cfg *domain.TelephonyActionConfig) (any, 
 // Appends a <Gather> node with optional nested <Say>/<Play>.
 // Reads back any Digits/SpeechResult already present in the session
 // (from a previous round-trip) and stores them as LastResult.
-// Mirrors Adhearsion's CallController::Input#ask.
 func (e *Executor) execAsk(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execAsk")
 
@@ -254,8 +253,7 @@ func (e *Executor) execAsk(s *Session, cfg *domain.TelephonyActionConfig) (any, 
 }
 
 // execMenu handles action: menu.
-// Mirrors Adhearsion's CallController::Input#menu with tries, matches,
-// onNoMatch, onNoInput, and onFailure callbacks.
+// Supports tries, matches, onNoMatch, onNoInput, and onFailure callbacks.
 func (e *Executor) execMenu(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execMenu")
 
@@ -315,7 +313,6 @@ func (e *Executor) execMenu(s *Session, cfg *domain.TelephonyActionConfig) (any,
 }
 
 // execDial handles action: dial.
-// Mirrors Adhearsion's CallController#dial.
 func (e *Executor) execDial(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execDial")
 	timeout := parseDurationSeconds(cfg.For)
@@ -328,7 +325,6 @@ func (e *Executor) execDial(s *Session, cfg *domain.TelephonyActionConfig) (any,
 }
 
 // execRecord handles action: record.
-// Mirrors Adhearsion's CallController::Record#record.
 func (e *Executor) execRecord(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execRecord")
 	maxLen := parseDurationSeconds(cfg.MaxDuration)
@@ -362,7 +358,6 @@ func (e *Executor) execUnmute(s *Session) (any, error) {
 }
 
 // execHangup handles action: hangup.
-// Mirrors Adhearsion's CallController#hangup.
 func (e *Executor) execHangup(s *Session) (any, error) {
 	kdeps_debug.Log("enter: telephony.execHangup")
 	s.Response.AddHangup()
@@ -371,7 +366,6 @@ func (e *Executor) execHangup(s *Session) (any, error) {
 }
 
 // execReject handles action: reject.
-// Mirrors Adhearsion's CallController#reject.
 func (e *Executor) execReject(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execReject")
 	s.Response.AddReject(cfg.Reason)
@@ -380,7 +374,6 @@ func (e *Executor) execReject(s *Session, cfg *domain.TelephonyActionConfig) (an
 }
 
 // execRedirect handles action: redirect.
-// Mirrors Adhearsion's CallController#redirect.
 func (e *Executor) execRedirect(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execRedirect")
 	// For redirect, use the first To entry as the target URL.

@@ -36,7 +36,6 @@ type Grammar struct {
 const grxmlContentType = "application/srgs+xml"
 
 // BuildDigitGrammar returns a DTMF GRXML grammar that accepts 1..limit digits.
-// Mirrors Adhearsion's AskGrammarBuilder when only a limit is provided.
 func BuildDigitGrammar(limit int) string {
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <grammar xmlns="http://www.w3.org/2001/06/grammar"
@@ -56,7 +55,6 @@ func BuildDigitGrammar(limit int) string {
 // BuildMenuGrammar returns a DTMF GRXML grammar for a set of option keys.
 // Each key maps to its zero-based index tag so the executor can identify
 // which match branch was selected.
-// Mirrors Adhearsion's MenuBuilder.build_grammar.
 func BuildMenuGrammar(keys []string) string {
 	var items strings.Builder
 	for i, key := range keys {
