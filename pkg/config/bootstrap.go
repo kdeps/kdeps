@@ -182,6 +182,7 @@ func writeConfig(path string, cfg Config) error {
 
 	lines = append(lines, "llm:")
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
+	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
 	appendField(&lines, "  model", cfg.LLM.DefaultModel)
 	appendField(&lines, "  openai_api_key", cfg.LLM.OpenAI)
 	appendField(&lines, "  anthropic_api_key", cfg.LLM.Anthropic)
