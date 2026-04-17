@@ -1,0 +1,13 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: salesGreeting
+  name: Sales Greeting
+  requires: []
+
+run:
+  telephony:
+    action: say
+    say: "Connecting you to our sales team. Please hold."
+    voice: alice

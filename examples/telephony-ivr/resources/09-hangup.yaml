@@ -1,0 +1,12 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: hangup
+  name: Hangup
+  requires:
+    - goodbye
+
+run:
+  telephony:
+    action: hangup

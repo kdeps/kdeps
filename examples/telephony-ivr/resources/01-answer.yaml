@@ -1,0 +1,11 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: answer
+  name: Answer Call
+  requires: []
+
+run:
+  telephony:
+    action: answer
