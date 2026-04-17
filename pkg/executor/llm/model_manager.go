@@ -21,6 +21,7 @@
 package llm
 
 import (
+	"fmt"
 	"log/slog"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -103,6 +104,8 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	switch backend {
 	case backendOllama:
 		defaultPort = 11434
+	case backendFile:
+		defaultPort = backendFilePort
 	case "llamacpp":
 		defaultPort = 16395
 	case "vllm":
@@ -115,6 +118,12 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 
 	// Parse host and port from BaseURL
 	host, port := parseHostPortFromURL(config.BaseURL, "", defaultPort)
+
+	// For the file backend with no explicit port, use 0 so the manager
+	// picks a free port and writes it back to config.BaseURL below.
+	if backend == backendFile && config.BaseURL == "" {
+		port = 0
+	}
 
 	// Download model if needed (skip in offline mode)
 	if m.offlineMode {
@@ -134,20 +143,46 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 
 	// Serve model (non-blocking - starts in background)
 	// This will check if server is already running and skip if so
-	if err := m.service.ServeModel(backend, config.Model, host, port); err != nil {
-		m.logger.Warn(
-			"model serving failed or skipped",
-			"backend",
-			backend,
-			"model",
-			config.Model,
-			"error",
-			err,
-		)
-		// Continue anyway - server might already be running
+	if backend == backendFile {
+		// For llamafile, capture the actual port so the executor can route correctly.
+		if actualPort, err := m.serveFileModel(config.Model, port); err != nil {
+			m.logger.Warn("llamafile serve failed", "model", config.Model, "error", err)
+		} else if config.BaseURL == "" {
+			config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+		}
+	} else {
+		if err := m.service.ServeModel(backend, config.Model, host, port); err != nil {
+			m.logger.Warn(
+				"model serving failed or skipped",
+				"backend",
+				backend,
+				"model",
+				config.Model,
+				"error",
+				err,
+			)
+			// Continue anyway - server might already be running
+		}
 	}
 
 	return nil
+}
+
+// serveFileModel resolves, chmod+x, and serves a llamafile, returning the actual port.
+func (m *ModelManager) serveFileModel(model string, port int) (int, error) {
+	kdeps_debug.Log("enter: serveFileModel")
+	mgr, err := NewLlamafileManager(m.logger)
+	if err != nil {
+		return 0, err
+	}
+	path, err := mgr.Resolve(model)
+	if err != nil {
+		return 0, err
+	}
+	if execErr := mgr.MakeExecutable(path); execErr != nil {
+		return 0, execErr
+	}
+	return mgr.Serve(path, port)
 }
 
 // DownloadModel downloads a model for the specified backend.

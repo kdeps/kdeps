@@ -61,6 +61,8 @@ func (s *ModelService) DownloadModel(backend, model string) error {
 	switch backend {
 	case backendOllama:
 		return s.downloadOllamaModel(model)
+	case backendFile:
+		return s.downloadLlamafileModel(model)
 	default:
 		return fmt.Errorf("unsupported backend for model download: %s", backend)
 	}
@@ -72,9 +74,43 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 	switch backend {
 	case backendOllama:
 		return s.serveOllamaModel(model, host, port)
+	case backendFile:
+		return s.serveLlamafileModel(model, port)
 	default:
 		return fmt.Errorf("unsupported backend for model serving: %s", backend)
 	}
+}
+
+// downloadLlamafileModel resolves and makes executable a llamafile binary.
+func (s *ModelService) downloadLlamafileModel(model string) error {
+	kdeps_debug.Log("enter: downloadLlamafileModel")
+	mgr, err := NewLlamafileManager(s.logger)
+	if err != nil {
+		return err
+	}
+	path, err := mgr.Resolve(model)
+	if err != nil {
+		return err
+	}
+	return mgr.MakeExecutable(path)
+}
+
+// serveLlamafileModel starts a llamafile binary as an OpenAI-compatible server.
+func (s *ModelService) serveLlamafileModel(model string, port int) error {
+	kdeps_debug.Log("enter: serveLlamafileModel")
+	mgr, err := NewLlamafileManager(s.logger)
+	if err != nil {
+		return err
+	}
+	path, err := mgr.Resolve(model)
+	if err != nil {
+		return err
+	}
+	if execErr := mgr.MakeExecutable(path); execErr != nil {
+		return execErr
+	}
+	_, err = mgr.Serve(path, port)
+	return err
 }
 
 // downloadOllamaModel downloads a model using Ollama.

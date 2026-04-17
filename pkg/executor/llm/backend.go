@@ -91,6 +91,7 @@ func NewBackendRegistry() *BackendRegistry {
 
 	// Register local backends
 	registry.Register(&OllamaBackend{})
+	registry.Register(&FileBackend{})
 
 	// Register online backends
 	registry.Register(&OpenAIBackend{})

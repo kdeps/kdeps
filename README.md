@@ -219,6 +219,9 @@ llm:
   # ollama_host: http://localhost:11434
   # model: llama3.2          # global default; overridden per resource
 
+  # Local inference via llamafile (self-contained binary, no install needed)
+  # Use backend: file in a chat resource, set model to a .llamafile path or URL
+
   # Online providers — set only the ones you use
   # openai_api_key: ""
   # anthropic_api_key: ""

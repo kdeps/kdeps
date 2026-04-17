@@ -92,6 +92,7 @@ KDeps supports multiple LLM backends:
 | Backend | Default URL | Description |
 |---------|-------------|-------------|
 | `ollama` | localhost:11434 | Ollama (default) |
+| `file` | localhost:8080 | Llamafile (self-contained GGUF binary, OpenAI-compatible server) |
 
 ### Cloud Backends
 
@@ -145,6 +146,50 @@ chat:
 ```
 
 </div>
+
+**File (Llamafile)**
+
+The `file` backend runs a [llamafile](https://github.com/Mozilla-Ocho/llamafile) binary as a local OpenAI-compatible server. The `model` field accepts:
+
+- Remote URL - downloaded and cached in `~/.kdeps/models/` on first use
+- Absolute path - used directly
+- Relative path (`./` or `../`) - resolved from the current working directory
+- Bare filename - looked up in `~/.kdeps/models/`
+<div v-pre>
+
+```yaml
+# Remote URL (auto-downloaded, cached in ~/.kdeps/models/)
+chat:
+  model: https://huggingface.co/Mozilla/Mistral-7B-Instruct-v0.2-llamafile/resolve/main/mistral-7b-instruct-v0.2.Q4_0.llamafile
+  backend: file
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+<div v-pre>
+
+```yaml
+# Local absolute path
+chat:
+  model: /home/user/models/mistral.llamafile
+  backend: file
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+<div v-pre>
+
+```yaml
+# Bare filename (looked up in ~/.kdeps/models/)
+chat:
+  model: mistral.llamafile
+  backend: file
+  prompt: "{{ get('q') }}"
+```
+
+</div>
+
+The server is started automatically on a free port. No separate installation is needed - the llamafile is a self-contained binary that runs on Linux (x86_64/ARM64), macOS (ARM64/x86_64), and Windows.
 
 ## Advanced Parameters
 
