@@ -21,6 +21,7 @@ package http
 import (
 	"context"
 	"fmt"
+	"html"
 	stdhttp "net/http"
 	"os"
 	"strings"
@@ -87,11 +88,38 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// browserRenderedContentType reports whether ct is a content type that
+// browsers render as markup or text, and therefore requires HTML escaping
+// to prevent reflected XSS.
+func browserRenderedContentType(ct string) bool {
+	// Strip parameters (e.g. "; charset=utf-8") before matching.
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		ct = strings.TrimSpace(ct[:i])
+	}
+	switch ct {
+	case "text/html",
+		"application/xhtml+xml",
+		"application/xml",
+		"text/xml",
+		"image/svg+xml",
+		"text/plain":
+		return true
+	}
+	return false
+}
+
 func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	kdeps_debug.Log("enter: Write")
 	// Writing to the body implicitly calls WriteHeader(200) if not already called
 	if !w.headersWritten {
 		w.headersWritten = true
+	}
+	// Perform contextual output encoding for browser-rendered content types
+	// to prevent reflected XSS regardless of where the taint originates.
+	// JSON and binary responses are intentionally excluded: encoding/json
+	// already HTML-escapes strings, and binary payloads must not be modified.
+	if ct := w.ResponseWriter.Header().Get("Content-Type"); browserRenderedContentType(ct) {
+		b = []byte(html.EscapeString(string(b)))
 	}
 	return w.ResponseWriter.Write(b)
 }
