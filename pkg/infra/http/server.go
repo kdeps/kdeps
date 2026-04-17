@@ -438,9 +438,14 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						}
 					}
 
-					// Prevent reflected XSS when writing browser-rendered content.
-					// Escape untrusted output for HTML responses before writing.
-					if strings.HasPrefix(respContentType, "text/html") {
+					// Prevent reflected XSS: escape untrusted output for any
+					// text-based, browser-rendered content type. JSON responses
+					// are excluded because encoding/json already HTML-escapes
+					// string values, and non-text (binary) payloads are not
+					// routed through this branch in practice.
+					if strings.HasPrefix(respContentType, "text/") ||
+						strings.HasPrefix(respContentType, "application/xhtml") ||
+						strings.HasPrefix(respContentType, "application/xml") {
 						rawBytes = []byte(html.EscapeString(string(rawBytes)))
 					}
 
