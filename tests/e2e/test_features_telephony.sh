@@ -284,15 +284,16 @@ fi
 test_passed "Telephony - Server startup"
 
 # Helper: extract twiml field from response JSON.
+# Pass JSON via env var to avoid shell/heredoc escape issues.
 extract_twiml() {
     local json="$1"
     local field="$2"
-    python3 - <<PY 2>/dev/null || echo ""
-import sys, json as j
+    TWIML_JSON="$json" TWIML_FIELD="$field" python3 - <<'PY' 2>/dev/null || echo ""
+import os, json as j
 try:
-    d = j.loads("""$json""")
+    d = j.loads(os.environ['TWIML_JSON'])
     data = d.get('data', d)
-    block = data.get('$field', {})
+    block = data.get(os.environ['TWIML_FIELD'], {})
     if isinstance(block, dict):
         print(block.get('twiml', ''))
     else:
@@ -384,10 +385,10 @@ MENU_MATCH_RESP=$(curl -sf --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{"CallSid":"CA_MENU_002","From":"+14155551234","Digits":"1"}' 2>&1)
 
-MENU_STATUS=$(python3 - <<PY 2>/dev/null || echo "")
-import sys, json as j
+MENU_STATUS=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
+import os, json as j
 try:
-    d = j.loads("""$MENU_MATCH_RESP""")
+    d = j.loads(os.environ['TWIML_JSON'])
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
@@ -408,10 +409,10 @@ else
     test_failed "Telephony - menu match status" "status='$MENU_STATUS'"
 fi
 
-MENU_INTERP=$(python3 - <<PY 2>/dev/null || echo "")
-import sys, json as j
+MENU_INTERP=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
+import os, json as j
 try:
-    d = j.loads("""$MENU_MATCH_RESP""")
+    d = j.loads(os.environ['TWIML_JSON'])
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
