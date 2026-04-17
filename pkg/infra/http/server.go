@@ -415,7 +415,10 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
-						rawBytes = []byte(v)
+						// Always HTML-escape string data to prevent reflected XSS.
+						// Handlers that need to emit raw HTML (e.g. server-side rendered
+						// templates) should return []byte so the escaping is bypassed.
+						rawBytes = []byte(html.EscapeString(v))
 					case []byte:
 						rawBytes = v
 					default:
@@ -436,17 +439,6 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 							), debugMode)
 							return
 						}
-					}
-
-					// Prevent reflected XSS: escape untrusted output for any
-					// text-based, browser-rendered content type. JSON responses
-					// are excluded because encoding/json already HTML-escapes
-					// string values, and non-text (binary) payloads are not
-					// routed through this branch in practice.
-					if strings.HasPrefix(respContentType, "text/") ||
-						strings.HasPrefix(respContentType, "application/xhtml") ||
-						strings.HasPrefix(respContentType, "application/xml") {
-						rawBytes = []byte(html.EscapeString(string(rawBytes)))
 					}
 
 					w.WriteHeader(stdhttp.StatusOK)
