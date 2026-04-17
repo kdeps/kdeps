@@ -126,10 +126,12 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	if strings.TrimSpace(ct) == "" {
 		ct = stdhttp.DetectContentType(b)
 	}
+
+	out := b
 	if browserRenderedContentType(ct) {
-		b = []byte(html.EscapeString(string(b)))
+		out = []byte(html.EscapeString(string(b)))
 	}
-	return w.ResponseWriter.Write(b)
+	return w.ResponseWriter.Write(out)
 }
 
 // HeadersWritten returns whether headers have been written.
