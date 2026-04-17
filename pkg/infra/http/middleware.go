@@ -92,7 +92,7 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 // browsers render as markup and therefore requires HTML escaping
 // to prevent reflected XSS.
 func browserRenderedContentType(ct string) bool {
-	ct = strings.TrimSpace(ct)
+	ct = strings.TrimSpace(strings.ToLower(ct))
 	if ct == "" {
 		return true
 	}
@@ -130,6 +130,9 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	out := b
 	if browserRenderedContentType(ct) {
 		out = []byte(html.EscapeString(string(b)))
+		if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
+			w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
+		}
 	}
 	return w.ResponseWriter.Write(out)
 }
