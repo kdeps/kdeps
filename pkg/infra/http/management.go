@@ -345,6 +345,46 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 // Each file path in the archive is sanitised against path-traversal attacks
 // before being written. Existing files are overwritten; the archive contents
 // may include workflow.yaml, resources/, data/, scripts/, etc.
+// resolvePackageEntryPath validates and resolves a tar entry name against
+// absDestDir. Returns the absolute target path, or an error if the entry
+// would escape the destination directory.
+func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
+	relPath := filepath.Clean(entryName)
+	if relPath == "." || filepath.IsAbs(relPath) {
+		return "", fmt.Errorf("invalid path in package: %s", entryName)
+	}
+	absTargetPath, err := filepath.Abs(filepath.Join(absDestDir, relPath))
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve target path %s: %w", relPath, err)
+	}
+	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
+	escaped := relErr != nil ||
+		relToBase == ".." ||
+		strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) ||
+		filepath.IsAbs(relToBase)
+	if escaped {
+		return "", fmt.Errorf("invalid path in package: %s", entryName)
+	}
+	return absTargetPath, nil
+}
+
+// extractPackageEntry writes a single tar entry into the destination directory.
+func extractPackageEntry(hdr *tar.Header, absTargetPath string, tr *tar.Reader) error {
+	if hdr.FileInfo().IsDir() {
+		if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
+			return fmt.Errorf("failed to create directory %s: %w", filepath.Clean(hdr.Name), mkdirErr)
+		}
+		return nil
+	}
+	if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create parent directory for %s: %w", filepath.Clean(hdr.Name), mkdirErr)
+	}
+	if writeErr := writeExtractedFile(absTargetPath, tr); writeErr != nil {
+		return fmt.Errorf("failed to extract %s: %w", filepath.Clean(hdr.Name), writeErr)
+	}
+	return nil
+}
+
 func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
 	baseDirAbs, baseErr := filepath.Abs(destDir)
@@ -359,54 +399,20 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
-
 	for {
 		hdr, nextErr := tr.Next()
 		if errors.Is(nextErr, io.EOF) {
 			break
 		}
-
 		if nextErr != nil {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
-
-		relPath := filepath.Clean(filepath.FromSlash(hdr.Name))
-		if relPath == "." || relPath == "" || filepath.IsAbs(relPath) {
-			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
+		if pathErr != nil {
+			return pathErr
 		}
-		if relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
-			return fmt.Errorf("invalid path in package: %s", hdr.Name)
-		}
-
-		targetPath := filepath.Join(baseDirAbs, relPath)
-		targetPathAbs, absErr := filepath.Abs(targetPath)
-		if absErr != nil {
-			return fmt.Errorf("failed to resolve package path %s: %w", relPath, absErr)
-		}
-
-		relToBase, relErr := filepath.Rel(baseDirAbs, targetPathAbs)
-		if relErr != nil {
-			return fmt.Errorf("failed to validate package path %s: %w", relPath, relErr)
-		}
-		if relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) {
-			return fmt.Errorf("invalid path in package: %s", hdr.Name)
-		}
-
-		if hdr.FileInfo().IsDir() {
-			if mkdirErr := os.MkdirAll(targetPathAbs, 0750); mkdirErr != nil {
-				return fmt.Errorf("failed to create directory %s: %w", relPath, mkdirErr)
-			}
-
-			continue
-		}
-
-		// Create parent directories if needed.
-		if mkdirErr := os.MkdirAll(filepath.Dir(targetPathAbs), 0750); mkdirErr != nil {
-			return fmt.Errorf("failed to create parent directory for %s: %w", relPath, mkdirErr)
-		}
-
-		if writeErr := writeExtractedFile(targetPathAbs, tr); writeErr != nil {
-			return fmt.Errorf("failed to extract %s: %w", relPath, writeErr)
+		if entryErr := extractPackageEntry(hdr, absTargetPath, tr); entryErr != nil {
+			return entryErr
 		}
 	}
 
@@ -425,7 +431,6 @@ func writeExtractedFile(targetPath string, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-		_ = f.Close()
 
 	if _, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize)); copyErr != nil {
 		_ = f.Close()

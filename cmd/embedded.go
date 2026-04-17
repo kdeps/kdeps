@@ -169,7 +169,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 	}
 	defer func() {
 		if closeErr := out.Close(); closeErr != nil {
-			kdeps_debug.Debugf("warning: failed to close output file %s: %v", outputPath, closeErr)
+			kdeps_debug.Log(fmt.Sprintf("warning: failed to close output file %s: %v", outputPath, closeErr))
 		}
 	}()
 

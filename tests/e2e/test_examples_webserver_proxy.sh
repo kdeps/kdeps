@@ -21,7 +21,8 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Webserver Proxy Example..."
 
-WORKFLOW_PATH="$PROJECT_ROOT/examples/webserver-proxy/workflow.yaml"
+_PROXY_DIR="$(find_example_dir webserver-proxy)"
+WORKFLOW_PATH="$_PROXY_DIR/workflow.yaml"
 [ ! -f "$WORKFLOW_PATH" ] && { test_skipped "Webserver Proxy (workflow not found)"; return 0; }
 
 PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
@@ -33,7 +34,7 @@ else
     return 0
 fi
 
-[ -d "$PROJECT_ROOT/examples/webserver-proxy/backend" ] && \
+[ -d "$_PROXY_DIR/backend" ] && \
     test_passed "Webserver Proxy - Backend directory exists"
 
 SERVER_LOG=$(mktemp)

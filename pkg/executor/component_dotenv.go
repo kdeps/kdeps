@@ -375,7 +375,7 @@ func UpdateComponentFiles(comp *domain.Component, compDir string) (map[string]st
 
 // mergeDotEnv appends env var entries that are present in the component's
 // resources but absent from the existing .env file. Returns the number of vars appended.
-func mergeDotEnv(comp *domain.Component, dotEnvPath string) (added int, err error) {
+func mergeDotEnv(comp *domain.Component, dotEnvPath string) (int, error) {
 	kdeps_debug.Log("enter: mergeDotEnv")
 
 	// Load existing keys.
@@ -404,11 +404,6 @@ func mergeDotEnv(comp *domain.Component, dotEnvPath string) (added int, err erro
 	if openErr != nil {
 		return 0, fmt.Errorf("open .env for append: %w", openErr)
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("close .env after append: %w", closeErr)
-		}
-	}()
 
 	var sb strings.Builder
 	sb.WriteString("\n# Added by kdeps component update\n")
@@ -416,8 +411,13 @@ func mergeDotEnv(comp *domain.Component, dotEnvPath string) (added int, err erro
 		sb.WriteString(v)
 		sb.WriteString("=\n")
 	}
-	if _, writeErr := f.WriteString(sb.String()); writeErr != nil {
+	_, writeErr := f.WriteString(sb.String())
+	closeErr := f.Close()
+	if writeErr != nil {
 		return 0, fmt.Errorf("append to .env: %w", writeErr)
+	}
+	if closeErr != nil {
+		return 0, fmt.Errorf("close .env after append: %w", closeErr)
 	}
 	return len(missing), nil
 }

@@ -41,7 +41,7 @@ run_noninteractive() {
 # --- Test: non-interactive scaffold creates config file ---
 CONFIG_DIR=$(mktemp -d)
 CONFIG_PATH="$CONFIG_DIR/config.yaml"
-run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH" "$KDEPS_BIN" validate /dev/null
+run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH" "KDEPS_SKIP_BOOTSTRAP=" "$KDEPS_BIN" validate /dev/null
 if [ -f "$CONFIG_PATH" ]; then
     test_passed "global config - scaffold created on first run"
 else
@@ -71,7 +71,7 @@ fi
 
 # --- Test: second run does not overwrite existing config ---
 ORIGINAL_CONTENT=$(cat "$CONFIG_PATH")
-run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH" "$KDEPS_BIN" validate /dev/null
+run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH" "KDEPS_SKIP_BOOTSTRAP=" "$KDEPS_BIN" validate /dev/null
 CURRENT_CONTENT=$(cat "$CONFIG_PATH")
 if [ "$ORIGINAL_CONTENT" = "$CURRENT_CONTENT" ]; then
     test_passed "global config - existing config not overwritten on second run"
@@ -141,7 +141,7 @@ rm -rf "$CONFIG_DIR5"
 CONFIG_DIR6=$(mktemp -d)
 CONFIG_PATH6="$CONFIG_DIR6/config.yaml"
 EXIT_CODE=0
-OUTPUT=$(env "KDEPS_CONFIG_PATH=$CONFIG_PATH6" "KDEPS_EDITOR=/nonexistent-editor-kdeps" "$KDEPS_BIN" edit 2>&1) || EXIT_CODE=$?
+OUTPUT=$(echo "" | env "KDEPS_CONFIG_PATH=$CONFIG_PATH6" "KDEPS_EDITOR=/nonexistent-editor-kdeps" "$KDEPS_BIN" edit 2>&1) || EXIT_CODE=$?
 if [ $EXIT_CODE -ne 0 ]; then
     test_passed "kdeps edit - non-zero exit when editor binary not found"
 else

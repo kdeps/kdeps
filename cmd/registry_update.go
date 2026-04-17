@@ -56,6 +56,11 @@ Examples:
 func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryUpdate")
 
+	// Local directory path: update component/agent/agency files in-place.
+	if isLocalFilePath(pkg) {
+		return componentUpdateInternal(pkg)
+	}
+
 	parts := strings.SplitN(pkg, "@", registryInstallVersionParts)
 	name := parts[0]
 

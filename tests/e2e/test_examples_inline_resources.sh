@@ -21,7 +21,8 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Inline Resources Example..."
 
-WORKFLOW_PATH="$PROJECT_ROOT/examples/inline-resources/workflow.yaml"
+_INLINE_DIR="$(find_example_dir inline-resources)"
+WORKFLOW_PATH="$_INLINE_DIR/workflow.yaml"
 [ ! -f "$WORKFLOW_PATH" ] && { test_skipped "Inline Resources (workflow not found)"; return 0; }
 
 PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
@@ -35,7 +36,7 @@ else
 fi
 
 RESOURCE_COUNT=0
-for f in "$PROJECT_ROOT/examples/inline-resources/resources/"*.yaml; do
+for f in "$_INLINE_DIR/resources/"*.yaml; do
     [ -f "$f" ] && RESOURCE_COUNT=$((RESOURCE_COUNT + 1))
 done
 [ $RESOURCE_COUNT -gt 0 ] && test_passed "Inline Resources - Resource files exist ($RESOURCE_COUNT found)" || \

@@ -71,7 +71,7 @@ test_build() {
 TMP_BUILD_DIR=$(mktemp -d)
 PACKAGE_FILE="$TMP_BUILD_DIR/shell-exec-test.kdeps"
 
-if "$KDEPS_BIN" bundle package "$PROJECT_ROOT/examples/shell-exec" --output "$PACKAGE_FILE" &> /dev/null; then
+if "$KDEPS_BIN" bundle package "$(find_example_dir shell-exec)" --output "$PACKAGE_FILE" &> /dev/null; then
     test_build "$PACKAGE_FILE" "Build shell-exec package"
     rm -rf "$PACKAGE_FILE"
 fi
