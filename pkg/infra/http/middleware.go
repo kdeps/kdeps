@@ -92,6 +92,13 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 // browsers render as markup or text, and therefore requires HTML escaping
 // to prevent reflected XSS.
 func browserRenderedContentType(ct string) bool {
+	// Empty content type is treated as browser-rendered text to be safe:
+	// net/http may sniff and default to text/plain when headers are not set yet.
+	ct = strings.TrimSpace(ct)
+	if ct == "" {
+		return true
+	}
+
 	// Strip parameters (e.g. "; charset=utf-8") before matching.
 	if i := strings.IndexByte(ct, ';'); i >= 0 {
 		ct = strings.TrimSpace(ct[:i])
