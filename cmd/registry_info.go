@@ -72,13 +72,13 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		if err != nil {
 			return fmt.Errorf("info: %w", err)
 		}
-		fmt.Fprint(os.Stdout, renderMarkdown(readme))
+		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
 		return nil
 	}
 
 	// Check local first (component dir, agents/, agencies/) — fast, no network.
 	if localReadme, localErr := resolveLocalReadme(ref); localErr == nil && !isMinimalFallback(localReadme, ref) {
-		fmt.Fprint(os.Stdout, renderMarkdown(localReadme))
+		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(localReadme))
 		return nil
 	}
 
@@ -95,11 +95,11 @@ func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 		archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
 		defer archCancel()
 		if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
-			fmt.Fprint(os.Stdout, renderMarkdown(readme))
+			fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
 			return nil
 		}
 		readme, _ := resolveLocalReadme(ref)
-		fmt.Fprint(os.Stdout, renderMarkdown(readme))
+		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
 		return nil
 	}
 
@@ -138,15 +138,15 @@ func printPackageReadme(w interface{ Write([]byte) (int, error) }, ref string, p
 	switch {
 	case readmeErr == nil && readme != "" && !isMinimalFallback(readme, ref):
 		fmt.Fprintln(w)
-		fmt.Fprint(os.Stdout, renderMarkdown(readme))
+		fmt.Fprint(w, renderMarkdown(readme))
 	case pkg.Readme != "":
 		fmt.Fprintln(w)
-		fmt.Fprint(os.Stdout, renderMarkdown(pkg.Readme))
+		fmt.Fprint(w, renderMarkdown(pkg.Readme))
 	case pkg.Homepage != "":
 		if ghRef := githubURLToRef(pkg.Homepage); ghRef != "" {
 			if ghReadme, ghErr := fetchRemoteReadme(ghRef); ghErr == nil {
 				fmt.Fprintln(w)
-				fmt.Fprint(os.Stdout, renderMarkdown(ghReadme))
+				fmt.Fprint(w, renderMarkdown(ghReadme))
 			}
 		}
 	}

@@ -31,6 +31,10 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Registry Install / Info..."
 
+# common.sh already starts a local mock registry that returns 404 for all
+# requests, exported as KDEPS_REGISTRY_URL. Use it here so tests fail fast
+# without hanging on port 1 or real network calls.
+
 # ── helper: check if network is available ─────────────────────────────────────
 
 

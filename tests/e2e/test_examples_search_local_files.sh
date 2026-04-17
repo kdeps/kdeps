@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing search-local-files example..."
 
-EXAMPLE_DIR="$PROJECT_ROOT/examples/search-local-files"
+EXAMPLE_DIR="$(find_example_dir search-local-files)"
 WF="$EXAMPLE_DIR/workflow.yaml"
 
 # -- Structure tests -----------------------------------------------------------

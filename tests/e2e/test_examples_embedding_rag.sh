@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing embedding-rag example..."
 
-EXAMPLE_DIR="$PROJECT_ROOT/examples/embedding-rag"
+EXAMPLE_DIR="$(find_example_dir embedding-rag)"
 WF="$EXAMPLE_DIR/workflow.yaml"
 
 # -- Structure tests -----------------------------------------------------------

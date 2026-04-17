@@ -315,6 +315,6 @@ rm -f "$BIG_FILE"
 kill "$SERVER_PID" 2>/dev/null || true
 wait "$SERVER_PID" 2>/dev/null || true
 rm -f "$SERVER_LOG"
-rm -rf "$TEST_DIR" "$PUSH_DIR"
+rm -rf "$TEST_DIR"
 
 echo ""

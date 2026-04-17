@@ -45,9 +45,24 @@ else
     exit 1
 fi
 
+# find_example_dir NAME
+# Returns the path to an example directory, checking examples/ first then tests/.
+find_example_dir() {
+    local name="$1"
+    if [ -d "$PROJECT_ROOT/examples/$name" ]; then
+        echo "$PROJECT_ROOT/examples/$name"
+    else
+        echo "$PROJECT_ROOT/tests/$name"
+    fi
+}
+
 # Make contrib components available to all E2E tests without requiring
 # global installation. contrib/ holds the reference component library.
 export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/contrib/components"
+
+# Prevent Bootstrap from blocking on stdin when tests override HOME to a
+# temp directory that has no ~/.kdeps/config.yaml.
+export KDEPS_SKIP_BOOTSTRAP=1
 
 # Start a local mock registry server that immediately returns 404 for all
 # requests, so no e2e test ever calls the real registry.kdeps.io server.

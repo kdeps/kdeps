@@ -26,7 +26,8 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Shell Exec Example..."
 
-WORKFLOW_PATH="$PROJECT_ROOT/examples/shell-exec/workflow.yaml"
+_SHELL_EXEC_DIR="$(find_example_dir shell-exec)"
+WORKFLOW_PATH="$_SHELL_EXEC_DIR/workflow.yaml"
 
 if [ ! -f "$WORKFLOW_PATH" ]; then
     test_skipped "Shell Exec example (workflow not found)"
@@ -46,8 +47,8 @@ else
 fi
 
 # Test 2: Check resources exist
-if [ -f "$PROJECT_ROOT/examples/shell-exec/resources/system-info.yaml" ] && \
-   [ -f "$PROJECT_ROOT/examples/shell-exec/resources/final-result.yaml" ]; then
+if [ -f "$_SHELL_EXEC_DIR/resources/system-info.yaml" ] && \
+   [ -f "$_SHELL_EXEC_DIR/resources/final-result.yaml" ]; then
     test_passed "Shell Exec - Resource files exist"
 else
     test_failed "Shell Exec - Resource files exist" "Missing resource files"

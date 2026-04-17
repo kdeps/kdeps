@@ -123,12 +123,15 @@ func findReadmeInDir(dir string) string {
 func readReadmeForComponent(name string) (string, error) {
 	kdeps_debug.Log("enter: readReadmeForComponent")
 
-	// 1. Global installed .komponent archive
+	// 1. Global installed .komponent archive or unpacked directory
 	globalDir, err := componentInstallDir()
 	if err == nil {
 		pkgPath := filepath.Join(globalDir, name+komponentExtension)
 		if readme, readErr := readReadmeFromKomponent(pkgPath); readErr == nil && readme != "" {
 			return readme, nil
+		}
+		if content := findReadmeInDir(filepath.Join(globalDir, name)); content != "" {
+			return content, nil
 		}
 	}
 

@@ -29,9 +29,10 @@ echo "Testing Component Examples..."
 
 # ── component-komponent ───────────────────────────────────────────────────────
 
-KOMPONENT_WF="$PROJECT_ROOT/examples/component-komponent/workflow.yaml"
-KOMPONENT_FILE="$PROJECT_ROOT/examples/component-komponent/components/greeter.komponent"
-KOMPONENT_RES="$PROJECT_ROOT/examples/component-komponent/resources/response.yaml"
+_KOMPONENT_DIR="$(find_example_dir component-komponent)"
+KOMPONENT_WF="$_KOMPONENT_DIR/workflow.yaml"
+KOMPONENT_FILE="$_KOMPONENT_DIR/components/greeter.komponent"
+KOMPONENT_RES="$_KOMPONENT_DIR/resources/response.yaml"
 
 if [ ! -f "$KOMPONENT_WF" ]; then
     test_skipped "component-komponent (workflow.yaml not found)"
@@ -77,9 +78,10 @@ fi
 
 # ── components-unpacked ───────────────────────────────────────────────────────
 
-UNPACKED_WF="$PROJECT_ROOT/examples/components-unpacked/workflow.yaml"
-UNPACKED_COMP="$PROJECT_ROOT/examples/components-unpacked/components/greeter/component.yaml"
-UNPACKED_RES="$PROJECT_ROOT/examples/components-unpacked/resources/response.yaml"
+_UNPACKED_DIR="$(find_example_dir components-unpacked)"
+UNPACKED_WF="$_UNPACKED_DIR/workflow.yaml"
+UNPACKED_COMP="$_UNPACKED_DIR/components/greeter/component.yaml"
+UNPACKED_RES="$_UNPACKED_DIR/resources/response.yaml"
 
 if [ ! -f "$UNPACKED_WF" ]; then
     test_skipped "components-unpacked (workflow.yaml not found)"
@@ -125,10 +127,11 @@ fi
 
 # ── components-advanced ───────────────────────────────────────────────────────
 
-ADVANCED_WF="$PROJECT_ROOT/examples/components-advanced/workflow.yaml"
-ADVANCED_PACKED="$PROJECT_ROOT/examples/components-advanced/components/data-processor-2.0.0.komponent"
-ADVANCED_UNPACKED_COMP="$PROJECT_ROOT/examples/components-advanced/components/formatter/component.yaml"
-ADVANCED_RES="$PROJECT_ROOT/examples/components-advanced/resources/response.yaml"
+_ADVANCED_DIR="$(find_example_dir components-advanced)"
+ADVANCED_WF="$_ADVANCED_DIR/workflow.yaml"
+ADVANCED_PACKED="$_ADVANCED_DIR/components/data-processor-2.0.0.komponent"
+ADVANCED_UNPACKED_COMP="$_ADVANCED_DIR/components/formatter/component.yaml"
+ADVANCED_RES="$_ADVANCED_DIR/resources/response.yaml"
 
 if [ ! -f "$ADVANCED_WF" ]; then
     test_skipped "components-advanced (workflow.yaml not found)"
@@ -193,8 +196,9 @@ echo ""
 
 # ── component-based examples: voice-assistant, telegram-bot, telephony-bot ───
 
-VA_WF="$PROJECT_ROOT/examples/voice-assistant/workflow.yaml"
-VA_TTS_COMP="$PROJECT_ROOT/examples/voice-assistant/components/tts/component.yaml"
+_VA_DIR="$(find_example_dir voice-assistant)"
+VA_WF="$_VA_DIR/workflow.yaml"
+VA_TTS_COMP="$_VA_DIR/components/tts/component.yaml"
 
 if [ ! -f "$VA_WF" ]; then
     test_skipped "voice-assistant component (workflow.yaml not found)"
@@ -221,7 +225,7 @@ else
     fi
 
     # Test 24: speak.yaml removed (logic in component)
-    if [ ! -f "$PROJECT_ROOT/examples/voice-assistant/resources/speak.yaml" ]; then
+    if [ ! -f "$_VA_DIR/resources/speak.yaml" ]; then
         test_passed "voice-assistant - speak.yaml removed (moved to component)"
     else
         test_failed "voice-assistant - speak.yaml removed (moved to component)" "speak.yaml still exists as a resource"
@@ -235,8 +239,9 @@ else
     fi
 fi
 
-TB_WF="$PROJECT_ROOT/examples/telegram-bot/workflow.yaml"
-TB_COMP="$PROJECT_ROOT/examples/telegram-bot/components/botreply/component.yaml"
+_TB_DIR="$(find_example_dir telegram-bot)"
+TB_WF="$_TB_DIR/workflow.yaml"
+TB_COMP="$_TB_DIR/components/botreply/component.yaml"
 
 if [ ! -f "$TB_WF" ]; then
     test_skipped "telegram-bot component (workflow.yaml not found)"
@@ -263,7 +268,7 @@ else
     fi
 
     # Test 29: reply.yaml removed (logic in component)
-    if [ ! -f "$PROJECT_ROOT/examples/telegram-bot/resources/reply.yaml" ]; then
+    if [ ! -f "$_TB_DIR/resources/reply.yaml" ]; then
         test_passed "telegram-bot - reply.yaml removed (moved to component)"
     else
         test_failed "telegram-bot - reply.yaml removed (moved to component)" "reply.yaml still exists as a resource"
@@ -277,8 +282,9 @@ else
     fi
 fi
 
-TELE_WF="$PROJECT_ROOT/examples/telephony-bot/workflow.yaml"
-TELE_COMP="$PROJECT_ROOT/examples/telephony-bot/components/tts/component.yaml"
+_TELE_DIR="$(find_example_dir telephony-bot)"
+TELE_WF="$_TELE_DIR/workflow.yaml"
+TELE_COMP="$_TELE_DIR/components/tts/component.yaml"
 
 if [ ! -f "$TELE_WF" ]; then
     test_skipped "telephony-bot component (workflow.yaml not found)"
@@ -305,14 +311,14 @@ else
     fi
 
     # Test 34: tts-response.yaml removed (logic in component)
-    if [ ! -f "$PROJECT_ROOT/examples/telephony-bot/resources/tts-response.yaml" ]; then
+    if [ ! -f "$_TELE_DIR/resources/tts-response.yaml" ]; then
         test_passed "telephony-bot - tts-response.yaml removed (moved to component)"
     else
         test_failed "telephony-bot - tts-response.yaml removed (moved to component)" "tts-response.yaml still exists as a resource"
     fi
 
     # Test 35: call-response.yaml still requires ttsResponse (component-provided)
-    CALL_RES="$PROJECT_ROOT/examples/telephony-bot/resources/call-response.yaml"
+    CALL_RES="$_TELE_DIR/resources/call-response.yaml"
     if grep -q "ttsResponse" "$CALL_RES" 2>/dev/null; then
         test_passed "telephony-bot - call-response.yaml still requires ttsResponse"
     else

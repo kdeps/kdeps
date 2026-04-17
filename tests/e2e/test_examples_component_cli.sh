@@ -221,7 +221,7 @@ fi
 
 # Test 13-15: validate all three component examples still pass
 for EXAMPLE in component-komponent components-unpacked components-advanced; do
-    WF="$PROJECT_ROOT/examples/$EXAMPLE/workflow.yaml"
+    WF="$(find_example_dir "$EXAMPLE")/workflow.yaml"
     if [ ! -f "$WF" ]; then
         test_skipped "component example $EXAMPLE (workflow not found)"
         continue

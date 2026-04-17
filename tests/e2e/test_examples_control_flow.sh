@@ -21,7 +21,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing Control Flow Example..."
 
-WORKFLOW_PATH="$PROJECT_ROOT/examples/control-flow/workflow.yaml"
+WORKFLOW_PATH="$(find_example_dir control-flow)/workflow.yaml"
 [ ! -f "$WORKFLOW_PATH" ] && { test_skipped "Control Flow (workflow not found)"; return 0; }
 
 PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")

@@ -63,7 +63,13 @@ func providerMetaMap() map[string]providerKey {
 //
 // In non-interactive environments (CI, pipes) it falls back to Scaffold(),
 // writing the commented template and returning without prompting.
+// Set KDEPS_SKIP_BOOTSTRAP=1 to suppress all bootstrapping (useful in tests
+// that override HOME to a temp directory that has no config file).
 func Bootstrap(out *os.File) error {
+	if os.Getenv("KDEPS_SKIP_BOOTSTRAP") == "1" {
+		return nil
+	}
+
 	path, err := Path()
 	if err != nil {
 		return nil //nolint:nilerr // non-fatal

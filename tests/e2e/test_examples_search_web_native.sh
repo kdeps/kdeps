@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing search-web-native example..."
 
-EXAMPLE_DIR="$PROJECT_ROOT/examples/search-web-native"
+EXAMPLE_DIR="$(find_example_dir search-web-native)"
 WF="$EXAMPLE_DIR/workflow.yaml"
 
 # -- Structure tests -----------------------------------------------------------

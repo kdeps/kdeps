@@ -409,6 +409,28 @@ func downloadArchive(rawURL, destPath string) (err error) {
 	return nil
 }
 
+// safeArchivePath returns the absolute target path for a tar entry, or "" if
+// the entry should be skipped for security reasons.
+func safeArchivePath(absDest, entryName string) string {
+	cleanName := filepath.Clean(entryName)
+	if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
+		return ""
+	}
+	for _, p := range strings.Split(cleanName, string(os.PathSeparator)) {
+		if p == ".." {
+			return ""
+		}
+	}
+	absTarget, err := filepath.Abs(filepath.Join(absDest, cleanName))
+	if err != nil {
+		return ""
+	}
+	if absTarget != absDest && !strings.HasPrefix(absTarget, absDest+string(os.PathSeparator)) {
+		return ""
+	}
+	return absTarget
+}
+
 func extractArchive(archivePath, destDir string) error {
 	kdeps_debug.Log("enter: extractArchive")
 	f, err := os.Open(archivePath)
@@ -434,32 +456,10 @@ func extractArchive(archivePath, destDir string) error {
 		if nextErr != nil {
 			return fmt.Errorf("tar next: %w", nextErr)
 		}
-
-		cleanName := filepath.Clean(hdr.Name)
-		if cleanName == "." || cleanName == "" || filepath.IsAbs(cleanName) {
+		absTarget := safeArchivePath(absDest, hdr.Name)
+		if absTarget == "" {
 			continue
 		}
-		parts := strings.Split(cleanName, string(os.PathSeparator))
-		unsafe := false
-		for _, p := range parts {
-			if p == ".." {
-				unsafe = true
-				break
-			}
-		}
-		if unsafe {
-			continue
-		}
-
-		target := filepath.Join(absDest, cleanName)
-		absTarget, absErr := filepath.Abs(target)
-		if absErr != nil {
-			return fmt.Errorf("abs target %s: %w", target, absErr)
-		}
-		if absTarget != absDest && !strings.HasPrefix(absTarget, absDest+string(os.PathSeparator)) {
-			continue
-		}
-
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if mkdirErr := os.MkdirAll(absTarget, registryInstallDirPerm); mkdirErr != nil {

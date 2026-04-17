@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "Testing scraper-native example..."
 
-EXAMPLE_DIR="$PROJECT_ROOT/examples/scraper-native"
+EXAMPLE_DIR="$(find_example_dir scraper-native)"
 WF="$EXAMPLE_DIR/workflow.yaml"
 
 # -- Structure tests -----------------------------------------------------------
