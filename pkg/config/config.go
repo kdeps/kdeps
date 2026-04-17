@@ -51,6 +51,9 @@ type LLMKeys struct {
 	OllamaHost   string `yaml:"ollama_host"` // default: http://localhost:11434
 	DefaultModel string `yaml:"model"`       // global default model; overridden per-resource
 
+	// Llamafile (file backend) — local self-contained model binaries.
+	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
+
 	// Online provider API keys.
 	OpenAI     string `yaml:"openai_api_key"`
 	Anthropic  string `yaml:"anthropic_api_key"`
@@ -164,6 +167,8 @@ func applyEnv(cfg Config) {
 	setIfUnset("OLLAMA_HOST", cfg.LLM.OllamaHost)
 	// Global default model (used when a resource does not specify model:).
 	setIfUnset("KDEPS_DEFAULT_MODEL", cfg.LLM.DefaultModel)
+	// Llamafile (file backend) — cache directory for downloaded model binaries.
+	setIfUnset("KDEPS_MODELS_DIR", cfg.LLM.ModelsDir)
 
 	// LLM API keys — map to the standard env vars that pkg/executor/llm/backend.go reads.
 	setIfUnset("OPENAI_API_KEY", cfg.LLM.OpenAI)
@@ -189,6 +194,9 @@ const defaultConfigTemplate = `# kdeps global configuration
 llm:
   # ── Ollama (local, no API key needed) ──────────────────────────────────────
   # ollama_host: http://localhost:11434
+
+  # ── Llamafile / file backend (local self-contained model binaries) ──────────
+  # models_dir: ~/.kdeps/models   # cache dir for downloaded .llamafile binaries
 
   # Global default model — used when a resource does not specify model:
   # Examples: llama3.2  |  llama3.2:3b  |  qwen2.5:7b  |  gpt-4o  |  claude-3-5-sonnet-20241022
