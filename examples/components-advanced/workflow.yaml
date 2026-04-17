@@ -1,0 +1,8 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: components-advanced-example
+  description: Shows mixed unpacked and packed components with multiple resources
+  targetActionId: finalResponse
+settings:
+  apiServerMode: false

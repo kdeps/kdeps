@@ -1,0 +1,15 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: finalResponse
+  name: Final Response
+  requires:
+    - logResult
+    - addTimestamp
+run:
+  apiResponse:
+    success: true
+    response:
+      upper: "{{ get('upper') }}"
+      timestamp: "{{ get('timestamp') }}"
+      message: "Hello, {{ get('formattedName') }}! Welcome!"

@@ -1,0 +1,17 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: chatResponse
+  name: Chat Response
+  requires:
+    - chat
+
+run:
+  apiResponse:
+    success: true
+    response:
+      reply: get('chat')
+    meta:
+      headers:
+        Content-Type: application/json

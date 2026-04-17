@@ -1,0 +1,48 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: analyze-jobs
+  name: analyze-jobs
+  description: |
+    Score each extracted job card against the candidate profile and return
+    only jobs that meet the minimum match score threshold.
+
+    Uses items iteration so each job card is scored individually.
+    The LLM returns the original job object enriched with match_score,
+    match_reasons, gaps, and a short cover_letter.
+  requires: [search-jobs]
+
+items:
+  - "{{ get('search-jobs')['actionResults'][0]['result'] | default('[]') }}"
+
+run:
+  chat:
+    backend: ollama
+    model: llama3.2
+    role: user
+    prompt: |
+      Score this job against the candidate. If score < {{ get('min_match_score') | default(60) }}, respond with exactly: null
+
+      Candidate: {{ get('candidate_name') }}
+      Profile: {{ get('candidate_profile') }}
+      Job: {{ item | toJSON() }}
+
+      Respond with ONLY a JSON object (no prose, no markdown fences):
+      {
+        "match_score": <integer 0-100>,
+        "match_reasons": ["reason 1", "reason 2", "reason 3"],
+        "gaps": ["gap 1"],
+        "cover_letter": "<max 150 words, open with company name and role title, highlight 2-3 matching skills, close with call to action, sign with candidate full name>"
+      }
+    jsonResponse: true
+    jsonResponseKeys:
+      - match_score
+      - cover_letter
+    timeoutDuration: 90s
+    scenario:
+      - role: assistant
+        prompt: >-
+          I am a job-fit scorer. I return only a JSON object with match_score,
+          match_reasons, gaps, cover_letter — or the single word null if below
+          threshold. I never copy job fields into my response.

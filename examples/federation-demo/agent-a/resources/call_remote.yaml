@@ -1,0 +1,24 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: callRemoteResource
+  description: Call the remote echo agent via UAF federation
+
+run:
+  remoteAgent:
+    # URN: urn:agent:<authority>/<namespace>:<name>@<version>#<alg>:<hash>
+    # Hash is the SHA256 of the canonicalized agent-b workflow.yaml
+    urn: "urn:agent:localhost:16396/demo:federation-agent-b@1.0.0#sha256:58109b25020227c53310847b65400e7cc162a27c8c0559fd1296f85ae247b211"
+    input:
+      message: "{{ get('message') }}"
+    timeout: "30s"
+    requireTrustLevel: "self-attested"
+    fallback:
+      - urn: "urn:agent:localhost:16396/demo:federation-agent-b@1.0.0#sha256:58109b25020227c53310847b65400e7cc162a27c8c0559fd1296f85ae247b211"
+        timeout: "10s"
+
+  apiResponse:
+    success: true
+    response:
+      data: "{{ get('callRemoteResource') }}"

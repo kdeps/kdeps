@@ -1,0 +1,12 @@
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: mycomp
+  description: Test component for E2E
+  version: "1.0.0"
+interface:
+  inputs:
+    - name: query
+      type: string
+      required: true
+      description: Input query

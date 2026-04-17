@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: authCheck
+  name: Authorization Header Check
+
+run:
+  expr:
+    - |
+      set('authHeader', get('meta.headers.Authorization', ''))
+    - |
+      if(not get('authHeader').startswith('Bearer '), 
+         fail('401 Unauthorized', 'Missing or invalid Authorization header'))
+    - |
+      set('token', get('authHeader')[7:])
+    - |
+      if(get('token') == '', 
+         fail('401 Unauthorized', 'Token is empty'))
+
+  apiResponse:
+    success: true

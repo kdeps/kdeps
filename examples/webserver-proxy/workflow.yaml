@@ -1,0 +1,24 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: webserver-proxy
+  description: Reverse proxy to Flask backend application
+  version: 1.0.0
+  targetActionId: "none"
+
+settings:
+  webServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  webServer:
+    routes:
+      - path: "/"
+        serverType: "app"
+        publicPath: "./backend"
+        appPort: 8501
+        command: "python3 server.py"
+
+  agentSettings:
+    timezone: "UTC"
