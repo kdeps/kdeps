@@ -347,10 +347,9 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 // may include workflow.yaml, resources/, data/, scripts/, etc.
 func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
-
-	absDestDir, err := filepath.Abs(destDir)
-	if err != nil {
-		return fmt.Errorf("failed to resolve destination directory: %w", err)
+	baseDirAbs, baseErr := filepath.Abs(destDir)
+	if baseErr != nil {
+		return fmt.Errorf("failed to resolve destination directory: %w", baseErr)
 	}
 
 	gzr, err := gzip.NewReader(bytes.NewReader(data))
@@ -371,25 +370,30 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 
-		// Security: normalise entry path and ensure final target remains inside destDir.
-		relPath := filepath.Clean(hdr.Name)
-		if relPath == "." || filepath.IsAbs(relPath) {
+		relPath := filepath.Clean(filepath.FromSlash(hdr.Name))
+		if relPath == "." || relPath == "" || filepath.IsAbs(relPath) {
+			return fmt.Errorf("invalid path in package: %s", hdr.Name)
+		}
+		if relPath == ".." || strings.HasPrefix(relPath, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
-		targetPath := filepath.Join(absDestDir, relPath)
-		absTargetPath, absTargetErr := filepath.Abs(targetPath)
-		if absTargetErr != nil {
-			return fmt.Errorf("failed to resolve target path %s: %w", relPath, absTargetErr)
+		targetPath := filepath.Join(baseDirAbs, relPath)
+		targetPathAbs, absErr := filepath.Abs(targetPath)
+		if absErr != nil {
+			return fmt.Errorf("failed to resolve package path %s: %w", relPath, absErr)
 		}
 
-		relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
-		if relErr != nil || relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) || filepath.IsAbs(relToBase) {
+		relToBase, relErr := filepath.Rel(baseDirAbs, targetPathAbs)
+		if relErr != nil {
+			return fmt.Errorf("failed to validate package path %s: %w", relPath, relErr)
+		}
+		if relToBase == ".." || strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) {
 			return fmt.Errorf("invalid path in package: %s", hdr.Name)
 		}
 
 		if hdr.FileInfo().IsDir() {
-			if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
+			if mkdirErr := os.MkdirAll(targetPathAbs, 0750); mkdirErr != nil {
 				return fmt.Errorf("failed to create directory %s: %w", relPath, mkdirErr)
 			}
 
@@ -397,11 +401,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		}
 
 		// Create parent directories if needed.
-		if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
+		if mkdirErr := os.MkdirAll(filepath.Dir(targetPathAbs), 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create parent directory for %s: %w", relPath, mkdirErr)
 		}
 
-		if writeErr := writeExtractedFile(absTargetPath, tr); writeErr != nil {
+		if writeErr := writeExtractedFile(targetPathAbs, tr); writeErr != nil {
 			return fmt.Errorf("failed to extract %s: %w", relPath, writeErr)
 		}
 	}
