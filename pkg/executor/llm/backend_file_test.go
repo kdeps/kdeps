@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -214,12 +215,58 @@ func TestIsRemoteModel_Short(t *testing.T) {
 // --- DefaultModelsDir --------------------------------------------------------
 
 func TestDefaultModelsDir(t *testing.T) {
+	t.Setenv("KDEPS_MODELS_DIR", "") // ensure env override is not active
 	dir, err := llm.DefaultModelsDir()
 	if err != nil {
 		t.Fatalf("DefaultModelsDir: %v", err)
 	}
 	if dir == "" {
 		t.Error("expected non-empty dir")
+	}
+}
+
+func TestDefaultModelsDir_EnvOverride(t *testing.T) {
+	custom := t.TempDir()
+	t.Setenv("KDEPS_MODELS_DIR", custom)
+	got, err := llm.DefaultModelsDir()
+	if err != nil {
+		t.Fatalf("DefaultModelsDir: %v", err)
+	}
+	if got != custom {
+		t.Errorf("got %q, want %q", got, custom)
+	}
+}
+
+func TestDefaultModelsDir_EnvOverride_CreatesSubDir(t *testing.T) {
+	base := t.TempDir()
+	sub := base + "/models/cache"
+	t.Setenv("KDEPS_MODELS_DIR", sub)
+	got, err := llm.DefaultModelsDir()
+	if err != nil {
+		t.Fatalf("DefaultModelsDir: %v", err)
+	}
+	if got != sub {
+		t.Errorf("got %q, want %q", got, sub)
+	}
+	if _, statErr := os.Stat(sub); statErr != nil {
+		t.Errorf("expected dir to be created: %v", statErr)
+	}
+}
+
+func TestDefaultModelsDir_EnvOverride_MkdirFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	base := t.TempDir()
+	// Make base read-only so subdirectory creation fails.
+	if err := os.Chmod(base, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(base, 0750) })
+	t.Setenv("KDEPS_MODELS_DIR", base+"/sub")
+	_, err := llm.DefaultModelsDir()
+	if err == nil {
+		t.Error("expected error when mkdir fails")
 	}
 }
 

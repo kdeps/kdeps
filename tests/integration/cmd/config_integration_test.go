@@ -157,6 +157,38 @@ llm:
 	assert.Equal(t, "http://myserver:11434", os.Getenv("OLLAMA_HOST"))
 }
 
+// TestConfig_Integration_ModelsDir verifies that models_dir in config.yaml is
+// propagated to KDEPS_MODELS_DIR.
+func TestConfig_Integration_ModelsDir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.Unsetenv("KDEPS_MODELS_DIR"))
+
+	custom := filepath.Join(dir, "mymodels")
+	content := "llm:\n  models_dir: " + custom + "\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, custom, cfg.LLM.ModelsDir)
+	assert.Equal(t, custom, os.Getenv("KDEPS_MODELS_DIR"))
+}
+
+// TestConfig_Integration_ScaffoldContainsModelsDir checks that the scaffold
+// template includes the models_dir field.
+func TestConfig_Integration_ScaffoldContainsModelsDir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	require.NoError(t, config.Scaffold())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "models_dir")
+}
+
 // TestConfig_Integration_ScaffoldContents checks the actual commented template
 // output has the right structure - no registry/storage, ollama at the top.
 func TestConfig_Integration_ScaffoldContents(t *testing.T) {
