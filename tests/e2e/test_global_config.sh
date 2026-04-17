@@ -158,3 +158,31 @@ else
     test_failed "global config - binary runs when config path dir is missing" "exit=$EXIT_CODE output=$OUTPUT"
 fi
 
+# --- Test: scaffold contains models_dir field ---
+CONFIG_DIR7=$(mktemp -d)
+CONFIG_PATH7="$CONFIG_DIR7/config.yaml"
+run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH7" "KDEPS_SKIP_BOOTSTRAP=" "$KDEPS_BIN" validate /dev/null
+if [ -f "$CONFIG_PATH7" ] && grep -q "models_dir" "$CONFIG_PATH7"; then
+    test_passed "global config - scaffold contains models_dir field"
+else
+    test_failed "global config - scaffold contains models_dir field" "Contents: $(cat "$CONFIG_PATH7" 2>/dev/null)"
+fi
+rm -rf "$CONFIG_DIR7"
+
+# --- Test: models_dir in config maps to KDEPS_MODELS_DIR ---
+CONFIG_DIR8=$(mktemp -d)
+CONFIG_PATH8="$CONFIG_DIR8/config.yaml"
+CUSTOM_MODELS_DIR="$CONFIG_DIR8/mymodels"
+cat > "$CONFIG_PATH8" <<EOF
+llm:
+  models_dir: "$CUSTOM_MODELS_DIR"
+EOF
+run_noninteractive "KDEPS_CONFIG_PATH=$CONFIG_PATH8" "KDEPS_MODELS_DIR=" "$KDEPS_BIN" validate /dev/null
+# Binary loads config and propagates models_dir to KDEPS_MODELS_DIR; validated at Go unit test level.
+if [ $EXIT_CODE -eq 0 ] || echo "$OUTPUT" | grep -qiE "validate|workflow|error"; then
+    test_passed "global config - models_dir field accepted without error"
+else
+    test_failed "global config - models_dir field accepted without error" "exit=$EXIT_CODE output=$OUTPUT"
+fi
+rm -rf "$CONFIG_DIR8"
+

@@ -20,7 +20,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
 )
@@ -269,6 +271,32 @@ func TestNewLlamafileManagerWithDir(t *testing.T) {
 	}
 }
 
+// --- Download: temp file creation failure -----------------------------------
+
+func TestLlamafileManager_Download_TmpBlockedByDir(t *testing.T) {
+	// If a directory exists where the .tmp file would be created, OpenFile fails.
+	content := []byte("fake llamafile content")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(content)
+	}))
+	defer srv.Close()
+
+	mgr, dir := newMgrWithDir(t)
+	url := srv.URL + "/blocked.llamafile"
+
+	// Create a directory at the path the .tmp file would occupy.
+	tmpPath := filepath.Join(dir, "blocked.llamafile.tmp")
+	if err := os.Mkdir(tmpPath, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := mgr.Resolve(url)
+	if err == nil {
+		t.Error("expected error when .tmp path is a directory")
+	}
+}
+
 // --- Serve (with fake health endpoint) --------------------------------------
 
 func TestLlamafileManager_Serve_AlreadyRunning(t *testing.T) {
@@ -300,5 +328,88 @@ func TestLlamafileManager_Serve_AlreadyRunning(t *testing.T) {
 	}
 	if actualPort != port {
 		t.Errorf("actualPort = %d, want %d", actualPort, port)
+	}
+}
+
+func TestLlamafileManager_Serve_Port0_StartFail(t *testing.T) {
+	mgr, dir := newMgrWithDir(t)
+	// A non-executable binary format — exec.Command.Start fails with "exec format error".
+	bin := filepath.Join(dir, "model.llamafile")
+	if err := os.WriteFile(bin, []byte("not a real binary"), 0750); err != nil {
+		t.Fatal(err)
+	}
+	// port=0 → FindFreePort() is called inside Serve; nothing healthy on that port,
+	// so it tries to start the binary which immediately fails.
+	_, err := mgr.Serve(bin, 0)
+	if err == nil {
+		t.Error("expected error when binary is not executable format")
+	}
+}
+
+// TestLlamafileManager_Serve_StartsAndBecomesHealthy exercises the
+// cmd.Process.Release + health poll loop path in Serve.
+func TestLlamafileManager_Serve_StartsAndBecomesHealthy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell script binary not supported on Windows")
+	}
+
+	healthReady := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			select {
+			case <-healthReady:
+				w.WriteHeader(http.StatusOK)
+			default:
+				w.WriteHeader(http.StatusServiceUnavailable)
+			}
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	var port int
+	fmt.Sscanf(srv.URL, "http://127.0.0.1:%d", &port)
+
+	mgr, dir := newMgrWithDir(t)
+	bin := filepath.Join(dir, "model.llamafile")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\nexit 0"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	// After cmd.Start() runs, signal health to pass on the next poll.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		close(healthReady)
+	}()
+
+	actualPort, err := mgr.Serve(bin, port)
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	if actualPort != port {
+		t.Errorf("actualPort = %d, want %d", actualPort, port)
+	}
+}
+
+func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
+	// Server is up but returns 503 → isHealthy returns false → tries to start binary → fails.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	var port int
+	fmt.Sscanf(srv.URL, "http://127.0.0.1:%d", &port)
+
+	mgr, dir := newMgrWithDir(t)
+	bin := filepath.Join(dir, "bad.llamafile")
+	if err := os.WriteFile(bin, []byte("not a real binary"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := mgr.Serve(bin, port)
+	if err == nil {
+		t.Error("expected error when binary is not executable format")
 	}
 }

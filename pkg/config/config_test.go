@@ -180,3 +180,42 @@ func TestAgentsDir_EnvOverride(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/custom/agents", dir)
 }
+
+func TestLoad_ModelsDir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := "llm:\n  models_dir: /custom/models\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.Unsetenv("KDEPS_MODELS_DIR"))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "/custom/models", cfg.LLM.ModelsDir)
+	assert.Equal(t, "/custom/models", os.Getenv("KDEPS_MODELS_DIR"))
+}
+
+func TestLoad_ModelsDirEnvWins(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := "llm:\n  models_dir: /from-config\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_MODELS_DIR", "/from-env")
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "/from-config", cfg.LLM.ModelsDir) // struct always reflects file
+	assert.Equal(t, "/from-env", os.Getenv("KDEPS_MODELS_DIR"))
+}
+
+func TestScaffold_ContainsModelsDir(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	require.NoError(t, config.Scaffold())
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "models_dir")
+}
