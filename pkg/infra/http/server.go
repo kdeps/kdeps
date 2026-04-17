@@ -614,12 +614,10 @@ func (s *Server) ParseRequest(
 ) *RequestContext {
 	kdeps_debug.Log("enter: ParseRequest")
 	// Parse query parameters
-	// html.EscapeString breaks the taint chain so static-analysis tools can
-	// see that user-supplied values are sanitised before being stored.
 	query := make(map[string]string)
 	for key, values := range r.URL.Query() {
 		if len(values) > 0 {
-			query[html.EscapeString(key)] = html.EscapeString(values[0])
+			query[key] = values[0]
 		}
 	}
 
@@ -627,16 +625,13 @@ func (s *Server) ParseRequest(
 	headers := make(map[string]string)
 	for key, values := range r.Header {
 		if len(values) > 0 {
-			headers[html.EscapeString(key)] = html.EscapeString(values[0])
+			headers[key] = values[0]
 		}
 	}
 
 	// Parse body - check content type first to determine parsing strategy
 	var body map[string]interface{}
-	// Use the raw Content-Type for routing decisions only; the escaped copy
-	// is used wherever the value might reach a response sink.
-	rawContentType := r.Header.Get("Content-Type")
-	contentType := html.EscapeString(rawContentType)
+	contentType := r.Header.Get("Content-Type")
 	isFormData := strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
 
 	if r.Body != nil && !isFormData {
@@ -648,21 +643,20 @@ func (s *Server) ParseRequest(
 	}
 
 	// Parse form data (for both multipart/form-data and application/x-www-form-urlencoded)
-	if isFormData || strings.HasPrefix(rawContentType, "multipart/form-data") {
+	if isFormData || strings.HasPrefix(contentType, "multipart/form-data") {
 		body = parseFormData(r, body)
 	}
 
-	// Extract client IP address; html.EscapeString is a no-op for valid IPs
-	// but breaks the taint chain for static-analysis purposes.
-	clientIP := html.EscapeString(r.RemoteAddr)
+	// Extract client IP address
+	clientIP := r.RemoteAddr
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		// Take the first IP in the chain
 		ips := strings.Split(forwarded, ",")
 		if len(ips) > 0 {
-			clientIP = html.EscapeString(strings.TrimSpace(ips[0]))
+			clientIP = strings.TrimSpace(ips[0])
 		}
 	} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		clientIP = html.EscapeString(realIP)
+		clientIP = realIP
 	}
 	// Remove port if present
 	if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
@@ -685,8 +679,8 @@ func (s *Server) ParseRequest(
 	}
 
 	return &RequestContext{
-		Method:    html.EscapeString(r.Method),
-		Path:      html.EscapeString(r.URL.Path),
+		Method:    r.Method,
+		Path:      r.URL.Path,
 		Headers:   headers,
 		Query:     query,
 		Body:      body,
@@ -927,7 +921,7 @@ func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]i
 	// Form includes both form values and query params (which we already parsed separately)
 	for key, values := range r.PostForm {
 		if len(values) > 0 {
-			body[html.EscapeString(key)] = html.EscapeString(values[0])
+			body[key] = values[0]
 		}
 	}
 
