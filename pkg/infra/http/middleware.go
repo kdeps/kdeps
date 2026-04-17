@@ -89,11 +89,9 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 }
 
 // browserRenderedContentType reports whether ct is a content type that
-// browsers render as markup or text, and therefore requires HTML escaping
+// browsers render as markup and therefore requires HTML escaping
 // to prevent reflected XSS.
 func browserRenderedContentType(ct string) bool {
-	// Empty content type is treated as browser-rendered text to be safe:
-	// net/http may sniff and default to text/plain when headers are not set yet.
 	ct = strings.TrimSpace(ct)
 	if ct == "" {
 		return true
@@ -108,8 +106,7 @@ func browserRenderedContentType(ct string) bool {
 		"application/xhtml+xml",
 		"application/xml",
 		"text/xml",
-		"image/svg+xml",
-		"text/plain":
+		"image/svg+xml":
 		return true
 	}
 	return false
@@ -121,11 +118,15 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	if !w.headersWritten {
 		w.headersWritten = true
 	}
+
 	// Perform contextual output encoding for browser-rendered content types
 	// to prevent reflected XSS regardless of where the taint originates.
-	// JSON and binary responses are intentionally excluded: encoding/json
-	// already HTML-escapes strings, and binary payloads must not be modified.
-	if ct := w.ResponseWriter.Header().Get("Content-Type"); browserRenderedContentType(ct) {
+	// JSON and binary responses are intentionally excluded.
+	ct := w.ResponseWriter.Header().Get("Content-Type")
+	if strings.TrimSpace(ct) == "" {
+		ct = stdhttp.DetectContentType(b)
+	}
+	if browserRenderedContentType(ct) {
 		b = []byte(html.EscapeString(string(b)))
 	}
 	return w.ResponseWriter.Write(b)
