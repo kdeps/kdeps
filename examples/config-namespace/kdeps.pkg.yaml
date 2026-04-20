@@ -1,0 +1,8 @@
+apiVersion: kdeps.io/v1
+kind: Package
+
+metadata:
+  name: config-namespace
+  description: Example demonstrating config namespace expressions
+  version: "1.0.0"
+  type: workflow

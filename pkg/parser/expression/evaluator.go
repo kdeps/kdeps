@@ -408,6 +408,18 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 		// it is forwarded to the API. Otherwise it is treated as a default value:
 		// auto-detection is used and the second arg is returned when the key is not found.
 		evalEnv["get"] = func(name string, args ...string) interface{} {
+			// Namespace-prefixed paths (config.*, workflow.*, resource.*, component.*, agency.*)
+			// are routed to GetConfigField, bypassing the normal storage lookup.
+			if isNamespacedPath(name) && e.api.GetConfigField != nil {
+				val, err := e.api.GetConfigField(name)
+				if err != nil {
+					if len(args) > 0 {
+						return args[0]
+					}
+					return nil
+				}
+				return val
+			}
 			if len(args) > 0 && !isValidTypeHint(args[0]) {
 				// Second arg is a default value, not a type hint.
 				val, err := e.api.Get(name)
@@ -424,6 +436,10 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 		}
 		// Wrap set() to return true on success, false on error (expr-lang expects return values, not errors)
 		evalEnv["set"] = func(key string, value interface{}, storageType ...string) interface{} {
+			// Namespace-prefixed keys are routed to SetConfigField.
+			if isNamespacedPath(key) && len(storageType) == 0 && e.api.SetConfigField != nil {
+				return e.api.SetConfigField(key, value) == nil
+			}
 			err := e.api.Set(key, value, storageType...)
 			return err == nil
 		}
@@ -559,6 +575,16 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 				return val
 			}
 			return os.Getenv(name)
+		}
+
+		// Register config namespaces as direct-access objects in the evaluator env.
+		// This enables expressions like {{ config.llm.openai_api_key }} or {{ workflow.metadata.name }}.
+		if e.api.ConfigNamespace != nil {
+			for _, ns := range []string{"config", "workflow", "resource", "component", "agency"} {
+				if m := e.api.ConfigNamespace(ns); m != nil {
+					evalEnv[ns] = m
+				}
+			}
 		}
 
 		// Add json() helper function to format data as JSON string.
@@ -729,6 +755,15 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 	}
 
 	return evalEnv
+}
+
+// isNamespacedPath reports whether name starts with a config namespace prefix.
+func isNamespacedPath(name string) bool {
+	return strings.HasPrefix(name, "config.") ||
+		strings.HasPrefix(name, "workflow.") ||
+		strings.HasPrefix(name, "resource.") ||
+		strings.HasPrefix(name, "component.") ||
+		strings.HasPrefix(name, "agency.")
 }
 
 // EvaluateCondition evaluates a boolean condition.

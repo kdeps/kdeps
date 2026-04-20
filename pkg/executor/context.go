@@ -35,8 +35,10 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/storage"
+	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
 )
 
 const (
@@ -74,6 +76,13 @@ const (
 
 	// Input type name used in switch statements and form field names.
 	inputTypeFile = "file"
+
+	// Config namespace names used in expression routing.
+	nsConfig    = "config"
+	nsWorkflow  = "workflow"
+	nsResource  = "resource"
+	nsComponent = "component"
+	nsAgency    = "agency"
 )
 
 // ExecutionContext holds the runtime context for workflow execution.
@@ -149,6 +158,12 @@ type ExecutionContext struct {
 	// Priority for env() lookups: scoped os env > plain os env > .env file.
 	componentDotEnv map[string]map[string]string
 
+	// Config holds the loaded ~/.kdeps/config.yaml values.
+	Config *config.Config
+
+	// Agency holds the loaded agency.yaml (nil for non-agency executions).
+	Agency *domain.Agency
+
 	// Filtering configuration (set per resource)
 	allowedHeaders []string
 	allowedParams  []string
@@ -200,7 +215,7 @@ type FileUpload struct {
 // sessionID is optional - if provided, it will be used for session storage.
 // If not provided, a new session ID will be generated.
 //
-//nolint:gocognit,nestif // session setup requires explicit branching
+//nolint:gocognit,nestif,funlen // session setup requires explicit branching; config load is intentional
 func NewExecutionContext(
 	workflow *domain.Workflow,
 	sessionID ...string,
@@ -280,6 +295,13 @@ func NewExecutionContext(
 		}
 	}
 
+	// LoadStruct reads config without re-applying env vars (applyEnv is called
+	// once at startup by the cmd layer; we only need the struct values here).
+	cfg, cfgErr := config.LoadStruct()
+	if cfgErr != nil {
+		cfg = &config.Config{}
+	}
+
 	ctx := &ExecutionContext{
 		Workflow:        workflow,
 		Resources:       make(map[string]*domain.Resource),
@@ -290,20 +312,24 @@ func NewExecutionContext(
 		Session:         sessionStorage,
 		FSRoot:          ".",
 		componentDotEnv: make(map[string]map[string]string),
+		Config:          cfg,
 	}
 
 	// Initialize unified API.
 	ctx.API = &domain.UnifiedAPI{
-		Get:     ctx.Get,
-		Set:     ctx.Set,
-		File:    ctx.File,
-		Info:    ctx.Info,
-		Input:   ctx.Input,
-		Output:  ctx.Output,
-		Item:    ctx.Item,
-		Loop:    ctx.Loop,
-		Session: ctx.GetAllSession,
-		Env:     ctx.Env,
+		Get:             ctx.Get,
+		Set:             ctx.Set,
+		File:            ctx.File,
+		Info:            ctx.Info,
+		Input:           ctx.Input,
+		Output:          ctx.Output,
+		Item:            ctx.Item,
+		Loop:            ctx.Loop,
+		Session:         ctx.GetAllSession,
+		Env:             ctx.Env,
+		GetConfigField:  ctx.GetConfigField,
+		SetConfigField:  ctx.SetConfigField,
+		ConfigNamespace: ctx.ConfigNamespace,
 	}
 
 	return ctx, nil
@@ -364,6 +390,15 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 	// If type hint is provided, use it directly.
 	if len(typeHint) > 0 {
 		return ctx.getByType(name, typeHint[0])
+	}
+
+	// Namespace-prefixed paths are resolved via config structs first.
+	// Fall back to auto-detection if resolution fails (preserves backward compat
+	// for names like "workflow.name" that are also metadata fields).
+	if isNamespacedPath(name) {
+		if val, err := ctx.GetConfigField(name); err == nil {
+			return val, nil
+		}
 	}
 
 	// Auto-detection priority chain
@@ -915,6 +950,12 @@ func (ctx *ExecutionContext) SetAllowedParams(params []string) {
 // Set stores a value in memory or session.
 func (ctx *ExecutionContext) Set(key string, value interface{}, storageType ...string) error {
 	kdeps_debug.Log("enter: Set")
+
+	// Namespace-prefixed keys route to config structs (no storage type needed).
+	if isNamespacedPath(key) && len(storageType) == 0 {
+		return ctx.SetConfigField(key, value)
+	}
+
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 
@@ -2166,4 +2207,180 @@ func (ctx *ExecutionContext) BuildEvaluatorEnv() map[string]interface{} {
 	}
 
 	return env
+}
+
+// --- config namespace methods ---
+
+// isNamespacedPath reports whether name starts with a known config namespace prefix.
+func isNamespacedPath(name string) bool {
+	return strings.HasPrefix(name, nsConfig+".") ||
+		strings.HasPrefix(name, nsWorkflow+".") ||
+		strings.HasPrefix(name, nsResource+".") ||
+		strings.HasPrefix(name, nsComponent+".") ||
+		strings.HasPrefix(name, nsAgency+".")
+}
+
+// GetConfigField retrieves a value from a config namespace by full dot-path.
+// The first segment of fullPath is the namespace ("config", "workflow", "resource",
+// "component", "agency"); the remainder is the dot-path within that namespace.
+func (ctx *ExecutionContext) GetConfigField(fullPath string) (any, error) {
+	kdeps_debug.Log("enter: GetConfigField")
+	ns, rest, hasDot := strings.Cut(fullPath, ".")
+	if !hasDot || rest == "" {
+		return nil, fmt.Errorf("invalid config path: %q", fullPath)
+	}
+	switch ns {
+	case nsConfig:
+		if ctx.Config == nil {
+			return nil, errors.New("config not loaded")
+		}
+		return ctx.Config.GetField(rest)
+	case nsWorkflow:
+		if ctx.Workflow == nil {
+			return nil, errors.New("workflow not loaded")
+		}
+		return dotpath.Get(ctx.Workflow, rest)
+	case nsResource:
+		return ctx.getConfigFieldResource(rest)
+	case nsComponent:
+		return ctx.getConfigFieldComponent(rest)
+	case nsAgency:
+		if ctx.Agency == nil {
+			return nil, errors.New("agency not loaded")
+		}
+		return dotpath.Get(ctx.Agency, rest)
+	default:
+		return nil, fmt.Errorf("unknown namespace: %q", ns)
+	}
+}
+
+func (ctx *ExecutionContext) getConfigFieldResource(rest string) (any, error) {
+	actionID, fieldPath, hasField := strings.Cut(rest, ".")
+	r, exists := ctx.Resources[actionID]
+	if !exists {
+		return nil, fmt.Errorf("resource %q not found", actionID)
+	}
+	if !hasField {
+		return r, nil
+	}
+	return dotpath.Get(r, fieldPath)
+}
+
+func (ctx *ExecutionContext) getConfigFieldComponent(rest string) (any, error) {
+	if ctx.Workflow == nil || ctx.Workflow.Components == nil {
+		return nil, errors.New("no components loaded")
+	}
+	compName, fieldPath, hasField := strings.Cut(rest, ".")
+	c, exists := ctx.Workflow.Components[compName]
+	if !exists {
+		return nil, fmt.Errorf("component %q not found", compName)
+	}
+	if !hasField {
+		return c, nil
+	}
+	return dotpath.Get(c, fieldPath)
+}
+
+// SetConfigField updates a value in a config namespace by full dot-path.
+// For "config.*" paths the corresponding env var is also updated.
+func (ctx *ExecutionContext) SetConfigField(fullPath string, value any) error {
+	kdeps_debug.Log("enter: SetConfigField")
+	ns, rest, hasDot := strings.Cut(fullPath, ".")
+	if !hasDot || rest == "" {
+		return fmt.Errorf("invalid config path: %q", fullPath)
+	}
+	switch ns {
+	case nsConfig:
+		if ctx.Config == nil {
+			ctx.Config = &config.Config{}
+		}
+		return ctx.Config.SetField(rest, value)
+	case nsWorkflow:
+		if ctx.Workflow == nil {
+			return errors.New("workflow not loaded")
+		}
+		return dotpath.Set(ctx.Workflow, rest, value)
+	case nsResource:
+		return ctx.setConfigFieldResource(rest, value)
+	case nsComponent:
+		return ctx.setConfigFieldComponent(rest, value)
+	case nsAgency:
+		if ctx.Agency == nil {
+			return errors.New("agency not loaded")
+		}
+		return dotpath.Set(ctx.Agency, rest, value)
+	default:
+		return fmt.Errorf("unknown namespace: %q", ns)
+	}
+}
+
+func (ctx *ExecutionContext) setConfigFieldResource(rest string, value any) error {
+	actionID, fieldPath, hasField := strings.Cut(rest, ".")
+	r, exists := ctx.Resources[actionID]
+	if !exists {
+		return fmt.Errorf("resource %q not found", actionID)
+	}
+	if !hasField {
+		return errors.New("resource path requires a field after the actionId")
+	}
+	return dotpath.Set(r, fieldPath, value)
+}
+
+func (ctx *ExecutionContext) setConfigFieldComponent(rest string, value any) error {
+	if ctx.Workflow == nil || ctx.Workflow.Components == nil {
+		return errors.New("no components loaded")
+	}
+	compName, fieldPath, hasField := strings.Cut(rest, ".")
+	c, exists := ctx.Workflow.Components[compName]
+	if !exists {
+		return fmt.Errorf("component %q not found", compName)
+	}
+	if !hasField {
+		return errors.New("component path requires a field after the name")
+	}
+	return dotpath.Set(c, fieldPath, value)
+}
+
+// ConfigNamespace returns a map[string]any snapshot of a named namespace for
+// direct property access in the expression evaluator environment.
+// For "resource" it returns map[actionId → map], for "component" map[name → map].
+func (ctx *ExecutionContext) ConfigNamespace(namespace string) map[string]any {
+	kdeps_debug.Log("enter: ConfigNamespace")
+	switch namespace {
+	case nsConfig:
+		if ctx.Config == nil {
+			return nil
+		}
+		return ctx.Config.ToMap()
+	case nsWorkflow:
+		if ctx.Workflow == nil {
+			return nil
+		}
+		return dotpath.StructToMap(ctx.Workflow)
+	case nsResource:
+		if len(ctx.Resources) == 0 {
+			return nil
+		}
+		m := make(map[string]any, len(ctx.Resources))
+		for id, r := range ctx.Resources {
+			m[id] = dotpath.StructToMap(r)
+		}
+		return m
+	case nsComponent:
+		if ctx.Workflow == nil || len(ctx.Workflow.Components) == 0 {
+			return nil
+		}
+		m := make(map[string]any, len(ctx.Workflow.Components))
+		for name, c := range ctx.Workflow.Components {
+			m[name] = dotpath.StructToMap(c)
+		}
+		return m
+	case nsAgency:
+		if ctx.Agency == nil {
+			return nil
+		}
+		return dotpath.StructToMap(ctx.Agency)
+	default:
+		return nil
+	}
 }

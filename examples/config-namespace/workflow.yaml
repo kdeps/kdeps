@@ -1,0 +1,42 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: config-namespace
+  description: |
+    Demonstrates the config namespace feature for reading global settings in expressions.
+
+    Namespace objects are available directly in expressions:
+      {{ config.llm.model }}              — reads llm.model from ~/.kdeps/config.yaml
+      {{ config.defaults.timezone }}      — reads defaults.timezone
+      {{ workflow.metadata.name }}        — reads the current workflow name
+      {{ workflow.metadata.version }}     — reads the current workflow version
+
+    The get() function also supports namespace-prefixed paths:
+      {{ get('config.llm.model', 'llama3.2') }}      — with fallback default
+      {{ get('workflow.metadata.name') }}
+
+    And set() can mutate values at runtime:
+      {{ set('config.llm.model', 'gpt-4o') }}
+
+    Run:
+      kdeps run examples/config-namespace
+  version: "1.0.0"
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
+  apiServer:
+    routes:
+      - path: /api/v1/config
+        methods: [GET]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: UTC

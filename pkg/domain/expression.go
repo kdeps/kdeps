@@ -102,4 +102,17 @@ type UnifiedAPI struct {
 
 	// Env retrieves an environment variable value.
 	Env func(name string) (string, error)
+
+	// GetConfigField retrieves a value from config namespaces by full dot-path.
+	// Namespaces: config.*, workflow.*, resource.<id>.*, component.<name>.*, agency.*
+	GetConfigField func(fullPath string) (any, error)
+
+	// SetConfigField updates a value in config namespaces by full dot-path.
+	// For config.* paths the corresponding env var is also updated.
+	SetConfigField func(fullPath string, value any) error
+
+	// ConfigNamespace returns a map[string]any snapshot of a named namespace
+	// ("config", "workflow", "resource", "component", "agency") for use in
+	// the evaluator's direct property-access environment.
+	ConfigNamespace func(namespace string) map[string]any
 }
