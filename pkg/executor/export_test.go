@@ -22,11 +22,28 @@ package executor
 import (
 	"errors"
 	"fmt"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // ScanComponentEnvVars exposes the internal scanComponentEnvVars for black-box
 // testing from the executor_test package.
 var ScanComponentEnvVars = scanComponentEnvVars //nolint:gochecknoglobals
+
+// ResourceTypeName exposes the internal resourceTypeName for testing.
+func ResourceTypeName(r *domain.Resource) string {
+	return resourceTypeName(r)
+}
+
+// ConvertToSlice exposes Engine.convertToSlice for testing.
+func (e *Engine) ConvertToSlice(v interface{}) []interface{} {
+	return e.convertToSlice(v)
+}
+
+// BuildEvaluationEnvironment exposes Engine.buildEvaluationEnvironment for testing.
+func (e *Engine) BuildEvaluationEnvironment(ctx *ExecutionContext) map[string]interface{} {
+	return e.buildEvaluationEnvironment(ctx)
+}
 
 // LoadComponentDotEnvForTest loads a component's .env file from dir into ctx,
 // simulating what executeComponentCall does lazily at runtime.
