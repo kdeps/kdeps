@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
 )
 
 const (
@@ -115,6 +117,31 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
+// LoadStruct reads ~/.kdeps/config.yaml into a Config struct without applying
+// env vars. Use this when you only need the struct values (e.g. for expression
+// access) and env vars have already been applied at startup via Load().
+func LoadStruct() (*Config, error) {
+	path, err := Path()
+	if err != nil {
+		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal here
+	}
+
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return &Config{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+
+	var cfg Config
+	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
+	}
+
+	return &cfg, nil
+}
+
 // Scaffold creates the config directory and writes a commented template file
 // if one does not already exist. It is safe to call every startup.
 func Scaffold() error {
@@ -129,6 +156,54 @@ func Scaffold() error {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
 	return os.WriteFile(path, []byte(defaultConfigTemplate), configFilePerm)
+}
+
+// GetField retrieves a config value by dot-path (e.g. "llm.openai_api_key").
+func (c *Config) GetField(path string) (any, error) {
+	return dotpath.Get(c, path)
+}
+
+// SetField updates a config field by dot-path and syncs the corresponding env var.
+func (c *Config) SetField(path string, value any) error {
+	if err := dotpath.Set(c, path, value); err != nil {
+		return err
+	}
+	// Sync env var if this path has a known mapping.
+	if envVar, ok := configEnvVar(path); ok {
+		val := fmt.Sprintf("%v", value)
+		_ = os.Setenv(envVar, val)
+	}
+	return nil
+}
+
+// ToMap returns the config as a nested map[string]any keyed by yaml field names.
+func (c *Config) ToMap() map[string]any {
+	return dotpath.StructToMap(c)
+}
+
+// configEnvVar maps a config dot-path to the corresponding env var name.
+// Returns ("", false) when there is no env var for the given path.
+func configEnvVar(path string) (string, bool) {
+	m := map[string]string{
+		"llm.ollama_host":         "OLLAMA_HOST",
+		"llm.model":               "KDEPS_DEFAULT_MODEL",
+		"llm.models_dir":          "KDEPS_MODELS_DIR",
+		"llm.openai_api_key":      "OPENAI_API_KEY",
+		"llm.anthropic_api_key":   "ANTHROPIC_API_KEY",
+		"llm.google_api_key":      "GOOGLE_API_KEY",
+		"llm.cohere_api_key":      "COHERE_API_KEY",
+		"llm.mistral_api_key":     "MISTRAL_API_KEY",
+		"llm.together_api_key":    "TOGETHER_API_KEY",
+		"llm.perplexity_api_key":  "PERPLEXITY_API_KEY",
+		"llm.groq_api_key":        "GROQ_API_KEY",
+		"llm.deepseek_api_key":    "DEEPSEEK_API_KEY",
+		"llm.openrouter_api_key":  "OPENROUTER_API_KEY",
+		"defaults.timezone":       "TZ",
+		"defaults.python_version": "KDEPS_PYTHON_VERSION",
+		"defaults.offline_mode":   "KDEPS_OFFLINE_MODE",
+	}
+	v, ok := m[path]
+	return v, ok
 }
 
 // AgentsDir returns the directory where installed agents are stored.

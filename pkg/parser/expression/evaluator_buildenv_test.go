@@ -566,3 +566,359 @@ func TestEvaluator_buildEnvironment_UrlencodeToJSONTernary(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "no", result4)
 }
+
+// TestEvaluator_buildEnvironment_LoopFunctions covers the Loop API branch.
+func TestEvaluator_buildEnvironment_LoopFunctions(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Loop: func(key string) (interface{}, error) {
+			switch key {
+			case "index":
+				return 3, nil
+			case "count":
+				return 10, nil
+			case "results":
+				return []interface{}{"r1", "r2"}, nil
+			}
+			return nil, errors.New("unknown key")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "loop.index()", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, 3, result)
+
+	expr2 := &domain.Expression{Raw: "loop.count()", Type: domain.ExprTypeDirect}
+	result2, err := evaluator.Evaluate(expr2, env)
+	require.NoError(t, err)
+	assert.Equal(t, 10, result2)
+
+	expr3 := &domain.Expression{Raw: "loop.results()", Type: domain.ExprTypeDirect}
+	result3, err := evaluator.Evaluate(expr3, env)
+	require.NoError(t, err)
+	assert.Equal(t, []interface{}{"r1", "r2"}, result3)
+}
+
+// TestEvaluator_buildEnvironment_LoopFunctions_ErrorHandling covers error paths in Loop.
+func TestEvaluator_buildEnvironment_LoopFunctions_ErrorHandling(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Loop: func(_ string) (interface{}, error) {
+			return nil, errors.New("loop error")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "loop.index()", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result)
+
+	expr2 := &domain.Expression{Raw: "loop.count()", Type: domain.ExprTypeDirect}
+	result2, err := evaluator.Evaluate(expr2, env)
+	require.NoError(t, err)
+	assert.Equal(t, 0, result2)
+
+	expr3 := &domain.Expression{Raw: "loop.results()", Type: domain.ExprTypeDirect}
+	result3, err := evaluator.Evaluate(expr3, env)
+	require.NoError(t, err)
+	assert.Equal(t, []interface{}{}, result3)
+}
+
+// TestEvaluator_buildEnvironment_EnvFunction covers the env() function with Env API.
+func TestEvaluator_buildEnvironment_EnvFunction(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Env: func(name string) (string, error) {
+			if name == "MY_VAR" {
+				return "myvalue", nil
+			}
+			return "", errors.New("not set")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// env() with Env API - found
+	expr := &domain.Expression{Raw: "env('MY_VAR')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "myvalue", result)
+
+	// env() with Env API - error returns empty string
+	expr2 := &domain.Expression{Raw: "env('MISSING')", Type: domain.ExprTypeDirect}
+	result2, err := evaluator.Evaluate(expr2, env)
+	require.NoError(t, err)
+	assert.Equal(t, "", result2)
+}
+
+// TestEvaluator_buildEnvironment_EnvFunctionFallback covers env() fallback to os.Getenv.
+func TestEvaluator_buildEnvironment_EnvFunctionFallback(t *testing.T) {
+	// api with Env=nil - falls back to os.Getenv
+	api := &domain.UnifiedAPI{
+		Get: func(_ string, _ ...string) (interface{}, error) { return nil, errors.New("not found") },
+	}
+	t.Setenv("TEST_BUILDENV_VAR", "os_value")
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "env('TEST_BUILDENV_VAR')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "os_value", result)
+}
+
+// TestEvaluator_buildEnvironment_LoopObjectMerging covers loop env merging.
+func TestEvaluator_buildEnvironment_LoopObjectMerging(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Loop: func(key string) (interface{}, error) {
+			if key == "index" {
+				return 7, nil
+			}
+			return nil, errors.New("unknown")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+
+	// Provide a loop object in env that will be merged with the API loop
+	env := map[string]interface{}{
+		"loop": map[string]interface{}{
+			"custom": "extra",
+		},
+	}
+
+	expr := &domain.Expression{Raw: "loop.index()", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, 7, result)
+}
+
+// TestEvaluator_buildEnvironment_SessionFunction covers the Session API branch.
+func TestEvaluator_buildEnvironment_SessionFunction(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Session: func() (map[string]interface{}, error) {
+			return map[string]interface{}{"user": "alice"}, nil
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "session()", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "alice", resultMap["user"])
+}
+
+// TestEvaluator_buildEnvironment_SessionFunction_Error covers session error path.
+func TestEvaluator_buildEnvironment_SessionFunction_Error(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Session: func() (map[string]interface{}, error) {
+			return nil, errors.New("session error")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "session()", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	// returns empty map on error
+	assert.Equal(t, map[string]interface{}{}, result)
+}
+
+// TestEvaluator_buildEnvironment_GetWithDefault covers the get() default-value path.
+func TestEvaluator_buildEnvironment_GetWithDefault(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Get: func(_ string, _ ...string) (interface{}, error) {
+			return nil, errors.New("not found")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// get('key', 'defaultval') - second arg is not a type hint, so treated as default
+	expr := &domain.Expression{Raw: "get('missing', 'fallback')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback", result)
+}
+
+// TestEvaluator_buildEnvironment_GetWithDefaultFound covers get() when value exists.
+func TestEvaluator_buildEnvironment_GetWithDefaultFound(t *testing.T) {
+	api := &domain.UnifiedAPI{
+		Get: func(name string, _ ...string) (interface{}, error) {
+			if name == "mykey" {
+				return "found", nil
+			}
+			return nil, errors.New("not found")
+		},
+	}
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// get('mykey', 'defaultval') - key found so return actual value
+	expr := &domain.Expression{Raw: "get('mykey', 'fallback')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "found", result)
+}
+
+// --- config namespace tests ---
+
+func makeNamespaceAPI() *domain.UnifiedAPI {
+	configMap := map[string]any{
+		"llm": map[string]any{
+			"openai_api_key": "sk-test",
+			"model":          "llama3.2",
+		},
+		"defaults": map[string]any{
+			"timezone": "UTC",
+		},
+	}
+	workflowMap := map[string]any{
+		"metadata": map[string]any{
+			"name":    "my-wf",
+			"version": "1.0",
+		},
+	}
+
+	return &domain.UnifiedAPI{
+		Get: func(_ string, _ ...string) (interface{}, error) {
+			return nil, errors.New("not found")
+		},
+		Set: func(_ string, _ interface{}, _ ...string) error { return nil },
+		GetConfigField: func(fullPath string) (any, error) {
+			switch fullPath {
+			case "config.llm.openai_api_key":
+				return "sk-test", nil
+			case "workflow.metadata.name":
+				return "my-wf", nil
+			default:
+				return nil, errors.New("not found: " + fullPath)
+			}
+		},
+		SetConfigField: func(fullPath string, _ any) error {
+			if fullPath == "config.llm.openai_api_key" || fullPath == "workflow.metadata.name" {
+				return nil
+			}
+			return errors.New("not found: " + fullPath)
+		},
+		ConfigNamespace: func(namespace string) map[string]any {
+			switch namespace {
+			case "config":
+				return configMap
+			case "workflow":
+				return workflowMap
+			default:
+				return nil
+			}
+		},
+	}
+}
+
+func TestEvaluator_ConfigNamespace_DirectAccess(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// Direct property access via the registered config namespace map.
+	expr := &domain.Expression{Raw: "config.llm.openai_api_key", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-test", result)
+}
+
+func TestEvaluator_ConfigNamespace_WorkflowDirectAccess(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "workflow.metadata.name", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "my-wf", result)
+}
+
+func TestEvaluator_GetConfigField_ViaGetFunction(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "get('config.llm.openai_api_key')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "sk-test", result)
+}
+
+func TestEvaluator_GetConfigField_ViaGetFunction_Workflow(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "get('workflow.metadata.name')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "my-wf", result)
+}
+
+func TestEvaluator_GetConfigField_MissingWithDefault(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "get('config.llm.nonexistent', 'fallback')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "fallback", result)
+}
+
+func TestEvaluator_SetConfigField_ViaSetFunction(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "set('config.llm.openai_api_key', 'sk-new')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, true, result)
+}
+
+func TestEvaluator_SetConfigField_Unknown_ReturnsFalse(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{Raw: "set('config.llm.bogus', 'x')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, false, result)
+}
+
+func TestEvaluator_Interpolated_ConfigNamespace(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	expr := &domain.Expression{
+		Raw:  "key is {{ get('config.llm.openai_api_key') }}",
+		Type: domain.ExprTypeInterpolated,
+	}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Equal(t, "key is sk-test", result)
+}
+
+func TestEvaluator_GetConfigField_MissingNoDefault(t *testing.T) {
+	api := makeNamespaceAPI()
+	evaluator := expression.NewEvaluator(api)
+	env := map[string]interface{}{}
+
+	// Missing key with no default → returns nil (not an error).
+	expr := &domain.Expression{Raw: "get('config.llm.nonexistent')", Type: domain.ExprTypeDirect}
+	result, err := evaluator.Evaluate(expr, env)
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}

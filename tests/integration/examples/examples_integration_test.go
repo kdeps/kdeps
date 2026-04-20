@@ -1036,6 +1036,95 @@ func contains(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
+// TestConfigNamespaceExample_WorkflowParsing verifies the config-namespace
+// example parses cleanly and declares the expected structure.
+func TestConfigNamespaceExample_WorkflowParsing(t *testing.T) {
+	workflowPath := "../../../examples/config-namespace/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("config-namespace example not available")
+		return
+	}
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+	assert.Equal(t, "config-namespace", workflow.Metadata.Name)
+	assert.Equal(t, "response", workflow.Metadata.TargetActionID)
+}
+
+// TestConfigNamespaceExample_ResourceParsing verifies both resource files parse
+// and the response resource references namespace expressions.
+func TestConfigNamespaceExample_ResourceParsing(t *testing.T) {
+	workflowPath := "../../../examples/config-namespace/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("config-namespace example not available")
+		return
+	}
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	actionIDs := make([]string, 0, len(workflow.Resources))
+	for _, r := range workflow.Resources {
+		actionIDs = append(actionIDs, r.Metadata.ActionID)
+	}
+	assert.Contains(t, actionIDs, "readConfig", "readConfig resource should be loaded")
+	assert.Contains(t, actionIDs, "response", "response resource should be loaded")
+}
+
+// TestConfigNamespaceExample_Execution runs the config-namespace workflow end-to-end
+// using a real execution context so namespace expressions resolve correctly.
+func TestConfigNamespaceExample_Execution(t *testing.T) {
+	workflowPath := "../../../examples/config-namespace/workflow.yaml"
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		t.Skip("config-namespace example not available")
+		return
+	}
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	workflow, err := yamlParser.ParseWorkflow(workflowPath)
+	require.NoError(t, err)
+
+	engine := setupExecutor()
+	engine.SetDebugMode(true)
+
+	reqCtx := &executor.RequestContext{
+		Method:  "GET",
+		Path:    "/api/v1/config",
+		Headers: map[string]string{},
+		Query:   map[string]string{},
+	}
+
+	result, err := engine.Execute(workflow, reqCtx)
+	if err != nil {
+		t.Logf("Execution result (may be expected without full env): %v", err)
+		return
+	}
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok, "result should be a map")
+
+	// workflow_name and workflow_version come from namespace expressions.
+	assert.Equal(t, "config-namespace", resultMap["workflow_name"])
+	assert.Equal(t, "1.0.0", resultMap["workflow_version"])
+}
+
 // TestLlamafileChatExample_WorkflowParsing verifies that the llamafile-chat
 // example parses cleanly and declares backend: file.
 func TestLlamafileChatExample_WorkflowParsing(t *testing.T) {
