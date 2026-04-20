@@ -19,9 +19,10 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"html"
+	htmltemplate "html/template"
 	stdhttp "net/http"
 	"os"
 	"strings"
@@ -129,7 +130,9 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 
 	out := b
 	if browserRenderedContentType(ct) {
-		out = []byte(html.EscapeString(string(b)))
+		var escaped bytes.Buffer
+		htmltemplate.HTMLEscape(&escaped, b)
+		out = escaped.Bytes()
 		if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
 			w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 		}
