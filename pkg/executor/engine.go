@@ -2484,7 +2484,6 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 	return env
 }
 
-// convertToSlice converts a value to a slice of interface{} if it's an array/slice type.
 // Returns nil if the value is not an array/slice.
 func (e *Engine) convertToSlice(value interface{}) []interface{} {
 	kdeps_debug.Log("enter: convertToSlice")

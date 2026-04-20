@@ -197,6 +197,19 @@ func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return ErrorHandlerMiddleware(debugMode)
 }
 
+// SecurityHeadersMiddleware sets defensive HTTP security headers on every response.
+func SecurityHeadersMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: SecurityHeadersMiddleware")
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			next(w, r)
+		}
+	}
+}
+
 // LoggingMiddleware logs request information (basic implementation).
 func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: LoggingMiddleware")

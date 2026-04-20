@@ -173,6 +173,7 @@ func (s *Server) SetWatcher(watcher FileWatcher) {
 func (s *Server) Start(addr string, devMode bool) error {
 	kdeps_debug.Log("enter: Start")
 	// Add core middleware (request ID and error handling)
+	s.Router.Use(SecurityHeadersMiddleware())
 	s.Router.Use(RequestIDMiddleware())
 	s.Router.Use(DebugModeMiddleware())
 
