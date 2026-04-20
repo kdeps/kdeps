@@ -81,7 +81,6 @@ type ResponseWriterWrapper struct {
 	stdhttp.ResponseWriter
 	headersWritten bool
 	flusher        stdhttp.Flusher // Cache Flusher interface if available
-	preEscaped     bool            // set by server when content is already HTML-escaped
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
@@ -118,13 +117,6 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	kdeps_debug.Log("enter: Write")
 	if !w.headersWritten {
 		w.headersWritten = true
-	}
-
-	// Caller (server) already applied htmltemplate.HTMLEscape — write through directly
-	// to avoid double-escaping and to keep the sanitizer on every path to the sink.
-	if w.preEscaped {
-		w.preEscaped = false
-		return w.ResponseWriter.Write(b)
 	}
 
 	// Perform contextual output encoding for browser-rendered content types

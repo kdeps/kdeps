@@ -19,12 +19,10 @@
 package http
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	htmltemplate "html/template"
 	"log/slog"
 	"net"
 	stdhttp "net/http"
@@ -417,34 +415,15 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 				// For non-JSON content types (e.g. text/html), write the data field
 				// directly as raw bytes so the response is not wrapped in a JSON envelope.
+				// The ResponseWriterWrapper middleware handles HTML escaping for browser-rendered
+				// content types, so we pass raw bytes through and avoid double-encoding.
 				if !strings.HasPrefix(respContentType, "application/json") {
-					ctLower := strings.ToLower(strings.TrimSpace(respContentType))
-					if i := strings.IndexByte(ctLower, ';'); i >= 0 {
-						ctLower = strings.TrimSpace(ctLower[:i])
-					}
-					browserRendered := ctLower == "text/html" ||
-						ctLower == "application/xhtml+xml" ||
-						ctLower == "application/xml" ||
-						ctLower == "text/xml" ||
-						ctLower == "image/svg+xml"
-
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
-						// Always HTML-escape string data to prevent reflected XSS on all
-						// content-type paths, including non-browser-rendered types where
-						// MIME-sniffing could otherwise allow script execution.
-						var escaped bytes.Buffer
-						htmltemplate.HTMLEscape(&escaped, []byte(v))
-						rawBytes = escaped.Bytes()
+						rawBytes = []byte(v)
 					case []byte:
-						if browserRendered {
-							var escaped bytes.Buffer
-							htmltemplate.HTMLEscape(&escaped, v)
-							rawBytes = escaped.Bytes()
-						} else {
-							rawBytes = v
-						}
+						rawBytes = v
 					default:
 						var marshalErr error
 						rawBytes, marshalErr = json.Marshal(data)
@@ -475,11 +454,6 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						"content_type",
 						respContentType,
 					)
-					// rawBytes is already HTML-escaped above; signal the middleware wrapper
-					// to skip its own escaping so we don't double-encode HTML entities.
-					if rw, isWrapper := w.(*ResponseWriterWrapper); isWrapper {
-						rw.preEscaped = true
-					}
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error(
 							"failed to write raw API response",
