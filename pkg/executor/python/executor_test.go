@@ -20,6 +20,7 @@ package python_test
 
 import (
 	"os"
+	execpkg "os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -1170,4 +1171,90 @@ func TestExecutor_GetPythonDependencies_WithRequirementsFile(t *testing.T) {
 
 	_ = result
 	_ = err
+}
+
+// TestExecutor_ResolveConfig_VenvName_ExpressionError exercises the VenvName error branch
+// in resolveConfig: a malformed expression returns an error from EvaluateStringOrLiteral.
+func TestExecutor_ResolveConfig_VenvName_ExpressionError(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		VenvName: "{{invalid_expr(}}", // triggers EvaluateStringOrLiteral error
+		Script:   "print('test')",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate venv name")
+}
+
+// TestExecutor_ResolveConfig_TimeoutDuration_ExpressionError exercises the TimeoutDuration
+// error branch in resolveConfig.
+func TestExecutor_ResolveConfig_TimeoutDuration_ExpressionError(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		TimeoutDuration: "{{invalid_expr(}}", // malformed expression
+		Script:          "print('test')",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate timeout duration")
+}
+
+// TestExecutor_ResolveConfig_Args_ExpressionError exercises the Args error branch in resolveConfig.
+func TestExecutor_ResolveConfig_Args_ExpressionError(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('test')",
+		Args:   []string{"valid-arg", "{{invalid_expr(}}"}, // second arg fails
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate argument 1")
+}
+
+// TestExecutor_NewExecCommand_CustomFunc exercises the non-nil execCommand branch
+// in newExecCommand by using SetExecCommandForTesting with a real command function.
+func TestExecutor_NewExecCommand_CustomFunc(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	called := false
+	exec.SetExecCommandForTesting(func(name string, arg ...string) *execpkg.Cmd {
+		called = true
+		return execpkg.Command(name, arg...)
+	})
+
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('hi')",
+	}
+
+	// Execute will fail (mock venv path doesn't exist) but the custom execCommand func is called.
+	_, err = exec.Execute(ctx, config)
+	_ = err
+	assert.True(t, called)
 }

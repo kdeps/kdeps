@@ -1844,6 +1844,48 @@ func TestInputConfig_AllSourcesAPI_ComponentIncluded(t *testing.T) {
 	}
 }
 
+func TestHasFileSource(t *testing.T) {
+	cWith := &domain.InputConfig{Sources: []string{domain.InputSourceFile}}
+	cWithout := &domain.InputConfig{}
+
+	if !cWith.HasFileSource() {
+		t.Error("HasFileSource() should be true when file is in sources")
+	}
+	if cWithout.HasFileSource() {
+		t.Error("HasFileSource() should be false when sources is empty")
+	}
+}
+
+func TestIsFileSource(t *testing.T) {
+	if !domain.IsFileSource(domain.InputSourceFile) {
+		t.Error("IsFileSource(file) should be true")
+	}
+	if domain.IsFileSource("other") {
+		t.Error("IsFileSource(other) should be false")
+	}
+}
+
+func TestHasLLMSource(t *testing.T) {
+	cWith := &domain.InputConfig{Sources: []string{domain.InputSourceLLM}}
+	cWithout := &domain.InputConfig{}
+
+	if !cWith.HasLLMSource() {
+		t.Error("HasLLMSource() should be true when llm is in sources")
+	}
+	if cWithout.HasLLMSource() {
+		t.Error("HasLLMSource() should be false when sources is empty")
+	}
+}
+
+func TestIsLLMSource(t *testing.T) {
+	if !domain.IsLLMSource(domain.InputSourceLLM) {
+		t.Error("IsLLMSource(llm) should be true")
+	}
+	if domain.IsLLMSource("other") {
+		t.Error("IsLLMSource(other) should be false")
+	}
+}
+
 func TestComponentInputConfig_YAMLRoundTrip(t *testing.T) {
 	raw := `
 sources:

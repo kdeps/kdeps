@@ -937,3 +937,76 @@ func TestExecutor_ResolvePoolConfig_WithBothSettings(t *testing.T) {
 		assert.NotContains(t, err.Error(), "failed to evaluate pool")
 	}
 }
+
+// TestExecutor_EvaluateSQLParameters_ErrorPath exercises the error branch of
+// evaluateSQLParameters by passing a param that contains a function call with invalid syntax.
+func TestExecutor_EvaluateSQLParameters_ErrorPath(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	evaluator := expression.NewEvaluator(nil)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// A param that contains a SQL function call pattern but has invalid expression syntax
+	// so EvaluateSingleParam returns an error.
+	param := "get(" // triggers containsSQLFunctionCalls but is malformed
+	_, err = exec.EvaluateSingleParam(evaluator, ctx, param, 0)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate parameter 0")
+}
+
+// TestExecutor_ExecuteQuery_QueryEvalError exercises the error path in executeQuery
+// when query string expression evaluation fails, via Execute.
+func TestExecutor_ExecuteQuery_QueryEvalError(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Query contains expression syntax ({{ }}) which triggers evaluateStringOrLiteral;
+	// the malformed expression causes an evaluation error before the DB is even used.
+	config := &domain.SQLConfig{
+		Connection: "sqlite://:memory:",
+		Query:      "{{invalid_expr(}}", // malformed expression
+	}
+
+	result, err := exec.Execute(ctx, config)
+	// The executor may return the error as a result map or propagate it
+	if err != nil {
+		assert.Contains(t, err.Error(), "failed to evaluate query")
+	} else {
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Contains(t, resultMap, "error")
+	}
+}
+
+// TestExecutor_ExecuteQuery_ParamsError exercises the evaluateSQLParameters error path
+// inside executeQuery via Execute with a param that fails evaluation.
+func TestExecutor_ExecuteQuery_ParamsError(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Use an in-memory SQLite connection so connection succeeds but the param
+	// triggers an evaluation error.
+	config := &domain.SQLConfig{
+		Connection: "sqlite://:memory:",
+		Query:      "SELECT ?",
+		Params:     []interface{}{"get("}, // malformed function call param
+	}
+
+	result, err := exec.Execute(ctx, config)
+	if err != nil {
+		// Error propagated directly
+		assert.NotEmpty(t, err.Error())
+	} else {
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Contains(t, resultMap, "error")
+	}
+}
