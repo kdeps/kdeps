@@ -246,6 +246,105 @@ func TestChanEmitter_DropsWhenFull(_ *testing.T) {
 
 // --- MultiEmitter ---
 
+func TestNDJSONEmitter_Emit(t *testing.T) {
+	var buf bytes.Buffer
+	em := events.NewNDJSONEmitter(&buf)
+	em.Emit(events.WorkflowStarted("wf-emit-test"))
+	if buf.Len() == 0 {
+		t.Fatal("expected non-empty output after Emit")
+	}
+	var ev events.Event
+	if err := json.Unmarshal(buf.Bytes(), &ev); err != nil {
+		t.Fatalf("output is not valid JSON: %v", err)
+	}
+	if ev.WorkflowID != "wf-emit-test" {
+		t.Errorf("workflowId = %q, want %q", ev.WorkflowID, "wf-emit-test")
+	}
+}
+
+func TestNDJSONEmitter_Close(_ *testing.T) {
+	var buf bytes.Buffer
+	em := events.NewNDJSONEmitter(&buf)
+	em.Close() // must not panic
+}
+
+func TestMultiEmitter_EmitAndClose(t *testing.T) {
+	sink1 := events.NewChanEmitter(4)
+	sink2 := events.NewChanEmitter(4)
+	multi := events.NewMultiEmitter(sink1, sink2)
+
+	multi.Emit(events.WorkflowStarted("wf"))
+	multi.Close()
+
+	select {
+	case got := <-sink1.C():
+		if got.Event != events.EventWorkflowStarted {
+			t.Errorf("sink1 got %q, want %q", got.Event, events.EventWorkflowStarted)
+		}
+	default:
+		t.Error("sink1 received no event")
+	}
+
+	select {
+	case got := <-sink2.C():
+		if got.Event != events.EventWorkflowStarted {
+			t.Errorf("sink2 got %q, want %q", got.Event, events.EventWorkflowStarted)
+		}
+	default:
+		t.Error("sink2 received no event")
+	}
+}
+
+func TestChanEmitter_Emit(t *testing.T) {
+	em := events.NewChanEmitter(4)
+	ev := events.WorkflowCompleted("wf")
+	em.Emit(ev)
+	select {
+	case got := <-em.C():
+		if got.Event != events.EventWorkflowCompleted {
+			t.Errorf("got %q, want %q", got.Event, events.EventWorkflowCompleted)
+		}
+	default:
+		t.Error("channel empty after Emit")
+	}
+	em.Close()
+}
+
+func TestChanEmitter_Emit_DropWhenFull(t *testing.T) {
+	em := events.NewChanEmitter(0) // zero-buffer: all sends drop
+	em.Emit(events.WorkflowStarted("wf"))
+	// must not block or panic; channel stays empty
+	select {
+	case <-em.C():
+		t.Error("expected empty channel but got an event")
+	default:
+	}
+	em.Close()
+}
+
+func TestChanEmitter_Close(t *testing.T) {
+	em := events.NewChanEmitter(2)
+	em.Emit(events.WorkflowStarted("wf"))
+	em.Close()
+	// After Close the channel should be closed (range terminates).
+	count := 0
+	for range em.C() {
+		count++
+	}
+	if count != 1 {
+		t.Errorf("expected 1 event before close, got %d", count)
+	}
+}
+
+func TestChanEmitter_C(t *testing.T) {
+	em := events.NewChanEmitter(1)
+	ch := em.C()
+	if ch == nil {
+		t.Fatal("C() returned nil channel")
+	}
+	em.Close()
+}
+
 func TestMultiEmitter_FansOut(t *testing.T) {
 	var buf1, buf2 bytes.Buffer
 	em1 := events.NewNDJSONEmitter(&buf1)
