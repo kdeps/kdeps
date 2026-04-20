@@ -19,11 +19,12 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
+	htmltemplate "html/template"
 	"log/slog"
 	stdhttp "net/http"
 	"os"
@@ -426,13 +427,17 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					switch v := data.(type) {
 					case string:
 						if browserRendered {
-							rawBytes = []byte(html.EscapeString(v))
+							var escaped bytes.Buffer
+							htmltemplate.HTMLEscape(&escaped, []byte(v))
+							rawBytes = escaped.Bytes()
 						} else {
 							rawBytes = []byte(v)
 						}
 					case []byte:
 						if browserRendered {
-							rawBytes = []byte(html.EscapeString(string(v)))
+							var escaped bytes.Buffer
+							htmltemplate.HTMLEscape(&escaped, v)
+							rawBytes = escaped.Bytes()
 						} else {
 							rawBytes = v
 						}
