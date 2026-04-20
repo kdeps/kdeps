@@ -26,6 +26,7 @@ import (
 	"fmt"
 	htmltemplate "html/template"
 	"log/slog"
+	"net"
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
@@ -64,6 +65,9 @@ const (
 
 	// defaultWorkflowFile is the default workflow filename when no path is configured.
 	defaultWorkflowFile = "workflow.yaml"
+
+	// maxForwardedParts limits X-Forwarded-For parsing to the first address only.
+	maxForwardedParts = 2
 )
 
 // RequestContext matches executor.RequestContext to avoid import cycle.
@@ -667,21 +671,7 @@ func (s *Server) ParseRequest(
 		body = parseFormData(r, body)
 	}
 
-	// Extract client IP address
-	clientIP := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		// Take the first IP in the chain
-		ips := strings.Split(forwarded, ",")
-		if len(ips) > 0 {
-			clientIP = strings.TrimSpace(ips[0])
-		}
-	} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		clientIP = realIP
-	}
-	// Remove port if present
-	if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
-		clientIP = clientIP[:idx]
-	}
+	clientIP := extractClientIP(r)
 
 	// Generate request ID
 	requestID := uuid.New().String()
@@ -984,4 +974,27 @@ func (s *Server) GetParserForTesting() *yaml.Parser {
 func (s *Server) GetWorkflowPathForTesting() string {
 	kdeps_debug.Log("enter: GetWorkflowPathForTesting")
 	return s.workflowPath
+}
+
+// extractClientIP returns a validated IP address from the request. Header values are
+// attacker-controlled, so each candidate is validated with net.ParseIP before use.
+func extractClientIP(r *stdhttp.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		// Take only the first address (index 0) to avoid parsing the whole chain.
+		parts := strings.SplitN(forwarded, ",", maxForwardedParts)
+		if parsed := net.ParseIP(strings.TrimSpace(parts[0])); parsed != nil {
+			return parsed.String()
+		}
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		if parsed := net.ParseIP(realIP); parsed != nil {
+			return parsed.String()
+		}
+	}
+	// Fall back to RemoteAddr (host:port — strip port).
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
