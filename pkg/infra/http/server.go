@@ -430,13 +430,12 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
-						if browserRendered {
-							var escaped bytes.Buffer
-							htmltemplate.HTMLEscape(&escaped, []byte(v))
-							rawBytes = escaped.Bytes()
-						} else {
-							rawBytes = []byte(v)
-						}
+						// Always HTML-escape string data to prevent reflected XSS on all
+						// content-type paths, including non-browser-rendered types where
+						// MIME-sniffing could otherwise allow script execution.
+						var escaped bytes.Buffer
+						htmltemplate.HTMLEscape(&escaped, []byte(v))
+						rawBytes = escaped.Bytes()
 					case []byte:
 						if browserRendered {
 							var escaped bytes.Buffer
@@ -475,6 +474,11 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						"content_type",
 						respContentType,
 					)
+					// rawBytes is already HTML-escaped above; signal the middleware wrapper
+					// to skip its own escaping so we don't double-encode HTML entities.
+					if rw, isWrapper := w.(*ResponseWriterWrapper); isWrapper {
+						rw.preEscaped = true
+					}
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error(
 							"failed to write raw API response",
