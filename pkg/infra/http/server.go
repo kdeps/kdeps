@@ -412,15 +412,30 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 				// For non-JSON content types (e.g. text/html), write the data field
 				// directly as raw bytes so the response is not wrapped in a JSON envelope.
 				if !strings.HasPrefix(respContentType, "application/json") {
+					ctLower := strings.ToLower(strings.TrimSpace(respContentType))
+					if i := strings.IndexByte(ctLower, ';'); i >= 0 {
+						ctLower = strings.TrimSpace(ctLower[:i])
+					}
+					browserRendered := ctLower == "text/html" ||
+						ctLower == "application/xhtml+xml" ||
+						ctLower == "application/xml" ||
+						ctLower == "text/xml" ||
+						ctLower == "image/svg+xml"
+
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
-						// Always HTML-escape string data to prevent reflected XSS.
-						// Handlers that need to emit raw HTML (e.g. server-side rendered
-						// templates) should return []byte so the escaping is bypassed.
-						rawBytes = []byte(html.EscapeString(v))
+						if browserRendered {
+							rawBytes = []byte(html.EscapeString(v))
+						} else {
+							rawBytes = []byte(v)
+						}
 					case []byte:
-						rawBytes = v
+						if browserRendered {
+							rawBytes = []byte(html.EscapeString(string(v)))
+						} else {
+							rawBytes = v
+						}
 					default:
 						var marshalErr error
 						rawBytes, marshalErr = json.Marshal(data)
