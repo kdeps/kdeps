@@ -61,7 +61,7 @@ jobs:
           cp -rp docs/v1/.vitepress/dist/. docs/v2/.vitepress/dist/v1/
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/v2/.vitepress/dist
 
