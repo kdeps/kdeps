@@ -413,10 +413,10 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 					w.Header().Set("Content-Type", respContentType)
 				}
 
-				// For non-JSON content types (e.g. text/html), write the data field
-				// directly as raw bytes so the response is not wrapped in a JSON envelope.
-				// The ResponseWriterWrapper middleware handles HTML escaping for browser-rendered
-				// content types, so we pass raw bytes through and avoid double-encoding.
+				// For non-JSON content types (e.g. text/html), only pass through explicit
+				// string/[]byte payloads. For other payload types, force JSON serialization
+				// and JSON content type to avoid reflecting arbitrary structured data into
+				// browser-rendered responses.
 				if !strings.HasPrefix(respContentType, "application/json") {
 					var rawBytes []byte
 					switch v := data.(type) {
@@ -429,7 +429,7 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						rawBytes, marshalErr = json.Marshal(data)
 						if marshalErr != nil {
 							s.logger.Error(
-								"failed to marshal raw API response",
+								"failed to marshal API response",
 								"error",
 								marshalErr,
 								"path",
@@ -442,6 +442,8 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 							), debugMode)
 							return
 						}
+						respContentType = "application/json; charset=utf-8"
+						w.Header().Set("Content-Type", respContentType)
 					}
 
 					w.WriteHeader(stdhttp.StatusOK)
