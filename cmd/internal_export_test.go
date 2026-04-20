@@ -170,3 +170,18 @@ var IsLocalFilePath = isLocalFilePath //nolint:gochecknoglobals // test-only exp
 
 // InstallLocalFile exposes the unexported installLocalFile helper for unit testing.
 var InstallLocalFile = installLocalFile //nolint:gochecknoglobals // test-only export
+
+// GetFormatMap exposes the unexported getFormatMap helper for unit testing.
+var GetFormatMap = getFormatMap //nolint:gochecknoglobals // test-only export
+
+// ResolveOutputPath exposes the unexported resolveOutputPath helper for unit testing.
+var ResolveOutputPath = resolveOutputPath //nolint:gochecknoglobals // test-only export
+
+// QemuSystem exposes the unexported qemuSystem helper for unit testing.
+var QemuSystem = qemuSystem //nolint:gochecknoglobals // test-only export
+
+// WorkflowPorts exposes the unexported workflowPorts helper for unit testing.
+var WorkflowPorts = workflowPorts //nolint:gochecknoglobals // test-only export
+
+// JoinStrings exposes the unexported joinStrings helper for unit testing.
+var JoinStrings = joinStrings //nolint:gochecknoglobals // test-only export

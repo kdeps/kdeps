@@ -440,3 +440,100 @@ func TestDeepSeekBackend_ParseResponse_Success(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "deepseek reply", msg["content"])
 }
+
+// ── OpenRouterBackend ─────────────────────────────────────────────────────
+
+func TestOpenRouterBackend_Name(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	assert.Equal(t, "openrouter", b.Name())
+}
+
+func TestOpenRouterBackend_DefaultURL(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	assert.Equal(t, "https://openrouter.ai", b.DefaultURL())
+}
+
+func TestOpenRouterBackend_ChatEndpoint(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	ep := b.ChatEndpoint("https://openrouter.ai")
+	assert.Equal(t, "https://openrouter.ai/api/v1/chat/completions", ep)
+}
+
+func TestOpenRouterBackend_BuildRequest_Basic(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	msgs := []map[string]interface{}{
+		{"role": "user", "content": "hello"},
+	}
+	req, err := b.BuildRequest("openai/gpt-4o", msgs, llm.ChatRequestConfig{})
+	require.NoError(t, err)
+	assert.Equal(t, "openai/gpt-4o", req["model"])
+	assert.Equal(t, false, req["stream"])
+	_, hasMaxTokens := req["max_tokens"]
+	assert.False(t, hasMaxTokens)
+}
+
+func TestOpenRouterBackend_BuildRequest_WithContextLength(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{ContextLength: 2048})
+	require.NoError(t, err)
+	assert.Equal(t, 2048, req["max_tokens"])
+}
+
+func TestOpenRouterBackend_BuildRequest_JSONResponse(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{JSONResponse: true})
+	require.NoError(t, err)
+	rf, ok := req["response_format"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "json_object", rf["type"])
+}
+
+func TestOpenRouterBackend_BuildRequest_WithTools(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+	req, err := b.BuildRequest("openai/gpt-4o", nil, llm.ChatRequestConfig{Tools: tools})
+	require.NoError(t, err)
+	assert.Equal(t, tools, req["tools"])
+}
+
+func TestOpenRouterBackend_ParseResponse_OK(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	body := `{"choices":[{"message":{"role":"assistant","content":"hello from openrouter"}}]}`
+	resp := makeResp(stdhttp.StatusOK, body)
+	result, err := b.ParseResponse(resp)
+	require.NoError(t, err)
+	msg, ok := result["message"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "hello from openrouter", msg["content"])
+}
+
+func TestOpenRouterBackend_ParseResponse_Error(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	resp := makeResp(stdhttp.StatusUnauthorized, `{"error":{"message":"invalid key"}}`)
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "401")
+}
+
+func TestOpenRouterBackend_GetAPIKeyHeader_Set(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	name, val := b.GetAPIKeyHeader("mykey")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer mykey", val)
+}
+
+func TestOpenRouterBackend_GetAPIKeyHeader_Empty(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "")
+	b := &llm.OpenRouterBackend{}
+	name, val := b.GetAPIKeyHeader("")
+	assert.Empty(t, name)
+	assert.Empty(t, val)
+}
+
+func TestOpenRouterBackend_GetAPIKeyHeader_EnvFallback(t *testing.T) {
+	t.Setenv("OPENROUTER_API_KEY", "envkey")
+	b := &llm.OpenRouterBackend{}
+	name, val := b.GetAPIKeyHeader("")
+	assert.Equal(t, "Authorization", name)
+	assert.Equal(t, "Bearer envkey", val)
+}

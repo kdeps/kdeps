@@ -19,12 +19,14 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
+	htmltemplate "html/template"
 	"log/slog"
+	"net"
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
@@ -63,6 +65,9 @@ const (
 
 	// defaultWorkflowFile is the default workflow filename when no path is configured.
 	defaultWorkflowFile = "workflow.yaml"
+
+	// maxForwardedParts limits X-Forwarded-For parsing to the first address only.
+	maxForwardedParts = 2
 )
 
 // RequestContext matches executor.RequestContext to avoid import cycle.
@@ -412,15 +417,33 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 				// For non-JSON content types (e.g. text/html), write the data field
 				// directly as raw bytes so the response is not wrapped in a JSON envelope.
 				if !strings.HasPrefix(respContentType, "application/json") {
+					ctLower := strings.ToLower(strings.TrimSpace(respContentType))
+					if i := strings.IndexByte(ctLower, ';'); i >= 0 {
+						ctLower = strings.TrimSpace(ctLower[:i])
+					}
+					browserRendered := ctLower == "text/html" ||
+						ctLower == "application/xhtml+xml" ||
+						ctLower == "application/xml" ||
+						ctLower == "text/xml" ||
+						ctLower == "image/svg+xml"
+
 					var rawBytes []byte
 					switch v := data.(type) {
 					case string:
-						// Always HTML-escape string data to prevent reflected XSS.
-						// Handlers that need to emit raw HTML (e.g. server-side rendered
-						// templates) should return []byte so the escaping is bypassed.
-						rawBytes = []byte(html.EscapeString(v))
+						// Always HTML-escape string data to prevent reflected XSS on all
+						// content-type paths, including non-browser-rendered types where
+						// MIME-sniffing could otherwise allow script execution.
+						var escaped bytes.Buffer
+						htmltemplate.HTMLEscape(&escaped, []byte(v))
+						rawBytes = escaped.Bytes()
 					case []byte:
-						rawBytes = v
+						if browserRendered {
+							var escaped bytes.Buffer
+							htmltemplate.HTMLEscape(&escaped, v)
+							rawBytes = escaped.Bytes()
+						} else {
+							rawBytes = v
+						}
 					default:
 						var marshalErr error
 						rawBytes, marshalErr = json.Marshal(data)
@@ -451,6 +474,11 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 						"content_type",
 						respContentType,
 					)
+					// rawBytes is already HTML-escaped above; signal the middleware wrapper
+					// to skip its own escaping so we don't double-encode HTML entities.
+					if rw, isWrapper := w.(*ResponseWriterWrapper); isWrapper {
+						rw.preEscaped = true
+					}
 					if _, writeErr := w.Write(rawBytes); writeErr != nil {
 						s.logger.Error(
 							"failed to write raw API response",
@@ -647,21 +675,7 @@ func (s *Server) ParseRequest(
 		body = parseFormData(r, body)
 	}
 
-	// Extract client IP address
-	clientIP := r.RemoteAddr
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		// Take the first IP in the chain
-		ips := strings.Split(forwarded, ",")
-		if len(ips) > 0 {
-			clientIP = strings.TrimSpace(ips[0])
-		}
-	} else if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		clientIP = realIP
-	}
-	// Remove port if present
-	if idx := strings.LastIndex(clientIP, ":"); idx != -1 {
-		clientIP = clientIP[:idx]
-	}
+	clientIP := extractClientIP(r)
 
 	// Generate request ID
 	requestID := uuid.New().String()
@@ -964,4 +978,27 @@ func (s *Server) GetParserForTesting() *yaml.Parser {
 func (s *Server) GetWorkflowPathForTesting() string {
 	kdeps_debug.Log("enter: GetWorkflowPathForTesting")
 	return s.workflowPath
+}
+
+// extractClientIP returns a validated IP address from the request. Header values are
+// attacker-controlled, so each candidate is validated with net.ParseIP before use.
+func extractClientIP(r *stdhttp.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		// Take only the first address (index 0) to avoid parsing the whole chain.
+		parts := strings.SplitN(forwarded, ",", maxForwardedParts)
+		if parsed := net.ParseIP(strings.TrimSpace(parts[0])); parsed != nil {
+			return parsed.String()
+		}
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		if parsed := net.ParseIP(realIP); parsed != nil {
+			return parsed.String()
+		}
+	}
+	// Fall back to RemoteAddr (host:port — strip port).
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }

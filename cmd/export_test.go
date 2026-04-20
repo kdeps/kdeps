@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmd "github.com/kdeps/kdeps/v2/cmd"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestExportISO_MissingWorkflow(t *testing.T) {
@@ -160,4 +161,70 @@ settings:
 	if err != nil {
 		t.Logf("Export failed: %v", err)
 	}
+}
+
+// ---- pure helper function tests ----
+
+func TestGetFormatMap(t *testing.T) {
+	m := cmd.GetFormatMap()
+	assert.Equal(t, "iso-efi", m["iso"])
+	assert.Equal(t, "raw-efi", m["raw"])
+	assert.Equal(t, "raw-bios", m["raw-bios"])
+	assert.Equal(t, "raw-efi", m["raw-efi"])
+	assert.Equal(t, "qcow2-bios", m["qcow2"])
+	_, hasUnknown := m["unknown"]
+	assert.False(t, hasUnknown)
+}
+
+func TestJoinStrings(t *testing.T) {
+	assert.Equal(t, "", cmd.JoinStrings(nil, ","))
+	assert.Equal(t, "", cmd.JoinStrings([]string{}, ","))
+	assert.Equal(t, "a", cmd.JoinStrings([]string{"a"}, ","))
+	assert.Equal(t, "a,b,c", cmd.JoinStrings([]string{"a", "b", "c"}, ","))
+	assert.Equal(t, "a - b", cmd.JoinStrings([]string{"a", "b"}, " - "))
+}
+
+func TestQemuSystem(t *testing.T) {
+	assert.Equal(t, "qemu-system-aarch64", cmd.QemuSystem("arm64"))
+	assert.Equal(t, "qemu-system-x86_64", cmd.QemuSystem("amd64"))
+	assert.Equal(t, "qemu-system-x86_64", cmd.QemuSystem(""))
+}
+
+func TestResolveOutputPath_ExplicitOutput(t *testing.T) {
+	wf := &domain.Workflow{}
+	wf.Metadata.Name = "mywf"
+	wf.Metadata.Version = "1.0.0"
+
+	origDir := t.TempDir()
+	result := cmd.ResolveOutputPath("out.iso", "iso", wf, origDir)
+	assert.Equal(t, filepath.Join(origDir, "out.iso"), result)
+}
+
+func TestResolveOutputPath_AbsoluteOutput(t *testing.T) {
+	wf := &domain.Workflow{}
+	wf.Metadata.Name = "mywf"
+	wf.Metadata.Version = "1.0.0"
+
+	absPath := "/tmp/absolute-output.iso"
+	result := cmd.ResolveOutputPath(absPath, "iso", wf, "/some/dir")
+	assert.Equal(t, absPath, result)
+}
+
+func TestResolveOutputPath_EmptyOutput(t *testing.T) {
+	wf := &domain.Workflow{}
+	wf.Metadata.Name = "myagent"
+	wf.Metadata.Version = "2.3.0"
+
+	origDir := t.TempDir()
+	result := cmd.ResolveOutputPath("", "iso", wf, origDir)
+	assert.Equal(t, filepath.Join(origDir, "myagent-2.3.0.iso"), result)
+}
+
+func TestWorkflowPorts_NoPorts(t *testing.T) {
+	// nil workflow falls back to defaults inside getWorkflowPorts
+	wf := &domain.Workflow{}
+	netStr, portList := cmd.WorkflowPorts(wf)
+	assert.Contains(t, netStr, "-net nic -net user,")
+	// portList contains at least one port number
+	assert.NotEmpty(t, portList)
 }
