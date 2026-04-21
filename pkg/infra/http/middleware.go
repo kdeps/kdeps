@@ -19,10 +19,9 @@
 package http
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	htmltemplate "html/template"
+	"html"
 	stdhttp "net/http"
 	"os"
 	"strings"
@@ -127,16 +126,13 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 		ct = stdhttp.DetectContentType(b)
 	}
 
-	out := b
 	if browserRenderedContentType(ct) {
-		var escaped bytes.Buffer
-		htmltemplate.HTMLEscape(&escaped, b)
-		out = escaped.Bytes()
 		if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
 			w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 		}
+		return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 	}
-	return w.ResponseWriter.Write(out) // codeql[go/reflected-xss]
+	return w.ResponseWriter.Write(b)
 }
 
 // HeadersWritten returns whether headers have been written.
