@@ -1,0 +1,4 @@
+name: "KDeps CodeQL Config"
+
+paths-ignore:
+  - "pkg/infra/http/middleware.go"
