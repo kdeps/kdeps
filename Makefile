@@ -1,7 +1,8 @@
-.PHONY: build build-wasm test lint clean install run
+.PHONY: build build-wasm test lint clean install run codeql codeql-db
 
 # Build variables
 VERSION ?= 2.0.0-dev
+CODEQL_DB := .codeql-db
 GOLANGCI_VERSION := $(shell cat .golangci-lint-version 2>/dev/null | tr -d '[:space:]')
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-X github.com/kdeps/kdeps/v2/pkg/version.Version=$(VERSION) -X github.com/kdeps/kdeps/v2/pkg/version.Commit=$(COMMIT)"
@@ -25,7 +26,7 @@ build-linux:
 	@CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o kdeps main.go
 	@echo "✓ Build complete: ./kdeps (Linux AMD64)"
 
-# Run tests (with linting) — unit + integration + e2e
+# Run tests (with linting) — unit + integration + e2e + codeql
 test: fmt lint build
 	@rm -f coverage.out coverage-unit.out coverage-integration.out; \
 	echo "=========================================="; \
@@ -53,6 +54,28 @@ test: fmt lint build
 	echo "=========================================="; \
 	bash tests/e2e/e2e.sh; \
 	E2E_EXIT=$$?; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Running CodeQL Security Analysis"; \
+	echo "=========================================="; \
+	CODEQL_EXIT=0; \
+	CODEQL_SKIP=0; \
+	if command -v codeql >/dev/null 2>&1; then \
+		codeql database create $(CODEQL_DB) --language=go --overwrite --threads=0 -q 2>&1; \
+		codeql database analyze $(CODEQL_DB) \
+			codeql/go-queries:Security \
+			--format=sarif-latest \
+			--output=codeql-results.sarif \
+			--codescanning-config=.github/codeql/codeql-config.yml \
+			--threads=0 -q 2>&1; \
+		CODEQL_EXIT=$$?; \
+		if [ $$CODEQL_EXIT -eq 0 ]; then \
+			ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')); print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
+			if [ "$$ALERTS" -ne 0 ]; then CODEQL_EXIT=1; fi; \
+		fi; \
+	else \
+		CODEQL_SKIP=1; \
+	fi; \
 	echo ""; \
 	echo "=========================================="; \
 	echo "Running kdeps-io Registry Tests"; \
@@ -100,8 +123,17 @@ test: fmt lint build
 	else \
 		echo "✗ kdeps-io Tests:    FAILED"; \
 	fi; \
+	if [ "$$CODEQL_SKIP" -eq 1 ]; then \
+		echo "⚠ CodeQL:            SKIPPED (install: brew install codeql)"; \
+	elif [ "$$CODEQL_EXIT" -eq 0 ]; then \
+		ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')); print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
+		echo "✓ CodeQL:            PASSED (0 alerts)"; \
+	else \
+		ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')) if __import__('os').path.exists('codeql-results.sarif') else {}; print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
+		echo "✗ CodeQL:            FAILED ($$ALERTS alert(s))"; \
+	fi; \
 	echo ""; \
-	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ]; then \
+	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ] || [ "$$CODEQL_EXIT" -ne 0 ]; then \
 		exit 1; \
 	fi
 
@@ -135,6 +167,40 @@ test-e2e: build
 # Run all tests (alias for test)
 test-all: test
 
+# Build CodeQL database (cached; rebuild by running: make codeql-db)
+codeql-db:
+	@if command -v codeql >/dev/null 2>&1; then \
+		echo "Building CodeQL database..."; \
+		codeql database create $(CODEQL_DB) --language=go --overwrite --threads=0 -q; \
+	fi
+
+# Run CodeQL security analysis
+codeql: codeql-db
+	@if command -v codeql >/dev/null 2>&1; then \
+		echo "=========================================="; \
+		echo "Running CodeQL Security Analysis"; \
+		echo "=========================================="; \
+		codeql database analyze $(CODEQL_DB) \
+			codeql/go-queries:Security \
+			--format=sarif-latest \
+			--output=codeql-results.sarif \
+			--codescanning-config=.github/codeql/codeql-config.yml \
+			--threads=0 -q; \
+		ALERTS=$$(python3 -c "import json,sys; d=json.load(open('codeql-results.sarif')); results=[r for run in d.get('runs',[]) for r in run.get('results',[])] ; print(len(results))"); \
+		if [ "$$ALERTS" -eq 0 ]; then \
+			echo "✓ CodeQL: PASSED (0 alerts)"; \
+		else \
+			echo "✗ CodeQL: FAILED ($$ALERTS alert(s))"; \
+			python3 -c " \
+import json; d=json.load(open('codeql-results.sarif')); \
+[print('  [' + r['ruleId'] + '] ' + r['locations'][0]['physicalLocation']['artifactLocation']['uri'] + ':' + str(r['locations'][0]['physicalLocation']['region']['startLine']) + ' - ' + r['message']['text'][:80]) \
+ for run in d.get('runs',[]) for r in run.get('results',[])]"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "⚠ CodeQL not installed - skipping (install: brew install codeql)"; \
+	fi
+
 # Run linter
 lint:
 	@echo "Running linter (golangci-lint $(GOLANGCI_VERSION))..."
@@ -150,7 +216,8 @@ clean:
 	@echo "Cleaning..."
 	@rm -f kdeps kdeps.wasm wasm_exec.js
 	@rm -f coverage.out coverage-unit.out coverage-integration.out
-	@rm -rf dist/ build/
+	@rm -f codeql-results.sarif
+	@rm -rf dist/ build/ $(CODEQL_DB)/
 	@echo "✓ Clean complete"
 
 # Install locally
@@ -187,7 +254,9 @@ help:
 	@echo "Usage:"
 	@echo "  make build           Build the native binary"
 	@echo "  make build-wasm      Build the WASM binary"
-	@echo "  make test            Run linter + unit + integration + E2E + kdeps-io tests"
+	@echo "  make test            Run linter + unit + integration + E2E + kdeps-io + CodeQL"
+	@echo "  make codeql          Run CodeQL security analysis only"
+	@echo "  make codeql-db       Rebuild CodeQL database"
 	@echo "  make test-unit       Run unit tests only"
 	@echo "  make test-integration Run integration tests only"
 	@echo "  make test-e2e        Run E2E tests only"

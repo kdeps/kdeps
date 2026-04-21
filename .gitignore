@@ -245,3 +245,7 @@ CLAUDE.md
 .claude
 kdeps-test
 output
+
+# CodeQL local analysis
+.codeql-db/
+codeql-results.sarif
