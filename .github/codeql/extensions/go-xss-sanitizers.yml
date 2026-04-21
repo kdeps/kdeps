@@ -3,4 +3,4 @@ extensions:
       pack: codeql/go-all
       extensible: neutralModel
     data:
-      - ["github.com/kdeps/kdeps/v2/pkg/infra/http", "ResponseWriterWrapper", false, "Write", "([]byte)", "", "summary", "manual"]
+      - ["github.com/kdeps/kdeps/v2/pkg/infra/http", "ResponseWriterWrapper", "Write", "([]byte)", "summary", "manual"]
