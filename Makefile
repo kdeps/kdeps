@@ -1,4 +1,4 @@
-.PHONY: build build-wasm test lint clean install run codeql codeql-db
+.PHONY: build build-wasm test lint clean install run codeql codeql-db install-hooks
 
 # Build variables
 VERSION ?= 2.0.0-dev
@@ -258,3 +258,9 @@ help:
 	@echo "  make dev             Run in dev mode"
 	@echo "  make fmt             Format code"
 	@echo "  make deps            Download dependencies"
+	@echo "  make install-hooks   Install git pre-commit hooks"
+
+# Install git hooks
+install-hooks:
+	@git config core.hooksPath .githooks
+	@echo "✓ Git hooks installed (.githooks/pre-commit runs make lint + make test)"
