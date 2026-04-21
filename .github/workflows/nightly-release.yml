@@ -135,9 +135,11 @@ jobs:
           HAS_CODE_CHANGES="${HAS_CODE_CHANGES:-false}"
           HAS_MODULE_UPDATES="${HAS_MODULE_UPDATES:-false}"
           
-          if [ "$HAS_CODE_CHANGES" = "true" ] || [ "$HAS_MODULE_UPDATES" = "true" ]; then
+          HAS_NPM_UPDATES="${{ steps.update_npm.outputs.has_npm_updates }}"
+          HAS_NPM_UPDATES="${HAS_NPM_UPDATES:-false}"
+          if [ "$HAS_CODE_CHANGES" = "true" ] || [ "$HAS_MODULE_UPDATES" = "true" ] || [ "$HAS_NPM_UPDATES" = "true" ]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
-            echo "Release will be created (code_changes=$HAS_CODE_CHANGES, module_updates=$HAS_MODULE_UPDATES)"
+            echo "Release will be created (code_changes=$HAS_CODE_CHANGES, module_updates=$HAS_MODULE_UPDATES, npm_updates=$HAS_NPM_UPDATES)"
           else
             echo "should_release=false" >> $GITHUB_OUTPUT
             echo "No release needed (no code changes or module updates)"
@@ -191,14 +193,34 @@ jobs:
             echo "Test: ${{ steps.test.outcome }}"
           fi
 
-      - name: Commit and push module updates
-        if: steps.should_release.outputs.should_release == 'true' && steps.update_modules.outputs.has_module_updates == 'true'
+      - name: Update npm packages
+        id: update_npm
         run: |
-          # Note: Automated dependency updates bypass PR review process
-          # This is intentional for nightly builds to ensure latest dependencies
-          # Any issues will be caught by linting, build, and test steps above
-          git add go.mod go.sum
-          git commit -m "chore: update Go modules to latest versions [nightly]"
+          echo "Updating npm packages in kdeps-io..."
+          cd kdeps-io
+          npm update --save
+          if git diff --quiet package.json package-lock.json; then
+            echo "has_npm_updates=false" >> $GITHUB_OUTPUT
+            echo "No npm updates available"
+          else
+            echo "has_npm_updates=true" >> $GITHUB_OUTPUT
+            echo "npm updates found"
+          fi
+
+      - name: Commit and push module updates
+        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true'
+        run: |
+          if git diff --quiet go.mod go.sum; then
+            echo "No Go module changes to commit"
+          else
+            git add go.mod go.sum
+          fi
+          if git diff --quiet kdeps-io/package.json kdeps-io/package-lock.json; then
+            echo "No npm changes to commit"
+          else
+            git add kdeps-io/package.json kdeps-io/package-lock.json
+          fi
+          git commit -m "chore: update dependencies [nightly]"
           git push origin main
 
       - name: Create nightly tag and clean up existing release
@@ -404,7 +426,10 @@ jobs:
               echo "📝 Code changes detected since last release"
             fi
             if [ "${{ steps.update_modules.outputs.has_module_updates }}" = "true" ]; then
-              echo "📦 Module updates applied"
+              echo "📦 Go module updates applied"
+            fi
+            if [ "${{ steps.update_npm.outputs.has_npm_updates }}" = "true" ]; then
+              echo "📦 npm package updates applied"
             fi
           else
             echo "ℹ️ No changes since last release. Skipping nightly release."
