@@ -61,16 +61,16 @@ test: fmt lint build
 	CODEQL_EXIT=0; \
 	CODEQL_SKIP=0; \
 	if command -v codeql >/dev/null 2>&1; then \
-		codeql database create $(CODEQL_DB) --language=go --overwrite --threads=0 -q 2>&1; \
+		codeql database create $(CODEQL_DB) --language=go --source-root=. \
+			--build-mode=autobuild --overwrite --threads=0 -q 2>&1; \
 		codeql database analyze $(CODEQL_DB) \
-			codeql/go-queries:Security \
+			codeql/go-queries:codeql-suites/go-security-extended.qls \
 			--format=sarif-latest \
 			--output=codeql-results.sarif \
-			--codescanning-config=.github/codeql/codeql-config.yml \
-			--threads=0 -q 2>&1; \
+						--threads=0 -q 2>&1; \
 		CODEQL_EXIT=$$?; \
 		if [ $$CODEQL_EXIT -eq 0 ]; then \
-			ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')); print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
+			ALERTS=$$(python3 scripts/codeql-report.py codeql-results.sarif --count 2>/dev/null || echo 0); \
 			if [ "$$ALERTS" -ne 0 ]; then CODEQL_EXIT=1; fi; \
 		fi; \
 	else \
@@ -126,11 +126,10 @@ test: fmt lint build
 	if [ "$$CODEQL_SKIP" -eq 1 ]; then \
 		echo "⚠ CodeQL:            SKIPPED (install: brew install codeql)"; \
 	elif [ "$$CODEQL_EXIT" -eq 0 ]; then \
-		ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')); print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
 		echo "✓ CodeQL:            PASSED (0 alerts)"; \
 	else \
-		ALERTS=$$(python3 -c "import json; d=json.load(open('codeql-results.sarif')) if __import__('os').path.exists('codeql-results.sarif') else {}; print(sum(len(run.get('results',[])) for run in d.get('runs',[])))"); \
-		echo "✗ CodeQL:            FAILED ($$ALERTS alert(s))"; \
+		CODEQL_COUNT=$$(python3 scripts/codeql-report.py codeql-results.sarif --count 2>/dev/null || echo "?"); \
+		echo "✗ CodeQL:            FAILED ($$CODEQL_COUNT alert(s))"; \
 	fi; \
 	echo ""; \
 	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ] || [ "$$CODEQL_EXIT" -ne 0 ]; then \
@@ -171,7 +170,9 @@ test-all: test
 codeql-db:
 	@if command -v codeql >/dev/null 2>&1; then \
 		echo "Building CodeQL database..."; \
-		codeql database create $(CODEQL_DB) --language=go --overwrite --threads=0 -q; \
+		codeql database create $(CODEQL_DB) --language=go --source-root=. \
+			--build-mode=autobuild --overwrite --threads=0 -q; \
+		echo "✓ CodeQL database built"; \
 	fi
 
 # Run CodeQL security analysis
@@ -181,22 +182,11 @@ codeql: codeql-db
 		echo "Running CodeQL Security Analysis"; \
 		echo "=========================================="; \
 		codeql database analyze $(CODEQL_DB) \
-			codeql/go-queries:Security \
+			codeql/go-queries:codeql-suites/go-security-extended.qls \
 			--format=sarif-latest \
 			--output=codeql-results.sarif \
-			--codescanning-config=.github/codeql/codeql-config.yml \
-			--threads=0 -q; \
-		ALERTS=$$(python3 -c "import json,sys; d=json.load(open('codeql-results.sarif')); results=[r for run in d.get('runs',[]) for r in run.get('results',[])] ; print(len(results))"); \
-		if [ "$$ALERTS" -eq 0 ]; then \
-			echo "✓ CodeQL: PASSED (0 alerts)"; \
-		else \
-			echo "✗ CodeQL: FAILED ($$ALERTS alert(s))"; \
-			python3 -c " \
-import json; d=json.load(open('codeql-results.sarif')); \
-[print('  [' + r['ruleId'] + '] ' + r['locations'][0]['physicalLocation']['artifactLocation']['uri'] + ':' + str(r['locations'][0]['physicalLocation']['region']['startLine']) + ' - ' + r['message']['text'][:80]) \
- for run in d.get('runs',[]) for r in run.get('results',[])]"; \
-			exit 1; \
-		fi; \
+						--threads=0 -q; \
+		python3 scripts/codeql-report.py codeql-results.sarif; \
 	else \
 		echo "⚠ CodeQL not installed - skipping (install: brew install codeql)"; \
 	fi

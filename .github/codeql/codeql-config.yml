@@ -1,1 +1,5 @@
 name: "KDeps CodeQL Config"
+
+paths-ignore:
+  - "kdeps-io.old/"
+  - "private/"
