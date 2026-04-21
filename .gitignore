@@ -249,3 +249,4 @@ output
 # CodeQL local analysis
 .codeql-db/
 codeql-results.sarif
+.codeql-local-models/
