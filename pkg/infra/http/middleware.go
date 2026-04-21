@@ -136,8 +136,7 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 			w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 		}
 	}
-	// lgtm[go/reflected-xss] non-browser content types cannot cause XSS; escaping applied above for browser-rendered types
-	return w.ResponseWriter.Write(out)
+	return w.ResponseWriter.Write(out) // codeql[go/reflected-xss]
 }
 
 // HeadersWritten returns whether headers have been written.
