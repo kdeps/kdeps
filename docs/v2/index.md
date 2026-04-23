@@ -11,6 +11,9 @@ hero:
       text: Get Started
       link: /getting-started/installation
     - theme: alt
+      text: Why kdeps?
+      link: /getting-started/why-kdeps
+    - theme: alt
       text: Visual Editor
       link: https://kdeps.io
 
