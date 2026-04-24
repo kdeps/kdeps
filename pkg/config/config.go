@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 
@@ -70,8 +71,8 @@ type ExecDefaults struct {
 
 // SQLDefaults holds global default values for sql resources.
 type SQLDefaults struct {
-	Timeout string `yaml:"timeout"`   // e.g. "30s" — KDEPS_SQL_TIMEOUT
-	MaxRows int    `yaml:"max_rows"`  // e.g. 1000 — KDEPS_SQL_MAX_ROWS
+	Timeout string `yaml:"timeout"`  // e.g. "30s" — KDEPS_SQL_TIMEOUT
+	MaxRows int    `yaml:"max_rows"` // e.g. 1000 — KDEPS_SQL_MAX_ROWS
 }
 
 // OnErrorDefaults holds global default values for onError handling.
@@ -247,16 +248,16 @@ func configEnvVar(path string) (string, bool) {
 		"defaults.python_version": "KDEPS_PYTHON_VERSION",
 		"defaults.offline_mode":   "KDEPS_OFFLINE_MODE",
 		// Per-resource defaults
-		"resource_defaults.chat.timeout":          "KDEPS_CHAT_TIMEOUT",
-		"resource_defaults.chat.context_length":   "KDEPS_CHAT_CONTEXT_LENGTH",
-		"resource_defaults.http.timeout":          "KDEPS_HTTP_TIMEOUT",
-		"resource_defaults.python.timeout":        "KDEPS_PYTHON_TIMEOUT",
-		"resource_defaults.exec.timeout":          "KDEPS_EXEC_TIMEOUT",
-		"resource_defaults.sql.timeout":           "KDEPS_SQL_TIMEOUT",
-		"resource_defaults.sql.max_rows":          "KDEPS_SQL_MAX_ROWS",
-		"resource_defaults.onError.action":        "KDEPS_ON_ERROR_ACTION",
-		"resource_defaults.onError.max_retries":   "KDEPS_ON_ERROR_MAX_RETRIES",
-		"resource_defaults.onError.retry_delay":   "KDEPS_ON_ERROR_RETRY_DELAY",
+		"resource_defaults.chat.timeout":        "KDEPS_CHAT_TIMEOUT",
+		"resource_defaults.chat.context_length": "KDEPS_CHAT_CONTEXT_LENGTH",
+		"resource_defaults.http.timeout":        "KDEPS_HTTP_TIMEOUT",
+		"resource_defaults.python.timeout":      "KDEPS_PYTHON_TIMEOUT",
+		"resource_defaults.exec.timeout":        "KDEPS_EXEC_TIMEOUT",
+		"resource_defaults.sql.timeout":         "KDEPS_SQL_TIMEOUT",
+		"resource_defaults.sql.max_rows":        "KDEPS_SQL_MAX_ROWS",
+		"resource_defaults.onError.action":      "KDEPS_ON_ERROR_ACTION",
+		"resource_defaults.onError.max_retries": "KDEPS_ON_ERROR_MAX_RETRIES",
+		"resource_defaults.onError.retry_delay": "KDEPS_ON_ERROR_RETRY_DELAY",
 	}
 	v, ok := m[path]
 	return v, ok
@@ -317,18 +318,18 @@ func applyEnv(cfg Config) {
 	rd := cfg.ResourceDefaults
 	setIfUnset("KDEPS_CHAT_TIMEOUT", rd.Chat.Timeout)
 	if rd.Chat.ContextLength > 0 {
-		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", fmt.Sprintf("%d", rd.Chat.ContextLength))
+		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", strconv.Itoa(rd.Chat.ContextLength))
 	}
 	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
 	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
 	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
 	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
 	if rd.SQL.MaxRows > 0 {
-		setIfUnset("KDEPS_SQL_MAX_ROWS", fmt.Sprintf("%d", rd.SQL.MaxRows))
+		setIfUnset("KDEPS_SQL_MAX_ROWS", strconv.Itoa(rd.SQL.MaxRows))
 	}
 	setIfUnset("KDEPS_ON_ERROR_ACTION", rd.OnError.Action)
 	if rd.OnError.MaxRetries > 0 {
-		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", fmt.Sprintf("%d", rd.OnError.MaxRetries))
+		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", strconv.Itoa(rd.OnError.MaxRetries))
 	}
 	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
 }

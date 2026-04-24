@@ -80,7 +80,7 @@ func NewExecutorWithRunner(runner CommandRunner) *Executor {
 
 // Execute executes a shell command resource.
 //
-
+//nolint:gocognit // exec execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ExecConfig,

@@ -651,8 +651,8 @@ func openSQLiteMemory(t *testing.T) *dbsql.DB {
 	if err != nil {
 		t.Skipf("SQLite driver not available: %v", err)
 	}
-	if err := db.Ping(); err != nil {
-		t.Skipf("SQLite ping failed: %v", err)
+	if pingErr := db.Ping(); pingErr != nil {
+		t.Skipf("SQLite ping failed: %v", pingErr)
 	}
 	return db
 }
@@ -678,7 +678,9 @@ func TestExecutor_Execute_EnvVarSQLTimeoutOverriddenByResource(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", TimeoutDuration: "10s"})
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{
+		Connection: "sqlite://:memory:", Query: "SELECT 1", TimeoutDuration: "10s",
+	})
 	require.NoError(t, execErr)
 	_ = result
 }
@@ -719,7 +721,9 @@ func TestExecutor_Execute_EnvVarSQLMaxRows_ResourceWins(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	// MaxRows=100 explicitly set — env var ignored
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 100})
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{
+		Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 100,
+	})
 	require.NoError(t, execErr)
 	_ = result
 }

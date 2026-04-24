@@ -189,7 +189,7 @@ resource_defaults:
 `)
 	assert.Equal(t, "30s", os.Getenv("KDEPS_HTTP_TIMEOUT"))
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck
 	}))
@@ -232,7 +232,7 @@ resource_defaults:
     timeout: "30s"
 `)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck
 	}))
@@ -280,7 +280,7 @@ resource_defaults:
 	assert.Equal(t, "30s", os.Getenv("KDEPS_CHAT_TIMEOUT"))
 	assert.Equal(t, "8192", os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "hello"},
@@ -294,7 +294,9 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "llm-defaults-test", Version: "1.0.0", TargetActionID: "chat-resource"},
+		Metadata: domain.WorkflowMetadata{
+			Name: "llm-defaults-test", Version: "1.0.0", TargetActionID: "chat-resource",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
@@ -330,7 +332,7 @@ resource_defaults:
     context_length: 8192
 `)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "hello"},
@@ -344,7 +346,9 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "llm-override-test", Version: "1.0.0", TargetActionID: "chat-resource"},
+		Metadata: domain.WorkflowMetadata{
+			Name: "llm-override-test", Version: "1.0.0", TargetActionID: "chat-resource",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
@@ -400,7 +404,9 @@ resource_defaults:
 	sqlE := sqlexec.NewExecutor()
 	sqlE.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "sql-defaults-test"}})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "sql-defaults-test"},
+	})
 	require.NoError(t, err)
 
 	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
@@ -432,7 +438,9 @@ resource_defaults:
 	sqlE := sqlexec.NewExecutor()
 	sqlE.Pools["sqlite://:memory:"] = db
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "sql-override-test"}})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "sql-override-test"},
+	})
 	require.NoError(t, err)
 
 	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
@@ -491,7 +499,7 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run"},
 				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"all-defaults"}},
+					Exec:        &domain.ExecConfig{Command: "echo", Args: []string{"all-defaults"}},
 					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
 				},
 			},

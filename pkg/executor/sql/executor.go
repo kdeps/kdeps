@@ -67,6 +67,8 @@ func NewExecutor() *Executor {
 }
 
 // Execute executes a SQL resource.
+//
+//nolint:gocognit // SQL execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.SQLConfig,
@@ -135,7 +137,7 @@ func (e *Executor) Execute(
 	// Apply KDEPS_SQL_MAX_ROWS global default if not set on the resource
 	if resolvedConfig.MaxRows == 0 {
 		if v := os.Getenv("KDEPS_SQL_MAX_ROWS"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
 				resolvedConfig.MaxRows = n
 			}
 		}

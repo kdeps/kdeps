@@ -664,7 +664,7 @@ func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
 func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
@@ -684,7 +684,7 @@ func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
 func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
@@ -704,7 +704,7 @@ func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
 func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_TIMEOUT", "not-a-duration")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
@@ -724,7 +724,7 @@ func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
 func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
@@ -745,7 +745,7 @@ func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
 func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
@@ -766,7 +766,7 @@ func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
 func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "not-a-number")
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]interface{}{
 			"model":   "llama3.2:1b",
 			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
