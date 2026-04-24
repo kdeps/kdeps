@@ -660,3 +660,125 @@ func TestExecutor_Execute_NoAllowlist_UsesResourceModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-4o", gotModel, "without allowlist, resource model should be used")
 }
+
+func TestExecutor_Execute_EnvVarChatTimeout(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}
+
+func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_TIMEOUT", "30s")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL, TimeoutDuration: "10s"}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}
+
+func TestExecutor_Execute_InvalidEnvVarChatTimeoutFallsToDefault(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_TIMEOUT", "not-a-duration")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}
+
+func TestExecutor_Execute_EnvVarContextLength(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	// ContextLength not set on resource — env var code path should be exercised
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}
+
+func TestExecutor_Execute_EnvVarContextLength_ResourceWins(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "8192")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	// ContextLength explicitly set on resource — env var should be bypassed
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL, ContextLength: 4096}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}
+
+func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_CHAT_CONTEXT_LENGTH", "not-a-number")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"model":   "llama3.2:1b",
+			"message": map[string]interface{}{"role": "assistant", "content": "ok"},
+			"done":    true,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
+	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+}

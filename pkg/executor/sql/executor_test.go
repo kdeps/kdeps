@@ -1010,3 +1010,4 @@ func TestExecutor_ExecuteQuery_ParamsError(t *testing.T) {
 		assert.Contains(t, resultMap, "error")
 	}
 }
+

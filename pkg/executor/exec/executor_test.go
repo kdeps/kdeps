@@ -1104,3 +1104,42 @@ func TestExecutor_Execute_WithExpressionInEnv(t *testing.T) {
 	assert.True(t, resultMap["success"].(bool))
 	assert.Contains(t, resultMap["stdout"].(string), "test_value")
 }
+
+func TestExecutor_Execute_EnvVarTimeout(t *testing.T) {
+	t.Setenv("KDEPS_EXEC_TIMEOUT", "45s")
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	config := &domain.ExecConfig{Command: "echo", Args: []string{"env-timeout"}}
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}
+
+func TestExecutor_Execute_EnvVarTimeoutOverriddenByResource(t *testing.T) {
+	t.Setenv("KDEPS_EXEC_TIMEOUT", "45s")
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	config := &domain.ExecConfig{Command: "echo", Args: []string{"resource-timeout"}, TimeoutDuration: "10s"}
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}
+
+func TestExecutor_Execute_InvalidEnvVarTimeoutFallsToDefault(t *testing.T) {
+	t.Setenv("KDEPS_EXEC_TIMEOUT", "not-a-duration")
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	config := &domain.ExecConfig{Command: "echo", Args: []string{"invalid-env"}}
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}

@@ -100,6 +100,30 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		assert.Equal(t, httpexecutor.DefaultHTTPTimeout, client.Timeout)
 	})
 
+	t.Run("env var timeout applied when no resource timeout", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_TIMEOUT", "45s")
+		config := &domain.HTTPClientConfig{}
+		client, err := factory.CreateClient(config)
+		require.NoError(t, err)
+		assert.Equal(t, 45*time.Second, client.Timeout)
+	})
+
+	t.Run("resource timeout overrides env var", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_TIMEOUT", "45s")
+		config := &domain.HTTPClientConfig{TimeoutDuration: "10s"}
+		client, err := factory.CreateClient(config)
+		require.NoError(t, err)
+		assert.Equal(t, 10*time.Second, client.Timeout)
+	})
+
+	t.Run("invalid env var timeout falls back to default", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_TIMEOUT", "not-a-duration")
+		config := &domain.HTTPClientConfig{}
+		client, err := factory.CreateClient(config)
+		require.NoError(t, err)
+		assert.Equal(t, httpexecutor.DefaultHTTPTimeout, client.Timeout)
+	})
+
 	t.Run("redirects disabled", func(t *testing.T) {
 		followRedirects := false
 		config := &domain.HTTPClientConfig{

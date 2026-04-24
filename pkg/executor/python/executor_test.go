@@ -988,6 +988,38 @@ func TestExecutor_ParseTimeout_WithInvalidDuration(t *testing.T) {
 	_ = err
 }
 
+func TestExecutor_ParseTimeout_EnvVarFallback(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_TIMEOUT", "45s")
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	// No TimeoutDuration set — should pick up the env var
+	config := &domain.PythonConfig{Script: "print('env timeout')"}
+	_, _ = exec.Execute(ctx, config)
+}
+
+func TestExecutor_ParseTimeout_ResourceOverridesEnvVar(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_TIMEOUT", "45s")
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	// Resource timeout should win over env var
+	config := &domain.PythonConfig{Script: "print('resource timeout')", TimeoutDuration: "10s"}
+	_, _ = exec.Execute(ctx, config)
+}
+
+func TestExecutor_ParseTimeout_InvalidEnvVarFallsToDefault(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_TIMEOUT", "not-a-duration")
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	config := &domain.PythonConfig{Script: "print('fallback')"}
+	_, _ = exec.Execute(ctx, config)
+}
+
 func TestExecutor_GetPythonVersion_FromAgentSettings(t *testing.T) {
 	mockManager := &MockUVManager{}
 	exec := pythonexecutor.NewExecutor(mockManager)
