@@ -204,7 +204,7 @@ func extractHostPortFromParsedURL(
 
 // Execute executes an LLM chat resource.
 //
-//nolint:gocognit,funlen // LLM execution handles many configuration paths
+//nolint:gocognit,funlen,gocyclo,cyclop // LLM execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ChatConfig,
@@ -294,7 +294,7 @@ func (e *Executor) Execute(
 	contextLength := resolvedConfig.ContextLength
 	if contextLength == 0 {
 		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
 				contextLength = n
 			}
 		}

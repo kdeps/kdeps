@@ -36,6 +36,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
+	"github.com/kdeps/kdeps/v2/pkg/infra/k8s"
 )
 
 // ExportFlags holds the flags for the export iso command.
@@ -60,6 +61,7 @@ func newExportCmd() *cobra.Command {
 	}
 
 	exportCmd.AddCommand(newExportISOCmd())
+	exportCmd.AddCommand(newExportK8sCmd())
 
 	return exportCmd
 }
@@ -628,4 +630,97 @@ func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
 	fmt.Fprintf(os.Stdout, "    qemu-img convert -f qcow2 -O vdi %s %s.vdi\n", outputPath, fileName)
 	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk\n", fileName)
+}
+
+// K8sFlags holds the flags for the export k8s command.
+type K8sFlags struct {
+	Image   string
+	Output  string
+	Replica int
+}
+
+// newExportK8sCmd creates the export k8s subcommand.
+func newExportK8sCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newExportK8sCmd")
+	flags := &K8sFlags{}
+
+	cmd := &cobra.Command{
+		Use:   "k8s [path]",
+		Short: "Export workflow as Kubernetes manifests",
+		Long: `Export KDeps workflow as Kubernetes manifests (Deployment and Service).
+
+Generates YAML manifests that can be used to deploy the workflow to a Kubernetes cluster.
+The generated manifests include a Deployment with the specified image,
+replicas, and resource limits, as well as a Service to expose the ports.
+
+Examples:
+  # Export manifests to stdout
+  kdeps export k8s examples/chatbot
+
+  # Export manifests with a specific image
+  kdeps export k8s examples/chatbot --image my-registry/chatbot:1.0.0
+
+  # Export to a file
+  kdeps export k8s examples/chatbot --output k8s-manifest.yaml`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return exportK8sInternal(cmd, args, flags)
+		},
+	}
+
+	cmd.Flags().StringVarP(&flags.Image, "image", "i", "", "Docker image to use in the manifest")
+	cmd.Flags().StringVarP(&flags.Output, "output", "o", "", "Output file path (default: stdout)")
+	cmd.Flags().IntVarP(&flags.Replica, "replicas", "r", 0, "Number of replicas (overrides workflow.yaml)")
+
+	return cmd
+}
+
+func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error {
+	kdeps_debug.Log("enter: exportK8sInternal")
+	packagePath := args[0]
+
+	// Resolve workflow path
+	workflowPath, _, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	// Parse workflow
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return err
+	}
+
+	// Determine image name
+	imageName := flags.Image
+	if imageName == "" {
+		imageName = fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
+	}
+
+	// Override replicas if provided
+	if flags.Replica > 0 {
+		workflow.Settings.AgentSettings.Replicas = flags.Replica
+	}
+
+	// Generate manifests
+	generator := k8s.NewGenerator(imageName)
+	manifests, err := generator.GenerateManifests(workflow)
+	if err != nil {
+		return fmt.Errorf("failed to generate Kubernetes manifests: %w", err)
+	}
+
+	// Output results
+	if flags.Output != "" {
+		if writeErr := os.WriteFile(flags.Output, []byte(manifests), 0600); writeErr != nil {
+			return fmt.Errorf("failed to write manifest to file: %w", writeErr)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Kubernetes manifests written to %s\n", flags.Output)
+	} else {
+		fmt.Fprint(cmd.OutOrStdout(), manifests)
+	}
+
+	return nil
 }
