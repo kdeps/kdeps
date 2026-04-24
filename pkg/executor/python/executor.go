@@ -247,10 +247,15 @@ func (e *Executor) prepareScript(
 	}
 }
 
-// parseTimeout parses the timeout duration from config.
+// parseTimeout parses the timeout: resource > KDEPS_PYTHON_TIMEOUT > DefaultPythonTimeout.
 func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 	kdeps_debug.Log("enter: parseTimeout")
 	timeout := DefaultPythonTimeout
+	if v := os.Getenv("KDEPS_PYTHON_TIMEOUT"); v != "" {
+		if parsedTimeout, err := time.ParseDuration(v); err == nil {
+			timeout = parsedTimeout
+		}
+	}
 	if config.TimeoutDuration != "" {
 		if parsedTimeout, err := time.ParseDuration(config.TimeoutDuration); err == nil {
 			timeout = parsedTimeout

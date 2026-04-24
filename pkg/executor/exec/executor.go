@@ -114,8 +114,13 @@ func (e *Executor) Execute(
 	// Evaluate args if provided
 	args := e.evaluateArgs(resolvedConfig, evaluator, ctx, commandStr)
 
-	// Parse timeout
+	// Parse timeout: resource > KDEPS_EXEC_TIMEOUT > DefaultExecTimeout
 	timeout := DefaultExecTimeout
+	if v := os.Getenv("KDEPS_EXEC_TIMEOUT"); v != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
+			timeout = parsedTimeout
+		}
+	}
 	if resolvedConfig.TimeoutDuration != "" {
 		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
 			timeout = parsedTimeout

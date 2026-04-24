@@ -25,8 +25,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -117,12 +119,25 @@ func (e *Executor) Execute(
 		}, nil
 	}
 
-	// Parse timeout
+	// Parse timeout: resource > KDEPS_SQL_TIMEOUT > DefaultSQLTimeout
 	timeout := DefaultSQLTimeout
-	if resolvedConfig.TimeoutDuration != "" {
-		parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.TimeoutDuration)
-		if timeoutErr == nil {
+	if v := os.Getenv("KDEPS_SQL_TIMEOUT"); v != "" {
+		if parsedTimeout, timeoutErr := time.ParseDuration(v); timeoutErr == nil {
 			timeout = parsedTimeout
+		}
+	}
+	if resolvedConfig.TimeoutDuration != "" {
+		if parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.TimeoutDuration); timeoutErr == nil {
+			timeout = parsedTimeout
+		}
+	}
+
+	// Apply KDEPS_SQL_MAX_ROWS global default if not set on the resource
+	if resolvedConfig.MaxRows == 0 {
+		if v := os.Getenv("KDEPS_SQL_MAX_ROWS"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				resolvedConfig.MaxRows = n
+			}
 		}
 	}
 

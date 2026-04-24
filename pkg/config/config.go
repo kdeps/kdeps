@@ -47,6 +47,50 @@ type Defaults struct {
 	OfflineMode   bool   `yaml:"offline_mode"`   // sets KDEPS_OFFLINE_MODE=true when enabled
 }
 
+// ChatDefaults holds global default values for chat (LLM) resources.
+type ChatDefaults struct {
+	Timeout       string `yaml:"timeout"`        // e.g. "60s" — KDEPS_CHAT_TIMEOUT
+	ContextLength int    `yaml:"context_length"` // e.g. 4096 — KDEPS_CHAT_CONTEXT_LENGTH
+}
+
+// HTTPDefaults holds global default values for httpClient resources.
+type HTTPDefaults struct {
+	Timeout string `yaml:"timeout"` // e.g. "30s" — KDEPS_HTTP_TIMEOUT
+}
+
+// PythonDefaults holds global default values for python resources.
+type PythonDefaults struct {
+	Timeout string `yaml:"timeout"` // e.g. "60s" — KDEPS_PYTHON_TIMEOUT
+}
+
+// ExecDefaults holds global default values for exec resources.
+type ExecDefaults struct {
+	Timeout string `yaml:"timeout"` // e.g. "30s" — KDEPS_EXEC_TIMEOUT
+}
+
+// SQLDefaults holds global default values for sql resources.
+type SQLDefaults struct {
+	Timeout string `yaml:"timeout"`   // e.g. "30s" — KDEPS_SQL_TIMEOUT
+	MaxRows int    `yaml:"max_rows"`  // e.g. 1000 — KDEPS_SQL_MAX_ROWS
+}
+
+// OnErrorDefaults holds global default values for onError handling.
+type OnErrorDefaults struct {
+	Action     string `yaml:"action"`      // "fail" | "continue" | "retry" — KDEPS_ON_ERROR_ACTION
+	MaxRetries int    `yaml:"max_retries"` // e.g. 3 — KDEPS_ON_ERROR_MAX_RETRIES
+	RetryDelay string `yaml:"retry_delay"` // e.g. "1s" — KDEPS_ON_ERROR_RETRY_DELAY
+}
+
+// ResourceDefaults holds per-resource-type global defaults.
+type ResourceDefaults struct {
+	Chat    ChatDefaults    `yaml:"chat"`
+	HTTP    HTTPDefaults    `yaml:"http"`
+	Python  PythonDefaults  `yaml:"python"`
+	Exec    ExecDefaults    `yaml:"exec"`
+	SQL     SQLDefaults     `yaml:"sql"`
+	OnError OnErrorDefaults `yaml:"onError"`
+}
+
 // LLMKeys holds per-provider API keys and global LLM defaults.
 type LLMKeys struct {
 	// Ollama — local inference, no API key needed.
@@ -71,8 +115,9 @@ type LLMKeys struct {
 
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
-	LLM      LLMKeys  `yaml:"llm"`
-	Defaults Defaults `yaml:"defaults"`
+	LLM              LLMKeys          `yaml:"llm"`
+	Defaults         Defaults         `yaml:"defaults"`
+	ResourceDefaults ResourceDefaults `yaml:"resource_defaults"`
 }
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
@@ -201,6 +246,17 @@ func configEnvVar(path string) (string, bool) {
 		"defaults.timezone":       "TZ",
 		"defaults.python_version": "KDEPS_PYTHON_VERSION",
 		"defaults.offline_mode":   "KDEPS_OFFLINE_MODE",
+		// Per-resource defaults
+		"resource_defaults.chat.timeout":          "KDEPS_CHAT_TIMEOUT",
+		"resource_defaults.chat.context_length":   "KDEPS_CHAT_CONTEXT_LENGTH",
+		"resource_defaults.http.timeout":          "KDEPS_HTTP_TIMEOUT",
+		"resource_defaults.python.timeout":        "KDEPS_PYTHON_TIMEOUT",
+		"resource_defaults.exec.timeout":          "KDEPS_EXEC_TIMEOUT",
+		"resource_defaults.sql.timeout":           "KDEPS_SQL_TIMEOUT",
+		"resource_defaults.sql.max_rows":          "KDEPS_SQL_MAX_ROWS",
+		"resource_defaults.onError.action":        "KDEPS_ON_ERROR_ACTION",
+		"resource_defaults.onError.max_retries":   "KDEPS_ON_ERROR_MAX_RETRIES",
+		"resource_defaults.onError.retry_delay":   "KDEPS_ON_ERROR_RETRY_DELAY",
 	}
 	v, ok := m[path]
 	return v, ok
@@ -256,6 +312,25 @@ func applyEnv(cfg Config) {
 	setIfUnset("GROQ_API_KEY", cfg.LLM.Groq)
 	setIfUnset("DEEPSEEK_API_KEY", cfg.LLM.DeepSeek)
 	setIfUnset("OPENROUTER_API_KEY", cfg.LLM.OpenRouter)
+
+	// Per-resource defaults.
+	rd := cfg.ResourceDefaults
+	setIfUnset("KDEPS_CHAT_TIMEOUT", rd.Chat.Timeout)
+	if rd.Chat.ContextLength > 0 {
+		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", fmt.Sprintf("%d", rd.Chat.ContextLength))
+	}
+	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
+	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
+	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
+	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
+	if rd.SQL.MaxRows > 0 {
+		setIfUnset("KDEPS_SQL_MAX_ROWS", fmt.Sprintf("%d", rd.SQL.MaxRows))
+	}
+	setIfUnset("KDEPS_ON_ERROR_ACTION", rd.OnError.Action)
+	if rd.OnError.MaxRetries > 0 {
+		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", fmt.Sprintf("%d", rd.OnError.MaxRetries))
+	}
+	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
 }
 
 const defaultConfigTemplate = `# kdeps global configuration
@@ -294,4 +369,23 @@ defaults:
   # timezone: UTC
   # python_version: "3.12"
   # offline_mode: false
+
+# Per-resource global defaults — applied when a resource does not set the value.
+# resource_defaults:
+#   chat:
+#     timeout: "60s"          # default LLM call timeout
+#     context_length: 4096    # default context window in tokens
+#   http:
+#     timeout: "30s"          # default HTTP request timeout
+#   python:
+#     timeout: "60s"          # default Python script timeout
+#   exec:
+#     timeout: "30s"          # default shell command timeout
+#   sql:
+#     timeout: "30s"          # default SQL query timeout
+#     max_rows: 0             # default row limit (0 = unlimited)
+#   onError:
+#     action: "fail"          # "fail" | "continue" | "retry"
+#     max_retries: 3          # retries when action is "retry"
+#     retry_delay: "1s"       # delay between retries
 `
