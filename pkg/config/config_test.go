@@ -219,3 +219,115 @@ func TestScaffold_ContainsModelsDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "models_dir")
 }
+
+func TestLoad_ResourceDefaults_AllFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := `
+resource_defaults:
+  chat:
+    timeout: "90s"
+    context_length: 8192
+  http:
+    timeout: "45s"
+  python:
+    timeout: "120s"
+  exec:
+    timeout: "15s"
+  sql:
+    timeout: "20s"
+    max_rows: 500
+  onError:
+    action: "retry"
+    max_retries: 5
+    retry_delay: "2s"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	for _, k := range []string{
+		"KDEPS_CHAT_TIMEOUT", "KDEPS_CHAT_CONTEXT_LENGTH",
+		"KDEPS_HTTP_TIMEOUT", "KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
+		"KDEPS_SQL_TIMEOUT", "KDEPS_SQL_MAX_ROWS",
+		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES", "KDEPS_ON_ERROR_RETRY_DELAY",
+	} {
+		require.NoError(t, os.Unsetenv(k))
+	}
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "90s", cfg.ResourceDefaults.Chat.Timeout)
+	assert.Equal(t, 8192, cfg.ResourceDefaults.Chat.ContextLength)
+	assert.Equal(t, "45s", cfg.ResourceDefaults.HTTP.Timeout)
+	assert.Equal(t, "120s", cfg.ResourceDefaults.Python.Timeout)
+	assert.Equal(t, "15s", cfg.ResourceDefaults.Exec.Timeout)
+	assert.Equal(t, "20s", cfg.ResourceDefaults.SQL.Timeout)
+	assert.Equal(t, 500, cfg.ResourceDefaults.SQL.MaxRows)
+	assert.Equal(t, "retry", cfg.ResourceDefaults.OnError.Action)
+	assert.Equal(t, 5, cfg.ResourceDefaults.OnError.MaxRetries)
+	assert.Equal(t, "2s", cfg.ResourceDefaults.OnError.RetryDelay)
+
+	assert.Equal(t, "90s", os.Getenv("KDEPS_CHAT_TIMEOUT"))
+	assert.Equal(t, "8192", os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	assert.Equal(t, "45s", os.Getenv("KDEPS_HTTP_TIMEOUT"))
+	assert.Equal(t, "120s", os.Getenv("KDEPS_PYTHON_TIMEOUT"))
+	assert.Equal(t, "15s", os.Getenv("KDEPS_EXEC_TIMEOUT"))
+	assert.Equal(t, "20s", os.Getenv("KDEPS_SQL_TIMEOUT"))
+	assert.Equal(t, "500", os.Getenv("KDEPS_SQL_MAX_ROWS"))
+	assert.Equal(t, "retry", os.Getenv("KDEPS_ON_ERROR_ACTION"))
+	assert.Equal(t, "5", os.Getenv("KDEPS_ON_ERROR_MAX_RETRIES"))
+	assert.Equal(t, "2s", os.Getenv("KDEPS_ON_ERROR_RETRY_DELAY"))
+}
+
+func TestLoad_ResourceDefaults_EnvVarsWin(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := `
+resource_defaults:
+  chat:
+    timeout: "from-file"
+  http:
+    timeout: "from-file"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_CHAT_TIMEOUT", "from-env")
+	t.Setenv("KDEPS_HTTP_TIMEOUT", "from-env")
+
+	_, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "from-env", os.Getenv("KDEPS_CHAT_TIMEOUT"))
+	assert.Equal(t, "from-env", os.Getenv("KDEPS_HTTP_TIMEOUT"))
+}
+
+func TestLoad_ResourceDefaults_ZeroValuesNotSet(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	// context_length and max_rows intentionally zero (not set)
+	content := "resource_defaults:\n  chat:\n    timeout: \"30s\"\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.Unsetenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	require.NoError(t, os.Unsetenv("KDEPS_SQL_MAX_ROWS"))
+	require.NoError(t, os.Unsetenv("KDEPS_ON_ERROR_MAX_RETRIES"))
+
+	_, err := config.Load()
+	require.NoError(t, err)
+	assert.Empty(t, os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	assert.Empty(t, os.Getenv("KDEPS_SQL_MAX_ROWS"))
+	assert.Empty(t, os.Getenv("KDEPS_ON_ERROR_MAX_RETRIES"))
+}
+
+func TestScaffold_ContainsResourceDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	require.NoError(t, config.Scaffold())
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "resource_defaults")
+	assert.Contains(t, string(data), "context_length")
+	assert.Contains(t, string(data), "max_rows")
+	assert.Contains(t, string(data), "onError")
+}

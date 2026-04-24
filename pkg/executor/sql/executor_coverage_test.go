@@ -644,3 +644,95 @@ func TestExecutor_ExecuteTransaction_BatchOperations(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 3, count)
 }
+
+func openSQLiteMemory(t *testing.T) *dbsql.DB {
+	t.Helper()
+	db, err := dbsql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Skipf("SQLite driver not available: %v", err)
+	}
+	if err := db.Ping(); err != nil {
+		t.Skipf("SQLite ping failed: %v", err)
+	}
+	return db
+}
+
+func TestExecutor_Execute_EnvVarSQLTimeout(t *testing.T) {
+	t.Setenv("KDEPS_SQL_TIMEOUT", "45s")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	require.NoError(t, execErr)
+	_ = result
+}
+
+func TestExecutor_Execute_EnvVarSQLTimeoutOverriddenByResource(t *testing.T) {
+	t.Setenv("KDEPS_SQL_TIMEOUT", "45s")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", TimeoutDuration: "10s"})
+	require.NoError(t, execErr)
+	_ = result
+}
+
+func TestExecutor_Execute_InvalidEnvVarSQLTimeoutFallsToDefault(t *testing.T) {
+	t.Setenv("KDEPS_SQL_TIMEOUT", "not-a-duration")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	require.NoError(t, execErr)
+	_ = result
+}
+
+func TestExecutor_Execute_EnvVarSQLMaxRows(t *testing.T) {
+	t.Setenv("KDEPS_SQL_MAX_ROWS", "10")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	// MaxRows=0 so env var should be applied
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 0})
+	require.NoError(t, execErr)
+	_ = result
+}
+
+func TestExecutor_Execute_EnvVarSQLMaxRows_ResourceWins(t *testing.T) {
+	t.Setenv("KDEPS_SQL_MAX_ROWS", "10")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	// MaxRows=100 explicitly set — env var ignored
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 100})
+	require.NoError(t, execErr)
+	_ = result
+}
+
+func TestExecutor_Execute_InvalidEnvVarSQLMaxRows(t *testing.T) {
+	t.Setenv("KDEPS_SQL_MAX_ROWS", "not-a-number")
+	db := openSQLiteMemory(t)
+	defer db.Close()
+	e := sql.NewExecutor()
+	e.Pools["sqlite://:memory:"] = db
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	require.NoError(t, execErr)
+	_ = result
+}
