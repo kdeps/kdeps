@@ -52,15 +52,20 @@ type DefaultClientFactory struct{}
 // CreateClient creates an HTTP client with the given configuration.
 func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
 	kdeps_debug.Log("enter: CreateClient")
-	client := &http.Client{
-		Timeout: DefaultHTTPTimeout,
-	}
-
-	// Set custom timeout
-	if config.TimeoutDuration != "" {
-		if timeout, err := time.ParseDuration(config.TimeoutDuration); err == nil {
-			client.Timeout = timeout
+	// Resolve timeout: resource > KDEPS_HTTP_TIMEOUT > DefaultHTTPTimeout
+	clientTimeout := DefaultHTTPTimeout
+	if v := os.Getenv("KDEPS_HTTP_TIMEOUT"); v != "" {
+		if t, err := time.ParseDuration(v); err == nil {
+			clientTimeout = t
 		}
+	}
+	if config.TimeoutDuration != "" {
+		if t, err := time.ParseDuration(config.TimeoutDuration); err == nil {
+			clientTimeout = t
+		}
+	}
+	client := &http.Client{
+		Timeout: clientTimeout,
 	}
 
 	// Configure redirect policy

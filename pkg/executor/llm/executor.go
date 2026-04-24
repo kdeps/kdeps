@@ -290,10 +290,17 @@ func (e *Executor) Execute(
 		baseURL = backend.DefaultURL()
 	}
 
-	// Set default context length if not specified
+	// Set default context length: resource > KDEPS_CHAT_CONTEXT_LENGTH > 4096
 	contextLength := resolvedConfig.ContextLength
 	if contextLength == 0 {
-		contextLength = 4096 // Default: 4k tokens
+		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				contextLength = n
+			}
+		}
+	}
+	if contextLength == 0 {
+		contextLength = 4096
 	}
 
 	// Merge allowlisted component tools (opt-in, default-disabled).
@@ -311,8 +318,13 @@ func (e *Executor) Execute(
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 
-	// Parse timeout
+	// Parse timeout: resource > KDEPS_CHAT_TIMEOUT > DefaultLLMTimeout
 	timeout := DefaultLLMTimeout
+	if v := os.Getenv("KDEPS_CHAT_TIMEOUT"); v != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
+			timeout = parsedTimeout
+		}
+	}
 	if resolvedConfig.TimeoutDuration != "" {
 		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
 			timeout = parsedTimeout
