@@ -428,6 +428,56 @@ kdeps bundle build examples/chatbot --tag registry.com/my-agent:v1.0.0 --push
 
 ---
 
+### `kdeps export iso`
+
+Export a workflow as a bootable image (ISO, raw disk, or qcow2) using LinuxKit. See `kdeps export iso --help` for the full list of formats and flags.
+
+---
+
+### `kdeps export k8s`
+
+Generate Kubernetes Deployment and Service manifests from a workflow.
+
+**Usage:**
+```bash
+kdeps export k8s [path] [flags]
+```
+
+**Arguments:**
+- `path` - Directory containing `workflow.yaml`, a `workflow.yaml` file, or a `.kdeps` package
+
+**Flags:**
+| Flag | Short | Description | Default |
+|------|-------|-------------|---------|
+| `--image` | `-i` | Container image name | `{name}:{version}` |
+| `--output` | `-o` | Output file path | stdout |
+| `--replicas` | `-r` | Number of replicas (overrides workflow) | From workflow |
+
+**Examples:**
+```bash
+# Print manifests to stdout
+kdeps export k8s examples/chatbot
+
+# Specify image and save to file
+kdeps export k8s examples/chatbot \
+  --image my-registry/chatbot:v1.0.0 \
+  --output k8s.yaml
+
+# Override replicas
+kdeps export k8s examples/chatbot --replicas 5
+```
+
+Manifests are driven by `agentSettings` in `workflow.yaml`:
+- `replicas` - number of pod replicas
+- `resources` - CPU/memory limits and requests
+- `env` - container environment variables
+- `portNum` + `apiServerMode`/`webServerMode` - exposed ports
+- `installOllama: true` - adds Ollama backend port (11434)
+
+See [Kubernetes Deployment](../deployment/kubernetes) for full details.
+
+---
+
 ## Command Workflow
 
 ### Typical Development Flow
@@ -478,6 +528,22 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --tag registry.com/my-agent:v1.0.0 \
   --push
+```
+
+### Kubernetes Deployment Flow
+
+```bash
+# 1. Build and push Docker image
+kdeps bundle build . --tag registry.com/my-agent:v1.0.0 --push
+
+# 2. Generate Kubernetes manifests
+kdeps export k8s . \
+  --image registry.com/my-agent:v1.0.0 \
+  --output k8s.yaml
+
+# 3. Deploy to cluster
+kubectl apply -f k8s.yaml
+kubectl rollout status deployment/my-agent
 ```
 
 ## Exit Codes

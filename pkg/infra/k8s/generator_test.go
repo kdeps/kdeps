@@ -68,6 +68,25 @@ func TestGenerateManifests(t *testing.T) {
 	assert.Contains(t, manifests, "targetPort: api")
 }
 
+func TestGenerateManifests_WebServer(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "web-app",
+		},
+		Settings: domain.WorkflowSettings{
+			WebServerMode: true,
+			PortNum:       9090,
+		},
+	}
+
+	generator := NewGenerator("web-image")
+	manifests, err := generator.GenerateManifests(workflow)
+
+	assert.NoError(t, err)
+	assert.Contains(t, manifests, "containerPort: 9090")
+	assert.Contains(t, manifests, "name: web")
+}
+
 func TestGenerateManifests_Defaults(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
@@ -132,10 +151,30 @@ func TestGenerateManifests_AutoDetectOllama(t *testing.T) {
 	assert.Contains(t, manifests, "containerPort: 11434")
 }
 
-func TestGenerateManifests_TemplateError(_ *testing.T) {
-	// This is hard to trigger with valid templates, but we can test the error path
-	// by temporarily corrupting a template if we weren't using embed.
-	// Since we use embed, we trust the templates are valid.
+func TestGenerateManifests_TemplateErrors(t *testing.T) {
+	// Corrupt templates to trigger errors in GenerateManifests
+	origDeployment := deploymentTemplate
+	origService := serviceTemplate
+	defer func() {
+		deploymentTemplate = origDeployment
+		serviceTemplate = origService
+	}()
+
+	generator := NewGenerator("test")
+	workflow := &domain.Workflow{}
+
+	// Error in deployment template
+	deploymentTemplate = "{{ if }}"
+	_, err := generator.GenerateManifests(workflow)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "render deployment template")
+
+	// Error in service template
+	deploymentTemplate = origDeployment
+	serviceTemplate = "{{ if }}"
+	_, err = generator.GenerateManifests(workflow)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "render service template")
 }
 
 func TestRenderTemplate_Error(t *testing.T) {

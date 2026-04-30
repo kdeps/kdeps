@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Name }}
+  labels:
+    app: {{ .Name }}
+    version: {{ .Version }}
+    kdeps-component: "true"
+spec:
+  replicas: {{ .Replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Name }}
+    spec:
+      containers:
+      - name: {{ .Name }}
+        image: {{ .Image }}
+        ports:
+        {{- if .APIPort }}
+        - containerPort: {{ .APIPort }}
+          name: api
+        {{- end }}
+        {{- if .WebServerPort }}
+        - containerPort: {{ .WebServerPort }}
+          name: web
+        {{- end }}
+        {{- if .BackendPort }}
+        - containerPort: {{ .BackendPort }}
+          name: backend
+        {{- end }}
+        env:
+        {{- range $key, $value := .Env }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- if .Resources }}
+        resources:
+          limits:
+            cpu: "{{ .Resources.CPULimit }}"
+            memory: "{{ .Resources.MemoryLimit }}"
+          requests:
+            cpu: "{{ .Resources.CPURequest }}"
+            memory: "{{ .Resources.MemoryRequest }}"
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .APIPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .APIPort }}
+          initialDelaySeconds: 30
+          periodSeconds: 30

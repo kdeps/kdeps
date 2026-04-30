@@ -368,63 +368,41 @@ networks:
 
 ## Kubernetes Deployment
 
-Example Kubernetes manifest:
+KDeps generates Kubernetes manifests directly from your `workflow.yaml` using `kdeps export k8s`. No manual YAML authoring needed.
+
+```bash
+# Build and push the Docker image first
+kdeps bundle build . --tag myregistry/myagent:1.0.0 --push
+
+# Generate manifests
+kdeps export k8s . \
+  --image myregistry/myagent:1.0.0 \
+  --output k8s.yaml
+
+# Apply to cluster
+kubectl apply -f k8s.yaml
+```
+
+Configure Kubernetes settings in `workflow.yaml`:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: myagent
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: myagent
-  template:
-    metadata:
-      labels:
-        app: myagent
-    spec:
-      containers:
-      - name: myagent
-        image: myregistry/myagent:1.0.0
-        ports:
-        - containerPort: 16395
-        env:
-        - name: LOG_LEVEL
-          value: "info"
-        resources:
-          requests:
-            memory: "1Gi"
-            cpu: "500m"
-          limits:
-            memory: "4Gi"
-            cpu: "2000m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 16395
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 16395
-          initialDelaySeconds: 5
-          periodSeconds: 5
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: myagent
-spec:
-  selector:
-    app: myagent
-  ports:
-  - port: 80
-    targetPort: 16395
+settings:
+  apiServerMode: true
+  portNum: 16395
+  agentSettings:
+    replicas: 3
+    resources:
+      cpuLimit: "2000m"
+      memoryLimit: "4Gi"
+      cpuRequest: "500m"
+      memoryRequest: "1Gi"
+    env:
+      LOG_LEVEL: info
 ```
+
+The generated manifest includes a `Deployment` with readiness/liveness probes and a `ClusterIP` `Service`, both derived from your workflow settings.
+
+See the [Kubernetes Deployment guide](kubernetes) for the full reference.
 
 ## Troubleshooting
 

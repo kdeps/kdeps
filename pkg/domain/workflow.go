@@ -998,6 +998,14 @@ func (w *WebRoute) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// Resources contains resource limits and requests.
+type Resources struct {
+	CPULimit      string `yaml:"cpuLimit,omitempty"`
+	MemoryLimit   string `yaml:"memoryLimit,omitempty"`
+	CPURequest    string `yaml:"cpuRequest,omitempty"`
+	MemoryRequest string `yaml:"memoryRequest,omitempty"`
+}
+
 // AgentSettings contains agent configuration.
 type AgentSettings struct {
 	Timezone         string            `yaml:"timezone"`
@@ -1016,6 +1024,8 @@ type AgentSettings struct {
 	OllamaURL        string            `yaml:"ollamaUrl,omitempty"`
 	Args             map[string]string `yaml:"args,omitempty"`
 	Env              map[string]string `yaml:"env,omitempty"`
+	Replicas         int               `yaml:"replicas,omitempty"`  // Kubernetes replicas
+	Resources        *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
@@ -1038,11 +1048,19 @@ func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
 		OllamaURL        string            `yaml:"ollamaUrl,omitempty"`
 		Args             map[string]string `yaml:"args,omitempty"`
 		Env              map[string]string `yaml:"env,omitempty"`
+		Replicas         interface{}       `yaml:"replicas,omitempty"`
+		Resources        *Resources        `yaml:"resources,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
 		return err
 	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.Replicas); ok {
+		a.Replicas = i
+	}
+	a.Resources = alias.Resources
 
 	// Parse boolean fields that might be strings
 	if b, ok := ParseBool(alias.OfflineMode); ok {

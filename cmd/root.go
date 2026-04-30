@@ -72,6 +72,12 @@ func Execute(v, c string) error {
 	return err
 }
 
+// NewRootCmd returns a new root cobra command for testing.
+func NewRootCmd() *cobra.Command {
+	kdeps_debug.Log("enter: NewRootCmd")
+	return createRootCommand()
+}
+
 // createRootCommand creates the root cobra command with all subcommands.
 func createRootCommand() *cobra.Command {
 	kdeps_debug.Log("enter: createRootCommand")
@@ -158,4 +164,12 @@ func addSubcommands(rootCmd *cobra.Command) {
 	execCmd := newExecCmd()
 	execCmd.GroupID = groupDeploy
 	rootCmd.AddCommand(execCmd)
+
+	exportCmd := newExportCmd()
+	exportCmd.GroupID = groupDeploy
+	rootCmd.AddCommand(exportCmd)
+
+	chatCmd := newChatCmd()
+	chatCmd.GroupID = groupDevelop
+	rootCmd.AddCommand(chatCmd)
 }
