@@ -1,0 +1,31 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: k8s-example
+  description: "A workflow demonstrating Kubernetes-specific settings like replicas and resource limits."
+  version: 1.0.0
+  targetActionId: main
+
+settings:
+  apiServerMode: true
+  portNum: 8080
+  agentSettings:
+    # Kubernetes-specific settings
+    replicas: 3
+    resources:
+      cpuLimit: "1000m"
+      memoryLimit: "1Gi"
+      cpuRequest: "500m"
+      memoryRequest: "512Mi"
+    
+    # Environment variables will be mapped to K8s container env
+    env:
+      APP_MODE: production
+      DATABASE_URL: "postgres://user:pass@db-service:5432/mydb"
+
+workflows:
+  - id: main
+    run:
+      chat:
+        model: llama3
+        system: "You are a Kubernetes deployment assistant."

@@ -24,6 +24,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -663,9 +664,7 @@ Examples:
   # Export to a file
   kdeps export k8s examples/chatbot --output k8s-manifest.yaml`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return exportK8sInternal(cmd, args, flags)
-		},
+		RunE: RunExportK8sCmd,
 	}
 
 	cmd.Flags().StringVarP(&flags.Image, "image", "i", "", "Docker image to use in the manifest")
@@ -673,6 +672,18 @@ Examples:
 	cmd.Flags().IntVarP(&flags.Replica, "replicas", "r", 0, "Number of replicas (overrides workflow.yaml)")
 
 	return cmd
+}
+
+// RunExportK8sCmd runs the export k8s command.
+func RunExportK8sCmd(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: RunExportK8sCmd")
+	flags := &K8sFlags{}
+	if cmd != nil {
+		flags.Image, _ = cmd.Flags().GetString("image")
+		flags.Output, _ = cmd.Flags().GetString("output")
+		flags.Replica, _ = cmd.Flags().GetInt("replicas")
+	}
+	return exportK8sInternal(cmd, args, flags)
 }
 
 func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error {
@@ -713,13 +724,17 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 	}
 
 	// Output results
+	var out io.Writer = os.Stdout
+	if cmd != nil {
+		out = cmd.OutOrStdout()
+	}
 	if flags.Output != "" {
 		if writeErr := os.WriteFile(flags.Output, []byte(manifests), 0600); writeErr != nil {
 			return fmt.Errorf("failed to write manifest to file: %w", writeErr)
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "Kubernetes manifests written to %s\n", flags.Output)
+		fmt.Fprintf(out, "Kubernetes manifests written to %s\n", flags.Output)
 	} else {
-		fmt.Fprint(cmd.OutOrStdout(), manifests)
+		fmt.Fprint(out, manifests)
 	}
 
 	return nil

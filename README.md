@@ -232,6 +232,7 @@ settings:
 
 ```bash
 kdeps bundle build          # Docker image
+kdeps export k8s            # Kubernetes manifests (Deployment + Service)
 kdeps bundle export iso     # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
 kdeps cloud push            # live-update a running container

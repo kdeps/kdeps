@@ -217,3 +217,134 @@ func TestConfig_Integration_ScaffoldContents(t *testing.T) {
 	assert.NotContains(t, content, "registry:")
 	assert.NotContains(t, content, "storage:")
 }
+
+// TestConfig_Integration_ResourceDefaults verifies that resource_defaults values
+// in config.yaml are propagated to the expected KDEPS_* env vars.
+func TestConfig_Integration_ResourceDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+resource_defaults:
+  chat:
+    timeout: "90s"
+    context_length: 8192
+  http:
+    timeout: "45s"
+  python:
+    timeout: "120s"
+  exec:
+    timeout: "15s"
+  sql:
+    timeout: "20s"
+    max_rows: 500
+  onError:
+    action: "retry"
+    max_retries: 3
+    retry_delay: "1s"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	for _, k := range []string{
+		"KDEPS_CHAT_TIMEOUT", "KDEPS_CHAT_CONTEXT_LENGTH",
+		"KDEPS_HTTP_TIMEOUT", "KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
+		"KDEPS_SQL_TIMEOUT", "KDEPS_SQL_MAX_ROWS",
+		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES", "KDEPS_ON_ERROR_RETRY_DELAY",
+	} {
+		require.NoError(t, os.Unsetenv(k))
+	}
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	// Struct values
+	assert.Equal(t, "90s", cfg.ResourceDefaults.Chat.Timeout)
+	assert.Equal(t, 8192, cfg.ResourceDefaults.Chat.ContextLength)
+	assert.Equal(t, "45s", cfg.ResourceDefaults.HTTP.Timeout)
+	assert.Equal(t, "120s", cfg.ResourceDefaults.Python.Timeout)
+	assert.Equal(t, "15s", cfg.ResourceDefaults.Exec.Timeout)
+	assert.Equal(t, "20s", cfg.ResourceDefaults.SQL.Timeout)
+	assert.Equal(t, 500, cfg.ResourceDefaults.SQL.MaxRows)
+	assert.Equal(t, "retry", cfg.ResourceDefaults.OnError.Action)
+	assert.Equal(t, 3, cfg.ResourceDefaults.OnError.MaxRetries)
+	assert.Equal(t, "1s", cfg.ResourceDefaults.OnError.RetryDelay)
+
+	// Env vars
+	assert.Equal(t, "90s", os.Getenv("KDEPS_CHAT_TIMEOUT"))
+	assert.Equal(t, "8192", os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	assert.Equal(t, "45s", os.Getenv("KDEPS_HTTP_TIMEOUT"))
+	assert.Equal(t, "120s", os.Getenv("KDEPS_PYTHON_TIMEOUT"))
+	assert.Equal(t, "15s", os.Getenv("KDEPS_EXEC_TIMEOUT"))
+	assert.Equal(t, "20s", os.Getenv("KDEPS_SQL_TIMEOUT"))
+	assert.Equal(t, "500", os.Getenv("KDEPS_SQL_MAX_ROWS"))
+	assert.Equal(t, "retry", os.Getenv("KDEPS_ON_ERROR_ACTION"))
+	assert.Equal(t, "3", os.Getenv("KDEPS_ON_ERROR_MAX_RETRIES"))
+	assert.Equal(t, "1s", os.Getenv("KDEPS_ON_ERROR_RETRY_DELAY"))
+}
+
+// TestConfig_Integration_ResourceDefaults_EnvVarsNotOverwritten verifies that
+// explicit env vars take precedence over resource_defaults in config.yaml.
+func TestConfig_Integration_ResourceDefaults_EnvVarsNotOverwritten(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_EXEC_TIMEOUT", "from-env")
+	t.Setenv("KDEPS_SQL_MAX_ROWS", "999")
+
+	content := `
+resource_defaults:
+  exec:
+    timeout: "from-config"
+  sql:
+    max_rows: 1
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	_, err := config.Load()
+	require.NoError(t, err)
+
+	assert.Equal(t, "from-env", os.Getenv("KDEPS_EXEC_TIMEOUT"), "env var must not be overwritten")
+	assert.Equal(t, "999", os.Getenv("KDEPS_SQL_MAX_ROWS"), "env var must not be overwritten")
+}
+
+// TestConfig_Integration_ResourceDefaults_ZeroIntFields verifies that zero
+// integer fields (context_length, max_rows, max_retries) do NOT set env vars.
+func TestConfig_Integration_ResourceDefaults_ZeroIntFields(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	require.NoError(t, os.Unsetenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	require.NoError(t, os.Unsetenv("KDEPS_SQL_MAX_ROWS"))
+	require.NoError(t, os.Unsetenv("KDEPS_ON_ERROR_MAX_RETRIES"))
+
+	// Only set string fields; integer fields default to zero
+	content := "resource_defaults:\n  chat:\n    timeout: \"30s\"\n"
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	_, err := config.Load()
+	require.NoError(t, err)
+
+	assert.Empty(t, os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"), "zero context_length must not set env var")
+	assert.Empty(t, os.Getenv("KDEPS_SQL_MAX_ROWS"), "zero max_rows must not set env var")
+	assert.Empty(t, os.Getenv("KDEPS_ON_ERROR_MAX_RETRIES"), "zero max_retries must not set env var")
+}
+
+// TestConfig_Integration_ScaffoldContainsResourceDefaults verifies that the
+// scaffold template includes the resource_defaults section.
+func TestConfig_Integration_ScaffoldContainsResourceDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	require.NoError(t, config.Scaffold())
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.Contains(t, content, "resource_defaults")
+	assert.Contains(t, content, "context_length")
+	assert.Contains(t, content, "max_rows")
+	assert.Contains(t, content, "onError")
+}

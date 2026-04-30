@@ -155,6 +155,7 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Docker', link: '/deployment/docker' },
+            { text: 'Kubernetes', link: '/deployment/kubernetes' },
             { text: 'WebServer Mode', link: '/deployment/webserver' },
             { text: 'Standalone Executables', link: '/deployment/prepackage' },
           ]
