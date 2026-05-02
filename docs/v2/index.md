@@ -14,7 +14,7 @@ hero:
       text: Why kdeps?
       link: /concepts/why-kdeps
     - theme: alt
-      text: Visual Editor
+      text: Registry
       link: https://kdeps.io
 
 features:
