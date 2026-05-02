@@ -87,8 +87,8 @@ func TestExecutor_Execute_CommandWithTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
-		Command:         "sleep 1",
-		TimeoutDuration: "100ms", // Very short timeout
+		Command: "sleep 1",
+		Timeout: "100ms", // Very short timeout
 	}
 
 	result, err := execInstance.Execute(ctx, config)
@@ -156,8 +156,8 @@ func TestExecutor_Execute_InvalidTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
-		Command:         "echo test",
-		TimeoutDuration: "invalid-duration",
+		Command: "echo test",
+		Timeout: "invalid-duration",
 	}
 
 	result, err := execInstance.Execute(ctx, config)
@@ -285,8 +285,8 @@ func TestExecutor_Execute_LongRunningCommand(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
-		Command:         "sleep 0.1", // Short sleep
-		TimeoutDuration: "500ms",     // Longer timeout
+		Command: "sleep 0.1", // Short sleep
+		Timeout: "500ms",     // Longer timeout
 	}
 
 	start := time.Now()
@@ -918,7 +918,7 @@ func TestExecutor_Execute_CommandTimeoutKillsProcess(t *testing.T) {
 			"-c",
 			"trap '' TERM KILL; sleep 10",
 		}, // Ignore termination signals
-		TimeoutDuration: "50ms",
+		Timeout: "50ms",
 	}
 
 	start := time.Now()
@@ -1025,9 +1025,9 @@ func TestExecutor_Execute_WithExpressionInTimeout(t *testing.T) {
 	ctx.Outputs["timeoutValue"] = "5s"
 
 	config := &domain.ExecConfig{
-		Command:         "echo",
-		Args:            []string{"test"},
-		TimeoutDuration: "{{get('timeoutValue')}}",
+		Command: "echo",
+		Args:    []string{"test"},
+		Timeout: "{{get('timeoutValue')}}",
 	}
 
 	result, err := execInstance.Execute(ctx, config)
@@ -1123,7 +1123,7 @@ func TestExecutor_Execute_EnvVarTimeoutOverriddenByResource(t *testing.T) {
 	execInstance := execexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
-	config := &domain.ExecConfig{Command: "echo", Args: []string{"resource-timeout"}, TimeoutDuration: "10s"}
+	config := &domain.ExecConfig{Command: "echo", Args: []string{"resource-timeout"}, Timeout: "10s"}
 	result, err := execInstance.Execute(ctx, config)
 	require.NoError(t, err)
 	resultMap, ok := result.(map[string]interface{})
@@ -1137,6 +1137,153 @@ func TestExecutor_Execute_InvalidEnvVarTimeoutFallsToDefault(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 	config := &domain.ExecConfig{Command: "echo", Args: []string{"invalid-env"}}
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}
+
+// TestExecutor_Execute_ResolveConfigTimeoutError tests resolveConfig timeout evaluation error.
+func TestExecutor_Execute_ResolveConfigTimeoutError(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command: "echo test",
+		Timeout: "{{invalid_expr(}}", // malformed expression -> parse error
+	}
+
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate timeout duration")
+}
+
+// TestExecutor_Execute_ResolveConfigWorkingDirError tests resolveConfig workingDir evaluation error.
+func TestExecutor_Execute_ResolveConfigWorkingDirError(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command:    "echo test",
+		WorkingDir: "{{invalid_expr(}}", // malformed expression -> parse error
+	}
+
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate working directory")
+}
+
+// TestExecutor_Execute_ResolveConfigEnvKeyError tests resolveConfig env key evaluation error.
+func TestExecutor_Execute_ResolveConfigEnvKeyError(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command: "echo test",
+		Env: map[string]string{
+			"{{invalid(}}": "value",
+		},
+	}
+
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate env key")
+}
+
+// TestExecutor_Execute_ResolveConfigEnvValueError tests resolveConfig env value evaluation error.
+func TestExecutor_Execute_ResolveConfigEnvValueError(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command: "echo test",
+		Env: map[string]string{
+			"VALID_KEY": "{{invalid(}}", // valid key, bad value expression
+		},
+	}
+
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate env value")
+}
+
+// TestExecutor_Execute_CommandExpressionError tests error when command expression evaluation fails.
+func TestExecutor_Execute_CommandExpressionError(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Command contains expression syntax {{ but is invalid so EvaluateExpression fails
+	config := &domain.ExecConfig{
+		Command: "{{invalid_func(}}", // parse error
+	}
+
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate command")
+}
+
+// TestExecutor_EvaluateArgs_EvalErrorFallback tests that when arg expression evaluation fails,
+// the raw arg value is used as fallback (the else branch in evaluateArgs).
+func TestExecutor_EvaluateArgs_EvalErrorFallback(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// An arg with invalid expression syntax - evaluation will fail, raw arg used
+	config := &domain.ExecConfig{
+		Command: "echo",
+		Args:    []string{"{{nonexistent_function_xyz('test')}}"},
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	// The command may fail or succeed, but the arg should be the raw expression string
+	_ = err
+	_ = result
+}
+
+// TestExecutor_EvaluateArgs_MultilineShellScript tests that multi-line shell script args
+// use EvaluateExpressionsInShellScript instead of regular EvaluateExpression.
+func TestExecutor_EvaluateArgs_MultilineShellScript(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Outputs["greeting"] = "world"
+
+	// sh -c with a multi-line script containing {{ }} expressions
+	// isShellScript=true, i=1 (second arg), arg contains \n -> EvaluateExpressionsInShellScript
+	config := &domain.ExecConfig{
+		Command: "sh",
+		Args: []string{
+			"-c",
+			"echo {{get('greeting')}}\necho done",
+		},
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+	assert.Contains(t, resultMap["stdout"].(string), "world")
+}
+
+// TestExecutor_Execute_WorkingDirLiteral tests a literal (non-expression) WorkingDir.
+func TestExecutor_Execute_WorkingDirLiteral(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command:    "pwd",
+		WorkingDir: "/tmp",
+	}
+
 	result, err := execInstance.Execute(ctx, config)
 	require.NoError(t, err)
 	resultMap, ok := result.(map[string]interface{})

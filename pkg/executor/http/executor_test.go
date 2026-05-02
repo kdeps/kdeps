@@ -84,7 +84,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 
 	t.Run("custom timeout", func(t *testing.T) {
 		config := &domain.HTTPClientConfig{
-			TimeoutDuration: "5s",
+			Timeout: "5s",
 		}
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 
 	t.Run("invalid timeout", func(t *testing.T) {
 		config := &domain.HTTPClientConfig{
-			TimeoutDuration: "invalid",
+			Timeout: "invalid",
 		}
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err) // Invalid duration should be ignored
@@ -110,7 +110,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 
 	t.Run("resource timeout overrides env var", func(t *testing.T) {
 		t.Setenv("KDEPS_HTTP_TIMEOUT", "45s")
-		config := &domain.HTTPClientConfig{TimeoutDuration: "10s"}
+		config := &domain.HTTPClientConfig{Timeout: "10s"}
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err)
 		assert.Equal(t, 10*time.Second, client.Timeout)
@@ -344,9 +344,9 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.HTTPClientConfig{
-		Method:          "GET",
-		URL:             server.URL + "/api/slow",
-		TimeoutDuration: "50ms", // Very short timeout
+		Method:  "GET",
+		URL:     server.URL + "/api/slow",
+		Timeout: "50ms", // Very short timeout
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -2129,9 +2129,9 @@ func TestExecutor_Execute_Timeout_Config(t *testing.T) {
 
 	// Test with custom timeout
 	config := &domain.HTTPClientConfig{
-		Method:          "GET",
-		URL:             server.URL + "/api/delayed",
-		TimeoutDuration: "200ms", // Should succeed
+		Method:  "GET",
+		URL:     server.URL + "/api/delayed",
+		Timeout: "200ms", // Should succeed
 	}
 
 	result, err := exec.Execute(ctx, config)

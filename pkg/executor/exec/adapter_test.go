@@ -55,8 +55,8 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.ExecConfig{
-		Command:         "echo hello",
-		TimeoutDuration: "10s",
+		Command: "echo hello",
+		Timeout: "10s",
 	}
 
 	// This will actually execute the command, which may fail in some environments

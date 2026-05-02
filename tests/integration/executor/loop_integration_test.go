@@ -425,8 +425,6 @@ func TestLoopIntegration_LoopWithExprBeforeAndAfter(t *testing.T) {
 					},
 					Expr: []domain.Expression{
 						{Raw: "set('main', loop.count())"},
-					},
-					ExprAfter: []domain.Expression{
 						{Raw: "set('after', loop.count())"},
 					},
 					APIResponse: &domain.APIResponseConfig{

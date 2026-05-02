@@ -180,9 +180,9 @@ func TestExecutor_Execute_TimeoutParsing(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
-		Connection:      "sqlite://:memory:",
-		Query:           "SELECT 1",
-		TimeoutDuration: "invalid-duration", // Invalid duration
+		Connection: "sqlite://:memory:",
+		Query:      "SELECT 1",
+		Timeout:    "invalid-duration", // Invalid duration
 	}
 
 	// Should use default timeout instead of failing
@@ -679,7 +679,7 @@ func TestExecutor_Execute_EnvVarSQLTimeoutOverriddenByResource(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{
-		Connection: "sqlite://:memory:", Query: "SELECT 1", TimeoutDuration: "10s",
+		Connection: "sqlite://:memory:", Query: "SELECT 1", Timeout: "10s",
 	})
 	require.NoError(t, execErr)
 	_ = result

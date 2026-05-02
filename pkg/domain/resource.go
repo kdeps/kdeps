@@ -19,8 +19,6 @@
 package domain
 
 import (
-	"fmt"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"gopkg.in/yaml.v3"
@@ -90,162 +88,39 @@ type ValidationsConfig struct {
 	Expr     []CustomRule `yaml:"expr,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support "properties:" and "fields:"
-// as map-style aliases for "rules:". Both formats (array and map) are supported.
-func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type rawValidationsConfig struct {
-		Methods  []string     `yaml:"methods"`
-		Routes   []string     `yaml:"routes"`
-		Headers  []string     `yaml:"headers"`
-		Params   []string     `yaml:"params"`
-		Skip     []Expression `yaml:"skip"`
-		Check    []Expression `yaml:"check"`
-		Error    *ErrorConfig `yaml:"error"`
-		Required []string     `yaml:"required"`
-		Rules    []FieldRule  `yaml:"rules"`
-		Expr     []CustomRule `yaml:"expr"`
-	}
-
-	var raw rawValidationsConfig
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-
-	v.Methods = raw.Methods
-	v.Routes = raw.Routes
-	v.Headers = raw.Headers
-	v.Params = raw.Params
-	v.Skip = raw.Skip
-	v.Check = raw.Check
-	v.Error = raw.Error
-	v.Required = raw.Required
-	v.Expr = raw.Expr
-	v.Rules = raw.Rules
-
-	// Parse "fields" and "properties" as map[string]FieldRule → []FieldRule.
-	// "properties" takes precedence over "fields", both override "rules".
-	fieldsRules, err := mapFieldRulesFromNode(node, "fields")
-	if err != nil {
-		return err
-	}
-	propsRules, err := mapFieldRulesFromNode(node, "properties")
-	if err != nil {
-		return err
-	}
-
-	if len(propsRules) > 0 {
-		v.Rules = propsRules
-	} else if len(fieldsRules) > 0 {
-		v.Rules = fieldsRules
-	}
-
-	return nil
-}
-
-// yamlNodeKindName returns a human-readable name for a yaml.Kind value.
-func yamlNodeKindName(kind yaml.Kind) string {
-	kdeps_debug.Log("enter: yamlNodeKindName")
-	switch kind {
-	case yaml.DocumentNode:
-		return "document"
-	case yaml.SequenceNode:
-		return "sequence"
-	case yaml.MappingNode:
-		return "mapping"
-	case yaml.ScalarNode:
-		return "scalar"
-	case yaml.AliasNode:
-		return "alias"
-	default:
-		return fmt.Sprintf("unknown(%d)", kind)
-	}
-}
-
-// mapFieldRulesFromNode extracts a map-style field rules block (e.g. "fields:" or "properties:")
-// from a YAML mapping node and returns it as []FieldRule with Field set from the map key.
-func mapFieldRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
-	kdeps_debug.Log("enter: mapFieldRulesFromNode")
-	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
-		node = node.Content[0]
-	}
-	if node.Kind != yaml.MappingNode {
-		return nil, nil
-	}
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		if node.Content[i].Value != key {
-			continue
-		}
-		mapNode := node.Content[i+1]
-		if mapNode.Kind != yaml.MappingNode {
-			return nil, fmt.Errorf(
-				"%q must be a mapping (got %s at line %d)",
-				key, yamlNodeKindName(mapNode.Kind), mapNode.Line,
-			)
-		}
-		var rules []FieldRule
-		for j := 0; j+1 < len(mapNode.Content); j += 2 {
-			fieldName := mapNode.Content[j].Value
-			var rule FieldRule
-			if err := mapNode.Content[j+1].Decode(&rule); err != nil {
-				return nil, fmt.Errorf(
-					"validations.%s: failed to decode rule for field %q: %w",
-					key,
-					fieldName,
-					err,
-				)
-			}
-			rule.Field = fieldName
-			rules = append(rules, rule)
-		}
-		return rules, nil
-	}
-	return nil, nil
-}
-
 // RunConfig contains resource execution configuration.
+// Only one primary action type should be set per resource.
 type RunConfig struct {
 	Validations *ValidationsConfig `yaml:"validations,omitempty"`
+	Loop        *LoopConfig        `yaml:"loop,omitempty"`
+	ExprBefore  []Expression       `yaml:"exprBefore,omitempty"`
+	Expr        []Expression       `yaml:"expr,omitempty"`
+	Before      []InlineResource   `yaml:"before,omitempty"`
+	After       []InlineResource   `yaml:"after,omitempty"`
+	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
+	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
 
-	// Loop enables conditional while-loop iteration for the resource.
-	// When set, the resource body is executed repeatedly while Loop.While is true.
-	Loop *LoopConfig `yaml:"loop,omitempty"`
-
-	// Expression blocks with positioning control:
-	// - exprBefore: runs BEFORE the primary execution type (chat, python, sql, etc.)
-	// - expr: runs AFTER the primary execution type (default, for backward compatibility)
-	// - exprAfter: alias for expr, runs AFTER the primary execution type
-	ExprBefore []Expression `yaml:"exprBefore,omitempty"`
-	Expr       []Expression `yaml:"expr,omitempty"`
-	ExprAfter  []Expression `yaml:"exprAfter,omitempty"`
-
-	// Inline resources: allows multiple LLM, HTTP, Exec, SQL, Python resources
-	// to be configured to run before or after the main resource
-	Before []InlineResource `yaml:"before,omitempty"`
-	After  []InlineResource `yaml:"after,omitempty"`
-
-	// Action blocks (only one primary type should be set, apiResponse can be combined).
+	// Action types (set exactly one):
 	Chat        *ChatConfig            `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
 	SQL         *SQLConfig             `yaml:"sql,omitempty"`
 	Python      *PythonConfig          `yaml:"python,omitempty"`
 	Exec        *ExecConfig            `yaml:"exec,omitempty"`
 	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
-	APIResponse *APIResponseConfig     `yaml:"apiResponse,omitempty"`
 	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
 	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
 	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
 	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
-
-	// Error handling
-	OnError *OnErrorConfig `yaml:"onError,omitempty"`
 }
 
-// InlineResource represents an inline resource that can be executed before or after the main resource.
-// Only one of the resource types should be set.
-type InlineResource struct {
+// InlineResource is an action config used in before/after lists.
+// Only one action type should be set per entry.
+type InlineResource = ActionConfig
+
+// ActionConfig holds the action (execution type) fields for inline resources.
+type ActionConfig struct {
 	Chat        *ChatConfig            `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
 	SQL         *SQLConfig             `yaml:"sql,omitempty"`
@@ -376,8 +251,7 @@ type ChatConfig struct {
 	JSONResponse     bool           `yaml:"jsonResponse"`
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
 	Streaming        bool           `yaml:"streaming,omitempty"` // Stream tokens from LLM as they are generated
-	TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
-	Timeout          string         `yaml:"timeout,omitempty"` // Alias for timeoutDuration
+	Timeout          string         `yaml:"timeout,omitempty"`
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
 	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate
@@ -386,7 +260,7 @@ type ChatConfig struct {
 	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`  // Presence penalty (-2.0 to 2.0)
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans/integers/floats.
 func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
@@ -404,7 +278,6 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 		JSONResponse     interface{}    `yaml:"jsonResponse"`
 		JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
 		Streaming        interface{}    `yaml:"streaming,omitempty"`
-		TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
 		Timeout          string         `yaml:"timeout,omitempty"`
 		Temperature      interface{}    `yaml:"temperature,omitempty"`
 		MaxTokens        interface{}    `yaml:"maxTokens,omitempty"`
@@ -448,13 +321,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	c.ComponentTools = alias.ComponentTools
 	c.Files = alias.Files
 	c.JSONResponseKeys = alias.JSONResponseKeys
-	c.TimeoutDuration = alias.TimeoutDuration
 	c.Timeout = alias.Timeout
-
-	// Handle timeout alias
-	if c.Timeout != "" && c.TimeoutDuration == "" {
-		c.TimeoutDuration = c.Timeout
-	}
 
 	return nil
 }
@@ -533,12 +400,11 @@ func (t *ToolParam) UnmarshalYAML(node *yaml.Node) error {
 
 // HTTPClientConfig represents HTTP client configuration.
 type HTTPClientConfig struct {
-	Method          string            `yaml:"method"`
-	URL             string            `yaml:"url"`
-	Headers         map[string]string `yaml:"headers,omitempty"`
-	Data            interface{}       `yaml:"data,omitempty"`
-	TimeoutDuration string            `yaml:"timeoutDuration,omitempty" alias:"timeout"`
-	Timeout         string            `yaml:"timeout,omitempty"` // Alias for timeoutDuration
+	Method  string            `yaml:"method"`
+	URL     string            `yaml:"url"`
+	Headers map[string]string `yaml:"headers,omitempty"`
+	Data    interface{}       `yaml:"data,omitempty"`
+	Timeout string            `yaml:"timeout,omitempty"`
 
 	// Retry configuration
 	Retry *RetryConfig `yaml:"retry,omitempty"`
@@ -554,25 +420,6 @@ type HTTPClientConfig struct {
 	FollowRedirects *bool          `yaml:"followRedirects,omitempty"`
 	Proxy           string         `yaml:"proxy,omitempty"`
 	TLS             *HTTPTLSConfig `yaml:"tls,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
-func (h *HTTPClientConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type rawHTTPClientConfig HTTPClientConfig
-	var raw rawHTTPClientConfig
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-
-	*h = HTTPClientConfig(raw)
-
-	// Handle timeout alias
-	if h.Timeout != "" && h.TimeoutDuration == "" {
-		h.TimeoutDuration = h.Timeout
-	}
-
-	return nil
 }
 
 // RetryConfig represents retry configuration.
@@ -686,34 +533,32 @@ func (h *HTTPTLSConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // SQLConfig represents SQL query configuration.
 type SQLConfig struct {
-	ConnectionName  string        `yaml:"connectionName,omitempty"`
-	Connection      string        `yaml:"connection,omitempty"`
-	Pool            *PoolConfig   `yaml:"pool,omitempty"`
-	Query           string        `yaml:"query,omitempty"`
-	Params          []interface{} `yaml:"params,omitempty"`
-	Transaction     bool          `yaml:"transaction,omitempty"`
-	Queries         []QueryItem   `yaml:"queries,omitempty"`
-	Format          string        `yaml:"format,omitempty"`
-	TimeoutDuration string        `yaml:"timeoutDuration,omitempty"`
-	Timeout         string        `yaml:"timeout,omitempty"` // Alias for timeoutDuration
-	MaxRows         int           `yaml:"maxRows,omitempty"`
+	ConnectionName string        `yaml:"connectionName,omitempty"`
+	Connection     string        `yaml:"connection,omitempty"`
+	Pool           *PoolConfig   `yaml:"pool,omitempty"`
+	Query          string        `yaml:"query,omitempty"`
+	Params         []interface{} `yaml:"params,omitempty"`
+	Transaction    bool          `yaml:"transaction,omitempty"`
+	Queries        []QueryItem   `yaml:"queries,omitempty"`
+	Format         string        `yaml:"format,omitempty"`
+	Timeout        string        `yaml:"timeout,omitempty"`
+	MaxRows        int           `yaml:"maxRows,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans/integers.
 func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
-		ConnectionName  string        `yaml:"connectionName,omitempty"`
-		Connection      string        `yaml:"connection,omitempty"`
-		Pool            *PoolConfig   `yaml:"pool,omitempty"`
-		Query           string        `yaml:"query,omitempty"`
-		Params          []interface{} `yaml:"params,omitempty"`
-		Transaction     interface{}   `yaml:"transaction,omitempty"`
-		Queries         []QueryItem   `yaml:"queries,omitempty"`
-		Format          string        `yaml:"format,omitempty"`
-		TimeoutDuration string        `yaml:"timeoutDuration,omitempty"`
-		Timeout         string        `yaml:"timeout,omitempty"`
-		MaxRows         interface{}   `yaml:"maxRows,omitempty"`
+		ConnectionName string        `yaml:"connectionName,omitempty"`
+		Connection     string        `yaml:"connection,omitempty"`
+		Pool           *PoolConfig   `yaml:"pool,omitempty"`
+		Query          string        `yaml:"query,omitempty"`
+		Params         []interface{} `yaml:"params,omitempty"`
+		Transaction    interface{}   `yaml:"transaction,omitempty"`
+		Queries        []QueryItem   `yaml:"queries,omitempty"`
+		Format         string        `yaml:"format,omitempty"`
+		Timeout        string        `yaml:"timeout,omitempty"`
+		MaxRows        interface{}   `yaml:"maxRows,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -737,13 +582,7 @@ func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
 	s.Params = alias.Params
 	s.Queries = alias.Queries
 	s.Format = alias.Format
-	s.TimeoutDuration = alias.TimeoutDuration
 	s.Timeout = alias.Timeout
-
-	// Handle timeout alias
-	if s.Timeout != "" && s.TimeoutDuration == "" {
-		s.TimeoutDuration = s.Timeout
-	}
 
 	return nil
 }
@@ -758,60 +597,20 @@ type QueryItem struct {
 
 // PythonConfig represents Python execution configuration.
 type PythonConfig struct {
-	Script          string   `yaml:"script,omitempty"`
-	ScriptFile      string   `yaml:"scriptFile,omitempty"`
-	Args            []string `yaml:"args,omitempty"`
-	TimeoutDuration string   `yaml:"timeoutDuration,omitempty"`
-	Timeout         string   `yaml:"timeout,omitempty"`  // Alias for timeoutDuration
-	VenvName        string   `yaml:"venvName,omitempty"` // Custom virtual environment name for isolation
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
-func (p *PythonConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type rawPythonConfig PythonConfig
-	var raw rawPythonConfig
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-
-	*p = PythonConfig(raw)
-
-	// Handle timeout alias
-	if p.Timeout != "" && p.TimeoutDuration == "" {
-		p.TimeoutDuration = p.Timeout
-	}
-
-	return nil
+	Script     string   `yaml:"script,omitempty"`
+	ScriptFile string   `yaml:"scriptFile,omitempty"`
+	Args       []string `yaml:"args,omitempty"`
+	Timeout    string   `yaml:"timeout,omitempty"`
+	VenvName   string   `yaml:"venvName,omitempty"` // Custom virtual environment name for isolation
 }
 
 // ExecConfig represents shell execution configuration.
 type ExecConfig struct {
-	Command         string            `yaml:"command"`
-	Args            []string          `yaml:"args,omitempty"`
-	TimeoutDuration string            `yaml:"timeoutDuration,omitempty"`
-	Timeout         string            `yaml:"timeout,omitempty"`    // Alias for timeoutDuration
-	WorkingDir      string            `yaml:"workingDir,omitempty"` // Working directory for command execution
-	Env             map[string]string `yaml:"env,omitempty"`        // Environment variables
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
-func (e *ExecConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type rawExecConfig ExecConfig
-	var raw rawExecConfig
-	if err := node.Decode(&raw); err != nil {
-		return err
-	}
-
-	*e = ExecConfig(raw)
-
-	// Handle timeout alias
-	if e.Timeout != "" && e.TimeoutDuration == "" {
-		e.TimeoutDuration = e.Timeout
-	}
-
-	return nil
+	Command    string            `yaml:"command"`
+	Args       []string          `yaml:"args,omitempty"`
+	Timeout    string            `yaml:"timeout,omitempty"`
+	WorkingDir string            `yaml:"workingDir,omitempty"` // Working directory for command execution
+	Env        map[string]string `yaml:"env,omitempty"`        // Environment variables
 }
 
 // APIResponseConfig represents API response configuration.

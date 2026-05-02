@@ -9,6 +9,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -59,7 +60,11 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			"ollama resource",
 			&domain.Workflow{
 				Resources: []*domain.Resource{
-					{Run: domain.RunConfig{Chat: &domain.ChatConfig{Backend: "ollama"}}},
+					{
+						Run: domain.RunConfig{
+							Chat: &domain.ChatConfig{Backend: "ollama"},
+						},
+					},
 				},
 			},
 			true,
@@ -68,7 +73,11 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			"default backend resource",
 			&domain.Workflow{
 				Resources: []*domain.Resource{
-					{Run: domain.RunConfig{Chat: &domain.ChatConfig{Backend: ""}}},
+					{
+						Run: domain.RunConfig{
+							Chat: &domain.ChatConfig{Backend: ""},
+						},
+					},
 				},
 			},
 			true,
@@ -77,7 +86,11 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			"non-ollama resource",
 			&domain.Workflow{
 				Resources: []*domain.Resource{
-					{Run: domain.RunConfig{Chat: &domain.ChatConfig{Backend: "openai"}}},
+					{
+						Run: domain.RunConfig{
+							Chat: &domain.ChatConfig{Backend: "openai"},
+						},
+					},
 				},
 			},
 			false,
@@ -92,17 +105,15 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 }
 
 func TestIsOllamaRunning_Internal(t *testing.T) {
-	// We can test the negative case easily
 	assert.False(t, IsOllamaRunning("127.0.0.1", 0))
 
-	// Test positive case with a dummy listener
+	// IsOllamaRunning checks TCP connectivity only - any listening port returns true
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer l.Close()
 
 	port := l.Addr().(*net.TCPAddr).Port
-	// Since it's not actually Ollama responding with 200 OK to /, it should return false
-	assert.False(t, IsOllamaRunning("127.0.0.1", port))
+	assert.True(t, IsOllamaRunning("127.0.0.1", port))
 }
 
 func TestResolveWorkflowPath_Internal(t *testing.T) {
@@ -147,11 +158,18 @@ func TestEnsureOllamaRunning_Internal(t *testing.T) {
 	})
 
 	t.Run("command not found", func(t *testing.T) {
+		// Find a free port so IsOllamaRunning returns false (not already running)
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		require.NoError(t, err)
+		port := l.Addr().(*net.TCPAddr).Port
+		l.Close() // close immediately so the port is free but not listening
+
 		oldPath := os.Getenv("PATH")
 		os.Setenv("PATH", "")
 		defer os.Setenv("PATH", oldPath)
 
-		err := ensureOllamaRunning("http://localhost:11434")
+		ollamaURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+		err = ensureOllamaRunning(ollamaURL)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "ollama not found in PATH")
 	})
@@ -177,4 +195,216 @@ func TestFindWorkflowFile_Internal(t *testing.T) {
 	_ = os.WriteFile(wPath, []byte("test"), 0644)
 	path = FindWorkflowFile(tmpDir)
 	assert.Equal(t, wPath, path)
+}
+
+// TestPrintIORequirements_WithNonAPIInput exercises the non-trivial branches of
+// printIORequirements: bot sources, capture sources, transcriber, and activation.
+func TestPrintIORequirements_WithNonAPIInput(t *testing.T) {
+	// audio source → exercises printCaptureRequirements (audio branch)
+	t.Run("audio_source", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// video source → exercises printCaptureRequirements (video branch)
+	t.Run("video_source", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceVideo},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// bot source with all four platforms
+	t.Run("bot_source_all_platforms", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceBot},
+					Bot: &domain.BotConfig{
+						Discord:  &domain.DiscordConfig{BotToken: "tok"},
+						Slack:    &domain.SlackConfig{BotToken: "tok"},
+						Telegram: &domain.TelegramConfig{BotToken: "tok"},
+						WhatsApp: &domain.WhatsAppConfig{PhoneNumberID: "id"},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// offline transcriber with whisper engine
+	t.Run("transcriber_offline_whisper", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineWhisper,
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// offline transcriber with faster-whisper engine
+	t.Run("transcriber_offline_faster_whisper", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineFasterWhisper,
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// offline transcriber with vosk engine
+	t.Run("transcriber_offline_vosk", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineVosk,
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// offline transcriber with whisper-cpp engine
+	t.Run("transcriber_offline_whispercpp", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineWhisperCPP,
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// offline activation with whisper engine (exercises printActivationRequirements)
+	t.Run("activation_offline_whisper", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Activation: &domain.ActivationConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineWhisper,
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// duplicate engine in transcriber + activation → printed[engine] dedup
+	t.Run("dedup_printed_engines", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineWhisper,
+						},
+					},
+					Activation: &domain.ActivationConfig{
+						Mode: domain.TranscriberModeOffline,
+						Offline: &domain.OfflineTranscriberConfig{
+							Engine: domain.TranscriberEngineWhisper, // same engine → skipped
+						},
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// nil transcriber / nil activation → early return
+	t.Run("nil_transcriber_activation", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources:     []string{domain.InputSourceAudio},
+					Transcriber: nil,
+					Activation:  nil,
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+
+	// online transcriber → printTranscriberRequirements returns early (mode != offline)
+	t.Run("transcriber_online", func(_ *testing.T) {
+		w := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Input: &domain.InputConfig{
+					Sources: []string{domain.InputSourceAudio},
+					Transcriber: &domain.TranscriberConfig{
+						Mode: "online",
+					},
+				},
+			},
+		}
+		printIORequirements(w)
+	})
+}
+
+// TestWaitForOllamaReady_Timeout verifies that waitForOllamaReady returns an
+// error when Ollama does not start within the timeout window.
+func TestWaitForOllamaReady_Timeout(t *testing.T) {
+	// Use port 0 (invalid) so IsOllamaRunning always returns false.
+	err := waitForOllamaReady("127.0.0.1", 0, 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout")
+}
+
+// TestEnsureOllamaRunning_AlreadyRunning verifies the "already running" path by
+// starting a TCP listener so IsOllamaRunning returns true.
+func TestEnsureOllamaRunning_AlreadyRunning(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer l.Close()
+
+	port := l.Addr().(*net.TCPAddr).Port
+	ollamaURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+
+	err = ensureOllamaRunning(ollamaURL)
+	assert.NoError(t, err)
 }

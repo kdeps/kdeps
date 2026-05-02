@@ -121,8 +121,8 @@ func (e *Executor) Execute(
 			timeout = parsedTimeout
 		}
 	}
-	if resolvedConfig.TimeoutDuration != "" {
-		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
+	if resolvedConfig.Timeout != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.Timeout); parseErr == nil {
 			timeout = parsedTimeout
 		}
 	}
@@ -181,12 +181,12 @@ func (e *Executor) resolveConfig(
 	resolvedConfig := *config
 
 	// Evaluate TimeoutDuration if it contains expression syntax
-	if config.TimeoutDuration != "" {
-		timeoutStr, err := e.EvaluateExpression(evaluator, ctx, config.TimeoutDuration)
+	if config.Timeout != "" {
+		timeoutStr, err := e.EvaluateExpression(evaluator, ctx, config.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
 		}
-		resolvedConfig.TimeoutDuration = fmt.Sprintf("%v", timeoutStr)
+		resolvedConfig.Timeout = fmt.Sprintf("%v", timeoutStr)
 	}
 
 	// Evaluate WorkingDir if it contains expression syntax

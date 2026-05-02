@@ -59,9 +59,9 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 	ctx.API.Set("cert", "/path/to/cert")
 
 	config := &domain.HTTPClientConfig{
-		URL:             "http://example.com",
-		Proxy:           "{{get('proxy')}}",
-		TimeoutDuration: "{{get('timeout')}}",
+		URL:     "http://example.com",
+		Proxy:   "{{get('proxy')}}",
+		Timeout: "{{get('timeout')}}",
 		Cache: &domain.HTTPCacheConfig{
 			Enabled: true,
 			TTL:     "{{get('ttl')}}",
@@ -80,7 +80,7 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 
 	require.NotNil(t, factory.CapturedConfig)
 	assert.Equal(t, "http://proxy.local", factory.CapturedConfig.Proxy)
-	assert.Equal(t, "45s", factory.CapturedConfig.TimeoutDuration)
+	assert.Equal(t, "45s", factory.CapturedConfig.Timeout)
 	assert.Equal(t, "1h", factory.CapturedConfig.Cache.TTL)
 	assert.Equal(t, "custom-key", factory.CapturedConfig.Cache.Key)
 	assert.Equal(t, "5s", factory.CapturedConfig.Retry.Backoff)
@@ -99,10 +99,10 @@ func TestSQLExecutor_AllFieldsEvaluation(t *testing.T) {
 	ctx.API.Set("queryName", "GetUsers")
 
 	config := &domain.SQLConfig{
-		Connection:      "sqlite3::memory:",
-		Query:           "SELECT 1",
-		Format:          "{{get('format')}}",
-		TimeoutDuration: "{{get('timeout')}}",
+		Connection: "sqlite3::memory:",
+		Query:      "SELECT 1",
+		Format:     "{{get('format')}}",
+		Timeout:    "{{get('timeout')}}",
 		Pool: &domain.PoolConfig{
 			MaxIdleTime: "{{get('idle')}}",
 		},

@@ -234,9 +234,9 @@ func TestExecutor_Execute_WithTimeout(t *testing.T) {
 
 	// Test SELECT query with valid timeout (exercises timeout parsing branch)
 	config := &domain.SQLConfig{
-		Connection:      "sqlite://:memory:",
-		Query:           "SELECT 1 as value",
-		TimeoutDuration: "5s", // Valid timeout duration
+		Connection: "sqlite://:memory:",
+		Query:      "SELECT 1 as value",
+		Timeout:    "5s", // Valid timeout duration
 	}
 
 	result, err := exec.Execute(ctx, config)
