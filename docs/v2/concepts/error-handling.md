@@ -405,6 +405,6 @@ In `onError.expr` and `onError.when` expressions, the `error` object is availabl
 
 ## See Also
 
-- [Validation](validation) - Input validation
-- [Expression Helpers](expression-helpers) - Helper functions
+- [Validation](/concepts/validation) - Input validation
+- [Expression Helpers](/concepts/expression-helpers) - Helper functions
 - [Resources Overview](../resources/overview) - Resource types

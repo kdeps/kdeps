@@ -94,7 +94,7 @@ run:
 
 ## Expression Support
 
-All `with:` fields support [KDeps expressions](../concepts/expressions):
+All `with:` fields support [KDeps expressions](/advanced/expressions):
 
 <div v-pre>
 

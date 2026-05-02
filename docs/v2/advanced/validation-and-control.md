@@ -519,8 +519,8 @@ run:
 
 ## Related Documentation
 
-- [Validation](validation.md) — Full `validations:` block reference
-- [Expressions](expressions.md) — Expression syntax for conditions
+- [Validation](/concepts/validation) — Full `validations:` block reference
+- [Expressions](/advanced/expressions) — Expression syntax for conditions
 - [Resources Overview](../resources/overview.md) — Resource structure
-- [Unified API](unified-api.md) — Using `get()` in validations
+- [Unified API](/concepts/unified-api) — Using `get()` in validations
 - [Workflow Configuration](../configuration/workflow.md) — Route configuration

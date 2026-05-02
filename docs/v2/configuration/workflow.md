@@ -203,6 +203,14 @@ settings:
       DEBUG: "true"
     args:
       BUILD_ARG: ""               # Docker build args
+
+    # Deployment (Kubernetes)
+    replicas: 3                   # Number of pod replicas
+    resources:                    # CPU/Memory limits and requests
+      cpuLimit: "1000m"
+      memoryLimit: "2Gi"
+      cpuRequest: "100m"
+      memoryRequest: "512Mi"
 ```
 
 ### Python Configuration
@@ -369,6 +377,21 @@ Environment variables are available:
 - In Python scripts: `os.environ['API_KEY']`
 - In shell commands: `$API_KEY`
 - In expressions: `get('API_KEY', 'env')`
+
+## Overriding Global Defaults
+
+KDeps allows you to define global defaults in `~/.kdeps/config.yaml` using the `resource_defaults` block. These defaults are applied to every resource in every workflow unless explicitly overridden in the resource's own configuration.
+
+Example `~/.kdeps/config.yaml`:
+```yaml
+resource_defaults:
+  chat:
+    timeout: "60s"
+  http:
+    timeout: "30s"
+```
+
+If a resource in your `workflow.yaml` does not specify a `timeoutDuration`, it will inherit the global default. If you specify one locally, the local value takes precedence.
 
 ## Complete Example
 

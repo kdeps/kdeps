@@ -41,7 +41,7 @@ Access the result via `output('<callerActionId>')`.
 
 ## Using Expressions in `content`
 
-The `content` field supports [KDeps expressions](../concepts/expressions):
+The `content` field supports [KDeps expressions](/advanced/expressions):
 
 <div v-pre>
 

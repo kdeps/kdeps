@@ -307,6 +307,6 @@ Expressions are evaluated left-to-right with operator precedence:
 
 ## See Also
 
-- [Expressions](expressions.md) - Basic expression syntax
-- [Expression Helpers](expression-helpers.md) - Helper functions
-- [Unified API](unified-api.md) - Data access functions
+- [Expressions](/advanced/expressions) - Basic expression syntax
+- [Expression Helpers](/concepts/expression-helpers) - Helper functions
+- [Unified API](/concepts/unified-api) - Data access functions

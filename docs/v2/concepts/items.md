@@ -482,6 +482,6 @@ items: filter(get('allItems'), .status == 'active')
 ## Next Steps
 
 - [Resources Overview](../resources/overview) - Resource configuration
-- [Expressions](expressions) - Expression syntax
-- [Expression Functions Reference](expression-functions-reference) - Complete function reference
+- [Expressions](/advanced/expressions) - Expression syntax
+- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
 - [Python Resource](../resources/python) - For complex batch processing

@@ -56,7 +56,7 @@ Access the output audio file path via `output('<callerActionId>')`.
 
 ## Expression Support
 
-The `text` field supports [KDeps expressions](../concepts/expressions):
+The `text` field supports [KDeps expressions](/advanced/expressions):
 
 <div v-pre>
 

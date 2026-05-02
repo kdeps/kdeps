@@ -298,6 +298,6 @@ run:
 ## See Also
 
 - [Resources Overview](../resources/overview) — Resource configuration
-- [Expressions](expressions) — Expression syntax
-- [Expression Helpers](expression-helpers) — Helper functions
-- [Error Handling](error-handling) — `onError` with retries and fallbacks
+- [Expressions](/advanced/expressions) — Expression syntax
+- [Expression Helpers](/concepts/expression-helpers) — Helper functions
+- [Error Handling](/concepts/error-handling) — `onError` with retries and fallbacks

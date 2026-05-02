@@ -268,9 +268,61 @@ defaults:
   # timezone: UTC
   # python_version: "3.12"
   # offline_mode: false
+
+resource_defaults:
+  chat:
+    timeout: "60s"
+    context_length: 4096
+  http:
+    timeout: "30s"
+  python:
+    timeout: "60s"
+  # ... and more
 ```
 
 All values are exported as environment variables before workflow execution. Explicit environment variables always take precedence over config file values.
+
+---
+
+### `kdeps chat`
+
+Interactive AI assistant that generates and runs kdeps workflows from natural language.
+
+**Usage:**
+```bash
+kdeps chat [flags]
+```
+
+**Flags:**
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--model` | LLM model for workflow generation | From config |
+| `--base-url` | LLM backend base URL | `http://localhost:11434` |
+| `--api-key` | API key for online LLM providers | From env |
+| `--session` | Resume a previous session by ID | New session |
+| `--no-execute` | Generate workflow but do not allow `/run` | `false` |
+
+**Slash commands inside the REPL:**
+| Command | Description |
+|---------|-------------|
+| `/show` | Print the generated workflow YAML |
+| `/run` | Execute the workflow with `kdeps run` |
+| `/save [path]` | Save the workflow to directory |
+| `/export` | Show Kubernetes manifests (`kdeps export k8s`) |
+| `/reset` | Clear conversation and start fresh |
+| `/quit` | Exit |
+
+**Examples:**
+```bash
+# Start interactive assistant
+kdeps chat
+
+# Use a specific model
+kdeps chat --model gpt-4o
+
+# Generate but don't allow execution
+echo "list files in /tmp" | kdeps chat --no-execute
+```
 
 ---
 
@@ -568,6 +620,16 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
 | `OLLAMA_HOST` | Ollama server URL (e.g. `http://localhost:11434`) |
 | `TZ` | Timezone applied to all workflow runs |
+| `KDEPS_CHAT_TIMEOUT` | Default timeout for LLM chat resources |
+| `KDEPS_CHAT_CONTEXT_LENGTH` | Default context window for LLM chat resources |
+| `KDEPS_HTTP_TIMEOUT` | Default timeout for HTTP client resources |
+| `KDEPS_PYTHON_TIMEOUT` | Default timeout for Python resources |
+| `KDEPS_EXEC_TIMEOUT` | Default timeout for exec resources |
+| `KDEPS_SQL_TIMEOUT` | Default timeout for SQL resources |
+| `KDEPS_SQL_MAX_ROWS` | Default max rows for SQL query results |
+| `KDEPS_ON_ERROR_ACTION` | Default error action: `fail`, `continue`, `retry` |
+| `KDEPS_ON_ERROR_MAX_RETRIES` | Default max retries for `retry` action |
+| `KDEPS_ON_ERROR_RETRY_DELAY` | Default delay between retries |
 
 ## Tips
 
@@ -591,7 +653,7 @@ kubectl rollout status deployment/my-agent
 
 ## Related Documentation
 
-- [Installation](installation) - Install KDeps CLI
-- [Quickstart](quickstart) - Build your first agent
+- [Installation](/getting-started/installation) - Install KDeps CLI
+- [Quickstart](/getting-started/quickstart) - Build your first agent
 - [Workflow Configuration](../configuration/workflow) - Configure workflows
 - [Docker Deployment](../deployment/docker) - Production deployment

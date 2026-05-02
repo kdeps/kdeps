@@ -101,6 +101,6 @@ Project scaffolding templates (used by `kdeps new`) also use Jinja2 with `.j2` f
 
 ## See Also
 
-- [Expressions](/concepts/expressions)
+- [Expressions](/advanced/expressions)
 - [Unified API](/concepts/unified-api)
 - [Jinja2 Documentation](https://jinja.palletsprojects.com/en/stable/)

@@ -471,11 +471,11 @@ Set the token in your `.env` file (never commit this file):
 KDEPS_MANAGEMENT_TOKEN=mysecret
 ```
 
-For the full management API reference see [Management API](../concepts/management-api).
+For the full management API reference see [Management API](/advanced/management-api).
 
 ## Next Steps
 
 - [Workflow Configuration](../configuration/workflow) - Agent settings
 - [WebServer Mode](webserver) - Serve frontends
 - [LLM Backends](../resources/llm-backends) - Backend configuration
-- [Management API](../concepts/management-api) - Live workflow updates without rebuilding
+- [Management API](/advanced/management-api) - Live workflow updates without rebuilding
