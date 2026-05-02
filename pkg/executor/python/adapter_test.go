@@ -55,8 +55,8 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		Script:          `print("hello")`,
-		TimeoutDuration: "10s",
+		Script:  `print("hello")`,
+		Timeout: "10s",
 	}
 
 	// This will try to execute Python, which may fail in test environments

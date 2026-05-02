@@ -59,8 +59,8 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*h
 			clientTimeout = t
 		}
 	}
-	if config.TimeoutDuration != "" {
-		if t, err := time.ParseDuration(config.TimeoutDuration); err == nil {
+	if config.Timeout != "" {
+		if t, err := time.ParseDuration(config.Timeout); err == nil {
 			clientTimeout = t
 		}
 	}
@@ -211,12 +211,12 @@ func (e *Executor) resolveResolvedConfig(
 	}
 
 	// Evaluate TimeoutDuration if it contains expression syntax
-	if config.TimeoutDuration != "" {
-		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+	if config.Timeout != "" {
+		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
 		}
-		resolvedConfig.TimeoutDuration = timeoutStr
+		resolvedConfig.Timeout = timeoutStr
 	}
 
 	// Evaluate TLS configuration if present

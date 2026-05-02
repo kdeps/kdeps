@@ -80,12 +80,12 @@ func (e *Executor) Execute(
 	resolvedConfig := *config
 
 	// Evaluate TimeoutDuration if it contains expression syntax
-	if config.TimeoutDuration != "" {
-		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+	if config.Timeout != "" {
+		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
 		}
-		resolvedConfig.TimeoutDuration = timeoutStr
+		resolvedConfig.Timeout = timeoutStr
 	}
 
 	// Evaluate pool settings if present
@@ -128,8 +128,8 @@ func (e *Executor) Execute(
 			timeout = parsedTimeout
 		}
 	}
-	if resolvedConfig.TimeoutDuration != "" {
-		if parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.TimeoutDuration); timeoutErr == nil {
+	if resolvedConfig.Timeout != "" {
+		if parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.Timeout); timeoutErr == nil {
 			timeout = parsedTimeout
 		}
 	}
@@ -295,8 +295,8 @@ func (e *Executor) executeQuery(
 
 	// Create context with timeout if specified
 	queryCtx := context.Background()
-	if config.TimeoutDuration != "" {
-		timeout, timeoutErr := time.ParseDuration(config.TimeoutDuration)
+	if config.Timeout != "" {
+		timeout, timeoutErr := time.ParseDuration(config.Timeout)
 		if timeoutErr == nil {
 			// Only use parsed timeout if valid, otherwise use default
 			var cancel context.CancelFunc

@@ -299,10 +299,10 @@ func TestExecutor_Execute_Timeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.ChatConfig{
-		Model:           "llama3.2:1b",
-		Prompt:          "Hello",
-		TimeoutDuration: "50ms", // Very short timeout
-		BaseURL:         server.URL,
+		Model:   "llama3.2:1b",
+		Prompt:  "Hello",
+		Timeout: "50ms", // Very short timeout
+		BaseURL: server.URL,
 	}
 
 	result, err := llmExecutor.Execute(ctx, config)
@@ -696,7 +696,7 @@ func TestExecutor_Execute_EnvVarChatTimeoutOverriddenByResource(t *testing.T) {
 	defer server.Close()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
-	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL, TimeoutDuration: "10s"}
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL, Timeout: "10s"}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
 }

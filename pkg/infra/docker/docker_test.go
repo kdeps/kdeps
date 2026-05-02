@@ -836,7 +836,8 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 				},
 			},
 			contains: []string{"FROM ollama/ollama:latest", "11434"},
-		}}
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2056,4 +2057,146 @@ func TestSupervisord_FallbackNoPrepackagedBinary(t *testing.T) {
 
 	require.NotEmpty(t, supervisordContent)
 	assert.Contains(t, supervisordContent, "run /app/workflow.yaml")
+}
+
+// TestClient_CreateContainerNoStart_Validation tests the validation path that does
+// not require a live Docker daemon.
+func TestClient_CreateContainerNoStart_Validation(t *testing.T) {
+	// We construct a Client with a nil Cli intentionally to test only the early
+	// validation branch (empty imageName → error before Cli is touched).
+	c := &docker.Client{}
+	ctx := t.Context()
+
+	_, err := c.CreateContainerNoStart(ctx, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+// TestClient_SaveImage_Validation tests the validation path without Docker.
+func TestClient_SaveImage_Validation(t *testing.T) {
+	c := &docker.Client{}
+	ctx := t.Context()
+
+	err := c.SaveImage(ctx, "", "/tmp/out.tar")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+// TestClient_RemoveImage_Validation tests the validation path without Docker.
+func TestClient_RemoveImage_Validation(t *testing.T) {
+	c := &docker.Client{}
+	ctx := t.Context()
+
+	err := c.RemoveImage(ctx, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+// TestClient_ImageSize_Validation tests the validation path without Docker.
+func TestClient_ImageSize_Validation(t *testing.T) {
+	c := &docker.Client{}
+	ctx := t.Context()
+
+	_, err := c.ImageSize(ctx, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+// TestBuilder_addPrepackagedBinariesToContext_ReadError verifies that a missing
+// binary file produces a descriptive error.
+func TestBuilder_addPrepackagedBinariesToContext_ReadError(t *testing.T) {
+	builder := &docker.Builder{
+		BaseOS: "alpine",
+		PrepackagedBinaries: map[string]string{
+			"amd64": "/nonexistent/path/kdeps-amd64",
+		},
+	}
+
+	workflow := &docker.Builder{}
+	_ = workflow
+
+	// GenerateDockerfile succeeds (doesn't need to read the binary), but
+	// CreateBuildContext will fail when it tries to read the binary.
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: test\n"),
+		0644,
+	))
+
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(wf, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "amd64")
+}
+
+// TestBuilder_GenerateDockerfile_debian verifies that the debian base OS produces
+// a valid Dockerfile with the correct base image.
+func TestBuilder_GenerateDockerfile_debian(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "debian"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, dockerfile, "FROM debian:latest")
+}
+
+// TestBuilder_GenerateDockerfile_debianWithOllama verifies that debian + Ollama
+// uses the official Ollama image (not debian:latest).
+func TestBuilder_GenerateDockerfile_debianWithOllama(t *testing.T) {
+	installOllama := true
+	builder := &docker.Builder{BaseOS: "debian"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+				InstallOllama: &installOllama,
+			},
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	// debian + ollama falls back to the Ollama official (ubuntu-based) image.
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+}
+
+// TestBuilder_buildTemplateData_resourcesDataDir verifies that has_resources and
+// has_data flags are set when those directories exist at the CWD.
+func TestBuilder_buildTemplateData_resourcesDataDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// Create resources/ and data/ directories.
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "resources"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "data"), 0755))
+
+	// Put a workflow.yaml so CreateBuildContext succeeds in a follow-on test.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: test\n"),
+		0644,
+	))
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	// GenerateDockerfile exercises buildTemplateData internally.
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
 }

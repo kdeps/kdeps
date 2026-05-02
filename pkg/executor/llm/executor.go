@@ -325,8 +325,8 @@ func (e *Executor) Execute(
 			timeout = parsedTimeout
 		}
 	}
-	if resolvedConfig.TimeoutDuration != "" {
-		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
+	if resolvedConfig.Timeout != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.Timeout); parseErr == nil {
 			timeout = parsedTimeout
 		}
 	}

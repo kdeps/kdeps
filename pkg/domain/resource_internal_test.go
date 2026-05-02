@@ -20,55 +20,7 @@ package domain
 
 import (
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
-
-// TestYamlNodeKindName tests the private yamlNodeKindName function.
-func TestYamlNodeKindName(t *testing.T) {
-	tests := []struct {
-		kind yaml.Kind
-		want string
-	}{
-		{yaml.DocumentNode, "document"},
-		{yaml.SequenceNode, "sequence"},
-		{yaml.MappingNode, "mapping"},
-		{yaml.ScalarNode, "scalar"},
-		{yaml.AliasNode, "alias"},
-		{yaml.Kind(99), "unknown(99)"},
-	}
-
-	for _, tt := range tests {
-		got := yamlNodeKindName(tt.kind)
-		if got != tt.want {
-			t.Errorf("yamlNodeKindName(%v) = %q, want %q", tt.kind, got, tt.want)
-		}
-	}
-}
-
-// TestMapFieldRulesFromNode_DocumentNode tests mapFieldRulesFromNode with a document node wrapping.
-func TestMapFieldRulesFromNode_DocumentNode(t *testing.T) {
-	// Build a document node wrapping a mapping node
-	var node yaml.Node
-	err := yaml.Unmarshal([]byte(`
-fields:
-  name:
-    type: string
-  age:
-    type: integer
-`), &node)
-	if err != nil {
-		t.Fatalf("yaml.Unmarshal error: %v", err)
-	}
-
-	rules, err := mapFieldRulesFromNode(&node, "fields")
-	if err != nil {
-		t.Fatalf("mapFieldRulesFromNode error: %v", err)
-	}
-	if len(rules) != 2 {
-		t.Errorf("expected 2 rules, got %d", len(rules))
-	}
-}
 
 // TestParseIntErrors tests parseInt with various inputs.
 func TestParseIntErrors(t *testing.T) {

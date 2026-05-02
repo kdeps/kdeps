@@ -303,13 +303,12 @@ func (v *WorkflowValidator) ValidateResource(
 	primaryCount := countPrimaryExecutionTypes(&resource.Run)
 	hasAPIResponse := resource.Run.APIResponse != nil
 	hasExprBlocks := len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprBefore) > 0 ||
-		len(resource.Run.ExprAfter) > 0
+		len(resource.Run.ExprBefore) > 0
 
 	// A resource is valid if it has:
 	//   a) at least one primary execution type, or
 	//   b) an apiResponse block, or
-	//   c) expression blocks (expr/exprBefore/exprAfter) used for variable assignment, or
+	//   c) expression blocks (expr/exprBefore) used for variable assignment, or
 	//   d) a loop with expression blocks (for Turing-complete while loops).
 	if primaryCount == 0 && !hasAPIResponse && !hasExprBlocks {
 		return domain.NewError(

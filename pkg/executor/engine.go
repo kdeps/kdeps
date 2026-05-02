@@ -973,13 +973,6 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Execute exprAfter blocks (alias for expr, also runs after primary execution).
-	if len(resource.Run.ExprAfter) > 0 {
-		if err = e.executeExpressions(resource.Run.ExprAfter, ctx); err != nil {
-			return nil, err
-		}
-	}
-
 	// Handle apiResponse - can be standalone or combined with primary type.
 	// apiResponse runs on every loop iteration (per-iteration = streaming response),
 	// consistent with how it runs per-item in ExecuteWithItems.
@@ -997,10 +990,9 @@ func (e *Engine) ExecuteResource(
 		return primaryResult, nil
 	}
 
-	// If only expressions (exprBefore, expr, exprAfter) or inline resources, return status
+	// If only expressions (exprBefore, expr) or inline resources, return status
 	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 ||
-		len(resource.Run.After) > 0 {
+		len(resource.Run.Before) > 0 || len(resource.Run.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -1759,7 +1751,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	}
 
 	// Log timeout configuration (v1 compatibility)
-	timeoutDurationStr := resource.Run.Chat.TimeoutDuration
+	timeoutDurationStr := resource.Run.Chat.Timeout
 	if timeoutDurationStr == "" {
 		timeoutDurationStr = "60s" // Default
 	}
@@ -1796,7 +1788,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	e.logger.Info("LLM resource configuration",
 		"actionID", resource.Metadata.ActionID,
 		"model", modelStr,
-		"timeoutDuration", timeoutDurationStr,
+		"timeout", timeoutDurationStr,
 		"jsonResponse", resource.Run.Chat.JSONResponse,
 		"backend", backendName)
 

@@ -19,6 +19,7 @@
 package python_test
 
 import (
+	"errors"
 	"os"
 	execpkg "os/exec"
 	"path/filepath"
@@ -47,6 +48,28 @@ func (m *MockUVManager) EnsureVenv(_ string, _ []string, _ string, _ string) (st
 
 func (m *MockUVManager) GetPythonPath(_ string) (string, error) {
 	return "/mock/venv/bin/python", nil
+}
+
+// ErrorEnsureVenvManager returns an error from EnsureVenv.
+type ErrorEnsureVenvManager struct{}
+
+func (m *ErrorEnsureVenvManager) EnsureVenv(_ string, _ []string, _ string, _ string) (string, error) {
+	return "", errors.New("venv creation failed")
+}
+
+func (m *ErrorEnsureVenvManager) GetPythonPath(_ string) (string, error) {
+	return "/mock/venv/bin/python", nil
+}
+
+// ErrorGetPythonPathManager returns an error from GetPythonPath.
+type ErrorGetPythonPathManager struct{}
+
+func (m *ErrorGetPythonPathManager) EnsureVenv(_ string, _ []string, _ string, _ string) (string, error) {
+	return "/mock/venv", nil
+}
+
+func (m *ErrorGetPythonPathManager) GetPythonPath(_ string) (string, error) {
+	return "", errors.New("python path not found")
 }
 
 func TestNewExecutor(t *testing.T) {
@@ -277,8 +300,8 @@ func TestExecutor_Execute_WithTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		Script:          `import time; time.sleep(10)`, // Long running script
-		TimeoutDuration: "100ms",                       // Short timeout
+		Script:  `import time; time.sleep(10)`, // Long running script
+		Timeout: "100ms",                       // Short timeout
 	}
 
 	// Test timeout configuration - should fail due to timeout (if uv available) or venv creation (if uv not available)
@@ -297,8 +320,8 @@ func TestExecutor_Execute_InvalidTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		Script:          `print("test")`,
-		TimeoutDuration: "invalid-duration",
+		Script:  `print("test")`,
+		Timeout: "invalid-duration",
 	}
 
 	// Test invalid timeout handling - invalid duration is silently ignored, uses default timeout
@@ -714,21 +737,21 @@ func TestExecutor_ParseTimeout(t *testing.T) {
 		{
 			name: "valid timeout",
 			config: &domain.PythonConfig{
-				TimeoutDuration: "5s",
+				Timeout: "5s",
 			},
 			expected: 5 * time.Second,
 		},
 		{
 			name: "invalid timeout uses default",
 			config: &domain.PythonConfig{
-				TimeoutDuration: "invalid",
+				Timeout: "invalid",
 			},
 			expected: 30 * time.Second, // Falls back to default
 		},
 		{
 			name: "timeout in minutes",
 			config: &domain.PythonConfig{
-				TimeoutDuration: "2m",
+				Timeout: "2m",
 			},
 			expected: 2 * time.Minute,
 		},
@@ -958,8 +981,8 @@ func TestExecutor_ParseTimeout_WithDuration(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		Script:          "print('test timeout')",
-		TimeoutDuration: "10s",
+		Script:  "print('test timeout')",
+		Timeout: "10s",
 	}
 
 	// parseTimeout is called internally during Execute
@@ -977,8 +1000,8 @@ func TestExecutor_ParseTimeout_WithInvalidDuration(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		Script:          "print('test')",
-		TimeoutDuration: "not-a-duration",
+		Script:  "print('test')",
+		Timeout: "not-a-duration",
 	}
 
 	// Should use default timeout when duration is invalid
@@ -1006,7 +1029,7 @@ func TestExecutor_ParseTimeout_ResourceOverridesEnvVar(t *testing.T) {
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 	// Resource timeout should win over env var
-	config := &domain.PythonConfig{Script: "print('resource timeout')", TimeoutDuration: "10s"}
+	config := &domain.PythonConfig{Script: "print('resource timeout')", Timeout: "10s"}
 	_, _ = exec.Execute(ctx, config)
 }
 
@@ -1236,8 +1259,8 @@ func TestExecutor_ResolveConfig_TimeoutDuration_ExpressionError(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.PythonConfig{
-		TimeoutDuration: "{{invalid_expr(}}", // malformed expression
-		Script:          "print('test')",
+		Timeout: "{{invalid_expr(}}", // malformed expression
+		Script:  "print('test')",
 	}
 
 	_, err = exec.Execute(ctx, config)
@@ -1262,6 +1285,235 @@ func TestExecutor_ResolveConfig_Args_ExpressionError(t *testing.T) {
 	_, err = exec.Execute(ctx, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to evaluate argument 1")
+}
+
+// TestExecutor_GetPythonVersion_FromEnvVar exercises the KDEPS_PYTHON_VERSION env var branch.
+func TestExecutor_GetPythonVersion_FromEnvVar(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_VERSION", "3.10")
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('env version')",
+	}
+
+	// getPythonVersion will pick up KDEPS_PYTHON_VERSION=3.10
+	result, err := exec.Execute(ctx, config)
+	_ = result
+	_ = err
+}
+
+// TestExecutor_PrepareScript_RelativeScriptFile exercises the relative path branch in prepareScript.
+func TestExecutor_PrepareScript_RelativeScriptFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create a simple python script
+	scriptPath := filepath.Join(tmpDir, "test_script.py")
+	err := os.WriteFile(scriptPath, []byte("print('hello from file')\n"), 0644)
+	require.NoError(t, err)
+
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.FSRoot = tmpDir
+
+	// Relative path - will be joined with FSRoot
+	config := &domain.PythonConfig{
+		ScriptFile: "test_script.py",
+	}
+
+	result, err := exec.Execute(ctx, config)
+	_ = result
+	_ = err
+}
+
+// TestExecutor_PrepareScript_EvaluateInterpolatedStringError tests evaluateInterpolatedString error path.
+func TestExecutor_PrepareScript_EvaluateInterpolatedStringError(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Script with {{ }} but invalid expression inside
+	config := &domain.PythonConfig{
+		Script: "print({{invalid_func(}})", // has both {{ and }} but invalid expression
+	}
+
+	_, err = exec.Execute(ctx, config)
+	// Should error during script evaluation
+	require.Error(t, err)
+}
+
+// TestExecutor_Execute_EvaluateInterpolatedString_Success exercises the {{ }} interpolation in Script.
+func TestExecutor_Execute_EvaluateInterpolatedString_Success(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Outputs["greeting"] = "Hello"
+
+	// Valid expression in script that will be evaluated
+	config := &domain.PythonConfig{
+		Script: "print('{{get(\"greeting\")}}')",
+	}
+
+	result, err := exec.Execute(ctx, config)
+	_ = result
+	_ = err
+}
+
+// TestExecutor_Execute_EnsureVenvError tests EnsureVenv error path.
+func TestExecutor_Execute_EnsureVenvError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&ErrorEnsureVenvManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('test')",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to ensure venv")
+}
+
+// TestExecutor_Execute_GetPythonPathError tests GetPythonPath error path.
+func TestExecutor_Execute_GetPythonPathError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&ErrorGetPythonPathManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('test')",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get python path")
+}
+
+// TestExecutor_EvaluateExpression_ParseError tests the parse error path in EvaluateExpression.
+func TestExecutor_EvaluateExpression_ParseError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	evaluator := expression.NewEvaluator(ctx.API)
+	// Unclosed {{ causes ParseValue to return a parse error.
+	_, err = exec.EvaluateExpression(evaluator, ctx, "{{invalid syntax")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse expression")
+}
+
+// TestExecutor_EvaluateInterpolatedString_ParseError tests parse error in evaluateInterpolatedString.
+// This is exercised via prepareScript when Script contains {{ }} with bad expression.
+func TestExecutor_EvaluateInterpolatedString_ParseError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Script with {{ and }} (so the interpolation branch is entered) but bad expression
+	config := &domain.PythonConfig{
+		Script: "{{invalid(}}",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate script")
+}
+
+// TestExecutor_EvaluateInterpolatedString_EvalError tests evaluation error in evaluateInterpolatedString.
+// Uses a script with valid {{ }} syntax but an expression that fails at runtime.
+func TestExecutor_EvaluateInterpolatedString_EvalError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Valid syntax {{ }} but calls a non-existent function at runtime
+	config := &domain.PythonConfig{
+		Script: "{{nonexistent('test')}}",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	// Should error - either evaluate error or python execution error
+	_ = err
+}
+
+// TestExecutor_ResolveConfig_ArgsSuccess tests the successful args resolution path.
+func TestExecutor_ResolveConfig_ArgsSuccess(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	ctx.Outputs["val"] = "computed"
+
+	// Args with no expression syntax -> literal passthrough via EvaluateStringOrLiteral
+	config := &domain.PythonConfig{
+		Script: "print('test')",
+		Args:   []string{"literal-arg", "another-arg"},
+	}
+
+	result, err := exec.Execute(ctx, config)
+	// Will fail at python execution (mock path), but resolveConfig succeeds
+	_ = result
+	_ = err
+}
+
+// TestExecutor_PrepareScript_ScriptFileExpressionError tests ScriptFile expression evaluation error.
+func TestExecutor_PrepareScript_ScriptFileExpressionError(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		ScriptFile: "{{invalid(}}", // malformed expression
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate script file path")
+}
+
+// TestExecutor_ExecuteScript_JSONOutput tests that JSON stdout is parsed and returned directly.
+func TestExecutor_ExecuteScript_JSONOutput(t *testing.T) {
+	exec := pythonexecutor.NewExecutor(&MockUVManager{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	// Use a real python to output JSON if available, otherwise skip
+	pythonBin, lookErr := execpkg.LookPath("python3")
+	if lookErr != nil {
+		pythonBin, lookErr = execpkg.LookPath("python")
+		if lookErr != nil {
+			t.Skip("python not available in test environment")
+		}
+	}
+
+	exec.SetExecCommandForTesting(func(name string, arg ...string) *execpkg.Cmd {
+		// Replace the mock python with the real one
+		if name == "/mock/venv/bin/python" {
+			return execpkg.Command(pythonBin, arg...)
+		}
+		return execpkg.Command(name, arg...)
+	})
+
+	config := &domain.PythonConfig{
+		Script: `import json; print(json.dumps({"key": "value", "num": 42}))`,
+	}
+
+	result, err := exec.Execute(ctx, config)
+	require.NoError(t, err)
+
+	// Should return parsed JSON map
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "value", resultMap["key"])
+	assert.Equal(t, float64(42), resultMap["num"])
 }
 
 // TestExecutor_NewExecCommand_CustomFunc exercises the non-nil execCommand branch

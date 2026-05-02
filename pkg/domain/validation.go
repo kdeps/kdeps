@@ -143,6 +143,85 @@ type CustomRule struct {
 	Message string `yaml:"message" json:"message"`
 }
 
+// UnmarshalYAML implements custom unmarshaling for ValidationsConfig, supporting
+// both the standard `rules:` array format and the map-based `fields:`/`properties:`
+// formats (JSON Schema style). `properties:` takes precedence over `fields:`.
+func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
+	kdeps_debug.Log("enter: UnmarshalYAML ValidationsConfig")
+
+	type raw struct {
+		Methods  []string     `yaml:"methods"`
+		Routes   []string     `yaml:"routes"`
+		Headers  []string     `yaml:"headers"`
+		Params   []string     `yaml:"params"`
+		Skip     []Expression `yaml:"skip"`
+		Check    []Expression `yaml:"check"`
+		Error    *ErrorConfig `yaml:"error"`
+		Required []string     `yaml:"required"`
+		Rules    []FieldRule  `yaml:"rules"`
+		Expr     []CustomRule `yaml:"expr"`
+	}
+
+	// Decode known fields first.
+	var r raw
+	if err := node.Decode(&r); err != nil {
+		return err
+	}
+	v.Methods = r.Methods
+	v.Routes = r.Routes
+	v.Headers = r.Headers
+	v.Params = r.Params
+	v.Skip = r.Skip
+	v.Check = r.Check
+	v.Error = r.Error
+	v.Required = r.Required
+	v.Rules = r.Rules
+	v.Expr = r.Expr
+
+	// Extract `fields:` and `properties:` map nodes.
+	extractMapRules := func(key string) ([]FieldRule, error) {
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value != key {
+				continue
+			}
+			mapNode := node.Content[i+1]
+			if mapNode.Kind != yaml.MappingNode {
+				return nil, fmt.Errorf("%q must be a mapping (field name → rule), not a sequence", key)
+			}
+			var rules []FieldRule
+			for j := 0; j+1 < len(mapNode.Content); j += 2 {
+				fieldName := mapNode.Content[j].Value
+				var rule FieldRule
+				if err := mapNode.Content[j+1].Decode(&rule); err != nil {
+					return nil, err
+				}
+				rule.Field = fieldName
+				rules = append(rules, rule)
+			}
+			return rules, nil
+		}
+		return nil, nil
+	}
+
+	fields, err := extractMapRules("fields")
+	if err != nil {
+		return err
+	}
+	properties, err := extractMapRules("properties")
+	if err != nil {
+		return err
+	}
+
+	// properties takes precedence over fields; either overrides rules if set.
+	if len(properties) > 0 {
+		v.Rules = properties
+	} else if len(fields) > 0 {
+		v.Rules = fields
+	}
+
+	return nil
+}
+
 // MultipleValidationError wraps multiple validation errors.
 type MultipleValidationError struct {
 	Errors []*ValidationError

@@ -128,11 +128,11 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
 				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}},
 					APIResponse: &domain.APIResponseConfig{
 						Success:  true,
 						Response: "{{ output('run-cmd').stdout }}",
 					},
+					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}},
 				},
 			},
 		},
@@ -161,11 +161,11 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
 				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}, TimeoutDuration: "10s"},
 					APIResponse: &domain.APIResponseConfig{
 						Success:  true,
 						Response: "{{ output('run-cmd').stdout }}",
 					},
+					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}, Timeout: "10s"},
 				},
 			},
 		},
@@ -203,14 +203,14 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
 				Run: domain.RunConfig{
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: "{{ output('call-api').body }}",
+					},
 					HTTPClient: &domain.HTTPClientConfig{
 						Method: "GET",
 						URL:    server.URL,
 						// No TimeoutDuration — global default applies
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('call-api').body }}",
 					},
 				},
 			},
@@ -246,14 +246,14 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
 				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method:          "GET",
-						URL:             server.URL,
-						TimeoutDuration: "5s",
-					},
 					APIResponse: &domain.APIResponseConfig{
 						Success:  true,
 						Response: "{{ output('call-api').body }}",
+					},
+					HTTPClient: &domain.HTTPClientConfig{
+						Method:  "GET",
+						URL:     server.URL,
+						Timeout: "5s",
 					},
 				},
 			},
@@ -301,15 +301,15 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
 				Run: domain.RunConfig{
+					APIResponse: &domain.APIResponseConfig{
+						Success:  true,
+						Response: "{{ output('chat-resource').message.content }}",
+					},
 					Chat: &domain.ChatConfig{
 						Model:   "llama3.2:1b",
 						Prompt:  "say hello",
 						BaseURL: server.URL,
 						// No TimeoutDuration or ContextLength — global defaults apply
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('chat-resource').message.content }}",
 					},
 				},
 			},
@@ -353,16 +353,16 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:           "llama3.2:1b",
-						Prompt:          "say hello",
-						BaseURL:         server.URL,
-						TimeoutDuration: "10s",
-						ContextLength:   4096,
-					},
 					APIResponse: &domain.APIResponseConfig{
 						Success:  true,
 						Response: "{{ output('chat-resource').message.content }}",
+					},
+					Chat: &domain.ChatConfig{
+						Model:         "llama3.2:1b",
+						Prompt:        "say hello",
+						BaseURL:       server.URL,
+						Timeout:       "10s",
+						ContextLength: 4096,
 					},
 				},
 			},
@@ -444,10 +444,10 @@ resource_defaults:
 	require.NoError(t, err)
 
 	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
-		Connection:      "sqlite://:memory:",
-		Query:           "SELECT 1",
-		TimeoutDuration: "10s",
-		MaxRows:         100, // resource value wins
+		Connection: "sqlite://:memory:",
+		Query:      "SELECT 1",
+		Timeout:    "10s",
+		MaxRows:    100, // resource value wins
 	})
 	require.NoError(t, execErr)
 	assert.NotNil(t, result)
@@ -499,8 +499,8 @@ resource_defaults:
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run"},
 				Run: domain.RunConfig{
-					Exec:        &domain.ExecConfig{Command: "echo", Args: []string{"all-defaults"}},
 					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+					Exec:        &domain.ExecConfig{Command: "echo", Args: []string{"all-defaults"}},
 				},
 			},
 		},

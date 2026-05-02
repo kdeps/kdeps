@@ -132,17 +132,13 @@ func TestEngine_InlineResources_After(t *testing.T) {
 						Prompt: "test prompt",
 					},
 					After: []domain.InlineResource{
-						{
-							SQL: &domain.SQLConfig{
-								Connection: "test",
-								Query:      "SELECT 1",
-							},
-						},
-						{
-							Python: &domain.PythonConfig{
-								Script: "print('hello')",
-							},
-						},
+						{SQL: &domain.SQLConfig{
+							Connection: "test",
+							Query:      "SELECT 1",
+						}},
+						{Python: &domain.PythonConfig{
+							Script: "print('hello')",
+						}},
 					},
 				},
 			},
@@ -209,11 +205,9 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 						Prompt: "test prompt",
 					},
 					After: []domain.InlineResource{
-						{
-							Exec: &domain.ExecConfig{
-								Command: "echo after",
-							},
-						},
+						{Exec: &domain.ExecConfig{
+							Command: "echo after",
+						}},
 					},
 				},
 			},

@@ -154,12 +154,12 @@ func (e *Executor) resolveConfig(
 	}
 
 	// Evaluate TimeoutDuration if it contains expression syntax
-	if config.TimeoutDuration != "" {
-		timeoutStr, err := e.EvaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+	if config.Timeout != "" {
+		timeoutStr, err := e.EvaluateStringOrLiteral(evaluator, ctx, config.Timeout)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
 		}
-		resolvedConfig.TimeoutDuration = timeoutStr
+		resolvedConfig.Timeout = timeoutStr
 	}
 
 	// Evaluate Args
@@ -256,8 +256,8 @@ func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 			timeout = parsedTimeout
 		}
 	}
-	if config.TimeoutDuration != "" {
-		if parsedTimeout, err := time.ParseDuration(config.TimeoutDuration); err == nil {
+	if config.Timeout != "" {
+		if parsedTimeout, err := time.ParseDuration(config.Timeout); err == nil {
 			timeout = parsedTimeout
 		}
 	}

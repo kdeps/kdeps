@@ -1874,10 +1874,10 @@ func TestEngine_FormatDuration(t *testing.T) {
 				},
 				Run: domain.RunConfig{
 					Chat: &domain.ChatConfig{
-						Model:           "gpt-4",
-						Prompt:          "Test prompt",
-						Role:            "user",
-						TimeoutDuration: "30s",
+						Model:   "gpt-4",
+						Prompt:  "Test prompt",
+						Role:    "user",
+						Timeout: "30s",
 					},
 				},
 			}
@@ -2629,9 +2629,9 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 		},
 		Run: domain.RunConfig{
 			Chat: &domain.ChatConfig{
-				Model:           "{{input.model}}", // Valid expression
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
+				Model:   "{{input.model}}", // Valid expression
+				Prompt:  "test prompt",
+				Timeout: "30s",
 			},
 		},
 	}
@@ -2649,9 +2649,9 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 		},
 		Run: domain.RunConfig{
 			Chat: &domain.ChatConfig{
-				Model:           "test-model",
-				Prompt:          "test prompt",
-				TimeoutDuration: "invalid-duration", // Invalid duration
+				Model:   "test-model",
+				Prompt:  "test prompt",
+				Timeout: "invalid-duration", // Invalid duration
 			},
 		},
 	}
@@ -2688,9 +2688,9 @@ func TestEngine_executeLLM_ErrorCases(t *testing.T) {
 		},
 		Run: domain.RunConfig{
 			Chat: &domain.ChatConfig{
-				Model:           "{{invalid.syntax}}", // Invalid expression syntax
-				Prompt:          "test prompt",
-				TimeoutDuration: "30s",
+				Model:   "{{invalid.syntax}}", // Invalid expression syntax
+				Prompt:  "test prompt",
+				Timeout: "30s",
 			},
 		},
 	}
@@ -2748,10 +2748,10 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 			},
 			Run: domain.RunConfig{
 				Chat: &domain.ChatConfig{
-					Model:           "{{input.model}}", // Expression that evaluates
-					Prompt:          "test prompt",
-					TimeoutDuration: "10s", // Short timeout for testing
-					Backend:         "ollama",
+					Model:   "{{input.model}}", // Expression that evaluates
+					Prompt:  "test prompt",
+					Timeout: "10s", // Short timeout for testing
+					Backend: "ollama",
 				},
 			},
 		}
@@ -2780,9 +2780,9 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 			},
 			Run: domain.RunConfig{
 				Chat: &domain.ChatConfig{
-					Model:           "{{input.model_config.name}}", // Nested expression
-					Prompt:          "test prompt",
-					TimeoutDuration: "5s", // Very short for quick test
+					Model:   "{{input.model_config.name}}", // Nested expression
+					Prompt:  "test prompt",
+					Timeout: "5s", // Very short for quick test
 				},
 			},
 		}
@@ -2801,9 +2801,9 @@ func TestEngine_executeLLM_CompleteCoverage(t *testing.T) {
 			},
 			Run: domain.RunConfig{
 				Chat: &domain.ChatConfig{
-					Model:           "test-model",
-					Prompt:          "test prompt",
-					TimeoutDuration: "2s", // Short timeout to test countdown
+					Model:   "test-model",
+					Prompt:  "test prompt",
+					Timeout: "2s", // Short timeout to test countdown
 				},
 			},
 		}
@@ -4437,10 +4437,10 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			},
 			Run: domain.RunConfig{
 				Chat: &domain.ChatConfig{
-					Model:           "{{input.model}}", // Expression accessing request data
-					Prompt:          "Test prompt",
-					Role:            "user",
-					TimeoutDuration: "30s",
+					Model:   "{{input.model}}", // Expression accessing request data
+					Prompt:  "Test prompt",
+					Role:    "user",
+					Timeout: "30s",
 				},
 			},
 		}

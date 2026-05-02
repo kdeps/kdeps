@@ -54,7 +54,7 @@ run:
     role: user
     prompt: "Test prompt"
     jsonResponse: true
-    timeoutDuration: 30s
+    timeout: 30s
 `
 
 	var resource domain.Resource
@@ -170,7 +170,7 @@ headers:
   Authorization: Bearer token123
 data:
   key: value
-timeoutDuration: 30s
+timeout: 30s
 `
 
 	var config domain.HTTPClientConfig
@@ -207,7 +207,7 @@ query: SELECT * FROM users WHERE id = $1
 params:
   - 123
 transaction: true
-timeoutDuration: 10s
+timeout: 10s
 maxRows: 100
 `
 
@@ -249,7 +249,7 @@ script: |
 args:
   - arg1
   - arg2
-timeoutDuration: 60s
+timeout: 60s
 `
 
 	var config domain.PythonConfig
@@ -266,8 +266,8 @@ timeoutDuration: 60s
 		t.Errorf("Args length = %v, want %v", len(config.Args), 2)
 	}
 
-	if config.TimeoutDuration != "60s" {
-		t.Errorf("TimeoutDuration = %v, want %v", config.TimeoutDuration, "60s")
+	if config.Timeout != "60s" {
+		t.Errorf("Timeout = %v, want %v", config.Timeout, "60s")
 	}
 }
 
@@ -355,51 +355,30 @@ error:
 
 func TestExecConfig_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
-		name                string
-		yamlData            string
-		wantTimeoutDuration string
-		wantCommand         string
-		wantError           bool
+		name        string
+		yamlData    string
+		wantTimeout string
+		wantCommand string
+		wantError   bool
 	}{
 		{
-			name: "timeout alias is used when timeoutDuration is not set",
+			name: "timeout is set",
 			yamlData: `
 command: echo test
 timeout: 5s
 `,
-			wantTimeoutDuration: "5s",
-			wantCommand:         "echo test",
-			wantError:           false,
+			wantTimeout: "5s",
+			wantCommand: "echo test",
+			wantError:   false,
 		},
 		{
-			name: "timeoutDuration takes precedence over timeout",
-			yamlData: `
-command: echo test
-timeout: 5s
-timeoutDuration: 10s
-`,
-			wantTimeoutDuration: "10s",
-			wantCommand:         "echo test",
-			wantError:           false,
-		},
-		{
-			name: "only timeoutDuration is set",
-			yamlData: `
-command: echo test
-timeoutDuration: 15s
-`,
-			wantTimeoutDuration: "15s",
-			wantCommand:         "echo test",
-			wantError:           false,
-		},
-		{
-			name: "neither timeout nor timeoutDuration is set",
+			name: "timeout not set",
 			yamlData: `
 command: echo test
 `,
-			wantTimeoutDuration: "",
-			wantCommand:         "echo test",
-			wantError:           false,
+			wantTimeout: "",
+			wantCommand: "echo test",
+			wantError:   false,
 		},
 	}
 
@@ -413,12 +392,8 @@ command: echo test
 				return
 			}
 
-			if config.TimeoutDuration != tt.wantTimeoutDuration {
-				t.Errorf(
-					"ExecConfig.TimeoutDuration = %v, want %v",
-					config.TimeoutDuration,
-					tt.wantTimeoutDuration,
-				)
+			if config.Timeout != tt.wantTimeout {
+				t.Errorf("ExecConfig.Timeout = %v, want %v", config.Timeout, tt.wantTimeout)
 			}
 
 			if config.Command != tt.wantCommand {
@@ -470,8 +445,112 @@ func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 	}
 }
 
+// TestAgentCallConfig_DecodeError covers the unmarshal error path in AgentCallConfig.UnmarshalYAML.
+func TestAgentCallConfig_DecodeError(t *testing.T) {
+	// Params expects a map; providing a sequence triggers a decode error.
+	yamlData := "name: test\nparams:\n  - invalid\n  - sequence\n"
+	var cfg domain.AgentCallConfig
+	err := yaml.Unmarshal([]byte(yamlData), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding invalid params into AgentCallConfig")
+	}
+}
+
 // TestChatConfig_ComponentTools_YAML verifies that componentTools is correctly
 // parsed from YAML into ChatConfig.ComponentTools.
+// TestErrorConfig_DecodeError covers the node.Decode error path in ErrorConfig.UnmarshalYAML.
+func TestErrorConfig_DecodeError(t *testing.T) {
+	var cfg domain.ErrorConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into ErrorConfig")
+	}
+}
+
+// TestOnErrorConfig_DecodeError covers the node.Decode error path in OnErrorConfig.UnmarshalYAML.
+func TestOnErrorConfig_DecodeError(t *testing.T) {
+	var cfg domain.OnErrorConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into OnErrorConfig")
+	}
+}
+
+// TestChatConfig_DecodeError covers the node.Decode error path in ChatConfig.UnmarshalYAML.
+func TestChatConfig_DecodeError(t *testing.T) {
+	var cfg domain.ChatConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into ChatConfig")
+	}
+}
+
+// TestChatConfig_Streaming_String covers the ParseBool(Streaming) ok=true branch.
+func TestChatConfig_Streaming_String(t *testing.T) {
+	yamlData := "model: gpt-4\nrole: user\nprompt: hi\nstreaming: \"true\"\n"
+	var cfg domain.ChatConfig
+	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
+		t.Fatalf("UnmarshalYAML error: %v", err)
+	}
+	if !cfg.Streaming {
+		t.Error("Streaming should be true when set via string 'true'")
+	}
+}
+
+// TestToolParam_DecodeError covers the node.Decode error path in ToolParam.UnmarshalYAML.
+func TestToolParam_DecodeError(t *testing.T) {
+	var cfg domain.ToolParam
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into ToolParam")
+	}
+}
+
+// TestRetryConfig_DecodeError covers the node.Decode error path in RetryConfig.UnmarshalYAML.
+func TestRetryConfig_DecodeError(t *testing.T) {
+	var cfg domain.RetryConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into RetryConfig")
+	}
+}
+
+// TestHTTPCacheConfig_DecodeError covers the node.Decode error path in HTTPCacheConfig.UnmarshalYAML.
+func TestHTTPCacheConfig_DecodeError(t *testing.T) {
+	var cfg domain.HTTPCacheConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into HTTPCacheConfig")
+	}
+}
+
+// TestHTTPTLSConfig_DecodeError covers the node.Decode error path in HTTPTLSConfig.UnmarshalYAML.
+func TestHTTPTLSConfig_DecodeError(t *testing.T) {
+	var cfg domain.HTTPTLSConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into HTTPTLSConfig")
+	}
+}
+
+// TestSQLConfig_DecodeError covers the node.Decode error path in SQLConfig.UnmarshalYAML.
+func TestSQLConfig_DecodeError(t *testing.T) {
+	var cfg domain.SQLConfig
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into SQLConfig")
+	}
+}
+
+// TestResponseMeta_DecodeError covers the node.Decode error path in ResponseMeta.UnmarshalYAML.
+func TestResponseMeta_DecodeError(t *testing.T) {
+	var cfg domain.ResponseMeta
+	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding scalar into ResponseMeta")
+	}
+}
+
 func TestChatConfig_ComponentTools_YAML(t *testing.T) {
 	tests := []struct {
 		name     string

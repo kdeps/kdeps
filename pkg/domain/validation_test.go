@@ -342,24 +342,12 @@ max: 100
 }
 
 func TestValidationsConfig_UnmarshalYAML_DecodeError(t *testing.T) {
-	// Test the error path in UnmarshalYAML when node.Decode fails
-	rules := domain.ValidationsConfig{}
-
-	// Create a YAML node with invalid structure - scalar where mapping expected
-	node := &yaml.Node{
-		Kind: yaml.DocumentNode,
-		Content: []*yaml.Node{
-			{
-				Kind:  yaml.ScalarNode,
-				Value: "this is not a mapping",
-			},
-		},
-	}
-
-	err := rules.UnmarshalYAML(node)
-	// This should return an error because we expect a mapping but got a scalar
+	// ValidationsConfig no longer has a custom UnmarshalYAML; validate that
+	// invalid YAML returns an error through the standard yaml.Unmarshal path.
+	var rules domain.ValidationsConfig
+	err := yaml.Unmarshal([]byte("- not a mapping"), &rules)
 	if err == nil {
-		t.Error("Expected UnmarshalYAML to return an error for invalid node type")
+		t.Error("Expected yaml.Unmarshal to return an error for invalid node type")
 	}
 }
 
@@ -411,4 +399,33 @@ properties:
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
 	require.Error(t, err, "Expected error when properties: is a sequence, not a mapping")
 	assert.Contains(t, err.Error(), `"properties" must be a mapping`)
+}
+
+// TestValidationsConfig_UnmarshalYAML_FieldRuleDecodeError covers the error path in
+// extractMapRules when a field's value node cannot be decoded into FieldRule.
+func TestValidationsConfig_UnmarshalYAML_FieldRuleDecodeError(t *testing.T) {
+	// A sequence value under a field key cannot be decoded into FieldRule (expects mapping).
+	yamlData := `
+fields:
+  name:
+    - invalid
+    - sequence
+`
+	var rules domain.ValidationsConfig
+	err := yaml.Unmarshal([]byte(yamlData), &rules)
+	require.Error(t, err, "expected error when field value is a sequence, not a mapping")
+}
+
+// TestValidationsConfig_UnmarshalYAML_PropertiesFieldRuleDecodeError covers the same error
+// path via the properties: key.
+func TestValidationsConfig_UnmarshalYAML_PropertiesFieldRuleDecodeError(t *testing.T) {
+	yamlData := `
+properties:
+  email:
+    - invalid
+    - sequence
+`
+	var rules domain.ValidationsConfig
+	err := yaml.Unmarshal([]byte(yamlData), &rules)
+	require.Error(t, err, "expected error when properties field value is a sequence, not a mapping")
 }
