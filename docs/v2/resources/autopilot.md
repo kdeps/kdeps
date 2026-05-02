@@ -48,7 +48,7 @@ Use `autopilot` when the exact sequence of steps is not known ahead of time. For
 
 ## Expression Support
 
-All fields support [KDeps expressions](../concepts/expressions):
+All fields support [KDeps expressions](/advanced/expressions):
 
 <div v-pre>
 

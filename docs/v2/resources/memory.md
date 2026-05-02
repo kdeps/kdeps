@@ -69,7 +69,7 @@ Access the result via `output('<callerActionId>')`.
 
 ## Expression Support
 
-All fields support [KDeps expressions](../concepts/expressions):
+All fields support [KDeps expressions](/advanced/expressions):
 
 <div v-pre>
 

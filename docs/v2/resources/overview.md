@@ -258,7 +258,7 @@ run:
 
 </div>
 
-See [Expressions](../concepts/expressions.md) for detailed documentation.
+See [Expressions](/advanced/expressions) for detailed documentation.
 
 ## Items Iteration
 

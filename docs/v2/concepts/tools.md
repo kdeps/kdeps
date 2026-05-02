@@ -556,4 +556,4 @@ run:
 - [LLM Resource](../resources/llm) - Full LLM configuration
 - [LLM Backends](../resources/llm-backends) - Streaming and backend options
 - [Python Resource](../resources/python) - Building tool scripts
-- [Unified API](unified-api) - Data access in tools
+- [Unified API](/concepts/unified-api) - Data access in tools

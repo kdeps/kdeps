@@ -354,7 +354,7 @@ run:
 
 ## See Also
 
-- [Validation](validation) — Full `validations:` block reference
-- [Request Object](request-object) — Accessing request data
+- [Validation](/concepts/validation) — Full `validations:` block reference
+- [Request Object](/concepts/request-object) — Accessing request data
 - [Workflow Configuration](../configuration/workflow) — Route configuration
 - [Resources Overview](../resources/overview) — Resource basics

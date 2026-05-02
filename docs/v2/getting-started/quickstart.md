@@ -14,7 +14,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 brew install kdeps/tap/kdeps
 ```
 
-For more options, see the [Installation Guide](installation).
+For more options, see the [Installation Guide](/getting-started/installation).
 
 ## Option 1: Use the New Command (Easiest)
 
@@ -252,7 +252,7 @@ Access data with `get()`:
 
 ## Next Steps
 
-- [CLI Reference](cli-reference) - Complete command reference
+- [CLI Reference](/reference/cli-reference) - Complete command reference
 - [Workflow Configuration](../configuration/workflow) - Deep dive into settings
 - [LLM Resource](../resources/llm) - Advanced LLM configuration
 - [HTTP Client](../resources/http-client) - Make external API calls

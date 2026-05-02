@@ -488,8 +488,8 @@ run:
 
 ## See Also
 
-- [Unified API](unified-api) - Core get() and set() functions
-- [Expressions](expressions) - Expression syntax and operators
-- [Expression Functions Reference](expression-functions-reference) - Complete function reference
-- [Advanced Expressions](advanced-expressions) - Advanced expression features
+- [Unified API](/concepts/unified-api) - Core get() and set() functions
+- [Expressions](/advanced/expressions) - Expression syntax and operators
+- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
+- [Advanced Expressions](/advanced/advanced-expressions) - Advanced expression features
 - [Items Iteration](items) - Processing multiple items

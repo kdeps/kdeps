@@ -127,7 +127,7 @@ sudo usermod -aG docker $USER
 
 ## Next Steps
 
-- [Quickstart Guide](quickstart) - Build your first AI agent
-- [CLI Reference](cli-reference) - Complete command reference
+- [Quickstart Guide](/getting-started/quickstart) - Build your first AI agent
+- [CLI Reference](/reference/cli-reference) - Complete command reference
 - [Workflow Configuration](../configuration/workflow) - Learn about workflow settings
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples) - Browse example workflows

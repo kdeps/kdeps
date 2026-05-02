@@ -58,123 +58,123 @@ export default defineConfig({
     sidebar: {
       '/': [
         {
-          text: 'Introduction',
+          text: 'Getting Started',
           items: [
             { text: 'What is KDeps?', link: '/' },
+            { text: 'Why KDeps?', link: '/concepts/why-kdeps' },
+            { text: 'Installation', link: '/getting-started/installation' },
+            { text: 'Quickstart', link: '/getting-started/quickstart' },
           ]
         },
         {
-          text: 'Getting Started',
+          text: 'Core Concepts',
           collapsed: false,
           items: [
-            { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Quickstart', link: '/getting-started/quickstart' },
-            { text: 'CLI Reference', link: '/getting-started/cli-reference' },
+            { text: 'Unified API', link: '/concepts/unified-api' },
+            { text: 'Agency & Multi-Agent', link: '/concepts/agency' },
+            { text: 'Components Architecture', link: '/concepts/components' },
+            { text: 'Input Sources', link: '/concepts/input-sources' },
+            { text: 'Request & Input Objects', link: '/concepts/request-object' },
+            { text: 'Tools (Function Calling)', link: '/concepts/tools' },
           ]
         },
         {
           text: 'Configuration',
           collapsed: false,
           items: [
-            { text: 'Workflow', link: '/configuration/workflow' },
-            { text: 'Session & Storage', link: '/configuration/session' },
-            { text: 'CORS', link: '/configuration/cors' },
-            { text: 'Advanced Settings', link: '/configuration/advanced' },
+            { text: 'Workflow (workflow.yaml)', link: '/configuration/workflow' },
+            { text: 'Session & Persistence', link: '/configuration/session' },
+            { text: 'CORS & Security', link: '/configuration/cors' },
+            { text: 'Global Defaults', link: '/configuration/advanced' },
           ]
         },
         {
-          text: 'Resources',
-          collapsed: false,
+          text: 'Core Resources',
+          collapsed: true,
           items: [
             { text: 'Overview', link: '/resources/overview' },
             { text: 'LLM (Chat)', link: '/resources/llm' },
             { text: 'LLM Backends', link: '/resources/llm-backends' },
             { text: 'HTTP Client', link: '/resources/http-client' },
-            { text: 'SQL', link: '/resources/sql' },
-            { text: 'Python', link: '/resources/python' },
+            { text: 'SQL Databases', link: '/resources/sql' },
+            { text: 'Python Scripts', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
             { text: 'API Response', link: '/resources/api-response' },
           ]
         },
         {
-          text: 'Native (Built-in)',
-          collapsed: false,
+          text: 'Native Capabilities',
+          collapsed: true,
           items: [
-            { text: 'Scraper', link: '/resources/scraper' },
-            { text: 'Embedding (Keyword Store)', link: '/resources/embedding' },
-            { text: 'Search Local', link: '/resources/search-local' },
-            { text: 'Search Web', link: '/resources/search-web' },
+            { text: 'Web Scraper', link: '/resources/scraper' },
+            { text: 'Keyword Store (Embedding)', link: '/resources/embedding' },
+            { text: 'Local File Search', link: '/resources/search-local' },
+            { text: 'Web Search', link: '/resources/search-web' },
           ]
         },
         {
-          text: 'Components',
-          collapsed: false,
+          text: 'Component Library',
+          collapsed: true,
           items: [
-            { text: 'Search (Web / Tavily)', link: '/resources/search' },
+            { text: 'Search (Tavily/Brave)', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
-            { text: 'Memory', link: '/resources/memory' },
+            { text: 'Long-term Memory', link: '/resources/memory' },
             { text: 'TTS (Speech)', link: '/resources/tts' },
-            { text: 'Email', link: '/resources/email' },
-            { text: 'Calendar', link: '/resources/calendar' },
-            { text: 'PDF', link: '/resources/pdf' },
+            { text: 'Email (SMTP/IMAP)', link: '/resources/email' },
+            { text: 'Calendar (Google/O365)', link: '/resources/calendar' },
+            { text: 'PDF Processing', link: '/resources/pdf' },
+            { text: 'Telephony (IVR)', link: '/resources/telephony' },
             { text: 'Remote Agent (UAF)', link: '/resources/remote-agent' },
             { text: 'Autopilot', link: '/resources/autopilot' },
-            { text: 'Telephony (IVR)', link: '/resources/telephony' },
           ]
         },
         {
-          text: 'Concepts',
-          collapsed: false,
+          text: 'Advanced Logic',
+          collapsed: true,
           items: [
-            { text: 'Unified API', link: '/concepts/unified-api' },
-            { text: 'Request Object', link: '/concepts/request-object' },
-            { text: 'Input Sources', link: '/concepts/input-sources' },
-            { text: 'Input Object', link: '/concepts/input-object' },
-            { text: 'Expressions', link: '/concepts/expressions' },
-            { text: 'Expression Blocks', link: '/concepts/expr-blocks' },
-            { text: 'Advanced Expressions', link: '/concepts/advanced-expressions' },
+            { text: 'Expressions Guide', link: '/advanced/expressions' },
+            { text: 'Expression Blocks', link: '/advanced/expr-blocks' },
+            { text: 'Advanced Expressions', link: '/advanced/advanced-expressions' },
             { text: 'Jinja2 Templates', link: '/concepts/jinja2-templates' },
-            { text: 'Expression Functions', link: '/concepts/expression-functions-reference' },
-            { text: 'Expression Helpers', link: '/concepts/expression-helpers' },
-            { text: 'Inline Resources', link: '/concepts/inline-resources' },
-            { text: 'Items Iteration', link: '/concepts/items' },
-            { text: 'Loop (While / Scheduled)', link: '/concepts/loop' },
-            { text: 'Tools (Function Calling)', link: '/concepts/tools' },
-            { text: 'Agency & Multi-Agent', link: '/concepts/agency' },
-            { text: 'Components', link: '/concepts/components' },
-            { text: 'Validation', link: '/concepts/validation' },
-            { text: 'Validation & Control Flow', link: '/concepts/validation-and-control' },
+            { text: 'Validation Rules', link: '/concepts/validation' },
+            { text: 'Control Flow', link: '/advanced/validation-and-control' },
             { text: 'Error Handling (onError)', link: '/concepts/error-handling' },
-            { text: 'Route Restrictions', link: '/concepts/route-restrictions' },
-            { text: 'Management API', link: '/concepts/management-api' },
-            { text: 'Event Stream (--events)', link: '/concepts/events' },
+            { text: 'Looping & Iteration', link: '/concepts/loop' },
+            { text: 'Items Iteration', link: '/concepts/items' },
+            { text: 'Inline Resources', link: '/concepts/inline-resources' },
           ]
         },
         {
-          text: 'Deployment',
-          collapsed: false,
+          text: 'Operations & Deployment',
+          collapsed: true,
           items: [
             { text: 'Docker', link: '/deployment/docker' },
             { text: 'Kubernetes', link: '/deployment/kubernetes' },
             { text: 'WebServer Mode', link: '/deployment/webserver' },
-            { text: 'Standalone Executables', link: '/deployment/prepackage' },
+            { text: 'Standalone Binaries', link: '/deployment/prepackage' },
+            { text: 'Management API', link: '/advanced/management-api' },
+            { text: 'Event Streaming', link: '/advanced/events' },
+            { text: 'Route Restrictions', link: '/advanced/route-restrictions' },
           ]
         },
         {
-          text: 'Examples',
+          text: 'Reference',
           collapsed: false,
+          items: [
+            { text: 'CLI Reference', link: '/reference/cli-reference' },
+            { text: 'Expression Functions', link: '/reference/expression-functions-reference' },
+            { text: 'Expression Helpers', link: '/concepts/expression-helpers' },
+          ]
+        },
+        {
+          text: 'Examples & Tutorials',
+          collapsed: true,
           items: [
             { text: 'Showcase', link: '/examples/showcase' },
-            { text: 'Stateless Bot', link: '/examples/stateless-bot/' },
-            { text: 'Telegram LLM Bot', link: '/examples/telegram-bot/' },
-          ]
-        },
-        {
-          text: 'Tutorials',
-          collapsed: false,
-          items: [
-            { text: 'Telegram Bot', link: '/tutorials/bot' },
-            { text: 'File Input (CLI Processor)', link: '/tutorials/file-input' },
+            { text: 'Tutorial: Telegram Bot', link: '/tutorials/bot' },
+            { text: 'Tutorial: CLI Processor', link: '/tutorials/file-input' },
+            { text: 'Example: Stateless Bot', link: '/examples/stateless-bot/' },
+            { text: 'Example: Telegram LLM', link: '/examples/telegram-bot/' },
           ]
         },
       ]

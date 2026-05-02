@@ -149,6 +149,6 @@ has no effect on execution semantics.
 
 ## See Also
 
-- [Input Sources](./input-sources.md) — including the `file` input source used with `--file`
-- [Error Handling](./error-handling.md) — resource-level retry and skip configuration
-- [Agency & Multi-Agent Orchestration](./agency.md) — how events propagate across agents
+- [Input Sources](/concepts/input-sources) — including the `file` input source used with `--file`
+- [Error Handling](/concepts/error-handling) — resource-level retry and skip configuration
+- [Agency & Multi-Agent Orchestration](/concepts/agency) — how events propagate across agents

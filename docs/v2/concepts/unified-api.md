@@ -76,7 +76,7 @@ For more specialized needs, additional helper functions are available:
 - `debug(obj)` - Inspect objects
 - `default(val, fallback)` - Handle missing values
 
-See the [Expression Functions Reference](expression-functions-reference) for the complete list.
+See the [Expression Functions Reference](/reference/expression-functions-reference) for the complete list.
 
 ## Resource Accessors
 
@@ -90,7 +90,7 @@ These are typically used in `expr` blocks for conditional logic or error handlin
 
 ## Next Steps
 
-- [Request Object](request-object) - HTTP request data and file methods
+- [Request Object](/concepts/request-object) - HTTP request data and file methods
 - [Resources Overview](../resources/overview) - Learn about resource types
 - [Tools](tools) - LLM function calling
 - [Workflow Configuration](../configuration/workflow) - Session settings

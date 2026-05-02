@@ -150,6 +150,15 @@ kdeps run workflow.yaml --interactive
 # /quit             — exit
 ```
 
+Or use the interactive assistant to generate and run workflows from natural language:
+
+```bash
+kdeps chat
+# Describe what you want: "summarize the latest news about AI"
+# kdeps chat generates the YAML, lets you inspect it (/show), 
+# and run it (/run).
+```
+
 ## Key concepts
 
 | Concept | What it does |
@@ -271,6 +280,25 @@ defaults:
   # timezone: UTC
   # python_version: "3.12"
   # offline_mode: false
+
+# Per-resource global defaults — applied when a resource does not set the value
+resource_defaults:
+  chat:
+    timeout: "60s"          # default LLM call timeout
+    context_length: 4096    # default context window in tokens
+  http:
+    timeout: "30s"          # default HTTP request timeout
+  python:
+    timeout: "60s"          # default Python script timeout
+  exec:
+    timeout: "30s"          # default shell command timeout
+  sql:
+    timeout: "30s"          # default SQL query timeout
+    max_rows: 0             # default row limit (0 = unlimited)
+  onError:
+    action: "fail"          # "fail" | "continue" | "retry"
+    max_retries: 3          # retries when action is "retry"
+    retry_delay: "1s"       # delay between retries
 ```
 
 All values are applied as environment variables at startup. Explicit env vars always take precedence over the config file.

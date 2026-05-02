@@ -375,7 +375,7 @@ run:
 
 ## Related Documentation
 
-- [Expressions](expressions.md) - Expression syntax and operators
-- [Unified API](unified-api.md) - Using `get()` and `set()`
+- [Expressions](/advanced/expressions) - Expression syntax and operators
+- [Unified API](/concepts/unified-api) - Using `get()` and `set()`
 - [Resources Overview](../resources/overview.md) - Resource structure
-- [Validation and Control Flow](validation-and-control.md) - Preflight checks
+- [Validation and Control Flow](/advanced/validation-and-control) - Preflight checks

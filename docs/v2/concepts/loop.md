@@ -410,6 +410,6 @@ run:
 ## Next Steps
 
 - [Items Iteration](items) — Fixed-list iteration
-- [Expressions](expressions) — Expression syntax
-- [Expression Functions Reference](expression-functions-reference) — Complete function list
-- [Validation and Control Flow](validation-and-control) — Skip conditions, preflight checks
+- [Expressions](/advanced/expressions) — Expression syntax
+- [Expression Functions Reference](/reference/expression-functions-reference) — Complete function list
+- [Validation and Control Flow](/advanced/validation-and-control) — Skip conditions, preflight checks

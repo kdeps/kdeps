@@ -85,4 +85,4 @@ See the [Expr Language Documentation](https://expr-lang.org/docs/language-defini
 
 ## Helper Functions
 
-KDeps adds specific helper functions for workflow context. See the [Expression Functions Reference](expression-functions-reference) for details.
+KDeps adds specific helper functions for workflow context. See the [Expression Functions Reference](/reference/expression-functions-reference) for details.
