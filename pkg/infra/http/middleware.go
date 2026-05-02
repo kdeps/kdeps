@@ -132,8 +132,7 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 		}
 		return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 	}
-	// codeql[go/reflected-xss] - non-browser content types cannot cause XSS
-	return w.ResponseWriter.Write(b)
+	return w.ResponseWriter.Write(b) //nolint:lll // codeql[go/reflected-xss]
 }
 
 // HeadersWritten returns whether headers have been written.
