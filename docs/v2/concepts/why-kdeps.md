@@ -1,29 +1,31 @@
 # Why kdeps?
 
-## The AI appliance model
+## The AI Appliance Model
 
 Chat AIs (Claude, Gemini, ChatGPT) and their CLI and MCP extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
 
 kdeps is an **AI appliance builder**. You define what the agent does, bundle it, and deploy it as a self-contained unit. It exposes an HTTP API, runs on a schedule, responds to bot messages, or processes files - without a human in the loop, without a chat session, without anyone prompting it.
 
+## Coordinated Multi-Agent Systems
+
+Single-agent workflows are often insufficient for complex business logic. kdeps allows you to orchestrate **Agencies** — collections of specialized agents that coordinate and delegate tasks.
+
+- **Specialization**: Each agent can be locked to specific models and tools optimized for its task.
+- **Coordination**: Agents communicate through a fully defined control flow, ensuring predictable interactions.
+- **Auditable**: Every step of the multi-agent coordination is visible, version-controlled, and testable.
+
 ## Chat AI vs. kdeps
 
-| | Chat AI + MCP | kdeps |
+| | Chat AI + MCP | kdeps (Appliance) |
 |---|---|---|
-| Who drives it | You | Nobody - it runs on its own |
-| Deployed as | A chat session | A Docker image, edge ISO, or binary |
-| Logic lives in | Prompts and MCP config | YAML code - versioned, reviewed, tested |
-| Other systems call it | No | Yes - it is an HTTP API |
-| Model | One provider | Any LLM, swappable per resource |
-| Ships to production | No | Yes |
+| **Who drives it** | You | The system (autonomous/event-driven) |
+| **Deployed as** | A chat session | Docker, Edge ISO, or Binary |
+| **Logic lives in** | Prompts and MCP config | YAML code - versioned, reviewed, tested |
+| **Orchestration** | Model-driven | Fully defined control flow |
+| **Multi-Agent** | Sequential prompts | Coordinated, specialized Agencies |
+| **Ships to production** | No | Yes |
 
-## What about MCP?
-
-MCP (Model Context Protocol) is a good protocol for giving a chat AI access to your tools. It is convenient for interactive use. But it still requires a human driving the conversation, and it produces no deployable artifact.
-
-kdeps is for when your product needs AI capabilities baked in - not bolted on through a chat interface.
-
-## Strictness as a feature
+## Defined Control Flow
 
 Chat AIs are deliberately open-ended - you can ask anything, and the model decides what to do. That flexibility is great for exploration and terrible for production. kdeps is the opposite: inputs are declared, outputs are typed, dependencies are explicit, and validations are enforced before any LLM is called. If something is wrong, it fails fast with a clear error rather than hallucinating a plausible-looking response.
 
