@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: Build autonomous AI Agents and AI Agencies.
-  tagline: Reproducible, repeatable AI pipelines in YAML. Create self-governing Agencies of AI Agents without glue code or legacy infrastructure.
+  text: The AI Appliance Builder.
+  tagline: AI agents as code. Declarative LLM orchestration for specialized and coordinated multi-agent systems. Compose workflows across models, APIs, and data with fully defined control flow.
   image: false
   actions:
     - theme: brand
@@ -12,22 +12,22 @@ hero:
       link: /getting-started/installation
     - theme: alt
       text: Why kdeps?
-      link: /getting-started/why-kdeps
+      link: /concepts/why-kdeps
     - theme: alt
       text: Visual Editor
       link: https://kdeps.io
 
 features:
+  - icon: 🏗️
+    title: AI Appliances
+    details: Build and deploy self-contained AI systems as Docker images, bootable ISOs, or standalone binaries.
   - icon: 🤖
-    title: Autonomous AI Agencies
-    details: Compose multiple AI Agents into a self-governing Agency. Agents delegate, coordinate, and act autonomously — no human-in-the-loop required.
-  - icon: 🔁
-    title: Reproducible & Repeatable (ORS)
-    details: Ordered, Repeatable Systems ensure every agent run is deterministic and auditable. Same inputs always produce same outputs — full reproducibility by design. With pinned models, tools, and inputs, outputs can be reproduced more reliably.
+    title: Coordinated Agencies
+    details: Orchestrate specialized AI agents into coordinated, multi-agent systems with fully defined control flow.
   - icon: 📝
     title: Agents as Code
-    details: No glue code. No boilerplate. Every agent and agency is a readable, version-controlled YAML file you can replay, audit, and share.
-  - icon: 🚀
-    title: Deploy Anywhere
-    details: Docker, bootable ISO, or self-contained binary. Agencies run the same way in dev and production.
+    details: Declarative YAML configuration that is versioned, reviewed, and tested. No glue code, no boilerplate.
+  - icon: 🛡️
+    title: Defined Control Flow
+    details: Predictable and auditable workflows. Inputs are declared, outputs are typed, and validations are enforced before any LLM is called.
 ---
