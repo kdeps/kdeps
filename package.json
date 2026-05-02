@@ -9,6 +9,7 @@
     "test:browser": "node tests/e2e/browser/chatgpt-clone.test.js"
   },
   "overrides": {
-    "basic-ftp": "^5.2.2"
+    "basic-ftp": "^5.2.2",
+    "@xmldom/xmldom": "^0.9.10"
   }
 }
