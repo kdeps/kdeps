@@ -43,7 +43,7 @@ export default defineConfig({
 
     nav: [
       { text: 'Guide', link: '/getting-started/quickstart' },
-      { text: 'Visual Editor', link: 'https://kdeps.io' },
+      { text: 'Registry', link: 'https://kdeps.io' },
       { text: 'GitHub', link: 'https://github.com/kdeps/kdeps' },
       {
         text: 'v2.0.0',

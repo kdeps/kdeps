@@ -301,4 +301,4 @@ All values are applied as environment variables at startup. Explicit env vars al
 
 ---
 
-[Documentation](https://kdeps.com) | [Visual Editor](https://kdeps.io) | Apache 2.0
+[Documentation](https://kdeps.com) | [Registry](https://kdeps.io) | Apache 2.0
