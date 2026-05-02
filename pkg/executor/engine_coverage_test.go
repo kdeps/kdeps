@@ -1627,6 +1627,8 @@ func TestEngine_prepareLoopSchedule_InvalidEvery(t *testing.T) {
 
 func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
 	engine := executor.NewEngine(nil)
+	// Use now+10s so the at: time is valid RFC3339 and the sleep is bounded (<= 10s).
+	atTime := time.Now().Add(10 * time.Second).UTC().Format(time.RFC3339)
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -1637,7 +1639,7 @@ func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
 				Run: domain.RunConfig{
 					Loop: &domain.LoopConfig{
 						While: "false",
-						At:    []string{"2099-12-31T23:59:59Z"},
+						At:    []string{atTime},
 					},
 					Expr: []domain.Expression{{Raw: "1+1"}},
 				},
@@ -2861,8 +2863,9 @@ func TestEngine_runComponentResources_NilResult(t *testing.T) {
 	}
 
 	result, err := engine.Execute(workflow, nil)
-	require.NoError(t, err)
-	// LLM returned nil -> lastResult is nil -> component returns nil
+	// LLM returned nil -> component produces no output -> engine returns error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "produced no output")
 	assert.Nil(t, result)
 }
 
