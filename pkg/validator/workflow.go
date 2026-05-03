@@ -389,10 +389,6 @@ func ValidateLoopConfig(config *domain.LoopConfig) error {
 // ValidateChatConfig validates chat configuration.
 func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error {
 	kdeps_debug.Log("enter: ValidateChatConfig")
-	if config.Model == "" {
-		return domain.NewError(domain.ErrCodeInvalidResource, "chat.model is required", nil)
-	}
-
 	if config.Prompt == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "chat.prompt is required", nil)
 	}

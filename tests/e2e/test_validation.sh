@@ -229,10 +229,10 @@ test_enhanced_error() {
 # Create temporary test files with invalid enum values
 # Each test will create its own temp directory to avoid conflicts
 
-# Test 1: Invalid backend type (integer instead of string) - using resource file
+# Test 1: Invalid contextLength type (string instead of integer) - using resource file
 TEMP_DIR1=$(mktemp -d)
 mkdir -p "$TEMP_DIR1/resources"
-cat > "$TEMP_DIR1/invalid-backend-type.yaml" << 'EOF'
+cat > "$TEMP_DIR1/invalid-contextlength-type.yaml" << 'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -250,21 +250,20 @@ metadata:
   name: test
 run:
   chat:
-    backend: 1
-    model: llama3.2
+    contextLength: "invalid"
     prompt: test
 EOF
 
-test_enhanced_error "$TEMP_DIR1/invalid-backend-type.yaml" \
+test_enhanced_error "$TEMP_DIR1/invalid-contextlength-type.yaml" \
     "Enhanced error for invalid backend type" \
-    "run.chat.backend" \
-    "ollama"
+    "run.chat.contextLength" \
+    "4096"
 rm -rf "$TEMP_DIR1"
 
-# Test 2: Invalid backend value (not in enum) - using resource file
+# Test 2: Invalid contextLength value (not in enum) - using resource file
 TEMP_DIR2=$(mktemp -d)
 mkdir -p "$TEMP_DIR2/resources"
-cat > "$TEMP_DIR2/invalid-backend-value.yaml" << 'EOF'
+cat > "$TEMP_DIR2/invalid-contextlength-value.yaml" << 'EOF'
 apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -282,15 +281,14 @@ metadata:
   name: test
 run:
   chat:
-    backend: invalid-backend
-    model: llama3.2
+    contextLength: 999
     prompt: test
 EOF
 
-test_enhanced_error "$TEMP_DIR2/invalid-backend-value.yaml" \
+test_enhanced_error "$TEMP_DIR2/invalid-contextlength-value.yaml" \
     "Enhanced error for invalid backend value" \
-    "run.chat.backend" \
-    "ollama"
+    "run.chat.contextLength" \
+    "4096"
 rm -rf "$TEMP_DIR2"
 
 # Test 3: Invalid HTTP method type - using resource file
@@ -594,7 +592,7 @@ test_validation_error "$TEMP_DIR13/workflow.yaml" \
     "name is required"
 rm -rf "$TEMP_DIR13"
 
-# Test 14: Type error - chat.model as integer
+# Test 14: Type error - chat.prompt as integer (model moved to config.yaml)
 TEMP_DIR14=$(mktemp -d)
 mkdir -p "$TEMP_DIR14/resources"
 cat > "$TEMP_DIR14/workflow.yaml" << 'EOF'
@@ -615,13 +613,12 @@ metadata:
   name: test
 run:
   chat:
-    model: 123
-    prompt: test
+    prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR14/workflow.yaml" \
     "Type error - chat.model as integer" \
-    "run.chat.model"
+    "run.chat.prompt"
 rm -rf "$TEMP_DIR14"
 
 # Test 15: Type error - httpClient.url as integer
@@ -786,7 +783,7 @@ rm -rf "$TEMP_DIR19"
 echo ""
 echo "Testing error suggestions for all config keys..."
 
-# Test 20: Type error suggestions - chat.model
+# Test 20: Type error suggestions - chat.prompt (model moved to config.yaml)
 TEMP_DIR20=$(mktemp -d)
 mkdir -p "$TEMP_DIR20/resources"
 cat > "$TEMP_DIR20/workflow.yaml" << 'EOF'
@@ -807,8 +804,7 @@ metadata:
   name: test
 run:
   chat:
-    model: 123
-    prompt: test
+    prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR20/workflow.yaml" \
