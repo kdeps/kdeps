@@ -27,4 +27,3 @@ run:
   apiResponse:
     success: true
     response:
-      models: "{{ get('availableModels') }}"

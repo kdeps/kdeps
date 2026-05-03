@@ -11,10 +11,7 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-    offlineMode: true
     installOllama: true
-    models:
-      - llama3.2:1b
 
   input:
     sources: [audio]
@@ -34,10 +31,8 @@ settings:
       listenDelay: 2           # seconds to wait after wake phrase before capturing the follow-up
       offline:
         engine: faster-whisper
-        model: tiny            # Use tiny for fast wake phrase detection
     transcriber:
       mode: offline
       output: text
       offline:
         engine: faster-whisper
-        model: small           # Use small for better transcription quality

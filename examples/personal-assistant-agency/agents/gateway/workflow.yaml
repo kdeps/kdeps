@@ -40,8 +40,6 @@ settings:
   agentSettings:
     timezone: "UTC"
     installOllama: true
-    models:
-      - llama3.2:3b
 
 resources:
 

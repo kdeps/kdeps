@@ -25,6 +25,3 @@ settings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     installOllama: true
-    models:
-      - moondream:1.8b
-      - llava:7b

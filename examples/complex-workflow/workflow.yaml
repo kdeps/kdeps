@@ -100,8 +100,6 @@ resources:
       requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
     run:
       chat:
-        backend: "ollama"
-        model: "llama3.2"
         role: "user"
         prompt: |
           Analyze this GitHub repository activity:
@@ -136,8 +134,6 @@ resources:
       requires: ["analyze-activity"]
     run:
       chat:
-        backend: "ollama"
-        model: "llama3.2"
         role: "user"
         prompt: |
           Based on this repository analysis:

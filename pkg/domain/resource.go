@@ -237,10 +237,13 @@ func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // ChatConfig represents LLM chat configuration.
 type ChatConfig struct {
-	Model            string         `yaml:"model"`
-	Backend          string         `yaml:"backend,omitempty"`       // Local: "ollama" (default), "file" (llamafile). Online providers: "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek", "openrouter"
-	BaseURL          string         `yaml:"baseUrl,omitempty"`       // Base URL for the backend (defaults to backend-specific defaults, e.g., "http://localhost:16395")
-	APIKey           string         `yaml:"apiKey,omitempty"`        // API key for online LLM backends (falls back to environment variable if not provided)
+	// Model, Backend, BaseURL, APIKey are runtime fields set by the LLM router or env vars.
+	// They are not parsed from resource YAML — configure them in ~/.kdeps/config.yaml instead.
+	Model   string `yaml:"-"`
+	Backend string `yaml:"-"`
+	BaseURL string `yaml:"-"`
+	APIKey  string `yaml:"-"`
+
 	ContextLength    int            `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role             string         `yaml:"role"`
 	Prompt           string         `yaml:"prompt"`
@@ -264,10 +267,6 @@ type ChatConfig struct {
 func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
-		Model            string         `yaml:"model"`
-		Backend          string         `yaml:"backend,omitempty"`
-		BaseURL          string         `yaml:"baseUrl,omitempty"`
-		APIKey           string         `yaml:"apiKey,omitempty"`
 		ContextLength    interface{}    `yaml:"contextLength,omitempty"`
 		Role             string         `yaml:"role"`
 		Prompt           string         `yaml:"prompt"`
@@ -310,10 +309,6 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	c.FrequencyPenalty = parseFloatPtr(alias.FrequencyPenalty)
 	c.PresencePenalty = parseFloatPtr(alias.PresencePenalty)
 
-	c.Model = alias.Model
-	c.Backend = alias.Backend
-	c.BaseURL = alias.BaseURL
-	c.APIKey = alias.APIKey
 	c.Role = alias.Role
 	c.Prompt = alias.Prompt
 	c.Scenario = alias.Scenario

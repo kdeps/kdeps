@@ -1200,10 +1200,12 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 
 	installOllama := true
 	tests := []struct {
-		name      string
-		resources []*domain.Resource
-		settings  domain.AgentSettings
-		contains  []string
+		name       string
+		resources  []*domain.Resource
+		settings   domain.AgentSettings
+		contains   []string
+		envBackend string // value to set KDEPS_DEFAULT_BACKEND
+		envModels  string // value to set KDEPS_LLM_MODELS
 	}{
 		{
 			name: "ollama backend from resource",
@@ -1227,11 +1229,10 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			contains: []string{"FROM ollama/ollama:latest"},
 		},
 		{
-			name: "auto-detect from models setting",
-			settings: domain.AgentSettings{
-				Models: []string{"llama3.2:1b"},
-			},
-			contains: []string{"FROM ollama/ollama:latest"},
+			// Models struct field has yaml:"-"; Ollama auto-detect uses KDEPS_LLM_MODELS env.
+			name:      "auto-detect from models env",
+			envModels: "llama3.2:1b",
+			contains:  []string{"FROM ollama/ollama:latest"},
 		},
 		{
 			name: "no LLM resources - no ollama",
@@ -1248,13 +1249,14 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			contains: []string{"FROM ubuntu:latest", "No LLM backend to install"},
 		},
 		{
-			name: "online provider with apiKey - no ollama",
+			// APIKey/BaseURL have yaml:"-" and are not checked by shouldInstallOllama.
+			// Use KDEPS_DEFAULT_BACKEND=openai to indicate online provider.
+			name:       "online provider via env backend - no ollama",
+			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
 						Chat: &domain.ChatConfig{
-							Model:  "gpt-4",
-							APIKey: "sk-test-key",
 							Role:   "user",
 							Prompt: "test",
 						},
@@ -1264,15 +1266,15 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			contains: []string{"FROM ubuntu:latest", "No LLM backend to install"},
 		},
 		{
-			name: "online provider with external baseURL - no ollama",
+			// Same: KDEPS_DEFAULT_BACKEND=openai prevents Ollama install.
+			name:       "online provider external backend env - no ollama",
+			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
 					Run: domain.RunConfig{
 						Chat: &domain.ChatConfig{
-							Model:   "gpt-4",
-							BaseURL: "https://api.openai.com/v1",
-							Role:    "user",
-							Prompt:  "test",
+							Role:   "user",
+							Prompt: "test",
 						},
 					},
 				},
@@ -1283,6 +1285,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("KDEPS_DEFAULT_BACKEND", tt.envBackend)
+			t.Setenv("KDEPS_LLM_MODELS", tt.envModels)
+
 			workflow := &domain.Workflow{
 				Resources: tt.resources,
 				Settings: domain.WorkflowSettings{
@@ -1680,16 +1685,20 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 		{
 			name:   "alpine with offline mode enabled",
 			baseOS: "alpine",
-			workflow: &domain.Workflow{
-				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
-				Settings: domain.WorkflowSettings{
-					AgentSettings: domain.AgentSettings{
-						PythonVersion: "3.12",
-						OfflineMode:   true,
-						Models:        []string{"llama2", "codellama"},
+			workflow: func() *domain.Workflow {
+				installOllama := true
+				return &domain.Workflow{
+					Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+					Settings: domain.WorkflowSettings{
+						AgentSettings: domain.AgentSettings{
+							PythonVersion: "3.12",
+							OfflineMode:   true,
+							// Models has yaml:"-"; use InstallOllama to explicitly trigger Ollama install.
+							InstallOllama: &installOllama,
+						},
 					},
-				},
-			},
+				}
+			}(),
 			expectedInDockerfile: []string{"FROM alpine/ollama", "python3"},
 		},
 	}

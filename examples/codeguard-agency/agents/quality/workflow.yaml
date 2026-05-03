@@ -16,8 +16,6 @@ settings:
   agentSettings:
     timezone: "UTC"
     installOllama: true
-    models:
-      - llama3.2:3b
 
 resources:
 
@@ -29,8 +27,6 @@ resources:
       name: Quality Check
     run:
       chat:
-        backend: ollama
-        model: llama3.2:3b
         role: user
         prompt: |
           You are a senior software engineer performing a code quality review.

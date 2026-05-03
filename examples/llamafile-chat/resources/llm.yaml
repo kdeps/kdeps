@@ -23,8 +23,6 @@ run:
     #   - Absolute path  (/path/to/model.llamafile)
     #   - Relative path  (./models/model.llamafile)
     #   - Bare filename  (model.llamafile  - looked up in ~/.kdeps/models/)
-    backend: file
-    model: "{{ env('LLAMAFILE_MODEL', 'model.llamafile') }}"
     role: user
     prompt: "{{ get('q') }}"
     scenario:

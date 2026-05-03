@@ -294,7 +294,8 @@ installOllama: "yes"
 	var settings AgentSettings
 	err := yaml.Unmarshal([]byte(yamlData), &settings)
 	require.NoError(t, err)
-	assert.True(t, settings.OfflineMode)
+	// OfflineMode has yaml:"-" so it is not parsed from YAML; expect false.
+	assert.False(t, settings.OfflineMode)
 	assert.NotNil(t, settings.InstallOllama)
 	assert.True(t, *settings.InstallOllama)
 }

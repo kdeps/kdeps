@@ -528,6 +528,7 @@ func TestNewExecutor_EmptyURL(t *testing.T) {
 
 func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest")
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -541,18 +542,12 @@ func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
 	}))
 	defer server.Close()
 
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				Models: []string{"llama3.3:latest"},
-			},
-		},
-	}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
-	// Resource has no model set — should use workflow default.
+	// Resource has no model set — should fall back to first model in KDEPS_LLM_MODELS.
 	cfg := &domain.ChatConfig{Prompt: "hello", BaseURL: server.URL}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
@@ -560,12 +555,13 @@ func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
 		t,
 		"llama3.3:latest",
 		gotModel,
-		"empty resource model should fall back to workflow model",
+		"empty resource model should fall back to first model in KDEPS_LLM_MODELS",
 	)
 }
 
 func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest")
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -579,18 +575,12 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
 	}))
 	defer server.Close()
 
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				Models: []string{"llama3.3:latest"},
-			},
-		},
-	}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
-	// Resource specifies a model NOT in the allowlist — should be overridden.
+	// Runtime model not in KDEPS_LLM_MODELS allowlist — should be overridden.
 	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hello", BaseURL: server.URL}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
@@ -598,12 +588,13 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {
 		t,
 		"llama3.3:latest",
 		gotModel,
-		"model not in allowlist should be overridden to first allowlisted model",
+		"model not in KDEPS_LLM_MODELS should be overridden to first allowlisted model",
 	)
 }
 
 func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest,mistral:7b")
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -617,18 +608,12 @@ func TestExecutor_Execute_WorkflowModelAllowlist_Permitted(t *testing.T) {
 	}))
 	defer server.Close()
 
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				Models: []string{"llama3.3:latest", "mistral:7b"},
-			},
-		},
-	}
-	ctx, err := executor.NewExecutionContext(wf)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 
-	// Resource specifies a model that IS in the allowlist — should be kept.
+	// Model in KDEPS_LLM_MODELS allowlist — should be kept as-is.
 	cfg := &domain.ChatConfig{Model: "mistral:7b", Prompt: "hello", BaseURL: server.URL}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)

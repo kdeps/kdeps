@@ -18,8 +18,6 @@ items:
 
 run:
   chat:
-    backend: ollama
-    model: llama3.2
     role: user
     prompt: |
       Score this job against the candidate. If score < {{ get('min_match_score') | default(60) }}, respond with exactly: null

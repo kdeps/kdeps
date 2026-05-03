@@ -109,8 +109,9 @@ run:
 		t.Fatal("Chat config is nil")
 	}
 
-	if resource.Run.Chat.Model != "llama3.2:latest" {
-		t.Errorf("Chat.Model = %v, want %v", resource.Run.Chat.Model, "llama3.2:latest")
+	// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
+	if resource.Run.Chat.Model != "" {
+		t.Errorf("Chat.Model = %v, want %v (Model is runtime-only, not parsed from YAML)", resource.Run.Chat.Model, "")
 	}
 
 	if !resource.Run.Chat.JSONResponse {
@@ -155,10 +156,7 @@ func TestResourceYAMLMarshal(t *testing.T) {
 	if result.Run.Chat == nil {
 		t.Fatal("Chat config is nil after round-trip")
 	}
-
-	if result.Run.Chat.Model != resource.Run.Chat.Model {
-		t.Errorf("Chat.Model = %v, want %v", result.Run.Chat.Model, resource.Run.Chat.Model)
-	}
+	// Model is a runtime field (yaml:"-") and does not round-trip through YAML.
 }
 
 func TestHTTPClientConfigYAML(t *testing.T) {

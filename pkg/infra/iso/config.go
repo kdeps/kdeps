@@ -13,8 +13,10 @@ package iso
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"sort"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -284,17 +286,27 @@ func ShouldInstallOllama(workflow *domain.Workflow) bool {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}
 
+	// Check KDEPS_DEFAULT_BACKEND env var (set by config.yaml llm.backend).
+	hasChatResources := false
 	for _, resource := range workflow.Resources {
 		if resource.Run.Chat != nil {
-			backend := resource.Run.Chat.Backend
-			if backend == backendOllama {
-				return true
-			}
-			if backend == "" && resource.Run.Chat.APIKey == "" {
-				return true
-			}
+			hasChatResources = true
+			break
+		}
+	}
+	if hasChatResources {
+		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
+		if backend == "" || backend == backendOllama {
+			return true
 		}
 	}
 
-	return len(workflow.Settings.AgentSettings.Models) > 0
+	// Also check router config for ollama routes.
+	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" {
+		if strings.Contains(routerJSON, `"ollama"`) {
+			return true
+		}
+	}
+
+	return os.Getenv("KDEPS_LLM_MODELS") != ""
 }

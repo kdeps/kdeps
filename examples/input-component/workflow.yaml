@@ -29,5 +29,3 @@ settings:
   apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
-    models:
-      - llama3.2:latest

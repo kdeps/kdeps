@@ -74,7 +74,15 @@ func injectConfigEnv(workflow *domain.Workflow) {
 	if workflow.Settings.AgentSettings.Env == nil {
 		workflow.Settings.AgentSettings.Env = make(map[string]string)
 	}
-	for _, key := range []string{"KDEPS_LLM_ROUTER"} {
+	for _, key := range []string{
+		"KDEPS_LLM_ROUTER",
+		"KDEPS_DEFAULT_BACKEND",
+		"KDEPS_LLM_BASE_URL",
+		"KDEPS_LLM_MODELS",
+		"KDEPS_OFFLINE_MODE",
+		"KDEPS_DEFAULT_MODEL",
+		"OLLAMA_HOST",
+	} {
 		if v := os.Getenv(key); v != "" {
 			if _, exists := workflow.Settings.AgentSettings.Env[key]; !exists {
 				workflow.Settings.AgentSettings.Env[key] = v
@@ -237,8 +245,8 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 
 	// Force offline mode for ISO exports — models must be baked into the image
 	// since the VM may not have internet access at runtime.
-	if len(workflow.Settings.AgentSettings.Models) > 0 {
-		workflow.Settings.AgentSettings.OfflineMode = true
+	if os.Getenv("KDEPS_LLM_MODELS") != "" {
+		_ = os.Setenv("KDEPS_OFFLINE_MODE", "true")
 	}
 
 	// Inject KDEPS_LLM_ROUTER (and any future config env vars) into the artifact.

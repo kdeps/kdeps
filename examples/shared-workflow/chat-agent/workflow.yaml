@@ -22,5 +22,3 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     installOllama: true
-    models:
-      - llama3.2:1b

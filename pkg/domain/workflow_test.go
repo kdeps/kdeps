@@ -258,12 +258,7 @@ pythonPackages:
   - scikit-learn
 repositories:
   - https://github.com/user/repo
-models:
-  - llama3.2:latest
-  - codellama:latest
-offlineMode: true
 installOllama: true
-ollamaUrl: http://localhost:11434
 args:
   debug: "true"
 env:
@@ -288,13 +283,8 @@ env:
 		t.Errorf("PythonPackages length = %v, want %v", len(settings.PythonPackages), 2)
 	}
 
-	if len(settings.Models) != 2 {
-		t.Errorf("Models length = %v, want %v", len(settings.Models), 2)
-	}
-
-	if !settings.OfflineMode {
-		t.Error("OfflineMode should be true")
-	}
+	// Models, OfflineMode, and OllamaURL are runtime fields (yaml:"-") set via env vars;
+	// they are not parsed from YAML.
 
 	if settings.InstallOllama == nil || *settings.InstallOllama != installOllama {
 		t.Errorf("InstallOllama = %v, want %v", settings.InstallOllama, installOllama)

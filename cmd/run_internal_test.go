@@ -46,59 +46,67 @@ func TestParseOllamaURL_Internal(t *testing.T) {
 }
 
 func TestWorkflowNeedsOllama_Internal(t *testing.T) {
+	// workflowNeedsOllama reads KDEPS_DEFAULT_BACKEND from env (not from the
+	// struct field which now has yaml:"-"). Backend struct fields are ignored.
 	tests := []struct {
-		name     string
-		workflow *domain.Workflow
-		expected bool
+		name       string
+		envBackend string // value to set KDEPS_DEFAULT_BACKEND to
+		workflow   *domain.Workflow
+		expected   bool
 	}{
 		{
-			"no resources",
-			&domain.Workflow{Resources: []*domain.Resource{}},
-			false,
+			name:       "no resources",
+			envBackend: "",
+			workflow:   &domain.Workflow{Resources: []*domain.Resource{}},
+			expected:   false,
 		},
 		{
-			"ollama resource",
-			&domain.Workflow{
+			name:       "ollama backend via env",
+			envBackend: "ollama",
+			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
+							Chat: &domain.ChatConfig{},
 						},
 					},
 				},
 			},
-			true,
+			expected: true,
 		},
 		{
-			"default backend resource",
-			&domain.Workflow{
+			name:       "default backend (empty env = ollama)",
+			envBackend: "",
+			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: ""},
+							Chat: &domain.ChatConfig{},
 						},
 					},
 				},
 			},
-			true,
+			expected: true,
 		},
 		{
-			"non-ollama resource",
-			&domain.Workflow{
+			name:       "non-ollama backend via env",
+			envBackend: "openai",
+			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
 						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "openai"},
+							Chat: &domain.ChatConfig{},
 						},
 					},
 				},
 			},
-			false,
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("KDEPS_DEFAULT_BACKEND", tt.envBackend)
 			assert.Equal(t, tt.expected, workflowNeedsOllama(tt.workflow))
 		})
 	}

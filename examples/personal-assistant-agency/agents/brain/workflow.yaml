@@ -32,8 +32,6 @@ settings:
     timezone: "UTC"
     pythonVersion: "3.12"
     installOllama: true
-    models:
-      - llama3.2:3b
 
   sqlConnections:
     memory:
@@ -308,8 +306,6 @@ resources:
       requires: [recall]
     run:
       chat:
-        backend: ollama
-        model: llama3.2:3b
         role: user
         prompt: "{{ get('message') }}"
         scenario:

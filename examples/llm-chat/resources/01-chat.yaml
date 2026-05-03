@@ -7,7 +7,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:1b
     role: assistant
     prompt: "{{ input('message') }}"
     scenario:
