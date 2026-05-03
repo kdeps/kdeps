@@ -113,8 +113,6 @@ settings:
   agentSettings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
-    models:
-      - $model
 
 resources:
   - apiVersion: kdeps.io/v1
@@ -133,8 +131,6 @@ resources:
           code: 400
           message: Query parameter 'q' is required
       chat:
-        backend: ollama
-        model: $model
         role: user
         prompt: "{{ get('q') }}"
         scenario:
@@ -170,8 +166,8 @@ EOF
     local start_time
     start_time=$(date +%s)
 
-    # Use timeout to prevent hanging
-    timeout 120 "$KDEPS_BIN" run "$workflow_file" << EOF &
+    # Use timeout to prevent hanging; model is sourced from env (no longer in YAML)
+    KDEPS_DEFAULT_MODEL="$model" timeout 120 "$KDEPS_BIN" run "$workflow_file" << EOF &
 POST /api/v1/test
 Content-Type: application/json
 

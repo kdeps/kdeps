@@ -76,18 +76,11 @@ test_chatbot_workflow() {
         return 1
     fi
 
-    # Modify the workflow to use the available model
-    local temp_workflow
-    temp_workflow=$(mktemp)
-    sed "s/llama3.2:1b/$model/g" "$workflow_file" > "$temp_workflow"
-
-    echo "Using modified workflow: $temp_workflow"
-
     local start_time
     start_time=$(date +%s)
 
-    # Start kdeps in background with timeout
-    timeout 180 "$KDEPS_BIN" run "$temp_workflow" &
+    # Start kdeps with model sourced from env (model: removed from resource YAML)
+    KDEPS_DEFAULT_MODEL="$model" timeout 180 "$KDEPS_BIN" run "$workflow_file" &
     local kdeps_pid=$!
 
     # Wait for server to start (chatbot uses port 16395)
@@ -125,7 +118,6 @@ test_chatbot_workflow() {
     # Clean up
     kill $kdeps_pid 2>/dev/null || true
     wait $kdeps_pid 2>/dev/null || true
-    rm -f "$temp_workflow"
 
     local end_time
     end_time=$(date +%s)
