@@ -22,6 +22,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -92,6 +93,42 @@ type ResourceDefaults struct {
 	OnError OnErrorDefaults `yaml:"onError"`
 }
 
+// RouterConfig defines the LLM routing strategy and its routes.
+// It lives exclusively in config.yaml (llm.router) and is serialized to
+// the KDEPS_LLM_ROUTER env var so it is available at runtime and in exported
+// Docker/ISO/k8s artifacts.
+type RouterConfig struct {
+	// Strategy selects the routing algorithm:
+	//   token_threshold  — route by prompt token count (uses tiktoken)
+	//   fallback         — try routes in priority order, retry on error
+	//   cost_optimized   — pick cheapest route based on cost_per_input_token
+	//   round_robin      — distribute requests evenly across routes
+	Strategy string       `yaml:"strategy" json:"strategy"`
+	Routes   []RouteEntry `yaml:"routes"   json:"routes"`
+}
+
+// RouteEntry describes a single candidate LLM and its selection criteria.
+type RouteEntry struct {
+	Model   string `yaml:"model"              json:"model"`
+	Backend string `yaml:"backend,omitempty"  json:"backend,omitempty"`
+	BaseURL string `yaml:"base_url,omitempty" json:"base_url,omitempty"`
+	APIKey  string `yaml:"api_key,omitempty"  json:"api_key,omitempty"`
+
+	// token_threshold: match when minTokens <= promptTokens <= maxTokens (nil = open bound).
+	MinTokens *int `yaml:"min_tokens,omitempty" json:"min_tokens,omitempty"`
+	MaxTokens *int `yaml:"max_tokens,omitempty" json:"max_tokens,omitempty"`
+
+	// cost_optimized: cost per 1K input/output tokens in USD.
+	CostPerInputToken  *float64 `yaml:"cost_per_input_token,omitempty"  json:"cost_per_input_token,omitempty"`
+	CostPerOutputToken *float64 `yaml:"cost_per_output_token,omitempty" json:"cost_per_output_token,omitempty"`
+
+	// fallback: lower priority value = tried first (default 0).
+	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
+
+	// Default is the catch-all route when no other rule matches.
+	Default bool `yaml:"default,omitempty" json:"default,omitempty"`
+}
+
 // LLMKeys holds per-provider API keys and global LLM defaults.
 type LLMKeys struct {
 	// Ollama — local inference, no API key needed.
@@ -112,6 +149,10 @@ type LLMKeys struct {
 	Groq       string `yaml:"groq_api_key"`
 	DeepSeek   string `yaml:"deepseek_api_key"`
 	OpenRouter string `yaml:"openrouter_api_key"`
+
+	// Router defines intelligent LLM routing rules (optional).
+	// Serialized to KDEPS_LLM_ROUTER on load; read by the executor at runtime.
+	Router *RouterConfig `yaml:"router,omitempty"`
 }
 
 // Config is the top-level structure of ~/.kdeps/config.yaml.
@@ -332,6 +373,13 @@ func applyEnv(cfg Config) {
 		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", strconv.Itoa(rd.OnError.MaxRetries))
 	}
 	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
+
+	// LLM router: serialize to JSON so the executor and exported artifacts can read it.
+	if cfg.LLM.Router != nil {
+		if b, jsonErr := json.Marshal(cfg.LLM.Router); jsonErr == nil {
+			setIfUnset("KDEPS_LLM_ROUTER", string(b))
+		}
+	}
 }
 
 const defaultConfigTemplate = `# kdeps global configuration
@@ -364,6 +412,48 @@ llm:
   # groq_api_key: ""
   # deepseek_api_key: ""
   # openrouter_api_key: ""
+
+  # ── LLM Router (optional) ────────────────────────────────────────────────
+  # Intelligently route requests to different models based on strategy.
+  # Strategies: token_threshold | fallback | cost_optimized | round_robin
+  #
+  # router:
+  #   strategy: token_threshold
+  #   routes:
+  #     - model: gpt-4o-mini
+  #       backend: openai
+  #       max_tokens: 500
+  #       default: true        # used when no rule matches
+  #     - model: gpt-4o
+  #       backend: openai
+  #       min_tokens: 501
+  #
+  # Fallback example (retries next route on error):
+  # router:
+  #   strategy: fallback
+  #   routes:
+  #     - model: claude-opus-4-7
+  #       backend: anthropic
+  #       priority: 1
+  #     - model: gpt-4o
+  #       backend: openai
+  #       priority: 2
+  #     - model: llama3.2
+  #       backend: ollama
+  #       priority: 3
+  #       default: true
+  #
+  # Cost-optimized example:
+  # router:
+  #   strategy: cost_optimized
+  #   routes:
+  #     - model: gpt-4o-mini
+  #       backend: openai
+  #       cost_per_input_token: 0.00015   # $0.15/1M tokens
+  #     - model: gpt-4o
+  #       backend: openai
+  #       cost_per_input_token: 0.0025    # $2.50/1M tokens
+  #       default: true
 
 # Global defaults — applied to all workflows that don't override them.
 defaults:
