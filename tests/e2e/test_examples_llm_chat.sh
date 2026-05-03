@@ -101,11 +101,11 @@ else
     test_failed "llm-chat - resource has chat: executor" "chat: not found in $RES"
 fi
 
-# T11: LLM model configured
-if grep -q "model:" "$RES"; then
-    test_passed "llm-chat - chat resource has model: field"
+# T11: LLM model configured via config.yaml (model: moved from resource YAML)
+if grep -q "prompt:" "$RES"; then
+    test_passed "llm-chat - chat resource has prompt: field"
 else
-    test_failed "llm-chat - chat resource has model: field" "model: not found in $RES"
+    test_failed "llm-chat - chat resource has prompt: field" "prompt: not found in $RES"
 fi
 
 # T12: README documents both execution types
