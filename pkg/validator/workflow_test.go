@@ -596,23 +596,13 @@ func TestWorkflowValidator_ValidateChatConfig(t *testing.T) {
 		{
 			name: "valid config",
 			config: &domain.ChatConfig{
-				Model:  "llama3.2:latest",
 				Prompt: "Test prompt",
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing model",
-			config: &domain.ChatConfig{
-				Prompt: "Test prompt",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing prompt",
-			config: &domain.ChatConfig{
-				Model: "llama3.2:latest",
-			},
+			name:    "missing prompt",
+			config:  &domain.ChatConfig{},
 			wantErr: true,
 		},
 	}
