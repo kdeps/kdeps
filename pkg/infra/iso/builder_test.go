@@ -444,14 +444,12 @@ func TestOllamaDetection_BackendOllama(t *testing.T) {
 }
 
 func TestOllamaDetection_OnlineProvider(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{
 				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						APIKey: "sk-test",
-					},
+					Chat: &domain.ChatConfig{},
 				},
 			},
 		},

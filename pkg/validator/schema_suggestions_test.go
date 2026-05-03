@@ -38,7 +38,7 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 		expectedSuggestion string
 	}{
 		{
-			name: "type error - chat.model as integer should suggest string example",
+			name: "type error - chat.prompt as integer should suggest string example",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -48,12 +48,11 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"model":  123,
-						"prompt": "test",
+						"prompt": 123,
 					},
 				},
 			},
-			expectedField:      "run.chat.model",
+			expectedField:      "run.chat.prompt",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -190,7 +189,7 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			expectedSuggestion: "Available options",
 		},
 		{
-			name: "enum error - invalid backend should show available options",
+			name: "enum error - invalid contextLength should show available options",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -200,12 +199,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"backend": "invalid-backend",
-						"model":   "test",
+						"contextLength": 999,
+						"prompt":        "test",
 					},
 				},
 			},
-			expectedField:      "run.chat.backend",
+			expectedField:      "run.chat.contextLength",
 			expectedSuggestion: "Available options:",
 		},
 		{

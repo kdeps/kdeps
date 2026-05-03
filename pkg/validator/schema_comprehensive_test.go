@@ -229,7 +229,7 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			expectedType:  "string",
 		},
 		{
-			name: "chat.model wrong type - integer",
+			name: "chat.prompt wrong type - integer (replaces removed model field)",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -239,12 +239,11 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"model":  123,
-						"prompt": "test",
+						"prompt": 123,
 					},
 				},
 			},
-			expectedField: "run.chat.model",
+			expectedField: "run.chat.prompt",
 			expectedType:  "string",
 		},
 		{
@@ -421,7 +420,7 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 		// Note: apiResponse.response now accepts any type (string, array, object, etc.)
 		// so we don't have a type validation test for it
 		{
-			name: "chat.baseUrl wrong type - number",
+			name: "chat.role wrong type - integer (replaces removed baseUrl field)",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -431,13 +430,12 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"model":   "llama3.2",
-						"prompt":  "test",
-						"baseUrl": 8080,
+						"prompt": "test",
+						"role":   8080,
 					},
 				},
 			},
-			expectedField: "run.chat.baseUrl",
+			expectedField: "run.chat.role",
 			expectedType:  "string",
 		},
 	}
