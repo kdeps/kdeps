@@ -23,6 +23,7 @@ package llm
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -91,10 +92,13 @@ func (m *ModelManager) SetOfflineMode(offline bool) {
 // This method is called automatically before LLM execution if model manager is configured.
 func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	kdeps_debug.Log("enter: EnsureModel")
-	// Determine backend
+	// Determine backend: router-set on config > KDEPS_DEFAULT_BACKEND > ollama
 	backend := config.Backend
 	if backend == "" {
-		backend = backendOllama // Default
+		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	}
+	if backend == "" {
+		backend = backendOllama
 	}
 
 	// Determine host and port from baseURL if provided, otherwise use backend-specific defaults
@@ -116,12 +120,16 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 		defaultPort = 16395
 	}
 
-	// Parse host and port from BaseURL
-	host, port := parseHostPortFromURL(config.BaseURL, "", defaultPort)
+	// Parse host and port from BaseURL: router-set on config > KDEPS_LLM_BASE_URL
+	baseURL := config.BaseURL
+	if baseURL == "" {
+		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
+	}
+	host, port := parseHostPortFromURL(baseURL, "", defaultPort)
 
 	// For the file backend with no explicit port, use 0 so the manager
 	// picks a free port and writes it back to config.BaseURL below.
-	if backend == backendFile && config.BaseURL == "" {
+	if backend == backendFile && baseURL == "" {
 		port = 0
 	}
 

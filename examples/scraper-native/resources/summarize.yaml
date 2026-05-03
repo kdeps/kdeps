@@ -5,7 +5,6 @@ metadata:
   requires: [fetch]
 run:
   chat:
-    model: llama3.2:1b
     role: user
     prompt: |
       Summarize the following web page content in 3-5 sentences.

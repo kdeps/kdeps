@@ -5,7 +5,6 @@ metadata:
   requires: [search]
 run:
   chat:
-    model: llama3.2:1b
     prompt: |
       Based on these search results, answer the question: {{ get('query') }}
 

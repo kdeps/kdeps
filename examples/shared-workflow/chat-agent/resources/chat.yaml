@@ -9,7 +9,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:1b
     role: user
     prompt: "{{ get('message') }}"
     scenario:

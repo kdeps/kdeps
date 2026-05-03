@@ -9,7 +9,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:latest
     prompt: |
       Context: {{ output('collectInputs') | json_decode | get('text') }}
 

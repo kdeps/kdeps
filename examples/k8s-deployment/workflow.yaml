@@ -27,5 +27,4 @@ workflows:
   - id: main
     run:
       chat:
-        model: llama3
         system: "You are a Kubernetes deployment assistant."

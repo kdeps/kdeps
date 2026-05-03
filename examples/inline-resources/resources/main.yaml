@@ -34,9 +34,6 @@ run:
 
   # Main resource: Process data with LLM
   chat:
-    backend: ollama
-    baseUrl: http://localhost:11434
-    model: llama3.2:1b
     role: user
     prompt: "Process this data: {{get('data')}}"
     timeoutDuration: 30s

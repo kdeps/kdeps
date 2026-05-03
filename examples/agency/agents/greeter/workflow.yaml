@@ -23,7 +23,6 @@ settings:
 
   agentSettings:
     timezone: "UTC"
-    offlineMode: true
 
 resources:
   # ── Step 1: Call the responder-agent ─────────────────────────────────────────

@@ -25,8 +25,6 @@ settings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     installOllama: true
-    models:
-      - llama3.2:1b
 
   input:
     sources: [telephony]
@@ -39,4 +37,3 @@ settings:
       language: en-US
       online:
         provider: deepgram
-        apiKey: "YOUR_DEEPGRAM_API_KEY"   # Replace or set DEEPGRAM_API_KEY env var

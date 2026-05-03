@@ -239,23 +239,21 @@ func (e *Executor) Execute(
 	// LLM Router: select a route from KDEPS_LLM_ROUTER before backend resolution.
 	// fallbackRoutes holds remaining routes for the retry loop below.
 	fallbackRoutes := e.applyLLMRouter(resolvedConfig, promptStr)
-	if resolvedConfig.Model != "" {
+	// Use the router-selected model only when it is a resolved literal (not an expression).
+	if resolvedConfig.Model != "" && !e.containsExpressionSyntax(resolvedConfig.Model) {
 		modelStr = resolvedConfig.Model
 	}
 
-	// Enforce workflow-level model allowlist: if agentSettings.models is set,
-	// only those models may be used. An empty or non-allowlisted model (including
-	// the router-selected one) is replaced with the first allowlisted model.
-	if ctx.Workflow != nil {
-		allowed := ctx.Workflow.Settings.AgentSettings.Models
+	// Enforce model allowlist from KDEPS_LLM_MODELS env var.
+	if allowed := allowedModelsFromEnv(); len(allowed) > 0 {
 		resolved := resolveAllowedModel(modelStr, allowed)
-		if resolved != modelStr && len(allowed) > 0 {
+		if resolved != modelStr {
 			e.logger.Error(
-				"model not in workflow allowlist — overriding with first allowlisted model",
+				"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
 				"requested", modelStr,
 				"using", resolved,
 				"fix", fmt.Sprintf(
-					"add %s to agentSettings.models in workflow.yaml, "+
+					"add %s to llm.models in config.yaml, "+
 						"or this resource will always run with %s instead",
 					modelStr, resolved,
 				),
@@ -281,10 +279,13 @@ func (e *Executor) Execute(
 		return nil, msgErr
 	}
 
-	// Determine backend
+	// Determine backend: router-selected > KDEPS_DEFAULT_BACKEND > ollama
 	backendName := resolvedConfig.Backend
 	if backendName == "" {
-		backendName = "ollama" // Default backend
+		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	}
+	if backendName == "" {
+		backendName = "ollama"
 	}
 
 	backend := e.backendRegistry.Get(backendName)
@@ -292,8 +293,11 @@ func (e *Executor) Execute(
 		return nil, fmt.Errorf("unknown backend: %s", backendName)
 	}
 
-	// Determine base URL
+	// Determine base URL: router-selected > KDEPS_LLM_BASE_URL > backend default
 	baseURL := resolvedConfig.BaseURL
+	if baseURL == "" {
+		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
+	}
 	if baseURL == "" {
 		baseURL = backend.DefaultURL()
 	}
@@ -408,33 +412,6 @@ func (e *Executor) resolveConfig(
 ) (*domain.ChatConfig, error) {
 	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
-
-	// Evaluate Backend if it contains expression syntax
-	if config.Backend != "" {
-		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Backend)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate backend: %w", err)
-		}
-		resolvedConfig.Backend = val
-	}
-
-	// Evaluate BaseURL if it contains expression syntax
-	if config.BaseURL != "" {
-		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.BaseURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate base URL: %w", err)
-		}
-		resolvedConfig.BaseURL = val
-	}
-
-	// Evaluate APIKey if it contains expression syntax
-	if config.APIKey != "" {
-		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.APIKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate API key: %w", err)
-		}
-		resolvedConfig.APIKey = val
-	}
 
 	// Evaluate Role if it contains expression syntax
 	if config.Role != "" {
@@ -1584,6 +1561,17 @@ func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.RouteEntry) {
 	}
 }
 
+// allowedModelsFromEnv parses KDEPS_LLM_MODELS into a string slice.
+// Returns nil when the env var is unset or empty.
+func allowedModelsFromEnv() []string {
+	v := os.Getenv("KDEPS_LLM_MODELS")
+	if v == "" {
+		return nil
+	}
+	return strings.Split(v, ",")
+}
+
+// resolveAllowedModel enforces the model allowlist.
 // If allowed is empty, model is returned unchanged.
 // If model is empty or not in allowed, the first element of allowed is returned.
 func resolveAllowedModel(model string, allowed []string) string {

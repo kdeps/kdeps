@@ -7,7 +7,6 @@ metadata:
 
 run:
   chat:
-    model: "moondream:1.8b"
     role: "user"
     prompt: "{{ get('q') }}"
     files:

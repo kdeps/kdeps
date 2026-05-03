@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -133,7 +134,19 @@ type RouteEntry struct {
 type LLMKeys struct {
 	// Ollama — local inference, no API key needed.
 	OllamaHost   string `yaml:"ollama_host"` // default: http://localhost:11434
-	DefaultModel string `yaml:"model"`       // global default model; overridden per-resource
+	DefaultModel string `yaml:"model"`       // global default model
+
+	// Default backend: ollama (local), openai, anthropic, google, etc.
+	// Serialized to KDEPS_DEFAULT_BACKEND.
+	Backend string `yaml:"backend,omitempty"`
+
+	// Base URL for the backend (overrides backend-specific default).
+	// Serialized to KDEPS_LLM_BASE_URL.
+	BaseURL string `yaml:"base_url,omitempty"`
+
+	// Models to pre-pull into Docker/ISO artifacts.
+	// Comma-joined and serialized to KDEPS_LLM_MODELS.
+	Models []string `yaml:"models,omitempty"`
 
 	// Llamafile (file backend) — local self-contained model binaries.
 	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
@@ -274,6 +287,9 @@ func configEnvVar(path string) (string, bool) {
 	m := map[string]string{
 		"llm.ollama_host":         "OLLAMA_HOST",
 		"llm.model":               "KDEPS_DEFAULT_MODEL",
+		"llm.backend":             "KDEPS_DEFAULT_BACKEND",
+		"llm.base_url":            "KDEPS_LLM_BASE_URL",
+		"llm.models":              "KDEPS_LLM_MODELS",
 		"llm.models_dir":          "KDEPS_MODELS_DIR",
 		"llm.openai_api_key":      "OPENAI_API_KEY",
 		"llm.anthropic_api_key":   "ANTHROPIC_API_KEY",
@@ -338,8 +354,16 @@ func applyEnv(cfg Config) {
 
 	// Ollama — local inference.
 	setIfUnset("OLLAMA_HOST", cfg.LLM.OllamaHost)
-	// Global default model (used when a resource does not specify model:).
+	// Global default model.
 	setIfUnset("KDEPS_DEFAULT_MODEL", cfg.LLM.DefaultModel)
+	// Default backend (ollama, openai, anthropic, etc.).
+	setIfUnset("KDEPS_DEFAULT_BACKEND", cfg.LLM.Backend)
+	// Base URL for the backend.
+	setIfUnset("KDEPS_LLM_BASE_URL", cfg.LLM.BaseURL)
+	// Models to pre-pull into exported artifacts.
+	if len(cfg.LLM.Models) > 0 {
+		setIfUnset("KDEPS_LLM_MODELS", strings.Join(cfg.LLM.Models, ","))
+	}
 	// Llamafile (file backend) — cache directory for downloaded model binaries.
 	setIfUnset("KDEPS_MODELS_DIR", cfg.LLM.ModelsDir)
 
@@ -397,9 +421,21 @@ llm:
   # ── Llamafile / file backend (local self-contained model binaries) ──────────
   # models_dir: ~/.kdeps/models   # cache dir for downloaded .llamafile binaries
 
-  # Global default model — used when a resource does not specify model:
+  # Global default model — used when no router rule matches:
   # Examples: llama3.2  |  llama3.2:3b  |  qwen2.5:7b  |  gpt-4o  |  claude-3-5-sonnet-20241022
   # model: llama3.2
+
+  # Default backend: ollama (local), openai, anthropic, google, cohere, mistral, together,
+  # perplexity, groq, deepseek, openrouter.  Defaults to "ollama" when unset.
+  # backend: ollama
+
+  # Base URL for the backend (overrides backend-specific default).
+  # base_url: http://localhost:11434
+
+  # Models to pre-pull into Docker/ISO artifacts (triggers offline mode in exports).
+  # models:
+  #   - llama3.2:1b
+  #   - llama3.2:3b
 
   # ── Online provider API keys (set only the ones you use) ───────────────────
   # openai_api_key: ""

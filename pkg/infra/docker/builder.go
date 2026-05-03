@@ -275,23 +275,31 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}
 
-	// Auto-detect: install if there are Chat resources using ollama backend
+	// Auto-detect: install if there are Chat resources using the ollama backend.
+	// Backend is now configured via KDEPS_DEFAULT_BACKEND env var.
+	hasChatResources := false
 	for _, resource := range workflow.Resources {
 		if resource.Run.Chat != nil {
-			backend := resource.Run.Chat.Backend
-			if backend == backendOllama {
-				return true
-			}
-			// Empty backend defaults to ollama only if no online provider indicators
-			if backend == "" && resource.Run.Chat.APIKey == "" &&
-				!isOnlineBaseURL(resource.Run.Chat.BaseURL) {
-				return true
-			}
+			hasChatResources = true
+			break
+		}
+	}
+	if hasChatResources {
+		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
+		if backend == "" || backend == backendOllama {
+			return true
 		}
 	}
 
-	// Auto-detect: install if models are configured
-	if len(workflow.Settings.AgentSettings.Models) > 0 {
+	// Also check router config for ollama routes.
+	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" {
+		if strings.Contains(routerJSON, `"ollama"`) {
+			return true
+		}
+	}
+
+	// Auto-detect: install if models are configured.
+	if os.Getenv("KDEPS_LLM_MODELS") != "" {
 		return true
 	}
 
@@ -322,15 +330,6 @@ func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
 	return false
 }
 
-// isOnlineBaseURL checks if a baseURL points to an external (non-local) service.
-func isOnlineBaseURL(baseURL string) bool {
-	kdeps_debug.Log("enter: isOnlineBaseURL")
-	if baseURL == "" {
-		return false
-	}
-	return !strings.Contains(baseURL, "localhost") && !strings.Contains(baseURL, "127.0.0.1")
-}
-
 // GetBackendPort returns the default port for Ollama.
 func (b *Builder) GetBackendPort(_ string) int {
 	kdeps_debug.Log("enter: GetBackendPort")
@@ -349,18 +348,20 @@ func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {
 	return workflow.Settings.GetPortNum()
 }
 
-// getDefaultModel returns the first model from the workflow if available.
-func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
+// getDefaultModel returns the configured default model.
+func (b *Builder) getDefaultModel(_ *domain.Workflow) string {
 	kdeps_debug.Log("enter: getDefaultModel")
-	if len(workflow.Settings.AgentSettings.Models) > 0 {
-		return workflow.Settings.AgentSettings.Models[0]
-	}
-	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil && resource.Run.Chat.Model != "" {
-			return resource.Run.Chat.Model
+	// First model from KDEPS_LLM_MODELS list, then KDEPS_DEFAULT_MODEL, then fallback.
+	if v := os.Getenv("KDEPS_LLM_MODELS"); v != "" {
+		models := strings.SplitN(v, ",", 2) //nolint:mnd // first element only
+		if len(models) > 0 && models[0] != "" {
+			return models[0]
 		}
 	}
-	return "llama3.2:1b" // fallback default
+	if v := os.Getenv("KDEPS_DEFAULT_MODEL"); v != "" {
+		return v
+	}
+	return "llama3.2:1b"
 }
 
 // prepackagedFlags returns whether amd64/arm64 prepackaged binaries are set.
@@ -375,6 +376,8 @@ func (b *Builder) prepackagedFlags() (bool, bool) {
 }
 
 // buildTemplateData builds data for template rendering.
+//
+//nolint:funlen // template data assembly touches many optional fields
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
 	installOllama := b.shouldInstallOllama(workflow)
@@ -438,9 +441,12 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	}
 
 	// When Ollama is not installed, disable offline mode and clear models
-	// so no Ollama-related prep/copy happens in the Docker build
-	models := workflow.Settings.AgentSettings.Models
-	offlineMode := workflow.Settings.AgentSettings.OfflineMode
+	// so no Ollama-related prep/copy happens in the Docker build.
+	var models []string
+	if v := os.Getenv("KDEPS_LLM_MODELS"); v != "" {
+		models = strings.Split(v, ",")
+	}
+	offlineMode := os.Getenv("KDEPS_OFFLINE_MODE") == "true"
 	defaultModel := b.getDefaultModel(workflow)
 	if !installOllama {
 		models = nil

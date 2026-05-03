@@ -24,9 +24,7 @@ run:
     success: true
     response:
       # Return models for models endpoint, chat for chat endpoint
-      models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
       message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
-      model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
       query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
     meta:
       headers:

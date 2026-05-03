@@ -452,10 +452,10 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	// 4. Setup LLM backend (if needed)
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
 	if workflowNeedsOllama(workflow) {
-		// Get Ollama URL from settings or use default
+		// Get Ollama URL from OLLAMA_HOST env var or use default.
 		ollamaURL := ollamaDefaultURL
-		if workflow.Settings.AgentSettings.OllamaURL != "" {
-			ollamaURL = workflow.Settings.AgentSettings.OllamaURL
+		if v := os.Getenv("OLLAMA_HOST"); v != "" {
+			ollamaURL = v
 		}
 
 		if ollamaErr := ensureOllamaRunning(ollamaURL); ollamaErr != nil {
@@ -1270,19 +1270,23 @@ func ensureOllamaRunning(ollamaURL string) error {
 	return nil
 }
 
-// workflowNeedsOllama checks if any resource in the workflow uses LLM with Ollama backend.
+// workflowNeedsOllama checks if the workflow uses the ollama backend.
+// Backend is now configured via KDEPS_DEFAULT_BACKEND env var (set by config.yaml).
 func workflowNeedsOllama(workflow *domain.Workflow) bool {
 	kdeps_debug.Log("enter: workflowNeedsOllama")
+	// If any chat resources exist, check the configured backend.
+	hasChatResources := false
 	for _, resource := range workflow.Resources {
 		if resource.Run.Chat != nil {
-			// Check if backend is ollama or empty (default is ollama)
-			backend := resource.Run.Chat.Backend
-			if backend == "" || backend == "ollama" {
-				return true
-			}
+			hasChatResources = true
+			break
 		}
 	}
-	return false
+	if !hasChatResources {
+		return false
+	}
+	backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
+	return backend == "" || backend == "ollama"
 }
 
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
@@ -1626,7 +1630,7 @@ func printRoutes(serverConfig *domain.APIServerConfig) {
 	}
 }
 
-func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
+func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	kdeps_debug.Log("enter: setupEngine")
 	logger := logging.NewLogger(debugMode)
 	engine := executor.NewEngine(logger)
@@ -1645,8 +1649,8 @@ func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
-	if workflow.Settings.AgentSettings.OllamaURL != "" {
-		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
+	if v := os.Getenv("OLLAMA_HOST"); v != "" {
+		ollamaURL = v
 	}
 	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
 

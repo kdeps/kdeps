@@ -308,32 +308,6 @@
         "chat": {
           "type": "object",
           "properties": {
-            "model": {
-              "type": "string"
-            },
-            "backend": {
-              "type": "string",
-              "enum": [
-                "ollama",
-                "file",
-                "openai",
-                "anthropic",
-                "google",
-                "cohere",
-                "mistral",
-                "together",
-                "perplexity",
-                "groq",
-                "deepseek",
-                "openrouter"
-              ]
-            },
-            "baseUrl": {
-              "type": "string"
-            },
-            "apiKey": {
-              "type": "string"
-            },
             "contextLength": {
               "type": "integer",
               "enum": [

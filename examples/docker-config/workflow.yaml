@@ -44,8 +44,6 @@ settings:
       - jq
 
     # LLM models to download (optional)
-    models:
-      - llama3.2:1b
 
 resources:
   - apiVersion: kdeps.io/v1
@@ -57,8 +55,6 @@ resources:
       chat:
         # Backend will be auto-detected and installed in Docker image
         # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
-        backend: "ollama"
-        model: "llama3.2:1b"
         role: "user"
         prompt: "{{ get('q') }}"
 

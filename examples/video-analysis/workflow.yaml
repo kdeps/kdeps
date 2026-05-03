@@ -12,8 +12,6 @@ settings:
     timezone: Etc/UTC
     pythonVersion: "3.12"
     installOllama: true
-    models:
-      - llava:7b
 
   input:
     sources: [video]
@@ -26,4 +24,3 @@ settings:
       output: media             # Keep raw video frame — skip text transcription
       offline:
         engine: faster-whisper
-        model: base

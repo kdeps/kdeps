@@ -27,9 +27,6 @@ run:
     - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
 
   chat:
-    backend: ollama
-    baseUrl: http://localhost:11434
-    model: "{{ get('selectedModel') }}"
     role: user
     prompt: "{{ get('userMessage') }}"
     scenario:

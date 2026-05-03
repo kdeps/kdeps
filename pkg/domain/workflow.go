@@ -1008,24 +1008,26 @@ type Resources struct {
 
 // AgentSettings contains agent configuration.
 type AgentSettings struct {
-	Timezone         string            `yaml:"timezone"`
-	PythonVersion    string            `yaml:"pythonVersion,omitempty"`
-	PythonPackages   []string          `yaml:"pythonPackages,omitempty"`
-	RequirementsFile string            `yaml:"requirementsFile,omitempty"`
-	PyprojectFile    string            `yaml:"pyprojectFile,omitempty"`
-	LockFile         string            `yaml:"lockFile,omitempty"`
-	Repositories     []string          `yaml:"repositories,omitempty"`
-	Packages         []string          `yaml:"packages,omitempty"`
-	OSPackages       []string          `yaml:"osPackages,omitempty"`    // OS-level packages (apt, apk, yum)
-	BaseOS           string            `yaml:"baseOS,omitempty"`        // Docker base OS: alpine, ubuntu, debian
-	InstallOllama    *bool             `yaml:"installOllama,omitempty"` // Whether to install Ollama in Docker image (default: auto-detect from resources)
-	Models           []string          `yaml:"models,omitempty"`
-	OfflineMode      bool              `yaml:"offlineMode"`
-	OllamaURL        string            `yaml:"ollamaUrl,omitempty"`
-	Args             map[string]string `yaml:"args,omitempty"`
-	Env              map[string]string `yaml:"env,omitempty"`
-	Replicas         int               `yaml:"replicas,omitempty"`  // Kubernetes replicas
-	Resources        *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
+	Timezone         string   `yaml:"timezone"`
+	PythonVersion    string   `yaml:"pythonVersion,omitempty"`
+	PythonPackages   []string `yaml:"pythonPackages,omitempty"`
+	RequirementsFile string   `yaml:"requirementsFile,omitempty"`
+	PyprojectFile    string   `yaml:"pyprojectFile,omitempty"`
+	LockFile         string   `yaml:"lockFile,omitempty"`
+	Repositories     []string `yaml:"repositories,omitempty"`
+	Packages         []string `yaml:"packages,omitempty"`
+	OSPackages       []string `yaml:"osPackages,omitempty"`    // OS-level packages (apt, apk, yum)
+	BaseOS           string   `yaml:"baseOS,omitempty"`        // Docker base OS: alpine, ubuntu, debian
+	InstallOllama    *bool    `yaml:"installOllama,omitempty"` // Whether to install Ollama in Docker image (default: auto-detect from resources)
+	// Models, OfflineMode, and OllamaURL are runtime fields read from env vars.
+	// Configure them in ~/.kdeps/config.yaml (llm.models, defaults.offline_mode, llm.ollama_host).
+	Models      []string          `yaml:"-"`
+	OfflineMode bool              `yaml:"-"`
+	OllamaURL   string            `yaml:"-"`
+	Args        map[string]string `yaml:"args,omitempty"`
+	Env         map[string]string `yaml:"env,omitempty"`
+	Replicas    int               `yaml:"replicas,omitempty"`  // Kubernetes replicas
+	Resources   *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
@@ -1043,9 +1045,6 @@ func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
 		OSPackages       []string          `yaml:"osPackages,omitempty"`
 		BaseOS           string            `yaml:"baseOS,omitempty"`
 		InstallOllama    interface{}       `yaml:"installOllama,omitempty"`
-		Models           []string          `yaml:"models,omitempty"`
-		OfflineMode      interface{}       `yaml:"offlineMode"`
-		OllamaURL        string            `yaml:"ollamaUrl,omitempty"`
 		Args             map[string]string `yaml:"args,omitempty"`
 		Env              map[string]string `yaml:"env,omitempty"`
 		Replicas         interface{}       `yaml:"replicas,omitempty"`
@@ -1062,10 +1061,6 @@ func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
 	}
 	a.Resources = alias.Resources
 
-	// Parse boolean fields that might be strings
-	if b, ok := ParseBool(alias.OfflineMode); ok {
-		a.OfflineMode = b
-	}
 	a.InstallOllama = parseBoolPtr(alias.InstallOllama)
 
 	a.Timezone = alias.Timezone
@@ -1078,8 +1073,6 @@ func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
 	a.Packages = alias.Packages
 	a.OSPackages = alias.OSPackages
 	a.BaseOS = alias.BaseOS
-	a.Models = alias.Models
-	a.OllamaURL = alias.OllamaURL
 	a.Args = alias.Args
 	a.Env = alias.Env
 
