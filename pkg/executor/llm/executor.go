@@ -36,6 +36,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
@@ -229,9 +230,22 @@ func (e *Executor) Execute(
 		modelStr = os.Getenv("KDEPS_DEFAULT_MODEL")
 	}
 
+	// Evaluate prompt early so the router can count tokens.
+	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate prompt: %w", err)
+	}
+
+	// LLM Router: select a route from KDEPS_LLM_ROUTER before backend resolution.
+	// fallbackRoutes holds remaining routes for the retry loop below.
+	fallbackRoutes := e.applyLLMRouter(resolvedConfig, promptStr)
+	if resolvedConfig.Model != "" {
+		modelStr = resolvedConfig.Model
+	}
+
 	// Enforce workflow-level model allowlist: if agentSettings.models is set,
-	// only those models may be used. An empty or non-allowlisted resource model
-	// is replaced with the first allowlisted model.
+	// only those models may be used. An empty or non-allowlisted model (including
+	// the router-selected one) is replaced with the first allowlisted model.
 	if ctx.Workflow != nil {
 		allowed := ctx.Workflow.Settings.AgentSettings.Models
 		resolved := resolveAllowedModel(modelStr, allowed)
@@ -259,12 +273,6 @@ func (e *Executor) Execute(
 			// Log warning but continue - model might already be available
 			_ = ensureErr
 		}
-	}
-
-	// Evaluate prompt (only if it contains expression syntax)
-	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate prompt: %w", err)
 	}
 
 	// Build messages
@@ -334,10 +342,17 @@ func (e *Executor) Execute(
 	// Call backend API (may be called multiple times for tool execution)
 	response, err := e.callBackend(backend, baseURL, requestBody, timeout, resolvedConfig.APIKey)
 	if err != nil {
-		// Return network error as result data instead of Go error
-		return map[string]interface{}{ //nolint:nilerr // intentionally return error as data
-			"error": err.Error(),
-		}, nil
+		response = map[string]interface{}{"error": err.Error()}
+	}
+
+	// Fallback retry: try remaining routes when the response carries an error.
+	response, err = e.retryFallbackRoutes(
+		fallbackRoutes, resolvedConfig, messages, requestConfig, response, timeout,
+	)
+
+	// Propagate a persistent error as result data (existing behaviour).
+	if _, hasErr := response["error"]; hasErr && err != nil {
+		return response, nil //nolint:nilerr // intentionally return error as data
 	}
 
 	// Check for tool calls and execute them if tools are configured and executor is available
@@ -1485,6 +1500,90 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 }
 
 // resolveAllowedModel enforces the workflow model allowlist.
+// retryFallbackRoutes iterates remaining fallback routes when the current response has an error.
+// Returns the final response and last callBackend error encountered.
+func (e *Executor) retryFallbackRoutes(
+	fallbackRoutes []kdepsconfig.RouteEntry,
+	cfg *domain.ChatConfig,
+	messages []map[string]interface{},
+	requestConfig ChatRequestConfig,
+	response map[string]interface{},
+	timeout time.Duration,
+) (map[string]interface{}, error) {
+	var lastErr error
+	if len(fallbackRoutes) <= 1 {
+		return response, lastErr
+	}
+	for i := range fallbackRoutes[1:] {
+		if _, hasErr := response["error"]; !hasErr {
+			break
+		}
+		route := &fallbackRoutes[i+1]
+		applyRoute(cfg, route)
+		fbName := cfg.Backend
+		if fbName == "" {
+			fbName = "ollama"
+		}
+		fb := e.backendRegistry.Get(fbName)
+		if fb == nil {
+			continue
+		}
+		fbURL := cfg.BaseURL
+		if fbURL == "" {
+			fbURL = fb.DefaultURL()
+		}
+		rb, rbErr := fb.BuildRequest(cfg.Model, messages, requestConfig)
+		if rbErr != nil {
+			continue
+		}
+		response, lastErr = e.callBackend(fb, fbURL, rb, timeout, cfg.APIKey)
+		if lastErr != nil {
+			response = map[string]interface{}{"error": lastErr.Error()}
+		}
+	}
+	return response, lastErr
+}
+
+// applyLLMRouter reads KDEPS_LLM_ROUTER, selects the appropriate route, and mutates cfg.
+// Returns sorted fallback routes (only populated for the "fallback" strategy).
+func (e *Executor) applyLLMRouter(cfg *domain.ChatConfig, promptStr string) []kdepsconfig.RouteEntry {
+	routerJSON := os.Getenv("KDEPS_LLM_ROUTER")
+	if routerJSON == "" {
+		return nil
+	}
+	var rc kdepsconfig.RouterConfig
+	if err := json.Unmarshal([]byte(routerJSON), &rc); err != nil {
+		return nil
+	}
+	if rc.Strategy == "fallback" {
+		routes := SortedFallbackRoutes(rc.Routes)
+		if len(routes) > 0 {
+			applyRoute(cfg, &routes[0])
+		}
+		return routes
+	}
+	if route, err := NewRouter(&rc, e.logger).Select("", promptStr); err == nil && route != nil {
+		applyRoute(cfg, route)
+	}
+	return nil
+}
+
+// applyRoute copies non-empty fields from a RouteEntry onto the ChatConfig.
+func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.RouteEntry) {
+	if r.Model != "" {
+		cfg.Model = r.Model
+	}
+	if r.Backend != "" {
+		cfg.Backend = r.Backend
+	}
+	if r.BaseURL != "" {
+		cfg.BaseURL = r.BaseURL
+	}
+	if r.APIKey != "" {
+		cfg.APIKey = r.APIKey
+	}
+}
+
 // If allowed is empty, model is returned unchanged.
 // If model is empty or not in allowed, the first element of allowed is returned.
 func resolveAllowedModel(model string, allowed []string) string {

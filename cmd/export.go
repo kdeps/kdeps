@@ -67,6 +67,22 @@ func newExportCmd() *cobra.Command {
 	return exportCmd
 }
 
+// injectConfigEnv merges KDEPS_* env vars (set by config.Load at startup) into
+// the workflow's agentSettings.Env so they are baked into exported artifacts.
+// Only keys not already present in agentSettings.Env are injected.
+func injectConfigEnv(workflow *domain.Workflow) {
+	if workflow.Settings.AgentSettings.Env == nil {
+		workflow.Settings.AgentSettings.Env = make(map[string]string)
+	}
+	for _, key := range []string{"KDEPS_LLM_ROUTER"} {
+		if v := os.Getenv(key); v != "" {
+			if _, exists := workflow.Settings.AgentSettings.Env[key]; !exists {
+				workflow.Settings.AgentSettings.Env[key] = v
+			}
+		}
+	}
+}
+
 // getFormatMap returns a map of user-friendly format names to LinuxKit format strings.
 func getFormatMap() map[string]string {
 	kdeps_debug.Log("enter: getFormatMap")
@@ -224,6 +240,9 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 	if len(workflow.Settings.AgentSettings.Models) > 0 {
 		workflow.Settings.AgentSettings.OfflineMode = true
 	}
+
+	// Inject KDEPS_LLM_ROUTER (and any future config env vars) into the artifact.
+	injectConfigEnv(workflow)
 
 	// Create Docker builder for building the app image
 	buildFlags := &BuildFlags{GPU: flags.GPU, NoCache: flags.NoCache}
@@ -715,6 +734,9 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 	if flags.Replica > 0 {
 		workflow.Settings.AgentSettings.Replicas = flags.Replica
 	}
+
+	// Inject KDEPS_LLM_ROUTER (and any future config env vars) into the artifact.
+	injectConfigEnv(workflow)
 
 	// Generate manifests
 	generator := k8s.NewGenerator(imageName)
