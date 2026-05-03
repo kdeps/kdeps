@@ -418,7 +418,7 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 		expectAvailableOptions bool
 	}{
 		{
-			name: "invalid backend type - integer instead of string",
+			name: "invalid contextLength type - string instead of integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -428,18 +428,17 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"backend": 1, // Wrong type
-						"model":   "llama3.2",
-						"prompt":  "test",
+						"contextLength": "invalid", // Wrong type
+						"prompt":        "test",
 					},
 				},
 			},
-			expectedField:          "run.chat.backend",
-			expectedOption:         "ollama",
+			expectedField:          "run.chat.contextLength",
+			expectedOption:         "4096",
 			expectAvailableOptions: true,
 		},
 		{
-			name: "invalid backend value - not in enum",
+			name: "invalid contextLength value - not in enum",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
@@ -449,14 +448,13 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 				},
 				"run": map[string]interface{}{
 					"chat": map[string]interface{}{
-						"backend": "invalid-backend",
-						"model":   "llama3.2",
-						"prompt":  "test",
+						"contextLength": 999,
+						"prompt":        "test",
 					},
 				},
 			},
-			expectedField:          "run.chat.backend",
-			expectedOption:         "ollama",
+			expectedField:          "run.chat.contextLength",
+			expectedOption:         "4096",
 			expectAvailableOptions: true,
 		},
 		{
@@ -1407,23 +1405,10 @@ func TestSchemaValidator_GetEnumValues(t *testing.T) {
 		expected   []interface{}
 	}{
 		{
-			name:       "chat backend enum",
-			field:      "run.chat.backend",
+			name:       "chat contextLength enum",
+			field:      "run.chat.contextLength",
 			schemaType: "resource",
-			expected: []interface{}{
-				"ollama",
-				"file",
-				"openai",
-				"anthropic",
-				"google",
-				"cohere",
-				"mistral",
-				"together",
-				"perplexity",
-				"groq",
-				"deepseek",
-				"openrouter",
-			},
+			expected:   []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 		},
 		{
 			name:       "http method enum",
@@ -1695,7 +1680,7 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting(t *testing.T) {
 		t.Fatalf("Failed to create validator: %v", err)
 	}
 
-	// Test enum value formatting in error messages
+	// Test enum value formatting in error messages using contextLength (still in schema)
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
@@ -1705,24 +1690,23 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting(t *testing.T) {
 		},
 		"run": map[string]interface{}{
 			"chat": map[string]interface{}{
-				"backend": "invalid-backend", // Should trigger enum error with options
-				"model":   "llama3.2",
-				"prompt":  "test",
+				"contextLength": 999, // Should trigger enum error with options
+				"prompt":        "test",
 			},
 		},
 	}
 
 	err = v.ValidateResource(testData)
 	if err == nil {
-		t.Fatal("Expected validation error for invalid backend")
+		t.Fatal("Expected validation error for invalid contextLength")
 	}
 
 	errMsg := err.Error()
 	if !contains(errMsg, "Available options:") {
 		t.Errorf("Expected enum options in error message, got: %s", errMsg)
 	}
-	if !contains(errMsg, "ollama") {
-		t.Errorf("Expected 'ollama' in enum options, got: %s", errMsg)
+	if !contains(errMsg, "4096") {
+		t.Errorf("Expected '4096' in enum options, got: %s", errMsg)
 	}
 }
 
@@ -2119,7 +2103,7 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting_Indirect(t *testing.
 		t.Fatalf("Failed to create validator: %v", err)
 	}
 
-	// Test enhanceErrorMessage with enum values - trigger through validation
+	// Test enhanceErrorMessage with enum values using contextLength (still in schema)
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
@@ -2129,25 +2113,24 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting_Indirect(t *testing.
 		},
 		"run": map[string]interface{}{
 			"chat": map[string]interface{}{
-				"backend": "invalid-backend", // Should show enum options
-				"model":   "llama3.2",
-				"prompt":  "test",
+				"contextLength": 999, // Should show enum options
+				"prompt":        "test",
 			},
 		},
 	}
 
 	err = v.ValidateResource(testData)
 	if err == nil {
-		t.Fatal("Expected validation error for invalid backend")
+		t.Fatal("Expected validation error for invalid contextLength")
 	}
 
 	errMsg := err.Error()
 	if !contains(errMsg, "Available options:") {
 		t.Errorf("Expected enum options in error message, got: %s", errMsg)
 	}
-	// Should contain specific backend options
-	if !contains(errMsg, "ollama") || !contains(errMsg, "openai") {
-		t.Errorf("Expected backend options in error message, got: %s", errMsg)
+	// Should contain specific contextLength options
+	if !contains(errMsg, "4096") || !contains(errMsg, "8192") {
+		t.Errorf("Expected contextLength options in error message, got: %s", errMsg)
 	}
 }
 
