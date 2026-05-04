@@ -193,11 +193,24 @@ jobs:
             echo "Test: ${{ steps.test.outcome }}"
           fi
 
-      - name: Update npm packages
+      - name: Update npm packages in docs/v2
         id: update_npm
         run: |
-          echo "Updating npm packages in kdeps-io..."
-          cd kdeps-io
+          echo "Updating npm packages in docs/v2..."
+          cd docs/v2
+          npm update --save
+          if git diff --quiet package.json package-lock.json; then
+            echo "has_npm_updates=false" >> $GITHUB_OUTPUT
+            echo "No npm updates available"
+          else
+            echo "has_npm_updates=true" >> $GITHUB_OUTPUT
+            echo "npm updates found"
+          fi
+
+      - name: Update npm packages in kdeps
+        id: update_npm_kdeps
+        run: |
+          echo "Updating npm packages in kdeps..."
           npm update --save
           if git diff --quiet package.json package-lock.json; then
             echo "has_npm_updates=false" >> $GITHUB_OUTPUT
@@ -208,17 +221,22 @@ jobs:
           fi
 
       - name: Commit and push module updates
-        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true'
+        if: steps.update_modules.outputs.has_module_updates == 'true' || steps.update_npm.outputs.has_npm_updates == 'true' || steps.update_npm_kdeps.outputs.has_npm_updates == 'true'
         run: |
           if git diff --quiet go.mod go.sum; then
             echo "No Go module changes to commit"
           else
             git add go.mod go.sum
           fi
-          if git diff --quiet kdeps-io/package.json kdeps-io/package-lock.json; then
+          if git diff --quiet docs/v2/package.json docs/v2/package-lock.json; then
             echo "No npm changes to commit"
           else
-            git add kdeps-io/package.json kdeps-io/package-lock.json
+            git add docs/v2/package.json docs/v2/package-lock.json
+          fi
+          if git diff --quiet package.json package-lock.json; then
+            echo "No npm changes to commit"
+          else
+            git add package.json package-lock.json
           fi
           git commit -m "chore: update dependencies [nightly]"
           git push origin main
