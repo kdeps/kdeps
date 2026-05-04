@@ -198,7 +198,7 @@ jobs:
         run: |
           echo "Updating npm packages in docs/v2..."
           cd docs/v2
-          npm update --save
+          npm update --save --ignore-scripts
           if git diff --quiet package.json package-lock.json; then
             echo "has_npm_updates=false" >> $GITHUB_OUTPUT
             echo "No npm updates available"
@@ -211,7 +211,7 @@ jobs:
         id: update_npm_kdeps
         run: |
           echo "Updating npm packages in kdeps..."
-          npm update --save
+          npm update --save --ignore-scripts
           if git diff --quiet package.json package-lock.json; then
             echo "has_npm_updates=false" >> $GITHUB_OUTPUT
             echo "No npm updates available"
