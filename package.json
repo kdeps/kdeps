@@ -1,15 +1,8 @@
 {
-  "dependencies": {
-    "cline": "^2.14.0"
-  },
   "devDependencies": {
     "puppeteer": "^24.40.0"
   },
   "scripts": {
     "test:browser": "node tests/e2e/browser/chatgpt-clone.test.js"
-  },
-  "overrides": {
-    "basic-ftp": "^5.2.2",
-    "@xmldom/xmldom": "^0.9.10"
   }
 }
