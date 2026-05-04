@@ -222,14 +222,14 @@ Agents in an agency communicate via `run.agent:` — no network calls, no ports.
 
 ## Model allowlist
 
-Lock a deployment to specific models via `llm.models` in `~/.kdeps/config.yaml`. Resources requesting any other model are automatically overridden to `models[0]` and a warning is logged:
+Lock a deployment to specific models via `llm.models` in `~/.kdeps/config.yaml`. Resources requesting any other model are automatically overridden to the first model and a warning is logged:
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama
-  model: llama3.3:latest
-  models: [llama3.3:latest]
+  models:
+    - llama3.3:latest
 ```
 
 ## Build and deploy
