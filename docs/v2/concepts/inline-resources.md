@@ -29,7 +29,6 @@ run:
   
   # Main resource (chat, httpClient, sql, python, or exec)
   chat:
-    model: llama3.2:1b
     role: user
     prompt: "Process this data"
   
@@ -101,7 +100,6 @@ run:
         timeout: 5s
   
   chat:
-    model: llama3.2:1b
     prompt: "Analyze user: {{get('_output')}}"
 ```
 
@@ -112,7 +110,6 @@ Record operations in a database:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{get('prompt')}}"
   
   after:
@@ -167,7 +164,6 @@ Store results for future use:
 ```yaml
 run:
   chat:
-    model: gpt-4
     prompt: "{{get('query')}}"
   
   after:
@@ -193,7 +189,6 @@ run:
         command: "echo 'Starting...'"
   
   chat:
-    model: llama3.2:1b
     prompt: "{{get('prompt')}}"
   
   after:
@@ -244,7 +239,6 @@ run:
         url: "https://api.example.com/config"
   
   chat:
-    model: llama3.2:1b
     prompt: "{{get('prompt')}}"
   
   onError:
@@ -270,7 +264,6 @@ run:
         url: "https://api.example.com/user/{{get('user_id')}}"
   
   chat:
-    model: llama3.2:1b
     # Access results from previous steps
     prompt: "User data: {{get('_output')}}"
 ```
@@ -327,8 +320,6 @@ Each inline resource supports the same configuration options as the standalone r
 ### Chat (LLM)
 ```yaml
 - chat:
-    backend: ollama
-    model: llama3.2:1b
     role: user
     prompt: "{{get('prompt')}}"
     timeout: 30s
@@ -388,7 +379,6 @@ run:
     - set('should_notify', get('input.notify') == true)
   
   chat:
-    model: llama3.2:1b
     prompt: "{{get('prompt')}}"
   
   expr:
@@ -412,7 +402,6 @@ run:
         url: "https://api.example.com/prepare/{{item()}}"
   
   chat:
-    model: llama3.2:1b
     prompt: "Process {{item()}}"
   
   after:

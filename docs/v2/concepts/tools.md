@@ -11,7 +11,6 @@ When you define tools in a chat resource, the LLM can automatically decide when 
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: calculate
@@ -67,7 +66,6 @@ metadata:
   actionId: llmWithTools
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: calculate
@@ -126,7 +124,6 @@ tools:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: read_file
@@ -151,7 +148,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: search
@@ -179,7 +175,6 @@ Define multiple tools for different capabilities:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: calculate
@@ -293,7 +288,6 @@ metadata:
   actionId: mathAssistant
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: calculate
@@ -343,7 +337,6 @@ metadata:
   actionId: productAssistant
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: search_products
@@ -386,7 +379,6 @@ metadata:
   actionId: weatherAssistant
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: get_weather
@@ -410,7 +402,6 @@ metadata:
   actionId: smartAgent
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     scenario:
       - role: system

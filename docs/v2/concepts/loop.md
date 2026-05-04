@@ -355,7 +355,6 @@ run:
     while: "len(loop.results()) < 5"
     maxIterations: 50
   chat:
-    model: llama3.2:1b
     prompt: "Generate item {{ loop.count() }}"
   apiResponse:
     success: true

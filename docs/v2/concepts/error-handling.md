@@ -235,7 +235,6 @@ metadata:
   actionId: llmEnhancement
 run:
   chat:
-    model: gpt-4o
     prompt: "Enhance this text: {{ get('text') }}"
 
   onError:
@@ -328,8 +327,6 @@ metadata:
   actionId: primaryLLM
 run:
   chat:
-    backend: openai
-    model: gpt-4o
     prompt: "{{ get('q') }}"
 
   onError:
@@ -350,8 +347,6 @@ run:
     - safe(get('primaryLLM'), '_error') == nil
 
   chat:
-    backend: ollama
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 
 ---

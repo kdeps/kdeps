@@ -190,12 +190,8 @@ settings:
     baseOS: alpine                 # Base OS: alpine, ubuntu, debian
 
     # LLM settings
-    models:                        # Ollama models to include (also enforced as allowlist)
-      - llama3.2:1b
-      - llama3.2-vision
-    offlineMode: false            # Pre-bake models in image
-    ollamaImageTag: "0.13.5"      # Ollama version
-    ollamaUrl: http://localhost:11434  # Custom Ollama URL
+    ollamaImageTag: "0.13.5"      # Ollama version to install in Docker image
+    installOllama: true           # Explicitly install Ollama (optional)
 
     # Environment
     env:
@@ -232,41 +228,40 @@ pyprojectFile: "pyproject.toml"
 lockFile: "uv.lock"
 ```
 
-### LLM Models
+### LLM Model and Backend Configuration
+
+Model, backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in `workflow.yaml` or resource YAML. Run `kdeps edit` to open the config file.
 
 ```yaml
-models:
-  - llama3.2:1b        # Small, fast
-  - llama3.2           # Standard
-  - llama3.2-vision    # Vision capable
-  - mistral            # Mistral 7B
-  - codellama          # Code generation
-```
-
-For offline/air-gapped deployments:
-
-```yaml
-offlineMode: true      # Models baked into Docker image
-models:
-  - llama3.2:1b
+# ~/.kdeps/config.yaml
+llm:
+  model: llama3.2:1b
+  backend: ollama
+  # base_url: http://localhost:11434
+  # openai_api_key: sk-...
 ```
 
 ### Model Allowlist Enforcement
 
-When `agentSettings.models` is set, it acts as an **allowlist**: any resource or component that requests a model not in the list is automatically overridden with `models[0]` (the first listed model), and a red error is logged.
+To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/config.yaml`:
 
 ```yaml
-agentSettings:
+# ~/.kdeps/config.yaml
+llm:
+  backend: ollama
+  model: llama3.2:1b
   models:
-    - llama3.3:latest   # ← Only this model is permitted at runtime
+    - llama3.3:latest   # Only this model is permitted at runtime
 ```
 
-If a resource specifies `model: llama3.2:1b` but the allowlist only contains `llama3.3:latest`, the request will use `llama3.3:latest` and log:
+Any request for a model not in this list is overridden with the first model and a warning is logged:
 ```
 model not in workflow allowlist — overriding with first allowlisted model
 ```
 
-This ensures a consistent, auditable model selection across all resources in a workflow.
+For Docker/offline deployments, models listed here are pre-pulled into the image. This ensures consistent, auditable model selection across all resources.
+
+See [LLM Backends](../resources/llm-backends) for full backend configuration reference.
 
 ## SQL Connections
 
@@ -443,9 +438,6 @@ settings:
     osPackages:
       - ffmpeg
     baseOS: alpine
-    models:
-      - llama3.2:1b
-    offlineMode: true
     env:
       LOG_LEVEL: "info"
 

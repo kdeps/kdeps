@@ -65,7 +65,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     jsonResponse: true
     jsonResponseKeys:
@@ -190,7 +189,6 @@ run:
     - get('q') != ''
     - len(get('q')) > 3
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     jsonResponse: true
     jsonResponseKeys:
@@ -210,7 +208,6 @@ Add system prompts and conversation history:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     scenario:
       - role: system
         prompt: "You are a helpful assistant that provides clear, concise answers."
@@ -242,7 +239,6 @@ Then access session data:
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     scenario:
       - role: system
         prompt: "You are a helpful assistant."

@@ -74,9 +74,20 @@ settings:
 
   agentSettings:
     timezone: Etc/UTC
-    models:
-      - llama3.2:1b
 ```
+
+### Step 2b: Configure the LLM Backend
+
+Model, backend, and API keys live in `~/.kdeps/config.yaml` (not in workflow or resource files):
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  model: llama3.2:1b   # or gpt-4o, claude-3-5-sonnet-20241022, etc.
+  backend: ollama       # or openai, anthropic, groq, ...
+```
+
+Run `kdeps edit` to open this file, or see [LLM Backends](../resources/llm-backends) for all options.
 
 ### Step 3: Create the LLM Resource
 
@@ -103,7 +114,6 @@ run:
       message: Query parameter 'q' is required
 
   chat:
-    model: llama3.2:1b
     role: user
     prompt: "{{ get('q') }}"
     scenario:
@@ -236,7 +246,6 @@ The `workflow.yaml` defines:
 - Agent metadata (name, version)
 - Target action to execute
 - API server settings
-- LLM models to use
 
 ### Resources
 Resources are the building blocks:

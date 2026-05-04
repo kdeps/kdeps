@@ -38,7 +38,6 @@ metadata:
   actionId: respond
 run:
   chat:
-    model: gpt-4o-mini
     prompt: |
       Email: {{ get('email') }}
       Classify as urgent / normal / unsubscribe.
@@ -65,7 +64,6 @@ metadata:
   actionId: respond
 run:
   chat:
-    model: gpt-4o-mini
     prompt: |
       Meeting request: {{ get('request') }}
       Attendees: {{ get('attendees') }}
@@ -97,7 +95,6 @@ run:
         headers:
           Authorization: "Bearer {{ env('BANK_TOKEN') }}"
   chat:
-    model: gpt-4o-mini
     prompt: |
       Transactions: {{ get('httpClient') }}
       Today: {{ info('current_date') }}
@@ -129,7 +126,6 @@ run:
         headers:
           Authorization: "Bearer {{ env('BANK_TOKEN') }}"
   chat:
-    model: gpt-4o-mini
     prompt: |
       Transactions: {{ get('httpClient') }}
       Find all recurring charges. Flag any not used in 30+ days.
@@ -158,9 +154,7 @@ run:
         name: embedding
         with:
           text: "{{ get('q') }}"
-          apiKey: "{{ env('OPENAI_API_KEY') }}"
   chat:
-    model: llama3.2
     prompt: |
       Context: {{ get('embedding').embedding }}
       Question: {{ get('q') }}
@@ -188,7 +182,6 @@ run:
         method: GET
         url: "{{ env('PANTRY_API') }}/inventory"
   chat:
-    model: gpt-4o-mini
     prompt: |
       Pantry: {{ get('httpClient') }}
       Suggest 5 meals using items expiring soonest.
@@ -219,7 +212,6 @@ run:
         with:
           url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
   chat:
-    model: gpt-4o-mini
     prompt: |
       Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
       Data: {{ get('scraper') }}
@@ -245,7 +237,6 @@ metadata:
   actionId: respond
 run:
   chat:
-    model: gpt-4o-mini
     prompt: |
       Client: {{ get('client') }}
       Work done: {{ get('description') }}

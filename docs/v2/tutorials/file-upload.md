@@ -218,7 +218,6 @@ metadata:
 
 run:
   chat:
-    model: moondream:1.8b
     prompt: "Describe this image"
     files:
       - "{{ get('file', 'filepath') }}"

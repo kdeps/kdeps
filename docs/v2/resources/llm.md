@@ -2,6 +2,22 @@
 
 The LLM (chat) resource enables interaction with language models for text generation, question answering, and AI-powered tasks.
 
+## Model and Backend Configuration
+
+**Model, backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in the resource YAML.**
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  model: llama3.2:1b          # Default model for all chat resources
+  backend: ollama              # Default backend (ollama, openai, anthropic, ...)
+  # base_url: http://localhost:11434
+  # openai_api_key: sk-...
+  # anthropic_api_key: sk-ant-...
+```
+
+To switch backends or models, edit `~/.kdeps/config.yaml` (or run `kdeps edit`) without touching your resource files. For multi-backend routing, see [LLM Backends](llm-backends).
+
 ## Basic Usage
 
 <div v-pre>
@@ -16,7 +32,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     timeoutDuration: 60s
 ```
@@ -32,19 +47,13 @@ run:
 ```yaml
 run:
   chat:
-    # Model Configuration
-    model: llama3.2:1b              # Required: Model name
-    backend: ollama                  # Backend: ollama, openai, anthropic, etc.
-    baseUrl: http://localhost:11434  # Custom backend URL
-    apiKey: "sk-..."                 # API key (or use env var)
-    contextLength: 8192              # Context window size
-
     # Prompt Configuration
     role: user                       # Role: user, assistant, system
     prompt: "{{ get('q') }}"        # The prompt to send
 
-    # Advanced Generation Parameters
-    temperature: 0.7                 # 0.0 to 2.0 (default varies by backend)
+    # Generation Parameters
+    contextLength: 8192              # Context window size (tokens)
+    temperature: 0.7                 # 0.0 to 2.0
     maxTokens: 1000                  # Max tokens to generate
     topP: 0.9                        # Nucleus sampling (0.0 to 1.0)
     frequencyPenalty: 0.0            # -2.0 to 2.0
@@ -55,7 +64,7 @@ run:
       - role: system
         prompt: You are a helpful assistant.
       - role: assistant
-        prompt: I'm ready to help!
+        prompt: I am ready to help!
 
     # Tools (Function Calling)
     tools:
@@ -77,133 +86,23 @@ run:
       - answer
       - confidence
 
-    # Timeout
+    # Timeout and Streaming
     timeoutDuration: 60s
+    streaming: true              # Ollama only: stream NDJSON chunks
 ```
 
 </div>
-
-## Backends
-
-KDeps supports multiple LLM backends:
-
-### Local Backend
-
-| Backend | Default URL | Description |
-|---------|-------------|-------------|
-| `ollama` | localhost:11434 | Ollama (default) |
-| `file` | localhost:8080 | Llamafile (self-contained GGUF binary, OpenAI-compatible server) |
-
-### Cloud Backends
-
-| Backend | Environment Variable | Description |
-|---------|---------------------|-------------|
-| `openai` | `OPENAI_API_KEY` | OpenAI GPT models |
-| `anthropic` | `ANTHROPIC_API_KEY` | Claude models |
-| `google` | `GOOGLE_API_KEY` | Gemini models |
-| `mistral` | `MISTRAL_API_KEY` | Mistral AI |
-| `together` | `TOGETHER_API_KEY` | Together AI |
-| `groq` | `GROQ_API_KEY` | Groq (fast inference) |
-| `perplexity` | `PERPLEXITY_API_KEY` | Perplexity AI |
-| `cohere` | `COHERE_API_KEY` | Cohere |
-| `deepseek` | `DEEPSEEK_API_KEY` | DeepSeek |
-
-### Backend Examples
-
-**Ollama (Default)**
-<div v-pre>
-
-```yaml
-chat:
-  model: llama3.2:1b
-  backend: ollama  # Optional, this is default
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**OpenAI**
-<div v-pre>
-
-```yaml
-chat:
-  model: gpt-4
-  backend: openai
-  apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**Anthropic (Claude)**
-<div v-pre>
-
-```yaml
-chat:
-  model: claude-3-opus-20240229
-  backend: anthropic
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**File (Llamafile)**
-
-The `file` backend runs a [llamafile](https://github.com/Mozilla-Ocho/llamafile) binary as a local OpenAI-compatible server. The `model` field accepts:
-
-- Remote URL - downloaded and cached in `~/.kdeps/models/` on first use
-- Absolute path - used directly
-- Relative path (`./` or `../`) - resolved from the current working directory
-- Bare filename - looked up in `~/.kdeps/models/`
-<div v-pre>
-
-```yaml
-# Remote URL (auto-downloaded, cached in ~/.kdeps/models/)
-chat:
-  model: https://huggingface.co/Mozilla/Mistral-7B-Instruct-v0.2-llamafile/resolve/main/mistral-7b-instruct-v0.2.Q4_0.llamafile
-  backend: file
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-<div v-pre>
-
-```yaml
-# Local absolute path
-chat:
-  model: /home/user/models/mistral.llamafile
-  backend: file
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-<div v-pre>
-
-```yaml
-# Bare filename (looked up in ~/.kdeps/models/)
-chat:
-  model: mistral.llamafile
-  backend: file
-  prompt: "{{ get('q') }}"
-```
-
-</div>
-
-The server is started automatically on a free port. No separate installation is needed - the llamafile is a self-contained binary that runs on Linux (x86_64/ARM64), macOS (ARM64/x86_64), and Windows.
 
 ## Advanced Parameters
 
-Fine-tune the model's output generation:
-
-- **temperature**: Controls randomness. Higher values (e.g., 0.8) make output more random, lower values (e.g., 0.2) make it more focused and deterministic.
-- **maxTokens**: The maximum number of tokens to generate in the completion.
-- **topP**: An alternative to sampling with temperature, called nucleus sampling. The model considers the results of the tokens with top_p probability mass.
-- **frequencyPenalty**: Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
-- **presencePenalty**: Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
+- **temperature**: Controls randomness. Higher (e.g. 0.8) = more random, lower (e.g. 0.2) = more focused.
+- **maxTokens**: Maximum tokens to generate.
+- **topP**: Nucleus sampling - considers tokens with top_p probability mass.
+- **frequencyPenalty**: Penalizes repeated tokens, reducing verbatim repetition.
+- **presencePenalty**: Penalizes any token that has appeared, encouraging new topics.
 
 ```yaml
 chat:
-  model: llama3.2:1b
   prompt: "Write a creative story"
   temperature: 0.9
   presencePenalty: 0.6
@@ -212,11 +111,10 @@ chat:
 
 ## Context Length
 
-Control the context window size:
+Control the context window:
 
 ```yaml
 chat:
-  model: llama3.2:1b
   contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
 
@@ -228,7 +126,6 @@ Build multi-turn conversations:
 
 ```yaml
 chat:
-  model: llama3.2:1b
   prompt: "{{ get('q') }}"
   scenario:
     - role: system
@@ -256,7 +153,6 @@ Get structured JSON output:
 
 ```yaml
 chat:
-  model: llama3.2:1b
   prompt: "Analyze: {{ get('q') }}"
   jsonResponse: true
   jsonResponseKeys:
@@ -280,13 +176,12 @@ Output:
 
 ## Vision (File Attachments)
 
-Process images with vision-capable models:
+Process images (set a vision-capable model in `config.yaml`):
 
 <div v-pre>
 
 ```yaml
 chat:
-  model: llama3.2-vision
   prompt: "Describe this image"
   files:
     - "{{ get('file', 'filepath') }}"  # From upload
@@ -302,18 +197,16 @@ Enable LLMs to call other resources:
 <div v-pre>
 
 ```yaml
-# Main LLM resource
 metadata:
   actionId: llmWithTools
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     tools:
       - name: calculate
         description: Perform mathematical calculations
-        script: calcTool  # References another resource
+        script: calcTool
         parameters:
           expression:
             type: string
@@ -336,11 +229,9 @@ run:
 
 </div>
 
-The LLM automatically decides when to call tools based on the prompt.
-
 ### Component Tools (Opt-In Allowlist)
 
-Use `componentTools:` to expose installed components as LLM function-calling tools. By default no components are registered — list only the ones the LLM should be able to call:
+Expose installed components as LLM function-calling tools:
 
 ```bash
 kdeps registry install scraper
@@ -350,14 +241,26 @@ kdeps registry install search
 ```yaml
 run:
   chat:
-    model: gpt-4o
     prompt: "Research {{ get('q') }} and summarize the findings."
     componentTools:
       - scraper
       - search
 ```
 
-The component's `interface.inputs` become the tool's JSON Schema parameter definition. Explicit `tools:` entries take precedence when names conflict — no duplication. See the [Components guide](../concepts/components#components-as-llm-tools-opt-in) for full details.
+## Streaming (Ollama only)
+
+Set `streaming: true` to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks and returns the same response shape as non-streaming.
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    prompt: "{{ get('q') }}"
+    streaming: true
+```
+
+</div>
 
 ## Examples
 
@@ -368,7 +271,6 @@ The component's `interface.inputs` become the tool's JSON Schema parameter defin
 ```yaml
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     scenario:
       - role: system
@@ -388,14 +290,12 @@ run:
 ```yaml
 run:
   chat:
-    model: codellama
     prompt: "Write a Python function that {{ get('task') }}"
     scenario:
       - role: system
         prompt: |
           You are an expert Python developer.
-          Write clean, documented code.
-          Include type hints.
+          Write clean, documented code with type hints.
     jsonResponse: true
     jsonResponseKeys:
       - code
@@ -405,18 +305,17 @@ run:
 
 </div>
 
-### Multi-Model Workflow
+### Multi-Resource Pipeline
 
 <div v-pre>
 
 ```yaml
-# Fast model for classification
+# Fast classification resource
 metadata:
   actionId: classifier
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Classify this query: {{ get('q') }}"
     jsonResponse: true
     jsonResponseKeys:
@@ -424,7 +323,7 @@ run:
       - confidence
 
 ---
-# Powerful model for complex queries
+# Detailed response (only runs when confidence >= 0.8)
 metadata:
   actionId: detailedResponse
   requires: [classifier]
@@ -435,7 +334,6 @@ run:
     - get('classifier').confidence < 0.8
 
   chat:
-    model: llama3.2
     prompt: |
       Category: {{ get('classifier').category }}
       Query: {{ get('q') }}
@@ -448,16 +346,18 @@ run:
 ## Accessing Output
 
 ```yaml
-# In another resource
 metadata:
   requires: [llmResource]
 
 run:
   apiResponse:
     response:
-      # Full response
       llm_output: get('llmResource')
-
-      # Specific field (if JSON response)
-      answer: get('llmResource').answer
+      answer: get('llmResource').answer  # If jsonResponse: true
 ```
+
+## See Also
+
+- [LLM Backends](llm-backends) - Configure model, backend, API keys, and routing
+- [Tools](../concepts/tools) - LLM function calling
+- [Docker Deployment](../deployment/docker) - Deploying with local models

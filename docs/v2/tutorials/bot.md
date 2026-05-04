@@ -61,8 +61,6 @@ metadata:
 
 run:
   chat:
-    backend: ollama
-    model: llama3.2:3b
     messages:
       - role: user
         content: "{{ input('message') }}"
@@ -125,8 +123,6 @@ Give your bot a persona by adding a `scenario` block to the LLM resource:
 ```yaml
 run:
   chat:
-    backend: ollama
-    model: llama3.2:3b
     scenario:
       - role: assistant
         prompt: |

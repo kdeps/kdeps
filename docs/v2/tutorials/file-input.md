@@ -71,7 +71,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:3b
     prompt: |
       You are a concise document summarizer.
       Summarize the following document in 3–5 bullet points:
@@ -175,7 +174,6 @@ metadata:
   dependencies: [extract]
 run:
   chat:
-    model: llama3.2:3b
     prompt: |
       Document word count: {{ get('extract') }}
 
@@ -219,7 +217,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:3b
     prompt: |
       Summarize this document in 3 bullet points:
 

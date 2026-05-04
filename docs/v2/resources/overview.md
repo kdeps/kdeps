@@ -333,7 +333,6 @@ metadata:
   actionId: llmResource
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Answer: {{ get('q') }}"
 
 # Access in another resource

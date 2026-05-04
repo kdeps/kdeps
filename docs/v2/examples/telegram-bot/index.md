@@ -52,8 +52,6 @@ metadata:
 
 run:
   chat:
-    backend: ollama
-    model: llama3.2:3b
     messages:
       - role: user
         content: "{{ input('message') }}"

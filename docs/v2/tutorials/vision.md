@@ -82,7 +82,6 @@ metadata:
 
 run:
   chat:
-    model: moondream:1.8b
     role: user
     prompt: "{{ get('q', 'param') }}"
     files:
@@ -259,7 +258,6 @@ model: llava:13b
 ```yaml
 run:
   chat:
-    model: moondream:1.8b
     prompt: "Describe this image in detail"
     files:
       - "{{ get('file', 'filepath') }}"
@@ -274,7 +272,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llava:7b
     prompt: "List all objects in this image"
     jsonResponse: true
     jsonResponseKeys:
@@ -293,7 +290,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llava:7b
     prompt: "Analyze the scene: location, time of day, weather, mood"
     jsonResponse: true
     jsonResponseKeys:
@@ -314,7 +310,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llava:13b
     prompt: "Compare these two images and describe the differences"
     files:
       - "{{ get('file1', 'filepath') }}"
@@ -334,7 +329,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llava:7b
     prompt: "Extract all text from this image"
     jsonResponse: true
     jsonResponseKeys:
@@ -355,7 +349,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llava:7b
     scenario:
       - role: system
         prompt: "You are an expert image analyst. Provide detailed, accurate descriptions."
@@ -376,7 +369,6 @@ Combine vision with function calling:
 ```yaml
 run:
   chat:
-    model: llava:7b
     prompt: "{{ get('q') }}"
     files:
       - "{{ get('file', 'filepath') }}"
@@ -424,7 +416,6 @@ run:
     - info('filecount') > 0
     - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
   chat:
-    model: moondream:1.8b
     prompt: "{{ get('q') }}"
     files:
       - "{{ get('file', 'filepath') }}"
@@ -474,7 +465,6 @@ metadata:
 
 run:
   chat:
-    model: moondream:1.8b
     prompt: "{{ get('q', 'param') }}"
     files:
       - "{{ get('file', 'filepath') }}"
