@@ -41,9 +41,8 @@ func newConfigTestCtx(t *testing.T) *executor.ExecutionContext {
 	// Set a known config so tests are deterministic.
 	ctx.Config = &config.Config{
 		LLM: config.LLMKeys{
-			OllamaHost:   "http://localhost:11434",
-			DefaultModel: "llama3.2",
-			OpenAI:       "sk-test",
+			OllamaHost: "http://localhost:11434",
+			OpenAI:     "sk-test",
 		},
 		Defaults: config.Defaults{
 			Timezone: "UTC",

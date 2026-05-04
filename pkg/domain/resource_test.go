@@ -109,9 +109,8 @@ run:
 		t.Fatal("Chat config is nil")
 	}
 
-	// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
-	if resource.Run.Chat.Model != "" {
-		t.Errorf("Chat.Model = %v, want %v (Model is runtime-only, not parsed from YAML)", resource.Run.Chat.Model, "")
+	if resource.Run.Chat.Model != "llama3.2:latest" {
+		t.Errorf("Chat.Model = %v, want %v", resource.Run.Chat.Model, "llama3.2:latest")
 	}
 
 	if !resource.Run.Chat.JSONResponse {

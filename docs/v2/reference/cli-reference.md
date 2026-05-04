@@ -615,7 +615,7 @@ kubectl rollout status deployment/my-agent
 | `KDEPS_EDITOR` | Editor for `kdeps edit` (overrides `VISUAL`/`EDITOR`) |
 | `VISUAL` | Fallback editor for `kdeps edit` |
 | `EDITOR` | Second fallback editor for `kdeps edit` (falls back to `vi`) |
-| `KDEPS_DEFAULT_MODEL` | Global default LLM model (used when resource omits `model:`) |
+
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g. `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |
 | `OLLAMA_HOST` | Ollama server URL (e.g. `http://localhost:11434`) |

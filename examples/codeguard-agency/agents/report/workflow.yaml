@@ -27,6 +27,7 @@ resources:
       name: Synthesize Report
     run:
       chat:
+        model: llama3.2:1b
         role: user
         prompt: |
           You are a lead code reviewer writing a final review report.

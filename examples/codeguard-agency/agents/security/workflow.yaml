@@ -27,6 +27,7 @@ resources:
       name: Security Check
     run:
       chat:
+        model: llama3.2:1b
         role: user
         prompt: |
           You are an application security engineer performing a code review.

@@ -183,7 +183,6 @@ func writeConfig(path string, cfg Config) error {
 	lines = append(lines, "llm:")
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
-	appendField(&lines, "  model", cfg.LLM.DefaultModel)
 	appendField(&lines, "  openai_api_key", cfg.LLM.OpenAI)
 	appendField(&lines, "  anthropic_api_key", cfg.LLM.Anthropic)
 	appendField(&lines, "  google_api_key", cfg.LLM.Google)
@@ -236,10 +235,6 @@ func configureProvider(
 		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
 		if strings.TrimSpace(hostRaw) != "" {
 			meta.setter(cfg, strings.TrimSpace(hostRaw))
-		}
-		modelRaw := promptLine(out, reader, "  Default model [llama3.2]: ", "llama3.2")
-		if strings.TrimSpace(modelRaw) != "" {
-			cfg.LLM.DefaultModel = strings.TrimSpace(modelRaw)
 		}
 		return nil
 	}

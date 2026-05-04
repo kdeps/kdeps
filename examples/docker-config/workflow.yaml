@@ -53,6 +53,7 @@ resources:
       name: LLM Chat
     run:
       chat:
+        model: llama3.2:1b
         # Backend will be auto-detected and installed in Docker image
         # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
         role: "user"

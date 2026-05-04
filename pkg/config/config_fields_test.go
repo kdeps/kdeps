@@ -31,9 +31,8 @@ import (
 func newTestConfig() *config.Config {
 	return &config.Config{
 		LLM: config.LLMKeys{
-			OllamaHost:   "http://localhost:11434",
-			DefaultModel: "llama3.2",
-			OpenAI:       "sk-test",
+			OllamaHost: "http://localhost:11434",
+			OpenAI:     "sk-test",
 		},
 		Defaults: config.Defaults{
 			Timezone:    "UTC",
@@ -49,13 +48,6 @@ func TestConfig_GetField_LLMHost(t *testing.T) {
 	v, err := c.GetField("llm.ollama_host")
 	require.NoError(t, err)
 	assert.Equal(t, "http://localhost:11434", v)
-}
-
-func TestConfig_GetField_LLMModel(t *testing.T) {
-	c := newTestConfig()
-	v, err := c.GetField("llm.model")
-	require.NoError(t, err)
-	assert.Equal(t, "llama3.2", v)
 }
 
 func TestConfig_GetField_OpenAI(t *testing.T) {
@@ -143,7 +135,7 @@ func TestLoadStruct_ValidFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(`
 llm:
   openai_api_key: sk-loadstruct
-  model: gpt-4o
+
 defaults:
   timezone: America/Chicago
 `), 0600))
@@ -151,7 +143,6 @@ defaults:
 	cfg, err := config.LoadStruct()
 	require.NoError(t, err)
 	assert.Equal(t, "sk-loadstruct", cfg.LLM.OpenAI)
-	assert.Equal(t, "gpt-4o", cfg.LLM.DefaultModel)
 	assert.Equal(t, "America/Chicago", cfg.Defaults.Timezone)
 }
 
@@ -199,7 +190,6 @@ func TestConfig_ToMap_Structure(t *testing.T) {
 	llm, ok := m["llm"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "http://localhost:11434", llm["ollama_host"])
-	assert.Equal(t, "llama3.2", llm["model"])
 	assert.Equal(t, "sk-test", llm["openai_api_key"])
 
 	defaults, ok := m["defaults"].(map[string]any)

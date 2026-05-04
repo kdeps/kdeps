@@ -9,6 +9,7 @@ metadata:
 
 run:
   chat:
+    model: llama3.2:1b
     prompt: |
       You are a document analyst. Analyze the following document and return a
       JSON object with exactly these keys:

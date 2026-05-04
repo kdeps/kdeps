@@ -508,8 +508,7 @@ func validateChatResource(t *testing.T, resource *domain.Resource) {
 	assert.Equal(t, "test-action", resource.Metadata.ActionID)
 	assert.Equal(t, "Test Resource", resource.Metadata.Name)
 	require.NotNil(t, resource.Run.Chat)
-	// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
-	assert.Equal(t, "", resource.Run.Chat.Model)
+	assert.Equal(t, "llama3.2:latest", resource.Run.Chat.Model)
 }
 
 // validateHTTPResource validates an HTTP resource.

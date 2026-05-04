@@ -308,6 +308,9 @@
         "chat": {
           "type": "object",
           "properties": {
+            "model": {
+              "type": "string"
+            },
             "contextLength": {
               "type": "integer",
               "enum": [

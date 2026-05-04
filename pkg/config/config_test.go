@@ -41,14 +41,13 @@ func TestLoad_ValidFile(t *testing.T) {
 	content := `
 llm:
   ollama_host: http://localhost:11434
-  model: llama3.2
   openai_api_key: sk-test
   anthropic_api_key: ant-test
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
 	// Unset any pre-existing values so setIfUnset has room to act.
-	for _, k := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_HOST", "KDEPS_DEFAULT_MODEL"} {
+	for _, k := range []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OLLAMA_HOST"} {
 		require.NoError(t, os.Unsetenv(k))
 	}
 
@@ -56,13 +55,10 @@ llm:
 	require.NoError(t, err)
 	assert.Equal(t, "sk-test", cfg.LLM.OpenAI)
 	assert.Equal(t, "http://localhost:11434", cfg.LLM.OllamaHost)
-	assert.Equal(t, "llama3.2", cfg.LLM.DefaultModel)
-
 	// Env vars should be populated.
 	assert.Equal(t, "sk-test", os.Getenv("OPENAI_API_KEY"))
 	assert.Equal(t, "ant-test", os.Getenv("ANTHROPIC_API_KEY"))
 	assert.Equal(t, "http://localhost:11434", os.Getenv("OLLAMA_HOST"))
-	assert.Equal(t, "llama3.2", os.Getenv("KDEPS_DEFAULT_MODEL"))
 }
 
 func TestLoad_EnvVarWins(t *testing.T) {

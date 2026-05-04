@@ -351,15 +351,11 @@ func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {
 // getDefaultModel returns the configured default model.
 func (b *Builder) getDefaultModel(_ *domain.Workflow) string {
 	kdeps_debug.Log("enter: getDefaultModel")
-	// First model from KDEPS_LLM_MODELS list, then KDEPS_DEFAULT_MODEL, then fallback.
 	if v := os.Getenv("KDEPS_LLM_MODELS"); v != "" {
 		models := strings.SplitN(v, ",", 2) //nolint:mnd // first element only
 		if len(models) > 0 && models[0] != "" {
 			return models[0]
 		}
-	}
-	if v := os.Getenv("KDEPS_DEFAULT_MODEL"); v != "" {
-		return v
 	}
 	return "llama3.2:1b"
 }

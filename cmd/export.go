@@ -80,7 +80,6 @@ func injectConfigEnv(workflow *domain.Workflow) {
 		"KDEPS_LLM_BASE_URL",
 		"KDEPS_LLM_MODELS",
 		"KDEPS_OFFLINE_MODE",
-		"KDEPS_DEFAULT_MODEL",
 		"OLLAMA_HOST",
 	} {
 		if v := os.Getenv(key); v != "" {

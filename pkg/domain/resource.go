@@ -237,9 +237,9 @@ func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // ChatConfig represents LLM chat configuration.
 type ChatConfig struct {
-	// Model, Backend, BaseURL, APIKey are runtime fields set by the LLM router or env vars.
-	// They are not parsed from resource YAML — configure them in ~/.kdeps/config.yaml instead.
-	Model   string `yaml:"-"`
+	// Model is set in resource YAML. Use "router" to delegate to the LLM router in config.yaml.
+	Model string `yaml:"model,omitempty"`
+	// Backend, BaseURL, APIKey are runtime fields set by the LLM router or env vars.
 	Backend string `yaml:"-"`
 	BaseURL string `yaml:"-"`
 	APIKey  string `yaml:"-"`
@@ -267,6 +267,7 @@ type ChatConfig struct {
 func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
+		Model            string         `yaml:"model,omitempty"`
 		ContextLength    interface{}    `yaml:"contextLength,omitempty"`
 		Role             string         `yaml:"role"`
 		Prompt           string         `yaml:"prompt"`
@@ -309,6 +310,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	c.FrequencyPenalty = parseFloatPtr(alias.FrequencyPenalty)
 	c.PresencePenalty = parseFloatPtr(alias.PresencePenalty)
 
+	c.Model = alias.Model
 	c.Role = alias.Role
 	c.Prompt = alias.Prompt
 	c.Scenario = alias.Scenario
