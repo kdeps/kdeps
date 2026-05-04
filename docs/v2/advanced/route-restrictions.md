@@ -137,7 +137,6 @@ run:
   validations:
     routes: [/api/v1/*]
   chat:
-    model: llama3.2:1b
     prompt: "V1 API: {{ get('q') }}"
 
 ---
@@ -150,7 +149,6 @@ run:
   validations:
     routes: [/api/v2/*]
   chat:
-    model: llama3.2:3b
     prompt: "V2 API with enhanced model: {{ get('q') }}"
 ```
 

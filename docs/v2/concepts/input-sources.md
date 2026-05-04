@@ -399,7 +399,6 @@ Example — Summarize a document:
 ```yaml
 run:
   chat:
-    model: llama3.2:3b
     prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
 ```
 
@@ -422,7 +421,6 @@ settings:
       chunkSeconds: 3           # Duration of each audio probe (seconds)
       offline:
         engine: faster-whisper
-        model: small
 ```
 
 ### How Activation Works
@@ -453,7 +451,6 @@ activation:
   sensitivity: 0.95
   online:
     provider: deepgram
-    apiKey: dg-...
 ```
 
 Supported online providers: `openai-whisper`, `google-stt`, `aws-transcribe`, `deepgram`, `assemblyai`
@@ -469,7 +466,6 @@ activation:
   sensitivity: 0.9
   offline:
     engine: faster-whisper     # whisper | faster-whisper | vosk | whisper-cpp
-    model: small               # tiny, base, small, medium, large
 ```
 
 ---
@@ -490,7 +486,6 @@ settings:
       language: en-US           # Optional BCP-47 language code
       offline:
         engine: faster-whisper
-        model: small
 ```
 
 ### Output Modes
@@ -532,7 +527,6 @@ transcriber:
   language: en-US
   online:
     provider: deepgram
-    apiKey: dg-...
 ```
 
 ### Offline Transcription Engines
@@ -552,7 +546,6 @@ transcriber:
   output: text
   offline:
     engine: faster-whisper
-    model: small              # tiny | base | small | medium | large
 ```
 
 ---
@@ -576,13 +569,11 @@ settings:
       sensitivity: 0.9
       offline:
         engine: faster-whisper
-        model: tiny             # Use tiny model for fast response on edge hardware
     transcriber:
       mode: offline
       output: text
       offline:
         engine: faster-whisper
-        model: small
 ```
 
 Resource that processes the spoken input:
@@ -594,7 +585,6 @@ metadata:
   actionId: voiceChat
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ inputTranscript }}"
   component:
     name: tts
@@ -615,7 +605,6 @@ settings:
       output: media             # Keep raw video, no transcription
       offline:
         engine: faster-whisper
-        model: base
 ```
 
 Resource that analyzes video frames:
@@ -627,7 +616,6 @@ metadata:
   actionId: analyzeFrame
 run:
   chat:
-    model: llama3.2-vision
     prompt: "Describe what you see in this video frame."
     images:
       - "{{ inputMedia }}"
@@ -647,7 +635,6 @@ settings:
       output: text
       online:
         provider: deepgram
-        apiKey: dg-...
 ```
 
 ### Multi-Source: API + Audio
@@ -665,7 +652,6 @@ settings:
       output: text
       offline:
         engine: faster-whisper
-        model: small
 ```
 
 ---
@@ -697,7 +683,6 @@ settings:
       mode: offline
       offline:
         engine: faster-whisper
-        model: small
 ```
 
 ---
@@ -741,7 +726,6 @@ run:
 ```yaml
 run:
   chat:
-    model: llama3.2:3b
     prompt: |
       Summarize the following in at most {{ input('maxWords') }} words:
       {{ input('text') }}

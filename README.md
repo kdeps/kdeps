@@ -57,7 +57,6 @@ metadata:
   actionId: chat
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('message') }}"
   apiResponse:
     response: "{{ output('chat') }}"
@@ -116,7 +115,6 @@ metadata:
   requires: [fetch]
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Summarize: {{ output('fetch').content }}"
   apiResponse:
     response: "{{ output('summarize') }}"
@@ -224,13 +222,14 @@ Agents in an agency communicate via `run.agent:` — no network calls, no ports.
 
 ## Model allowlist
 
-Lock a workflow to specific models via `agentSettings.models`. Resources requesting any other model are automatically overridden to `models[0]` and a warning is logged:
+Lock a deployment to specific models via `llm.models` in `~/.kdeps/config.yaml`. Resources requesting any other model are automatically overridden to `models[0]` and a warning is logged:
 
 ```yaml
-# workflow.yaml
-settings:
-  agentSettings:
-    models: [llama3.3:latest]
+# ~/.kdeps/config.yaml
+llm:
+  backend: ollama
+  model: llama3.3:latest
+  models: [llama3.3:latest]
 ```
 
 ## Build and deploy
@@ -256,8 +255,9 @@ kdeps edit
 
 llm:
   # Local inference via Ollama (no API key needed)
-  # ollama_host: http://localhost:11434
-  # model: llama3.2          # global default; overridden per resource
+  # backend: ollama
+  # model: llama3.2:1b       # global default for all chat resources
+  # base_url: http://localhost:11434
 
   # Local inference via llamafile (self-contained binary, no install needed)
   # Use backend: file in a chat resource, set model to a .llamafile path or URL

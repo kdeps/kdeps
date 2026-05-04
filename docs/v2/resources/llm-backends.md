@@ -2,6 +2,23 @@
 
 KDeps supports LLM integrations through Ollama for local model serving and any OpenAI-compatible API endpoint for cloud or self-hosted models.
 
+## Configuration
+
+**Backend, model, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in resource YAML.**
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  model: llama3.2:1b          # Default model
+  backend: ollama              # Default backend
+  # base_url: http://localhost:11434
+  # openai_api_key: sk-...
+  # anthropic_api_key: sk-ant-...
+  # groq_api_key: ...
+```
+
+Run `kdeps edit` to open the config file, or edit it directly.
+
 ## Backend Overview
 
 ### Local Backend
@@ -14,8 +31,8 @@ KDeps supports LLM integrations through Ollama for local model serving and any O
 
 KDeps supports **any OpenAI-compatible API endpoint**. This includes:
 - OpenAI (GPT-4, GPT-3.5)
-- Anthropic (Claude) - via compatibility layer
-- Google (Gemini) - via compatibility layer  
+- Anthropic (Claude)
+- Google (Gemini)
 - Groq - native OpenAI compatibility
 - Together AI - native OpenAI compatibility
 - Any self-hosted solution (vLLM, TGI, LocalAI, LlamaCpp)
@@ -24,253 +41,40 @@ KDeps supports **any OpenAI-compatible API endpoint**. This includes:
 
 ### Ollama (Default)
 
-Ollama is the default backend for local model serving.
+Ollama is the default backend for local model serving. Configure it in `~/.kdeps/config.yaml`:
 
 ```yaml
-run:
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    prompt: "Hello, world!"
-```
-
-**Configuration:**
-
-<div v-pre>
-
-```yaml
-# Custom Ollama URL
-run:
-  chat:
-    backend: ollama
-    baseUrl: "http://custom-ollama:11434"
-    model: llama3.2:1b
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**Workflow-level Ollama configuration:**
-
-```yaml
-settings:
-  agentSettings:
-    models:
-      - llama3.2:1b
-      - nomic-embed-text
-    ollamaUrl: "http://ollama:11434"
-    installOllama: true  # Explicitly install Ollama in Docker image
+# ~/.kdeps/config.yaml
+llm:
+  backend: ollama
+  model: llama3.2:1b
+  # base_url: http://custom-ollama:11434   # optional override
 ```
 
 **Docker Build:**
 
-When building Docker images, Ollama is automatically installed if:
-- A Chat resource uses the `ollama` backend (or no backend specified)
-- Models are configured in `agentSettings.models`
-- `installOllama: true` is explicitly set
+When building Docker images, Ollama is automatically installed when `backend: ollama` is set in config.yaml. The `installOllama` workflow flag can also force or suppress this:
 
-You can also disable Ollama installation by setting `installOllama: false`.
+```yaml
+settings:
+  agentSettings:
+    ollamaImageTag: "0.13.5"  # Ollama version to install
+    installOllama: true        # Force install (optional)
+```
 
 ## OpenAI-Compatible Backends
 
-Any API that implements the OpenAI chat completions API can be used with KDeps. This includes major cloud providers and self-hosted solutions.
+Any API that implements the OpenAI chat completions API can be used with KDeps.
 
 ### OpenAI
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: openai
-    model: gpt-4o
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  model: gpt-4o
+  openai_api_key: sk-...
 ```
-
-</div>
-
-**With explicit API key:**
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai
-    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-    model: gpt-4o
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**Available models:**
-
-| Model | Description |
-|-------|-------------|
-| `gpt-4o` | Latest GPT-4 Omni |
-| `gpt-4o-mini` | Smaller, faster GPT-4 |
-| `gpt-4-turbo` | GPT-4 Turbo |
-| `gpt-3.5-turbo` | Fast, cost-effective |
-
-### Other Cloud Providers
-
-For providers like Anthropic, Google, Mistral, and others, consult their documentation for OpenAI-compatible endpoints. Most modern LLM providers now offer OpenAI-compatible APIs.
-
-**Example with custom endpoint:**
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai  # Use openai backend
-    baseUrl: "https://api.provider.com/v1"  # Custom endpoint
-    apiKey: "{{ get('PROVIDER_API_KEY', 'env') }}"
-    model: provider-model-name
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-### Self-Hosted Solutions
-
-KDeps works with any self-hosted LLM serving solution that implements the OpenAI API:
-
-- **vLLM** - High-performance inference server
-- **Text Generation Inference (TGI)** - Hugging Face's serving solution
-- **LocalAI** - Drop-in replacement for OpenAI API
-- **LlamaCpp Server** - Efficient CPU inference
-- **Ollama** - Local model serving (recommended)
-
-**Example:**
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai
-    baseUrl: "http://your-vllm-server:8000/v1"
-    model: meta-llama/Llama-2-7b-chat-hf
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-## Configuration Options
-
-All backends support these common configuration options:
-
-### Basic Configuration
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: ollama  # ollama or openai
-    model: llama3.2:1b  # Model name
-    prompt: "{{ get('q') }}"  # Prompt text
-    systemPrompt: "You are a helpful assistant"  # Optional system prompt
-```
-
-</div>
-
-### Advanced Options
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    prompt: "{{ get('q') }}"
-    
-    # Generation parameters
-    temperature: 0.7
-    maxTokens: 2048
-    topP: 0.9
-    
-    # Structured output
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-      - reasoning
-    
-    # Context and history
-    contextLength: 4096
-    history: get('conversation_history', 'session')
-    
-    # Caching
-    cacheEnabled: true
-    cacheTTL: 3600  # 1 hour
-```
-
-</div>
-
-### Environment Variables
-
-Set API keys using environment variables:
-
-```bash
-export OPENAI_API_KEY="your-key-here"
-export ANTHROPIC_API_KEY="your-key-here"
-# ... etc
-```
-
-Or reference them in your workflow:
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai
-    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-    model: gpt-4o
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-## Testing Your Configuration
-
-Test your LLM configuration quickly:
-
-```bash
-# Test locally
-kdeps run workflow.yaml
-
-# Send a test request
-curl -X POST http://localhost:16395/api/v1/chat \
-  -H "Content-Type: application/json" \
-  -d '{"q": "Hello, how are you?"}'
-```
-
-## Troubleshooting
-
-### Ollama Connection Issues
-
-If Ollama cannot be reached:
-1. Check Ollama is running: `ollama list`
-2. Verify the URL: default is `http://localhost:11434`
-3. Check firewall settings
-
-### API Key Issues
-
-If you get authentication errors:
-1. Verify the API key is set: `echo $OPENAI_API_KEY`
-2. Check the key has the correct permissions
-3. Ensure the key is being passed correctly in the workflow
-
-### Model Not Found
-
-If the model is not available:
-1. For Ollama: Pull the model first with `ollama pull model-name`
-2. For APIs: Verify the model name matches the provider's documentation
-3. Check you have access to the model in your API account
 
 **Available models:**
 
@@ -283,18 +87,13 @@ If the model is not available:
 
 ### Anthropic (Claude)
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: anthropic
-    model: claude-3-5-sonnet-20241022
-    prompt: "{{ get('q') }}"
-    contextLength: 4096
+# ~/.kdeps/config.yaml
+llm:
+  backend: anthropic
+  model: claude-3-5-sonnet-20241022
+  anthropic_api_key: sk-ant-...
 ```
-
-</div>
 
 **Available models:**
 
@@ -307,17 +106,13 @@ run:
 
 ### Google (Gemini)
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: google
-    model: gemini-1.5-pro
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: google
+  model: gemini-1.5-pro
+  google_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -329,17 +124,13 @@ run:
 
 ### Mistral
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: mistral
-    model: mistral-large-latest
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: mistral
+  model: mistral-large-latest
+  mistral_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -351,46 +142,17 @@ run:
 | `open-mistral-7b` | Open-source 7B |
 | `open-mixtral-8x7b` | MoE model |
 
-### Together AI
-
-Access to many open-source models.
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: together
-    model: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
-    prompt: "{{ get('q') }}"
-```
-
-</div>
-
-**Popular models:**
-
-| Model | Description |
-|-------|-------------|
-| `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo` | Llama 3.1 70B |
-| `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | Llama 3.1 8B |
-| `mistralai/Mixtral-8x7B-Instruct-v0.1` | Mixtral 8x7B |
-| `Qwen/Qwen2-72B-Instruct` | Qwen2 72B |
-
 ### Groq
 
 Ultra-fast inference with Groq hardware.
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: groq
-    model: llama-3.1-70b-versatile
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: groq
+  model: llama-3.1-70b-versatile
+  groq_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -401,21 +163,38 @@ run:
 | `mixtral-8x7b-32768` | Mixtral with 32K context |
 | `gemma2-9b-it` | Google Gemma 2 9B |
 
+### Together AI
+
+Access to many open-source models.
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  backend: together
+  model: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
+  together_api_key: ...
+```
+
+**Popular models:**
+
+| Model | Description |
+|-------|-------------|
+| `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo` | Llama 3.1 70B |
+| `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo` | Llama 3.1 8B |
+| `mistralai/Mixtral-8x7B-Instruct-v0.1` | Mixtral 8x7B |
+| `Qwen/Qwen2-72B-Instruct` | Qwen2 72B |
+
 ### Perplexity
 
 Search-augmented LLM responses.
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: perplexity
-    model: llama-3.1-sonar-large-128k-online
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: perplexity
+  model: llama-3.1-sonar-large-128k-online
+  perplexity_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -427,17 +206,13 @@ run:
 
 ### Cohere
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: cohere
-    model: command-r-plus
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: cohere
+  model: command-r-plus
+  cohere_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -450,17 +225,13 @@ run:
 
 ### DeepSeek
 
-<div v-pre>
-
 ```yaml
-run:
-  chat:
-    backend: deepseek
-    model: deepseek-chat
-    prompt: "{{ get('q') }}"
+# ~/.kdeps/config.yaml
+llm:
+  backend: deepseek
+  model: deepseek-chat
+  deepseek_api_key: ...
 ```
-
-</div>
 
 **Available models:**
 
@@ -469,135 +240,93 @@ run:
 | `deepseek-chat` | General chat |
 | `deepseek-coder` | Code generation |
 
-## Backend Configuration
+### Self-Hosted Solutions
 
-### Common Options
+KDeps works with any self-hosted LLM serving solution that implements the OpenAI API:
 
-All backends support these options:
-
-<div v-pre>
+- **vLLM** - High-performance inference server
+- **Text Generation Inference (TGI)** - Hugging Face's serving solution
+- **LocalAI** - Drop-in replacement for OpenAI API
+- **LlamaCpp Server** - Efficient CPU inference
 
 ```yaml
-run:
-  chat:
-    backend: openai          # Backend name
-    baseUrl: "https://..."   # Custom base URL (optional)
-    apiKey: "sk-..."         # API key (optional, falls back to env)
-    model: gpt-4o            # Model name
-    prompt: "{{ get('q') }}" # User prompt
-
-    # Optional settings
-    contextLength: 4096      # Max tokens
-    jsonResponse: true       # Request JSON output
-    jsonResponseKeys:        # Expected JSON keys
-      - answer
-      - confidence
+# ~/.kdeps/config.yaml
+llm:
+  backend: openai
+  base_url: http://your-vllm-server:8000/v1
+  model: meta-llama/Llama-2-7b-chat-hf
 ```
 
-</div>
+## LLM Router
 
-### Custom Base URL
+For multi-backend routing (e.g., send coding questions to one model, general questions to another), configure the router in `~/.kdeps/config.yaml`:
 
-Override the default API URL:
+```yaml
+llm:
+  backend: ollama
+  model: llama3.2:1b
+  router:
+    - condition: 'contains(prompt, "code") || contains(prompt, "python")'
+      backend: openai
+      model: gpt-4o
+    - condition: 'contains(prompt, "image")'
+      backend: anthropic
+      model: claude-3-5-sonnet-20241022
+```
+
+See the [LLM Resource](llm) docs for router details.
+
+## Model Allowlist
+
+To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/config.yaml`:
+
+```yaml
+llm:
+  backend: ollama
+  model: llama3.2:1b
+  models:
+    - llama3.2:1b
+    - nomic-embed-text
+```
+
+Any request for a model not in this list is overridden with the first model and a warning is logged.
+
+For Docker/offline deployments, models listed here are pre-pulled into the image.
+
+## Custom Base URL
+
+Override the default API URL via `base_url` in config.yaml:
+
+```yaml
+# Azure OpenAI
+llm:
+  backend: openai
+  base_url: "https://my-resource.openai.azure.com/openai/deployments/my-deployment"
+  openai_api_key: ...
+  model: gpt-4o
+```
+
+## Streaming (Ollama)
+
+Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call.
 
 <div v-pre>
 
 ```yaml
-# Use Azure OpenAI
 run:
   chat:
-    backend: openai
-    baseUrl: "https://my-resource.openai.azure.com/openai/deployments/my-deployment"
-    apiKey: "{{ get('AZURE_OPENAI_KEY', 'env') }}"
-    model: gpt-4o
     prompt: "{{ get('q') }}"
-
-# Use OpenAI-compatible proxy
-run:
-  chat:
-    backend: openai
-    baseUrl: "https://my-proxy.example.com"
-    model: gpt-4o
-    prompt: "{{ get('q') }}"
+    streaming: true      # Ollama only
 ```
 
 </div>
 
-### API Key Configuration
+| `streaming` | What happens |
+|-------------|-------------|
+| `false` (default) | Single JSON response |
+| `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
 
-API keys can be provided in multiple ways:
-
-**1. Environment variable (recommended):**
-
-```bash
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-**2. In resource configuration:**
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai
-    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-    model: gpt-4o
-```
-
-</div>
-
-**3. From session/request:**
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: openai
-    apiKey: "{{ get('apiKey', 'session') }}"
-    model: gpt-4o
-```
-
-</div>
-
-## Mixing Backends
-
-Use different backends in the same workflow:
-
-<div v-pre>
-
-```yaml
-# resources/fast-summary.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fastSummary
-run:
-  chat:
-    backend: groq
-    model: llama-3.1-8b-instant
-    prompt: "Summarize: {{ get('q') }}"
-
----
-# resources/deep-analysis.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: deepAnalysis
-  requires:
-    - fastSummary
-run:
-  chat:
-    backend: anthropic
-    model: claude-3-5-sonnet-20241022
-    prompt: |
-      Based on this summary: {{ get('fastSummary') }}
-      Provide detailed analysis.
-```
-
-</div>
+`streaming: true` is silently ignored for non-Ollama backends.
 
 ## Feature Support
 
@@ -609,92 +338,40 @@ run:
 | Streaming | Yes | No** | No** | No** | No** | No** |
 
 *Requires vision-capable model (e.g., `llama3.2-vision`)
-**Streaming is only supported for the Ollama backend. Other backends respond non-streaming for reliability.
-
-## Streaming (Ollama)
-
-Set `streaming: true` on a `chat:` resource to have Ollama stream the response as NDJSON chunks. KDeps accumulates all chunks internally and returns the same response shape as a non-streaming call — so no changes are required in downstream resources or API responses.
-
-**Why use streaming?**
-- Reduces time-to-first-byte for long responses when the result is piped to `apiResponse:` or logged live.
-- Keeps the HTTP connection alive to the Ollama server, avoiding proxy read-timeouts on slow hardware.
-
-<div v-pre>
-
-```yaml
-run:
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    prompt: "{{ get('q') }}"
-    streaming: true      # Request Ollama to stream NDJSON chunks
-```
-
-</div>
-
-**Behaviour:**
-
-| `streaming` | What happens |
-|-------------|-------------|
-| `false` (default) | Single JSON response; simpler, works everywhere |
-| `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
-
-The merged response preserves all metadata fields from the final chunk (`done`, `total_duration`, `eval_count`, etc.) and concatenates all `message.content` values from every chunk into a single string.
-
-> **Note:** `streaming: true` is silently ignored for non-Ollama backends.
+**Streaming is only supported for the Ollama backend.
 
 ## Troubleshooting
 
-### Connection Issues
+### Ollama Connection Issues
 
-**Local backend not responding:**
+If Ollama cannot be reached:
+1. Check Ollama is running: `ollama list`
+2. Verify the URL in config.yaml (default: `http://localhost:11434`)
+3. Check firewall settings
 
-```yaml
-# Verify the backend is running
-run:
-  httpClient:
-    url: "http://localhost:11434/api/tags"
-    method: GET
-```
+### API Key Issues
 
-**API key errors:**
-
-<div v-pre>
-
-```yaml
-# Debug: check if API key is set
-run:
-  expr:
-    - set('hasKey', get('OPENAI_API_KEY', 'env') != nil)
-    - set('keyLength', len(default(get('OPENAI_API_KEY', 'env'), '')))
-```
-
-</div>
+If you get authentication errors:
+1. Verify the key is set in `~/.kdeps/config.yaml`
+2. Or export the env var: `export OPENAI_API_KEY=sk-...`
+3. Check the key has the correct permissions
 
 ### Model Not Found
 
-Ensure the model is available:
-
-**Ollama:**
-```bash
-ollama list  # See available models
-ollama pull llama3.2:1b  # Download model
-```
-
-**Cloud backends:**
-Check the provider's documentation for current model names.
+If the model is not available:
+1. For Ollama: Pull the model first with `ollama pull model-name`
+2. For APIs: Verify the model name matches the provider's documentation
+3. Check you have access to the model in your API account
 
 ### Rate Limiting
 
-Handle rate limits with retry configuration:
+Handle rate limits with retry configuration on the resource:
 
 <div v-pre>
 
 ```yaml
 run:
   chat:
-    backend: openai
-    model: gpt-4o
     prompt: "{{ get('q') }}"
     retry:
       maxAttempts: 3

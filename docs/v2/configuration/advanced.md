@@ -182,13 +182,8 @@ settings:
     # Docker Configuration
     baseOS: "ubuntu"  # alpine, ubuntu, debian
 
-    # LLM Configuration
-    models:
-      - llama3.2:1b
-      - nomic-embed-text
-    offlineMode: false
+    # Docker/Ollama Configuration
     ollamaImageTag: "0.3.0"
-    ollamaUrl: "http://ollama:11434"
 
     # Environment
     args:
@@ -225,13 +220,14 @@ settings:
 | `baseOS` | Base Docker image OS |
 | `ollamaImageTag` | Ollama Docker image version |
 
-#### LLM Settings
+#### Docker Settings (extended)
 
 | Field | Description |
 |-------|-------------|
-| `models` | Models to download/use |
-| `offlineMode` | Run without internet access |
-| `ollamaUrl` | Custom Ollama server URL |
+| `ollamaImageTag` | Ollama Docker image version |
+| `installOllama` | Force/suppress Ollama installation in image |
+
+> LLM model, backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
 
 #### Environment
 

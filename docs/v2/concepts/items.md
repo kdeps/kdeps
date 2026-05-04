@@ -20,7 +20,6 @@ items:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Process: {{ get('current') }}"
 ```
 
@@ -252,7 +251,6 @@ items:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('current') }}"
     jsonResponse: true
     jsonResponseKeys:
@@ -305,7 +303,6 @@ items:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: |
       Generate the "{{ get('current').title }}" section of the report.
       Data: {{ get('reportData') }}
@@ -341,7 +338,6 @@ items:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: |
       Translate to {{ get('current').name }}:
       "{{ get('originalText') }}"
@@ -401,7 +397,6 @@ items:
 
 run:
   chat:
-    model: llama3.2-vision
     prompt: "Describe this image"
     files:
       - "{{ get('current').path }}"

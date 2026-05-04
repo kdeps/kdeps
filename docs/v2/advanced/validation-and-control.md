@@ -31,7 +31,6 @@ run:
       - get('skip') == true
       - get('mode') == 'dry-run'
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -83,7 +82,6 @@ run:
       code: 400
       message: Query parameter 'q' is required and must be at least 3 characters
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -150,7 +148,6 @@ run:
     methods: [GET, POST]
     routes: [/api/v1/data, /api/v1/query]
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -192,7 +189,6 @@ run:
       - /api/v1/create
       - /api/v1/update
   chat:
-    model: llama3.2:1b
     prompt: "Create: {{ get('data') }}"
 ```
 
@@ -229,7 +225,6 @@ run:
         minimum: 18
         maximum: 120
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('action') }} user {{ get('userId') }}"
 ```
 
@@ -317,7 +312,6 @@ run:
       - expr: get('email').includes('@')
         message: "Email must contain @ symbol"
   chat:
-    model: llama3.2:1b
     prompt: "Process user: {{ get('email') }}"
 ```
 
@@ -339,7 +333,6 @@ run:
       - Content-Type
       - X-API-Key
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -359,7 +352,6 @@ run:
       - userId
       - action
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -382,7 +374,6 @@ run:
     params:
       - action
   chat:
-    model: llama3.2:1b
     prompt: "Secure action: {{ get('action') }}"
 ```
 
@@ -457,7 +448,6 @@ run:
     skip:
       - get('dryRun') == true
   chat:
-    model: llama3.2:1b
     prompt: "Admin: {{ get('action') }}"
 ```
 
@@ -511,7 +501,6 @@ run:
       code: 401
       message: Valid authorization token required
   chat:
-    model: llama3.2:1b
     prompt: "Secure: {{ get('q') }}"
 ```
 

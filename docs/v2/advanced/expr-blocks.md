@@ -30,7 +30,6 @@ run:
     - set('user_id', get('userId', 'session'))
   
   chat:
-    model: llama3.2:1b
     prompt: "Process: {{ get('normalized_input') }}"
 ```
 
@@ -69,7 +68,6 @@ run:
     - set('user_preferences', get('prefs'), 'session')
   
   chat:
-    model: llama3.2:1b
     prompt: "User asked {{ get('query_count') }} times. Query: {{ get('q') }}"
 ```
 
@@ -160,7 +158,6 @@ run:
     - set('last_request_time', info('now'), 'memory')
   
   chat:
-    model: llama3.2:1b
     prompt: "Request #{{ get('request_count') }}: {{ get('q') }}"
 ```
 
@@ -308,7 +305,6 @@ run:
       }, 'memory')
   
   chat:
-    model: llama3.2:1b
     prompt: "{{ get('q') }}"
 ```
 
@@ -340,7 +336,6 @@ run:
       message: Invalid email or age
   
   chat:
-    model: llama3.2:1b
     prompt: "Process user: {{ get('email') }}, age {{ get('age') }}"
 ```
 

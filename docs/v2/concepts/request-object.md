@@ -256,7 +256,6 @@ run:
     - set('isPDF', get('fileType') == 'application/pdf')
   
   chat:
-    model: llama3.2-vision
     prompt: |
       Analyze this {{ get('fileType') }} file.
       Path: {{ get('filePath') }}
@@ -284,7 +283,6 @@ run:
     - set('imageList', join(get('images'), '\n'))
   
   chat:
-    model: llama3.2-vision
     prompt: |
       Process {{ get('imageCount') }} images:
       {{ get('imageList') }}

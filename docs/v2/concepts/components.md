@@ -174,7 +174,6 @@ resources:
       actionId: greet
     run:
       chat:
-        model: "llama3.2:latest"
         prompt: "{{ inputs.message }}"
 ```
 
@@ -235,7 +234,6 @@ Installed components can be exposed as LLM function-calling tools via the `compo
 
 run:
   chat:
-    model: gpt-4o
     prompt: "Research {{ get('q') }} and summarize the findings."
     componentTools:
       - scraper
@@ -315,7 +313,6 @@ metadata:
   requires: [fetch-article]
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Summarize: {{ output('fetch-article').content }}"
 ```
 
@@ -393,7 +390,6 @@ metadata:
 
 run:
   chat:
-    model: llama3.2:1b
     prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
 
 ---
