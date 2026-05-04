@@ -2,7 +2,7 @@
 
 KDeps supports LLM integrations through Ollama for local model serving and any OpenAI-compatible API endpoint for cloud or self-hosted models.
 
-## Configuration
+## Model Configuration
 
 **Model is set per resource** in `run.chat.model` in resource YAML. **Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`.
 
@@ -15,7 +15,7 @@ run:
     prompt: "{{ get('q') }}"
 ```
 
-Set `model: router` to delegate model selection to the LLM router (see [LLM Router](#llm-router) below).
+Set `model: router` to delegate model selection to the LLM router (see [Routing](#routing) below).
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -28,6 +28,170 @@ llm:
 ```
 
 Run `kdeps edit` to open the config file, or edit it directly.
+
+## Unified Models List
+
+`llm.models` in `~/.kdeps/config.yaml` serves dual purpose: it can act as a **plain allowlist** (model names only) or as a **router route table** (with routing metadata). The `llm.strategy` field switches between the two modes.
+
+### Allowlist Mode (no strategy)
+
+When `strategy` is absent, `llm.models` is a simple list of permitted model names:
+
+```yaml
+llm:
+  backend: ollama
+  models:
+    - llama3.2:1b        # plain string entry
+    - nomic-embed-text
+```
+
+Each entry is a plain model name. Models can be specified as strings (as above) or as objects with only the `model` field set:
+
+```yaml
+llm:
+  models:
+    - model: llama3.2:1b  # object form (equivalent to "llama3.2:1b")
+```
+
+Any request for a model not in this list is overridden to the first model and a warning is logged. Models listed here are pre-pulled into Docker/ISO artifacts.
+
+### Routing Mode (with strategy)
+
+When `strategy` is set, the models list acts as router routes:
+
+```yaml
+llm:
+  strategy: token_threshold
+  models:
+    - model: gpt-4o-mini
+      backend: openai
+      max_tokens: 500
+      default: true
+    - model: gpt-4o
+      backend: openai
+      min_tokens: 501
+```
+
+Plain string entries in routing mode (no `model:` key) are still allowed — they inherit the default `llm.backend`:
+
+```yaml
+llm:
+  backend: ollama
+  strategy: fallback
+  models:
+    - llama3.2:1b          # plain string, uses backend: ollama
+    - model: gpt-4o
+      backend: openai
+      priority: 1
+```
+
+### Entry Fields
+
+Each model entry supports these fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `model` | string | yes | Model identifier (e.g. `gpt-4o`, `llama3.2:1b`) |
+| `backend` | string | no | Backend for this model (overrides `llm.backend`) |
+| `base_url` | string | no | Custom API URL for this backend |
+| `api_key` | string | no | API key for this backend |
+| `priority` | int | no | Fallback order (lower = tried first) |
+| `min_tokens` | int | no | Minimum prompt tokens for token_threshold |
+| `max_tokens` | int | no | Maximum prompt tokens for token_threshold |
+| `cost_per_input_token` | float | no | Cost per 1K input tokens for cost_optimized |
+| `cost_per_output_token` | float | no | Cost per 1K output tokens for cost_optimized |
+| `default` | bool | no | Catch-all route when no other rule matches |
+
+## Routing
+
+Routing delegates model selection from resource YAML to the config. Set a resource's `model` field to `router`:
+
+```yaml
+# resources/llm.yaml
+run:
+  chat:
+    model: router       # delegate to config.yaml router
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+The router in `~/.kdeps/config.yaml` selects which model to use based on the configured strategy.
+
+### Strategy: `token_threshold`
+
+Routes by estimated prompt token count. The first entry where `min_tokens <= tokens <= max_tokens` wins. Falls through to the entry with `default: true` when no range matches.
+
+```yaml
+llm:
+  strategy: token_threshold
+  models:
+    - model: gpt-4o-mini
+      backend: openai
+      max_tokens: 500         # short prompts use this
+      default: true
+    - model: gpt-4o
+      backend: openai
+      min_tokens: 501         # long prompts use this
+```
+
+Token counts are estimated using tiktoken.
+
+### Strategy: `fallback`
+
+Tries routes in priority order. On error, automatically retries the next route.
+
+```yaml
+llm:
+  strategy: fallback
+  models:
+    - model: claude-sonnet-4-20250514
+      backend: anthropic
+      priority: 1
+    - model: gpt-4o
+      backend: openai
+      priority: 2
+    - model: llama3.2:1b
+      backend: ollama
+      priority: 3
+      default: true
+```
+
+Lower priority values are tried first. `default: true` marks the catch-all route.
+
+### Strategy: `cost_optimized`
+
+Selects the cheapest route based on cost per 1K input tokens.
+
+```yaml
+llm:
+  strategy: cost_optimized
+  models:
+    - model: gpt-4o-mini
+      backend: openai
+      cost_per_input_token: 0.00015   # $0.15/1M tokens
+    - model: gpt-4o
+      backend: openai
+      cost_per_input_token: 0.0025    # $2.50/1M tokens
+      default: true
+```
+
+Nil cost is treated as zero. Falls to `default: true` on tie.
+
+### Strategy: `round_robin`
+
+Distributes requests evenly across models using an atomic counter.
+
+```yaml
+llm:
+  strategy: round_robin
+  models:
+    - model: gpt-4o
+      backend: openai
+    - model: claude-sonnet-4-20250514
+      backend: anthropic
+```
+
+Counters are keyed by a fingerprint of the model list, so different route configs maintain independent counters.
 
 ## Backend Overview
 
@@ -255,44 +419,7 @@ KDeps works with any self-hosted LLM serving solution that implements the OpenAI
 llm:
   backend: openai
   base_url: http://your-vllm-server:8000/v1
-  model: meta-llama/Llama-2-7b-chat-hf
 ```
-
-## LLM Router
-
-For multi-backend routing (e.g., send coding questions to one model, general questions to another), configure the router in `~/.kdeps/config.yaml`:
-
-```yaml
-llm:
-  backend: ollama
-  model: llama3.2:1b
-  router:
-    - condition: 'contains(prompt, "code") || contains(prompt, "python")'
-      backend: openai
-      model: gpt-4o
-    - condition: 'contains(prompt, "image")'
-      backend: anthropic
-      model: claude-3-5-sonnet-20241022
-```
-
-See the [LLM Resource](llm) docs for router details.
-
-## Model Allowlist
-
-To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/config.yaml`:
-
-```yaml
-llm:
-  backend: ollama
-  model: llama3.2:1b
-  models:
-    - llama3.2:1b
-    - nomic-embed-text
-```
-
-Any request for a model not in this list is overridden with the first model and a warning is logged.
-
-For Docker/offline deployments, models listed here are pre-pulled into the image.
 
 ## Custom Base URL
 

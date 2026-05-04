@@ -253,11 +253,27 @@ llm:
 
 ### LLM Router
 
-Setting `model: router` in a resource delegates model selection to the LLM router configured in `~/.kdeps/config.yaml`. The router supports multiple strategies: `token_threshold`, `fallback`, `cost_optimized`, and `round_robin`. See [LLM Backends](../resources/llm-backends) for router configuration.
+Setting `model: router` in a resource delegates model selection to the LLM router. Configure routing by setting `llm.strategy` and `llm.models` in `~/.kdeps/config.yaml`:
+
+```yaml
+# ~/.kdeps/config.yaml
+llm:
+  strategy: fallback
+  models:
+    - model: gpt-4o
+      backend: openai
+      priority: 1
+    - model: llama3.2:1b
+      backend: ollama
+      priority: 2
+      default: true
+```
+
+The router supports `token_threshold`, `fallback`, `cost_optimized`, and `round_robin` strategies. See [LLM Backends](../resources/llm-backends) for full router configuration.
 
 ### Model Allowlist Enforcement
 
-To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/config.yaml`:
+To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/config.yaml`. When `llm.strategy` is absent, the models list acts as a plain allowlist:
 
 ```yaml
 # ~/.kdeps/config.yaml
@@ -267,7 +283,7 @@ llm:
     - llama3.3:latest   # Only this model is permitted at runtime
 ```
 
-Any request for a model not in this list is overridden with the first model and a warning is logged:
+Each entry can be a plain name (string) or an object with metadata. Any request for a model not in this list is overridden with the first model and a warning is logged:
 ```
 model not in workflow allowlist — overriding with first allowlisted model
 ```

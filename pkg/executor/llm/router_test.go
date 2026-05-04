@@ -34,30 +34,23 @@ func newTestLogger() *slog.Logger {
 // --- token_threshold ---
 
 func TestRouterTokenThreshold_MatchesSmallRoute(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "token_threshold",
-		Routes: []config.RouteEntry{
-			{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(50), Default: true},
-			{Model: "gpt-4o", Backend: "openai", MinTokens: intPtr(51)},
-		},
+	models := []config.ModelEntry{
+		{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(50), Default: true},
+		{Model: "gpt-4o", Backend: "openai", MinTokens: intPtr(51)},
 	}
-	r := NewRouter(cfg, newTestLogger())
-	route, err := r.Select("", "hi") // very short prompt
+	r := NewRouter("token_threshold", models, newTestLogger())
+	route, err := r.Select("", "hi")
 	require.NoError(t, err)
 	require.NotNil(t, route)
 	assert.Equal(t, "gpt-4o-mini", route.Model)
 }
 
 func TestRouterTokenThreshold_MatchesLargeRoute(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "token_threshold",
-		Routes: []config.RouteEntry{
-			{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(5)},
-			{Model: "gpt-4o", Backend: "openai", MinTokens: intPtr(6), Default: false},
-		},
+	models := []config.ModelEntry{
+		{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(5)},
+		{Model: "gpt-4o", Backend: "openai", MinTokens: intPtr(6), Default: false},
 	}
-	r := NewRouter(cfg, newTestLogger())
-	// Generate a prompt guaranteed to exceed 5 tokens.
+	r := NewRouter("token_threshold", models, newTestLogger())
 	longPrompt := "The quick brown fox jumps over the lazy dog and the cat sat on the mat."
 	route, err := r.Select("", longPrompt)
 	require.NoError(t, err)
@@ -66,15 +59,11 @@ func TestRouterTokenThreshold_MatchesLargeRoute(t *testing.T) {
 }
 
 func TestRouterTokenThreshold_FallsBackToDefault(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "token_threshold",
-		Routes: []config.RouteEntry{
-			{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(1)},
-			{Model: "fallback-model", Backend: "openai", Default: true},
-		},
+	models := []config.ModelEntry{
+		{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(1)},
+		{Model: "fallback-model", Backend: "openai", Default: true},
 	}
-	r := NewRouter(cfg, newTestLogger())
-	// Prompt longer than 1 token but no explicit minTokens rule for the fallback.
+	r := NewRouter("token_threshold", models, newTestLogger())
 	route, err := r.Select("", "hello world how are you doing today")
 	require.NoError(t, err)
 	require.NotNil(t, route)
@@ -82,13 +71,10 @@ func TestRouterTokenThreshold_FallsBackToDefault(t *testing.T) {
 }
 
 func TestRouterTokenThreshold_NoMatch_NoDefault_ReturnsNil(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "token_threshold",
-		Routes: []config.RouteEntry{
-			{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(1)},
-		},
+	models := []config.ModelEntry{
+		{Model: "gpt-4o-mini", Backend: "openai", MaxTokens: intPtr(1)},
 	}
-	r := NewRouter(cfg, newTestLogger())
+	r := NewRouter("token_threshold", models, newTestLogger())
 	route, err := r.Select("", "hello world this is a longer prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)
@@ -97,14 +83,11 @@ func TestRouterTokenThreshold_NoMatch_NoDefault_ReturnsNil(t *testing.T) {
 // --- cost_optimized ---
 
 func TestRouterCostOptimized_PicksCheapest(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "cost_optimized",
-		Routes: []config.RouteEntry{
-			{Model: "gpt-4o", Backend: "openai", CostPerInputToken: floatPtr(0.0025)},
-			{Model: "gpt-4o-mini", Backend: "openai", CostPerInputToken: floatPtr(0.00015)},
-		},
+	models := []config.ModelEntry{
+		{Model: "gpt-4o", Backend: "openai", CostPerInputToken: floatPtr(0.0025)},
+		{Model: "gpt-4o-mini", Backend: "openai", CostPerInputToken: floatPtr(0.00015)},
 	}
-	r := NewRouter(cfg, newTestLogger())
+	r := NewRouter("cost_optimized", models, newTestLogger())
 	route, err := r.Select("", "some prompt text")
 	require.NoError(t, err)
 	require.NotNil(t, route)
@@ -112,14 +95,11 @@ func TestRouterCostOptimized_PicksCheapest(t *testing.T) {
 }
 
 func TestRouterCostOptimized_NilCostTreatedAsZero(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "cost_optimized",
-		Routes: []config.RouteEntry{
-			{Model: "expensive", Backend: "openai", CostPerInputToken: floatPtr(1.0)},
-			{Model: "free-local", Backend: "ollama"}, // nil cost
-		},
+	models := []config.ModelEntry{
+		{Model: "expensive", Backend: "openai", CostPerInputToken: floatPtr(1.0)},
+		{Model: "free-local", Backend: "ollama"},
 	}
-	r := NewRouter(cfg, newTestLogger())
+	r := NewRouter("cost_optimized", models, newTestLogger())
 	route, err := r.Select("", "any prompt")
 	require.NoError(t, err)
 	require.NotNil(t, route)
@@ -129,17 +109,13 @@ func TestRouterCostOptimized_NilCostTreatedAsZero(t *testing.T) {
 // --- round_robin ---
 
 func TestRouterRoundRobin_DistributesEvenly(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "round_robin",
-		Routes: []config.RouteEntry{
-			{Model: "model-a", Backend: "openai"},
-			{Model: "model-b", Backend: "openai"},
-			{Model: "model-c", Backend: "openai"},
-		},
+	models := []config.ModelEntry{
+		{Model: "model-a", Backend: "openai"},
+		{Model: "model-b", Backend: "openai"},
+		{Model: "model-c", Backend: "openai"},
 	}
-	r := NewRouter(cfg, newTestLogger())
+	r := NewRouter("round_robin", models, newTestLogger())
 
-	// Unique routerID so this test doesn't share counters with others.
 	id := "test-rr-distributes-evenly"
 	seen := map[string]int{}
 	for range 9 {
@@ -156,49 +132,46 @@ func TestRouterRoundRobin_DistributesEvenly(t *testing.T) {
 // --- fallback sorted routes ---
 
 func TestSortedFallbackRoutes_SortsByPriority(t *testing.T) {
-	routes := []config.RouteEntry{
+	models := []config.ModelEntry{
 		{Model: "c", Priority: 3},
 		{Model: "a", Priority: 1},
 		{Model: "b", Priority: 2},
 	}
-	sorted := SortedFallbackRoutes(routes)
+	sorted := SortedFallbackRoutes(models)
 	assert.Equal(t, "a", sorted[0].Model)
 	assert.Equal(t, "b", sorted[1].Model)
 	assert.Equal(t, "c", sorted[2].Model)
 }
 
 func TestSortedFallbackRoutes_StableOnEqualPriority(t *testing.T) {
-	routes := []config.RouteEntry{
+	models := []config.ModelEntry{
 		{Model: "first", Priority: 0},
 		{Model: "second", Priority: 0},
 	}
-	sorted := SortedFallbackRoutes(routes)
+	sorted := SortedFallbackRoutes(models)
 	assert.Equal(t, "first", sorted[0].Model)
 	assert.Equal(t, "second", sorted[1].Model)
 }
 
 func TestSortedFallbackRoutes_DoesNotMutateOriginal(t *testing.T) {
-	routes := []config.RouteEntry{
+	models := []config.ModelEntry{
 		{Model: "z", Priority: 9},
 		{Model: "a", Priority: 1},
 	}
-	original := make([]config.RouteEntry, len(routes))
-	copy(original, routes)
+	original := make([]config.ModelEntry, len(models))
+	copy(original, models)
 
-	SortedFallbackRoutes(routes)
+	SortedFallbackRoutes(models)
 
-	assert.Equal(t, original[0].Model, routes[0].Model)
-	assert.Equal(t, original[1].Model, routes[1].Model)
+	assert.Equal(t, original[0].Model, models[0].Model)
+	assert.Equal(t, original[1].Model, models[1].Model)
 }
 
 // --- unknown strategy ---
 
 func TestRouter_UnknownStrategy_ReturnsError(t *testing.T) {
-	cfg := &config.RouterConfig{
-		Strategy: "bogus",
-		Routes:   []config.RouteEntry{{Model: "m", Backend: "openai"}},
-	}
-	r := NewRouter(cfg, newTestLogger())
+	models := []config.ModelEntry{{Model: "m", Backend: "openai"}}
+	r := NewRouter("bogus", models, newTestLogger())
 	_, err := r.Select("", "prompt")
 	assert.Error(t, err)
 }
@@ -206,15 +179,14 @@ func TestRouter_UnknownStrategy_ReturnsError(t *testing.T) {
 // --- empty config ---
 
 func TestRouter_NilConfig_ReturnsNil(t *testing.T) {
-	r := NewRouter(nil, newTestLogger())
+	r := NewRouter("", nil, newTestLogger())
 	route, err := r.Select("", "prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)
 }
 
 func TestRouter_EmptyRoutes_ReturnsNil(t *testing.T) {
-	cfg := &config.RouterConfig{Strategy: "round_robin", Routes: nil}
-	r := NewRouter(cfg, newTestLogger())
+	r := NewRouter("round_robin", nil, newTestLogger())
 	route, err := r.Select("", "prompt")
 	require.NoError(t, err)
 	assert.Nil(t, route)

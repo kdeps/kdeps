@@ -94,22 +94,10 @@ type ResourceDefaults struct {
 	OnError OnErrorDefaults `yaml:"onError"`
 }
 
-// RouterConfig defines the LLM routing strategy and its routes.
-// It lives exclusively in config.yaml (llm.router) and is serialized to
-// the KDEPS_LLM_ROUTER env var so it is available at runtime and in exported
-// Docker/ISO/k8s artifacts.
-type RouterConfig struct {
-	// Strategy selects the routing algorithm:
-	//   token_threshold  — route by prompt token count (uses tiktoken)
-	//   fallback         — try routes in priority order, retry on error
-	//   cost_optimized   — pick cheapest route based on cost_per_input_token
-	//   round_robin      — distribute requests evenly across routes
-	Strategy string       `yaml:"strategy" json:"strategy"`
-	Routes   []RouteEntry `yaml:"routes"   json:"routes"`
-}
-
-// RouteEntry describes a single candidate LLM and its selection criteria.
-type RouteEntry struct {
+// ModelEntry describes a single candidate model and its selection criteria.
+// It doubles as a route entry when the unified models list has routing enabled
+// via the top-level strategy field.
+type ModelEntry struct {
 	Model   string `yaml:"model"              json:"model"`
 	Backend string `yaml:"backend,omitempty"  json:"backend,omitempty"`
 	BaseURL string `yaml:"base_url,omitempty" json:"base_url,omitempty"`
@@ -126,8 +114,43 @@ type RouteEntry struct {
 	// fallback: lower priority value = tried first (default 0).
 	Priority int `yaml:"priority,omitempty" json:"priority,omitempty"`
 
-	// Default is the catch-all route when no other rule matches.
+	// Default is the catch-all model when no other rule matches.
 	Default bool `yaml:"default,omitempty" json:"default,omitempty"`
+}
+
+// ModelList supports both plain strings and full ModelEntry objects in YAML.
+// A plain string is treated as a ModelEntry with only the Model field set.
+type ModelList []ModelEntry
+
+// UnmarshalYAML implements custom YAML unmarshaling to accept both
+// plain scalar strings (model names) and mapping nodes (full entries).
+func (m *ModelList) UnmarshalYAML(value *yaml.Node) error {
+	var items []yaml.Node
+	if err := value.Decode(&items); err != nil {
+		return err
+	}
+	*m = make(ModelList, 0, len(items))
+	for _, item := range items {
+		var entry ModelEntry
+		var s string
+		if err := item.Decode(&s); err == nil {
+			entry.Model = s
+			*m = append(*m, entry)
+			continue
+		}
+		if err := item.Decode(&entry); err != nil {
+			return err
+		}
+		*m = append(*m, entry)
+	}
+	return nil
+}
+
+// UnifiedModelsConfig is the JSON envelope for KDEPS_LLM_ROUTER, combining
+// strategy and the unified models list into a single serializable value.
+type UnifiedModelsConfig struct {
+	Strategy string       `json:"strategy,omitempty"`
+	Models   []ModelEntry `json:"models"`
 }
 
 // LLMKeys holds per-provider API keys and global LLM defaults.
@@ -143,9 +166,16 @@ type LLMKeys struct {
 	// Serialized to KDEPS_LLM_BASE_URL.
 	BaseURL string `yaml:"base_url,omitempty"`
 
-	// Models to pre-pull into Docker/ISO artifacts.
-	// Comma-joined and serialized to KDEPS_LLM_MODELS.
-	Models []string `yaml:"models,omitempty"`
+	// Routing strategy: token_threshold | fallback | cost_optimized | round_robin.
+	// When set, the models list acts as router routes (model: router resources route via this).
+	// When empty, models act as a plain allowlist.
+	Strategy string `yaml:"strategy,omitempty"`
+
+	// Unified models list. Each entry is either a plain model name (string) or a
+	// full ModelEntry with routing metadata. Model names are comma-joined into
+	// KDEPS_LLM_MODELS. When strategy is set, the full list + strategy serialize
+	// as JSON into KDEPS_LLM_ROUTER.
+	Models ModelList `yaml:"models,omitempty"`
 
 	// Llamafile (file backend) — local self-contained model binaries.
 	ModelsDir string `yaml:"models_dir"` // cache dir for downloaded llamafiles; default: ~/.kdeps/models
@@ -161,10 +191,6 @@ type LLMKeys struct {
 	Groq       string `yaml:"groq_api_key"`
 	DeepSeek   string `yaml:"deepseek_api_key"`
 	OpenRouter string `yaml:"openrouter_api_key"`
-
-	// Router defines intelligent LLM routing rules (optional).
-	// Serialized to KDEPS_LLM_ROUTER on load; read by the executor at runtime.
-	Router *RouterConfig `yaml:"router,omitempty"`
 }
 
 // Config is the top-level structure of ~/.kdeps/config.yaml.
@@ -341,6 +367,29 @@ func setIfUnset(key, value string) {
 	}
 }
 
+// hasRoutingMeta returns true when any model entry has routing-specific fields set.
+func hasRoutingMeta(models ModelList) bool {
+	for _, m := range models {
+		if m.Backend != "" || m.BaseURL != "" || m.APIKey != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// applyRouterEnv serializes the unified models config to KDEPS_LLM_ROUTER env var.
+func applyRouterEnv(keys LLMKeys) {
+	if keys.Strategy != "" || (len(keys.Models) > 0 && hasRoutingMeta(keys.Models)) {
+		uc := UnifiedModelsConfig{
+			Strategy: keys.Strategy,
+			Models:   keys.Models,
+		}
+		if b, jsonErr := json.Marshal(uc); jsonErr == nil {
+			setIfUnset("KDEPS_LLM_ROUTER", string(b))
+		}
+	}
+}
+
 // applyEnv maps config fields to environment variables.
 func applyEnv(cfg Config) {
 	// Global agent defaults.
@@ -356,9 +405,13 @@ func applyEnv(cfg Config) {
 	setIfUnset("KDEPS_DEFAULT_BACKEND", cfg.LLM.Backend)
 	// Base URL for the backend.
 	setIfUnset("KDEPS_LLM_BASE_URL", cfg.LLM.BaseURL)
-	// Models to pre-pull into exported artifacts.
+	// Unified models list — model names go to KDEPS_LLM_MODELS.
 	if len(cfg.LLM.Models) > 0 {
-		setIfUnset("KDEPS_LLM_MODELS", strings.Join(cfg.LLM.Models, ","))
+		names := make([]string, len(cfg.LLM.Models))
+		for i, m := range cfg.LLM.Models {
+			names[i] = m.Model
+		}
+		setIfUnset("KDEPS_LLM_MODELS", strings.Join(names, ","))
 	}
 	// Llamafile (file backend) — cache directory for downloaded model binaries.
 	setIfUnset("KDEPS_MODELS_DIR", cfg.LLM.ModelsDir)
@@ -394,12 +447,8 @@ func applyEnv(cfg Config) {
 	}
 	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
 
-	// LLM router: serialize to JSON so the executor and exported artifacts can read it.
-	if cfg.LLM.Router != nil {
-		if b, jsonErr := json.Marshal(cfg.LLM.Router); jsonErr == nil {
-			setIfUnset("KDEPS_LLM_ROUTER", string(b))
-		}
-	}
+	// Router env: serialize unified config to JSON when strategy is set or models have routing metadata.
+	applyRouterEnv(cfg.LLM)
 }
 
 const defaultConfigTemplate = `# kdeps global configuration
@@ -424,7 +473,9 @@ llm:
   # Base URL for the backend (overrides backend-specific default).
   # base_url: http://localhost:11434
 
-  # Models to pre-pull into Docker/ISO artifacts (triggers offline mode in exports).
+  # Models to pre-pull into Docker/ISO artifacts.
+  # When strategy is set, entries with routing metadata act as router routes.
+  # Each entry can be a plain model name or a full route with backend/metadata.
   # models:
   #   - llama3.2:1b
   #   - llama3.2:3b
@@ -441,47 +492,45 @@ llm:
   # deepseek_api_key: ""
   # openrouter_api_key: ""
 
-  # ── LLM Router (optional) ────────────────────────────────────────────────
-  # Intelligently route requests to different models based on strategy.
-  # Strategies: token_threshold | fallback | cost_optimized | round_robin
+  # ── Routing Strategy + Unified Models List ─────────────────────────────
+  # Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
+  # When strategy is set, models act as router routes.
+  # When strategy is absent, models act as a plain allowlist.
   #
-  # router:
-  #   strategy: token_threshold
-  #   routes:
-  #     - model: gpt-4o-mini
-  #       backend: openai
-  #       max_tokens: 500
-  #       default: true        # used when no rule matches
-  #     - model: gpt-4o
-  #       backend: openai
-  #       min_tokens: 501
+  # strategy: token_threshold
+  # models:
+  #   - model: gpt-4o-mini
+  #     backend: openai
+  #     max_tokens: 500
+  #     default: true
+  #   - model: gpt-4o
+  #     backend: openai
+  #     min_tokens: 501
   #
   # Fallback example (retries next route on error):
-  # router:
-  #   strategy: fallback
-  #   routes:
-  #     - model: claude-opus-4-7
-  #       backend: anthropic
-  #       priority: 1
-  #     - model: gpt-4o
-  #       backend: openai
-  #       priority: 2
-  #     - model: llama3.2
-  #       backend: ollama
-  #       priority: 3
-  #       default: true
+  # strategy: fallback
+  # models:
+  #   - model: claude-opus-4-7
+  #     backend: anthropic
+  #     priority: 1
+  #   - model: gpt-4o
+  #     backend: openai
+  #     priority: 2
+  #   - model: llama3.2
+  #     backend: ollama
+  #     priority: 3
+  #     default: true
   #
   # Cost-optimized example:
-  # router:
-  #   strategy: cost_optimized
-  #   routes:
-  #     - model: gpt-4o-mini
-  #       backend: openai
-  #       cost_per_input_token: 0.00015   # $0.15/1M tokens
-  #     - model: gpt-4o
-  #       backend: openai
-  #       cost_per_input_token: 0.0025    # $2.50/1M tokens
-  #       default: true
+  # strategy: cost_optimized
+  # models:
+  #   - model: gpt-4o-mini
+  #     backend: openai
+  #     cost_per_input_token: 0.00015   # $0.15/1M tokens
+  #   - model: gpt-4o
+  #     backend: openai
+  #     cost_per_input_token: 0.0025    # $2.50/1M tokens
+  #     default: true
 
 # Global defaults — applied to all workflows that don't override them.
 defaults:

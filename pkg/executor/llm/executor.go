@@ -239,7 +239,7 @@ func (e *Executor) Execute(
 
 	// When model is "router", delegate to the LLM router in config.yaml.
 	// fallbackRoutes holds remaining routes for the fallback retry loop.
-	var fallbackRoutes []kdepsconfig.RouteEntry
+	var fallbackRoutes []kdepsconfig.ModelEntry
 	if modelStr == "router" {
 		fallbackRoutes = e.applyLLMRouter(resolvedConfig, promptStr)
 		modelStr = resolvedConfig.Model
@@ -1485,7 +1485,7 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 // retryFallbackRoutes iterates remaining fallback routes when the current response has an error.
 // Returns the final response and last callBackend error encountered.
 func (e *Executor) retryFallbackRoutes(
-	fallbackRoutes []kdepsconfig.RouteEntry,
+	fallbackRoutes []kdepsconfig.ModelEntry,
 	cfg *domain.ChatConfig,
 	messages []map[string]interface{},
 	requestConfig ChatRequestConfig,
@@ -1527,31 +1527,34 @@ func (e *Executor) retryFallbackRoutes(
 }
 
 // applyLLMRouter reads KDEPS_LLM_ROUTER, selects the appropriate route, and mutates cfg.
-// Returns sorted fallback routes (only populated for the "fallback" strategy).
-func (e *Executor) applyLLMRouter(cfg *domain.ChatConfig, promptStr string) []kdepsconfig.RouteEntry {
+// Returns sorted fallback entries (only populated for the "fallback" strategy).
+func (e *Executor) applyLLMRouter(cfg *domain.ChatConfig, promptStr string) []kdepsconfig.ModelEntry {
 	routerJSON := os.Getenv("KDEPS_LLM_ROUTER")
 	if routerJSON == "" {
 		return nil
 	}
-	var rc kdepsconfig.RouterConfig
-	if err := json.Unmarshal([]byte(routerJSON), &rc); err != nil {
+	var uc kdepsconfig.UnifiedModelsConfig
+	if err := json.Unmarshal([]byte(routerJSON), &uc); err != nil {
 		return nil
 	}
-	if rc.Strategy == "fallback" {
-		routes := SortedFallbackRoutes(rc.Routes)
-		if len(routes) > 0 {
-			applyRoute(cfg, &routes[0])
-		}
-		return routes
+	if uc.Strategy == "" || len(uc.Models) == 0 {
+		return nil
 	}
-	if route, err := NewRouter(&rc, e.logger).Select("", promptStr); err == nil && route != nil {
-		applyRoute(cfg, route)
+	if uc.Strategy == "fallback" {
+		entries := SortedFallbackRoutes(uc.Models)
+		if len(entries) > 0 {
+			applyRoute(cfg, &entries[0])
+		}
+		return entries
+	}
+	if entry, err := NewRouter(uc.Strategy, uc.Models, e.logger).Select("", promptStr); err == nil && entry != nil {
+		applyRoute(cfg, entry)
 	}
 	return nil
 }
 
-// applyRoute copies non-empty fields from a RouteEntry onto the ChatConfig.
-func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.RouteEntry) {
+// applyRoute copies non-empty fields from a ModelEntry onto the ChatConfig.
+func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.ModelEntry) {
 	if r.Model != "" {
 		cfg.Model = r.Model
 	}
