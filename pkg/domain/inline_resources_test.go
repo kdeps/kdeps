@@ -184,15 +184,13 @@ run:
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.Run.Before, 5)
 				assert.NotNil(t, resource.Run.Before[0].Chat)
-				// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
-				assert.Equal(t, "", resource.Run.Before[0].Chat.Model)
+				assert.Equal(t, "helper-model", resource.Run.Before[0].Chat.Model)
 				assert.NotNil(t, resource.Run.Before[1].HTTPClient)
 				assert.NotNil(t, resource.Run.Before[2].SQL)
 				assert.NotNil(t, resource.Run.Before[3].Python)
 				assert.NotNil(t, resource.Run.Before[4].Exec)
 				assert.NotNil(t, resource.Run.Chat)
-				// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
-				assert.Equal(t, "", resource.Run.Chat.Model)
+				assert.Equal(t, "main-model", resource.Run.Chat.Model)
 			},
 		},
 	}

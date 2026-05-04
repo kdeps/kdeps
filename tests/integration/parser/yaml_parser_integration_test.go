@@ -114,8 +114,7 @@ run:
 
 	assert.Equal(t, "llmResource", resource.Metadata.ActionID)
 	assert.NotNil(t, resource.Run.Chat)
-	// Model has yaml:"-" so it is not parsed from YAML; expect empty string.
-	assert.Equal(t, "", resource.Run.Chat.Model)
+	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
 }
 
 func TestYAMLParser_ParseComplexWorkflow(t *testing.T) {

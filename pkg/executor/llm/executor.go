@@ -225,9 +225,10 @@ func (e *Executor) Execute(
 		return nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
 
-	// Fall back to global default model from config when resource model is empty.
+	// Model is required in resource YAML.
 	if modelStr == "" {
-		modelStr = os.Getenv("KDEPS_DEFAULT_MODEL")
+		return nil, domain.NewError(domain.ErrCodeInvalidResource,
+			"model is required in resource chat config — set model: <name> or model: router in run.chat", nil)
 	}
 
 	// Evaluate prompt early so the router can count tokens.
@@ -236,12 +237,16 @@ func (e *Executor) Execute(
 		return nil, fmt.Errorf("failed to evaluate prompt: %w", err)
 	}
 
-	// LLM Router: select a route from KDEPS_LLM_ROUTER before backend resolution.
-	// fallbackRoutes holds remaining routes for the retry loop below.
-	fallbackRoutes := e.applyLLMRouter(resolvedConfig, promptStr)
-	// Use the router-selected model only when it is a resolved literal (not an expression).
-	if resolvedConfig.Model != "" && !e.containsExpressionSyntax(resolvedConfig.Model) {
+	// When model is "router", delegate to the LLM router in config.yaml.
+	// fallbackRoutes holds remaining routes for the fallback retry loop.
+	var fallbackRoutes []kdepsconfig.RouteEntry
+	if modelStr == "router" {
+		fallbackRoutes = e.applyLLMRouter(resolvedConfig, promptStr)
 		modelStr = resolvedConfig.Model
+		if modelStr == "" || modelStr == "router" {
+			return nil, domain.NewError(domain.ErrCodeInvalidResource,
+				"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
+		}
 	}
 
 	// Enforce model allowlist from KDEPS_LLM_MODELS env var.

@@ -4,12 +4,22 @@ KDeps supports LLM integrations through Ollama for local model serving and any O
 
 ## Configuration
 
-**Backend, model, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in resource YAML.**
+**Model is set per resource** in `run.chat.model` in resource YAML. **Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`.
+
+```yaml
+# resources/my-resource.yaml
+run:
+  chat:
+    model: llama3.2:1b    # Per-resource model selection
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+Set `model: router` to delegate model selection to the LLM router (see [LLM Router](#llm-router) below).
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  model: llama3.2:1b          # Default model
   backend: ollama              # Default backend
   # base_url: http://localhost:11434
   # openai_api_key: sk-...
@@ -47,7 +57,6 @@ Ollama is the default backend for local model serving. Configure it in `~/.kdeps
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama
-  model: llama3.2:1b
   # base_url: http://custom-ollama:11434   # optional override
 ```
 
@@ -72,7 +81,6 @@ Any API that implements the OpenAI chat completions API can be used with KDeps.
 # ~/.kdeps/config.yaml
 llm:
   backend: openai
-  model: gpt-4o
   openai_api_key: sk-...
 ```
 
@@ -91,7 +99,6 @@ llm:
 # ~/.kdeps/config.yaml
 llm:
   backend: anthropic
-  model: claude-3-5-sonnet-20241022
   anthropic_api_key: sk-ant-...
 ```
 
@@ -110,7 +117,6 @@ llm:
 # ~/.kdeps/config.yaml
 llm:
   backend: google
-  model: gemini-1.5-pro
   google_api_key: ...
 ```
 
@@ -128,7 +134,6 @@ llm:
 # ~/.kdeps/config.yaml
 llm:
   backend: mistral
-  model: mistral-large-latest
   mistral_api_key: ...
 ```
 
@@ -150,7 +155,6 @@ Ultra-fast inference with Groq hardware.
 # ~/.kdeps/config.yaml
 llm:
   backend: groq
-  model: llama-3.1-70b-versatile
   groq_api_key: ...
 ```
 
@@ -192,7 +196,6 @@ Search-augmented LLM responses.
 # ~/.kdeps/config.yaml
 llm:
   backend: perplexity
-  model: llama-3.1-sonar-large-128k-online
   perplexity_api_key: ...
 ```
 
@@ -210,7 +213,6 @@ llm:
 # ~/.kdeps/config.yaml
 llm:
   backend: cohere
-  model: command-r-plus
   cohere_api_key: ...
 ```
 
@@ -229,7 +231,6 @@ llm:
 # ~/.kdeps/config.yaml
 llm:
   backend: deepseek
-  model: deepseek-chat
   deepseek_api_key: ...
 ```
 
@@ -303,7 +304,6 @@ llm:
   backend: openai
   base_url: "https://my-resource.openai.azure.com/openai/deployments/my-deployment"
   openai_api_key: ...
-  model: gpt-4o
 ```
 
 ## Streaming (Ollama)

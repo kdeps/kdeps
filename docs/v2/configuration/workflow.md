@@ -228,18 +228,32 @@ pyprojectFile: "pyproject.toml"
 lockFile: "uv.lock"
 ```
 
-### LLM Model and Backend Configuration
+### LLM Model Configuration
 
-Model, backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in `workflow.yaml` or resource YAML. Run `kdeps edit` to open the config file.
+Model is set directly in each resource's `run.chat.model` field in resource YAML. Set `model: router` to delegate model selection to the LLM router (configured in `~/.kdeps/config.yaml`).
+
+```yaml
+# resources/llm.yaml
+run:
+  chat:
+    model: llama3.2:1b
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. Run `kdeps edit` to open the config file.
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  model: llama3.2:1b
   backend: ollama
   # base_url: http://localhost:11434
   # openai_api_key: sk-...
 ```
+
+### LLM Router
+
+Setting `model: router` in a resource delegates model selection to the LLM router configured in `~/.kdeps/config.yaml`. The router supports multiple strategies: `token_threshold`, `fallback`, `cost_optimized`, and `round_robin`. See [LLM Backends](../resources/llm-backends) for router configuration.
 
 ### Model Allowlist Enforcement
 
@@ -249,7 +263,6 @@ To restrict which models can be used at runtime, set `llm.models` in `~/.kdeps/c
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama
-  model: llama3.2:1b
   models:
     - llama3.3:latest   # Only this model is permitted at runtime
 ```

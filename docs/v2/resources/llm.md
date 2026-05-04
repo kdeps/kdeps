@@ -4,19 +4,29 @@ The LLM (chat) resource enables interaction with language models for text genera
 
 ## Model and Backend Configuration
 
-**Model, backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`, not in the resource YAML.**
+**Model is set per resource** in `run.chat.model`. Set `model: router` to delegate model selection to the LLM router.
+
+```yaml
+# resources/my-resource.yaml
+run:
+  chat:
+    model: llama3.2:1b          # Per-resource model selection
+    role: user
+    prompt: "{{ get('q') }}"
+```
+
+**Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`:
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  model: llama3.2:1b          # Default model for all chat resources
   backend: ollama              # Default backend (ollama, openai, anthropic, ...)
   # base_url: http://localhost:11434
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...
 ```
 
-To switch backends or models, edit `~/.kdeps/config.yaml` (or run `kdeps edit`) without touching your resource files. For multi-backend routing, see [LLM Backends](llm-backends).
+For router configuration and multi-backend routing, see [LLM Backends](llm-backends).
 
 ## Basic Usage
 
@@ -176,7 +186,7 @@ Output:
 
 ## Vision (File Attachments)
 
-Process images (set a vision-capable model in `config.yaml`):
+Process images (set a vision-capable model in `run.chat.model` in your resource YAML):
 
 <div v-pre>
 

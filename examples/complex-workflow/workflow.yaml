@@ -100,6 +100,7 @@ resources:
       requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
     run:
       chat:
+        model: llama3.2:1b
         role: "user"
         prompt: |
           Analyze this GitHub repository activity:
@@ -134,6 +135,7 @@ resources:
       requires: ["analyze-activity"]
     run:
       chat:
+        model: llama3.2:1b
         role: "user"
         prompt: |
           Based on this repository analysis:

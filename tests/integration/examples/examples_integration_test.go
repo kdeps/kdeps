@@ -1170,9 +1170,9 @@ func TestLlamafileChatExample_ResourceParsing(t *testing.T) {
 	// Verify the resource has a chat config with backend: file.
 	require.NotNil(t, resource.Run)
 	require.NotNil(t, resource.Run.Chat)
-	// Backend and Model have yaml:"-" so they are not parsed from YAML; expect empty strings.
+	// Backend has yaml:"-" so it is not parsed from YAML; expect empty string.
 	assert.Equal(t, "", resource.Run.Chat.Backend)
-	assert.Empty(t, resource.Run.Chat.Model)
+	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
 	assert.Equal(t, "user", resource.Run.Chat.Role)
 }
 

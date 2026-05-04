@@ -17,6 +17,7 @@ run:
       message: Query parameter 'q' is required
 
   chat:
+    model: llama3.2:1b
     # file backend: runs a llamafile binary as a local OpenAI-compatible server.
     # The model field accepts:
     #   - Remote URL  (auto-downloaded and cached in ~/.kdeps/models/)

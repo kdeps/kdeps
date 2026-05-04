@@ -49,7 +49,6 @@ func TestConfig_Integration_ScaffoldAndLoad(t *testing.T) {
 	assert.Contains(t, content, "llm:")
 	assert.Contains(t, content, "defaults:")
 	assert.Contains(t, content, "ollama_host")
-	assert.Contains(t, content, "model:")
 
 	// Must NOT contain removed sections.
 	assert.NotContains(t, content, "registry:")
@@ -72,7 +71,6 @@ func TestConfig_Integration_DefaultsToEnvVars(t *testing.T) {
 
 	content := `
 llm:
-  model: llama3.2
   ollama_host: http://localhost:11434
 defaults:
   timezone: Pacific/Auckland
@@ -81,15 +79,13 @@ defaults:
 `
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 
-	for _, k := range []string{"TZ", "KDEPS_PYTHON_VERSION", "KDEPS_OFFLINE_MODE",
-		"KDEPS_DEFAULT_MODEL", "OLLAMA_HOST"} {
+	for _, k := range []string{"TZ", "KDEPS_PYTHON_VERSION", "KDEPS_OFFLINE_MODE"} {
 		require.NoError(t, os.Unsetenv(k))
 	}
 
 	cfg, err := config.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, "llama3.2", cfg.LLM.DefaultModel)
 	assert.Equal(t, "http://localhost:11434", cfg.LLM.OllamaHost)
 	assert.Equal(t, "Pacific/Auckland", cfg.Defaults.Timezone)
 	assert.Equal(t, "3.10", cfg.Defaults.PythonVersion)
@@ -98,7 +94,6 @@ defaults:
 	assert.Equal(t, "Pacific/Auckland", os.Getenv("TZ"))
 	assert.Equal(t, "3.10", os.Getenv("KDEPS_PYTHON_VERSION"))
 	assert.Equal(t, "true", os.Getenv("KDEPS_OFFLINE_MODE"))
-	assert.Equal(t, "llama3.2", os.Getenv("KDEPS_DEFAULT_MODEL"))
 	assert.Equal(t, "http://localhost:11434", os.Getenv("OLLAMA_HOST"))
 }
 
@@ -112,7 +107,6 @@ func TestConfig_Integration_LLMKeys(t *testing.T) {
 	content := `
 llm:
   ollama_host: http://myserver:11434
-  model: qwen2.5:7b
   openai_api_key: sk-openai
   anthropic_api_key: ant-1
   google_api_key: ggl-1
@@ -127,10 +121,9 @@ llm:
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 
 	for _, k := range []string{
-		"OLLAMA_HOST", "KDEPS_DEFAULT_MODEL",
 		"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "COHERE_API_KEY",
 		"MISTRAL_API_KEY", "TOGETHER_API_KEY", "PERPLEXITY_API_KEY", "GROQ_API_KEY",
-		"DEEPSEEK_API_KEY", "OPENROUTER_API_KEY",
+		"DEEPSEEK_API_KEY", "OPENROUTER_API_KEY", "OLLAMA_HOST",
 	} {
 		require.NoError(t, os.Unsetenv(k))
 	}
@@ -139,7 +132,6 @@ llm:
 	require.NoError(t, err)
 
 	assert.Equal(t, "http://myserver:11434", cfg.LLM.OllamaHost)
-	assert.Equal(t, "qwen2.5:7b", cfg.LLM.DefaultModel)
 	assert.Equal(t, "sk-openai", cfg.LLM.OpenAI)
 	assert.Equal(t, "ant-1", cfg.LLM.Anthropic)
 	assert.Equal(t, "ggl-1", cfg.LLM.Google)
@@ -153,7 +145,6 @@ llm:
 
 	// Verify env vars set.
 	assert.Equal(t, "sk-openai", os.Getenv("OPENAI_API_KEY"))
-	assert.Equal(t, "qwen2.5:7b", os.Getenv("KDEPS_DEFAULT_MODEL"))
 	assert.Equal(t, "http://myserver:11434", os.Getenv("OLLAMA_HOST"))
 }
 

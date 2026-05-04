@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -483,19 +482,9 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 		// Missing model
 	}
 
-	result, err := llmExecutor.Execute(ctx, config)
-	require.NoError(t, err)
-
-	resultMap, ok := result.(map[string]interface{})
-	require.True(t, ok)
-	assert.Contains(t, resultMap, "error")
-	errorMsg := resultMap["error"].(string)
-	// Accept either "ollama API error" (when Ollama is running) or connection errors (when not running)
-	assert.True(t,
-		strings.Contains(errorMsg, "ollama API error") ||
-			strings.Contains(errorMsg, "connection refused") ||
-			strings.Contains(errorMsg, "dial tcp"),
-		"Expected error to contain 'ollama API error' or connection error, got: %s", errorMsg)
+	_, err = llmExecutor.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "model is required")
 }
 
 func TestExecutor_Execute_MissingPrompt(t *testing.T) {
@@ -526,9 +515,8 @@ func TestNewExecutor_EmptyURL(t *testing.T) {
 	assert.NotNil(t, executor)
 }
 
-func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
+func TestExecutor_Execute_ResourceModelUsed(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv("KDEPS_LLM_MODELS", "llama3.3:latest")
 	var gotModel string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
@@ -547,16 +535,10 @@ func TestExecutor_Execute_WorkflowModelFallback(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Resource has no model set — should fall back to first model in KDEPS_LLM_MODELS.
-	cfg := &domain.ChatConfig{Prompt: "hello", BaseURL: server.URL}
+	cfg := &domain.ChatConfig{Prompt: "hello", Model: "llama3.3:latest", BaseURL: server.URL}
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"llama3.3:latest",
-		gotModel,
-		"empty resource model should fall back to first model in KDEPS_LLM_MODELS",
-	)
+	assert.Equal(t, "llama3.3:latest", gotModel)
 }
 
 func TestExecutor_Execute_WorkflowModelAllowlist_Override(t *testing.T) {

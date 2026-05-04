@@ -98,9 +98,6 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	// Resolve model and base URL from flags then environment.
 	model := flags.Model
 	if model == "" {
-		model = os.Getenv("KDEPS_DEFAULT_MODEL")
-	}
-	if model == "" {
 		model = "llama3.2:3b"
 	}
 

@@ -47,10 +47,9 @@ func TestWriteConfig_WithValues(t *testing.T) {
 	path := filepath.Join(dir, "config.yaml")
 	cfg := Config{
 		LLM: LLMKeys{
-			OllamaHost:   "http://localhost:11434",
-			DefaultModel: "llama3.2",
-			OpenAI:       "sk-test",
-			Anthropic:    "ant-test",
+			OllamaHost: "http://localhost:11434",
+			OpenAI:     "sk-test",
+			Anthropic:  "ant-test",
 		},
 	}
 	require.NoError(t, writeConfig(path, cfg))
@@ -58,7 +57,6 @@ func TestWriteConfig_WithValues(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 	assert.Contains(t, content, `ollama_host: "http://localhost:11434"`)
-	assert.Contains(t, content, `model: "llama3.2"`)
 	assert.Contains(t, content, `openai_api_key: "sk-test"`)
 	assert.Contains(t, content, `anthropic_api_key: "ant-test"`)
 }
@@ -92,8 +90,8 @@ func (tw *testWriter) WriteString(s string) (int, error) { return tw.Builder.Wri
 func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "1" (ollama), accept default host, default model
-	input := "1\n\n\n"
+	// Input: choose "1" (ollama), accept default host
+	input := "1\n\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -102,14 +100,13 @@ func TestBootstrapInteractive_OllamaDefaultHost(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 	assert.Contains(t, content, "ollama_host")
-	assert.Contains(t, content, "llama3.2")
 }
 
 func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	// Input: choose "1" (ollama), custom host, custom model
-	input := "1\nhttp://myserver:11434\nmistral\n"
+	// Input: choose "1" (ollama), custom host
+	input := "1\nhttp://myserver:11434\n"
 	reader := bufio.NewReader(strings.NewReader(input))
 	var out testWriter
 	require.NoError(t, bootstrapInteractive(&out, reader, path))
@@ -118,7 +115,6 @@ func TestBootstrapInteractive_OllamaCustomHost(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 	assert.Contains(t, content, `ollama_host: "http://myserver:11434"`)
-	assert.Contains(t, content, `model: "mistral"`)
 }
 
 func TestBootstrapInteractive_OnlineProvider(t *testing.T) {

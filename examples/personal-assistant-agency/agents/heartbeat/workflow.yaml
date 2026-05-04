@@ -86,6 +86,7 @@ resources:
       requires: [load-tasks, system-context]
     run:
       chat:
+        model: llama3.2:1b
         role: user
         prompt: |
           You are a proactive personal assistant running a scheduled heartbeat check.

@@ -78,12 +78,11 @@ settings:
 
 ### Step 2b: Configure the LLM Backend
 
-Model, backend, and API keys live in `~/.kdeps/config.yaml` (not in workflow or resource files):
+Backend and API keys live in `~/.kdeps/config.yaml`. Model is set per resource in `run.chat.model` (see Step 3).
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  model: llama3.2:1b   # or gpt-4o, claude-3-5-sonnet-20241022, etc.
   backend: ollama       # or openai, anthropic, groq, ...
 ```
 

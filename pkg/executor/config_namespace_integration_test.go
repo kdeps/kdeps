@@ -45,9 +45,8 @@ func newIntegrationCtx(t *testing.T) *executor.ExecutionContext {
 	require.NoError(t, err)
 	ctx.Config = &config.Config{
 		LLM: config.LLMKeys{
-			OllamaHost:   "http://localhost:11434",
-			DefaultModel: "llama3.2",
-			OpenAI:       "sk-integration",
+			OllamaHost: "http://localhost:11434",
+			OpenAI:     "sk-integration",
 		},
 		Defaults: config.Defaults{
 			Timezone: "UTC",
@@ -209,12 +208,12 @@ func TestIntegration_Interpolated_GetConfigExpression(t *testing.T) {
 	ev := expression.NewEvaluator(api)
 
 	expr := &domain.Expression{
-		Raw:  "model={{ get('config.llm.model') }}",
+		Raw:  "host={{ get('config.llm.ollama_host') }}",
 		Type: domain.ExprTypeInterpolated,
 	}
 	result, err := ev.Evaluate(expr, map[string]interface{}{})
 	require.NoError(t, err)
-	assert.Equal(t, "model=llama3.2", result)
+	assert.Equal(t, "host=http://localhost:11434", result)
 }
 
 // TestIntegration_GetFunction_DefaultOnMissing verifies that a missing

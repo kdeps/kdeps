@@ -133,8 +133,7 @@ type RouteEntry struct {
 // LLMKeys holds per-provider API keys and global LLM defaults.
 type LLMKeys struct {
 	// Ollama — local inference, no API key needed.
-	OllamaHost   string `yaml:"ollama_host"` // default: http://localhost:11434
-	DefaultModel string `yaml:"model"`       // global default model
+	OllamaHost string `yaml:"ollama_host"` // default: http://localhost:11434
 
 	// Default backend: ollama (local), openai, anthropic, google, etc.
 	// Serialized to KDEPS_DEFAULT_BACKEND.
@@ -286,7 +285,6 @@ func (c *Config) ToMap() map[string]any {
 func configEnvVar(path string) (string, bool) {
 	m := map[string]string{
 		"llm.ollama_host":         "OLLAMA_HOST",
-		"llm.model":               "KDEPS_DEFAULT_MODEL",
 		"llm.backend":             "KDEPS_DEFAULT_BACKEND",
 		"llm.base_url":            "KDEPS_LLM_BASE_URL",
 		"llm.models":              "KDEPS_LLM_MODELS",
@@ -354,8 +352,6 @@ func applyEnv(cfg Config) {
 
 	// Ollama — local inference.
 	setIfUnset("OLLAMA_HOST", cfg.LLM.OllamaHost)
-	// Global default model.
-	setIfUnset("KDEPS_DEFAULT_MODEL", cfg.LLM.DefaultModel)
 	// Default backend (ollama, openai, anthropic, etc.).
 	setIfUnset("KDEPS_DEFAULT_BACKEND", cfg.LLM.Backend)
 	// Base URL for the backend.
@@ -420,10 +416,6 @@ llm:
 
   # ── Llamafile / file backend (local self-contained model binaries) ──────────
   # models_dir: ~/.kdeps/models   # cache dir for downloaded .llamafile binaries
-
-  # Global default model — used when no router rule matches:
-  # Examples: llama3.2  |  llama3.2:3b  |  qwen2.5:7b  |  gpt-4o  |  claude-3-5-sonnet-20241022
-  # model: llama3.2
 
   # Default backend: ollama (local), openai, anthropic, google, cohere, mistral, together,
   # perplexity, groq, deepseek, openrouter.  Defaults to "ollama" when unset.

@@ -256,7 +256,6 @@ kdeps edit
 llm:
   # Local inference via Ollama (no API key needed)
   # backend: ollama
-  # model: llama3.2:1b       # global default for all chat resources
   # base_url: http://localhost:11434
 
   # Local inference via llamafile (self-contained binary, no install needed)

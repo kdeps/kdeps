@@ -27,6 +27,7 @@ run:
     - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
 
   chat:
+    model: llama3.2:1b
     role: user
     prompt: "{{ get('userMessage') }}"
     scenario:
