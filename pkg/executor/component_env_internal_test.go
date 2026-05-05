@@ -65,11 +65,11 @@ func TestEnv_WithComponent_PrefersScopedVar(t *testing.T) {
 	ctx, err := NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 
-	t.Setenv("OPENAI_API_KEY", "global_key")
-	t.Setenv("SCRAPER_OPENAI_API_KEY", "scoped_key")
+	t.Setenv("TEST_API_KEY", "global_key")
+	t.Setenv("SCRAPER_TEST_API_KEY", "scoped_key")
 
 	ctx.CurrentComponent = "scraper"
-	val, err := ctx.Env("OPENAI_API_KEY")
+	val, err := ctx.Env("TEST_API_KEY")
 	require.NoError(t, err)
 	assert.Equal(t, "scoped_key", val)
 }
@@ -79,12 +79,11 @@ func TestEnv_WithComponent_FallsBackToPlainVar(t *testing.T) {
 	ctx, err := NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
 
-	t.Setenv("OPENAI_API_KEY", "global_key")
-	// SCRAPER_OPENAI_API_KEY is not set - should fall back.
-	t.Setenv("SCRAPER_OPENAI_API_KEY", "")
+	t.Setenv("TEST_API_KEY", "global_key")
+	// SCRAPER_TEST_API_KEY is not set - should fall back.
 
 	ctx.CurrentComponent = "scraper"
-	val, err := ctx.Env("OPENAI_API_KEY")
+	val, err := ctx.Env("TEST_API_KEY")
 	require.NoError(t, err)
 	assert.Equal(t, "global_key", val)
 }
@@ -144,14 +143,12 @@ func TestScanResourceEnvVars_ChatFields(t *testing.T) {
 		Run: domain.RunConfig{
 			Chat: &domain.ChatConfig{
 				Prompt: "use {{ env('CHAT_PROMPT_VAR') }}",
-				APIKey: "{{ env('OPENAI_API_KEY') }}",
 			},
 		},
 	}
 	seen := map[string]struct{}{}
 	scanResourceEnvVars(r, seen)
 	assert.Contains(t, seen, "CHAT_PROMPT_VAR")
-	assert.Contains(t, seen, "OPENAI_API_KEY")
 }
 
 func TestScanResourceEnvVars_HTTPClient(t *testing.T) {

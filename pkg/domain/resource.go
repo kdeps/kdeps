@@ -239,10 +239,9 @@ func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
 type ChatConfig struct {
 	// Model is set in resource YAML. Use "router" to delegate to the LLM router in config.yaml.
 	Model string `yaml:"model,omitempty"`
-	// Backend, BaseURL, APIKey are runtime fields set by the LLM router or env vars.
+	// Backend and BaseURL are runtime fields set by the LLM router or env vars.
 	Backend string `yaml:"-"`
 	BaseURL string `yaml:"-"`
-	APIKey  string `yaml:"-"`
 
 	ContextLength    int            `yaml:"contextLength,omitempty"` // Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
 	Role             string         `yaml:"role"`

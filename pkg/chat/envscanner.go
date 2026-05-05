@@ -40,30 +40,12 @@ var templateEnvRE = regexp.MustCompile(`{{\s*env\(['"]([A-Z_][A-Z0-9_]*)['"]`)
 
 func envHints() []envHint {
 	var h []envHint
-	h = append(h, llmBackendHints()...)
 	h = append(h, emailHints()...)
 	h = append(h, messagingHints()...)
 	h = append(h, cloudHints()...)
 	h = append(h, databaseHints()...)
 	h = append(h, saasHints()...)
 	return h
-}
-
-func llmBackendHints() []envHint {
-	return []envHint{
-		{[]string{"backend: openai", "openai.com", "api.openai"},
-			[]EnvVar{{"OPENAI_API_KEY", "OpenAI API key"}}},
-		{[]string{"backend: anthropic", "anthropic.com"},
-			[]EnvVar{{"ANTHROPIC_API_KEY", "Anthropic API key"}}},
-		{[]string{"backend: google", "googleapis.com", "generativelanguage"},
-			[]EnvVar{{"GOOGLE_API_KEY", "Google AI API key"}}},
-		{[]string{"backend: groq", "groq.com"},
-			[]EnvVar{{"GROQ_API_KEY", "Groq API key"}}},
-		{[]string{"backend: deepseek", "deepseek.com"},
-			[]EnvVar{{"DEEPSEEK_API_KEY", "DeepSeek API key"}}},
-		{[]string{"backend: openrouter", "openrouter.ai"},
-			[]EnvVar{{"OPENROUTER_API_KEY", "OpenRouter API key"}}},
-	}
 }
 
 func emailHints() []envHint {

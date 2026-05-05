@@ -111,7 +111,7 @@ func scanResourceEnvVars(r *domain.Resource, seen map[string]struct{}) {
 		scanEnvExprs(seen, r.Run.Python.Script, r.Run.Python.ScriptFile)
 	}
 	if r.Run.Chat != nil {
-		scanEnvExprs(seen, r.Run.Chat.Prompt, r.Run.Chat.APIKey, r.Run.Chat.BaseURL)
+		scanEnvExprs(seen, r.Run.Chat.Prompt, r.Run.Chat.BaseURL)
 	}
 	if r.Run.HTTPClient != nil {
 		scanEnvExprs(seen, r.Run.HTTPClient.URL)

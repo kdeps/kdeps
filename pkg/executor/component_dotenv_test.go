@@ -371,13 +371,11 @@ func TestScanResourceEnvVars_ChatConfig(t *testing.T) {
 	vars := executor.ScanComponentEnvVars(&domain.Component{
 		Resources: []*domain.Resource{
 			{Run: domain.RunConfig{
-				Chat: &domain.ChatConfig{
-					APIKey: `{{ env('CHAT_API_KEY') }}`,
-				},
+				Chat: &domain.ChatConfig{},
 			}},
 		},
 	})
-	assert.Contains(t, vars, "CHAT_API_KEY")
+	assert.NotContains(t, vars, "CHAT_API_KEY")
 }
 
 func TestScanResourceEnvVars_PythonScript(t *testing.T) {

@@ -353,7 +353,7 @@ func (e *Executor) Execute(
 	}
 
 	// Call backend API (may be called multiple times for tool execution)
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout, resolvedConfig.APIKey)
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
 	if err != nil {
 		response = map[string]interface{}{"error": err.Error()}
 	}
@@ -450,7 +450,7 @@ func (e *Executor) resolveConfig(
 // handleToolCalls manages the iterative tool call execution loop.
 func (e *Executor) handleToolCalls(
 	ctx *executor.ExecutionContext,
-	config *domain.ChatConfig,
+	_ *domain.ChatConfig,
 	tools []domain.Tool,
 	modelStr string,
 	messages []map[string]interface{},
@@ -487,7 +487,7 @@ func (e *Executor) handleToolCalls(
 		}
 
 		// Call backend again
-		nextResponse, err := e.callBackend(backend, baseURL, requestBody, timeout, config.APIKey)
+		nextResponse, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
 		if err != nil {
 			return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
 		}
@@ -1523,7 +1523,7 @@ func (e *Executor) retryFallbackRoutes(
 		if rbErr != nil {
 			continue
 		}
-		response, lastErr = e.callBackend(fb, fbURL, rb, timeout, cfg.APIKey)
+		response, lastErr = e.callBackend(fb, fbURL, rb, timeout, "")
 		if lastErr != nil {
 			response = map[string]interface{}{"error": lastErr.Error()}
 		}
@@ -1568,9 +1568,6 @@ func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.ModelEntry) {
 	}
 	if r.BaseURL != "" {
 		cfg.BaseURL = r.BaseURL
-	}
-	if r.APIKey != "" {
-		cfg.APIKey = r.APIKey
 	}
 }
 
