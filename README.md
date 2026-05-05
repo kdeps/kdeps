@@ -70,7 +70,6 @@ kdeps bundle build          # Docker image
 kdeps export k8s            # Kubernetes manifests
 kdeps bundle export iso     # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
-kdeps cloud push            # live-update a running container
 ```
 
 ## Global config

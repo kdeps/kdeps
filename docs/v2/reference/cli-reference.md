@@ -259,7 +259,6 @@ KDEPS_EDITOR=code kdeps edit   # open in VS Code
 
 llm:
   # ollama_host: http://localhost:11434
-  # model: llama3.2          # global default model
   # openai_api_key: ""
   # anthropic_api_key: ""
   # ... other provider keys

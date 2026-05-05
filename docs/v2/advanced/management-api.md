@@ -62,7 +62,7 @@ The `workflow` field is omitted when no workflow is loaded.
 
 ## Using `kdeps cloud push`
 
-The `kdeps cloud push` command is the recommended way to call the management API. See the [`kdeps cloud push` reference](/reference/cli-reference#kdeps-push) for details.
+The `kdeps cloud push` command is the recommended way to call the management API. See the see the [CLI reference](/reference/cli-reference) for details.
 
 ```bash
 # Push a workflow directory
@@ -105,7 +105,7 @@ curl -X POST \
 
 When a new workflow is pushed, kdeps writes it to the same path that was given at startup (or `/app/workflow.yaml` inside Docker). The workflow path is never changed after push — only the file contents are updated. On the next restart, kdeps reads the updated file automatically.
 
-After a YAML push, any stale `.yaml`/`.yml` files in the `resources/` sibling directory are removed. This prevents duplicate resource loading because `kdeps cloud push` inlines all resources into a single `workflow.yaml`.
+After a YAML push, any stale `.yaml`/`.yml` files in the `resources/` sibling directory are removed. This prevents duplicate resource loading the management API inlines all resources into a single `workflow.yaml`.
 
 Package pushes extract the full archive in-place — `resources/`, `data/`, and `scripts/` are all replaced or added.
 
@@ -113,4 +113,4 @@ Package pushes extract the full archive in-place — `resources/`, `data/`, and 
 
 - Path-traversal entries in `.kdeps` archives are rejected with `422 Unprocessable Entity`.
 - Per-file decompression cap of 500 MB guards against zip-bomb payloads.
-- Response bodies read by `kdeps cloud push` are capped at 1 MB.
+- Response bodies are capped at 1 MB.

@@ -15,7 +15,7 @@ metadata:
 run:
   exec:
     command: "echo 'Hello, World!'"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ## Configuration Options
@@ -36,7 +36,7 @@ run:
 run:
   exec:
     command: "date"
-    timeoutDuration: 10s
+    timeout: 10s
 ```
 
 ### Command with Arguments
@@ -51,7 +51,7 @@ run:
     workingDir: "/tmp"         # Optional: working directory
     env:                       # Optional: resource-specific env vars
       TEMP_VAR: "value"
-    timeoutDuration: 30s       # Execution timeout
+    timeout: 30s       # Execution timeout
 ```
 
 ### Multi-line Script
@@ -64,7 +64,7 @@ run:
       date
       uname -a
       echo "Done!"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ### With Interpolation
@@ -75,7 +75,7 @@ run:
 run:
   exec:
     command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -92,7 +92,7 @@ run:
   exec:
     command: |
       echo '{"hostname": "'$(hostname)'", "os": "'$(uname -s)'", "kernel": "'$(uname -r)'", "date": "'$(date -Iseconds)'"}'
-    timeoutDuration: 10s
+    timeout: 10s
 ```
 
 ### File Operations
@@ -118,7 +118,7 @@ run:
       MD5=$(md5sum "$FILE" | cut -d' ' -f1)
 
       echo "{\"path\": \"$FILE\", \"size\": $SIZE, \"md5\": \"$MD5\"}"
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -139,7 +139,7 @@ run:
       MESSAGE=$(git log -1 --format='%s')
 
       echo "{\"branch\": \"$BRANCH\", \"commit\": \"$COMMIT\", \"author\": \"$AUTHOR\", \"message\": \"$MESSAGE\"}"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ### Process External Tools
@@ -163,7 +163,7 @@ run:
       DIMS=$(identify -format '{"width":%w,"height":%h}' "$OUTPUT")
 
       echo "{\"output\": \"$OUTPUT\", \"dimensions\": $DIMS}"
-    timeoutDuration: 120s
+    timeout: 120s
 ```
 
 </div>
@@ -187,7 +187,7 @@ run:
       DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTPUT")
 
       echo "{\"audio_file\": \"$OUTPUT\", \"duration_seconds\": $DURATION}"
-    timeoutDuration: 300s
+    timeout: 300s
 ```
 
 ### OCR with Tesseract
@@ -211,7 +211,7 @@ run:
       TEXT=$(cat "$OUTPUT" | jq -Rs .)
 
       echo "{\"text\": $TEXT}"
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -229,7 +229,7 @@ run:
       IMAGES=$(docker images --format '{{.Repository}}' | wc -l | tr -d ' ')
 
       echo "{\"running_containers\": $CONTAINERS, \"images\": $IMAGES}"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ### Curl API Call
@@ -250,7 +250,7 @@ run:
         https://api.example.com/search)
 
       echo "$RESPONSE"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -346,7 +346,7 @@ run:
 
       # Continue with processing...
       echo '{"status": "success"}'
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 **Note**: Errors written to stderr are accessible via `exec.stderr('resourceId')` in other resources.

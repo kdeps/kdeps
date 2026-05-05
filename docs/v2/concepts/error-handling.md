@@ -214,7 +214,7 @@ run:
   httpClient:
     url: "https://api.example.com/users/{{ get('userId') }}"
     method: GET
-    timeoutDuration: 5s
+    timeout: 5s
 
   onError:
     action: retry

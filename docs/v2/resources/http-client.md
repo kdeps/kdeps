@@ -18,7 +18,7 @@ run:
   httpClient:
     method: GET
     url: "https://api.example.com/data"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -38,7 +38,7 @@ run:
       Content-Type: application/json
     data:                            # Request body
       key: value
-    timeoutDuration: 30s
+    timeout: 30s
 
     # Authentication
     auth:
@@ -274,7 +274,7 @@ run:
     headers:
       Accept: application/vnd.github.v3+json
       Authorization: "Bearer {{ get('GITHUB_TOKEN', 'env') }}"
-    timeoutDuration: 30s
+    timeout: 30s
 
 ---
 apiVersion: kdeps.io/v1
@@ -314,7 +314,7 @@ run:
       maxAttempts: 3
       backoff: 2s
       retryOn: [500, 502, 503]
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -335,7 +335,7 @@ run:
       event: order_completed
       order_id: "{{ get('order_id') }}"
       timestamp: "{{ info('timestamp') }}"
-    timeoutDuration: 10s
+    timeout: 10s
 ```
 
 </div>
@@ -351,7 +351,7 @@ run:
       enabled: true
       ttl: 1h
       key: "exchange-rates"
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ## Accessing Response
