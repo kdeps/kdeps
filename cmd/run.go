@@ -597,6 +597,13 @@ func executeAgencyEntryPoint(
 	}
 	fmt.Fprintf(os.Stdout, "  ✓ Agent: %s v%s\n", workflow.Metadata.Name, workflow.Metadata.Version)
 
+	// Apply per-agent config profile for this agent
+	if agentName := workflow.Metadata.Name; agentName != "" {
+		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
+			fmt.Fprintf(os.Stderr, "  ⚠ Could not load agent profile: %v\n", loadErr)
+		}
+	}
+
 	// Set up the engine with the full agent map so agent resource calls work.
 	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
 
