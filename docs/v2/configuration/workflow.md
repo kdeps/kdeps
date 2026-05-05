@@ -411,8 +411,30 @@ Example `~/.kdeps/config.yaml`:
 resource_defaults:
   chat:
     timeout: "60s"
+    context_length: 4096
+    streaming: false
+    temperature: 0.7
+    max_tokens: 4096
+    top_p: 0.9
   http:
     timeout: "30s"
+    follow_redirects: true
+    proxy: ""
+    retry_max_attempts: 3
+    retry_backoff: "1s"
+    retry_max_backoff: "30s"
+    retry_on: "429,503"
+  python:
+    timeout: "60s"
+  exec:
+    timeout: "30s"
+  sql:
+    timeout: "30s"
+    max_rows: 0
+  onError:
+    action: "fail"
+    max_retries: 3
+    retry_delay: "1s"
 ```
 
 If a resource in your `workflow.yaml` does not specify a `timeoutDuration`, it will inherit the global default. If you specify one locally, the local value takes precedence.

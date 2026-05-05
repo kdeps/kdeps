@@ -52,13 +52,25 @@ type Defaults struct {
 
 // ChatDefaults holds global default values for chat (LLM) resources.
 type ChatDefaults struct {
-	Timeout       string `yaml:"timeout"`        // e.g. "60s" — KDEPS_CHAT_TIMEOUT
-	ContextLength int    `yaml:"context_length"` // e.g. 4096 — KDEPS_CHAT_CONTEXT_LENGTH
+	Timeout          string   `yaml:"timeout"`                     // e.g. "60s" — KDEPS_CHAT_TIMEOUT
+	ContextLength    int      `yaml:"context_length"`              // e.g. 4096 — KDEPS_CHAT_CONTEXT_LENGTH
+	Streaming        bool     `yaml:"streaming"`                   // KDEPS_CHAT_STREAMING
+	Temperature      *float64 `yaml:"temperature,omitempty"`       // e.g. 0.7 — KDEPS_CHAT_TEMPERATURE
+	MaxTokens        *int     `yaml:"max_tokens,omitempty"`        // e.g. 4096 — KDEPS_CHAT_MAX_TOKENS
+	TopP             *float64 `yaml:"top_p,omitempty"`             // e.g. 0.9 — KDEPS_CHAT_TOP_P
+	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty"` // e.g. 0.0 — KDEPS_CHAT_FREQUENCY_PENALTY
+	PresencePenalty  *float64 `yaml:"presence_penalty,omitempty"`  // e.g. 0.0 — KDEPS_CHAT_PRESENCE_PENALTY
 }
 
 // HTTPDefaults holds global default values for httpClient resources.
 type HTTPDefaults struct {
-	Timeout string `yaml:"timeout"` // e.g. "30s" — KDEPS_HTTP_TIMEOUT
+	Timeout          string `yaml:"timeout"`                      // e.g. "30s" — KDEPS_HTTP_TIMEOUT
+	FollowRedirects  bool   `yaml:"follow_redirects"`             // KDEPS_HTTP_FOLLOW_REDIRECTS
+	Proxy            string `yaml:"proxy,omitempty"`              // e.g. "http://proxy:8080" — KDEPS_HTTP_PROXY
+	RetryMaxAttempts int    `yaml:"retry_max_attempts,omitempty"` // e.g. 3 — KDEPS_HTTP_RETRY_MAX_ATTEMPTS
+	RetryBackoff     string `yaml:"retry_backoff,omitempty"`      // e.g. "1s" — KDEPS_HTTP_RETRY_BACKOFF
+	RetryMaxBackoff  string `yaml:"retry_max_backoff,omitempty"`  // e.g. "30s" — KDEPS_HTTP_RETRY_MAX_BACKOFF
+	RetryOn          string `yaml:"retry_on,omitempty"`           // e.g. "429,503" — KDEPS_HTTP_RETRY_ON
 }
 
 // PythonDefaults holds global default values for python resources.
@@ -329,16 +341,28 @@ func configEnvVar(path string) (string, bool) {
 		"defaults.python_version": "KDEPS_PYTHON_VERSION",
 		"defaults.offline_mode":   "KDEPS_OFFLINE_MODE",
 		// Per-resource defaults
-		"resource_defaults.chat.timeout":        "KDEPS_CHAT_TIMEOUT",
-		"resource_defaults.chat.context_length": "KDEPS_CHAT_CONTEXT_LENGTH",
-		"resource_defaults.http.timeout":        "KDEPS_HTTP_TIMEOUT",
-		"resource_defaults.python.timeout":      "KDEPS_PYTHON_TIMEOUT",
-		"resource_defaults.exec.timeout":        "KDEPS_EXEC_TIMEOUT",
-		"resource_defaults.sql.timeout":         "KDEPS_SQL_TIMEOUT",
-		"resource_defaults.sql.max_rows":        "KDEPS_SQL_MAX_ROWS",
-		"resource_defaults.onError.action":      "KDEPS_ON_ERROR_ACTION",
-		"resource_defaults.onError.max_retries": "KDEPS_ON_ERROR_MAX_RETRIES",
-		"resource_defaults.onError.retry_delay": "KDEPS_ON_ERROR_RETRY_DELAY",
+		"resource_defaults.chat.timeout":            "KDEPS_CHAT_TIMEOUT",
+		"resource_defaults.chat.context_length":     "KDEPS_CHAT_CONTEXT_LENGTH",
+		"resource_defaults.chat.streaming":          "KDEPS_CHAT_STREAMING",
+		"resource_defaults.chat.temperature":        "KDEPS_CHAT_TEMPERATURE",
+		"resource_defaults.chat.max_tokens":         "KDEPS_CHAT_MAX_TOKENS",
+		"resource_defaults.chat.top_p":              "KDEPS_CHAT_TOP_P",
+		"resource_defaults.chat.frequency_penalty":  "KDEPS_CHAT_FREQUENCY_PENALTY",
+		"resource_defaults.chat.presence_penalty":   "KDEPS_CHAT_PRESENCE_PENALTY",
+		"resource_defaults.http.timeout":            "KDEPS_HTTP_TIMEOUT",
+		"resource_defaults.http.follow_redirects":   "KDEPS_HTTP_FOLLOW_REDIRECTS",
+		"resource_defaults.http.proxy":              "KDEPS_HTTP_PROXY",
+		"resource_defaults.http.retry_max_attempts": "KDEPS_HTTP_RETRY_MAX_ATTEMPTS",
+		"resource_defaults.http.retry_backoff":      "KDEPS_HTTP_RETRY_BACKOFF",
+		"resource_defaults.http.retry_max_backoff":  "KDEPS_HTTP_RETRY_MAX_BACKOFF",
+		"resource_defaults.http.retry_on":           "KDEPS_HTTP_RETRY_ON",
+		"resource_defaults.python.timeout":          "KDEPS_PYTHON_TIMEOUT",
+		"resource_defaults.exec.timeout":            "KDEPS_EXEC_TIMEOUT",
+		"resource_defaults.sql.timeout":             "KDEPS_SQL_TIMEOUT",
+		"resource_defaults.sql.max_rows":            "KDEPS_SQL_MAX_ROWS",
+		"resource_defaults.onError.action":          "KDEPS_ON_ERROR_ACTION",
+		"resource_defaults.onError.max_retries":     "KDEPS_ON_ERROR_MAX_RETRIES",
+		"resource_defaults.onError.retry_delay":     "KDEPS_ON_ERROR_RETRY_DELAY",
 	}
 	v, ok := m[path]
 	return v, ok
@@ -390,6 +414,54 @@ func applyRouterEnv(keys LLMKeys) {
 	}
 }
 
+// applyResourceDefaults propagates resource_defaults from config to env vars.
+func applyResourceDefaults(rd ResourceDefaults) {
+	setIfUnset("KDEPS_CHAT_TIMEOUT", rd.Chat.Timeout)
+	if rd.Chat.ContextLength > 0 {
+		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", strconv.Itoa(rd.Chat.ContextLength))
+	}
+	if rd.Chat.Streaming {
+		setIfUnset("KDEPS_CHAT_STREAMING", "true")
+	}
+	if rd.Chat.Temperature != nil {
+		setIfUnset("KDEPS_CHAT_TEMPERATURE", strconv.FormatFloat(*rd.Chat.Temperature, 'f', -1, 64))
+	}
+	if rd.Chat.MaxTokens != nil && *rd.Chat.MaxTokens > 0 {
+		setIfUnset("KDEPS_CHAT_MAX_TOKENS", strconv.Itoa(*rd.Chat.MaxTokens))
+	}
+	if rd.Chat.TopP != nil {
+		setIfUnset("KDEPS_CHAT_TOP_P", strconv.FormatFloat(*rd.Chat.TopP, 'f', -1, 64))
+	}
+	if rd.Chat.FrequencyPenalty != nil {
+		setIfUnset("KDEPS_CHAT_FREQUENCY_PENALTY", strconv.FormatFloat(*rd.Chat.FrequencyPenalty, 'f', -1, 64))
+	}
+	if rd.Chat.PresencePenalty != nil {
+		setIfUnset("KDEPS_CHAT_PRESENCE_PENALTY", strconv.FormatFloat(*rd.Chat.PresencePenalty, 'f', -1, 64))
+	}
+	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
+	if rd.HTTP.FollowRedirects {
+		setIfUnset("KDEPS_HTTP_FOLLOW_REDIRECTS", "true")
+	}
+	setIfUnset("KDEPS_HTTP_PROXY", rd.HTTP.Proxy)
+	if rd.HTTP.RetryMaxAttempts > 0 {
+		setIfUnset("KDEPS_HTTP_RETRY_MAX_ATTEMPTS", strconv.Itoa(rd.HTTP.RetryMaxAttempts))
+	}
+	setIfUnset("KDEPS_HTTP_RETRY_BACKOFF", rd.HTTP.RetryBackoff)
+	setIfUnset("KDEPS_HTTP_RETRY_MAX_BACKOFF", rd.HTTP.RetryMaxBackoff)
+	setIfUnset("KDEPS_HTTP_RETRY_ON", rd.HTTP.RetryOn)
+	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
+	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
+	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
+	if rd.SQL.MaxRows > 0 {
+		setIfUnset("KDEPS_SQL_MAX_ROWS", strconv.Itoa(rd.SQL.MaxRows))
+	}
+	setIfUnset("KDEPS_ON_ERROR_ACTION", rd.OnError.Action)
+	if rd.OnError.MaxRetries > 0 {
+		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", strconv.Itoa(rd.OnError.MaxRetries))
+	}
+	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
+}
+
 // applyEnv maps config fields to environment variables.
 func applyEnv(cfg Config) {
 	// Global agent defaults.
@@ -429,23 +501,7 @@ func applyEnv(cfg Config) {
 	setIfUnset("OPENROUTER_API_KEY", cfg.LLM.OpenRouter)
 
 	// Per-resource defaults.
-	rd := cfg.ResourceDefaults
-	setIfUnset("KDEPS_CHAT_TIMEOUT", rd.Chat.Timeout)
-	if rd.Chat.ContextLength > 0 {
-		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", strconv.Itoa(rd.Chat.ContextLength))
-	}
-	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
-	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
-	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
-	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
-	if rd.SQL.MaxRows > 0 {
-		setIfUnset("KDEPS_SQL_MAX_ROWS", strconv.Itoa(rd.SQL.MaxRows))
-	}
-	setIfUnset("KDEPS_ON_ERROR_ACTION", rd.OnError.Action)
-	if rd.OnError.MaxRetries > 0 {
-		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", strconv.Itoa(rd.OnError.MaxRetries))
-	}
-	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
+	applyResourceDefaults(cfg.ResourceDefaults)
 
 	// Router env: serialize unified config to JSON when strategy is set or models have routing metadata.
 	applyRouterEnv(cfg.LLM)
@@ -543,8 +599,20 @@ defaults:
 #   chat:
 #     timeout: "60s"          # default LLM call timeout
 #     context_length: 4096    # default context window in tokens
+#     streaming: false
+#     temperature: 0.7        # sampling temperature
+#     max_tokens: 4096        # max tokens to generate
+#     top_p: 0.9              # nucleus sampling
+#     frequency_penalty: 0.0
+#     presence_penalty: 0.0
 #   http:
 #     timeout: "30s"          # default HTTP request timeout
+#     follow_redirects: true
+#     proxy: ""               # HTTP proxy URL
+#     retry_max_attempts: 3   # max retry attempts
+#     retry_backoff: "1s"     # initial retry backoff
+#     retry_max_backoff: "30s"
+#     retry_on: "429,503"     # comma-separated status codes
 #   python:
 #     timeout: "60s"          # default Python script timeout
 #   exec:
