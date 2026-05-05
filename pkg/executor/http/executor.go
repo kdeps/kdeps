@@ -68,10 +68,14 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*h
 		Timeout: clientTimeout,
 	}
 
-	// Configure redirect policy
-	// Follow redirects by default (standard HTTP behavior)
-	// nil (not set) = follow redirects, false = don't follow, true = follow
-	if config.FollowRedirects != nil && !*config.FollowRedirects {
+	// Configure redirect policy: resource > KDEPS_HTTP_FOLLOW_REDIRECTS > true
+	followRedirects := true
+	if config.FollowRedirects != nil {
+		followRedirects = *config.FollowRedirects
+	} else if v := os.Getenv("KDEPS_HTTP_FOLLOW_REDIRECTS"); v != "" {
+		followRedirects = v == "true"
+	}
+	if !followRedirects {
 		// Explicitly disabled - don't follow redirects
 		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -81,14 +85,18 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*h
 		client.CheckRedirect = nil
 	}
 
-	// Configure proxy
-	if config.Proxy != "" {
-		proxyURL, err := url.Parse(config.Proxy)
+	// Configure proxy: resource > KDEPS_HTTP_PROXY > empty (no proxy)
+	proxyURL := config.Proxy
+	if proxyURL == "" {
+		proxyURL = os.Getenv("KDEPS_HTTP_PROXY")
+	}
+	if proxyURL != "" {
+		parsedURL, err := url.Parse(proxyURL)
 		if err != nil {
 			return nil, fmt.Errorf("invalid proxy URL: %w", err)
 		}
 		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
+			Proxy: http.ProxyURL(parsedURL),
 		}
 	}
 

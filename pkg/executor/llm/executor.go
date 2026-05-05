@@ -323,13 +323,19 @@ func (e *Executor) Execute(
 	// Merge allowlisted component tools (opt-in, default-disabled).
 	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
 
+	// Streaming: resource > KDEPS_CHAT_STREAMING > false
+	streaming := resolvedConfig.Streaming
+	if !streaming {
+		streaming = os.Getenv("KDEPS_CHAT_STREAMING") == "true"
+	}
+
 	// Prepare request using backend-specific builder
 	requestConfig := ChatRequestConfig{
 		ContextLength: contextLength,
 		JSONResponse:  resolvedConfig.JSONResponse,
-		Streaming:     resolvedConfig.Streaming,
+		Streaming:     streaming,
 		Tools:         e.buildTools(allTools),
-	}
+}
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
