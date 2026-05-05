@@ -131,6 +131,7 @@ resources:
           code: 400
           message: Query parameter 'q' is required
       chat:
+        model: llama3.2:1b
         role: user
         prompt: "{{ get('q') }}"
         scenario:
