@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: The AI Appliance Builder.
-  tagline: AI agents as code. Declarative LLM orchestration for specialized and coordinated multi-agent systems. Compose workflows across models, APIs, and data with fully defined control flow.
+  text: Straightforward LLM dependency orchestration for multi-agent workflows.
+  tagline: Compose chat, code, and data into declarative pipelines in YAML. Export AI workflows as a single binary, ISO, Docker, or Kubernetes pods. Use Ollama, llamafile, or any cloud AI provider.
   image: false
   actions:
     - theme: brand
@@ -19,15 +19,15 @@ hero:
 
 features:
   - icon: 🏗️
-    title: AI Appliances
-    details: Build and deploy self-contained AI systems as Docker images, bootable ISOs, or standalone binaries.
+    title: Declarative Pipelines
+    details: Compose chat, code, and data into YAML pipelines with explicit control flow. No glue code, no boilerplate.
+  - icon: 📦
+    title: Self-Contained Exports
+    details: Export AI workflows as a single binary, Docker image, bootable ISO, or Kubernetes pod.
   - icon: 🤖
-    title: Coordinated Agencies
-    details: Orchestrate specialized AI agents into coordinated, multi-agent systems with fully defined control flow.
-  - icon: 📝
-    title: Agents as Code
-    details: Declarative YAML configuration that is versioned, reviewed, and tested. No glue code, no boilerplate.
+    title: Multi-Agent Orchestration
+    details: Coordinate specialized agents with dependency-based execution order. Chain LLM calls with code and data.
   - icon: 🛡️
     title: Defined Control Flow
-    details: Predictable and auditable workflows. Inputs are declared, outputs are typed, and validations are enforced before any LLM is called.
+    details: Predictable and auditable pipelines. Inputs are declared, outputs are typed, validations enforced before any LLM call.
 ---

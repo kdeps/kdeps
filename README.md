@@ -1,33 +1,33 @@
-# kdeps: The AI Appliance Builder.
+# kdeps
 
-**AI agents as code.** Declarative LLM orchestration in YAML for specialized and coordinated multi-agent systems. Compose multi-step workflows across models, APIs, and data sources with fully defined control flow.
+**Straightforward LLM dependency orchestration for multi-agent workflows.** Compose chat, code, and data into declarative pipelines in YAML. Export AI workflows as a single binary, ISO, Docker, or Kubernetes pods. Use Ollama, llamafile, or any cloud AI provider.
 
 > **Highly experimental.** APIs, YAML schemas, and CLI flags can change without notice. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
 
-## Why an AI Appliance Builder?
+## Why kdeps?
 
-Chat AIs (Claude, Gemini, ChatGPT) and their CLI/MCP extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship as a product.
+Chat AIs (Claude, Gemini, ChatGPT) and their MCP extensions are tools you operate. You prompt them, they respond, the session ends.
 
-kdeps is for building **AI appliances**. You define specialized agents, coordinate them into an Agency, and deploy the entire system as a self-contained unit (Docker, edge ISO, or binary). It exposes an HTTP API, runs on a schedule, or processes data streams — without a human in the loop.
+kdeps is for building **deployable AI workflows**. You define pipelines that chain LLM calls with code execution, data lookups, and API requests — then export the whole thing as a single binary, Docker image, bootable ISO, or Kubernetes pod. It runs without a human in the loop.
 
-| | Chat AI + MCP | kdeps (Appliance) |
+| | Chat AI + MCP | kdeps |
 |---|---|---|
 | **Who drives it** | You | The system (autonomous/event-driven) |
-| **Deployed as** | A chat session | Docker, Edge ISO, or Binary |
-| **Logic lives in** | Prompts and MCP config | YAML code - versioned, reviewed, tested |
-| **Orchestration** | Model-driven | Fully defined control flow |
-| **Multi-Agent** | Sequential prompts | Coordinated, specialized Agencies |
+| **Deployed as** | A chat session | Binary, Docker, ISO, or Kubernetes |
+| **Logic lives in** | Prompts and MCP config | YAML — versioned, reviewed, tested |
+| **Orchestration** | Model-driven | Explicit dependency pipelines |
+| **Multi-Agent** | Sequential prompts | Coordinated, dependency-ordered |
 | **Ships to production** | No | Yes |
 
 ### Strictness as a feature
 
-While chat interfaces prioritize open-ended flexibility, kdeps prioritizes **reproducibility and safety**. Inputs are declared, outputs are typed, and control flow is explicit. If a resource fails or a model hallucinates outside of your defined schema, kdeps fails fast with a clear error rather than continuing with bad data.
+While chat interfaces prioritize open-ended flexibility, kdeps prioritizes **reproducibility and safety**. Inputs are declared, outputs are typed, and dependencies are explicit. If a resource fails or a model hallucinates outside of your defined schema, kdeps fails fast rather than propagating bad data.
 
 **Built for:**
 - Developers shipping AI features into products (APIs, bots, pipelines)
-- Teams that need specialized multi-agent logic in version control
-- Engineers deploying to edge, Docker, or air-gapped environments
-- Systems requiring fully defined control flow across heterogeneous models and APIs
+- Teams that need multi-agent logic in version control
+- Engineers deploying to edge, Docker, Kubernetes, or air-gapped environments
+- Systems requiring explicit dependency pipelines across models, code, and APIs
 
 **Not for:**
 - Interactive coding assistance - use Claude Code or Copilot
