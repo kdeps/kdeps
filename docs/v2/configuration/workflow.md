@@ -36,6 +36,23 @@ metadata:
     - "@other-agent"
 ```
 
+### Agent Name and Config Profiles
+
+The `metadata.name` field maps to the corresponding config profile in `~/.kdeps/config.yaml`. When a workflow runs, kdeps looks for `agents.<name>` and merges its values on top of the global config.
+
+```yaml
+# ~/.kdeps/config.yaml
+agents:
+  my-agent:           # matches metadata.name: my-agent
+    llm:
+      backend: openai
+      openai_api_key: sk-...
+    defaults:
+      timezone: America/New_York
+```
+
+Only the fields you specify in the profile override global values — everything else inherits. In an agency, each agent resolves its own profile independently. Components inherit the calling agent's profile. Without a matching profile, the global config is used unchanged.
+
 ## API Server
 
 ```yaml

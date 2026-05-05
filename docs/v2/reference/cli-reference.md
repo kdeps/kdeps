@@ -257,12 +257,27 @@ KDEPS_EDITOR=code kdeps edit   # open in VS Code
 ```yaml
 # ~/.kdeps/config.yaml
 
+# Global LLM configuration (fallback for agents without a profile)
 llm:
   # ollama_host: http://localhost:11434
   # openai_api_key: ""
   # anthropic_api_key: ""
   # ... other provider keys
 
+# Per-agent profiles — override global config per workflow/agent name
+agents:
+  my-agent:
+    llm:
+      backend: openai
+      openai_api_key: sk-...
+    defaults:
+      timezone: America/New_York
+  my-other-agent:
+    llm:
+      backend: anthropic
+      anthropic_api_key: sk-ant-...
+
+# Global defaults applied to all workflows
 defaults:
   # timezone: UTC
   # python_version: "3.12"
