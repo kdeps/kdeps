@@ -25,10 +25,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"gopkg.in/yaml.v3"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
@@ -157,7 +156,6 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 	if loadErr := p.loadResources(&workflow, path); loadErr != nil {
 		return nil, loadErr
 	}
-
 
 	// Auto-discover and load component resources from ./components/<name>/ sibling dirs.
 	if compErr := p.loadComponents(&workflow, path); compErr != nil {
