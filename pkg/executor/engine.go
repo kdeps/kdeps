@@ -1739,7 +1739,7 @@ func (e *Engine) executeInlineResources(
 // executeLLM executes an LLM chat resource.
 //
 //nolint:gocognit // LLM execution has multiple configuration paths
-func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) { //nolint:funlen
 	kdeps_debug.Log("enter: executeLLM")
 	if resource.Run.Chat == nil {
 		return nil, fmt.Errorf("resource %s has no chat configuration", resource.Metadata.ActionID)
@@ -1750,7 +1750,6 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		return nil, errors.New("LLM executor not available")
 	}
 
-	// Log timeout configuration (v1 compatibility)
 	timeoutDurationStr := resource.Run.Chat.Timeout
 	if timeoutDurationStr == "" {
 		timeoutDurationStr = "60s" // Default
@@ -1765,7 +1764,6 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		timeoutDurationStr = "60s"
 	}
 
-	// Determine backend for logging
 	backendName := resource.Run.Chat.Backend
 	if backendName == "" {
 		backendName = "ollama" // Default

@@ -50,24 +50,28 @@ type ClientFactory interface {
 // DefaultClientFactory implements ClientFactory using standard library.
 type DefaultClientFactory struct{}
 
-// CreateClient creates an HTTP client with the given configuration.
-func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
-	kdeps_debug.Log("enter: CreateClient")
-	// Resolve timeout: resource > KDEPS_HTTP_TIMEOUT > DefaultHTTPTimeout
+// resolveHTTPTimeout resolves HTTP client timeout: resource > KDEPS_HTTP_TIMEOUT > embedded default.
+func resolveHTTPTimeout(config *domain.HTTPClientConfig) time.Duration {
 	defaults, _ := kdepsconfig.GetDefaults()
-	clientTimeout := defaults.HTTP.TimeoutDuration()
+	d := defaults.HTTP.TimeoutDuration()
 	if v := os.Getenv("KDEPS_HTTP_TIMEOUT"); v != "" {
 		if t, err := time.ParseDuration(v); err == nil {
-			clientTimeout = t
+			d = t
 		}
 	}
 	if config.Timeout != "" {
 		if t, err := time.ParseDuration(config.Timeout); err == nil {
-			clientTimeout = t
+			d = t
 		}
 	}
+	return d
+}
+
+// CreateClient creates an HTTP client with the given configuration.
+func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
+	kdeps_debug.Log("enter: CreateClient")
 	client := &http.Client{
-		Timeout: clientTimeout,
+		Timeout: resolveHTTPTimeout(config),
 	}
 
 	// Configure redirect policy: resource > KDEPS_HTTP_FOLLOW_REDIRECTS > true
@@ -131,7 +135,6 @@ type Executor struct {
 }
 
 const (
-	// DefaultHTTPTimeout is the default timeout for HTTP operations.
 	// ContentTypeJSON is the JSON content type header value.
 	ContentTypeJSON = "application/json"
 )
