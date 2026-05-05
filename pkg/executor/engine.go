@@ -2065,7 +2065,7 @@ func (e *Engine) executeInlineTelephony(
 
 //
 //nolint:gocognit,nestif,funlen // response assembly handles multiple formats
-func (e *Engine) executeAPIResponse( //nolint:gocyclo
+func (e *Engine) executeAPIResponse( //nolint:gocyclo,cyclop
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
