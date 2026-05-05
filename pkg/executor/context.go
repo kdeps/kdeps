@@ -295,9 +295,9 @@ func NewExecutionContext(
 		}
 	}
 
-	// LoadStruct reads config without re-applying env vars (applyEnv is called
-	// once at startup by the cmd layer; we only need the struct values here).
-	cfg, cfgErr := config.LoadStruct()
+	// Load config struct with agent profile overlay (if available).
+	agentName := workflow.Metadata.Name
+	cfg, cfgErr := config.LoadStructWithAgent(agentName)
 	if cfgErr != nil {
 		cfg = &config.Config{}
 	}

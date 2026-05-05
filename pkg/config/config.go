@@ -206,9 +206,10 @@ type LLMKeys struct {
 
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
-	LLM              LLMKeys          `yaml:"llm"`
-	Defaults         Defaults         `yaml:"defaults"`
-	ResourceDefaults ResourceDefaults `yaml:"resource_defaults"`
+	LLM              LLMKeys           `yaml:"llm"`
+	Defaults         Defaults          `yaml:"defaults"`
+	ResourceDefaults ResourceDefaults  `yaml:"resource_defaults"`
+	Agents           map[string]Config `yaml:"agents,omitempty"`
 }
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
@@ -231,51 +232,34 @@ func Path() (string, error) {
 // If the config file does not exist, Load is a no-op (not an error). If the
 // file is malformed, an error is returned.
 func Load() (*Config, error) {
-	path, err := Path()
+	cfg, err := load()
 	if err != nil {
-		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal here
+		return nil, err
 	}
-
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return &Config{}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-
-	var cfg Config
-	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
-	}
-
-	applyEnv(cfg)
-	return &cfg, nil
+	applyEnv(*cfg)
+	return cfg, nil
 }
 
 // LoadStruct reads ~/.kdeps/config.yaml into a Config struct without applying
 // env vars. Use this when you only need the struct values (e.g. for expression
 // access) and env vars have already been applied at startup via Load().
 func LoadStruct() (*Config, error) {
-	path, err := Path()
+	return load()
+}
+
+// LoadStructWithAgent loads config.yaml with the named agent profile merged,
+// without applying env vars.
+func LoadStructWithAgent(agentName string) (*Config, error) {
+	cfg, err := load()
 	if err != nil {
-		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal here
+		return nil, err
 	}
-
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return &Config{}, nil
+	if agentName != "" && cfg.Agents != nil {
+		if profile, ok := cfg.Agents[agentName]; ok {
+			mergeConfig(cfg, &profile)
+		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-
-	var cfg Config
-	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
-	}
-
-	return &cfg, nil
+	return cfg, nil
 }
 
 // Scaffold creates the config directory and writes a commented template file
@@ -504,6 +488,199 @@ func applyEnv(cfg Config) {
 
 	// Router env: serialize unified config to JSON when strategy is set or models have routing metadata.
 	applyRouterEnv(cfg.LLM)
+}
+
+// mergeConfig overlays non-empty fields from src onto dst.
+func mergeConfig(dst *Config, src *Config) { //nolint:gocognit,gocyclo,cyclop,funlen // field-by-field merge
+	if src.LLM.OllamaHost != "" {
+		dst.LLM.OllamaHost = src.LLM.OllamaHost
+	}
+	if src.LLM.Backend != "" {
+		dst.LLM.Backend = src.LLM.Backend
+	}
+	if src.LLM.BaseURL != "" {
+		dst.LLM.BaseURL = src.LLM.BaseURL
+	}
+	if src.LLM.Strategy != "" {
+		dst.LLM.Strategy = src.LLM.Strategy
+	}
+	if len(src.LLM.Models) > 0 {
+		dst.LLM.Models = src.LLM.Models
+	}
+	if src.LLM.ModelsDir != "" {
+		dst.LLM.ModelsDir = src.LLM.ModelsDir
+	}
+	if src.LLM.OpenAI != "" {
+		dst.LLM.OpenAI = src.LLM.OpenAI
+	}
+	if src.LLM.Anthropic != "" {
+		dst.LLM.Anthropic = src.LLM.Anthropic
+	}
+	if src.LLM.Google != "" {
+		dst.LLM.Google = src.LLM.Google
+	}
+	if src.LLM.Cohere != "" {
+		dst.LLM.Cohere = src.LLM.Cohere
+	}
+	if src.LLM.Mistral != "" {
+		dst.LLM.Mistral = src.LLM.Mistral
+	}
+	if src.LLM.Together != "" {
+		dst.LLM.Together = src.LLM.Together
+	}
+	if src.LLM.Perplexity != "" {
+		dst.LLM.Perplexity = src.LLM.Perplexity
+	}
+	if src.LLM.Groq != "" {
+		dst.LLM.Groq = src.LLM.Groq
+	}
+	if src.LLM.DeepSeek != "" {
+		dst.LLM.DeepSeek = src.LLM.DeepSeek
+	}
+	if src.LLM.OpenRouter != "" {
+		dst.LLM.OpenRouter = src.LLM.OpenRouter
+	}
+	if src.Defaults.Timezone != "" {
+		dst.Defaults.Timezone = src.Defaults.Timezone
+	}
+	if src.Defaults.PythonVersion != "" {
+		dst.Defaults.PythonVersion = src.Defaults.PythonVersion
+	}
+	if src.Defaults.OfflineMode {
+		dst.Defaults.OfflineMode = true
+	}
+	rd := &src.ResourceDefaults
+	if rd.Chat.Timeout != "" {
+		dst.ResourceDefaults.Chat.Timeout = rd.Chat.Timeout
+	}
+	if rd.Chat.ContextLength > 0 {
+		dst.ResourceDefaults.Chat.ContextLength = rd.Chat.ContextLength
+	}
+	if rd.Chat.Streaming {
+		dst.ResourceDefaults.Chat.Streaming = true
+	}
+	if rd.Chat.Temperature != nil {
+		dst.ResourceDefaults.Chat.Temperature = rd.Chat.Temperature
+	}
+	if rd.Chat.MaxTokens != nil && *rd.Chat.MaxTokens > 0 {
+		dst.ResourceDefaults.Chat.MaxTokens = rd.Chat.MaxTokens
+	}
+	if rd.Chat.TopP != nil {
+		dst.ResourceDefaults.Chat.TopP = rd.Chat.TopP
+	}
+	if rd.Chat.FrequencyPenalty != nil {
+		dst.ResourceDefaults.Chat.FrequencyPenalty = rd.Chat.FrequencyPenalty
+	}
+	if rd.Chat.PresencePenalty != nil {
+		dst.ResourceDefaults.Chat.PresencePenalty = rd.Chat.PresencePenalty
+	}
+	if rd.HTTP.Timeout != "" {
+		dst.ResourceDefaults.HTTP.Timeout = rd.HTTP.Timeout
+	}
+	if rd.HTTP.FollowRedirects {
+		dst.ResourceDefaults.HTTP.FollowRedirects = true
+	}
+	if rd.HTTP.Proxy != "" {
+		dst.ResourceDefaults.HTTP.Proxy = rd.HTTP.Proxy
+	}
+	if rd.HTTP.RetryMaxAttempts > 0 {
+		dst.ResourceDefaults.HTTP.RetryMaxAttempts = rd.HTTP.RetryMaxAttempts
+	}
+	if rd.HTTP.RetryBackoff != "" {
+		dst.ResourceDefaults.HTTP.RetryBackoff = rd.HTTP.RetryBackoff
+	}
+	if rd.HTTP.RetryMaxBackoff != "" {
+		dst.ResourceDefaults.HTTP.RetryMaxBackoff = rd.HTTP.RetryMaxBackoff
+	}
+	if rd.HTTP.RetryOn != "" {
+		dst.ResourceDefaults.HTTP.RetryOn = rd.HTTP.RetryOn
+	}
+	if rd.Python.Timeout != "" {
+		dst.ResourceDefaults.Python.Timeout = rd.Python.Timeout
+	}
+	if rd.Exec.Timeout != "" {
+		dst.ResourceDefaults.Exec.Timeout = rd.Exec.Timeout
+	}
+	if rd.SQL.Timeout != "" {
+		dst.ResourceDefaults.SQL.Timeout = rd.SQL.Timeout
+	}
+	if rd.SQL.MaxRows > 0 {
+		dst.ResourceDefaults.SQL.MaxRows = rd.SQL.MaxRows
+	}
+	if rd.OnError.Action != "" {
+		dst.ResourceDefaults.OnError.Action = rd.OnError.Action
+	}
+	if rd.OnError.MaxRetries > 0 {
+		dst.ResourceDefaults.OnError.MaxRetries = rd.OnError.MaxRetries
+	}
+	if rd.OnError.RetryDelay != "" {
+		dst.ResourceDefaults.OnError.RetryDelay = rd.OnError.RetryDelay
+	}
+}
+
+// LoadWithAgent loads config.yaml and applies the named agent profile on top.
+func LoadWithAgent(agentName string) (*Config, error) {
+	cfg, err := load()
+	if err != nil {
+		return nil, err
+	}
+	if agentName != "" && cfg.Agents != nil {
+		if profile, ok := cfg.Agents[agentName]; ok {
+			mergeConfig(cfg, &profile)
+		}
+	}
+	// Clear known config env vars before applying so merged values take effect.
+	for _, key := range knownConfigEnvVars() {
+		os.Unsetenv(key)
+	}
+	applyEnv(*cfg)
+	return cfg, nil
+}
+
+// knownConfigEnvVars returns all env var names that applyEnv may set.
+func knownConfigEnvVars() []string {
+	return []string{
+		"TZ", "KDEPS_PYTHON_VERSION", "KDEPS_OFFLINE_MODE",
+		"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "KDEPS_LLM_BASE_URL",
+		"KDEPS_LLM_MODELS", "KDEPS_MODELS_DIR",
+		"OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY",
+		"COHERE_API_KEY", "MISTRAL_API_KEY", "TOGETHER_API_KEY",
+		"PERPLEXITY_API_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY",
+		"OPENROUTER_API_KEY",
+		"KDEPS_CHAT_TIMEOUT", "KDEPS_CHAT_CONTEXT_LENGTH",
+		"KDEPS_CHAT_STREAMING", "KDEPS_CHAT_TEMPERATURE",
+		"KDEPS_CHAT_MAX_TOKENS", "KDEPS_CHAT_TOP_P",
+		"KDEPS_CHAT_FREQUENCY_PENALTY", "KDEPS_CHAT_PRESENCE_PENALTY",
+		"KDEPS_HTTP_TIMEOUT", "KDEPS_HTTP_FOLLOW_REDIRECTS",
+		"KDEPS_HTTP_PROXY",
+		"KDEPS_HTTP_RETRY_MAX_ATTEMPTS", "KDEPS_HTTP_RETRY_BACKOFF",
+		"KDEPS_HTTP_RETRY_MAX_BACKOFF", "KDEPS_HTTP_RETRY_ON",
+		"KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
+		"KDEPS_SQL_TIMEOUT", "KDEPS_SQL_MAX_ROWS",
+		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES",
+		"KDEPS_ON_ERROR_RETRY_DELAY",
+		"KDEPS_LLM_ROUTER",
+	}
+}
+
+// load reads and parses config.yaml without applying env vars.
+func load() (*Config, error) {
+	path, err := Path()
+	if err != nil {
+		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal
+	}
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return &Config{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var cfg Config
+	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, unmarshalErr)
+	}
+	return &cfg, nil
 }
 
 const defaultConfigTemplate = `# kdeps global configuration

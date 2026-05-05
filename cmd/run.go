@@ -43,6 +43,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
@@ -413,6 +414,13 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		workflow.Metadata.Version,
 	)
 	fmt.Fprintf(os.Stdout, "  ✓ Resources: %d\n", len(workflow.Resources))
+
+	// Apply per-agent config profile from config.yaml
+	if agentName := workflow.Metadata.Name; agentName != "" {
+		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
+			fmt.Fprintf(os.Stderr, "  ⚠ Could not load agent profile: %v\n", loadErr)
+		}
+	}
 
 	// 2. Validate workflow
 	fmt.Fprintln(os.Stdout, "\n[2/5] Validating workflow...")
