@@ -273,11 +273,11 @@ func (e *Executor) callBackend(
 	baseURL string,
 	requestBody map[string]interface{},
 	timeout time.Duration,
-	apiKey string,
+	_ string,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: callBackend")
 	endpoint := backend.ChatEndpoint(baseURL)
-	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout, apiKey)
+	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout, "")
 }
 
 // callBackendWithEndpoint calls the backend API with a specific endpoint URL.

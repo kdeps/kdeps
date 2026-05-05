@@ -94,7 +94,7 @@ Each model entry supports these fields:
 | `model` | string | yes | Model identifier (e.g. `gpt-4o`, `llama3.2:1b`) |
 | `backend` | string | no | Backend for this model (overrides `llm.backend`) |
 | `base_url` | string | no | Custom API URL for this backend |
-| `api_key` | string | no | API key for this backend |
+
 | `priority` | int | no | Fallback order (lower = tried first) |
 | `min_tokens` | int | no | Minimum prompt tokens for token_threshold |
 | `max_tokens` | int | no | Maximum prompt tokens for token_threshold |

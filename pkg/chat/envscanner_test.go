@@ -38,37 +38,37 @@ func TestScanEnvVars_NoVars(t *testing.T) {
 func TestScanEnvVars_OpenAIBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: openai\n    model: gpt-4o\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "OPENAI_API_KEY"))
+	assert.False(t, hasVar(vars, "OPENAI_API_KEY"))
 }
 
 func TestScanEnvVars_AnthropicBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: anthropic\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "ANTHROPIC_API_KEY"))
+	assert.False(t, hasVar(vars, "ANTHROPIC_API_KEY"))
 }
 
 func TestScanEnvVars_GoogleBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: google\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "GOOGLE_API_KEY"))
+	assert.False(t, hasVar(vars, "GOOGLE_API_KEY"))
 }
 
 func TestScanEnvVars_GroqBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: groq\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "GROQ_API_KEY"))
+	assert.False(t, hasVar(vars, "GROQ_API_KEY"))
 }
 
 func TestScanEnvVars_DeepSeekBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: deepseek\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "DEEPSEEK_API_KEY"))
+	assert.False(t, hasVar(vars, "DEEPSEEK_API_KEY"))
 }
 
 func TestScanEnvVars_OpenRouterBackend(t *testing.T) {
 	wf := wfWithContent("run:\n  chat:\n    backend: openrouter\n")
 	vars := ScanEnvVars(wf)
-	assert.True(t, hasVar(vars, "OPENROUTER_API_KEY"))
+	assert.False(t, hasVar(vars, "OPENROUTER_API_KEY"))
 }
 
 func TestScanEnvVars_Gmail(t *testing.T) {
@@ -176,7 +176,7 @@ func TestScanEnvVars_NoDuplicatesAcrossHints(t *testing.T) {
 			count++
 		}
 	}
-	assert.Equal(t, 1, count)
+	assert.Equal(t, 0, count)
 }
 
 func TestScanEnvVars_Pinecone(t *testing.T) {

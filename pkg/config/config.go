@@ -113,7 +113,6 @@ type ModelEntry struct {
 	Model   string `yaml:"model"              json:"model"`
 	Backend string `yaml:"backend,omitempty"  json:"backend,omitempty"`
 	BaseURL string `yaml:"base_url,omitempty" json:"base_url,omitempty"`
-	APIKey  string `yaml:"api_key,omitempty"  json:"api_key,omitempty"`
 
 	// token_threshold: match when minTokens <= promptTokens <= maxTokens (nil = open bound).
 	MinTokens *int `yaml:"min_tokens,omitempty" json:"min_tokens,omitempty"`
@@ -394,7 +393,7 @@ func setIfUnset(key, value string) {
 // hasRoutingMeta returns true when any model entry has routing-specific fields set.
 func hasRoutingMeta(models ModelList) bool {
 	for _, m := range models {
-		if m.Backend != "" || m.BaseURL != "" || m.APIKey != "" {
+		if m.Backend != "" || m.BaseURL != "" {
 			return true
 		}
 	}

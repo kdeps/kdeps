@@ -36,7 +36,6 @@ import (
 type ChatFlags struct {
 	Model     string
 	BaseURL   string
-	APIKey    string
 	SessionID string
 	NoExecute bool
 }
@@ -85,7 +84,6 @@ Examples:
 
 	cmd.Flags().StringVar(&flags.Model, "model", "", "LLM model for workflow generation (default: from config)")
 	cmd.Flags().StringVar(&flags.BaseURL, "base-url", "", "LLM backend base URL (default: http://localhost:11434)")
-	cmd.Flags().StringVar(&flags.APIKey, "api-key", "", "API key for online LLM providers")
 	cmd.Flags().StringVar(&flags.SessionID, "session", "", "Resume a previous session by ID")
 	cmd.Flags().BoolVar(&flags.NoExecute, "no-execute", false, "Generate workflow but do not allow /run")
 
@@ -109,12 +107,6 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 		baseURL = "http://localhost:11434"
 	}
 
-	apiKey := flags.APIKey
-	if apiKey == "" {
-		// Pick up common provider key env vars based on base URL.
-		apiKey = resolveAPIKey(baseURL)
-	}
-
 	// Set up or resume session.
 	var session *chat.Session
 	var err error
@@ -136,7 +128,7 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 
 	// Build generator.
 	llmClient := chat.NewHTTPLLMClient()
-	generator := chat.NewGenerator(llmClient, model, baseURL, apiKey, catalog)
+	generator := chat.NewGenerator(llmClient, model, baseURL, "", catalog)
 
 	// Build executor.
 	var executor *chat.Executor
@@ -150,38 +142,4 @@ func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	// Start REPL.
 	repl := chat.NewREPL(session, generator, executor, os.Stdin, os.Stdout)
 	return repl.Run(context.Background())
-}
-
-// resolveAPIKey returns the appropriate API key env var based on the base URL.
-func resolveAPIKey(baseURL string) string {
-	kdeps_debug.Log("enter: resolveAPIKey")
-	switch {
-	case containsAny(baseURL, "openai.com", "api.openai"):
-		return os.Getenv("OPENAI_API_KEY")
-	case containsAny(baseURL, "anthropic.com", "api.anthropic"):
-		return os.Getenv("ANTHROPIC_API_KEY")
-	case containsAny(baseURL, "googleapis.com", "generativelanguage"):
-		return os.Getenv("GOOGLE_API_KEY")
-	case containsAny(baseURL, "groq.com"):
-		return os.Getenv("GROQ_API_KEY")
-	case containsAny(baseURL, "deepseek.com"):
-		return os.Getenv("DEEPSEEK_API_KEY")
-	case containsAny(baseURL, "openrouter.ai"):
-		return os.Getenv("OPENROUTER_API_KEY")
-	default:
-		return ""
-	}
-}
-
-func containsAny(s string, substrs ...string) bool {
-	for _, sub := range substrs {
-		if len(s) >= len(sub) {
-			for i := 0; i <= len(s)-len(sub); i++ {
-				if s[i:i+len(sub)] == sub {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
