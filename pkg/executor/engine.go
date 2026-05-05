@@ -2065,7 +2065,7 @@ func (e *Engine) executeInlineTelephony(
 
 //
 //nolint:gocognit,nestif,funlen // response assembly handles multiple formats
-func (e *Engine) executeAPIResponse(
+func (e *Engine) executeAPIResponse( //nolint:gocyclo
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
@@ -2089,14 +2089,18 @@ func (e *Engine) executeAPIResponse(
 	}
 
 	// Evaluate the success field (supports expressions like "{{ get('valid') }}")
-	evaluatedSuccess, successErr := e.evaluateResponseValue(apiResponseConfig.Success, env)
-	if successErr != nil {
-		return nil, fmt.Errorf("failed to evaluate API response success: %w", successErr)
-	}
-
-	successBool, validBool := domain.ParseBool(evaluatedSuccess)
-	if !validBool {
-		successBool = false // treat unparseable as failure
+	// Defaults to true when not set in YAML.
+	successBool := true
+	if apiResponseConfig.Success != nil {
+		evaluatedSuccess, successErr := e.evaluateResponseValue(apiResponseConfig.Success, env)
+		if successErr != nil {
+			return nil, fmt.Errorf("failed to evaluate API response success: %w", successErr)
+		}
+		var validBool bool
+		successBool, validBool = domain.ParseBool(evaluatedSuccess)
+		if !validBool {
+			successBool = false
+		}
 	}
 
 	// Build the full API response structure
