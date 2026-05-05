@@ -65,7 +65,13 @@ func loadConfigDefaults(t *testing.T, yamlContent string) {
 
 	envKeys := []string{
 		"KDEPS_CHAT_TIMEOUT", "KDEPS_CHAT_CONTEXT_LENGTH",
-		"KDEPS_HTTP_TIMEOUT", "KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
+		"KDEPS_CHAT_STREAMING", "KDEPS_CHAT_TEMPERATURE",
+		"KDEPS_CHAT_MAX_TOKENS", "KDEPS_CHAT_TOP_P",
+		"KDEPS_HTTP_TIMEOUT",
+		"KDEPS_HTTP_FOLLOW_REDIRECTS", "KDEPS_HTTP_PROXY",
+		"KDEPS_HTTP_RETRY_MAX_ATTEMPTS", "KDEPS_HTTP_RETRY_BACKOFF",
+		"KDEPS_HTTP_RETRY_MAX_BACKOFF", "KDEPS_HTTP_RETRY_ON",
+		"KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
 		"KDEPS_SQL_TIMEOUT", "KDEPS_SQL_MAX_ROWS",
 		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES", "KDEPS_ON_ERROR_RETRY_DELAY",
 	}
@@ -123,7 +129,11 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "exec-defaults-test", Version: "1.0.0", TargetActionID: "run-cmd"},
+		Metadata: domain.WorkflowMetadata{
+			Name:           "exec-defaults-test",
+			Version:        "1.0.0",
+			TargetActionID: "run-cmd",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
@@ -156,7 +166,11 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "exec-override-test", Version: "1.0.0", TargetActionID: "run-cmd"},
+		Metadata: domain.WorkflowMetadata{
+			Name:           "exec-override-test",
+			Version:        "1.0.0",
+			TargetActionID: "run-cmd",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
@@ -198,7 +212,11 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "http-defaults-test", Version: "1.0.0", TargetActionID: "call-api"},
+		Metadata: domain.WorkflowMetadata{
+			Name:           "http-defaults-test",
+			Version:        "1.0.0",
+			TargetActionID: "call-api",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
@@ -241,7 +259,11 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "http-override-test", Version: "1.0.0", TargetActionID: "call-api"},
+		Metadata: domain.WorkflowMetadata{
+			Name:           "http-override-test",
+			Version:        "1.0.0",
+			TargetActionID: "call-api",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
@@ -464,8 +486,16 @@ resource_defaults:
   chat:
     timeout: "90s"
     context_length: 16384
+    streaming: true
+    temperature: 0.7
+    max_tokens: 2048
+    top_p: 0.9
   http:
     timeout: "45s"
+    follow_redirects: false
+    proxy: "http://proxy:8080"
+    retry_max_attempts: 5
+    retry_backoff: "2s"
   python:
     timeout: "120s"
   exec:
@@ -481,7 +511,15 @@ resource_defaults:
 
 	assert.Equal(t, "90s", os.Getenv("KDEPS_CHAT_TIMEOUT"))
 	assert.Equal(t, "16384", os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"))
+	assert.Equal(t, "true", os.Getenv("KDEPS_CHAT_STREAMING"))
+	assert.Equal(t, "0.7", os.Getenv("KDEPS_CHAT_TEMPERATURE"))
+	assert.Equal(t, "2048", os.Getenv("KDEPS_CHAT_MAX_TOKENS"))
+	assert.Equal(t, "0.9", os.Getenv("KDEPS_CHAT_TOP_P"))
 	assert.Equal(t, "45s", os.Getenv("KDEPS_HTTP_TIMEOUT"))
+	assert.Equal(t, "", os.Getenv("KDEPS_HTTP_FOLLOW_REDIRECTS"))
+	assert.Equal(t, "http://proxy:8080", os.Getenv("KDEPS_HTTP_PROXY"))
+	assert.Equal(t, "5", os.Getenv("KDEPS_HTTP_RETRY_MAX_ATTEMPTS"))
+	assert.Equal(t, "2s", os.Getenv("KDEPS_HTTP_RETRY_BACKOFF"))
 	assert.Equal(t, "120s", os.Getenv("KDEPS_PYTHON_TIMEOUT"))
 	assert.Equal(t, "15s", os.Getenv("KDEPS_EXEC_TIMEOUT"))
 	assert.Equal(t, "20s", os.Getenv("KDEPS_SQL_TIMEOUT"))
@@ -494,13 +532,20 @@ resource_defaults:
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "all-defaults-test", Version: "1.0.0", TargetActionID: "run"},
+		Metadata: domain.WorkflowMetadata{
+			Name:           "all-defaults-test",
+			Version:        "1.0.0",
+			TargetActionID: "run",
+		},
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "run"},
 				Run: domain.RunConfig{
 					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
-					Exec:        &domain.ExecConfig{Command: "echo", Args: []string{"all-defaults"}},
+					Exec: &domain.ExecConfig{
+						Command: "echo",
+						Args:    []string{"all-defaults"},
+					},
 				},
 			},
 		},
@@ -538,4 +583,54 @@ resource_defaults:
 	assert.Equal(t, "from-env", os.Getenv("KDEPS_EXEC_TIMEOUT"))
 	assert.Equal(t, "from-env", os.Getenv("KDEPS_HTTP_TIMEOUT"))
 	assert.Equal(t, "from-env", os.Getenv("KDEPS_CHAT_TIMEOUT"))
+}
+
+// --- New resource_defaults fields ---
+
+func TestE2E_ResourceDefaults_Chat_StreamingFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  chat:\n    streaming: true\n")
+	assert.Equal(t, "true", os.Getenv("KDEPS_CHAT_STREAMING"))
+}
+
+func TestE2E_ResourceDefaults_Chat_TemperatureFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  chat:\n    temperature: 0.7\n")
+	assert.Equal(t, "0.7", os.Getenv("KDEPS_CHAT_TEMPERATURE"))
+}
+
+func TestE2E_ResourceDefaults_Chat_MaxTokensFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  chat:\n    max_tokens: 2048\n")
+	assert.Equal(t, "2048", os.Getenv("KDEPS_CHAT_MAX_TOKENS"))
+}
+
+func TestE2E_ResourceDefaults_Chat_TopPFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  chat:\n    top_p: 0.9\n")
+	assert.Equal(t, "0.9", os.Getenv("KDEPS_CHAT_TOP_P"))
+}
+
+func TestE2E_ResourceDefaults_HTTP_FollowRedirectsFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  http:\n    follow_redirects: true\n")
+	assert.Equal(t, "true", os.Getenv("KDEPS_HTTP_FOLLOW_REDIRECTS"))
+}
+
+func TestE2E_ResourceDefaults_HTTP_ProxyFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(t, "\nresource_defaults:\n  http:\n    proxy: \"http://proxy:8080\"\n")
+	assert.Equal(t, "http://proxy:8080", os.Getenv("KDEPS_HTTP_PROXY"))
+}
+
+func TestE2E_ResourceDefaults_HTTP_RetryFromConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	loadConfigDefaults(
+		t,
+		"\nresource_defaults:\n  http:\n    retry_max_attempts: 5\n    retry_backoff: \"2s\"\n    retry_max_backoff: \"30s\"\n    retry_on: \"429,503\"\n",
+	)
+	assert.Equal(t, "5", os.Getenv("KDEPS_HTTP_RETRY_MAX_ATTEMPTS"))
+	assert.Equal(t, "2s", os.Getenv("KDEPS_HTTP_RETRY_BACKOFF"))
+	assert.Equal(t, "30s", os.Getenv("KDEPS_HTTP_RETRY_MAX_BACKOFF"))
+	assert.Equal(t, "429,503", os.Getenv("KDEPS_HTTP_RETRY_ON"))
 }
