@@ -189,14 +189,13 @@ When a workflow is parsed, KDeps automatically scans for `components/<name>/comp
 
 - No explicit declaration in `workflow.yaml` is needed
 - Local workflow resources override component resources on `actionId` collision
-- Component loading happens recursively (imported workflows can also have components)
+- Component loading happens recursively (components can declare their own sub-components)
 
 ### Resolution Order
 
 1. Workflow's inline resources
-2. Resources from imported workflows (`metadata.workflows`)
-3. Resources from auto-discovered components (alphabetical by component name)
-4. Local workflow `resources/` directory
+2. Resources from auto-discovered components (alphabetical by component name)
+3. Local workflow `resources/` directory
 
 ## Installing Components from the Registry
 

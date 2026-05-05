@@ -101,7 +101,7 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 
 // loadComponents scans the ./components/ directory alongside the workflow file,
 // parses each component.yaml it finds, and prepends its resources to the host
-// workflow (local resources win on actionId conflict, same pattern as loadImportedWorkflows).
+// workflow (local resources win on actionId conflict).
 // It also scans the global ~/.kdeps/components/ directory (override with
 // $KDEPS_COMPONENT_DIR) so that globally-installed .komponent packages are
 // available to every workflow without needing a local copy.
