@@ -191,11 +191,10 @@ type TestJSONPath struct {
 
 // WorkflowMetadata contains workflow metadata.
 type WorkflowMetadata struct {
-	Name           string   `yaml:"name"`
-	Description    string   `yaml:"description"`
-	Version        string   `yaml:"version"`
-	TargetActionID string   `yaml:"targetActionId"`
-	Workflows      []string `yaml:"workflows,omitempty"`
+	Name           string `yaml:"name"`
+	Description    string `yaml:"description"`
+	Version        string `yaml:"version"`
+	TargetActionID string `yaml:"targetActionId"`
 }
 
 // WorkflowSettings contains workflow settings.

@@ -32,8 +32,6 @@ metadata:
   description: My agent    # Optional
   version: "1.0.0"         # Required: Semantic version
   targetActionId: response # Required: Entry point resource actionId
-  workflows:               # Optional: Import other workflows
-    - "@other-agent"
 ```
 
 ### Agent Name and Config Profiles
