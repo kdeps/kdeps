@@ -35,6 +35,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -53,7 +54,8 @@ type DefaultClientFactory struct{}
 func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
 	kdeps_debug.Log("enter: CreateClient")
 	// Resolve timeout: resource > KDEPS_HTTP_TIMEOUT > DefaultHTTPTimeout
-	clientTimeout := DefaultHTTPTimeout
+	defaults, _ := kdepsconfig.GetDefaults()
+	clientTimeout := defaults.HTTP.TimeoutDuration()
 	if v := os.Getenv("KDEPS_HTTP_TIMEOUT"); v != "" {
 		if t, err := time.ParseDuration(v); err == nil {
 			clientTimeout = t
@@ -130,7 +132,6 @@ type Executor struct {
 
 const (
 	// DefaultHTTPTimeout is the default timeout for HTTP operations.
-	DefaultHTTPTimeout = 30 * time.Second
 	// ContentTypeJSON is the JSON content type header value.
 	ContentTypeJSON = "application/json"
 )

@@ -31,12 +31,11 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
-
-const defaultScraperTimeout = 30
 
 // Executor executes web scraper resources.
 type Executor struct{}
@@ -60,7 +59,8 @@ func (e *Executor) Execute(
 
 	timeout := config.Timeout
 	if timeout <= 0 {
-		timeout = defaultScraperTimeout
+		defaults, _ := kdepsconfig.GetDefaults()
+		timeout = defaults.Scraper.Timeout
 	}
 
 	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}

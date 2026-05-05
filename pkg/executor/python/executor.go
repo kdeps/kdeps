@@ -34,6 +34,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -71,8 +72,7 @@ func (e *Executor) SetExecCommandForTesting(cmdFunc func(name string, arg ...str
 }
 
 const (
-	// DefaultPythonTimeout is the default timeout for Python operations.
-	DefaultPythonTimeout = 60 * time.Second
+// DefaultPythonTimeout is the default timeout for Python operations.
 )
 
 // newExecCommand creates a new exec command (can be overridden for testing).
@@ -250,7 +250,8 @@ func (e *Executor) prepareScript(
 // parseTimeout parses the timeout: resource > KDEPS_PYTHON_TIMEOUT > DefaultPythonTimeout.
 func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 	kdeps_debug.Log("enter: parseTimeout")
-	timeout := DefaultPythonTimeout
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.Python.TimeoutDuration()
 	if v := os.Getenv("KDEPS_PYTHON_TIMEOUT"); v != "" {
 		if parsedTimeout, err := time.ParseDuration(v); err == nil {
 			timeout = parsedTimeout

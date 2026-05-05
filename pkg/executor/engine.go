@@ -33,6 +33,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/input"
@@ -73,10 +74,9 @@ type exprValidator interface {
 }
 
 const (
-	onErrorActionRetry    = "retry"
-	defaultTimeoutSeconds = 60
-	secondsPerMinute      = 60
-	secondsPerHour        = 3600
+	onErrorActionRetry = "retry"
+	secondsPerMinute   = 60
+	secondsPerHour     = 3600
 )
 
 // NewEngine creates a new execution engine.
@@ -1759,8 +1759,9 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	// Parse timeout duration
 	timeoutDuration, err := time.ParseDuration(timeoutDurationStr)
 	if err != nil {
-		// If parsing fails, use default
-		timeoutDuration = defaultTimeoutSeconds * time.Second
+		// If parsing fails, use embedded default
+		defaults, _ := kdepsconfig.GetDefaults()
+		timeoutDuration = defaults.Chat.TimeoutDuration()
 		timeoutDurationStr = "60s"
 	}
 
