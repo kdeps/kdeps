@@ -19,7 +19,7 @@ run:
       <span v-pre>data = {{ get('inputData') }}</span>
       result = {"processed": len(data)}
       print(json.dumps(result))
-    timeoutDuration: 60s
+    timeout: 60s
 
 ```
 
@@ -47,7 +47,7 @@ run:
     venvName: "my-project-env"
 
     # Timeout
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 ## Configuration Options
@@ -86,7 +86,7 @@ run:
           "summary": summary.to_dict()
       }
       print(json.dumps(result))
-    timeoutDuration: 120s
+    timeout: 120s
 ```
 
 ## Script Files
@@ -102,7 +102,7 @@ run:
       - "analyze"
       - "--data"
       - <span v-pre>"{{ get('data') }}"</span>
-    timeoutDuration: 60s
+    timeout: 60s
 
 ```
 
@@ -222,7 +222,7 @@ run:
           "summary": summary.to_dict(orient='records')
       }
       print(json.dumps(result))
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -267,7 +267,7 @@ run:
           "model_version": "1.0.0"
       }
       print(json.dumps(result))
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -309,7 +309,7 @@ run:
           "top_words": [{"word": w, "count": c} for w, c in word_freq]
       }
       print(json.dumps(result))
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -352,7 +352,7 @@ run:
           "thumbnail": f"data:image/png;base64,{thumbnail_b64}"
       }
       print(json.dumps(result))
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -385,7 +385,7 @@ run:
 
       result = response.json()
       print(json.dumps(result))
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>

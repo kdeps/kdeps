@@ -280,7 +280,7 @@ run:
           print(json.dumps({"result": result, "expression": expression}))
       except Exception as e:
           print(json.dumps({"error": str(e)}))
-    timeoutDuration: 30s
+    timeout: 30s
 
 ---
 # LLM with calculator
@@ -371,7 +371,7 @@ run:
   httpClient:
     method: GET
     url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
-    timeoutDuration: 30s
+    timeout: 30s
 
 ---
 # LLM with weather

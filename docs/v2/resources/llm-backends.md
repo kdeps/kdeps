@@ -339,7 +339,6 @@ Access to many open-source models.
 # ~/.kdeps/config.yaml
 llm:
   backend: together
-  model: meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo
   together_api_key: ...
 ```
 
@@ -492,7 +491,7 @@ If the model is not available:
 
 ### Rate Limiting
 
-Handle rate limits with retry configuration on the resource:
+Handle rate limits with retry configuration via `onError`:
 
 <div v-pre>
 
@@ -500,11 +499,10 @@ Handle rate limits with retry configuration on the resource:
 run:
   chat:
     prompt: "{{ get('q') }}"
-    retry:
-      maxAttempts: 3
-      initialDelay: "1s"
-      maxDelay: "30s"
-      backoffMultiplier: 2
+    onError:
+      action: "retry"
+      maxRetries: 3
+      retryDelay: "5s"
 ```
 
 </div>

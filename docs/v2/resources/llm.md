@@ -43,7 +43,7 @@ metadata:
 run:
   chat:
     prompt: "{{ get('q') }}"
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -57,6 +57,7 @@ run:
 ```yaml
 run:
   chat:
+    model: llama3.2:1b              # Model name, or "router" to delegate to config
     # Prompt Configuration
     role: user                       # Role: user, assistant, system
     prompt: "{{ get('q') }}"        # The prompt to send
@@ -97,7 +98,7 @@ run:
       - confidence
 
     # Timeout and Streaming
-    timeoutDuration: 60s
+    timeout: 60s
     streaming: true              # Ollama only: stream NDJSON chunks
 ```
 
@@ -192,6 +193,7 @@ Process images (set a vision-capable model in `run.chat.model` in your resource 
 
 ```yaml
 chat:
+  model: llama3.2-vision
   prompt: "Describe this image"
   files:
     - "{{ get('file', 'filepath') }}"  # From upload
@@ -281,6 +283,7 @@ run:
 ```yaml
 run:
   chat:
+    model: llama3.2:1b
     prompt: "{{ get('q') }}"
     scenario:
       - role: system
@@ -288,7 +291,7 @@ run:
     jsonResponse: true
     jsonResponseKeys:
       - answer
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -300,6 +303,7 @@ run:
 ```yaml
 run:
   chat:
+    model: llama3.2:1b
     prompt: "Write a Python function that {{ get('task') }}"
     scenario:
       - role: system
@@ -310,7 +314,7 @@ run:
     jsonResponseKeys:
       - code
       - explanation
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 </div>
@@ -348,7 +352,7 @@ run:
       Category: {{ get('classifier').category }}
       Query: {{ get('q') }}
       Provide a detailed response.
-    timeoutDuration: 120s
+    timeout: 120s
 ```
 
 </div>

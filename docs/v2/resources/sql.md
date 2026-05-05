@@ -20,7 +20,7 @@ run:
     query: "SELECT * FROM users WHERE id = $1"
     params:
       - get('user_id')
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 </div>
@@ -89,7 +89,7 @@ run:
     query: "SELECT name, email FROM users WHERE active = true"
     format: json
     maxRows: 100
-    timeoutDuration: 30s
+    timeout: 30s
 ```
 
 ### Parameterized Query
@@ -290,7 +290,7 @@ run:
     params:
       - get('user_id')
     format: json
-    timeoutDuration: 10s
+    timeout: 10s
 ```
 
 ### Analytics Query
@@ -318,7 +318,7 @@ run:
       - get('end_date', '2024-12-31')
     format: csv
     maxRows: 365
-    timeoutDuration: 60s
+    timeout: 60s
 ```
 
 ### Multi-Database Workflow
