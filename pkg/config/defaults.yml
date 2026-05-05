@@ -1,0 +1,29 @@
+# Embedded default values for kdeps executors.
+# Used when neither resource YAML nor config.yaml resource_defaults provides a value.
+# Values in config.yaml always override these.
+chat:
+  timeout: "60s"
+  context_length: 4096
+  streaming: false
+http:
+  timeout: "30s"
+  follow_redirects: true
+python:
+  timeout: "60s"
+exec:
+  timeout: "30s"
+sql:
+  timeout: "30s"
+  max_rows: 1000
+  max_open_conns: 10
+  max_idle_conns: 2
+  conn_max_idle_time: "5m"
+scraper:
+  timeout: 30
+search_web:
+  timeout: 15
+  max_results: 5
+embedding:
+  db_path: kdeps-embedding.db
+  collection: default
+  limit: 10

@@ -29,14 +29,13 @@ import (
 
 	_ "github.com/mattn/go-sqlite3" // sqlite3 driver
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-const defaultEmbeddingDBPath = "kdeps-embedding.db"
-const defaultCollection = "default"
-const defaultLimit = 10
+const ()
 
 // Executor executes embedding resources using SQLite for storage.
 type Executor struct{}
@@ -56,15 +55,18 @@ func (e *Executor) Execute(
 
 	dbPath := config.DBPath
 	if dbPath == "" {
-		dbPath = defaultEmbeddingDBPath
+		defaults, _ := kdepsconfig.GetDefaults()
+		dbPath = defaults.Embedding.DBPath
 	}
 	collection := config.Collection
 	if collection == "" {
-		collection = defaultCollection
+		dd, _ := kdepsconfig.GetDefaults()
+		collection = dd.Embedding.Collection
 	}
 	limit := config.Limit
 	if limit <= 0 {
-		limit = defaultLimit
+		dd, _ := kdepsconfig.GetDefaults()
+		limit = dd.Embedding.Limit
 	}
 
 	db, openErr := sql.Open("sqlite3", dbPath)

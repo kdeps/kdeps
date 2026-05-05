@@ -63,10 +63,7 @@ type Executor struct {
 	logger          *slog.Logger
 }
 
-const (
-	// DefaultLLMTimeout is the default timeout for LLM operations.
-	DefaultLLMTimeout = 60 * time.Second
-)
+const ()
 
 // NewExecutor creates a new LLM executor.
 func NewExecutor(ollamaURL string) *Executor {
@@ -78,7 +75,7 @@ func NewExecutor(ollamaURL string) *Executor {
 	return &Executor{
 		ollamaURL: ollamaURL,
 		client: &stdhttp.Client{
-			Timeout: DefaultLLMTimeout,
+			Timeout: 60 * time.Second,
 		},
 		backendRegistry: NewBackendRegistry(),
 		logger:          logging.NewLogger(false),
@@ -335,14 +332,15 @@ func (e *Executor) Execute(
 		JSONResponse:  resolvedConfig.JSONResponse,
 		Streaming:     streaming,
 		Tools:         e.buildTools(allTools),
-}
+	}
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 
-	// Parse timeout: resource > KDEPS_CHAT_TIMEOUT > DefaultLLMTimeout
-	timeout := DefaultLLMTimeout
+	// Parse timeout: resource > KDEPS_CHAT_TIMEOUT > embedded default
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.Chat.TimeoutDuration()
 	if v := os.Getenv("KDEPS_CHAT_TIMEOUT"); v != "" {
 		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
 			timeout = parsedTimeout
@@ -1122,7 +1120,8 @@ func (e *Executor) callOllama(
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: callOllama")
 	// Parse timeout
-	timeout := DefaultLLMTimeout
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.Chat.TimeoutDuration()
 	if timeoutStr != "" {
 		parsedTimeout, err := time.ParseDuration(timeoutStr)
 		if err == nil {

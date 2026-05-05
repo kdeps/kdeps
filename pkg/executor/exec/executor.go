@@ -34,6 +34,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -58,8 +59,7 @@ type Executor struct {
 }
 
 const (
-	// DefaultExecTimeout is the default timeout for exec operations.
-	DefaultExecTimeout = 30 * time.Second
+// DefaultExecTimeout is the default timeout for exec operations.
 )
 
 // NewExecutor creates a new exec executor with default command runner.
@@ -115,7 +115,8 @@ func (e *Executor) Execute(
 	args := e.evaluateArgs(resolvedConfig, evaluator, ctx, commandStr)
 
 	// Parse timeout: resource > KDEPS_EXEC_TIMEOUT > DefaultExecTimeout
-	timeout := DefaultExecTimeout
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.Exec.TimeoutDuration()
 	if v := os.Getenv("KDEPS_EXEC_TIMEOUT"); v != "" {
 		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
 			timeout = parsedTimeout

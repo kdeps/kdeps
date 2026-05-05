@@ -35,6 +35,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -48,14 +49,7 @@ type Executor struct {
 }
 
 const (
-	// DefaultSQLTimeout is the default timeout for SQL operations.
-	DefaultSQLTimeout = 30 * time.Second
-	// DefaultMaxOpenConns is the default maximum number of open connections.
-	DefaultMaxOpenConns = 10
-	// DefaultMaxIdleConns is the default maximum number of idle connections.
-	DefaultMaxIdleConns = 2
-	// DefaultConnMaxIdleTime is the default maximum idle time for connections.
-	DefaultConnMaxIdleTime = 5 * time.Minute
+// Defaults come from embedded defaults.yaml.
 )
 
 // NewExecutor creates a new SQL executor.
@@ -122,7 +116,8 @@ func (e *Executor) Execute(
 	}
 
 	// Parse timeout: resource > KDEPS_SQL_TIMEOUT > DefaultSQLTimeout
-	timeout := DefaultSQLTimeout
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.SQL.TimeoutDuration()
 	if v := os.Getenv("KDEPS_SQL_TIMEOUT"); v != "" {
 		if parsedTimeout, timeoutErr := time.ParseDuration(v); timeoutErr == nil {
 			timeout = parsedTimeout
@@ -549,7 +544,8 @@ func (e *Executor) ReadRowsWithLimit(
 
 	limit := maxRows
 	if limit == 0 {
-		limit = 1000 // Default limit
+		defaults, _ := kdepsconfig.GetDefaults()
+		limit = defaults.SQL.MaxRows
 	}
 
 	results, err := e.scanRows(rows, columns, limit)
@@ -793,9 +789,10 @@ func (e *Executor) ConfigurePool(db *sql.DB, poolConfig *domain.PoolConfig) {
 	kdeps_debug.Log("enter: ConfigurePool")
 	if poolConfig == nil {
 		// Default pool settings
-		db.SetMaxOpenConns(DefaultMaxOpenConns)
-		db.SetMaxIdleConns(DefaultMaxIdleConns)
-		db.SetConnMaxIdleTime(DefaultConnMaxIdleTime)
+		dd, _ := kdepsconfig.GetDefaults()
+		db.SetMaxOpenConns(dd.SQL.MaxOpenConns)
+		db.SetMaxIdleConns(dd.SQL.MaxIdleConns)
+		db.SetConnMaxIdleTime(dd.SQL.ConnMaxIdleTimeDuration())
 		return
 	}
 

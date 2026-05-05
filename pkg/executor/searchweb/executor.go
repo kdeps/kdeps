@@ -33,19 +33,19 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
 const (
-	defaultSearchWebTimeout = 15
-	defaultMaxResults       = 5
-	defaultDDGBaseURL       = "https://html.duckduckgo.com"
-	defaultBraveBaseURL     = "https://api.search.brave.com"
-	defaultBingBaseURL      = "https://api.bing.microsoft.com"
-	defaultTavilyBaseURL    = "https://api.tavily.com"
-	minServerErrorStatus    = 500
+	defaultMaxResults    = 5
+	defaultDDGBaseURL    = "https://html.duckduckgo.com"
+	defaultBraveBaseURL  = "https://api.search.brave.com"
+	defaultBingBaseURL   = "https://api.bing.microsoft.com"
+	defaultTavilyBaseURL = "https://api.tavily.com"
+	minServerErrorStatus = 500
 )
 
 // Executor executes web search resources.
@@ -75,7 +75,8 @@ func (e *Executor) Execute(
 
 	timeout := config.Timeout
 	if timeout <= 0 {
-		timeout = defaultSearchWebTimeout
+		defaults, _ := kdepsconfig.GetDefaults()
+		timeout = defaults.SearchWeb.Timeout
 	}
 
 	provider := strings.ToLower(strings.TrimSpace(config.Provider))

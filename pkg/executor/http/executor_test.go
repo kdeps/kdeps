@@ -79,7 +79,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
-		assert.Equal(t, httpexecutor.DefaultHTTPTimeout, client.Timeout)
+		assert.Equal(t, 30*time.Second, client.Timeout)
 	})
 
 	t.Run("custom timeout", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		}
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err) // Invalid duration should be ignored
-		assert.Equal(t, httpexecutor.DefaultHTTPTimeout, client.Timeout)
+		assert.Equal(t, 30*time.Second, client.Timeout)
 	})
 
 	t.Run("env var timeout applied when no resource timeout", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		config := &domain.HTTPClientConfig{}
 		client, err := factory.CreateClient(config)
 		require.NoError(t, err)
-		assert.Equal(t, httpexecutor.DefaultHTTPTimeout, client.Timeout)
+		assert.Equal(t, 30*time.Second, client.Timeout)
 	})
 
 	t.Run("redirects disabled", func(t *testing.T) {
