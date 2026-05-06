@@ -36,10 +36,11 @@ import (
 )
 
 const (
-	configFileName = "config.yaml"
-	configDirName  = ".kdeps"
-	configDirPerm  = 0750
-	configFilePerm = 0600
+	configFileName   = "config.yaml"
+	configDirName    = ".kdeps"
+	configDirPerm    = 0750
+	configFilePerm   = 0600
+	ollamaBackendStr = "ollama"
 )
 
 // Defaults holds global defaults for workflow agent settings.
@@ -235,6 +236,9 @@ func Load() (*Config, error) {
 	cfg, err := load()
 	if err != nil {
 		return nil, err
+	}
+	for _, w := range cfg.Validate("") {
+		fmt.Fprintf(os.Stderr, "config warning: %s\n", w)
 	}
 	applyEnv(*cfg)
 	return cfg, nil

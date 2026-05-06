@@ -298,6 +298,51 @@ All values are exported as environment variables before workflow execution. Expl
 
 ---
 
+### `kdeps doctor`
+
+Run system health checks to diagnose common configuration and environment issues.
+
+**Usage:**
+
+```bash
+kdeps doctor [flags]
+```
+
+**What it checks:**
+
+| Check | Description |
+|---|---|
+| Config file | Existence of `~/.kdeps/config.yaml` |
+| Config validation | Typos in API key names, missing keys, bad values |
+| Ollama | TCP connectivity to the Ollama server |
+| Python | `python3` availability in PATH |
+| Backend/API key | Cloud backend configured without its API key |
+| Agents | Installed agent count |
+| Env vars | Critical environment variables set |
+
+**Examples:**
+
+```bash
+kdeps doctor
+# Output:
+# kdeps doctor
+# =============
+#
+#   [PASS] Config file: /home/user/.kdeps/config.yaml
+#   [WARN] Config validation: 1 warning(s): unknown llm key "openai_apikey"
+#   [PASS] Ollama: reachable at localhost:11434
+#   [PASS] Python: python3 available
+#   [PASS] Backend/API key: backend=ollama (no API key needed)
+#   [PASS] Agents: 2 agent(s) installed
+#   [PASS] Env vars: all critical vars set
+#
+# Overall: healthy
+```
+
+Exits with code 1 when any check has FAIL status.
+
+---
+
 ### `kdeps chat`
 
 Interactive AI assistant that generates and runs kdeps workflows from natural language.

@@ -43,17 +43,17 @@ func providerNames() []string {
 // providerMetaMap returns the metadata for each provider.
 func providerMetaMap() map[string]providerKey {
 	return map[string]providerKey{
-		"ollama":     {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
-		"openai":     {"OPENAI_API_KEY", func(c *Config, v string) { c.LLM.OpenAI = v }},
-		"anthropic":  {"ANTHROPIC_API_KEY", func(c *Config, v string) { c.LLM.Anthropic = v }},
-		"google":     {"GOOGLE_API_KEY", func(c *Config, v string) { c.LLM.Google = v }},
-		"cohere":     {"COHERE_API_KEY", func(c *Config, v string) { c.LLM.Cohere = v }},
-		"mistral":    {"MISTRAL_API_KEY", func(c *Config, v string) { c.LLM.Mistral = v }},
-		"together":   {"TOGETHER_API_KEY", func(c *Config, v string) { c.LLM.Together = v }},
-		"perplexity": {"PERPLEXITY_API_KEY", func(c *Config, v string) { c.LLM.Perplexity = v }},
-		"groq":       {"GROQ_API_KEY", func(c *Config, v string) { c.LLM.Groq = v }},
-		"deepseek":   {"DEEPSEEK_API_KEY", func(c *Config, v string) { c.LLM.DeepSeek = v }},
-		"openrouter": {"OPENROUTER_API_KEY", func(c *Config, v string) { c.LLM.OpenRouter = v }},
+		ollamaBackendStr: {"OLLAMA_HOST", func(c *Config, v string) { c.LLM.OllamaHost = v }},
+		"openai":         {"OPENAI_API_KEY", func(c *Config, v string) { c.LLM.OpenAI = v }},
+		"anthropic":      {"ANTHROPIC_API_KEY", func(c *Config, v string) { c.LLM.Anthropic = v }},
+		"google":         {"GOOGLE_API_KEY", func(c *Config, v string) { c.LLM.Google = v }},
+		"cohere":         {"COHERE_API_KEY", func(c *Config, v string) { c.LLM.Cohere = v }},
+		"mistral":        {"MISTRAL_API_KEY", func(c *Config, v string) { c.LLM.Mistral = v }},
+		"together":       {"TOGETHER_API_KEY", func(c *Config, v string) { c.LLM.Together = v }},
+		"perplexity":     {"PERPLEXITY_API_KEY", func(c *Config, v string) { c.LLM.Perplexity = v }},
+		"groq":           {"GROQ_API_KEY", func(c *Config, v string) { c.LLM.Groq = v }},
+		"deepseek":       {"DEEPSEEK_API_KEY", func(c *Config, v string) { c.LLM.DeepSeek = v }},
+		"openrouter":     {"OPENROUTER_API_KEY", func(c *Config, v string) { c.LLM.OpenRouter = v }},
 	}
 }
 
@@ -231,7 +231,7 @@ func configureProvider(
 	out io.StringWriter, reader *bufio.Reader, w *fmtWriter, cfg *Config, chosenProvider string,
 ) error {
 	meta := providerMetaMap()[chosenProvider]
-	if chosenProvider == "ollama" {
+	if chosenProvider == ollamaBackendStr {
 		hostRaw := promptLine(out, reader, "  Ollama host URL [http://localhost:11434]: ", "http://localhost:11434")
 		if strings.TrimSpace(hostRaw) != "" {
 			meta.setter(cfg, strings.TrimSpace(hostRaw))

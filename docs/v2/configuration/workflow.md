@@ -51,6 +51,8 @@ agents:
 
 Only the fields you specify in the profile override global values — everything else inherits. In an agency, each agent resolves its own profile independently. Components inherit the calling agent's profile. Without a matching profile, the global config is used unchanged.
 
+**Validation:** On startup, kdeps validates the config file and prints warnings to stderr. Agent profiles that don't match any installed workflow `metadata.name` are flagged. Empty agent profiles (no non-zero fields) are also reported. These warnings are non-fatal — the config loads and runs as usual.
+
 ## API Server
 
 ```yaml
