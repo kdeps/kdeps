@@ -75,8 +75,17 @@ kdeps bundle prepackage     # self-contained binary per arch
 ## Global config
 
 ```bash
-kdeps edit  # opens ~/.kdeps/config.yaml
+kdeps edit    # opens ~/.kdeps/config.yaml
+kdeps doctor  # check system health (config, Ollama, Python, agents)
 ```
+
+Config is validated on load. Warnings are printed to stderr for:
+- Typos in API key / field names
+- Backend set without a corresponding API key
+- Invalid routing strategy values
+- Malformed duration strings
+- Agent profiles not matching any installed workflow
+- Empty agent profiles
 
 ```yaml
 llm:

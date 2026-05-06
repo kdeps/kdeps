@@ -339,3 +339,226 @@ func TestConfig_Integration_ScaffoldContainsResourceDefaults(t *testing.T) {
 	assert.Contains(t, content, "max_rows")
 	assert.Contains(t, content, "onError")
 }
+
+// TestConfig_Integration_Validation_TypoInLLMKey verifies that validation
+// catches a typo in an API key field name under the llm: section.
+func TestConfig_Integration_Validation_TypoInLLMKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  ollama_host: http://localhost:11434
+  openai_apikey: sk-typo
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	warnings := cfg.Validate("")
+	require.NotEmpty(t, warnings, "expected warnings for typo in config")
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "openai_apikey") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about openai_apikey typo, got: %v", warnings)
+}
+
+// TestConfig_Integration_Validation_BackendWithoutKey verifies that validation
+// warns when a cloud backend is set without its corresponding API key.
+func TestConfig_Integration_Validation_BackendWithoutKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  backend: anthropic
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	warnings := cfg.Validate("")
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "anthropic") && strings.Contains(w, "not set") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about missing anthropic_api_key, got: %v", warnings)
+}
+
+// TestConfig_Integration_Validation_BadDuration verifies that validation
+// catches malformed duration strings in resource_defaults.
+func TestConfig_Integration_Validation_BadDuration(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+resource_defaults:
+  exec:
+    timeout: "not-valid"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	warnings := cfg.Validate("")
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "exec.timeout") && strings.Contains(w, "not-valid") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about bad duration, got: %v", warnings)
+}
+
+// TestConfig_Integration_Validation_AgentProfileEmpty verifies that validation
+// warns about empty agent profiles.
+func TestConfig_Integration_Validation_AgentProfileEmpty(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+agents:
+  ghost: {}
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	warnings := cfg.Validate("")
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "ghost") && strings.Contains(w, "no non-empty") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about empty agent profile, got: %v", warnings)
+}
+
+// TestConfig_Integration_Validation_ValidConfigNoWarnings verifies that a
+// well-formed config produces no validation warnings.
+func TestConfig_Integration_Validation_ValidConfigNoWarnings(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  ollama_host: http://localhost:11434
+  backend: ollama
+  models:
+    - llama3.2
+defaults:
+  timezone: UTC
+resource_defaults:
+  chat:
+    timeout: "60s"
+  http:
+    timeout: "30s"
+  exec:
+    timeout: "15s"
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	warnings := cfg.Validate("")
+	assert.Empty(t, warnings, "expected no warnings for valid config, got: %v", warnings)
+}
+
+// TestConfig_Integration_Validation_InvalidStrategy verifies that validation
+// catches an unknown routing strategy value.
+// TestConfig_Integration_Doctor verifies that the doctor report runs without
+// error and checks the expected sections are present.
+func TestConfig_Integration_Doctor(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  ollama_host: http://localhost:11434
+  backend: ollama
+defaults:
+  timezone: UTC
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	report := config.RunDoctor(cfg)
+	require.NotNil(t, report)
+	assert.GreaterOrEqual(t, len(report.Checks), 5)
+
+	formatted := report.FormatReport()
+	assert.Contains(t, formatted, "kdeps doctor")
+	assert.Contains(t, formatted, "Config file")
+	assert.Contains(t, formatted, "Ollama")
+	assert.Contains(t, formatted, "Python")
+}
+
+// TestConfig_Integration_Doctor_ConfigWarnings verifies that doctor surfaces
+// config validation warnings.
+func TestConfig_Integration_Doctor_ConfigWarnings(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  openai_apikey: sk-typo
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.LoadStruct()
+	require.NoError(t, err)
+
+	report := config.RunDoctor(cfg)
+	formatted := report.FormatReport()
+	assert.Contains(t, formatted, "openai_apikey")
+}
+
+func TestConfig_Integration_Validation_InvalidStrategy(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	content := `
+llm:
+  strategy: unicast
+`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
+
+	cfg, err := config.Load()
+	require.NoError(t, err)
+
+	warnings := cfg.Validate("")
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "unicast") && strings.Contains(w, "strategy") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about invalid strategy, got: %v", warnings)
+}
