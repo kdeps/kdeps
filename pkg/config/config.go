@@ -688,13 +688,162 @@ func load() (*Config, error) {
 	return &cfg, nil
 }
 
-const defaultConfigTemplate = `# kdeps global configuration
+// configOptionsReference is the shared source of truth for all available
+// config.yaml options. Used by both Scaffold() (non-interactive) and
+// Bootstrap() (interactive) to ensure consistent template output.
+const configOptionsReference = `# ── Default backend ───────────────────────────────────────────────────────
+# ollama (local, default) | openai | anthropic | google | cohere | mistral |
+# together | perplexity | groq | deepseek | openrouter
+# backend: ollama
+
+# Base URL override for the selected backend.
+# base_url: http://localhost:11434
+
+# ── Model allowlist (plain model names) ───────────────────────────────────
+# When strategy is absent, models act as a plain allowlist — only listed
+# models are permitted in workflow resources. Unlisted models are overridden
+# with a warning at runtime.
+# models:
+#   - llama3.2:1b
+#   - llama3.2:3b
+#   - gpt-4o
+#   - claude-sonnet-4-6
+
+# ── Routing strategy + unified models list ──────────────────────────────
+# Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
+# When strategy is set, models act as router routes with per-model metadata.
+# Model entries support: model, backend, base_url, min_tokens, max_tokens,
+# cost_per_input_token, cost_per_output_token, priority, default.
+#
+# --- token_threshold: route by prompt token count ---
+# strategy: token_threshold
+# models:
+#   - model: gpt-4o-mini
+#     backend: openai
+#     max_tokens: 500
+#     default: true
+#   - model: gpt-4o
+#     backend: openai
+#     min_tokens: 501
+#
+# --- fallback: try each route in priority order on error ---
+# strategy: fallback
+# models:
+#   - model: claude-opus-4-7
+#     backend: anthropic
+#     priority: 1
+#   - model: gpt-4o
+#     backend: openai
+#     priority: 2
+#   - model: llama3.2
+#     backend: ollama
+#     priority: 3
+#     default: true
+#
+# --- cost_optimized: pick cheapest model within token range ---
+# strategy: cost_optimized
+# models:
+#   - model: gpt-4o-mini
+#     backend: openai
+#     cost_per_input_token: 0.00015
+#     cost_per_output_token: 0.0006
+#   - model: gpt-4o
+#     backend: openai
+#     cost_per_input_token: 0.0025
+#     cost_per_output_token: 0.01
+#     default: true
+#
+# --- round_robin: rotate through models evenly ---
+# strategy: round_robin
+# models:
+#   - model: gpt-4o-mini
+#     backend: openai
+#   - model: gpt-4o
+#     backend: openai
+#   - model: claude-sonnet-4-6
+#     backend: anthropic
+#   - model: llama3.2
+#     backend: ollama
+#     default: true
+
+# ── Global defaults — applied to all workflows that don't override them ────
+defaults:
+  # timezone: UTC                  # IANA timezone name (sets TZ env var)
+  # python_version: "3.12"        # Python version for python resources
+  # offline_mode: false           # if true, skip all network operations
+
+# ── Per-resource global defaults — applied when a resource omits the field ──
+# resource_defaults:
+#   chat:
+#     timeout: "60s"
+#     context_length: 4096
+#     streaming: false
+#     temperature: 0.7
+#     max_tokens: 4096
+#     top_p: 0.9
+#     frequency_penalty: 0.0
+#     presence_penalty: 0.0
+#   http:
+#     timeout: "30s"
+#     follow_redirects: true
+#     proxy: ""                   # e.g. "http://proxy:8080" — sets KDEPS_HTTP_PROXY
+#     retry_max_attempts: 3
+#     retry_backoff: "1s"
+#     retry_max_backoff: "30s"
+#     retry_on: "429,503"         # comma-separated HTTP status codes
+#   python:
+#     timeout: "60s"
+#   exec:
+#     timeout: "30s"
+#   sql:
+#     timeout: "30s"
+#     max_rows: 0                 # 0 = unlimited
+#   onError:
+#     action: "fail"              # "fail" | "continue" | "retry"
+#     max_retries: 3
+#     retry_delay: "1s"
+
+# ── Per-agent config profiles ──────────────────────────────────────────────
+# Each key under agents: must match a workflow metadata.name value. When that
+# workflow runs, its profile is merged on top of the global config — only the
+# fields you specify override global values; everything else inherits.
+#
+# agents:
+#   my-agent:                    # matches metadata.name: my-agent
+#     llm:
+#       backend: openai
+#       openai_api_key: sk-agent-specific
+#       models:
+#         - gpt-4o
+#     defaults:
+#       timezone: America/New_York
+#     resource_defaults:
+#       chat:
+#         timeout: "120s"
+#         temperature: 0.2
+#
+#   another-agent:               # matches metadata.name: another-agent
+#     llm:
+#       backend: anthropic
+#       anthropic_api_key: sk-ant-agent
+#       strategy: fallback
+#       models:
+#         - model: claude-opus-4-7
+#           backend: anthropic
+#           priority: 1
+#         - model: claude-sonnet-4-6
+#           backend: anthropic
+#           priority: 2
+`
+
+const configTemplateHeader = `# kdeps global configuration
 # ~/.kdeps/config.yaml
 #
 # Values set here are applied as defaults. Explicit environment variables and
 # local .env files always take precedence.
 #
 # Edit at any time with:  kdeps edit
+# Check system health with:  kdeps doctor
 
 llm:
   # ── Ollama (local, no API key needed) ──────────────────────────────────────
@@ -702,20 +851,6 @@ llm:
 
   # ── Llamafile / file backend (local self-contained model binaries) ──────────
   # models_dir: ~/.kdeps/models   # cache dir for downloaded .llamafile binaries
-
-  # Default backend: ollama (local), openai, anthropic, google, cohere, mistral, together,
-  # perplexity, groq, deepseek, openrouter.  Defaults to "ollama" when unset.
-  # backend: ollama
-
-  # Base URL for the backend (overrides backend-specific default).
-  # base_url: http://localhost:11434
-
-  # Models to pre-pull into Docker/ISO artifacts.
-  # When strategy is set, entries with routing metadata act as router routes.
-  # Each entry can be a plain model name or a full route with backend/metadata.
-  # models:
-  #   - llama3.2:1b
-  #   - llama3.2:3b
 
   # ── Online provider API keys (set only the ones you use) ───────────────────
   # openai_api_key: ""
@@ -729,80 +864,10 @@ llm:
   # deepseek_api_key: ""
   # openrouter_api_key: ""
 
-  # ── Routing Strategy + Unified Models List ─────────────────────────────
-  # Set strategy to one of: token_threshold | fallback | cost_optimized | round_robin.
-  # When strategy is set, models act as router routes.
-  # When strategy is absent, models act as a plain allowlist.
-  #
-  # strategy: token_threshold
-  # models:
-  #   - model: gpt-4o-mini
-  #     backend: openai
-  #     max_tokens: 500
-  #     default: true
-  #   - model: gpt-4o
-  #     backend: openai
-  #     min_tokens: 501
-  #
-  # Fallback example (retries next route on error):
-  # strategy: fallback
-  # models:
-  #   - model: claude-opus-4-7
-  #     backend: anthropic
-  #     priority: 1
-  #   - model: gpt-4o
-  #     backend: openai
-  #     priority: 2
-  #   - model: llama3.2
-  #     backend: ollama
-  #     priority: 3
-  #     default: true
-  #
-  # Cost-optimized example:
-  # strategy: cost_optimized
-  # models:
-  #   - model: gpt-4o-mini
-  #     backend: openai
-  #     cost_per_input_token: 0.00015   # $0.15/1M tokens
-  #   - model: gpt-4o
-  #     backend: openai
-  #     cost_per_input_token: 0.0025    # $2.50/1M tokens
-  #     default: true
-
-# Global defaults — applied to all workflows that don't override them.
-defaults:
-  # timezone: UTC
-  # python_version: "3.12"
-  # offline_mode: false
-
-# Per-resource global defaults — applied when a resource does not set the value.
-# resource_defaults:
-#   chat:
-#     timeout: "60s"          # default LLM call timeout
-#     context_length: 4096    # default context window in tokens
-#     streaming: false
-#     temperature: 0.7        # sampling temperature
-#     max_tokens: 4096        # max tokens to generate
-#     top_p: 0.9              # nucleus sampling
-#     frequency_penalty: 0.0
-#     presence_penalty: 0.0
-#   http:
-#     timeout: "30s"          # default HTTP request timeout
-#     follow_redirects: true
-#     proxy: ""               # HTTP proxy URL
-#     retry_max_attempts: 3   # max retry attempts
-#     retry_backoff: "1s"     # initial retry backoff
-#     retry_max_backoff: "30s"
-#     retry_on: "429,503"     # comma-separated status codes
-#   python:
-#     timeout: "60s"          # default Python script timeout
-#   exec:
-#     timeout: "30s"          # default shell command timeout
-#   sql:
-#     timeout: "30s"          # default SQL query timeout
-#     max_rows: 0             # default row limit (0 = unlimited)
-#   onError:
-#     action: "fail"          # "fail" | "continue" | "retry"
-#     max_retries: 3          # retries when action is "retry"
-#     retry_delay: "1s"       # delay between retries
 `
+
+// defaultConfigTemplate is the full scaffold template composed from the header
+// and the shared configOptionsReference.
+//
+//nolint:gochecknoglobals // composed at init from two consts (Go cannot concat consts)
+var defaultConfigTemplate = configTemplateHeader + configOptionsReference
