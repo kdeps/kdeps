@@ -146,12 +146,14 @@ type ActionConfig struct {
 //	run:
 //	  component:
 //	    name: scraper
+//	    version: 1.2.0
 //	    with:
 //	      url: "https://example.com"
 //	      selector: ".article"
 type ComponentCallConfig struct {
-	Name string                 `yaml:"name"`
-	With map[string]interface{} `yaml:"with,omitempty"`
+	Name    string                 `yaml:"name"`
+	Version string                 `yaml:"version,omitempty"`
+	With    map[string]interface{} `yaml:"with,omitempty"`
 }
 
 // ErrorConfig represents error configuration.

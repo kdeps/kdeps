@@ -24,6 +24,7 @@ import (
 	"os"
 
 	"github.com/kdeps/kdeps/v2/cmd"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -112,7 +113,7 @@ func RunMainWithConfigOverride(config *AppConfig) int {
 // RunMainWithConfig executes the main application logic with the given config and returns exit code.
 func RunMainWithConfig(config *AppConfig) int {
 	if err := config.ExecuteCmd(config.Version, config.Commit); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		kdepslog.Error("fatal", "error", err)
 		return 1
 	}
 	return 0

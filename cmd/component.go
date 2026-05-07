@@ -33,6 +33,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
 // componentInstallDir returns the global component install directory.
@@ -355,7 +356,7 @@ func componentUpdateInternal(target string) error {
 
 	for _, compDir := range compDirs {
 		if updateErr := updateComponentDir(compDir); updateErr != nil {
-			fmt.Fprintf(os.Stderr, "  warning: %s: %v\n", compDir, updateErr)
+			kdepslog.Warn("component update warning", "dir", compDir, "error", updateErr)
 		}
 	}
 	return nil

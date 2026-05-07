@@ -92,6 +92,9 @@ source "$SCRIPT_DIR/test_examples_auto_env.sh"
 source "$SCRIPT_DIR/test_registry_verify.sh"
 source "$SCRIPT_DIR/test_install_exec.sh"
 source "$SCRIPT_DIR/test_global_config.sh"
+source "$SCRIPT_DIR/test_config_validation.sh"
+source "$SCRIPT_DIR/test_doctor.sh"
+source "$SCRIPT_DIR/test_component_version_pinning.sh"
 
 # Run Ollama LLM tests (will skip if Ollama not available)
 source "$SCRIPT_DIR/test_ollama_e2e.sh"

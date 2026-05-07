@@ -87,6 +87,8 @@ Config is validated on load. Warnings are printed to stderr for:
 - Agent profiles not matching any installed workflow
 - Empty agent profiles
 
+Warnings and errors use structured JSON logging (via `log/slog`). Set `KDEPS_LOG_FORMAT=json` for production JSON output. Log level defaults to WARN; use `--verbose` for INFO or `--debug` for DEBUG.
+
 ```yaml
 llm:
   backend: ollama           # ollama, openai, anthropic, groq, ...

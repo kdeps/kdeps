@@ -117,3 +117,27 @@ func TestComponentCallConfig_WithDefaults(t *testing.T) {
 	assert.Equal(t, "tts", cfg.Name)
 	assert.Equal(t, "Hello World", cfg.With["text"])
 }
+
+func TestComponentCallConfig_VersionPinning(t *testing.T) {
+	input := `
+name: scraper
+version: 1.2.0
+with:
+  url: "https://example.com"
+`
+	var cfg domain.ComponentCallConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "scraper", cfg.Name)
+	assert.Equal(t, "1.2.0", cfg.Version)
+	assert.Equal(t, "https://example.com", cfg.With["url"])
+}
+
+func TestComponentCallConfig_VersionOmitted(t *testing.T) {
+	input := `name: mycomp`
+	var cfg domain.ComponentCallConfig
+	err := yaml.Unmarshal([]byte(input), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "mycomp", cfg.Name)
+	assert.Empty(t, cfg.Version)
+}
