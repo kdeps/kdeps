@@ -16,30 +16,34 @@ All commands support these global flags:
 
 | Flag | Description |
 |------|-------------|
-| `--verbose` | Enable verbose output |
-| `--debug` | Enable debug logging (shows function entry points and internal state) |
+| `--verbose` | Enable INFO-level log output (default: WARN) |
+| `--debug` | Enable DEBUG-level log output with source locations |
+| `--instrument` | Enable call-chain instrumentation tracing |
 
-### Debug Logging
+### Structured Logging
 
-The `--debug` flag enables detailed debug logging to stderr. When enabled, kdeps prints a log message at the entry point of every function executed, helping you trace the flow of execution through the codebase.
+kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors are written to stderr in a human-readable format by default.
+
+**Log levels:**
+| Flag / Env | Level | Output |
+|---|---|---|
+| (none) | WARN | Warnings and errors only |
+| `--verbose` | INFO | Informational messages + above |
+| `--debug` or `KDEPS_DEBUG=true` | DEBUG | Debug details + above |
+
+**JSON format for production:**
 
 ```bash
-# Run with debug logging
-kdeps run workflow.yaml --debug
-
-# Output shows function entry points on stderr
-enter: Execute
-enter: createRootCommand
-enter: addSubcommands
-enter: newRunCmd
-enter: Execute
-...
+# Set env var for JSON output
+export KDEPS_LOG_FORMAT=json
+kdeps run workflow.yaml
+# Output: {"time":"...","level":"WARN","msg":"experimental software",...}
 ```
 
-Debug logging is useful for:
-- Tracing execution flow through resources
-- Identifying where errors occur
-- Understanding the internal call sequence
+```bash
+# Enable debug with JSON
+KDEPS_LOG_FORMAT=json kdeps run workflow.yaml --debug
+```
 - Diagnosing performance bottlenecks
 
 Use `--debug` in combination with `--verbose` for maximum detail.

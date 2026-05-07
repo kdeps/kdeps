@@ -40,6 +40,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -548,8 +549,8 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 			builder.PrepackagedBinaries = prepackagedBinaries
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Warning: could not prepare .kdeps file for prepackaging: %v\n", kdepsErr)
-		fmt.Fprintf(os.Stderr, "         Falling back to kdeps install.sh in the Docker image.\n")
+		kdepslog.Warn("could not prepare .kdeps file for prepackaging", "error", kdepsErr)
+		kdepslog.Info("falling back to kdeps install.sh in the Docker image")
 	}
 
 	// Build image
@@ -614,8 +615,8 @@ func createPrepackagedBinariesForDocker(
 			currentExec,
 		)
 		if resolveErr != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: could not resolve base binary for %s/%s: %v\n",
-				target.GOOS, target.GOARCH, resolveErr)
+			kdepslog.Warn("could not resolve base binary",
+				"os", target.GOOS, "arch", target.GOARCH, "error", resolveErr)
 			continue
 		}
 
@@ -639,8 +640,8 @@ func createPrepackagedBinariesForDocker(
 			_ = os.Remove(basePath)
 		}
 		if embedErr != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: could not create prepackaged binary for %s/%s: %v\n",
-				target.GOOS, target.GOARCH, embedErr)
+			kdepslog.Warn("could not create prepackaged binary",
+				"os", target.GOOS, "arch", target.GOARCH, "error", embedErr)
 			continue
 		}
 

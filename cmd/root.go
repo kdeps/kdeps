@@ -28,6 +28,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 
 	"github.com/spf13/cobra"
 )
@@ -86,28 +87,25 @@ func createRootCommand() *cobra.Command {
 		Short: "KDeps - AI Agent Framework",
 		Long:  `Build AI agents with YAML configuration.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
+			// Initialize structured logger.
+			debugFlag, _ := cmd.Flags().GetBool("debug")
+			verboseFlag, _ := cmd.Flags().GetBool("verbose")
+			kdepslog.Init(debugFlag, verboseFlag)
+
 			// On first run (no config file), bootstrap interactively.
 			// In non-interactive environments Bootstrap falls back to Scaffold.
 			if bootErr := config.Bootstrap(os.Stdout); bootErr != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: bootstrap failed: %v\n", bootErr)
+				kdepslog.Warn("bootstrap failed", "error", bootErr)
 			}
 			if _, loadErr := config.Load(); loadErr != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not load ~/.kdeps/config.yaml: %v\n", loadErr)
+				kdepslog.Warn("could not load config", "error", loadErr)
 			}
 			// --instrument enables call-chain instrumentation (pkg/debug).
-			// --debug enables slog DEBUG level only; these are independent.
 			if instrFlag, err := cmd.Flags().GetBool("instrument"); err == nil && instrFlag {
 				_ = os.Setenv("KDEPS_INSTRUMENT", "true")
 			}
-			fmt.Fprintln(cmd.ErrOrStderr(), "")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  WARNING: HIGHLY EXPERIMENTAL SOFTWARE")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  kdeps is under active development. YAML schemas, CLI flags,")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  APIs, and behaviour can change without notice at any time.")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  Do NOT use in production. Expect breaking changes.")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  Feedback: https://github.com/kdeps/kdeps/issues")
-			fmt.Fprintln(cmd.ErrOrStderr(), "  ---------------------------------------------------------------")
-			fmt.Fprintln(cmd.ErrOrStderr(), "")
+			kdepslog.Warn("HIGHLY EXPERIMENTAL SOFTWARE — under active development, expect breaking changes",
+				"feedback", "https://github.com/kdeps/kdeps/issues")
 		},
 	}
 

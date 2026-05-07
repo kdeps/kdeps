@@ -32,6 +32,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/utils/dotpath"
 )
 
@@ -238,7 +239,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	for _, w := range cfg.Validate("") {
-		fmt.Fprintf(os.Stderr, "config warning: %s\n", w)
+		kdepslog.Warn("config validation", "warning", w)
 	}
 	applyEnv(*cfg)
 	return cfg, nil

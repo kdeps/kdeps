@@ -2754,6 +2754,18 @@ func (e *Engine) executeComponentCall(
 		)
 	}
 
+	// Validate pinned version against the loaded component.
+	if cfg.Version != "" && comp.Metadata.Version != "" && cfg.Version != comp.Metadata.Version {
+		return nil, fmt.Errorf(
+			"component %q version mismatch: pinned %q, loaded %q",
+			cfg.Name, cfg.Version, comp.Metadata.Version,
+		)
+	}
+	if cfg.Version != "" && comp.Metadata.Version == "" {
+		e.logger.Warn("component version pinned but loaded component has no version",
+			"component", cfg.Name, "pinned", cfg.Version)
+	}
+
 	callerID := resource.Metadata.ActionID
 
 	if err := e.validateComponentInputs(cfg, comp); err != nil {

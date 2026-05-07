@@ -40,6 +40,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -201,7 +202,7 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 
 		basePath, tempCreated, buildErr := resolveBaseBinary(ctx, ver, target, currentExec)
 		if buildErr != nil {
-			fmt.Fprintf(os.Stderr, "    ⚠ Skipped: %v\n", buildErr)
+			kdepslog.Warn("build skipped", "error", buildErr)
 			skipped = append(skipped, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
 			continue
 		}
@@ -212,7 +213,7 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 			_ = os.Remove(basePath)
 		}
 		if embedErr != nil {
-			fmt.Fprintf(os.Stderr, "    ✗ Failed: %v\n", embedErr)
+			kdepslog.Error("build failed", "error", embedErr)
 			skipped = append(skipped, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
 			continue
 		}

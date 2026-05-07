@@ -37,6 +37,7 @@ import (
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/registry/verify"
 )
@@ -90,7 +91,7 @@ func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string, skipVerif
 		}
 		for _, f := range result.Findings {
 			if f.Severity == verify.SeverityWarn {
-				fmt.Fprintf(cmd.ErrOrStderr(), "  warn: %s\n", f)
+				kdepslog.Warn("publish warning", "detail", f)
 			}
 		}
 		if result.HasErrors() {

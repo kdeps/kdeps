@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
 const (
@@ -265,20 +266,20 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	kdeps_debug.Log("enter: RunEmbeddedPackage")
 	f, err := os.Open(execPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to open executable %s: %v\n", execPath, err)
+		kdepslog.Error("failed to open executable", "path", execPath, "error", err)
 		return 1
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to stat executable %s: %v\n", execPath, err)
+		kdepslog.Error("failed to stat executable", "path", execPath, "error", err)
 		return 1
 	}
 
 	offset, size, ok := detectPayloadRange(f, info.Size())
 	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: no embedded .kdeps package found in %s\n", execPath)
+		kdepslog.Error("no embedded .kdeps package found", "path", execPath)
 		return 1
 	}
 
@@ -288,7 +289,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 
 	tmpFile, err := os.CreateTemp("", "kdeps-embedded-*"+ext)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to create temp file for embedded package: %v\n", err)
+		kdepslog.Error("failed to create temp file for embedded package", "error", err)
 		return 1
 	}
 	tmpPath := tmpFile.Name()
@@ -297,11 +298,11 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	// Stream from the known offset/size without buffering the whole payload.
 	if _, copyErr := io.Copy(tmpFile, io.NewSectionReader(f, offset, size)); copyErr != nil {
 		_ = tmpFile.Close()
-		fmt.Fprintf(os.Stderr, "Error: failed to extract embedded package data: %v\n", copyErr)
+		kdepslog.Error("failed to extract embedded package data", "error", copyErr)
 		return 1
 	}
 	if closeErr := tmpFile.Close(); closeErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to close embedded package temp file: %v\n", closeErr)
+		kdepslog.Error("failed to close embedded package temp file", "error", closeErr)
 		return 1
 	}
 
@@ -315,7 +316,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	defer func() { os.Args = origArgs }() //nolint:reassign // restore original args on exit; intentional restore
 
 	if execErr := Execute(ver, commit); execErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", execErr)
+		kdepslog.Error("embedded execution failed", "error", execErr)
 		return 1
 	}
 	return 0

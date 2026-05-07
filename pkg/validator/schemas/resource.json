@@ -601,6 +601,10 @@
               "type": "string",
               "description": "Name of the component to call"
             },
+            "version": {
+              "type": "string",
+              "description": "Pin a specific component version for reproducible builds"
+            },
             "with": {
               "type": "object",
               "description": "Input values scoped to the calling resource actionId",

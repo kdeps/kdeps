@@ -353,3 +353,68 @@ func TestExecuteComponentCall_AutoEnv_RestoredAfterExecution(t *testing.T) {
 	_, execErr := eng.Execute(wf, nil)
 	require.NoError(t, execErr)
 }
+
+func TestExecuteComponentCall_VersionMismatch(t *testing.T) {
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "mycomp", Version: "1.0.0"},
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{},
+	}
+	callerRes := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "caller"},
+		Run: domain.RunConfig{
+			Component: &domain.ComponentCallConfig{
+				Name:    "mycomp",
+				Version: "2.0.0",
+			},
+		},
+	}
+	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	_, err := eng.Execute(wf, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version mismatch")
+	assert.Contains(t, err.Error(), "2.0.0")
+	assert.Contains(t, err.Error(), "1.0.0")
+}
+
+func TestExecuteComponentCall_VersionMatch(t *testing.T) {
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "mycomp", Version: "1.0.0"},
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{},
+	}
+	callerRes := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "caller"},
+		Run: domain.RunConfig{
+			Component: &domain.ComponentCallConfig{
+				Name:    "mycomp",
+				Version: "1.0.0",
+			},
+		},
+	}
+	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	_, err := eng.Execute(wf, nil)
+	require.NoError(t, err)
+}
+
+func TestExecuteComponentCall_VersionNotPinned(t *testing.T) {
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "mycomp", Version: "1.0.0"},
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{},
+	}
+	callerRes := &domain.Resource{
+		Metadata: domain.ResourceMetadata{ActionID: "caller"},
+		Run: domain.RunConfig{
+			Component: &domain.ComponentCallConfig{
+				Name: "mycomp",
+			},
+		},
+	}
+	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	_, err := eng.Execute(wf, nil)
+	require.NoError(t, err)
+}

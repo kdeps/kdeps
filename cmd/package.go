@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -186,7 +187,7 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 
 	// 5. Generate docker-compose.yml if needed
 	if composeErr := GenerateDockerCompose(workflowDir, outputDir, pkgName, workflow); composeErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to generate docker-compose.yml: %v\n", composeErr)
+		kdepslog.Warn("failed to generate docker-compose.yml", "error", composeErr)
 	}
 
 	fmt.Fprintln(os.Stdout, "✓ Workflow validated")

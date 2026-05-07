@@ -63,6 +63,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
 	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
 	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
@@ -418,7 +419,7 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	// Apply per-agent config profile from config.yaml
 	if agentName := workflow.Metadata.Name; agentName != "" {
 		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
-			fmt.Fprintf(os.Stderr, "  ⚠ Could not load agent profile: %v\n", loadErr)
+			kdepslog.Warn("could not load agent profile", "error", loadErr)
 		}
 	}
 
@@ -600,7 +601,7 @@ func executeAgencyEntryPoint(
 	// Apply per-agent config profile for this agent
 	if agentName := workflow.Metadata.Name; agentName != "" {
 		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
-			fmt.Fprintf(os.Stderr, "  ⚠ Could not load agent profile: %v\n", loadErr)
+			kdepslog.Warn("could not load agent profile", "error", loadErr)
 		}
 	}
 
@@ -998,8 +999,8 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 			"",
 			"whisperx",
 		); err != nil {
-			fmt.Fprintf(os.Stderr, "  [warn] auto-install whisperx failed: %v\n", err)
-			fmt.Fprintln(os.Stderr, "  [hint] Consider using engine: faster-whisper instead")
+			kdepslog.Warn("auto-install whisperx failed", "error", err)
+			kdepslog.Info("consider using engine: faster-whisper instead")
 			return nil // non-fatal
 		}
 		fmt.Fprintln(os.Stdout, "  ✓ Installed whisperx")
@@ -1034,10 +1035,7 @@ func installSTTTool(manager *python.Manager, engine string, seen map[string]bool
 		fmt.Fprintln(os.Stdout, "  ✓ Installed vosk")
 	case domain.TranscriberEngineWhisperCPP:
 		if !isBinaryAvailable("whisper-cpp") {
-			fmt.Fprintln(
-				os.Stderr,
-				"  [warn] whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp",
-			)
+			kdepslog.Warn("whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp")
 		}
 	}
 	_ = manager // manager retained for signature compatibility
@@ -1149,7 +1147,7 @@ func CheckPortAvailable(host string, port int) error {
 	}
 	if closeErr := listener.Close(); closeErr != nil {
 		// Log the error but don't fail the check since the port was available
-		fmt.Fprintf(os.Stderr, "Warning: failed to close test listener: %v\n", closeErr)
+		kdepslog.Warn("failed to close test listener", "error", closeErr)
 	}
 	return nil
 }
@@ -1183,7 +1181,7 @@ func IsOllamaRunning(host string, port int) bool {
 	}
 	if closeErr := conn.Close(); closeErr != nil {
 		// Log the error but don't fail the check since the connection was established
-		fmt.Fprintf(os.Stderr, "Warning: failed to close test connection: %v\n", closeErr)
+		kdepslog.Warn("failed to close test connection", "error", closeErr)
 	}
 	return true
 }
@@ -1497,7 +1495,7 @@ func startInteractiveMode(
 			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
 		)
 		if dispErr != nil {
-			fmt.Fprintf(os.Stderr, "  [workflow] %v\n", dispErr)
+			kdepslog.Error("workflow execution failed", "error", dispErr)
 		}
 	}()
 
@@ -1544,7 +1542,7 @@ func StartMediaRunners(workflow *domain.Workflow, debugMode bool) error {
 		}
 
 		if execErr != nil {
-			fmt.Fprintf(os.Stderr, "  [warn] execution error: %v\n", execErr)
+			kdepslog.Warn("execution error", "error", execErr)
 		}
 	}
 }
@@ -1617,7 +1615,7 @@ func StartHTTPServer(
 		ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		if shutdownErr := httpServer.Shutdown(ctx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", shutdownErr)
+			kdepslog.Error("error during shutdown", "error", shutdownErr)
 		}
 		fmt.Fprintln(os.Stdout, "✓ Server stopped")
 		return nil
@@ -1802,7 +1800,7 @@ func startHTTPServerWithEngine(
 		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		if shutdownErr := httpServer.Shutdown(stopCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", shutdownErr)
+			kdepslog.Error("error during shutdown", "error", shutdownErr)
 		}
 		fmt.Fprintln(os.Stdout, "✓ Server stopped")
 		return nil
@@ -1866,7 +1864,7 @@ func startBothServersWithEngine(
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down server: %v\n", shutdownErr)
+			kdepslog.Error("error shutting down server", "error", shutdownErr)
 		}
 		webServer.Stop()
 		fmt.Fprintln(os.Stdout, "✓ Server stopped")
@@ -2032,7 +2030,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		if shutdownErr := webServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error during shutdown: %v\n", shutdownErr)
+			kdepslog.Error("error during shutdown", "error", shutdownErr)
 		}
 		fmt.Fprintln(os.Stdout, "✓ Web server stopped")
 		return nil
@@ -2253,7 +2251,7 @@ func StartBothServers(
 
 		// Shutdown servers
 		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down server: %v\n", shutdownErr)
+			kdepslog.Error("error shutting down server", "error", shutdownErr)
 		}
 		webServer.Stop()
 		fmt.Fprintln(os.Stdout, "✓ Server stopped")
