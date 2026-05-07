@@ -167,19 +167,25 @@ func readSecret(fallback *bufio.Reader) (string, error) {
 	return strings.TrimSpace(line), err
 }
 
-// writeConfig marshals cfg into YAML and writes it to path, merging with the
-// default template so all comment annotations are preserved.
+// writeConfig marshals cfg into YAML and writes it to path.
+// User-filled values are written uncommented; all other template
+// sections are appended as comments so users can discover them.
 func writeConfig(path string, cfg Config) error {
 	if mkdirErr := os.MkdirAll(dirOf(path), configDirPerm); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
 
-	// Build a minimal YAML representation of filled-in fields.
+	userFields := buildUserFields(cfg)
+	content := userFields + "\n" + configOptionsReference
+	return os.WriteFile(path, []byte(content), configFilePerm)
+}
+
+// buildUserFields builds the YAML for fields the user set during bootstrap.
+func buildUserFields(cfg Config) string {
 	var lines []string
 	lines = append(lines, "# kdeps global configuration — ~/.kdeps/config.yaml")
 	lines = append(lines, "# Edit at any time. Explicit env vars always take precedence.")
 	lines = append(lines, "")
-
 	lines = append(lines, "llm:")
 	appendField(&lines, "  ollama_host", cfg.LLM.OllamaHost)
 	appendField(&lines, "  models_dir", cfg.LLM.ModelsDir)
@@ -193,15 +199,14 @@ func writeConfig(path string, cfg Config) error {
 	appendField(&lines, "  groq_api_key", cfg.LLM.Groq)
 	appendField(&lines, "  deepseek_api_key", cfg.LLM.DeepSeek)
 	appendField(&lines, "  openrouter_api_key", cfg.LLM.OpenRouter)
-	lines = append(lines, "")
+	if cfg.Defaults.Timezone != "" || cfg.Defaults.PythonVersion != "" {
+		lines = append(lines, "defaults:")
+		appendField(&lines, "  timezone", cfg.Defaults.Timezone)
+		appendField(&lines, "  python_version", cfg.Defaults.PythonVersion)
+		lines = append(lines, "")
+	}
 
-	lines = append(lines, "defaults:")
-	appendField(&lines, "  timezone", cfg.Defaults.Timezone)
-	appendField(&lines, "  python_version", cfg.Defaults.PythonVersion)
-	lines = append(lines, "")
-
-	content := strings.Join(lines, "\n")
-	return os.WriteFile(path, []byte(content), configFilePerm)
+	return strings.Join(lines, "\n")
 }
 
 func appendField(lines *[]string, key, value string) {
