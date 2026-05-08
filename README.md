@@ -107,6 +107,8 @@ resource_defaults:
     timeout: "30s"
 ```
 
+**Security** - set in `workflow.yaml` under `settings.apiServer`: `auth.token` requires a Bearer or `X-Api-Key` header on every request; `rateLimit` enforces per-IP throttling; `maxBodyBytes` caps request body size. Enable TLS via `settings.certFile` / `settings.keyFile`. See [Security](https://kdeps.com/configuration/advanced#security).
+
 ---
 
 [Documentation](https://kdeps.com) | [Registry](https://kdeps.io) | Apache 2.0

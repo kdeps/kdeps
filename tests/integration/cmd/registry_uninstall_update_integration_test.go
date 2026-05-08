@@ -72,16 +72,19 @@ func TestRegistryUninstall_Integration_AgentRoundTrip(t *testing.T) {
 
 	archive := buildIntegrationArchive(t, "inv-extractor", "1.0.0", "workflow")
 
+	var srvURL string
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/inv-extractor":
-			_ = json.NewEncoder(w).Encode(map[string]string{"latestVersion": "1.0.0"})
-		case "/api/v1/registry/packages/inv-extractor/1.0.0/download":
-			_, _ = w.Write(archive)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"latestVersion": "1.0.0",
+				"tarbullUrl":    srvURL + "/archive/inv-extractor-1.0.0.tar.gz",
+			})
 		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
+			_, _ = w.Write(archive)
 		}
 	}))
+	srvURL = srv.URL
 	defer srv.Close()
 
 	// Install.
@@ -113,23 +116,29 @@ func TestRegistryUpdate_Integration_UpgradesAgent(t *testing.T) {
 	v2 := buildIntegrationArchive(t, "chat-agent", "2.0.0", "workflow")
 
 	callCount := 0
+	var srvURL2 string
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/chat-agent":
 			callCount++
 			if callCount == 1 {
-				_ = json.NewEncoder(w).Encode(map[string]string{"latestVersion": "1.0.0"})
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"latestVersion": "1.0.0",
+					"tarbullUrl":    srvURL2 + "/archive/chat-agent-1.0.0.tar.gz",
+				})
 			} else {
-				_ = json.NewEncoder(w).Encode(map[string]string{"latestVersion": "2.0.0"})
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"latestVersion": "2.0.0",
+					"tarbullUrl":    srvURL2 + "/archive/chat-agent-2.0.0.tar.gz",
+				})
 			}
-		case "/api/v1/registry/packages/chat-agent/1.0.0/download":
+		case "/archive/chat-agent-1.0.0.tar.gz":
 			_, _ = w.Write(v1)
-		case "/api/v1/registry/packages/chat-agent/2.0.0/download":
-			_, _ = w.Write(v2)
 		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
+			_, _ = w.Write(v2)
 		}
 	}))
+	srvURL2 = srv.URL
 	defer srv.Close()
 
 	// Install v1.
@@ -190,19 +199,22 @@ func TestRegistryUpdate_Integration_PinnedVersion(t *testing.T) {
 
 	archive := buildIntegrationArchive(t, "pinned-agent", "3.0.0", "workflow")
 
+	var srvURL3 string
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/pinned-agent":
-			// resolvePackageInfo needs the info endpoint even when version is explicit.
-			body, _ := json.Marshal(map[string]string{"latestVersion": "3.0.0", "type": "workflow"})
+			body, _ := json.Marshal(map[string]string{
+				"latestVersion": "3.0.0",
+				"type":          "workflow",
+				"tarbullUrl":    srvURL3 + "/archive/pinned-agent-3.0.0.tar.gz",
+			})
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(body)
-		case "/api/v1/registry/packages/pinned-agent/3.0.0/download":
-			_, _ = w.Write(archive)
 		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
+			_, _ = w.Write(archive)
 		}
 	}))
+	srvURL3 = srv.URL
 	defer srv.Close()
 
 	var out bytes.Buffer

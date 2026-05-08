@@ -22,13 +22,17 @@ import (
 	"context"
 	"fmt"
 	"html"
+	"io"
 	stdhttp "net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/google/uuid"
+	"golang.org/x/time/rate"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -204,6 +208,140 @@ func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		// For now, just pass through. Can be enhanced with structured logging later.
 		next(w, r)
+	}
+}
+
+// AuthMiddleware enforces bearer-token / API-key authentication when a token is configured.
+// The /health endpoint is always exempt. Clients supply the token via
+// "Authorization: Bearer <token>" or "X-API-Key: <token>".
+func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: AuthMiddleware")
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			if token == "" || r.URL.Path == "/health" {
+				next(w, r)
+				return
+			}
+			got := ""
+			if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+				got = strings.TrimPrefix(authHeader, "Bearer ")
+			} else if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
+				got = apiKey
+			}
+			if got != token {
+				debugMode := GetDebugMode(r.Context())
+				RespondWithError(w, r, domain.NewAppError(
+					domain.ErrCodeUnauthorized,
+					"authentication required",
+				), debugMode)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+// ipLimiter holds a rate.Limiter and the last time it was seen.
+type ipLimiter struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+// ipLimiterStore manages per-IP rate limiters with periodic cleanup.
+type ipLimiterStore struct {
+	mu       sync.Mutex
+	limiters map[string]*ipLimiter
+	rps      rate.Limit
+	burst    int
+}
+
+const (
+	secondsPerMinute       = 60.0
+	limiterCleanupInterval = 5 * time.Minute
+	limiterIdleExpiry      = 10 * time.Minute
+)
+
+func newIPLimiterStore(requestsPerMinute, burst int) *ipLimiterStore {
+	s := &ipLimiterStore{
+		limiters: make(map[string]*ipLimiter),
+		rps:      rate.Limit(float64(requestsPerMinute) / secondsPerMinute),
+		burst:    burst,
+	}
+	go s.cleanup()
+	return s
+}
+
+func (s *ipLimiterStore) get(ip string) *rate.Limiter {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	l, ok := s.limiters[ip]
+	if !ok {
+		l = &ipLimiter{limiter: rate.NewLimiter(s.rps, s.burst)}
+		s.limiters[ip] = l
+	}
+	l.lastSeen = time.Now()
+	return l.limiter
+}
+
+func (s *ipLimiterStore) cleanup() {
+	for range time.Tick(limiterCleanupInterval) { //nolint:nolintlint // infinite ticker; goroutine exits with process
+		s.mu.Lock()
+		for ip, l := range s.limiters {
+			if time.Since(l.lastSeen) > limiterIdleExpiry {
+				delete(s.limiters, ip)
+			}
+		}
+		s.mu.Unlock()
+	}
+}
+
+// RateLimitMiddleware enforces per-IP request rate limiting.
+// requestsPerMinute is the sustained rate; burst is the allowed burst above that rate.
+func RateLimitMiddleware(requestsPerMinute, burst int) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: RateLimitMiddleware")
+	store := newIPLimiterStore(requestsPerMinute, burst)
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			ip := r.RemoteAddr
+			if i := strings.LastIndex(ip, ":"); i >= 0 {
+				ip = ip[:i]
+			}
+			if !store.get(ip).Allow() {
+				debugMode := GetDebugMode(r.Context())
+				w.Header().Set("Retry-After", "60")
+				RespondWithError(w, r, domain.NewAppError(
+					domain.ErrCodeRateLimited,
+					"rate limit exceeded — retry after 60 seconds",
+				), debugMode)
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
+// BodyLimitMiddleware caps the size of incoming request bodies (excludes multipart,
+// which is handled by UploadMiddleware). Returns 413 when the limit is exceeded.
+func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: BodyLimitMiddleware")
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			ct := r.Header.Get("Content-Type")
+			if strings.HasPrefix(ct, "multipart/form-data") {
+				next(w, r)
+				return
+			}
+			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxBytes)
+			next(w, r)
+			// Surface MaxBytesReader errors after the handler reads the body.
+			if _, err := io.ReadAll(r.Body); err != nil {
+				debugMode := GetDebugMode(r.Context())
+				RespondWithError(w, r, domain.NewAppError(
+					domain.ErrCodeRequestTooLarge,
+					fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes),
+				), debugMode)
+			}
+		}
 	}
 }
 

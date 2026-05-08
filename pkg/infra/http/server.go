@@ -178,6 +178,9 @@ func (s *Server) Start(addr string, devMode bool) error {
 	// Add session middleware to read session cookies
 	s.Router.Use(SessionMiddleware())
 
+	// Apply security middleware from apiServer config when present.
+	s.applySecurityMiddleware()
+
 	// Add upload middleware for size validation
 	s.Router.Use(UploadMiddleware(MaxUploadSize))
 
@@ -194,7 +197,12 @@ func (s *Server) Start(addr string, devMode bool) error {
 		}
 	}
 
-	s.logger.Info("starting HTTP server", "addr", addr)
+	certFile := ""
+	keyFile := ""
+	if s.Workflow != nil {
+		certFile = s.Workflow.Settings.CertFile
+		keyFile = s.Workflow.Settings.KeyFile
+	}
 
 	s.httpServer = &stdhttp.Server{
 		Addr:         addr,
@@ -204,6 +212,12 @@ func (s *Server) Start(addr string, devMode bool) error {
 		IdleTimeout:  DefaultHTTPIdleTimeout,
 	}
 
+	if certFile != "" && keyFile != "" {
+		s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
+		return s.httpServer.ListenAndServeTLS(certFile, keyFile)
+	}
+
+	s.logger.Info("starting HTTP server", "addr", addr)
 	return s.httpServer.ListenAndServe()
 }
 
@@ -955,6 +969,31 @@ func (s *Server) GetParserForTesting() *yaml.Parser {
 func (s *Server) GetWorkflowPathForTesting() string {
 	kdeps_debug.Log("enter: GetWorkflowPathForTesting")
 	return s.workflowPath
+}
+
+// applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
+// from the workflow's APIServer config.
+func (s *Server) applySecurityMiddleware() {
+	kdeps_debug.Log("enter: applySecurityMiddleware")
+	if s.Workflow == nil || s.Workflow.Settings.APIServer == nil {
+		return
+	}
+	api := s.Workflow.Settings.APIServer
+	if api.Auth != nil && api.Auth.Token != "" {
+		s.Router.Use(AuthMiddleware(api.Auth.Token))
+	}
+	if api.RateLimit != nil && api.RateLimit.RequestsPerMinute > 0 {
+		burst := api.RateLimit.Burst
+		if burst <= 0 {
+			burst = api.RateLimit.RequestsPerMinute
+		}
+		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst))
+	}
+	maxBody := api.MaxBodyBytes
+	if maxBody <= 0 {
+		maxBody = MaxUploadSize
+	}
+	s.Router.Use(BodyLimitMiddleware(maxBody))
 }
 
 // extractClientIP returns a validated IP address from the request. Header values are

@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,9 +115,15 @@ func (e *Executor) Execute(
 	// Evaluate args if provided
 	args := e.evaluateArgs(resolvedConfig, evaluator, ctx, commandStr)
 
-	// Parse timeout: resource > KDEPS_EXEC_TIMEOUT > DefaultExecTimeout
+	// Parse timeout and output cap: resource > env > defaults
 	defaults, _ := kdepsconfig.GetDefaults()
 	timeout := defaults.Exec.TimeoutDuration()
+	var maxOutputBytes int64
+	if v := os.Getenv("KDEPS_EXEC_MAX_OUTPUT_BYTES"); v != "" {
+		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+			maxOutputBytes = n
+		}
+	}
 	if v := os.Getenv("KDEPS_EXEC_TIMEOUT"); v != "" {
 		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
 			timeout = parsedTimeout
@@ -169,7 +176,7 @@ func (e *Executor) Execute(
 	}
 
 	// Execute command with timeout
-	return e.runCommandWithTimeout(cmd, timeout, fullCommand, &stdout, &stderr)
+	return e.runCommandWithTimeout(cmd, timeout, maxOutputBytes, fullCommand, &stdout, &stderr)
 }
 
 // resolveConfig evaluates dynamic fields in shell execution configuration.
@@ -260,6 +267,7 @@ func (e *Executor) evaluateArgs(
 func (e *Executor) runCommandWithTimeout(
 	cmd *exec.Cmd,
 	timeout time.Duration,
+	maxOutputBytes int64,
 	fullCommand string,
 	stdout, stderr *bytes.Buffer,
 ) (interface{}, error) {
@@ -271,6 +279,9 @@ func (e *Executor) runCommandWithTimeout(
 
 	select {
 	case err := <-done:
+		if maxOutputBytes > 0 && int64(stdout.Len()) > maxOutputBytes {
+			return nil, fmt.Errorf("exec stdout exceeds output limit of %d bytes", maxOutputBytes)
+		}
 		if err != nil {
 			return map[string]interface{}{
 				"success":  false,
@@ -290,7 +301,7 @@ func (e *Executor) runCommandWithTimeout(
 			"stdout":   stdout.String(),
 			"stderr":   stderr.String(),
 			"command":  fullCommand,
-			"result":   stdout.String(), // Simplified for brevity
+			"result":   stdout.String(),
 			"timedOut": false,
 		}, nil
 

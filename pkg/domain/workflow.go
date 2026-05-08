@@ -203,6 +203,8 @@ type WorkflowSettings struct {
 	WebServerMode  bool                     `yaml:"webServerMode"`
 	HostIP         string                   `yaml:"hostIp,omitempty"`
 	PortNum        int                      `yaml:"portNum,omitempty"`
+	CertFile       string                   `yaml:"certFile,omitempty"`
+	KeyFile        string                   `yaml:"keyFile,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
@@ -860,20 +862,41 @@ func (s *SessionConfig) GetPath() string {
 	return s.Path
 }
 
+// AuthConfig holds bearer-token / API-key authentication settings for the agent HTTP server.
+type AuthConfig struct {
+	// Token is the secret value accepted in Authorization: Bearer <token> or X-API-Key: <token>.
+	// When empty, authentication is disabled.
+	Token string `yaml:"token"`
+}
+
+// RateLimitConfig controls per-IP request rate limiting.
+type RateLimitConfig struct {
+	// RequestsPerMinute is the sustained request rate allowed per client IP.
+	RequestsPerMinute int `yaml:"requestsPerMinute"`
+	// Burst is the maximum number of requests allowed in a single burst above the sustained rate.
+	Burst int `yaml:"burst"`
+}
+
 // APIServerConfig contains API server configuration.
 type APIServerConfig struct {
-	TrustedProxies []string `yaml:"trustedProxies,omitempty"`
-	Routes         []Route  `yaml:"routes"`
-	CORS           *CORS    `yaml:"cors,omitempty"`
+	TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
+	Routes         []Route          `yaml:"routes"`
+	CORS           *CORS            `yaml:"cors,omitempty"`
+	Auth           *AuthConfig      `yaml:"auth,omitempty"`
+	RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
+	MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling.
 func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
 	type Alias struct {
-		TrustedProxies []string `yaml:"trustedProxies,omitempty"`
-		Routes         []Route  `yaml:"routes"`
-		CORS           *CORS    `yaml:"cors,omitempty"`
+		TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
+		Routes         []Route          `yaml:"routes"`
+		CORS           *CORS            `yaml:"cors,omitempty"`
+		Auth           *AuthConfig      `yaml:"auth,omitempty"`
+		RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
+		MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -883,6 +906,9 @@ func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	a.TrustedProxies = alias.TrustedProxies
 	a.Routes = alias.Routes
 	a.CORS = alias.CORS
+	a.Auth = alias.Auth
+	a.RateLimit = alias.RateLimit
+	a.MaxBodyBytes = alias.MaxBodyBytes
 
 	return nil
 }

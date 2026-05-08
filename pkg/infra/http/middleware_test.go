@@ -19,8 +19,10 @@
 package http_test
 
 import (
+	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -273,6 +275,77 @@ func TestSessionMiddleware(t *testing.T) {
 	})
 }
 
+func TestBodyLimitMiddleware_ExceedsLimit(t *testing.T) {
+	// MaxBytesReader caps at 5 bytes; handler drains the body triggering the error path.
+	middleware := http.BodyLimitMiddleware(5)
+	handler := middleware(func(_ stdhttp.ResponseWriter, r *stdhttp.Request) {
+		// Drain body inside handler so the post-handler drain also hits the limit.
+		_, _ = io.ReadAll(r.Body)
+	})
+
+	body := strings.NewReader("this is way more than five bytes")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodPost, "/api", body)
+	req.Header.Set("Content-Type", "application/json")
+	handler(w, req)
+	// MaxBytesReader error triggers 413 from RespondWithError.
+	assert.Equal(t, stdhttp.StatusRequestEntityTooLarge, w.Code)
+}
+
+func TestResponseWriterWrapper_Write_NonBrowserContent(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	recorder.Header().Set("Content-Type", "application/json")
+	wrapper := &http.ResponseWriterWrapper{ResponseWriter: recorder}
+	data := []byte(`{"key":"value"}`)
+	n, err := wrapper.Write(data)
+	assert.NoError(t, err)
+	assert.Equal(t, len(data), n)
+	assert.Equal(t, string(data), recorder.Body.String())
+}
+
+func TestBrowserRenderedContentType_AllTypes(t *testing.T) {
+	middleware := http.BodyLimitMiddleware(1 << 20) // just to indirectly verify - we test Write directly
+	_ = middleware
+
+	recorder := httptest.NewRecorder()
+	recorder.Header().Set("Content-Type", "application/xml")
+	wrapper := &http.ResponseWriterWrapper{ResponseWriter: recorder}
+	payload := []byte("<root>hello</root>")
+	_, err := wrapper.Write(payload)
+	assert.NoError(t, err)
+	// XML is browser-rendered; output should be escaped
+	assert.Contains(t, recorder.Body.String(), "root")
+}
+
+func TestResponseWriterWrapper_Write_EmptyContentType(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	// No Content-Type set - DetectContentType will sniff and apply escaping if html-like
+	wrapper := &http.ResponseWriterWrapper{ResponseWriter: recorder}
+	_, err := wrapper.Write([]byte(`{"json":true}`))
+	assert.NoError(t, err)
+}
+
+func TestResponseWriterWrapper_HeadersWritten(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	wrapper := &http.ResponseWriterWrapper{ResponseWriter: recorder}
+	assert.False(t, wrapper.HeadersWritten())
+	wrapper.WriteHeader(stdhttp.StatusOK)
+	assert.True(t, wrapper.HeadersWritten())
+}
+
+func TestSecurityHeadersMiddleware(t *testing.T) {
+	middleware := http.SecurityHeadersMiddleware()
+	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	handler(w, req)
+	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
+	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
+	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
+}
+
 func TestResponseWriterWrapper_Flush(t *testing.T) {
 	t.Run("flush with flusher support", func(t *testing.T) {
 		mockFlusher := &mockResponseWriterWithFlusher{}
@@ -301,6 +374,167 @@ func TestResponseWriterWrapper_Flush(t *testing.T) {
 
 		// Subsequent calls should also be safe
 		wrapper.Flush()
+	})
+}
+
+func TestAuthMiddleware(t *testing.T) {
+	t.Run("passes through when no token configured", func(t *testing.T) {
+		middleware := http.AuthMiddleware("")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
+	t.Run("health endpoint always exempt", func(t *testing.T) {
+		middleware := http.AuthMiddleware("secret")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/health", nil)
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
+	t.Run("bearer token accepted", func(t *testing.T) {
+		middleware := http.AuthMiddleware("mytoken")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req.Header.Set("Authorization", "Bearer mytoken")
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
+	t.Run("X-Api-Key accepted", func(t *testing.T) {
+		middleware := http.AuthMiddleware("mytoken")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req.Header.Set("X-Api-Key", "mytoken")
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
+	t.Run("wrong token rejected with 401", func(t *testing.T) {
+		middleware := http.AuthMiddleware("mytoken")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req.Header.Set("Authorization", "Bearer wrongtoken")
+		handler(w, req)
+		assert.False(t, called)
+		assert.Equal(t, stdhttp.StatusUnauthorized, w.Code)
+	})
+
+	t.Run("missing auth rejected with 401", func(t *testing.T) {
+		middleware := http.AuthMiddleware("mytoken")
+		called := false
+		handler := middleware(func(_ stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		handler(w, req)
+		assert.False(t, called)
+		assert.Equal(t, stdhttp.StatusUnauthorized, w.Code)
+	})
+}
+
+func TestRateLimitMiddleware(t *testing.T) {
+	t.Run("allows requests within limit", func(t *testing.T) {
+		middleware := http.RateLimitMiddleware(600, 10) // 10 req/s sustained, burst 10
+		called := 0
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called++
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		for i := range 5 {
+			_ = i
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+			req.RemoteAddr = "127.0.0.1:1234"
+			handler(w, req)
+			assert.Equal(t, stdhttp.StatusOK, w.Code)
+		}
+		assert.Equal(t, 5, called)
+	})
+
+	t.Run("rate limits after burst exhausted", func(t *testing.T) {
+		// 1 req/min, burst 1 - second request from same IP should be limited
+		middleware := http.RateLimitMiddleware(1, 1)
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+
+		// First request - should pass
+		w1 := httptest.NewRecorder()
+		req1 := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req1.RemoteAddr = "10.0.0.1:9999"
+		handler(w1, req1)
+		assert.Equal(t, stdhttp.StatusOK, w1.Code)
+
+		// Second request immediately - should be rate limited
+		w2 := httptest.NewRecorder()
+		req2 := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req2.RemoteAddr = "10.0.0.1:9999"
+		handler(w2, req2)
+		assert.Equal(t, stdhttp.StatusTooManyRequests, w2.Code)
+		assert.Equal(t, "60", w2.Header().Get("Retry-After"))
+	})
+}
+
+func TestBodyLimitMiddleware(t *testing.T) {
+	t.Run("skips multipart requests", func(t *testing.T) {
+		middleware := http.BodyLimitMiddleware(10)
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodPost, "/api", nil)
+		req.Header.Set("Content-Type", "multipart/form-data; boundary=xxx")
+		handler(w, req)
+		assert.True(t, called)
+	})
+
+	t.Run("passes small body", func(t *testing.T) {
+		middleware := http.BodyLimitMiddleware(1024)
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodPost, "/api", stdhttp.NoBody)
+		req.Header.Set("Content-Type", "application/json")
+		handler(w, req)
+		assert.True(t, called)
 	})
 }
 

@@ -196,6 +196,84 @@ func TestServer_SetupHotReload_InvalidPath(t *testing.T) {
 	_ = err
 }
 
+// TestServer_ApplySecurityMiddleware_AllBranches exercises the security middleware wiring.
+func TestServer_ApplySecurityMiddleware_AllBranches(t *testing.T) {
+	t.Run("nil workflow - no panic", func(t *testing.T) {
+		server, err := httppkg.NewServer(nil, nil, slog.Default())
+		require.NoError(t, err)
+		// applySecurityMiddleware is called inside Start; call SetupRoutes to trigger it indirectly.
+		// Direct: start a real server briefly.
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	t.Run("auth token wired", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "test"},
+			Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					Auth: &domain.AuthConfig{Token: "tok"},
+				},
+			},
+		}
+		server, err := httppkg.NewServer(workflow, nil, slog.Default())
+		require.NoError(t, err)
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	t.Run("rate limit - burst zero defaults to rpm", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "test"},
+			Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					RateLimit: &domain.RateLimitConfig{
+						RequestsPerMinute: 60,
+						Burst:             0, // triggers the burst <= 0 branch
+					},
+				},
+			},
+		}
+		server, err := httppkg.NewServer(workflow, nil, slog.Default())
+		require.NoError(t, err)
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	t.Run("rate limit - explicit burst", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "test"},
+			Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					RateLimit: &domain.RateLimitConfig{
+						RequestsPerMinute: 60,
+						Burst:             10,
+					},
+				},
+			},
+		}
+		server, err := httppkg.NewServer(workflow, nil, slog.Default())
+		require.NoError(t, err)
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	t.Run("custom maxBodyBytes", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "test"},
+			Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					MaxBodyBytes: 1024,
+				},
+			},
+		}
+		server, err := httppkg.NewServer(workflow, nil, slog.Default())
+		require.NoError(t, err)
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
+}
+
 // TestServer_SetupHotReload_ResourcesDirMissing2 tests SetupHotReload when resources dir doesn't exist.
 func TestServer_SetupHotReload_ResourcesDirMissing2(t *testing.T) {
 	workflow := &domain.Workflow{

@@ -21,241 +21,13 @@
 package cmd
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
-	"context"
 	"fmt"
-	"io"
-	"mime/multipart"
-	stdhttp "net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
-	"github.com/kdeps/kdeps/v2/pkg/manifest"
 	"github.com/kdeps/kdeps/v2/pkg/registry/verify"
 )
-
-const (
-	registryPublishTimeout         = 10 * time.Minute
-	registryPublishMaxResponseSize = 1 * 1024 * 1024
-)
-
-// newRegistryPublishCmd creates the registry publish subcommand.
-func newRegistryPublishCmd() *cobra.Command {
-	kdeps_debug.Log("enter: newRegistryPublishCmd")
-	cmd := &cobra.Command{
-		Use:   "publish [path]",
-		Short: "Publish a package to the kdeps registry.",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			kdeps_debug.Log("enter: registryPublishCmd.RunE")
-			dir := "."
-			if len(args) > 0 {
-				dir = args[0]
-			}
-			token, _ := cmd.Flags().GetString("token")
-			if token == "" {
-				token = os.Getenv("KDEPS_REGISTRY_TOKEN")
-			}
-			skipVerify, _ := cmd.Flags().GetBool("skip-verify")
-			return doRegistryPublish(cmd, dir, registryURL(cmd), token, skipVerify)
-		},
-	}
-	cmd.Flags().StringP("token", "t", "", "Registry authentication token (or KDEPS_REGISTRY_TOKEN env)")
-	cmd.Flags().Bool("skip-verify", false, "Skip LLM-agnostic verification before publishing")
-	return cmd
-}
-
-func doRegistryPublish(cmd *cobra.Command, dir, baseURL, token string, skipVerify bool) error {
-	kdeps_debug.Log("enter: doRegistryPublish")
-	m, err := manifest.Load(dir)
-	if err != nil {
-		return err
-	}
-	if validateErr := manifest.Validate(m); validateErr != nil {
-		return validateErr
-	}
-
-	// Pre-publish: verify the package is LLM-agnostic (no hardcoded secrets).
-	if !skipVerify {
-		result, verifyErr := verify.Dir(dir)
-		if verifyErr != nil {
-			return fmt.Errorf("verify package: %w", verifyErr)
-		}
-		for _, f := range result.Findings {
-			if f.Severity == verify.SeverityWarn {
-				kdepslog.Warn("publish warning", "detail", f)
-			}
-		}
-		if result.HasErrors() {
-			return result.Error()
-		}
-	}
-
-	readmeBytes, _ := os.ReadFile(filepath.Join(dir, "README.md"))
-	readme := string(readmeBytes)
-
-	archiveBytes, err := createArchive(dir)
-	if err != nil {
-		return fmt.Errorf("create archive: %w", err)
-	}
-
-	rawURL := baseURL + "/api/v1/registry/packages/publish"
-	req, err := buildPublishRequest(publishRequestParams{
-		ctx:          context.Background(),
-		rawURL:       rawURL,
-		archiveBytes: archiveBytes,
-		name:         m.Name,
-		version:      m.Version,
-		pkgType:      m.Type,
-		description:  m.Description,
-		license:      m.License,
-		tags:         m.Tags,
-		readme:       readme,
-		token:        token,
-	})
-	if err != nil {
-		return fmt.Errorf("build request: %w", err)
-	}
-
-	client := &stdhttp.Client{Timeout: registryPublishTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("publish request: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != stdhttp.StatusOK && resp.StatusCode != stdhttp.StatusCreated {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, registryPublishMaxResponseSize))
-		return fmt.Errorf("registry returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	fmt.Fprintf(cmd.OutOrStdout(), "Published %s@%s to registry\n", m.Name, m.Version)
-	return nil
-}
-
-func createArchive(dir string) ([]byte, error) {
-	kdeps_debug.Log("enter: createArchive")
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-
-	walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, walkCallErr error) error {
-		if walkCallErr != nil {
-			return walkCallErr
-		}
-		return addPathToTar(tw, dir, path, info)
-	})
-	if walkErr != nil {
-		return nil, walkErr
-	}
-	if closeErr := tw.Close(); closeErr != nil {
-		return nil, fmt.Errorf("close tar: %w", closeErr)
-	}
-	if closeErr := gz.Close(); closeErr != nil {
-		return nil, fmt.Errorf("close gzip: %w", closeErr)
-	}
-	return buf.Bytes(), nil
-}
-
-func addPathToTar(tw *tar.Writer, dir, path string, info os.FileInfo) error {
-	kdeps_debug.Log("enter: addPathToTar")
-	rel, relErr := filepath.Rel(dir, path)
-	if relErr != nil {
-		return relErr
-	}
-	if strings.HasPrefix(filepath.Base(rel), ".") && rel != "." {
-		if info.IsDir() {
-			return filepath.SkipDir
-		}
-		return nil
-	}
-	if info.IsDir() {
-		return nil
-	}
-	hdr, hdrErr := tar.FileInfoHeader(info, "")
-	if hdrErr != nil {
-		return fmt.Errorf("tar header for %s: %w", path, hdrErr)
-	}
-	hdr.Name = rel
-	if writeErr := tw.WriteHeader(hdr); writeErr != nil {
-		return fmt.Errorf("write tar header: %w", writeErr)
-	}
-	f, openErr := os.Open(path)
-	if openErr != nil {
-		return fmt.Errorf("open file %s: %w", path, openErr)
-	}
-	defer f.Close()
-	if _, copyErr := io.Copy(tw, f); copyErr != nil {
-		return fmt.Errorf("copy file %s: %w", path, copyErr)
-	}
-	return nil
-}
-
-type publishRequestParams struct {
-	ctx          context.Context
-	rawURL       string
-	archiveBytes []byte
-	name         string
-	version      string
-	pkgType      string
-	description  string
-	license      string
-	tags         []string
-	readme       string
-	token        string
-}
-
-func buildPublishRequest(p publishRequestParams) (*stdhttp.Request, error) {
-	kdeps_debug.Log("enter: buildPublishRequest")
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
-
-	fields := map[string]string{
-		"name":        p.name,
-		"version":     p.version,
-		"type":        p.pkgType,
-		"description": p.description,
-		"license":     p.license,
-		"tags":        strings.Join(p.tags, ","),
-	}
-	for k, v := range fields {
-		if err := mw.WriteField(k, v); err != nil {
-			return nil, fmt.Errorf("write field %s: %w", k, err)
-		}
-	}
-	if p.readme != "" {
-		if err := mw.WriteField("readme", p.readme); err != nil {
-			return nil, fmt.Errorf("write readme field: %w", err)
-		}
-	}
-	part, err := mw.CreateFormFile("package", "package.kdeps")
-	if err != nil {
-		return nil, fmt.Errorf("create archive part: %w", err)
-	}
-	if _, writeErr := part.Write(p.archiveBytes); writeErr != nil {
-		return nil, fmt.Errorf("write archive part: %w", writeErr)
-	}
-	if closeErr := mw.Close(); closeErr != nil {
-		return nil, fmt.Errorf("close multipart: %w", closeErr)
-	}
-
-	req, err := stdhttp.NewRequestWithContext(p.ctx, stdhttp.MethodPost, p.rawURL, &body)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", mw.FormDataContentType())
-	if p.token != "" {
-		req.Header.Set("Authorization", "Bearer "+p.token)
-	}
-	return req, nil
-}
 
 func doRegistryVerify(cmd *cobra.Command, dir string) error {
 	kdeps_debug.Log("enter: doRegistryVerify")
@@ -266,7 +38,7 @@ func doRegistryVerify(cmd *cobra.Command, dir string) error {
 
 	w := cmd.OutOrStdout()
 	if len(result.Findings) == 0 {
-		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to publish.")
+		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to submit.")
 		return nil
 	}
 
@@ -277,13 +49,13 @@ func doRegistryVerify(cmd *cobra.Command, dir string) error {
 	fmt.Fprintln(w)
 	if result.HasErrors() {
 		return fmt.Errorf(
-			"found %d error(s) — fix them before publishing (see 'kdeps registry publish --help')",
+			"found %d error(s) — fix them before submitting (see 'kdeps registry submit --help')",
 			countBySeverity(result.Findings, verify.SeverityError),
 		)
 	}
 
 	warnCount := countBySeverity(result.Findings, verify.SeverityWarn)
-	fmt.Fprintf(w, "%d warning(s) — review before publishing\n", warnCount)
+	fmt.Fprintf(w, "%d warning(s) — review before submitting\n", warnCount)
 	return nil
 }
 

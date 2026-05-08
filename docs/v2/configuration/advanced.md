@@ -310,6 +310,78 @@ settings:
         methods: [GET]
 ```
 
+## Security
+
+### Authentication
+
+Protect the API server with a shared secret. When `auth.token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.
+
+```yaml
+settings:
+  apiServerMode: true
+  apiServer:
+    auth:
+      token: "${API_TOKEN}"
+```
+
+Omit `auth` (or leave `token` empty) to disable authentication entirely.
+
+### Rate Limiting
+
+Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests allowed above that rate in a single burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
+
+```yaml
+settings:
+  apiServerMode: true
+  apiServer:
+    rateLimit:
+      requestsPerMinute: 60
+      burst: 10
+```
+
+### Body Size Limit
+
+Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads, which are managed separately by the upload middleware.
+
+```yaml
+settings:
+  apiServerMode: true
+  apiServer:
+    maxBodyBytes: 1048576   # 1 MiB
+```
+
+### TLS
+
+Enable HTTPS by pointing `certFile` and `keyFile` at a PEM certificate and private key. These fields belong in `settings`, not in `apiServer`.
+
+```yaml
+settings:
+  apiServerMode: true
+  certFile: "/etc/certs/server.crt"
+  keyFile:  "/etc/certs/server.key"
+  apiServer:
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+```
+
+### Resource Output Caps
+
+Two environment variables limit how many bytes executor resources return to the workflow engine. Set them in the container environment or in `agentSettings.env`.
+
+| Variable | Applies to |
+|---|---|
+| `KDEPS_EXEC_MAX_OUTPUT_BYTES` | Shell / exec resource output |
+| `KDEPS_HTTP_MAX_RESPONSE_BYTES` | HTTP resource response body |
+
+```yaml
+settings:
+  agentSettings:
+    env:
+      KDEPS_EXEC_MAX_OUTPUT_BYTES: "524288"    # 512 KiB
+      KDEPS_HTTP_MAX_RESPONSE_BYTES: "1048576" # 1 MiB
+```
+
 ## See Also
 
 - [Workflow Configuration](workflow.md) - Basic workflow configuration

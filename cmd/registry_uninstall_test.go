@@ -225,12 +225,13 @@ func TestRegistryUpdate_ViaCobraCmd(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/cobra-agent2":
-			info := map[string]string{"latestVersion": "2.0.0"}
+			info := map[string]string{
+				"latestVersion": "2.0.0",
+				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
+			}
 			_ = json.NewEncoder(w).Encode(info)
-		case "/api/v1/registry/packages/cobra-agent2/2.0.0/download":
-			_, _ = w.Write(archive)
 		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
+			_, _ = w.Write(archive)
 		}
 	}))
 	defer srv.Close()
@@ -432,11 +433,12 @@ func TestDoRegistryUpdate_Wrapper(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/wrap-agent2":
-			_ = json.NewEncoder(w).Encode(map[string]string{"latestVersion": "2.0.0"})
-		case "/api/v1/registry/packages/wrap-agent2/2.0.0/download":
-			_, _ = w.Write(archive)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"latestVersion": "2.0.0",
+				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
+			})
 		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
+			_, _ = w.Write(archive)
 		}
 	}))
 	defer srv.Close()

@@ -473,6 +473,30 @@ KDEPS_MANAGEMENT_TOKEN=mysecret
 
 For the full management API reference see [Management API](/advanced/management-api).
 
+## Security Hardening
+
+Before exposing a container externally, apply these settings in `workflow.yaml`:
+
+- **Auth token** - set `settings.apiServer.auth.token` (or inject via `${API_TOKEN}`) so every request requires a `Bearer` or `X-Api-Key` credential.
+- **TLS** - mount a certificate and key into the container, then point `settings.certFile` / `settings.keyFile` at the mounted paths to enable HTTPS.
+- **Body and rate limits** - set `settings.apiServer.maxBodyBytes` to cap request body size and `settings.apiServer.rateLimit.requestsPerMinute` / `burst` to throttle per-IP traffic.
+
+```yaml
+settings:
+  apiServerMode: true
+  certFile: "/run/secrets/server.crt"
+  keyFile:  "/run/secrets/server.key"
+  apiServer:
+    auth:
+      token: "${API_TOKEN}"
+    rateLimit:
+      requestsPerMinute: 60
+      burst: 10
+    maxBodyBytes: 1048576
+```
+
+See [Security](../configuration/advanced#security) for the full reference.
+
 ## Next Steps
 
 - [Workflow Configuration](../configuration/workflow) - Agent settings
