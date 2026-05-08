@@ -264,27 +264,26 @@ func (s *WebServer) HandleAppRequest(
 		ResponseHeaderTimeout: 30 * time.Second,
 	}
 
-	proxy.Director = func(req *stdhttp.Request) {
-		req.URL.Scheme = targetURL.Scheme
-		req.URL.Host = targetURL.Host
+	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
+		pr.SetURL(targetURL)
 
 		// Handle path forwarding
 		trimmedPath := strings.TrimPrefix(r.URL.Path, route.Path)
 		if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
 			trimmedPath = "/" + trimmedPath
 		}
-		req.URL.Path = trimmedPath
-		req.URL.RawQuery = r.URL.RawQuery
-		req.Host = targetURL.Host
+		pr.Out.URL.Path = trimmedPath
+		pr.Out.URL.RawQuery = r.URL.RawQuery
+		pr.Out.Host = targetURL.Host
 
 		// Forward headers
 		for key, values := range r.Header {
 			for _, value := range values {
-				req.Header.Add(key, value)
+				pr.Out.Header.Add(key, value)
 			}
 		}
 
-		s.logger.Debug("proxying request", "url", req.URL.String())
+		s.logger.Debug("proxying request", "url", pr.Out.URL.String())
 	}
 
 	proxy.ErrorHandler = func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
