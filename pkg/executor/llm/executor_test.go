@@ -749,3 +749,42 @@ func TestExecutor_Execute_InvalidEnvVarContextLengthFallsToDefault(t *testing.T)
 	_, err = llm.NewExecutor(server.URL).Execute(ctx, cfg)
 	require.NoError(t, err)
 }
+
+func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
+	t.Setenv("KDEPS_CHAT_MAX_OUTPUT_BYTES", "5")
+	// Mock backend returns content > 5 bytes
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]interface{}{
+			"message": map[string]interface{}{"content": "this response is way too long"},
+			"done":    true,
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hi", BaseURL: srv.URL}
+	_, err = llm.NewExecutor(srv.URL).Execute(ctx, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds output limit")
+}
+
+func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
+	t.Setenv("KDEPS_CHAT_MAX_OUTPUT_BYTES", "1000")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]interface{}{
+			"message": map[string]interface{}{"content": "hi"},
+			"done":    true,
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	cfg := &domain.ChatConfig{Model: "llama3.2:1b", Prompt: "hi", BaseURL: srv.URL}
+	result, err := llm.NewExecutor(srv.URL).Execute(ctx, cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}

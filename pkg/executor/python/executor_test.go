@@ -1542,3 +1542,35 @@ func TestExecutor_NewExecCommand_CustomFunc(t *testing.T) {
 	_ = err
 	assert.True(t, called)
 }
+
+func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES", "3")
+	pyExec := pythonexecutor.NewExecutor(&MockUVManager{})
+	pyExec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
+		return execpkg.Command("sh", "-c", "echo 'this output is longer than three bytes'")
+	})
+
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+	_, err = pyExec.Execute(ctx, &domain.PythonConfig{Script: "print('x')"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds output limit")
+}
+
+func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
+	t.Setenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES", "10000")
+	pyExec := pythonexecutor.NewExecutor(&MockUVManager{})
+	pyExec.SetExecCommandForTesting(func(_ string, _ ...string) *execpkg.Cmd {
+		return execpkg.Command("echo", "hi")
+	})
+
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+	result, err := pyExec.Execute(ctx, &domain.PythonConfig{Script: "print('hi')"})
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}

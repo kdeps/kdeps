@@ -352,6 +352,14 @@ func (e *Executor) Execute(
 		}
 	}
 
+	// Output cap: KDEPS_CHAT_MAX_OUTPUT_BYTES
+	var maxOutputBytes int64
+	if v := os.Getenv("KDEPS_CHAT_MAX_OUTPUT_BYTES"); v != "" {
+		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+			maxOutputBytes = n
+		}
+	}
+
 	// Call backend API (may be called multiple times for tool execution)
 	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
 	if err != nil {
@@ -388,6 +396,13 @@ func (e *Executor) Execute(
 		}
 	}
 
+	// Apply output cap to response content before returning.
+	if maxOutputBytes > 0 {
+		if capErr := capLLMResponseContent(response, maxOutputBytes); capErr != nil {
+			return nil, capErr
+		}
+	}
+
 	// Parse response
 	if resolvedConfig.JSONResponse { //nolint:nestif // JSON response handling is explicit
 		parsed, parseErr := e.parseJSONResponse(response, resolvedConfig.JSONResponseKeys)
@@ -411,6 +426,23 @@ func (e *Executor) Execute(
 	}
 
 	return response, nil
+}
+
+// capLLMResponseContent checks the content field in a backend response map against
+// maxOutputBytes and returns an error when the limit is exceeded.
+func capLLMResponseContent(response map[string]interface{}, maxBytes int64) error {
+	message, okMsg := response["message"].(map[string]interface{})
+	if !okMsg {
+		return nil
+	}
+	content, okContent := message["content"].(string)
+	if !okContent {
+		return nil
+	}
+	if int64(len(content)) > maxBytes {
+		return fmt.Errorf("LLM response content exceeds output limit of %d bytes", maxBytes)
+	}
+	return nil
 }
 
 // resolveConfig evaluates dynamic fields in LLM chat configuration.
