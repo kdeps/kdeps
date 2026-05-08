@@ -885,6 +885,7 @@ type APIServerConfig struct {
 	Auth           *AuthConfig      `yaml:"auth,omitempty"`
 	RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
 	MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
+	MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling.
@@ -897,6 +898,7 @@ func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 		Auth           *AuthConfig      `yaml:"auth,omitempty"`
 		RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
 		MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
+		MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
@@ -909,6 +911,7 @@ func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	a.Auth = alias.Auth
 	a.RateLimit = alias.RateLimit
 	a.MaxBodyBytes = alias.MaxBodyBytes
+	a.MaxConcurrent = alias.MaxConcurrent
 
 	return nil
 }

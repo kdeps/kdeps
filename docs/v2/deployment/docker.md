@@ -480,6 +480,7 @@ Before exposing a container externally, apply these settings in `workflow.yaml`:
 - **Auth token** - set `settings.apiServer.auth.token` (or inject via `${API_TOKEN}`) so every request requires a `Bearer` or `X-Api-Key` credential.
 - **TLS** - mount a certificate and key into the container, then point `settings.certFile` / `settings.keyFile` at the mounted paths to enable HTTPS.
 - **Body and rate limits** - set `settings.apiServer.maxBodyBytes` to cap request body size and `settings.apiServer.rateLimit.requestsPerMinute` / `burst` to throttle per-IP traffic.
+- **Concurrent request cap** - set `settings.apiServer.maxConcurrent` to limit simultaneous in-flight requests; excess requests get a `503` immediately.
 
 ```yaml
 settings:
@@ -493,6 +494,7 @@ settings:
       requestsPerMinute: 60
       burst: 10
     maxBodyBytes: 1048576
+    maxConcurrent: 50
 ```
 
 See [Security](../configuration/advanced#security) for the full reference.

@@ -272,6 +272,21 @@ func TestServer_ApplySecurityMiddleware_AllBranches(t *testing.T) {
 		go func() { _ = server.Start(":0", false) }()
 		time.Sleep(20 * time.Millisecond)
 	})
+
+	t.Run("maxConcurrent wired", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Metadata: domain.WorkflowMetadata{Name: "test"},
+			Settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					MaxConcurrent: 10,
+				},
+			},
+		}
+		server, err := httppkg.NewServer(workflow, nil, slog.Default())
+		require.NoError(t, err)
+		go func() { _ = server.Start(":0", false) }()
+		time.Sleep(20 * time.Millisecond)
+	})
 }
 
 // TestServer_SetupHotReload_ResourcesDirMissing2 tests SetupHotReload when resources dir doesn't exist.

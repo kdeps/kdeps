@@ -346,6 +346,57 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
 }
 
+func TestConcurrentLimitMiddleware(t *testing.T) {
+	t.Run("allows requests under the limit", func(t *testing.T) {
+		middleware := http.ConcurrentLimitMiddleware(5)
+		called := 0
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called++
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		for range 3 {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+			handler(w, req)
+			assert.Equal(t, stdhttp.StatusOK, w.Code)
+		}
+		assert.Equal(t, 3, called)
+	})
+
+	t.Run("returns 503 when limit reached", func(t *testing.T) {
+		// limit=1, block the slot then immediately try a second request
+		middleware := http.ConcurrentLimitMiddleware(1)
+
+		blocked := make(chan struct{})
+		unblock := make(chan struct{})
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			close(blocked) // signal that we're inside the handler
+			<-unblock      // wait until test lets us proceed
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+
+		// Occupy the one slot in a goroutine
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(stdhttp.MethodGet, "/slow", nil)
+			handler(w, req)
+		}()
+
+		<-blocked // first request is inside the handler; semaphore full
+
+		// Second request should be rejected
+		w2 := httptest.NewRecorder()
+		req2 := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		handler(w2, req2)
+		assert.Equal(t, stdhttp.StatusServiceUnavailable, w2.Code)
+
+		close(unblock)
+		<-done
+	})
+}
+
 func TestResponseWriterWrapper_Flush(t *testing.T) {
 	t.Run("flush with flusher support", func(t *testing.T) {
 		mockFlusher := &mockResponseWriterWithFlusher{}
