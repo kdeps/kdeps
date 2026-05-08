@@ -58,6 +58,8 @@ Only the fields you specify in the profile override global values — everything
 ```yaml
 settings:
   apiServerMode: true
+  certFile: "/etc/certs/server.crt"   # TLS certificate (PEM) - belongs in settings, not apiServer
+  keyFile:  "/etc/certs/server.key"   # TLS private key (PEM)
   apiServer:
     hostIp: "127.0.0.1"       # Bind address (default: 127.0.0.1)
     portNum: 16395             # Port (default: 16395)
@@ -70,9 +72,17 @@ settings:
       enableCors: true
       allowOrigins:
         - http://localhost:16395
+    auth:
+      token: "${API_TOKEN}"    # Bearer / X-Api-Key token; omit to disable auth
+    rateLimit:
+      requestsPerMinute: 60   # Sustained per-IP rate
+      burst: 10               # Burst allowance above sustained rate
+    maxBodyBytes: 1048576     # Body size cap in bytes (excludes multipart uploads)
 ```
 
 Supported methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`.
+
+TLS uses `settings.certFile` and `settings.keyFile` (top-level, not nested under `apiServer`). See [Security](advanced.md#security) for the full security reference.
 
 ## Web Server
 

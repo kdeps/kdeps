@@ -24,6 +24,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -173,10 +175,19 @@ func doRegistryInstall(cmd *cobra.Command, pkg, baseURL string) error {
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, name+"-"+version+".kdeps")
-	downloadURL := fmt.Sprintf("%s/api/v1/registry/packages/%s/%s/download", baseURL, name, version)
 
-	if downloadErr := downloadArchive(downloadURL, archivePath); downloadErr != nil {
+	if info.TarballURL == "" {
+		return fmt.Errorf("package %q has no download URL; it may not be in the registry yet", name)
+	}
+
+	if downloadErr := downloadArchive(info.TarballURL, archivePath); downloadErr != nil {
 		return downloadErr
+	}
+
+	if info.SHA256 != "" {
+		if verifyErr := verifySHA256(archivePath, info.SHA256); verifyErr != nil {
+			return verifyErr
+		}
 	}
 
 	manifest, peekErr := peekManifest(archivePath)
@@ -336,6 +347,8 @@ type packageInfo struct {
 	Type          string `json:"type"`
 	Readme        string `json:"readme"`
 	Description   string `json:"description"`
+	TarballURL    string `json:"tarbullUrl"`
+	SHA256        string `json:"sha256"`
 }
 
 func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
@@ -372,6 +385,24 @@ func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 		return nil, fmt.Errorf("no version found for package %s", name)
 	}
 	return &info, nil
+}
+
+func verifySHA256(filePath, expected string) error {
+	kdeps_debug.Log("enter: verifySHA256")
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open for sha256: %w", err)
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, copyErr := io.Copy(h, f); copyErr != nil {
+		return fmt.Errorf("hash file: %w", copyErr)
+	}
+	got := hex.EncodeToString(h.Sum(nil))
+	if got != expected {
+		return fmt.Errorf("sha256 mismatch: expected %s, got %s", expected, got)
+	}
+	return nil
 }
 
 func downloadArchive(rawURL, destPath string) (err error) {

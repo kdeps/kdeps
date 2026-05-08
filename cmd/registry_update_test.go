@@ -62,13 +62,14 @@ func TestRegistryUpdate_Agent(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		switch r.URL.Path {
 		case "/api/v1/registry/packages/my-agent":
-			info := map[string]string{"latestVersion": "2.0.0"}
+			info := map[string]string{
+				"latestVersion": "2.0.0",
+				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
+			}
 			_ = json.NewEncoder(w).Encode(info)
-		case "/api/v1/registry/packages/my-agent/2.0.0/download":
+		default:
 			w.Header().Set("Content-Type", "application/octet-stream")
 			_, _ = w.Write(archive)
-		default:
-			w.WriteHeader(stdhttp.StatusNotFound)
 		}
 	}))
 	defer srv.Close()
@@ -101,17 +102,17 @@ func TestRegistryUpdate_WithExplicitVersion(t *testing.T) {
 
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		if r.URL.Path == "/api/v1/registry/packages/my-agent" {
-			body, _ := json.Marshal(map[string]interface{}{"latestVersion": "3.0.0", "type": "workflow"})
+			body, _ := json.Marshal(map[string]interface{}{
+				"latestVersion": "3.0.0",
+				"type":          "workflow",
+				"tarbullUrl":    "http://" + r.Host + "/archive.tar.gz",
+			})
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(stdhttp.StatusOK)
 			_, _ = w.Write(body)
 			return
 		}
-		if r.URL.Path == "/api/v1/registry/packages/my-agent/3.0.0/download" {
-			_, _ = w.Write(archive)
-			return
-		}
-		w.WriteHeader(stdhttp.StatusNotFound)
+		_, _ = w.Write(archive)
 	}))
 	defer srv.Close()
 

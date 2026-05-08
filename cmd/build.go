@@ -136,7 +136,6 @@ Examples:
 // BuildImage exports the buildImage function for testing.
 func BuildImage(cmd *cobra.Command, args []string) error {
 	kdeps_debug.Log("enter: BuildImage")
-	// For backward compatibility, use empty flags (default behavior)
 	flags := &BuildFlags{}
 	return buildImageInternal(cmd, args, flags)
 }

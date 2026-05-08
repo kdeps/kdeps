@@ -62,6 +62,7 @@ type ChatDefaults struct {
 	TopP             *float64 `yaml:"top_p,omitempty"`             // e.g. 0.9 — KDEPS_CHAT_TOP_P
 	FrequencyPenalty *float64 `yaml:"frequency_penalty,omitempty"` // e.g. 0.0 — KDEPS_CHAT_FREQUENCY_PENALTY
 	PresencePenalty  *float64 `yaml:"presence_penalty,omitempty"`  // e.g. 0.0 — KDEPS_CHAT_PRESENCE_PENALTY
+	MaxOutputBytes   int64    `yaml:"max_output_bytes,omitempty"`  // e.g. 1048576 — KDEPS_CHAT_MAX_OUTPUT_BYTES
 }
 
 // HTTPDefaults holds global default values for httpClient resources.
@@ -73,16 +74,19 @@ type HTTPDefaults struct {
 	RetryBackoff     string `yaml:"retry_backoff,omitempty"`      // e.g. "1s" — KDEPS_HTTP_RETRY_BACKOFF
 	RetryMaxBackoff  string `yaml:"retry_max_backoff,omitempty"`  // e.g. "30s" — KDEPS_HTTP_RETRY_MAX_BACKOFF
 	RetryOn          string `yaml:"retry_on,omitempty"`           // e.g. "429,503" — KDEPS_HTTP_RETRY_ON
+	MaxResponseBytes int64  `yaml:"max_response_bytes,omitempty"` // e.g. 10485760 — KDEPS_HTTP_MAX_RESPONSE_BYTES
 }
 
 // PythonDefaults holds global default values for python resources.
 type PythonDefaults struct {
-	Timeout string `yaml:"timeout"` // e.g. "60s" — KDEPS_PYTHON_TIMEOUT
+	Timeout        string `yaml:"timeout"`                    // e.g. "60s" — KDEPS_PYTHON_TIMEOUT
+	MaxOutputBytes int64  `yaml:"max_output_bytes,omitempty"` // e.g. 1048576 — KDEPS_PYTHON_MAX_OUTPUT_BYTES
 }
 
 // ExecDefaults holds global default values for exec resources.
 type ExecDefaults struct {
-	Timeout string `yaml:"timeout"` // e.g. "30s" — KDEPS_EXEC_TIMEOUT
+	Timeout        string `yaml:"timeout"`                    // e.g. "30s" — KDEPS_EXEC_TIMEOUT
+	MaxOutputBytes int64  `yaml:"max_output_bytes,omitempty"` // e.g. 1048576 — KDEPS_EXEC_MAX_OUTPUT_BYTES
 }
 
 // SQLDefaults holds global default values for sql resources.
@@ -426,6 +430,9 @@ func applyResourceDefaults(rd ResourceDefaults) {
 	if rd.Chat.PresencePenalty != nil {
 		setIfUnset("KDEPS_CHAT_PRESENCE_PENALTY", strconv.FormatFloat(*rd.Chat.PresencePenalty, 'f', -1, 64))
 	}
+	if rd.Chat.MaxOutputBytes > 0 {
+		setIfUnset("KDEPS_CHAT_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Chat.MaxOutputBytes, 10))
+	}
 	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
 	if rd.HTTP.FollowRedirects {
 		setIfUnset("KDEPS_HTTP_FOLLOW_REDIRECTS", "true")
@@ -437,8 +444,17 @@ func applyResourceDefaults(rd ResourceDefaults) {
 	setIfUnset("KDEPS_HTTP_RETRY_BACKOFF", rd.HTTP.RetryBackoff)
 	setIfUnset("KDEPS_HTTP_RETRY_MAX_BACKOFF", rd.HTTP.RetryMaxBackoff)
 	setIfUnset("KDEPS_HTTP_RETRY_ON", rd.HTTP.RetryOn)
+	if rd.HTTP.MaxResponseBytes > 0 {
+		setIfUnset("KDEPS_HTTP_MAX_RESPONSE_BYTES", strconv.FormatInt(rd.HTTP.MaxResponseBytes, 10))
+	}
 	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
+	if rd.Python.MaxOutputBytes > 0 {
+		setIfUnset("KDEPS_PYTHON_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Python.MaxOutputBytes, 10))
+	}
 	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
+	if rd.Exec.MaxOutputBytes > 0 {
+		setIfUnset("KDEPS_EXEC_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Exec.MaxOutputBytes, 10))
+	}
 	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
 	if rd.SQL.MaxRows > 0 {
 		setIfUnset("KDEPS_SQL_MAX_ROWS", strconv.Itoa(rd.SQL.MaxRows))
@@ -656,11 +672,14 @@ func knownConfigEnvVars() []string {
 		"KDEPS_CHAT_STREAMING", "KDEPS_CHAT_TEMPERATURE",
 		"KDEPS_CHAT_MAX_TOKENS", "KDEPS_CHAT_TOP_P",
 		"KDEPS_CHAT_FREQUENCY_PENALTY", "KDEPS_CHAT_PRESENCE_PENALTY",
+		"KDEPS_CHAT_MAX_OUTPUT_BYTES",
 		"KDEPS_HTTP_TIMEOUT", "KDEPS_HTTP_FOLLOW_REDIRECTS",
 		"KDEPS_HTTP_PROXY",
 		"KDEPS_HTTP_RETRY_MAX_ATTEMPTS", "KDEPS_HTTP_RETRY_BACKOFF",
 		"KDEPS_HTTP_RETRY_MAX_BACKOFF", "KDEPS_HTTP_RETRY_ON",
-		"KDEPS_PYTHON_TIMEOUT", "KDEPS_EXEC_TIMEOUT",
+		"KDEPS_HTTP_MAX_RESPONSE_BYTES",
+		"KDEPS_PYTHON_TIMEOUT", "KDEPS_PYTHON_MAX_OUTPUT_BYTES",
+		"KDEPS_EXEC_TIMEOUT", "KDEPS_EXEC_MAX_OUTPUT_BYTES",
 		"KDEPS_SQL_TIMEOUT", "KDEPS_SQL_MAX_ROWS",
 		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES",
 		"KDEPS_ON_ERROR_RETRY_DELAY",

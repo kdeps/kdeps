@@ -46,7 +46,7 @@ func newRegistryCmd() *cobra.Command {
 	cmd.AddCommand(newRegistryInstallCmd())
 	cmd.AddCommand(newRegistryUninstallCmd())
 	cmd.AddCommand(newRegistryUpdateCmd())
-	cmd.AddCommand(newRegistryPublishCmd())
+	cmd.AddCommand(newRegistrySubmitCmd())
 	cmd.AddCommand(newRegistryListCmd())
 	cmd.AddCommand(newRegistryVerifyCmd())
 	return cmd

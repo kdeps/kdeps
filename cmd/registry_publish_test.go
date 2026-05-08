@@ -22,8 +22,6 @@ package cmd
 
 import (
 	"bytes"
-	stdhttp "net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,103 +30,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestRegistryPublish_Success(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		assert.Equal(t, stdhttp.MethodPost, r.Method)
-		w.WriteHeader(stdhttp.StatusOK)
-	}))
-	defer srv.Close()
-
-	dir := t.TempDir()
-	mf := "name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: A test\n"
-	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
-	require.NoError(t, err)
-
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err = doRegistryPublish(cmd, dir, srv.URL, "test-token", false)
-	require.NoError(t, err)
-	assert.Contains(t, out.String(), "Published test-agent@1.0.0")
-}
-
-func TestRegistryPublish_NoManifest(t *testing.T) {
-	dir := t.TempDir()
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err := doRegistryPublish(cmd, dir, "http://localhost", "token", false)
-	require.Error(t, err)
-}
-
-func TestRegistryPublish_InvalidManifest(t *testing.T) {
-	dir := t.TempDir()
-	mf := "name: \nversion: \ntype: \ndescription: Missing fields\n"
-	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
-	require.NoError(t, err)
-
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err = doRegistryPublish(cmd, dir, "http://localhost", "token", false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "required")
-}
-
-func TestRegistryPublish_ServerError(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	dir := t.TempDir()
-	mf := "name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: A test\n"
-	err := os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600)
-	require.NoError(t, err)
-
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	err = doRegistryPublish(cmd, dir, srv.URL, "token", false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "500")
-}
-
-func TestRegistryPublish_SkipVerify(t *testing.T) {
-	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusOK)
-	}))
-	defer srv.Close()
-
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"),
-		[]byte("name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: Test\n"), 0600))
-	// Hardcoded key that would normally block publish.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "res.yaml"),
-		[]byte("run:\n  chat:\n    apiKey: \"sk-hardcoded\"\n"), 0600))
-
-	var out bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&out)
-	cmd.SetErr(&out)
-
-	// Without skip-verify should fail due to hardcoded key.
-	err := doRegistryPublish(cmd, dir, srv.URL, "token", false)
-	require.Error(t, err)
-
-	// With skip-verify should succeed.
-	err = doRegistryPublish(cmd, dir, srv.URL, "token", true)
-	require.NoError(t, err)
-}
 
 func TestDoRegistryVerify_CleanDir(t *testing.T) {
 	dir := t.TempDir()
@@ -139,7 +40,7 @@ func TestDoRegistryVerify_CleanDir(t *testing.T) {
 	c.SetOut(&buf)
 	err := doRegistryVerify(c, dir)
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Ready to publish")
+	assert.Contains(t, buf.String(), "Ready to submit")
 }
 
 func TestDoRegistryVerify_WithErrors(t *testing.T) {

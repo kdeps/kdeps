@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -754,10 +755,23 @@ func (e *Executor) processResponse(
 	headers map[string]string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: processResponse")
-	// Read response body
-	respBody, err := io.ReadAll(resp.Body)
+	// Read response body, enforcing max_response_bytes when configured.
+	var maxRespBytes int64
+	if v := os.Getenv("KDEPS_HTTP_MAX_RESPONSE_BYTES"); v != "" {
+		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+			maxRespBytes = n
+		}
+	}
+	var bodyReader io.Reader = resp.Body
+	if maxRespBytes > 0 {
+		bodyReader = io.LimitReader(resp.Body, maxRespBytes+1)
+	}
+	respBody, err := io.ReadAll(bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	if maxRespBytes > 0 && int64(len(respBody)) > maxRespBytes {
+		return nil, fmt.Errorf("HTTP response exceeds max_response_bytes limit of %d bytes", maxRespBytes)
 	}
 
 	// Build response

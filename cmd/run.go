@@ -328,7 +328,6 @@ func ResolveDirectoryPath(absPath string) (string, func(), error) {
 // RunWorkflow executes the run command with default flags.
 func RunWorkflow(cmd *cobra.Command, args []string) error {
 	kdeps_debug.Log("enter: RunWorkflow")
-	// For backward compatibility, use empty flags (default behavior)
 	flags := &RunFlags{}
 	return RunWorkflowWithFlags(cmd, args, flags)
 }
@@ -369,7 +368,6 @@ func RunWorkflowWithFlags(cmd *cobra.Command, args []string, flags *RunFlags) er
 // ExecuteWorkflowSteps executes the main workflow steps after path resolution.
 func ExecuteWorkflowSteps(cmd *cobra.Command, workflowPath string) error {
 	kdeps_debug.Log("enter: ExecuteWorkflowSteps")
-	// For backward compatibility, use empty flags (default behavior)
 	flags := &RunFlags{}
 	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
 }
