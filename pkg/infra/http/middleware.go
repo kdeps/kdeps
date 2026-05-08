@@ -345,6 +345,29 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	}
 }
 
+// ConcurrentLimitMiddleware caps the number of simultaneous in-flight requests.
+// When the limit is reached the server responds with 503 Service Unavailable
+// instead of queuing requests indefinitely.
+func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: ConcurrentLimitMiddleware")
+	sem := make(chan struct{}, limit)
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+				next(w, r)
+			default:
+				debugMode := GetDebugMode(r.Context())
+				RespondWithError(w, r, domain.NewAppError(
+					domain.ErrCodeServiceUnavail,
+					"server is at capacity - retry shortly",
+				), debugMode)
+			}
+		}
+	}
+}
+
 // UploadMiddleware validates upload requests for size limits.
 func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: UploadMiddleware")

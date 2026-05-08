@@ -994,6 +994,9 @@ func (s *Server) applySecurityMiddleware() {
 		maxBody = MaxUploadSize
 	}
 	s.Router.Use(BodyLimitMiddleware(maxBody))
+	if api.MaxConcurrent > 0 {
+		s.Router.Use(ConcurrentLimitMiddleware(api.MaxConcurrent))
+	}
 }
 
 // extractClientIP returns a validated IP address from the request. Header values are

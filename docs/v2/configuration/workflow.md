@@ -78,6 +78,7 @@ settings:
       requestsPerMinute: 60   # Sustained per-IP rate
       burst: 10               # Burst allowance above sustained rate
     maxBodyBytes: 1048576     # Body size cap in bytes (excludes multipart uploads)
+    maxConcurrent: 50         # Max simultaneous in-flight requests; 0 = unlimited
 ```
 
 Supported methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`.

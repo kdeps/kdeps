@@ -365,14 +365,27 @@ settings:
         methods: [POST]
 ```
 
+### Concurrent Request Limit
+
+Cap the number of simultaneous in-flight requests the server handles. When the limit is reached, new requests receive a `503 Service Unavailable` response immediately rather than queuing. Omit or set to `0` to disable.
+
+```yaml
+settings:
+  apiServerMode: true
+  apiServer:
+    maxConcurrent: 50
+```
+
 ### Resource Output Caps
 
-Two environment variables limit how many bytes executor resources return to the workflow engine. Set them in the container environment or in `agentSettings.env`.
+Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in the container environment or in `agentSettings.env`.
 
 | Variable | Applies to |
 |---|---|
-| `KDEPS_EXEC_MAX_OUTPUT_BYTES` | Shell / exec resource output |
+| `KDEPS_EXEC_MAX_OUTPUT_BYTES` | Shell / exec resource stdout |
 | `KDEPS_HTTP_MAX_RESPONSE_BYTES` | HTTP resource response body |
+| `KDEPS_CHAT_MAX_OUTPUT_BYTES` | LLM chat response content |
+| `KDEPS_PYTHON_MAX_OUTPUT_BYTES` | Python resource stdout |
 
 ```yaml
 settings:
@@ -380,6 +393,8 @@ settings:
     env:
       KDEPS_EXEC_MAX_OUTPUT_BYTES: "524288"    # 512 KiB
       KDEPS_HTTP_MAX_RESPONSE_BYTES: "1048576" # 1 MiB
+      KDEPS_CHAT_MAX_OUTPUT_BYTES: "1048576"   # 1 MiB
+      KDEPS_PYTHON_MAX_OUTPUT_BYTES: "524288"  # 512 KiB
 ```
 
 ## See Also
