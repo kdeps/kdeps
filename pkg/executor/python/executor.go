@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -123,6 +124,14 @@ func (e *Executor) Execute(
 	// Parse timeout
 	timeout := e.parseTimeout(resolvedConfig)
 
+	// Output cap: KDEPS_PYTHON_MAX_OUTPUT_BYTES
+	var maxOutputBytes int64
+	if v := os.Getenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES"); v != "" {
+		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+			maxOutputBytes = n
+		}
+	}
+
 	// Execute the script
 	return e.executeScript(
 		pythonPath,
@@ -132,6 +141,7 @@ func (e *Executor) Execute(
 		scriptFile,
 		resolvedConfig.Args,
 		timeout,
+		maxOutputBytes,
 	)
 }
 
@@ -268,7 +278,7 @@ func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 // executeScript runs the Python script and returns the result.
 func (e *Executor) executeScript(
 	pythonPath, venvPath, workDir, scriptContent, scriptFile string,
-	args []string, timeout time.Duration,
+	args []string, timeout time.Duration, maxOutputBytes int64,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScript")
 	var stdout, stderr bytes.Buffer
@@ -302,6 +312,10 @@ func (e *Executor) executeScript(
 	// Execute
 	err := cmd.Run()
 	cmdTimeout.Stop()
+
+	if maxOutputBytes > 0 && int64(stdout.Len()) > maxOutputBytes {
+		return nil, fmt.Errorf("python stdout exceeds output limit of %d bytes", maxOutputBytes)
+	}
 
 	// Build result
 	result := map[string]interface{}{

@@ -1290,3 +1290,35 @@ func TestExecutor_Execute_WorkingDirLiteral(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, resultMap["success"].(bool))
 }
+
+func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
+	t.Setenv("KDEPS_EXEC_MAX_OUTPUT_BYTES", "5")
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{Command: "echo 'this output is longer than five bytes'"}
+	_, err = execInstance.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds output limit")
+}
+
+func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command differs on windows")
+	}
+	t.Setenv("KDEPS_EXEC_MAX_OUTPUT_BYTES", "1000")
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{Command: "echo hi"}
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}
