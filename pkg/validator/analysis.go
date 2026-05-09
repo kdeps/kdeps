@@ -86,8 +86,14 @@ var reGetDot = regexp.MustCompile(`get\s*\(\s*['"]([A-Za-z0-9_-]+)\.[^'"]*['"]\s
 // reOutput matches output('id') and output('id.field') - always an actionId reference.
 var reOutput = regexp.MustCompile(`output\s*\(\s*['"]([A-Za-z0-9_-]+)(?:\.[^'"]*)?['"]\s*\)`)
 
-// reTemplate matches {{ id.something }} in Jinja/template expressions.
-var reTemplate = regexp.MustCompile(`\{\{[^}]*\b([A-Za-z0-9_-]+)\.[A-Za-z0-9_]+[^}]*\}\}`)
+// reTemplateBlock extracts the content inside {{ ... }} blocks.
+var reTemplateBlock = regexp.MustCompile(`\{\{([^}]+)\}\}`)
+
+// reDotIdent matches a top-level identifier followed by a dot (e.g. "dep.result").
+// The leading character class ensures the identifier is not a sub-property access
+// (i.e. not preceded by '.' or another word char), so "config.llm.model" only
+// yields "config", not the intermediate "llm".
+var reDotIdent = regexp.MustCompile(`(?:^|[^\w.-])([A-Za-z0-9_][A-Za-z0-9_-]*)\.([A-Za-z0-9_])`)
 
 // AnalyzeWorkflow performs deep static analysis on a workflow beyond basic validation.
 // It detects unreachable resources, expression references to unknown actionIds, and
@@ -232,10 +238,15 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 
 // builtinTemplateVars are Jinja2/kdeps system objects that are not actionId references.
 var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-time constant lookup table
-	"request": true,
-	"loop":    true,
-	"error":   true,
-	"item":    true,
+	"request":  true,
+	"loop":     true,
+	"error":    true,
+	"item":     true,
+	"config":   true, // kdeps config object (config.llm.model, config.defaults.*)
+	"input":    true, // component input (input.items, input.*)
+	"workflow": true, // workflow metadata (workflow.metadata.name, etc.)
+	"data":     true, // HTTP/SQL response data field accessed via safe()
+	"r":        true, // common loop variable in search result iteration
 }
 
 // extractActionIDRefs extracts actionId tokens from a single expression string.
@@ -253,9 +264,11 @@ func extractActionIDRefs(s string) []string {
 			refs = append(refs, m[1])
 		}
 	}
-	for _, m := range reTemplate.FindAllStringSubmatch(s, -1) {
-		if !builtinTemplateVars[m[1]] {
-			refs = append(refs, m[1])
+	for _, block := range reTemplateBlock.FindAllStringSubmatch(s, -1) {
+		for _, m := range reDotIdent.FindAllStringSubmatch(block[1], -1) {
+			if !builtinTemplateVars[m[1]] {
+				refs = append(refs, m[1])
+			}
 		}
 	}
 	return refs

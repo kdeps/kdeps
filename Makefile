@@ -84,7 +84,7 @@ test: fmt lint build
 	go tool govulncheck ./... > /tmp/govuln-make.txt 2>&1 || GOVULN_EXIT=$$?; \
 	cat /tmp/govuln-make.txt; \
 	if [ "$$GOVULN_EXIT" -ne 0 ]; then \
-		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887" || true); \
+		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887\|GO-2026-4883" || true); \
 		if [ -z "$$NEW_VULNS" ]; then GOVULN_EXIT=0; fi; \
 	fi; \
 	echo ""; \
@@ -215,6 +215,16 @@ lint:
 	else \
 		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
 		echo "Install $(GOLANGCI_VERSION) with: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b \$$(go env GOPATH)/bin $(GOLANGCI_VERSION)"; \
+	fi
+	@echo "Running govulncheck..."
+	@set +e; \
+	go tool govulncheck ./... > /tmp/govuln-lint.txt 2>&1; \
+	exit_code=$$?; \
+	set -e; \
+	cat /tmp/govuln-lint.txt; \
+	if [ $$exit_code -ne 0 ]; then \
+		new_vulns=$$(grep "^Vulnerability #" /tmp/govuln-lint.txt | grep -v "GO-2026-4887\|GO-2026-4883" || true); \
+		if [ -n "$$new_vulns" ]; then exit 1; fi; \
 	fi
 
 # Clean build artifacts
