@@ -149,6 +149,7 @@ kdeps validate [workflow.yaml | directory] [flags]
 - ✅ Expression syntax
 - ✅ Circular dependency detection
 - ✅ Business rules
+- ✅ Static analysis (unreachable resources, bad expression refs, missing component inputs)
 
 **Examples:**
 ```bash
