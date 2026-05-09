@@ -37,11 +37,13 @@ test_validate() {
         return 0
     fi
     
-    if "$KDEPS_BIN" validate "$workflow_path" &> /dev/null; then
+    local output
+    output=$("$KDEPS_BIN" validate "$workflow_path" 2>&1)
+    if echo "$output" | grep -q "Validation successful"; then
         test_passed "$test_name"
         return 0
     else
-        test_failed "$test_name" "Validation failed for $workflow_path"
+        test_failed "$test_name" "Validation failed for $workflow_path: $output"
         return 0
     fi
 }
