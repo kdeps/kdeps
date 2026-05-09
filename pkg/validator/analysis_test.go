@@ -523,6 +523,18 @@ func TestExtractActionIDRefs_NoMatch(t *testing.T) {
 
 // Combined: unreachable + bad ref in same workflow
 
+func TestExtractActionIDRefs_BuiltinVarsNotFlagged(t *testing.T) {
+	r := mkResource("target")
+	// All kdeps/Jinja2 built-in objects - none should be flagged as unknown actionIds.
+	r.Run.Chat = &domain.ChatConfig{
+		Prompt: `{{ request.method }} {{ request.path }} {{ request.ip }} {{ loop.index }} {{ loop.first }} {{ error.message }} {{ item.value }}`,
+	}
+	w := mkWorkflow("target", r)
+
+	wa := validator.AnalyzeWorkflow(w)
+	assert.Empty(t, wa.Errors())
+}
+
 func TestAnalyzeWorkflow_CombinedIssues(t *testing.T) {
 	target := mkResource("target")
 	target.Run.Chat = &domain.ChatConfig{Prompt: "output('gone')"}
