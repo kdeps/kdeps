@@ -527,7 +527,12 @@ func TestExtractActionIDRefs_BuiltinVarsNotFlagged(t *testing.T) {
 	r := mkResource("target")
 	// All kdeps/Jinja2 built-in objects - none should be flagged as unknown actionIds.
 	r.Run.Chat = &domain.ChatConfig{
-		Prompt: `{{ request.method }} {{ request.path }} {{ request.ip }} {{ loop.index }} {{ loop.first }} {{ error.message }} {{ item.value }}`,
+		Prompt: `{{ request.method }} {{ request.path }} {{ request.ip }}` +
+			` {{ loop.index }} {{ loop.first }}` +
+			` {{ error.message }} {{ item.value }}` +
+			` {{ config.llm.model }} {{ config.defaults.timezone }}` +
+			` {{ input.items }} {{ workflow.metadata.name }}` +
+			` {{ r.title }} {{ r.url }}`,
 	}
 	w := mkWorkflow("target", r)
 
