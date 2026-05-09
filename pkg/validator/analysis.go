@@ -230,19 +230,33 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 	return issues
 }
 
+// builtinTemplateVars are Jinja2/kdeps system objects that are not actionId references.
+var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-time constant lookup table
+	"request": true,
+	"loop":    true,
+	"error":   true,
+	"item":    true,
+}
+
 // extractActionIDRefs extracts actionId tokens from a single expression string.
 // It matches get('id.field') (dot required to avoid request-param false positives),
 // output('id'), and {{ id.field }} template patterns.
 func extractActionIDRefs(s string) []string {
 	var refs []string
 	for _, m := range reGetDot.FindAllStringSubmatch(s, -1) {
-		refs = append(refs, m[1])
+		if !builtinTemplateVars[m[1]] {
+			refs = append(refs, m[1])
+		}
 	}
 	for _, m := range reOutput.FindAllStringSubmatch(s, -1) {
-		refs = append(refs, m[1])
+		if !builtinTemplateVars[m[1]] {
+			refs = append(refs, m[1])
+		}
 	}
 	for _, m := range reTemplate.FindAllStringSubmatch(s, -1) {
-		refs = append(refs, m[1])
+		if !builtinTemplateVars[m[1]] {
+			refs = append(refs, m[1])
+		}
 	}
 	return refs
 }
