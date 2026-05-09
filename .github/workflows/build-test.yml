@@ -34,9 +34,8 @@ jobs:
           only-new-issues: false
       - name: govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
           set +e
-          govulncheck ./... > /tmp/govuln.txt 2>&1
+          go tool govulncheck ./... > /tmp/govuln.txt 2>&1
           exit_code=$?
           set -e
           cat /tmp/govuln.txt
