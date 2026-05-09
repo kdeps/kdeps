@@ -92,6 +92,20 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 		return err
 	}
 
+	// 9. Static analysis (unreachable resources, bad expression refs, missing component inputs)
+	if analysis := AnalyzeWorkflow(workflow); analysis.HasErrors() {
+		errs := analysis.Errors()
+		msgs := make([]string, len(errs))
+		for i, e := range errs {
+			msgs[i] = e.String()
+		}
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			strings.Join(msgs, "; "),
+			nil,
+		)
+	}
+
 	return nil
 }
 

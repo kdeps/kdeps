@@ -49,6 +49,7 @@ Validation includes:
   - Resource dependencies
   - Expression syntax
   - Circular dependency detection
+  - Static analysis (unreachable resources, bad expression refs, missing component inputs)
 
 Accepts:
   - Path to workflow.yaml file
@@ -138,6 +139,13 @@ func validateWorkflowFile(workflowPath string) error {
 	fmt.Fprintln(os.Stdout, "- Business rules validated")
 	fmt.Fprintln(os.Stdout, "- Dependencies resolved")
 	fmt.Fprintln(os.Stdout, "- Expressions valid")
+	fmt.Fprintln(os.Stdout, "- Static analysis passed")
+
+	// Print analysis warnings (non-fatal).
+	analysis := validator.AnalyzeWorkflow(workflow)
+	for _, w := range analysis.Warnings() {
+		fmt.Fprintf(os.Stdout, "  warning: %s\n", w.String())
+	}
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "Validation successful!")
