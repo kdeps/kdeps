@@ -211,7 +211,7 @@ func TestAnalyzeWorkflow_ExpressionRef_DedupedPerResource(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExpr(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Expr = []domain.Expression{{Raw: "get('missing')"}}
+	r.Run.Expr = []domain.Expression{{Raw: "output('missing')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -220,7 +220,7 @@ func TestAnalyzeWorkflow_ExpressionInExpr(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
 	r := mkResource("target")
-	r.Run.ExprBefore = []domain.Expression{{Raw: "set('k', get('gone'))"}}
+	r.Run.ExprBefore = []domain.Expression{{Raw: "set('k', get('gone.field'))"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -230,7 +230,7 @@ func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionInValidations(t *testing.T) {
 	r := mkResource("target")
 	r.Run.Validations = &domain.ValidationsConfig{
-		Skip:  []domain.Expression{{Raw: "get('absent')"}},
+		Skip:  []domain.Expression{{Raw: "get('absent.field')"}},
 		Check: []domain.Expression{{Raw: "get('target.ok')"}}, // valid
 	}
 	w := mkWorkflow("target", r)
@@ -254,7 +254,7 @@ func TestAnalyzeWorkflow_ExpressionInOnError(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInPythonScript(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Python = &domain.PythonConfig{Script: "get('ghost')"}
+	r.Run.Python = &domain.PythonConfig{Script: "output('ghost')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -263,7 +263,7 @@ func TestAnalyzeWorkflow_ExpressionInPythonScript(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExecCommand(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Exec = &domain.ExecConfig{Command: "echo get('missing')"}
+	r.Run.Exec = &domain.ExecConfig{Command: "echo get('missing.field')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -283,7 +283,7 @@ func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 	r := mkResource("target")
 	r.Run.HTTPClient = &domain.HTTPClientConfig{
 		URL:  "http://example.com",
-		Data: "get('absent')",
+		Data: "get('absent.field')",
 	}
 	w := mkWorkflow("target", r)
 
@@ -295,7 +295,7 @@ func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
 	r := mkResource("target")
 	r.Run.SQL = &domain.SQLConfig{
 		Queries: []domain.QueryItem{
-			{Query: "SELECT * WHERE id = get('nope')"},
+			{Query: "SELECT * WHERE id = output('nope')"},
 		},
 	}
 	w := mkWorkflow("target", r)
@@ -324,7 +324,7 @@ func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SearchLocal = &domain.SearchLocalConfig{Query: "get('gone')"}
+	r.Run.SearchLocal = &domain.SearchLocalConfig{Query: "get('gone.field')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -333,7 +333,7 @@ func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SearchWeb = &domain.SearchWebConfig{Query: "get('gone')"}
+	r.Run.SearchWeb = &domain.SearchWebConfig{Query: "output('gone')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -343,7 +343,7 @@ func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionInBeforeInline(t *testing.T) {
 	r := mkResource("target")
 	r.Run.Before = []domain.ActionConfig{
-		{Exec: &domain.ExecConfig{Command: "get('ghost')"}},
+		{Exec: &domain.ExecConfig{Command: "output('ghost')"}},
 	}
 	w := mkWorkflow("target", r)
 
@@ -360,6 +360,17 @@ func TestAnalyzeWorkflow_ExpressionInAfterInline(t *testing.T) {
 
 	wa := validator.AnalyzeWorkflow(w)
 	assert.NotEmpty(t, wa.Errors())
+}
+
+// TestAnalyzeWorkflow_BareGetNoDotNoError verifies bare get('q') without dot
+// notation is NOT flagged (request-param lookups, not actionId refs).
+func TestAnalyzeWorkflow_BareGetNoDotNoError(t *testing.T) {
+	r := mkResource("target")
+	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ get('q') }} and get('page')"}
+	w := mkWorkflow("target", r)
+
+	wa := validator.AnalyzeWorkflow(w)
+	assert.Empty(t, wa.Errors())
 }
 
 // Component input validation
@@ -462,17 +473,16 @@ func TestAnalyzeWorkflow_NoComponents(t *testing.T) {
 
 // extractActionIDRefs (via public surface)
 
-func TestExtractActionIDRefs_SingleQuoteGet(t *testing.T) {
+func TestExtractActionIDRefs_BareGetNoDetection(t *testing.T) {
+	// bare get('dep') without dot is not detected (ambiguous with request params)
 	r := mkResource("target")
 	r.Run.Chat = &domain.ChatConfig{Prompt: "get('dep')"}
-	dep := mkResource("dep")
-	w := mkWorkflow("target", r, dep)
-
+	w := mkWorkflow("target", r) // 'dep' not defined - should NOT error
 	wa := validator.AnalyzeWorkflow(w)
 	assert.Empty(t, wa.Errors())
 }
 
-func TestExtractActionIDRefs_DoubleQuoteGet(t *testing.T) {
+func TestExtractActionIDRefs_DotGet_Valid(t *testing.T) {
 	r := mkResource("target")
 	r.Run.Chat = &domain.ChatConfig{Prompt: `get("dep.field")`}
 	dep := mkResource("dep")
@@ -515,7 +525,7 @@ func TestExtractActionIDRefs_NoMatch(t *testing.T) {
 
 func TestAnalyzeWorkflow_CombinedIssues(t *testing.T) {
 	target := mkResource("target")
-	target.Run.Chat = &domain.ChatConfig{Prompt: "get('gone.x')"}
+	target.Run.Chat = &domain.ChatConfig{Prompt: "output('gone')"}
 	orphan := mkResource("orphan")
 	w := mkWorkflow("target", target, orphan)
 

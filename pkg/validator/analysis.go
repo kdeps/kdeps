@@ -79,9 +79,12 @@ func (wa *WorkflowAnalysis) Warnings() []AnalysisIssue {
 	return out
 }
 
-// reGetOutput matches get('id') get('id.field') output('id') output('id.field')
-// using single or double quotes.
-var reGetOutput = regexp.MustCompile(`(?:get|output)\s*\(\s*['"]([A-Za-z0-9_-]+)(?:\.[^'"]*)?['"]\s*\)`)
+// reGetDot matches get('id.field') - dot notation only, to avoid flagging bare
+// request-parameter lookups like get('q') which are not actionId references.
+var reGetDot = regexp.MustCompile(`get\s*\(\s*['"]([A-Za-z0-9_-]+)\.[^'"]*['"]\s*\)`)
+
+// reOutput matches output('id') and output('id.field') - always an actionId reference.
+var reOutput = regexp.MustCompile(`output\s*\(\s*['"]([A-Za-z0-9_-]+)(?:\.[^'"]*)?['"]\s*\)`)
 
 // reTemplate matches {{ id.something }} in Jinja/template expressions.
 var reTemplate = regexp.MustCompile(`\{\{[^}]*\b([A-Za-z0-9_-]+)\.[A-Za-z0-9_]+[^}]*\}\}`)
@@ -228,10 +231,14 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 }
 
 // extractActionIDRefs extracts actionId tokens from a single expression string.
-// It matches get('id'), get('id.field'), output('id'), and {{ id.field }} patterns.
+// It matches get('id.field') (dot required to avoid request-param false positives),
+// output('id'), and {{ id.field }} template patterns.
 func extractActionIDRefs(s string) []string {
 	var refs []string
-	for _, m := range reGetOutput.FindAllStringSubmatch(s, -1) {
+	for _, m := range reGetDot.FindAllStringSubmatch(s, -1) {
+		refs = append(refs, m[1])
+	}
+	for _, m := range reOutput.FindAllStringSubmatch(s, -1) {
 		refs = append(refs, m[1])
 	}
 	for _, m := range reTemplate.FindAllStringSubmatch(s, -1) {

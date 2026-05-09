@@ -78,6 +78,17 @@ test: fmt lint build
 	fi; \
 	echo ""; \
 	echo "=========================================="; \
+	echo "Running govulncheck"; \
+	echo "=========================================="; \
+	GOVULN_EXIT=0; \
+	go tool govulncheck ./... > /tmp/govuln-make.txt 2>&1 || GOVULN_EXIT=$$?; \
+	cat /tmp/govuln-make.txt; \
+	if [ "$$GOVULN_EXIT" -ne 0 ]; then \
+		NEW_VULNS=$$(grep "^Vulnerability #" /tmp/govuln-make.txt | grep -v "GO-2026-4887" || true); \
+		if [ -z "$$NEW_VULNS" ]; then GOVULN_EXIT=0; fi; \
+	fi; \
+	echo ""; \
+	echo "=========================================="; \
 	echo "Running kdeps-io Registry Tests"; \
 	echo "=========================================="; \
 	cd kdeps-io && npm run test:coverage 2>&1; \
@@ -131,8 +142,13 @@ test: fmt lint build
 		CODEQL_COUNT=$$(python3 scripts/codeql-report.py codeql-results.sarif --count 2>/dev/null || echo "?"); \
 		echo "✗ CodeQL:            FAILED ($$CODEQL_COUNT alert(s))"; \
 	fi; \
+	if [ "$$GOVULN_EXIT" -eq 0 ]; then \
+		echo "✓ govulncheck:       PASSED"; \
+	else \
+		echo "✗ govulncheck:       FAILED (new vulnerabilities found)"; \
+	fi; \
 	echo ""; \
-	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ] || [ "$$CODEQL_EXIT" -ne 0 ]; then \
+	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INT_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ] || [ "$$KDEPS_IO_EXIT" -ne 0 ] || [ "$$CODEQL_EXIT" -ne 0 ] || [ "$$GOVULN_EXIT" -ne 0 ]; then \
 		exit 1; \
 	fi
 
