@@ -95,6 +95,11 @@ var reTemplateBlock = regexp.MustCompile(`\{\{([^}]+)\}\}`)
 // yields "config", not the intermediate "llm".
 var reDotIdent = regexp.MustCompile(`(?:^|[^\w.-])([A-Za-z0-9_][A-Za-z0-9_-]*)\.([A-Za-z0-9_])`)
 
+// reStripFuncCalls strips get(...) and output(...) call content from a template
+// block before reDotIdent scanning.  Default path values like '/tmp/output.pdf'
+// inside those calls would otherwise be mis-parsed as actionId refs.
+var reStripFuncCalls = regexp.MustCompile(`(?:get|output)\s*\([^)]*\)`)
+
 // AnalyzeWorkflow performs deep static analysis on a workflow beyond basic validation.
 // It detects unreachable resources, expression references to unknown actionIds, and
 // missing required component inputs.
@@ -279,7 +284,11 @@ func extractActionIDRefs(s string) []string {
 		}
 	}
 	for _, block := range reTemplateBlock.FindAllStringSubmatch(s, -1) {
-		for _, m := range reDotIdent.FindAllStringSubmatch(block[1], -1) {
+		// Strip get/output calls before scanning for bare id.field refs; default
+		// path values inside those calls (e.g. '/tmp/output.pdf') would otherwise
+		// be mis-parsed as actionId references.
+		stripped := reStripFuncCalls.ReplaceAllString(block[1], "")
+		for _, m := range reDotIdent.FindAllStringSubmatch(stripped, -1) {
 			if !builtinTemplateVars[m[1]] {
 				refs = append(refs, m[1])
 			}
