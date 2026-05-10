@@ -540,6 +540,24 @@ func TestExtractActionIDRefs_BuiltinVarsNotFlagged(t *testing.T) {
 	assert.Empty(t, wa.Errors())
 }
 
+func TestAnalyzeWorkflow_ComponentNameRefsNotFlagged(t *testing.T) {
+	// A globally-installed component (e.g. autopilot) has a resource that
+	// references the component itself via get("autopilot.task"). Since
+	// "autopilot" is a component name in workflow.Components, it must not be
+	// flagged as an unknown actionId.
+	r := mkResource("plan-and-execute")
+	r.Run.Chat = &domain.ChatConfig{
+		Prompt: `Task: {{ get("autopilot.task") }} Context: {{ get("autopilot.context") }}`,
+	}
+	w := mkWorkflow("plan-and-execute", r)
+	w.Components = map[string]*domain.Component{
+		"autopilot": {Interface: nil},
+	}
+
+	wa := validator.AnalyzeWorkflow(w)
+	assert.Empty(t, wa.Errors())
+}
+
 func TestAnalyzeWorkflow_CombinedIssues(t *testing.T) {
 	target := mkResource("target")
 	target.Run.Chat = &domain.ChatConfig{Prompt: "output('gone')"}

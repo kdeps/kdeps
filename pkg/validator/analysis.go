@@ -109,11 +109,14 @@ func AnalyzeWorkflow(workflow *domain.Workflow) *WorkflowAnalysis {
 	// Build actionId index.
 	actionIDs := buildActionIDIndex(workflow)
 
+	// Build component name index - component names are valid get("name.field") targets.
+	componentNames := buildComponentNameIndex(workflow)
+
 	// 1. Unreachable resources.
 	wa.Issues = append(wa.Issues, detectUnreachable(workflow)...)
 
 	// 2. Expression references to non-existent actionIds.
-	wa.Issues = append(wa.Issues, detectBadExpressionRefs(workflow, actionIDs)...)
+	wa.Issues = append(wa.Issues, detectBadExpressionRefs(workflow, actionIDs, componentNames)...)
 
 	// 3. Missing required component inputs.
 	wa.Issues = append(wa.Issues, detectMissingComponentInputs(workflow)...)
@@ -126,6 +129,17 @@ func buildActionIDIndex(workflow *domain.Workflow) map[string]bool {
 	m := make(map[string]bool, len(workflow.Resources))
 	for _, r := range workflow.Resources {
 		m[r.Metadata.ActionID] = true
+	}
+	return m
+}
+
+// buildComponentNameIndex returns a set of all component names in the workflow.
+// Component names are valid identifiers in get("name.field") expressions and
+// should not be flagged as unknown actionIds.
+func buildComponentNameIndex(workflow *domain.Workflow) map[string]bool {
+	m := make(map[string]bool, len(workflow.Components))
+	for name := range workflow.Components {
+		m[name] = true
 	}
 	return m
 }
@@ -174,7 +188,7 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 // detectBadExpressionRefs scans all string fields in each resource for
 // get('id') / output('id') / template {{ id.field }} patterns and reports
 // any actionId that does not exist in the workflow.
-func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs map[string]bool) []AnalysisIssue {
+func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs, componentNames map[string]bool) []AnalysisIssue {
 	kdeps_debug.Log("enter: detectBadExpressionRefs")
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
@@ -186,7 +200,7 @@ func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs map[string]boo
 					continue
 				}
 				seen[ref] = true
-				if !actionIDs[ref] {
+				if !actionIDs[ref] && !componentNames[ref] {
 					issues = append(issues, AnalysisIssue{
 						ActionID: r.Metadata.ActionID,
 						Severity: "error",
