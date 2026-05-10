@@ -568,3 +568,30 @@ func TestAnalyzeWorkflow_CombinedIssues(t *testing.T) {
 	assert.Len(t, wa.Errors(), 1)   // bad ref
 	assert.Len(t, wa.Warnings(), 1) // orphan
 }
+
+func TestAnalyzeWorkflow_DefaultPathValuesNotFlaggedAsActionIds(t *testing.T) {
+	// Regression: get('id.field', '/tmp/file.ext') used to extract the filename
+	// component (e.g. "screenshot", "event", "output") from the default path via
+	// reDotIdent scanning, producing false-positive actionId errors.
+	cases := []struct {
+		name   string
+		script string
+	}{
+		{"screenshot default", `path = "{{ get('browser.screenshotPath', '/tmp/screenshot.png') }}"`},
+		{"event ics default", `f = "{{ get('calendar.outputFile', '/tmp/event.ics') }}"`},
+		{"kdeps-embedding default", `db = """{{ get("embedding.dbPath", "/tmp/kdeps-embedding.db") }}"""`},
+		{"output pdf default", `out = "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := mkResource("comp-resource")
+			r.Run.Python = &domain.PythonConfig{Script: tc.script}
+			w := mkWorkflow("comp-resource", r)
+			w.Components = map[string]*domain.Component{
+				"browser": {}, "calendar": {}, "embedding": {}, "pdf": {},
+			}
+			wa := validator.AnalyzeWorkflow(w)
+			assert.Empty(t, wa.Errors(), "default path value must not be flagged as actionId")
+		})
+	}
+}
