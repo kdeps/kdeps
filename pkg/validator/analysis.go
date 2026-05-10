@@ -79,11 +79,10 @@ func (wa *WorkflowAnalysis) Warnings() []AnalysisIssue {
 	return out
 }
 
-// reGetDot matches get('id.field') - dot notation only, to avoid flagging bare
-// request-parameter lookups like get('q') which are not actionId references.
-var reGetDot = regexp.MustCompile(`get\s*\(\s*['"]([A-Za-z0-9_-]+)\.[^'"]*['"]\s*\)`)
-
 // reOutput matches output('id') and output('id.field') - always an actionId reference.
+// get('id.field') is NOT checked because it is used for both actionId output access
+// and nested request-body field access (e.g. get('event.text')), making it
+// indistinguishable without runtime context.
 var reOutput = regexp.MustCompile(`output\s*\(\s*['"]([A-Za-z0-9_-]+)(?:\.[^'"]*)?['"]\s*\)`)
 
 // reTemplateBlock extracts the content inside {{ ... }} blocks.
@@ -269,15 +268,12 @@ var builtinTemplateVars = map[string]bool{ //nolint:gochecknoglobals // compile-
 }
 
 // extractActionIDRefs extracts actionId tokens from a single expression string.
-// It matches get('id.field') (dot required to avoid request-param false positives),
-// output('id'), and {{ id.field }} template patterns.
+// It matches output('id') and {{ id.field }} template patterns.
+// get('id.field') is intentionally excluded: it is used for both actionId output
+// access and nested request-body field access (e.g. get('event.text')), so it
+// cannot be reliably classified without runtime context.
 func extractActionIDRefs(s string) []string {
 	var refs []string
-	for _, m := range reGetDot.FindAllStringSubmatch(s, -1) {
-		if !builtinTemplateVars[m[1]] {
-			refs = append(refs, m[1])
-		}
-	}
 	for _, m := range reOutput.FindAllStringSubmatch(s, -1) {
 		if !builtinTemplateVars[m[1]] {
 			refs = append(refs, m[1])
