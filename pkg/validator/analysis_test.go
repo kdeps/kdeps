@@ -155,8 +155,10 @@ func TestAnalyzeWorkflow_GoodExpressionRef(t *testing.T) {
 }
 
 func TestAnalyzeWorkflow_BadExpressionRef_GetFunc(t *testing.T) {
+	// get('id.field') is not checked (ambiguous with request-body access);
+	// bare template refs {{ id.field }} are the detectable form.
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ get('missing.field') }}"}
+	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ missing.field }}"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -188,9 +190,9 @@ func TestAnalyzeWorkflow_BadExpressionRef_Template(t *testing.T) {
 }
 
 func TestAnalyzeWorkflow_ExpressionRef_NoFalsePositive_SelfRef(t *testing.T) {
-	// Self-reference via get('target.field') should not flag if 'target' exists.
+	// output('target') should not flag when 'target' is a known actionId.
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "get('target.field')"}
+	r.Run.Chat = &domain.ChatConfig{Prompt: "output('target')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -201,7 +203,7 @@ func TestAnalyzeWorkflow_ExpressionRef_DedupedPerResource(t *testing.T) {
 	// Same bad ref used twice in the same resource should produce one error.
 	r := mkResource("target")
 	r.Run.Chat = &domain.ChatConfig{
-		Prompt: "get('ghost.a') and get('ghost.b')",
+		Prompt: "output('ghost') and {{ ghost.b }}",
 	}
 	w := mkWorkflow("target", r)
 
@@ -220,7 +222,7 @@ func TestAnalyzeWorkflow_ExpressionInExpr(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
 	r := mkResource("target")
-	r.Run.ExprBefore = []domain.Expression{{Raw: "set('k', get('gone.field'))"}}
+	r.Run.ExprBefore = []domain.Expression{{Raw: "output('gone')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -230,8 +232,8 @@ func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionInValidations(t *testing.T) {
 	r := mkResource("target")
 	r.Run.Validations = &domain.ValidationsConfig{
-		Skip:  []domain.Expression{{Raw: "get('absent.field')"}},
-		Check: []domain.Expression{{Raw: "get('target.ok')"}}, // valid
+		Skip:  []domain.Expression{{Raw: "output('absent')"}},
+		Check: []domain.Expression{{Raw: "output('target')"}}, // valid (target exists)
 	}
 	w := mkWorkflow("target", r)
 
@@ -244,7 +246,7 @@ func TestAnalyzeWorkflow_ExpressionInValidations(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionInOnError(t *testing.T) {
 	r := mkResource("target")
 	r.Run.OnError = &domain.OnErrorConfig{
-		Expr: []domain.Expression{{Raw: "get('nowhere.x')"}},
+		Expr: []domain.Expression{{Raw: "output('nowhere')"}},
 	}
 	w := mkWorkflow("target", r)
 
@@ -263,7 +265,7 @@ func TestAnalyzeWorkflow_ExpressionInPythonScript(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExecCommand(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Exec = &domain.ExecConfig{Command: "echo get('missing.field')"}
+	r.Run.Exec = &domain.ExecConfig{Command: "echo output('missing')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -283,7 +285,7 @@ func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 	r := mkResource("target")
 	r.Run.HTTPClient = &domain.HTTPClientConfig{
 		URL:  "http://example.com",
-		Data: "get('absent.field')",
+		Data: "output('absent')",
 	}
 	w := mkWorkflow("target", r)
 
@@ -324,7 +326,7 @@ func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SearchLocal = &domain.SearchLocalConfig{Query: "get('gone.field')"}
+	r.Run.SearchLocal = &domain.SearchLocalConfig{Query: "output('gone')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -362,11 +364,12 @@ func TestAnalyzeWorkflow_ExpressionInAfterInline(t *testing.T) {
 	assert.NotEmpty(t, wa.Errors())
 }
 
-// TestAnalyzeWorkflow_BareGetNoDotNoError verifies bare get('q') without dot
-// notation is NOT flagged (request-param lookups, not actionId refs).
-func TestAnalyzeWorkflow_BareGetNoDotNoError(t *testing.T) {
+// TestAnalyzeWorkflow_GetNotChecked verifies that get() calls (with or without
+// dots) are never flagged — they are used for request-param access and cannot
+// be reliably distinguished from actionId refs without runtime context.
+func TestAnalyzeWorkflow_GetNotChecked(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ get('q') }} and get('page')"}
+	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ get('q') }} and get('page') and get('event.text')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -474,15 +477,16 @@ func TestAnalyzeWorkflow_NoComponents(t *testing.T) {
 // extractActionIDRefs (via public surface)
 
 func TestExtractActionIDRefs_BareGetNoDetection(t *testing.T) {
-	// bare get('dep') without dot is not detected (ambiguous with request params)
+	// get() calls are never checked for actionId refs
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "get('dep')"}
+	r.Run.Chat = &domain.ChatConfig{Prompt: "get('dep') and get('dep.field')"}
 	w := mkWorkflow("target", r) // 'dep' not defined - should NOT error
 	wa := validator.AnalyzeWorkflow(w)
 	assert.Empty(t, wa.Errors())
 }
 
 func TestExtractActionIDRefs_DotGet_Valid(t *testing.T) {
+	// get() is not analyzed; this test confirms no false positive on get("dep.field")
 	r := mkResource("target")
 	r.Run.Chat = &domain.ChatConfig{Prompt: `get("dep.field")`}
 	dep := mkResource("dep")

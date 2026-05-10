@@ -176,7 +176,7 @@ comp_required_inputs() {
         browser)     echo "url=https://example.com" ;;
         calendar)    echo "title=Meeting start=2024-01-01T10:00:00 end=2024-01-01T11:00:00" ;;
         email)       echo "to=test@example.com subject=Hello body=World smtpHost=smtp.example.com smtpUser=user smtpPass=pass" ;;
-        embedding)   echo "text=hello_world apiKey=sk-fake" ;;
+        embedding)   echo "operation=search text=hello_world" ;;
         input)       echo "query=hello" ;;
         memory)      echo "key=mykey" ;;
         pdf)         echo "content=Hello" ;;
