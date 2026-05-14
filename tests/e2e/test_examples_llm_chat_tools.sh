@@ -55,10 +55,10 @@ else
 fi
 
 # T4: workflow uses llm source
-if grep -q "sources:.*\[llm\]\|sources:.*llm" "$WF"; then
-    test_passed "llm-chat-tools - workflow uses sources: [llm]"
+if grep -q "sources:.*\[api\]" "$WF"; then
+    test_passed "llm-chat-tools - workflow uses sources: [api]"
 else
-    test_failed "llm-chat-tools - workflow uses sources: [llm]" "sources: [llm] not found in $WF"
+    test_failed "llm-chat-tools - workflow uses sources: [api]" "sources: [api] not found in $WF"
 fi
 
 # T5: executionType is stdin

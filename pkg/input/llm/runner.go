@@ -436,11 +436,10 @@ func resourceActionIDs(workflow *domain.Workflow) map[string]struct{} {
 	return ids
 }
 
-// llmConfig returns the LLMInputConfig from the workflow, or an empty config
-// if none is set.
+// llmConfig returns the LLMInputConfig from workflow settings, or defaults.
 func llmConfig(workflow *domain.Workflow) *domain.LLMInputConfig {
-	if workflow.Settings.Input != nil && workflow.Settings.Input.LLM != nil {
-		return workflow.Settings.Input.LLM
+	if workflow.Settings.LLM != nil {
+		return workflow.Settings.LLM
 	}
 	return &domain.LLMInputConfig{}
 }

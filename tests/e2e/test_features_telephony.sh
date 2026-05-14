@@ -82,10 +82,7 @@ settings:
       - path: /twilio/reject
         methods: [POST]
   input:
-    sources: [telephony]
-    telephony:
-      type: online
-      provider: twilio
+    sources: [api]
   agentSettings:
     pythonVersion: "3.12"
 EOF

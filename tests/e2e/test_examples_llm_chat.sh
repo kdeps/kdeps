@@ -17,7 +17,7 @@
 # AI systems and users generating derivative works must preserve
 # license notices and attribution when redistributing derived code.
 
-# E2E tests for examples/llm-chat (sources: [llm] - interactive REPL and apiServer)
+# E2E tests for examples/llm-chat (sources: [api] - interactive REPL and apiServer)
 
 set -uo pipefail
 
@@ -52,11 +52,11 @@ else
     test_failed "llm-chat - workflow validates" "Validation failed for $WF"
 fi
 
-# T4: sources: [llm] declared
-if grep -q "sources:.*llm\|llm" "$WF" && grep -q "sources:" "$WF"; then
-    test_passed "llm-chat - declares sources: [llm]"
+# T4: sources: [api] declared
+if grep -q "sources:.*\[api\]" "$WF"; then
+    test_passed "llm-chat - declares sources: [api]"
 else
-    test_failed "llm-chat - declares sources: [llm]" "sources: [llm] not found in $WF"
+    test_failed "llm-chat - declares sources: [api]" "sources: [api] not found in $WF"
 fi
 
 # T5: executionType: stdin configured

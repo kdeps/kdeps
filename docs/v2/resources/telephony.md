@@ -20,15 +20,17 @@ run:
 
 ## Workflow Setup
 
-Enable telephony input in the workflow settings:
+Telephony actions are called as resources within a workflow. The workflow uses the default `api` input source and Twilio webhooks to trigger the telephony resource:
 
 ```yaml
 settings:
   input:
-    sources: [telephony]
-    telephony:
-      type: online
-      provider: twilio
+    sources: [api]
+  apiServerMode: true
+  apiServer:
+    routes:
+      - path: /api/v1/telephony
+        methods: [POST]
 ```
 
 ## Actions

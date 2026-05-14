@@ -41,6 +41,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
+	mcpclient "github.com/kdeps/kdeps/v2/pkg/tools/mcp"
 )
 
 // toolExecutorInterface defines the interface for tool execution (to avoid import cycle).
@@ -1338,7 +1339,7 @@ func (e *Executor) executeTool(
 
 	// MCP tool: delegate to MCP server via JSON-RPC 2.0 over stdio
 	if tool.MCP != nil {
-		result, mcpErr := executeMCPTool(tool.MCP, tool.Name, args)
+		result, mcpErr := mcpclient.ExecuteTool(tool.MCP, tool.Name, args)
 		if mcpErr != nil {
 			return nil, fmt.Errorf("MCP tool execution failed: %w", mcpErr)
 		}

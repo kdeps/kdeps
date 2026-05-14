@@ -90,7 +90,10 @@ type ValidationsConfig struct {
 
 // RunConfig contains resource execution configuration.
 // Only one primary action type should be set per resource.
+// Tool is an optional convenience discriminator (e.g. "http_request", "sql_query").
+// When Tool is set, it selects the corresponding action type config.
 type RunConfig struct {
+	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
 	Validations *ValidationsConfig `yaml:"validations,omitempty"`
 	Loop        *LoopConfig        `yaml:"loop,omitempty"`
 	ExprBefore  []Expression       `yaml:"exprBefore,omitempty"`

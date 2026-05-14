@@ -8,15 +8,15 @@ metadata:
   targetActionId: chat
 
 settings:
-  # sources: [llm] enables the LLM input source.
+  # sources: [api] Start the LLM REPL with --interactive flag.
   # executionType: stdin starts an interactive REPL on stdin/stdout.
   # executionType: apiServer starts the HTTP API server instead.
   input:
-    sources: [llm]
-    llm:
-      executionType: stdin
-      prompt: "You: "
-      sessionId: "llm-chat-session"
+    sources: [api]
+  llm:
+    executionType: stdin
+    prompt: "You: "
+    sessionId: "llm-chat-session"
 
   hostIp: "0.0.0.0"
   portNum: 16400

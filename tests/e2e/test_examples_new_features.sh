@@ -52,11 +52,11 @@ else
         test_failed "component-input-source - workflow validates" "Validation failed for $CIS_WF"
     fi
 
-    # T4: sources: [component] declared
-    if grep -q "sources:.*component\|component" "$CIS_WF" && grep -q "sources:" "$CIS_WF"; then
-        test_passed "component-input-source - declares sources: [component]"
+    # T4: sources: [api] declared
+    if grep -q "sources:.*\[api\]" "$CIS_WF"; then
+        test_passed "component-input-source - checks workflow sources: [api]"
     else
-        test_failed "component-input-source - declares sources: [component]" "sources: [component] not found in $CIS_WF"
+        test_failed "component-input-source - checks workflow sources: [api]" "sources: [api] not found in $CIS_WF"
     fi
 
     # T5: component.description is set

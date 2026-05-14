@@ -2904,26 +2904,6 @@ func TestRunFlags_InteractiveFalseByDefault(t *testing.T) {
 // TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil verifies that when
 // skipLLMRepl=true and the workflow has sources: [llm], the function returns nil
 // immediately without attempting to start the LLM REPL.
-func TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil(t *testing.T) {
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:           "test-llm",
-			TargetActionID: "chat",
-		},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources:       []string{domain.InputSourceLLM},
-				ExecutionType: domain.LLMInputExecutionTypeStdin,
-			},
-		},
-	}
-
-	eng := executor.NewEngine(nil)
-
-	// skipLLMRepl=true: must return nil immediately (no REPL started).
-	err := cmd.DispatchExecutionWithEngine(eng, wf, t.TempDir(), false, false, "", true)
-	assert.NoError(t, err)
-}
 
 // TestDispatchExecutionWithEngine_SkipFalse_NoLLMSource verifies that when
 // skipLLMRepl=false but the workflow has no LLM source, the function falls

@@ -7,7 +7,7 @@ metadata:
     A reusable text-transformation sub-workflow designed to be called via
     run.component from a parent workflow.
 
-    Declares sources: [component] so no HTTP server, bot listener, or file
+    Declares sources: [api] so no HTTP server, bot listener, or file
     reader is started.  All input arrives through the calling resource's
     with: map.
 
@@ -33,6 +33,6 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   input:
-    sources: [component]
+    sources: [api]
     component:
       description: "Transforms text to uppercase, lowercase, or title case."

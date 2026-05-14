@@ -523,17 +523,11 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: validateSourcesList")
 	validSources := map[string]bool{
-		domain.InputSourceAPI:       true,
-		domain.InputSourceAudio:     true,
-		domain.InputSourceVideo:     true,
-		domain.InputSourceTelephony: true,
-		domain.InputSourceBot:       true,
-		domain.InputSourceFile:      true,
-		domain.InputSourceComponent: true,
-		domain.InputSourceLLM:       true,
+		domain.InputSourceAPI:  true,
+		domain.InputSourceBot:  true,
+		domain.InputSourceFile: true,
 	}
 
-	hasTelephony := false
 	hasBot := false
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
@@ -548,7 +542,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, audio, video, telephony, bot, file, component, llm]",
+					"invalid input source: %s. Available options: [api, bot, file]",
 					source,
 				),
 				nil,
@@ -562,24 +556,8 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			)
 		}
 		seen[source] = true
-		switch source {
-		case domain.InputSourceTelephony:
-			hasTelephony = true
-		case domain.InputSourceBot:
+		if source == domain.InputSourceBot {
 			hasBot = true
-		}
-	}
-
-	if hasTelephony {
-		if config.Telephony == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"input.telephony is required when sources includes telephony",
-				nil,
-			)
-		}
-		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
-			return err
 		}
 	}
 
@@ -677,295 +655,6 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 	if err := v.validateSourcesList(config); err != nil {
 		return err
-	}
-
-	// Validate executionType for media (audio/video/telephony) sources.
-	if config.ExecutionType != "" {
-		if config.ExecutionType != domain.InputExecutionTypePolling &&
-			config.ExecutionType != domain.InputExecutionTypeStateless {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf(
-					"input.executionType must be %q or %q, got %q",
-					domain.InputExecutionTypePolling,
-					domain.InputExecutionTypeStateless,
-					config.ExecutionType,
-				),
-				nil,
-			)
-		}
-	}
-
-	// Transcribers apply only to non-API sources
-	if config.Transcriber != nil {
-		if config.AllSourcesAPI() {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber is not supported when all sources are api",
-				nil,
-			)
-		}
-		if err := v.ValidateTranscriberConfig(config.Transcriber); err != nil {
-			return err
-		}
-	}
-
-	// Activation applies only to non-API sources
-	if config.Activation != nil {
-		if config.AllSourcesAPI() {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation is not supported when all sources are api",
-				nil,
-			)
-		}
-		if err := v.ValidateActivationConfig(config.Activation); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ValidateTelephonyConfig validates telephony configuration.
-func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConfig) error {
-	kdeps_debug.Log("enter: ValidateTelephonyConfig")
-	validTypes := map[string]bool{
-		domain.TelephonyTypeLocal:  true,
-		domain.TelephonyTypeOnline: true,
-	}
-
-	if config.Type == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"telephony.type is required",
-			nil,
-		)
-	}
-
-	if !validTypes[config.Type] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid telephony type: %s. Available options: [local, online]",
-				config.Type,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateTranscriberConfig validates transcriber configuration for analog media inputs.
-func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.TranscriberConfig) error {
-	kdeps_debug.Log("enter: ValidateTranscriberConfig")
-	validModes := map[string]bool{
-		domain.TranscriberModeOnline:  true,
-		domain.TranscriberModeOffline: true,
-	}
-
-	if config.Mode == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.mode is required",
-			nil,
-		)
-	}
-
-	if !validModes[config.Mode] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber mode: %s. Available options: [online, offline]",
-				config.Mode,
-			),
-			nil,
-		)
-	}
-
-	// Validate output type if specified
-	if config.Output != "" {
-		validOutputs := map[string]bool{
-			domain.TranscriberOutputText:  true,
-			domain.TranscriberOutputMedia: true,
-		}
-		if !validOutputs[config.Output] {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf(
-					"invalid transcriber output: %s. Available options: [text, media]",
-					config.Output,
-				),
-				nil,
-			)
-		}
-	}
-
-	switch config.Mode {
-	case domain.TranscriberModeOnline:
-		if config.Online == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber.online is required when mode is online",
-				nil,
-			)
-		}
-		if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
-			return err
-		}
-	case domain.TranscriberModeOffline:
-		if config.Offline == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber.offline is required when mode is offline",
-				nil,
-			)
-		}
-		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ValidateOnlineTranscriberConfig validates online (cloud) transcriber settings.
-func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(
-	config *domain.OnlineTranscriberConfig,
-) error {
-	kdeps_debug.Log("enter: ValidateOnlineTranscriberConfig")
-	validProviders := map[string]bool{
-		domain.TranscriberProviderOpenAIWhisper: true,
-		domain.TranscriberProviderGoogleSTT:     true,
-		domain.TranscriberProviderAWSTranscribe: true,
-		domain.TranscriberProviderDeepgram:      true,
-		domain.TranscriberProviderAssemblyAI:    true,
-	}
-
-	if config.Provider == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.online.provider is required",
-			nil,
-		)
-	}
-
-	if !validProviders[config.Provider] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber online provider: %s."+
-					" Available options: [openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai]",
-				config.Provider,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateOfflineTranscriberConfig validates offline (local) transcriber settings.
-func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(
-	config *domain.OfflineTranscriberConfig,
-) error {
-	kdeps_debug.Log("enter: ValidateOfflineTranscriberConfig")
-	validEngines := map[string]bool{
-		domain.TranscriberEngineWhisper:       true,
-		domain.TranscriberEngineFasterWhisper: true,
-		domain.TranscriberEngineVosk:          true,
-		domain.TranscriberEngineWhisperCPP:    true,
-	}
-
-	if config.Engine == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.offline.engine is required",
-			nil,
-		)
-	}
-
-	if !validEngines[config.Engine] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber offline engine: %s. Available options: [whisper, faster-whisper, vosk, whisper-cpp]",
-				config.Engine,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateActivationConfig validates wake-phrase activation configuration.
-func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationConfig) error {
-	kdeps_debug.Log("enter: ValidateActivationConfig")
-	validModes := map[string]bool{
-		domain.TranscriberModeOnline:  true,
-		domain.TranscriberModeOffline: true,
-	}
-
-	if config.Phrase == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.phrase is required",
-			nil,
-		)
-	}
-
-	if config.Mode == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.mode is required",
-			nil,
-		)
-	}
-
-	if !validModes[config.Mode] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid activation mode: %s. Available options: [online, offline]",
-				config.Mode,
-			),
-			nil,
-		)
-	}
-
-	if config.Sensitivity != 0 && (config.Sensitivity < 0 || config.Sensitivity > 1) {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.sensitivity must be between 0.0 and 1.0",
-			nil,
-		)
-	}
-
-	switch config.Mode {
-	case domain.TranscriberModeOnline:
-		if config.Online == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation.online is required when mode is online",
-				nil,
-			)
-		}
-		if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
-			return err
-		}
-	case domain.TranscriberModeOffline:
-		if config.Offline == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation.offline is required when mode is offline",
-				nil,
-			)
-		}
-		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
-			return err
-		}
 	}
 
 	return nil

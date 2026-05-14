@@ -16,7 +16,9 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-package llm
+// Package mcp provides a first-class MCP (Model Context Protocol) client.
+// Supports stdio (local subprocess) and SSE (HTTP Server-Sent Events) transports.
+package mcp
 
 import (
 	"bufio"
@@ -37,10 +39,10 @@ import (
 )
 
 const (
-	mcpProtocolVersion = "2024-11-05"
-	mcpClientName      = "kdeps"
-	mcpClientVersion   = "1.0"
-	mcpDefaultTimeout  = 30 * time.Second
+	protocolVersion = "2024-11-05"
+	clientName      = "kdeps"
+	clientVersion   = "1.0"
+	defaultTimeout  = 30 * time.Second
 )
 
 // jsonRPCRequest is a JSON-RPC 2.0 request.
@@ -77,27 +79,24 @@ type mcpToolResult struct {
 	IsError bool         `json:"isError,omitempty"`
 }
 
-// MCPStdioClient implements an MCP client over stdio transport.
-// It starts an MCP server subprocess, performs the initialize handshake,
-// then accepts tool/call requests.
-type MCPStdioClient struct {
-	cmd    *exec.Cmd
+// Client represents an MCP client over any transport.
+type Client struct {
 	stdin  io.WriteCloser
 	stdout *bufio.Scanner
+	cmd    *exec.Cmd
 	nextID atomic.Int64
 }
 
-// newMCPStdioClient starts an MCP server subprocess and performs the initialize handshake.
-func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioClient, error) {
-	kdeps_debug.Log("enter: newMCPStdioClient")
+// NewStdioClient starts an MCP server subprocess and performs the initialize handshake.
+func NewStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*Client, error) {
+	kdeps_debug.Log("enter: NewStdioClient")
 	if cfg.Server == "" {
 		return nil, errors.New("MCP server command is required")
 	}
 
-	//nolint:gosec // user-configured MCP server command — intentionally user-controlled
+	//nolint:gosec // user-configured MCP server command
 	cmd := exec.CommandContext(ctx, cfg.Server, cfg.Args...)
 
-	// Apply additional environment variables
 	if len(cfg.Env) > 0 {
 		env := os.Environ()
 		for k, v := range cfg.Env {
@@ -108,43 +107,39 @@ func newMCPStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*MCPStdioCli
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdin pipe for MCP server: %w", err)
+		return nil, fmt.Errorf("stdin pipe: %w", err)
 	}
 
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdout pipe for MCP server: %w", err)
+		return nil, fmt.Errorf("stdout pipe: %w", err)
 	}
 
 	if startErr := cmd.Start(); startErr != nil {
-		return nil, fmt.Errorf("failed to start MCP server %q: %w", cfg.Server, startErr)
+		return nil, fmt.Errorf("start MCP server %q: %w", cfg.Server, startErr)
 	}
 
-	client := &MCPStdioClient{
+	client := &Client{
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: bufio.NewScanner(stdoutPipe),
 	}
 
-	// Perform MCP initialize handshake
 	if initErr := client.initialize(); initErr != nil {
 		_ = client.Close()
-		return nil, fmt.Errorf("MCP initialize handshake failed: %w", initErr)
+		return nil, fmt.Errorf("MCP initialize: %w", initErr)
 	}
 
 	return client, nil
 }
 
-// NewMCPStdioClientForTesting creates an MCPStdioClient backed by the given
-// pre-opened pipes instead of spawning a subprocess.  The client is created
-// without running the initialize handshake.  Used only in tests.
-func NewMCPStdioClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *MCPStdioClient {
-	kdeps_debug.Log("enter: NewMCPStdioClientForTesting")
-	return &MCPStdioClient{stdin: stdin, stdout: stdout}
+// NewClientForTesting creates a Client backed by pre-opened pipes.
+func NewClientForTesting(stdin io.WriteCloser, stdout *bufio.Scanner) *Client {
+	kdeps_debug.Log("enter: NewClientForTesting")
+	return &Client{stdin: stdin, stdout: stdout}
 }
 
-// initialize performs the MCP initialize + initialized handshake.
-func (c *MCPStdioClient) initialize() error {
+func (c *Client) initialize() error {
 	kdeps_debug.Log("enter: initialize")
 	id := c.nextID.Add(1)
 
@@ -153,11 +148,11 @@ func (c *MCPStdioClient) initialize() error {
 		ID:      id,
 		Method:  "initialize",
 		Params: map[string]interface{}{
-			"protocolVersion": mcpProtocolVersion,
+			"protocolVersion": protocolVersion,
 			"capabilities":    map[string]interface{}{},
 			"clientInfo": map[string]interface{}{
-				"name":    mcpClientName,
-				"version": mcpClientVersion,
+				"name":    clientName,
+				"version": clientVersion,
 			},
 		},
 	}
@@ -166,20 +161,14 @@ func (c *MCPStdioClient) initialize() error {
 		return err
 	}
 
-	// Read initialize response
 	resp, err := c.readResponse()
 	if err != nil {
-		return fmt.Errorf("failed to read initialize response: %w", err)
+		return fmt.Errorf("read initialize response: %w", err)
 	}
 	if resp.Error != nil {
-		return fmt.Errorf(
-			"MCP server initialization error %d: %s",
-			resp.Error.Code,
-			resp.Error.Message,
-		)
+		return fmt.Errorf("MCP init error %d: %s", resp.Error.Code, resp.Error.Message)
 	}
 
-	// Send initialized notification (no response expected)
 	notification := jsonRPCRequest{
 		JSONRPC: "2.0",
 		Method:  "notifications/initialized",
@@ -187,9 +176,8 @@ func (c *MCPStdioClient) initialize() error {
 	return c.send(notification)
 }
 
-// CallTool calls an MCP tool with the given name and arguments.
-// It returns the text content from the tool result.
-func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{}) (string, error) {
+// CallTool calls an MCP tool and returns text content from the result.
+func (c *Client) CallTool(name string, arguments map[string]interface{}) (string, error) {
 	kdeps_debug.Log("enter: CallTool")
 	id := c.nextID.Add(1)
 
@@ -209,10 +197,10 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 
 	resp, err := c.readResponse()
 	if err != nil {
-		return "", fmt.Errorf("failed to read tool response: %w", err)
+		return "", fmt.Errorf("read tool response: %w", err)
 	}
 	if resp.Error != nil {
-		return "", fmt.Errorf("MCP tool call error %d: %s", resp.Error.Code, resp.Error.Message)
+		return "", fmt.Errorf("MCP tool error %d: %s", resp.Error.Code, resp.Error.Message)
 	}
 	if resp.Result == nil {
 		return "", nil
@@ -220,7 +208,6 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 
 	var result mcpToolResult
 	if unmarshalErr := json.Unmarshal(*resp.Result, &result); unmarshalErr != nil {
-		// Fallback: return raw JSON
 		//nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
 		return string(*resp.Result), nil
 	}
@@ -235,7 +222,6 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 		return "", fmt.Errorf("MCP tool returned error: %s", sb.String())
 	}
 
-	// Concatenate all text content items
 	var sb strings.Builder
 	for _, item := range result.Content {
 		if item.Type == "text" {
@@ -245,22 +231,19 @@ func (c *MCPStdioClient) CallTool(name string, arguments map[string]interface{})
 	return sb.String(), nil
 }
 
-// send sends a JSON-RPC request to the MCP server.
-func (c *MCPStdioClient) send(req jsonRPCRequest) error {
+func (c *Client) send(req jsonRPCRequest) error {
 	kdeps_debug.Log("enter: send")
 	data, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("failed to marshal MCP request: %w", err)
+		return fmt.Errorf("marshal: %w", err)
 	}
 	data = append(data, '\n')
 	_, err = c.stdin.Write(data)
 	return err
 }
 
-// readResponse reads the next JSON-RPC response line from stdout.
-func (c *MCPStdioClient) readResponse() (*jsonRPCResponse, error) {
+func (c *Client) readResponse() (*jsonRPCResponse, error) {
 	kdeps_debug.Log("enter: readResponse")
-	// Skip notification lines (no id field) until we get a response
 	for c.stdout.Scan() {
 		line := c.stdout.Text()
 		if line == "" {
@@ -268,42 +251,36 @@ func (c *MCPStdioClient) readResponse() (*jsonRPCResponse, error) {
 		}
 		var resp jsonRPCResponse
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {
-			continue // Skip unparseable lines (e.g. log output)
+			continue
 		}
-		// Notifications have no ID — skip them
 		if resp.ID == nil && resp.Result == nil && resp.Error == nil {
 			continue
 		}
 		return &resp, nil
 	}
 	if err := c.stdout.Err(); err != nil {
-		return nil, fmt.Errorf("error reading from MCP server stdout: %w", err)
+		return nil, fmt.Errorf("stdout read: %w", err)
 	}
 	return nil, errors.New("MCP server stdout closed unexpectedly")
 }
 
 // Close terminates the MCP server subprocess.
-func (c *MCPStdioClient) Close() error {
+func (c *Client) Close() error {
 	kdeps_debug.Log("enter: Close")
 	_ = c.stdin.Close()
 	if c.cmd != nil && c.cmd.Process != nil {
-		return c.cmd.Process.Kill() //nolint:wrapcheck // direct kill signal
+		return c.cmd.Process.Kill() //nolint:wrapcheck // direct kill signal, no wrapping needed
 	}
 	return nil
 }
 
-// executeMCPTool starts an MCP server subprocess, calls the named tool, and returns the result.
-// The subprocess is started fresh per tool call and shut down afterwards.
-func executeMCPTool(
-	cfg *domain.MCPConfig,
-	toolName string,
-	arguments map[string]interface{},
-) (string, error) {
-	kdeps_debug.Log("enter: executeMCPTool")
-	ctx, cancel := context.WithTimeout(context.Background(), mcpDefaultTimeout)
+// ExecuteTool starts an MCP server, calls the named tool, and returns the result.
+func ExecuteTool(cfg *domain.MCPConfig, toolName string, arguments map[string]interface{}) (string, error) {
+	kdeps_debug.Log("enter: ExecuteTool")
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
-	client, err := newMCPStdioClient(ctx, cfg)
+	client, err := NewStdioClient(ctx, cfg)
 	if err != nil {
 		return "", err
 	}
