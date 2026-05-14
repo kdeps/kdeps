@@ -280,24 +280,23 @@ fi
 
 test_passed "Telephony - Server startup"
 
-# Helper: extract twiml field from response JSON.
-# Pass JSON via env var to avoid shell/heredoc escape issues.
+# Helper: extract twiml field from response JSON via stdin pipe.
 extract_twiml() {
     local json="$1"
     local field="$2"
-    TWIML_JSON="$json" TWIML_FIELD="$field" python3 - <<'PY' 2>/dev/null || echo ""
-import os, json as j
+    echo "$json" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
-    block = data.get(os.environ['TWIML_FIELD'], {})
+    block = data.get('$field', {})
     if isinstance(block, dict):
         print(block.get('twiml', ''))
     else:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo ""
 }
 
 # -- Test 1: say ---------------------------------------------------------------
@@ -382,10 +381,10 @@ MENU_MATCH_RESP=$(curl -sf --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{"CallSid":"CA_MENU_002","From":"+14155551234","Digits":"1"}' 2>&1)
 
-MENU_STATUS=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
-import os, json as j
+MENU_STATUS=$(echo "$MENU_MATCH_RESP" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
@@ -398,7 +397,7 @@ try:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo "")
 
 if [ "$MENU_STATUS" = "match" ]; then
     test_passed "Telephony - menu match status"
@@ -406,10 +405,10 @@ else
     test_failed "Telephony - menu match status" "status='$MENU_STATUS'"
 fi
 
-MENU_INTERP=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
-import os, json as j
+MENU_INTERP=$(echo "$MENU_MATCH_RESP" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
@@ -422,7 +421,7 @@ try:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo "")
 
 if [ "$MENU_INTERP" = "1" ]; then
     test_passed "Telephony - menu match interpretation"
