@@ -122,13 +122,11 @@ func TestE2E_ComponentsAutoRegisteredAsLLMTools(t *testing.T) {
 					ActionID: "chat",
 					Name:     "Chat",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:          "llama3.2:1b",
-						Prompt:         "What is the weather today?",
-						BaseURL:        llmServer.URL,
-						ComponentTools: []string{"scraper", "search"}, // allowlist
-					},
+				Chat: &domain.ChatConfig{
+					Model:          "llama3.2:1b",
+					Prompt:         "What is the weather today?",
+					BaseURL:        llmServer.URL,
+					ComponentTools: []string{"scraper", "search"}, // allowlist
 				},
 			},
 		},
@@ -226,13 +224,11 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:          "llama3.2:1b",
-						Prompt:         "Send a test email",
-						BaseURL:        llmServer.URL,
-						ComponentTools: []string{"email"}, // allowlist
-					},
+				Chat: &domain.ChatConfig{
+					Model:          "llama3.2:1b",
+					Prompt:         "Send a test email",
+					BaseURL:        llmServer.URL,
+					ComponentTools: []string{"email"}, // allowlist
 				},
 			},
 		},
@@ -338,13 +334,11 @@ func TestE2E_ComponentTools_DefaultDisabled(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Prompt:  "Hello",
-						BaseURL: llmServer.URL,
-						// ComponentTools intentionally absent.
-					},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Prompt:  "Hello",
+					BaseURL: llmServer.URL,
+					// ComponentTools intentionally absent.
 				},
 			},
 		},
@@ -409,13 +403,11 @@ func TestE2E_ComponentTools_AllowlistFilters(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:          "llama3.2:1b",
-						Prompt:         "Hello",
-						BaseURL:        llmServer.URL,
-						ComponentTools: []string{"scraper"}, // only scraper; email excluded
-					},
+				Chat: &domain.ChatConfig{
+					Model:          "llama3.2:1b",
+					Prompt:         "Hello",
+					BaseURL:        llmServer.URL,
+					ComponentTools: []string{"scraper"}, // only scraper; email excluded
 				},
 			},
 		},

@@ -1062,7 +1062,7 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 	// If any chat resources exist, check the configured backend.
 	hasChatResources := false
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
+		if resource.Chat != nil {
 			hasChatResources = true
 			break
 		}

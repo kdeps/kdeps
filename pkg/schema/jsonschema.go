@@ -70,10 +70,10 @@ func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 	props := map[string]*JSONSchema{}
 
 	for _, res := range workflow.Resources {
-		if res.Run.Validations == nil {
+		if res.Validations == nil {
 			continue
 		}
-		v := res.Run.Validations
+		v := res.Validations
 
 		for _, req := range v.Required {
 			requiredSet[req] = struct{}{}

@@ -73,11 +73,9 @@ func fileWorkflow() *domain.Workflow {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "sink", Name: "Sink"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ok": true},
 				},
 			},
 		},
@@ -298,20 +296,16 @@ func TestE2E_FileInput_MultiResource(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "preamble", Name: "Preamble"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"step": "preamble"},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"step": "preamble"},
 				},
 			},
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "sink", Name: "Sink"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"step": "sink"},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"step": "sink"},
 				},
 			},
 		},
@@ -358,20 +352,16 @@ func TestE2E_FileInput_InlineBefore(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "preamble", Name: "Preamble"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"phase": "before"},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"phase": "before"},
 				},
 			},
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "sink", Name: "Sink"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ok": true},
 				},
 			},
 		},
@@ -413,20 +403,16 @@ func TestE2E_FileInput_InlineAfter(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "sink", Name: "Sink"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ok": true},
 				},
 			},
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "epilogue", Name: "Epilogue"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"phase": "after"},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"phase": "after"},
 				},
 			},
 		},

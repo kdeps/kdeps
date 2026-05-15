@@ -63,12 +63,11 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+chat:
+  prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -92,12 +91,11 @@ metadata:
   requires:
     - llmResource
 
-run:
-  apiResponse:
-    success: true
-    response:
-      data: get('llmResource')
-      query: get('q')
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
+    query: get('q')
 ```
 
 **Key Points:**
@@ -184,15 +182,14 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  validations:
-    - get('q') != ''
-    - len(get('q')) > 3
-  chat:
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+validations:
+  - get('q') != ''
+  - len(get('q')) > 3
+chat:
+  prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -206,16 +203,15 @@ Add system prompts and conversation history:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are a helpful assistant that provides clear, concise answers."
-      - role: user
-        prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+chat:
+  scenario:
+    - role: system
+      prompt: "You are a helpful assistant that provides clear, concise answers."
+    - role: user
+      prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -237,15 +233,14 @@ Then access session data:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are a helpful assistant."
-      - role: assistant
-        prompt: "{{ get('previous_response', 'session') }}"
-      - role: user
-        prompt: "{{ get('q') }}"
+chat:
+  scenario:
+    - role: system
+      prompt: "You are a helpful assistant."
+    - role: assistant
+      prompt: "{{ get('previous_response', 'session') }}"
+    - role: user
+      prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -264,17 +259,16 @@ metadata:
   requires:
     - llmResource
 
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
+    query: get('q')
+  onError:
+    success: false
     response:
-      data: get('llmResource')
-      query: get('q')
-    onError:
-      success: false
-      response:
-        error: "Failed to process request"
-        message: get('error')
+      error: "Failed to process request"
+      message: get('error')
 ```
 
 ## Next Steps

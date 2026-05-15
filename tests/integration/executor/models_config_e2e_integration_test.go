@@ -110,17 +110,16 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: test
-run:
-  chat:
-    model: gpt-4o
-    role: user
-    prompt: hello
+chat:
+  model: gpt-4o
+  role: user
+  prompt: hello
 `
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
 	require.NoError(t, err)
-	require.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "gpt-4o", resource.Run.Chat.Model)
+	require.NotNil(t, resource.Chat)
+	assert.Equal(t, "gpt-4o", resource.Chat.Model)
 }
 
 // TestE2E_ModelInResourceYAML_PlainString verifies that a model set as a plain
@@ -131,17 +130,16 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: test
-run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: hello
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: hello
 `
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
 	require.NoError(t, err)
-	require.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
+	require.NotNil(t, resource.Chat)
+	assert.Equal(t, "llama3.2:1b", resource.Chat.Model)
 }
 
 // TestE2E_ModelRouter_Delegation verifies that a resource with model="router"
@@ -202,14 +200,12 @@ llm:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
-					Chat: &domain.ChatConfig{
-						Model:   "router",
-						Prompt:  "hi",
-						BaseURL: server.URL,
-					},
+				Metadata:    domain.ResourceMetadata{ActionID: "chat"},
+				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+				Chat: &domain.ChatConfig{
+					Model:   "router",
+					Prompt:  "hi",
+					BaseURL: server.URL,
 				},
 			},
 		},
@@ -282,15 +278,13 @@ func TestE2E_APIKeyFromConfigOnly(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
-					Chat: &domain.ChatConfig{
-						Model:   "gpt-4o",
-						Prompt:  "hi",
-						Backend: "openai",
-						BaseURL: server.URL,
-					},
+				Metadata:    domain.ResourceMetadata{ActionID: "chat"},
+				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+				Chat: &domain.ChatConfig{
+					Model:   "gpt-4o",
+					Prompt:  "hi",
+					Backend: "openai",
+					BaseURL: server.URL,
 				},
 			},
 		},

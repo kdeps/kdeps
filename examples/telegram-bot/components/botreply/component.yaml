@@ -12,10 +12,9 @@ resources:
       name: Bot Reply
       requires:
         - llm
-    run:
-      httpClient:
-        url: "https://api.telegram.org/bot{{ get(\"telegramBotToken\") }}/sendMessage"
-        method: POST
-        headers:
-          Content-Type: application/json
-        data: '{"chat_id":"{{ get(\"chatId\") }}","text":"{{ get(\"llm\") }}"}'
+    httpClient:
+      url: "https://api.telegram.org/bot{{ get(\"telegramBotToken\") }}/sendMessage"
+      method: POST
+      headers:
+        Content-Type: application/json
+      data: '{"chat_id":"{{ get(\"chatId\") }}","text":"{{ get(\"llm\") }}"}'

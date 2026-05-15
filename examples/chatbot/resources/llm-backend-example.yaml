@@ -5,28 +5,27 @@ metadata:
   actionId: llmWithBackend
   name: LLM Chat with Backend Selection
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/chat-backend]
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat-backend]
 
-    check:
-      - get('q') != ''
-    error:
-      code: 400
-      message: Query parameter 'q' is required
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: Query parameter 'q' is required
 
-  chat:
-    model: llama3.2:1b
-    # For online providers, specify apiKey:
-    # apiKey: "{{ env('OPENAI_API_KEY') }}"
-    contextLength: 8192  # Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
-    role: user
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeoutDuration: 60s
+chat:
+  model: llama3.2:1b
+  # For online providers, specify apiKey:
+  # apiKey: "{{ env('OPENAI_API_KEY') }}"
+  contextLength: 8192  # Context length in tokens: 4096, 8192, 16384, 32768, 65536, 131072, 262144 (default: 4096)
+  role: user
+  prompt: "{{ get('q') }}"
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+  timeoutDuration: 60s

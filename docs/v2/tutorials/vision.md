@@ -80,18 +80,17 @@ metadata:
   actionId: visionLLM
   name: Vision LLM
 
-run:
-  chat:
-    role: user
-    prompt: "{{ get('q', 'param') }}"
-    files:
-      # Get uploaded file path
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
-      - scene
+chat:
+  role: user
+  prompt: "{{ get('q', 'param') }}"
+  files:
+    # Get uploaded file path
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
+    - scene
 ```
 
 </div>
@@ -117,15 +116,14 @@ metadata:
   requires:
     - visionLLM
 
-run:
-  apiResponse:
-    success: true
-    response:
-      query: get('q', 'param')
-      analysis: get('visionLLM')
-      file_info:
-        filename: get('file', 'filename')
-        filetype: get('file', 'filetype')
+apiResponse:
+  success: true
+  response:
+    query: get('q', 'param')
+    analysis: get('visionLLM')
+    file_info:
+      filename: get('file', 'filename')
+      filetype: get('file', 'filetype')
 ```
 
 </div>
@@ -256,11 +254,10 @@ model: llava:13b
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Describe this image in detail"
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Describe this image in detail"
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -270,15 +267,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "List all objects in this image"
-    jsonResponse: true
-    jsonResponseKeys:
-      - objects
-      - count
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "List all objects in this image"
+  jsonResponse: true
+  jsonResponseKeys:
+    - objects
+    - count
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -288,17 +284,16 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Analyze the scene: location, time of day, weather, mood"
-    jsonResponse: true
-    jsonResponseKeys:
-      - location
-      - time_of_day
-      - weather
-      - mood
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Analyze the scene: location, time of day, weather, mood"
+  jsonResponse: true
+  jsonResponseKeys:
+    - location
+    - time_of_day
+    - weather
+    - mood
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -308,16 +303,15 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Compare these two images and describe the differences"
-    files:
-      - "{{ get('file1', 'filepath') }}"
-      - "{{ get('file2', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - differences
-      - similarities
+chat:
+  prompt: "Compare these two images and describe the differences"
+  files:
+    - "{{ get('file1', 'filepath') }}"
+    - "{{ get('file2', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - differences
+    - similarities
 ```
 
 </div>
@@ -327,15 +321,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Extract all text from this image"
-    jsonResponse: true
-    jsonResponseKeys:
-      - text
-      - confidence
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Extract all text from this image"
+  jsonResponse: true
+  jsonResponseKeys:
+    - text
+    - confidence
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -347,15 +340,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are an expert image analyst. Provide detailed, accurate descriptions."
-      - role: user
-        prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  scenario:
+    - role: system
+      prompt: "You are an expert image analyst. Provide detailed, accurate descriptions."
+    - role: user
+      prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -367,18 +359,17 @@ Combine vision with function calling:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-    tools:
-      - name: save_analysis
-        description: Save the image analysis
-        parameters:
-          description:
-            type: string
-            description: The image description
+chat:
+  prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+  tools:
+    - name: save_analysis
+      description: Save the image analysis
+      parameters:
+        description:
+          type: string
+          description: The image description
 ```
 
 </div>
@@ -411,19 +402,18 @@ metadata:
   actionId: visionLLM
   name: Vision LLM
 
-run:
-  validations:
-    - info('filecount') > 0
-    - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
-  chat:
-    prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-  onError:
-    apiResponse:
-      success: false
-      response:
-        error: "Failed to process image"
+validations:
+  - info('filecount') > 0
+  - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
+chat:
+  prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+onError:
+  apiResponse:
+    success: false
+    response:
+      error: "Failed to process image"
 ```
 
 </div>
@@ -463,15 +453,14 @@ metadata:
   actionId: visionLLM
   name: Vision LLM
 
-run:
-  chat:
-    prompt: "{{ get('q', 'param') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
+chat:
+  prompt: "{{ get('q', 'param') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
 
 ---
 # resources/vision-response.yaml
@@ -484,12 +473,11 @@ metadata:
   requires:
     - visionLLM
 
-run:
-  apiResponse:
-    success: true
-    response:
-      query: get('q', 'param')
-      analysis: get('visionLLM')
+apiResponse:
+  success: true
+  response:
+    query: get('q', 'param')
+    analysis: get('visionLLM')
 ```
 
 </div>

@@ -42,11 +42,10 @@ In resource YAML files, kdeps API calls are automatically wrapped in `{% raw %}`
 
 ```yaml
 # resources/response.yaml
-run:
-  apiResponse:
-    response:
-      message: "{{ info('method') }} at {{ info('current_time') }}"
-      query: "{{ get('q') }}"
+apiResponse:
+  response:
+    message: "{{ info('method') }} at {{ info('current_time') }}"
+    query: "{{ get('q') }}"
 ```
 
 `{{ get('q') }}` and `{{ info(...) }}` are **not** evaluated by Jinja2 — they pass through unchanged and are evaluated at runtime.

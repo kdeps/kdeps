@@ -35,7 +35,6 @@ Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated n
 
 ```yaml
 # resource.yaml — no {% raw %} needed
-run:
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET

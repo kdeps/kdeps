@@ -18,9 +18,8 @@ items:
   - "Item 2"
   - "Item 3"
 
-run:
-  chat:
-    prompt: "Process: {{ get('current') }}"
+chat:
+  prompt: "Process: {{ get('current') }}"
 ```
 
 </div>
@@ -45,15 +44,14 @@ You can also access item context through the `item` object with callable methods
 ### Method Syntax
 
 ```yaml
-run:
-  expr:
-    # Method-style access
-    - set('curr', item.current())
-    - set('prev', item.prev())
-    - set('next', item.next())
-    - set('idx', item.index())
-    - set('cnt', item.count())
-    - set('all', item.values())
+expr:
+  # Method-style access
+  - set('curr', item.current())
+  - set('prev', item.prev())
+  - set('next', item.next())
+  - set('idx', item.index())
+  - set('cnt', item.count())
+  - set('all', item.values())
 ```
 
 ### Comparison: get() vs item.method()
@@ -82,17 +80,16 @@ items:
   - "first"
   - "second"
   - "third"
-run:
-  expr:
-    # Using item object methods
-    - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
-    - set('hasPrevious', item.prev() != nil)
-    - set('hasNext', item.next() != nil)
-  chat:
-    prompt: |
-      {{ get('position') }}
-      Current: {{ item.current() }}
-      {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
+expr:
+  # Using item object methods
+  - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
+  - set('hasPrevious', item.prev() != nil)
+  - set('hasNext', item.next() != nil)
+chat:
+  prompt: |
+    {{ get('position') }}
+    Current: {{ item.current() }}
+    {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
 ```
 
 </div>
@@ -110,15 +107,14 @@ metadata:
   actionId: collectResults
   requires:
     - processItems
-run:
-  expr:
-    # Get all collected values from the items iteration
-    - set('allResults', get('processItems', 'itemvalues'))
-    - set('resultCount', len(get('allResults')))
-  apiResponse:
-    response:
-      results: get('allResults')
-      count: get('resultCount')
+expr:
+  # Get all collected values from the items iteration
+  - set('allResults', get('processItems', 'itemvalues'))
+  - set('resultCount', len(get('allResults')))
+apiResponse:
+  response:
+    results: get('allResults')
+    count: get('resultCount')
 ```
 
 ### Using `item.values(actionID)`
@@ -132,16 +128,15 @@ metadata:
   actionId: collectResults
   requires:
     - processItems
-run:
-  expr:
-    # Get all values from processItems resource
-    - set('allResults', item.values('processItems'))
-    - set('resultCount', len(get('allResults')))
-  
-  apiResponse:
-    response:
-      results: get('allResults')
-      count: get('resultCount')
+expr:
+  # Get all values from processItems resource
+  - set('allResults', item.values('processItems'))
+  - set('resultCount', len(get('allResults')))
+
+apiResponse:
+  response:
+    results: get('allResults')
+    count: get('resultCount')
 ```
 
 **Note:** `item.values()` without arguments returns all items for the current iteration context (equivalent to `item.values()` or `get('all')`). With an action ID, it returns all values from that specific resource's items iteration.
@@ -158,11 +153,10 @@ items:
   - "banana"
   - "cherry"
 
-run:
-  chat:
-    prompt: |
-      Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
-      Describe this fruit.
+chat:
+  prompt: |
+    Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
+    Describe this fruit.
 ```
 
 </div>
@@ -177,12 +171,11 @@ items:
   - "Main Content"
   - "Conclusion"
 
-run:
-  chat:
-    prompt: |
-      Write the {{ get('current') }} section.
-      {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
-      {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
+chat:
+  prompt: |
+    Write the {{ get('current') }} section.
+    {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
+    {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
 ```
 
 </div>
@@ -197,13 +190,12 @@ items:
   - "skip_this"
   - "process"
 
-run:
-  validations:
-    skip:
-    - get('current') == 'skip_this'
+validations:
+  skip:
+  - get('current') == 'skip_this'
 
-  chat:
-    prompt: "Processing: {{ get('current') }}"
+chat:
+  prompt: "Processing: {{ get('current') }}"
 ```
 
 </div>
@@ -221,13 +213,12 @@ items:
   - value: "Task 3"
     priority: "high"
 
-run:
-  validations:
-    skip:
-    - get('current').priority != 'high'
+validations:
+  skip:
+  - get('current').priority != 'high'
 
-  chat:
-    prompt: "Handle high-priority task: {{ get('current').value }}"
+chat:
+  prompt: "Handle high-priority task: {{ get('current').value }}"
 ```
 
 </div>
@@ -249,12 +240,11 @@ items:
   - "Explain neural networks"
   - "What is deep learning?"
 
-run:
-  chat:
-    prompt: "{{ get('current') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+chat:
+  prompt: "{{ get('current') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -273,10 +263,9 @@ metadata:
 # Items could come from a previous resource
 items: get('fetchProducts')
 
-run:
-  httpClient:
-    method: GET
-    url: "https://api.example.com/details/{{ get('current').id }}"
+httpClient:
+  method: GET
+  url: "https://api.example.com/details/{{ get('current').id }}"
 ```
 
 </div>
@@ -301,17 +290,16 @@ items:
   - section: "conclusion"
     title: "Conclusion"
 
-run:
-  chat:
-    prompt: |
-      Generate the "{{ get('current').title }}" section of the report.
-      Data: {{ get('reportData') }}
+chat:
+  prompt: |
+    Generate the "{{ get('current').title }}" section of the report.
+    Data: {{ get('reportData') }}
 
-      {{ get('prev') ? 'Previous section: ' + get('prev').title : '' }}
-    jsonResponse: true
-    jsonResponseKeys:
-      - content
-      - key_points
+    {{ get('prev') ? 'Previous section: ' + get('prev').title : '' }}
+  jsonResponse: true
+  jsonResponseKeys:
+    - content
+    - key_points
 ```
 
 </div>
@@ -336,15 +324,14 @@ items:
   - code: "ja"
     name: "Japanese"
 
-run:
-  chat:
-    prompt: |
-      Translate to {{ get('current').name }}:
-      "{{ get('originalText') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - translation
-      - language_code
+chat:
+  prompt: |
+    Translate to {{ get('current').name }}:
+    "{{ get('originalText') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - translation
+    - language_code
 ```
 
 </div>
@@ -367,14 +354,13 @@ items:
   - step: 4
     action: "test"
 
-run:
-  chat:
-    prompt: |
-      Step {{ get('current').step }}: {{ get('current').action }}
+chat:
+  prompt: |
+    Step {{ get('current').step }}: {{ get('current').action }}
 
-      {{ get('prev') ? 'Previous step output: ' + get('prev').result : 'Starting fresh.' }}
+    {{ get('prev') ? 'Previous step output: ' + get('prev').result : 'Starting fresh.' }}
 
-      Complete this step.
+    Complete this step.
 ```
 
 </div>
@@ -395,11 +381,10 @@ items:
   - path: "/uploads/image2.jpg"
   - path: "/uploads/image3.jpg"
 
-run:
-  chat:
-    prompt: "Describe this image"
-    files:
-      - "{{ get('current').path }}"
+chat:
+  prompt: "Describe this image"
+  files:
+    - "{{ get('current').path }}"
 ```
 
 </div>
@@ -419,9 +404,8 @@ items:
   - "Item 1"
   - "Item 2"
 
-run:
-  chat:
-    prompt: "Process {{ get('current') }}"
+chat:
+  prompt: "Process {{ get('current') }}"
 
 ---
 # Response resource
@@ -429,17 +413,16 @@ metadata:
   actionId: response
   requires: [processItems]
 
-run:
-  apiResponse:
-    response:
-      # All results as array
-      results: get('processItems')
+apiResponse:
+  response:
+    # All results as array
+    results: get('processItems')
 
-      # First result
-      first: get('processItems')[0]
+    # First result
+    first: get('processItems')[0]
 
-      # Result count
-      count: len(get('processItems'))
+    # Result count
+    count: len(get('processItems'))
 ```
 
 </div>

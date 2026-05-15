@@ -66,18 +66,16 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 			Metadata: domain.ResourceMetadata{
 				ActionID: "api-test",
 			},
-			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"message": "Hello {{get('targetModel')}}",
-					},
-					Meta: &domain.ResponseMeta{
-						Model:   "{{get('targetModel')}}",
-						Backend: "{{get('targetBackend')}}",
-						Headers: map[string]string{
-							"X-Custom-Model": "{{get('targetModel')}}",
-						},
+			APIResponse: &domain.APIResponseConfig{
+				Success: true,
+				Response: map[string]interface{}{
+					"message": "Hello {{get('targetModel')}}",
+				},
+				Meta: &domain.ResponseMeta{
+					Model:   "{{get('targetModel')}}",
+					Backend: "{{get('targetBackend')}}",
+					Headers: map[string]string{
+						"X-Custom-Model": "{{get('targetModel')}}",
 					},
 				},
 			},
@@ -110,15 +108,13 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 			Metadata: domain.ResourceMetadata{
 				ActionID: "error-test",
 			},
-			Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{
-					Command: "exit 1", // Will fail
-				},
-				OnError: &domain.OnErrorConfig{
-					Action:     "retry",
-					MaxRetries: 2,
-					RetryDelay: "{{get('retryDelay')}}",
-				},
+			Exec: &domain.ExecConfig{
+				Command: "exit 1", // Will fail
+			},
+			OnError: &domain.OnErrorConfig{
+				Action:     "retry",
+				MaxRetries: 2,
+				RetryDelay: "{{get('retryDelay')}}",
 			},
 		}
 
@@ -131,15 +127,13 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 			Metadata: domain.ResourceMetadata{
 				ActionID: "preflight-test",
 			},
-			Run: domain.RunConfig{
-				Validations: &domain.ValidationsConfig{
-					Check: []domain.Expression{
-						{Raw: "false"}, // Will fail
-					},
-					Error: &domain.ErrorConfig{
-						Code:    400,
-						Message: "{{get('errorMessage')}}",
-					},
+			Validations: &domain.ValidationsConfig{
+				Check: []domain.Expression{
+					{Raw: "false"}, // Will fail
+				},
+				Error: &domain.ErrorConfig{
+					Code:    400,
+					Message: "{{get('errorMessage')}}",
 				},
 			},
 		}

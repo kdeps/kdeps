@@ -25,12 +25,11 @@ resources:
     metadata:
       name: Plan and Execute
       actionId: plan-and-execute
-    run:
-      chat:
-        prompt: |
-          You are an autonomous task executor. Given the following task and context, create a step-by-step execution plan and carry it out.
+    chat:
+      prompt: |
+        You are an autonomous task executor. Given the following task and context, create a step-by-step execution plan and carry it out.
 
-          Task: {{ get("autopilot.task") }}
-          Context: {{ get("autopilot.context", "No additional context provided.") }}
+        Task: {{ get("autopilot.task") }}
+        Context: {{ get("autopilot.context", "No additional context provided.") }}
 
-          Provide a detailed plan and execute each step.
+        Provide a detailed plan and execute each step.

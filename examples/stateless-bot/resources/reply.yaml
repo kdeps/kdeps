@@ -7,9 +7,8 @@ metadata:
   requires:
     - llm
 
-run:
-  exec:
-    command: sh
-    args:
-      - "-c"
-      - "printf '%s' '{{ get('llm') }}'"
+exec:
+  command: sh
+  args:
+    - "-c"
+    - "printf '%s' '{{ get('llm') }}'"

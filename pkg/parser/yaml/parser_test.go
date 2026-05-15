@@ -296,13 +296,12 @@ metadata:
   actionId: test-action
   name: Test Resource
   description: A test resource
-run:
-  chat:
-    model: llama3.2:latest
-    role: user
-    prompt: "Test prompt"
-    jsonResponse: true
-    timeoutDuration: 30s
+chat:
+  model: llama3.2:latest
+  role: user
+  prompt: "Test prompt"
+  jsonResponse: true
+  timeoutDuration: 30s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -316,13 +315,12 @@ kind: Resource
 metadata:
   actionID: http-action
   name: HTTP Resource
-run:
-  httpClient:
-    method: POST
-    url: https://api.example.com
-    headers:
-      Content-Type: application/json
-    timeoutDuration: 10s
+httpClient:
+  method: POST
+  url: https://api.example.com
+  headers:
+    Content-Type: application/json
+  timeoutDuration: 10s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -336,13 +334,12 @@ kind: Resource
 metadata:
   actionID: sql-action
   name: SQL Resource
-run:
-  sql:
-    connection: postgresql://localhost:5432/db
-    query: SELECT * FROM users
-    params:
-      - 123
-    timeoutDuration: 5s
+sql:
+  connection: postgresql://localhost:5432/db
+  query: SELECT * FROM users
+  params:
+    - 123
+  timeoutDuration: 5s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -359,11 +356,10 @@ metadata:
   requires:
     - action1
     - action2
-run:
-  apiResponse:
-    success: true
-    response:
-      message: OK
+apiResponse:
+  success: true
+  response:
+    message: OK
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -389,10 +385,9 @@ kind: Resource
 metadata:
   actionId: test
   name: Test
-run:
-  chat:
-    model: llama3.2:latest
-    prompt: test
+chat:
+  model: llama3.2:latest
+  prompt: test
 `,
 			validator: &mockSchemaValidator{
 				validateResourceFunc: func(_ map[string]interface{}) error {
@@ -454,11 +449,10 @@ kind: Resource
 metadata:
   actionId: test
   name: Test
-run:
-  chat:
-    model: llama3.2:latest
-    prompt: test
-    timeoutDuration: 30s
+chat:
+  model: llama3.2:latest
+  prompt: test
+  timeoutDuration: 30s
 `
 
 	tmpDir := t.TempDir()
@@ -507,31 +501,31 @@ func validateChatResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
 	assert.Equal(t, "test-action", resource.Metadata.ActionID)
 	assert.Equal(t, "Test Resource", resource.Metadata.Name)
-	require.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "llama3.2:latest", resource.Run.Chat.Model)
+	require.NotNil(t, resource.Chat)
+	assert.Equal(t, "llama3.2:latest", resource.Chat.Model)
 }
 
 // validateHTTPResource validates an HTTP resource.
 func validateHTTPResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	require.NotNil(t, resource.Run.HTTPClient)
-	assert.Equal(t, http.MethodPost, resource.Run.HTTPClient.Method)
-	assert.Equal(t, "https://api.example.com", resource.Run.HTTPClient.URL)
+	require.NotNil(t, resource.HTTPClient)
+	assert.Equal(t, http.MethodPost, resource.HTTPClient.Method)
+	assert.Equal(t, "https://api.example.com", resource.HTTPClient.URL)
 }
 
 // validateSQLResource validates a SQL resource.
 func validateSQLResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	require.NotNil(t, resource.Run.SQL)
-	assert.Equal(t, "postgresql://localhost:5432/db", resource.Run.SQL.Connection)
-	assert.Equal(t, "SELECT * FROM users", resource.Run.SQL.Query)
+	require.NotNil(t, resource.SQL)
+	assert.Equal(t, "postgresql://localhost:5432/db", resource.SQL.Connection)
+	assert.Equal(t, "SELECT * FROM users", resource.SQL.Query)
 }
 
 // validateDependentResource validates a resource with dependencies.
 func validateDependentResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
 	assert.Len(t, resource.Metadata.Requires, 2)
-	require.NotNil(t, resource.Run.APIResponse)
+	require.NotNil(t, resource.APIResponse)
 }
 
 func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
@@ -696,11 +690,10 @@ kind: Resource
 metadata:
   actionId: test-resource
   name: Test Resource
-run:
-  apiResponse:
-    success: true
-    response:
-      message: hello world
+apiResponse:
+  success: true
+  response:
+    message: hello world
 `
 	err = os.WriteFile(resourcePath, []byte(resourceContent), 0600)
 	require.NoError(t, err)
@@ -785,10 +778,9 @@ kind: Resource
 metadata:
   actionId: conditional-resource
   name: Conditional Resource
-run:
-  apiResponse:
-    success: true
-    response:
+apiResponse:
+  success: true
+  response:
 {% if env.KDEPS_TEST_VAR is defined %}
       env_set: true
 {% else %}
@@ -805,10 +797,9 @@ kind: Resource
 metadata:
   actionId: plain-conditional
   name: Plain Conditional Resource
-run:
-  apiResponse:
-    success: true
-    response:
+apiResponse:
+  success: true
+  response:
 {% if env.KDEPS_TEST_VAR is defined %}
       env_set: true
 {% else %}

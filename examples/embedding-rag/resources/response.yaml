@@ -3,9 +3,8 @@ kind: Resource
 metadata:
   actionId: response
   requires: [indexDoc, searchDocs]
-run:
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('searchDocs').results }}"
-      count: "{{ output('searchDocs').count }}"
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('searchDocs').results }}"
+    count: "{{ output('searchDocs').count }}"

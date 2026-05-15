@@ -244,10 +244,10 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 	resourcesByRoute := make(map[routeKey][]*domain.Resource)
 
 	for _, res := range workflow.Resources {
-		if res.Run.Validations == nil {
+		if res.Validations == nil {
 			continue
 		}
-		v := res.Run.Validations
+		v := res.Validations
 		for _, route := range v.Routes {
 			methods := v.Methods
 			if len(methods) == 0 {
@@ -385,10 +385,10 @@ func collectOperationValidations(
 	}
 
 	for _, res := range resources {
-		if res.Run.Validations == nil {
+		if res.Validations == nil {
 			continue
 		}
-		v := res.Run.Validations
+		v := res.Validations
 
 		for _, req := range v.Required {
 			result.requiredFields[req] = struct{}{}

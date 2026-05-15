@@ -69,13 +69,12 @@ metadata:
   actionId: summarize
   name: Summarize Document
 
-run:
-  chat:
-    prompt: |
-      You are a concise document summarizer.
-      Summarize the following document in 3–5 bullet points:
+chat:
+  prompt: |
+    You are a concise document summarizer.
+    Summarize the following document in 3–5 bullet points:
 
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 The `input('fileContent')` expression injects the file's text content into the LLM prompt. You can also access `input('filePath')` if you need to reference the source path.
@@ -142,11 +141,10 @@ settings:
 If you need to reference the source file path (for example, to log it or pass it to another resource):
 
 ```yaml
-run:
-  exec:
-    command: echo
-    args:
-      - "Processing file: {{ input('filePath') }}"
+exec:
+  command: echo
+  args:
+    - "Processing file: {{ input('filePath') }}"
 ```
 
 ---
@@ -159,12 +157,11 @@ You can chain multiple resources. The file content flows through the pipeline vi
 # resources/extract.yaml
 metadata:
   actionId: extract
-run:
-  exec:
-    command: bash
-    args:
-      - "-c"
-      - "echo '{{ input('fileContent') | replace('\n', ' ') }}' | wc -w"
+exec:
+  command: bash
+  args:
+    - "-c"
+    - "echo '{{ input('fileContent') | replace('\n', ' ') }}' | wc -w"
 ```
 
 ```yaml
@@ -172,14 +169,13 @@ run:
 metadata:
   actionId: summarize
   dependencies: [extract]
-run:
-  chat:
-    prompt: |
-      Document word count: {{ get('extract') }}
+chat:
+  prompt: |
+    Document word count: {{ get('extract') }}
 
-      Summarize this document:
+    Summarize this document:
 
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 ---
@@ -215,12 +211,11 @@ kind: Resource
 metadata:
   actionId: summarize
 
-run:
-  chat:
-    prompt: |
-      Summarize this document in 3 bullet points:
+chat:
+  prompt: |
+    Summarize this document in 3 bullet points:
 
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 **Run it:**

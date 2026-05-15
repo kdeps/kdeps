@@ -136,26 +136,25 @@ Python validates credentials. If valid, exits with 0 and expr blocks set session
 If invalid, exits with error code 1 to prevent session from being set.
 
 ```yaml
-run:
-  validations:
-    routes: [/api/v1/login]
-    required: [username, password]
-  python:
-    script: |
-      import json
-      import sys
-      username = "{{ get('username') }}"
-      password = "{{ get('password') }}"
-      if username == "admin" and password == "secret":
-          print(json.dumps({"success": True, "user": username}))
-      else:
-          print(json.dumps({"error": "Invalid credentials"}), file=sys.stderr)
-          sys.exit(1)
-  # These only run if Python succeeds (exit 0)
-  expr:
-    - "{{ set('user_id', get('username'), 'session') }}"
-    - "{{ set('logged_in', 'true', 'session') }}"
-    - "{{ set('login_time', info('current_time'), 'session') }}"
+validations:
+  routes: [/api/v1/login]
+  required: [username, password]
+python:
+  script: |
+    import json
+    import sys
+    username = "{{ get('username') }}"
+    password = "{{ get('password') }}"
+    if username == "admin" and password == "secret":
+        print(json.dumps({"success": True, "user": username}))
+    else:
+        print(json.dumps({"error": "Invalid credentials"}), file=sys.stderr)
+        sys.exit(1)
+# These only run if Python succeeds (exit 0)
+expr:
+  - "{{ set('user_id', get('username'), 'session') }}"
+  - "{{ set('logged_in', 'true', 'session') }}"
+  - "{{ set('login_time', info('current_time'), 'session') }}"
 ```
 
 ### sessionHandler (session-handler.yaml)
@@ -163,19 +162,18 @@ run:
 Returns session data. Requires user to be logged in:
 
 ```yaml
-run:
-  validations:
-    routes: [/api/v1/session]
-    check:
-      - "{{ get('logged_in', 'session') == 'true' }}"
-    error:
-      code: 401
-      message: "Not logged in. Please login first."
-  python:
-    script: |
-      import json
-      session_data = {{ session() }}
-      print(json.dumps({"session": session_data}))
+validations:
+  routes: [/api/v1/session]
+  check:
+    - "{{ get('logged_in', 'session') == 'true' }}"
+  error:
+    code: 401
+    message: "Not logged in. Please login first."
+python:
+  script: |
+    import json
+    session_data = {{ session() }}
+    print(json.dumps({"session": session_data}))
 ```
 
 ### sessionResponse (session-response.yaml)
@@ -183,13 +181,12 @@ run:
 Target resource that combines outputs:
 
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      endpoint: "{{ get('path') }}"
-      login: "{{ output('loginHandler') }}"
-      session: "{{ output('sessionHandler') }}"
+apiResponse:
+  success: true
+  response:
+    endpoint: "{{ get('path') }}"
+    login: "{{ output('loginHandler') }}"
+    session: "{{ output('sessionHandler') }}"
 ```
 
 ## Key Concepts
@@ -199,22 +196,21 @@ run:
 Control when expression blocks execute relative to the primary execution type:
 
 ```yaml
-run:
-  # Runs BEFORE the primary execution type
-  exprBefore:
-    - "{{ set('start_time', info('current_time')) }}"
+# Runs BEFORE the primary execution type
+exprBefore:
+  - "{{ set('start_time', info('current_time')) }}"
 
-  python:
-    script: |
-      # Your Python code here
+python:
+  script: |
+    # Your Python code here
 
-  # Runs AFTER the primary execution type (default)
-  expr:
-    - "{{ set('user_id', get('username'), 'session') }}"
+# Runs AFTER the primary execution type (default)
+expr:
+  - "{{ set('user_id', get('username'), 'session') }}"
 
-  # Also runs AFTER (alias for expr)
-  exprAfter:
-    - "{{ set('completed', 'true') }}"
+# Also runs AFTER (alias for expr)
+exprAfter:
+  - "{{ set('completed', 'true') }}"
 ```
 
 ### Combining apiResponse with Primary Types
@@ -222,18 +218,17 @@ run:
 You can combine `apiResponse` with primary execution types (python, chat, sql, etc.):
 
 ```yaml
-run:
-  python:
-    script: |
-      import json
-      print(json.dumps({"result": "success"}))
+python:
+  script: |
+    import json
+    print(json.dumps({"result": "success"}))
 
-  # apiResponse runs after the primary type and uses its output
-  apiResponse:
-    success: true
-    response:
-      message: "Operation completed"
-      python_output: "{{ output('currentResource') }}"
+# apiResponse runs after the primary type and uses its output
+apiResponse:
+  success: true
+  response:
+    message: "Operation completed"
+    python_output: "{{ output('currentResource') }}"
 ```
 
 ### Python Credential Validation
@@ -275,13 +270,12 @@ user_id: "{{ get('user_id', 'session') }}"
 logged_in: "{{ get('logged_in', 'session') }}"
 
 # 3. Use validations.check to require login
-run:
-  validations:
-    check:
-      - "{{ get('logged_in', 'session') == 'true' }}"
-    error:
-      code: 401
-      message: "Not logged in"
+validations:
+  check:
+    - "{{ get('logged_in', 'session') == 'true' }}"
+  error:
+    code: 401
+    message: "Not logged in"
 
 # 4. Use in Python scripts
 python:
@@ -293,10 +287,9 @@ python:
         print(json.dumps({"user": user_id, "authenticated": True}))
 
 # 5. Skip resource if not logged in
-run:
-  validations:
-    skip:
-      - "{{ get('logged_in', 'session') != 'true' }}"
+validations:
+  skip:
+    - "{{ get('logged_in', 'session') != 'true' }}"
 ```
 
 ### Route Restrictions
@@ -304,9 +297,8 @@ run:
 Resources only execute when their route matches:
 
 ```yaml
-run:
-  validations:
-    routes: [/api/v1/login]  # Only runs for this route
+validations:
+  routes: [/api/v1/login]  # Only runs for this route
 ```
 
 ### Output Function

@@ -97,7 +97,7 @@ func (e *Engine) ExecuteWithLoop(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ExecuteWithLoop")
-	loopCfg := resource.Run.Loop
+	loopCfg := resource.Loop
 
 	// Ensure the evaluator is initialised (it may not be when called outside Execute).
 	if e.evaluator == nil {
@@ -318,7 +318,7 @@ func (e *Engine) ExecuteWithItems(
 		// For LLM resources: merge original item fields into the result so that
 		// source-of-truth values (job_link, job_id, etc.) are never lost to
 		// hallucination. Original item wins on any key conflict.
-		if resource.Run.Chat != nil {
+		if resource.Chat != nil {
 			if resultMap, okResult := result.(map[string]interface{}); okResult {
 				if itemMap, okItem := itemValue.(map[string]interface{}); okItem {
 					for k, v := range itemMap {

@@ -11,16 +11,15 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: myResource
-run:
-  httpClient:
-    url: "https://api.example.com/data"
-    method: GET
+httpClient:
+  url: "https://api.example.com/data"
+  method: GET
 
-  onError:
-    action: continue
-    fallback:
-      status: "error"
-      message: "Service unavailable"
+onError:
+  action: continue
+  fallback:
+    status: "error"
+    message: "Service unavailable"
 ```
 
 ## Configuration Options
@@ -70,17 +69,16 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: fetchData
-run:
-  httpClient:
-    url: "https://api.example.com/data"
-    method: GET
+httpClient:
+  url: "https://api.example.com/data"
+  method: GET
 
-  onError:
-    action: continue
-    fallback:
-      data: []
-      fromCache: false
-      error: true
+onError:
+  action: continue
+  fallback:
+    data: []
+    fromCache: false
+    error: true
 ```
 
 When the HTTP request fails, the resource returns the fallback value instead of stopping the workflow.
@@ -113,15 +111,14 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: unreliableApi
-run:
-  httpClient:
-    url: "https://flaky-api.example.com/data"
-    method: GET
+httpClient:
+  url: "https://flaky-api.example.com/data"
+  method: GET
 
-  onError:
-    action: retry
-    maxRetries: 3
-    retryDelay: "1s"
+onError:
+  action: retry
+  maxRetries: 3
+  retryDelay: "1s"
 ```
 
 This will:
@@ -210,16 +207,15 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: fetchUserData
-run:
-  httpClient:
-    url: "https://api.example.com/users/{{ get('userId') }}"
-    method: GET
-    timeout: 5s
+httpClient:
+  url: "https://api.example.com/users/{{ get('userId') }}"
+  method: GET
+  timeout: 5s
 
-  onError:
-    action: retry
-    maxRetries: 3
-    retryDelay: "500ms"
+onError:
+  action: retry
+  maxRetries: 3
+  retryDelay: "500ms"
 ```
 
 </div>
@@ -233,13 +229,12 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: llmEnhancement
-run:
-  chat:
-    prompt: "Enhance this text: {{ get('text') }}"
+chat:
+  prompt: "Enhance this text: {{ get('text') }}"
 
-  onError:
-    action: continue
-    fallback: "{{ get('text') }}"  # Return original text on failure
+onError:
+  action: continue
+  fallback: "{{ get('text') }}"  # Return original text on failure
 ```
 
 </div>
@@ -251,26 +246,25 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: externalService
-run:
-  # Check circuit breaker state first
-  validations:
-    skip:
-    - get('circuitOpen', 'session') == true
+# Check circuit breaker state first
+validations:
+  skip:
+  - get('circuitOpen', 'session') == true
 
-  httpClient:
-    url: "https://api.example.com/data"
-    method: GET
+httpClient:
+  url: "https://api.example.com/data"
+  method: GET
 
-  onError:
-    action: continue
-    expr:
-      # Increment failure count
-      - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
-      # Open circuit after 5 failures
-      - set('circuitOpen', get('failCount', 'session') >= 5, 'session')
-    fallback:
-      error: true
-      circuitBreaker: "open"
+onError:
+  action: continue
+  expr:
+    # Increment failure count
+    - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
+    # Open circuit after 5 failures
+    - set('circuitOpen', get('failCount', 'session') >= 5, 'session')
+  fallback:
+    error: true
+    circuitBreaker: "open"
 ```
 
 ### Database Fallback
@@ -282,16 +276,15 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: queryPrimary
-run:
-  sql:
-    connection: primary
-    query: "SELECT * FROM users WHERE id = ?"
-    params:
-      - "{{ get('userId') }}"
+sql:
+  connection: primary
+  query: "SELECT * FROM users WHERE id = ?"
+  params:
+    - "{{ get('userId') }}"
 
-  onError:
-    action: continue
-    fallback: null
+onError:
+  action: continue
+  fallback: null
 
 ---
 apiVersion: kdeps.io/v1
@@ -300,18 +293,17 @@ metadata:
   actionId: queryReplica
   requires:
     - queryPrimary
-run:
-  # Only query replica if primary failed
-  validations:
-    skip:
-    - get('queryPrimary') != null
-    - safe(get('queryPrimary'), '_error') == nil
+# Only query replica if primary failed
+validations:
+  skip:
+  - get('queryPrimary') != null
+  - safe(get('queryPrimary'), '_error') == nil
 
-  sql:
-    connection: replica
-    query: "SELECT * FROM users WHERE id = ?"
-    params:
-      - "{{ get('userId') }}"
+sql:
+  connection: replica
+  query: "SELECT * FROM users WHERE id = ?"
+  params:
+    - "{{ get('userId') }}"
 ```
 
 </div>
@@ -325,13 +317,12 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: primaryLLM
-run:
-  chat:
-    prompt: "{{ get('q') }}"
+chat:
+  prompt: "{{ get('q') }}"
 
-  onError:
-    action: continue
-    fallback: null
+onError:
+  action: continue
+  fallback: null
 
 ---
 apiVersion: kdeps.io/v1
@@ -340,14 +331,13 @@ metadata:
   actionId: fallbackLLM
   requires:
     - primaryLLM
-run:
-  validations:
-    skip:
-    - get('primaryLLM') != null
-    - safe(get('primaryLLM'), '_error') == nil
+validations:
+  skip:
+  - get('primaryLLM') != null
+  - safe(get('primaryLLM'), '_error') == nil
 
-  chat:
-    prompt: "{{ get('q') }}"
+chat:
+  prompt: "{{ get('q') }}"
 
 ---
 apiVersion: kdeps.io/v1
@@ -357,11 +347,10 @@ metadata:
   requires:
     - primaryLLM
     - fallbackLLM
-run:
-  apiResponse:
-    success: true
-    response:
-      answer: "{{ default(get('primaryLLM'), get('fallbackLLM')) }}"
+apiResponse:
+  success: true
+  response:
+    answer: "{{ default(get('primaryLLM'), get('fallbackLLM')) }}"
 ```
 
 </div>

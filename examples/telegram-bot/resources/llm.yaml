@@ -5,13 +5,12 @@ metadata:
   actionId: llm
   name: LLM Response
 
-run:
-  chat:
-    model: llama3.2:1b
-    scenario:
-      - role: assistant
-        prompt: |
-          You are Kodi, a helpful AI assistant.
-          Keep your answers concise and friendly.
-          Always respond in the same language as the user.
-    prompt: "{{ input('message') }}"
+chat:
+  model: llama3.2:1b
+  scenario:
+    - role: assistant
+      prompt: |
+        You are Kodi, a helpful AI assistant.
+        Keep your answers concise and friendly.
+        Always respond in the same language as the user.
+  prompt: "{{ input('message') }}"

@@ -11,17 +11,16 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: createUser
-run:
-  validations:
-    methods: [POST]
+validations:
+  methods: [POST]
 
-  sql:
-    connection: primary
-    queries:
-      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-        params:
-          - "{{ get('name') }}"
-          - "{{ get('email') }}"
+sql:
+  connection: primary
+  queries:
+    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+      params:
+        - "{{ get('name') }}"
+        - "{{ get('email') }}"
 ```
 
 When `validations.methods` is set:
@@ -39,13 +38,12 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: createItem
-run:
-  validations:
-    methods: [POST]
-  sql:
-    queries:
-      - query: "INSERT INTO items (name) VALUES (?)"
-        params: ["{{ get('name') }}"]
+validations:
+  methods: [POST]
+sql:
+  queries:
+    - query: "INSERT INTO items (name) VALUES (?)"
+      params: ["{{ get('name') }}"]
 
 ---
 # Read - GET only
@@ -53,13 +51,12 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: getItem
-run:
-  validations:
-    methods: [GET]
-  sql:
-    queries:
-      - query: "SELECT * FROM items WHERE id = ?"
-        params: ["{{ get('id') }}"]
+validations:
+  methods: [GET]
+sql:
+  queries:
+    - query: "SELECT * FROM items WHERE id = ?"
+      params: ["{{ get('id') }}"]
 
 ---
 # Update - PUT/PATCH
@@ -67,15 +64,14 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: updateItem
-run:
-  validations:
-    methods: [PUT, PATCH]
-  sql:
-    queries:
-      - query: "UPDATE items SET name = ? WHERE id = ?"
-        params:
-          - "{{ get('name') }}"
-          - "{{ get('id') }}"
+validations:
+  methods: [PUT, PATCH]
+sql:
+  queries:
+    - query: "UPDATE items SET name = ? WHERE id = ?"
+      params:
+        - "{{ get('name') }}"
+        - "{{ get('id') }}"
 
 ---
 # Delete - DELETE only
@@ -83,13 +79,12 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: deleteItem
-run:
-  validations:
-    methods: [DELETE]
-  sql:
-    queries:
-      - query: "DELETE FROM items WHERE id = ?"
-        params: ["{{ get('id') }}"]
+validations:
+  methods: [DELETE]
+sql:
+  queries:
+    - query: "DELETE FROM items WHERE id = ?"
+      params: ["{{ get('id') }}"]
 ```
 
 ## Route Restrictions
@@ -101,15 +96,14 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: adminDashboard
-run:
-  validations:
-    routes:
-      - /admin
-      - /admin/*
+validations:
+  routes:
+    - /admin
+    - /admin/*
 
-  sql:
-    queries:
-      - query: "SELECT * FROM admin_stats"
+sql:
+  queries:
+    - query: "SELECT * FROM admin_stats"
 ```
 
 ### Route Patterns
@@ -133,11 +127,10 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: apiV1Handler
-run:
-  validations:
-    routes: [/api/v1/*]
-  chat:
-    prompt: "V1 API: {{ get('q') }}"
+validations:
+  routes: [/api/v1/*]
+chat:
+  prompt: "V1 API: {{ get('q') }}"
 
 ---
 # V2 API handler (different model)
@@ -145,11 +138,10 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: apiV2Handler
-run:
-  validations:
-    routes: [/api/v2/*]
-  chat:
-    prompt: "V2 API with enhanced model: {{ get('q') }}"
+validations:
+  routes: [/api/v2/*]
+chat:
+  prompt: "V2 API with enhanced model: {{ get('q') }}"
 ```
 
 </div>
@@ -162,14 +154,13 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: publicContent
-run:
-  validations:
-    routes:
-      - /public/*
-      - /
-  sql:
-    queries:
-      - query: "SELECT * FROM content WHERE is_public = true"
+validations:
+  routes:
+    - /public/*
+    - /
+sql:
+  queries:
+    - query: "SELECT * FROM content WHERE is_public = true"
 
 ---
 # Admin content (requires auth)
@@ -177,17 +168,16 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: adminContent
-run:
-  validations:
-    routes: [/admin/*]
-    check:
-      - get('Authorization') != ''
-    error:
-      code: 401
-      message: "Authentication required"
-  sql:
-    queries:
-      - query: "SELECT * FROM content"
+validations:
+  routes: [/admin/*]
+  check:
+    - get('Authorization') != ''
+  error:
+    code: 401
+    message: "Authentication required"
+sql:
+  queries:
+    - query: "SELECT * FROM content"
 ```
 
 ## Combining Restrictions
@@ -199,32 +189,30 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: userCreate
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/users]
+validations:
+  methods: [POST]
+  routes: [/api/users]
 
-  sql:
-    queries:
-      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-        params:
-          - "{{ get('name') }}"
-          - "{{ get('email') }}"
+sql:
+  queries:
+    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+      params:
+        - "{{ get('name') }}"
+        - "{{ get('email') }}"
 
 ---
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: userGet
-run:
-  validations:
-    methods: [GET]
-    routes: [/api/users/*]
+validations:
+  methods: [GET]
+  routes: [/api/users/*]
 
-  sql:
-    queries:
-      - query: "SELECT * FROM users WHERE id = ?"
-        params: ["{{ get('id') }}"]
+sql:
+  queries:
+    - query: "SELECT * FROM users WHERE id = ?"
+      params: ["{{ get('id') }}"]
 ```
 
 ## RESTful API Example
@@ -259,14 +247,13 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: listUsers
-run:
-  validations:
-    methods: [GET]
-    routes: [/api/users]
-  sql:
-    connection: db
-    queries:
-      - query: "SELECT * FROM users LIMIT 100"
+validations:
+  methods: [GET]
+  routes: [/api/users]
+sql:
+  connection: db
+  queries:
+    - query: "SELECT * FROM users LIMIT 100"
 ```
 
 **resources/create-user.yaml:**
@@ -275,18 +262,17 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: createUser
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/users]
-    required: [name, email]
-  sql:
-    connection: db
-    queries:
-      - query: "INSERT INTO users (name, email) VALUES (?, ?)"
-        params:
-          - "{{ get('name') }}"
-          - "{{ get('email') }}"
+validations:
+  methods: [POST]
+  routes: [/api/users]
+  required: [name, email]
+sql:
+  connection: db
+  queries:
+    - query: "INSERT INTO users (name, email) VALUES (?, ?)"
+      params:
+        - "{{ get('name') }}"
+        - "{{ get('email') }}"
 ```
 
 **resources/get-user.yaml:**
@@ -295,15 +281,14 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: getUser
-run:
-  validations:
-    methods: [GET]
-    routes: [/api/users/*]
-  sql:
-    connection: db
-    queries:
-      - query: "SELECT * FROM users WHERE id = ?"
-        params: ["{{ get('id') }}"]
+validations:
+  methods: [GET]
+  routes: [/api/users/*]
+sql:
+  connection: db
+  queries:
+    - query: "SELECT * FROM users WHERE id = ?"
+      params: ["{{ get('id') }}"]
 ```
 
 **resources/update-user.yaml:**
@@ -312,18 +297,17 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: updateUser
-run:
-  validations:
-    methods: [PUT]
-    routes: [/api/users/*]
-  sql:
-    connection: db
-    queries:
-      - query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
-        params:
-          - "{{ get('name') }}"
-          - "{{ get('email') }}"
-          - "{{ get('id') }}"
+validations:
+  methods: [PUT]
+  routes: [/api/users/*]
+sql:
+  connection: db
+  queries:
+    - query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
+      params:
+        - "{{ get('name') }}"
+        - "{{ get('email') }}"
+        - "{{ get('id') }}"
 ```
 
 **resources/delete-user.yaml:**
@@ -332,15 +316,14 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: deleteUser
-run:
-  validations:
-    methods: [DELETE]
-    routes: [/api/users/*]
-  sql:
-    connection: db
-    queries:
-      - query: "DELETE FROM users WHERE id = ?"
-        params: ["{{ get('id') }}"]
+validations:
+  methods: [DELETE]
+  routes: [/api/users/*]
+sql:
+  connection: db
+  queries:
+    - query: "DELETE FROM users WHERE id = ?"
+      params: ["{{ get('id') }}"]
 ```
 
 ## Best Practices

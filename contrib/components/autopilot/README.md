@@ -25,27 +25,25 @@ The output is the raw chat response from the configured model.
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: autopilot
-    with:
-      task: "Summarize the quarterly sales report and highlight key trends"
-      context: "We are a B2B SaaS company focused on SMBs."
-      model: gpt-4o
-  apiResponse:
-    success: true
-    response:
-      plan: "{{ output('myAction') }}"
+component:
+  name: autopilot
+  with:
+    task: "Summarize the quarterly sales report and highlight key trends"
+    context: "We are a B2B SaaS company focused on SMBs."
+    model: gpt-4o
+apiResponse:
+  success: true
+  response:
+    plan: "{{ output('myAction') }}"
 ```
 
 Minimal (required inputs only):
 
 ```yaml
-run:
-  component:
-    name: autopilot
-    with:
-      task: "Write a Python function that parses ISO 8601 dates"
+component:
+  name: autopilot
+  with:
+    task: "Write a Python function that parses ISO 8601 dates"
 ```
 
 ## Requirements

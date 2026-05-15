@@ -23,15 +23,14 @@ The Calendar component generates iCalendar (`.ics`) event files from structured 
 ## Using the Calendar Component
 
 ```yaml
-run:
-  component:
-    name: calendar
-    with:
-      title: "Team Standup"
-      start: "2025-01-15T09:00:00"
-      end: "2025-01-15T09:30:00"
-      description: "Daily sync"
-      outputFile: "/tmp/standup.ics"
+component:
+  name: calendar
+  with:
+    title: "Team Standup"
+    start: "2025-01-15T09:00:00"
+    end: "2025-01-15T09:30:00"
+    description: "Daily sync"
+    outputFile: "/tmp/standup.ics"
 ```
 
 Access the result via `output('<callerActionId>')`.
@@ -54,15 +53,14 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: calendar
-    with:
-      title: "{{ get('meeting_title') }}"
-      start: "{{ get('meeting_start') }}"
-      end: "{{ get('meeting_end') }}"
-      description: "{{ get('agenda') }}"
-      outputFile: /tmp/meeting.ics
+component:
+  name: calendar
+  with:
+    title: "{{ get('meeting_title') }}"
+    start: "{{ get('meeting_start') }}"
+    end: "{{ get('meeting_end') }}"
+    description: "{{ get('agenda') }}"
+    outputFile: /tmp/meeting.ics
 ```
 
 </div>
@@ -82,14 +80,13 @@ run:
     actionId: parse-request
     name: Parse Meeting Request
 
-  run:
-    chat:
-      model: gpt-4o
-      prompt: |
-        Extract meeting details from this request as JSON with keys:
-        title, start (ISO 8601), end (ISO 8601), description.
+chat:
+  model: gpt-4o
+  prompt: |
+    Extract meeting details from this request as JSON with keys:
+    title, start (ISO 8601), end (ISO 8601), description.
 
-        Request: {{ get('user_request') }}
+    Request: {{ get('user_request') }}
 
 # Step 2: Create the ICS event file
 - apiVersion: kdeps.io/v1
@@ -101,15 +98,14 @@ run:
     requires:
       - parse-request
 
-  run:
-    component:
-      name: calendar
-      with:
-        title: "{{ output('parse-request').title }}"
-        start: "{{ output('parse-request').start }}"
-        end: "{{ output('parse-request').end }}"
-        description: "{{ output('parse-request').description }}"
-        outputFile: /tmp/event.ics
+component:
+  name: calendar
+  with:
+    title: "{{ output('parse-request').title }}"
+    start: "{{ output('parse-request').start }}"
+    end: "{{ output('parse-request').end }}"
+    description: "{{ output('parse-request').description }}"
+    outputFile: /tmp/event.ics
 
 # Step 3: Email the ICS file
 - apiVersion: kdeps.io/v1
@@ -121,16 +117,15 @@ run:
     requires:
       - create-event
 
-  run:
-    component:
-      name: email
-      with:
-        to: "{{ get('attendee_email') }}"
-        subject: "Invite: {{ output('parse-request').title }}"
-        body: "Please find your calendar event attached."
-        smtpHost: "{{ env('SMTP_HOST') }}"
-        smtpUser: "{{ env('SMTP_USER') }}"
-        smtpPass: "{{ env('SMTP_PASS') }}"
+component:
+  name: email
+  with:
+    to: "{{ get('attendee_email') }}"
+    subject: "Invite: {{ output('parse-request').title }}"
+    body: "Please find your calendar event attached."
+    smtpHost: "{{ env('SMTP_HOST') }}"
+    smtpUser: "{{ env('SMTP_USER') }}"
+    smtpPass: "{{ env('SMTP_PASS') }}"
 
 # Step 4: Return confirmation
 - apiVersion: kdeps.io/v1
@@ -142,12 +137,11 @@ run:
     requires:
       - send-invite
 
-  run:
-    apiResponse:
-      success: true
-      response:
-        icsFile: "{{ output('create-event').outputFile }}"
-        title: "{{ output('parse-request').title }}"
+apiResponse:
+  success: true
+  response:
+    icsFile: "{{ output('create-event').outputFile }}"
+    title: "{{ output('parse-request').title }}"
 ```
 
 </div>

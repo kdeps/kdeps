@@ -50,11 +50,10 @@ metadata:
   actionId: llm
   name: LLM Response
 
-run:
-  chat:
-    messages:
-      - role: user
-        content: "{{ input('message') }}"
+chat:
+  messages:
+    - role: user
+      content: "{{ input('message') }}"
 ```
 
 ## resources/reply.yaml
@@ -70,9 +69,8 @@ metadata:
 dependencies:
   - llm
 
-run:
-  botReply:
-    text: "{{ get('llm') }}"
+botReply:
+  text: "{{ get('llm') }}"
 ```
 
 ## Running

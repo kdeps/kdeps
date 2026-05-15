@@ -231,7 +231,7 @@ func generateFallbackReadme(name string) (string, error) {
 			}
 			out += fmt.Sprintf("Install with: kdeps registry install %s\n\n", name)
 			out += fmt.Sprintf(
-				"Usage:\n```yaml\nrun:\n  component:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
+				"Usage:\n```yaml\ncomponent:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
 				name,
 			)
 			return out, nil

@@ -52,10 +52,9 @@ resources:
     metadata:
       actionId: echo
       name: Echo
-    run:
-      apiResponse:
-        success: true
-        response: "{{ get('greeting') }}"
+    apiResponse:
+      success: true
+      response: "{{ get('greeting') }}"
 `
 
 // minimalAgentWorkflow is a simple workflow YAML that returns a fixed response.
@@ -75,10 +74,9 @@ resources:
     metadata:
       actionId: respond
       name: Respond
-    run:
-      apiResponse:
-        success: true
-        response: "helper-result"
+    apiResponse:
+      success: true
+      response: "helper-result"
 `
 
 // TestExecuteAgent_MissingAgencyContext verifies that executeAgent returns an
@@ -104,11 +102,9 @@ func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
 					ActionID: "callHelper",
 					Name:     "Call Helper",
 				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "helper-agent",
-						Params: map[string]interface{}{"key": "value"},
-					},
+				Agent: &domain.AgentCallConfig{
+					Name:   "helper-agent",
+					Params: map[string]interface{}{"key": "value"},
 				},
 			},
 		},
@@ -143,10 +139,8 @@ func TestExecuteAgent_AgentNotFound(t *testing.T) {
 					ActionID: "callHelper",
 					Name:     "Call Helper",
 				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name: "nonexistent-agent",
-					},
+				Agent: &domain.AgentCallConfig{
+					Name: "nonexistent-agent",
 				},
 			},
 		},
@@ -186,11 +180,9 @@ func TestExecuteAgent_SubAgentExecution(t *testing.T) {
 					ActionID: "callHelper",
 					Name:     "Call Helper",
 				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "helper-agent",
-						Params: map[string]interface{}{"greeting": "hello"},
-					},
+				Agent: &domain.AgentCallConfig{
+					Name:   "helper-agent",
+					Params: map[string]interface{}{"greeting": "hello"},
 				},
 			},
 		},
@@ -228,9 +220,7 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
 				Metadata:   domain.ResourceMetadata{ActionID: "go", Name: "Go"},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{Name: "agent-a"},
-				},
+				Agent:      &domain.AgentCallConfig{Name: "agent-a"},
 			},
 		},
 	}
@@ -275,13 +265,11 @@ func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
 					ActionID: "callEcho",
 					Name:     "Call Echo",
 				},
-				Run: domain.RunConfig{
-					// The expression "{{ get('greeting') }}" must be resolved to "Alice"
-					// from the caller's query param before the sub-agent sees it.
-					Agent: &domain.AgentCallConfig{
-						Name:   "param-echo-agent",
-						Params: map[string]interface{}{"greeting": "{{ get('greeting') }}"},
-					},
+				// The expression "{{ get('greeting') }}" must be resolved to "Alice"
+				// from the caller's query param before the sub-agent sees it.
+				Agent: &domain.AgentCallConfig{
+					Name:   "param-echo-agent",
+					Params: map[string]interface{}{"greeting": "{{ get('greeting') }}"},
 				},
 			},
 		},
@@ -329,11 +317,9 @@ func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
 					ActionID: "callEcho",
 					Name:     "Call Echo",
 				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "param-echo-agent",
-						Params: map[string]interface{}{"greeting": "Bob"},
-					},
+				Agent: &domain.AgentCallConfig{
+					Name:   "param-echo-agent",
+					Params: map[string]interface{}{"greeting": "Bob"},
 				},
 			},
 		},
@@ -373,13 +359,11 @@ func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
 					ActionID: "callEcho",
 					Name:     "Call Echo",
 				},
-				Run: domain.RunConfig{
-					// "World" is the default — no "greeting" param in the request.
-					Agent: &domain.AgentCallConfig{
-						Name: "param-echo-agent",
-						Params: map[string]interface{}{
-							"greeting": "{{ get('greeting', 'World') }}",
-						},
+				// "World" is the default — no "greeting" param in the request.
+				Agent: &domain.AgentCallConfig{
+					Name: "param-echo-agent",
+					Params: map[string]interface{}{
+						"greeting": "{{ get('greeting', 'World') }}",
 					},
 				},
 			},

@@ -12,10 +12,9 @@ metadata:
   actionId: execResource
   name: System Command
 
-run:
-  exec:
-    command: "echo 'Hello, World!'"
-    timeout: 30s
+exec:
+  command: "echo 'Hello, World!'"
+  timeout: 30s
 ```
 
 ## Configuration Options
@@ -33,38 +32,35 @@ run:
 ### Simple Command
 
 ```yaml
-run:
-  exec:
-    command: "date"
-    timeout: 10s
+exec:
+  command: "date"
+  timeout: 10s
 ```
 
 ### Command with Arguments
 
 ```yaml
-run:
-  exec:
-    command: "your-command"    # The command to execute
-    args:                      # Optional: command arguments
-      - "--flag"
-      - "value"
-    workingDir: "/tmp"         # Optional: working directory
-    env:                       # Optional: resource-specific env vars
-      TEMP_VAR: "value"
-    timeout: 30s       # Execution timeout
+exec:
+  command: "your-command"    # The command to execute
+  args:                      # Optional: command arguments
+    - "--flag"
+    - "value"
+  workingDir: "/tmp"         # Optional: working directory
+  env:                       # Optional: resource-specific env vars
+    TEMP_VAR: "value"
+  timeout: 30s       # Execution timeout
 ```
 
 ### Multi-line Script
 
 ```yaml
-run:
-  exec:
-    command: |
-      echo "Starting process..."
-      date
-      uname -a
-      echo "Done!"
-    timeout: 30s
+exec:
+  command: |
+    echo "Starting process..."
+    date
+    uname -a
+    echo "Done!"
+  timeout: 30s
 ```
 
 ### With Interpolation
@@ -72,10 +68,9 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  exec:
-    command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
-    timeout: 30s
+exec:
+  command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
+  timeout: 30s
 ```
 
 </div>
@@ -88,11 +83,10 @@ run:
 metadata:
   actionId: systemInfo
 
-run:
-  exec:
-    command: |
-      echo '{"hostname": "'$(hostname)'", "os": "'$(uname -s)'", "kernel": "'$(uname -r)'", "date": "'$(date -Iseconds)'"}'
-    timeout: 10s
+exec:
+  command: |
+    echo '{"hostname": "'$(hostname)'", "os": "'$(uname -s)'", "kernel": "'$(uname -r)'", "date": "'$(date -Iseconds)'"}'
+  timeout: 10s
 ```
 
 ### File Operations
@@ -103,22 +97,21 @@ run:
 metadata:
   actionId: fileOps
 
-run:
-  exec:
-    command: |
-      # Create directory
-      mkdir -p /tmp/processing
+exec:
+  command: |
+    # Create directory
+    mkdir -p /tmp/processing
 
-      # Copy uploaded file
-      cp "{{ get('file', 'filepath') }}" /tmp/processing/
+    # Copy uploaded file
+    cp "{{ get('file', 'filepath') }}" /tmp/processing/
 
-      # Get file info
-      FILE="/tmp/processing/$(basename "{{ get('file', 'filepath') }}")"
-      SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE")
-      MD5=$(md5sum "$FILE" | cut -d' ' -f1)
+    # Get file info
+    FILE="/tmp/processing/$(basename "{{ get('file', 'filepath') }}")"
+    SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE")
+    MD5=$(md5sum "$FILE" | cut -d' ' -f1)
 
-      echo "{\"path\": \"$FILE\", \"size\": $SIZE, \"md5\": \"$MD5\"}"
-    timeout: 60s
+    echo "{\"path\": \"$FILE\", \"size\": $SIZE, \"md5\": \"$MD5\"}"
+  timeout: 60s
 ```
 
 </div>
@@ -129,17 +122,16 @@ run:
 metadata:
   actionId: gitInfo
 
-run:
-  exec:
-    command: |
-      cd /app
-      BRANCH=$(git rev-parse --abbrev-ref HEAD)
-      COMMIT=$(git rev-parse --short HEAD)
-      AUTHOR=$(git log -1 --format='%an')
-      MESSAGE=$(git log -1 --format='%s')
+exec:
+  command: |
+    cd /app
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    COMMIT=$(git rev-parse --short HEAD)
+    AUTHOR=$(git log -1 --format='%an')
+    MESSAGE=$(git log -1 --format='%s')
 
-      echo "{\"branch\": \"$BRANCH\", \"commit\": \"$COMMIT\", \"author\": \"$AUTHOR\", \"message\": \"$MESSAGE\"}"
-    timeout: 30s
+    echo "{\"branch\": \"$BRANCH\", \"commit\": \"$COMMIT\", \"author\": \"$AUTHOR\", \"message\": \"$MESSAGE\"}"
+  timeout: 30s
 ```
 
 ### Process External Tools
@@ -150,20 +142,19 @@ run:
 metadata:
   actionId: processImage
 
-run:
-  exec:
-    command: |
-      INPUT="{{ get('file', 'filepath') }}"
-      OUTPUT="/tmp/processed_$(date +%s).jpg"
+exec:
+  command: |
+    INPUT="{{ get('file', 'filepath') }}"
+    OUTPUT="/tmp/processed_$(date +%s).jpg"
 
-      # Resize with ImageMagick
-      convert "$INPUT" -resize 800x600 -quality 85 "$OUTPUT"
+    # Resize with ImageMagick
+    convert "$INPUT" -resize 800x600 -quality 85 "$OUTPUT"
 
-      # Get dimensions
-      DIMS=$(identify -format '{"width":%w,"height":%h}' "$OUTPUT")
+    # Get dimensions
+    DIMS=$(identify -format '{"width":%w,"height":%h}' "$OUTPUT")
 
-      echo "{\"output\": \"$OUTPUT\", \"dimensions\": $DIMS}"
-    timeout: 120s
+    echo "{\"output\": \"$OUTPUT\", \"dimensions\": $DIMS}"
+  timeout: 120s
 ```
 
 </div>
@@ -174,20 +165,19 @@ run:
 metadata:
   actionId: extractAudio
 
-run:
-  exec:
-    command: |
-      INPUT="{{ get('video', 'filepath') }}"
-      OUTPUT="/tmp/audio_$(date +%s).mp3"
+exec:
+  command: |
+    INPUT="{{ get('video', 'filepath') }}"
+    OUTPUT="/tmp/audio_$(date +%s).mp3"
 
-      # Extract audio
-      ffmpeg -i "$INPUT" -vn -acodec libmp3lame -q:a 2 "$OUTPUT" 2>/dev/null
+    # Extract audio
+    ffmpeg -i "$INPUT" -vn -acodec libmp3lame -q:a 2 "$OUTPUT" 2>/dev/null
 
-      # Get duration
-      DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTPUT")
+    # Get duration
+    DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$OUTPUT")
 
-      echo "{\"audio_file\": \"$OUTPUT\", \"duration_seconds\": $DURATION}"
-    timeout: 300s
+    echo "{\"audio_file\": \"$OUTPUT\", \"duration_seconds\": $DURATION}"
+  timeout: 300s
 ```
 
 ### OCR with Tesseract
@@ -198,20 +188,19 @@ run:
 metadata:
   actionId: ocrProcess
 
-run:
-  exec:
-    command: |
-      INPUT="{{ get('file', 'filepath') }}"
-      OUTPUT="/tmp/ocr_result.txt"
+exec:
+  command: |
+    INPUT="{{ get('file', 'filepath') }}"
+    OUTPUT="/tmp/ocr_result.txt"
 
-      # Run OCR
-      tesseract "$INPUT" "/tmp/ocr_result" -l eng 2>/dev/null
+    # Run OCR
+    tesseract "$INPUT" "/tmp/ocr_result" -l eng 2>/dev/null
 
-      # Read result and escape for JSON
-      TEXT=$(cat "$OUTPUT" | jq -Rs .)
+    # Read result and escape for JSON
+    TEXT=$(cat "$OUTPUT" | jq -Rs .)
 
-      echo "{\"text\": $TEXT}"
-    timeout: 60s
+    echo "{\"text\": $TEXT}"
+  timeout: 60s
 ```
 
 </div>
@@ -222,14 +211,13 @@ run:
 metadata:
   actionId: dockerInfo
 
-run:
-  exec:
-    command: |
-      CONTAINERS=$(docker ps --format '{{.Names}}' | wc -l | tr -d ' ')
-      IMAGES=$(docker images --format '{{.Repository}}' | wc -l | tr -d ' ')
+exec:
+  command: |
+    CONTAINERS=$(docker ps --format '{{.Names}}' | wc -l | tr -d ' ')
+    IMAGES=$(docker images --format '{{.Repository}}' | wc -l | tr -d ' ')
 
-      echo "{\"running_containers\": $CONTAINERS, \"images\": $IMAGES}"
-    timeout: 30s
+    echo "{\"running_containers\": $CONTAINERS, \"images\": $IMAGES}"
+  timeout: 30s
 ```
 
 ### Curl API Call
@@ -240,17 +228,16 @@ run:
 metadata:
   actionId: apiCall
 
-run:
-  exec:
-    command: |
-      RESPONSE=$(curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $API_TOKEN" \
-        -d '{"query": "{{ get('q') }}"}' \
-        https://api.example.com/search)
+exec:
+  command: |
+    RESPONSE=$(curl -s -X POST \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $API_TOKEN" \
+      -d '{"query": "{{ get('q') }}"}' \
+      https://api.example.com/search)
 
-      echo "$RESPONSE"
-    timeout: 30s
+    echo "$RESPONSE"
+  timeout: 30s
 ```
 
 </div>
@@ -260,15 +247,14 @@ run:
 The exec resource captures stdout as the result. For structured output, echo JSON:
 
 ```yaml
-run:
-  exec:
-    command: |
-      # Process something
-      RESULT="success"
-      COUNT=42
+exec:
+  command: |
+    # Process something
+    RESULT="success"
+    COUNT=42
 
-      # Output JSON
-      echo "{\"status\": \"$RESULT\", \"count\": $COUNT}"
+    # Output JSON
+    echo "{\"status\": \"$RESULT\", \"count\": $COUNT}"
 ```
 
 Access in other resources:
@@ -277,11 +263,10 @@ Access in other resources:
 metadata:
   requires: [execResource]
 
-run:
-  apiResponse:
-    response:
-      result: get('execResource')
-      status: get('execResource').status
+apiResponse:
+  response:
+    result: get('execResource')
+    status: get('execResource').status
 ```
 
 ## Environment Variables
@@ -299,13 +284,12 @@ settings:
 
 ```yaml
 # In resource
-run:
-  exec:
-    command: |
-      echo "Token: $API_TOKEN"
-      if [ "$DEBUG" = "true" ]; then
-        echo "Debug mode enabled"
-      fi
+exec:
+  command: |
+    echo "Token: $API_TOKEN"
+    if [ "$DEBUG" = "true" ]; then
+      echo "Debug mode enabled"
+    fi
 ```
 
 ## Accessing Output Details
@@ -316,17 +300,16 @@ Access stdout, stderr, and exit codes from other resources:
 metadata:
   requires: [execResource]
 
-run:
-  expr:
-    # Check if command succeeded
-    - set('command_success', exec.exitCode('execResource') == 0)
-    - set('error_output', exec.stderr('execResource'))
-  
-  apiResponse:
-    response:
-      output: get('execResource')  # stdout (default)
-      errors: get('error_output')
-      success: get('command_success')
+expr:
+  # Check if command succeeded
+  - set('command_success', exec.exitCode('execResource') == 0)
+  - set('error_output', exec.stderr('execResource'))
+
+apiResponse:
+  response:
+    output: get('execResource')  # stdout (default)
+    errors: get('error_output')
+    success: get('command_success')
 ```
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
@@ -336,17 +319,16 @@ See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for de
 Check command exit codes:
 
 ```yaml
-run:
-  exec:
-    command: |
-      if ! command -v ffmpeg &> /dev/null; then
-        echo '{"error": "ffmpeg not installed"}' >&2  # Write to stderr
-        exit 1
-      fi
+exec:
+  command: |
+    if ! command -v ffmpeg &> /dev/null; then
+      echo '{"error": "ffmpeg not installed"}' >&2  # Write to stderr
+      exit 1
+    fi
 
-      # Continue with processing...
-      echo '{"status": "success"}'
-    timeout: 30s
+    # Continue with processing...
+    echo '{"status": "success"}'
+  timeout: 30s
 ```
 
 **Note**: Errors written to stderr are accessible via `exec.stderr('resourceId')` in other resources.

@@ -60,25 +60,23 @@ func TestEngine_InlineResources_Before(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
-						},
-						{
-							Exec: &domain.ExecConfig{
-								Command: "echo hello",
-							},
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
+					{
+						Exec: &domain.ExecConfig{
+							Command: "echo hello",
+						},
 					},
+				},
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
 				},
 			},
 		},
@@ -125,21 +123,19 @@ func TestEngine_InlineResources_After(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
-					After: []domain.InlineResource{
-						{SQL: &domain.SQLConfig{
-							Connection: "test",
-							Query:      "SELECT 1",
-						}},
-						{Python: &domain.PythonConfig{
-							Script: "print('hello')",
-						}},
-					},
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
+				},
+				After: []domain.InlineResource{
+					{SQL: &domain.SQLConfig{
+						Connection: "test",
+						Query:      "SELECT 1",
+					}},
+					{Python: &domain.PythonConfig{
+						Script: "print('hello')",
+					}},
 				},
 			},
 		},
@@ -190,25 +186,23 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
-					After: []domain.InlineResource{
-						{Exec: &domain.ExecConfig{
-							Command: "echo after",
-						}},
-					},
+				},
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
+				},
+				After: []domain.InlineResource{
+					{Exec: &domain.ExecConfig{
+						Command: "echo after",
+					}},
 				},
 			},
 		},
@@ -253,20 +247,18 @@ func TestEngine_InlineResources_OnlyInline(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
-					After: []domain.InlineResource{
-						{
-							Exec: &domain.ExecConfig{
-								Command: "echo after",
-							},
+				},
+				After: []domain.InlineResource{
+					{
+						Exec: &domain.ExecConfig{
+							Command: "echo after",
 						},
 					},
 				},
@@ -313,13 +305,11 @@ func TestEngine_InlineResources_Error(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
 				},
@@ -358,13 +348,11 @@ func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 					ActionID: "main",
 					Name:     "Main Resource",
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
 				},

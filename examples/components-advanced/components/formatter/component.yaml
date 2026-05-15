@@ -10,14 +10,12 @@ resources:
     metadata:
       actionId: formatName
       name: Format Name Resource
-    run:
-      expr:
-        - set('formattedName', get('name'))
+    expr:
+      - set('formattedName', get('name'))
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: addTimestamp
       name: Timestamp Resource
-    run:
-      expr:
-        - set('timestamp', now())
+    expr:
+      - set('timestamp', now())

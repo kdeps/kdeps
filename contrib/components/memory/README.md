@@ -40,43 +40,40 @@ Accessed via `output('<your-action-id>')`:
 Store a value:
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: store
-      key: lastQuery
-      value: "{{ input('query') }}"
-  apiResponse:
-    success: true
-    response:
-      status: "{{ output('storeStep').result }}"
+component:
+  name: memory
+  with:
+    action: store
+    key: lastQuery
+    value: "{{ input('query') }}"
+apiResponse:
+  success: true
+  response:
+    status: "{{ output('storeStep').result }}"
 ```
 
 Retrieve a value:
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: retrieve
-      key: lastQuery
-  apiResponse:
-    success: true
-    response:
-      lastQuery: "{{ output('retrieveStep').result }}"
+component:
+  name: memory
+  with:
+    action: retrieve
+    key: lastQuery
+apiResponse:
+  success: true
+  response:
+    lastQuery: "{{ output('retrieveStep').result }}"
 ```
 
 Forget a value:
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: forget
-      key: lastQuery
+component:
+  name: memory
+  with:
+    action: forget
+    key: lastQuery
 ```
 
 Chaining store and retrieve in a conversation bot:
@@ -84,21 +81,19 @@ Chaining store and retrieve in a conversation bot:
 ```yaml
 # Step 1: store the user's message
 - actionId: rememberMessage
-  run:
-    component:
-      name: memory
-      with:
-        action: store
-        key: "user_{{ session('id') }}"
-        value: "{{ input('message') }}"
+component:
+  name: memory
+  with:
+    action: store
+    key: "user_{{ session('id') }}"
+    value: "{{ input('message') }}"
 
 # Step 2: retrieve it in the LLM context
 - actionId: chatWithContext
-  run:
-    chat:
-      prompt: |
-        Previous message: {{ output('rememberMessage').result }}
-        New message: {{ input('message') }}
+chat:
+  prompt: |
+    Previous message: {{ output('rememberMessage').result }}
+    New message: {{ input('message') }}
 ```
 
 ## Requirements

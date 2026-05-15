@@ -8,9 +8,8 @@ metadata:
     - countIntro
     - countPoem
 
-run:
-  apiResponse:
-    success: true
-    response:
-      intro_stats: "{{ output('countIntro') }}"
-      poem_stats:  "{{ output('countPoem') }}"
+apiResponse:
+  success: true
+  response:
+    intro_stats: "{{ output('countIntro') }}"
+    poem_stats:  "{{ output('countPoem') }}"

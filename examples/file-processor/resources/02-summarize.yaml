@@ -7,17 +7,16 @@ metadata:
   requires:
     - readFile
 
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      You are a document analyst. Analyze the following document and return a
-      JSON object with exactly these keys:
-        - "title": a short descriptive title (max 10 words)
-        - "summary": a 2-3 sentence summary
-        - "key_points": an array of 3-5 bullet-point strings
+chat:
+  model: llama3.2:1b
+  prompt: |
+    You are a document analyst. Analyze the following document and return a
+    JSON object with exactly these keys:
+      - "title": a short descriptive title (max 10 words)
+      - "summary": a 2-3 sentence summary
+      - "key_points": an array of 3-5 bullet-point strings
 
-      Document:
-      {{ input('fileContent') }}
+    Document:
+    {{ input('fileContent') }}
 
-      Return only valid JSON. No markdown, no explanation.
+    Return only valid JSON. No markdown, no explanation.

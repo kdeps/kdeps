@@ -30,7 +30,31 @@ type Resource struct {
 	Kind       string           `yaml:"kind"`
 	Metadata   ResourceMetadata `yaml:"metadata"`
 	Items      []string         `yaml:"items,omitempty"`
-	Run        RunConfig        `yaml:"run"`
+
+	// Cross-cutting execution fields
+	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
+	Validations *ValidationsConfig `yaml:"validations,omitempty"`
+	Loop        *LoopConfig        `yaml:"loop,omitempty"`
+	ExprBefore  []Expression       `yaml:"exprBefore,omitempty"`
+	Expr        []Expression       `yaml:"expr,omitempty"`
+	Before      []ActionConfig     `yaml:"before,omitempty"`
+	After       []ActionConfig     `yaml:"after,omitempty"`
+	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
+	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
+
+	// Action types (set exactly one):
+	Chat        *ChatConfig            `yaml:"chat,omitempty"`
+	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
+	SQL         *SQLConfig             `yaml:"sql,omitempty"`
+	Python      *PythonConfig          `yaml:"python,omitempty"`
+	Exec        *ExecConfig            `yaml:"exec,omitempty"`
+	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
+	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
+	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
+	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
+	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
+	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
+	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 }
 
 // ResourceMetadata contains resource metadata.
@@ -88,35 +112,8 @@ type ValidationsConfig struct {
 	Expr     []CustomRule `yaml:"expr,omitempty"`
 }
 
-// RunConfig contains resource execution configuration.
-// Only one primary action type should be set per resource.
-// Tool is an optional convenience discriminator (e.g. "http_request", "sql_query").
-// When Tool is set, it selects the corresponding action type config.
-type RunConfig struct {
-	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
-	Validations *ValidationsConfig `yaml:"validations,omitempty"`
-	Loop        *LoopConfig        `yaml:"loop,omitempty"`
-	ExprBefore  []Expression       `yaml:"exprBefore,omitempty"`
-	Expr        []Expression       `yaml:"expr,omitempty"`
-	Before      []InlineResource   `yaml:"before,omitempty"`
-	After       []InlineResource   `yaml:"after,omitempty"`
-	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
-	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
-
-	// Action types (set exactly one):
-	Chat        *ChatConfig            `yaml:"chat,omitempty"`
-	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
-	SQL         *SQLConfig             `yaml:"sql,omitempty"`
-	Python      *PythonConfig          `yaml:"python,omitempty"`
-	Exec        *ExecConfig            `yaml:"exec,omitempty"`
-	Agent       *AgentCallConfig       `yaml:"agent,omitempty"`
-	Component   *ComponentCallConfig   `yaml:"component,omitempty"`
-	Scraper     *ScraperConfig         `yaml:"scraper,omitempty"`
-	Embedding   *EmbeddingConfig       `yaml:"embedding,omitempty"`
-	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
-	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
-	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
-}
+// RunConfig is a type alias for Resource — retained for compatibility during transition.
+type RunConfig = Resource
 
 // InlineResource is an action config used in before/after lists.
 // Only one action type should be set per entry.
@@ -124,6 +121,8 @@ type InlineResource = ActionConfig
 
 // ActionConfig holds the action (execution type) fields for inline resources.
 type ActionConfig struct {
+	Tool string `yaml:"tool,omitempty"`
+
 	Chat        *ChatConfig            `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
 	SQL         *SQLConfig             `yaml:"sql,omitempty"`

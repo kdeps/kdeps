@@ -44,27 +44,26 @@ resources:
     metadata:
       actionId: count
       name: Count Words
-    run:
-      exec:
-        command: |
-          python3 - <<'PYEOF'
-          import sys, json, re
+    exec:
+      command: |
+        python3 - <<'PYEOF'
+        import sys, json, re
 
-          text  = """{{ input('text') }}"""
-          label = """{{ input('label') }}"""
-          if not label:
-              label = "untitled"
+        text  = """{{ input('text') }}"""
+        label = """{{ input('label') }}"""
+        if not label:
+            label = "untitled"
 
-          words     = text.split()
-          sentences = re.split(r'[.!?]+', text)
-          sentences = [s.strip() for s in sentences if s.strip()]
-          unique    = set(w.lower().strip('.,!?;:') for w in words)
+        words     = text.split()
+        sentences = re.split(r'[.!?]+', text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        unique    = set(w.lower().strip('.,!?;:') for w in words)
 
-          print(json.dumps({
-              "label":         label,
-              "word_count":    len(words),
-              "sentence_count":len(sentences),
-              "unique_words":  len(unique),
-              "avg_word_len":  round(sum(len(w) for w in words) / max(len(words), 1), 2),
-          }))
-          PYEOF
+        print(json.dumps({
+            "label":         label,
+            "word_count":    len(words),
+            "sentence_count":len(sentences),
+            "unique_words":  len(unique),
+            "avg_word_len":  round(sum(len(w) for w in words) / max(len(words), 1), 2),
+        }))
+        PYEOF

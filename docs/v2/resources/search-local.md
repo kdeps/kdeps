@@ -5,12 +5,11 @@ The `searchLocal` executor is a native capability compiled into the `kdeps` bina
 ## Configuration
 
 ```yaml
-run:
-  searchLocal:
-    path: "/data/documents"    # required: directory to search
-    query: "invoice total"     # optional: keyword in file contents
-    glob: "*.txt"              # optional: filename pattern
-    limit: 10                  # optional: max results (0 = unlimited)
+searchLocal:
+  path: "/data/documents"    # required: directory to search
+  query: "invoice total"     # optional: keyword in file contents
+  glob: "*.txt"              # optional: filename pattern
+  limit: 10                  # optional: max results (0 = unlimited)
 ```
 
 | Field | Type | Required | Default | Description |
@@ -49,10 +48,9 @@ Each result object:
 ```yaml
 metadata:
   actionId: findDocs
-run:
-  searchLocal:
-    path: "/workspace/docs"
-    glob: "*.md"
+searchLocal:
+  path: "/workspace/docs"
+  glob: "*.md"
 ```
 
 </div>
@@ -64,11 +62,10 @@ run:
 ```yaml
 metadata:
   actionId: findInvoices
-run:
-  searchLocal:
-    path: "/data/uploads"
-    query: "overdue"
-    limit: 20
+searchLocal:
+  path: "/data/uploads"
+  query: "overdue"
+  limit: 20
 ```
 
 </div>
@@ -80,11 +77,10 @@ run:
 ```yaml
 metadata:
   actionId: findContracts
-run:
-  searchLocal:
-    path: "/data"
-    glob: "*.txt"
-    query: "termination clause"
+searchLocal:
+  path: "/data"
+  glob: "*.txt"
+  query: "termination clause"
 ```
 
 </div>
@@ -96,21 +92,19 @@ run:
 ```yaml
 metadata:
   actionId: findFiles
-run:
-  searchLocal:
-    path: "/data/reports"
-    query: "{{ get('query') }}"
+searchLocal:
+  path: "/data/reports"
+  query: "{{ get('query') }}"
 
 ---
 metadata:
   actionId: answer
   requires: [findFiles]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "Files found: {{ output('findFiles').results }}. Summarize."
-  apiResponse:
-    response: "{{ output('answer') }}"
+chat:
+  model: llama3.2:1b
+  prompt: "Files found: {{ output('findFiles').results }}. Summarize."
+apiResponse:
+  response: "{{ output('answer') }}"
 ```
 
 </div>
@@ -118,12 +112,11 @@ run:
 ## Error Handling
 
 ```yaml
-run:
-  searchLocal:
-    path: "/data"
-    query: "keyword"
-  onError:
-    action: continue
+searchLocal:
+  path: "/data"
+  query: "keyword"
+onError:
+  action: continue
 ```
 
 ## Next Steps

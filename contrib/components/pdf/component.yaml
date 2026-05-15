@@ -26,13 +26,12 @@ resources:
     metadata:
       name: Generate Pdf
       actionId: generate-pdf
-    run:
-      python:
-        script: |
-          import pdfkit
-          content = "{{ get('pdf.content') }}"
-          output_file = "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"
-          pdfkit.from_string(content, output_file)
-      response:
-        data:
-          generated: "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"
+    python:
+      script: |
+        import pdfkit
+        content = "{{ get('pdf.content') }}"
+        output_file = "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"
+        pdfkit.from_string(content, output_file)
+    response:
+      data:
+        generated: "{{ get('pdf.outputFile', '/tmp/output.pdf') }}"

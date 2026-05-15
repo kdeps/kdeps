@@ -5,8 +5,7 @@ metadata:
   name: Final Response
   requires:
     - sayHello
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "{{ get('greeting') }}"
+apiResponse:
+  success: true
+  response:
+    message: "{{ get('greeting') }}"

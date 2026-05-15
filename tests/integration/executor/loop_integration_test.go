@@ -53,18 +53,16 @@ func TestLoopIntegration_BasicCounter(t *testing.T) {
 					ActionID: "count-to-five",
 					Name:     "Count to Five",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 5",
-						MaxIterations: 1000,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('result', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"count": "{{ get('result') }}"},
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 5",
+					MaxIterations: 1000,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('result', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"count": "{{ get('result') }}"},
 				},
 			},
 		},
@@ -108,14 +106,12 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 					ActionID: "compute",
 					Name:     "Compute via Loop",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 3",
-						MaxIterations: 10,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('computed', loop.count())"},
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('computed', loop.count())"},
 				},
 			},
 			{
@@ -124,11 +120,9 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 					Name:     "Read Result",
 					Requires: []string{"compute"},
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"value": "{{ get('computed') }}"},
-					},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"value": "{{ get('computed') }}"},
 				},
 			},
 		},
@@ -172,19 +166,17 @@ func TestLoopIntegration_TuringComplete_Accumulator(t *testing.T) {
 					ActionID: "sum-resource",
 					Name:     "Sum 1..N",
 				},
-				Run: domain.RunConfig{
-					// Sum 1+2+3+4 = 10, stop when index reaches 4.
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 4",
-						MaxIterations: 100,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"partial_sum": "{{ get('sum') }}"},
-					},
+				// Sum 1+2+3+4 = 10, stop when index reaches 4.
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 4",
+					MaxIterations: 100,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"partial_sum": "{{ get('sum') }}"},
 				},
 			},
 		},
@@ -223,15 +215,13 @@ func TestLoopIntegration_TuringComplete_MuRecursion(t *testing.T) {
 					ActionID: "search",
 					Name:     "Search",
 				},
-				Run: domain.RunConfig{
-					// Search for first N where N*(N+1)/2 > 20: N=6 → 21>20.
-					Loop: &domain.LoopConfig{
-						While:         "int(loop.count()) * int(loop.count() + 1) / 2 <= 20",
-						MaxIterations: 100,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('found', loop.count())"},
-					},
+				// Search for first N where N*(N+1)/2 > 20: N=6 → 21>20.
+				Loop: &domain.LoopConfig{
+					While:         "int(loop.count()) * int(loop.count() + 1) / 2 <= 20",
+					MaxIterations: 100,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('found', loop.count())"},
 				},
 			},
 		},
@@ -273,17 +263,15 @@ func TestLoopIntegration_StreamingResponse_ExactCount(t *testing.T) {
 					ActionID: "exact",
 					Name:     "Exact Count",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 7",
-						MaxIterations: 100,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 7",
+					MaxIterations: 100,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
 				},
 			},
 		},
@@ -320,16 +308,14 @@ func TestLoopIntegration_LoopScoped_SetGet(t *testing.T) {
 					ActionID: "scoped",
 					Name:     "Scoped Storage",
 				},
-				Run: domain.RunConfig{
-					// Use get with 'loop' type to read loop-scoped var, parallel to 'item' storage.
-					Loop: &domain.LoopConfig{
-						While:         "default(get('step', 'loop'), 0) < 3",
-						MaxIterations: 10,
-					},
-					Expr: []domain.Expression{
-						// set with 'loop' type hint (parallel to set('key', val, 'item'))
-						{Raw: "set('step', loop.count(), 'loop')"},
-					},
+				// Use get with 'loop' type to read loop-scoped var, parallel to 'item' storage.
+				Loop: &domain.LoopConfig{
+					While:         "default(get('step', 'loop'), 0) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					// set with 'loop' type hint (parallel to set('key', val, 'item'))
+					{Raw: "set('step', loop.count(), 'loop')"},
 				},
 			},
 		},
@@ -369,15 +355,13 @@ func TestLoopIntegration_LoopResults_ChainedComputation(t *testing.T) {
 					ActionID: "chain",
 					Name:     "Chained Results",
 				},
-				Run: domain.RunConfig{
-					// Stop when we've accumulated 3 prior results.
-					Loop: &domain.LoopConfig{
-						While:         "len(loop.results()) < 3",
-						MaxIterations: 10,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('iterations', loop.count())"},
-					},
+				// Stop when we've accumulated 3 prior results.
+				Loop: &domain.LoopConfig{
+					While:         "len(loop.results()) < 3",
+					MaxIterations: 10,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('iterations', loop.count())"},
 				},
 			},
 		},
@@ -415,25 +399,23 @@ func TestLoopIntegration_LoopWithExprBeforeAndAfter(t *testing.T) {
 					ActionID: "expr-blocks",
 					Name:     "Expr Blocks",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 2",
-						MaxIterations: 5,
-					},
-					ExprBefore: []domain.Expression{
-						{Raw: "set('before', loop.count())"},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('main', loop.count())"},
-						{Raw: "set('after', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"before": "{{ get('before') }}",
-							"main":   "{{ get('main') }}",
-							"after":  "{{ get('after') }}",
-						},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 2",
+					MaxIterations: 5,
+				},
+				ExprBefore: []domain.Expression{
+					{Raw: "set('before', loop.count())"},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('main', loop.count())"},
+					{Raw: "set('after', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"before": "{{ get('before') }}",
+						"main":   "{{ get('main') }}",
+						"after":  "{{ get('after') }}",
 					},
 				},
 			},
@@ -483,19 +465,17 @@ func TestLoopIntegration_Every_ShortDelay(t *testing.T) {
 					ActionID: "tick",
 					Name:     "Tick",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 3",
-						MaxIterations: 10,
-						Every:         "1ms",
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('tick', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 3",
+					MaxIterations: 10,
+					Every:         "1ms",
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('tick', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"tick": "{{ get('tick') }}"},
 				},
 			},
 		},
@@ -540,15 +520,13 @@ func TestLoopIntegration_Every_InvalidDuration(t *testing.T) {
 					ActionID: "bad-every",
 					Name:     "Bad Every",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 2",
-						MaxIterations: 5,
-						Every:         "not-a-duration",
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 2",
+					MaxIterations: 5,
+					Every:         "not-a-duration",
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
 				},
 			},
 		},
@@ -582,19 +560,17 @@ func TestLoopIntegration_Every_ZeroNoDelay(t *testing.T) {
 					ActionID: "no-delay",
 					Name:     "No Delay",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 4",
-						MaxIterations: 10,
-						Every:         "", // empty — no delay
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"n": "{{ get('n') }}"},
-					},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 4",
+					MaxIterations: 10,
+					Every:         "", // empty — no delay
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"n": "{{ get('n') }}"},
 				},
 			},
 		},
@@ -632,21 +608,19 @@ func TestLoopIntegration_Every_ScheduledTaskPattern(t *testing.T) {
 					ActionID: "scheduled",
 					Name:     "Scheduled",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While:         "loop.index() < 3",
-						MaxIterations: 100,
-						Every:         "1ms",
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('run', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"run":   "{{ get('run') }}",
-							"index": "{{ loop.index() }}",
-						},
+				Loop: &domain.LoopConfig{
+					While:         "loop.index() < 3",
+					MaxIterations: 100,
+					Every:         "1ms",
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('run', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"run":   "{{ get('run') }}",
+						"index": "{{ loop.index() }}",
 					},
 				},
 			},
@@ -697,18 +671,16 @@ func TestLoopIntegration_At_PastTimestamps(t *testing.T) {
 					ActionID: "at-past",
 					Name:     "At Past",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While: "loop.index() < 2",
-						At:    []string{past1, past2},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"n": "{{ get('n') }}"},
-					},
+				Loop: &domain.LoopConfig{
+					While: "loop.index() < 2",
+					At:    []string{past1, past2},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"n": "{{ get('n') }}"},
 				},
 			},
 		},
@@ -748,19 +720,17 @@ func TestLoopIntegration_At_WhileStopsEarly(t *testing.T) {
 					ActionID: "at-stop",
 					Name:     "At Stop",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						// while stops after 1 iteration even though there are 3 at: entries.
-						While: "loop.index() < 1",
-						At:    []string{past, past, past},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"n": "{{ get('n') }}"},
-					},
+				Loop: &domain.LoopConfig{
+					// while stops after 1 iteration even though there are 3 at: entries.
+					While: "loop.index() < 1",
+					At:    []string{past, past, past},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"n": "{{ get('n') }}"},
 				},
 			},
 		},
@@ -801,14 +771,12 @@ func TestLoopIntegration_At_InvalidEntry(t *testing.T) {
 					ActionID: "at-invalid",
 					Name:     "At Invalid",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While: "loop.index() < 2",
-						At:    []string{"not-a-date-or-time"},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
+				Loop: &domain.LoopConfig{
+					While: "loop.index() < 2",
+					At:    []string{"not-a-date-or-time"},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
 				},
 			},
 		},
@@ -844,15 +812,13 @@ func TestLoopIntegration_At_MutuallyExclusiveWithEvery(t *testing.T) {
 					ActionID: "both",
 					Name:     "Both",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						While: "loop.index() < 1",
-						Every: "1ms",
-						At:    []string{past},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
+				Loop: &domain.LoopConfig{
+					While: "loop.index() < 1",
+					Every: "1ms",
+					At:    []string{past},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
 				},
 			},
 		},
@@ -887,17 +853,15 @@ func TestLoopIntegration_NoWhile_RunsMaxIterations(t *testing.T) {
 					ActionID: "count",
 					Name:     "Count",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						// No While field — loop runs until maxIterations.
-						MaxIterations: 3,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('n', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+				Loop: &domain.LoopConfig{
+					// No While field — loop runs until maxIterations.
+					MaxIterations: 3,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('n', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
 				},
 			},
 		},
@@ -935,18 +899,16 @@ func TestLoopIntegration_NoWhile_WithEvery(t *testing.T) {
 					ActionID: "tick",
 					Name:     "Tick",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						// No While — runs 2 times with a 1 ms inter-iteration delay.
-						Every:         "1ms",
-						MaxIterations: 2,
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('ticks', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+				Loop: &domain.LoopConfig{
+					// No While — runs 2 times with a 1 ms inter-iteration delay.
+					Every:         "1ms",
+					MaxIterations: 2,
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('ticks', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
 				},
 			},
 		},
@@ -987,17 +949,15 @@ func TestLoopIntegration_NoWhile_WithAt(t *testing.T) {
 					ActionID: "fire",
 					Name:     "Fire",
 				},
-				Run: domain.RunConfig{
-					Loop: &domain.LoopConfig{
-						// No While — at: drives iteration count.
-						At: []string{past1, past2},
-					},
-					Expr: []domain.Expression{
-						{Raw: "set('fires', loop.count())"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+				Loop: &domain.LoopConfig{
+					// No While — at: drives iteration count.
+					At: []string{past1, past2},
+				},
+				Expr: []domain.Expression{
+					{Raw: "set('fires', loop.count())"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
 				},
 			},
 		},

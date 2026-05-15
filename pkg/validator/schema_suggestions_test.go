@@ -46,13 +46,11 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"prompt": 123,
-					},
+				"chat": map[string]interface{}{
+					"prompt": 123,
 				},
 			},
-			expectedField:      "run.chat.prompt",
+			expectedField:      "chat.prompt",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -64,14 +62,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
-						"method": "GET",
-						"url":    123,
-					},
+				"httpClient": map[string]interface{}{
+					"method": "GET",
+					"url":    123,
 				},
 			},
-			expectedField:      "run.httpClient.url",
+			expectedField:      "httpClient.url",
 			expectedSuggestion: "Example:",
 		},
 		{
@@ -83,14 +79,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
-						"success":  "true",
-						"response": map[string]interface{}{},
-					},
+				"apiResponse": map[string]interface{}{
+					"success":  "true",
+					"response": map[string]interface{}{},
 				},
 			},
-			expectedField:      "run.apiResponse.success",
+			expectedField:      "apiResponse.success",
 			expectedSuggestion: "boolean",
 		},
 		{
@@ -121,11 +115,9 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name": "Test",
 				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedField:      "actionId",
@@ -140,10 +132,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"validations": map[string]interface{}{
-						"routes": []interface{}{"invalid-route"},
-					},
+				"validations": map[string]interface{}{
+					"routes": []interface{}{"invalid-route"},
 				},
 			},
 			expectedField:      "routes",
@@ -178,14 +168,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"contextLength": 100,
-						"model":         "test",
-					},
+				"chat": map[string]interface{}{
+					"contextLength": 100,
+					"model":         "test",
 				},
 			},
-			expectedField:      "run.chat.contextLength",
+			expectedField:      "chat.contextLength",
 			expectedSuggestion: "Available options",
 		},
 		{
@@ -197,14 +185,12 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"contextLength": 999,
-						"prompt":        "test",
-					},
+				"chat": map[string]interface{}{
+					"contextLength": 999,
+					"prompt":        "test",
 				},
 			},
-			expectedField:      "run.chat.contextLength",
+			expectedField:      "chat.contextLength",
 			expectedSuggestion: "Available options:",
 		},
 		{
@@ -275,7 +261,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 	t.Run("getTypeSuggestion regex extraction", func(t *testing.T) {
 		// Test regex extraction with custom types
 		result := validator.GetTypeSuggestion(
-			"run.chat.model",
+			"chat.model",
 			"Invalid type. Expected: customtype123, given: string",
 		)
 		expected := "Expected type: customtype123. Example: \"llama3.2:latest\""
@@ -316,7 +302,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 		}{
 			{
 				name:     "Expected: string format",
-				field:    "run.chat.model",
+				field:    "chat.model",
 				descStr:  "Invalid type. Expected: string, given: integer",
 				expected: "Expected type: string. Example: \"llama3.2:latest\"",
 			},
@@ -328,31 +314,31 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: boolean format",
-				field:    "run.apiResponse.success",
+				field:    "apiResponse.success",
 				descStr:  "Invalid type. Expected: boolean, given: string",
 				expected: "Expected type: boolean. Example: true or false",
 			},
 			{
 				name:     "Expected: object format",
-				field:    "run.httpClient.headers",
+				field:    "httpClient.headers",
 				descStr:  "Invalid type. Expected: object, given: string",
 				expected: "Expected type: object. Example: {\"key\": \"value\"}",
 			},
 			{
 				name:     "Expected: array format",
-				field:    "run.validations.routes",
+				field:    "validations.routes",
 				descStr:  "Invalid type. Expected: array, given: string",
 				expected: "Expected type: array. Example: [\"item1\", \"item2\"]",
 			},
 			{
 				name:     "expected string lowercase",
-				field:    "run.chat.prompt",
+				field:    "chat.prompt",
 				descStr:  "Invalid type. expected string, given: integer",
 				expected: "Expected type: string. Example: \"What is the weather?\"",
 			},
 			{
 				name:     "Expected: string with but got (no examples)",
-				field:    "run.chat.model",
+				field:    "chat.model",
 				descStr:  "Invalid type. Expected: string, but got integer",
 				expected: "Expected type: string",
 			},
@@ -364,19 +350,19 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:     "Expected: boolean with but got (no examples)",
-				field:    "run.apiResponse.success",
+				field:    "apiResponse.success",
 				descStr:  "Invalid type. Expected: boolean, but got string",
 				expected: "Expected type: boolean",
 			},
 			{
 				name:     "Expected: object with but got (no examples)",
-				field:    "run.httpClient.headers",
+				field:    "httpClient.headers",
 				descStr:  "Invalid type. Expected: object, but got string",
 				expected: "Expected type: object",
 			},
 			{
 				name:     "Expected: array with but got (no examples)",
-				field:    "run.validations.routes",
+				field:    "validations.routes",
 				descStr:  "Invalid type. Expected: array, but got string",
 				expected: "Expected type: array",
 			},
@@ -501,25 +487,25 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 		}{
 			{
 				name:           "contextLength in nested chat",
-				field:          "run.chat.deeply.nested.contextLength",
+				field:          "chat.deeply.nested.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
 				name:           "format in nested sql",
-				field:          "run.sql.deeply.nested.format",
+				field:          "sql.deeply.nested.format",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"json", "csv", "table"},
 			},
 			{
 				name:           "validations.methods direct",
-				field:          "run.validations.methods",
+				field:          "validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
 			{
 				name:           "methods in non-validations context",
-				field:          "run.something.methods",
+				field:          "something.methods",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match validations.methods
 			},
@@ -537,7 +523,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:       "backend partial match in chat",
-				field:      "run.chat.backend",
+				field:      "chat.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
 					"ollama",
@@ -555,19 +541,19 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:           "method partial match in httpClient",
-				field:          "run.httpClient.method",
+				field:          "httpClient.method",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
 			{
 				name:           "contextLength partial match in chat",
-				field:          "run.chat.contextLength",
+				field:          "chat.contextLength",
 				schemaType:     "resource",
 				expectedResult: []interface{}{4096, 8192, 16384, 32768, 65536, 131072, 262144},
 			},
 			{
 				name:           "format partial match in sql",
-				field:          "run.sql.format",
+				field:          "sql.format",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"json", "csv", "table"},
 			},
@@ -591,37 +577,37 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:           "backend field in wrong context",
-				field:          "run.unknown.backend",
+				field:          "unknown.backend",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match since it doesn't contain "chat"
 			},
 			{
 				name:           "method field in wrong context",
-				field:          "run.unknown.method",
+				field:          "unknown.method",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match since it doesn't contain "httpClient"
 			},
 			{
 				name:           "contextLength field in wrong context",
-				field:          "run.unknown.contextLength",
+				field:          "unknown.contextLength",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match since it doesn't contain "chat"
 			},
 			{
 				name:           "format field in wrong context",
-				field:          "run.unknown.format",
+				field:          "unknown.format",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match since it doesn't contain "sql"
 			},
 			{
 				name:           "validations.methods nested match",
-				field:          "run.test.validations.methods",
+				field:          "test.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},
 			{
 				name:           "methods suffix match",
-				field:          "run.test.methods",
+				field:          "test.methods",
 				schemaType:     "resource",
 				expectedResult: nil, // Should not match since it doesn't contain "routes" or "apiServer"
 			},
@@ -681,7 +667,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:       "partial match for backend field",
-				field:      "run.chat.some.backend",
+				field:      "chat.some.backend",
 				schemaType: "resource",
 				expectedResult: []interface{}{
 					"ollama",
@@ -854,7 +840,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 			},
 			{
 				name:           "validations.methods deeply nested match",
-				field:          "run.deeply.nested.validations.methods",
+				field:          "deeply.nested.validations.methods",
 				schemaType:     "resource",
 				expectedResult: []interface{}{"GET", "POST", "PUT", "DELETE", "PATCH"},
 			},

@@ -14,17 +14,16 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
-    jsonResponse: true
-    timeoutDuration: 60s
+chat:
+  backend: ollama
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.
+  jsonResponse: true
+  timeoutDuration: 60s
 ```
 
 ### With Hybrid (simpler!)
@@ -35,17 +34,16 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    role: user
-    prompt: "{{q}}"  # ← 50% less typing!
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
-    jsonResponse: true
-    timeoutDuration: 60s
+chat:
+  backend: ollama
+  model: llama3.2:1b
+  role: user
+  prompt: "{{q}}"  # ← 50% less typing!
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.
+  jsonResponse: true
+  timeoutDuration: 60s
 ```
 
 **Benefit:** Simple variable insertion is cleaner and more intuitive.
@@ -56,26 +54,24 @@ run:
 
 ### Current (expr-lang only)
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{ get('systemInfo') }}"
-      timestamp: "{{ info('current_time') }}"
-      workflow: "{{ info('name') }}"
-      version: "{{ info('version') }}"
+apiResponse:
+  success: true
+  response:
+    system_info: "{{ get('systemInfo') }}"
+    timestamp: "{{ info('current_time') }}"
+    workflow: "{{ info('name') }}"
+    version: "{{ info('version') }}"
 ```
 
 ### With Hybrid (cleaner!)
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{systemInfo}}"      # ← Obvious meaning
-      timestamp: "{{current_time}}"      # ← Self-documenting
-      workflow: "{{name}}"                # ← Clear intent
-      version: "{{version}}"              # ← No function needed
+apiResponse:
+  success: true
+  response:
+    system_info: "{{systemInfo}}"      # ← Obvious meaning
+    timestamp: "{{current_time}}"      # ← Self-documenting
+    workflow: "{{name}}"                # ← Clear intent
+    version: "{{version}}"              # ← No function needed
 ```
 
 **Benefit:** Response templates are self-documenting without needing to learn `get()` and `info()`.
@@ -106,35 +102,33 @@ greeting: "Good {{timeOfDay}}, {{userName}}!"
 
 ### Current (expr-lang only)
 ```yaml
-run:
-  expr:
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('total', get('price') * get('quantity'))
-    - set('discounted', get('total') * (1 - get('discount')))
+expr:
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('total', get('price') * get('quantity'))
+  - set('discounted', get('total') * (1 - get('discount')))
 
-  apiResponse:
-    response:
-      endpoint: "{{ get('isModelsEndpoint') }}"
-      subtotal: "{{ get('total') }}"
-      final_price: "{{ get('discounted') }}"
-      customer: "{{ get('customerName') }}"
+apiResponse:
+  response:
+    endpoint: "{{ get('isModelsEndpoint') }}"
+    subtotal: "{{ get('total') }}"
+    final_price: "{{ get('discounted') }}"
+    customer: "{{ get('customerName') }}"
 ```
 
 ### With Hybrid (best of both!)
 ```yaml
-run:
-  expr:
-    # Complex logic still uses expr-lang (no change)
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('total', price * quantity)           # ← Can drop get()!
-    - set('discounted', total * (1 - discount)) # ← Cleaner math!
+expr:
+  # Complex logic still uses expr-lang (no change)
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('total', price * quantity)           # ← Can drop get()!
+  - set('discounted', total * (1 - discount)) # ← Cleaner math!
 
-  apiResponse:
-    response:
-      endpoint: "{{isModelsEndpoint}}"   # ← Simple mustache
-      subtotal: "{{total}}"               # ← Simple mustache
-      final_price: "{{discounted}}"       # ← Simple mustache
-      customer: "{{customerName}}"        # ← Simple mustache
+apiResponse:
+  response:
+    endpoint: "{{isModelsEndpoint}}"   # ← Simple mustache
+    subtotal: "{{total}}"               # ← Simple mustache
+    final_price: "{{discounted}}"       # ← Simple mustache
+    customer: "{{customerName}}"        # ← Simple mustache
 ```
 
 **Benefit:** Complex logic keeps power, simple references get cleaner.
@@ -286,44 +280,42 @@ config:
 
 ### Current (expr-lang only)
 ```yaml
-run:
-  expr:
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
-    - set('llmResult', get('llmResource'))
-    - set('modelsResult', get('modelsResource'))
-    - set('hasLLMError', safe(get('llmResult'), 'error') == true)
-    - set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))
+expr:
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
+  - set('llmResult', get('llmResource'))
+  - set('modelsResult', get('modelsResource'))
+  - set('hasLLMError', safe(get('llmResult'), 'error') == true)
+  - set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))
 
-  apiResponse:
-    success: true
-    response:
-      models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
-      message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
-      model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
-      query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
+apiResponse:
+  success: true
+  response:
+    models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
+    message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
+    model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
+    query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
 ```
 
 ### With Hybrid (readable!)
 ```yaml
-run:
-  expr:
-    # Complex logic STAYS expr-lang
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
-    - set('llmResult', llmResource)              # ← Cleaner!
-    - set('modelsResult', modelsResource)        # ← Cleaner!
-    - set('hasLLMError', safe(llmResult, 'error') == true)
-    - set('messageContent', safe(safe(llmResult, 'message'), 'content'))
+expr:
+  # Complex logic STAYS expr-lang
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
+  - set('llmResult', llmResource)              # ← Cleaner!
+  - set('modelsResult', modelsResource)        # ← Cleaner!
+  - set('hasLLMError', safe(llmResult, 'error') == true)
+  - set('messageContent', safe(safe(llmResult, 'message'), 'content'))
 
-  apiResponse:
-    success: true
-    response:
-      # Mix conditionals (expr) with simple vars (mustache)
-      models: "{{ isModelsEndpoint ? availableModels : '' }}"
-      message: "{{ isChatEndpoint ? (hasLLMError ? safe(llmResult, 'error') : messageContent) : '' }}"
-      model: "{{ isChatEndpoint ? selectedModel : '' }}"
-      query: "{{ isChatEndpoint ? userMessage : '' }}"
+apiResponse:
+  success: true
+  response:
+    # Mix conditionals (expr) with simple vars (mustache)
+    models: "{{ isModelsEndpoint ? availableModels : '' }}"
+    message: "{{ isChatEndpoint ? (hasLLMError ? safe(llmResult, 'error') : messageContent) : '' }}"
+    model: "{{ isChatEndpoint ? selectedModel : '' }}"
+    query: "{{ isChatEndpoint ? userMessage : '' }}"
 ```
 
 **Benefit:** Variable references are 40% shorter while keeping full conditional power.

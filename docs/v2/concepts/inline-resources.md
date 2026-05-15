@@ -18,27 +18,26 @@ kind: Resource
 metadata:
   actionId: example
   name: Example Resource
-run:
-  # Inline resources to run BEFORE the main resource
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/config"
-    - exec:
-        command: "echo 'Preparing environment...'"
-  
-  # Main resource (chat, httpClient, sql, python, or exec)
-  chat:
-    role: user
-    prompt: "Process this data"
-  
-  # Inline resources to run AFTER the main resource
-  after:
-    - sql:
-        connection: "sqlite3://./db.sqlite"
-        query: "INSERT INTO logs VALUES (?)"
-    - python:
-        script: "print('Post-processing complete')"
+# Inline resources to run BEFORE the main resource
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/config"
+  - exec:
+      command: "echo 'Preparing environment...'"
+
+# Main resource (chat, httpClient, sql, python, or exec)
+chat:
+  role: user
+  prompt: "Process this data"
+
+# Inline resources to run AFTER the main resource
+after:
+  - sql:
+      connection: "sqlite3://./db.sqlite"
+      query: "INSERT INTO logs VALUES (?)"
+  - python:
+      script: "print('Post-processing complete')"
 ```
 
 ## Supported Resource Types
@@ -64,25 +63,24 @@ Resources with inline resources execute in the following order:
 
 Example:
 ```yaml
-run:
-  exprBefore:
-    - set('start_time', now())
-  
-  before:
-    - httpClient: { ... }  # Step 1
-    - exec: { ... }        # Step 2
-  
-  chat: { ... }            # Step 3 (main resource)
-  
-  after:
-    - sql: { ... }         # Step 4
-    - python: { ... }      # Step 5
-  
-  expr:
-    - set('duration', now() - get('start_time'))
-  
-  apiResponse:
-    data: { ... }
+exprBefore:
+  - set('start_time', now())
+
+before:
+  - httpClient: { ... }  # Step 1
+  - exec: { ... }        # Step 2
+
+chat: { ... }            # Step 3 (main resource)
+
+after:
+  - sql: { ... }         # Step 4
+  - python: { ... }      # Step 5
+
+expr:
+  - set('duration', now() - get('start_time'))
+
+apiResponse:
+  data: { ... }
 ```
 
 ## Common Use Cases
@@ -92,15 +90,14 @@ run:
 Fetch additional data before processing:
 
 ```yaml
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/user/{{get('user_id')}}"
-        timeout: 5s
-  
-  chat:
-    prompt: "Analyze user: {{get('_output')}}"
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/user/{{get('user_id')}}"
+      timeout: 5s
+
+chat:
+  prompt: "Analyze user: {{get('_output')}}"
 ```
 
 ### 2. Logging and Auditing
@@ -108,15 +105,14 @@ run:
 Record operations in a database:
 
 ```yaml
-run:
-  chat:
-    prompt: "{{get('prompt')}}"
-  
-  after:
-    - sql:
-        connection: "postgresql://localhost/logs"
-        query: "INSERT INTO audit_log (action, timestamp) VALUES (?, NOW())"
-        params: ["chat_completion"]
+chat:
+  prompt: "{{get('prompt')}}"
+
+after:
+  - sql:
+      connection: "postgresql://localhost/logs"
+      query: "INSERT INTO audit_log (action, timestamp) VALUES (?, NOW())"
+      params: ["chat_completion"]
 ```
 
 ### 3. Notifications
@@ -124,17 +120,16 @@ run:
 Send alerts after completion:
 
 ```yaml
-run:
-  python:
-    script: "process_data.py"
-  
-  after:
-    - httpClient:
-        method: POST
-        url: "https://api.example.com/notify"
-        data:
-          status: "completed"
-          timestamp: "{{now()}}"
+python:
+  script: "process_data.py"
+
+after:
+  - httpClient:
+      method: POST
+      url: "https://api.example.com/notify"
+      data:
+        status: "completed"
+        timestamp: "{{now()}}"
 ```
 
 ### 4. Environment Setup
@@ -142,19 +137,18 @@ run:
 Prepare files or environment before execution:
 
 ```yaml
-run:
-  before:
-    - exec:
-        command: "mkdir -p /tmp/workspace"
-    - exec:
-        command: "cp config.json /tmp/workspace/"
-  
-  python:
-    script: "process_with_config.py"
-  
-  after:
-    - exec:
-        command: "rm -rf /tmp/workspace"
+before:
+  - exec:
+      command: "mkdir -p /tmp/workspace"
+  - exec:
+      command: "cp config.json /tmp/workspace/"
+
+python:
+  script: "process_with_config.py"
+
+after:
+  - exec:
+      command: "rm -rf /tmp/workspace"
 ```
 
 ### 5. Caching
@@ -162,14 +156,13 @@ run:
 Store results for future use:
 
 ```yaml
-run:
-  chat:
-    prompt: "{{get('query')}}"
-  
-  after:
-    - sql:
-        connection: "redis://localhost"
-        query: "SET cache:{{get('query_hash')}} {{get('_output')}}"
+chat:
+  prompt: "{{get('query')}}"
+
+after:
+  - sql:
+      connection: "redis://localhost"
+      query: "SET cache:{{get('query_hash')}} {{get('_output')}}"
 ```
 
 ## Multiple Inline Resources
@@ -177,29 +170,28 @@ run:
 You can have multiple inline resources of the same or different types:
 
 ```yaml
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/config"
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/user"
-    - exec:
-        command: "echo 'Starting...'"
-  
-  chat:
-    prompt: "{{get('prompt')}}"
-  
-  after:
-    - sql:
-        connection: "sqlite3://./db.sqlite"
-        query: "INSERT INTO results VALUES (?)"
-    - python:
-        script: "send_metrics.py"
-    - httpClient:
-        method: POST
-        url: "https://api.example.com/complete"
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/config"
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/user"
+  - exec:
+      command: "echo 'Starting...'"
+
+chat:
+  prompt: "{{get('prompt')}}"
+
+after:
+  - sql:
+      connection: "sqlite3://./db.sqlite"
+      query: "INSERT INTO results VALUES (?)"
+  - python:
+      script: "send_metrics.py"
+  - httpClient:
+      method: POST
+      url: "https://api.example.com/complete"
 ```
 
 ## Resources Without Main Type
@@ -207,16 +199,15 @@ run:
 You can have a resource with only inline resources and no main resource type:
 
 ```yaml
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/data"
-  
-  after:
-    - sql:
-        connection: "sqlite3://./db.sqlite"
-        query: "INSERT INTO cache VALUES (?)"
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/data"
+
+after:
+  - sql:
+      connection: "sqlite3://./db.sqlite"
+      query: "INSERT INTO cache VALUES (?)"
 ```
 
 This is useful for orchestration tasks where you need to coordinate multiple operations.
@@ -232,20 +223,19 @@ If an inline resource fails:
 You can use the resource's `onError` configuration to handle errors:
 
 ```yaml
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/config"
-  
-  chat:
-    prompt: "{{get('prompt')}}"
-  
-  onError:
-    action: continue
-    fallback:
-      error: true
-      message: "Processing failed"
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/config"
+
+chat:
+  prompt: "{{get('prompt')}}"
+
+onError:
+  action: continue
+  fallback:
+    error: true
+    message: "Processing failed"
 ```
 
 ## Accessing Context
@@ -253,19 +243,18 @@ run:
 Inline resources have access to the full execution context:
 
 ```yaml
-run:
-  exprBefore:
-    - set('user_id', get('input.user_id'))
-  
-  before:
-    # Access variables set in exprBefore
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/user/{{get('user_id')}}"
-  
-  chat:
-    # Access results from previous steps
-    prompt: "User data: {{get('_output')}}"
+exprBefore:
+  - set('user_id', get('input.user_id'))
+
+before:
+  # Access variables set in exprBefore
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/user/{{get('user_id')}}"
+
+chat:
+  # Access results from previous steps
+  prompt: "User data: {{get('_output')}}"
 ```
 
 ## Configuration Options
@@ -350,14 +339,13 @@ Each inline resource supports the same configuration options as the standalone r
 ### With Inline Resources
 ```yaml
 # Single resource file
-run:
-  before:
-    - httpClient: { ... }  # Fetch config
-    - exec: { ... }        # Prepare env
-  chat: { ... }            # Main processing
-  after:
-    - sql: { ... }         # Store results
-    - httpClient: { ... }  # Send notification
+before:
+  - httpClient: { ... }  # Fetch config
+  - exec: { ... }        # Prepare env
+chat: { ... }            # Main processing
+after:
+  - sql: { ... }         # Store results
+  - httpClient: { ... }  # Send notification
 ```
 
 **Benefits:**
@@ -374,17 +362,16 @@ run:
 Use expressions with inline resources:
 
 ```yaml
-run:
-  exprBefore:
-    - set('should_notify', get('input.notify') == true)
-  
-  chat:
-    prompt: "{{get('prompt')}}"
-  
-  expr:
-    - if(get('should_notify'), 
-        set('notification_sent', true),
-        set('notification_sent', false))
+exprBefore:
+  - set('should_notify', get('input.notify') == true)
+
+chat:
+  prompt: "{{get('prompt')}}"
+
+expr:
+  - if(get('should_notify'), 
+      set('notification_sent', true),
+      set('notification_sent', false))
 ```
 
 ### Combining with Items
@@ -396,18 +383,17 @@ items:
   - item1
   - item2
 
-run:
-  before:
-    - httpClient:
-        url: "https://api.example.com/prepare/{{item()}}"
-  
-  chat:
-    prompt: "Process {{item()}}"
-  
-  after:
-    - sql:
-        query: "INSERT INTO results VALUES (?)"
-        params: ["{{item()}}"]
+before:
+  - httpClient:
+      url: "https://api.example.com/prepare/{{item()}}"
+
+chat:
+  prompt: "Process {{item()}}"
+
+after:
+  - sql:
+      query: "INSERT INTO results VALUES (?)"
+      params: ["{{item()}}"]
 ```
 
 ## See Also

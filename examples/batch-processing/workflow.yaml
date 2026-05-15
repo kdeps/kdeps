@@ -31,13 +31,12 @@ resources:
       requires: []
     items:
       - "{{input.items}}"  # Iterate over items from request
-    run:
-      httpClient:
-        method: GET
-        url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
-        headers:
-          Accept: "application/vnd.github.v3+json"
-        timeoutDuration: 10s
+    httpClient:
+      method: GET
+      url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
+      headers:
+        Accept: "application/vnd.github.v3+json"
+      timeoutDuration: 10s
 
   # Transform each result
   - apiVersion: kdeps.io/v1
@@ -49,11 +48,10 @@ resources:
       requires: ["process-items"]
     items:
       - "{{get('process-items')}}"  # Iterate over previous results
-    run:
-      exec:
-        command: "echo"
-        args:
-          - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
+    exec:
+      command: "echo"
+      args:
+        - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
 
   # Aggregate all results (for debugging/logging)
   - apiVersion: kdeps.io/v1
@@ -63,14 +61,13 @@ resources:
       name: aggregate-results
       description: "Aggregate all processed items"
       requires: ["transform-results"]
-    run:
-      exec:
-        command: "sh"
-        args:
-          - "-c"
-          - |
-            echo "Processed {{len(get('transform-results'))}} items:"
-            echo {{json(get('transform-results'))}}
+    exec:
+      command: "sh"
+      args:
+        - "-c"
+        - |
+          echo "Processed {{len(get('transform-results'))}} items:"
+          echo {{json(get('transform-results'))}}
 
   # Format and return API response
   - apiVersion: kdeps.io/v1
@@ -80,14 +77,13 @@ resources:
       name: api-response
       description: "Format results as API response"
       requires: ["transform-results"]
-    run:
-      apiResponse:
-        success: true
-        response:
-          summary:
-            totalItems: "{{len(get('transform-results'))}}"
-            message: "Successfully processed {{len(get('transform-results'))}} repositories"
-          results: "{{get('transform-results')}}"
-        meta:
-          headers:
-            Content-Type: "application/json"
+    apiResponse:
+      success: true
+      response:
+        summary:
+          totalItems: "{{len(get('transform-results'))}}"
+          message: "Successfully processed {{len(get('transform-results'))}} repositories"
+        results: "{{get('transform-results')}}"
+      meta:
+        headers:
+          Content-Type: "application/json"

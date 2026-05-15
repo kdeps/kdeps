@@ -51,13 +51,12 @@ resources:
     metadata:
       actionId: llm
       name: LLM Chat
-    run:
-      chat:
-        model: llama3.2:1b
-        # Backend will be auto-detected and installed in Docker image
-        # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
-        role: "user"
-        prompt: "{{ get('q') }}"
+    chat:
+      model: llama3.2:1b
+      # Backend will be auto-detected and installed in Docker image
+      # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
+      role: "user"
+      prompt: "{{ get('q') }}"
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -65,8 +64,7 @@ resources:
       actionId: response
       name: API Response
       requires: [llm]
-    run:
-      apiResponse:
-        success: true
-        response:
-          answer: "{{ get('llm') }}"
+    apiResponse:
+      success: true
+      response:
+        answer: "{{ get('llm') }}"

@@ -227,7 +227,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
-		cc := r.Run.Component
+		cc := r.Component
 		if cc == nil {
 			continue
 		}
@@ -304,14 +304,14 @@ func collectResourceStrings(r *domain.Resource) []string {
 		}
 	}
 
-	appendExprs(r.Run.ExprBefore)
-	appendExprs(r.Run.Expr)
-	out = append(out, collectOnErrorStrings(r.Run.OnError)...)
-	out = append(out, collectValidationStrings(r.Run.Validations)...)
-	out = append(out, collectChatStrings(r.Run.Chat)...)
+	appendExprs(r.ExprBefore)
+	appendExprs(r.Expr)
+	out = append(out, collectOnErrorStrings(r.OnError)...)
+	out = append(out, collectValidationStrings(r.Validations)...)
+	out = append(out, collectChatStrings(r.Chat)...)
 	out = append(out, collectExecTypeStrings(r)...)
-	out = append(out, collectInlineListStrings(r.Run.Before)...)
-	out = append(out, collectInlineListStrings(r.Run.After)...)
+	out = append(out, collectInlineListStrings(r.Before)...)
+	out = append(out, collectInlineListStrings(r.After)...)
 
 	return out
 }
@@ -358,37 +358,37 @@ func collectChatStrings(cfg *domain.ChatConfig) []string {
 
 func collectExecTypeStrings(r *domain.Resource) []string {
 	var out []string
-	if r.Run.Python != nil {
-		out = append(out, r.Run.Python.Script)
+	if r.Python != nil {
+		out = append(out, r.Python.Script)
 	}
-	if r.Run.Exec != nil {
-		out = append(out, r.Run.Exec.Command)
+	if r.Exec != nil {
+		out = append(out, r.Exec.Command)
 	}
-	if r.Run.HTTPClient != nil {
-		out = append(out, r.Run.HTTPClient.URL)
-		if s, ok := r.Run.HTTPClient.Data.(string); ok {
+	if r.HTTPClient != nil {
+		out = append(out, r.HTTPClient.URL)
+		if s, ok := r.HTTPClient.Data.(string); ok {
 			out = append(out, s)
 		}
 	}
-	if r.Run.SQL != nil {
-		for _, q := range r.Run.SQL.Queries {
+	if r.SQL != nil {
+		for _, q := range r.SQL.Queries {
 			out = append(out, q.Query)
 			for _, p := range q.Params {
 				out = append(out, fmt.Sprintf("%v", p))
 			}
 		}
 	}
-	if r.Run.Scraper != nil {
-		out = append(out, r.Run.Scraper.URL)
+	if r.Scraper != nil {
+		out = append(out, r.Scraper.URL)
 	}
-	if r.Run.Embedding != nil {
-		out = append(out, r.Run.Embedding.Text)
+	if r.Embedding != nil {
+		out = append(out, r.Embedding.Text)
 	}
-	if r.Run.SearchLocal != nil {
-		out = append(out, r.Run.SearchLocal.Query)
+	if r.SearchLocal != nil {
+		out = append(out, r.SearchLocal.Query)
 	}
-	if r.Run.SearchWeb != nil {
-		out = append(out, r.Run.SearchWeb.Query)
+	if r.SearchWeb != nil {
+		out = append(out, r.SearchWeb.Query)
 	}
 	return out
 }

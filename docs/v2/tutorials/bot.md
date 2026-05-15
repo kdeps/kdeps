@@ -59,11 +59,10 @@ metadata:
   actionId: llm
   name: LLM Response
 
-run:
-  chat:
-    messages:
-      - role: user
-        content: "{{ input('message') }}"
+chat:
+  messages:
+    - role: user
+      content: "{{ input('message') }}"
 ```
 
 `input('message')` retrieves the text the Telegram user sent.
@@ -86,9 +85,8 @@ metadata:
 dependencies:
   - llm
 
-run:
-  botReply:
-    text: "{{ get('llm') }}"
+botReply:
+  text: "{{ get('llm') }}"
 ```
 
 ---
@@ -121,17 +119,16 @@ Send a message to your bot in Telegram — it replies with the LLM's answer.
 Give your bot a persona by adding a `scenario` block to the LLM resource:
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: assistant
-        prompt: |
-          You are Kodi, a helpful AI assistant.
-          Keep your answers short and friendly.
-          Always respond in the same language as the user.
-    messages:
-      - role: user
-        content: "{{ input('message') }}"
+chat:
+  scenario:
+    - role: assistant
+      prompt: |
+        You are Kodi, a helpful AI assistant.
+        Keep your answers short and friendly.
+        Always respond in the same language as the user.
+  messages:
+    - role: user
+      content: "{{ input('message') }}"
 ```
 
 ---
@@ -193,14 +190,13 @@ The same workflow resources receive messages from both platforms. Use `input('pl
 
 ```yaml
 # resources/reply.yaml
-run:
-  botReply:
-    text: |
-      {{ if eq (input('platform')) "discord" }}
-      **{{ get('llm') }}**
-      {{ else }}
-      {{ get('llm') }}
-      {{ end }}
+botReply:
+  text: |
+    {{ if eq (input('platform')) "discord" }}
+    **{{ get('llm') }}**
+    {{ else }}
+    {{ get('llm') }}
+    {{ end }}
 ```
 
 ---

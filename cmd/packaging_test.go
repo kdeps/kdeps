@@ -870,11 +870,10 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "test"
+apiResponse:
+  success: true
+  response:
+    message: "test"
 `
 				require.NoError(
 					t,
@@ -1123,9 +1122,8 @@ interface:
 kind: Resource
 metadata:
   actionId: greet
-run:
-  response:
-    data: "Hello"
+response:
+  data: "Hello"
 `
 	require.NoError(
 		t,

@@ -3,11 +3,10 @@ kind: Resource
 metadata:
   actionId: response
   requires: [search]
-run:
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('search').results }}"
-      count: "{{ output('search').count }}"
-      query: "{{ get('query') }}"
-      path: "{{ get('path', '/data') }}"
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('search').results }}"
+    count: "{{ output('search').count }}"
+    query: "{{ get('query') }}"
+    path: "{{ get('path', '/data') }}"

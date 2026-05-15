@@ -5,9 +5,8 @@ metadata:
   actionId: translate
   name: Translate Sample Text
 
-run:
-  component:
-    name: translator
-    with:
-      text: "The weather is beautiful today and the birds are singing in the trees."
-      target_language: "French"
+component:
+  name: translator
+  with:
+    text: "The weather is beautiful today and the birds are singing in the trees."
+    target_language: "French"

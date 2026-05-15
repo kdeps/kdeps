@@ -7,12 +7,11 @@ metadata:
   requires:
     - collectInputs
 
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      Context: {{ output('collectInputs') | json_decode | get('text') }}
+chat:
+  model: llama3.2:1b
+  prompt: |
+    Context: {{ output('collectInputs') | json_decode | get('text') }}
 
-      Question: {{ output('collectInputs') | json_decode | get('query') }}
+    Question: {{ output('collectInputs') | json_decode | get('query') }}
 
-      Answer the question concisely based on the provided context.
+    Answer the question concisely based on the provided context.

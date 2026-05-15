@@ -55,12 +55,10 @@ func TestEngine_Execute_ItemsIteration(t *testing.T) {
 					Name:     "Process Items",
 				},
 				Items: []string{"item1", "item2", "item3"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"item": "{{get('item')}}",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"item": "{{get('item')}}",
 					},
 				},
 			},
@@ -101,17 +99,15 @@ func TestEngine_Execute_SkipCondition_FileExists(t *testing.T) {
 					ActionID: "conditional-resource",
 					Name:     "Conditional Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Skip: []domain.Expression{
-							{Raw: "false"}, // Don't skip
-						},
+				Validations: &domain.ValidationsConfig{
+					Skip: []domain.Expression{
+						{Raw: "false"}, // Don't skip
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"executed": true,
-						},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"executed": true,
 					},
 				},
 			},
@@ -146,21 +142,19 @@ func TestEngine_Execute_PreflightCheck_WithError(t *testing.T) {
 					ActionID: "validated-resource",
 					Name:     "Validated Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Check: []domain.Expression{
-							{Raw: "false"}, // Validation fails
-						},
-						Error: &domain.ErrorConfig{
-							Code:    400,
-							Message: "Missing required parameters",
-						},
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
+						{Raw: "false"}, // Validation fails
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"result": "success",
-						},
+					Error: &domain.ErrorConfig{
+						Code:    400,
+						Message: "Missing required parameters",
+					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
 					},
 				},
 			},
@@ -197,15 +191,13 @@ func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
 					ActionID: "restricted-resource",
 					Name:     "Restricted Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET", "POST"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"result": "success",
-						},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET", "POST"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
 					},
 				},
 			},
@@ -254,15 +246,13 @@ func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
 					ActionID: "route-restricted-resource",
 					Name:     "Route Restricted Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Routes: []string{"/api/v1/data"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"result": "success",
-						},
+				Validations: &domain.ValidationsConfig{
+					Routes: []string{"/api/v1/data"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
 					},
 				},
 			},
@@ -309,17 +299,15 @@ func TestEngine_Execute_ExprBlock(t *testing.T) {
 					ActionID: "expr-resource",
 					Name:     "Expression Resource",
 				},
-				Run: domain.RunConfig{
-					Expr: []domain.Expression{
-						{Raw: "set('computed', 42)"},
-						{Raw: "set('formatted', 'Result: ' + string(get('computed')))"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"computed":  "{{get('computed')}}",
-							"formatted": "{{get('formatted')}}",
-						},
+				Expr: []domain.Expression{
+					{Raw: "set('computed', 42)"},
+					{Raw: "set('formatted', 'Result: ' + string(get('computed')))"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"computed":  "{{get('computed')}}",
+						"formatted": "{{get('formatted')}}",
 					},
 				},
 			},
@@ -356,12 +344,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 					ActionID: "step1",
 					Name:     "Step 1",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"value": "step1-result",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"value": "step1-result",
 					},
 				},
 			},
@@ -370,17 +356,15 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 					ActionID: "conditional-step",
 					Name:     "Conditional Step",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Skip: []domain.Expression{
-							{Raw: "get('step1') == null"}, // Skip if step1 didn't run
-						},
+				Validations: &domain.ValidationsConfig{
+					Skip: []domain.Expression{
+						{Raw: "get('step1') == null"}, // Skip if step1 didn't run
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"value": "conditional-result",
-						},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"value": "conditional-result",
 					},
 				},
 			},
@@ -389,12 +373,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 					ActionID: "final-resource",
 					Name:     "Final Resource",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "completed",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "completed",
 					},
 				},
 			},
@@ -429,16 +411,14 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 					ActionID: "set-data",
 					Name:     "Set Data",
 				},
-				Run: domain.RunConfig{
-					Expr: []domain.Expression{
-						{Raw: "set('userId', '123')"},
-						{Raw: "set('apiToken', 'token-abc')"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"status": "data-set",
-						},
+				Expr: []domain.Expression{
+					{Raw: "set('userId', '123')"},
+					{Raw: "set('apiToken', 'token-abc')"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"status": "data-set",
 					},
 				},
 			},
@@ -448,22 +428,20 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 					Name:     "Validated Resource",
 					Requires: []string{"set-data"},
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Check: []domain.Expression{
-							{Raw: "get('userId') != nil"},
-							{Raw: "get('apiToken') != nil"},
-						},
-						Error: &domain.ErrorConfig{
-							Code:    400,
-							Message: "Missing required parameters",
-						},
+				Validations: &domain.ValidationsConfig{
+					Check: []domain.Expression{
+						{Raw: "get('userId') != nil"},
+						{Raw: "get('apiToken') != nil"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"result": "success",
-						},
+					Error: &domain.ErrorConfig{
+						Code:    400,
+						Message: "Missing required parameters",
+					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
 					},
 				},
 			},
@@ -500,12 +478,10 @@ func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
 					ActionID: "prepare-data",
 					Name:     "Prepare Data",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"items": []string{"item1", "item2", "item3"},
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"items": []string{"item1", "item2", "item3"},
 					},
 				},
 			},
@@ -515,12 +491,10 @@ func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
 					Name:     "Process Items",
 				},
 				Items: []string{"item1", "item2", "item3"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"item": "{{get('item')}}",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"item": "{{get('item')}}",
 					},
 				},
 			},
@@ -560,16 +534,14 @@ func TestEngine_Execute_CombinedRestrictions(t *testing.T) {
 					ActionID: "restricted-resource",
 					Name:     "Restricted Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET", "POST"},
-						Routes:  []string{"/api/v1/data"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"result": "success",
-						},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET", "POST"},
+					Routes:  []string{"/api/v1/data"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"result": "success",
 					},
 				},
 			},

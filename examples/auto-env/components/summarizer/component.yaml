@@ -27,42 +27,41 @@ resources:
     metadata:
       actionId: summarize
       name: Summarize Text
-    run:
-      exec:
-        command: |
-          python3 - <<'PYEOF'
-          import os, sys, json, urllib.request
+    exec:
+      command: |
+        python3 - <<'PYEOF'
+        import os, sys, json, urllib.request
 
-          api_key      = """{{ env('OPENAI_API_KEY') }}"""
-          text         = """{{ input('text') }}"""
-          max_sents    = """{{ input('max_sentences') }}"""
-          if not max_sents:
-              max_sents = "2"
+        api_key      = """{{ env('OPENAI_API_KEY') }}"""
+        text         = """{{ input('text') }}"""
+        max_sents    = """{{ input('max_sentences') }}"""
+        if not max_sents:
+            max_sents = "2"
 
-          if not api_key:
-              # Fallback: naive extractive summary (first N sentences)
-              import re
-              sents = re.split(r'(?<=[.!?])\s+', text.strip())
-              summary = " ".join(sents[:int(max_sents)])
-              print(json.dumps({"summary": summary, "source": "extractive", "sentences": int(max_sents)}))
-              sys.exit(0)
+        if not api_key:
+            # Fallback: naive extractive summary (first N sentences)
+            import re
+            sents = re.split(r'(?<=[.!?])\s+', text.strip())
+            summary = " ".join(sents[:int(max_sents)])
+            print(json.dumps({"summary": summary, "source": "extractive", "sentences": int(max_sents)}))
+            sys.exit(0)
 
-          payload = json.dumps({
-              "model": "gpt-4o-mini",
-              "messages": [
-                  {"role": "system", "content": f"Summarize the text in at most {max_sents} sentences."},
-                  {"role": "user",   "content": text}
-              ]
-          }).encode()
+        payload = json.dumps({
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": f"Summarize the text in at most {max_sents} sentences."},
+                {"role": "user",   "content": text}
+            ]
+        }).encode()
 
-          req = urllib.request.Request(
-              "https://api.openai.com/v1/chat/completions",
-              data=payload,
-              headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-          )
-          with urllib.request.urlopen(req) as resp:
-              body = json.loads(resp.read())
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req) as resp:
+            body = json.loads(resp.read())
 
-          summary = body["choices"][0]["message"]["content"].strip()
-          print(json.dumps({"summary": summary, "source": "openai", "sentences": max_sents}))
-          PYEOF
+        summary = body["choices"][0]["message"]["content"].strip()
+        print(json.dumps({"summary": summary, "source": "openai", "sentences": max_sents}))
+        PYEOF

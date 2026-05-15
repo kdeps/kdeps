@@ -43,27 +43,26 @@ The execution order for a resource with inline resources is:
 ### Inline Resource Structure
 
 ```yaml
-run:
-  # Inline resources to run before main resource
-  before:
-    - httpClient:
-        method: GET
-        url: "https://api.example.com/data"
-    - exec:
-        command: "echo 'Preparing...'"
-  
-  # Main resource
-  chat:
-    model: llama3.2:1b
-    prompt: "Process this"
-  
-  # Inline resources to run after main resource
-  after:
-    - sql:
-        connection: "sqlite3://./db.sqlite"
-        query: "INSERT INTO logs VALUES (?)"
-    - python:
-        script: "print('Done')"
+# Inline resources to run before main resource
+before:
+  - httpClient:
+      method: GET
+      url: "https://api.example.com/data"
+  - exec:
+      command: "echo 'Preparing...'"
+
+# Main resource
+chat:
+  model: llama3.2:1b
+  prompt: "Process this"
+
+# Inline resources to run after main resource
+after:
+  - sql:
+      connection: "sqlite3://./db.sqlite"
+      query: "INSERT INTO logs VALUES (?)"
+  - python:
+      script: "print('Done')"
 ```
 
 ### Supported Inline Resource Types
@@ -135,14 +134,13 @@ resources:
 ### With Inline Resources (New Approach)
 ```yaml
 # Single resource file with inline resources
-run:
-  before:
-    - httpClient: ...    # Fetch config
-    - exec: ...          # Prepare env
-  chat: ...              # Main processing
-  after:
-    - sql: ...           # Store results
-    - httpClient: ...    # Send notification
+before:
+  - httpClient: ...    # Fetch config
+  - exec: ...          # Prepare env
+chat: ...              # Main processing
+after:
+  - sql: ...           # Store results
+  - httpClient: ...    # Send notification
 ```
 
 **Benefits:**
@@ -158,20 +156,19 @@ run:
 You can combine inline resources with expression blocks:
 
 ```yaml
-run:
-  exprBefore:
-    - set('timestamp', now())
-  
-  before:
-    - httpClient: ...
-  
-  chat: ...
-  
-  after:
-    - sql: ...
-  
-  expr:
-    - set('duration', now() - get('timestamp'))
+exprBefore:
+  - set('timestamp', now())
+
+before:
+  - httpClient: ...
+
+chat: ...
+
+after:
+  - sql: ...
+
+expr:
+  - set('duration', now() - get('timestamp'))
 ```
 
 ### Accessing Results

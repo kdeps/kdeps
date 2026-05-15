@@ -111,10 +111,9 @@ kind: Resource
 metadata:
   actionId: resource1
   name: Resource 1
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "test"
+chat:
+  model: llama3.2:1b
+  prompt: "test"
 `
 	err = os.WriteFile(
 		filepath.Join(resourcesDir, "resource1.yaml"),
@@ -129,9 +128,8 @@ kind: Resource
 metadata:
   actionId: resource2
   name: Resource 2
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 	err = os.WriteFile(filepath.Join(resourcesDir, "resource2.yml"), []byte(resource2Content), 0600)
 	require.NoError(t, err)
@@ -185,9 +183,8 @@ kind: Resource
 metadata:
   actionId: resource1
   name: Resource 1
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 	err = os.WriteFile(filepath.Join(resourcesDir, "resource.yaml"), []byte(resourceContent), 0600)
 	require.NoError(t, err)
@@ -231,9 +228,8 @@ kind: Resource
 metadata:
   actionId: subresource
   name: Sub Resource
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 	err = os.WriteFile(
 		filepath.Join(resourcesDir, "subdir", "resource.yaml"),
@@ -249,9 +245,8 @@ kind: Resource
 metadata:
   actionId: resource1
   name: Resource 1
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 	err = os.WriteFile(filepath.Join(resourcesDir, "resource.yaml"), []byte(resourceContent), 0600)
 	require.NoError(t, err)
@@ -326,9 +321,8 @@ resources:
   - metadata:
       actionId: inline-resource
       name: Inline Resource
-    run:
-      apiResponse:
-        success: true
+    apiResponse:
+      success: true
 `
 	err := os.WriteFile(workflowPath, []byte(workflowContent), 0600)
 	require.NoError(t, err)
@@ -340,9 +334,8 @@ kind: Resource
 metadata:
   actionId: file-resource
   name: File Resource
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 	err = os.WriteFile(filepath.Join(resourcesDir, "resource.yaml"), []byte(resourceContent), 0600)
 	require.NoError(t, err)

@@ -66,9 +66,8 @@ resources:
     metadata:
       actionId: response
       name: Response
-    run:
-      response:
-        data: "hello"
+    response:
+      data: "hello"
 `
 
 func newAgencyParser() *yaml.Parser {

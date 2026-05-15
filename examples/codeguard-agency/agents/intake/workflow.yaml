@@ -34,18 +34,17 @@ resources:
     metadata:
       actionId: validate
       name: Validate Input
-    run:
-      validations:
-        methods: [POST]
-        routes: [/api/v1/review]
-        check:
-          - get('code') != ''
-        error:
-          code: 400
-          message: "'code' field is required"
-      exec:
-        command: echo
-        args: ["Input validated"]
+    validations:
+      methods: [POST]
+      routes: [/api/v1/review]
+      check:
+        - get('code') != ''
+      error:
+        code: 400
+        message: "'code' field is required"
+    exec:
+      command: echo
+      args: ["Input validated"]
 
   # ── Step 1a: Security review (parallel) ───────────────────────────────────────
   - apiVersion: kdeps.io/v1
@@ -54,12 +53,11 @@ resources:
       actionId: callSecurity
       name: Call Security Agent
       requires: [validate]
-    run:
-      agent:
-        name: code-security
-        params:
-          code: "{{ get('code') }}"
-          language: "{{ get('language', 'unknown') }}"
+    agent:
+      name: code-security
+      params:
+        code: "{{ get('code') }}"
+        language: "{{ get('language', 'unknown') }}"
 
   # ── Step 1b: Quality review (parallel with 1a) ────────────────────────────────
   - apiVersion: kdeps.io/v1
@@ -68,12 +66,11 @@ resources:
       actionId: callQuality
       name: Call Quality Agent
       requires: [validate]
-    run:
-      agent:
-        name: code-quality
-        params:
-          code: "{{ get('code') }}"
-          language: "{{ get('language', 'unknown') }}"
+    agent:
+      name: code-quality
+      params:
+        code: "{{ get('code') }}"
+        language: "{{ get('language', 'unknown') }}"
 
   # ── Step 2: Synthesise report (waits for both 1a and 1b) ─────────────────────
   - apiVersion: kdeps.io/v1
@@ -82,14 +79,13 @@ resources:
       actionId: callReport
       name: Call Report Agent
       requires: [callSecurity, callQuality]
-    run:
-      agent:
-        name: code-report
-        params:
-          code:     "{{ get('code') }}"
-          language: "{{ get('language', 'unknown') }}"
-          security: "{{ output('callSecurity') }}"
-          quality:  "{{ output('callQuality') }}"
+    agent:
+      name: code-report
+      params:
+        code:     "{{ get('code') }}"
+        language: "{{ get('language', 'unknown') }}"
+        security: "{{ output('callSecurity') }}"
+        quality:  "{{ output('callQuality') }}"
 
   # ── Step 3: Return final report ───────────────────────────────────────────────
   - apiVersion: kdeps.io/v1
@@ -98,7 +94,6 @@ resources:
       actionId: final-response
       name: Final Response
       requires: [callReport]
-    run:
-      apiResponse:
-        success: true
-        response: "{{ output('callReport') }}"
+    apiResponse:
+      success: true
+      response: "{{ output('callReport') }}"

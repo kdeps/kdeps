@@ -25,43 +25,42 @@ resources:
     metadata:
       actionId: security-check
       name: Security Check
-    run:
-      chat:
-        model: llama3.2:1b
-        role: user
-        prompt: |
-          You are an application security engineer performing a code review.
-          Analyse the {{ get('language') }} code below for security vulnerabilities.
+    chat:
+      model: llama3.2:1b
+      role: user
+      prompt: |
+        You are an application security engineer performing a code review.
+        Analyse the {{ get('language') }} code below for security vulnerabilities.
 
-          Focus on:
-          • OWASP Top 10 (injection, broken auth, XSS, IDOR, security misconfiguration, etc.)
-          • Hardcoded credentials, tokens, or private keys
-          • Unsafe use of eval / exec / shell commands
-          • Missing input validation or output encoding
-          • Insecure cryptography (weak algorithms, predictable seeds)
-          • Sensitive data exposed in logs or responses
+        Focus on:
+        • OWASP Top 10 (injection, broken auth, XSS, IDOR, security misconfiguration, etc.)
+        • Hardcoded credentials, tokens, or private keys
+        • Unsafe use of eval / exec / shell commands
+        • Missing input validation or output encoding
+        • Insecure cryptography (weak algorithms, predictable seeds)
+        • Sensitive data exposed in logs or responses
 
-          Code:
-          ```{{ get('language') }}
-          {{ get('code') }}
-          ```
+        Code:
+        ```{{ get('language') }}
+        {{ get('code') }}
+        ```
 
-          Respond ONLY with a JSON object — no prose, no markdown fences:
-          {
-            "severity": "critical|high|medium|low|none",
-            "findings": [
-              { "issue": "...", "location": "line N or function name", "cwe": "CWE-XX", "recommendation": "..." }
-            ],
-            "summary": "One sentence overall security assessment."
-          }
-        scenario:
-          - role: assistant
-            prompt: |
-              You are an expert application security engineer (OWASP, SANS).
-              You ALWAYS respond with valid JSON and nothing else.
-        jsonResponse: true
-        jsonResponseKeys: [severity, findings, summary]
-        timeoutDuration: 120s
+        Respond ONLY with a JSON object — no prose, no markdown fences:
+        {
+          "severity": "critical|high|medium|low|none",
+          "findings": [
+            { "issue": "...", "location": "line N or function name", "cwe": "CWE-XX", "recommendation": "..." }
+          ],
+          "summary": "One sentence overall security assessment."
+        }
+      scenario:
+        - role: assistant
+          prompt: |
+            You are an expert application security engineer (OWASP, SANS).
+            You ALWAYS respond with valid JSON and nothing else.
+      jsonResponse: true
+      jsonResponseKeys: [severity, findings, summary]
+      timeoutDuration: 120s
 
   # ── Return result to intake agent ─────────────────────────────────────────────
   - apiVersion: kdeps.io/v1
@@ -70,7 +69,6 @@ resources:
       actionId: security-response
       name: Security Response
       requires: [security-check]
-    run:
-      apiResponse:
-        success: true
-        response: "{{ get('security-check') }}"
+    apiResponse:
+      success: true
+      response: "{{ get('security-check') }}"

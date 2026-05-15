@@ -105,9 +105,8 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -187,12 +186,10 @@ func TestValidateWorkflow(t *testing.T) {
 					ActionID: "test-action",
 					Name:     "Test Action",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -361,10 +358,8 @@ func TestParseOllamaURL(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -398,10 +393,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -413,10 +406,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "",
 						},
 					},
 				},
@@ -428,10 +419,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "openai",
 						},
 					},
 				},
@@ -443,10 +432,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 				},
@@ -458,17 +445,13 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -671,11 +654,10 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "test"
+apiResponse:
+  success: true
+  response:
+    message: "test"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -867,12 +849,10 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 					ActionID: "test-action",
 					Name:     "Test Action",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -1063,12 +1043,10 @@ func TestStartBothServers(t *testing.T) {
 					ActionID: "test-action",
 					Name:     "Test Action",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -1122,12 +1100,10 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-								Prompt:  "You are a helpful assistant",
-								Role:    "user",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+							Prompt:  "You are a helpful assistant",
+							Role:    "user",
 						},
 					},
 				},
@@ -1155,10 +1131,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "",
 						},
 					},
 				},
@@ -1181,10 +1155,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 				},
@@ -1207,10 +1179,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "openai",
 						},
 					},
 				},
@@ -1234,8 +1204,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 			// by checking if the workflow structure would trigger Ollama checks
 			hasOllamaResource := false
 			for _, resource := range tt.workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						hasOllamaResource = true
 						break
@@ -1321,10 +1291,8 @@ func TestOllamaURLParsing(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1335,7 +1303,7 @@ func TestOllamaURLParsing(t *testing.T) {
 			// but we can verify the workflow is structured correctly for URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Chat)
 		})
 	}
 }
@@ -1364,10 +1332,8 @@ func TestOllamaConnectionLogic(t *testing.T) {
 					ActionID: "test-action",
 					Name:     "Test Action",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -1382,7 +1348,7 @@ func TestOllamaConnectionLogic(t *testing.T) {
 	assert.NotNil(t, workflowWithOllama)
 	assert.Equal(t, "http://localhost:11434", workflowWithOllama.Settings.AgentSettings.OllamaURL)
 	assert.Len(t, workflowWithOllama.Resources, 1)
-	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Run.Chat.Backend)
+	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Chat.Backend)
 }
 
 // TestWorkflowNeedsOllamaComprehensive tests the workflowNeedsOllama logic comprehensively.
@@ -1401,9 +1367,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single ollama resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 			},
 			shouldNeed: true,
@@ -1412,9 +1376,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single default backend resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
-					},
+					Chat: &domain.ChatConfig{Backend: ""},
 				},
 			},
 			shouldNeed: true,
@@ -1423,9 +1385,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single non-ollama resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
-					},
+					Chat: &domain.ChatConfig{Backend: "openai"},
 				},
 			},
 			shouldNeed: false,
@@ -1434,14 +1394,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "mixed resources with ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
-					},
+					APIResponse: &domain.APIResponseConfig{Success: true},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 			},
 			shouldNeed: true,
@@ -1450,14 +1406,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "mixed resources without ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
-					},
+					APIResponse: &domain.APIResponseConfig{Success: true},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
-					},
+					Chat: &domain.ChatConfig{Backend: "openai"},
 				},
 			},
 			shouldNeed: false,
@@ -1466,14 +1418,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "multiple ollama resources",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
-					},
+					Chat: &domain.ChatConfig{Backend: ""},
 				},
 			},
 			shouldNeed: true,
@@ -1489,8 +1437,8 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			// Test the logic that workflowNeedsOllama implements
 			needsOllama := false
 			for _, resource := range workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1539,14 +1487,13 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    messages:
-      - role: user
-        content: "Hello"
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  messages:
+    - role: user
+      content: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1598,18 +1545,16 @@ func TestOllamaFunctionsIndirectCoverage(t *testing.T) {
 			// by verifying that workflowNeedsOllama works correctly
 			resources := []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Backend: "ollama",
-						},
+					Chat: &domain.ChatConfig{
+						Backend: "ollama",
 					},
 				},
 			}
 
 			needsOllama := false
 			for _, resource := range resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1726,10 +1671,8 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1738,7 +1681,7 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 			// Verify workflow structure
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Chat)
 		})
 	}
 }
@@ -1770,10 +1713,8 @@ func TestEnsureOllamaRunning_AlreadyRunning(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -1883,10 +1824,8 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 							ActionID: "test-action",
 							Name:     "Test Action",
 						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1895,8 +1834,8 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 			// Verify the workflow is structured correctly for Ollama URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
-			assert.Equal(t, "ollama", workflow.Resources[0].Run.Chat.Backend)
+			assert.NotNil(t, workflow.Resources[0].Chat)
+			assert.Equal(t, "ollama", workflow.Resources[0].Chat.Backend)
 		})
 	}
 }
@@ -1937,14 +1876,13 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    messages:
-      - role: user
-        content: "Hello"
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  messages:
+    - role: user
+      content: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2004,12 +1942,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2064,12 +2001,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2122,12 +2058,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2189,12 +2124,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2252,12 +2186,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "Test prompt"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "Test prompt"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2310,12 +2243,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "Test prompt"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "Test prompt"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2370,12 +2302,11 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2429,10 +2360,8 @@ func TestWaitForOllamaReady_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -2530,9 +2459,8 @@ kind: Resource
 metadata:
   actionId: action-%d
   name: Action %d
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `, i, i)
 					err = os.WriteFile(resourcePath, []byte(content), 0644)
 					require.NoError(t, err)
@@ -2564,9 +2492,8 @@ kind: Resource
 metadata:
   actionId: valid-action
   name: Valid Action
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `), 0644)
 				require.NoError(t, err)
 
@@ -2606,9 +2533,8 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
+apiResponse:
+  success: true
 `), 0644)
 				require.NoError(t, err)
 
@@ -2781,11 +2707,10 @@ resources:
     metadata:
       actionId: main-action
       name: Main Action
-    run:
-      apiResponse:
-        success: true
-        response:
-          message: "main"
+    apiResponse:
+      success: true
+      response:
+        message: "main"
 `
 	require.NoError(
 		t,
@@ -2822,11 +2747,10 @@ kind: Resource
 metadata:
   actionId: greet
   name: Greet Resource
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "greeted"
+apiResponse:
+  success: true
+  response:
+    message: "greeted"
 `
 	require.NoError(
 		t,

@@ -113,7 +113,7 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	} else {
 		// Auto-detect if needed (simplified for manifest generation)
 		for _, r := range workflow.Resources {
-			if r.Run.Chat != nil {
+			if r.Chat != nil {
 				installOllama = true
 				break
 			}

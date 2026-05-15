@@ -6,10 +6,9 @@ metadata:
   requires:
     - logResult
     - addTimestamp
-run:
-  apiResponse:
-    success: true
-    response:
-      upper: "{{ get('upper') }}"
-      timestamp: "{{ get('timestamp') }}"
-      message: "Hello, {{ get('formattedName') }}! Welcome!"
+apiResponse:
+  success: true
+  response:
+    upper: "{{ get('upper') }}"
+    timestamp: "{{ get('timestamp') }}"
+    message: "Hello, {{ get('formattedName') }}! Welcome!"

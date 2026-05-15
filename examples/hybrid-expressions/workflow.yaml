@@ -30,16 +30,15 @@ resources:
     metadata:
       actionId: setup
       name: Setup Values
-    run:
-      expr:
-        - set('value', 21)
-        - set('multiplier', 2)
-        - set('base_price', 50)
-        - set('quantity', 3)
-        - set('score', 85)
-      apiResponse:
-        success: true
-        response: {}
+    expr:
+      - set('value', 21)
+      - set('multiplier', 2)
+      - set('base_price', 50)
+      - set('quantity', 3)
+      - set('score', 85)
+    apiResponse:
+      success: true
+      response: {}
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -48,22 +47,21 @@ resources:
       name: API Response
       requires:
         - setup
-    run:
-      validations:
-        methods: [GET, POST]
-        routes: [/api/demo]
+    validations:
+      methods: [GET, POST]
+      routes: [/api/demo]
 
-      apiResponse:
-        response:
-          # Arithmetic
-          doubled: "{{ get('value') * get('multiplier') }}"
-          total_price: "{{ get('base_price') * get('quantity') }}"
+    apiResponse:
+      response:
+        # Arithmetic
+        doubled: "{{ get('value') * get('multiplier') }}"
+        total_price: "{{ get('base_price') * get('quantity') }}"
 
-          # Comparison
-          passed: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
+        # Comparison
+        passed: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
 
-          # Default fallback
-          label: "{{ default(get('label'), 'default-label') }}"
+        # Default fallback
+        label: "{{ default(get('label'), 'default-label') }}"
 
-          # Timestamp from info
-          generated_at: "{{ info('current_time') }}"
+        # Timestamp from info
+        generated_at: "{{ info('current_time') }}"

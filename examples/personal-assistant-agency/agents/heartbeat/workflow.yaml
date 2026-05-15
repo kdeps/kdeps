@@ -33,28 +33,27 @@ resources:
     metadata:
       actionId: load-tasks
       name: Load Task List
-    run:
-      python:
-        script: |
-          import os
+    python:
+      script: |
+        import os
 
-          path = "/tmp/pa-memory/heartbeat.md"
-          if os.path.exists(path):
-              with open(path) as f:
-                  print(f.read())
-          else:
-              os.makedirs("/tmp/pa-memory", exist_ok=True)
-              default = (
-                  "# Heartbeat Tasks\n\n"
-                  "Edit this file to customise your assistant's recurring proactive checks.\n\n"
-                  "- [ ] Summarise any unread emails in the INBOX\n"
-                  "- [ ] Report current disk usage (df -h /)\n"
-                  "- [ ] Report system uptime\n"
-                  "- [ ] Remind the user of any calendar events today\n"
-              )
-              with open(path, "w") as f:
-                  f.write(default)
-              print(default)
+        path = "/tmp/pa-memory/heartbeat.md"
+        if os.path.exists(path):
+            with open(path) as f:
+                print(f.read())
+        else:
+            os.makedirs("/tmp/pa-memory", exist_ok=True)
+            default = (
+                "# Heartbeat Tasks\n\n"
+                "Edit this file to customise your assistant's recurring proactive checks.\n\n"
+                "- [ ] Summarise any unread emails in the INBOX\n"
+                "- [ ] Report current disk usage (df -h /)\n"
+                "- [ ] Report system uptime\n"
+                "- [ ] Remind the user of any calendar events today\n"
+            )
+            with open(path, "w") as f:
+                f.write(default)
+            print(default)
 
   # ── Collect system context ────────────────────────────────────────────────────
   # Gathers lightweight system facts so the LLM can make informed decisions.
@@ -63,18 +62,17 @@ resources:
     metadata:
       actionId: system-context
       name: System Context
-    run:
-      exec:
-        command: sh
-        args:
-          - "-c"
-          - |
-            echo "=== System Context ==="
-            echo "UTC time : $(date -u '+%Y-%m-%d %H:%M:%S')"
-            echo "Uptime   : $(uptime)"
-            echo "Disk     : $(df -h / | tail -1)"
-            echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
-        timeoutDuration: 10s
+    exec:
+      command: sh
+      args:
+        - "-c"
+        - |
+          echo "=== System Context ==="
+          echo "UTC time : $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "Uptime   : $(uptime)"
+          echo "Disk     : $(df -h / | tail -1)"
+          echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
+      timeoutDuration: 10s
 
   # ── Assess which tasks need attention ────────────────────────────────────────
   # LLM reviews the task list + system context and picks what to action now.
@@ -84,37 +82,36 @@ resources:
       actionId: assess
       name: Assess Pending Tasks
       requires: [load-tasks, system-context]
-    run:
-      chat:
-        model: llama3.2:1b
-        role: user
-        prompt: |
-          You are a proactive personal assistant running a scheduled heartbeat check.
-          Review the task list and system context below.  Decide which items need
-          attention right now and what concrete action to take for each.
+    chat:
+      model: llama3.2:1b
+      role: user
+      prompt: |
+        You are a proactive personal assistant running a scheduled heartbeat check.
+        Review the task list and system context below.  Decide which items need
+        attention right now and what concrete action to take for each.
 
-          System context:
-          {{ get('system-context') }}
+        System context:
+        {{ get('system-context') }}
 
-          Task list:
-          {{ get('load-tasks') }}
+        Task list:
+        {{ get('load-tasks') }}
 
-          Respond ONLY with a JSON object — no prose, no markdown fences:
-          {
-            "needs_action": [
-              { "task": "task description", "reason": "why now", "action": "what to do" }
-            ],
-            "deferred": ["task that can wait", ...],
-            "summary": "One-sentence overview of this heartbeat cycle."
-          }
-        scenario:
-          - role: assistant
-            prompt: |
-              You are a concise, proactive assistant running scheduled checks.
-              You ALWAYS respond with valid JSON and nothing else.
-        jsonResponse: true
-        jsonResponseKeys: [needs_action, deferred, summary]
-        timeoutDuration: 60s
+        Respond ONLY with a JSON object — no prose, no markdown fences:
+        {
+          "needs_action": [
+            { "task": "task description", "reason": "why now", "action": "what to do" }
+          ],
+          "deferred": ["task that can wait", ...],
+          "summary": "One-sentence overview of this heartbeat cycle."
+        }
+      scenario:
+        - role: assistant
+          prompt: |
+            You are a concise, proactive assistant running scheduled checks.
+            You ALWAYS respond with valid JSON and nothing else.
+      jsonResponse: true
+      jsonResponseKeys: [needs_action, deferred, summary]
+      timeoutDuration: 60s
 
   # ── Execute immediate actions ─────────────────────────────────────────────────
   # Runs lightweight shell actions for tasks that can be resolved automatically
@@ -126,25 +123,24 @@ resources:
       actionId: act
       name: Execute Actions
       requires: [assess]
-    run:
-      exec:
-        command: sh
-        args:
-          - "-c"
-          - |
-            echo "=== Heartbeat Actions — $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
-            echo ""
-            echo "--- Disk usage ---"
-            df -h /
-            echo ""
-            echo "--- Uptime ---"
-            uptime
-            echo ""
-            echo "--- Recent system log (last 5 lines) ---"
-            tail -5 /var/log/syslog 2>/dev/null || \
-              journalctl -n 5 --no-pager 2>/dev/null || \
-              echo "(no system log available)"
-        timeoutDuration: 15s
+    exec:
+      command: sh
+      args:
+        - "-c"
+        - |
+          echo "=== Heartbeat Actions — $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
+          echo ""
+          echo "--- Disk usage ---"
+          df -h /
+          echo ""
+          echo "--- Uptime ---"
+          uptime
+          echo ""
+          echo "--- Recent system log (last 5 lines) ---"
+          tail -5 /var/log/syslog 2>/dev/null || \
+            journalctl -n 5 --no-pager 2>/dev/null || \
+            echo "(no system log available)"
+      timeoutDuration: 15s
 
   # ── Response ──────────────────────────────────────────────────────────────────
   - apiVersion: kdeps.io/v1
@@ -153,9 +149,8 @@ resources:
       actionId: heartbeat-response
       name: Heartbeat Response
       requires: [act]
-    run:
-      apiResponse:
-        success: true
-        response:
-          assessment: "{{ get('assess') }}"
-          actions_taken: "{{ get('act') }}"
+    apiResponse:
+      success: true
+      response:
+        assessment: "{{ get('assess') }}"
+        actions_taken: "{{ get('act') }}"

@@ -54,7 +54,7 @@ type resourceDoc struct {
 	Metadata   struct {
 		ActionID string `yaml:"actionId"`
 	} `yaml:"metadata"`
-	Run map[string]interface{} `yaml:"run"`
+	// Fields are decoded from top-level YAML keys; action types are checked via rawDoc below.
 }
 
 // Validate checks a GeneratedWorkflow for structural correctness.
@@ -134,27 +134,42 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 	}
 	ids[res.Metadata.ActionID] = true
 
-	if len(res.Run) == 0 {
-		*errs = append(*errs, fmt.Sprintf("%s (actionId=%s): missing run section", name, res.Metadata.ActionID))
+	// Parse as raw map to check for action types at the top level (flattened schema).
+	var rawDoc map[string]interface{}
+	if err := yaml.Unmarshal([]byte(content), &rawDoc); err != nil {
 		return
 	}
 
+	metaKeys := map[string]bool{
+		"apiVersion": true, "kind": true, "metadata": true, "items": true,
+		"tool": true, "validations": true, "loop": true, "exprBefore": true, "expr": true,
+		"before": true, "after": true, "onError": true,
+	}
+
 	hasValid := false
-	for action := range res.Run {
-		if isValidRunAction(action) {
+	for key := range rawDoc {
+		if metaKeys[key] {
+			continue
+		}
+		if isValidRunAction(key) {
 			hasValid = true
 			break
 		}
 	}
 	if !hasValid {
 		var actions []string
-		for a := range res.Run {
-			actions = append(actions, a)
+		for key := range rawDoc {
+			if key == "apiVersion" || key == "kind" || key == "metadata" || key == "items" {
+				continue
+			}
+			actions = append(actions, key)
 		}
 		sort.Strings(actions)
-		msg := fmt.Sprintf("%s (actionId=%s): run has no recognized action", name, res.Metadata.ActionID)
-		msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
-			strings.Join(actions, ", "))
+		msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, res.Metadata.ActionID)
+		if len(actions) > 0 {
+			msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
+				strings.Join(actions, ", "))
+		}
 		*errs = append(*errs, msg)
 	}
 }

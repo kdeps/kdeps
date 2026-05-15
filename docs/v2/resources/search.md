@@ -19,13 +19,12 @@ The Search component discovers content from the web via the [Tavily](https://tav
 ## Using the Search Component
 
 ```yaml
-run:
-  component:
-    name: search
-    with:
-      query: "kdeps AI agent framework"
-      apiKey: "tvly-your-api-key"
-      maxResults: 10
+component:
+  name: search
+  with:
+    query: "kdeps AI agent framework"
+    apiKey: "tvly-your-api-key"
+    maxResults: 10
 ```
 
 Access the result via `output('<callerActionId>')`. The result is a list of objects with `title`, `url`, and `snippet` fields.
@@ -44,13 +43,12 @@ metadata:
   actionId: findArticles
   name: Find Articles
 
-run:
-  component:
-    name: search
-    with:
-      query: "{{ get('topic') }}"
-      apiKey: "{{ env('TAVILY_API_KEY') }}"
-      maxResults: 5
+component:
+  name: search
+  with:
+    query: "{{ get('topic') }}"
+    apiKey: "{{ env('TAVILY_API_KEY') }}"
+    maxResults: 5
 ```
 
 </div>
@@ -99,13 +97,12 @@ All `with:` fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: search
-    with:
-      query: "{{ get('user_query') }}"
-      apiKey: "{{ env('TAVILY_API_KEY') }}"
-      maxResults: "{{ get('result_count', 5) }}"
+component:
+  name: search
+  with:
+    query: "{{ get('user_query') }}"
+    apiKey: "{{ env('TAVILY_API_KEY') }}"
+    maxResults: "{{ get('result_count', 5) }}"
 ```
 
 </div>
@@ -128,13 +125,12 @@ summarize it.
     actionId: webSearch
     name: Web Search
 
-  run:
-    component:
-      name: search
-      with:
-        query: "{{ get('research_topic') }}"
-        apiKey: "{{ env('TAVILY_API_KEY') }}"
-        maxResults: 3
+component:
+  name: search
+  with:
+    query: "{{ get('research_topic') }}"
+    apiKey: "{{ env('TAVILY_API_KEY') }}"
+    maxResults: 3
 
 # Step 2: Scrape the first result
 - apiVersion: kdeps.io/v1
@@ -146,12 +142,11 @@ summarize it.
     requires:
       - webSearch
 
-  run:
-    component:
-      name: scraper
-      with:
-        url: "{{ output('webSearch').results[0].url }}"
-        timeout: 30
+component:
+  name: scraper
+  with:
+    url: "{{ output('webSearch').results[0].url }}"
+    timeout: 30
 
 # Step 3: LLM summarizes the scraped content
 - apiVersion: kdeps.io/v1
@@ -163,15 +158,14 @@ summarize it.
     requires:
       - scrapeTop
 
-  run:
-    llm:
-      prompt: |
-        You are a research assistant. Summarise the following content about
-        "{{ get('research_topic') }}":
+llm:
+  prompt: |
+    You are a research assistant. Summarise the following content about
+    "{{ get('research_topic') }}":
 
-        {{ output('scrapeTop').content }}
+    {{ output('scrapeTop').content }}
 
-        Provide a concise 3-paragraph summary.
+    Provide a concise 3-paragraph summary.
 
 # Step 4: Return the summary
 - apiVersion: kdeps.io/v1
@@ -183,13 +177,12 @@ summarize it.
     requires:
       - summarise
 
-  run:
-    apiResponse:
-      success: true
-      response:
-        summary: "{{ output('summarise') }}"
-        source_url: "{{ output('webSearch').results[0].url }}"
-        source_title: "{{ output('webSearch').results[0].title }}"
+apiResponse:
+  success: true
+  response:
+    summary: "{{ output('summarise') }}"
+    source_url: "{{ output('webSearch').results[0].url }}"
+    source_title: "{{ output('webSearch').results[0].title }}"
 ```
 
 </div>

@@ -85,9 +85,8 @@ resources:
     kind: Resource
     metadata:
       actionId: process
-    run:
-      exec:
-        command: echo "Processing"
+    exec:
+      command: echo "Processing"
 `
 
 func newMockComponentParser() *yaml.Parser {
@@ -309,9 +308,8 @@ resources:
     metadata:
       actionId: comp-action
       name: Component Resource
-    run:
-      exec:
-        command: echo "Hello"
+    exec:
+      command: echo "Hello"
 `)
 
 	// Parse the workflow
@@ -483,9 +481,8 @@ resources:
     kind: Resource
     metadata:
       actionId: send-email
-    run:
-      exec:
-        command: echo "send"
+    exec:
+      command: echo "send"
 `)
 
 	sv, err := validator.NewSchemaValidator()
@@ -516,9 +513,8 @@ resources:
     kind: Resource
     metadata:
       actionId: send-email
-    run:
-      exec:
-        command: echo "send"
+    exec:
+      command: echo "send"
 `)
 
 	sv, err := validator.NewSchemaValidator()
@@ -553,9 +549,8 @@ resources:
     kind: Resource
     metadata:
       actionId: shared-action
-    run:
-      exec:
-        command: echo "global"
+    exec:
+      command: echo "global"
 `)
 
 	// Local component: also defines "shared-action" (should win) + "local-only"
@@ -570,16 +565,14 @@ resources:
     kind: Resource
     metadata:
       actionId: shared-action
-    run:
-      exec:
-        command: echo "local"
+    exec:
+      command: echo "local"
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: local-only
-    run:
-      exec:
-        command: echo "local-only"
+    exec:
+      command: echo "local-only"
 `), 0o600))
 
 	workflowPath := filepath.Join(projectDir, "workflow.yaml")
@@ -632,9 +625,8 @@ resources:
     kind: Resource
     metadata:
       actionId: speak
-    run:
-      exec:
-        command: echo "speak"
+    exec:
+      command: echo "speak"
 `)
 
 	workflowPath := filepath.Join(projectDir, "workflow.yaml")
@@ -701,9 +693,8 @@ kind: Resource
 metadata:
   actionId: rendered-action
   name: Rendered Action
-run:
-  exec:
-    command: echo "rendered"
+exec:
+  command: echo "rendered"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "action.yaml"), []byte(rendered), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "action.yaml.j2"), []byte("{{ jinja }}"), 0o600))
@@ -1056,9 +1047,8 @@ resources:
     kind: Resource
     metadata:
       actionId: scrape-url
-    run:
-      exec:
-        command: echo ok
+    exec:
+      command: echo ok
 `
 
 func TestLoadComponents_PopulatesWorkflowComponentsMap(t *testing.T) {

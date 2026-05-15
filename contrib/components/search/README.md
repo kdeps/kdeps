@@ -48,40 +48,37 @@ The output is the raw Tavily API response, parsed as JSON:
 Basic web search:
 
 ```yaml
-run:
-  component:
-    name: search
-    with:
-      query: "latest news about large language models"
-      apiKey: "{{ get('env.TAVILY_API_KEY') }}"
-      maxResults: 5
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('webSearch').results }}"
-      answer: "{{ output('webSearch').answer }}"
+component:
+  name: search
+  with:
+    query: "latest news about large language models"
+    apiKey: "{{ get('env.TAVILY_API_KEY') }}"
+    maxResults: 5
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('webSearch').results }}"
+    answer: "{{ output('webSearch').answer }}"
 ```
 
 Research agent — search then summarise:
 
 ```yaml
 - actionId: searchWeb
-  run:
-    component:
-      name: search
-      with:
-        query: "{{ input('topic') }}"
-        apiKey: "{{ get('env.TAVILY_API_KEY') }}"
-        maxResults: 10
+component:
+  name: search
+  with:
+    query: "{{ input('topic') }}"
+    apiKey: "{{ get('env.TAVILY_API_KEY') }}"
+    maxResults: 10
 
 - actionId: summariseResults
-  run:
-    chat:
-      prompt: |
-        Based on these search results, answer the question: {{ input('topic') }}
+chat:
+  prompt: |
+    Based on these search results, answer the question: {{ input('topic') }}
 
-        Results:
-        {{ output('searchWeb').results }}
+    Results:
+    {{ output('searchWeb').results }}
 ```
 
 ## Requirements

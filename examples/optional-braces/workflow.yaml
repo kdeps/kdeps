@@ -30,17 +30,16 @@ resources:
     metadata:
       actionId: withoutBraces
       name: Direct Expressions Without Braces
-    run:
-      validations:
-        methods: [GET, POST]
-        routes: [/api/demo]
+    validations:
+      methods: [GET, POST]
+      routes: [/api/demo]
 
-      apiResponse:
-        response:
-          # Direct expressions WITHOUT braces
-          query: get('q')
-          count: get('count')
-          isValid: get('count') > 0
+    apiResponse:
+      response:
+        # Direct expressions WITHOUT braces
+        query: get('q')
+        count: get('count')
+        isValid: get('count') > 0
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -49,13 +48,12 @@ resources:
       name: String Interpolation With Braces
       requires:
         - withoutBraces
-    run:
-      apiResponse:
-        response:
-          # String interpolation REQUIRES braces
-          greeting: "You searched for: {{ get('q') }}"
-          summary: "Found {{ get('count') }} results"
-          queryResult: "Query: {{ get('q') }}"
+    apiResponse:
+      response:
+        # String interpolation REQUIRES braces
+        greeting: "You searched for: {{ get('q') }}"
+        summary: "Found {{ get('count') }} results"
+        queryResult: "Query: {{ get('q') }}"
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -64,10 +62,9 @@ resources:
       name: Mixed Direct and Interpolated
       requires:
         - withBraces
-    run:
-      apiResponse:
-        response:
-          # Direct without braces
-          count: get('count')
-          # Interpolation with braces
-          message: "Got {{ get('count') }} results for: {{ get('q') }}"
+    apiResponse:
+      response:
+        # Direct without braces
+        count: get('count')
+        # Interpolation with braces
+        message: "Got {{ get('count') }} results for: {{ get('q') }}"

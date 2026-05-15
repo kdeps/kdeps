@@ -21,12 +21,11 @@ Takes a `text` input and an optional `style` (`uppercase` | `lowercase` | `title
 
 ```yaml
 # In your parent workflow's resource:
-run:
-  component:
-    name: component-input-source
-    with:
-      text: "hello world"
-      style: title
+component:
+  name: component-input-source
+  with:
+    text: "hello world"
+    style: title
 ```
 
 Then access the result:

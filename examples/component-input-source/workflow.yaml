@@ -20,12 +20,11 @@ metadata:
       access with output('<callerActionId>') or get('<callerActionId>').
 
     To invoke from a parent workflow:
-      run:
-        component:
-          name: component-input-source
-          with:
-            text: "hello world"
-            style: title
+      component:
+        name: component-input-source
+        with:
+          text: "hello world"
+          style: title
   version: "1.0.0"
   targetActionId: transform
 

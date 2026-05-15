@@ -49,9 +49,8 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: main
-run:
-  exec:
-    command: "echo hello"
+exec:
+  command: "echo hello"
 </file>
 </kdeps-workflow>`
 

@@ -5,10 +5,9 @@ metadata:
   actionId: collectInputs
   name: Collect Inputs via Built-in Input Component
 
-run:
-  component:
-    name: input
-    with:
-      query: "What is the capital of France?"
-      text: "The Eiffel Tower is in Paris."
-      key: "location"
+component:
+  name: input
+  with:
+    query: "What is the capital of France?"
+    text: "The Eiffel Tower is in Paris."
+    key: "location"

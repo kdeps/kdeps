@@ -380,21 +380,21 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 
 		// Apply headers/params filters first so get() uses correct allowlists
 		// when skip expressions and other validations are evaluated.
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Headers) > 0 {
-			ctx.SetAllowedHeaders(resource.Run.Validations.Headers)
+		if resource.Validations != nil && len(resource.Validations.Headers) > 0 {
+			ctx.SetAllowedHeaders(resource.Validations.Headers)
 			e.logger.Debug("Applied headers filter",
 				"actionID", resource.Metadata.ActionID,
-				"headers", resource.Run.Validations.Headers)
+				"headers", resource.Validations.Headers)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedHeaders(nil)
 		}
 
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Params) > 0 {
-			ctx.SetAllowedParams(resource.Run.Validations.Params)
+		if resource.Validations != nil && len(resource.Validations.Params) > 0 {
+			ctx.SetAllowedParams(resource.Validations.Params)
 			e.logger.Debug("Applied params filter",
 				"actionID", resource.Metadata.ActionID,
-				"params", resource.Run.Validations.Params)
+				"params", resource.Validations.Params)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedParams(nil)
@@ -439,30 +439,30 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		}
 
 		// Set allowedHeaders and allowedParams filters for this resource
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Headers) > 0 {
-			ctx.SetAllowedHeaders(resource.Run.Validations.Headers)
+		if resource.Validations != nil && len(resource.Validations.Headers) > 0 {
+			ctx.SetAllowedHeaders(resource.Validations.Headers)
 			e.logger.Debug("Applied headers filter",
 				"actionID", resource.Metadata.ActionID,
-				"headers", resource.Run.Validations.Headers)
+				"headers", resource.Validations.Headers)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedHeaders(nil)
 		}
 
-		if resource.Run.Validations != nil && len(resource.Run.Validations.Params) > 0 {
-			ctx.SetAllowedParams(resource.Run.Validations.Params)
+		if resource.Validations != nil && len(resource.Validations.Params) > 0 {
+			ctx.SetAllowedParams(resource.Validations.Params)
 			e.logger.Debug("Applied params filter",
 				"actionID", resource.Metadata.ActionID,
-				"params", resource.Run.Validations.Params)
+				"params", resource.Validations.Params)
 		} else {
 			// Clear filter if not set
 			ctx.SetAllowedParams(nil)
 		}
 
 		// Run input validation.
-		if resource.Run.Validations != nil {
+		if resource.Validations != nil {
 			requestData := ctx.GetRequestData()
-			if validateErr := e.inputValidator.Validate(requestData, resource.Run.Validations); validateErr != nil {
+			if validateErr := e.inputValidator.Validate(requestData, resource.Validations); validateErr != nil {
 				// Convert validation errors to AppError
 				var validationErrors *validator.MultipleValidationError
 				if errors.As(validateErr, &validationErrors) {
@@ -493,7 +493,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 			}
 
 			// Validate custom expression rules
-			if len(resource.Run.Validations.Expr) > 0 {
+			if len(resource.Validations.Expr) > 0 {
 				// Initialize evaluator if needed
 				if e.evaluator == nil {
 					e.evaluator = expression.NewEvaluator(ctx.API)
@@ -503,7 +503,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 				env := e.buildEvaluationEnvironment(ctx)
 
 				if validateErr := e.exprValidator.ValidateCustomRules(
-					resource.Run.Validations.Expr,
+					resource.Validations.Expr,
 					e.evaluator,
 					env,
 				); validateErr != nil {
@@ -588,29 +588,29 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 // resourceTypeName returns a short string identifying the primary resource type.
 func resourceTypeName(r *domain.Resource) string {
 	switch {
-	case r.Run.Exec != nil:
+	case r.Exec != nil:
 		return "exec"
-	case r.Run.Python != nil:
+	case r.Python != nil:
 		return "python"
-	case r.Run.Chat != nil:
+	case r.Chat != nil:
 		return "llm"
-	case r.Run.SQL != nil:
+	case r.SQL != nil:
 		return "sql"
-	case r.Run.HTTPClient != nil:
+	case r.HTTPClient != nil:
 		return "http"
-	case r.Run.Agent != nil:
+	case r.Agent != nil:
 		return "agent"
-	case r.Run.APIResponse != nil:
+	case r.APIResponse != nil:
 		return "apiResponse"
-	case r.Run.Scraper != nil:
+	case r.Scraper != nil:
 		return ExecutorScraper
-	case r.Run.Embedding != nil:
+	case r.Embedding != nil:
 		return ExecutorEmbedding
-	case r.Run.SearchLocal != nil:
+	case r.SearchLocal != nil:
 		return ExecutorSearchLocal
-	case r.Run.SearchWeb != nil:
+	case r.SearchWeb != nil:
 		return ExecutorSearchWeb
-	case r.Run.Telephony != nil:
+	case r.Telephony != nil:
 		return ExecutorTelephony
 	default:
 		return "unknown"
@@ -639,7 +639,7 @@ func (e *Engine) ShouldSkipResource(
 	ctx *ExecutionContext,
 ) (bool, error) {
 	kdeps_debug.Log("enter: ShouldSkipResource")
-	if resource.Run.Validations == nil || len(resource.Run.Validations.Skip) == 0 {
+	if resource.Validations == nil || len(resource.Validations.Skip) == 0 {
 		return false, nil
 	}
 
@@ -653,7 +653,7 @@ func (e *Engine) ShouldSkipResource(
 	}
 
 	// Evaluate all skip conditions.
-	for _, condition := range resource.Run.Validations.Skip {
+	for _, condition := range resource.Validations.Skip {
 		// Parse expression if needed (handle {{ }} syntax)
 		exprStr := condition.Raw
 		if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
@@ -683,8 +683,8 @@ func (e *Engine) ShouldSkipResource(
 func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestContext) bool {
 	kdeps_debug.Log("enter: MatchesRestrictions")
 	// If no restrictions, always match.
-	if resource.Run.Validations == nil ||
-		(len(resource.Run.Validations.Methods) == 0 && len(resource.Run.Validations.Routes) == 0) {
+	if resource.Validations == nil ||
+		(len(resource.Validations.Methods) == 0 && len(resource.Validations.Routes) == 0) {
 		return true
 	}
 
@@ -694,9 +694,9 @@ func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestCont
 	}
 
 	// Check method restriction.
-	if len(resource.Run.Validations.Methods) > 0 {
+	if len(resource.Validations.Methods) > 0 {
 		methodMatch := false
-		for _, method := range resource.Run.Validations.Methods {
+		for _, method := range resource.Validations.Methods {
 			if method == req.Method {
 				methodMatch = true
 				break
@@ -708,9 +708,9 @@ func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestCont
 	}
 
 	// Check route restriction with pattern matching support.
-	if len(resource.Run.Validations.Routes) > 0 {
+	if len(resource.Validations.Routes) > 0 {
 		routeMatch := false
-		for _, route := range resource.Run.Validations.Routes {
+		for _, route := range resource.Validations.Routes {
 			// Try exact match first
 			if route == req.Path {
 				routeMatch = true
@@ -770,7 +770,7 @@ func (e *Engine) matchRoutePattern(pattern, path string) bool {
 // RunPreflightCheck runs preflight validations.
 func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionContext) error {
 	kdeps_debug.Log("enter: RunPreflightCheck")
-	if resource.Run.Validations == nil || len(resource.Run.Validations.Check) == 0 {
+	if resource.Validations == nil || len(resource.Validations.Check) == 0 {
 		return nil
 	}
 
@@ -785,7 +785,7 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 	}
 
 	// Evaluate all check expressions (AND logic: all must be true).
-	for _, validation := range resource.Run.Validations.Check {
+	for _, validation := range resource.Validations.Check {
 		valid, err := e.evaluatePreflightValidation(validation, ctx)
 		if err != nil {
 			return err
@@ -828,9 +828,9 @@ func (e *Engine) createPreflightError(
 	ctx *ExecutionContext,
 ) error {
 	kdeps_debug.Log("enter: createPreflightError")
-	if resource.Run.Validations.Error != nil {
+	if resource.Validations.Error != nil {
 		// Evaluate error message if it's an expression
-		msg := resource.Run.Validations.Error.Message
+		msg := resource.Validations.Error.Message
 		if strings.Contains(msg, "{{") {
 			evaluatedMsg, evalErr := e.evaluateFallback(msg, ctx)
 			if evalErr == nil {
@@ -839,7 +839,7 @@ func (e *Engine) createPreflightError(
 		}
 
 		return &PreflightError{
-			Code:    resource.Run.Validations.Error.Code,
+			Code:    resource.Validations.Error.Code,
 			Message: msg,
 		}
 	}
@@ -856,7 +856,7 @@ func (e *Engine) ExecuteResource(
 	kdeps_debug.Log("enter: ExecuteResource")
 	// Handle Loop (while-loop) iteration – takes priority over Items.
 	// Only enter loop mode when not already inside a loop to prevent recursion.
-	if resource.Run.Loop != nil {
+	if resource.Loop != nil {
 		if _, inLoopContext := ctx.Items[loopKeyIndex]; !inLoopContext {
 			return e.ExecuteWithLoop(resource, ctx)
 		}
@@ -872,32 +872,32 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute exprBefore blocks (run BEFORE primary execution type).
-	if len(resource.Run.ExprBefore) > 0 {
-		if err := e.executeExpressions(resource.Run.ExprBefore, ctx); err != nil {
+	if len(resource.ExprBefore) > 0 {
+		if err := e.executeExpressions(resource.ExprBefore, ctx); err != nil {
 			return nil, err
 		}
 	}
 
 	// Execute inline "before" resources
-	if len(resource.Run.Before) > 0 {
-		if err := e.executeInlineResources(resource.Run.Before, ctx); err != nil {
+	if len(resource.Before) > 0 {
+		if err := e.executeInlineResources(resource.Before, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)
 		}
 	}
 
 	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, agent, component)
-	hasPrimaryType := resource.Run.Chat != nil ||
-		resource.Run.HTTPClient != nil ||
-		resource.Run.SQL != nil ||
-		resource.Run.Python != nil ||
-		resource.Run.Exec != nil ||
-		resource.Run.Agent != nil ||
-		resource.Run.Component != nil ||
-		resource.Run.Scraper != nil ||
-		resource.Run.Embedding != nil ||
-		resource.Run.SearchLocal != nil ||
-		resource.Run.SearchWeb != nil ||
-		resource.Run.Telephony != nil
+	hasPrimaryType := resource.Chat != nil ||
+		resource.HTTPClient != nil ||
+		resource.SQL != nil ||
+		resource.Python != nil ||
+		resource.Exec != nil ||
+		resource.Agent != nil ||
+		resource.Component != nil ||
+		resource.Scraper != nil ||
+		resource.Embedding != nil ||
+		resource.SearchLocal != nil ||
+		resource.SearchWeb != nil ||
+		resource.Telephony != nil
 
 	var primaryResult interface{}
 	var err error
@@ -905,29 +905,29 @@ func (e *Engine) ExecuteResource(
 	// Execute primary resource type if present.
 	if hasPrimaryType {
 		switch {
-		case resource.Run.Chat != nil:
+		case resource.Chat != nil:
 			primaryResult, err = e.executeLLM(resource, ctx)
-		case resource.Run.HTTPClient != nil:
+		case resource.HTTPClient != nil:
 			primaryResult, err = e.executeHTTP(resource, ctx)
-		case resource.Run.SQL != nil:
+		case resource.SQL != nil:
 			primaryResult, err = e.executeSQL(resource, ctx)
-		case resource.Run.Python != nil:
+		case resource.Python != nil:
 			primaryResult, err = e.executePython(resource, ctx)
-		case resource.Run.Exec != nil:
+		case resource.Exec != nil:
 			primaryResult, err = e.executeExec(resource, ctx)
-		case resource.Run.Agent != nil:
+		case resource.Agent != nil:
 			primaryResult, err = e.executeAgent(resource, ctx)
-		case resource.Run.Component != nil:
+		case resource.Component != nil:
 			primaryResult, err = e.executeComponentCall(resource, ctx)
-		case resource.Run.Scraper != nil:
+		case resource.Scraper != nil:
 			primaryResult, err = e.executeScraper(resource, ctx)
-		case resource.Run.Embedding != nil:
+		case resource.Embedding != nil:
 			primaryResult, err = e.executeEmbedding(resource, ctx)
-		case resource.Run.SearchLocal != nil:
+		case resource.SearchLocal != nil:
 			primaryResult, err = e.executeSearchLocal(resource, ctx)
-		case resource.Run.SearchWeb != nil:
+		case resource.SearchWeb != nil:
 			primaryResult, err = e.executeSearchWeb(resource, ctx)
-		case resource.Run.Telephony != nil:
+		case resource.Telephony != nil:
 			primaryResult, err = e.executeTelephony(resource, ctx)
 		}
 
@@ -937,15 +937,15 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// Execute inline "after" resources
-	if len(resource.Run.After) > 0 {
-		if err = e.executeInlineResources(resource.Run.After, ctx); err != nil {
+	if len(resource.After) > 0 {
+		if err = e.executeInlineResources(resource.After, ctx); err != nil {
 			return nil, fmt.Errorf("inline after resource failed: %w", err)
 		}
 	}
 
 	// Execute expr blocks (run AFTER primary execution type for backward compatibility).
-	if len(resource.Run.Expr) > 0 {
-		if err = e.executeExpressions(resource.Run.Expr, ctx); err != nil {
+	if len(resource.Expr) > 0 {
+		if err = e.executeExpressions(resource.Expr, ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -953,7 +953,7 @@ func (e *Engine) ExecuteResource(
 	// Handle apiResponse - can be standalone or combined with primary type.
 	// apiResponse runs on every loop iteration (per-iteration = streaming response),
 	// consistent with how it runs per-item in ExecuteWithItems.
-	if resource.Run.APIResponse != nil {
+	if resource.APIResponse != nil {
 		// Make the primary result accessible via output('actionId') within the
 		// resource's own apiResponse (e.g. embedding/http/python results).
 		if hasPrimaryType && primaryResult != nil {
@@ -968,8 +968,8 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// If only expressions (exprBefore, expr) or inline resources, return status
-	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 ||
-		len(resource.Run.Before) > 0 || len(resource.Run.After) > 0 {
+	if len(resource.ExprBefore) > 0 || len(resource.Expr) > 0 ||
+		len(resource.Before) > 0 || len(resource.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -984,7 +984,7 @@ func (e *Engine) executeResourceWithErrorHandling(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeResourceWithErrorHandling")
-	onError := resource.Run.OnError
+	onError := resource.OnError
 
 	// If no onError config, execute normally
 	if onError == nil {
@@ -1167,7 +1167,7 @@ func (e *Engine) executeOnErrorExpressions(
 	err error,
 ) error {
 	kdeps_debug.Log("enter: executeOnErrorExpressions")
-	onError := resource.Run.OnError
+	onError := resource.OnError
 	if onError == nil || len(onError.Expr) == 0 {
 		return nil
 	}
@@ -1368,8 +1368,8 @@ func (e *Engine) executeInlineResources(
 		case inline.Component != nil:
 			// Inline component call uses a synthetic resource for scoping.
 			synthetic := &domain.Resource{
-				Metadata: domain.ResourceMetadata{ActionID: fmt.Sprintf("_inline_%d", i)},
-				Run:      domain.RunConfig{Component: inline.Component},
+				Metadata:  domain.ResourceMetadata{ActionID: fmt.Sprintf("_inline_%d", i)},
+				Component: inline.Component,
 			}
 			result, err = e.executeComponentCall(synthetic, ctx)
 		case inline.Scraper != nil:
@@ -1406,7 +1406,7 @@ func (e *Engine) executeInlineResources(
 //nolint:gocognit // LLM execution has multiple configuration paths
 func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) { //nolint:funlen
 	kdeps_debug.Log("enter: executeLLM")
-	if resource.Run.Chat == nil {
+	if resource.Chat == nil {
 		return nil, fmt.Errorf("resource %s has no chat configuration", resource.Metadata.ActionID)
 	}
 
@@ -1415,7 +1415,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		return nil, errors.New("LLM executor not available")
 	}
 
-	timeoutDurationStr := resource.Run.Chat.Timeout
+	timeoutDurationStr := resource.Chat.Timeout
 	if timeoutDurationStr == "" {
 		timeoutDurationStr = "60s" // Default
 	}
@@ -1429,13 +1429,13 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		timeoutDurationStr = "60s"
 	}
 
-	backendName := resource.Run.Chat.Backend
+	backendName := resource.Chat.Backend
 	if backendName == "" {
 		backendName = "ollama" // Default
 	}
 
 	// Evaluate model (only if it contains expression syntax)
-	modelStr := resource.Run.Chat.Model
+	modelStr := resource.Chat.Model
 	if modelExpr, parseErr := expression.NewParser().ParseValue(modelStr); parseErr == nil {
 		if e.evaluator == nil {
 			e.evaluator = expression.NewEvaluator(ctx.API)
@@ -1453,7 +1453,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		"actionID", resource.Metadata.ActionID,
 		"model", modelStr,
 		"timeout", timeoutDurationStr,
-		"jsonResponse", resource.Run.Chat.JSONResponse,
+		"jsonResponse", resource.Chat.JSONResponse,
 		"backend", backendName)
 
 	// Store LLM metadata in context (for API response meta)
@@ -1519,7 +1519,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	}
 
 	// Execute LLM resource
-	result, execErr := executor.Execute(ctx, resource.Run.Chat)
+	result, execErr := executor.Execute(ctx, resource.Chat)
 
 	// Signal countdown goroutine to stop (close channel to signal completion)
 	if done != nil {
@@ -1535,7 +1535,7 @@ func (e *Engine) executeHTTP(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeHTTP")
-	if resource.Run.HTTPClient == nil {
+	if resource.HTTPClient == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no HTTP client configuration",
 			resource.Metadata.ActionID,
@@ -1547,13 +1547,13 @@ func (e *Engine) executeHTTP(
 		return nil, errors.New("HTTP executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.HTTPClient)
+	return executor.Execute(ctx, resource.HTTPClient)
 }
 
 // executeSQL executes a SQL resource.
 func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeSQL")
-	if resource.Run.SQL == nil {
+	if resource.SQL == nil {
 		return nil, fmt.Errorf("resource %s has no SQL configuration", resource.Metadata.ActionID)
 	}
 
@@ -1562,7 +1562,7 @@ func (e *Engine) executeSQL(resource *domain.Resource, ctx *ExecutionContext) (i
 		return nil, errors.New("SQL executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.SQL)
+	return executor.Execute(ctx, resource.SQL)
 }
 
 // executePython executes a Python resource.
@@ -1571,7 +1571,7 @@ func (e *Engine) executePython(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executePython")
-	if resource.Run.Python == nil {
+	if resource.Python == nil {
 		return nil, fmt.Errorf(
 			"resource %s has no Python configuration",
 			resource.Metadata.ActionID,
@@ -1583,7 +1583,7 @@ func (e *Engine) executePython(
 		return nil, errors.New("python executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.Python)
+	return executor.Execute(ctx, resource.Python)
 }
 
 // executeExec executes a shell command resource.
@@ -1592,7 +1592,7 @@ func (e *Engine) executeExec(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeExec")
-	if resource.Run.Exec == nil {
+	if resource.Exec == nil {
 		return nil, fmt.Errorf("resource %s has no exec configuration", resource.Metadata.ActionID)
 	}
 
@@ -1601,46 +1601,46 @@ func (e *Engine) executeExec(
 		return nil, errors.New("exec executor not available")
 	}
 
-	return executor.Execute(ctx, resource.Run.Exec)
+	return executor.Execute(ctx, resource.Exec)
 }
 
 // executeScraper executes a scraper resource.
 func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScraper")
-	if resource.Run.Scraper == nil {
+	if resource.Scraper == nil {
 		return nil, fmt.Errorf("resource %s has no scraper configuration", resource.Metadata.ActionID)
 	}
 	exec := e.registry.GetScraperExecutor()
 	if exec == nil {
 		return nil, errors.New("scraper executor not available")
 	}
-	return exec.Execute(ctx, resource.Run.Scraper)
+	return exec.Execute(ctx, resource.Scraper)
 }
 
 // executeEmbedding executes an embedding resource.
 func (e *Engine) executeEmbedding(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeEmbedding")
-	if resource.Run.Embedding == nil {
+	if resource.Embedding == nil {
 		return nil, fmt.Errorf("resource %s has no embedding configuration", resource.Metadata.ActionID)
 	}
 	exec := e.registry.GetEmbeddingExecutor()
 	if exec == nil {
 		return nil, errors.New("embedding executor not available")
 	}
-	return exec.Execute(ctx, resource.Run.Embedding)
+	return exec.Execute(ctx, resource.Embedding)
 }
 
 // executeSearchLocal executes a searchLocal resource.
 func (e *Engine) executeSearchLocal(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeSearchLocal")
-	if resource.Run.SearchLocal == nil {
+	if resource.SearchLocal == nil {
 		return nil, fmt.Errorf("resource %s has no searchLocal configuration", resource.Metadata.ActionID)
 	}
 	exec := e.registry.GetSearchLocalExecutor()
 	if exec == nil {
 		return nil, errors.New("searchLocal executor not available")
 	}
-	return exec.Execute(ctx, resource.Run.SearchLocal)
+	return exec.Execute(ctx, resource.SearchLocal)
 }
 
 // executeInlineScraper executes an inline scraper resource.
@@ -1679,14 +1679,14 @@ func (e *Engine) executeInlineSearchLocal(
 // executeSearchWeb executes a searchWeb resource.
 func (e *Engine) executeSearchWeb(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeSearchWeb")
-	if resource.Run.SearchWeb == nil {
+	if resource.SearchWeb == nil {
 		return nil, fmt.Errorf("resource %s has no searchWeb configuration", resource.Metadata.ActionID)
 	}
 	exec := e.registry.GetSearchWebExecutor()
 	if exec == nil {
 		return nil, errors.New("searchWeb executor not available")
 	}
-	return exec.Execute(ctx, resource.Run.SearchWeb)
+	return exec.Execute(ctx, resource.SearchWeb)
 }
 
 // executeInlineSearchWeb executes an inline searchWeb resource.
@@ -1705,14 +1705,14 @@ func (e *Engine) executeInlineSearchWeb(
 // executeTelephony executes a telephony action resource.
 func (e *Engine) executeTelephony(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeTelephony")
-	if resource.Run.Telephony == nil {
+	if resource.Telephony == nil {
 		return nil, fmt.Errorf("resource %s has no telephony configuration", resource.Metadata.ActionID)
 	}
 	exec := e.registry.GetTelephonyExecutor()
 	if exec == nil {
 		return nil, errors.New("telephony executor not available")
 	}
-	return exec.Execute(ctx, resource.Run.Telephony)
+	return exec.Execute(ctx, resource.Telephony)
 }
 
 // executeInlineTelephony executes an inline telephony action.
@@ -1745,7 +1745,7 @@ func (e *Engine) executeAPIResponse( //nolint:gocyclo,cyclop // pre-existing com
 
 	// Evaluate response expressions recursively.
 	env := e.buildEvaluationEnvironment(ctx)
-	apiResponseConfig := resource.Run.APIResponse
+	apiResponseConfig := resource.APIResponse
 	response := apiResponseConfig.Response
 
 	evaluatedResponse, err := e.evaluateResponseValue(response, env)
@@ -2306,7 +2306,7 @@ func (e *Engine) executeAgent(
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeAgent")
-	return e.executeInlineAgent(resource.Run.Agent, ctx)
+	return e.executeInlineAgent(resource.Agent, ctx)
 }
 
 // executeInlineAgent executes an agent call from an inline resource block.
@@ -2402,7 +2402,7 @@ func (e *Engine) executeComponentCall(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeComponentCall")
 
-	cfg := resource.Run.Component
+	cfg := resource.Component
 	if cfg == nil {
 		return nil, errors.New("component call configuration is nil")
 	}

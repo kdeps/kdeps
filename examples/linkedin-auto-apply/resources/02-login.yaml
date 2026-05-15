@@ -24,27 +24,26 @@ metadata:
     authenticated context without re-logging in.
   requires: [validate]
 
-run:
-  browser:
-    engine: chromium
-    headless: false
-    stealthMode: true
-    sessionId: linkedin-session
-    executablePath: "{{ default(get('chrome_executable_path'), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') }}"
-    userDataDir: "{{ default(get('chrome_profile_path'), '/Users/joel/Library/Application Support/Google/Chrome/Default') }}"
-    url: "https://www.linkedin.com/login"
-    timeoutDuration: 90s
-    actions:
-      - action: evaluate
-        script: |
-          (() => {
-            const u = document.querySelector('#username');
-            if (u) u.value = '{{ get("linkedin_email") }}';
-            const p = document.querySelector('#password');
-            if (p) p.value = '{{ get("linkedin_password") }}';
-            const btn = document.querySelector('button[type="submit"]');
-            if (btn) btn.click();
-          })()
+browser:
+  engine: chromium
+  headless: false
+  stealthMode: true
+  sessionId: linkedin-session
+  executablePath: "{{ default(get('chrome_executable_path'), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') }}"
+  userDataDir: "{{ default(get('chrome_profile_path'), '/Users/joel/Library/Application Support/Google/Chrome/Default') }}"
+  url: "https://www.linkedin.com/login"
+  timeoutDuration: 90s
+  actions:
+    - action: evaluate
+      script: |
+        (() => {
+          const u = document.querySelector('#username');
+          if (u) u.value = '{{ get("linkedin_email") }}';
+          const p = document.querySelector('#password');
+          if (p) p.value = '{{ get("linkedin_password") }}';
+          const btn = document.querySelector('button[type="submit"]');
+          if (btn) btn.click();
+        })()
 
-      - action: waiturl
-        wait: "**/feed/**"
+    - action: waiturl
+      wait: "**/feed/**"

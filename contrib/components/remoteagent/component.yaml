@@ -20,10 +20,9 @@ resources:
     metadata:
       name: Call Agent
       actionId: call-agent
-    run:
-      httpClient:
-        url: "{{ get('remoteagent.url') }}"
-        method: POST
-        headers:
-          Content-Type: application/json
-        data: '{"query":"{{ get(''remoteagent.query'') }}"}'
+    httpClient:
+      url: "{{ get('remoteagent.url') }}"
+      method: POST
+      headers:
+        Content-Type: application/json
+      data: '{"query":"{{ get(''remoteagent.query'') }}"}'

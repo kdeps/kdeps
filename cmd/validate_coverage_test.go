@@ -59,11 +59,10 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "test"
+apiResponse:
+  success: true
+  response:
+    message: "test"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -99,11 +98,10 @@ kind: Resource
 metadata:
   actionId: act
   name: Act
-run:
-  apiResponse:
-    success: true
-    response:
-      msg: "ok"
+apiResponse:
+  success: true
+  response:
+    msg: "ok"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "act.yaml"), []byte(resourceContent), 0o644))
 
@@ -176,11 +174,10 @@ kind: Resource
 metadata:
   actionId: response
   name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))
@@ -300,11 +297,10 @@ kind: Resource
 metadata:
   actionId: test-action
   name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      result: "{{ 1 + 2 }}"
+apiResponse:
+  success: true
+  response:
+    result: "{{ 1 + 2 }}"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -354,11 +350,10 @@ kind: Resource
 metadata:
   actionId: response
   name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))
@@ -404,11 +399,10 @@ kind: Resource
 metadata:
   actionId: response
   name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))

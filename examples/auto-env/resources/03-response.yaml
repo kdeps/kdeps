@@ -8,9 +8,8 @@ metadata:
     - translate
     - summarize
 
-run:
-  apiResponse:
-    success: true
-    response:
-      translation: "{{ output('translate') }}"
-      summary:     "{{ output('summarize') }}"
+apiResponse:
+  success: true
+  response:
+    translation: "{{ output('translate') }}"
+    summary:     "{{ output('summarize') }}"

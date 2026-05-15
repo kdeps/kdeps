@@ -46,7 +46,7 @@ func writeWorkflowDir(t *testing.T, dir, name, targetAction string) {
 func writeResourceFile(t *testing.T, resourcesDir, actionID string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
-	content := "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: " + actionID + "\n  name: " + actionID + "\nrun:\n  apiResponse:\n    success: true\n    response:\n      data: \"ok\"\n"
+	content := "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: " + actionID + "\n  name: " + actionID + "\napiResponse:\n  success: true\n  response:\n    data: \"ok\"\n"
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, actionID+".yaml"), []byte(content), 0o644))
 }
 

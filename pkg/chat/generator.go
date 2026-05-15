@@ -77,62 +77,56 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource   # lowercase, hyphens only
-run:
-  chat:
-    model: llama3.2:1b    # or gpt-4o, claude-3-5-sonnet-20241022, etc.
-    backend: ollama        # ollama | openai | anthropic | google | groq | deepseek
-    prompt: "{{ input('message') }}"
-    system: "You are a helpful assistant."
+chat:
+  model: llama3.2:1b    # or gpt-4o, claude-3-5-sonnet-20241022, etc.
+  backend: ollama        # ollama | openai | anthropic | google | groq | deepseek
+  prompt: "{{ input('message') }}"
+  system: "You are a helpful assistant."
 
 # HTTP request
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource
-run:
-  httpClient:
-    url: "https://api.example.com/data"
-    method: GET
-    headers: {}
+httpClient:
+  url: "https://api.example.com/data"
+  method: GET
+  headers: {}
 
 # Shell exec
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource
-run:
-  exec:
-    command: "ls -la"
+exec:
+  command: "ls -la"
 
 # Python
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource
-run:
-  python:
-    script: |
-      print("hello")
+python:
+  script: |
+    print("hello")
 
 # API response (terminal resource — targetActionId must point here)
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource
-run:
-  apiResponse:
-    data: "{{ get('other-resource') }}"
+apiResponse:
+  data: "{{ get('other-resource') }}"
 
 # Component call
 apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: my-resource
-run:
-  component:
-    name: search          # component name
-    with:
-      query: "{{ input('q') }}"
+component:
+  name: search          # component name
+  with:
+    query: "{{ input('q') }}"
 ` + "```" + `
 
 ## Expression syntax
@@ -301,9 +295,8 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: main
-run:
-  exec:
-    command: "echo hello"
+exec:
+  command: "echo hello"
 </file>
 </kdeps-workflow>
 

@@ -192,13 +192,11 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 					ActionID: "llm-resource",
 					Name:     "LLM Chat",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "test",
-					},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "test",
 				},
 			},
 		},
@@ -540,13 +538,11 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 					ActionID: "llm-resource",
 					Name:     "LLM Chat",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "test",
-					},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "test",
 				},
 			},
 		},
@@ -662,19 +658,15 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama3.2:1b",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
+					Model:   "llama3.2:1b",
 				},
 			},
 			{
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://api.example.com",
 				},
 			},
 		},
@@ -815,9 +807,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -876,9 +866,7 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 				Metadata: domain.WorkflowMetadata{Name: "test"},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -891,9 +879,7 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 				Metadata: domain.WorkflowMetadata{Name: "test"},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "vllm"},
-						},
+						Chat: &domain.ChatConfig{Backend: "vllm"},
 					},
 				},
 			},
@@ -945,9 +931,7 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -1173,11 +1157,9 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama2",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
+					Model:   "llama2",
 				},
 			},
 		},
@@ -1211,11 +1193,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			name: "ollama backend from resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Backend: "ollama",
-							Model:   "llama2:7b",
-						},
+					Chat: &domain.ChatConfig{
+						Backend: "ollama",
+						Model:   "llama2:7b",
 					},
 				},
 			},
@@ -1238,11 +1218,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			name: "no LLM resources - no ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						HTTPClient: &domain.HTTPClientConfig{
-							Method: "GET",
-							URL:    "https://api.example.com",
-						},
+					HTTPClient: &domain.HTTPClientConfig{
+						Method: "GET",
+						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1255,11 +1233,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Role:   "user",
-							Prompt: "test",
-						},
+					Chat: &domain.ChatConfig{
+						Role:   "user",
+						Prompt: "test",
 					},
 				},
 			},
@@ -1271,11 +1247,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Role:   "user",
-							Prompt: "test",
-						},
+					Chat: &domain.ChatConfig{
+						Role:   "user",
+						Prompt: "test",
 					},
 				},
 			},
@@ -1330,11 +1304,9 @@ func TestBuilder_getDefaultModel(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: tt.backend,
-								// No model specified, should use default
-							},
+						Chat: &domain.ChatConfig{
+							Backend: tt.backend,
+							// No model specified, should use default
 						},
 					},
 				},
@@ -1600,9 +1572,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama2"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama2"},
 					},
 				},
 			},
@@ -1625,9 +1595,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama3.2:1b"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama3.2:1b"},
 					},
 				},
 			},
@@ -1669,14 +1637,10 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "vllm"},
-						},
+						Chat: &domain.ChatConfig{Backend: "vllm"},
 					},
 				},
 			},

@@ -77,11 +77,10 @@ Resources within one agent can delegate work to another agent in the same agency
 the `agent` resource type.
 
 ```yaml
-run:
-  agent:
-    name: summariser-agent   # metadata.name of the target agent's workflow
-    params:
-      text: "{{ get('body') }}"
+agent:
+  name: summariser-agent   # metadata.name of the target agent's workflow
+  params:
+    text: "{{ get('body') }}"
 ```
 
 - `name:` — resolves to the target agent by `metadata.name` in its `workflow.yaml`.

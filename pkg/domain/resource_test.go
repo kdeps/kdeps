@@ -42,19 +42,18 @@ metadata:
 items:
   - item1
   - item2
-run:
-  validations:
-    methods:
-      - GET
-      - POST
-    routes:
-      - /api/test
-  chat:
-    model: llama3.2:latest
-    role: user
-    prompt: "Test prompt"
-    jsonResponse: true
-    timeout: 30s
+validations:
+  methods:
+    - GET
+    - POST
+  routes:
+    - /api/test
+chat:
+  model: llama3.2:latest
+  role: user
+  prompt: "Test prompt"
+  jsonResponse: true
+  timeout: 30s
 `
 
 	var resource domain.Resource
@@ -91,29 +90,29 @@ run:
 	}
 
 	// Verify run config.
-	if resource.Run.Validations == nil || len(resource.Run.Validations.Methods) != 2 {
+	if resource.Validations == nil || len(resource.Validations.Methods) != 2 {
 		t.Errorf(
 			"Validations.Methods length = %v, want %v",
 			func() int {
-				if resource.Run.Validations == nil {
+				if resource.Validations == nil {
 					return 0
 				}
-				return len(resource.Run.Validations.Methods)
+				return len(resource.Validations.Methods)
 			}(),
 			2,
 		)
 	}
 
 	// Verify chat config.
-	if resource.Run.Chat == nil {
+	if resource.Chat == nil {
 		t.Fatal("Chat config is nil")
 	}
 
-	if resource.Run.Chat.Model != "llama3.2:latest" {
-		t.Errorf("Chat.Model = %v, want %v", resource.Run.Chat.Model, "llama3.2:latest")
+	if resource.Chat.Model != "llama3.2:latest" {
+		t.Errorf("Chat.Model = %v, want %v", resource.Chat.Model, "llama3.2:latest")
 	}
 
-	if !resource.Run.Chat.JSONResponse {
+	if !resource.Chat.JSONResponse {
 		t.Error("Chat.JSONResponse should be true")
 	}
 }
@@ -127,12 +126,10 @@ func TestResourceYAMLMarshal(t *testing.T) {
 			Name:        "Test Resource",
 			Description: "A test resource",
 		},
-		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "llama3.2:latest",
-				Role:   "user",
-				Prompt: "Test prompt",
-			},
+		Chat: &domain.ChatConfig{
+			Model:  "llama3.2:latest",
+			Role:   "user",
+			Prompt: "Test prompt",
 		},
 	}
 
@@ -152,7 +149,7 @@ func TestResourceYAMLMarshal(t *testing.T) {
 		t.Errorf("ActionID = %v, want %v", result.Metadata.ActionID, resource.Metadata.ActionID)
 	}
 
-	if result.Run.Chat == nil {
+	if result.Chat == nil {
 		t.Fatal("Chat config is nil after round-trip")
 	}
 	// Model is a runtime field (yaml:"-") and does not round-trip through YAML.

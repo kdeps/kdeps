@@ -25,10 +25,9 @@ resources:
     metadata:
       name: Web Search
       actionId: web-search
-    run:
-      httpClient:
-        url: "https://api.tavily.com/search"
-        method: POST
-        headers:
-          Content-Type: application/json
-        data: '{"api_key":"{{ get("search.apiKey") }}","query":"{{ get("search.query") }}","max_results":{{ get("search.maxResults", "5") }}}'
+    httpClient:
+      url: "https://api.tavily.com/search"
+      method: POST
+      headers:
+        Content-Type: application/json
+      data: '{"api_key":"{{ get("search.apiKey") }}","query":"{{ get("search.query") }}","max_results":{{ get("search.maxResults", "5") }}}'

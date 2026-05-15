@@ -60,9 +60,8 @@ kind: Resource
 metadata:
   name: main-resource
   actionId: main
-run:
-  python:
-    script: print("test")
+python:
+  script: print("test")
 `
 	resourcePath := filepath.Join(resourcesDir, "main.yaml")
 	err = os.WriteFile(resourcePath, []byte(resourceContent), 0644)

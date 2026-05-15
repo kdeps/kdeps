@@ -53,18 +53,16 @@ func chatbotWorkflow() *domain.Workflow {
 					Name:        "LLM Chat Handler",
 					Description: "Handles chat requests",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods:  []string{"POST"},
-						Routes:   []string{"/api/v1/chat"},
-						Required: []string{"message"},
-						Rules: []domain.FieldRule{
-							{
-								Field:     "message",
-								Type:      domain.FieldTypeString,
-								MinLength: &minLen,
-								Message:   "Message cannot be empty",
-							},
+				Validations: &domain.ValidationsConfig{
+					Methods:  []string{"POST"},
+					Routes:   []string{"/api/v1/chat"},
+					Required: []string{"message"},
+					Rules: []domain.FieldRule{
+						{
+							Field:     "message",
+							Type:      domain.FieldTypeString,
+							MinLength: &minLen,
+							Message:   "Message cannot be empty",
 						},
 					},
 				},
@@ -167,11 +165,9 @@ func TestGenerateOpenAPI_NoAPIServerConfig(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "handler", Name: "Handler"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET"},
-						Routes:  []string{"/ping"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/ping"},
 				},
 			},
 		},
@@ -188,13 +184,11 @@ func TestGenerateOpenAPI_QueryAndHeaderParams(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "search", Name: "Search"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET"},
-						Routes:  []string{"/search"},
-						Params:  []string{"q", "limit"},
-						Headers: []string{"X-API-Key"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/search"},
+					Params:  []string{"q", "limit"},
+					Headers: []string{"X-API-Key"},
 				},
 			},
 		},
@@ -236,13 +230,11 @@ func TestGenerateOpenAPI_FieldTypeFormats(t *testing.T) {
 			Resources: []*domain.Resource{
 				{
 					Metadata: domain.ResourceMetadata{ActionID: "res"},
-					Run: domain.RunConfig{
-						Validations: &domain.ValidationsConfig{
-							Methods: []string{"POST"},
-							Routes:  []string{"/test"},
-							Rules: []domain.FieldRule{
-								{Field: "f", Type: tc.fieldType},
-							},
+					Validations: &domain.ValidationsConfig{
+						Methods: []string{"POST"},
+						Routes:  []string{"/test"},
+						Rules: []domain.FieldRule{
+							{Field: "f", Type: tc.fieldType},
 						},
 					},
 				},
@@ -265,16 +257,14 @@ func TestGenerateOpenAPI_EnumField(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "res"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"POST"},
-						Routes:  []string{"/v1/action"},
-						Rules: []domain.FieldRule{
-							{
-								Field: "status",
-								Type:  domain.FieldTypeString,
-								Enum:  []interface{}{"active", "inactive"},
-							},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"POST"},
+					Routes:  []string{"/v1/action"},
+					Rules: []domain.FieldRule{
+						{
+							Field: "status",
+							Type:  domain.FieldTypeString,
+							Enum:  []interface{}{"active", "inactive"},
 						},
 					},
 				},
@@ -326,7 +316,6 @@ func TestGenerateJSONSchema_NoValidations(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "res"},
-				Run:      domain.RunConfig{},
 			},
 		},
 	}
@@ -341,23 +330,19 @@ func TestGenerateJSONSchema_MultipleResources(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "r1"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"name"},
-						Rules: []domain.FieldRule{
-							{Field: "name", Type: domain.FieldTypeString},
-						},
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"name"},
+					Rules: []domain.FieldRule{
+						{Field: "name", Type: domain.FieldTypeString},
 					},
 				},
 			},
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "r2"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"age"},
-						Rules: []domain.FieldRule{
-							{Field: "age", Type: domain.FieldTypeInteger},
-						},
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"age"},
+					Rules: []domain.FieldRule{
+						{Field: "age", Type: domain.FieldTypeInteger},
 					},
 				},
 			},
@@ -391,10 +376,8 @@ func TestGenerateJSONSchema_FieldFormats(t *testing.T) {
 			Metadata: domain.WorkflowMetadata{Name: "t", Version: "1"},
 			Resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Validations: &domain.ValidationsConfig{
-							Rules: []domain.FieldRule{{Field: "f", Type: tc.ft}},
-						},
+					Validations: &domain.ValidationsConfig{
+						Rules: []domain.FieldRule{{Field: "f", Type: tc.ft}},
 					},
 				},
 			},
@@ -414,15 +397,13 @@ func TestGenerateJSONSchema_NumericConstraints(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "nums", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "score",
-								Type:  domain.FieldTypeNumber,
-								Min:   &minV,
-								Max:   &maxV,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "score",
+							Type:  domain.FieldTypeNumber,
+							Min:   &minV,
+							Max:   &maxV,
 						},
 					},
 				},
@@ -445,14 +426,12 @@ func TestGenerateJSONSchema_EnumField(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "e", Version: "1"},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "color",
-								Type:  domain.FieldTypeString,
-								Enum:  []interface{}{"red", "green", "blue"},
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "color",
+							Type:  domain.FieldTypeString,
+							Enum:  []interface{}{"red", "green", "blue"},
 						},
 					},
 				},
@@ -471,16 +450,14 @@ func TestGenerateJSONSchema_StringConstraints(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "str", Version: "1"},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field:     "username",
-								Type:      domain.FieldTypeString,
-								MinLength: &minL,
-								MaxLength: &maxL,
-								Pattern:   &pat,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field:     "username",
+							Type:      domain.FieldTypeString,
+							MinLength: &minL,
+							MaxLength: &maxL,
+							Pattern:   &pat,
 						},
 					},
 				},
@@ -502,10 +479,8 @@ func TestGenerateJSONSchema_SortedRequired(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "sorted", Version: "1"},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"z_field", "a_field", "m_field"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"z_field", "a_field", "m_field"},
 				},
 			},
 		},
@@ -606,15 +581,13 @@ func TestGenerateOpenAPI_RequestBodyRequiredFalseWhenNoRequiredFields(t *testing
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "res"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"POST"},
-						Routes:  []string{"/optional"},
-						Rules: []domain.FieldRule{
-							{Field: "note", Type: domain.FieldTypeString},
-						},
-						// No Required list
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"POST"},
+					Routes:  []string{"/optional"},
+					Rules: []domain.FieldRule{
+						{Field: "note", Type: domain.FieldTypeString},
 					},
+					// No Required list
 				},
 			},
 		},
@@ -638,22 +611,18 @@ func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "r1"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET"},
-						Routes:  []string{"/search"},
-						Params:  []string{"q"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/search"},
+					Params:  []string{"q"},
 				},
 			},
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "r2"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET"},
-						Routes:  []string{"/search"},
-						Params:  []string{"q", "limit"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/search"},
+					Params:  []string{"q", "limit"},
 				},
 			},
 		},
@@ -684,14 +653,12 @@ func TestGenerateOpenAPI_EmptyFieldNameSkipped(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "res"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"POST"},
-						Routes:  []string{"/v1/action"},
-						Rules: []domain.FieldRule{
-							{Field: "", Type: domain.FieldTypeString}, // empty field name
-							{Field: "name", Type: domain.FieldTypeString},
-						},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"POST"},
+					Routes:  []string{"/v1/action"},
+					Rules: []domain.FieldRule{
+						{Field: "", Type: domain.FieldTypeString}, // empty field name
+						{Field: "name", Type: domain.FieldTypeString},
 					},
 				},
 			},
@@ -713,12 +680,10 @@ func TestGenerateOpenAPI_SortedRequiredFields(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "res"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods:  []string{"POST"},
-						Routes:   []string{"/form"},
-						Required: []string{"z_field", "a_field", "m_field"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods:  []string{"POST"},
+					Routes:   []string{"/form"},
+					Required: []string{"z_field", "a_field", "m_field"},
 				},
 			},
 		},
@@ -746,11 +711,9 @@ func TestGenerateOpenAPI_UniqueOperationIDs(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "itemsResource", Name: "Items"},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods: []string{"GET", "POST"},
-						Routes:  []string{"/items"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET", "POST"},
+					Routes:  []string{"/items"},
 				},
 			},
 		},

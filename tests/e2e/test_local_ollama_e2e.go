@@ -259,27 +259,26 @@ resources:
     metadata:
       actionId: llmResource
       name: LLM Test
-    run:
-      validations:
-        methods: [POST]
-        routes: [/api/v1/test]
-        check:
-          - get('q') != ''
-        error:
-          code: 400
-          message: Query parameter 'q' is required
-      chat:
-        backend: ollama
-        model: %s
-        role: user
-        prompt: "{{ get('q') }}"
-        scenario:
-          - role: assistant
-            prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
-        jsonResponse: true
-        jsonResponseKeys:
-          - answer
-        timeoutDuration: 30s
+    validations:
+      methods: [POST]
+      routes: [/api/v1/test]
+      check:
+        - get('q') != ''
+      error:
+        code: 400
+        message: Query parameter 'q' is required
+    chat:
+      backend: ollama
+      model: %s
+      role: user
+      prompt: "{{ get('q') }}"
+      scenario:
+        - role: assistant
+          prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
+      jsonResponse: true
+      jsonResponseKeys:
+        - answer
+      timeoutDuration: 30s
 
   - apiVersion: kdeps.io/v1
     kind: Resource
@@ -288,18 +287,17 @@ resources:
       name: API Response
       requires:
         - llmResource
-    run:
-      validations:
-        methods: [POST]
-        routes: [/api/v1/test]
-      apiResponse:
-        success: true
-        response:
-          data: get('llmResource')
-          query: get('q')
-        meta:
-          headers:
-            Content-Type: application/json
+    validations:
+      methods: [POST]
+      routes: [/api/v1/test]
+    apiResponse:
+      success: true
+      response:
+        data: get('llmResource')
+        query: get('q')
+      meta:
+        headers:
+          Content-Type: application/json
 `, model, model)
 
 	tmpDir := t.TempDir()

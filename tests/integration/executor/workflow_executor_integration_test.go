@@ -53,13 +53,11 @@ func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
 					ActionID: "hello-response",
 					Name:     "Hello Response",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Hello from integration test!",
-							"test":    "single-resource",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "Hello from integration test!",
+						"test":    "single-resource",
 					},
 				},
 			},
@@ -105,13 +103,11 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 					ActionID: "step1",
 					Name:     "Step 1",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"step":   1,
-							"output": "first step completed",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"step":   1,
+						"output": "first step completed",
 					},
 				},
 			},
@@ -120,13 +116,11 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 					ActionID: "step2",
 					Name:     "Step 2",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"step":   2,
-							"output": "second step completed",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"step":   2,
+						"output": "second step completed",
 					},
 				},
 			},
@@ -135,14 +129,12 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 					ActionID: "final-result",
 					Name:     "Final Result",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message":     "Multi-resource workflow completed!",
-							"total_steps": 3,
-							"test":        "multi-resource",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message":     "Multi-resource workflow completed!",
+						"total_steps": 3,
+						"test":        "multi-resource",
 					},
 				},
 			},
@@ -189,14 +181,12 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 					ActionID: "get-user-data",
 					Name:     "Get User Data",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"user_id": 123,
-							"name":    "John Doe",
-							"email":   "john@example.com",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"user_id": 123,
+						"name":    "John Doe",
+						"email":   "john@example.com",
 					},
 				},
 			},
@@ -205,18 +195,16 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 					ActionID: "process-user",
 					Name:     "Process User",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"processed": true,
-							"user_info": map[string]interface{}{
-								"id":    123,
-								"name":  "John Doe",
-								"email": "john@example.com",
-							},
-							"timestamp": "2024-01-01T10:00:00Z",
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"processed": true,
+						"user_info": map[string]interface{}{
+							"id":    123,
+							"name":  "John Doe",
+							"email": "john@example.com",
 						},
+						"timestamp": "2024-01-01T10:00:00Z",
 					},
 				},
 			},
@@ -225,17 +213,15 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 					ActionID: "combine-results",
 					Name:     "Combine Results",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"status": "completed",
-							"data": map[string]interface{}{
-								"user_processed": true,
-								"workflow":       "dependency-test",
-							},
-							"test": "dependencies",
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"status": "completed",
+						"data": map[string]interface{}{
+							"user_processed": true,
+							"workflow":       "dependency-test",
 						},
+						"test": "dependencies",
 					},
 				},
 			},
@@ -286,13 +272,11 @@ func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
 					ActionID: "failing-resource",
 					Name:     "Failing Resource",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: false,
-						Response: map[string]interface{}{
-							"error": "Simulated failure",
-							"code":  500,
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: false,
+					Response: map[string]interface{}{
+						"error": "Simulated failure",
+						"code":  500,
 					},
 				},
 			},
@@ -368,13 +352,11 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 					ActionID: "step1",
 					Name:     "Step 1",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order": "first",
-							"step":  1,
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order": "first",
+						"step":  1,
 					},
 				},
 			},
@@ -383,13 +365,11 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 					ActionID: "step2",
 					Name:     "Step 2",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order": "second",
-							"step":  2,
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order": "second",
+						"step":  2,
 					},
 				},
 			},
@@ -398,14 +378,12 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 					ActionID: "step3",
 					Name:     "Step 3",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order":     "third",
-							"step":      3,
-							"completed": true,
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order":     "third",
+						"step":      3,
+						"completed": true,
 					},
 				},
 			},
@@ -452,13 +430,11 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 					ActionID: "collect-data",
 					Name:     "Collect Data",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"data": []interface{}{1, 2, 3, 4, 5},
-							"type": "numbers",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"data": []interface{}{1, 2, 3, 4, 5},
+						"type": "numbers",
 					},
 				},
 			},
@@ -467,14 +443,12 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 					ActionID: "process-data",
 					Name:     "Process Data",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"processed": true,
-							"count":     5,
-							"sum":       15,
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"processed": true,
+						"count":     5,
+						"sum":       15,
 					},
 				},
 			},
@@ -483,16 +457,14 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 					ActionID: "aggregate",
 					Name:     "Aggregate Results",
 				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"workflow":    "dataflow-test",
-							"completed":   true,
-							"data_points": 5,
-							"total_sum":   15,
-							"test":        "dataflow",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"workflow":    "dataflow-test",
+						"completed":   true,
+						"data_points": 5,
+						"total_sum":   15,
+						"test":        "dataflow",
 					},
 				},
 			},
@@ -534,14 +506,12 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 				ActionID: fmt.Sprintf("resource-%d", i),
 				Name:     fmt.Sprintf("Resource %d", i),
 			},
-			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"index": i,
-						"name":  fmt.Sprintf("resource-%d", i),
-						"data":  fmt.Sprintf("data-%d", i),
-					},
+			APIResponse: &domain.APIResponseConfig{
+				Success: true,
+				Response: map[string]interface{}{
+					"index": i,
+					"name":  fmt.Sprintf("resource-%d", i),
+					"data":  fmt.Sprintf("data-%d", i),
 				},
 			},
 		}

@@ -33,12 +33,11 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: test
-run:
-  browser:
-    engine: chromium
-    headless: true
-    stealthMode: true
-    url: "https://example.com"
+browser:
+  engine: chromium
+  headless: true
+  stealthMode: true
+  url: "https://example.com"
 `
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "resource-*.yaml")
@@ -62,11 +61,10 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: test
-run:
-  browser:
-    engine: chromium
-    userAgent: "Mozilla/5.0 (Custom Bot)"
-    url: "https://example.com"
+browser:
+  engine: chromium
+  userAgent: "Mozilla/5.0 (Custom Bot)"
+  url: "https://example.com"
 `
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "resource-*.yaml")

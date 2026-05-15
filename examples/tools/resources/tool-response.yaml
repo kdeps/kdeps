@@ -7,13 +7,12 @@ metadata:
   requires:
     - llmWithTools
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/tools]
-  apiResponse:
-    success: true
-    response:
-      query: "{{ get('q') }}"
-      llm_response: "{{ get('llmWithTools') }}"
-      tools_available: true
+validations:
+  methods: [POST]
+  routes: [/api/v1/tools]
+apiResponse:
+  success: true
+  response:
+    query: "{{ get('q') }}"
+    llm_response: "{{ get('llmWithTools') }}"
+    tools_available: true

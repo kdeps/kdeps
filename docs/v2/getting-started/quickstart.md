@@ -52,20 +52,19 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: llmResource
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/chat]
-    check:
-      - get('q') != ''
-    error:
-      code: 400
-      message: Query parameter 'q' is required
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    timeout: 60s
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: Query parameter 'q' is required
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
+  timeout: 60s
 ```
 
 </div>
@@ -80,11 +79,10 @@ kind: Resource
 metadata:
   actionId: responseResource
   requires: [llmResource]
-run:
-  apiResponse:
-    success: true
-    response:
-      data: get('llmResource')
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
 ```
 
 ## Run it

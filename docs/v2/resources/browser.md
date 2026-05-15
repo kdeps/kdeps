@@ -24,36 +24,33 @@ The Browser component enables browser automation via [Playwright](https://playwr
 **Navigate and get page text:**
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://example.com"
-      action: getText
+component:
+  name: browser
+  with:
+    url: "https://example.com"
+    action: getText
 ```
 
 **Take a screenshot:**
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://example.com"
-      action: screenshot
-      screenshotPath: "/tmp/page.png"
+component:
+  name: browser
+  with:
+    url: "https://example.com"
+    action: screenshot
+    screenshotPath: "/tmp/page.png"
 ```
 
 **Get text from a specific element:**
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://example.com"
-      action: getText
-      selector: ".article-content"
+component:
+  name: browser
+  with:
+    url: "https://example.com"
+    action: getText
+    selector: ".article-content"
 ```
 
 Access the result via `output('<callerActionId>')`.
@@ -88,13 +85,12 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "{{ get('target_url') }}"
-      action: getText
-      selector: "{{ get('css_selector') }}"
+component:
+  name: browser
+  with:
+    url: "{{ get('target_url') }}"
+    action: getText
+    selector: "{{ get('css_selector') }}"
 ```
 
 </div>
@@ -114,13 +110,12 @@ run:
     actionId: capture
     name: Capture Dashboard
 
-  run:
-    component:
-      name: browser
-      with:
-        url: "{{ get('dashboard_url') }}"
-        action: screenshot
-        screenshotPath: /tmp/dashboard.png
+component:
+  name: browser
+  with:
+    url: "{{ get('dashboard_url') }}"
+    action: screenshot
+    screenshotPath: /tmp/dashboard.png
 
 # Step 2: Send the screenshot by email
 - apiVersion: kdeps.io/v1
@@ -132,16 +127,15 @@ run:
     requires:
       - capture
 
-  run:
-    component:
-      name: email
-      with:
-        to: "{{ get('recipient') }}"
-        subject: "Dashboard snapshot"
-        body: "Screenshot saved at: {{ output('capture').screenshotPath }}"
-        smtpHost: "{{ env('SMTP_HOST') }}"
-        smtpUser: "{{ env('SMTP_USER') }}"
-        smtpPass: "{{ env('SMTP_PASS') }}"
+component:
+  name: email
+  with:
+    to: "{{ get('recipient') }}"
+    subject: "Dashboard snapshot"
+    body: "Screenshot saved at: {{ output('capture').screenshotPath }}"
+    smtpHost: "{{ env('SMTP_HOST') }}"
+    smtpUser: "{{ env('SMTP_USER') }}"
+    smtpPass: "{{ env('SMTP_PASS') }}"
 ```
 
 </div>

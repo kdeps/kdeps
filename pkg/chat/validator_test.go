@@ -35,9 +35,8 @@ metadata:
 kind: Resource
 metadata:
   actionId: main
-run:
-  apiResponse:
-    data: "hello"
+apiResponse:
+  data: "hello"
 `,
 		},
 	}
@@ -132,9 +131,8 @@ func TestValidate_ResourceMissingAPIVersion(t *testing.T) {
 	wf.Files["resources/main.yaml"] = `kind: Resource
 metadata:
   actionId: main
-run:
-  apiResponse:
-    data: "ok"
+apiResponse:
+  data: "ok"
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "apiVersion"))
@@ -145,9 +143,8 @@ func TestValidate_ResourceMissingKind(t *testing.T) {
 	wf.Files["resources/main.yaml"] = `apiVersion: kdeps.io/v1
 metadata:
   actionId: main
-run:
-  apiResponse:
-    data: "ok"
+apiResponse:
+  data: "ok"
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "kind"))
@@ -159,8 +156,7 @@ func TestValidate_ResourceMissingActionId(t *testing.T) {
 kind: Resource
 metadata:
   name: something
-run:
-  chat: {}
+chat: {}
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "actionId"))
@@ -174,7 +170,7 @@ metadata:
   actionId: main
 `
 	errs := Validate(wf)
-	assert.True(t, containsErr(errs, "run section"))
+	assert.True(t, containsErr(errs, "no recognized action"))
 }
 
 func TestValidate_ResourceUnrecognizedAction(t *testing.T) {
@@ -183,9 +179,8 @@ func TestValidate_ResourceUnrecognizedAction(t *testing.T) {
 kind: Resource
 metadata:
   actionId: main
-run:
-  http:
-    url: "https://example.com"
+http:
+  url: "https://example.com"
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "no recognized action"))
@@ -214,7 +209,7 @@ func TestValidate_AllValidRunActions(t *testing.T) {
 	}
 	for _, action := range actions {
 		wf := validWorkflow()
-		wf.Files["resources/main.yaml"] = "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: main\nrun:\n  " + action + ": {}\n"
+		wf.Files["resources/main.yaml"] = "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: main\n" + action + ": {}\n"
 		errs := Validate(wf)
 		assert.Empty(t, errs, "action %q should be valid", action)
 	}

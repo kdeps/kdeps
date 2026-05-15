@@ -22,42 +22,41 @@ items:                        # Optional: for iteration
   - item1
   - item2
 
-run:
-  # Request restrictions and validation
-  validations:
-    methods: [POST]
-    routes: [/api/v1/endpoint]
-    headers: [Authorization]
-    params: [q, limit]
-    skip:
-    - get('skip') == true
-    check:
-      - get('q') != ''
-    error:
-      code: 400
-      message: Query required
+# Request restrictions and validation
+validations:
+  methods: [POST]
+  routes: [/api/v1/endpoint]
+  headers: [Authorization]
+  params: [q, limit]
+  skip:
+  - get('skip') == true
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: Query required
 
-  # Processing expressions
-  exprBefore:                 # Runs BEFORE the main action
-    - set('pre', 'value')
-  expr:                       # Runs AFTER the main action (default)
-    - set('post', 'value')
-  exprAfter:                  # Alias for expr
-    - set('also_post', 'value')
+# Processing expressions
+exprBefore:                 # Runs BEFORE the main action
+  - set('pre', 'value')
+expr:                       # Runs AFTER the main action (default)
+  - set('post', 'value')
+exprAfter:                  # Alias for expr
+  - set('also_post', 'value')
 
-  # Action (only one per resource)
-  chat: { ... }        # LLM chat (core)
-  httpClient: { ... }  # HTTP request (core)
-  sql: { ... }         # Database query (core)
-  python: { ... }      # Python script (core)
-  exec: { ... }        # Shell command (core)
-  agent: { ... }       # Call another agent — agency mode (core)
-  apiResponse: { ... } # API response (core)
-  component:           # Installable component (e.g. scraper, tts, pdf…)
-    name: scraper
-    with:
-      url: "https://example.com"
-      selector: ".article"
+# Action (only one per resource)
+chat: { ... }        # LLM chat (core)
+httpClient: { ... }  # HTTP request (core)
+sql: { ... }         # Database query (core)
+python: { ... }      # Python script (core)
+exec: { ... }        # Shell command (core)
+agent: { ... }       # Call another agent — agency mode (core)
+apiResponse: { ... } # API response (core)
+component:           # Installable component (e.g. scraper, tts, pdf…)
+  name: scraper
+  with:
+    url: "https://example.com"
+    selector: ".article"
 ```
 
 ## Resource Types
@@ -163,33 +162,30 @@ KDeps automatically builds a dependency graph and executes resources in the corr
 Limit which HTTP methods trigger this resource:
 
 ```yaml
-run:
-  validations:
-    methods: [GET, POST]
+validations:
+  methods: [GET, POST]
 ```
 
 ### validations.routes
 Limit which routes trigger this resource:
 
 ```yaml
-run:
-  validations:
-    routes: [/api/v1/chat, /api/v1/query]
+validations:
+  routes: [/api/v1/chat, /api/v1/query]
 ```
 
 ### validations.headers / validations.params
 Whitelist specific headers or parameters:
 
 ```yaml
-run:
-  validations:
-    headers:
-      - Authorization
-      - X-API-Key
-    params:
-      - q
-      - limit
-      - offset
+validations:
+  headers:
+    - Authorization
+    - X-API-Key
+  params:
+    - q
+    - limit
+    - offset
 ```
 
 ## Validation
@@ -198,11 +194,10 @@ run:
 Skip resource execution based on conditions:
 
 ```yaml
-run:
-  validations:
-    skip:
-      - get('skip') == true
-      - get('mode') == 'fast'
+validations:
+  skip:
+    - get('skip') == true
+    - get('mode') == 'fast'
 ```
 
 If any condition evaluates to `true`, the resource is skipped.
@@ -211,14 +206,13 @@ If any condition evaluates to `true`, the resource is skipped.
 Validate inputs before execution:
 
 ```yaml
-run:
-  validations:
-    check:
-      - get('q') != ''
-      - get('limit') <= 100
-    error:
-      code: 400
-      message: Invalid request parameters
+validations:
+  check:
+    - get('q') != ''
+    - get('limit') <= 100
+  error:
+    code: 400
+    message: Invalid request parameters
 ```
 
 If validation fails, the error response is returned immediately.
@@ -233,11 +227,10 @@ Runs **before** the main action. Use this to prepare data used in the resource's
 <div v-pre>
 
 ```yaml
-run:
-  exprBefore:
-    - set('full_name', get('first') + ' ' + get('last'))
-  chat:
-    prompt: "Hello {{ get('full_name') }}"
+exprBefore:
+  - set('full_name', get('first') + ' ' + get('last'))
+chat:
+  prompt: "Hello {{ get('full_name') }}"
 ```
 
 </div>
@@ -248,12 +241,11 @@ Runs **after** the main action. Use this to process results or update state for 
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Summary of {{ get('q') }}"
-  expr:
-    - set('summary', get('myResourceId'))
-    - set('processed_at', info('timestamp'))
+chat:
+  prompt: "Summary of {{ get('q') }}"
+expr:
+  - set('summary', get('myResourceId'))
+  - set('processed_at', info('timestamp'))
 ```
 
 </div>
@@ -272,9 +264,8 @@ items:
   - "Second item"
   - "Third item"
 
-run:
-  chat:
-    prompt: "Process: {{ get('current') }}"
+chat:
+  prompt: "Process: {{ get('current') }}"
 ```
 
 </div>
@@ -293,17 +284,16 @@ Repeat a resource body while a condition is true (Turing-complete while-loop). A
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "loop.index() < 5"
-    maxIterations: 1000   # safety cap (default: 1000)
-    every: "1s"           # optional: wait 1 second between iterations
-  expr:
-    - "{{ set('result', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ get('result') }}"
+loop:
+  while: "loop.index() < 5"
+  maxIterations: 1000   # safety cap (default: 1000)
+  every: "1s"           # optional: wait 1 second between iterations
+expr:
+  - "{{ set('result', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    count: "{{ get('result') }}"
 ```
 
 </div>
@@ -331,17 +321,15 @@ Each resource produces output that can be accessed by dependent resources:
 # LLM resource output
 metadata:
   actionId: llmResource
-run:
-  chat:
-    prompt: "Answer: {{ get('q') }}"
+chat:
+  prompt: "Answer: {{ get('q') }}"
 
 # Access in another resource
 metadata:
   requires: [llmResource]
-run:
-  apiResponse:
-    response:
-      answer: get('llmResource')  # Get the LLM response
+apiResponse:
+  response:
+    answer: get('llmResource')  # Get the LLM response
 ```
 
 </div>

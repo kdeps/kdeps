@@ -57,9 +57,8 @@ resources:
     metadata:
       actionId: response
       name: Response
-    run:
-      response:
-        data: "hello"
+    response:
+      data: "hello"
 `
 
 // TestFindAgencyFile verifies that FindAgencyFile detects agency files by name.

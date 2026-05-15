@@ -3,9 +3,8 @@ kind: Resource
 metadata:
   actionId: response
   requires: [summarize]
-run:
-  apiResponse:
-    success: true
-    response:
-      url: "{{ get('url') }}"
-      summary: "{{ output('summarize').summary }}"
+apiResponse:
+  success: true
+  response:
+    url: "{{ get('url') }}"
+    summary: "{{ output('summarize').summary }}"

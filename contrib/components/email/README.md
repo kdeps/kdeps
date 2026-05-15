@@ -29,36 +29,34 @@ Accessed via `output('<your-action-id>')`:
 Send a notification email:
 
 ```yaml
-run:
-  component:
-    name: email
-    with:
-      to: "team@example.com"
-      subject: "Build succeeded"
-      body: "Pipeline completed successfully at {{ output('buildStep').timestamp }}"
-      smtpHost: smtp.gmail.com
-      smtpUser: "{{ get('env.SMTP_USER') }}"
-      smtpPass: "{{ get('env.SMTP_PASS') }}"
-  apiResponse:
-    success: true
-    response:
-      emailSent: "{{ output('sendAlert').sent }}"
+component:
+  name: email
+  with:
+    to: "team@example.com"
+    subject: "Build succeeded"
+    body: "Pipeline completed successfully at {{ output('buildStep').timestamp }}"
+    smtpHost: smtp.gmail.com
+    smtpUser: "{{ get('env.SMTP_USER') }}"
+    smtpPass: "{{ get('env.SMTP_PASS') }}"
+apiResponse:
+  success: true
+  response:
+    emailSent: "{{ output('sendAlert').sent }}"
 ```
 
 Using a custom port (e.g. port 465 for SSL — note: this component uses STARTTLS, not implicit SSL):
 
 ```yaml
-run:
-  component:
-    name: email
-    with:
-      to: recipient@example.com
-      subject: Monthly Report
-      body: "{{ output('reportStep').text }}"
-      smtpHost: mail.example.com
-      smtpPort: 587
-      smtpUser: "{{ get('env.MAIL_USER') }}"
-      smtpPass: "{{ get('env.MAIL_PASS') }}"
+component:
+  name: email
+  with:
+    to: recipient@example.com
+    subject: Monthly Report
+    body: "{{ output('reportStep').text }}"
+    smtpHost: mail.example.com
+    smtpPort: 587
+    smtpUser: "{{ get('env.MAIL_USER') }}"
+    smtpPass: "{{ get('env.MAIL_PASS') }}"
 ```
 
 ## Requirements

@@ -27,38 +27,37 @@ resources:
     metadata:
       actionId: translate
       name: Translate Text
-    run:
-      exec:
-        command: |
-          python3 - <<'PYEOF'
-          import os, sys, json, urllib.request
+    exec:
+      command: |
+        python3 - <<'PYEOF'
+        import os, sys, json, urllib.request
 
-          api_key = """{{ env('OPENAI_API_KEY') }}"""
-          text    = """{{ input('text') }}"""
-          lang    = """{{ input('target_language') }}"""
-          if not lang:
-              lang = "Spanish"
+        api_key = """{{ env('OPENAI_API_KEY') }}"""
+        text    = """{{ input('text') }}"""
+        lang    = """{{ input('target_language') }}"""
+        if not lang:
+            lang = "Spanish"
 
-          if not api_key:
-              print(json.dumps({"error": "OPENAI_API_KEY not set", "source": text}))
-              sys.exit(0)
+        if not api_key:
+            print(json.dumps({"error": "OPENAI_API_KEY not set", "source": text}))
+            sys.exit(0)
 
-          payload = json.dumps({
-              "model": "gpt-4o-mini",
-              "messages": [
-                  {"role": "system", "content": f"Translate the following text to {lang}. Return only the translation."},
-                  {"role": "user",   "content": text}
-              ]
-          }).encode()
+        payload = json.dumps({
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": f"Translate the following text to {lang}. Return only the translation."},
+                {"role": "user",   "content": text}
+            ]
+        }).encode()
 
-          req = urllib.request.Request(
-              "https://api.openai.com/v1/chat/completions",
-              data=payload,
-              headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-          )
-          with urllib.request.urlopen(req) as resp:
-              body = json.loads(resp.read())
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req) as resp:
+            body = json.loads(resp.read())
 
-          translation = body["choices"][0]["message"]["content"].strip()
-          print(json.dumps({"source": text, "language": lang, "translation": translation}))
-          PYEOF
+        translation = body["choices"][0]["message"]["content"].strip()
+        print(json.dumps({"source": text, "language": lang, "translation": translation}))
+        PYEOF

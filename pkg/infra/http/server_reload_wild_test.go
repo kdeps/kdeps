@@ -67,10 +67,9 @@ resources:
     metadata:
       name: Reload Action
       actionId: reload-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
 	require.NoError(t, err)
@@ -127,10 +126,9 @@ resources:
     metadata:
       name: Default Action
       actionId: default-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile("workflow.yaml", []byte(workflowContent), 0644)
 	require.NoError(t, err)
@@ -272,10 +270,9 @@ resources:
     metadata:
       name: Route Action
       actionId: route-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
 	require.NoError(t, err)

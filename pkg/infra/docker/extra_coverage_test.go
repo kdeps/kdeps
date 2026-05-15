@@ -32,9 +32,7 @@ func TestBuilder_ShouldInstallUV_PythonResource(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "py-res"},
-				Run: domain.RunConfig{
-					Python: &domain.PythonConfig{Script: "print('hello')"},
-				},
+				Python:   &domain.PythonConfig{Script: "print('hello')"},
 			},
 		},
 	}
@@ -119,13 +117,11 @@ func TestBuilder_GenerateDockerfile_OllamaUbuntu(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-res"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "hello",
-					},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "hello",
 				},
 			},
 		},
@@ -145,13 +141,11 @@ func TestBuilder_GenerateDockerfile_OllamaAlpine(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				Metadata: domain.ResourceMetadata{ActionID: "chat-res"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "hello",
-					},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "hello",
 				},
 			},
 		},

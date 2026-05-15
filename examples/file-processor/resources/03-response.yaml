@@ -7,9 +7,8 @@ metadata:
   requires:
     - summarize
 
-run:
-  apiResponse:
-    success: true
-    response:
-      file: "{{ input('filePath') }}"
-      analysis: "{{ get('summarize') }}"
+apiResponse:
+  success: true
+  response:
+    file: "{{ input('filePath') }}"
+    analysis: "{{ get('summarize') }}"

@@ -66,9 +66,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -80,9 +78,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -94,9 +90,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -187,7 +181,7 @@ func TestPrintIORequirements_Internal(_ *testing.T) {
 	// Just ensure it doesn't panic with various configs
 	w := &domain.Workflow{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{APIResponse: &domain.APIResponseConfig{}}},
+			{APIResponse: &domain.APIResponseConfig{}},
 		},
 	}
 	printIORequirements(w)

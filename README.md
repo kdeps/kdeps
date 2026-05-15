@@ -36,11 +36,10 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: chat
-run:
-  chat:
-    prompt: "{{ get('message') }}"
-  apiResponse:
-    response: "{{ output('chat') }}"
+chat:
+  prompt: "{{ get('message') }}"
+apiResponse:
+  response: "{{ output('chat') }}"
 ```
 
 Wire resources into pipelines — outputs flow between steps via `requires:`:
@@ -48,19 +47,17 @@ Wire resources into pipelines — outputs flow between steps via `requires:`:
 ```yaml
 metadata:
   actionId: fetch
-run:
-  scraper:
-    url: "{{ get('url') }}"
+scraper:
+  url: "{{ get('url') }}"
 
 ---
 metadata:
   actionId: summarize
   requires: [fetch]
-run:
-  chat:
-    prompt: "Summarize: {{ output('fetch').content }}"
-  apiResponse:
-    response: "{{ output('summarize') }}"
+chat:
+  prompt: "Summarize: {{ output('fetch').content }}"
+apiResponse:
+  response: "{{ output('summarize') }}"
 ```
 
 ## Build and deploy

@@ -12,42 +12,40 @@ metadata:
   actionId: pythonResource
   name: Data Processing
 
-run:
-  python:
-    script: |
-      import json
-      <span v-pre>data = {{ get('inputData') }}</span>
-      result = {"processed": len(data)}
-      print(json.dumps(result))
-    timeout: 60s
+python:
+  script: |
+    import json
+    <span v-pre>data = {{ get('inputData') }}</span>
+    result = {"processed": len(data)}
+    print(json.dumps(result))
+  timeout: 60s
 
 ```
 
 ## Configuration Options
 
 ```yaml
-run:
-  python:
-    # Script content (inline)
-    script: |
-      print("Hello, World!")
+python:
+  # Script content (inline)
+  script: |
+    print("Hello, World!")
 
-    # Or script file path
-    scriptFile: "./scripts/process.py"
+  # Or script file path
+  scriptFile: "./scripts/process.py"
 
-    # Command line arguments
-    args:
-      - "--input"
-      - <span v-pre>"{{ get('input_file') }}"</span>
+  # Command line arguments
+  args:
+    - "--input"
+    - <span v-pre>"{{ get('input_file') }}"</span>
 
 
-    # Custom virtual environment name (for isolation)
-    # Each venvName creates a separate virtual environment
-    # Resources with the same venvName share the same environment
-    venvName: "my-project-env"
+  # Custom virtual environment name (for isolation)
+  # Each venvName creates a separate virtual environment
+  # Resources with the same venvName share the same environment
+  venvName: "my-project-env"
 
-    # Timeout
-    timeout: 60s
+  # Timeout
+  timeout: 60s
 ```
 
 ## Configuration Options
@@ -65,28 +63,27 @@ run:
 Write Python code directly in YAML:
 
 ```yaml
-run:
-  python:
-    script: |
-      import json
-      import pandas as pd
+python:
+  script: |
+    import json
+    import pandas as pd
 
-      # Access input data
-      <span v-pre>raw_data = {{ get('httpResource') }}</span>
+    # Access input data
+    <span v-pre>raw_data = {{ get('httpResource') }}</span>
 
-      # Process with pandas
+    # Process with pandas
 
-      df = pd.DataFrame(raw_data)
-      summary = df.describe()
+    df = pd.DataFrame(raw_data)
+    summary = df.describe()
 
-      # Output result (must print JSON)
-      result = {
-          "rows": len(df),
-          "columns": list(df.columns),
-          "summary": summary.to_dict()
-      }
-      print(json.dumps(result))
-    timeout: 120s
+    # Output result (must print JSON)
+    result = {
+        "rows": len(df),
+        "columns": list(df.columns),
+        "summary": summary.to_dict()
+    }
+    print(json.dumps(result))
+  timeout: 120s
 ```
 
 ## Script Files
@@ -94,15 +91,14 @@ run:
 Reference external Python files:
 
 ```yaml
-run:
-  python:
-    scriptFile: "./scripts/data_processor.py"
-    args:
-      - "--mode"
-      - "analyze"
-      - "--data"
-      - <span v-pre>"{{ get('data') }}"</span>
-    timeout: 60s
+python:
+  scriptFile: "./scripts/data_processor.py"
+  args:
+    - "--mode"
+    - "analyze"
+    - "--data"
+    - <span v-pre>"{{ get('data') }}"</span>
+  timeout: 60s
 
 ```
 
@@ -162,26 +158,24 @@ Use separate virtual environments for different resources:
 metadata:
   actionId: dataScience
 
-run:
-  python:
-    venvName: "datascience-env"
-    script: |
-      import pandas as pd
-      import numpy as np
-      # ...
+python:
+  venvName: "datascience-env"
+  script: |
+    import pandas as pd
+    import numpy as np
+    # ...
 
 ---
 # Resource 2: Web scraping packages
 metadata:
   actionId: webScraper
 
-run:
-  python:
-    venvName: "scraper-env"
-    script: |
-      import requests
-      from bs4 import BeautifulSoup
-      # ...
+python:
+  venvName: "scraper-env"
+  script: |
+    import requests
+    from bs4 import BeautifulSoup
+    # ...
 ```
 
 ## Examples
@@ -195,34 +189,33 @@ metadata:
   actionId: transformData
   requires: [fetchData]
 
-run:
-  python:
-    script: |
-      import json
-      import pandas as pd
+python:
+  script: |
+    import json
+    import pandas as pd
 
-      # Get input from previous resource
-      raw_data = {{ get('fetchData') }}
+    # Get input from previous resource
+    raw_data = {{ get('fetchData') }}
 
-      # Transform with pandas
-      df = pd.DataFrame(raw_data)
-      df['processed_at'] = pd.Timestamp.now().isoformat()
-      df['value_normalized'] = df['value'] / df['value'].max()
+    # Transform with pandas
+    df = pd.DataFrame(raw_data)
+    df['processed_at'] = pd.Timestamp.now().isoformat()
+    df['value_normalized'] = df['value'] / df['value'].max()
 
-      # Group and aggregate
-      summary = df.groupby('category').agg({
-          'value': ['sum', 'mean', 'count'],
-          'value_normalized': 'mean'
-      }).reset_index()
+    # Group and aggregate
+    summary = df.groupby('category').agg({
+        'value': ['sum', 'mean', 'count'],
+        'value_normalized': 'mean'
+    }).reset_index()
 
-      # Output as JSON
-      result = {
-          "original_count": len(raw_data),
-          "processed_count": len(df),
-          "summary": summary.to_dict(orient='records')
-      }
-      print(json.dumps(result))
-    timeout: 60s
+    # Output as JSON
+    result = {
+        "original_count": len(raw_data),
+        "processed_count": len(df),
+        "summary": summary.to_dict(orient='records')
+    }
+    print(json.dumps(result))
+  timeout: 60s
 ```
 
 </div>
@@ -235,39 +228,38 @@ run:
 metadata:
   actionId: mlPredict
 
-run:
-  validations:
-    check:
-      - get('features') != ''
-    error:
-      code: 400
-      message: Features are required
+validations:
+  check:
+    - get('features') != ''
+  error:
+    code: 400
+    message: Features are required
 
-  python:
-    script: |
-      import json
-      import numpy as np
-      from sklearn.ensemble import RandomForestClassifier
-      import joblib
+python:
+  script: |
+    import json
+    import numpy as np
+    from sklearn.ensemble import RandomForestClassifier
+    import joblib
 
-      # Load pre-trained model
-      model = joblib.load('/models/classifier.pkl')
+    # Load pre-trained model
+    model = joblib.load('/models/classifier.pkl')
 
-      # Get input features
-      features = {{ get('features') }}
-      X = np.array(features).reshape(1, -1)
+    # Get input features
+    features = {{ get('features') }}
+    X = np.array(features).reshape(1, -1)
 
-      # Predict
-      prediction = model.predict(X)[0]
-      probability = model.predict_proba(X)[0].max()
+    # Predict
+    prediction = model.predict(X)[0]
+    probability = model.predict_proba(X)[0].max()
 
-      result = {
-          "prediction": int(prediction),
-          "confidence": float(probability),
-          "model_version": "1.0.0"
-      }
-      print(json.dumps(result))
-    timeout: 30s
+    result = {
+        "prediction": int(prediction),
+        "confidence": float(probability),
+        "model_version": "1.0.0"
+    }
+    print(json.dumps(result))
+  timeout: 30s
 ```
 
 </div>
@@ -280,36 +272,35 @@ run:
 metadata:
   actionId: textAnalysis
 
-run:
-  python:
-    script: |
-      import json
-      import re
-      from collections import Counter
+python:
+  script: |
+    import json
+    import re
+    from collections import Counter
 
-      text = """{{ get('text') }}"""
+    text = """{{ get('text') }}"""
 
-      # Clean text
-      words = re.findall(r'\b\w+\b', text.lower())
+    # Clean text
+    words = re.findall(r'\b\w+\b', text.lower())
 
-      # Analysis
-      word_count = len(words)
-      unique_words = len(set(words))
-      word_freq = Counter(words).most_common(10)
+    # Analysis
+    word_count = len(words)
+    unique_words = len(set(words))
+    word_freq = Counter(words).most_common(10)
 
-      # Sentence count
-      sentences = re.split(r'[.!?]+', text)
-      sentence_count = len([s for s in sentences if s.strip()])
+    # Sentence count
+    sentences = re.split(r'[.!?]+', text)
+    sentence_count = len([s for s in sentences if s.strip()])
 
-      result = {
-          "word_count": word_count,
-          "unique_words": unique_words,
-          "sentence_count": sentence_count,
-          "avg_words_per_sentence": word_count / max(sentence_count, 1),
-          "top_words": [{"word": w, "count": c} for w, c in word_freq]
-      }
-      print(json.dumps(result))
-    timeout: 30s
+    result = {
+        "word_count": word_count,
+        "unique_words": unique_words,
+        "sentence_count": sentence_count,
+        "avg_words_per_sentence": word_count / max(sentence_count, 1),
+        "top_words": [{"word": w, "count": c} for w, c in word_freq]
+    }
+    print(json.dumps(result))
+  timeout: 30s
 ```
 
 </div>
@@ -322,37 +313,36 @@ run:
 metadata:
   actionId: imageProcess
 
-run:
-  python:
-    script: |
-      import json
-      from PIL import Image
-      import base64
-      from io import BytesIO
+python:
+  script: |
+    import json
+    from PIL import Image
+    import base64
+    from io import BytesIO
 
-      # Load uploaded image
-      image_path = "{{ get('file', 'filepath') }}"
-      img = Image.open(image_path)
+    # Load uploaded image
+    image_path = "{{ get('file', 'filepath') }}"
+    img = Image.open(image_path)
 
-      # Get metadata
-      width, height = img.size
-      format = img.format
+    # Get metadata
+    width, height = img.size
+    format = img.format
 
-      # Resize for thumbnail
-      img.thumbnail((200, 200))
+    # Resize for thumbnail
+    img.thumbnail((200, 200))
 
-      # Convert to base64
-      buffer = BytesIO()
-      img.save(buffer, format='PNG')
-      thumbnail_b64 = base64.b64encode(buffer.getvalue()).decode()
+    # Convert to base64
+    buffer = BytesIO()
+    img.save(buffer, format='PNG')
+    thumbnail_b64 = base64.b64encode(buffer.getvalue()).decode()
 
-      result = {
-          "original_size": {"width": width, "height": height},
-          "format": format,
-          "thumbnail": f"data:image/png;base64,{thumbnail_b64}"
-      }
-      print(json.dumps(result))
-    timeout: 60s
+    result = {
+        "original_size": {"width": width, "height": height},
+        "format": format,
+        "thumbnail": f"data:image/png;base64,{thumbnail_b64}"
+    }
+    print(json.dumps(result))
+  timeout: 60s
 ```
 
 </div>
@@ -365,27 +355,26 @@ run:
 metadata:
   actionId: externalApi
 
-run:
-  python:
-    script: |
-      import json
-      import requests
-      import os
+python:
+  script: |
+    import json
+    import requests
+    import os
 
-      api_key = os.environ.get('EXTERNAL_API_KEY')
-      query = """{{ get('q') }}"""
+    api_key = os.environ.get('EXTERNAL_API_KEY')
+    query = """{{ get('q') }}"""
 
-      response = requests.post(
-          'https://api.example.com/analyze',
-          headers={'Authorization': f'Bearer {api_key}'},
-          json={'query': query},
-          timeout=30
-      )
-      response.raise_for_status()
+    response = requests.post(
+        'https://api.example.com/analyze',
+        headers={'Authorization': f'Bearer {api_key}'},
+        json={'query': query},
+        timeout=30
+    )
+    response.raise_for_status()
 
-      result = response.json()
-      print(json.dumps(result))
-    timeout: 60s
+    result = response.json()
+    print(json.dumps(result))
+  timeout: 60s
 ```
 
 </div>
@@ -412,15 +401,14 @@ Access the output in other resources:
 metadata:
   requires: [pythonResource]
 
-run:
-  apiResponse:
-    response:
-      # Full output
-      python_result: get('pythonResource')
+apiResponse:
+  response:
+    # Full output
+    python_result: get('pythonResource')
 
-      # Specific fields
-      status: get('pythonResource').status
-      data: get('pythonResource').data
+    # Specific fields
+    status: get('pythonResource').status
+    data: get('pythonResource').data
 ```
 
 ## Environment Variables
@@ -452,17 +440,16 @@ Access stdout, stderr, and exit codes from other resources:
 metadata:
   requires: [pythonResource]
 
-run:
-  expr:
-    # Check if Python script succeeded
-    - set('script_success', python.exitCode('pythonResource') == 0)
-    - set('error_output', python.stderr('pythonResource'))
-  
-  apiResponse:
-    response:
-      output: get('pythonResource')  # stdout (default)
-      errors: get('error_output')
-      success: get('script_success')
+expr:
+  # Check if Python script succeeded
+  - set('script_success', python.exitCode('pythonResource') == 0)
+  - set('error_output', python.stderr('pythonResource'))
+
+apiResponse:
+  response:
+    output: get('pythonResource')  # stdout (default)
+    errors: get('error_output')
+    success: get('script_success')
 ```
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.

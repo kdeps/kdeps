@@ -279,7 +279,7 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 	// Backend is now configured via KDEPS_DEFAULT_BACKEND env var.
 	hasChatResources := false
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
+		if resource.Chat != nil {
 			hasChatResources = true
 			break
 		}
@@ -322,7 +322,7 @@ func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
 
 	// Check if any resource is a Python resource
 	for _, resource := range workflow.Resources {
-		if resource.Run.Python != nil {
+		if resource.Python != nil {
 			return true
 		}
 	}

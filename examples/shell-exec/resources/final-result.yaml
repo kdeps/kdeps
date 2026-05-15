@@ -6,10 +6,9 @@ metadata:
   name: Final Result
   requires: [systemInfo]
 
-run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{ get('systemInfo') }}"
-      timestamp: "{{ info('current_time') }}"
-      workflow: "{{ info('name') }}"
+apiResponse:
+  success: true
+  response:
+    system_info: "{{ get('systemInfo') }}"
+    timestamp: "{{ info('current_time') }}"
+    workflow: "{{ info('name') }}"

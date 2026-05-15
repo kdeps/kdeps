@@ -34,69 +34,68 @@ resources:
     metadata:
       actionId: analyzeCSV
       name: Analyze CSV
-    run:
-      python:
-        script: |
-          import json, csv, io, statistics
+    python:
+      script: |
+        import json, csv, io, statistics
 
-          raw        = """{{ input('data') }}"""
-          fmt        = """{{ input('table_format') }}""".strip() or "simple"
-          max_rows_s = """{{ input('max_rows') }}""".strip() or "10"
+        raw        = """{{ input('data') }}"""
+        fmt        = """{{ input('table_format') }}""".strip() or "simple"
+        max_rows_s = """{{ input('max_rows') }}""".strip() or "10"
 
-          try:
-              max_rows = int(max_rows_s)
-          except (ValueError, TypeError):
-              max_rows = 10
+        try:
+            max_rows = int(max_rows_s)
+        except (ValueError, TypeError):
+            max_rows = 10
 
-          try:
-              reader = csv.DictReader(io.StringIO(raw.strip()))
-              rows = list(reader)
-              headers = reader.fieldnames or []
+        try:
+            reader = csv.DictReader(io.StringIO(raw.strip()))
+            rows = list(reader)
+            headers = reader.fieldnames or []
 
-              if not rows:
-                  print(json.dumps({"error": "No data rows found in CSV"}))
-                  raise SystemExit(0)
+            if not rows:
+                print(json.dumps({"error": "No data rows found in CSV"}))
+                raise SystemExit(0)
 
-              # Detect column types & compute stats for numeric columns
-              col_stats = {}
-              for col in headers:
-                  vals = [r[col] for r in rows if r.get(col, "").strip()]
-                  nums = []
-                  for v in vals:
-                      try:
-                          nums.append(float(v))
-                      except (ValueError, TypeError):
-                          pass
-                  if len(nums) == len(vals) and nums:
-                      col_stats[col] = {
-                          "type": "numeric",
-                          "min": min(nums), "max": max(nums),
-                          "mean": round(statistics.mean(nums), 4),
-                          "stdev": round(statistics.stdev(nums), 4) if len(nums) > 1 else 0,
-                      }
-                  else:
-                      unique_vals = list(dict.fromkeys(v for v in vals if v))
-                      col_stats[col] = {
-                          "type": "string",
-                          "unique_values": len(unique_vals),
-                          "sample": unique_vals[:5],
-                      }
+            # Detect column types & compute stats for numeric columns
+            col_stats = {}
+            for col in headers:
+                vals = [r[col] for r in rows if r.get(col, "").strip()]
+                nums = []
+                for v in vals:
+                    try:
+                        nums.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+                if len(nums) == len(vals) and nums:
+                    col_stats[col] = {
+                        "type": "numeric",
+                        "min": min(nums), "max": max(nums),
+                        "mean": round(statistics.mean(nums), 4),
+                        "stdev": round(statistics.stdev(nums), 4) if len(nums) > 1 else 0,
+                    }
+                else:
+                    unique_vals = list(dict.fromkeys(v for v in vals if v))
+                    col_stats[col] = {
+                        "type": "string",
+                        "unique_values": len(unique_vals),
+                        "sample": unique_vals[:5],
+                    }
 
-              # Build display table (limited rows)
-              display_rows = [[r.get(h, "") for h in headers] for r in rows[:max_rows]]
-              try:
-                  from tabulate import tabulate
-                  table = tabulate(display_rows, headers=headers, tablefmt=fmt)
-              except ImportError:
-                  table = " | ".join(headers) + "\n" + "\n".join(" | ".join(r) for r in display_rows)
+            # Build display table (limited rows)
+            display_rows = [[r.get(h, "") for h in headers] for r in rows[:max_rows]]
+            try:
+                from tabulate import tabulate
+                table = tabulate(display_rows, headers=headers, tablefmt=fmt)
+            except ImportError:
+                table = " | ".join(headers) + "\n" + "\n".join(" | ".join(r) for r in display_rows)
 
-              print(json.dumps({
-                  "row_count": len(rows),
-                  "column_count": len(headers),
-                  "columns": headers,
-                  "column_stats": col_stats,
-                  "table_preview": table,
-                  "rows_shown": min(max_rows, len(rows)),
-              }))
-          except Exception as exc:
-              print(json.dumps({"error": str(exc)}))
+            print(json.dumps({
+                "row_count": len(rows),
+                "column_count": len(headers),
+                "columns": headers,
+                "column_stats": col_stats,
+                "table_preview": table,
+                "rows_shown": min(max_rows, len(rows)),
+            }))
+        except Exception as exc:
+            print(json.dumps({"error": str(exc)}))

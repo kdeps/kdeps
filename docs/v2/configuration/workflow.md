@@ -128,11 +128,10 @@ settings:
 Set per resource in `run.chat.model`. Backend and API keys are in `~/.kdeps/config.yaml`.
 
 ```yaml
-run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
 ```
 
 Set `model: router` to use the LLM router. See [LLM Backends](../resources/llm-backends).

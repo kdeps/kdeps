@@ -7,9 +7,8 @@ metadata:
   requires:
     - answer
 
-run:
-  apiResponse:
-    success: true
-    response:
-      inputs: "{{ output('collectInputs') }}"
-      answer: "{{ get('answer') }}"
+apiResponse:
+  success: true
+  response:
+    inputs: "{{ output('collectInputs') }}"
+    answer: "{{ get('answer') }}"

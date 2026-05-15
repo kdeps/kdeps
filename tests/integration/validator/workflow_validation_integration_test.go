@@ -94,12 +94,11 @@ kind: Resource
 metadata:
   actionId: fetch-data
   name: Fetch Data
-run:
-  httpClient:
-    method: "GET"
-    url: "https://httpbin.org/get"
-    headers:
-      Accept: "application/json"
+httpClient:
+  method: "GET"
+  url: "https://httpbin.org/get"
+  headers:
+    Accept: "application/json"
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "fetch-data.yaml"), []byte(httpResource), 0644)
@@ -112,11 +111,10 @@ metadata:
   actionId: store-data
   name: Store Data
   requires: ["fetch-data"]
-run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "INSERT INTO data (content) VALUES (?)"
-    params: ["{{fetch-data.response}}"]
+sql:
+  connection: "sqlite:///test.db"
+  query: "INSERT INTO data (content) VALUES (?)"
+  params: ["{{fetch-data.response}}"]
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "store-data.yaml"), []byte(sqlResource), 0644)
@@ -129,15 +127,14 @@ metadata:
   actionId: process-data
   name: Process Data
   requires: ["store-data"]
-run:
-  python:
-    script: |
-      import json
-      import sys
+python:
+  script: |
+    import json
+    import sys
 
-      # Read from stdin (simulated data)
-      data = {"processed": True, "timestamp": "2024-01-01"}
-      print(json.dumps(data))
+    # Read from stdin (simulated data)
+    data = {"processed": True, "timestamp": "2024-01-01"}
+    print(json.dumps(data))
 `
 
 	err = os.WriteFile(
@@ -154,12 +151,11 @@ metadata:
   actionId: final-response
   name: Final Response
   requires: ["process-data"]
-run:
-  apiResponse:
-    success: true
-    response:
-      status: "completed"
-      data: "{{process-data.output}}"
+apiResponse:
+  success: true
+  response:
+    status: "completed"
+    data: "{{process-data.output}}"
 `
 
 	err = os.WriteFile(
@@ -226,28 +222,28 @@ settings:
 	httpRes, exists := resourceMap["fetch-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Fetch Data", httpRes.Metadata.Name)
-	assert.NotNil(t, httpRes.Run.HTTPClient)
+	assert.NotNil(t, httpRes.HTTPClient)
 
 	// Verify SQL resource
 	sqlRes, exists := resourceMap["store-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Store Data", sqlRes.Metadata.Name)
 	assert.Contains(t, sqlRes.Metadata.Requires, "fetch-data")
-	assert.NotNil(t, sqlRes.Run.SQL)
+	assert.NotNil(t, sqlRes.SQL)
 
 	// Verify Python resource
 	pythonRes, exists := resourceMap["process-data"]
 	require.True(t, exists)
 	assert.Equal(t, "Process Data", pythonRes.Metadata.Name)
 	assert.Contains(t, pythonRes.Metadata.Requires, "store-data")
-	assert.NotNil(t, pythonRes.Run.Python)
+	assert.NotNil(t, pythonRes.Python)
 
 	// Verify response resource
 	responseRes, exists := resourceMap["final-response"]
 	require.True(t, exists)
 	assert.Equal(t, "Final Response", responseRes.Metadata.Name)
 	assert.Contains(t, responseRes.Metadata.Requires, "process-data")
-	assert.NotNil(t, responseRes.Run.APIResponse)
+	assert.NotNil(t, responseRes.APIResponse)
 }
 
 func TestWorkflowValidationIntegration_ErrorCases(t *testing.T) {
@@ -376,13 +372,12 @@ kind: Resource
 metadata:
   actionId: http-test
   name: HTTP Test
-run:
-  httpClient:
-    method: "GET"
-    url: "https://api.example.com/test"
-    headers:
-      Authorization: "Bearer token"
-      Content-Type: "application/json"
+httpClient:
+  method: "GET"
+  url: "https://api.example.com/test"
+  headers:
+    Authorization: "Bearer token"
+    Content-Type: "application/json"
 `,
 
 		"sql-resource.yaml": `apiVersion: kdeps.io/v1
@@ -390,12 +385,11 @@ kind: Resource
 metadata:
   actionId: sql-test
   name: SQL Test
-run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "SELECT * FROM users WHERE id = ?"
-    params: ["123"]
-    format: "json"
+sql:
+  connection: "sqlite:///test.db"
+  query: "SELECT * FROM users WHERE id = ?"
+  params: ["123"]
+  format: "json"
 `,
 
 		"python-resource.yaml": `apiVersion: kdeps.io/v1
@@ -403,12 +397,11 @@ kind: Resource
 metadata:
   actionId: python-test
   name: Python Test
-run:
-  python:
-    script: |
-      import json
-      result = {"status": "success", "data": [1, 2, 3]}
-      print(json.dumps(result))
+python:
+  script: |
+    import json
+    result = {"status": "success", "data": [1, 2, 3]}
+    print(json.dumps(result))
 `,
 
 		"exec-resource.yaml": `apiVersion: kdeps.io/v1
@@ -416,9 +409,8 @@ kind: Resource
 metadata:
   actionId: exec-test
   name: Exec Test
-run:
-  exec:
-    command: "echo Hello World"
+exec:
+  command: "echo Hello World"
 `,
 
 		"response-resource.yaml": `apiVersion: kdeps.io/v1
@@ -426,12 +418,11 @@ kind: Resource
 metadata:
   actionId: response-test
   name: Response Test
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "Operation completed"
-      code: 200
+apiResponse:
+  success: true
+  response:
+    message: "Operation completed"
+    code: 200
 `,
 	}
 
@@ -476,36 +467,36 @@ settings:
 	}
 
 	// Verify each resource type
-	assert.NotNil(t, resourceMap["http-test"].Run.HTTPClient)
-	assert.NotNil(t, resourceMap["sql-test"].Run.SQL)
-	assert.NotNil(t, resourceMap["python-test"].Run.Python)
-	assert.NotNil(t, resourceMap["exec-test"].Run.Exec)
-	assert.NotNil(t, resourceMap["response-test"].Run.APIResponse)
+	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
+	assert.NotNil(t, resourceMap["sql-test"].SQL)
+	assert.NotNil(t, resourceMap["python-test"].Python)
+	assert.NotNil(t, resourceMap["exec-test"].Exec)
+	assert.NotNil(t, resourceMap["response-test"].APIResponse)
 
 	// Verify HTTP resource configuration
 	httpRes := resourceMap["http-test"]
-	assert.Equal(t, "https://api.example.com/test", httpRes.Run.HTTPClient.URL)
-	assert.Equal(t, "GET", httpRes.Run.HTTPClient.Method)
-	assert.Contains(t, httpRes.Run.HTTPClient.Headers, "Authorization")
+	assert.Equal(t, "https://api.example.com/test", httpRes.HTTPClient.URL)
+	assert.Equal(t, "GET", httpRes.HTTPClient.Method)
+	assert.Contains(t, httpRes.HTTPClient.Headers, "Authorization")
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
-	assert.Contains(t, sqlRes.Run.SQL.Query, "SELECT")
-	assert.Contains(t, sqlRes.Run.SQL.Params, "123")
+	assert.Contains(t, sqlRes.SQL.Query, "SELECT")
+	assert.Contains(t, sqlRes.SQL.Params, "123")
 
 	// Verify Python resource has script
 	pythonRes := resourceMap["python-test"]
-	assert.Contains(t, pythonRes.Run.Python.Script, "import json")
+	assert.Contains(t, pythonRes.Python.Script, "import json")
 
 	// Verify Exec resource has command
 	execRes := resourceMap["exec-test"]
-	assert.Equal(t, "echo Hello World", execRes.Run.Exec.Command)
+	assert.Equal(t, "echo Hello World", execRes.Exec.Command)
 
 	// Verify API Response resource
 	responseRes := resourceMap["response-test"]
-	assert.Equal(t, true, responseRes.Run.APIResponse.Success)
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "message")
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "code")
+	assert.Equal(t, true, responseRes.APIResponse.Success)
+	assert.Contains(t, responseRes.APIResponse.Response, "message")
+	assert.Contains(t, responseRes.APIResponse.Response, "code")
 }
 
 // TestWorkflowValidationIntegration_AgentResource verifies that a resource using the
@@ -530,11 +521,10 @@ kind: Resource
 metadata:
   actionId: call-helper
   name: Call Helper
-run:
-  agent:
-    name: helper-agent
-    params:
-      query: "hello"
+agent:
+  name: helper-agent
+  params:
+    query: "hello"
 `
 	require.NoError(
 		t,
@@ -548,10 +538,9 @@ metadata:
   actionId: final-response
   name: Final Response
   requires: [call-helper]
-run:
-  apiResponse:
-    success: true
-    response: "done"
+apiResponse:
+  success: true
+  response: "done"
 `
 	require.NoError(t, os.WriteFile(
 		filepath.Join(resourcesDir, "response.yaml"),
@@ -581,9 +570,9 @@ settings:
 	// Ensure the agent resource was parsed correctly.
 	for _, res := range workflow.Resources {
 		if res.Metadata.ActionID == "call-helper" {
-			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
-			assert.Equal(t, "helper-agent", res.Run.Agent.Name)
-			assert.Equal(t, "hello", res.Run.Agent.Params["query"])
+			require.NotNil(t, res.Agent, "expected agent config to be set")
+			assert.Equal(t, "helper-agent", res.Agent.Name)
+			assert.Equal(t, "hello", res.Agent.Params["query"])
 		}
 	}
 }
@@ -610,9 +599,8 @@ kind: Resource
 metadata:
   actionId: legacy-call
   name: Legacy Call
-run:
-  agent:
-    agent: helper-agent
+agent:
+  agent: helper-agent
 `
 	require.NoError(t, os.WriteFile(
 		filepath.Join(resourcesDir, "legacy-agent.yaml"),
@@ -641,11 +629,11 @@ settings:
 	// Verify the legacy key was parsed correctly into the Name field.
 	for _, res := range workflow.Resources {
 		if res.Metadata.ActionID == "legacy-call" {
-			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
+			require.NotNil(t, res.Agent, "expected agent config to be set")
 			assert.Equal(
 				t,
 				"helper-agent",
-				res.Run.Agent.Name,
+				res.Agent.Name,
 				"legacy 'agent:' key should populate Name field",
 			)
 		}

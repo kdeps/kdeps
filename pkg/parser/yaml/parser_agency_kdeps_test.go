@@ -46,10 +46,9 @@ resources:
     metadata:
       actionId: respond
       name: Respond
-    run:
-      apiResponse:
-        success: true
-        response: "packed agent response"
+    apiResponse:
+      success: true
+      response: "packed agent response"
 `
 
 // createKdepsPackage creates a .kdeps (tar.gz) archive from a directory.

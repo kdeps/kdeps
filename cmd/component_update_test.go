@@ -124,9 +124,8 @@ resources:
     metadata:
       actionId: doWork
       name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('NEW_SECRET') }}"
+    exec:
+      command: "echo {{ env('NEW_SECRET') }}"
 `
 	writeCompYAML(t, dir, compYAML)
 	// Pre-create .env with a different var
@@ -153,9 +152,8 @@ resources:
     metadata:
       actionId: doWork
       name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('ALREADY_SET') }}"
+    exec:
+      command: "echo {{ env('ALREADY_SET') }}"
 `
 	writeCompYAML(t, dir, compYAML)
 	original := "ALREADY_SET=myvalue\n"

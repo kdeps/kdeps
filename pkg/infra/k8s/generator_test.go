@@ -135,10 +135,8 @@ func TestGenerateManifests_AutoDetectOllama(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model: "llama3",
-					},
+				Chat: &domain.ChatConfig{
+					Model: "llama3",
 				},
 			},
 		},

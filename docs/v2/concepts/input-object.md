@@ -22,21 +22,20 @@ Access request body fields as properties:
 
 ```yaml
 
-run:
 
-  expr:
+expr:
 
-    - set('query', input.q)
+  - set('query', input.q)
 
-    - set('userId', input.userId)
+  - set('userId', input.userId)
 
-    - set('items', input.items)
+  - set('items', input.items)
 
-  
 
-  chat:
 
-    prompt: "User {{ get('userId') }} asked: {{ get('query') }}"
+chat:
+
+  prompt: "User {{ get('userId') }} asked: {{ get('query') }}"
 
 ```
 
@@ -51,9 +50,8 @@ Use `input` directly in interpolated strings:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Hello {{ input.name }}, you asked about {{ input.topic }}"
+chat:
+  prompt: "Hello {{ input.name }}, you asked about {{ input.topic }}"
 ```
 
 </div>
@@ -63,10 +61,9 @@ run:
 Access nested object properties:
 
 ```yaml
-run:
-  expr:
-    - set('city', input.user.address.city)
-    - set('email', input.user.email)
+expr:
+  - set('city', input.user.address.city)
+  - set('email', input.user.email)
 ```
 
 ## Comparison with Unified API
@@ -83,16 +80,14 @@ The `input` object is a convenience wrapper around request body data. Both appro
 
 ```yaml
 # Using input object
-run:
-  expr:
-    - set('name', input.name)
-    - set('email', input.user.email)
+expr:
+  - set('name', input.name)
+  - set('email', input.user.email)
 
 # Equivalent using Unified API
-run:
-  expr:
-    - set('name', get('name'))
-    - set('email', get('user').email)
+expr:
+  - set('name', get('name'))
+  - set('email', get('user').email)
 ```
 
 ## When to Use
@@ -116,30 +111,29 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: createUser
-run:
-  validations:
-    required:
-      - name
-      - email
-    properties:
-      name:
-        type: string
-      email:
-        type: string
-        format: email
-  
-  expr:
-    - set('userName', input.name)
-    - set('userEmail', input.email)
-  
-  sql:
-    connectionName: main
-    query: |
-      INSERT INTO users (name, email) 
-      VALUES ($1, $2)
-    params:
-      - get('userName')
-      - get('userEmail')
+validations:
+  required:
+    - name
+    - email
+  properties:
+    name:
+      type: string
+    email:
+      type: string
+      format: email
+
+expr:
+  - set('userName', input.name)
+  - set('userEmail', input.email)
+
+sql:
+  connectionName: main
+  query: |
+    INSERT INTO users (name, email) 
+    VALUES ($1, $2)
+  params:
+    - get('userName')
+    - get('userEmail')
 ```
 
 ### Nested Object Access
@@ -147,17 +141,16 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  expr:
-    # Access nested properties
-    - set('shippingCity', input.order.shippingAddress.city)
-    - set('billingEmail', input.order.billing.email)
-    - set('itemCount', len(input.order.items))
-  
-  chat:
-    prompt: |
-      Process order with {{ get('itemCount') }} items.
-      Shipping to: {{ get('shippingCity') }}
+expr:
+  # Access nested properties
+  - set('shippingCity', input.order.shippingAddress.city)
+  - set('billingEmail', input.order.billing.email)
+  - set('itemCount', len(input.order.items))
+
+chat:
+  prompt: |
+    Process order with {{ get('itemCount') }} items.
+    Shipping to: {{ get('shippingCity') }}
 ```
 
 </div>
@@ -167,16 +160,15 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  expr:
-    - set('items', input.items)
-    - set('totalItems', len(get('items')))
-    - set('firstItem', get('items')[0])
-  
-  chat:
-    prompt: |
-      Process {{ get('totalItems') }} items.
-      First item: {{ get('firstItem') }}
+expr:
+  - set('items', input.items)
+  - set('totalItems', len(get('items')))
+  - set('firstItem', get('items')[0])
+
+chat:
+  prompt: |
+    Process {{ get('totalItems') }} items.
+    First item: {{ get('firstItem') }}
 ```
 
 </div>
@@ -186,20 +178,19 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  expr:
-    - set('hasItems', input.items != nil && len(input.items) > 0)
-    - set('isPremium', input.user.tier == 'premium')
-  
-  validations:
-  
-    skip:
-    - "!get('hasItems')"
-  
-  chat:
-    prompt: |
-      {{ get('isPremium') ? 'Premium user' : 'Standard user' }}:
-      Process {{ len(input.items) }} items.
+expr:
+  - set('hasItems', input.items != nil && len(input.items) > 0)
+  - set('isPremium', input.user.tier == 'premium')
+
+validations:
+
+  skip:
+  - "!get('hasItems')"
+
+chat:
+  prompt: |
+    {{ get('isPremium') ? 'Premium user' : 'Standard user' }}:
+    Process {{ len(input.items) }} items.
 ```
 
 </div>
@@ -209,12 +200,11 @@ run:
 The `input` object is the same as `request.body`:
 
 ```yaml
-run:
-  expr:
-    # These are equivalent:
-    - set('name1', input.name)
-    - set('name2', request.body.name)
-    - set('name3', get('name'))
+expr:
+  # These are equivalent:
+  - set('name1', input.name)
+  - set('name2', request.body.name)
+  - set('name3', get('name'))
 ```
 
 ## Limitations

@@ -3,6 +3,5 @@ kind: Resource
 metadata:
   actionId: response
   requires: [answer]
-run:
-  apiResponse:
-    response: "{{ output('answer') }}"
+apiResponse:
+  response: "{{ output('answer') }}"

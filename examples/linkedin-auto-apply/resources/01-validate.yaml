@@ -7,6 +7,5 @@ metadata:
   description: Ensure all required profile fields are present before proceeding.
   requires: [set-profile]
 
-run:
-  expr:
-    - "set('validated', get('job_title') != '' && get('candidate_name') != '' && get('candidate_profile') != '' && get('resume_path') != '')"
+expr:
+  - "set('validated', get('job_title') != '' && get('candidate_name') != '' && get('candidate_profile') != '' && get('resume_path') != '')"

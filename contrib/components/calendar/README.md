@@ -29,31 +29,29 @@ The `.ics` file is also written to `outputFile`.
 Create a basic meeting event:
 
 ```yaml
-run:
-  component:
-    name: calendar
-    with:
-      title: "Team Sync"
-      start: "2024-06-15T10:00:00"
-      end: "2024-06-15T11:00:00"
-      description: "Weekly team check-in"
-      outputFile: /tmp/team-sync.ics
-  apiResponse:
-    success: true
-    response:
-      icsData: "{{ output('createEvent').ics }}"
+component:
+  name: calendar
+  with:
+    title: "Team Sync"
+    start: "2024-06-15T10:00:00"
+    end: "2024-06-15T11:00:00"
+    description: "Weekly team check-in"
+    outputFile: /tmp/team-sync.ics
+apiResponse:
+  success: true
+  response:
+    icsData: "{{ output('createEvent').ics }}"
 ```
 
 Using dynamic values from previous workflow steps:
 
 ```yaml
-run:
-  component:
-    name: calendar
-    with:
-      title: "{{ output('bookingStep').eventTitle }}"
-      start: "{{ output('bookingStep').startTime }}"
-      end: "{{ output('bookingStep').endTime }}"
+component:
+  name: calendar
+  with:
+    title: "{{ output('bookingStep').eventTitle }}"
+    start: "{{ output('bookingStep').startTime }}"
+    end: "{{ output('bookingStep').endTime }}"
 ```
 
 ## Requirements

@@ -55,18 +55,17 @@ metadata:
   actionId: fileProcessor
   name: File Processor
 
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "File processed successfully"
-      file_count: info('filecount')
-      files: info('files')
-      file_types: info('filetypes')
-      file_info:
-        - filename: get('file', 'filename')
-          path: get('file', 'filepath')
-          type: get('file', 'filetype')
+apiResponse:
+  success: true
+  response:
+    message: "File processed successfully"
+    file_count: info('filecount')
+    files: info('files')
+    file_types: info('filetypes')
+    file_info:
+      - filename: get('file', 'filename')
+        path: get('file', 'filepath')
+        type: get('file', 'filetype')
 ```
 
 ## Step 3: Understanding File Access
@@ -108,12 +107,11 @@ curl -X POST http://localhost:16395/api/v1/upload \
 ### Access the File
 
 ```yaml
-run:
-  apiResponse:
-    response:
-      content: get('file', 'file')
-      path: get('file', 'filepath')
-      type: get('file', 'filetype')
+apiResponse:
+  response:
+    content: get('file', 'file')
+    path: get('file', 'filepath')
+    type: get('file', 'filetype')
 ```
 
 ## Step 5: Multiple File Upload
@@ -137,16 +135,15 @@ metadata:
   actionId: fileProcessor
   name: File Processor
 
-run:
-  apiResponse:
-    success: true
-    response:
-      file_count: info('filecount')
-      files:
-        - filename: get('file1.txt', 'filename')
-          content: get('file1.txt', 'file')
-        - filename: get('file2.pdf', 'filename')
-          content: get('file2.pdf', 'file')
+apiResponse:
+  success: true
+  response:
+    file_count: info('filecount')
+    files:
+      - filename: get('file1.txt', 'filename')
+        content: get('file1.txt', 'file')
+      - filename: get('file2.pdf', 'filename')
+        content: get('file2.pdf', 'file')
 ```
 
 ## Step 6: Processing Files with Python
@@ -161,27 +158,26 @@ metadata:
   actionId: fileProcessor
   name: File Processor
 
-run:
-  python:
-    script: |
-      import json
-      from pathlib import Path
-      
-      # Get file path
-      file_path = get('file', 'filepath')
-      
-      # Read and process file
-      with open(file_path, 'r') as f:
-          content = f.read()
-      
-      # Process content
-      processed = content.upper()
-      
-      return {
-          'original': content,
-          'processed': processed,
-          'length': len(content)
-      }
+python:
+  script: |
+    import json
+    from pathlib import Path
+
+    # Get file path
+    file_path = get('file', 'filepath')
+
+    # Read and process file
+    with open(file_path, 'r') as f:
+        content = f.read()
+
+    # Process content
+    processed = content.upper()
+
+    return {
+        'original': content,
+        'processed': processed,
+        'length': len(content)
+    }
 ```
 
 ## Step 7: File Validation
@@ -189,15 +185,14 @@ run:
 Add validation to check file properties:
 
 ```yaml
-run:
-  validations:
-    - info('filecount') > 0
-    - info('filecount') <= 5
-    - get('file', 'filetype') == 'text/plain'
-  apiResponse:
-    success: true
-    response:
-      message: "File validated and processed"
+validations:
+  - info('filecount') > 0
+  - info('filecount') <= 5
+  - get('file', 'filetype') == 'text/plain'
+apiResponse:
+  success: true
+  response:
+    message: "File validated and processed"
 ```
 
 ## Step 8: Processing Images
@@ -216,15 +211,14 @@ metadata:
   requires:
     - visionLLM
 
-run:
-  chat:
-    prompt: "Describe this image"
-    files:
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
+chat:
+  prompt: "Describe this image"
+  files:
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
 ```
 
 </div>
@@ -265,33 +259,32 @@ metadata:
   actionId: fileProcessor
   name: File Processor
 
-run:
-  validations:
-    - info('filecount') > 0
-    - get('file', 'filetype') == 'text/plain'
-  
-  python:
-    script: |
-      from pathlib import Path
-      import json
-      
-      # Get file path
-      file_path = get('file', 'filepath')
-      
-      # Read file
-      with open(file_path, 'r') as f:
-          content = f.read()
-      
-      # Process: count words and lines
-      words = len(content.split())
-      lines = len(content.splitlines())
-      
-      return {
-          'filename': get('file', 'filename'),
-          'word_count': words,
-          'line_count': lines,
-          'size': len(content)
-      }
+validations:
+  - info('filecount') > 0
+  - get('file', 'filetype') == 'text/plain'
+
+python:
+  script: |
+    from pathlib import Path
+    import json
+
+    # Get file path
+    file_path = get('file', 'filepath')
+
+    # Read file
+    with open(file_path, 'r') as f:
+        content = f.read()
+
+    # Process: count words and lines
+    words = len(content.split())
+    lines = len(content.splitlines())
+
+    return {
+        'filename': get('file', 'filename'),
+        'word_count': words,
+        'line_count': lines,
+        'size': len(content)
+    }
 ```
 
 ## Response Format

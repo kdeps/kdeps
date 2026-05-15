@@ -76,15 +76,13 @@ func TestEngine_OnError_Continue_WithFallback(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:   "continue",
-						Fallback: map[string]interface{}{"default": "value"},
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action:   "continue",
+					Fallback: map[string]interface{}{"default": "value"},
 				},
 			},
 		},
@@ -126,14 +124,12 @@ func TestEngine_OnError_Continue_WithoutFallback(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action: "continue",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action: "continue",
 				},
 			},
 		},
@@ -177,16 +173,14 @@ func TestEngine_OnError_Retry_Success(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:     "retry",
-						MaxRetries: 3,
-						RetryDelay: "10ms",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action:     "retry",
+					MaxRetries: 3,
+					RetryDelay: "10ms",
 				},
 			},
 		},
@@ -231,16 +225,14 @@ func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:     "retry",
-						MaxRetries: 3,
-						RetryDelay: "10ms",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action:     "retry",
+					MaxRetries: 3,
+					RetryDelay: "10ms",
 				},
 			},
 		},
@@ -280,14 +272,12 @@ func TestEngine_OnError_Fail(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action: "fail",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action: "fail",
 				},
 			},
 		},
@@ -331,13 +321,11 @@ func TestEngine_OnError_NoConfig(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					// No OnError config - should fail immediately
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
+				// No OnError config - should fail immediately
 			},
 		},
 	}
@@ -374,15 +362,13 @@ func TestEngine_OnError_SuccessNoHandling(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:   "continue",
-						Fallback: "fallback value",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action:   "continue",
+					Fallback: "fallback value",
 				},
 			},
 		},
@@ -422,21 +408,19 @@ func TestEngine_OnError_WithExpressions(t *testing.T) {
 					ActionID: "http-resource",
 					Name:     "HTTP Resource",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
+				},
+				OnError: &domain.OnErrorConfig{
+					Action: "continue",
+					Expr: []domain.Expression{
+						{Raw: "set('errorMessage', error.message)"},
+						{Raw: "set('errorHandled', true)"},
 					},
-					OnError: &domain.OnErrorConfig{
-						Action: "continue",
-						Expr: []domain.Expression{
-							{Raw: "set('errorMessage', error.message)"},
-							{Raw: "set('errorHandled', true)"},
-						},
-						Fallback: map[string]interface{}{
-							"status":  "error",
-							"handled": true,
-						},
+					Fallback: map[string]interface{}{
+						"status":  "error",
+						"handled": true,
 					},
 				},
 			},

@@ -7,13 +7,12 @@ It queries the web and returns structured results. The default provider is **Duc
 ## Configuration
 
 ```yaml
-run:
-  searchWeb:
-    query: "{{ get('query') }}"     # required
-    provider: ddg                    # optional: ddg (default) | brave | bing | tavily
-    apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
-    maxResults: 5                    # optional, default 5
-    timeout: 15                      # optional, seconds, default 15
+searchWeb:
+  query: "{{ get('query') }}"     # required
+  provider: ddg                    # optional: ddg (default) | brave | bing | tavily
+  apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
+  maxResults: 5                    # optional, default 5
+  timeout: 15                      # optional, seconds, default 15
 ```
 
 ### Config fields
@@ -62,10 +61,9 @@ output('search').json       # JSON string of the full result
 ```yaml
 metadata:
   actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
-    maxResults: 5
+searchWeb:
+  query: "{{ get('query') }}"
+  maxResults: 5
 ```
 
 ### Brave Search
@@ -73,12 +71,11 @@ run:
 ```yaml
 metadata:
   actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
-    provider: brave
-    apiKey: "{{ env('BRAVE_API_KEY') }}"
-    maxResults: 10
+searchWeb:
+  query: "{{ get('query') }}"
+  provider: brave
+  apiKey: "{{ env('BRAVE_API_KEY') }}"
+  maxResults: 10
 ```
 
 ### Feed results into an LLM
@@ -86,23 +83,21 @@ run:
 ```yaml
 metadata:
   actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
+searchWeb:
+  query: "{{ get('query') }}"
 
 ---
 metadata:
   actionId: answer
   requires: [search]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      Answer based on these results:
-      {% for r in output('search').results %}
-      - {{ r.title }}: {{ r.snippet }}
-      {% endfor %}
-      Question: {{ get('query') }}
+chat:
+  model: llama3.2:1b
+  prompt: |
+    Answer based on these results:
+    {% for r in output('search').results %}
+    - {{ r.title }}: {{ r.snippet }}
+    {% endfor %}
+    Question: {{ get('query') }}
 ```
 
 ## Error handling

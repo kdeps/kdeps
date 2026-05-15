@@ -67,21 +67,19 @@ resources:
     metadata:
       actionId: callResponder
       name: Call Responder
-    run:
-      agent:
-        name: responder-agent
-        params:
-          name: "{{ get('name') }}"
+    agent:
+      name: responder-agent
+      params:
+        name: "{{ get('name') }}"
   - apiVersion: kdeps.io/v1
     kind: Resource
     metadata:
       actionId: greet
       name: Greet
       requires: [callResponder]
-    run:
-      apiResponse:
-        success: true
-        response: "{{ output('callResponder') }}"
+    apiResponse:
+      success: true
+      response: "{{ output('callResponder') }}"
 `
 
 const agencyIntegrationResponderYAML = `apiVersion: kdeps.io/v1
@@ -100,10 +98,9 @@ resources:
     metadata:
       actionId: respond
       name: Respond
-    run:
-      apiResponse:
-        success: true
-        response: "Hello from responder-agent"
+    apiResponse:
+      success: true
+      response: "Hello from responder-agent"
 `
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

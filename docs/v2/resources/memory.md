@@ -24,24 +24,22 @@ The Memory component provides **persistent key-value storage** across invocation
 **Store a fact:**
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: store
-      key: "user-preference-theme"
-      value: "dark"
+component:
+  name: memory
+  with:
+    action: store
+    key: "user-preference-theme"
+    value: "dark"
 ```
 
 **Retrieve a fact:**
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: retrieve
-      key: "user-preference-theme"
+component:
+  name: memory
+  with:
+    action: retrieve
+    key: "user-preference-theme"
 ```
 
 Access the result via `output('<callerActionId>')`.
@@ -74,14 +72,13 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: memory
-    with:
-      action: store
-      key: "session-{{ get('session_id') }}-preference"
-      value: "{{ get('user_preference') }}"
-      dbPath: /var/lib/kdeps/memory.db
+component:
+  name: memory
+  with:
+    action: store
+    key: "session-{{ get('session_id') }}-preference"
+    value: "{{ get('user_preference') }}"
+    dbPath: /var/lib/kdeps/memory.db
 ```
 
 </div>
@@ -117,24 +114,23 @@ metadata:
   actionId: storeFact
   name: Store Fact
 
-run:
-  validations:
-    routes: [/learn]
-    methods: [POST]
+validations:
+  routes: [/learn]
+  methods: [POST]
 
-  component:
-    name: memory
-    with:
-      action: store
-      key: "fact-{{ info('timestamp') }}"
-      value: "{{ get('body').fact }}"
-      dbPath: /var/lib/kdeps/memory/agent.db
+component:
+  name: memory
+  with:
+    action: store
+    key: "fact-{{ info('timestamp') }}"
+    value: "{{ get('body').fact }}"
+    dbPath: /var/lib/kdeps/memory/agent.db
 
-  apiResponse:
-    success: true
-    response:
-      stored: true
-      key: "{{ output('storeFact').key }}"
+apiResponse:
+  success: true
+  response:
+    stored: true
+    key: "{{ output('storeFact').key }}"
 ```
 
 ```yaml
@@ -146,17 +142,16 @@ metadata:
   actionId: recallFact
   name: Recall Fact
 
-run:
-  validations:
-    routes: [/ask]
-    methods: [POST]
+validations:
+  routes: [/ask]
+  methods: [POST]
 
-  component:
-    name: memory
-    with:
-      action: retrieve
-      key: "{{ get('body').key }}"
-      dbPath: /var/lib/kdeps/memory/agent.db
+component:
+  name: memory
+  with:
+    action: retrieve
+    key: "{{ get('body').key }}"
+    dbPath: /var/lib/kdeps/memory/agent.db
 ```
 
 ```yaml
@@ -169,24 +164,23 @@ metadata:
   name: Answer Question
   requires: [recallFact]
 
-run:
-  validations:
-    routes: [/ask]
-    methods: [POST]
+validations:
+  routes: [/ask]
+  methods: [POST]
 
-  chat:
-    model: llama3
-    prompt: |
-      Answer using the context below. If context is empty, say you don't know.
+chat:
+  model: llama3
+  prompt: |
+    Answer using the context below. If context is empty, say you don't know.
 
-      Context: {{ output('recallFact').value }}
+    Context: {{ output('recallFact').value }}
 
-      Question: {{ get('body').question }}
+    Question: {{ get('body').question }}
 
-  apiResponse:
-    success: true
-    response:
-      answer: "{{ output('respond') }}"
+apiResponse:
+  success: true
+  response:
+    answer: "{{ output('respond') }}"
 ```
 
 </div>

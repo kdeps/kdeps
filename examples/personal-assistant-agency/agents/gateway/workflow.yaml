@@ -54,34 +54,33 @@ resources:
     metadata:
       actionId: normalise
       name: Normalise Input
-    run:
-      validations:
-        methods: [POST]
-        routes:
-          - /api/v1/chat
-          - /webhook/telegram
-          - /webhook/slack
-          - /api/v1/heartbeat
-      expr:
-        # Resolve message text from whichever channel sent it
-        - >-
-          set('msg',
-            get('message') != ''     ? get('message') :
-            get('message.text') != '' ? get('message.text') :
-            get('event.text') != ''  ? get('event.text') :
-            'HEARTBEAT'
-          )
-        # Resolve a stable session identifier
-        - >-
-          set('sid',
-            get('session_id') != ''             ? get('session_id') :
-            string(get('message.from.id')) != '' ? string(get('message.from.id')) :
-            get('event.user') != ''             ? get('event.user') :
-            'default'
-          )
-      exec:
-        command: echo
-        args: ["Input normalised"]
+    validations:
+      methods: [POST]
+      routes:
+        - /api/v1/chat
+        - /webhook/telegram
+        - /webhook/slack
+        - /api/v1/heartbeat
+    expr:
+      # Resolve message text from whichever channel sent it
+      - >-
+        set('msg',
+          get('message') != ''     ? get('message') :
+          get('message.text') != '' ? get('message.text') :
+          get('event.text') != ''  ? get('event.text') :
+          'HEARTBEAT'
+        )
+      # Resolve a stable session identifier
+      - >-
+        set('sid',
+          get('session_id') != ''             ? get('session_id') :
+          string(get('message.from.id')) != '' ? string(get('message.from.id')) :
+          get('event.user') != ''             ? get('event.user') :
+          'default'
+        )
+    exec:
+      command: echo
+      args: ["Input normalised"]
 
   # ── Step 1a: Brain — handles chat + webhook routes ───────────────────────────
   - apiVersion: kdeps.io/v1
@@ -90,18 +89,17 @@ resources:
       actionId: call-brain
       name: Call Brain Agent
       requires: [normalise]
-    run:
-      validations:
-        methods: [POST]
-        routes:
-          - /api/v1/chat
-          - /webhook/telegram
-          - /webhook/slack
-      agent:
-        name: pa-brain
-        params:
-          message:    "{{ get('msg') }}"
-          session_id: "{{ get('sid') }}"
+    validations:
+      methods: [POST]
+      routes:
+        - /api/v1/chat
+        - /webhook/telegram
+        - /webhook/slack
+    agent:
+      name: pa-brain
+      params:
+        message:    "{{ get('msg') }}"
+        session_id: "{{ get('sid') }}"
 
   # ── Step 1b: Heartbeat — handles the /api/v1/heartbeat route ────────────────
   - apiVersion: kdeps.io/v1
@@ -110,15 +108,14 @@ resources:
       actionId: call-heartbeat
       name: Call Heartbeat Agent
       requires: [normalise]
-    run:
-      validations:
-        methods: [POST]
-        routes:
-          - /api/v1/heartbeat
-      agent:
-        name: pa-heartbeat
-        params:
-          session_id: "{{ get('sid', 'heartbeat') }}"
+    validations:
+      methods: [POST]
+      routes:
+        - /api/v1/heartbeat
+    agent:
+      name: pa-heartbeat
+      params:
+        session_id: "{{ get('sid', 'heartbeat') }}"
 
   # ── Step 2: Return response ──────────────────────────────────────────────────
   # Exactly one of call-brain / call-heartbeat will have a non-empty output
@@ -129,7 +126,6 @@ resources:
       actionId: final-response
       name: Final Response
       requires: [call-brain, call-heartbeat]
-    run:
-      apiResponse:
-        success: true
-        response: "{{ output('call-brain') != '' ? output('call-brain') : output('call-heartbeat') }}"
+    apiResponse:
+      success: true
+      response: "{{ output('call-brain') != '' ? output('call-brain') : output('call-heartbeat') }}"

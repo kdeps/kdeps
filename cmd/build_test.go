@@ -477,12 +477,11 @@ kind: Resource
 metadata:
   actionId: process-data
   name: Process Data
-run:
-  python:
-    script: |
-      import requests
-      import numpy as np
-      print("Processing data with Python")
+python:
+  script: |
+    import requests
+    import numpy as np
+    print("Processing data with Python")
 `
 
 	resourcePath := filepath.Join(resourcesDir, "process-data.yaml")
@@ -543,11 +542,10 @@ kind: Resource
 metadata:
   actionId: serve-content
   name: Serve Content
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "Content served"
+apiResponse:
+  success: true
+  response:
+    message: "Content served"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "serve-content.yaml")

@@ -5,18 +5,17 @@ metadata:
   actionId: batchUpdate
   name: Batch User Updates
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/sql-demo]
+validations:
+  methods: [POST]
+  routes: [/api/v1/sql-demo]
 
-  sql:
-    connectionName: analytics
-    transaction: true
-    queries:
-      - query: |
-          UPDATE users
-          SET status = $1,
-              updated_at = NOW()
-          WHERE id = $2
-        paramsBatch: "{{ get('user_updates') }}"
+sql:
+  connectionName: analytics
+  transaction: true
+  queries:
+    - query: |
+        UPDATE users
+        SET status = $1,
+            updated_at = NOW()
+        WHERE id = $2
+      paramsBatch: "{{ get('user_updates') }}"

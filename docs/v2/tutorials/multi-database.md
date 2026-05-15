@@ -75,20 +75,19 @@ metadata:
   actionId: analyticsQuery
   name: Analytics Query
 
-run:
-  sql:
-    connectionName: analytics  # Use named connection
-    query: |
-      SELECT 
-        date,
-        COUNT(*) as total_users,
-        COUNT(DISTINCT email) as unique_emails,
-        AVG(age) as avg_age
-      FROM users
-      WHERE created_at >= NOW() - INTERVAL '7 days'
-      GROUP BY date
-      ORDER BY date DESC
-    format: csv
+sql:
+  connectionName: analytics  # Use named connection
+  query: |
+    SELECT 
+      date,
+      COUNT(*) as total_users,
+      COUNT(DISTINCT email) as unique_emails,
+      AVG(age) as avg_age
+    FROM users
+    WHERE created_at >= NOW() - INTERVAL '7 days'
+    GROUP BY date
+    ORDER BY date DESC
+  format: csv
 ```
 
 ## Step 3: Querying Multiple Databases
@@ -106,12 +105,11 @@ metadata:
     - analyticsQuery
     - inventoryQuery
 
-run:
-  apiResponse:
-    success: true
-    response:
-      analytics: get('analyticsQuery')
-      inventory: get('inventoryQuery')
+apiResponse:
+  success: true
+  response:
+    analytics: get('analyticsQuery')
+    inventory: get('inventoryQuery')
 ```
 
 With separate resources:
@@ -125,10 +123,9 @@ metadata:
   actionId: analyticsQuery
   name: Analytics Query
 
-run:
-  sql:
-    connectionName: analytics
-    query: <span v-pre>"SELECT * FROM user_stats WHERE date = {{ get('date') }}"</span>
+sql:
+  connectionName: analytics
+  query: <span v-pre>"SELECT * FROM user_stats WHERE date = {{ get('date') }}"</span>
 
 
 ---
@@ -140,10 +137,9 @@ metadata:
   actionId: inventoryQuery
   name: Inventory Query
 
-run:
-  sql:
-    connectionName: inventory
-    query: "SELECT * FROM products WHERE status = 'active'"
+sql:
+  connectionName: inventory
+  query: "SELECT * FROM products WHERE status = 'active'"
 ```
 
 ## Step 4: Cross-Database Operations
@@ -161,24 +157,23 @@ metadata:
     - analyticsQuery
     - inventoryQuery
 
-run:
-  python:
-    script: |
-      import json
-      
-      # Get data from both databases
-      analytics = get('analyticsQuery')
-      inventory = get('inventoryQuery')
-      
-      # Combine and process
-      result = {
-          'user_count': len(analytics),
-          'product_count': len(inventory),
-          'analytics': analytics,
-          'inventory': inventory
-      }
-      
-      return result
+python:
+  script: |
+    import json
+
+    # Get data from both databases
+    analytics = get('analyticsQuery')
+    inventory = get('inventoryQuery')
+
+    # Combine and process
+    result = {
+        'user_count': len(analytics),
+        'product_count': len(inventory),
+        'analytics': analytics,
+        'inventory': inventory
+    }
+
+    return result
 ```
 
 ## Step 5: Batch Operations Across Databases
@@ -193,18 +188,17 @@ metadata:
   actionId: batchUpdate
   name: Batch Update
 
-run:
-  sql:
-    connectionName: analytics
-    query: |
-      UPDATE users 
-      SET status = $1, updated_at = NOW()
-      WHERE id = $2
-    paramsBatch:
-      - ["active", 123]
-      - ["inactive", 456]
-      - ["pending", 789]
-    transaction: true
+sql:
+  connectionName: analytics
+  query: |
+    UPDATE users 
+    SET status = $1, updated_at = NOW()
+    WHERE id = $2
+  paramsBatch:
+    - ["active", 123]
+    - ["inactive", 456]
+    - ["pending", 789]
+  transaction: true
 ```
 
 ## Step 6: Transaction Management
@@ -219,20 +213,19 @@ metadata:
   actionId: transactionalUpdate
   name: Transactional Update
 
-run:
-  sql:
-    connectionName: analytics
-    transaction: true
-    queries:
-      - query: |
-          INSERT INTO orders (user_id, total) 
-          VALUES ($1, $2)
-        params: [get('user_id'), get('total')]
-      - query: |
-          UPDATE users 
-          SET last_order_at = NOW()
-          WHERE id = $1
-        params: [get('user_id')]
+sql:
+  connectionName: analytics
+  transaction: true
+  queries:
+    - query: |
+        INSERT INTO orders (user_id, total) 
+        VALUES ($1, $2)
+      params: [get('user_id'), get('total')]
+    - query: |
+        UPDATE users 
+        SET last_order_at = NOW()
+        WHERE id = $1
+      params: [get('user_id')]
 ```
 
 ## Complete Example
@@ -276,15 +269,14 @@ metadata:
   actionId: analyticsQuery
   name: Analytics Query
 
-run:
-  sql:
-    connectionName: analytics
-    query: |
-      SELECT date, COUNT(*) as users
-      FROM users
-      GROUP BY date
-      ORDER BY date DESC
-    format: csv
+sql:
+  connectionName: analytics
+  query: |
+    SELECT date, COUNT(*) as users
+    FROM users
+    GROUP BY date
+    ORDER BY date DESC
+  format: csv
 
 ---
 # resources/inventory.yaml
@@ -295,14 +287,13 @@ metadata:
   actionId: inventoryQuery
   name: Inventory Query
 
-run:
-  sql:
-    connectionName: inventory
-    query: |
-      SELECT name, quantity, price
-      FROM products
-      WHERE status = 'active'
-    format: json
+sql:
+  connectionName: inventory
+  query: |
+    SELECT name, quantity, price
+    FROM products
+    WHERE status = 'active'
+  format: json
 
 ---
 # resources/results.yaml
@@ -316,13 +307,12 @@ metadata:
     - analyticsQuery
     - inventoryQuery
 
-run:
-  apiResponse:
-    success: true
-    response:
-      analytics: get('analyticsQuery')
-      inventory: get('inventoryQuery')
-      timestamp: info('now')
+apiResponse:
+  success: true
+  response:
+    analytics: get('analyticsQuery')
+    inventory: get('inventoryQuery')
+    timestamp: info('now')
 ```
 
 ## Connection Pooling
@@ -371,17 +361,16 @@ KDeps supports multiple database types:
 Handle database errors gracefully:
 
 ```yaml
-run:
-  sql:
-    connectionName: analytics
-    query: "SELECT * FROM users WHERE id = $1"
-    params: [get('user_id')]
-  onError:
-    apiResponse:
-      success: false
-      response:
-        error: "Database query failed"
-        message: get('error')
+sql:
+  connectionName: analytics
+  query: "SELECT * FROM users WHERE id = $1"
+  params: [get('user_id')]
+onError:
+  apiResponse:
+    success: false
+    response:
+      error: "Database query failed"
+      message: get('error')
 ```
 
 ## Performance Tips

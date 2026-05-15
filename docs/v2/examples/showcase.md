@@ -36,19 +36,18 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  chat:
-    prompt: |
-      Email: {{ get('email') }}
-      Classify as urgent / normal / unsubscribe.
-      If urgent: draft a reply.
-      If unsubscribe: return the sender address.
-    jsonResponse: true
-    jsonResponseKeys: [label, draft, unsubscribe_from]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+chat:
+  prompt: |
+    Email: {{ get('email') }}
+    Classify as urgent / normal / unsubscribe.
+    If urgent: draft a reply.
+    If unsubscribe: return the sender address.
+  jsonResponse: true
+  jsonResponseKeys: [label, draft, unsubscribe_from]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -62,18 +61,17 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  chat:
-    prompt: |
-      Meeting request: {{ get('request') }}
-      Attendees: {{ get('attendees') }}
-      Write a concise agenda and post-meeting action items.
-    jsonResponse: true
-    jsonResponseKeys: [agenda, action_items, suggested_time]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+chat:
+  prompt: |
+    Meeting request: {{ get('request') }}
+    Attendees: {{ get('attendees') }}
+    Write a concise agenda and post-meeting action items.
+  jsonResponse: true
+  jsonResponseKeys: [agenda, action_items, suggested_time]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -87,24 +85,23 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "{{ env('BANK_API_URL') }}/transactions"
-        headers:
-          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
-  chat:
-    prompt: |
-      Transactions: {{ get('httpClient') }}
-      Today: {{ info('current_date') }}
-      List bills due in 7 days. Flag anything overdue.
-    jsonResponse: true
-    jsonResponseKeys: [due_soon, overdue, balance_after]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+before:
+  - httpClient:
+      method: GET
+      url: "{{ env('BANK_API_URL') }}/transactions"
+      headers:
+        Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+chat:
+  prompt: |
+    Transactions: {{ get('httpClient') }}
+    Today: {{ info('current_date') }}
+    List bills due in 7 days. Flag anything overdue.
+  jsonResponse: true
+  jsonResponseKeys: [due_soon, overdue, balance_after]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -118,23 +115,22 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "{{ env('BANK_API_URL') }}/transactions?days=90"
-        headers:
-          Authorization: "Bearer {{ env('BANK_TOKEN') }}"
-  chat:
-    prompt: |
-      Transactions: {{ get('httpClient') }}
-      Find all recurring charges. Flag any not used in 30+ days.
-    jsonResponse: true
-    jsonResponseKeys: [subscriptions, unused, monthly_total]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+before:
+  - httpClient:
+      method: GET
+      url: "{{ env('BANK_API_URL') }}/transactions?days=90"
+      headers:
+        Authorization: "Bearer {{ env('BANK_TOKEN') }}"
+chat:
+  prompt: |
+    Transactions: {{ get('httpClient') }}
+    Find all recurring charges. Flag any not used in 30+ days.
+  jsonResponse: true
+  jsonResponseKeys: [subscriptions, unused, monthly_total]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -148,21 +144,20 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  before:
-    - component:
-        name: embedding
-        with:
-          text: "{{ get('q') }}"
-  chat:
-    prompt: |
-      Context: {{ get('embedding').embedding }}
-      Question: {{ get('q') }}
-      Answer using only the context above.
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+before:
+  - component:
+      name: embedding
+      with:
+        text: "{{ get('q') }}"
+chat:
+  prompt: |
+    Context: {{ get('embedding').embedding }}
+    Question: {{ get('q') }}
+    Answer using only the context above.
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -176,22 +171,21 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: "{{ env('PANTRY_API') }}/inventory"
-  chat:
-    prompt: |
-      Pantry: {{ get('httpClient') }}
-      Suggest 5 meals using items expiring soonest.
-      List what needs reordering.
-    jsonResponse: true
-    jsonResponseKeys: [meals, reorder_list]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+before:
+  - httpClient:
+      method: GET
+      url: "{{ env('PANTRY_API') }}/inventory"
+chat:
+  prompt: |
+    Pantry: {{ get('httpClient') }}
+    Suggest 5 meals using items expiring soonest.
+    List what needs reordering.
+  jsonResponse: true
+  jsonResponseKeys: [meals, reorder_list]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -205,23 +199,22 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  before:
-    - component:
-        name: scraper
-        with:
-          url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
-  chat:
-    prompt: |
-      Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
-      Data: {{ get('scraper') }}
-      Best flight option, hotel, and 3-day itinerary.
-    jsonResponse: true
-    jsonResponseKeys: [flight, hotel, itinerary]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+before:
+  - component:
+      name: scraper
+      with:
+        url: "https://www.kayak.com/flights/{{ get('from') }}-{{ get('to') }}/{{ get('date') }}"
+chat:
+  prompt: |
+    Trip: {{ get('from') }} → {{ get('to') }} on {{ get('date') }}
+    Data: {{ get('scraper') }}
+    Best flight option, hotel, and 3-day itinerary.
+  jsonResponse: true
+  jsonResponseKeys: [flight, hotel, itinerary]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>
@@ -235,19 +228,18 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: respond
-run:
-  chat:
-    prompt: |
-      Client: {{ get('client') }}
-      Work done: {{ get('description') }}
-      Hours: {{ get('hours') }} at {{ get('rate') }}/hr
-      Generate a professional invoice.
-    jsonResponse: true
-    jsonResponseKeys: [invoice_number, line_items, subtotal, due_date]
-  apiResponse:
-    success: true
-    response:
-      data: get('respond')
+chat:
+  prompt: |
+    Client: {{ get('client') }}
+    Work done: {{ get('description') }}
+    Hours: {{ get('hours') }} at {{ get('rate') }}/hr
+    Generate a professional invoice.
+  jsonResponse: true
+  jsonResponseKeys: [invoice_number, line_items, subtotal, due_date]
+apiResponse:
+  success: true
+  response:
+    data: get('respond')
 ```
 
 </div>

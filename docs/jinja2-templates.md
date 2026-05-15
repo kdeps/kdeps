@@ -61,7 +61,6 @@ kind: Resource
 metadata:
   actionId: fetchData
   name: Fetch Data
-run:
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET
@@ -169,10 +168,9 @@ resources:
     metadata:
       actionId: fetchData
       name: Fetch Data
-    run:
-      httpClient:
-        method: GET
-        url: "{% raw %}{{ get('url') }}{% endraw %}"
+    httpClient:
+      method: GET
+      url: "{% raw %}{{ get('url') }}{% endraw %}"
 {%- endif %}
 ```
 

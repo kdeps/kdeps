@@ -24,36 +24,34 @@ apiVersion: kdeps.io/v1
 kind: Resource
 metadata:
   actionId: logRequest
-run:
-  expr:
-    # Access request metadata
-    - set('method', request.method)
-    - set('path', request.path)
-    - set('clientIp', request.ip)
-    - set('requestId', request.id)
-    - set('session', request.sessionId)
+expr:
+  # Access request metadata
+  - set('method', request.method)
+  - set('path', request.path)
+  - set('clientIp', request.ip)
+  - set('requestId', request.id)
+  - set('session', request.sessionId)
 
-    # Build log entry
-    - set('logEntry', json({
-        "timestamp": info('request.id'),
-        "method": get('method'),
-        "path": get('path'),
-        "ip": get('clientIp'),
-        "requestId": get('requestId')
-      }))
+  # Build log entry
+  - set('logEntry', json({
+      "timestamp": info('request.id'),
+      "method": get('method'),
+      "path": get('path'),
+      "ip": get('clientIp'),
+      "requestId": get('requestId')
+    }))
 ```
 
 ### Request-Based Routing
 
 ```yaml
-run:
-  expr:
-    # Different behavior based on request method
-    - set('isPost', request.method == 'POST')
-    - set('isGet', request.method == 'GET')
-  validations:
-    skip:
-      - "!get('isPost')"
+expr:
+  # Different behavior based on request method
+  - set('isPost', request.method == 'POST')
+  - set('isGet', request.method == 'GET')
+validations:
+  skip:
+    - "!get('isPost')"
 ```
 
 ### Logging and Auditing
@@ -61,19 +59,18 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connection: logs
-    queries:
-      - query: |
-          INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
-          VALUES (?, ?, ?, ?, ?, NOW())
-        params:
-          - "{{ request.id }}"
-          - "{{ request.method }}"
-          - "{{ request.path }}"
-          - "{{ request.ip }}"
-          - "{{ request.sessionId }}"
+sql:
+  connection: logs
+  queries:
+    - query: |
+        INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
+        VALUES (?, ?, ?, ?, ?, NOW())
+      params:
+        - "{{ request.id }}"
+        - "{{ request.method }}"
+        - "{{ request.path }}"
+        - "{{ request.ip }}"
+        - "{{ request.sessionId }}"
 ```
 
 </div>
@@ -210,13 +207,12 @@ settings:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connection: primary  # Reference by name
-    queries:
-      - query: "SELECT * FROM users WHERE id = ?"
-        params:
-          - "{{ get('userId') }}"
+sql:
+  connection: primary  # Reference by name
+  queries:
+    - query: "SELECT * FROM users WHERE id = ?"
+      params:
+        - "{{ get('userId') }}"
 ```
 
 </div>

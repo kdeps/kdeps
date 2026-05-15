@@ -34,15 +34,13 @@ Unreachable resources are **warnings** - validation still passes. Use them to fi
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ fetchResult.body }}"  # error if 'fetchResult' is not a known actionId
+chat:
+  prompt: "{{ fetchResult.body }}"  # error if 'fetchResult' is not a known actionId
 ```
 
 ```yaml
-run:
-  expr:
-    - set('val', get('missingStep.output'))  # error: 'missingStep' not found
+expr:
+  - set('val', get('missingStep.output'))  # error: 'missingStep' not found
 ```
 
 Valid example:
@@ -52,19 +50,17 @@ resources:
   - metadata:
       actionId: fetchResult
       requires: []
-    run:
-      httpClient:
-        method: GET
-        url: https://api.example.com/data
+    httpClient:
+      method: GET
+      url: https://api.example.com/data
 
   - metadata:
       actionId: response
       requires: [fetchResult]
-    run:
-      chat:
-        model: llama3.2:1b
-        role: user
-        prompt: "Summarize: {{ fetchResult.body }}"  # valid
+    chat:
+      model: llama3.2:1b
+      role: user
+      prompt: "Summarize: {{ fetchResult.body }}"  # valid
 ```
 
 </div>
@@ -87,21 +83,19 @@ interface:
 
 ```yaml
 # workflow.yaml - error: 'url' is required but not in 'with'
-run:
-  component:
-    name: my-scraper
-    with:
-      selector: ".article"
+component:
+  name: my-scraper
+  with:
+    selector: ".article"
 ```
 
 ```yaml
 # correct
-run:
-  component:
-    name: my-scraper
-    with:
-      url: "https://example.com"
-      selector: ".article"
+component:
+  name: my-scraper
+  with:
+    url: "https://example.com"
+    selector: ".article"
 ```
 
 ## Running Static Analysis

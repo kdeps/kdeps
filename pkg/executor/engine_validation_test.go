@@ -52,14 +52,12 @@ func TestEngine_Validation_RequiredFields(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"name", "email"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"name", "email"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -102,14 +100,12 @@ func TestEngine_Validation_RequiredFields_Success(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"name", "email"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"name", "email"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -152,23 +148,21 @@ func TestEngine_Validation_TypeValidation(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "age",
-								Type:  domain.FieldTypeInteger,
-							},
-							{
-								Field: "email",
-								Type:  domain.FieldTypeEmail,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "age",
+							Type:  domain.FieldTypeInteger,
+						},
+						{
+							Field: "email",
+							Type:  domain.FieldTypeEmail,
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -214,21 +208,19 @@ func TestEngine_Validation_MinMax(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "age",
-								Type:  domain.FieldTypeInteger,
-								Min:   &minVal,
-								Max:   &maxVal,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "age",
+							Type:  domain.FieldTypeInteger,
+							Min:   &minVal,
+							Max:   &maxVal,
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -297,21 +289,19 @@ func TestEngine_Validation_StringLength(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field:     "username",
-								Type:      domain.FieldTypeString,
-								MinLength: &minLen,
-								MaxLength: &maxLen,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field:     "username",
+							Type:      domain.FieldTypeString,
+							MinLength: &minLen,
+							MaxLength: &maxLen,
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -367,20 +357,18 @@ func TestEngine_Validation_Pattern(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field:   "code",
-								Type:    domain.FieldTypeString,
-								Pattern: &pattern,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field:   "code",
+							Type:    domain.FieldTypeString,
+							Pattern: &pattern,
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -434,20 +422,18 @@ func TestEngine_Validation_Enum(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "status",
-								Type:  domain.FieldTypeString,
-								Enum:  []interface{}{"pending", "active", "completed"},
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "status",
+							Type:  domain.FieldTypeString,
+							Enum:  []interface{}{"pending", "active", "completed"},
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -504,21 +490,19 @@ func TestEngine_Validation_ArrayItems(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field:    "tags",
-								Type:     domain.FieldTypeArray,
-								MinItems: &minItems,
-								MaxItems: &maxItems,
-							},
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field:    "tags",
+							Type:     domain.FieldTypeArray,
+							MinItems: &minItems,
+							MaxItems: &maxItems,
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -584,12 +568,10 @@ func TestEngine_Validation_NoValidation(t *testing.T) {
 					ActionID: "response",
 					Name:     "Response Resource",
 				},
-				Run: domain.RunConfig{
-					// No validation rules
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
-					},
+				// No validation rules
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},
@@ -635,15 +617,13 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 					ActionID: "resource1",
 					Name:     "Resource 1",
 				},
-				Run: domain.RunConfig{
-					// Only param1 is accessible in resource1.
-					Validations: &domain.ValidationsConfig{
-						Params: []string{"param1"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"from": "resource1"},
-					},
+				// Only param1 is accessible in resource1.
+				Validations: &domain.ValidationsConfig{
+					Params: []string{"param1"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"from": "resource1"},
 				},
 			},
 			{
@@ -652,21 +632,19 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 					Name:     "Resource 2",
 					Requires: []string{"resource1"},
 				},
-				Run: domain.RunConfig{
-					// resource2 only exposes param2.
-					// The skip expression uses get('param1') which should return nil
-					// because resource2's filter blocks param1. With the correct
-					// ordering (filter applied before skip), the resource is NOT skipped.
-					Validations: &domain.ValidationsConfig{
-						Params: []string{"param2"},
-						Skip: []domain.Expression{
-							{Raw: "get('param1') == 'v1'"},
-						},
+				// resource2 only exposes param2.
+				// The skip expression uses get('param1') which should return nil
+				// because resource2's filter blocks param1. With the correct
+				// ordering (filter applied before skip), the resource is NOT skipped.
+				Validations: &domain.ValidationsConfig{
+					Params: []string{"param2"},
+					Skip: []domain.Expression{
+						{Raw: "get('param1') == 'v1'"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"from": "resource2"},
-					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"from": "resource2"},
 				},
 			},
 		},
@@ -719,23 +697,21 @@ func TestEngine_Validation_PreflightErrorBeforeSchemaValidation(t *testing.T) {
 					ActionID: "resource",
 					Name:     "Resource",
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						// Preflight check always fails (unauthorized).
-						Check: []domain.Expression{
-							{Raw: "false"},
-						},
-						Error: &domain.ErrorConfig{
-							Code:    401,
-							Message: "Unauthorized",
-						},
-						// Schema validation also fails (required field missing).
-						Required: []string{"missingField"},
+				Validations: &domain.ValidationsConfig{
+					// Preflight check always fails (unauthorized).
+					Check: []domain.Expression{
+						{Raw: "false"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"status": "ok"},
+					Error: &domain.ErrorConfig{
+						Code:    401,
+						Message: "Unauthorized",
 					},
+					// Schema validation also fails (required field missing).
+					Required: []string{"missingField"},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"status": "ok"},
 				},
 			},
 		},

@@ -314,10 +314,10 @@ func (v *WorkflowValidator) ValidateResource(
 	// Validate execution types.
 	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
-	primaryCount := countPrimaryExecutionTypes(&resource.Run)
-	hasAPIResponse := resource.Run.APIResponse != nil
-	hasExprBlocks := len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprBefore) > 0
+	primaryCount := countPrimaryExecutionTypes(resource)
+	hasAPIResponse := resource.APIResponse != nil
+	hasExprBlocks := len(resource.Expr) > 0 ||
+		len(resource.ExprBefore) > 0
 
 	// A resource is valid if it has:
 	//   a) at least one primary execution type, or
@@ -342,8 +342,8 @@ func (v *WorkflowValidator) ValidateResource(
 	}
 
 	// Validate loop configuration.
-	if resource.Run.Loop != nil {
-		if err := ValidateLoopConfig(resource.Run.Loop); err != nil {
+	if resource.Loop != nil {
+		if err := ValidateLoopConfig(resource.Loop); err != nil {
 			return err
 		}
 	}
@@ -357,23 +357,23 @@ func (v *WorkflowValidator) validateResourceExecutionTypes(
 	resource *domain.Resource,
 	workflow *domain.Workflow,
 ) error {
-	if resource.Run.Chat != nil {
-		if err := v.ValidateChatConfig(resource.Run.Chat); err != nil {
+	if resource.Chat != nil {
+		if err := v.ValidateChatConfig(resource.Chat); err != nil {
 			return err
 		}
 	}
-	if resource.Run.SQL != nil {
-		if err := v.ValidateSQLConfig(resource.Run.SQL, workflow); err != nil {
+	if resource.SQL != nil {
+		if err := v.ValidateSQLConfig(resource.SQL, workflow); err != nil {
 			return err
 		}
 	}
-	if resource.Run.HTTPClient != nil {
-		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
+	if resource.HTTPClient != nil {
+		if err := v.ValidateHTTPConfig(resource.HTTPClient); err != nil {
 			return err
 		}
 	}
-	if resource.Run.Telephony != nil {
-		if err := v.ValidateTelephonyActionConfig(resource.Run.Telephony); err != nil {
+	if resource.Telephony != nil {
+		if err := v.ValidateTelephonyActionConfig(resource.Telephony); err != nil {
 			return err
 		}
 	}

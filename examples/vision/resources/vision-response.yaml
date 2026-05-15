@@ -7,15 +7,14 @@ metadata:
   requires:
     - visionLLM
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/vision]
-  apiResponse:
-    success: true
-    response:
-      query: "{{ get('q') }}"
-      analysis: "{{ get('visionLLM') }}"
-      file_info:
-        filename: "{{ info('files') }}"
-        filetype: "{{ info('filetypes') }}"
+validations:
+  methods: [POST]
+  routes: [/api/v1/vision]
+apiResponse:
+  success: true
+  response:
+    query: "{{ get('q') }}"
+    analysis: "{{ get('visionLLM') }}"
+    file_info:
+      filename: "{{ info('files') }}"
+      filetype: "{{ info('filetypes') }}"

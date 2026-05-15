@@ -5,7 +5,6 @@ metadata:
   actionId: responseResource
   name: Response
 
-run:
-  response:
-    data: get('llmResource')
-    query: get('q')
+response:
+  data: get('llmResource')
+  query: get('q')

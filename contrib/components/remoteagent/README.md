@@ -38,47 +38,43 @@ Access nested fields with dot notation:
 Call a remote summariser agent:
 
 ```yaml
-run:
-  component:
-    name: remoteagent
-    with:
-      url: "http://summariser-agent:4000"
-      query: "{{ input('document') }}"
-  apiResponse:
-    success: true
-    response:
-      summary: "{{ output('callSummariser').data.summary }}"
+component:
+  name: remoteagent
+  with:
+    url: "http://summariser-agent:4000"
+    query: "{{ input('document') }}"
+apiResponse:
+  success: true
+  response:
+    summary: "{{ output('callSummariser').data.summary }}"
 ```
 
 Fan out to multiple agents:
 
 ```yaml
 - actionId: callClassifier
-  run:
-    component:
-      name: remoteagent
-      with:
-        url: "http://classifier:5001"
-        query: "{{ input('text') }}"
+component:
+  name: remoteagent
+  with:
+    url: "http://classifier:5001"
+    query: "{{ input('text') }}"
 
 - actionId: callTranslator
-  run:
-    component:
-      name: remoteagent
-      with:
-        url: "http://translator:5002"
-        query: "{{ input('text') }}"
+component:
+  name: remoteagent
+  with:
+    url: "http://translator:5002"
+    query: "{{ input('text') }}"
 ```
 
 Using environment variable for the URL:
 
 ```yaml
-run:
-  component:
-    name: remoteagent
-    with:
-      url: "{{ get('env.AGENT_URL') }}"
-      query: "{{ input('q') }}"
+component:
+  name: remoteagent
+  with:
+    url: "{{ get('env.AGENT_URL') }}"
+    query: "{{ input('q') }}"
 ```
 
 ## Requirements

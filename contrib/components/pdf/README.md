@@ -24,37 +24,34 @@ Accessed via `output('<your-action-id>')`:
 Generate a simple PDF:
 
 ```yaml
-run:
-  component:
-    name: pdf
-    with:
-      content: "<h1>Invoice #1042</h1><p>Amount due: $500</p>"
-      outputFile: /tmp/invoice-1042.pdf
-  apiResponse:
-    success: true
-    response:
-      pdfPath: "{{ output('generatePdf').generated }}"
+component:
+  name: pdf
+  with:
+    content: "<h1>Invoice #1042</h1><p>Amount due: $500</p>"
+    outputFile: /tmp/invoice-1042.pdf
+apiResponse:
+  success: true
+  response:
+    pdfPath: "{{ output('generatePdf').generated }}"
 ```
 
 Generate a report from a previous step's output:
 
 ```yaml
-run:
-  component:
-    name: pdf
-    with:
-      content: "{{ output('reportStep').html }}"
-      outputFile: "/tmp/report-{{ session('id') }}.pdf"
+component:
+  name: pdf
+  with:
+    content: "{{ output('reportStep').html }}"
+    outputFile: "/tmp/report-{{ session('id') }}.pdf"
 ```
 
 Plain text (no HTML):
 
 ```yaml
-run:
-  component:
-    name: pdf
-    with:
-      content: "Dear John,\n\nYour order has shipped.\n\nRegards,\nSupport Team"
+component:
+  name: pdf
+  with:
+    content: "Dear John,\n\nYour order has shipped.\n\nRegards,\nSupport Team"
 ```
 
 ## Requirements

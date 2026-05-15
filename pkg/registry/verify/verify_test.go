@@ -33,10 +33,9 @@ func writeYAML(t *testing.T, dir, name, content string) {
 func TestVerifyDir_Clean(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "workflow.yaml", `
-run:
-  chat:
-    model: ""
-    apiKey: ""
+chat:
+  model: ""
+  apiKey: ""
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -47,9 +46,8 @@ run:
 func TestVerifyDir_HardcodedLLMApiKey(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  chat:
-    apiKey: sk-supersecret1234567890
+chat:
+  apiKey: sk-supersecret1234567890
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -62,9 +60,8 @@ run:
 func TestVerifyDir_EnvExpressionAllowed(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  chat:
-    apiKey: env("OPENAI_API_KEY")
+chat:
+  apiKey: env("OPENAI_API_KEY")
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -75,9 +72,8 @@ run:
 func TestVerifyDir_HardcodedModelWarning(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  chat:
-    model: gpt-4o
+chat:
+  model: gpt-4o
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -132,11 +128,10 @@ bot:
 func TestVerifyDir_HTTPAuthToken(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  http:
-    auth:
-      type: bearer
-      token: "hardcoded-bearer-token"
+http:
+  auth:
+    type: bearer
+    token: "hardcoded-bearer-token"
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -146,11 +141,10 @@ run:
 func TestVerifyDir_HTTPAuthPassword(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  http:
-    auth:
-      type: basic
-      password: "s3cr3t"
+http:
+  auth:
+    type: basic
+    password: "s3cr3t"
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -160,10 +154,9 @@ run:
 func TestVerifyDir_SearchWebApiKey(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  searchweb:
-    provider: brave
-    apiKey: "BSA_real_key_12345"
+searchweb:
+  provider: brave
+  apiKey: "BSA_real_key_12345"
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -173,11 +166,10 @@ run:
 func TestVerifyDir_TranscriberApiKey(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  transcriber:
-    online:
-      provider: deepgram
-      apiKey: "dg_real_api_key"
+transcriber:
+  online:
+    provider: deepgram
+    apiKey: "dg_real_api_key"
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
@@ -187,9 +179,8 @@ run:
 func TestVerifyDir_PlaceholderAllowed(t *testing.T) {
 	dir := t.TempDir()
 	writeYAML(t, dir, "resource.yaml", `
-run:
-  chat:
-    apiKey: "<YOUR_API_KEY>"
+chat:
+  apiKey: "<YOUR_API_KEY>"
 `)
 	result, err := verify.Dir(dir)
 	require.NoError(t, err)
