@@ -163,7 +163,7 @@ expr:
 ```
 
 `loop` can be combined with any primary execution type (`exec`, `python`, `sql`, `httpClient`, etc.)
-or used with only `expr`/`exprBefore`/`exprAfter` blocks.
+or used with only `expr`/`before`/`exprAfter` blocks.
 
 Every resource block runs on **each iteration** of the loop — including primary execution types
 (`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`) and
@@ -211,7 +211,7 @@ metadata:
 loop:
   while: "loop.index() < 10"
   maxIterations: 20
-exprBefore:
+before:
   - "{{ set('a', get('a') == nil ? 0 : get('a')) }}"
   - "{{ set('b', get('b') == nil ? 1 : get('b')) }}"
 expr:

@@ -361,7 +361,7 @@ apiResponse:
 Use resource-specific accessors for detailed response information:
 
 ```yaml
-expr:
+after:
   # Get response body only
   - set('response_body', http.responseBody('httpResource'))
 

@@ -191,13 +191,13 @@ apiResponse:
 
 ## Key Concepts
 
-### Expression Positioning (exprBefore, expr, exprAfter)
+### Expression Positioning (before, expr, exprAfter)
 
 Control when expression blocks execute relative to the primary execution type:
 
 ```yaml
 # Runs BEFORE the primary execution type
-exprBefore:
+before:
   - "{{ set('start_time', info('current_time')) }}"
 
 python:

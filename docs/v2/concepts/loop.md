@@ -13,7 +13,7 @@ name: Count to Five
 loop:
   while: "loop.index() < 5"
   maxIterations: 1000   # safety cap (default: 1000)
-expr:
+after:
   - "{{ set('result', loop.count()) }}"
 apiResponse:
   success: true
@@ -38,7 +38,7 @@ Inside the loop body, special callables are available:
 ### Method Syntax
 
 ```yaml
-expr:
+after:
   - "{{ set('idx', loop.index()) }}"
   - "{{ set('cnt', loop.count()) }}"
   - "{{ set('prev', loop.results()) }}"
@@ -64,7 +64,7 @@ Use `'loop'` as a storage type hint to scope variables to the loop context, mirr
 loop:
   while: "default(get('step', 'loop'), 0) < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('step', loop.count(), 'loop') }}"
 ```
 
@@ -80,7 +80,7 @@ expr:
 loop:
   while: "len(loop.results()) < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('n', loop.count()) }}"
 ```
 
@@ -98,7 +98,7 @@ When `apiResponse` is present, every iteration produces one response map. Multip
 loop:
   while: "loop.index() < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
   success: true
@@ -137,7 +137,7 @@ loop:
   while: "loop.index() < 10"
   every: "5s"           # wait 5 seconds between each iteration
   maxIterations: 100
-expr:
+after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
   success: true
@@ -161,7 +161,7 @@ loop:
   maxIterations: 1440    # up to 12 hours (1440 × 30 s)
 exec:
   command: "poll-service.sh"
-expr:
+after:
   - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
 ```
 
@@ -193,7 +193,7 @@ loop:
   at:
     - "2026-03-15T10:00:00Z"   # RFC3339 absolute timestamp
     - "2026-03-15T14:30:00Z"
-expr:
+after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
   success: true
@@ -280,7 +280,7 @@ Together with `loop.results()` feeding back into the `while` condition, the syst
 loop:
   while: "loop.index() < 4"
   maxIterations: 100
-expr:
+after:
   - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
 apiResponse:
   success: true
@@ -298,7 +298,7 @@ apiResponse:
 loop:
   while: "int(default(get('phase'), 0)) < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('phase', int(default(get('phase'), 0)) + 1) }}"
 apiResponse:
   success: true
@@ -318,7 +318,7 @@ loop:
   maxIterations: 100
 exec:
   command: "check-condition.sh"
-expr:
+after:
   - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
 apiResponse:
   success: true
@@ -358,7 +358,7 @@ actionId: compute
 loop:
   while: "loop.index() < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('computed', loop.count()) }}"
 
 ---

@@ -55,7 +55,7 @@ resources:
         - /webhook/telegram
         - /webhook/slack
         - /api/v1/heartbeat
-    expr:
+    after:
       # Resolve message text from whichever channel sent it
       - >-
         set('msg',

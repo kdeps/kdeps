@@ -44,7 +44,7 @@ metadata:
 resources:
   - name: echo-res
     actionId: echoEval
-    expr:
+    after:
       - set("msg", "Execution complete")
 EOF
 
@@ -119,7 +119,7 @@ metadata:
 resources:
   - name: nv-res
     actionId: nvEval
-    expr:
+    after:
       - set("msg", "no-version-output")
 EOF
 

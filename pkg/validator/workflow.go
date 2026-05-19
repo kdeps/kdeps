@@ -309,6 +309,16 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	return n
 }
 
+// hasExpressionEntries reports whether any entry in the slice is an expression step.
+func hasExpressionEntries(entries []domain.ActionConfig) bool {
+	for _, e := range entries {
+		if e.Expr != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateResource validates a single resource.
 func (v *WorkflowValidator) ValidateResource(
 	resource *domain.Resource,
@@ -328,19 +338,19 @@ func (v *WorkflowValidator) ValidateResource(
 	// apiResponse can be combined with any primary execution type or used alone.
 	primaryCount := countPrimaryExecutionTypes(resource)
 	hasAPIResponse := resource.APIResponse != nil
-	hasExprBlocks := len(resource.Expr) > 0 ||
-		len(resource.ExprBefore) > 0
+	hasExprEntries := hasExpressionEntries(resource.Before) || hasExpressionEntries(resource.After)
 
 	// A resource is valid if it has:
 	//   a) at least one primary execution type, or
 	//   b) an apiResponse block, or
-	//   c) expression blocks (expr/exprBefore) used for variable assignment, or
-	//   d) a loop with expression blocks (for Turing-complete while loops).
-	if primaryCount == 0 && !hasAPIResponse && !hasExprBlocks {
+	//   c) before/after entries (expression steps or inline resources) for variable assignment, or
+	//   d) a loop with before/after entries (for Turing-complete while loops).
+	if primaryCount == 0 && !hasAPIResponse && !hasExprEntries &&
+		len(resource.Before) == 0 && len(resource.After) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony, apiResponse, expr)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, apiResponse, before, after)",
 			nil,
 		)
 	}

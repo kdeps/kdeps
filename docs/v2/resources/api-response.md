@@ -321,7 +321,7 @@ Transform data before returning:
 ```yaml
 actionId: transformedResponse
 requires: [rawData]
-expr:
+after:
   - set('formatted', formatData(get('rawData')))
 
 apiResponse:

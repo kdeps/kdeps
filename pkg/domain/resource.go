@@ -36,10 +36,8 @@ type Resource struct {
 	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
 	Validations *ValidationsConfig `yaml:"validations,omitempty"`
 	Loop        *LoopConfig        `yaml:"loop,omitempty"`
-	ExprBefore  []Expression       `yaml:"exprBefore,omitempty"`
-	Expr        []Expression       `yaml:"expr,omitempty"`
-	Before      []ActionConfig     `yaml:"before,omitempty"`
-	After       []ActionConfig     `yaml:"after,omitempty"`
+	Before      []ActionConfig     `yaml:"before,omitempty"` // expressions/actions before primary
+	After       []ActionConfig     `yaml:"after,omitempty"`  // expressions/actions after primary
 	APIResponse *APIResponseConfig `yaml:"apiResponse,omitempty"`
 	OnError     *OnErrorConfig     `yaml:"onError,omitempty"`
 
@@ -112,8 +110,12 @@ type RunConfig = Resource
 type InlineResource = ActionConfig
 
 // ActionConfig holds the action (execution type) fields for inline resources.
+// Each entry in before/after is either a bare expression string or an action mapping.
+// Bare scalar: "set('x', 1)"  → Expr is set.
+// Mapping: "chat: {...}"       → action type field is set.
 type ActionConfig struct {
 	Tool string `yaml:"tool,omitempty"`
+	Expr string `yaml:"-"` // set when the YAML entry is a bare scalar expression
 
 	Chat        *ChatConfig            `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig      `yaml:"httpClient,omitempty"`
@@ -127,6 +129,27 @@ type ActionConfig struct {
 	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
+}
+
+// actionConfigAlias is used for normal YAML struct unmarshaling without recursion.
+type actionConfigAlias ActionConfig
+
+// UnmarshalYAML implements yaml.Unmarshaler for ActionConfig.
+// Scalars are treated as expression steps; mappings are parsed as action configs.
+func (a *ActionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Try scalar first (expression step).
+	var raw string
+	if err := unmarshal(&raw); err == nil {
+		a.Expr = raw
+		return nil
+	}
+	// Fall back to normal struct unmarshaling.
+	var alias actionConfigAlias
+	if err := unmarshal(&alias); err != nil {
+		return err
+	}
+	*a = ActionConfig(alias)
+	return nil
 }
 
 // ComponentCallConfig configures a call to a named component.

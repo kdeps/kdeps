@@ -20,7 +20,7 @@ chat:
 Use `expr` blocks to run logic steps. These are executed sequentially.
 
 ```yaml
-expr:
+after:
   # Variable assignment
   - set('normalized_query', lower(trim(get('q'))))
 

@@ -40,7 +40,7 @@ You can also access item context through the `item` object with callable methods
 ### Method Syntax
 
 ```yaml
-expr:
+after:
   # Method-style access
   - set('curr', item.current())
   - set('prev', item.prev())
@@ -73,7 +73,7 @@ items:
   - "first"
   - "second"
   - "third"
-expr:
+after:
   # Using item object methods
   - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
   - set('hasPrevious', item.prev() != nil)
@@ -97,7 +97,7 @@ After processing, you can access all collected values from a resource that uses 
 actionId: collectResults
 requires:
   - processItems
-expr:
+after:
   # Get all collected values from the items iteration
   - set('allResults', get('processItems', 'itemvalues'))
   - set('resultCount', len(get('allResults')))
@@ -115,7 +115,7 @@ You can also use the `item.values()` method with an action ID to get all iterati
 actionId: collectResults
 requires:
   - processItems
-expr:
+after:
   # Get all values from processItems resource
   - set('allResults', item.values('processItems'))
   - set('resultCount', len(get('allResults')))

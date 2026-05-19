@@ -65,7 +65,7 @@ restrictToRoutes: [/api/v1/loop]
 loop:
   while: "loop.index() < 5"
   maxIterations: 1000
-expr:
+after:
   - "{{ set('result', loop.count()) }}"
 apiResponse:
   success: true
@@ -237,7 +237,7 @@ name: Accumulator
 loop:
   while: "loop.index() < 4"
   maxIterations: 100
-expr:
+after:
   - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
 apiResponse:
   success: true
@@ -276,7 +276,7 @@ name: Self Referential
 loop:
   while: "len(loop.results()) < 3"
   maxIterations: 10
-expr:
+after:
   - "{{ set('n', loop.count()) }}"
 EOF
 
@@ -313,7 +313,7 @@ loop:
   while: "loop.index() < 3"
   maxIterations: 10
   every: "1ms"
-expr:
+after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
   success: true
@@ -357,7 +357,7 @@ loop:
   while: "loop.index() < 2"
   maxIterations: 5
   every: "not-a-duration"
-expr:
+after:
   - "{{ set('n', loop.count()) }}"
 EOF
 
@@ -394,7 +394,7 @@ loop:
   at:
     - "2026-03-15T10:00:00Z"
     - "2026-03-15T14:00:00Z"
-expr:
+after:
   - "{{ set('tick', loop.count()) }}"
 apiResponse:
   success: true

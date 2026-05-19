@@ -37,7 +37,7 @@ onError:
     default: "value"
 
   # Expressions to execute on error (has access to 'error' object)
-  expr:
+  after:
     - set('errorMessage', error.message)
     - set('errorLogged', true)
 
@@ -154,7 +154,7 @@ Run expressions when an error occurs (useful for logging, metrics, etc.):
 ```yaml
 onError:
   action: continue
-  expr:
+  after:
     - set('lastError', error.message, 'session')
     - set('errorCount', get('errorCount', 'session') + 1, 'session')
     - set('errorTimestamp', info('timestamp'))
@@ -239,7 +239,7 @@ httpClient:
 
 onError:
   action: continue
-  expr:
+  after:
     # Increment failure count
     - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
     # Open circuit after 5 failures

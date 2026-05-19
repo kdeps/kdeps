@@ -21,7 +21,7 @@ The `request` object provides access to HTTP request metadata in expressions.
 
 ```yaml
 actionId: logRequest
-expr:
+after:
   # Access request metadata
   - set('method', request.method)
   - set('path', request.path)
@@ -42,7 +42,7 @@ expr:
 ### Request-Based Routing
 
 ```yaml
-expr:
+after:
   # Different behavior based on request method
   - set('isPost', request.method == 'POST')
   - set('isGet', request.method == 'GET')

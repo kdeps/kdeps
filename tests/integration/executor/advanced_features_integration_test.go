@@ -129,9 +129,9 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 				ActionID: "set-data",
 				Name:     "Set Data",
 
-				ExprBefore: []domain.Expression{
-					{Raw: "set('userId', '123')"},
-					{Raw: "set('apiToken', 'token-abc')"},
+				Before: []domain.ActionConfig{
+					{Expr: "set('userId', '123')"},
+					{Expr: "set('apiToken', 'token-abc')"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -404,9 +404,9 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 				ActionID: "expr-resource",
 				Name:     "Expression Resource",
 
-				Expr: []domain.Expression{
-					{Raw: "set('computed', 42)"},
-					{Raw: "set('formatted', 'Result: ' + string(get('computed')))"},
+				After: []domain.ActionConfig{
+					{Expr: "set('computed', 42)"},
+					{Expr: "set('formatted', 'Result: ' + string(get('computed')))"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -454,8 +454,8 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 				ActionID: "setup",
 				Name:     "Setup",
 
-				ExprBefore: []domain.Expression{
-					{Raw: "set('userId', '123')"},
+				Before: []domain.ActionConfig{
+					{Expr: "set('userId', '123')"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,

@@ -66,7 +66,7 @@ settings:
 resources:
   - actionId: expr-resource
     name: Expression Only
-    expr:
+    after:
       - set('value', 42)
     apiResponse:
       success: true

@@ -315,7 +315,7 @@ cat > "$TEST_DIR6/resources/inline.yaml" <<'EOF'
 actionId: inlineResource
 name: Browser Inline Usage
 
-exprBefore:
+before:
   - "{{ set('target_url', 'https://example.com') }}"
 browser:
   engine: chromium
@@ -323,7 +323,7 @@ browser:
   actions:
     - action: evaluate
       script: "document.title"
-expr:
+after:
   - "{{ set('page_title', get('inlineResource')) }}"
 apiResponse:
   success: true
@@ -332,9 +332,9 @@ apiResponse:
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR6/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - inline usage with exprBefore/expr validates successfully"
+    test_passed "Browser - inline usage with before/expr validates successfully"
 else
-    test_failed "Browser - inline usage with exprBefore/expr validates successfully" "Validation failed"
+    test_failed "Browser - inline usage with before/expr validates successfully" "Validation failed"
 fi
 
 # ---------------------------------------------------------------------------

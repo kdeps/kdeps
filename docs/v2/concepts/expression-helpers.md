@@ -37,7 +37,7 @@ json(data)
 **Basic usage:**
 ```yaml
 actionId: formatData
-expr:
+after:
   - set('user', {"name": "Alice", "age": 30})
   - set('userJson', json(get('user')))
   # Result: '{"name":"Alice","age":30}'
@@ -47,7 +47,7 @@ expr:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('payload', json({
       "query": get('q'),
       "timestamp": info('request.id'),
@@ -63,7 +63,7 @@ httpClient:
 
 **Logging complex objects:**
 ```yaml
-expr:
+after:
   - set('debugLog', json({
       "request": get('q'),
       "response": get('llmResource'),
@@ -92,7 +92,7 @@ safe(object, path)
 
 **Basic nested access:**
 ```yaml
-expr:
+after:
   # If user is {"profile": {"address": {"city": "NYC"}}}
   - set('city', safe(get('user'), 'profile.address.city'))
   # Result: "NYC"
@@ -104,20 +104,20 @@ expr:
 
 **With fallback using default():**
 ```yaml
-expr:
+after:
   - set('city', default(safe(get('user'), 'profile.address.city'), 'Unknown'))
 ```
 
 **Accessing API response data:**
 ```yaml
-expr:
+after:
   - set('errorMessage', safe(get('apiResponse'), 'error.details.message'))
   - set('items', safe(get('apiResponse'), 'data.items'))
 ```
 
 **Handling optional configuration:**
 ```yaml
-expr:
+after:
   - set('timeout', default(safe(get('config'), 'http.timeout'), 30))
   - set('retries', default(safe(get('config'), 'http.retries'), 3))
 ```
@@ -142,7 +142,7 @@ debug(data)
 
 **Debug LLM response:**
 ```yaml
-expr:
+after:
   - set('debugInfo', debug(get('llmResource')))
   # Result (formatted with indentation):
   # {
@@ -154,7 +154,7 @@ expr:
 
 **Debug request context:**
 ```yaml
-expr:
+after:
   - set('requestDebug', debug({
       "query": get('q'),
       "headers": get('Authorization'),
@@ -196,14 +196,14 @@ default(value, fallback)
 
 **Basic fallback:**
 ```yaml
-expr:
+after:
   - set('name', default(get('userName'), 'Guest'))
   - set('limit', default(get('pageSize'), 10))
 ```
 
 **Chained defaults:**
 ```yaml
-expr:
+after:
   # Try multiple sources in order
   - set('apiKey', default(
       get('API_KEY', 'env'),
@@ -216,13 +216,13 @@ expr:
 
 **With safe() for nested access:**
 ```yaml
-expr:
+after:
   - set('email', default(safe(get('user'), 'contact.email'), 'no-email@example.com'))
 ```
 
 **Configuration defaults:**
 ```yaml
-expr:
+after:
   - set('config', {
       "timeout": default(get('timeout'), 30),
       "retries": default(get('retries'), 3),
@@ -265,7 +265,7 @@ component:
 </div>
 
 ```yaml
-expr:
+after:
   - set('encoded', urlencode(get('searchTerm')))
   # "hello world" -> "hello+world"
 ```
@@ -303,7 +303,7 @@ component:
 </div>
 
 ```yaml
-expr:
+after:
   - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
 ```
 
@@ -329,21 +329,21 @@ input.property
 
 **Function style:**
 ```yaml
-expr:
+after:
   - set('query', input('q'))
   - set('limit', input('limit'))
 ```
 
 **Property access style:**
 ```yaml
-expr:
+after:
   - set('items', input.items)
   - set('userId', input.userId)
 ```
 
 **Equivalent to get():**
 ```yaml
-expr:
+after:
   # These are equivalent:
   - set('query1', get('q'))
   - set('query2', input('q'))
@@ -369,14 +369,14 @@ output(resourceId)
 
 **Basic usage:**
 ```yaml
-expr:
+after:
   - set('llmResult', output('llmResource'))
   - set('sqlData', output('databaseQuery'))
 ```
 
 **Equivalent to get():**
 ```yaml
-expr:
+after:
   # These are equivalent:
   - set('result1', get('llmResource'))
   - set('result2', output('llmResource'))
@@ -390,7 +390,7 @@ expr:
 actionId: processData
 requires:
   - fetchData
-expr:
+after:
   # Safely extract nested data with defaults
   - set('items', default(safe(get('fetchData'), 'response.data.items'), []))
 
@@ -411,7 +411,7 @@ expr:
 ### Error Handling Pattern
 
 ```yaml
-expr:
+after:
   # Check for error in response
   - set('error', safe(get('apiResponse'), 'error.message'))
   - set('hasError', get('error') != nil)
@@ -426,7 +426,7 @@ expr:
 ### Configuration Loading
 
 ```yaml
-expr:
+after:
   # Load config with multiple fallback sources
   - set('dbHost', default(
       get('DB_HOST', 'env'),

@@ -156,7 +156,7 @@ after:
 You can combine inline resources with expression blocks:
 
 ```yaml
-exprBefore:
+before:
   - set('timestamp', now())
 
 before:
@@ -167,7 +167,7 @@ chat: ...
 after:
   - sql: ...
 
-expr:
+after:
   - set('duration', now() - get('timestamp'))
 ```
 

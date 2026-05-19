@@ -135,7 +135,7 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 	metaKeys := map[string]bool{
 		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
 		"category": true, "requires": true, "items": true,
-		"tool": true, "validations": true, "loop": true, "exprBefore": true, "expr": true,
+		"tool": true, "validations": true, "loop": true,
 		"before": true, "after": true, "onError": true,
 	}
 

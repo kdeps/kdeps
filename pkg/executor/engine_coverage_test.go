@@ -322,8 +322,8 @@ func TestEngine_executeExprBlock_ErrorHandling(t *testing.T) {
 		ActionID: "test-resource",
 		Name:     "Test Resource",
 
-		Expr: []domain.Expression{
-			{Raw: "invalid.syntax.expression"}, // Should cause execution error
+		Before: []domain.ActionConfig{
+			{Expr: "invalid.syntax.expression"}, // Should cause execution error
 		},
 	}
 
@@ -342,8 +342,8 @@ func TestEngine_executeExprBlock_ParseError(t *testing.T) {
 		ActionID: "test-resource",
 		Name:     "Test Resource",
 
-		Expr: []domain.Expression{
-			{Raw: "{{unclosed.brace"}, // Invalid syntax - unclosed brace
+		Before: []domain.ActionConfig{
+			{Expr: "{{unclosed.brace"}, // Invalid syntax - unclosed brace
 		},
 	}
 
@@ -939,7 +939,7 @@ func TestEngine_executeInlineScraper_NoExecutor(t *testing.T) {
 						Scraper: &domain.ScraperConfig{URL: "http://example.com"},
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -965,7 +965,7 @@ func TestEngine_executeInlineEmbedding_NoExecutor(t *testing.T) {
 						Embedding: &domain.EmbeddingConfig{Operation: "search"},
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -991,7 +991,7 @@ func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
 						SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"},
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1017,7 +1017,7 @@ func TestEngine_executeInlineSearchWeb_NoExecutor(t *testing.T) {
 						SearchWeb: &domain.SearchWebConfig{Query: "test"},
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1043,7 +1043,7 @@ func TestEngine_executeInlineTelephony_NoExecutor(t *testing.T) {
 						Telephony: &domain.TelephonyActionConfig{Action: "answer"},
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1518,7 +1518,7 @@ func TestEngine_prepareLoopSchedule_MutualExclusion(t *testing.T) {
 					Every: "1s",
 					At:    []string{"15:00"},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1541,7 +1541,7 @@ func TestEngine_prepareLoopSchedule_InvalidEvery(t *testing.T) {
 					While: "true",
 					Every: "not-a-duration",
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1566,7 +1566,7 @@ func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
 					While: "false",
 					At:    []string{atTime},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1592,7 +1592,7 @@ func TestEngine_prepareLoopSchedule_InvalidAtEntry(t *testing.T) {
 					While: "true",
 					At:    []string{"not-a-valid-time"},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1616,7 +1616,7 @@ func TestEngine_prepareLoopSchedule_AtCapsSmallerThanMaxIter(t *testing.T) {
 					MaxIterations: 100, // will be capped to len(At)=1
 					At:            []string{"2099-01-01T00:00:00Z"},
 				},
-				Expr: []domain.Expression{{Raw: "set('ran', loop.count())"}},
+				Before: []domain.ActionConfig{{Expr: "set('ran', loop.count())"}},
 			},
 		},
 	}
@@ -1784,7 +1784,7 @@ func TestEngine_executeInlineResources_UnknownType(t *testing.T) {
 						// All fields nil -> default case -> error
 					},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -1989,7 +1989,7 @@ func TestEngine_executeInlineScraper_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2014,7 +2014,7 @@ func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Embedding: &domain.EmbeddingConfig{Operation: "search"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2039,7 +2039,7 @@ func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2064,7 +2064,7 @@ func TestEngine_executeInlineSearchWeb_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2089,7 +2089,7 @@ func TestEngine_executeInlineTelephony_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2116,7 +2116,7 @@ func TestEngine_executeInlineLLM_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2141,7 +2141,7 @@ func TestEngine_executeInlineSQL_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{SQL: &domain.SQLConfig{Connection: "x", Query: "SELECT 1"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2166,7 +2166,7 @@ func TestEngine_executeInlinePython_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Python: &domain.PythonConfig{Script: "print('ok')"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2191,7 +2191,7 @@ func TestEngine_executeInlineExec_Success(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Exec: &domain.ExecConfig{Command: "echo hi"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2657,7 +2657,7 @@ func TestEngine_validateComponentInputs_UnknownKey(t *testing.T) {
 				Resources: []*domain.Resource{
 					{
 						ActionID: "comp-res",
-						Expr:     []domain.Expression{{Raw: "1+1"}},
+						Before:   []domain.ActionConfig{{Expr: "1+1"}},
 					},
 				},
 			},
@@ -2835,7 +2835,7 @@ func TestEngine_ExecuteResource_InlineAfterError(t *testing.T) {
 
 	_, err := engine.Execute(workflow, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "inline after resource failed")
+	assert.Contains(t, err.Error(), "after resource failed")
 }
 
 // --- Execute: target no output ---
@@ -2888,7 +2888,7 @@ func TestEngine_Execute_SkipConditionError(t *testing.T) {
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{{Raw: "!!!invalid syntax @@@"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -2898,9 +2898,9 @@ func TestEngine_Execute_SkipConditionError(t *testing.T) {
 	assert.Contains(t, err.Error(), "skip condition evaluation failed")
 }
 
-// --- Execute: exprBefore error ---
+// --- Execute: before block error ---
 
-func TestEngine_ExecuteResource_ExprBeforeError(t *testing.T) {
+func TestEngine_ExecuteResource_BeforeError(t *testing.T) {
 	engine := executor.NewEngine(nil)
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(nil))
 
@@ -2909,8 +2909,8 @@ func TestEngine_ExecuteResource_ExprBeforeError(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		ActionID:   "res",
-		ExprBefore: []domain.Expression{{Raw: "{{unclosed.brace"}},
+		ActionID: "res",
+		Before:   []domain.ActionConfig{{Expr: "{{unclosed.brace"}},
 	}
 
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -3072,7 +3072,7 @@ func TestEngine_executeInlineScraper_WithMock(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3099,7 +3099,7 @@ func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Embedding: &domain.EmbeddingConfig{Operation: "search"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3126,7 +3126,7 @@ func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3153,7 +3153,7 @@ func TestEngine_executeInlineSearchWeb_WithMock(t *testing.T) {
 				Before: []domain.InlineResource{
 					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3180,7 +3180,7 @@ func TestEngine_executeInlineTelephony_WithMock(t *testing.T) {
 				Before: []domain.InlineResource{
 					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3263,7 +3263,7 @@ func TestEngine_prepareLoopSchedule_MutuallyExclusive(t *testing.T) {
 					Every: "1s",
 					At:    []string{"15:00"},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}
@@ -3287,7 +3287,7 @@ func TestEngine_prepareLoopSchedule_InvalidAt(t *testing.T) {
 				Loop: &domain.LoopConfig{
 					At: []string{"not-a-valid-time"},
 				},
-				Expr: []domain.Expression{{Raw: "1+1"}},
+				Before: []domain.ActionConfig{{Expr: "1+1"}},
 			},
 		},
 	}

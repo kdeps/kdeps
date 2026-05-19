@@ -11,7 +11,7 @@ The `request` object is automatically available in expressions when running in A
 Access request data as properties:
 
 ```yaml
-expr:
+after:
   - set('method', request.method)
   - set('path', request.path)
   - set('ip', request.IP)
@@ -44,7 +44,7 @@ Get the content of an uploaded file by field name.
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('fileContent', request.file('document'))
 
 chat:
@@ -65,7 +65,7 @@ Get the file path of an uploaded file.
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('filePath', request.filepath('image'))
 
 python:
@@ -87,7 +87,7 @@ python:
 Get the MIME type of an uploaded file.
 
 ```yaml
-expr:
+after:
   - set('mimeType', request.filetype('upload'))
   - set('isImage', get('mimeType') startsWith 'image/')
 ```
@@ -102,7 +102,7 @@ expr:
 Get all uploaded files matching a specific MIME type.
 
 ```yaml
-expr:
+after:
   - set('images', request.filesByType('image/png'))
   - set('pdfs', request.filesByType('application/pdf'))
 ```
@@ -114,7 +114,7 @@ expr:
 
 **Example:**
 ```yaml
-expr:
+after:
   - set('allImages', request.filesByType('image/*'))
   - set('imageCount', len(get('allImages')))
 ```
@@ -126,7 +126,7 @@ expr:
 Get the total number of uploaded files.
 
 ```yaml
-expr:
+after:
   - set('fileCount', request.filecount())
 
 validations:
@@ -144,7 +144,7 @@ validations:
 Get a list of all uploaded file paths.
 
 ```yaml
-expr:
+after:
   - set('allFiles', request.files())
   - set('fileList', join(get('allFiles'), ', '))
 ```
@@ -156,7 +156,7 @@ expr:
 Get a list of MIME types for all uploaded files.
 
 ```yaml
-expr:
+after:
   - set('types', request.filetypes())
   - set('hasImages', contains(get('types'), 'image/png'))
 ```
@@ -170,7 +170,7 @@ expr:
 Get the entire request body as an object.
 
 ```yaml
-expr:
+after:
   - set('requestData', request.data())
   - set('userId', get('requestData').userId)
 ```
@@ -184,7 +184,7 @@ expr:
 Get a query parameter value.
 
 ```yaml
-expr:
+after:
   - set('userId', request.params('userId'))
   - set('page', request.params('page'))
 ```
@@ -201,7 +201,7 @@ expr:
 Get a request header value.
 
 ```yaml
-expr:
+after:
   - set('auth', request.header('Authorization'))
   - set('contentType', request.header('Content-Type'))
 ```
@@ -221,7 +221,7 @@ expr:
 
 ```yaml
 actionId: processUpload
-expr:
+after:
   # Check file count
   - set('fileCount', request.filecount())
   - set('hasFiles', get('fileCount') > 0)
@@ -233,7 +233,7 @@ validations:
     code: 400
     message: At least one file is required
 
-expr:
+after:
   # Get file information
   - set('filePath', request.filepath('document'))
   - set('fileType', request.filetype('document'))
@@ -254,7 +254,7 @@ chat:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   # Get all images
   - set('images', request.filesByType('image/*'))
   - set('imageCount', len(get('images')))
@@ -278,7 +278,7 @@ chat:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('requestInfo', {
       "method": request.method,
       "path": request.path,
@@ -298,7 +298,7 @@ apiResponse:
 ### Conditional Processing Based on Request
 
 ```yaml
-expr:
+after:
   - set('isPost', request.method == 'POST')
   - set('isApiPath', request.path startsWith '/api/')
   - set('hasAuth', request.header('Authorization') != nil)
@@ -317,7 +317,7 @@ validations:
 ### File Type Validation
 
 ```yaml
-expr:
+after:
   - set('fileTypes', request.filetypes())
   - set('allowedTypes', ['image/png', 'image/jpeg', 'application/pdf'])
   - set('isValid', all(get('fileTypes'), . in get('allowedTypes')))

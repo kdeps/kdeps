@@ -70,7 +70,7 @@ name: Session Handler
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/session]
-expr:
+after:
   - "{{ set('test_key', get('value'), 'session') }}"
 apiResponse:
   success: true

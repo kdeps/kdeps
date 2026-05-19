@@ -418,7 +418,7 @@ Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
 requires: [pythonResource]
-expr:
+after:
   # Check if Python script succeeded
   - set('script_success', python.exitCode('pythonResource') == 0)
   - set('error_output', python.stderr('pythonResource'))

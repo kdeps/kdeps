@@ -1108,11 +1108,11 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 		}
 	})
 
-	t.Run("loop with expr-only is valid", func(t *testing.T) {
+	t.Run("loop with before-only is valid", func(t *testing.T) {
 		resource := &domain.Resource{
 			ActionID: "loop-expr", Name: "Loop Expr",
-			Loop: &domain.LoopConfig{While: "loop.index() < 3"},
-			Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
+			Loop:   &domain.LoopConfig{While: "loop.index() < 3"},
+			Before: []domain.ActionConfig{{Expr: "set('x', loop.index())"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -1122,8 +1122,8 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 	t.Run("loop without while condition is invalid", func(t *testing.T) {
 		resource := &domain.Resource{
 			ActionID: "bad-loop", Name: "Bad Loop",
-			Loop: &domain.LoopConfig{While: ""},
-			Expr: []domain.Expression{{Raw: "set('x', 1)"}},
+			Loop:   &domain.LoopConfig{While: ""},
+			Before: []domain.ActionConfig{{Expr: "set('x', 1)"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err == nil {
 			t.Error("expected error for loop without while condition")

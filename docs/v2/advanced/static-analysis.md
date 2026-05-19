@@ -39,7 +39,7 @@ chat:
 ```
 
 ```yaml
-expr:
+after:
   - set('val', get('missingStep.output'))  # error: 'missingStep' not found
 ```
 

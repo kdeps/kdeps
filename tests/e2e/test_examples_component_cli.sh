@@ -43,7 +43,7 @@ metadata:
 resources:
   - actionId: ${name}Action
     name: ${name} Action
-    expr:
+    after:
       - set('${name}Result', '${name} executed')
 YAML
     tar -czf "$out_file" -C "$tmp" .
@@ -149,7 +149,7 @@ metadata:
 resources:
   - actionId: sayHi
     name: Say Hi
-    expr:
+    after:
       - set('hi', 'hello!')
 YAML
 cat > "$PROJ_DIR/workflow.yaml" << YAML

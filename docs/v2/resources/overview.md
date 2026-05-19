@@ -33,7 +33,7 @@ validations:
     message: Query required
 
 # Processing expressions
-exprBefore:                 # Runs BEFORE the main action
+before:                 # Runs BEFORE the main action
   - set('pre', 'value')
 expr:                       # Runs AFTER the main action (default)
   - set('post', 'value')
@@ -210,13 +210,13 @@ If validation fails, the error response is returned immediately.
 
 Execute logic before or after the main action:
 
-### exprBefore
+### before
 Runs **before** the main action. Use this to prepare data used in the resource's own configuration (like prompts or URLs).
 
 <div v-pre>
 
 ```yaml
-exprBefore:
+before:
   - set('full_name', get('first') + ' ' + get('last'))
 chat:
   prompt: "Hello {{ get('full_name') }}"
@@ -232,7 +232,7 @@ Runs **after** the main action. Use this to process results or update state for 
 ```yaml
 chat:
   prompt: "Summary of {{ get('q') }}"
-expr:
+after:
   - set('summary', get('myResourceId'))
   - set('processed_at', info('timestamp'))
 ```
@@ -277,7 +277,7 @@ loop:
   while: "loop.index() < 5"
   maxIterations: 1000   # safety cap (default: 1000)
   every: "1s"           # optional: wait 1 second between iterations
-expr:
+after:
   - "{{ set('result', loop.count()) }}"
 apiResponse:
   success: true
@@ -348,7 +348,7 @@ For each resource (in order):
     └────────┬────────┘
              ↓
     ┌─────────────────┐
-    │ Execute exprBefore │
+    │ Execute before │
     └────────┬────────┘
              ↓
     ┌─────────────────┐

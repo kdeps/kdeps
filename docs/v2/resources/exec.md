@@ -276,7 +276,7 @@ Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
 requires: [execResource]
-expr:
+after:
   # Check if command succeeded
   - set('command_success', exec.exitCode('execResource') == 0)
   - set('error_output', exec.stderr('execResource'))

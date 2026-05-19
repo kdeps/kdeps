@@ -9,7 +9,7 @@ KDeps expressions support advanced features beyond basic operators and functions
 Filter arrays based on conditions:
 
 ```yaml
-expr:
+after:
   # Filter active items
   - set('activeUsers', filter(get('users'), .status == 'active'))
 
@@ -25,7 +25,7 @@ expr:
 Transform arrays by extracting or computing values:
 
 ```yaml
-expr:
+after:
   # Extract names from user objects
   - set('userNames', map(get('users'), .name))
 
@@ -39,7 +39,7 @@ expr:
 ### Array Aggregation
 
 ```yaml
-expr:
+after:
   # Sum of numbers
   - set('total', sum(get('prices')))
 
@@ -56,7 +56,7 @@ expr:
 ### Array Slicing
 
 ```yaml
-expr:
+after:
   # First 5 items
   - set('firstFive', slice(get('items'), 0, 5))
 
@@ -72,7 +72,7 @@ expr:
 ### Case Conversion
 
 ```yaml
-expr:
+after:
   - set('lowercase', lower(get('text')))
   - set('uppercase', upper(get('text')))
   - set('trimmed', trim(get('text')))
@@ -81,7 +81,7 @@ expr:
 ### String Manipulation
 
 ```yaml
-expr:
+after:
   # Split string into array
   - set('words', split(get('csv'), ','))
   - set('lines', split(get('text'), '\n'))
@@ -97,7 +97,7 @@ expr:
 ### String Matching
 
 ```yaml
-expr:
+after:
   # Check if contains substring
   - set('hasKeyword', contains(get('text'), 'important'))
 
@@ -116,7 +116,7 @@ expr:
 ### Type Checking
 
 ```yaml
-expr:
+after:
   - set('valueType', type(get('value')))
   # Returns: "string", "number", "boolean", "array", "object", "null"
 ```
@@ -124,7 +124,7 @@ expr:
 ### Type Conversion
 
 ```yaml
-expr:
+after:
   # Convert to integer
   - set('age', int(get('ageString')))
 
@@ -151,7 +151,7 @@ expr:
 ### Current Time
 
 ```yaml
-expr:
+after:
   - set('now', now())
   # Returns: ISO 8601 timestamp string
 ```
@@ -159,7 +159,7 @@ expr:
 ### Date Formatting
 
 ```yaml
-expr:
+after:
   # Format current time
   - set('date', format(now(), '2006-01-02'))
   - set('datetime', format(now(), '2006-01-02 15:04:05'))
@@ -177,7 +177,7 @@ expr:
 ### First and Last
 
 ```yaml
-expr:
+after:
   - set('firstItem', first(get('items')))
   - set('lastItem', last(get('items')))
 ```
@@ -185,7 +185,7 @@ expr:
 ### Length
 
 ```yaml
-expr:
+after:
   # Array length
   - set('itemCount', len(get('items')))
 
@@ -198,7 +198,7 @@ expr:
 ### Ternary Operator
 
 ```yaml
-expr:
+after:
   - set('status', get('score') >= 70 ? 'pass' : 'fail')
   - set('discount', get('isPremium') ? 0.2 : 0.1)
 ```
@@ -206,7 +206,7 @@ expr:
 ### Null Coalescing
 
 ```yaml
-expr:
+after:
   # Default value if null
   - set('name', get('name') ?? 'Anonymous')
   - set('limit', get('limit') ?? 10)
@@ -219,7 +219,7 @@ expr:
 ### Data Transformation Pipeline
 
 ```yaml
-expr:
+after:
   # Filter and transform
   - set('activeUsers', filter(get('users'), .status == 'active'))
   - set('userEmails', map(get('activeUsers'), .email))
@@ -233,7 +233,7 @@ expr:
 ### Validation with Expressions
 
 ```yaml
-expr:
+after:
   # Complex validation logic
   - set('isValidEmail', matches(get('email'), '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'))
   - set('isValidAge', get('age') >= 18 && get('age') <= 120)
@@ -251,7 +251,7 @@ validations:
 ### Dynamic Configuration
 
 ```yaml
-expr:
+after:
   # Build configuration from multiple sources
   - set('config', {
       "timeout": default(get('TIMEOUT', 'env'), 30),

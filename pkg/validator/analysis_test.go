@@ -210,18 +210,18 @@ func TestAnalyzeWorkflow_ExpressionRef_DedupedPerResource(t *testing.T) {
 	assert.Len(t, wa.Errors(), 1)
 }
 
-func TestAnalyzeWorkflow_ExpressionInExpr(t *testing.T) {
+func TestAnalyzeWorkflow_ExpressionInAfter(t *testing.T) {
 	r := mkResource("target")
-	r.Expr = []domain.Expression{{Raw: "output('missing')"}}
+	r.After = []domain.ActionConfig{{Expr: "output('missing')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
+func TestAnalyzeWorkflow_ExpressionInBefore(t *testing.T) {
 	r := mkResource("target")
-	r.ExprBefore = []domain.Expression{{Raw: "output('gone')"}}
+	r.Before = []domain.ActionConfig{{Expr: "output('gone')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)

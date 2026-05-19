@@ -298,14 +298,6 @@ func extractActionIDRefs(s string) []string {
 func collectResourceStrings(r *domain.Resource) []string {
 	var out []string
 
-	appendExprs := func(exprs []domain.Expression) {
-		for _, e := range exprs {
-			out = append(out, e.Raw)
-		}
-	}
-
-	appendExprs(r.ExprBefore)
-	appendExprs(r.Expr)
 	out = append(out, collectOnErrorStrings(r.OnError)...)
 	out = append(out, collectValidationStrings(r.Validations)...)
 	out = append(out, collectChatStrings(r.Chat)...)
@@ -404,6 +396,9 @@ func collectInlineListStrings(inlines []domain.InlineResource) []string {
 // collectInlineStrings collects expression strings from an inline (before/after) action.
 func collectInlineStrings(ac *domain.ActionConfig) []string {
 	var out []string
+	if ac.Expr != "" {
+		out = append(out, ac.Expr)
+	}
 	if ac.Chat != nil {
 		out = append(out, ac.Chat.Prompt)
 	}

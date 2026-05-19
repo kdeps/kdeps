@@ -60,7 +60,7 @@ Resources with inline resources execute in the following order:
 
 Example:
 ```yaml
-exprBefore:
+before:
   - set('start_time', now())
 
 before:
@@ -73,7 +73,7 @@ after:
   - sql: { ... }         # Step 4
   - python: { ... }      # Step 5
 
-expr:
+after:
   - set('duration', now() - get('start_time'))
 
 apiResponse:
@@ -240,11 +240,11 @@ onError:
 Inline resources have access to the full execution context:
 
 ```yaml
-exprBefore:
+before:
   - set('user_id', get('input.user_id'))
 
 before:
-  # Access variables set in exprBefore
+  # Access variables set in before
   - httpClient:
       method: GET
       url: "https://api.example.com/user/{{get('user_id')}}"
@@ -359,13 +359,13 @@ after:
 Use expressions with inline resources:
 
 ```yaml
-exprBefore:
+before:
   - set('should_notify', get('input.notify') == true)
 
 chat:
   prompt: "{{get('prompt')}}"
 
-expr:
+after:
   - if(get('should_notify'), 
       set('notification_sent', true),
       set('notification_sent', false))
@@ -395,7 +395,7 @@ after:
 
 ## See Also
 
-- [Expression Blocks](/advanced/expr-blocks) - Using `exprBefore` and `exprAfter`
+- [Expression Blocks](/advanced/expr-blocks) - Using `before` and `exprAfter`
 - [Error Handling](error-handling.md) - Handling errors in resources
 - [Items](items.md) - Iterating over collections
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples/inline-resources) - Complete example with inline resources

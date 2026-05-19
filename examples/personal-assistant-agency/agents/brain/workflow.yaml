@@ -412,7 +412,7 @@ resources:
   - actionId: extract-reply
     name: Extract Reply Text
     requires: [think]
-    expr:
+    after:
       - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
     exec:
       command: echo

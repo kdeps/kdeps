@@ -54,14 +54,7 @@ func (e *Engine) ExecuteResource(
 		// If already in items context, continue with normal execution
 	}
 
-	// Execute exprBefore blocks (run BEFORE primary execution type).
-	if len(resource.ExprBefore) > 0 {
-		if err := e.executeExpressions(resource.ExprBefore, ctx); err != nil {
-			return nil, err
-		}
-	}
-
-	// Execute inline "before" resources
+	// Execute inline "before" entries (expression steps and inline resources).
 	if len(resource.Before) > 0 {
 		if err := e.executeInlineResources(resource.Before, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)
@@ -119,17 +112,10 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Execute inline "after" resources
+	// Execute after entries (expression steps and inline resources after primary).
 	if len(resource.After) > 0 {
 		if err = e.executeInlineResources(resource.After, ctx); err != nil {
-			return nil, fmt.Errorf("inline after resource failed: %w", err)
-		}
-	}
-
-	// Execute expr blocks (run AFTER primary execution type for backward compatibility).
-	if len(resource.Expr) > 0 {
-		if err = e.executeExpressions(resource.Expr, ctx); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("after resource failed: %w", err)
 		}
 	}
 
@@ -150,9 +136,8 @@ func (e *Engine) ExecuteResource(
 		return primaryResult, nil
 	}
 
-	// If only expressions (exprBefore, expr) or inline resources, return status
-	if len(resource.ExprBefore) > 0 || len(resource.Expr) > 0 ||
-		len(resource.Before) > 0 || len(resource.After) > 0 {
+	// If only before/after entries (expressions or inline resources), return status
+	if len(resource.Before) > 0 || len(resource.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -487,6 +472,13 @@ func (e *Engine) executeInlineResources(
 
 		// Execute the inline resource based on its type
 		switch {
+		case inline.Expr != "":
+			expr := domain.Expression{}
+			expr.Raw = inline.Expr
+			if exprErr := e.executeExpressions([]domain.Expression{expr}, ctx); exprErr != nil {
+				return fmt.Errorf("expression at index %d failed: %w", i, exprErr)
+			}
+			continue
 		case inline.Chat != nil:
 			result, err = e.executeInlineLLM(inline.Chat, ctx)
 		case inline.HTTPClient != nil:

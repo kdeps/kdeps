@@ -173,6 +173,40 @@ chat:
 				assert.Equal(t, "main-model", resource.Chat.Model)
 			},
 		},
+		{
+			name: "bare scalar expression in before",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - "{{ set('x', 1) }}"
+chat:
+  model: test-model
+  role: user
+  prompt: test
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 1)
+				assert.Equal(t, "{{ set('x', 1) }}", resource.Before[0].Expr)
+			},
+		},
+		{
+			name: "bare scalar expression in after",
+			yaml: `
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - "{{ get('test') }}"
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.After, 1)
+				assert.Equal(t, "{{ get('test') }}", resource.After[0].Expr)
+			},
+		},
 	}
 
 	for _, tt := range tests {

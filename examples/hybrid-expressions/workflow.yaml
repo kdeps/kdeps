@@ -25,7 +25,7 @@ settings:
 resources:
   - actionId: setup
     name: Setup Values
-    expr:
+    after:
       - set('value', 21)
       - set('multiplier', 2)
       - set('base_price', 50)

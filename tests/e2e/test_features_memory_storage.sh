@@ -63,7 +63,7 @@ name: Set Memory
 
 restrictToHttpMethods: [POST]
 restrictToRoutes: [/api/v1/set]
-expr:
+after:
   - "{{ set('test_key', get('value'), 'memory') }}"
 apiResponse:
   success: true

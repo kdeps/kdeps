@@ -76,7 +76,7 @@ ttl: "7d"     # 7 days (168h)
 ### Store Data
 
 ```yaml
-expr:
+after:
   # Store user ID
   - set('user_id', '123', 'session')
 
@@ -117,7 +117,7 @@ validations:
     code: 400
     message: Username and password required
 
-expr:
+after:
   # Validate credentials (simplified)
   - set('authenticated', get('username') == 'admin', 'session')
   - set('user', get('username'), 'session')
@@ -157,7 +157,7 @@ chat:
 metadata:
   actionId: addToCart
 
-expr:
+after:
   - set('cart', get('cart', 'session') + [get('item')], 'session')
 
 apiResponse:
@@ -185,7 +185,7 @@ apiResponse:
 metadata:
   actionId: savePrefs
 
-expr:
+after:
   - set('language', get('language', 'en'), 'session')
   - set('timezone', get('timezone', 'UTC'), 'session')
   - set('theme', get('theme', 'light'), 'session')

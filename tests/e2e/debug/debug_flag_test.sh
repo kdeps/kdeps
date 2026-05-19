@@ -26,7 +26,7 @@ metadata:
   actionId: done
   name: test
 run:
-  expr:
+  after:
     - "set('result', 'ok')"
 YAML
 

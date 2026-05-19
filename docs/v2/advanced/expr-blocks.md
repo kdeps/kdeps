@@ -1,10 +1,13 @@
-# Expression Blocks (expr)
+# Inline Resource Blocks (before / after)
 
-Expression blocks (`expr`) allow you to execute expressions before the main resource action runs. This is useful for pre-processing, data transformation, and side effects like storing values in memory or session.
+Inline resource blocks (`before` and `after`) allow you to execute expressions and actions around the main resource action. Use `before:` for pre-processing and `after:` for post-processing.
 
 ## Overview
 
-The `expr` block executes expressions **before** the resource's main action (chat, httpClient, sql, etc.). Expressions run in sequence and can:
+- `before:` executes **before** the resource's main action (chat, httpClient, sql, etc.)
+- `after:` executes **after** the resource's main action
+
+Both accept bare scalar expressions and action config maps. Items in each array execute in order and can:
 
 - Transform data with `set()`
 - Store values in memory or session
@@ -19,7 +22,7 @@ The `expr` block executes expressions **before** the resource's main action (cha
 
 actionId: preProcessor
 name: Pre-Processor
-expr:
+after:
   - set('normalized_input', get('q').toLowerCase())
   - set('timestamp', info('now'))
   - set('user_id', get('userId', 'session'))
@@ -37,7 +40,7 @@ chat:
 Transform data before using it:
 
 ```yaml
-expr:
+after:
   - set('cleaned_data', get('rawData').trim())
   - set('formatted_date', formatDate(get('date'), 'YYYY-MM-DD'))
 
@@ -55,7 +58,7 @@ Store values for later use:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('last_query', get('q'), 'memory')
   - set('query_count', get('query_count', 'memory', 0) + 1, 'memory')
   - set('user_preferences', get('prefs'), 'session')
@@ -71,7 +74,7 @@ chat:
 Perform calculations before execution:
 
 ```yaml
-expr:
+after:
   - set('total', get('price') * get('quantity'))
   - set('discount', get('total') * 0.1)
   - set('final_price', get('total') - get('discount'))
@@ -88,7 +91,7 @@ apiResponse:
 Set values based on conditions:
 
 ```yaml
-expr:
+after:
   - set('mode', get('env') == 'production' ? 'strict' : 'debug')
   - set('cache_ttl', get('mode') == 'strict' ? '1h' : '5m')
 
@@ -123,7 +126,7 @@ Request
 ### Pattern 1: Data Normalization
 
 ```yaml
-expr:
+after:
   - set('normalized_email', get('email').toLowerCase().trim())
   - set('normalized_name', get('name').trim())
 
@@ -141,7 +144,7 @@ sql:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('request_id', generateUUID())
   - set('request_count', get('request_count', 'memory', 0) + 1, 'memory')
   - set('last_request_time', info('now'), 'memory')
@@ -155,7 +158,7 @@ chat:
 ### Pattern 3: Data Aggregation
 
 ```yaml
-expr:
+after:
   - set('items', get('previousResource'))
   - set('total_items', len(get('items')))
   - set('total_value', sum(get('items').map(item => item.price)))
@@ -170,7 +173,7 @@ apiResponse:
 ### Pattern 4: Error Handling Preparation
 
 ```yaml
-expr:
+after:
   - set('fallback_value', get('default', 'memory', 'N/A'))
   - set('retry_count', get('retry_count', 'memory', 0))
 
@@ -188,7 +191,7 @@ You can create resources that only execute expressions (no main action):
 
 actionId: setupContext
 name: Setup Context
-expr:
+after:
   - set('session_id', generateUUID())
   - set('start_time', info('now'))
   - set('environment', get('ENV', 'env', 'development'))
@@ -204,7 +207,7 @@ Values set in `expr` blocks are immediately available via `get()`:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('processed_data', processData(get('raw_data')))
 
 # Use the processed data
@@ -220,12 +223,12 @@ chat:
 
 ```yaml
 # Good: Simple, clear expressions
-expr:
+after:
   - set('normalized', get('input').trim())
   - set('count', len(get('items')))
 
 # Avoid: Complex logic (use Python resource instead)
-expr:
+after:
   - set('result', complexCalculation(get('data')))
 ```
 
@@ -233,7 +236,7 @@ expr:
 
 ```yaml
 # Good: Storing state
-expr:
+after:
   - set('last_action', get('action'), 'memory')
   - set('timestamp', info('now'), 'session')
 
@@ -246,7 +249,7 @@ Expressions execute in sequence:
 
 ```yaml
 # Correct order
-expr:
+after:
   - set('step1', process(get('input')))
   - set('step2', process(get('step1')))
   - set('final', process(get('step2')))
@@ -271,7 +274,7 @@ expr:
 
 actionId: loggedRequest
 name: Logged Request
-expr:
+after:
   - set('request_id', generateUUID())
   - set('request_time', info('now'))
   - set('request_log', {
@@ -294,7 +297,7 @@ chat:
 
 actionId: validatedInput
 name: Validated Input
-expr:
+after:
   - set('email', get('email').toLowerCase().trim())
   - set('age', parseInt(get('age')))
   - set('is_valid', get('email').includes('@') && get('age') >= 18)
@@ -320,7 +323,7 @@ chat:
 
 actionId: sessionHandler
 name: Session Handler
-expr:
+after:
   - set('session_id', get('session_id', 'session', generateUUID()), 'session')
   - set('visit_count', get('visit_count', 'session', 0) + 1, 'session')
   - set('last_visit', info('now'), 'session')

@@ -1009,9 +1009,9 @@ func TestEngine_executeWithItems(t *testing.T) {
 		ActionID: "test-resource",
 		Name:     "Test Resource",
 
-		Expr: []domain.Expression{
-			{Raw: "items[0]"},
-			{Raw: "items[1]"},
+		Before: []domain.ActionConfig{
+			{Expr: "items[0]"},
+			{Expr: "items[1]"},
 		},
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
@@ -1060,8 +1060,8 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 						While:         "loop.index() < 3",
 						MaxIterations: 10,
 					},
-					Expr: []domain.Expression{
-						{Raw: "set('counter', loop.count())"},
+					Before: []domain.ActionConfig{
+						{Expr: "set('counter', loop.count())"},
 					},
 					APIResponse: &domain.APIResponseConfig{
 						Success:  true,
@@ -1150,8 +1150,8 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				While:         "true", // always true – would run forever without cap
 				MaxIterations: 3,
 			},
-			Expr: []domain.Expression{
-				{Raw: "set('ticks', loop.count())"},
+			Before: []domain.ActionConfig{
+				{Expr: "set('ticks', loop.count())"},
 			},
 			// In this test there is no apiResponse; multiple iterations return a slice
 			// of per-iteration results from ExecuteWithLoop.
@@ -1188,8 +1188,8 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				While:         "true",
 				MaxIterations: 3,
 			},
-			Expr: []domain.Expression{
-				{Raw: "set('ticks', loop.count())"},
+			Before: []domain.ActionConfig{
+				{Expr: "set('ticks', loop.count())"},
 			},
 			// apiResponse runs per-iteration; 3 iterations → 3 apiResponse maps (streaming).
 			APIResponse: &domain.APIResponseConfig{
@@ -1233,8 +1233,8 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				While:         "loop.index() < 2",
 				MaxIterations: 5,
 			},
-			Expr: []domain.Expression{
-				{Raw: "set('last_index', loop.index())"},
+			Before: []domain.ActionConfig{
+				{Expr: "set('last_index', loop.index())"},
 			},
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
@@ -1269,8 +1269,8 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 					While:         "len(loop.results()) < 3",
 					MaxIterations: 10,
 				},
-				Expr: []domain.Expression{
-					{Raw: "set('count', loop.count())"},
+				Before: []domain.ActionConfig{
+					{Expr: "set('count', loop.count())"},
 				},
 				// No apiResponse: loop returns the slice of per-iteration results so we can check len.
 			}
@@ -1301,9 +1301,9 @@ func TestEngine_ExecuteWithLoop(t *testing.T) {
 				While:         "default(get('step', 'loop'), 0) < 3",
 				MaxIterations: 10,
 			},
-			Expr: []domain.Expression{
+			Before: []domain.ActionConfig{
 				// Use set with 'loop' type hint (parallel to set('key', val, 'item'))
-				{Raw: "set('step', loop.count(), 'loop')"},
+				{Expr: "set('step', loop.count(), 'loop')"},
 			},
 			// No apiResponse: loop returns a slice so we can verify iteration count.
 		}
@@ -4375,8 +4375,8 @@ func TestEngine_buildEvaluationEnvironment_Coverage(t *testing.T) {
 			ActionID: "test-resource",
 			Name:     "Test Resource",
 
-			Expr: []domain.Expression{
-				{Raw: "input.counter + 1"}, // Simple expression that should evaluate
+			Before: []domain.ActionConfig{
+				{Expr: "input.counter + 1"}, // Simple expression that should evaluate
 			},
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
@@ -4789,8 +4789,8 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 			ActionID: "expressions-only",
 			Name:     "Expressions Only",
 
-			Expr: []domain.Expression{
-				{Raw: "set('test', 'executed')"},
+			Before: []domain.ActionConfig{
+				{Expr: "set('test', 'executed')"},
 			},
 			// No Chat, HTTPClient, SQL, Python, Exec, or APIResponse - should hit default case
 		}
@@ -4875,8 +4875,8 @@ func TestExecuteResource_EdgeCases(t *testing.T) {
 			ActionID: "bad-expr",
 			Name:     "Bad Expression",
 
-			Expr: []domain.Expression{
-				{Raw: "invalid.syntax.expression"}, // Should cause parse error
+			Before: []domain.ActionConfig{
+				{Expr: "invalid.syntax.expression"}, // Should cause parse error
 			},
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
@@ -4909,9 +4909,9 @@ func TestEngine_SessionSetGet_E2E(t *testing.T) {
 				ActionID: "sessionResponse",
 				Name:     "Session Response",
 
-				Expr: []domain.Expression{
-					{Raw: "{{ set('user_id', 'testuser', 'session') }}"},
-					{Raw: "{{ set('logged_in', true, 'session') }}"},
+				Before: []domain.ActionConfig{
+					{Expr: "{{ set('user_id', 'testuser', 'session') }}"},
+					{Expr: "{{ set('logged_in', true, 'session') }}"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -5005,8 +5005,8 @@ func TestLoop_TuringCompleteness_Counter(t *testing.T) {
 			While:         "loop.index() < 5",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('n', loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('n', loop.count())"},
 		},
 	}
 
@@ -5041,8 +5041,8 @@ func TestLoop_TuringCompleteness_Accumulator(t *testing.T) {
 			While:         "loop.index() < 4",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
 		},
 	}
 
@@ -5074,8 +5074,8 @@ func TestLoop_TuringCompleteness_MutableStateTransition(t *testing.T) {
 			While:         "int(default(get('phase'), 0)) < 3",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('phase', int(default(get('phase'), 0)) + 1)"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('phase', int(default(get('phase'), 0)) + 1)"},
 		},
 	}
 
@@ -5111,8 +5111,8 @@ func TestLoop_TuringCompleteness_AccumulateResults(t *testing.T) {
 			While:         "len(loop.results()) < 4",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('iters', loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('iters', loop.count())"},
 		},
 	}
 
@@ -5143,9 +5143,9 @@ func TestLoop_TuringCompleteness_ConditionalEarlyExit(t *testing.T) {
 			While:         "get('done') == nil",
 			MaxIterations: 100,
 		},
-		Expr: []domain.Expression{
+		Before: []domain.ActionConfig{
 			// On 2nd iteration, set 'done' which will terminate the loop on the next while check.
-			{Raw: "loop.index() >= 1 ? set('done', true) : set('noop', 0)"},
+			{Expr: "loop.index() >= 1 ? set('done', true) : set('noop', 0)"},
 		},
 	}
 
@@ -5175,8 +5175,8 @@ func TestLoop_TuringCompleteness_StreamingAPIResponse(t *testing.T) {
 			While:         "loop.index() < 3",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('tick', loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('tick', loop.count())"},
 		},
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
@@ -5218,8 +5218,8 @@ func TestLoop_WhileExprWithBraceWrappers(t *testing.T) {
 			While:         "{{ loop.index() < 2 }}",
 			MaxIterations: 5,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('brace_ok', true)"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('brace_ok', true)"},
 		},
 	}
 
@@ -5249,8 +5249,8 @@ func TestLoop_SingleIteration_ReturnsSingleValue(t *testing.T) {
 			While:         "loop.index() < 1",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('once', 42)"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('once', 42)"},
 		},
 	}
 
@@ -5282,8 +5282,8 @@ func TestLoop_EvaluatorInitialisedFreshEngine(t *testing.T) {
 			While:         "loop.index() < 2",
 			MaxIterations: 5,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('ok', true)"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('ok', true)"},
 		},
 	}
 
@@ -5314,8 +5314,8 @@ func TestLoop_IterationBodyError(t *testing.T) {
 			While:         "loop.index() < 3",
 			MaxIterations: 10,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('a', b +++ c)"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('a', b +++ c)"},
 		},
 	}
 
@@ -5348,8 +5348,8 @@ func TestLoop_DefaultMaxIterations(t *testing.T) {
 			// MaxIterations is 0 → use default (1000).
 			While: "true",
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('ticks', loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('ticks', loop.count())"},
 		},
 	}
 
@@ -5402,13 +5402,13 @@ func TestCtxLoop_AllPaths(t *testing.T) {
 			While:         "loop.index() < 1",
 			MaxIterations: 5,
 		},
-		Expr: []domain.Expression{
+		Before: []domain.ActionConfig{
 			// Capture loop.index, loop.count, loop.results via set.
-			{Raw: "set('_idx', loop.index())"},
-			{Raw: "set('_cnt', loop.count())"},
-			{Raw: "set('_res', loop.results())"},
+			{Expr: "set('_idx', loop.index())"},
+			{Expr: "set('_cnt', loop.count())"},
+			{Expr: "set('_res', loop.results())"},
 			// Store a value with 'loop' scoped storage type.
-			{Raw: "set('myKey', 'hello', 'loop')"},
+			{Expr: "set('myKey', 'hello', 'loop')"},
 		},
 	}
 
@@ -5449,8 +5449,8 @@ func TestLoop_LoopAndSkipCondition(t *testing.T) {
 					While:         "loop.index() < 3",
 					MaxIterations: 10,
 				},
-				Expr: []domain.Expression{
-					{Raw: "set('ran', loop.count())"},
+				Before: []domain.ActionConfig{
+					{Expr: "set('ran', loop.count())"},
 				},
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
@@ -5492,8 +5492,8 @@ func TestLoop_ViaToplevelExecute(t *testing.T) {
 					While:         "loop.index() < 2",
 					MaxIterations: 5,
 				},
-				Expr: []domain.Expression{
-					{Raw: "set('done', loop.count())"},
+				Before: []domain.ActionConfig{
+					{Expr: "set('done', loop.count())"},
 				},
 			},
 		},
@@ -5532,8 +5532,8 @@ func TestLoop_TuringCompleteness_BusyBeaver(t *testing.T) {
 			While:         "int(default(get('sum'), 0)) <= 10",
 			MaxIterations: 100,
 		},
-		Expr: []domain.Expression{
-			{Raw: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
+		Before: []domain.ActionConfig{
+			{Expr: "set('sum', int(default(get('sum'), 0)) + loop.count())"},
 		},
 	}
 

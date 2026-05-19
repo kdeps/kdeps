@@ -23,7 +23,7 @@ Access request body fields as properties:
 ```yaml
 
 
-expr:
+after:
 
   - set('query', input.q)
 
@@ -61,7 +61,7 @@ chat:
 Access nested object properties:
 
 ```yaml
-expr:
+after:
   - set('city', input.user.address.city)
   - set('email', input.user.email)
 ```
@@ -80,12 +80,12 @@ The `input` object is a convenience wrapper around request body data. Both appro
 
 ```yaml
 # Using input object
-expr:
+after:
   - set('name', input.name)
   - set('email', input.user.email)
 
 # Equivalent using Unified API
-expr:
+after:
   - set('name', get('name'))
   - set('email', get('user').email)
 ```
@@ -119,7 +119,7 @@ validations:
       type: string
       format: email
 
-expr:
+after:
   - set('userName', input.name)
   - set('userEmail', input.email)
 
@@ -138,7 +138,7 @@ sql:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   # Access nested properties
   - set('shippingCity', input.order.shippingAddress.city)
   - set('billingEmail', input.order.billing.email)
@@ -157,7 +157,7 @@ chat:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('items', input.items)
   - set('totalItems', len(get('items')))
   - set('firstItem', get('items')[0])
@@ -175,7 +175,7 @@ chat:
 <div v-pre>
 
 ```yaml
-expr:
+after:
   - set('hasItems', input.items != nil && len(input.items) > 0)
   - set('isPremium', input.user.tier == 'premium')
 
@@ -197,7 +197,7 @@ chat:
 The `input` object is the same as `request.body`:
 
 ```yaml
-expr:
+after:
   # These are equivalent:
   - set('name1', input.name)
   - set('name2', request.body.name)
