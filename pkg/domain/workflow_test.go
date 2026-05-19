@@ -475,6 +475,19 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 			},
 			want: 16395,
 		},
+		{
+			name:     "returns top-level PortNum when set",
+			settings: &domain.WorkflowSettings{PortNum: 8080},
+			want:     8080,
+		},
+		{
+			name: "top-level PortNum takes precedence over APIServer",
+			settings: &domain.WorkflowSettings{
+				PortNum:   8080,
+				APIServer: &domain.APIServerConfig{PortNum: 9090},
+			},
+			want: 8080,
+		},
 	}
 
 	for _, tt := range tests {

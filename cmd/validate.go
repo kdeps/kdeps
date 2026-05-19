@@ -25,10 +25,10 @@ import (
 	"os"
 	"path/filepath"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
 	"github.com/spf13/cobra"
+	goyaml "gopkg.in/yaml.v3"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
@@ -91,7 +91,7 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 	}
 
 	if !info.IsDir() {
-		// It's a file - route by filename.
+		// It's a file - route by filename then by content.
 		base := filepath.Base(inputPath)
 		switch { //nolint:staticcheck // multi-value cases prevent tagged switch
 		case base == agencyFile || base == agencyYMLFile:
@@ -99,6 +99,9 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 		case base == "component.yaml" || base == "component.yml":
 			return validateComponentFile(inputPath)
 		default:
+			if isResourceFile(inputPath) {
+				return validateResourceFile(inputPath)
+			}
 			return validateWorkflowFile(inputPath)
 		}
 	}
@@ -118,6 +121,46 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 		)
 	}
 	return validateWorkflowFile(workflowPath)
+}
+
+// isResourceFile reports whether the YAML file at path has a top-level actionId key,
+// indicating it is a standalone resource file rather than a full workflow.
+func isResourceFile(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var top map[string]interface{}
+	if unmarshalErr := goyaml.Unmarshal(data, &top); unmarshalErr != nil {
+		return false
+	}
+	_, ok := top["actionId"]
+	return ok
+}
+
+func validateResourceFile(resourcePath string) error {
+	kdeps_debug.Log("enter: validateResourceFile")
+	fmt.Fprintf(os.Stdout, "Validating resource: %s\n\n", resourcePath)
+
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		kdepslog.Error("validation failed", "error", err)
+		return err
+	}
+	exprParser := expression.NewParser()
+	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+
+	if _, parseErr := yamlParser.ParseResource(resourcePath); parseErr != nil {
+		kdepslog.Error("validation failed", "error", parseErr)
+		return parseErr
+	}
+
+	fmt.Fprintln(os.Stdout, "- YAML syntax valid")
+	fmt.Fprintln(os.Stdout, "- Schema validation passed")
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "Validation successful!")
+
+	return nil
 }
 
 func validateWorkflowFile(workflowPath string) error {

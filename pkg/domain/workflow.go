@@ -132,6 +132,7 @@ type WorkflowMetadata struct {
 type WorkflowSettings struct {
 	CertFile       string                   `yaml:"certFile,omitempty"`
 	KeyFile        string                   `yaml:"keyFile,omitempty"`
+	PortNum        int                      `yaml:"portNum,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
@@ -273,6 +274,9 @@ func (w *WorkflowSettings) GetHostIP() string {
 // GetPortNum returns the resolved port number from the server config or default.
 func (w *WorkflowSettings) GetPortNum() int {
 	kdeps_debug.Log("enter: GetPortNum")
+	if w.PortNum > 0 {
+		return w.PortNum
+	}
 	if w.APIServer != nil && w.APIServer.PortNum > 0 {
 		return w.APIServer.PortNum
 	}

@@ -68,6 +68,23 @@ python:
 	assert.NoError(t, err)
 }
 
+func TestRunValidateCmd_ResourceFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	resourceContent := `actionId: readConfig
+name: Read Config
+exec:
+  command: "echo hello"
+  timeoutDuration: 5s
+`
+	resourcePath := filepath.Join(tmpDir, "read-config.yaml")
+	err := os.WriteFile(resourcePath, []byte(resourceContent), 0644)
+	require.NoError(t, err)
+
+	err = cmd.RunValidateCmd(&cobra.Command{}, []string{resourcePath})
+	assert.NoError(t, err)
+}
+
 func TestRunValidateCmd_InvalidPath(t *testing.T) {
 	err := cmd.RunValidateCmd(&cobra.Command{}, []string{"/nonexistent/path/workflow.yaml"})
 	// Returns an error when file doesn't exist

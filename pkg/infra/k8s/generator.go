@@ -97,13 +97,13 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 		Resources: workflow.Settings.AgentSettings.Resources,
 	}
 
-	// Extract ports
-	port := workflow.Settings.GetPortNum()
-	if workflow.Settings.APIServer != nil {
+	// Extract ports: only set when explicitly configured.
+	if workflow.Settings.PortNum > 0 || workflow.Settings.APIServer != nil || workflow.Settings.WebServer != nil {
+		port := workflow.Settings.GetPortNum()
 		data.APIPort = port
-	}
-	if workflow.Settings.WebServer != nil {
-		data.WebServerPort = port
+		if workflow.Settings.WebServer != nil {
+			data.WebServerPort = port
+		}
 	}
 
 	// Backend port (Ollama)
