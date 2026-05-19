@@ -102,7 +102,7 @@ greeting: "Good {{timeOfDay}}, {{userName}}!"
 
 ### Current (expr-lang only)
 ```yaml
-expr:
+before:
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('total', get('price') * get('quantity'))
   - set('discounted', get('total') * (1 - get('discount')))
@@ -117,7 +117,7 @@ apiResponse:
 
 ### With Hybrid (best of both!)
 ```yaml
-expr:
+before:
   # Complex logic still uses expr-lang (no change)
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('total', price * quantity)           # ← Can drop get()!
@@ -280,7 +280,7 @@ config:
 
 ### Current (expr-lang only)
 ```yaml
-expr:
+before:
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
   - set('llmResult', get('llmResource'))
@@ -299,7 +299,7 @@ apiResponse:
 
 ### With Hybrid (readable!)
 ```yaml
-expr:
+before:
   # Complex logic STAYS expr-lang
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')

@@ -61,7 +61,7 @@ type inputValidator interface {
 
 type exprValidator interface {
 	ValidateCustomRules(
-		rules []domain.CustomRule,
+		exprs []domain.Expression,
 		evaluator *expression.Evaluator,
 		env map[string]interface{},
 	) error

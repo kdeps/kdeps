@@ -344,19 +344,9 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 				Name:     "Response",
 
 				Validations: &domain.ValidationsConfig{
-					Expr: []domain.CustomRule{
-						{
-							Expr: domain.Expression{
-								Raw: "get('password') == get('confirmPassword')",
-							},
-							Message: "Passwords must match",
-						},
-						{
-							Expr: domain.Expression{
-								Raw: "get('age') >= 18",
-							},
-							Message: "Must be 18 or older",
-						},
+					Expr: []domain.Expression{
+						{Raw: "get('password') == get('confirmPassword')"},
+						{Raw: "get('age') >= 18"},
 					},
 				},
 				APIResponse: &domain.APIResponseConfig{
@@ -395,7 +385,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 				"age":             25,
 			},
 			shouldFail:    true,
-			expectedError: "Passwords must match",
+			expectedError: "expression failed",
 		},
 		{
 			name: "invalid - age too young",
@@ -405,7 +395,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 				"age":             15,
 			},
 			shouldFail:    true,
-			expectedError: "Must be 18 or older",
+			expectedError: "expression failed",
 		},
 	}
 
@@ -526,13 +516,8 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 							MinLength: func() *int { v := 2; return &v }(),
 						},
 					},
-					Expr: []domain.CustomRule{
-						{
-							Expr: domain.Expression{
-								Raw: "len(get('name')) > 0",
-							},
-							Message: "Name must not be empty",
-						},
+					Expr: []domain.Expression{
+						{Raw: "len(get('name')) > 0"},
 					},
 				},
 				APIResponse: &domain.APIResponseConfig{

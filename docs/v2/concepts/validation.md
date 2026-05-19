@@ -31,9 +31,8 @@ validations:
       type: integer
       min: 18
       max: 120
-  expr:                             # custom expression rules
-    - expr: get('password') == get('confirmPassword')
-      message: "Passwords must match"
+  expr:                             # custom expression rules (bare scalar strings)
+    - "get('password') == get('confirmPassword')"
 ```
 
 ## HTTP Filtering
@@ -193,12 +192,9 @@ validations:
 validations:
   required: [password, confirmPassword]
   expr:
-    - expr: get('password') == get('confirmPassword')
-      message: "Passwords must match"
-    - expr: len(get('password')) >= 8
-      message: "Password must be at least 8 characters"
-    - expr: get('age') >= 18 || get('parentConsent') == true
-      message: "Must be 18 or older, or have parent consent"
+    - "get('password') == get('confirmPassword')"
+    - "len(get('password')) >= 8"
+    - "get('age') >= 18 || get('parentConsent') == true"
 ```
 
 </div>
@@ -260,8 +256,7 @@ validations:
       type: string
       minLength: 8
   expr:
-    - expr: get('password') == get('confirmPassword')
-      message: "Passwords must match"
+    - "get('password') == get('confirmPassword')"
 
 sql:
   query: "INSERT INTO users (username, email, password) VALUES (?, ?, ?)"

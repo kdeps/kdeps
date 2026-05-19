@@ -102,7 +102,7 @@ type ValidationsConfig struct {
 	Error    *ErrorConfig `yaml:"error,omitempty"`
 	Required []string     `yaml:"required,omitempty"`
 	Rules    []FieldRule  `yaml:"rules,omitempty"`
-	Expr     []CustomRule `yaml:"expr,omitempty"`
+	Expr     []Expression `yaml:"expr,omitempty"`
 }
 
 // RunConfig is a type alias for Resource — retained for compatibility during transition.

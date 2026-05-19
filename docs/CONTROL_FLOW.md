@@ -150,7 +150,7 @@ valid: {{(score > 50 || bonus > 10) && !disqualified}}
 ## While Loops
 
 The `loop` block on a resource enables **while-loop** iteration — the resource body (primary
-execution type and `expr` blocks) is repeated as long as the `while` condition is truthy.
+execution type and `before`/`after` blocks) is repeated as long as the `while` condition is truthy.
 
 ### Syntax
 
@@ -158,12 +158,12 @@ execution type and `expr` blocks) is repeated as long as the `while` condition i
 loop:
   while: "<expression>"   # required: loop continues while this is truthy
   maxIterations: 1000     # optional: safety cap (default: 1000)
-expr:
-  - "{{ <body expressions> }}"
+before:
+  - "<body expression>"
 ```
 
 `loop` can be combined with any primary execution type (`exec`, `python`, `sql`, `httpClient`, etc.)
-or used with only `expr`/`before`/`exprAfter` blocks.
+or used with only `before`/`after` blocks.
 
 Every resource block runs on **each iteration** of the loop — including primary execution types
 (`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`) and
@@ -194,8 +194,8 @@ metadata:
   name: Count to Five
 loop:
   while: "loop.index() < 5"
-expr:
-  - "{{ set('result', loop.count()) }}"
+before:
+  - "set('result', loop.count())"
 apiResponse:
   success: true
   response:
@@ -212,12 +212,11 @@ loop:
   while: "loop.index() < 10"
   maxIterations: 20
 before:
-  - "{{ set('a', get('a') == nil ? 0 : get('a')) }}"
-  - "{{ set('b', get('b') == nil ? 1 : get('b')) }}"
-expr:
-  - "{{ set('tmp', get('b')) }}"
-  - "{{ set('b', get('a') + get('b')) }}"
-  - "{{ set('a', get('tmp')) }}"
+  - "set('a', get('a') == nil ? 0 : get('a'))"
+  - "set('b', get('b') == nil ? 1 : get('b'))"
+  - "set('tmp', get('b'))"
+  - "set('b', get('a') + get('b'))"
+  - "set('a', get('tmp'))"
 apiResponse:
   success: true
   response:
@@ -233,8 +232,8 @@ metadata:
 loop:
   # Stop once we have 3 accumulated results (parallel to item.values() in items)
   while: "len(loop.results()) < 3"
-expr:
-  - "{{ set('val', loop.count()) }}"
+before:
+  - "set('val', loop.count())"
 apiResponse:
   success: true
   response:
@@ -250,9 +249,8 @@ metadata:
 loop:
   # Read loop-scoped variable (parallel to get('k', 'item') in items)
   while: "default(get('step', 'loop'), 0) < 5"
-expr:
-  # Write to loop scope (parallel to set('k', v, 'item') in items)
-  - "{{ set('step', loop.count(), 'loop') }}"
+before:
+  - "set('step', loop.count(), 'loop')"
 apiResponse:
   success: true
 ```
@@ -268,8 +266,8 @@ loop:
 httpClient:
   method: GET
   url: "https://api.example.com/status"
-expr:
-  - "{{ set('status', http.responseBody('retry-until-success')) }}"
+after:
+  - "set('status', http.responseBody('retry-until-success'))"
 ```
 
 ### Safety Cap

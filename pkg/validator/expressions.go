@@ -51,12 +51,12 @@ func (v *ExpressionValidator) SetEvaluator(evaluator *expression.Evaluator) {
 // ValidateCustomRules validates custom expression-based rules.
 // evaluator and env should be provided by the caller (engine).
 func (v *ExpressionValidator) ValidateCustomRules(
-	rules []domain.CustomRule,
+	exprs []domain.Expression,
 	evaluator *expression.Evaluator,
 	env map[string]interface{},
 ) error {
 	kdeps_debug.Log("enter: ValidateCustomRules")
-	if len(rules) == 0 {
+	if len(exprs) == 0 {
 		return nil
 	}
 
@@ -66,12 +66,8 @@ func (v *ExpressionValidator) ValidateCustomRules(
 
 	var errors []*domain.ValidationError
 
-	for _, rule := range rules {
-		// Get expression string from Expression type
-		exprStr := rule.Expr.Raw
-
-		// Evaluate expression using the provided environment
-		boolResult, err := evaluator.EvaluateCondition(exprStr, env)
+	for _, expr := range exprs {
+		boolResult, err := evaluator.EvaluateCondition(expr.Raw, env)
 		if err != nil {
 			errors = append(errors, &domain.ValidationError{
 				Type:    "expression",
@@ -80,11 +76,10 @@ func (v *ExpressionValidator) ValidateCustomRules(
 			continue
 		}
 
-		// If false, validation failed
 		if !boolResult {
 			errors = append(errors, &domain.ValidationError{
 				Type:    "custom",
-				Message: rule.Message,
+				Message: fmt.Sprintf("expression failed: %s", expr.Raw),
 			})
 		}
 	}

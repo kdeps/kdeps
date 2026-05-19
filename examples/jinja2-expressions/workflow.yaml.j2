@@ -11,14 +11,13 @@ metadata:
 
 settings:
   apiServerMode: true
-  hostIp: "0.0.0.0"
-{% if env.PORT %}
-  portNum: {{ env.PORT | int }}
-{% else %}
-  portNum: 16395
-{% endif %}
-
   apiServer:
+    hostIp: "0.0.0.0"
+{% if env.PORT %}
+    portNum: {{ env.PORT | int }}
+{% else %}
+    portNum: 16395
+{% endif %}
     routes:
       - path: /api/demo
         methods: [GET, POST]

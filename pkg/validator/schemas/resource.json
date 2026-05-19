@@ -200,21 +200,9 @@
         },
         "expr": {
           "type": "array",
-          "description": "Custom expression-based validation rules",
+          "description": "Custom expression-based validation rules (bare scalar strings)",
           "items": {
-            "type": "object",
-            "required": [
-              "expr",
-              "message"
-            ],
-            "properties": {
-              "expr": {
-                "type": "string"
-              },
-              "message": {
-                "type": "string"
-              }
-            }
+            "type": "string"
           }
         }
       }

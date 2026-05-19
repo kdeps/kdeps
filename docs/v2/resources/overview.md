@@ -35,10 +35,8 @@ validations:
 # Processing expressions
 before:                 # Runs BEFORE the main action
   - set('pre', 'value')
-expr:                       # Runs AFTER the main action (default)
+after:                  # Runs AFTER the main action
   - set('post', 'value')
-exprAfter:                  # Alias for expr
-  - set('also_post', 'value')
 
 # Action (only one per resource)
 chat: { ... }        # LLM chat (core)

@@ -3594,11 +3594,8 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 					Name:     "Test Resource",
 
 					Validations: &domain.ValidationsConfig{
-						Expr: []domain.CustomRule{
-							{
-								Expr:    domain.Expression{Raw: "{{ false }}"}, // Always fails
-								Message: "Custom validation failed",
-							},
+						Expr: []domain.Expression{
+							{Raw: "{{ false }}"}, // Always fails
 						},
 					},
 					APIResponse: &domain.APIResponseConfig{
@@ -3616,7 +3613,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 
 		_, err := engine.Execute(workflow, reqCtx)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Custom validation failed")
+		assert.Contains(t, err.Error(), "validation")
 	})
 
 	t.Run("API response unwrapping", func(t *testing.T) {

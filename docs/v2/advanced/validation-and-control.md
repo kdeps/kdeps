@@ -289,10 +289,8 @@ validations:
     confirmPassword:
       type: string
   expr:
-    - expr: get('password') == get('confirmPassword')
-      message: "Passwords do not match"
-    - expr: get('email').includes('@')
-      message: "Email must contain @ symbol"
+    - "get('password') == get('confirmPassword')"
+    - "get('email').includes('@')"
 chat:
   prompt: "Process user: {{ get('email') }}"
 ```

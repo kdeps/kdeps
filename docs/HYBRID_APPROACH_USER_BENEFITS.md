@@ -174,7 +174,7 @@ apiResponse:
 
 **Before (Current - All expr-lang):**
 ```yaml
-expr:
+before:
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
   - set('llmResult', get('llmResource'))
@@ -191,7 +191,7 @@ apiResponse:
 
 **After (Hybrid - Simple parts use mustache):**
 ```yaml
-expr:
+before:
   # Complex logic still uses expr-lang
   - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
   - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')

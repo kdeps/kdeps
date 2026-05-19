@@ -562,9 +562,9 @@ actions:
   - action: evaluate
     script: "document.title"
 
-# In a subsequent resource or expr block:
-expr:
-  - "{{ set('title', get('captureTitle')) }}"
+# In a subsequent resource before block:
+before:
+  - "set('title', get('captureTitle'))"
 ```
 
 ## Supported Engines

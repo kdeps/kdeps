@@ -134,15 +134,6 @@ const (
 	FieldTypeDate FieldType = "date"
 )
 
-// CustomRule defines an expression-based validation.
-type CustomRule struct {
-	// Expression to evaluate (must return boolean)
-	Expr Expression `yaml:"expr" json:"expr"`
-
-	// Error message if validation fails
-	Message string `yaml:"message" json:"message"`
-}
-
 // UnmarshalYAML implements custom unmarshaling for ValidationsConfig, supporting
 // both the standard `rules:` array format and the map-based `fields:`/`properties:`
 // formats (JSON Schema style). `properties:` takes precedence over `fields:`.
@@ -159,7 +150,7 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 		Error    *ErrorConfig `yaml:"error"`
 		Required []string     `yaml:"required"`
 		Rules    []FieldRule  `yaml:"rules"`
-		Expr     []CustomRule `yaml:"expr"`
+		Expr     []Expression `yaml:"expr"`
 	}
 
 	// Decode known fields first.
