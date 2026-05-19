@@ -32,10 +32,7 @@ A minimal agent that answers questions via an LLM:
 
 ```yaml
 # resources/chat.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: chat
+actionId: chat
 chat:
   prompt: "{{ get('message') }}"
 apiResponse:
@@ -45,15 +42,13 @@ apiResponse:
 Wire resources into pipelines — outputs flow between steps via `requires:`:
 
 ```yaml
-metadata:
-  actionId: fetch
+actionId: fetch
 scraper:
   url: "{{ get('url') }}"
 
 ---
-metadata:
-  actionId: summarize
-  requires: [fetch]
+actionId: summarize
+requires: [fetch]
 chat:
   prompt: "Summarize: {{ output('fetch').content }}"
 apiResponse:
