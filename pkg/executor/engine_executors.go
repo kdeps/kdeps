@@ -225,6 +225,32 @@ func (e *Engine) executeInlineTelephony(
 	return exec.Execute(ctx, config)
 }
 
+// executeBrowser executes a browser automation resource.
+func (e *Engine) executeBrowser(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeBrowser")
+	if resource.Browser == nil {
+		return nil, fmt.Errorf("resource %s has no browser configuration", resource.ActionID)
+	}
+	exec := e.registry.GetBrowserExecutor()
+	if exec == nil {
+		return nil, errors.New("browser executor not available")
+	}
+	return exec.Execute(ctx, resource.Browser)
+}
+
+// executeInlineBrowser executes an inline browser action.
+func (e *Engine) executeInlineBrowser(
+	config *domain.BrowserConfig,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: executeInlineBrowser")
+	exec := e.registry.GetBrowserExecutor()
+	if exec == nil {
+		return nil, errors.New("browser executor not available")
+	}
+	return exec.Execute(ctx, config)
+}
+
 // executeInlineHTTP executes an inline HTTP resource.
 func (e *Engine) executeInlineHTTP(
 	config *domain.HTTPClientConfig,

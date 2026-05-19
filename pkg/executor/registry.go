@@ -120,6 +120,7 @@ const (
 	ExecutorSearchLocal = "searchLocal"
 	ExecutorSearchWeb   = "searchWeb"
 	ExecutorTelephony   = "telephony"
+	ExecutorBrowser     = "browser"
 )
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
@@ -167,5 +168,11 @@ func (r *Registry) SetTelephonyExecutor(exec ResourceExecutor) {
 }
 func (r *Registry) GetTelephonyExecutor() ResourceExecutor {
 	e, _ := r.GetByName(ExecutorTelephony)
+	return e
+}
+
+func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
+func (r *Registry) GetBrowserExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorBrowser)
 	return e
 }

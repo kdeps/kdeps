@@ -7,5 +7,5 @@ metadata:
 resources:
   - actionId: sayHello
     name: Greet Resource
-    expr:
-      - set('greeting', 'Hello from unpacked component!')
+    after:
+      - "set('greeting', 'Hello from unpacked component!')"

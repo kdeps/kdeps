@@ -306,6 +306,9 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Telephony != nil {
 		n++
 	}
+	if run.Browser != nil {
+		n++
+	}
 	return n
 }
 
@@ -350,7 +353,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony, apiResponse, before, after)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser, apiResponse, before, after)",
 			nil,
 		)
 	}
@@ -358,7 +361,7 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser)",
 			nil,
 		)
 	}

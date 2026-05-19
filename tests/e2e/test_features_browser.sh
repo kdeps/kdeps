@@ -316,7 +316,7 @@ actionId: inlineResource
 name: Browser Inline Usage
 
 before:
-  - "{{ set('target_url', 'https://example.com') }}"
+  - "set('target_url', 'before-value')"
 browser:
   engine: chromium
   url: "https://example.com"
@@ -324,7 +324,7 @@ browser:
     - action: evaluate
       script: "document.title"
 after:
-  - "{{ set('page_title', get('inlineResource')) }}"
+  - "set('page_title', get('inlineResource'))"
 apiResponse:
   success: true
   response:

@@ -18,6 +18,8 @@
 
 package domain
 
+import "gopkg.in/yaml.v3"
+
 // Resource represents a KDeps resource.
 type Resource struct {
 	// Identity (apiVersion/kind default in parser when omitted)
@@ -54,6 +56,7 @@ type Resource struct {
 	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
+	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete
@@ -129,6 +132,7 @@ type ActionConfig struct {
 	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
+	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.
@@ -485,6 +489,160 @@ type TelephonyActionConfig struct {
 	// --- Hangup / Reject ---
 	Reason  string            `yaml:"reason,omitempty"`  // e.g. "busy", "decline"
 	Headers map[string]string `yaml:"headers,omitempty"` // SIP headers
+}
+
+// Browser action constants.
+const (
+	BrowserActionNavigate   = "navigate"
+	BrowserActionClick      = "click"
+	BrowserActionFill       = "fill"
+	BrowserActionType       = "type"
+	BrowserActionUpload     = "upload"
+	BrowserActionSelect     = "select"
+	BrowserActionCheck      = "check"
+	BrowserActionUncheck    = "uncheck"
+	BrowserActionHover      = "hover"
+	BrowserActionScroll     = "scroll"
+	BrowserActionPress      = "press"
+	BrowserActionClear      = "clear"
+	BrowserActionEvaluate   = "evaluate"
+	BrowserActionScreenshot = "screenshot"
+	BrowserActionWait       = "wait"
+)
+
+// Browser engine constants.
+const (
+	BrowserEngineChromium = "chromium"
+	BrowserEngineFirefox  = "firefox"
+	BrowserEngineWebKit   = "webkit"
+)
+
+// BrowserAction defines a single step in a browser automation sequence.
+type BrowserAction struct {
+	Action     string   `yaml:"action"`
+	Selector   string   `yaml:"selector,omitempty"`
+	Value      string   `yaml:"value,omitempty"`
+	Files      []string `yaml:"files,omitempty"`
+	Script     string   `yaml:"script,omitempty"`
+	URL        string   `yaml:"url,omitempty"`
+	Wait       string   `yaml:"wait,omitempty"`
+	OutputFile string   `yaml:"outputFile,omitempty"`
+	Key        string   `yaml:"key,omitempty"`
+	FullPage   *bool    `yaml:"fullPage,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for BrowserAction.
+func (b *BrowserAction) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Action     string      `yaml:"action"`
+		Selector   string      `yaml:"selector,omitempty"`
+		Value      string      `yaml:"value,omitempty"`
+		Files      []string    `yaml:"files,omitempty"`
+		Script     string      `yaml:"script,omitempty"`
+		URL        string      `yaml:"url,omitempty"`
+		Wait       string      `yaml:"wait,omitempty"`
+		OutputFile string      `yaml:"outputFile,omitempty"`
+		Key        string      `yaml:"key,omitempty"`
+		FullPage   interface{} `yaml:"fullPage,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+	b.Action = alias.Action
+	b.Selector = alias.Selector
+	b.Value = alias.Value
+	b.Files = alias.Files
+	b.Script = alias.Script
+	b.URL = alias.URL
+	b.Wait = alias.Wait
+	b.OutputFile = alias.OutputFile
+	b.Key = alias.Key
+	if bv, ok := ParseBool(alias.FullPage); ok {
+		b.FullPage = &bv
+	}
+	return nil
+}
+
+// BrowserViewportConfig sets the browser viewport dimensions.
+type BrowserViewportConfig struct {
+	Width  int `yaml:"width,omitempty"`
+	Height int `yaml:"height,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for BrowserViewportConfig.
+func (v *BrowserViewportConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Width  interface{} `yaml:"width,omitempty"`
+		Height interface{} `yaml:"height,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+	if i, ok := parseInt(alias.Width); ok {
+		v.Width = i
+	}
+	if i, ok := parseInt(alias.Height); ok {
+		v.Height = i
+	}
+	return nil
+}
+
+// BrowserConfig configures a browser automation resource that can navigate pages,
+// interact with elements, capture screenshots, and maintain persistent sessions.
+type BrowserConfig struct {
+	Engine          string                 `yaml:"engine,omitempty"`
+	Headless        *bool                  `yaml:"headless,omitempty"`
+	URL             string                 `yaml:"url,omitempty"`
+	Actions         []BrowserAction        `yaml:"actions,omitempty"`
+	SessionID       string                 `yaml:"sessionId,omitempty"`
+	Viewport        *BrowserViewportConfig `yaml:"viewport,omitempty"`
+	TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
+	Timeout         string                 `yaml:"timeout,omitempty"`
+	WaitFor         string                 `yaml:"waitFor,omitempty"`
+	UserAgent       string                 `yaml:"userAgent,omitempty"`
+	StealthMode     *bool                  `yaml:"stealthMode,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling for BrowserConfig.
+func (b *BrowserConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Engine          string                 `yaml:"engine,omitempty"`
+		Headless        interface{}            `yaml:"headless,omitempty"`
+		URL             string                 `yaml:"url,omitempty"`
+		Actions         []BrowserAction        `yaml:"actions,omitempty"`
+		SessionID       string                 `yaml:"sessionId,omitempty"`
+		Viewport        *BrowserViewportConfig `yaml:"viewport,omitempty"`
+		TimeoutDuration string                 `yaml:"timeoutDuration,omitempty"`
+		Timeout         string                 `yaml:"timeout,omitempty"`
+		WaitFor         string                 `yaml:"waitFor,omitempty"`
+		UserAgent       string                 `yaml:"userAgent,omitempty"`
+		StealthMode     interface{}            `yaml:"stealthMode,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+	b.Engine = alias.Engine
+	b.URL = alias.URL
+	b.Actions = alias.Actions
+	b.SessionID = alias.SessionID
+	b.Viewport = alias.Viewport
+	b.TimeoutDuration = alias.TimeoutDuration
+	b.Timeout = alias.Timeout
+	b.WaitFor = alias.WaitFor
+	b.UserAgent = alias.UserAgent
+	if bv, ok := ParseBool(alias.Headless); ok {
+		b.Headless = &bv
+	}
+	if sv, ok := ParseBool(alias.StealthMode); ok {
+		b.StealthMode = &sv
+	}
+	if b.Timeout != "" && b.TimeoutDuration == "" {
+		b.TimeoutDuration = b.Timeout
+	}
+	return nil
 }
 
 // TelephonyMatch maps one or more input keys to a downstream action.

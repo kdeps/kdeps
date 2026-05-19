@@ -7,9 +7,9 @@ metadata:
 resources:
   - actionId: formatName
     name: Format Name Resource
-    expr:
+    after:
       - set('formattedName', get('name'))
   - actionId: addTimestamp
     name: Timestamp Resource
-    expr:
+    after:
       - set('timestamp', now())

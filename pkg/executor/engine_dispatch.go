@@ -73,7 +73,8 @@ func (e *Engine) ExecuteResource(
 		resource.Embedding != nil ||
 		resource.SearchLocal != nil ||
 		resource.SearchWeb != nil ||
-		resource.Telephony != nil
+		resource.Telephony != nil ||
+		resource.Browser != nil
 
 	var primaryResult interface{}
 	var err error
@@ -105,6 +106,8 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeSearchWeb(resource, ctx)
 		case resource.Telephony != nil:
 			primaryResult, err = e.executeTelephony(resource, ctx)
+		case resource.Browser != nil:
+			primaryResult, err = e.executeBrowser(resource, ctx)
 		}
 
 		if err != nil {
@@ -508,6 +511,8 @@ func (e *Engine) executeInlineResources(
 			result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
 		case inline.Telephony != nil:
 			result, err = e.executeInlineTelephony(inline.Telephony, ctx)
+		case inline.Browser != nil:
+			result, err = e.executeInlineBrowser(inline.Browser, ctx)
 		default:
 			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}

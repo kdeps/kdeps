@@ -30,7 +30,7 @@ func isValidRunAction(action string) bool {
 	switch action {
 	case "chat", "httpClient", "exec", "python", "sql",
 		"apiResponse", "component", "agent", "scraper",
-		"embedding", "searchLocal", "searchWeb", "telephony":
+		"embedding", "searchLocal", "searchWeb", "telephony", "browser":
 		return true
 	}
 	return false
