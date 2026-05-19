@@ -18,12 +18,10 @@ stateless-bot/
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: stateless-bot
-  description: One-shot stdin/stdout bot
-  version: "1.0.0"
-  targetActionId: reply
-
+name: stateless-bot
+description: One-shot stdin/stdout bot
+version: "1.0.0"
+targetActionId: reply
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -40,13 +38,9 @@ settings:
 ## resources/llm.yaml
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llm
-  name: LLM Response
-
+actionId: llm
+name: LLM Response
 chat:
   messages:
     - role: user
@@ -56,13 +50,9 @@ chat:
 ## resources/reply.yaml
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: reply
-  name: Reply
-
+actionId: reply
+name: Reply
 dependencies:
   - llm
 

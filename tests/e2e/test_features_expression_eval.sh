@@ -42,7 +42,6 @@ metadata:
   targetActionId: expressionProcessor
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3100
   apiServer:
@@ -55,32 +54,28 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: expressionProcessor
-  name: Expression Processor
+actionId: expressionProcessor
+name: Expression Processor
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/expression]
-  validation:
-    required: [a, b]
-    fields:
-      a:
-        type: number
-      b:
-        type: number
-  apiResponse:
-    success: true
-    response:
-      sum: "{{ get('a') + get('b') }}"
-      product: "{{ get('a') * get('b') }}"
-      comparison: "{{ get('a') > get('b') }}"
-      message: "Expression evaluation completed"
-      input_a: "{{ get('a') }}"
-      input_b: "{{ get('b') }}"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/expression]
+validation:
+  required: [a, b]
+  fields:
+    a:
+      type: number
+    b:
+      type: number
+apiResponse:
+  success: true
+  response:
+    sum: "{{ get('a') + get('b') }}"
+    product: "{{ get('a') * get('b') }}"
+    comparison: "{{ get('a') > get('b') }}"
+    message: "Expression evaluation completed"
+    input_a: "{{ get('a') }}"
+    input_b: "{{ get('b') }}"
 EOF
 
 # Test 1: Validate workflow

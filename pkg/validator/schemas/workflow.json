@@ -385,9 +385,8 @@
     "resource": {
       "type": "object",
       "required": [
-        "apiVersion",
-        "kind",
-        "metadata"
+        "actionId",
+        "name"
       ],
       "properties": {
         "apiVersion": {
@@ -402,30 +401,21 @@
             "Resource"
           ]
         },
-        "metadata": {
-          "type": "object",
-          "required": [
-            "actionId",
-            "name"
-          ],
-          "properties": {
-            "actionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "name": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": {
-              "type": "string"
-            },
-            "requires": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "items": {

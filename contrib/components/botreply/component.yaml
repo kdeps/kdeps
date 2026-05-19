@@ -19,11 +19,8 @@ interface:
       required: true
       description: Message text to send
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Send Message
-      actionId: send-message
+  - name: Send Message
+    actionId: send-message
     httpClient:
       url: "https://api.telegram.org/bot{{ get('botreply.token') }}/sendMessage"
       method: POST

@@ -11,7 +11,6 @@ metadata:
   targetActionId: quality-response
 
 settings:
-  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"
@@ -20,11 +19,8 @@ settings:
 resources:
 
   # ── LLM quality analysis ──────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: quality-check
-      name: Quality Check
+  - actionId: quality-check
+    name: Quality Check
     chat:
       model: llama3.2:1b
       role: user
@@ -68,12 +64,9 @@ resources:
       timeoutDuration: 120s
 
   # ── Return result to intake agent ─────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: quality-response
-      name: Quality Response
-      requires: [quality-check]
+  - actionId: quality-response
+    name: Quality Response
+    requires: [quality-check]
     apiResponse:
       success: true
       response: "{{ get('quality-check') }}"

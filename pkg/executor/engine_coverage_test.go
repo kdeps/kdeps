@@ -51,10 +51,10 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 
 	// Test 1: Nil chat config
 	resource1 := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-resource",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-resource",
+		Name:     "Test Resource",
+
 		Chat: nil, // Should cause error
 	}
 
@@ -64,10 +64,10 @@ func TestEngine_executeLLM_ErrorPaths(t *testing.T) {
 
 	// Test 2: Valid chat config but no LLM executor
 	resource2 := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-resource",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-resource",
+		Name:     "Test Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:  "test-model",
 			Prompt: "test prompt",
@@ -105,10 +105,10 @@ func TestEngine_executeResourceWithErrorHandling_RetryLogic(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "retry-resource",
-					Name:     "Retry Resource",
-				},
+
+				ActionID: "retry-resource",
+				Name:     "Retry Resource",
+
 				OnError: &domain.OnErrorConfig{
 					Action:     "retry",
 					MaxRetries: 2,
@@ -151,10 +151,10 @@ func TestEngine_executeResourceWithErrorHandling_RetryExhaustion(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "retry-resource",
-					Name:     "Retry Resource",
-				},
+
+				ActionID: "retry-resource",
+				Name:     "Retry Resource",
+
 				OnError: &domain.OnErrorConfig{
 					Action:     "retry",
 					MaxRetries: 2, // Only 2 retries (3 total attempts)
@@ -196,10 +196,10 @@ func TestEngine_executeResourceWithErrorHandling_FailAction(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "fail-resource",
-					Name:     "Fail Resource",
-				},
+
+				ActionID: "fail-resource",
+				Name:     "Fail Resource",
+
 				OnError: &domain.OnErrorConfig{
 					Action: "fail", // Explicit fail action
 				},
@@ -240,10 +240,10 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithFallback(t *testing
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "continue-resource",
-					Name:     "Continue Resource",
-				},
+
+				ActionID: "continue-resource",
+				Name:     "Continue Resource",
+
 				OnError: &domain.OnErrorConfig{
 					Action:   "continue",
 					Fallback: "fallback_value",
@@ -285,10 +285,10 @@ func TestEngine_executeResourceWithErrorHandling_ContinueWithoutFallback(t *test
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "continue-resource",
-					Name:     "Continue Resource",
-				},
+
+				ActionID: "continue-resource",
+				Name:     "Continue Resource",
+
 				OnError: &domain.OnErrorConfig{
 					Action: "continue",
 					// No fallback specified
@@ -318,10 +318,10 @@ func TestEngine_executeExprBlock_ErrorHandling(t *testing.T) {
 
 	// Test resource with invalid expression syntax through ExecuteResource
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-resource",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-resource",
+		Name:     "Test Resource",
+
 		Expr: []domain.Expression{
 			{Raw: "invalid.syntax.expression"}, // Should cause execution error
 		},
@@ -338,10 +338,10 @@ func TestEngine_executeExprBlock_ParseError(t *testing.T) {
 
 	// Test resource with expression that fails to parse through ExecuteResource
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-resource",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-resource",
+		Name:     "Test Resource",
+
 		Expr: []domain.Expression{
 			{Raw: "{{unclosed.brace"}, // Invalid syntax - unclosed brace
 		},
@@ -376,10 +376,10 @@ func TestEngine_Execute_TimeoutDurationParsing(t *testing.T) {
 
 	// Test with invalid timeout duration (should use default)
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-resource",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-resource",
+		Name:     "Test Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:   "test-model",
 			Prompt:  "test prompt",
@@ -427,10 +427,10 @@ func TestEngine_Execute_ExpressionEvaluationInLLM(t *testing.T) {
 
 	// Test LLM resource with model expression
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "llm-resource",
-			Name:     "LLM Resource",
-		},
+
+		ActionID: "llm-resource",
+		Name:     "LLM Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:   "{{input.model_name}}", // Expression that should evaluate
 			Prompt:  "test prompt",
@@ -470,10 +470,10 @@ func TestEngine_Execute_ExpressionEvaluationErrorInLLM(t *testing.T) {
 
 	// Test LLM resource with invalid model expression
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "llm-resource",
-			Name:     "LLM Resource",
-		},
+
+		ActionID: "llm-resource",
+		Name:     "LLM Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:   "{{invalid.syntax}}", // Invalid expression
 			Prompt:  "test prompt",
@@ -511,10 +511,10 @@ func TestEngine_Execute_DebugMode(t *testing.T) {
 
 	// Test LLM resource with debug mode enabled
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "llm-resource",
-			Name:     "LLM Resource",
-		},
+
+		ActionID: "llm-resource",
+		Name:     "LLM Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:  "test-model",
 			Prompt: "test prompt",
@@ -553,10 +553,10 @@ func TestEngine_Execute_DefaultBackend(t *testing.T) {
 
 	// Test LLM resource without specifying backend (should default to "ollama")
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "llm-resource",
-			Name:     "LLM Resource",
-		},
+
+		ActionID: "llm-resource",
+		Name:     "LLM Resource",
+
 		Chat: &domain.ChatConfig{
 			Model:  "test-model",
 			Prompt: "test prompt",
@@ -810,7 +810,7 @@ func TestEngine_executeScraper_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r1"},
+		ActionID: "r1",
 		Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -831,7 +831,7 @@ func TestEngine_executeEmbedding_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata:  domain.ResourceMetadata{ActionID: "r1"},
+		ActionID:  "r1",
 		Embedding: &domain.EmbeddingConfig{Operation: "search"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -852,7 +852,7 @@ func TestEngine_executeSearchLocal_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata:    domain.ResourceMetadata{ActionID: "r1"},
+		ActionID:    "r1",
 		SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -873,7 +873,7 @@ func TestEngine_executeSearchWeb_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata:  domain.ResourceMetadata{ActionID: "r1"},
+		ActionID:  "r1",
 		SearchWeb: &domain.SearchWebConfig{Query: "test"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -894,7 +894,7 @@ func TestEngine_executeTelephony_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata:  domain.ResourceMetadata{ActionID: "r1"},
+		ActionID:  "r1",
 		Telephony: &domain.TelephonyActionConfig{Action: "answer"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -933,7 +933,7 @@ func TestEngine_executeInlineScraper_NoExecutor(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						Scraper: &domain.ScraperConfig{URL: "http://example.com"},
@@ -959,7 +959,7 @@ func TestEngine_executeInlineEmbedding_NoExecutor(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						Embedding: &domain.EmbeddingConfig{Operation: "search"},
@@ -985,7 +985,7 @@ func TestEngine_executeInlineSearchLocal_NoExecutor(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"},
@@ -1011,7 +1011,7 @@ func TestEngine_executeInlineSearchWeb_NoExecutor(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						SearchWeb: &domain.SearchWebConfig{Query: "test"},
@@ -1037,7 +1037,7 @@ func TestEngine_executeInlineTelephony_NoExecutor(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						Telephony: &domain.TelephonyActionConfig{Action: "answer"},
@@ -1086,7 +1086,7 @@ func TestEngine_SetNewExecutionContextForAgency_WithSessionID(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "res"},
+				ActionID:    "res",
 				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
 			},
 		},
@@ -1121,7 +1121,7 @@ func TestEngine_Execute_BotSendPropagation(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "llm"},
+				ActionID: "llm",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 			},
 		},
@@ -1165,7 +1165,7 @@ func TestEngine_Execute_FileInputPropagation(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "llm"},
+				ActionID: "llm",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 			},
 		},
@@ -1190,7 +1190,7 @@ func TestEngine_ShouldSkipResource_NilCtxAPI(t *testing.T) {
 	engine := executor.NewEngine(nil)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		Validations: &domain.ValidationsConfig{
 			Skip: []domain.Expression{{Raw: "true"}},
 		},
@@ -1212,7 +1212,7 @@ func TestEngine_MatchesRestrictions_NilReqWithRestrictions(t *testing.T) {
 	engine := executor.NewEngine(nil)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		Validations: &domain.ValidationsConfig{
 			Methods: []string{"POST"},
 		},
@@ -1228,7 +1228,7 @@ func TestEngine_MatchesRestrictions_RouteWildcard(t *testing.T) {
 	engine := executor.NewEngine(nil)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		Validations: &domain.ValidationsConfig{
 			Routes: []string{"/api/v1/*"},
 		},
@@ -1255,7 +1255,7 @@ func TestEngine_MatchesRestrictions_RouteNoMatchShorterPath(t *testing.T) {
 	engine := executor.NewEngine(nil)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		Validations: &domain.ValidationsConfig{
 			Routes: []string{"/api/v1/users"},
 		},
@@ -1303,7 +1303,7 @@ func TestEngine_executeResourceWithErrorHandling_DefaultAction(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action: "unknown-action", // hits the default case
 				},
@@ -1334,7 +1334,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryDelay(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action:     "retry",
 					MaxRetries: 2,
@@ -1367,7 +1367,7 @@ func TestEngine_executeResourceWithErrorHandling_RetryDelayExpression(t *testing
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action:     "retry",
 					MaxRetries: 1,
@@ -1406,7 +1406,7 @@ func TestEngine_shouldHandleError_AppErrorWithDetails(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action: "continue",
 					When: []domain.Expression{
@@ -1448,7 +1448,7 @@ func TestEngine_executeOnErrorExpressions_AppErrorDetails(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action: "continue",
 					Expr:   []domain.Expression{{Raw: "set('errCode', error.code)"}},
@@ -1485,7 +1485,7 @@ func TestEngine_evaluateFallback_Array(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				OnError: &domain.OnErrorConfig{
 					Action:   "continue",
 					Fallback: []interface{}{"item1", "item2"},
@@ -1512,7 +1512,7 @@ func TestEngine_prepareLoopSchedule_MutualExclusion(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "loop-wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					While: "true",
 					Every: "1s",
@@ -1536,7 +1536,7 @@ func TestEngine_prepareLoopSchedule_InvalidEvery(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "loop-wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					While: "true",
 					Every: "not-a-duration",
@@ -1561,7 +1561,7 @@ func TestEngine_prepareLoopSchedule_AtParsing(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "loop-wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					While: "false",
 					At:    []string{atTime},
@@ -1587,7 +1587,7 @@ func TestEngine_prepareLoopSchedule_InvalidAtEntry(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "loop-wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					While: "true",
 					At:    []string{"not-a-valid-time"},
@@ -1610,7 +1610,7 @@ func TestEngine_prepareLoopSchedule_AtCapsSmallerThanMaxIter(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "loop-wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					While:         "true",
 					MaxIterations: 100, // will be capped to len(At)=1
@@ -1662,7 +1662,7 @@ func TestEngine_ExecuteWithItems_DebugMode(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata:   domain.ResourceMetadata{ActionID: "items-res"},
+		ActionID:   "items-res",
 		Items:      []string{"'a'", "'b'"},
 		HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "http://x.com"},
 	}
@@ -1693,7 +1693,7 @@ func TestEngine_ExecuteWithItems_LLMResultMerge(t *testing.T) {
 	})
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "llm-items"},
+		ActionID: "llm-items",
 		Items:    []string{"get('items')"},
 		Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 	}
@@ -1725,7 +1725,7 @@ func TestEngine_ExecuteWithItems_NilResult(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "nil-items"},
+		ActionID: "nil-items",
 		Items:    []string{"'a'"},
 		Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 	}
@@ -1753,7 +1753,7 @@ func TestEngine_ExecuteWithItems_ArrayExpansion(t *testing.T) {
 	ctx.API.Set("myArr", []interface{}{"x", "y", "z"})
 
 	resource := &domain.Resource{
-		Metadata:   domain.ResourceMetadata{ActionID: "expand-items"},
+		ActionID:   "expand-items",
 		Items:      []string{"get('myArr')"},
 		HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "http://x.com"},
 	}
@@ -1778,7 +1778,7 @@ func TestEngine_executeInlineResources_UnknownType(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{
 						// All fields nil -> default case -> error
@@ -1819,7 +1819,7 @@ func TestEngine_executeLLM_OfflineMode(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "llm"},
+				ActionID: "llm",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 			},
 		},
@@ -1852,7 +1852,7 @@ func TestEngine_executeScraper_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
 			},
 		},
@@ -1879,7 +1879,7 @@ func TestEngine_executeEmbedding_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "res"},
+				ActionID:  "res",
 				Embedding: &domain.EmbeddingConfig{Operation: "search"},
 			},
 		},
@@ -1906,7 +1906,7 @@ func TestEngine_executeSearchLocal_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "res"},
+				ActionID:    "res",
 				SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"},
 			},
 		},
@@ -1933,7 +1933,7 @@ func TestEngine_executeSearchWeb_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "res"},
+				ActionID:  "res",
 				SearchWeb: &domain.SearchWebConfig{Query: "test"},
 			},
 		},
@@ -1960,7 +1960,7 @@ func TestEngine_executeTelephony_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "res"},
+				ActionID:  "res",
 				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
 			},
 		},
@@ -1985,7 +1985,7 @@ func TestEngine_executeInlineScraper_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
 				},
@@ -2010,7 +2010,7 @@ func TestEngine_executeInlineEmbedding_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Embedding: &domain.EmbeddingConfig{Operation: "search"}},
 				},
@@ -2035,7 +2035,7 @@ func TestEngine_executeInlineSearchLocal_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
 				},
@@ -2060,7 +2060,7 @@ func TestEngine_executeInlineSearchWeb_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
 				},
@@ -2085,7 +2085,7 @@ func TestEngine_executeInlineTelephony_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
@@ -2112,7 +2112,7 @@ func TestEngine_executeInlineLLM_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Chat: &domain.ChatConfig{Model: "m", Prompt: "p"}},
 				},
@@ -2137,7 +2137,7 @@ func TestEngine_executeInlineSQL_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{SQL: &domain.SQLConfig{Connection: "x", Query: "SELECT 1"}},
 				},
@@ -2162,7 +2162,7 @@ func TestEngine_executeInlinePython_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Python: &domain.PythonConfig{Script: "print('ok')"}},
 				},
@@ -2187,7 +2187,7 @@ func TestEngine_executeInlineExec_Success(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "parent"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "parent"},
+				ActionID: "parent",
 				Before: []domain.InlineResource{
 					{Exec: &domain.ExecConfig{Command: "echo hi"}},
 				},
@@ -2210,14 +2210,12 @@ func TestEngine_executeAPIResponse_MetaModelBackend(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "res"},
+		ActionID: "res",
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: "ok",
-			Meta: &domain.ResponseMeta{
-				Model:   "gpt-4",
-				Backend: "openai",
-			},
+			Model:    "gpt-4",
+			Backend:  "openai",
 		},
 	}
 
@@ -2245,7 +2243,7 @@ func TestEngine_executeAPIResponse_LLMMetadataAutoAdded(t *testing.T) {
 	}
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "res"},
+		ActionID: "res",
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: "ok",
@@ -2276,14 +2274,12 @@ func TestEngine_executeAPIResponse_LLMMetadataAddsToExistingMeta(t *testing.T) {
 	}
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "res"},
+		ActionID: "res",
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: "ok",
-			Meta: &domain.ResponseMeta{
-				// model/backend not set in YAML -> LLM metadata fills them in
-				Headers: map[string]string{"X-Custom": "val"},
-			},
+			// model/backend not set in YAML -> LLM metadata fills them in
+			Headers: map[string]string{"X-Custom": "val"},
 		},
 	}
 
@@ -2305,13 +2301,11 @@ func TestEngine_executeAPIResponse_MapStringStringHeaders(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "res"},
+		ActionID: "res",
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: "ok",
-			Meta: &domain.ResponseMeta{
-				Headers: map[string]string{"Content-Type": "application/json"},
-			},
+			Headers:  map[string]string{"Content-Type": "application/json"},
 		},
 	}
 
@@ -2336,7 +2330,7 @@ func TestEngine_evaluateResponseValue_ArrayPath(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "res"},
+		ActionID: "res",
 		APIResponse: &domain.APIResponseConfig{
 			Success:  true,
 			Response: []interface{}{"item1", "item2", 42},
@@ -2570,7 +2564,7 @@ func TestEngine_agentPathKeys_NonEmpty(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Agent:    &domain.AgentCallConfig{Name: "nonexistent-agent"},
 			},
 		},
@@ -2598,7 +2592,7 @@ func TestEngine_executeComponentCall_EmptyName(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Component: &domain.ComponentCallConfig{
 					Name: "", // empty name
 				},
@@ -2626,7 +2620,7 @@ func TestEngine_executeComponentCall_ComponentNotFound(t *testing.T) {
 		Components: map[string]*domain.Component{},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Component: &domain.ComponentCallConfig{
 					Name: "nonexistent-component",
 				},
@@ -2662,7 +2656,7 @@ func TestEngine_validateComponentInputs_UnknownKey(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{ActionID: "comp-res"},
+						ActionID: "comp-res",
 						Expr:     []domain.Expression{{Raw: "1+1"}},
 					},
 				},
@@ -2670,7 +2664,7 @@ func TestEngine_validateComponentInputs_UnknownKey(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Component: &domain.ComponentCallConfig{
 					Name: "my-comp",
 					With: map[string]interface{}{
@@ -2712,7 +2706,7 @@ func TestEngine_runComponentResources_NilResult(t *testing.T) {
 				Interface: nil,
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{ActionID: "comp-llm"},
+						ActionID: "comp-llm",
 						Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 					},
 				},
@@ -2720,7 +2714,7 @@ func TestEngine_runComponentResources_NilResult(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Component: &domain.ComponentCallConfig{
 					Name: "my-comp",
 				},
@@ -2757,7 +2751,7 @@ func TestEngine_executeInlineAgent_NoAgentPaths(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Agent:    &domain.AgentCallConfig{Name: "my-agent"},
 			},
 		},
@@ -2800,7 +2794,7 @@ func TestEngine_Execute_NewExecutionContextNilGuard(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 			},
 		},
@@ -2830,7 +2824,7 @@ func TestEngine_ExecuteResource_InlineAfterError(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 				After: []domain.InlineResource{
 					{HTTPClient: &domain.HTTPClientConfig{Method: "GET", URL: "http://x.com"}},
@@ -2863,7 +2857,7 @@ func TestEngine_Execute_NoOutput(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Chat:     &domain.ChatConfig{Model: "m", Prompt: "p"},
 			},
 		},
@@ -2890,7 +2884,7 @@ func TestEngine_Execute_SkipConditionError(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{{Raw: "!!!invalid syntax @@@"}},
 				},
@@ -2915,7 +2909,7 @@ func TestEngine_ExecuteResource_ExprBeforeError(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata:   domain.ResourceMetadata{ActionID: "res"},
+		ActionID:   "res",
 		ExprBefore: []domain.Expression{{Raw: "{{unclosed.brace"}},
 	}
 
@@ -2939,7 +2933,7 @@ func TestEngine_executeScraper_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Scraper:  &domain.ScraperConfig{URL: "http://example.com"},
 			},
 		},
@@ -2966,7 +2960,7 @@ func TestEngine_executeEmbedding_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "r"},
+				ActionID:  "r",
 				Embedding: &domain.EmbeddingConfig{Operation: "search", Text: "hello"},
 			},
 		},
@@ -2993,7 +2987,7 @@ func TestEngine_executeSearchLocal_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "r"},
+				ActionID:    "r",
 				SearchLocal: &domain.SearchLocalConfig{Path: "/tmp", Query: "*.go"},
 			},
 		},
@@ -3020,7 +3014,7 @@ func TestEngine_executeSearchWeb_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "r"},
+				ActionID:  "r",
 				SearchWeb: &domain.SearchWebConfig{Query: "golang testing"},
 			},
 		},
@@ -3047,7 +3041,7 @@ func TestEngine_executeTelephony_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata:  domain.ResourceMetadata{ActionID: "r"},
+				ActionID:  "r",
 				Telephony: &domain.TelephonyActionConfig{Action: "answer"},
 			},
 		},
@@ -3074,7 +3068,7 @@ func TestEngine_executeInlineScraper_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Before: []domain.InlineResource{
 					{Scraper: &domain.ScraperConfig{URL: "http://example.com"}},
 				},
@@ -3101,7 +3095,7 @@ func TestEngine_executeInlineEmbedding_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Before: []domain.InlineResource{
 					{Embedding: &domain.EmbeddingConfig{Operation: "search"}},
 				},
@@ -3128,7 +3122,7 @@ func TestEngine_executeInlineSearchLocal_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Before: []domain.InlineResource{
 					{SearchLocal: &domain.SearchLocalConfig{Path: "/tmp"}},
 				},
@@ -3155,7 +3149,7 @@ func TestEngine_executeInlineSearchWeb_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Before: []domain.InlineResource{
 					{SearchWeb: &domain.SearchWebConfig{Query: "test"}},
 				},
@@ -3182,7 +3176,7 @@ func TestEngine_executeInlineTelephony_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Before: []domain.InlineResource{
 					{Telephony: &domain.TelephonyActionConfig{Action: "answer"}},
 				},
@@ -3212,7 +3206,7 @@ func TestEngine_prepareLoopSchedule_Every(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					MaxIterations: 1,
 					Every:         "1ms",
@@ -3240,7 +3234,7 @@ func TestEngine_prepareLoopSchedule_At(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					MaxIterations: 1,
 					At:            []string{"2000-01-01T00:00:00Z"},
@@ -3264,7 +3258,7 @@ func TestEngine_prepareLoopSchedule_MutuallyExclusive(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					Every: "1s",
 					At:    []string{"15:00"},
@@ -3289,7 +3283,7 @@ func TestEngine_prepareLoopSchedule_InvalidAt(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					At: []string{"not-a-valid-time"},
 				},
@@ -3318,7 +3312,7 @@ func TestEngine_sleepForIteration_EveryDurPath(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Loop: &domain.LoopConfig{
 					MaxIterations: 2,
 					Every:         "1ms",
@@ -3348,7 +3342,7 @@ func TestEngine_executeSQL_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		SQL:      &domain.SQLConfig{Connection: "test", Query: "SELECT 1"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -3368,7 +3362,7 @@ func TestEngine_executeSQL_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				SQL:      &domain.SQLConfig{Connection: "test", Query: "SELECT 1"},
 			},
 		},
@@ -3394,7 +3388,7 @@ func TestEngine_executePython_NoExecutor(t *testing.T) {
 	require.NoError(t, err)
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "r"},
+		ActionID: "r",
 		Python:   &domain.PythonConfig{Script: "print('hello')"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
@@ -3414,7 +3408,7 @@ func TestEngine_executePython_WithMock(t *testing.T) {
 		Metadata:   domain.WorkflowMetadata{Name: "wf", Version: "1.0.0", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r"},
+				ActionID: "r",
 				Python:   &domain.PythonConfig{Script: "print('hello')"},
 			},
 		},

@@ -36,13 +36,9 @@ Access the result via `output('<callerActionId>')`. The result is a list of obje
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: findArticles
-  name: Find Articles
-
+actionId: findArticles
+name: Find Articles
 component:
   name: search
   with:
@@ -119,12 +115,9 @@ summarize it.
 ```yaml
 # Step 1: Search for the topic
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: webSearch
-    name: Web Search
-
+  actionId: webSearch
+  name: Web Search
 component:
   name: search
   with:
@@ -134,14 +127,11 @@ component:
 
 # Step 2: Scrape the first result
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: scrapeTop
-    name: Scrape Top Result
-    requires:
-      - webSearch
-
+  actionId: scrapeTop
+  name: Scrape Top Result
+  requires:
+    - webSearch
 component:
   name: scraper
   with:
@@ -150,14 +140,11 @@ component:
 
 # Step 3: LLM summarizes the scraped content
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: summarise
-    name: Summarise Research
-    requires:
-      - scrapeTop
-
+  actionId: summarise
+  name: Summarise Research
+  requires:
+    - scrapeTop
 llm:
   prompt: |
     You are a research assistant. Summarise the following content about
@@ -169,14 +156,11 @@ llm:
 
 # Step 4: Return the summary
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: researchResponse
-    name: Research Response
-    requires:
-      - summarise
-
+  actionId: researchResponse
+  name: Research Response
+  requires:
+    - summarise
 apiResponse:
   success: true
   response:

@@ -7,10 +7,7 @@ KDeps allows you to restrict resources to specific HTTP methods and routes using
 Limit a resource to specific HTTP methods using `validations.methods`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: createUser
+actionId: createUser
 validations:
   methods: [POST]
 
@@ -34,10 +31,7 @@ When `validations.methods` is set:
 
 ```yaml
 # Create - POST only
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: createItem
+actionId: createItem
 validations:
   methods: [POST]
 sql:
@@ -47,10 +41,7 @@ sql:
 
 ---
 # Read - GET only
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: getItem
+actionId: getItem
 validations:
   methods: [GET]
 sql:
@@ -60,10 +51,7 @@ sql:
 
 ---
 # Update - PUT/PATCH
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: updateItem
+actionId: updateItem
 validations:
   methods: [PUT, PATCH]
 sql:
@@ -75,10 +63,7 @@ sql:
 
 ---
 # Delete - DELETE only
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: deleteItem
+actionId: deleteItem
 validations:
   methods: [DELETE]
 sql:
@@ -92,10 +77,7 @@ sql:
 Limit a resource to specific URL routes using `validations.routes`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: adminDashboard
+actionId: adminDashboard
 validations:
   routes:
     - /admin
@@ -123,10 +105,7 @@ sql:
 
 ```yaml
 # V1 API handler
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: apiV1Handler
+actionId: apiV1Handler
 validations:
   routes: [/api/v1/*]
 chat:
@@ -134,10 +113,7 @@ chat:
 
 ---
 # V2 API handler (different model)
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: apiV2Handler
+actionId: apiV2Handler
 validations:
   routes: [/api/v2/*]
 chat:
@@ -150,10 +126,7 @@ chat:
 
 ```yaml
 # Public content
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: publicContent
+actionId: publicContent
 validations:
   routes:
     - /public/*
@@ -164,10 +137,7 @@ sql:
 
 ---
 # Admin content (requires auth)
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: adminContent
+actionId: adminContent
 validations:
   routes: [/admin/*]
   check:
@@ -185,10 +155,7 @@ sql:
 Combine method and route restrictions for precise control:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: userCreate
+actionId: userCreate
 validations:
   methods: [POST]
   routes: [/api/users]
@@ -201,10 +168,7 @@ sql:
         - "{{ get('email') }}"
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: userGet
+actionId: userGet
 validations:
   methods: [GET]
   routes: [/api/users/*]
@@ -223,12 +187,10 @@ Complete RESTful API using restrictions:
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
-metadata:
-  name: rest-api
-  version: "1.0.0"
-  targetActionId: responseHandler
+name: rest-api
+version: "1.0.0"
+targetActionId: responseHandler
 settings:
-  apiServerMode: true
   apiServer:
     portNum: 16395
     routes:
@@ -243,10 +205,7 @@ settings:
 
 **resources/list-users.yaml:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: listUsers
+actionId: listUsers
 validations:
   methods: [GET]
   routes: [/api/users]
@@ -258,10 +217,7 @@ sql:
 
 **resources/create-user.yaml:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: createUser
+actionId: createUser
 validations:
   methods: [POST]
   routes: [/api/users]
@@ -277,10 +233,7 @@ sql:
 
 **resources/get-user.yaml:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: getUser
+actionId: getUser
 validations:
   methods: [GET]
   routes: [/api/users/*]
@@ -293,10 +246,7 @@ sql:
 
 **resources/update-user.yaml:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: updateUser
+actionId: updateUser
 validations:
   methods: [PUT]
   routes: [/api/users/*]
@@ -312,10 +262,7 @@ sql:
 
 **resources/delete-user.yaml:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: deleteUser
+actionId: deleteUser
 validations:
   methods: [DELETE]
   routes: [/api/users/*]

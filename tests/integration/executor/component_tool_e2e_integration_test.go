@@ -69,7 +69,6 @@ func TestE2E_ComponentsAutoRegisteredAsLLMTools(t *testing.T) {
 			TargetActionID: "chat",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -118,10 +117,10 @@ func TestE2E_ComponentsAutoRegisteredAsLLMTools(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "chat",
-					Name:     "Chat",
-				},
+
+				ActionID: "chat",
+				Name:     "Chat",
+
 				Chat: &domain.ChatConfig{
 					Model:          "llama3.2:1b",
 					Prompt:         "What is the weather today?",
@@ -201,7 +200,6 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 			TargetActionID: "chat",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Components: map[string]*domain.Component{
@@ -223,7 +221,7 @@ func TestE2E_ComponentToolParametersShape(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
+				ActionID: "chat", Name: "Chat",
 				Chat: &domain.ChatConfig{
 					Model:          "llama3.2:1b",
 					Prompt:         "Send a test email",
@@ -315,7 +313,6 @@ func TestE2E_ComponentTools_DefaultDisabled(t *testing.T) {
 			TargetActionID: "chat",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Components: map[string]*domain.Component{
@@ -333,7 +330,7 @@ func TestE2E_ComponentTools_DefaultDisabled(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
+				ActionID: "chat", Name: "Chat",
 				Chat: &domain.ChatConfig{
 					Model:   "llama3.2:1b",
 					Prompt:  "Hello",
@@ -384,7 +381,6 @@ func TestE2E_ComponentTools_AllowlistFilters(t *testing.T) {
 			TargetActionID: "chat",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Components: map[string]*domain.Component{
@@ -402,7 +398,7 @@ func TestE2E_ComponentTools_AllowlistFilters(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "Chat"},
+				ActionID: "chat", Name: "Chat",
 				Chat: &domain.ChatConfig{
 					Model:          "llama3.2:1b",
 					Prompt:         "Hello",

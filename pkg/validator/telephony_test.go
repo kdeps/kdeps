@@ -168,8 +168,8 @@ func TestValidateResourceTelephony(t *testing.T) {
 	res := &domain.Resource{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Resource",
-		Metadata:   domain.ResourceMetadata{ActionID: "answer", Name: "Answer"},
-		Telephony:  &domain.TelephonyActionConfig{Action: "answer"},
+		ActionID:   "answer", Name: "Answer",
+		Telephony: &domain.TelephonyActionConfig{Action: "answer"},
 	}
 	wf := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -185,7 +185,7 @@ func TestValidateResourceTelephony(t *testing.T) {
 
 func TestValidateResourceTelephonyInvalidAction(t *testing.T) {
 	res := &domain.Resource{
-		Metadata:  domain.ResourceMetadata{ActionID: "bad", Name: "Bad"},
+		ActionID: "bad", Name: "Bad",
 		Telephony: &domain.TelephonyActionConfig{Action: "bad_action"},
 	}
 	wf := &domain.Workflow{
@@ -201,7 +201,7 @@ func TestValidateResourceTelephonyInvalidAction(t *testing.T) {
 
 func TestValidateResourceTelephonyPlusPrimaryIsError(t *testing.T) {
 	res := &domain.Resource{
-		Metadata:  domain.ResourceMetadata{ActionID: "conflict", Name: "Conflict"},
+		ActionID: "conflict", Name: "Conflict",
 		Telephony: &domain.TelephonyActionConfig{Action: "hangup"},
 		Exec:      &domain.ExecConfig{Command: "echo"},
 	}

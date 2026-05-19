@@ -58,7 +58,6 @@ Configure Kubernetes-specific settings in `workflow.yaml` under `agentSettings`:
 
 ```yaml
 settings:
-  apiServerMode: true
   portNum: 8080
   agentSettings:
     # Number of pod replicas
@@ -83,8 +82,8 @@ Ports are derived from your workflow settings:
 
 | Setting | Port name in manifest | Description |
 |---------|-----------------------|-------------|
-| `apiServerMode: true` + `portNum` | `api` | REST API server |
-| `webServerMode: true` + `portNum` | `web` | Web server |
+| `apiServer:` with `portNum` | `api` | REST API server |
+| `webServer:` with `portNum` | `web` | Web server |
 | `installOllama: true` (or auto-detected) | `backend` | Ollama LLM backend (11434) |
 
 Ollama port is auto-detected when any resource uses `run.chat`.

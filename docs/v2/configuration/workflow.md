@@ -15,9 +15,7 @@ metadata:
   targetActionId: responseResource
 
 settings:
-  apiServerMode: true
   apiServer: { ... }
-  webServerMode: false
   webServer: { ... }
   agentSettings: { ... }
   sqlConnections: { ... }
@@ -57,7 +55,6 @@ Only the fields you specify in the profile override global values — everything
 
 ```yaml
 settings:
-  apiServerMode: true
   certFile: "/etc/certs/server.crt"   # TLS certificate (PEM) - belongs in settings, not apiServer
   keyFile:  "/etc/certs/server.key"   # TLS private key (PEM)
   apiServer:
@@ -91,7 +88,6 @@ For serving static files or proxying to web apps:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -159,7 +155,6 @@ Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` d
 ```yaml
 settings:
   session:
-    enabled: true
-    expiresIn: "30m"
-    namespace: "my-agent"
+    ttl: "30m"
+    type: sqlite
 ```

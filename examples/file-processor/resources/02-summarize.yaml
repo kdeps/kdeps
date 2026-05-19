@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: summarize
-  name: Summarize Document
-  requires:
+actionId: summarize
+name: Summarize Document
+requires:
     - readFile
 
 chat:

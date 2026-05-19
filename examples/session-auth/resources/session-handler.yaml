@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: sessionHandler
-  name: Session Handler
-  requires: []
+actionId: sessionHandler
+name: Session Handler
+requires: []
 
 validations:
   routes: [/api/v1/session]

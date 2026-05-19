@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: llmWithBackend
-  name: LLM Chat with Backend Selection
+actionId: llmWithBackend
+name: LLM Chat with Backend Selection
 
 validations:
   methods: [POST]

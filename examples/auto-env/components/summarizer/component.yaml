@@ -22,11 +22,8 @@ interface:
       description: Maximum sentences in the summary (default "2").
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: summarize
-      name: Summarize Text
+  - actionId: summarize
+    name: Summarize Text
     exec:
       command: |
         python3 - <<'PYEOF'

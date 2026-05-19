@@ -1,7 +1,4 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch
+actionId: fetch
 validations:
   methods: [POST]
   routes: [/summarize]

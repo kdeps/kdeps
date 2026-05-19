@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: dbSearchTool
-  name: Database Search Tool
+actionId: dbSearchTool
+name: Database Search Tool
 
 # This is a placeholder - in a real scenario, this would query a database
 # For the example, we'll return mock results

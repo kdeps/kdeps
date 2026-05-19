@@ -50,7 +50,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: ${API_PORT}
   apiServer:
@@ -66,74 +65,58 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/store.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: memStore
-  name: Memory Store
-run:
-  validations:
-    routes: [/mem/store]
-    methods: [POST]
-  component:
-    name: memory
-    with:
-      action: "store"
-      key: "e2e_test_key"
-      value: "hello from e2e test"
-      dbPath: "${DB_PATH}"
+actionId: memStore
+name: Memory Store
+validations:
+  routes: [/mem/store]
+  methods: [POST]
+component:
+  name: memory
+  with:
+    action: "store"
+    key: "e2e_test_key"
+    value: "hello from e2e test"
+    dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/retrieve.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: memRetrieve
-  name: Memory Retrieve
-run:
-  validations:
-    routes: [/mem/retrieve]
-    methods: [POST]
-  component:
-    name: memory
-    with:
-      action: "retrieve"
-      key: "e2e_test_key"
-      dbPath: "${DB_PATH}"
+actionId: memRetrieve
+name: Memory Retrieve
+validations:
+  routes: [/mem/retrieve]
+  methods: [POST]
+component:
+  name: memory
+  with:
+    action: "retrieve"
+    key: "e2e_test_key"
+    dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/forget.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: memForget
-  name: Memory Forget
-run:
-  validations:
-    routes: [/mem/forget]
-    methods: [POST]
-  component:
-    name: memory
-    with:
-      action: "forget"
-      key: "e2e_test_key"
-      dbPath: "${DB_PATH}"
+actionId: memForget
+name: Memory Forget
+validations:
+  routes: [/mem/forget]
+  methods: [POST]
+component:
+  name: memory
+  with:
+    action: "forget"
+    key: "e2e_test_key"
+    dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [memStore, memRetrieve, memForget]
-run:
-  apiResponse:
-    success: true
-    response:
-      storeResult: "{{ output('memStore') }}"
-      retrieveResult: "{{ output('memRetrieve') }}"
-      forgetResult: "{{ output('memForget') }}"
+actionId: response
+name: Response
+requires: [memStore, memRetrieve, memForget]
+apiResponse:
+  success: true
+  response:
+    storeResult: "{{ output('memStore') }}"
+    retrieveResult: "{{ output('memRetrieve') }}"
+    forgetResult: "{{ output('memForget') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &

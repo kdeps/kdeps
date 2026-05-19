@@ -73,7 +73,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -108,7 +107,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -144,7 +142,7 @@ metadata:
   version: "1.0.0"
   targetActionId: test-action
 settings:
-  apiServerMode: true
+  agentSettings: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")

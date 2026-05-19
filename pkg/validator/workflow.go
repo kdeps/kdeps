@@ -54,7 +54,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 	}
 
 	// 3. Validate resources exist (skip for WebServer mode without resources)
-	if len(workflow.Resources) == 0 && !workflow.Settings.WebServerMode {
+	if len(workflow.Resources) == 0 && workflow.Settings.WebServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"workflow must have at least one resource",
@@ -64,7 +64,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 
 	// 4. Validate target action exists (skip for WebServer mode or when no
 	//    original resources were defined)
-	if len(workflow.Resources) > 0 && !workflow.Settings.WebServerMode {
+	if len(workflow.Resources) > 0 && workflow.Settings.WebServer == nil {
 		if err := v.ValidateTargetAction(workflow); err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 	// 7. Validate resources
 	for _, resource := range workflow.Resources {
 		if err := v.ValidateResource(resource, workflow); err != nil {
-			return fmt.Errorf("invalid resource '%s': %w", resource.Metadata.ActionID, err)
+			return fmt.Errorf("invalid resource '%s': %w", resource.ActionID, err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 	}
 
 	// Skip targetActionID validation for WebServer mode without resources
-	if workflow.Metadata.TargetActionID == "" && !workflow.Settings.WebServerMode {
+	if workflow.Metadata.TargetActionID == "" && workflow.Settings.WebServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"workflow targetActionID is required",
@@ -132,17 +132,29 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ValidateSettings")
 	// Validate port if specified
-	port := workflow.Settings.PortNum
-	if port != 0 && (port < 1 || port > 65535) {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"server port must be between 1 and 65535",
-			nil,
-		)
+	validatePort := func(port int) error {
+		if port != 0 && (port < 1 || port > 65535) {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"server port must be between 1 and 65535",
+				nil,
+			)
+		}
+		return nil
+	}
+	if workflow.Settings.APIServer != nil {
+		if err := validatePort(workflow.Settings.APIServer.PortNum); err != nil {
+			return err
+		}
+	}
+	if workflow.Settings.WebServer != nil {
+		if err := validatePort(workflow.Settings.WebServer.PortNum); err != nil {
+			return err
+		}
 	}
 
 	// Validate API server settings
-	if workflow.Settings.APIServerMode {
+	if workflow.Settings.APIServer != nil {
 		if err := v.ValidateAPIServerSettings(workflow.Settings.APIServer); err != nil {
 			return err
 		}
@@ -164,7 +176,7 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 	if apiServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			"apiServer settings required when apiServerMode is true",
+			"apiServer settings required",
 			nil,
 		)
 	}
@@ -204,7 +216,7 @@ func (v *WorkflowValidator) ValidateTargetAction(workflow *domain.Workflow) erro
 	targetID := workflow.Metadata.TargetActionID
 
 	for _, resource := range workflow.Resources {
-		if resource.Metadata.ActionID == targetID {
+		if resource.ActionID == targetID {
 			return nil
 		}
 	}
@@ -222,7 +234,7 @@ func (v *WorkflowValidator) ValidateUniqueActionIDs(workflow *domain.Workflow) e
 	seen := make(map[string]bool)
 
 	for _, resource := range workflow.Resources {
-		actionID := resource.Metadata.ActionID
+		actionID := resource.ActionID
 		if seen[actionID] {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
@@ -242,18 +254,18 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 	// Build set of all actionIDs.
 	actionIDs := make(map[string]bool)
 	for _, resource := range workflow.Resources {
-		actionIDs[resource.Metadata.ActionID] = true
+		actionIDs[resource.ActionID] = true
 	}
 
 	// Validate each resource's dependencies exist.
 	for _, resource := range workflow.Resources {
-		for _, dep := range resource.Metadata.Requires {
+		for _, dep := range resource.Requires {
 			if !actionIDs[dep] {
 				return domain.NewError(
 					domain.ErrCodeInvalidWorkflow,
 					fmt.Sprintf(
 						"resource '%s' depends on unknown resource '%s'",
-						resource.Metadata.ActionID,
+						resource.ActionID,
 						dep,
 					),
 					nil,
@@ -304,10 +316,10 @@ func (v *WorkflowValidator) ValidateResource(
 ) error {
 	kdeps_debug.Log("enter: ValidateResource")
 	// Validate metadata.
-	if resource.Metadata.ActionID == "" {
+	if resource.ActionID == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource actionID is required", nil)
 	}
-	if resource.Metadata.Name == "" {
+	if resource.Name == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource name is required", nil)
 	}
 

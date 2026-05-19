@@ -8,14 +8,11 @@ metadata:
 
 settings:
   # Enable both API and Web server modes
-  apiServerMode: true
-  webServerMode: true
 
   # Top-level server configuration
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]

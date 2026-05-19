@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: finalResult
-  name: Final Result
-  requires: [systemInfo]
+actionId: finalResult
+name: Final Result
+requires: [systemInfo]
 
 apiResponse:
   success: true

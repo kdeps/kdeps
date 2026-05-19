@@ -42,7 +42,6 @@ metadata:
   targetActionId: sessionHandler
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3030
   apiServer:
@@ -65,24 +64,20 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: sessionHandler
-  name: Session Handler
+actionId: sessionHandler
+name: Session Handler
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/session]
-  expr:
-    - "{{ set('test_key', get('value'), 'session') }}"
-  apiResponse:
-    success: true
-    response:
-      session_id: "{{ info('session_id') }}"
-      stored_value: "{{ get('test_key', 'session') }}"
-      message: "{{ get('message') }}"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/session]
+expr:
+  - "{{ set('test_key', get('value'), 'session') }}"
+apiResponse:
+  success: true
+  response:
+    session_id: "{{ info('session_id') }}"
+    stored_value: "{{ get('test_key', 'session') }}"
+    message: "{{ get('message') }}"
 EOF
 
 # Test 1: Validate workflow
@@ -223,7 +218,6 @@ metadata:
   targetActionId: setValue
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3031
   apiServer:
@@ -246,21 +240,17 @@ settings:
 EOF
 
     cat > "$RESOURCE_FILE2" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: setValue
-  name: Set Session Value
+actionId: setValue
+name: Set Session Value
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/set]
-  apiResponse:
-    success: true
-    response:
-      stored: "{{ get('value', 'param') }}"
-      retrieved: "{{ get('mykey', 'session') }}"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/set]
+apiResponse:
+  success: true
+  response:
+    stored: "{{ get('value', 'param') }}"
+    retrieved: "{{ get('mykey', 'session') }}"
 EOF
     
     # Kill previous server

@@ -7,13 +7,9 @@ The SQL resource enables database queries with support for multiple database typ
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: sqlResource
-  name: Database Query
-
+actionId: sqlResource
+name: Database Query
 sql:
   connectionName: main
   query: "SELECT * FROM users WHERE id = $1"
@@ -259,9 +255,7 @@ settings:
 ### User Lookup
 
 ```yaml
-metadata:
-  actionId: userLookup
-
+actionId: userLookup
 validations:
   check:
     - get('user_id') != ''
@@ -284,9 +278,7 @@ sql:
 ### Analytics Query
 
 ```yaml
-metadata:
-  actionId: analytics
-
+actionId: analytics
 sql:
   connectionName: analytics
   query: |
@@ -312,9 +304,7 @@ sql:
 
 ```yaml
 # Fetch from source database
-metadata:
-  actionId: fetchSource
-
+actionId: fetchSource
 sql:
   connectionName: source_db
   query: "SELECT * FROM products WHERE updated_at > $1"
@@ -324,10 +314,8 @@ sql:
 
 ---
 # Insert into destination database
-metadata:
-  actionId: syncProducts
-  requires: [fetchSource]
-
+actionId: syncProducts
+requires: [fetchSource]
 sql:
   connectionName: dest_db
   transaction: true
@@ -352,9 +340,7 @@ sql:
 
 ```yaml
 # Search database
-metadata:
-  actionId: searchProducts
-
+actionId: searchProducts
 sql:
   connectionName: main
   query: |
@@ -368,10 +354,8 @@ sql:
 
 ---
 # Enhance with LLM
-metadata:
-  actionId: enhancedSearch
-  requires: [searchProducts]
-
+actionId: enhancedSearch
+requires: [searchProducts]
 chat:
   model: llama3.2:1b
   prompt: |
@@ -394,9 +378,7 @@ chat:
 
 ```yaml
 # In another resource
-metadata:
-  requires: [sqlResource]
-
+requires: [sqlResource]
 apiResponse:
   response:
     # Full result set

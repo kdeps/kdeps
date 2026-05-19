@@ -5,13 +5,9 @@ The Exec resource enables execution of shell commands and scripts for system ope
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: execResource
-  name: System Command
-
+actionId: execResource
+name: System Command
 exec:
   command: "echo 'Hello, World!'"
   timeout: 30s
@@ -80,9 +76,7 @@ exec:
 ### System Information
 
 ```yaml
-metadata:
-  actionId: systemInfo
-
+actionId: systemInfo
 exec:
   command: |
     echo '{"hostname": "'$(hostname)'", "os": "'$(uname -s)'", "kernel": "'$(uname -r)'", "date": "'$(date -Iseconds)'"}'
@@ -94,9 +88,7 @@ exec:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fileOps
-
+actionId: fileOps
 exec:
   command: |
     # Create directory
@@ -119,9 +111,7 @@ exec:
 ### Git Operations
 
 ```yaml
-metadata:
-  actionId: gitInfo
-
+actionId: gitInfo
 exec:
   command: |
     cd /app
@@ -139,9 +129,7 @@ exec:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: processImage
-
+actionId: processImage
 exec:
   command: |
     INPUT="{{ get('file', 'filepath') }}"
@@ -162,9 +150,7 @@ exec:
 ### FFmpeg Video Processing
 
 ```yaml
-metadata:
-  actionId: extractAudio
-
+actionId: extractAudio
 exec:
   command: |
     INPUT="{{ get('video', 'filepath') }}"
@@ -185,9 +171,7 @@ exec:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: ocrProcess
-
+actionId: ocrProcess
 exec:
   command: |
     INPUT="{{ get('file', 'filepath') }}"
@@ -208,9 +192,7 @@ exec:
 ### Docker Operations
 
 ```yaml
-metadata:
-  actionId: dockerInfo
-
+actionId: dockerInfo
 exec:
   command: |
     CONTAINERS=$(docker ps --format '{{.Names}}' | wc -l | tr -d ' ')
@@ -225,9 +207,7 @@ exec:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: apiCall
-
+actionId: apiCall
 exec:
   command: |
     RESPONSE=$(curl -s -X POST \
@@ -260,9 +240,7 @@ exec:
 Access in other resources:
 
 ```yaml
-metadata:
-  requires: [execResource]
-
+requires: [execResource]
 apiResponse:
   response:
     result: get('execResource')
@@ -297,9 +275,7 @@ exec:
 Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
-metadata:
-  requires: [execResource]
-
+requires: [execResource]
 expr:
   # Check if command succeeded
   - set('command_success', exec.exitCode('execResource') == 0)

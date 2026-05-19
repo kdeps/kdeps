@@ -19,14 +19,11 @@ Create `workflow.yaml`:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: file-upload
-  description: File upload handling example
-  version: "1.0.0"
-  targetActionId: fileProcessor
-
+name: file-upload
+description: File upload handling example
+version: "1.0.0"
+targetActionId: fileProcessor
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -48,13 +45,9 @@ settings:
 Create `resources/file-processor.yaml`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fileProcessor
-  name: File Processor
-
+actionId: fileProcessor
+name: File Processor
 apiResponse:
   success: true
   response:
@@ -128,13 +121,9 @@ curl -X POST http://localhost:16395/api/v1/upload \
 ### Process Multiple Files
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fileProcessor
-  name: File Processor
-
+actionId: fileProcessor
+name: File Processor
 apiResponse:
   success: true
   response:
@@ -151,13 +140,9 @@ apiResponse:
 Process uploaded files using the Python resource:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fileProcessor
-  name: File Processor
-
+actionId: fileProcessor
+name: File Processor
 python:
   script: |
     import json
@@ -202,15 +187,11 @@ Process image files with vision models:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: imageProcessor
-  name: Image Processor
-  requires:
-    - visionLLM
-
+actionId: imageProcessor
+name: Image Processor
+requires:
+  - visionLLM
 chat:
   prompt: "Describe this image"
   files:
@@ -252,13 +233,9 @@ path: get('document', 'filepath')
 Here's a complete file processor that handles text files:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fileProcessor
-  name: File Processor
-
+actionId: fileProcessor
+name: File Processor
 validations:
   - info('filecount') > 0
   - get('file', 'filetype') == 'text/plain'

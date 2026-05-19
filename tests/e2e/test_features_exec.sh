@@ -63,7 +63,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: ${API_PORT}
   apiServer:
@@ -85,132 +84,108 @@ EOF
 # -- Resource: basic echo ------------------------------------------------------
 
 cat > "$TEST_DIR/resources/echo.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: echoHello
-  name: Echo Hello
-run:
-  validations:
-    routes: [/exec/echo]
-    methods: [POST]
-  exec:
-    command: echo
-    args: ["hello world"]
-  apiResponse:
-    success: true
-    response:
-      stdout: "{{ output('echoHello').stdout }}"
-      exitCode: "{{ output('echoHello').exitCode }}"
+actionId: echoHello
+name: Echo Hello
+validations:
+  routes: [/exec/echo]
+  methods: [POST]
+exec:
+  command: echo
+  args: ["hello world"]
+apiResponse:
+  success: true
+  response:
+    stdout: "{{ output('echoHello').stdout }}"
+    exitCode: "{{ output('echoHello').exitCode }}"
 EOF
 
 # -- Resource: args ------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/args.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: echoArgs
-  name: Echo Args
-run:
-  validations:
-    routes: [/exec/args]
-    methods: [POST]
-  exec:
-    command: echo
-    args: ["arg1", "arg2", "arg3"]
-  apiResponse:
-    success: true
-    response:
-      stdout: "{{ output('echoArgs').stdout }}"
+actionId: echoArgs
+name: Echo Args
+validations:
+  routes: [/exec/args]
+  methods: [POST]
+exec:
+  command: echo
+  args: ["arg1", "arg2", "arg3"]
+apiResponse:
+  success: true
+  response:
+    stdout: "{{ output('echoArgs').stdout }}"
 EOF
 
 # -- Resource: environment variable --------------------------------------------
 
 cat > "$TEST_DIR/resources/env.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: execEnv
-  name: Exec Env
-run:
-  validations:
-    routes: [/exec/env]
-    methods: [POST]
-  exec:
-    command: printenv
-    args: ["MY_E2E_VAR"]
-    env:
-      MY_E2E_VAR: "hello_from_env"
-  apiResponse:
-    success: true
-    response:
-      stdout: "{{ output('execEnv').stdout }}"
+actionId: execEnv
+name: Exec Env
+validations:
+  routes: [/exec/env]
+  methods: [POST]
+exec:
+  command: printenv
+  args: ["MY_E2E_VAR"]
+  env:
+    MY_E2E_VAR: "hello_from_env"
+apiResponse:
+  success: true
+  response:
+    stdout: "{{ output('execEnv').stdout }}"
 EOF
 
 # -- Resource: multi-line output -----------------------------------------------
 
 cat > "$TEST_DIR/resources/multiline.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: execMultiline
-  name: Exec Multiline
-run:
-  validations:
-    routes: [/exec/multiline]
-    methods: [POST]
-  exec:
-    command: printf
-    args: ["line1\nline2\nline3\n"]
-  apiResponse:
-    success: true
-    response:
-      stdout: "{{ output('execMultiline').stdout }}"
+actionId: execMultiline
+name: Exec Multiline
+validations:
+  routes: [/exec/multiline]
+  methods: [POST]
+exec:
+  command: printf
+  args: ["line1\nline2\nline3\n"]
+apiResponse:
+  success: true
+  response:
+    stdout: "{{ output('execMultiline').stdout }}"
 EOF
 
 # -- Resource: failing command -------------------------------------------------
 
 cat > "$TEST_DIR/resources/fail.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: execFail
-  name: Exec Fail
-run:
-  validations:
-    routes: [/exec/fail]
-    methods: [POST]
-  exec:
-    command: sh
-    args: ["-c", "exit 1"]
-  onError:
-    action: continue
-  apiResponse:
-    success: false
-    response:
-      exitCode: "{{ output('execFail').exitCode }}"
-      success: "{{ output('execFail').success }}"
+actionId: execFail
+name: Exec Fail
+validations:
+  routes: [/exec/fail]
+  methods: [POST]
+exec:
+  command: sh
+  args: ["-c", "exit 1"]
+onError:
+  action: continue
+apiResponse:
+  success: false
+  response:
+    exitCode: "{{ output('execFail').exitCode }}"
+    success: "{{ output('execFail').success }}"
 EOF
 
 # -- Resource: router/response -------------------------------------------------
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [echoHello, echoArgs, execEnv, execMultiline, execFail]
-run:
-  apiResponse:
-    success: true
-    response:
-      echoResult: "{{ output('echoHello') }}"
-      argsResult: "{{ output('echoArgs') }}"
-      envResult: "{{ output('execEnv') }}"
-      multilineResult: "{{ output('execMultiline') }}"
-      failResult: "{{ output('execFail') }}"
+actionId: response
+name: Response
+requires: [echoHello, echoArgs, execEnv, execMultiline, execFail]
+apiResponse:
+  success: true
+  response:
+    echoResult: "{{ output('echoHello') }}"
+    argsResult: "{{ output('echoArgs') }}"
+    envResult: "{{ output('execEnv') }}"
+    multilineResult: "{{ output('execMultiline') }}"
+    failResult: "{{ output('execFail') }}"
 EOF
 
 # -- Start KDeps ---------------------------------------------------------------

@@ -20,7 +20,6 @@ The `api` source starts an HTTP API server. This is the default for all workflow
 settings:
   input:
     sources: [api]
-  apiServerMode: true
   apiServer:
     routes:
       - path: /api/v1/chat

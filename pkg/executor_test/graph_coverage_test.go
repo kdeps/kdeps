@@ -36,16 +36,14 @@ func TestGraph_TopologicalSort_Error(t *testing.T) {
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "a",
-					Requires: []string{"b"},
-				},
+
+				ActionID: "a",
+				Requires: []string{"b"},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "b",
-					Requires: []string{"a"},
-				},
+
+				ActionID: "b",
+				Requires: []string{"a"},
 			},
 		},
 	}
@@ -80,9 +78,8 @@ func TestGraph_TopologicalSort_SingleNode(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "single",
-		},
+
+		ActionID: "single",
 	}
 
 	err := graph.AddResource(resource)
@@ -94,7 +91,7 @@ func TestGraph_TopologicalSort_SingleNode(t *testing.T) {
 	result, err := graph.TopologicalSort()
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
-	assert.Equal(t, "single", result[0].Metadata.ActionID)
+	assert.Equal(t, "single", result[0].ActionID)
 }
 
 // TestGraph_TopologicalSort_ComplexDependencies tests TopologicalSort with complex dependencies.
@@ -103,27 +100,23 @@ func TestGraph_TopologicalSort_ComplexDependencies(t *testing.T) {
 
 	resources := []*domain.Resource{
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "a",
-			},
+
+			ActionID: "a",
 		},
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "b",
-				Requires: []string{"a"},
-			},
+
+			ActionID: "b",
+			Requires: []string{"a"},
 		},
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "c",
-				Requires: []string{"a"},
-			},
+
+			ActionID: "c",
+			Requires: []string{"a"},
 		},
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "d",
-				Requires: []string{"b", "c"},
-			},
+
+			ActionID: "d",
+			Requires: []string{"b", "c"},
 		},
 	}
 
@@ -142,7 +135,7 @@ func TestGraph_TopologicalSort_ComplexDependencies(t *testing.T) {
 	// Verify order: a should come before b and c, b and c before d
 	positions := make(map[string]int)
 	for i, res := range result {
-		positions[res.Metadata.ActionID] = i
+		positions[res.ActionID] = i
 	}
 
 	assert.Less(t, positions["a"], positions["b"])

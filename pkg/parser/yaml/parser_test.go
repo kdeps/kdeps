@@ -128,7 +128,6 @@ metadata:
   version: 1.0.0
   targetActionId: main-action
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: UTC
 `,
@@ -146,7 +145,6 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -290,12 +288,9 @@ func TestParser_ParseResource(t *testing.T) {
 		{
 			name: "valid chat resource",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Resource
-  description: A test resource
+actionId: test-action
+name: Test Resource
+description: A test resource
 chat:
   model: llama3.2:latest
   role: user
@@ -310,11 +305,8 @@ chat:
 		{
 			name: "valid HTTP resource",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionID: http-action
-  name: HTTP Resource
+actionID: http-action
+name: HTTP Resource
 httpClient:
   method: POST
   url: https://api.example.com
@@ -329,11 +321,8 @@ httpClient:
 		{
 			name: "valid SQL resource",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionID: sql-action
-  name: SQL Resource
+actionID: sql-action
+name: SQL Resource
 sql:
   connection: postgresql://localhost:5432/db
   query: SELECT * FROM users
@@ -348,12 +337,9 @@ sql:
 		{
 			name: "resource with dependencies",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionID: dependent-action
-  name: Dependent Resource
-  requires:
+actionID: dependent-action
+name: Dependent Resource
+requires:
     - action1
     - action2
 apiResponse:
@@ -368,10 +354,7 @@ apiResponse:
 		{
 			name: "invalid YAML syntax",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionID: "unclosed
+actionID: "unclosed
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      true,
@@ -380,11 +363,8 @@ metadata:
 		{
 			name: "schema validation failure",
 			yamlContent: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test
+actionId: test
+name: Test
 chat:
   model: llama3.2:latest
   prompt: test
@@ -444,11 +424,8 @@ func TestParser_ParseResourceNonexistentFile(t *testing.T) {
 
 func TestParser_ParseResourceNilValidator(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test
+actionId: test
+name: Test
 chat:
   model: llama3.2:latest
   prompt: test
@@ -474,8 +451,8 @@ chat:
 		t.Fatal("ParseResource returned nil resource")
 	}
 
-	if resource.Metadata.ActionID != "test" {
-		t.Errorf("ActionID = %v, want %v", resource.Metadata.ActionID, "test")
+	if resource.ActionID != "test" {
+		t.Errorf("ActionID = %v, want %v", resource.ActionID, "test")
 	}
 }
 
@@ -490,17 +467,16 @@ func validateBasicWorkflow(t *testing.T, workflow *domain.Workflow) {
 // validateAPIServerWorkflow validates a workflow with API server configuration.
 func validateAPIServerWorkflow(t *testing.T, workflow *domain.Workflow) {
 	t.Helper()
-	assert.True(t, workflow.Settings.APIServerMode)
 	require.NotNil(t, workflow.Settings.APIServer)
-	assert.Equal(t, 16395, workflow.Settings.PortNum)
+	assert.Equal(t, 16395, workflow.Settings.APIServer.PortNum)
 	assert.Len(t, workflow.Settings.APIServer.Routes, 1)
 }
 
 // validateChatResource validates a chat resource.
 func validateChatResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	assert.Equal(t, "test-action", resource.Metadata.ActionID)
-	assert.Equal(t, "Test Resource", resource.Metadata.Name)
+	assert.Equal(t, "test-action", resource.ActionID)
+	assert.Equal(t, "Test Resource", resource.Name)
 	require.NotNil(t, resource.Chat)
 	assert.Equal(t, "llama3.2:latest", resource.Chat.Model)
 }
@@ -524,7 +500,7 @@ func validateSQLResource(t *testing.T, resource *domain.Resource) {
 // validateDependentResource validates a resource with dependencies.
 func validateDependentResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
-	assert.Len(t, resource.Metadata.Requires, 2)
+	assert.Len(t, resource.Requires, 2)
 	require.NotNil(t, resource.APIResponse)
 }
 
@@ -546,7 +522,7 @@ func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
 		{
 			name:              "resources directory with valid YAML",
 			setupResources:    true,
-			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: test-resource\n  name: Test Resource\nrun:\n  apiResponse:\n    success: true\n    response:\n      message: hello",
+			resourceContent:   "actionId: test-resource\nname: Test Resource\napiResponse:\n  success: true\n  response:\n    message: hello",
 			resourceFilename:  "test-resource.yaml",
 			expectError:       false,
 			expectedResources: 1,
@@ -570,7 +546,7 @@ func TestParser_LoadResourcesThroughParseWorkflow(t *testing.T) {
 		{
 			name:              "resources directory with both YAML and non-YAML",
 			setupResources:    true,
-			resourceContent:   "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: mixed-resource\n  name: Mixed Resource\nrun:\n  apiResponse:\n    success: true",
+			resourceContent:   "actionId: mixed-resource\nname: Mixed Resource\napiResponse:\n  success: true",
 			resourceFilename:  "mixed.yaml",
 			expectError:       false,
 			expectedResources: 1,
@@ -635,7 +611,7 @@ settings:
 			)
 
 			if tt.expectedResources > 0 && tt.resourceFilename == "test-resource.yaml" {
-				assert.Equal(t, "test-resource", workflow.Resources[0].Metadata.ActionID)
+				assert.Equal(t, "test-resource", workflow.Resources[0].ActionID)
 			}
 		})
 	}
@@ -685,11 +661,8 @@ func TestParser_ParseResource_ReadDirError(t *testing.T) {
 	resourcePath := filepath.Join(tmpDir, "resource.yaml")
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-resource
-  name: Test Resource
+actionId: test-resource
+name: Test Resource
 apiResponse:
   success: true
   response:
@@ -701,8 +674,8 @@ apiResponse:
 	resource, err := parser.ParseResource(resourcePath)
 	require.NoError(t, err)
 	assert.NotNil(t, resource)
-	assert.Equal(t, "test-resource", resource.Metadata.ActionID)
-	assert.Equal(t, "Test Resource", resource.Metadata.Name)
+	assert.Equal(t, "test-resource", resource.ActionID)
+	assert.Equal(t, "Test Resource", resource.Name)
 }
 
 func TestParser_LoadResources_FilepathAbsError(t *testing.T) {
@@ -755,29 +728,26 @@ settings:
 	}{
 		{
 			name:             "yaml.j2 resource loaded and Jinja2 evaluated",
-			resourceContent:  "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: j2-resource\n  name: J2 Resource\nrun:\n  apiResponse:\n    success: true\n",
+			resourceContent:  "actionId: j2-resource\nname: J2 Resource\napiResponse:\n  success: true\n",
 			resourceFilename: "j2-resource.yaml.j2",
 			expectedActionID: "j2-resource",
 		},
 		{
 			name:             "yml.j2 resource loaded and Jinja2 evaluated",
-			resourceContent:  "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: yml-j2-resource\n  name: YML J2 Resource\nrun:\n  apiResponse:\n    success: true\n",
+			resourceContent:  "actionId: yml-j2-resource\nname: YML J2 Resource\napiResponse:\n  success: true\n",
 			resourceFilename: "yml-j2-resource.yml.j2",
 			expectedActionID: "yml-j2-resource",
 		},
 		{
 			name:             "plain .j2 resource loaded and Jinja2 evaluated",
-			resourceContent:  "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: plain-j2-resource\n  name: Plain J2 Resource\nrun:\n  apiResponse:\n    success: true\n",
+			resourceContent:  "actionId: plain-j2-resource\nname: Plain J2 Resource\napiResponse:\n  success: true\n",
 			resourceFilename: "plain-j2-resource.j2",
 			expectedActionID: "plain-j2-resource",
 		},
 		{
 			name: "yaml.j2 resource with Jinja2 conditional block",
-			resourceContent: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: conditional-resource
-  name: Conditional Resource
+			resourceContent: `actionId: conditional-resource
+name: Conditional Resource
 apiResponse:
   success: true
   response:
@@ -792,11 +762,8 @@ apiResponse:
 		},
 		{
 			name: "plain .j2 resource with Jinja2 conditional block",
-			resourceContent: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: plain-conditional
-  name: Plain Conditional Resource
+			resourceContent: `actionId: plain-conditional
+name: Plain Conditional Resource
 apiResponse:
   success: true
   response:
@@ -834,7 +801,7 @@ apiResponse:
 				1,
 				"expected exactly one resource loaded from .j2 file",
 			)
-			assert.Equal(t, tt.expectedActionID, workflow.Resources[0].Metadata.ActionID)
+			assert.Equal(t, tt.expectedActionID, workflow.Resources[0].ActionID)
 		})
 	}
 }
@@ -849,12 +816,13 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
+  apiServer:
 {% if env.TEST_PORT is defined %}
-  portNum: {{ env.TEST_PORT | int }}
+    portNum: {{ env.TEST_PORT | int }}
 {% else %}
-  portNum: 16395
+    portNum: 16395
 {% endif %}
+    routes: []
   agentSettings:
     timezone: UTC
 `
@@ -878,8 +846,9 @@ settings:
 			require.NoError(t, parseErr)
 			require.NotNil(t, workflow)
 			assert.Equal(t, "J2 Workflow", workflow.Metadata.Name)
+			require.NotNil(t, workflow.Settings.APIServer)
 			// portNum should have been set to the else-branch default (16395) since TEST_PORT is not set
-			assert.Equal(t, 16395, workflow.Settings.PortNum)
+			assert.Equal(t, 16395, workflow.Settings.APIServer.PortNum)
 		})
 	}
 }

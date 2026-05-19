@@ -339,13 +339,19 @@ func (b *Builder) GetBackendPort(_ string) int {
 // getAPIPort returns the API server port from workflow or default.
 func (b *Builder) getAPIPort(workflow *domain.Workflow) int {
 	kdeps_debug.Log("enter: getAPIPort")
-	return workflow.Settings.GetPortNum()
+	if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
+		return workflow.Settings.APIServer.PortNum
+	}
+	return domain.DefaultPort
 }
 
 // getWebServerPort returns the web server port from workflow or default.
 func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {
 	kdeps_debug.Log("enter: getWebServerPort")
-	return workflow.Settings.GetPortNum()
+	if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
+		return workflow.Settings.WebServer.PortNum
+	}
+	return domain.DefaultPort
 }
 
 // getDefaultModel returns the configured default model.
@@ -478,8 +484,8 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		RequirementsFile:     workflow.Settings.AgentSettings.RequirementsFile,
 		APIPort:              b.getAPIPort(workflow),
 		WebServerPort:        b.getWebServerPort(workflow),
-		HasAPIServer:         workflow.Settings.APIServerMode,
-		HasWebServer:         workflow.Settings.WebServerMode,
+		HasAPIServer:         workflow.Settings.APIServer != nil,
+		HasWebServer:         workflow.Settings.WebServer != nil,
 		Models:               models,
 		DefaultModel:         defaultModel,
 		OfflineMode:          offlineMode,

@@ -1,7 +1,4 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: search
+actionId: search
 searchWeb:
   query: "{{ get('query') }}"
   provider: "{{ get('provider', 'ddg') }}"

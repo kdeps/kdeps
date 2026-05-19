@@ -31,11 +31,8 @@ interface:
       default: /tmp/event.ics
       description: Path to write the .ics file
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Create Event
-      actionId: create-event
+  - name: Create Event
+    actionId: create-event
     python:
       script: |
         import json

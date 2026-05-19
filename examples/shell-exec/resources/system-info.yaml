@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: systemInfo
-  name: System Information
+actionId: systemInfo
+name: System Information
 
 validations:
   methods: [GET]

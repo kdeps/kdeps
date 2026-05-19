@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: loginHandler
-  name: Login Handler
-  requires: []
+actionId: loginHandler
+name: Login Handler
+requires: []
 
 validations:
   routes: [/api/v1/login]

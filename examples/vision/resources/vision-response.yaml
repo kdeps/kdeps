@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: visionResponse
-  name: Vision Response
-  requires:
+actionId: visionResponse
+name: Vision Response
+requires:
     - visionLLM
 
 validations:

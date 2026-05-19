@@ -68,11 +68,10 @@ my-workflow/
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Component
-metadata:
-  name: greeter                # Required: component name
-  description: "A greeting component"
-  version: "1.0.0"
-  targetActionId: greet        # Optional: default action to invoke
+name: greeter                # Required: component name
+description: "A greeting component"
+version: "1.0.0"
+targetActionId: greet        # Optional: default action to invoke
 interface:
   inputs:
     - name: message            # Required: input parameter name
@@ -82,9 +81,7 @@ interface:
       default: "Hello"         # Optional: default value if not required
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
+    actionId: greet
     # ... resource definition
 ```
 
@@ -168,9 +165,7 @@ When the parent workflow calls the component's target action, it supplies these 
 ```yaml
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
+    actionId: greet
     chat:
       prompt: "{{ inputs.message }}"
 ```
@@ -292,8 +287,7 @@ After `run.component:` executes, results are stored under the caller resource's 
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetch-article
+actionId: fetch-article
 component:
   name: scraper
   with:
@@ -302,9 +296,8 @@ component:
 
 ---
 
-metadata:
-  actionId: summarize
-  requires: [fetch-article]
+actionId: summarize
+requires: [fetch-article]
 chat:
   prompt: "Summarize: {{ output('fetch-article').content }}"
 ```
@@ -319,16 +312,14 @@ Because inputs are scoped to the caller's `actionId`, you can use the same compo
 
 ```yaml
 # First call — fetch the job description
-metadata:
-  actionId: fetch-jd
+actionId: fetch-jd
 component:
   name: scraper
   with:
     url: "{{ get('jd_url') }}"
 
 # Second call — fetch the company page
-metadata:
-  actionId: fetch-company
+actionId: fetch-company
 component:
   name: scraper
   with:
@@ -352,13 +343,9 @@ kdeps registry install scraper
 
 ```yaml
 # resources/scrape-page.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: scrape-page
-  name: Scrape Article
-
+actionId: scrape-page
+name: Scrape Article
 component:
   name: scraper
   with:
@@ -369,30 +356,22 @@ component:
 ---
 
 # resources/summarize.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
-  name: Summarize Article
-  requires:
-    - scrape-page
-
+actionId: summarize
+name: Summarize Article
+requires:
+  - scrape-page
 chat:
   prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
 
 ---
 
 # resources/respond.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: respond
-  name: Return Summary
-  requires:
-    - summarize
-
+actionId: respond
+name: Return Summary
+requires:
+  - summarize
 apiResponse:
   success: true
   response:
@@ -524,10 +503,9 @@ kdeps registry update ./my-agency
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Component
-metadata:
-  name: greeter
-  version: "1.0.0"
-  targetActionId: greet
+name: greeter
+version: "1.0.0"
+targetActionId: greet
 interface:
   inputs:
     - name: message
@@ -540,9 +518,7 @@ interface:
       default: "World"
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
+    actionId: greet
     exec:
       command: "echo '{{ inputs.message }}, {{ inputs.recipient }}!'"
 ```
@@ -552,12 +528,8 @@ resources:
 Call the `greeter` component from a workflow resource using `run.component:`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: main
-
+actionId: main
 component:
   name: greeter
   with:

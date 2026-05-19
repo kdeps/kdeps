@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: readConfig
-  name: Read Config
+actionId: readConfig
+name: Read Config
 
 validations:
   methods: [GET]

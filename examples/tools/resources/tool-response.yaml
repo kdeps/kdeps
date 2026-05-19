@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: toolResponse
-  name: Tool Response
-  requires:
+actionId: toolResponse
+name: Tool Response
+requires:
     - llmWithTools
 
 validations:

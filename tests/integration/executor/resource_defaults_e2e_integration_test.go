@@ -136,7 +136,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
+				ActionID: "run-cmd",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('run-cmd').stdout }}",
@@ -171,7 +171,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
+				ActionID: "run-cmd",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('run-cmd').stdout }}",
@@ -215,7 +215,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
+				ActionID: "call-api",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('call-api').body }}",
@@ -260,7 +260,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
+				ActionID: "call-api",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('call-api').body }}",
@@ -313,7 +313,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
+				ActionID: "chat-resource",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('chat-resource').message.content }}",
@@ -363,7 +363,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
+				ActionID: "chat-resource",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: "{{ output('chat-resource').message.content }}",
@@ -527,7 +527,7 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "run"},
+				ActionID:    "run",
 				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
 				Exec: &domain.ExecConfig{
 					Command: "echo",

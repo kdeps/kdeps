@@ -49,12 +49,10 @@ type wfDoc struct {
 
 // resourceDoc is the minimal structure of a resource file.
 type resourceDoc struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		ActionID string `yaml:"actionId"`
-	} `yaml:"metadata"`
-	// Fields are decoded from top-level YAML keys; action types are checked via rawDoc below.
+	APIVersion string `yaml:"apiVersion,omitempty"`
+	Kind       string `yaml:"kind,omitempty"`
+	ActionID   string `yaml:"actionId"`
+	// Other action-type fields are checked via rawDoc below.
 }
 
 // Validate checks a GeneratedWorkflow for structural correctness.
@@ -122,17 +120,11 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 		*errs = append(*errs, fmt.Sprintf("%s: invalid YAML: %v", name, err))
 		return
 	}
-	if res.APIVersion == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing apiVersion (must be kdeps.io/v1)", name))
-	}
-	if res.Kind == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing kind (must be Resource)", name))
-	}
-	if res.Metadata.ActionID == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing metadata.actionId", name))
+	if res.ActionID == "" {
+		*errs = append(*errs, fmt.Sprintf("%s: missing actionId", name))
 		return
 	}
-	ids[res.Metadata.ActionID] = true
+	ids[res.ActionID] = true
 
 	// Parse as raw map to check for action types at the top level (flattened schema).
 	var rawDoc map[string]interface{}
@@ -141,7 +133,8 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 	}
 
 	metaKeys := map[string]bool{
-		"apiVersion": true, "kind": true, "metadata": true, "items": true,
+		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
+		"category": true, "requires": true, "items": true,
 		"tool": true, "validations": true, "loop": true, "exprBefore": true, "expr": true,
 		"before": true, "after": true, "onError": true,
 	}
@@ -165,7 +158,7 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 			actions = append(actions, key)
 		}
 		sort.Strings(actions)
-		msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, res.Metadata.ActionID)
+		msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, res.ActionID)
 		if len(actions) > 0 {
 			msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
 				strings.Join(actions, ", "))

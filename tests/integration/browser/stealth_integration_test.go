@@ -29,10 +29,7 @@ import (
 // parsed from YAML configuration.
 func TestBrowserConfig_StealthModeUnmarshal(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
+actionId: test
 browser:
   engine: chromium
   headless: true
@@ -57,10 +54,7 @@ browser:
 // parsed from YAML configuration.
 func TestBrowserConfig_UserAgentUnmarshal(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
+actionId: test
 browser:
   engine: chromium
   userAgent: "Mozilla/5.0 (Custom Bot)"

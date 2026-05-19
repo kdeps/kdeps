@@ -44,15 +44,14 @@ func TestLoopIntegration_BasicCounter(t *testing.T) {
 			TargetActionID: "count-to-five",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "count-to-five",
-					Name:     "Count to Five",
-				},
+
+				ActionID: "count-to-five",
+				Name:     "Count to Five",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 5",
 					MaxIterations: 1000,
@@ -97,15 +96,14 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 			TargetActionID: "read-result",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "compute",
-					Name:     "Compute via Loop",
-				},
+
+				ActionID: "compute",
+				Name:     "Compute via Loop",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 3",
 					MaxIterations: 10,
@@ -115,11 +113,10 @@ func TestLoopIntegration_MultiResourceWithLoop(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "read-result",
-					Name:     "Read Result",
-					Requires: []string{"compute"},
-				},
+
+				ActionID: "read-result",
+				Name:     "Read Result",
+				Requires: []string{"compute"},
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"value": "{{ get('computed') }}"},
@@ -157,15 +154,14 @@ func TestLoopIntegration_TuringComplete_Accumulator(t *testing.T) {
 			TargetActionID: "sum-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "sum-resource",
-					Name:     "Sum 1..N",
-				},
+
+				ActionID: "sum-resource",
+				Name:     "Sum 1..N",
+
 				// Sum 1+2+3+4 = 10, stop when index reaches 4.
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 4",
@@ -206,15 +202,14 @@ func TestLoopIntegration_TuringComplete_MuRecursion(t *testing.T) {
 			TargetActionID: "search",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "search",
-					Name:     "Search",
-				},
+
+				ActionID: "search",
+				Name:     "Search",
+
 				// Search for first N where N*(N+1)/2 > 20: N=6 → 21>20.
 				Loop: &domain.LoopConfig{
 					While:         "int(loop.count()) * int(loop.count() + 1) / 2 <= 20",
@@ -254,15 +249,14 @@ func TestLoopIntegration_StreamingResponse_ExactCount(t *testing.T) {
 			TargetActionID: "exact",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "exact",
-					Name:     "Exact Count",
-				},
+
+				ActionID: "exact",
+				Name:     "Exact Count",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 7",
 					MaxIterations: 100,
@@ -299,15 +293,14 @@ func TestLoopIntegration_LoopScoped_SetGet(t *testing.T) {
 			TargetActionID: "scoped",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "scoped",
-					Name:     "Scoped Storage",
-				},
+
+				ActionID: "scoped",
+				Name:     "Scoped Storage",
+
 				// Use get with 'loop' type to read loop-scoped var, parallel to 'item' storage.
 				Loop: &domain.LoopConfig{
 					While:         "default(get('step', 'loop'), 0) < 3",
@@ -346,15 +339,14 @@ func TestLoopIntegration_LoopResults_ChainedComputation(t *testing.T) {
 			TargetActionID: "chain",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "chain",
-					Name:     "Chained Results",
-				},
+
+				ActionID: "chain",
+				Name:     "Chained Results",
+
 				// Stop when we've accumulated 3 prior results.
 				Loop: &domain.LoopConfig{
 					While:         "len(loop.results()) < 3",
@@ -390,15 +382,14 @@ func TestLoopIntegration_LoopWithExprBeforeAndAfter(t *testing.T) {
 			TargetActionID: "expr-blocks",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "expr-blocks",
-					Name:     "Expr Blocks",
-				},
+
+				ActionID: "expr-blocks",
+				Name:     "Expr Blocks",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 2",
 					MaxIterations: 5,
@@ -456,15 +447,14 @@ func TestLoopIntegration_Every_ShortDelay(t *testing.T) {
 			TargetActionID: "tick",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "tick",
-					Name:     "Tick",
-				},
+
+				ActionID: "tick",
+				Name:     "Tick",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 3",
 					MaxIterations: 10,
@@ -511,15 +501,14 @@ func TestLoopIntegration_Every_InvalidDuration(t *testing.T) {
 			TargetActionID: "bad-every",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "bad-every",
-					Name:     "Bad Every",
-				},
+
+				ActionID: "bad-every",
+				Name:     "Bad Every",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 2",
 					MaxIterations: 5,
@@ -551,15 +540,14 @@ func TestLoopIntegration_Every_ZeroNoDelay(t *testing.T) {
 			TargetActionID: "no-delay",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "no-delay",
-					Name:     "No Delay",
-				},
+
+				ActionID: "no-delay",
+				Name:     "No Delay",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 4",
 					MaxIterations: 10,
@@ -599,15 +587,14 @@ func TestLoopIntegration_Every_ScheduledTaskPattern(t *testing.T) {
 			TargetActionID: "scheduled",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "scheduled",
-					Name:     "Scheduled",
-				},
+
+				ActionID: "scheduled",
+				Name:     "Scheduled",
+
 				Loop: &domain.LoopConfig{
 					While:         "loop.index() < 3",
 					MaxIterations: 100,
@@ -662,15 +649,14 @@ func TestLoopIntegration_At_PastTimestamps(t *testing.T) {
 			TargetActionID: "at-past",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "at-past",
-					Name:     "At Past",
-				},
+
+				ActionID: "at-past",
+				Name:     "At Past",
+
 				Loop: &domain.LoopConfig{
 					While: "loop.index() < 2",
 					At:    []string{past1, past2},
@@ -711,15 +697,14 @@ func TestLoopIntegration_At_WhileStopsEarly(t *testing.T) {
 			TargetActionID: "at-stop",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "at-stop",
-					Name:     "At Stop",
-				},
+
+				ActionID: "at-stop",
+				Name:     "At Stop",
+
 				Loop: &domain.LoopConfig{
 					// while stops after 1 iteration even though there are 3 at: entries.
 					While: "loop.index() < 1",
@@ -762,15 +747,14 @@ func TestLoopIntegration_At_InvalidEntry(t *testing.T) {
 			TargetActionID: "at-invalid",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "at-invalid",
-					Name:     "At Invalid",
-				},
+
+				ActionID: "at-invalid",
+				Name:     "At Invalid",
+
 				Loop: &domain.LoopConfig{
 					While: "loop.index() < 2",
 					At:    []string{"not-a-date-or-time"},
@@ -803,15 +787,14 @@ func TestLoopIntegration_At_MutuallyExclusiveWithEvery(t *testing.T) {
 			TargetActionID: "both",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "both",
-					Name:     "Both",
-				},
+
+				ActionID: "both",
+				Name:     "Both",
+
 				Loop: &domain.LoopConfig{
 					While: "loop.index() < 1",
 					Every: "1ms",
@@ -844,15 +827,14 @@ func TestLoopIntegration_NoWhile_RunsMaxIterations(t *testing.T) {
 			TargetActionID: "count",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "count",
-					Name:     "Count",
-				},
+
+				ActionID: "count",
+				Name:     "Count",
+
 				Loop: &domain.LoopConfig{
 					// No While field — loop runs until maxIterations.
 					MaxIterations: 3,
@@ -890,15 +872,14 @@ func TestLoopIntegration_NoWhile_WithEvery(t *testing.T) {
 			TargetActionID: "tick",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "tick",
-					Name:     "Tick",
-				},
+
+				ActionID: "tick",
+				Name:     "Tick",
+
 				Loop: &domain.LoopConfig{
 					// No While — runs 2 times with a 1 ms inter-iteration delay.
 					Every:         "1ms",
@@ -940,15 +921,14 @@ func TestLoopIntegration_NoWhile_WithAt(t *testing.T) {
 			TargetActionID: "fire",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "fire",
-					Name:     "Fire",
-				},
+
+				ActionID: "fire",
+				Name:     "Fire",
+
 				Loop: &domain.LoopConfig{
 					// No While — at: drives iteration count.
 					At: []string{past1, past2},

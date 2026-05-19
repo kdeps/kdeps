@@ -49,7 +49,7 @@ func TestServer_HandleRequest_APIResponse_WithMetaHeaders(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "api"},
+				ActionID: "api",
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{

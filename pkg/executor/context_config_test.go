@@ -77,16 +77,16 @@ func TestGetConfigField_Workflow(t *testing.T) {
 func TestGetConfigField_Resource(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "myaction", Name: "My Action"},
+		ActionID: "myaction", Name: "My Action",
 	}
-	v, err := ctx.GetConfigField("resource.myaction.metadata.name")
+	v, err := ctx.GetConfigField("resource.myaction.name")
 	require.NoError(t, err)
 	assert.Equal(t, "My Action", v)
 }
 
 func TestGetConfigField_ResourceMissing(t *testing.T) {
 	ctx := newConfigTestCtx(t)
-	_, err := ctx.GetConfigField("resource.ghost.metadata.name")
+	_, err := ctx.GetConfigField("resource.ghost.name")
 	assert.Error(t, err)
 }
 
@@ -146,15 +146,15 @@ func TestSetConfigField_Workflow(t *testing.T) {
 func TestSetConfigField_Resource(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "myaction", Name: "Old"},
+		ActionID: "myaction", Name: "Old",
 	}
-	require.NoError(t, ctx.SetConfigField("resource.myaction.metadata.name", "New"))
-	assert.Equal(t, "New", ctx.Resources["myaction"].Metadata.Name)
+	require.NoError(t, ctx.SetConfigField("resource.myaction.name", "New"))
+	assert.Equal(t, "New", ctx.Resources["myaction"].Name)
 }
 
 func TestSetConfigField_ResourceMissing(t *testing.T) {
 	ctx := newConfigTestCtx(t)
-	err := ctx.SetConfigField("resource.ghost.metadata.name", "x")
+	err := ctx.SetConfigField("resource.ghost.name", "x")
 	assert.Error(t, err)
 }
 
@@ -211,7 +211,7 @@ func TestConfigNamespace_Workflow(t *testing.T) {
 func TestConfigNamespace_Resource(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "myaction", Name: "My Action"},
+		ActionID: "myaction", Name: "My Action",
 	}
 	m := ctx.ConfigNamespace("resource")
 	require.NotNil(t, m)
@@ -246,7 +246,7 @@ func TestConfigNamespace_Unknown(t *testing.T) {
 func TestGetConfigField_ResourceNoField(t *testing.T) {
 	ctx := newConfigTestCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "myaction"},
+		ActionID: "myaction",
 	}
 	// No sub-field → returns resource struct itself.
 	v, err := ctx.GetConfigField("resource.myaction")

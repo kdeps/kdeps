@@ -44,7 +44,6 @@ metadata:
   targetActionId: finalStep
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3090
   apiServer:
@@ -57,59 +56,47 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE_1" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: firstStep
-  name: First Step
+actionId: firstStep
+name: First Step
 
-run:
-  apiResponse:
-    success: true
-    response:
-      step1_result: "First step completed"
-      input_value: "test_input_value"
+apiResponse:
+  success: true
+  response:
+    step1_result: "First step completed"
+    input_value: "test_input_value"
 EOF
 
 cat > "$RESOURCE_FILE_2" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: secondStep
-  name: Second Step
-  requires:
-    - firstStep
+actionId: secondStep
+name: Second Step
+requires:
+  - firstStep
 
-run:
-  apiResponse:
-    success: true
-    response:
-      step2_result: "Second step completed"
-      step1_processed: True
+apiResponse:
+  success: true
+  response:
+    step2_result: "Second step completed"
+    step1_processed: True
 EOF
 
 cat > "$RESOURCE_FILE_3" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: finalStep
-  name: Final Step
-  requires:
-    - firstStep
-    - secondStep
+actionId: finalStep
+name: Final Step
+requires:
+  - firstStep
+  - secondStep
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/multi]
-  apiResponse:
-    success: true
-    response:
-      final_result: "All steps completed"
-      workflow_executed: True
-      combined_message: "Workflow executed successfully with dependencies"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/multi]
+apiResponse:
+  success: true
+  response:
+    final_result: "All steps completed"
+    workflow_executed: True
+    combined_message: "Workflow executed successfully with dependencies"
 EOF
 
 # Test 1: Validate workflow

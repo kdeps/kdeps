@@ -36,10 +36,7 @@ json(data)
 
 **Basic usage:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: formatData
+actionId: formatData
 expr:
   - set('user', {"name": "Alice", "age": 30})
   - set('userJson', json(get('user')))
@@ -390,12 +387,9 @@ expr:
 ### Complex Data Transformation
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: processData
-  requires:
-    - fetchData
+actionId: processData
+requires:
+  - fetchData
 expr:
   # Safely extract nested data with defaults
   - set('items', default(safe(get('fetchData'), 'response.data.items'), []))

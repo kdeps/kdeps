@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: main
-  name: Main Resource with Inline Resources
-  description: Demonstrates inline resources that execute before and after the main resource
+actionId: main
+name: Main Resource with Inline Resources
+description: Demonstrates inline resources that execute before and after the main resource
 
 # Restrict to specific routes and methods, and validate input
 validations:

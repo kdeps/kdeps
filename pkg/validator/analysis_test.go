@@ -43,10 +43,9 @@ func mkWorkflow(targetActionID string, resources ...*domain.Resource) *domain.Wo
 
 func mkResource(id string, requires ...string) *domain.Resource {
 	return &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: id,
-			Requires: requires,
-		},
+
+		ActionID: id,
+		Requires: requires,
 	}
 }
 

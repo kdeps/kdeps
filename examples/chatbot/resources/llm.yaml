@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: llmResource
-  name: LLM Chat
+actionId: llmResource
+name: LLM Chat
 
 validations:
   methods: [POST]

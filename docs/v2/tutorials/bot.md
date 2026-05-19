@@ -18,12 +18,10 @@ This tutorial walks through creating a Telegram bot that replies to every messag
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: telegram-llm-bot
-  description: Telegram bot that answers messages with an LLM
-  version: "1.0.0"
-  targetActionId: reply
-
+name: telegram-llm-bot
+description: Telegram bot that answers messages with an LLM
+version: "1.0.0"
+targetActionId: reply
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -52,13 +50,9 @@ Key points:
 
 ```yaml
 # resources/llm.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llm
-  name: LLM Response
-
+actionId: llm
+name: LLM Response
 chat:
   messages:
     - role: user
@@ -75,13 +69,9 @@ The `botReply` resource sends the text back to the originating platform. In poll
 
 ```yaml
 # resources/reply.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: reply
-  name: Reply
-
+actionId: reply
+name: Reply
 dependencies:
   - llm
 

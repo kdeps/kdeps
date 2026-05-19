@@ -95,7 +95,7 @@ else
 fi
 
 # T10: resource has a chat: executor block
-if grep -q "^  chat:" "$RES"; then
+if grep -q "^chat:" "$RES"; then
     test_passed "llm-chat - resource has chat: executor"
 else
     test_failed "llm-chat - resource has chat: executor" "chat: not found in $RES"

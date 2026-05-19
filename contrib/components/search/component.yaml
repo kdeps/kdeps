@@ -20,11 +20,8 @@ interface:
       default: 5
       description: Maximum number of results to return
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Web Search
-      actionId: web-search
+  - name: Web Search
+    actionId: web-search
     httpClient:
       url: "https://api.tavily.com/search"
       method: POST

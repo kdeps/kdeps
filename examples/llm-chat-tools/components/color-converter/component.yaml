@@ -26,11 +26,8 @@ interface:
       description: "Target format: 'all' (default), 'hex', 'rgb', 'hsl', 'hsv'."
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: convertColor
-      name: Convert Color
+  - actionId: convertColor
+    name: Convert Color
     python:
       script: |
         import json, colorsys, re

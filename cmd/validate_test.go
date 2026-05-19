@@ -55,11 +55,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  name: main-resource
-  actionId: main
+name: main-resource
+actionId: main
 python:
   script: print("test")
 `

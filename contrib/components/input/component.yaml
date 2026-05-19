@@ -69,12 +69,9 @@ interface:
       required: false
       description: Generic input slot H.
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: read-inputs
-      name: Read Inputs
-      description: Collects all non-empty input slots and returns them as JSON.
+  - actionId: read-inputs
+    name: Read Inputs
+    description: Collects all non-empty input slots and returns them as JSON.
     exec:
       command: |
         python3 - <<'PYEOF'

@@ -46,7 +46,7 @@ func minimalWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "target"},
+				ActionID: "target",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"ok": true},
@@ -96,7 +96,7 @@ func TestRunWithReader_EngineExecuteError(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "target"},
+				ActionID: "target",
 				// Empty RunConfig — no resource type set → "unknown resource type" error.
 			},
 		},

@@ -37,11 +37,8 @@ func TestInlineResource_YAMLParsing(t *testing.T) {
 		{
 			name: "inline resources before",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 before:
   - httpClient:
       method: GET
@@ -66,11 +63,8 @@ chat:
 		{
 			name: "inline resources after",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 chat:
   model: test-model
   role: user
@@ -95,11 +89,8 @@ after:
 		{
 			name: "inline resources before and after",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 before:
   - httpClient:
       method: POST
@@ -125,11 +116,8 @@ after:
 		{
 			name: "only inline resources no main",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 before:
   - httpClient:
       method: GET
@@ -151,11 +139,8 @@ after:
 		{
 			name: "multiple inline resources of different types",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 before:
   - chat:
       model: helper-model
@@ -202,11 +187,8 @@ chat:
 
 func TestInlineResource_EmptyArrays(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
+actionId: test
+name: Test Resource
 chat:
   model: test-model
   role: user

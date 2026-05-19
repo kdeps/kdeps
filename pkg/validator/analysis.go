@@ -132,7 +132,7 @@ func AnalyzeWorkflow(workflow *domain.Workflow) *WorkflowAnalysis {
 func buildActionIDIndex(workflow *domain.Workflow) map[string]bool {
 	m := make(map[string]bool, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		m[r.Metadata.ActionID] = true
+		m[r.ActionID] = true
 	}
 	return m
 }
@@ -160,7 +160,7 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 
 	requires := make(map[string][]string, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		requires[r.Metadata.ActionID] = r.Metadata.Requires
+		requires[r.ActionID] = r.Requires
 	}
 
 	visited := make(map[string]bool)
@@ -178,9 +178,9 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
-		if !visited[r.Metadata.ActionID] {
+		if !visited[r.ActionID] {
 			issues = append(issues, AnalysisIssue{
-				ActionID: r.Metadata.ActionID,
+				ActionID: r.ActionID,
 				Severity: "warning",
 				Message:  "resource is unreachable from targetActionId",
 			})
@@ -206,7 +206,7 @@ func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs, componentName
 				seen[ref] = true
 				if !actionIDs[ref] && !componentNames[ref] {
 					issues = append(issues, AnalysisIssue{
-						ActionID: r.Metadata.ActionID,
+						ActionID: r.ActionID,
 						Severity: "error",
 						Message:  fmt.Sprintf("expression references unknown actionId %q", ref),
 					})
@@ -241,7 +241,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 			}
 			if _, provided := cc.With[input.Name]; !provided {
 				issues = append(issues, AnalysisIssue{
-					ActionID: r.Metadata.ActionID,
+					ActionID: r.ActionID,
 					Severity: "error",
 					Message: fmt.Sprintf(
 						"component %q requires input %q but it is not provided in 'with'",

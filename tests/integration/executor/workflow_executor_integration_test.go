@@ -42,17 +42,16 @@ func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
 			TargetActionID: "hello-response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "hello-response",
-					Name:     "Hello Response",
-				},
+
+				ActionID: "hello-response",
+				Name:     "Hello Response",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -92,17 +91,16 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 			TargetActionID: "final-result",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step1",
-					Name:     "Step 1",
-				},
+
+				ActionID: "step1",
+				Name:     "Step 1",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -112,10 +110,10 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step2",
-					Name:     "Step 2",
-				},
+
+				ActionID: "step2",
+				Name:     "Step 2",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -125,10 +123,10 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "final-result",
-					Name:     "Final Result",
-				},
+
+				ActionID: "final-result",
+				Name:     "Final Result",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -170,17 +168,16 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 			TargetActionID: "combine-results",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "get-user-data",
-					Name:     "Get User Data",
-				},
+
+				ActionID: "get-user-data",
+				Name:     "Get User Data",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -191,10 +188,10 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-user",
-					Name:     "Process User",
-				},
+
+				ActionID: "process-user",
+				Name:     "Process User",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -209,10 +206,10 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "combine-results",
-					Name:     "Combine Results",
-				},
+
+				ActionID: "combine-results",
+				Name:     "Combine Results",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -261,17 +258,16 @@ func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
 			TargetActionID: "failing-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "failing-resource",
-					Name:     "Failing Resource",
-				},
+
+				ActionID: "failing-resource",
+				Name:     "Failing Resource",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: false,
 					Response: map[string]interface{}{
@@ -310,7 +306,6 @@ func TestWorkflowExecutor_EmptyWorkflow(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -341,17 +336,16 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 			TargetActionID: "step3",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step1",
-					Name:     "Step 1",
-				},
+
+				ActionID: "step1",
+				Name:     "Step 1",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -361,10 +355,10 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step2",
-					Name:     "Step 2",
-				},
+
+				ActionID: "step2",
+				Name:     "Step 2",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -374,10 +368,10 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step3",
-					Name:     "Step 3",
-				},
+
+				ActionID: "step3",
+				Name:     "Step 3",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -419,17 +413,16 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 			TargetActionID: "aggregate",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "collect-data",
-					Name:     "Collect Data",
-				},
+
+				ActionID: "collect-data",
+				Name:     "Collect Data",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -439,10 +432,10 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-data",
-					Name:     "Process Data",
-				},
+
+				ActionID: "process-data",
+				Name:     "Process Data",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -453,10 +446,10 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "aggregate",
-					Name:     "Aggregate Results",
-				},
+
+				ActionID: "aggregate",
+				Name:     "Aggregate Results",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -502,10 +495,10 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 
 	for i := range numResources {
 		resources[i] = &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: fmt.Sprintf("resource-%d", i),
-				Name:     fmt.Sprintf("Resource %d", i),
-			},
+
+			ActionID: fmt.Sprintf("resource-%d", i),
+			Name:     fmt.Sprintf("Resource %d", i),
+
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
 				Response: map[string]interface{}{
@@ -526,7 +519,6 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 			TargetActionID: fmt.Sprintf("resource-%d", numResources-1),
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},

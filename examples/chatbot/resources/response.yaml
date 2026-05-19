@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
+actionId: responseResource
+name: API Response
+requires:
     - llmResource
 
 validations:
@@ -16,6 +12,5 @@ apiResponse:
   response:
     data: get('llmResource')
     query: get('q')
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json

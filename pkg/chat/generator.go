@@ -60,23 +60,21 @@ kind: Workflow
 metadata:
   name: my-agent          # lowercase, hyphens only
   version: 1.0.0
-  targetActionId: main    # MUST exactly match the metadata.actionId of the terminal resource
+  targetActionId: main    # MUST exactly match the actionId of the terminal resource
 settings:
-  apiServerMode: true     # expose REST API
-  portNum: 8080
+  apiServer:
+    portNum: 8080
+    routes: []            # define your REST API routes here
   agentSettings:
     models: []            # e.g. [llama3.2:1b] for offline; omit for online providers
     env: {}               # environment variables
 ` + "```" + `
 
-## Resource files (one per file under resources/, apiVersion+kind+metadata REQUIRED)
+## Resource files (one per file under resources/)
 
 ` + "```yaml" + `
 # LLM chat
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource   # lowercase, hyphens only
+actionId: my-resource   # lowercase, hyphens only
 chat:
   model: llama3.2:1b    # or gpt-4o, claude-3-5-sonnet-20241022, etc.
   backend: ollama        # ollama | openai | anthropic | google | groq | deepseek
@@ -84,45 +82,30 @@ chat:
   system: "You are a helpful assistant."
 
 # HTTP request
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource
+actionId: my-resource
 httpClient:
   url: "https://api.example.com/data"
   method: GET
   headers: {}
 
 # Shell exec
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource
+actionId: my-resource
 exec:
   command: "ls -la"
 
 # Python
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource
+actionId: my-resource
 python:
   script: |
     print("hello")
 
 # API response (terminal resource — targetActionId must point here)
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource
+actionId: my-resource
 apiResponse:
   data: "{{ get('other-resource') }}"
 
 # Component call
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: my-resource
+actionId: my-resource
 component:
   name: search          # component name
   with:
@@ -140,15 +123,15 @@ component:
 
 ## Rules
 
-1. ` + "`metadata.targetActionId`" + ` in workflow.yaml MUST exactly match ` + "`metadata.actionId`" + ` of the terminal resource.
-2. Every resource file MUST have ` + "`apiVersion: kdeps.io/v1`" + `, ` + "`kind: Resource`" + `, and ` + "`metadata.actionId`" + `.
+1. ` + "`targetActionId`" + ` in workflow.yaml MUST exactly match ` + "`actionId`" + ` of the terminal resource.
+2. Every resource file MUST have ` + "`actionId`" + ` at the top level (no apiVersion, kind, or metadata wrapper).
 3. Every workflow needs at least one resource file under resources/.
-4. Use ` + "`run.component`" + ` when a component exists for the task (preferred over reimplementing).
+4. Use ` + "`component`" + ` when a component exists for the task (preferred over reimplementing).
 5. Keep actionId values lowercase with hyphens only.
-6. If the task involves shell commands, use ` + "`run.exec`" + `.
-7. If the task requires LLM reasoning, use ` + "`run.chat`" + `.
+6. If the task involves shell commands, use ` + "`exec`" + `.
+7. If the task requires LLM reasoning, use ` + "`chat`" + `.
 8. For tasks that return data to the user, end with an ` + "`apiResponse`" + ` resource.
-9. Use ` + "`run.httpClient`" + ` (not ` + "`run.http`" + `) for HTTP requests.
+9. Use ` + "`httpClient`" + ` (not ` + "`http`" + `) for HTTP requests.
 10. Do NOT include any text outside the <kdeps-workflow> block.
 `
 )
@@ -287,14 +270,12 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
-  portNum: 8080
+  apiServer:
+    portNum: 8080
+    routes: []
 </file>
 <file name="resources/main.yaml">
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
+actionId: main
 exec:
   command: "echo hello"
 </file>

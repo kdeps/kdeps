@@ -42,10 +42,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"prompt": 123,
 				},
@@ -58,10 +56,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"httpClient": map[string]interface{}{
 					"method": "GET",
 					"url":    123,
@@ -75,10 +71,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"apiResponse": map[string]interface{}{
 					"success":  "true",
 					"response": map[string]interface{}{},
@@ -112,9 +106,7 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"name": "Test",
-				},
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2",
 					"prompt": "test",
@@ -128,10 +120,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"validations": map[string]interface{}{
 					"routes": []interface{}{"invalid-route"},
 				},
@@ -164,10 +154,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"contextLength": 100,
 					"model":         "test",
@@ -181,10 +169,8 @@ func TestSchemaValidator_ErrorSuggestions(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"contextLength": 999,
 					"prompt":        "test",

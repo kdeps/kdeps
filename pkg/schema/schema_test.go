@@ -48,11 +48,11 @@ func chatbotWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID:    "llmResource",
-					Name:        "LLM Chat Handler",
-					Description: "Handles chat requests",
-				},
+
+				ActionID:    "llmResource",
+				Name:        "LLM Chat Handler",
+				Description: "Handles chat requests",
+
 				Validations: &domain.ValidationsConfig{
 					Methods:  []string{"POST"},
 					Routes:   []string{"/api/v1/chat"},
@@ -164,7 +164,7 @@ func TestGenerateOpenAPI_NoAPIServerConfig(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "minimal", Version: "0.1.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "handler", Name: "Handler"},
+				ActionID: "handler", Name: "Handler",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET"},
 					Routes:  []string{"/ping"},
@@ -183,7 +183,7 @@ func TestGenerateOpenAPI_QueryAndHeaderParams(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "params-test", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "search", Name: "Search"},
+				ActionID: "search", Name: "Search",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET"},
 					Routes:  []string{"/search"},
@@ -229,7 +229,7 @@ func TestGenerateOpenAPI_FieldTypeFormats(t *testing.T) {
 			Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 			Resources: []*domain.Resource{
 				{
-					Metadata: domain.ResourceMetadata{ActionID: "res"},
+					ActionID: "res",
 					Validations: &domain.ValidationsConfig{
 						Methods: []string{"POST"},
 						Routes:  []string{"/test"},
@@ -256,7 +256,7 @@ func TestGenerateOpenAPI_EnumField(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "enum-test", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"POST"},
 					Routes:  []string{"/v1/action"},
@@ -315,7 +315,7 @@ func TestGenerateJSONSchema_NoValidations(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "simple", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 			},
 		},
 	}
@@ -329,7 +329,7 @@ func TestGenerateJSONSchema_MultipleResources(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "multi", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r1"},
+				ActionID: "r1",
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"name"},
 					Rules: []domain.FieldRule{
@@ -338,7 +338,7 @@ func TestGenerateJSONSchema_MultipleResources(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r2"},
+				ActionID: "r2",
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"age"},
 					Rules: []domain.FieldRule{
@@ -580,7 +580,7 @@ func TestGenerateOpenAPI_RequestBodyRequiredFalseWhenNoRequiredFields(t *testing
 		Metadata: domain.WorkflowMetadata{Name: "optional-body", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"POST"},
 					Routes:  []string{"/optional"},
@@ -610,7 +610,7 @@ func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "dup-params", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r1"},
+				ActionID: "r1",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET"},
 					Routes:  []string{"/search"},
@@ -618,7 +618,7 @@ func TestGenerateOpenAPI_DuplicateParamsDeduped(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "r2"},
+				ActionID: "r2",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET"},
 					Routes:  []string{"/search"},
@@ -652,7 +652,7 @@ func TestGenerateOpenAPI_EmptyFieldNameSkipped(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "empty-field", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"POST"},
 					Routes:  []string{"/v1/action"},
@@ -679,7 +679,7 @@ func TestGenerateOpenAPI_SortedRequiredFields(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "sorted-req", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "res"},
+				ActionID: "res",
 				Validations: &domain.ValidationsConfig{
 					Methods:  []string{"POST"},
 					Routes:   []string{"/form"},
@@ -710,7 +710,7 @@ func TestGenerateOpenAPI_UniqueOperationIDs(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "itemsResource", Name: "Items"},
+				ActionID: "itemsResource", Name: "Items",
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET", "POST"},
 					Routes:  []string{"/items"},

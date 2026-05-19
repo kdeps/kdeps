@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: response
-  name: Final Response
-  requires:
+actionId: response
+name: Final Response
+requires:
     - translate
     - summarize
 

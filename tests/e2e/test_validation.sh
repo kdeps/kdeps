@@ -98,16 +98,12 @@ settings:
     pythonVersion: "3.12"
 EOF
 cat > "$AGENCY_DIR/agents/bot-a/resources/response.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+actionId: response
+name: Response
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 EOF
 if "$KDEPS_BIN" validate "$AGENCY_DIR" &> /dev/null; then
     test_passed "Validate agency directory"
@@ -131,16 +127,12 @@ settings:
     pythonVersion: "3.12"
 EOF
 cat > "$WFFILE_DIR/resources/act.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: act
-  name: Act
-run:
-  apiResponse:
-    success: true
-    response:
-      msg: "ok"
+actionId: act
+name: Act
+apiResponse:
+  success: true
+  response:
+    msg: "ok"
 EOF
 if "$KDEPS_BIN" validate "$WFFILE_DIR/workflow.yaml" &> /dev/null; then
     test_passed "Validate workflow.yaml file directly"
@@ -245,20 +237,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR1/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  chat:
-    contextLength: "invalid"
-    prompt: test
+actionId: test
+name: test
+chat:
+  contextLength: "invalid"
+  prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR1/invalid-contextlength-type.yaml" \
     "Enhanced error for invalid backend type" \
-    "run.chat.contextLength" \
+    "chat.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR1"
 
@@ -276,20 +264,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR2/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  chat:
-    contextLength: 999
-    prompt: test
+actionId: test
+name: test
+chat:
+  contextLength: 999
+  prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR2/invalid-contextlength-value.yaml" \
     "Enhanced error for invalid backend value" \
-    "run.chat.contextLength" \
+    "chat.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR2"
 
@@ -307,20 +291,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR3/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  httpClient:
-    method: 123
-    url: https://api.example.com
+actionId: test
+name: test
+httpClient:
+  method: 123
+  url: https://api.example.com
 EOF
 
 test_enhanced_error "$TEMP_DIR3/invalid-method-type.yaml" \
     "Enhanced error for invalid HTTP method type" \
-    "run.httpClient.method" \
+    "httpClient.method" \
     "GET"
 rm -rf "$TEMP_DIR3"
 
@@ -338,20 +318,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR4/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  httpClient:
-    method: INVALID
-    url: https://api.example.com
+actionId: test
+name: test
+httpClient:
+  method: INVALID
+  url: https://api.example.com
 EOF
 
 test_enhanced_error "$TEMP_DIR4/invalid-method-value.yaml" \
     "Enhanced error for invalid HTTP method value" \
-    "run.httpClient.method" \
+    "httpClient.method" \
     "GET"
 rm -rf "$TEMP_DIR4"
 
@@ -369,21 +345,17 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR5/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  chat:
-    model: llama3.2
-    contextLength: 5000
-    prompt: test
+actionId: test
+name: test
+chat:
+  model: llama3.2
+  contextLength: 5000
+  prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR5/invalid-contextlength.yaml" \
     "Enhanced error for invalid contextLength value" \
-    "run.chat.contextLength" \
+    "chat.contextLength" \
     "4096"
 rm -rf "$TEMP_DIR5"
 
@@ -439,21 +411,17 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR8/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  sql:
-    connection: postgresql://localhost:5432/db
-    query: SELECT * FROM users
-    format: 123
+actionId: test
+name: test
+sql:
+  connection: postgresql://localhost:5432/db
+  query: SELECT * FROM users
+  format: 123
 EOF
 
 test_enhanced_error "$TEMP_DIR8/invalid-sql-format-type.yaml" \
     "Enhanced error for invalid SQL format type" \
-    "run.sql.format" \
+    "sql.format" \
     "json"
 rm -rf "$TEMP_DIR8"
 
@@ -471,21 +439,17 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR9/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  sql:
-    connection: postgresql://localhost:5432/db
-    query: SELECT * FROM users
-    format: invalid-format
+actionId: test
+name: test
+sql:
+  connection: postgresql://localhost:5432/db
+  query: SELECT * FROM users
+  format: invalid-format
 EOF
 
 test_enhanced_error "$TEMP_DIR9/invalid-sql-format-value.yaml" \
     "Enhanced error for invalid SQL format value" \
-    "run.sql.format" \
+    "sql.format" \
     "json"
 rm -rf "$TEMP_DIR9"
 
@@ -498,7 +462,6 @@ metadata:
   name: test
   targetActionId: test
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: 0.0.0.0
     portNum: 16395
@@ -550,14 +513,10 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR12/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  name: test
-run:
-  chat:
-    model: llama3.2
-    prompt: test
+name: test
+chat:
+  model: llama3.2
+  prompt: test
 EOF
 
 test_validation_error "$TEMP_DIR12/workflow.yaml" \
@@ -579,14 +538,10 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR13/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-run:
-  chat:
-    model: llama3.2
-    prompt: test
+actionId: test
+chat:
+  model: llama3.2
+  prompt: test
 EOF
 
 test_validation_error "$TEMP_DIR13/workflow.yaml" \
@@ -608,19 +563,15 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR14/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  chat:
-    prompt: 123
+actionId: test
+name: test
+chat:
+  prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR14/workflow.yaml" \
     "Type error - chat.model as integer" \
-    "run.chat.prompt"
+    "chat.prompt"
 rm -rf "$TEMP_DIR14"
 
 # Test 15: Type error - httpClient.url as integer
@@ -637,20 +588,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR15/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  httpClient:
-    method: GET
-    url: 123
+actionId: test
+name: test
+httpClient:
+  method: GET
+  url: 123
 EOF
 
 test_validation_error "$TEMP_DIR15/workflow.yaml" \
     "Type error - httpClient.url as integer" \
-    "run.httpClient.url"
+    "httpClient.url"
 rm -rf "$TEMP_DIR15"
 
 # Test 16: Type error - sql.query as integer
@@ -667,20 +614,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR16/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  sql:
-    connection: postgresql://localhost:5432/db
-    query: 123
+actionId: test
+name: test
+sql:
+  connection: postgresql://localhost:5432/db
+  query: 123
 EOF
 
 test_validation_error "$TEMP_DIR16/workflow.yaml" \
     "Type error - sql.query as integer" \
-    "run.sql.query"
+    "sql.query"
 rm -rf "$TEMP_DIR16"
 
 # Test 17: Type error - python.script as integer
@@ -697,19 +640,15 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR17/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  python:
-    script: 123
+actionId: test
+name: test
+python:
+  script: 123
 EOF
 
 test_validation_error "$TEMP_DIR17/workflow.yaml" \
     "Type error - python.script as integer" \
-    "run.python.script"
+    "python.script"
 rm -rf "$TEMP_DIR17"
 
 # Test 18: Type error - apiResponse.success as string
@@ -726,20 +665,16 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR18/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  apiResponse:
-    success: "true"
-    response: {}
+actionId: test
+name: test
+apiResponse:
+  success: "true"
+  response: {}
 EOF
 
 test_validation_error "$TEMP_DIR18/workflow.yaml" \
     "Type error - apiResponse.success as string" \
-    "run.apiResponse.success"
+    "apiResponse.success"
 rm -rf "$TEMP_DIR18"
 
 # Test 19: Invalid validations.methods value (formerly restrictToHttpMethods)
@@ -752,7 +687,6 @@ metadata:
   name: test
   targetActionId: test
 settings:
-  apiServerMode: true
   portNum: 16395
   apiServer:
     routes:
@@ -762,18 +696,14 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR19/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  validations:
-    methods:
-      - INVALID
-  chat:
-    model: llama3.2
-    prompt: test
+actionId: test
+name: test
+validations:
+  methods:
+    - INVALID
+chat:
+  model: llama3.2
+  prompt: test
 EOF
 
 test_enhanced_error "$TEMP_DIR19/workflow.yaml" \
@@ -799,14 +729,10 @@ settings:
     timezone: UTC
 EOF
 cat > "$TEMP_DIR20/resources/test.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: test
-run:
-  chat:
-    prompt: 123
+actionId: test
+name: test
+chat:
+  prompt: 123
 EOF
 
 test_validation_error "$TEMP_DIR20/workflow.yaml" \
@@ -844,7 +770,6 @@ metadata:
   name: test
   targetActionId: test
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: 0.0.0.0
     portNum: 16395

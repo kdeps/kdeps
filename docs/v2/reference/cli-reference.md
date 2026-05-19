@@ -620,7 +620,7 @@ Manifests are driven by `agentSettings` in `workflow.yaml`:
 - `replicas` - number of pod replicas
 - `resources` - CPU/memory limits and requests
 - `env` - container environment variables
-- `portNum` + `apiServerMode`/`webServerMode` - exposed ports
+- `portNum` inside `apiServer:`/`webServer:` - exposed ports
 - `installOllama: true` - adds Ollama backend port (11434)
 
 See [Kubernetes Deployment](../deployment/kubernetes) for full details.

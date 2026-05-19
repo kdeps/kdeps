@@ -72,10 +72,10 @@ func TestEngine_OnError_Continue_WithFallback(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -120,10 +120,10 @@ func TestEngine_OnError_Continue_WithoutFallback(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -169,10 +169,10 @@ func TestEngine_OnError_Retry_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -221,10 +221,10 @@ func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -268,10 +268,10 @@ func TestEngine_OnError_Fail(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -317,10 +317,10 @@ func TestEngine_OnError_NoConfig(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -358,10 +358,10 @@ func TestEngine_OnError_SuccessNoHandling(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",
@@ -404,10 +404,10 @@ func TestEngine_OnError_WithExpressions(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://example.com/api",

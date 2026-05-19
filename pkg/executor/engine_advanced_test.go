@@ -50,10 +50,10 @@ func TestEngine_Execute_ItemsIteration(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-items",
-					Name:     "Process Items",
-				},
+
+				ActionID: "process-items",
+				Name:     "Process Items",
+
 				Items: []string{"item1", "item2", "item3"},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -95,10 +95,10 @@ func TestEngine_Execute_SkipCondition_FileExists(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "conditional-resource",
-					Name:     "Conditional Resource",
-				},
+
+				ActionID: "conditional-resource",
+				Name:     "Conditional Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{
 						{Raw: "false"}, // Don't skip
@@ -138,10 +138,10 @@ func TestEngine_Execute_PreflightCheck_WithError(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "validated-resource",
-					Name:     "Validated Resource",
-				},
+
+				ActionID: "validated-resource",
+				Name:     "Validated Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
 						{Raw: "false"}, // Validation fails
@@ -187,10 +187,10 @@ func TestEngine_Execute_RestrictToHTTPMethods(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "restricted-resource",
-					Name:     "Restricted Resource",
-				},
+
+				ActionID: "restricted-resource",
+				Name:     "Restricted Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET", "POST"},
 				},
@@ -242,10 +242,10 @@ func TestEngine_Execute_RestrictToRoutes(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "route-restricted-resource",
-					Name:     "Route Restricted Resource",
-				},
+
+				ActionID: "route-restricted-resource",
+				Name:     "Route Restricted Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Routes: []string{"/api/v1/data"},
 				},
@@ -295,10 +295,10 @@ func TestEngine_Execute_ExprBlock(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "expr-resource",
-					Name:     "Expression Resource",
-				},
+
+				ActionID: "expr-resource",
+				Name:     "Expression Resource",
+
 				Expr: []domain.Expression{
 					{Raw: "set('computed', 42)"},
 					{Raw: "set('formatted', 'Result: ' + string(get('computed')))"},
@@ -340,10 +340,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step1",
-					Name:     "Step 1",
-				},
+
+				ActionID: "step1",
+				Name:     "Step 1",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -352,10 +352,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "conditional-step",
-					Name:     "Conditional Step",
-				},
+
+				ActionID: "conditional-step",
+				Name:     "Conditional Step",
+
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{
 						{Raw: "get('step1') == null"}, // Skip if step1 didn't run
@@ -369,10 +369,10 @@ func TestEngine_Execute_ComplexSkipCondition(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "final-resource",
-					Name:     "Final Resource",
-				},
+
+				ActionID: "final-resource",
+				Name:     "Final Resource",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -407,10 +407,10 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "set-data",
-					Name:     "Set Data",
-				},
+
+				ActionID: "set-data",
+				Name:     "Set Data",
+
 				Expr: []domain.Expression{
 					{Raw: "set('userId', '123')"},
 					{Raw: "set('apiToken', 'token-abc')"},
@@ -423,11 +423,10 @@ func TestEngine_Execute_MultiplePreflightValidations(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "validated-resource",
-					Name:     "Validated Resource",
-					Requires: []string{"set-data"},
-				},
+
+				ActionID: "validated-resource",
+				Name:     "Validated Resource",
+				Requires: []string{"set-data"},
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
 						{Raw: "get('userId') != nil"},
@@ -474,10 +473,10 @@ func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "prepare-data",
-					Name:     "Prepare Data",
-				},
+
+				ActionID: "prepare-data",
+				Name:     "Prepare Data",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -486,10 +485,10 @@ func TestEngine_Execute_ItemsWithDependencies(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-items",
-					Name:     "Process Items",
-				},
+
+				ActionID: "process-items",
+				Name:     "Process Items",
+
 				Items: []string{"item1", "item2", "item3"},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -530,10 +529,10 @@ func TestEngine_Execute_CombinedRestrictions(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "restricted-resource",
-					Name:     "Restricted Resource",
-				},
+
+				ActionID: "restricted-resource",
+				Name:     "Restricted Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET", "POST"},
 					Routes:  []string{"/api/v1/data"},

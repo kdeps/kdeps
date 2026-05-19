@@ -220,10 +220,7 @@ expr:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: processUpload
+actionId: processUpload
 expr:
   # Check file count
   - set('fileCount', request.filecount())

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: timeTool
-  name: Time Tool
+actionId: timeTool
+name: Time Tool
 
 python:
   script: |

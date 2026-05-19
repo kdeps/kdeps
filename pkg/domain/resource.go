@@ -18,18 +18,19 @@
 
 package domain
 
-import (
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"gopkg.in/yaml.v3"
-)
-
 // Resource represents a KDeps resource.
 type Resource struct {
-	APIVersion string           `yaml:"apiVersion"`
-	Kind       string           `yaml:"kind"`
-	Metadata   ResourceMetadata `yaml:"metadata"`
-	Items      []string         `yaml:"items,omitempty"`
+	// Identity (apiVersion/kind default in parser when omitted)
+	APIVersion string `yaml:"apiVersion,omitempty"`
+	Kind       string `yaml:"kind,omitempty"`
+
+	// Core fields (promoted from metadata)
+	ActionID    string   `yaml:"actionId"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description,omitempty"`
+	Category    string   `yaml:"category,omitempty"`
+	Requires    []string `yaml:"requires,omitempty"`
+	Items       []string `yaml:"items,omitempty"`
 
 	// Cross-cutting execution fields
 	Tool        string             `yaml:"tool,omitempty"        json:"tool,omitempty"`
@@ -55,15 +56,6 @@ type Resource struct {
 	SearchLocal *SearchLocalConfig     `yaml:"searchLocal,omitempty"`
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
-}
-
-// ResourceMetadata contains resource metadata.
-type ResourceMetadata struct {
-	ActionID    string   `yaml:"actionId"`
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description,omitempty"`
-	Category    string   `yaml:"category,omitempty"`
-	Requires    []string `yaml:"requires,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete
@@ -164,28 +156,6 @@ type ErrorConfig struct {
 	Message string `yaml:"message"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (e *ErrorConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Code    interface{} `yaml:"code"`
-		Message string      `yaml:"message"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.Code); ok {
-		e.Code = i
-	}
-
-	e.Message = alias.Message
-
-	return nil
-}
-
 // OnErrorConfig represents error handling configuration for resources.
 type OnErrorConfig struct {
 	// Action defines what to do when an error occurs: "continue", "fail", "retry"
@@ -207,36 +177,6 @@ type OnErrorConfig struct {
 	// Conditions for when to apply this error handler (if empty, applies to all errors)
 	// Expressions that have access to 'error' object with: error.message, error.code, error.type
 	When []Expression `yaml:"when,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Action     string       `yaml:"action,omitempty"`
-		MaxRetries interface{}  `yaml:"maxRetries,omitempty"`
-		RetryDelay string       `yaml:"retryDelay,omitempty"`
-		Fallback   interface{}  `yaml:"fallback,omitempty"`
-		Expr       []Expression `yaml:"expr,omitempty"`
-		When       []Expression `yaml:"when,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.MaxRetries); ok {
-		o.MaxRetries = i
-	}
-
-	o.Action = alias.Action
-	o.RetryDelay = alias.RetryDelay
-	o.Fallback = alias.Fallback
-	o.Expr = alias.Expr
-	o.When = alias.When
-
-	return nil
 }
 
 // ChatConfig represents LLM chat configuration.
@@ -264,66 +204,6 @@ type ChatConfig struct {
 	TopP             *float64 `yaml:"topP,omitempty"`             // Nucleus sampling parameter (0.0-1.0)
 	FrequencyPenalty *float64 `yaml:"frequencyPenalty,omitempty"` // Frequency penalty (-2.0 to 2.0)
 	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`  // Presence penalty (-2.0 to 2.0)
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans/integers/floats.
-func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Model            string         `yaml:"model,omitempty"`
-		ContextLength    interface{}    `yaml:"contextLength,omitempty"`
-		Role             string         `yaml:"role"`
-		Prompt           string         `yaml:"prompt"`
-		Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
-		Tools            []Tool         `yaml:"tools,omitempty"`
-		ComponentTools   []string       `yaml:"componentTools,omitempty"`
-		Files            []string       `yaml:"files,omitempty"`
-		JSONResponse     interface{}    `yaml:"jsonResponse"`
-		JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
-		Streaming        interface{}    `yaml:"streaming,omitempty"`
-		Timeout          string         `yaml:"timeout,omitempty"`
-		Temperature      interface{}    `yaml:"temperature,omitempty"`
-		MaxTokens        interface{}    `yaml:"maxTokens,omitempty"`
-		TopP             interface{}    `yaml:"topP,omitempty"`
-		FrequencyPenalty interface{}    `yaml:"frequencyPenalty,omitempty"`
-		PresencePenalty  interface{}    `yaml:"presencePenalty,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean fields that might be strings
-	if b, ok := ParseBool(alias.JSONResponse); ok {
-		c.JSONResponse = b
-	}
-	if b, ok := ParseBool(alias.Streaming); ok {
-		c.Streaming = b
-	}
-
-	// Parse integer fields that might be strings
-	if i, ok := parseInt(alias.ContextLength); ok {
-		c.ContextLength = i
-	}
-	c.MaxTokens = parseIntPtr(alias.MaxTokens)
-
-	// Parse float fields that might be strings
-	c.Temperature = parseFloatPtr(alias.Temperature)
-	c.TopP = parseFloatPtr(alias.TopP)
-	c.FrequencyPenalty = parseFloatPtr(alias.FrequencyPenalty)
-	c.PresencePenalty = parseFloatPtr(alias.PresencePenalty)
-
-	c.Model = alias.Model
-	c.Role = alias.Role
-	c.Prompt = alias.Prompt
-	c.Scenario = alias.Scenario
-	c.Tools = alias.Tools
-	c.ComponentTools = alias.ComponentTools
-	c.Files = alias.Files
-	c.JSONResponseKeys = alias.JSONResponseKeys
-	c.Timeout = alias.Timeout
-
-	return nil
 }
 
 // ScenarioItem represents a chat scenario item.
@@ -370,34 +250,6 @@ type ToolParam struct {
 	Default     interface{} `yaml:"default,omitempty"` // Default value
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (t *ToolParam) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Type        string      `yaml:"type"`
-		Description string      `yaml:"description"`
-		Required    interface{} `yaml:"required,omitempty"`
-		Enum        []string    `yaml:"enum,omitempty"`
-		Default     interface{} `yaml:"default,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean field that might be string
-	if b, ok := ParseBool(alias.Required); ok {
-		t.Required = b
-	}
-
-	t.Type = alias.Type
-	t.Description = alias.Description
-	t.Enum = alias.Enum
-	t.Default = alias.Default
-
-	return nil
-}
-
 // HTTPClientConfig represents HTTP client configuration.
 type HTTPClientConfig struct {
 	Method  string            `yaml:"method"`
@@ -430,61 +282,11 @@ type RetryConfig struct {
 	RetryOn     []int  `yaml:"retryOn,omitempty"`    // HTTP status codes to retry on
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (r *RetryConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		MaxAttempts interface{} `yaml:"maxAttempts"`
-		Backoff     string      `yaml:"backoff,omitempty"`
-		MaxBackoff  string      `yaml:"maxBackoff,omitempty"`
-		RetryOn     []int       `yaml:"retryOn,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.MaxAttempts); ok {
-		r.MaxAttempts = i
-	}
-
-	r.Backoff = alias.Backoff
-	r.MaxBackoff = alias.MaxBackoff
-	r.RetryOn = alias.RetryOn
-
-	return nil
-}
-
 // HTTPCacheConfig represents HTTP caching configuration.
 type HTTPCacheConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	TTL     string `yaml:"ttl,omitempty"` // Time to live
 	Key     string `yaml:"key,omitempty"` // Custom cache key
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (h *HTTPCacheConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Enabled interface{} `yaml:"enabled"`
-		TTL     string      `yaml:"ttl,omitempty"`
-		Key     string      `yaml:"key,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean field that might be string
-	if b, ok := ParseBool(alias.Enabled); ok {
-		h.Enabled = b
-	}
-
-	h.TTL = alias.TTL
-	h.Key = alias.Key
-
-	return nil
 }
 
 // HTTPAuthConfig represents HTTP authentication configuration.
@@ -505,32 +307,6 @@ type HTTPTLSConfig struct {
 	CAFile             string `yaml:"caFile,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (h *HTTPTLSConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		InsecureSkipVerify interface{} `yaml:"insecureSkipVerify,omitempty"`
-		CertFile           string      `yaml:"certFile,omitempty"`
-		KeyFile            string      `yaml:"keyFile,omitempty"`
-		CAFile             string      `yaml:"caFile,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean field that might be string
-	if b, ok := ParseBool(alias.InsecureSkipVerify); ok {
-		h.InsecureSkipVerify = b
-	}
-
-	h.CertFile = alias.CertFile
-	h.KeyFile = alias.KeyFile
-	h.CAFile = alias.CAFile
-
-	return nil
-}
-
 // SQLConfig represents SQL query configuration.
 type SQLConfig struct {
 	ConnectionName string        `yaml:"connectionName,omitempty"`
@@ -543,48 +319,6 @@ type SQLConfig struct {
 	Format         string        `yaml:"format,omitempty"`
 	Timeout        string        `yaml:"timeout,omitempty"`
 	MaxRows        int           `yaml:"maxRows,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans/integers.
-func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		ConnectionName string        `yaml:"connectionName,omitempty"`
-		Connection     string        `yaml:"connection,omitempty"`
-		Pool           *PoolConfig   `yaml:"pool,omitempty"`
-		Query          string        `yaml:"query,omitempty"`
-		Params         []interface{} `yaml:"params,omitempty"`
-		Transaction    interface{}   `yaml:"transaction,omitempty"`
-		Queries        []QueryItem   `yaml:"queries,omitempty"`
-		Format         string        `yaml:"format,omitempty"`
-		Timeout        string        `yaml:"timeout,omitempty"`
-		MaxRows        interface{}   `yaml:"maxRows,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean field that might be string
-	if b, ok := ParseBool(alias.Transaction); ok {
-		s.Transaction = b
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.MaxRows); ok {
-		s.MaxRows = i
-	}
-
-	s.ConnectionName = alias.ConnectionName
-	s.Connection = alias.Connection
-	s.Pool = alias.Pool
-	s.Query = alias.Query
-	s.Params = alias.Params
-	s.Queries = alias.Queries
-	s.Format = alias.Format
-	s.Timeout = alias.Timeout
-
-	return nil
 }
 
 // QueryItem represents a query in a transaction.
@@ -615,79 +349,22 @@ type ExecConfig struct {
 
 // APIResponseConfig represents API response configuration.
 type APIResponseConfig struct {
-	Success  interface{}   `yaml:"success"`  // Flexible: bool, string, expression (e.g. "{{ get('valid') }}")
-	Response interface{}   `yaml:"response"` // Can be any type: string, array, map, number, etc.
-	Meta     *ResponseMeta `yaml:"meta,omitempty"`
-}
-
-// ResponseMeta represents response metadata.
-type ResponseMeta struct {
-	Headers    map[string]string `yaml:"headers,omitempty"`
+	Success    interface{}       `yaml:"success"`              // Flexible: bool, string, expression (e.g. "{{ get('valid') }}")
+	Response   interface{}       `yaml:"response"`             // Can be any type: string, array, map, number, etc.
+	Headers    map[string]string `yaml:"headers,omitempty"`    // HTTP headers for the response
 	StatusCode int               `yaml:"statusCode,omitempty"` // HTTP status code for the response
-	// Additional metadata fields (model, backend, etc.)
-	Model   string `yaml:"model,omitempty"`
-	Backend string `yaml:"backend,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (r *ResponseMeta) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Headers    map[string]string `yaml:"headers,omitempty"`
-		StatusCode interface{}       `yaml:"statusCode,omitempty"`
-		Model      string            `yaml:"model,omitempty"`
-		Backend    string            `yaml:"backend,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.StatusCode); ok {
-		r.StatusCode = i
-	}
-
-	r.Headers = alias.Headers
-	r.Model = alias.Model
-	r.Backend = alias.Backend
-
-	return nil
+	Model      string            `yaml:"model,omitempty"`
+	Backend    string            `yaml:"backend,omitempty"`
 }
 
 // AgentCallConfig configures a call to a sibling agent within the same agency.
 type AgentCallConfig struct {
 	// Name is the metadata.name of the target agent workflow in the agency.
-	// The legacy YAML key "agent" is also accepted for backward compatibility.
 	Name string `yaml:"name"`
 
 	// Params are key-value pairs forwarded to the target agent as input.
 	// The target agent accesses them via get('key').
 	Params map[string]interface{} `yaml:"params,omitempty"`
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler to accept both "name:" (preferred)
-// and the legacy "agent:" key for backward compatibility.
-func (c *AgentCallConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	// Use an alias to avoid infinite recursion during unmarshaling.
-	type agentCallConfigAlias struct {
-		Name   string                 `yaml:"name"`
-		Agent  string                 `yaml:"agent"` // legacy key
-		Params map[string]interface{} `yaml:"params,omitempty"`
-	}
-	var alias agentCallConfigAlias
-	if err := unmarshal(&alias); err != nil {
-		return err
-	}
-	// Prefer "name:" over the legacy "agent:" key.
-	if alias.Name != "" {
-		c.Name = alias.Name
-	} else {
-		c.Name = alias.Agent
-	}
-	c.Params = alias.Params
-	return nil
 }
 
 // ScraperConfig represents web scraper configuration.

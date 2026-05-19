@@ -10,12 +10,10 @@ Every agent shares the same entry point:
 # workflow.yaml (same for all agents)
 apiVersion: kdeps.io/v1
 kind: Workflow
-metadata:
-  name: my-agent
-  version: "1.0.0"
-  targetActionId: respond
+name: my-agent
+version: "1.0.0"
+targetActionId: respond
 settings:
-  apiServerMode: true
   apiServer:
     portNum: 16395
     routes:
@@ -32,10 +30,7 @@ settings:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 chat:
   prompt: |
     Email: {{ get('email') }}
@@ -57,10 +52,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 chat:
   prompt: |
     Meeting request: {{ get('request') }}
@@ -81,10 +73,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 before:
   - httpClient:
       method: GET
@@ -111,10 +100,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 before:
   - httpClient:
       method: GET
@@ -140,10 +126,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 before:
   - component:
       name: embedding
@@ -167,10 +150,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 before:
   - httpClient:
       method: GET
@@ -195,10 +175,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 before:
   - component:
       name: scraper
@@ -224,10 +201,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: respond
+actionId: respond
 chat:
   prompt: |
     Client: {{ get('client') }}

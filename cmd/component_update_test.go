@@ -119,11 +119,8 @@ metadata:
   name: mergetest
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
+  - actionId: doWork
+    name: Do Work
     exec:
       command: "echo {{ env('NEW_SECRET') }}"
 `
@@ -147,11 +144,8 @@ metadata:
   name: presenttest
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
+  - actionId: doWork
+    name: Do Work
     exec:
       command: "echo {{ env('ALREADY_SET') }}"
 `

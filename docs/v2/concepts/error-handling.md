@@ -7,10 +7,7 @@ KDeps provides built-in error handling for all resource types through the `onErr
 The `onError` block can be added to any resource to define how errors should be handled:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: myResource
+actionId: myResource
 httpClient:
   url: "https://api.example.com/data"
   method: GET
@@ -65,10 +62,7 @@ onError:
 Continue execution even if the resource fails, using a fallback value:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetchData
+actionId: fetchData
 httpClient:
   url: "https://api.example.com/data"
   method: GET
@@ -107,10 +101,7 @@ The output will be:
 Automatically retry failed operations:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: unreliableApi
+actionId: unreliableApi
 httpClient:
   url: "https://flaky-api.example.com/data"
   method: GET
@@ -203,10 +194,7 @@ onError:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetchUserData
+actionId: fetchUserData
 httpClient:
   url: "https://api.example.com/users/{{ get('userId') }}"
   method: GET
@@ -225,10 +213,7 @@ onError:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmEnhancement
+actionId: llmEnhancement
 chat:
   prompt: "Enhance this text: {{ get('text') }}"
 
@@ -242,10 +227,7 @@ onError:
 ### Circuit Breaker Pattern
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: externalService
+actionId: externalService
 # Check circuit breaker state first
 validations:
   skip:
@@ -272,10 +254,7 @@ onError:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: queryPrimary
+actionId: queryPrimary
 sql:
   connection: primary
   query: "SELECT * FROM users WHERE id = ?"
@@ -287,12 +266,9 @@ onError:
   fallback: null
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: queryReplica
-  requires:
-    - queryPrimary
+actionId: queryReplica
+requires:
+  - queryPrimary
 # Only query replica if primary failed
 validations:
   skip:
@@ -313,10 +289,7 @@ sql:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: primaryLLM
+actionId: primaryLLM
 chat:
   prompt: "{{ get('q') }}"
 
@@ -325,12 +298,9 @@ onError:
   fallback: null
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fallbackLLM
-  requires:
-    - primaryLLM
+actionId: fallbackLLM
+requires:
+  - primaryLLM
 validations:
   skip:
   - get('primaryLLM') != null
@@ -340,13 +310,10 @@ chat:
   prompt: "{{ get('q') }}"
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  requires:
-    - primaryLLM
-    - fallbackLLM
+actionId: response
+requires:
+  - primaryLLM
+  - fallbackLLM
 apiResponse:
   success: true
   response:

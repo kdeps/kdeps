@@ -51,16 +51,12 @@ ${input_yaml}
 EOF
 
     cat > "$TEST_DIR/resources/main.yaml" <<'RESEOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: Main
-run:
-  apiResponse:
-    success: true
-    response:
-      status: ok
+actionId: main
+name: Main
+apiResponse:
+  success: true
+  response:
+    status: ok
 RESEOF
 
     if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" > /dev/null 2>&1; then
@@ -97,16 +93,12 @@ ${input_yaml}
 EOF
 
     cat > "$TEST_DIR/resources/main.yaml" <<'RESEOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: Main
-run:
-  apiResponse:
-    success: true
-    response:
-      status: ok
+actionId: main
+name: Main
+apiResponse:
+  success: true
+  response:
+    status: ok
 RESEOF
 
     if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" > /dev/null 2>&1; then

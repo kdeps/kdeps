@@ -1,9 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmResource
-  name: LLM Chat Handler
-  description: Handles chat requests with the selected LLM model
+actionId: llmResource
+name: LLM Chat Handler
+description: Handles chat requests with the selected LLM model
 
 # Only respond to POST requests on /api/v1/chat, and validate required input
 validations:

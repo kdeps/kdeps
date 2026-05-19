@@ -71,13 +71,9 @@ component:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: research
-  name: Autopilot Researcher
-
+actionId: research
+name: Autopilot Researcher
 component:
   name: autopilot
   with:
@@ -92,13 +88,9 @@ component:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyze
-  name: Autopilot Data Analysis
-
+actionId: analyze
+name: Autopilot Data Analysis
 component:
   name: autopilot
   with:

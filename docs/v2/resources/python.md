@@ -5,13 +5,9 @@ The Python resource enables execution of Python scripts for data processing, ML 
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: pythonResource
-  name: Data Processing
-
+actionId: pythonResource
+name: Data Processing
 python:
   script: |
     import json
@@ -155,9 +151,7 @@ Use separate virtual environments for different resources:
 
 ```yaml
 # Resource 1: Data science packages
-metadata:
-  actionId: dataScience
-
+actionId: dataScience
 python:
   venvName: "datascience-env"
   script: |
@@ -167,9 +161,7 @@ python:
 
 ---
 # Resource 2: Web scraping packages
-metadata:
-  actionId: webScraper
-
+actionId: webScraper
 python:
   venvName: "scraper-env"
   script: |
@@ -185,10 +177,8 @@ python:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: transformData
-  requires: [fetchData]
-
+actionId: transformData
+requires: [fetchData]
 python:
   script: |
     import json
@@ -225,9 +215,7 @@ python:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: mlPredict
-
+actionId: mlPredict
 validations:
   check:
     - get('features') != ''
@@ -269,9 +257,7 @@ python:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: textAnalysis
-
+actionId: textAnalysis
 python:
   script: |
     import json
@@ -310,9 +296,7 @@ python:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: imageProcess
-
+actionId: imageProcess
 python:
   script: |
     import json
@@ -352,9 +336,7 @@ python:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: externalApi
-
+actionId: externalApi
 python:
   script: |
     import json
@@ -398,9 +380,7 @@ print(json.dumps(result))
 Access the output in other resources:
 
 ```yaml
-metadata:
-  requires: [pythonResource]
-
+requires: [pythonResource]
 apiResponse:
   response:
     # Full output
@@ -437,9 +417,7 @@ debug = os.environ.get('DEBUG') == 'true'
 Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
-metadata:
-  requires: [pythonResource]
-
+requires: [pythonResource]
 expr:
   # Check if Python script succeeded
   - set('script_success', python.exitCode('pythonResource') == 0)

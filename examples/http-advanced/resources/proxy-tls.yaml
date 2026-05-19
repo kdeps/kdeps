@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: proxyTls
-  name: Proxy and TLS Configuration
+actionId: proxyTls
+name: Proxy and TLS Configuration
 
 validations:
   methods: [GET]

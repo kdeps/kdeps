@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: results
-  name: Combined Results
-  requires: [analytics, batchUpdate]
+actionId: results
+name: Combined Results
+requires: [analytics, batchUpdate]
 
 apiResponse:
   success: true

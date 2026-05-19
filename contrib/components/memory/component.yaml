@@ -25,11 +25,8 @@ interface:
       default: ~/.kdeps/memory.db
       description: Path to the SQLite database file
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Memory Op
-      actionId: memory-op
+  - name: Memory Op
+    actionId: memory-op
     python:
       script: |
         import sqlite3

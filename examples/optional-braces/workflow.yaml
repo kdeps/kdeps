@@ -8,11 +8,9 @@ metadata:
   targetActionId: mixed
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/demo
         methods: [GET, POST]
@@ -25,11 +23,8 @@ settings:
     timezone: Etc/UTC
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: withoutBraces
-      name: Direct Expressions Without Braces
+  - actionId: withoutBraces
+    name: Direct Expressions Without Braces
     validations:
       methods: [GET, POST]
       routes: [/api/demo]
@@ -41,13 +36,10 @@ resources:
         count: get('count')
         isValid: get('count') > 0
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: withBraces
-      name: String Interpolation With Braces
-      requires:
-        - withoutBraces
+  - actionId: withBraces
+    name: String Interpolation With Braces
+    requires:
+    - withoutBraces
     apiResponse:
       response:
         # String interpolation REQUIRES braces
@@ -55,13 +47,10 @@ resources:
         summary: "Found {{ get('count') }} results"
         queryResult: "Query: {{ get('q') }}"
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: mixed
-      name: Mixed Direct and Interpolated
-      requires:
-        - withBraces
+  - actionId: mixed
+    name: Mixed Direct and Interpolated
+    requires:
+    - withBraces
     apiResponse:
       response:
         # Direct without braces

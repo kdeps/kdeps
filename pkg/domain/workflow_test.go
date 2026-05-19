@@ -36,7 +36,6 @@ metadata:
   version: 1.0.0
   targetActionId: main-action
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -81,18 +80,13 @@ settings:
 		t.Errorf("TargetActionID = %v, want %v", workflow.Metadata.TargetActionID, "main-action")
 	}
 
-	// Verify settings.
-	if !workflow.Settings.APIServerMode {
-		t.Error("APIServerMode should be true")
-	}
-
 	// Verify API server config.
 	if workflow.Settings.APIServer == nil {
 		t.Fatal("APIServer is nil")
 	}
 
-	if workflow.Settings.PortNum != 16395 {
-		t.Errorf("PortNum = %v, want %v", workflow.Settings.PortNum, 16395)
+	if workflow.Settings.APIServer.PortNum != 16395 {
+		t.Errorf("PortNum = %v, want %v", workflow.Settings.APIServer.PortNum, 16395)
 	}
 
 	if len(workflow.Settings.APIServer.Routes) != 1 {
@@ -135,10 +129,9 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 			TargetActionID: "main-action",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
 			APIServer: &domain.APIServerConfig{
+				HostIP:  "0.0.0.0",
+				PortNum: 16395,
 				Routes: []domain.Route{
 					{
 						Path:    "/api/test",
@@ -169,11 +162,11 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 		t.Fatal("APIServer is nil after round-trip")
 	}
 
-	if result.Settings.PortNum != workflow.Settings.PortNum {
+	if result.Settings.APIServer.PortNum != workflow.Settings.APIServer.PortNum {
 		t.Errorf(
 			"PortNum = %v, want %v",
-			result.Settings.PortNum,
-			workflow.Settings.PortNum,
+			result.Settings.APIServer.PortNum,
+			workflow.Settings.APIServer.PortNum,
 		)
 	}
 }
@@ -427,19 +420,23 @@ func TestWorkflowSettings_GetHostIP(t *testing.T) {
 		want     string
 	}{
 		{
-			name:     "returns default when HostIP is empty",
-			settings: &domain.WorkflowSettings{HostIP: ""},
+			name:     "returns default when no server config",
+			settings: &domain.WorkflowSettings{},
 			want:     "0.0.0.0",
 		},
 		{
-			name:     "returns configured value when set",
-			settings: &domain.WorkflowSettings{HostIP: "127.0.0.1"},
-			want:     "127.0.0.1",
+			name: "returns APIServer HostIP when set",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{HostIP: "127.0.0.1"},
+			},
+			want: "127.0.0.1",
 		},
 		{
-			name:     "returns custom IP",
-			settings: &domain.WorkflowSettings{HostIP: "192.168.1.1"},
-			want:     "192.168.1.1",
+			name: "returns WebServer HostIP when APIServer not set",
+			settings: &domain.WorkflowSettings{
+				WebServer: &domain.WebServerConfig{HostIP: "192.168.1.1"},
+			},
+			want: "192.168.1.1",
 		},
 	}
 
@@ -460,24 +457,23 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 		want     int
 	}{
 		{
-			name:     "returns default when PortNum is 0",
-			settings: &domain.WorkflowSettings{PortNum: 0},
+			name:     "returns default when no server config",
+			settings: &domain.WorkflowSettings{},
 			want:     domain.DefaultPort,
 		},
 		{
-			name:     "returns default when PortNum is negative",
-			settings: &domain.WorkflowSettings{PortNum: -1},
-			want:     domain.DefaultPort,
+			name: "returns APIServer PortNum when set",
+			settings: &domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{PortNum: 8080},
+			},
+			want: 8080,
 		},
 		{
-			name:     "returns configured value when positive",
-			settings: &domain.WorkflowSettings{PortNum: 8080},
-			want:     8080,
-		},
-		{
-			name:     "returns custom port",
-			settings: &domain.WorkflowSettings{PortNum: 16395},
-			want:     16395,
+			name: "returns WebServer PortNum when APIServer not set",
+			settings: &domain.WorkflowSettings{
+				WebServer: &domain.WebServerConfig{PortNum: 16395},
+			},
+			want: 16395,
 		},
 	}
 

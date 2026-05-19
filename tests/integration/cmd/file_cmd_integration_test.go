@@ -56,7 +56,7 @@ func fileWF() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "sink", Name: "Sink"},
+				ActionID: "sink", Name: "Sink",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"ok": true},

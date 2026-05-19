@@ -58,25 +58,18 @@ metadata:
   version: "1.0.0"
   targetActionId: greet
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: callResponder
-      name: Call Responder
+  - actionId: callResponder
+    name: Call Responder
     agent:
       name: responder-agent
       params:
         name: "{{ get('name') }}"
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
-      name: Greet
-      requires: [callResponder]
+  - actionId: greet
+    name: Greet
+    requires: [callResponder]
     apiResponse:
       success: true
       response: "{{ output('callResponder') }}"
@@ -89,15 +82,11 @@ metadata:
   version: "1.0.0"
   targetActionId: respond
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: respond
-      name: Respond
+  - actionId: respond
+    name: Respond
     apiResponse:
       success: true
       response: "Hello from responder-agent"

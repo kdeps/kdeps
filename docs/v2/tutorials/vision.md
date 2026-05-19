@@ -39,14 +39,11 @@ Create `workflow.yaml`:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: vision
-  description: Vision model example
-  version: "1.0.0"
-  targetActionId: visionResponse
-
+name: vision
+description: Vision model example
+version: "1.0.0"
+targetActionId: visionResponse
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -73,13 +70,9 @@ Create `resources/vision-llm.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
+actionId: visionLLM
+name: Vision LLM
 chat:
   role: user
   prompt: "{{ get('q', 'param') }}"
@@ -107,15 +100,11 @@ Create `resources/vision-response.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionResponse
-  name: Vision Response
-  requires:
-    - visionLLM
-
+actionId: visionResponse
+name: Vision Response
+requires:
+  - visionLLM
 apiResponse:
   success: true
   response:
@@ -395,13 +384,9 @@ Handle errors gracefully:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
+actionId: visionLLM
+name: Vision LLM
 validations:
   - info('filecount') > 0
   - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
@@ -426,13 +411,10 @@ onError:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: vision-demo
-  version: "1.0.0"
-  targetActionId: visionResponse
-
+name: vision-demo
+version: "1.0.0"
+targetActionId: visionResponse
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -446,13 +428,9 @@ settings:
 
 ---
 # resources/vision-llm.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
+actionId: visionLLM
+name: Vision LLM
 chat:
   prompt: "{{ get('q', 'param') }}"
   files:
@@ -464,15 +442,11 @@ chat:
 
 ---
 # resources/vision-response.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionResponse
-  name: Vision Response
-  requires:
-    - visionLLM
-
+actionId: visionResponse
+name: Vision Response
+requires:
+  - visionLLM
 apiResponse:
   success: true
   response:

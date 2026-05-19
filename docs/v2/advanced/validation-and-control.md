@@ -20,11 +20,8 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: conditionalResource
-  name: Conditional Resource
+actionId: conditionalResource
+name: Conditional Resource
 validations:
   skip:
     - get('skip') == true
@@ -66,11 +63,8 @@ Preflight checks validate inputs **before** resource execution begins. If any co
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: validatedResource
-  name: Validated Resource
+actionId: validatedResource
+name: Validated Resource
 validations:
   check:
     - get('q') != ''
@@ -136,11 +130,8 @@ Limit which HTTP requests can trigger a resource.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: apiResource
-  name: API Resource
+actionId: apiResource
+name: API Resource
 validations:
   methods: [GET, POST]
   routes: [/api/v1/data, /api/v1/query]
@@ -199,11 +190,8 @@ Validate the structure and content of request data using `required`, `rules`, an
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: validatedInput
-  name: Validated Input
+actionId: validatedInput
+name: Validated Input
 validations:
   required:
     - userId
@@ -448,11 +436,8 @@ chat:
 ### Example 1: Conditional Processing
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: smartProcessor
-  name: Smart Processor
+actionId: smartProcessor
+name: Smart Processor
 validations:
   skip:
     - get('process') != true
@@ -473,11 +458,8 @@ python:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: secureEndpoint
-  name: Secure Endpoint
+actionId: secureEndpoint
+name: Secure Endpoint
 validations:
   methods: [POST]
   routes: [/api/v1/secure]

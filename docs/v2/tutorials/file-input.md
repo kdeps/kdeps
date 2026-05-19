@@ -31,12 +31,10 @@ Resources access the content via `input("fileContent")` and the path via `input(
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: doc-summarizer
-  description: Summarize a document piped via stdin
-  version: "1.0.0"
-  targetActionId: summarize
-
+name: doc-summarizer
+description: Summarize a document piped via stdin
+version: "1.0.0"
+targetActionId: summarize
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -62,13 +60,9 @@ Key points:
 
 ```yaml
 # resources/summarize.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
-  name: Summarize Document
-
+actionId: summarize
+name: Summarize Document
 chat:
   prompt: |
     You are a concise document summarizer.
@@ -155,8 +149,7 @@ You can chain multiple resources. The file content flows through the pipeline vi
 
 ```yaml
 # resources/extract.yaml
-metadata:
-  actionId: extract
+actionId: extract
 exec:
   command: bash
   args:
@@ -166,9 +159,8 @@ exec:
 
 ```yaml
 # resources/summarize.yaml
-metadata:
-  actionId: summarize
-  dependencies: [extract]
+actionId: summarize
+dependencies: [extract]
 chat:
   prompt: |
     Document word count: {{ get('extract') }}
@@ -188,11 +180,9 @@ chat:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: doc-summarizer
-  version: "1.0.0"
-  targetActionId: summarize
-
+name: doc-summarizer
+version: "1.0.0"
+targetActionId: summarize
 settings:
   agentSettings:
     installOllama: true
@@ -205,12 +195,8 @@ settings:
 **resources/summarize.yaml:**
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
-
+actionId: summarize
 chat:
   prompt: |
     Summarize this document in 3 bullet points:

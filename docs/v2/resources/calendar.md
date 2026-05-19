@@ -74,12 +74,9 @@ component:
 ```yaml
 # Step 1: LLM parses user request into structured event data
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: parse-request
-    name: Parse Meeting Request
-
+  actionId: parse-request
+  name: Parse Meeting Request
 chat:
   model: gpt-4o
   prompt: |
@@ -90,14 +87,11 @@ chat:
 
 # Step 2: Create the ICS event file
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: create-event
-    name: Create Calendar Event
-    requires:
-      - parse-request
-
+  actionId: create-event
+  name: Create Calendar Event
+  requires:
+    - parse-request
 component:
   name: calendar
   with:
@@ -109,14 +103,11 @@ component:
 
 # Step 3: Email the ICS file
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: send-invite
-    name: Send Calendar Invite
-    requires:
-      - create-event
-
+  actionId: send-invite
+  name: Send Calendar Invite
+  requires:
+    - create-event
 component:
   name: email
   with:
@@ -129,14 +120,11 @@ component:
 
 # Step 4: Return confirmation
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: confirm
-    name: Return Confirmation
-    requires:
-      - send-invite
-
+  actionId: confirm
+  name: Return Confirmation
+  requires:
+    - send-invite
 apiResponse:
   success: true
   response:

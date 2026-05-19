@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: markdownTool
-  name: Markdown Renderer Tool
+actionId: markdownTool
+name: Markdown Renderer Tool
 
 component:
   name: markdown-renderer

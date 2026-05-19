@@ -5,22 +5,17 @@ The API Response resource formats the final output returned to API clients.
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
-    - llmResource
-
+actionId: responseResource
+name: API Response
+requires:
+  - llmResource
 apiResponse:
   success: true
   response:
     data: get('llmResource')
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json
 ```
 
 ## Configuration Options
@@ -32,11 +27,10 @@ apiResponse:
     field: value
     nested:
       key: value
-  meta:                        # Response metadata
-    headers:
-      Header-Name: value
-    model: llama3.2:1b
-    backend: ollama
+  headers:
+    Header-Name: value
+  model: llama3.2:1b
+  backend: ollama
 ```
 
 ## Response Structure
@@ -100,12 +94,11 @@ apiResponse:
   success: true
   response:
     data: get('result')
-  meta:
-    headers:
-      Content-Type: application/json
-      X-Request-Id: info('requestId')
-      X-Processing-Time: "{{ get('processingTime') }}ms"
-      Cache-Control: "max-age=3600"
+  headers:
+    Content-Type: application/json
+    X-Request-Id: info('requestId')
+    X-Processing-Time: "{{ get('processingTime') }}ms"
+    Cache-Control: "max-age=3600"
 ```
 
 </div>
@@ -119,19 +112,17 @@ apiResponse:
   success: true
   response:
     answer: get('llmResource')
-  meta:
-    model: llama3.2:1b
-    backend: ollama
+  model: llama3.2:1b
+  backend: ollama
 ```
 
-**Automatic Metadata**: If an LLM resource was used in the workflow, model and backend information are automatically added to the response metadata (unless explicitly specified in `meta`).
+**Automatic Metadata**: If an LLM resource was used in the workflow, model and backend information are automatically added to the response metadata (unless explicitly specified).
 
 <div v-pre>
 
 ```yaml
 # LLM resource used earlier
-metadata:
-  actionId: llmResource
+actionId: llmResource
 chat:
   model: llama3.2:1b
   backend: ollama
@@ -139,14 +130,13 @@ chat:
 
 ---
 # Response automatically includes model/backend
-metadata:
-  actionId: responseResource
-  requires: [llmResource]
+actionId: responseResource
+requires: [llmResource]
 apiResponse:
   success: true
   response:
     answer: get('llmResource')
-  # meta.model and meta.backend added automatically
+  # model and backend added automatically
 ```
 
 </div>
@@ -174,11 +164,10 @@ apiResponse:
   success: true
   response:
     answer: get('llmResource')
-  meta:
-    model: custom-model
-    backend: custom-backend
-    headers:
-      X-Custom-Header: value
+  model: custom-model
+  backend: custom-backend
+  headers:
+    X-Custom-Header: value
 ```
 
 **Note**: Manual metadata takes precedence over automatic metadata.
@@ -218,10 +207,8 @@ apiResponse:
 ### Chat API Response
 
 ```yaml
-metadata:
-  actionId: chatResponse
-  requires: [llmResource]
-
+actionId: chatResponse
+requires: [llmResource]
 apiResponse:
   success: true
   response:
@@ -230,18 +217,15 @@ apiResponse:
     usage:
       prompt_tokens: get('llmResource').prompt_tokens
       completion_tokens: get('llmResource').completion_tokens
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json
 ```
 
 ### File Upload Response
 
 ```yaml
-metadata:
-  actionId: uploadResponse
-  requires: [processFile]
-
+actionId: uploadResponse
+requires: [processFile]
 apiResponse:
   success: true
   response:
@@ -251,18 +235,15 @@ apiResponse:
       type: get('file', 'filetype')
       size: get('processFile').size
     result: get('processFile').analysis
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json
 ```
 
 ### Paginated List Response
 
 ```yaml
-metadata:
-  actionId: listResponse
-  requires: [fetchItems]
-
+actionId: listResponse
+requires: [fetchItems]
 apiResponse:
   success: true
   response:
@@ -272,22 +253,19 @@ apiResponse:
       limit: get('limit', '10')
       total: get('fetchItems').total
       has_more: get('fetchItems').has_more
-  meta:
-    headers:
-      Content-Type: application/json
-      X-Total-Count: get('fetchItems').total
+  headers:
+    Content-Type: application/json
+    X-Total-Count: get('fetchItems').total
 ```
 
 ### Multi-Resource Response
 
 ```yaml
-metadata:
-  actionId: dashboardResponse
-  requires:
-    - userResource
-    - statsResource
-    - notificationsResource
-
+actionId: dashboardResponse
+requires:
+  - userResource
+  - statsResource
+  - notificationsResource
 apiResponse:
   success: true
   response:
@@ -301,19 +279,16 @@ apiResponse:
     notifications:
       unread: get('notificationsResource').unread
       items: get('notificationsResource').items
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json
 ```
 
 ### Error Response Pattern
 
 ```yaml
 # Successful case
-metadata:
-  actionId: successResponse
-  requires: [dataResource]
-
+actionId: successResponse
+requires: [dataResource]
 validations:
   skip:
   - get('dataResource').error != null
@@ -325,10 +300,8 @@ apiResponse:
 
 ---
 # Error case
-metadata:
-  actionId: errorResponse
-  requires: [dataResource]
-
+actionId: errorResponse
+requires: [dataResource]
 validations:
   skip:
   - get('dataResource').error == null
@@ -346,10 +319,8 @@ apiResponse:
 Transform data before returning:
 
 ```yaml
-metadata:
-  actionId: transformedResponse
-  requires: [rawData]
-
+actionId: transformedResponse
+requires: [rawData]
 expr:
   - set('formatted', formatData(get('rawData')))
 

@@ -42,7 +42,6 @@ metadata:
   targetActionId: errorHandler
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3040
   apiServer:
@@ -58,20 +57,16 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: errorHandler
-  name: Error Handler
+actionId: errorHandler
+name: Error Handler
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/error]
-  apiResponse:
-    success: true
-    response:
-      message: "Success"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/error]
+apiResponse:
+  success: true
+  response:
+    message: "Success"
 EOF
 
 # Test 1: Validate workflow

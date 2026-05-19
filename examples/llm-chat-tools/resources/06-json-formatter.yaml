@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: jsonFormatterTool
-  name: JSON Formatter Tool
+actionId: jsonFormatterTool
+name: JSON Formatter Tool
 
 python:
   script: |

@@ -10,7 +10,6 @@ To configure CORS, you define the `cors` block inside the `apiServer` configurat
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -172,7 +171,6 @@ metadata:
   targetActionId: apiHandler
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395

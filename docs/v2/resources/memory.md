@@ -94,7 +94,6 @@ A two-endpoint agent: `/learn` stores facts, `/ask` retrieves context and answer
 settings:
   name: memory-agent
   targetActionId: respond
-  apiServerMode: true
   apiServer:
     routes:
       - path: /learn
@@ -107,13 +106,9 @@ settings:
 
 ```yaml
 # resources/learn.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: storeFact
-  name: Store Fact
-
+actionId: storeFact
+name: Store Fact
 validations:
   routes: [/learn]
   methods: [POST]
@@ -135,13 +130,9 @@ apiResponse:
 
 ```yaml
 # resources/recall.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: recallFact
-  name: Recall Fact
-
+actionId: recallFact
+name: Recall Fact
 validations:
   routes: [/ask]
   methods: [POST]
@@ -156,14 +147,10 @@ component:
 
 ```yaml
 # resources/respond.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: respond
-  name: Answer Question
-  requires: [recallFact]
-
+actionId: respond
+name: Answer Question
+requires: [recallFact]
 validations:
   routes: [/ask]
   methods: [POST]

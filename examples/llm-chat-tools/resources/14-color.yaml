@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: colorTool
-  name: Color Converter Tool
+actionId: colorTool
+name: Color Converter Tool
 
 component:
   name: color-converter

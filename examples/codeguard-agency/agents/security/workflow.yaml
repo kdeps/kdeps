@@ -11,7 +11,6 @@ metadata:
   targetActionId: security-response
 
 settings:
-  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"
@@ -20,11 +19,8 @@ settings:
 resources:
 
   # ── LLM security analysis ─────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: security-check
-      name: Security Check
+  - actionId: security-check
+    name: Security Check
     chat:
       model: llama3.2:1b
       role: user
@@ -63,12 +59,9 @@ resources:
       timeoutDuration: 120s
 
   # ── Return result to intake agent ─────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: security-response
-      name: Security Response
-      requires: [security-check]
+  - actionId: security-response
+    name: Security Response
+    requires: [security-check]
     apiResponse:
       success: true
       response: "{{ get('security-check') }}"

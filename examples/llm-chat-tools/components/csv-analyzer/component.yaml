@@ -29,11 +29,8 @@ interface:
       description: "Maximum rows to display (default: 10)."
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: analyzeCSV
-      name: Analyze CSV
+  - actionId: analyzeCSV
+    name: Analyze CSV
     python:
       script: |
         import json, csv, io, statistics

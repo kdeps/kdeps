@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: login
-  name: login
-  description: |
+actionId: login
+name: login
+description: |
     Authenticate to LinkedIn using the real Chrome user data directory.
 
     This is the same technique as auto-apply/modules/open_chrome.py:

@@ -183,10 +183,10 @@ else
     fi
 
     # T20: apiServerMode is false (single-shot)
-    if grep -q "apiServerMode: false" "$FP_WF"; then
-        test_passed "file-processor - apiServerMode: false (single-shot)"
+    if ! grep -q "apiServerMode:" "$FP_WF"; then
+        test_passed "file-processor - no apiServerMode (single-shot)"
     else
-        test_failed "file-processor - apiServerMode: false" "apiServerMode: false not found in $FP_WF"
+        test_failed "file-processor - no apiServerMode" "apiServerMode: still found in $FP_WF"
     fi
 
     # T21: summarize resource uses input('fileContent')

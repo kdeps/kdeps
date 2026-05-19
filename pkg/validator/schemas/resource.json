@@ -57,55 +57,10 @@
   },
   "type": "object",
   "required": [
-    "apiVersion",
-    "kind",
-    "metadata"
+    "actionId",
+    "name"
   ],
   "properties": {
-    "apiVersion": {
-      "type": "string",
-      "enum": [
-        "kdeps.io/v1"
-      ]
-    },
-    "kind": {
-      "type": "string",
-      "enum": [
-        "Resource"
-      ]
-    },
-    "metadata": {
-      "type": "object",
-      "required": [
-        "actionId",
-        "name"
-      ],
-      "properties": {
-        "actionId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "description": {
-          "type": "string"
-        },
-        "requires": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "items": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "validations": {
       "type": "object",
       "description": "Consolidated validation configuration for the resource",
@@ -497,57 +452,37 @@
         "response": {
           "description": "Response data - can be any type: string, array, object, number, etc."
         },
-        "meta": {
+        "headers": {
           "type": "object",
-          "properties": {
-            "headers": {
-              "type": "object"
-            },
-            "statusCode": {
-              "type": "integer",
-              "description": "HTTP status code for the response"
-            },
-            "model": {
-              "type": "string"
-            },
-            "backend": {
-              "type": "string"
-            }
-          }
+          "description": "HTTP headers for the response"
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "HTTP status code for the response"
+        },
+        "model": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
         }
       }
     },
     "agent": {
       "type": "object",
       "description": "Invoke another agent within the same agency",
+      "required": ["name"],
       "properties": {
-        "agent": {
+        "name": {
           "type": "string",
           "minLength": 1,
-          "description": "Deprecated: use \"name\" instead. Previously used to specify the target agent workflow name (metadata.name)."
+          "description": "Name (metadata.name) of the target agent workflow within the agency"
         },
         "params": {
           "type": "object",
           "description": "Input parameters forwarded to the target agent (accessible via get('key'))"
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Name (metadata.name) of the target agent workflow (preferred; use instead of legacy \"agent\" key)"
         }
-      },
-      "anyOf": [
-        {
-          "required": [
-            "name"
-          ]
-        },
-        {
-          "required": [
-            "agent"
-          ]
-        }
-      ]
+      }
     },
     "onError": {
       "type": "object",
@@ -607,6 +542,44 @@
           "additionalProperties": true
         }
       }
+    },
+    "actionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "requires": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "apiVersion": {
+      "type": "string",
+      "enum": [
+        "kdeps.io/v1"
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "Resource"
+      ]
     }
   }
 }

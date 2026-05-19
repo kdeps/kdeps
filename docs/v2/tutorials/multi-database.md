@@ -24,14 +24,11 @@ Create `workflow.yaml` with multiple database connections:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: multi-database
-  description: Workflow with multiple database connections
-  version: "1.0.0"
-  targetActionId: results
-
+name: multi-database
+description: Workflow with multiple database connections
+version: "1.0.0"
+targetActionId: results
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -68,13 +65,9 @@ settings:
 Reference connections by name in SQL resources:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyticsQuery
-  name: Analytics Query
-
+actionId: analyticsQuery
+name: Analytics Query
 sql:
   connectionName: analytics  # Use named connection
   query: |
@@ -95,16 +88,12 @@ sql:
 Query different databases in sequence:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: userData
-  name: User Data
-  requires:
-    - analyticsQuery
-    - inventoryQuery
-
+actionId: userData
+name: User Data
+requires:
+  - analyticsQuery
+  - inventoryQuery
 apiResponse:
   success: true
   response:
@@ -116,13 +105,9 @@ With separate resources:
 
 ```yaml
 # resources/analytics.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyticsQuery
-  name: Analytics Query
-
+actionId: analyticsQuery
+name: Analytics Query
 sql:
   connectionName: analytics
   query: <span v-pre>"SELECT * FROM user_stats WHERE date = {{ get('date') }}"</span>
@@ -130,13 +115,9 @@ sql:
 
 ---
 # resources/inventory.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: inventoryQuery
-  name: Inventory Query
-
+actionId: inventoryQuery
+name: Inventory Query
 sql:
   connectionName: inventory
   query: "SELECT * FROM products WHERE status = 'active'"
@@ -147,16 +128,12 @@ sql:
 Combine data from multiple databases:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: combinedData
-  name: Combined Data
-  requires:
-    - analyticsQuery
-    - inventoryQuery
-
+actionId: combinedData
+name: Combined Data
+requires:
+  - analyticsQuery
+  - inventoryQuery
 python:
   script: |
     import json
@@ -181,13 +158,9 @@ python:
 Perform batch updates on multiple databases:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: batchUpdate
-  name: Batch Update
-
+actionId: batchUpdate
+name: Batch Update
 sql:
   connectionName: analytics
   query: |
@@ -206,13 +179,9 @@ sql:
 Use transactions for atomic operations:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: transactionalUpdate
-  name: Transactional Update
-
+actionId: transactionalUpdate
+name: Transactional Update
 sql:
   connectionName: analytics
   transaction: true
@@ -236,13 +205,10 @@ Here's a complete workflow that demonstrates multi-database operations:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: multi-database-demo
-  version: "1.0.0"
-  targetActionId: results
-
+name: multi-database-demo
+version: "1.0.0"
+targetActionId: results
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -262,13 +228,9 @@ settings:
 
 ---
 # resources/analytics.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyticsQuery
-  name: Analytics Query
-
+actionId: analyticsQuery
+name: Analytics Query
 sql:
   connectionName: analytics
   query: |
@@ -280,13 +242,9 @@ sql:
 
 ---
 # resources/inventory.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: inventoryQuery
-  name: Inventory Query
-
+actionId: inventoryQuery
+name: Inventory Query
 sql:
   connectionName: inventory
   query: |
@@ -297,16 +255,12 @@ sql:
 
 ---
 # resources/results.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: results
-  name: Results
-  requires:
-    - analyticsQuery
-    - inventoryQuery
-
+actionId: results
+name: Results
+requires:
+  - analyticsQuery
+  - inventoryQuery
 apiResponse:
   success: true
   response:

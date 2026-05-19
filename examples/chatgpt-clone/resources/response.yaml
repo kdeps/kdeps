@@ -1,10 +1,7 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: responseResource
-  name: API Response Router
-  description: Routes and formats responses based on the endpoint called
-  requires:
+actionId: responseResource
+name: API Response Router
+description: Routes and formats responses based on the endpoint called
+requires:
     - llmResource
     - modelsResource
 
@@ -25,6 +22,5 @@ apiResponse:
     # Return models for models endpoint, chat for chat endpoint
     message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
     query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
-  meta:
-    headers:
-      Content-Type: application/json
+  headers:
+    Content-Type: application/json

@@ -481,13 +481,13 @@ func buildOperation(
 
 	// Use the first matching resource for summary / description.
 	first := resources[0]
-	op.Summary = first.Metadata.Name
-	op.Description = first.Metadata.Description
+	op.Summary = first.Name
+	op.Description = first.Description
 
 	// Derive a unique operationId.  Prefer the resource's actionId; add the
 	// HTTP method as a suffix if the actionId has already been used (which can
 	// happen when the same resource handles multiple methods).
-	baseID := first.Metadata.ActionID
+	baseID := first.ActionID
 	if baseID == "" {
 		baseID = operationID(method, path)
 	}

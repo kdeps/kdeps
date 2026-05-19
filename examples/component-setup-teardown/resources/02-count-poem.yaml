@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: countPoem
-  name: Count Poem Text
+actionId: countPoem
+name: Count Poem Text
 
 component:
   name: word-counter

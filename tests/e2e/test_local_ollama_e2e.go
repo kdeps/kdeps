@@ -235,7 +235,6 @@ metadata:
   targetActionId: responseResource
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 3001
@@ -254,11 +253,8 @@ settings:
       - %s
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: llmResource
-      name: LLM Test
+  - actionId: llmResource
+    name: LLM Test
     validations:
       methods: [POST]
       routes: [/api/v1/test]
@@ -280,13 +276,10 @@ resources:
         - answer
       timeoutDuration: 30s
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: responseResource
-      name: API Response
-      requires:
-        - llmResource
+  - actionId: responseResource
+    name: API Response
+    requires:
+    - llmResource
     validations:
       methods: [POST]
       routes: [/api/v1/test]
@@ -295,9 +288,8 @@ resources:
       response:
         data: get('llmResource')
         query: get('q')
-      meta:
-        headers:
-          Content-Type: application/json
+      headers:
+        Content-Type: application/json
 `, model, model)
 
 	tmpDir := t.TempDir()

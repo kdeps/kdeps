@@ -1,7 +1,4 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: indexDoc
+actionId: indexDoc
 validations:
   methods: [POST]
   routes: [/index]

@@ -67,7 +67,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: ${PORT_API}
   apiServer:
@@ -77,29 +76,21 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: httpCall
-      name: HTTP Call
-    run:
-      httpClient:
-        method: GET
-        url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: HTTP Response
-      requires: [httpCall]
-    run:
-      restrictToHttpMethods: [GET]
-      restrictToRoutes: [/api/fetch]
-      apiResponse:
-        success: true
-        response:
-          raw: "{{ output('httpCall') }}"
-          body: "{{ http.responseBody('httpCall') }}"
+  - actionId: httpCall
+    name: HTTP Call
+    httpClient:
+      method: GET
+      url: "http://127.0.0.1:${PORT_BACKEND}/data.json"
+  - actionId: response
+    name: HTTP Response
+    requires: [httpCall]
+    restrictToHttpMethods: [GET]
+    restrictToRoutes: [/api/fetch]
+    apiResponse:
+      success: true
+      response:
+        raw: "{{ output('httpCall') }}"
+        body: "{{ http.responseBody('httpCall') }}"
 EOF
 
 SERVER_LOG=$(mktemp)

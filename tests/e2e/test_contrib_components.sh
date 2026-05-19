@@ -67,13 +67,12 @@ metadata:
   version: "1.0.0"
   targetActionId: use-${comp}
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
 
     local res="$dir/resources/use-${comp}.yaml"
-    printf 'apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: use-%s\n  name: use-%s\nrun:\n  component:\n    name: %s\n    with:\n' \
+    printf 'actionId: use-%s\nname: use-%s\ncomponent:\n  name: %s\n  with:\n' \
         "$comp" "$comp" "$comp" > "$res"
     if [ "$#" -gt 0 ]; then
         for kv in "$@"; do
@@ -347,23 +346,18 @@ metadata:
   version: "1.0.0"
   targetActionId: do-store
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_MEM_PROJ/resources/do-store.yaml" << YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-store
-  name: do-store
-run:
-  component:
-    name: memory
-    with:
-      action: store
-      key: e2e-test
-      value: hello-world
+actionId: do-store
+name: do-store
+component:
+  name: memory
+  with:
+    action: store
+    key: e2e-test
+    value: hello-world
 YAML
     RUN_OUT=$(cd "$TMP_MEM_PROJ" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     if echo "$RUN_OUT" | grep -qiE "stored|memory-op|do-store|completed"; then
@@ -394,23 +388,18 @@ metadata:
   version: "1.0.0"
   targetActionId: do-search
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_SL_PROJ/resources/do-search.yaml" << YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-search
-  name: do-search
-run:
-  component:
-    name: search-local
-    with:
-      path: "${TMP_SL_PROJ}"
-      query: "hello"
-      glob: "*.txt"
+actionId: do-search
+name: do-search
+component:
+  name: search-local
+  with:
+    path: "${TMP_SL_PROJ}"
+    query: "hello"
+    glob: "*.txt"
 YAML
     RUN_OUT=$(cd "$TMP_SL_PROJ" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     if echo "$RUN_OUT" | grep -qiE "search-local|do-search|completed|result"; then
@@ -447,7 +436,6 @@ metadata:
   version: "1.0.0"
   targetActionId: do-scrape
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
@@ -480,23 +468,18 @@ metadata:
   version: "1.0.0"
   targetActionId: do-calendar
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_CAL/resources/do-calendar.yaml" << YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-calendar
-  name: do-calendar
-run:
-  component:
-    name: calendar
-    with:
-      title: "E2E Test"
-      start: "2024-06-01T10:00:00"
-      end: "2024-06-01T11:00:00"
+actionId: do-calendar
+name: do-calendar
+component:
+  name: calendar
+  with:
+    title: "E2E Test"
+    start: "2024-06-01T10:00:00"
+    end: "2024-06-01T11:00:00"
 YAML
     RUN_OUT=$(cd "$TMP_CAL" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     if echo "$RUN_OUT" | grep -qiE "create-event|calendar|completed|ics"; then
@@ -524,21 +507,16 @@ metadata:
   version: "1.0.0"
   targetActionId: do-pdf
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_PDF/resources/do-pdf.yaml" << YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-pdf
-  name: do-pdf
-run:
-  component:
-    name: pdf
-    with:
-      content: "<h1>E2E Test</h1>"
+actionId: do-pdf
+name: do-pdf
+component:
+  name: pdf
+  with:
+    content: "<h1>E2E Test</h1>"
 YAML
     RUN_OUT=$(cd "$TMP_PDF" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     if echo "$RUN_OUT" | grep -qiE "generate-pdf|do-pdf|completed|generated"; then
@@ -564,21 +542,16 @@ metadata:
   version: "1.0.0"
   targetActionId: do-tts
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
     cat > "$TMP_TTS/resources/do-tts.yaml" << YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-tts
-  name: do-tts
-run:
-  component:
-    name: tts
-    with:
-      text: "hello world"
+actionId: do-tts
+name: do-tts
+component:
+  name: tts
+  with:
+    text: "hello world"
 YAML
     RUN_OUT=$(cd "$TMP_TTS" && "$KDEPS_BIN" run workflow.yaml 2>&1 || true)
     if echo "$RUN_OUT" | grep -qiE "speak-offline|do-tts|completed"; then

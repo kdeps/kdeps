@@ -5,17 +5,11 @@ metadata:
   description: Formatting utilities
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: formatName
-      name: Format Name Resource
+  - actionId: formatName
+    name: Format Name Resource
     expr:
       - set('formattedName', get('name'))
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: addTimestamp
-      name: Timestamp Resource
+  - actionId: addTimestamp
+    name: Timestamp Resource
     expr:
       - set('timestamp', now())

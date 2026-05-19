@@ -51,7 +51,6 @@ metadata:
   targetActionId: echoResource
 
 settings:
-  apiServerMode: true
   hostIp: "127.0.0.1"
   portNum: 13799
   apiServer:
@@ -78,21 +77,17 @@ tests:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: echoResource
-  name: Echo Resource
+actionId: echoResource
+name: Echo Resource
 
-run:
-  exec:
-    cmd: "echo"
-    args: ["hello"]
-  apiResponse:
-    success: true
-    response:
-      message: "{{ output('echoResource').stdout }}"
+exec:
+  cmd: "echo"
+  args: ["hello"]
+apiResponse:
+  success: true
+  response:
+    message: "{{ output('echoResource').stdout }}"
 EOF
 
 # ---------------------------------------------------------------------------
@@ -109,7 +104,6 @@ metadata:
   targetActionId: echoResource
 
 settings:
-  apiServerMode: true
   hostIp: "127.0.0.1"
   portNum: 13800
   apiServer:
@@ -132,7 +126,6 @@ metadata:
   targetActionId: echoResource
 
 settings:
-  apiServerMode: true
   hostIp: "127.0.0.1"
   portNum: 13801
   apiServer:

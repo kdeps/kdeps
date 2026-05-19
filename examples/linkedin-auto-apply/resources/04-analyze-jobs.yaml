@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: analyze-jobs
-  name: analyze-jobs
-  description: |
+actionId: analyze-jobs
+name: analyze-jobs
+description: |
     Score each extracted job card against the candidate profile and return
     only jobs that meet the minimum match score threshold.
 

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: weatherTool
-  name: Weather Tool
+actionId: weatherTool
+name: Weather Tool
 
 python:
   script: |

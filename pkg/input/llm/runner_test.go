@@ -326,8 +326,8 @@ func TestRunWithIO_ListCommand_NoResources(t *testing.T) {
 
 func TestRunWithIO_ListCommand_ShowsResources(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator Tool"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "LLM Chat"}},
+		{ActionID: "calcTool", Name: "Calculator Tool"},
+		{ActionID: "chat", Name: "LLM Chat"},
 	}
 	eng := buildEngine("nope")
 	wf := workflowWithResources(resources)
@@ -352,7 +352,7 @@ func TestRunWithIO_ListCommand_ShowsResources(t *testing.T) {
 func TestRunWithIO_RunCommand_UnknownActionID(t *testing.T) {
 	eng := buildEngine("should not reach engine")
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run nonExistentAction\n/quit\n")
 	var w bytes.Buffer
@@ -373,7 +373,7 @@ func TestRunWithIO_RunCommand_KnownActionID_InvokesEngine(t *testing.T) {
 		return "calc result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool expression=2+2\n/quit\n")
 	var w bytes.Buffer
@@ -399,7 +399,7 @@ func TestRunWithIO_RunCommand_ParamsPassedToEngine(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool expression=sqrt(16) mode=safe\n/quit\n")
 	var w bytes.Buffer
@@ -426,7 +426,7 @@ func TestRunWithIO_ToolAlias_InvokesEngine(t *testing.T) {
 		return "tool result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "hashTool", Name: "Hash Tool"}},
+		{ActionID: "hashTool", Name: "Hash Tool"},
 	})
 	r := strings.NewReader("/tool hashTool data=hello\n/quit\n")
 	var w bytes.Buffer
@@ -447,7 +447,7 @@ func TestRunWithIO_ComponentAlias_InvokesEngine(t *testing.T) {
 		return "component result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "markdownTool", Name: "Markdown"}},
+		{ActionID: "markdownTool", Name: "Markdown"},
 	})
 	r := strings.NewReader("/component markdownTool text=hello\n/quit\n")
 	var w bytes.Buffer
@@ -501,7 +501,7 @@ func TestRunWithIO_OriginalWorkflowNotMutated(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	wf.Metadata.TargetActionID = originalTarget
 
@@ -612,7 +612,7 @@ func TestRunWithIO_RunCommand_EngineError(t *testing.T) {
 		return nil, errors.New("execution failed")
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool\n/quit\n")
 	var w bytes.Buffer
@@ -637,7 +637,7 @@ func TestParseParams_BareFlag(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "myTool", Name: "My Tool"}},
+		{ActionID: "myTool", Name: "My Tool"},
 	})
 	// "verbose" is a bare flag — should become "verbose"="true"
 	r := strings.NewReader("/run myTool verbose\n/quit\n")

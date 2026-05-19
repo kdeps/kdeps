@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: apply-job
-  name: apply-job
-  description: |
+actionId: apply-job
+name: apply-job
+description: |
     For each job that passed the match threshold, open the job page in the
     authenticated browser session, click Easy Apply, fill the multi-page
     form using the predefined personal answers, upload the resume, and

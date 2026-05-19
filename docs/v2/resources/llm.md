@@ -32,13 +32,9 @@ For router configuration and multi-backend routing, see [LLM Backends](llm-backe
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
+actionId: llmResource
+name: LLM Chat
 chat:
   prompt: "{{ get('q') }}"
   timeout: 60s
@@ -206,9 +202,7 @@ Enable LLMs to call other resources:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: llmWithTools
-
+actionId: llmWithTools
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -317,9 +311,7 @@ chat:
 
 ```yaml
 # Fast classification resource
-metadata:
-  actionId: classifier
-
+actionId: classifier
 chat:
   prompt: "Classify this query: {{ get('q') }}"
   jsonResponse: true
@@ -329,10 +321,8 @@ chat:
 
 ---
 # Detailed response (only runs when confidence >= 0.8)
-metadata:
-  actionId: detailedResponse
-  requires: [classifier]
-
+actionId: detailedResponse
+requires: [classifier]
 validations:
   skip:
   - get('classifier').confidence < 0.8
@@ -350,9 +340,7 @@ chat:
 ## Accessing Output
 
 ```yaml
-metadata:
-  requires: [llmResource]
-
+requires: [llmResource]
 apiResponse:
   response:
     llm_output: get('llmResource')

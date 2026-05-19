@@ -48,7 +48,7 @@ func TestScaffoldComponentFiles_CreatesEnvAndReadme(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "scrape"},
+				ActionID: "scrape",
 				Exec: &domain.ExecConfig{
 					Command: `echo "{{ env('OPENAI_API_KEY') }}"`,
 				},
@@ -235,11 +235,8 @@ func TestParseComponentForUpdate_WithResourcesDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(resDir, 0o755))
 
 	resYAML := []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: doThing
-  name: Do Thing
+actionId: doThing
+name: Do Thing
 exec:
   command: "echo {{ env('MY_VAR') }}"
 `)

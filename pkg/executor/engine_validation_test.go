@@ -48,10 +48,10 @@ func TestEngine_Validation_RequiredFields(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"name", "email"},
 				},
@@ -96,10 +96,10 @@ func TestEngine_Validation_RequiredFields_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"name", "email"},
 				},
@@ -144,10 +144,10 @@ func TestEngine_Validation_TypeValidation(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -204,10 +204,10 @@ func TestEngine_Validation_MinMax(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -285,10 +285,10 @@ func TestEngine_Validation_StringLength(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -353,10 +353,10 @@ func TestEngine_Validation_Pattern(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -418,10 +418,10 @@ func TestEngine_Validation_Enum(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -486,10 +486,10 @@ func TestEngine_Validation_ArrayItems(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -564,10 +564,10 @@ func TestEngine_Validation_NoValidation(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response Resource",
-				},
+
+				ActionID: "response",
+				Name:     "Response Resource",
+
 				// No validation rules
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
@@ -613,10 +613,10 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "resource1",
-					Name:     "Resource 1",
-				},
+
+				ActionID: "resource1",
+				Name:     "Resource 1",
+
 				// Only param1 is accessible in resource1.
 				Validations: &domain.ValidationsConfig{
 					Params: []string{"param1"},
@@ -627,11 +627,10 @@ func TestEngine_Validation_PerResourceParamsFilterResetBeforeSkip(t *testing.T) 
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "resource2",
-					Name:     "Resource 2",
-					Requires: []string{"resource1"},
-				},
+
+				ActionID: "resource2",
+				Name:     "Resource 2",
+				Requires: []string{"resource1"},
 				// resource2 only exposes param2.
 				// The skip expression uses get('param1') which should return nil
 				// because resource2's filter blocks param1. With the correct
@@ -693,10 +692,10 @@ func TestEngine_Validation_PreflightErrorBeforeSchemaValidation(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "resource",
-					Name:     "Resource",
-				},
+
+				ActionID: "resource",
+				Name:     "Resource",
+
 				Validations: &domain.ValidationsConfig{
 					// Preflight check always fails (unauthorized).
 					Check: []domain.Expression{

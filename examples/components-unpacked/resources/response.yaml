@@ -1,9 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: finalResponse
-  name: Final Response
-  requires:
+actionId: finalResponse
+name: Final Response
+requires:
     - sayHello
 apiResponse:
   success: true

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: calcTool
-  name: Calculator Tool
+actionId: calcTool
+name: Calculator Tool
 
 python:
   script: |

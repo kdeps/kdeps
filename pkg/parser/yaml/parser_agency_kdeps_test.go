@@ -37,15 +37,11 @@ metadata:
   version: "1.0.0"
   targetActionId: respond
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: respond
-      name: Respond
+  - actionId: respond
+    name: Respond
     apiResponse:
       success: true
       response: "packed agent response"

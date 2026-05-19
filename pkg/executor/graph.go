@@ -54,7 +54,7 @@ func NewGraph() *Graph {
 // AddResource adds a resource to the graph.
 func (g *Graph) AddResource(resource *domain.Resource) error {
 	kdeps_debug.Log("enter: AddResource")
-	actionID := resource.Metadata.ActionID
+	actionID := resource.ActionID
 
 	// Check for duplicate actionID.
 	if _, exists := g.Nodes[actionID]; exists {
@@ -65,12 +65,12 @@ func (g *Graph) AddResource(resource *domain.Resource) error {
 	node := &Node{
 		Resource:     resource,
 		ActionID:     actionID,
-		Dependencies: resource.Metadata.Requires,
+		Dependencies: resource.Requires,
 		Dependents:   []string{},
 	}
 
 	g.Nodes[actionID] = node
-	g.Edges[actionID] = resource.Metadata.Requires
+	g.Edges[actionID] = resource.Requires
 
 	return nil
 }

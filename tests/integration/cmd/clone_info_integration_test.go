@@ -100,7 +100,7 @@ func TestFindAgencyFile_Found(t *testing.T) {
 func TestValidateWorkflow_ComponentSyntax(t *testing.T) {
 	dir := t.TempDir()
 	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-test\n  version: \"1.0.0\"\n  targetActionId: main\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
-	resource := "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: main\n  name: main\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n      selector: \".article\"\n"
+	resource := "actionId: main\nname: main\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n      selector: \".article\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))
 	resDir := filepath.Join(dir, "resources")
@@ -115,7 +115,7 @@ func TestValidateWorkflow_ComponentSyntax(t *testing.T) {
 func TestValidateWorkflow_ComponentWithDefaults(t *testing.T) {
 	dir := t.TempDir()
 	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-defaults-test\n  version: \"1.0.0\"\n  targetActionId: fetch\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
-	resource := "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: fetch\n  name: fetch\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n"
+	resource := "actionId: fetch\nname: fetch\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))
 	resDir := filepath.Join(dir, "resources")
@@ -130,7 +130,7 @@ func TestValidateWorkflow_ComponentWithDefaults(t *testing.T) {
 func TestValidateWorkflow_ComponentInBeforeBlock(t *testing.T) {
 	dir := t.TempDir()
 	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-before-test\n  version: \"1.0.0\"\n  targetActionId: answer\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
-	resource := "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: answer\n  name: answer\nbefore:\n    - component:\n        name: search\n        with:\n          query: \"{{get('q')}}\"\n  chat:\n    model: gpt-4o\n    prompt: \"{{get('q')}}\"\n"
+	resource := "actionId: answer\nname: answer\nbefore:\n    - component:\n        name: search\n        with:\n          query: \"{{get('q')}}\"\n  chat:\n    model: gpt-4o\n    prompt: \"{{get('q')}}\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))
 	resDir := filepath.Join(dir, "resources")

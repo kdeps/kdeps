@@ -99,9 +99,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "valid API server settings",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -111,22 +110,11 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "API server mode without config",
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					APIServer:     nil,
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "invalid port number - too low",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       -1,
 					APIServer: &domain.APIServerConfig{
+						PortNum: -1,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -139,9 +127,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "invalid port number - too high",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       70000,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 70000,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -154,10 +141,9 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "no routes",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
-						Routes: []domain.Route{},
+						PortNum: 16395,
+						Routes:  []domain.Route{},
 					},
 				},
 			},
@@ -167,9 +153,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "route missing path",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "", Methods: []string{"GET"}},
 						},
@@ -182,9 +167,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "route path without leading slash",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "api/test", Methods: []string{"GET"}},
 						},
@@ -196,9 +180,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 		{
 			name: "API server mode false",
 			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					APIServerMode: false,
-				},
+				Settings: domain.WorkflowSettings{},
 			},
 			wantErr: false,
 		},
@@ -230,9 +212,8 @@ func TestWorkflowValidator_ValidateTargetAction(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -246,9 +227,8 @@ func TestWorkflowValidator_ValidateTargetAction(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -278,9 +258,9 @@ func TestWorkflowValidator_ValidateUniqueActionIDs(t *testing.T) {
 			name: "all unique actionIDs",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action2"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action3"}},
+					{ActionID: "action1"},
+					{ActionID: "action2"},
+					{ActionID: "action3"},
 				},
 			},
 			wantErr: false,
@@ -289,9 +269,9 @@ func TestWorkflowValidator_ValidateUniqueActionIDs(t *testing.T) {
 			name: "duplicate actionID",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action2"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
+					{ActionID: "action1"},
+					{ActionID: "action2"},
+					{ActionID: "action1"},
 				},
 			},
 			wantErr: true,
@@ -320,11 +300,10 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "valid dependencies",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{
+					{ActionID: "action1"},
+					{
 						ActionID: "action2",
-						Requires: []string{"action1"},
-					}},
+						Requires: []string{"action1"}},
 				},
 			},
 			wantErr: false,
@@ -333,10 +312,9 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "missing dependency",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{
+					{
 						ActionID: "action1",
-						Requires: []string{"nonexistent"},
-					}},
+						Requires: []string{"nonexistent"}},
 				},
 			},
 			wantErr: true,
@@ -345,7 +323,7 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "no dependencies",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
+					{ActionID: "action1"},
 				},
 			},
 			wantErr: false,
@@ -373,10 +351,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid chat resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
 				Chat: &domain.ChatConfig{
 					Model:  "llama3.2:latest",
 					Prompt: "Test prompt",
@@ -387,10 +365,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid HTTP resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-test",
-					Name:     "HTTP Resource",
-				},
+
+				ActionID: "http-test",
+				Name:     "HTTP Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					Method: "GET",
 					URL:    "https://api.example.com",
@@ -401,10 +379,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid SQL resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "sql-test",
-					Name:     "SQL Resource",
-				},
+
+				ActionID: "sql-test",
+				Name:     "SQL Resource",
+
 				SQL: &domain.SQLConfig{
 					Connection: "postgresql://localhost:5432/db",
 					Query:      "SELECT * FROM users",
@@ -415,10 +393,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid Python resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "python-test",
-					Name:     "Python Resource",
-				},
+
+				ActionID: "python-test",
+				Name:     "Python Resource",
+
 				Python: &domain.PythonConfig{
 					Script: "print('hello')",
 				},
@@ -428,10 +406,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid API response resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "api-test",
-					Name:     "API Response Resource",
-				},
+
+				ActionID: "api-test",
+				Name:     "API Response Resource",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"data": "ok"},
@@ -442,9 +420,9 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "missing actionID",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					Name: "Test Resource",
-				},
+
+				Name: "Test Resource",
+
 				Chat: &domain.ChatConfig{
 					Model:  "llama3.2:latest",
 					Prompt: "Test prompt",
@@ -455,9 +433,9 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "missing name",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-				},
+
+				ActionID: "test",
+
 				Chat: &domain.ChatConfig{
 					Model:  "llama3.2:latest",
 					Prompt: "Test prompt",
@@ -468,20 +446,19 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "no execution type",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid exec resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "exec-test",
-					Name:     "Exec Resource",
-				},
+
+				ActionID: "exec-test",
+				Name:     "Exec Resource",
+
 				Exec: &domain.ExecConfig{
 					Command: "echo",
 				},
@@ -491,10 +468,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "multiple execution types",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
 				Chat: &domain.ChatConfig{
 					Model:  "llama3.2:latest",
 					Prompt: "Test prompt",
@@ -509,10 +486,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "chat config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
 				Chat: &domain.ChatConfig{
 					// Missing model and prompt - should fail validation
 				},
@@ -522,10 +499,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "HTTP config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
 				HTTPClient: &domain.HTTPClientConfig{
 					// Missing method and URL - should fail validation
 				},
@@ -535,10 +512,10 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "SQL config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
 				SQL: &domain.SQLConfig{
 					// Missing connection and query - should fail validation
 				},
@@ -816,10 +793,10 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
@@ -838,21 +815,20 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "step1",
-							Name:     "Step 1",
-						},
+
+						ActionID: "step1",
+						Name:     "Step 1",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Step 1",
 						},
 					},
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "final",
-							Name:     "Final Step",
-							Requires: []string{"step1"},
-						},
+
+						ActionID: "final",
+						Name:     "Final Step",
+						Requires: []string{"step1"},
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Final step",
@@ -882,9 +858,8 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -898,10 +873,10 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
@@ -919,10 +894,10 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
@@ -941,10 +916,10 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
@@ -963,20 +938,20 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource 1",
-						},
+
+						ActionID: "main",
+						Name:     "Main Resource 1",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
 						},
 					},
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main", // Duplicate
-							Name:     "Main Resource 2",
-						},
+
+						ActionID: "main", // Duplicate
+						Name:     "Main Resource 2",
+
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Test prompt",
@@ -995,40 +970,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "final",
-							Name:     "Final Resource",
-							Requires: []string{"missing"},
-						},
+
+						ActionID: "final",
+						Name:     "Final Resource",
+						Requires: []string{"missing"},
 						Chat: &domain.ChatConfig{
 							Model:  "llama3.2:latest",
 							Prompt: "Final step",
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "API server validation error",
-			workflow: &domain.Workflow{
-				Metadata: domain.WorkflowMetadata{
-					Name:           "Test Workflow",
-					TargetActionID: "main",
-				},
-				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					APIServer:     nil, // Missing config
-				},
-				Resources: []*domain.Resource{
-					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Chat: &domain.ChatConfig{
-							Model:  "llama3.2:latest",
-							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -1151,9 +1099,9 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop with exec is valid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "loop-exec", Name: "Loop Exec"},
-			Loop:     &domain.LoopConfig{While: "loop.index() < 5"},
-			Exec:     &domain.ExecConfig{Command: "echo"},
+			ActionID: "loop-exec", Name: "Loop Exec",
+			Loop: &domain.LoopConfig{While: "loop.index() < 5"},
+			Exec: &domain.ExecConfig{Command: "echo"},
 		}
 		if err := v.ValidateResource(resource, workflow); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -1162,9 +1110,9 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop with expr-only is valid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "loop-expr", Name: "Loop Expr"},
-			Loop:     &domain.LoopConfig{While: "loop.index() < 3"},
-			Expr:     []domain.Expression{{Raw: "set('x', loop.index())"}},
+			ActionID: "loop-expr", Name: "Loop Expr",
+			Loop: &domain.LoopConfig{While: "loop.index() < 3"},
+			Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -1173,9 +1121,9 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop without while condition is invalid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "bad-loop", Name: "Bad Loop"},
-			Loop:     &domain.LoopConfig{While: ""},
-			Expr:     []domain.Expression{{Raw: "set('x', 1)"}},
+			ActionID: "bad-loop", Name: "Bad Loop",
+			Loop: &domain.LoopConfig{While: ""},
+			Expr: []domain.Expression{{Raw: "set('x', 1)"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err == nil {
 			t.Error("expected error for loop without while condition")
@@ -1184,8 +1132,8 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop without expr and without primary type is invalid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "lone-loop", Name: "Lone Loop"},
-			Loop:     &domain.LoopConfig{While: "true"},
+			ActionID: "lone-loop", Name: "Lone Loop",
+			Loop: &domain.LoopConfig{While: "true"},
 		}
 		if err := v.ValidateResource(resource, workflow); err == nil {
 			t.Error("expected error for loop with no execution body")

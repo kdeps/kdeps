@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: base64Tool
-  name: Base64 Encode/Decode Tool
+actionId: base64Tool
+name: Base64 Encode/Decode Tool
 
 python:
   script: |

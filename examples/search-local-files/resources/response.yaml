@@ -1,8 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  requires: [search]
+actionId: response
+requires: [search]
 apiResponse:
   success: true
   response:

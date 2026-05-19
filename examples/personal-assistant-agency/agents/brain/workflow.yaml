@@ -26,7 +26,6 @@ metadata:
   targetActionId: brain-response
 
 settings:
-  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"
@@ -40,11 +39,8 @@ settings:
 resources:
 
   # ── Memory: initialise SQLite storage ───────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: init-db
-      name: Init Memory DB
+  - actionId: init-db
+    name: Init Memory DB
     python:
       script: |
         import sqlite3, os
@@ -64,12 +60,9 @@ resources:
         print("ready")
 
   # ── Memory: recall recent conversation turns ─────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: recall
-      name: Recall Memory
-      requires: [init-db]
+  - actionId: recall
+    name: Recall Memory
+    requires: [init-db]
     sql:
       connectionName: memory
       query: |
@@ -89,11 +82,8 @@ resources:
 
   # ── Tool 1: web search ───────────────────────────────────────────────────────
   # DuckDuckGo instant-answer API — lightweight, no API key required.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: web-search-tool
-      name: Web Search Tool
+  - actionId: web-search-tool
+    name: Web Search Tool
     httpClient:
       method: GET
       url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
@@ -105,11 +95,8 @@ resources:
   # ── Tool 2: web scrape ───────────────────────────────────────────────────────
   # Fetches and parses the full text content of a URL.
   # Use this when web_search returns a link worth reading in full.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: web-scrape-tool
-      name: Web Scrape Tool
+  - actionId: web-scrape-tool
+    name: Web Scrape Tool
     component:
       name: scraper
       with:
@@ -118,11 +105,8 @@ resources:
 
   # ── Tool 3: send email ───────────────────────────────────────────────────────
   # Configure via SMTP_HOST / SMTP_USER / SMTP_PASS environment variables.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: send-email-tool
-      name: Send Email Tool
+  - actionId: send-email-tool
+    name: Send Email Tool
     component:
       name: email
       with:
@@ -136,11 +120,8 @@ resources:
 
   # ── Tool 4: read email ───────────────────────────────────────────────────────
   # Reads recent messages from the configured IMAP inbox via Python imaplib.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: read-email-tool
-      name: Read Email Tool
+  - actionId: read-email-tool
+    name: Read Email Tool
     python:
       script: |
         import imaplib, email, json, os
@@ -166,11 +147,8 @@ resources:
 
   # ── Tool 5: run shell command ────────────────────────────────────────────────
   # Safe read-only system queries. Restrict in production via allow-list.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: run-command-tool
-      name: Run Command Tool
+  - actionId: run-command-tool
+    name: Run Command Tool
     exec:
       command: sh
       args:
@@ -180,11 +158,8 @@ resources:
 
   # ── Tool 6: calculator ───────────────────────────────────────────────────────
   # Evaluates a mathematical expression safely (no arbitrary code execution).
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calculator-tool
-      name: Calculator Tool
+  - actionId: calculator-tool
+    name: Calculator Tool
     python:
       script: |
         import math, json
@@ -206,11 +181,8 @@ resources:
 
   # ── Tool 7: calendar list ────────────────────────────────────────────────────
   # Lists upcoming events from /tmp/pa-memory/calendar.ics via Python icalendar.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calendar-list-tool
-      name: Calendar List Tool
+  - actionId: calendar-list-tool
+    name: Calendar List Tool
     python:
       script: |
         import json, os
@@ -237,11 +209,8 @@ resources:
 
   # ── Tool 8: calendar add ─────────────────────────────────────────────────────
   # Adds a new event to /tmp/pa-memory/calendar.ics.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calendar-add-tool
-      name: Calendar Add Tool
+  - actionId: calendar-add-tool
+    name: Calendar Add Tool
     component:
       name: calendar
       with:
@@ -253,11 +222,8 @@ resources:
 
   # ── Tool 9: take note ────────────────────────────────────────────────────────
   # Appends a timestamped note to /tmp/pa-memory/notes.md.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: take-note-tool
-      name: Take Note Tool
+  - actionId: take-note-tool
+    name: Take Note Tool
     python:
       script: |
         import os, datetime
@@ -270,11 +236,8 @@ resources:
 
   # ── Tool 10: read notes ──────────────────────────────────────────────────────
   # Returns all saved notes from /tmp/pa-memory/notes.md.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: read-notes-tool
-      name: Read Notes Tool
+  - actionId: read-notes-tool
+    name: Read Notes Tool
     exec:
       command: sh
       args:
@@ -286,12 +249,9 @@ resources:
   # ────────────────────────────────────────────────────────────────────────────
 
   # ── Brain: LLM reasoning with ReAct tool-calling ────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: think
-      name: Think — ReAct Reasoning
-      requires: [recall]
+  - actionId: think
+    name: Think — ReAct Reasoning
+    requires: [recall]
     chat:
       model: llama3.2:1b
       role: user
@@ -449,12 +409,9 @@ resources:
       timeoutDuration: 120s
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: extract-reply
-      name: Extract Reply Text
-      requires: [think]
+  - actionId: extract-reply
+    name: Extract Reply Text
+    requires: [think]
     expr:
       - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
     exec:
@@ -462,12 +419,9 @@ resources:
       args: ["{{ get('reply') }}"]
 
   # ── Memory: persist user turn ────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: save-user-turn
-      name: Save User Turn
-      requires: [extract-reply]
+  - actionId: save-user-turn
+    name: Save User Turn
+    requires: [extract-reply]
     sql:
       connectionName: memory
       query: |
@@ -480,12 +434,9 @@ resources:
       timeoutDuration: 10s
 
   # ── Memory: persist assistant reply ─────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: save-assistant-turn
-      name: Save Assistant Turn
-      requires: [save-user-turn]
+  - actionId: save-assistant-turn
+    name: Save Assistant Turn
+    requires: [save-user-turn]
     sql:
       connectionName: memory
       query: |
@@ -498,12 +449,9 @@ resources:
       timeoutDuration: 10s
 
   # ── Response ──────────────────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: brain-response
-      name: Brain Response
-      requires: [save-assistant-turn]
+  - actionId: brain-response
+    name: Brain Response
+    requires: [save-assistant-turn]
     apiResponse:
       success: true
       response: "{{ get('reply') }}"

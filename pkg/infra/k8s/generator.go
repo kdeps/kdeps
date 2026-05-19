@@ -99,10 +99,10 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 
 	// Extract ports
 	port := workflow.Settings.GetPortNum()
-	if workflow.Settings.APIServerMode {
+	if workflow.Settings.APIServer != nil {
 		data.APIPort = port
 	}
-	if workflow.Settings.WebServerMode {
+	if workflow.Settings.WebServer != nil {
 		data.WebServerPort = port
 	}
 

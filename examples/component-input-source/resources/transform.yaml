@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: transform
-  name: Transform Text
+actionId: transform
+name: Transform Text
 
 exec:
   command: |

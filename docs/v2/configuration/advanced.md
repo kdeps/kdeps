@@ -20,10 +20,7 @@ The `request` object provides access to HTTP request metadata in expressions.
 ### Usage Examples
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: logRequest
+actionId: logRequest
 expr:
   # Access request metadata
   - set('method', request.method)
@@ -225,7 +222,6 @@ Configure trusted proxies for accurate client IP detection behind load balancers
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -239,7 +235,6 @@ settings:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -283,7 +278,6 @@ Define multiple routes with different methods and paths.
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     portNum: 16395
     routes:
@@ -314,7 +308,6 @@ Protect the API server with a shared secret. When `auth.token` is set, every req
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     auth:
       token: "${API_TOKEN}"
@@ -328,7 +321,6 @@ Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute`
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     rateLimit:
       requestsPerMinute: 60
@@ -341,7 +333,6 @@ Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` rec
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     maxBodyBytes: 1048576   # 1 MiB
 ```
@@ -352,7 +343,6 @@ Enable HTTPS by pointing `certFile` and `keyFile` at a PEM certificate and priva
 
 ```yaml
 settings:
-  apiServerMode: true
   certFile: "/etc/certs/server.crt"
   keyFile:  "/etc/certs/server.key"
   apiServer:
@@ -367,7 +357,6 @@ Cap the number of simultaneous in-flight requests the server handles. When the l
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     maxConcurrent: 50
 ```

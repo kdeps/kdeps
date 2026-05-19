@@ -21,11 +21,8 @@ interface:
       default: /tmp/output.pdf
       description: Path to write the generated PDF
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Generate Pdf
-      actionId: generate-pdf
+  - name: Generate Pdf
+    actionId: generate-pdf
     python:
       script: |
         import pdfkit

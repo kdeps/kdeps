@@ -270,9 +270,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 					Name: "test-agent",
 				},
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
-					APIServer:     &domain.APIServerConfig{},
+					APIServer: &domain.APIServerConfig{},
 				},
 			},
 			wantErr: false,
@@ -294,9 +292,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 			pkgName:   "test-agent",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
-					APIServer:     &domain.APIServerConfig{},
+					APIServer: &domain.APIServerConfig{},
 				},
 			},
 			wantErr: false,
@@ -865,11 +861,8 @@ settings:
 				require.NoError(t, os.Mkdir(resourcesDir, 0750))
 
 				resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 apiResponse:
   success: true
   response:
@@ -1051,7 +1044,6 @@ metadata:
   version: "1.0.0"
   targetActionId: greet
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources: []
@@ -1118,10 +1110,7 @@ interface:
 	// Create component resources directory and file.
 	resourcesDir := filepath.Join(dir, "resources")
 	require.NoError(t, os.Mkdir(resourcesDir, 0750))
-	resourceYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: greet
+	resourceYAML := `actionId: greet
 response:
   data: "Hello"
 `

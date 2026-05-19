@@ -8,11 +8,9 @@ metadata:
   targetActionId: controlFlowDemo
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/demo
         methods: [GET, POST]
@@ -25,11 +23,8 @@ settings:
     timezone: Etc/UTC
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: controlFlowDemo
-      name: Control Flow Demo
+  - actionId: controlFlowDemo
+    name: Control Flow Demo
     validations:
       methods: [GET, POST]
       routes: [/api/demo]

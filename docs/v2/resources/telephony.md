@@ -5,13 +5,9 @@ The `run.telephony` resource provides programmable call control that generates T
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: greet
-  name: Greet Caller
-
+actionId: greet
+name: Greet Caller
 telephony:
   action: say
   say: "Hello! Welcome to our service."
@@ -25,7 +21,6 @@ Telephony actions are called as resources within a workflow. The workflow uses t
 settings:
   input:
     sources: [api]
-  apiServerMode: true
   apiServer:
     routes:
       - path: /api/v1/telephony

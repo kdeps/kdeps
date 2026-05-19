@@ -370,12 +370,12 @@ func printResources(w io.Writer, workflow *domain.Workflow) {
 		sorted := make([]*domain.Resource, len(workflow.Resources))
 		copy(sorted, workflow.Resources)
 		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].Metadata.ActionID < sorted[j].Metadata.ActionID
+			return sorted[i].ActionID < sorted[j].ActionID
 		})
 
 		for _, res := range sorted {
-			id := res.Metadata.ActionID
-			name := res.Metadata.Name
+			id := res.ActionID
+			name := res.Name
 			suffix := ""
 			if id == targetID {
 				suffix = " (target)"
@@ -429,8 +429,8 @@ func parseParams(args []string) map[string]interface{} {
 func resourceActionIDs(workflow *domain.Workflow) map[string]struct{} {
 	ids := make(map[string]struct{}, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		if r.Metadata.ActionID != "" {
-			ids[r.Metadata.ActionID] = struct{}{}
+		if r.ActionID != "" {
+			ids[r.ActionID] = struct{}{}
 		}
 	}
 	return ids

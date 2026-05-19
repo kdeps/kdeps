@@ -204,7 +204,7 @@ func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
 func validateWASMResource(res *domain.Resource) []string {
 	kdeps_debug.Log("enter: validateWASMResource")
 	var errors []string
-	actionID := res.Metadata.ActionID
+	actionID := res.ActionID
 
 	if res.Exec != nil {
 		errors = append(errors, fmt.Sprintf(

@@ -42,14 +42,10 @@ metadata:
   version: 1.2.0
   description: A simple echo component for testing version pinning
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: echo-res
-      actionId: echoEval
-    run:
-      expr:
-        - set("msg", "Execution complete")
+  - name: echo-res
+    actionId: echoEval
+    expr:
+      - set("msg", "Execution complete")
 EOF
 
 # ── Setup: create a workflow that calls the component ──────────────────────
@@ -68,21 +64,17 @@ metadata:
   targetActionId: call-echo
 settings: {}
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: echo-caller
-      actionId: call-echo
-    run:
-      component:
-        name: echoer
+  - name: echo-caller
+    actionId: call-echo
+    component:
+      name: echoer
 $version_field
 EOF
 }
 
 # ── Test 1: version match ──────────────────────────────────────────────────
 
-write_workflow "        version: 1.2.0"
+write_workflow "      version: 1.2.0"
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
 if echo "$OUTPUT" | grep -q "Execution complete"; then
@@ -93,7 +85,7 @@ fi
 
 # ── Test 2: version mismatch ───────────────────────────────────────────────
 
-write_workflow "        version: 2.0.0"
+write_workflow "      version: 2.0.0"
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
 if echo "$OUTPUT" | grep -q "version mismatch"; then
@@ -125,14 +117,10 @@ metadata:
   name: no-version
   description: Component without version metadata
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: nv-res
-      actionId: nvEval
-    run:
-      expr:
-        - set("msg", "no-version-output")
+  - name: nv-res
+    actionId: nvEval
+    expr:
+      - set("msg", "no-version-output")
 EOF
 
 cat > "$WORKFLOW_DIR/workflow.yaml" << EOF
@@ -144,15 +132,11 @@ metadata:
   targetActionId: call-noversion
 settings: {}
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: nv-caller
-      actionId: call-noversion
-    run:
-      component:
-        name: no-version
-        version: 1.0.0
+  - name: nv-caller
+    actionId: call-noversion
+    component:
+      name: no-version
+      version: 1.0.0
 EOF
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" run workflow/workflow.yaml 2>&1) || true
@@ -173,15 +157,11 @@ metadata:
   targetActionId: call-echo
 settings: {}
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: echo-caller
-      actionId: call-echo
-    run:
-      component:
-        name: echoer
-        version: 1.2.0
+  - name: echo-caller
+    actionId: call-echo
+    component:
+      name: echoer
+      version: 1.2.0
 EOF
 
 OUTPUT=$(cd "$TEST_DIR" && KDEPS_SKIP_BOOTSTRAP=1 "$KDEPS_BIN" validate workflow/workflow.yaml 2>&1) || true

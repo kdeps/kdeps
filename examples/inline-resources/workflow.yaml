@@ -12,11 +12,9 @@ metadata:
 # to run before or after the main resource execution.
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/v1/process
         methods: [POST]

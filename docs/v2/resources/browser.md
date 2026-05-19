@@ -104,12 +104,9 @@ component:
 ```yaml
 # Step 1: Take a screenshot of a dashboard
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: capture
-    name: Capture Dashboard
-
+  actionId: capture
+  name: Capture Dashboard
 component:
   name: browser
   with:
@@ -119,14 +116,11 @@ component:
 
 # Step 2: Send the screenshot by email
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: notify
-    name: Send Screenshot
-    requires:
-      - capture
-
+  actionId: notify
+  name: Send Screenshot
+  requires:
+    - capture
 component:
   name: email
   with:

@@ -17,7 +17,6 @@ metadata:
   targetActionId: heartbeat-response
 
 settings:
-  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"
@@ -28,11 +27,8 @@ resources:
   # ── Load (or seed) the task list ────────────────────────────────────────────
   # /tmp/pa-memory/heartbeat.md is the source of truth for recurring tasks.
   # It is created with sensible defaults on first run.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: load-tasks
-      name: Load Task List
+  - actionId: load-tasks
+    name: Load Task List
     python:
       script: |
         import os
@@ -57,11 +53,8 @@ resources:
 
   # ── Collect system context ────────────────────────────────────────────────────
   # Gathers lightweight system facts so the LLM can make informed decisions.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: system-context
-      name: System Context
+  - actionId: system-context
+    name: System Context
     exec:
       command: sh
       args:
@@ -76,12 +69,9 @@ resources:
 
   # ── Assess which tasks need attention ────────────────────────────────────────
   # LLM reviews the task list + system context and picks what to action now.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: assess
-      name: Assess Pending Tasks
-      requires: [load-tasks, system-context]
+  - actionId: assess
+    name: Assess Pending Tasks
+    requires: [load-tasks, system-context]
     chat:
       model: llama3.2:1b
       role: user
@@ -117,12 +107,9 @@ resources:
   # Runs lightweight shell actions for tasks that can be resolved automatically
   # (e.g. reporting disk usage, uptime).  Tasks that require user interaction
   # are surfaced in the summary for the human to action.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: act
-      name: Execute Actions
-      requires: [assess]
+  - actionId: act
+    name: Execute Actions
+    requires: [assess]
     exec:
       command: sh
       args:
@@ -143,12 +130,9 @@ resources:
       timeoutDuration: 15s
 
   # ── Response ──────────────────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: heartbeat-response
-      name: Heartbeat Response
-      requires: [act]
+  - actionId: heartbeat-response
+    name: Heartbeat Response
+    requires: [act]
     apiResponse:
       success: true
       response:

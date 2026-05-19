@@ -19,7 +19,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
 {% if env.PORT %}
   portNum: {{ env.PORT | int }}
 {% else %}

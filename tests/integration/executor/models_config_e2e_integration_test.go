@@ -106,10 +106,7 @@ func TestE2E_UnifiedModels_MixedEntries(t *testing.T) {
 // TestE2E_ModelInResourceYAML verifies that model is parsed from resource YAML.
 func TestE2E_ModelInResourceYAML(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
+actionId: test
 chat:
   model: gpt-4o
   role: user
@@ -126,10 +123,7 @@ chat:
 // name in resource YAML is parsed correctly.
 func TestE2E_ModelInResourceYAML_PlainString(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
+actionId: test
 chat:
   model: llama3.2:1b
   role: user
@@ -200,7 +194,7 @@ llm:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "chat"},
+				ActionID:    "chat",
 				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
 				Chat: &domain.ChatConfig{
 					Model:   "router",
@@ -278,7 +272,7 @@ func TestE2E_APIKeyFromConfigOnly(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "chat"},
+				ActionID:    "chat",
 				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
 				Chat: &domain.ChatConfig{
 					Model:   "gpt-4o",

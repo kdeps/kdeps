@@ -116,7 +116,6 @@ metadata:
   version: 1.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -132,7 +131,6 @@ metadata:
   version: 2.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -191,7 +189,6 @@ metadata:
   version: 1.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -297,7 +294,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -359,8 +355,8 @@ func TestHandleManagementStatus_ResourceCount(t *testing.T) {
 	workflow.Metadata.Name = "agent-with-resources"
 	workflow.Metadata.Version = "1.0.0"
 	workflow.Resources = []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "resource1"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "resource2"}},
+		{ActionID: "resource1"},
+		{ActionID: "resource2"},
 	}
 
 	server := makeTestServer(t, workflow)
@@ -432,7 +428,6 @@ metadata:
   version: 1.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `), 0600))
@@ -447,7 +442,6 @@ metadata:
   version: 2.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -485,7 +479,6 @@ metadata:
   version: 1.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -502,7 +495,6 @@ metadata:
   version: 2.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -567,7 +559,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `), 0600),
@@ -585,7 +576,6 @@ metadata:
   version: 2.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -612,7 +602,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -644,7 +633,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -675,7 +663,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -751,7 +738,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `

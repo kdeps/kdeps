@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: apiKeyAuth
-  name: API Key Authentication
+actionId: apiKeyAuth
+name: API Key Authentication
 
 validations:
   methods: [POST]

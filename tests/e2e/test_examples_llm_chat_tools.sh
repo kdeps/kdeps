@@ -89,7 +89,7 @@ else
 fi
 
 # T8: chat resource has tools: block
-if grep -q "^    tools:" "$CHAT_RES"; then
+if grep -q "^  tools:" "$CHAT_RES"; then
     test_passed "llm-chat-tools - chat resource has tools: block"
 else
     test_failed "llm-chat-tools - chat resource has tools: block" "tools: not found in $CHAT_RES"
@@ -131,7 +131,7 @@ if $all_python_ok; then
 fi
 
 # T12: chat resource has 10 tool definitions
-tool_count=$(grep -c "^      - name:" "$CHAT_RES" 2>/dev/null || echo 0)
+tool_count=$(grep -c "^    - name:" "$CHAT_RES" 2>/dev/null || echo 0)
 if [ "$tool_count" -ge 10 ]; then
     test_passed "llm-chat-tools - chat resource defines $tool_count tools (>=10)"
 else
@@ -175,7 +175,7 @@ else
 fi
 
 # T_NEW2: 11-chat.yaml has exactly 13 tools (10 Python + 3 component)
-all_tool_count=$(grep -c "^      - name:" "$CHAT_RES" 2>/dev/null || echo 0)
+all_tool_count=$(grep -c "^    - name:" "$CHAT_RES" 2>/dev/null || echo 0)
 if [ "$all_tool_count" -eq 13 ]; then
     test_passed "llm-chat-tools - 11-chat.yaml defines exactly 13 tools (10 Python + 3 component)"
 else

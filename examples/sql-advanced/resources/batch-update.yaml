@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: batchUpdate
-  name: Batch User Updates
+actionId: batchUpdate
+name: Batch User Updates
 
 validations:
   methods: [POST]

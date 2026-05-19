@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: analytics
-  name: User Analytics Query
+actionId: analytics
+name: User Analytics Query
 
 validations:
   methods: [GET]

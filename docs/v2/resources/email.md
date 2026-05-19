@@ -92,12 +92,9 @@ component:
 
 ```yaml
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: send-email
-    name: Email Distribution
-
+  actionId: send-email
+  name: Email Distribution
   validations:
     skip: "{{ get('compute-match.is_match') == false }}"
 

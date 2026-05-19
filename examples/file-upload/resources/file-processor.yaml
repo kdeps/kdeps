@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: fileProcessor
-  name: File Processor
+actionId: fileProcessor
+name: File Processor
 
 validations:
   methods: [POST]

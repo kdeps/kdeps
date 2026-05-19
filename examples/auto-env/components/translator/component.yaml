@@ -22,11 +22,8 @@ interface:
       description: Target language name (default "Spanish").
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: translate
-      name: Translate Text
+  - actionId: translate
+    name: Translate Text
     exec:
       command: |
         python3 - <<'PYEOF'

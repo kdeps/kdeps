@@ -237,10 +237,7 @@ Request
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: createUser
+actionId: createUser
 validations:
   methods: [POST]
   routes: [/api/v1/users]

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: authenticatedApi
-  name: Authenticated API Call
+actionId: authenticatedApi
+name: Authenticated API Call
 
 validations:
   methods: [GET]

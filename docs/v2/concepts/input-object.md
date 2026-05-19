@@ -107,10 +107,7 @@ expr:
 ### Simple Form Data
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: createUser
+actionId: createUser
 validations:
   required:
     - name

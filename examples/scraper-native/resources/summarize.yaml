@@ -1,8 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: summarize
-  requires: [fetch]
+actionId: summarize
+requires: [fetch]
 chat:
   model: llama3.2:1b
   role: user

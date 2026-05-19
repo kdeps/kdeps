@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: csvTool
-  name: CSV Analyzer Tool
+actionId: csvTool
+name: CSV Analyzer Tool
 
 component:
   name: csv-analyzer

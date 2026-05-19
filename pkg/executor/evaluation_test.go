@@ -63,20 +63,18 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("API Response Meta Evaluation", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "api-test",
-			},
+
+			ActionID: "api-test",
+
 			APIResponse: &domain.APIResponseConfig{
 				Success: true,
 				Response: map[string]interface{}{
 					"message": "Hello {{get('targetModel')}}",
 				},
-				Meta: &domain.ResponseMeta{
-					Model:   "{{get('targetModel')}}",
-					Backend: "{{get('targetBackend')}}",
-					Headers: map[string]string{
-						"X-Custom-Model": "{{get('targetModel')}}",
-					},
+				Model:   "{{get('targetModel')}}",
+				Backend: "{{get('targetBackend')}}",
+				Headers: map[string]string{
+					"X-Custom-Model": "{{get('targetModel')}}",
 				},
 			},
 		}
@@ -105,9 +103,9 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("OnError RetryDelay Evaluation", func(_ *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "error-test",
-			},
+
+			ActionID: "error-test",
+
 			Exec: &domain.ExecConfig{
 				Command: "exit 1", // Will fail
 			},
@@ -124,9 +122,9 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("PreflightCheck Error Message Evaluation", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "preflight-test",
-			},
+
+			ActionID: "preflight-test",
+
 			Validations: &domain.ValidationsConfig{
 				Check: []domain.Expression{
 					{Raw: "false"}, // Will fail

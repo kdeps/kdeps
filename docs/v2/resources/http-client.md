@@ -7,13 +7,9 @@ The HTTP Client resource enables making external API calls with support for auth
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: httpResource
-  name: API Call
-
+actionId: httpResource
+name: API Call
 httpClient:
   method: GET
   url: "https://api.example.com/data"
@@ -259,12 +255,8 @@ Set to `false` to prevent following redirects.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fetchData
-
+actionId: fetchData
 httpClient:
   method: GET
   url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
@@ -274,13 +266,9 @@ httpClient:
   timeout: 30s
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyzeRepo
-  requires: [fetchData]
-
+actionId: analyzeRepo
+requires: [fetchData]
 chat:
   model: llama3.2:1b
   prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
@@ -353,9 +341,7 @@ The HTTP client response includes:
 
 ```yaml
 # In another resource
-metadata:
-  requires: [httpResource]
-
+requires: [httpResource]
 apiResponse:
   response:
     # Full response body (parsed JSON or raw string)

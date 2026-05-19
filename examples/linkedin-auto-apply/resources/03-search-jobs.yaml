@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: search-jobs
-  name: search-jobs
-  description: |
+actionId: search-jobs
+name: search-jobs
+description: |
     Navigate to the LinkedIn job search page, apply date/remote filters, and
     extract all visible job card data as a JSON array via JS evaluate.
 

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: llm
-  name: LLM Response
+actionId: llm
+name: LLM Response
 
 chat:
   model: llama3.2:1b

@@ -10,11 +10,9 @@ metadata:
   targetActionId: final-response
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 17100
 
   apiServer:
+    portNum: 17100
     routes:
       - path: /api/v1/review
         methods: [POST]
@@ -29,11 +27,8 @@ settings:
 resources:
 
   # ── Step 0: Validate ──────────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: validate
-      name: Validate Input
+  - actionId: validate
+    name: Validate Input
     validations:
       methods: [POST]
       routes: [/api/v1/review]
@@ -47,12 +42,9 @@ resources:
       args: ["Input validated"]
 
   # ── Step 1a: Security review (parallel) ───────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: callSecurity
-      name: Call Security Agent
-      requires: [validate]
+  - actionId: callSecurity
+    name: Call Security Agent
+    requires: [validate]
     agent:
       name: code-security
       params:
@@ -60,12 +52,9 @@ resources:
         language: "{{ get('language', 'unknown') }}"
 
   # ── Step 1b: Quality review (parallel with 1a) ────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: callQuality
-      name: Call Quality Agent
-      requires: [validate]
+  - actionId: callQuality
+    name: Call Quality Agent
+    requires: [validate]
     agent:
       name: code-quality
       params:
@@ -73,12 +62,9 @@ resources:
         language: "{{ get('language', 'unknown') }}"
 
   # ── Step 2: Synthesise report (waits for both 1a and 1b) ─────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: callReport
-      name: Call Report Agent
-      requires: [callSecurity, callQuality]
+  - actionId: callReport
+    name: Call Report Agent
+    requires: [callSecurity, callQuality]
     agent:
       name: code-report
       params:
@@ -88,12 +74,9 @@ resources:
         quality:  "{{ output('callQuality') }}"
 
   # ── Step 3: Return final report ───────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: final-response
-      name: Final Response
-      requires: [callReport]
+  - actionId: final-response
+    name: Final Response
+    requires: [callReport]
     apiResponse:
       success: true
       response: "{{ output('callReport') }}"

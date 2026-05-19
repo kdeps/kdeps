@@ -71,7 +71,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: ${API_PORT}
   apiServer:
@@ -89,110 +88,90 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/keyword.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: searchKeyword
-  name: Search Keyword
-run:
-  validations:
-    routes: [/search/keyword]
-    methods: [POST]
-  component:
-    name: search-local
-    with:
-      path: "${TEST_DIR}/docs"
-      query: "searchable_token"
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('searchKeyword').results }}"
-      count: "{{ output('searchKeyword').count }}"
+actionId: searchKeyword
+name: Search Keyword
+validations:
+  routes: [/search/keyword]
+  methods: [POST]
+component:
+  name: search-local
+  with:
+    path: "${TEST_DIR}/docs"
+    query: "searchable_token"
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('searchKeyword').results }}"
+    count: "{{ output('searchKeyword').count }}"
 EOF
 
 cat > "$TEST_DIR/resources/glob.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: searchGlob
-  name: Search Glob
-run:
-  validations:
-    routes: [/search/glob]
-    methods: [POST]
-  component:
-    name: search-local
-    with:
-      path: "${TEST_DIR}/docs"
-      glob: "*.md"
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('searchGlob').results }}"
-      count: "{{ output('searchGlob').count }}"
+actionId: searchGlob
+name: Search Glob
+validations:
+  routes: [/search/glob]
+  methods: [POST]
+component:
+  name: search-local
+  with:
+    path: "${TEST_DIR}/docs"
+    glob: "*.md"
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('searchGlob').results }}"
+    count: "{{ output('searchGlob').count }}"
 EOF
 
 cat > "$TEST_DIR/resources/limit.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: searchLimit
-  name: Search Limit
-run:
-  validations:
-    routes: [/search/limit]
-    methods: [POST]
-  component:
-    name: search-local
-    with:
-      path: "${TEST_DIR}/docs"
-      query: "searchable_token"
-      limit: 1
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('searchLimit').results }}"
-      count: "{{ output('searchLimit').count }}"
+actionId: searchLimit
+name: Search Limit
+validations:
+  routes: [/search/limit]
+  methods: [POST]
+component:
+  name: search-local
+  with:
+    path: "${TEST_DIR}/docs"
+    query: "searchable_token"
+    limit: 1
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('searchLimit').results }}"
+    count: "{{ output('searchLimit').count }}"
 EOF
 
 cat > "$TEST_DIR/resources/nomatch.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: searchNoMatch
-  name: Search No Match
-run:
-  validations:
-    routes: [/search/nomatch]
-    methods: [POST]
-  component:
-    name: search-local
-    with:
-      path: "${TEST_DIR}/docs"
-      query: "zzz_no_such_keyword_zzz"
-  onError:
-    action: continue
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('searchNoMatch').count }}"
+actionId: searchNoMatch
+name: Search No Match
+validations:
+  routes: [/search/nomatch]
+  methods: [POST]
+component:
+  name: search-local
+  with:
+    path: "${TEST_DIR}/docs"
+    query: "zzz_no_such_keyword_zzz"
+onError:
+  action: continue
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('searchNoMatch').count }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [searchKeyword, searchGlob, searchLimit, searchNoMatch]
-run:
-  apiResponse:
-    success: true
-    response:
-      keyword: "{{ output('searchKeyword') }}"
-      glob: "{{ output('searchGlob') }}"
-      limit: "{{ output('searchLimit') }}"
-      nomatch: "{{ output('searchNoMatch') }}"
+actionId: response
+name: Response
+requires: [searchKeyword, searchGlob, searchLimit, searchNoMatch]
+apiResponse:
+  success: true
+  response:
+    keyword: "{{ output('searchKeyword') }}"
+    glob: "{{ output('searchGlob') }}"
+    limit: "{{ output('searchLimit') }}"
+    nomatch: "{{ output('searchNoMatch') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &

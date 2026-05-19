@@ -44,7 +44,7 @@ func TestInputSourcesIntegration_InvalidSource(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "main", Name: "Main"},
+				ActionID: "main", Name: "Main",
 				APIResponse: &domain.APIResponseConfig{Success: true},
 			},
 		},
@@ -71,7 +71,7 @@ func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata:    domain.ResourceMetadata{ActionID: "main", Name: "Main"},
+				ActionID: "main", Name: "Main",
 				APIResponse: &domain.APIResponseConfig{Success: true},
 			},
 		},

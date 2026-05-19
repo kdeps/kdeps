@@ -41,7 +41,6 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -49,10 +48,10 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
+
+				ActionID: "response",
+				Name:     "Response",
+
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"userId", "email"},
 				},
@@ -129,7 +128,6 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -137,10 +135,10 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
+
+				ActionID: "response",
+				Name:     "Response",
+
 				Validations: &domain.ValidationsConfig{
 					Rules: []domain.FieldRule{
 						{
@@ -334,7 +332,6 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -342,10 +339,10 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
+
+				ActionID: "response",
+				Name:     "Response",
+
 				Validations: &domain.ValidationsConfig{
 					Expr: []domain.CustomRule{
 						{
@@ -504,7 +501,6 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -512,10 +508,10 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
+
+				ActionID: "response",
+				Name:     "Response",
+
 				Validations: &domain.ValidationsConfig{
 					Required: []string{"email", "name"},
 					Rules: []domain.FieldRule{

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: urlParserTool
-  name: URL Parser Tool
+actionId: urlParserTool
+name: URL Parser Tool
 
 python:
   script: |

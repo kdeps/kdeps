@@ -42,12 +42,14 @@ metadata:
   targetActionId: response
 {# Jinja2 comment - will be stripped #}
 settings:
-  apiServerMode: true
+  agentSettings: {}
+  apiServer:
 {% if env.TEST_PORT == '9090' %}
-  portNum: 9090
+    portNum: 9090
 {% else %}
-  portNum: 8080
+    portNum: 8080
 {% endif %}
+    routes: []
 `
 
 	tmpDir := t.TempDir()
@@ -60,7 +62,8 @@ settings:
 	require.NotNil(t, wf)
 
 	assert.Equal(t, "jinja2-workflow", wf.Metadata.Name)
-	assert.Equal(t, 9090, wf.Settings.PortNum)
+	require.NotNil(t, wf.Settings.APIServer)
+	assert.Equal(t, 9090, wf.Settings.APIServer.PortNum)
 }
 
 // TestParseWorkflow_PlainYAMLParsed verifies that a standard workflow YAML file
@@ -73,7 +76,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -94,11 +97,8 @@ settings:
 func TestParseResource_Jinja2Preprocessing(t *testing.T) {
 	t.Setenv("ENABLE_HTTP", "true")
 
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: fetchData
-  name: Fetch Data
+	resourceYAML := `actionId: fetchData
+name: Fetch Data
 {% if env.ENABLE_HTTP == 'true' %}
 httpClient:
   method: GET
@@ -114,7 +114,7 @@ httpClient:
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	assert.Equal(t, "fetchData", res.Metadata.ActionID)
+	assert.Equal(t, "fetchData", res.ActionID)
 	// The runtime expression is auto-protected by PreprocessYAML and preserved as-is.
 	require.NotNil(t, res.HTTPClient)
 	assert.Equal(t, "{{ get('url') }}", res.HTTPClient.URL)
@@ -124,11 +124,8 @@ httpClient:
 // API expressions in a resource YAML file are preserved verbatim through Jinja2
 // preprocessing (auto-protected) and available for runtime evaluation.
 func TestParseResource_RuntimeExpressionsPreserved(t *testing.T) {
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: response
-  name: API Response
+	resourceYAML := `actionId: response
+name: API Response
 httpClient:
   method: GET
   url: "{{ get('url') }}"
@@ -153,11 +150,8 @@ httpClient:
 func TestParseResource_MixedJinja2AndRuntimeExpressions(t *testing.T) {
 	t.Setenv("ENABLE_CALL", "yes")
 
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: callAPI
-  name: Call API
+	resourceYAML := `actionId: callAPI
+name: Call API
 {% if env.ENABLE_CALL == 'yes' %}
 httpClient:
   method: GET

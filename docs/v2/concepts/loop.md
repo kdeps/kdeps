@@ -7,13 +7,9 @@ The `loop` block enables conditional, unbounded iteration — making kdeps workf
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: countToFive
-  name: Count to Five
-
+actionId: countToFive
+name: Count to Five
 loop:
   while: "loop.index() < 5"
   maxIterations: 1000   # safety cap (default: 1000)
@@ -358,8 +354,7 @@ A resource that runs a loop and a downstream resource that reads the final state
 
 ```yaml
 # resources/compute.yaml
-metadata:
-  actionId: compute
+actionId: compute
 loop:
   while: "loop.index() < 3"
   maxIterations: 10
@@ -368,9 +363,8 @@ expr:
 
 ---
 # resources/respond.yaml
-metadata:
-  actionId: respond
-  requires: [compute]
+actionId: respond
+requires: [compute]
 apiResponse:
   success: true
   response:

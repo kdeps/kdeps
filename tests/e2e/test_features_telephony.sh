@@ -62,7 +62,6 @@ metadata:
   version: "1.0.0"
   targetActionId: twimlResponse
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: ${API_PORT}
   apiServer:
@@ -90,164 +89,132 @@ EOF
 # -- Resource: say -------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/say.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: sayHello
-  name: Say Hello
-run:
-  validations:
-    routes: [/twilio/say]
-    methods: [POST]
-  telephony:
-    action: say
-    say: "Hello from kdeps telephony."
-    voice: alice
+actionId: sayHello
+name: Say Hello
+validations:
+  routes: [/twilio/say]
+  methods: [POST]
+telephony:
+  action: say
+  say: "Hello from kdeps telephony."
+  voice: alice
 EOF
 
 # -- Resource: ask -------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/ask.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: askPin
-  name: Ask PIN
-run:
-  validations:
-    routes: [/twilio/ask]
-    methods: [POST]
-  telephony:
-    action: ask
-    say: "Please enter your 4-digit PIN."
-    limit: 4
-    timeout: 10s
-    terminator: "#"
+actionId: askPin
+name: Ask PIN
+validations:
+  routes: [/twilio/ask]
+  methods: [POST]
+telephony:
+  action: ask
+  say: "Please enter your 4-digit PIN."
+  limit: 4
+  timeout: 10s
+  terminator: "#"
 EOF
 
 # -- Resource: menu ------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/menu.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: mainMenu
-  name: Main Menu
-run:
-  validations:
-    routes: [/twilio/menu]
-    methods: [POST]
-  telephony:
-    action: menu
-    say: "Press 1 for sales. Press 2 for support."
-    timeout: 8s
-    matches:
-      - keys: ["1"]
-        invoke: salesFlow
-      - keys: ["2"]
-        invoke: supportFlow
-    onNoMatch: repeatMenu
+actionId: mainMenu
+name: Main Menu
+validations:
+  routes: [/twilio/menu]
+  methods: [POST]
+telephony:
+  action: menu
+  say: "Press 1 for sales. Press 2 for support."
+  timeout: 8s
+  matches:
+    - keys: ["1"]
+      invoke: salesFlow
+    - keys: ["2"]
+      invoke: supportFlow
+  onNoMatch: repeatMenu
 EOF
 
 # -- Resource: dial ------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/dial.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: dialAgent
-  name: Dial Agent
-run:
-  validations:
-    routes: [/twilio/dial]
-    methods: [POST]
-  telephony:
-    action: dial
-    to:
-      - sip:agent@pbx.example.com
-      - "+15005550001"
-    for: 30s
+actionId: dialAgent
+name: Dial Agent
+validations:
+  routes: [/twilio/dial]
+  methods: [POST]
+telephony:
+  action: dial
+  to:
+    - sip:agent@pbx.example.com
+    - "+15005550001"
+  for: 30s
 EOF
 
 # -- Resource: record ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/record.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: recordMsg
-  name: Record Message
-run:
-  validations:
-    routes: [/twilio/record]
-    methods: [POST]
-  telephony:
-    action: record
-    say: "Leave a message after the beep."
-    maxDuration: 60s
-    interruptible: true
+actionId: recordMsg
+name: Record Message
+validations:
+  routes: [/twilio/record]
+  methods: [POST]
+telephony:
+  action: record
+  say: "Leave a message after the beep."
+  maxDuration: 60s
+  interruptible: true
 EOF
 
 # -- Resource: hangup ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/hangup.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: hangupCall
-  name: Hangup
-run:
-  validations:
-    routes: [/twilio/hangup]
-    methods: [POST]
-  telephony:
-    action: hangup
+actionId: hangupCall
+name: Hangup
+validations:
+  routes: [/twilio/hangup]
+  methods: [POST]
+telephony:
+  action: hangup
 EOF
 
 # -- Resource: reject ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/reject.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: rejectCall
-  name: Reject Busy
-run:
-  validations:
-    routes: [/twilio/reject]
-    methods: [POST]
-  telephony:
-    action: reject
-    reason: busy
+actionId: rejectCall
+name: Reject Busy
+validations:
+  routes: [/twilio/reject]
+  methods: [POST]
+telephony:
+  action: reject
+  reason: busy
 EOF
 
 # -- Resource: aggregated response ---------------------------------------------
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: twimlResponse
-  name: TwiML Response
-  requires:
-    - sayHello
-    - askPin
-    - mainMenu
-    - dialAgent
-    - recordMsg
-    - hangupCall
-    - rejectCall
-run:
-  apiResponse:
-    success: true
-    response:
-      say:    "{{ output('sayHello') }}"
-      ask:    "{{ output('askPin') }}"
-      menu:   "{{ output('mainMenu') }}"
-      dial:   "{{ output('dialAgent') }}"
-      record: "{{ output('recordMsg') }}"
-      hangup: "{{ output('hangupCall') }}"
-      reject: "{{ output('rejectCall') }}"
+actionId: twimlResponse
+name: TwiML Response
+requires:
+  - sayHello
+  - askPin
+  - mainMenu
+  - dialAgent
+  - recordMsg
+  - hangupCall
+  - rejectCall
+apiResponse:
+  success: true
+  response:
+    say:    "{{ output('sayHello') }}"
+    ask:    "{{ output('askPin') }}"
+    menu:   "{{ output('mainMenu') }}"
+    dial:   "{{ output('dialAgent') }}"
+    record: "{{ output('recordMsg') }}"
+    hangup: "{{ output('hangupCall') }}"
+    reject: "{{ output('rejectCall') }}"
 EOF
 
 # -- Start KDeps ---------------------------------------------------------------

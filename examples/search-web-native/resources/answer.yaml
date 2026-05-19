@@ -1,8 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: answer
-  requires: [search]
+actionId: answer
+requires: [search]
 chat:
   model: llama3.2:1b
   prompt: |

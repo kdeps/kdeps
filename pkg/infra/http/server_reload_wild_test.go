@@ -62,11 +62,8 @@ settings:
       - path: /api/reload
         methods: [POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Reload Action
-      actionId: reload-action
+  - actionId: reload-action
+    name: Reload Action
     apiResponse:
       success: true
       response: {}
@@ -121,11 +118,8 @@ settings:
       - path: /api/default
         methods: [POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Default Action
-      actionId: default-action
+  - actionId: default-action
+    name: Default Action
     apiResponse:
       success: true
       response: {}
@@ -265,11 +259,8 @@ settings:
       - path: /api/new
         methods: [GET, POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Route Action
-      actionId: route-action
+  - actionId: route-action
+    name: Route Action
     apiResponse:
       success: true
       response: {}

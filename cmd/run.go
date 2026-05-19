@@ -1089,13 +1089,13 @@ func dispatchExecution(
 	kdeps_debug.Log("enter: dispatchExecution")
 	s := workflow.Settings
 
-	if s.WebServerMode && s.APIServerMode {
+	if s.WebServer != nil && s.APIServer != nil {
 		return StartBothServers(workflow, workflowPath, devMode, debugMode)
 	}
-	if s.WebServerMode {
+	if s.WebServer != nil {
 		return StartWebServer(workflow, workflowPath, devMode)
 	}
-	if s.APIServerMode {
+	if s.APIServer != nil {
 		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
@@ -1181,7 +1181,7 @@ func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, 
 }
 
 // StartLLMRunner starts the LLM interactive runner.
-// When executionType is "apiServer" (or the workflow has apiServerMode enabled),
+// When executionType is "apiServer" (or the workflow has an apiServer block),
 // the HTTP API server is started. Otherwise an interactive stdin REPL is started.
 func StartLLMRunner(
 	workflow *domain.Workflow,
@@ -1396,13 +1396,13 @@ func dispatchExecutionWithEngine(
 
 	// For server and bot modes, the pre-built engine is used where possible.
 	// HTTP/Web/BotReply server paths create their own long-running executor loop.
-	if s.WebServerMode && s.APIServerMode {
+	if s.WebServer != nil && s.APIServer != nil {
 		return startBothServersWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	}
-	if s.WebServerMode {
+	if s.WebServer != nil {
 		return StartWebServer(workflow, workflowPath, devMode)
 	}
-	if s.APIServerMode {
+	if s.APIServer != nil {
 		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	}
 	if s.Input != nil && s.Input.HasBotSource() {

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: countIntro
-  name: Count Intro Text
+actionId: countIntro
+name: Count Intro Text
 
 component:
   name: word-counter

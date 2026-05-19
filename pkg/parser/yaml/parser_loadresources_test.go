@@ -106,11 +106,8 @@ settings:
 
 	// Create resource files
 	resource1Content := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: resource1
-  name: Resource 1
+actionId: resource1
+name: Resource 1
 chat:
   model: llama3.2:1b
   prompt: "test"
@@ -123,11 +120,8 @@ chat:
 	require.NoError(t, err)
 
 	resource2Content := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: resource2
-  name: Resource 2
+actionId: resource2
+name: Resource 2
 apiResponse:
   success: true
 `
@@ -145,7 +139,7 @@ apiResponse:
 	// Verify resources are loaded
 	actionIDs := make(map[string]bool)
 	for _, res := range workflow.Resources {
-		actionIDs[res.Metadata.ActionID] = true
+		actionIDs[res.ActionID] = true
 	}
 	assert.True(t, actionIDs["resource1"])
 	assert.True(t, actionIDs["resource2"])
@@ -178,11 +172,8 @@ settings:
 
 	// Create YAML resource
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: resource1
-  name: Resource 1
+actionId: resource1
+name: Resource 1
 apiResponse:
   success: true
 `
@@ -196,7 +187,7 @@ apiResponse:
 
 	// Should only load the YAML file
 	assert.Len(t, workflow.Resources, 1)
-	assert.Equal(t, "resource1", workflow.Resources[0].Metadata.ActionID)
+	assert.Equal(t, "resource1", workflow.Resources[0].ActionID)
 }
 
 func TestParser_LoadResources_IgnoreSubdirectories(t *testing.T) {
@@ -223,11 +214,8 @@ settings:
 
 	// Create resource in subdirectory (should be ignored)
 	resourceInSubdir := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: subresource
-  name: Sub Resource
+actionId: subresource
+name: Sub Resource
 apiResponse:
   success: true
 `
@@ -240,11 +228,8 @@ apiResponse:
 
 	// Create resource at root of resources dir
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: resource1
-  name: Resource 1
+actionId: resource1
+name: Resource 1
 apiResponse:
   success: true
 `
@@ -258,7 +243,7 @@ apiResponse:
 
 	// Should only load the root-level resource, not subdirectory
 	assert.Len(t, workflow.Resources, 1)
-	assert.Equal(t, "resource1", workflow.Resources[0].Metadata.ActionID)
+	assert.Equal(t, "resource1", workflow.Resources[0].ActionID)
 }
 
 func TestParser_LoadResources_InvalidResourceFile(t *testing.T) {
@@ -284,10 +269,7 @@ settings:
 
 	// Create invalid resource file
 	invalidResource := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: "unclosed quote
+actionId: "unclosed quote
 `
 	err = os.WriteFile(filepath.Join(resourcesDir, "invalid.yaml"), []byte(invalidResource), 0600)
 	require.NoError(t, err)
@@ -318,9 +300,8 @@ settings:
   agentSettings:
     timezone: UTC
 resources:
-  - metadata:
-      actionId: inline-resource
-      name: Inline Resource
+  - actionId: inline-resource
+    name: Inline Resource
     apiResponse:
       success: true
 `
@@ -329,11 +310,8 @@ resources:
 
 	// Also add a resource file
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: file-resource
-  name: File Resource
+actionId: file-resource
+name: File Resource
 apiResponse:
   success: true
 `
@@ -350,7 +328,7 @@ apiResponse:
 
 	actionIDs := make(map[string]bool)
 	for _, res := range workflow.Resources {
-		actionIDs[res.Metadata.ActionID] = true
+		actionIDs[res.ActionID] = true
 	}
 	assert.True(t, actionIDs["inline-resource"])
 	assert.True(t, actionIDs["file-resource"])

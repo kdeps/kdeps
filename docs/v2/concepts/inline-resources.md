@@ -13,11 +13,8 @@ Instead of creating separate resource files for preparatory or cleanup tasks, in
 ## Basic Syntax
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: example
-  name: Example Resource
+actionId: example
+name: Example Resource
 # Inline resources to run BEFORE the main resource
 before:
   - httpClient:

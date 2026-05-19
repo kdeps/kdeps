@@ -100,11 +100,8 @@ func TestLoadResourceFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 apiResponse:
   success: true
 `
@@ -182,10 +179,10 @@ func TestValidateWorkflow(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -649,11 +646,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 apiResponse:
   success: true
   response:
@@ -798,9 +792,9 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			PortNum:   addr.Port, // Port already in use
-			APIServer: &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{
+				PortNum: addr.Port, // Port already in use
+			},
 		},
 	}
 
@@ -827,9 +821,8 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 			TargetActionID: "test-action",
 		},
 		Settings: domain.WorkflowSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: addr.Port,
 			APIServer: &domain.APIServerConfig{
+				PortNum: addr.Port,
 				Routes: []domain.Route{
 					{
 						Path:    "/test",
@@ -845,10 +838,10 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -911,10 +904,9 @@ func TestStartWebServer_ValidConfig(t *testing.T) {
 
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: addr.Port,
 			WebServer: &domain.WebServerConfig{
-				Routes: []domain.WebRoute{},
+				PortNum: addr.Port,
+				Routes:  []domain.WebRoute{},
 			},
 		},
 	}
@@ -1016,11 +1008,8 @@ func TestStartBothServers(t *testing.T) {
 			TargetActionID: "test-action",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       addr1.Port,
 			APIServer: &domain.APIServerConfig{
+				PortNum: addr1.Port,
 				Routes: []domain.Route{
 					{
 						Path:    "/test",
@@ -1039,10 +1028,10 @@ func TestStartBothServers(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -1096,10 +1085,10 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						Chat: &domain.ChatConfig{
 							Backend: "ollama",
 							Prompt:  "You are a helpful assistant",
@@ -1127,10 +1116,10 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						Chat: &domain.ChatConfig{
 							Backend: "",
 						},
@@ -1151,10 +1140,10 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						APIResponse: &domain.APIResponseConfig{
 							Success: true,
 						},
@@ -1175,10 +1164,10 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						Chat: &domain.ChatConfig{
 							Backend: "openai",
 						},
@@ -1287,10 +1276,10 @@ func TestOllamaURLParsing(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						Chat: &domain.ChatConfig{
 							Backend: "ollama",
 						},
@@ -1328,10 +1317,10 @@ func TestOllamaConnectionLogic(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
 				Chat: &domain.ChatConfig{
 					Backend: "ollama",
 				},
@@ -1482,11 +1471,8 @@ settings:
 
 	// Create resource with Ollama chat
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -1820,10 +1806,10 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
 						Chat: &domain.ChatConfig{
 							Backend: "ollama",
 						},
@@ -1871,11 +1857,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -1937,11 +1920,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -1996,11 +1976,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2053,11 +2030,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2119,11 +2093,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2181,11 +2152,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2238,11 +2206,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2297,11 +2262,8 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 chat:
   backend: ollama
   model: llama2
@@ -2454,11 +2416,8 @@ func TestLoadResourceFiles_EdgeCases(t *testing.T) {
 				for i := 1; i <= 3; i++ {
 					resourcePath := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.yaml", i))
 					content := fmt.Sprintf(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: action-%d
-  name: Action %d
+actionId: action-%d
+name: Action %d
 apiResponse:
   success: true
 `, i, i)
@@ -2487,11 +2446,8 @@ apiResponse:
 				// Valid resource
 				validPath := filepath.Join(resourcesDir, "valid.yaml")
 				err = os.WriteFile(validPath, []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: valid-action
-  name: Valid Action
+actionId: valid-action
+name: Valid Action
 apiResponse:
   success: true
 `), 0644)
@@ -2528,11 +2484,8 @@ apiResponse:
 				// Create a valid resource file
 				resourcePath := filepath.Join(resourcesDir, "resource.yaml")
 				err = os.WriteFile(resourcePath, []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
+actionId: test-action
+name: Test Action
 apiResponse:
   success: true
 `), 0644)
@@ -2702,11 +2655,8 @@ settings:
     timezone: "UTC"
     offlineMode: true
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: main-action
-      name: Main Action
+  - actionId: main-action
+    name: Main Action
     apiResponse:
       success: true
       response:
@@ -2742,11 +2692,8 @@ interface:
 	compResourcesDir := filepath.Join(compDir, "resources")
 	require.NoError(t, os.Mkdir(compResourcesDir, 0o750))
 
-	compResYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: greet
-  name: Greet Resource
+	compResYAML := `actionId: greet
+name: Greet Resource
 apiResponse:
   success: true
   response:
@@ -2774,7 +2721,7 @@ apiResponse:
 	// Both actionIds should be present.
 	actionIDs := make(map[string]struct{})
 	for _, r := range workflow.Resources {
-		actionIDs[r.Metadata.ActionID] = struct{}{}
+		actionIDs[r.ActionID] = struct{}{}
 	}
 	_, hasMain := actionIDs["main-action"]
 	_, hasGreet := actionIDs["greet"]

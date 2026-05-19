@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: unitConverterTool
-  name: Unit Converter Tool
+actionId: unitConverterTool
+name: Unit Converter Tool
 
 python:
   script: |

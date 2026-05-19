@@ -49,11 +49,11 @@ func chatbotTestWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID:    "llmResource",
-					Name:        "LLM Chat Handler",
-					Description: "Handles chat requests",
-				},
+
+				ActionID:    "llmResource",
+				Name:        "LLM Chat Handler",
+				Description: "Handles chat requests",
+
 				Validations: &domain.ValidationsConfig{
 					Methods:  []string{"POST"},
 					Routes:   []string{"/api/v1/chat"},

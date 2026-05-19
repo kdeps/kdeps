@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: translate
-  name: Translate Sample Text
+actionId: translate
+name: Translate Sample Text
 
 component:
   name: translator

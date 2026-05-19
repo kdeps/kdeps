@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: readFile
-  name: Read File Content
+actionId: readFile
+name: Read File Content
 
 exec:
   command: echo "file content loaded"

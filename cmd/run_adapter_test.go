@@ -41,7 +41,7 @@ func TestRequestContextAdapter_Execute_NilRequest(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "response"},
+				ActionID: "response",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"ok": true},
@@ -75,7 +75,7 @@ func TestRequestContextAdapter_Execute_PropagatesSessionID(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "response"},
+				ActionID: "response",
 				APIResponse: &domain.APIResponseConfig{
 					Success:  true,
 					Response: map[string]interface{}{"ok": true},
@@ -100,9 +100,6 @@ func TestStartWebServer_MissingConfig(t *testing.T) {
 func TestStartHTTPServer_InvalidAddr(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "999.999.999.999",
-			PortNum:       16395,
 			APIServer: &domain.APIServerConfig{
 				Routes: []domain.Route{
 					{

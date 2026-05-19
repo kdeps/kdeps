@@ -23,14 +23,11 @@ Create `workflow.yaml`:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: chatbot
-  description: Simple LLM chatbot
-  version: "1.0.0"
-  targetActionId: responseResource
-
+name: chatbot
+description: Simple LLM chatbot
+version: "1.0.0"
+targetActionId: responseResource
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -56,13 +53,9 @@ Create `resources/llm.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
+actionId: llmResource
+name: LLM Chat
 chat:
   prompt: "{{ get('q') }}"
   jsonResponse: true
@@ -82,15 +75,11 @@ chat:
 Create `resources/response.yaml`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
-    - llmResource
-
+actionId: responseResource
+name: API Response
+requires:
+  - llmResource
 apiResponse:
   success: true
   response:
@@ -175,13 +164,9 @@ Add input validation to ensure the query is not empty:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
+actionId: llmResource
+name: LLM Chat
 validations:
   - get('q') != ''
   - len(get('q')) > 3
@@ -223,7 +208,6 @@ Enable session storage to maintain conversation context:
 ```yaml
 settings:
   session:
-    enabled: true
     type: sqlite
     path: ./chatbot.db
 ```
@@ -250,15 +234,11 @@ chat:
 Handle errors gracefully:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
-    - llmResource
-
+actionId: responseResource
+name: API Response
+requires:
+  - llmResource
 apiResponse:
   success: true
   response:

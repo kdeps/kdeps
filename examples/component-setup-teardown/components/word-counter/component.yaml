@@ -39,11 +39,8 @@ interface:
       description: An optional label for the result (default "untitled").
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: count
-      name: Count Words
+  - actionId: count
+    name: Count Words
     exec:
       command: |
         python3 - <<'PYEOF'

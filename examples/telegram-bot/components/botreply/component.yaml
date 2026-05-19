@@ -5,13 +5,10 @@ metadata:
   description: Sends a reply through the active Telegram bot session
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: reply
-      name: Bot Reply
-      requires:
-        - llm
+  - actionId: reply
+    name: Bot Reply
+    requires:
+    - llm
     httpClient:
       url: "https://api.telegram.org/bot{{ get(\"telegramBotToken\") }}/sendMessage"
       method: POST

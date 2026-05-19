@@ -62,7 +62,6 @@ metadata:
   targetActionId: healthResource
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -97,7 +96,6 @@ metadata:
   targetActionId: healthResource
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -121,69 +119,57 @@ EOF
 
     # Create health resource
     cat > "$dir/resources/health.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: healthResource
-  name: Health Check
+actionId: healthResource
+name: Health Check
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/health]
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/health]
 
-  apiResponse:
-    success: true
-    response:
-      status: ok
-    meta:
-      headers:
-        Content-Type: application/json
+apiResponse:
+  success: true
+  response:
+    status: ok
+  meta:
+    headers:
+      Content-Type: application/json
 EOF
 
     # Create info resource
     cat > "$dir/resources/info.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: infoResource
-  name: Info Endpoint
+actionId: infoResource
+name: Info Endpoint
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/info]
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/info]
 
-  apiResponse:
-    success: true
-    response:
-      name: container-test
-      version: "1.0.0"
-    meta:
-      headers:
-        Content-Type: application/json
+apiResponse:
+  success: true
+  response:
+    name: container-test
+    version: "1.0.0"
+  meta:
+    headers:
+      Content-Type: application/json
 EOF
 
     # Create echo resource
     cat > "$dir/resources/echo.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: echoResource
-  name: Echo Endpoint
+actionId: echoResource
+name: Echo Endpoint
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/echo]
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/echo]
 
-  apiResponse:
-    success: true
-    response:
-      echo: request.body
-    meta:
-      headers:
-        Content-Type: application/json
+apiResponse:
+  success: true
+  response:
+    echo: request.body
+  meta:
+    headers:
+      Content-Type: application/json
 EOF
 }
 

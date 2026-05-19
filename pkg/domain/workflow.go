@@ -130,10 +130,6 @@ type WorkflowMetadata struct {
 
 // WorkflowSettings contains workflow settings.
 type WorkflowSettings struct {
-	APIServerMode  bool                     `yaml:"apiServerMode"`
-	WebServerMode  bool                     `yaml:"webServerMode"`
-	HostIP         string                   `yaml:"hostIp,omitempty"`
-	PortNum        int                      `yaml:"portNum,omitempty"`
 	CertFile       string                   `yaml:"certFile,omitempty"`
 	KeyFile        string                   `yaml:"keyFile,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
@@ -262,22 +258,28 @@ type FileConfig struct {
 	Path string `yaml:"path,omitempty" json:"path,omitempty"`
 }
 
-// GetHostIP returns the resolved host IP from top-level settings or default.
+// GetHostIP returns the resolved host IP from the server config or default.
 func (w *WorkflowSettings) GetHostIP() string {
 	kdeps_debug.Log("enter: GetHostIP")
-	if w.HostIP != "" {
-		return w.HostIP
+	if w.APIServer != nil && w.APIServer.HostIP != "" {
+		return w.APIServer.HostIP
 	}
-	return "0.0.0.0" // default
+	if w.WebServer != nil && w.WebServer.HostIP != "" {
+		return w.WebServer.HostIP
+	}
+	return "0.0.0.0"
 }
 
-// GetPortNum returns the resolved port number from top-level settings or default.
+// GetPortNum returns the resolved port number from the server config or default.
 func (w *WorkflowSettings) GetPortNum() int {
 	kdeps_debug.Log("enter: GetPortNum")
-	if w.PortNum > 0 {
-		return w.PortNum
+	if w.APIServer != nil && w.APIServer.PortNum > 0 {
+		return w.APIServer.PortNum
 	}
-	return DefaultPort // default for all modes
+	if w.WebServer != nil && w.WebServer.PortNum > 0 {
+		return w.WebServer.PortNum
+	}
+	return DefaultPort
 }
 
 // GetCORSConfig returns the CORS configuration, providing defaults if not set.
@@ -342,82 +344,17 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	return config
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	// Decode into an alias type to avoid recursion, with booleans as interface{}
-	type Alias struct {
-		APIServerMode  interface{}              `yaml:"apiServerMode"`
-		WebServerMode  interface{}              `yaml:"webServerMode"`
-		HostIP         string                   `yaml:"hostIp"`
-		PortNum        interface{}              `yaml:"portNum"`
-		APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
-		WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
-		AgentSettings  AgentSettings            `yaml:"agentSettings"`
-		SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
-		Session        *SessionConfig           `yaml:"session,omitempty"`
-		WebApp         *WebAppConfig            `yaml:"webApp,omitempty"`
-		Input          *InputConfig             `yaml:"input,omitempty"`
-		LLM            *LLMInputConfig          `yaml:"llm,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean fields that might be strings
-	if b, ok := ParseBool(alias.APIServerMode); ok {
-		w.APIServerMode = b
-	}
-	if b, ok := ParseBool(alias.WebServerMode); ok {
-		w.WebServerMode = b
-	}
-
-	// Parse portNum if it's a string
-	if i, ok := parseInt(alias.PortNum); ok {
-		w.PortNum = i
-	}
-
-	// Copy other fields
-	w.HostIP = alias.HostIP
-	w.APIServer = alias.APIServer
-	w.WebServer = alias.WebServer
-	w.AgentSettings = alias.AgentSettings
-	w.SQLConnections = alias.SQLConnections
-	w.Session = alias.Session
-	w.WebApp = alias.WebApp
-	w.Input = alias.Input
-	w.LLM = alias.LLM
-
-	// Set defaults if not provided
-	if w.HostIP == "" {
-		w.HostIP = "0.0.0.0"
-	}
-	if w.PortNum == 0 {
-		w.PortNum = DefaultPort
-	}
-
-	return nil
-}
-
 // SessionConfig contains session storage configuration.
-// Supports two formats:
-//  1. Flat format:
-//     session:
-//     type: sqlite
-//     path: ":memory:"
-//     ttl: "30m"
-//  2. Nested format (for backward compatibility):
-//     session:
-//     enabled: true
-//     ttl: "30s"
-//     storage:
-//     type: sqlite
-//     path: ":memory:"
+// The presence of a session: block enables session storage.
+// To disable sessions, omit the session: block entirely.
+//
+// Example:
+//
+//	session:
+//	  type: sqlite
+//	  path: ":memory:"
+//	  ttl: "30m"
 type SessionConfig struct {
-	// Enabled flag (optional, if false session storage is disabled)
-	Enabled bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-
 	// Type: "memory" or "sqlite" (default: "sqlite")
 	// Can be specified directly or in nested Storage struct
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
@@ -465,6 +402,8 @@ type RateLimitConfig struct {
 
 // APIServerConfig contains API server configuration.
 type APIServerConfig struct {
+	HostIP         string           `yaml:"hostIp,omitempty"`
+	PortNum        int              `yaml:"portNum,omitempty"`
 	TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
 	Routes         []Route          `yaml:"routes"`
 	CORS           *CORS            `yaml:"cors,omitempty"`
@@ -472,34 +411,6 @@ type APIServerConfig struct {
 	RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
 	MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
 	MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling.
-func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
-		Routes         []Route          `yaml:"routes"`
-		CORS           *CORS            `yaml:"cors,omitempty"`
-		Auth           *AuthConfig      `yaml:"auth,omitempty"`
-		RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
-		MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
-		MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	a.TrustedProxies = alias.TrustedProxies
-	a.Routes = alias.Routes
-	a.CORS = alias.CORS
-	a.Auth = alias.Auth
-	a.RateLimit = alias.RateLimit
-	a.MaxBodyBytes = alias.MaxBodyBytes
-	a.MaxConcurrent = alias.MaxConcurrent
-
-	return nil
 }
 
 // Route represents an API route.
@@ -519,60 +430,12 @@ type CORS struct {
 	MaxAge           string   `yaml:"maxAge,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		EnableCORS       interface{} `yaml:"enableCors"`
-		AllowOrigins     []string    `yaml:"allowOrigins,omitempty"`
-		AllowMethods     []string    `yaml:"allowMethods,omitempty"`
-		AllowHeaders     []string    `yaml:"allowHeaders,omitempty"`
-		ExposeHeaders    []string    `yaml:"exposeHeaders,omitempty"`
-		AllowCredentials interface{} `yaml:"allowCredentials,omitempty"`
-		MaxAge           string      `yaml:"maxAge,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean fields that might be strings
-	c.EnableCORS = parseBoolPtr(alias.EnableCORS)
-	if b, ok := ParseBool(alias.AllowCredentials); ok {
-		c.AllowCredentials = b
-	}
-
-	c.AllowOrigins = alias.AllowOrigins
-	c.AllowMethods = alias.AllowMethods
-	c.AllowHeaders = alias.AllowHeaders
-	c.ExposeHeaders = alias.ExposeHeaders
-	c.MaxAge = alias.MaxAge
-
-	return nil
-}
-
 // WebServerConfig contains web server configuration.
 type WebServerConfig struct {
+	HostIP         string     `yaml:"hostIp,omitempty"`
+	PortNum        int        `yaml:"portNum,omitempty"`
 	TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
 	Routes         []WebRoute `yaml:"routes"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling.
-func (w *WebServerConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
-		Routes         []WebRoute `yaml:"routes"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	w.TrustedProxies = alias.TrustedProxies
-	w.Routes = alias.Routes
-
-	return nil
 }
 
 // WebRoute represents a web server route.
@@ -582,34 +445,6 @@ type WebRoute struct {
 	PublicPath string `yaml:"publicPath,omitempty"`
 	AppPort    int    `yaml:"appPort,omitempty"`
 	Command    string `yaml:"command,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (w *WebRoute) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Path       string      `yaml:"path"`
-		ServerType string      `yaml:"serverType,omitempty"`
-		PublicPath string      `yaml:"publicPath,omitempty"`
-		AppPort    interface{} `yaml:"appPort,omitempty"`
-		Command    string      `yaml:"command,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.AppPort); ok {
-		w.AppPort = i
-	}
-
-	w.Path = alias.Path
-	w.ServerType = alias.ServerType
-	w.PublicPath = alias.PublicPath
-	w.Command = alias.Command
-
-	return nil
 }
 
 // Resources contains resource limits and requests.

@@ -27,12 +27,10 @@ mkdir my-agent && cd my-agent && mkdir resources
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
-metadata:
-  name: my-agent
-  version: "1.0.0"
-  targetActionId: responseResource
+name: my-agent
+version: "1.0.0"
+targetActionId: responseResource
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -48,10 +46,7 @@ settings:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmResource
+actionId: llmResource
 validations:
   methods: [POST]
   routes: [/api/v1/chat]
@@ -74,11 +69,8 @@ chat:
 `resources/response.yaml`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: responseResource
-  requires: [llmResource]
+actionId: responseResource
+requires: [llmResource]
 apiResponse:
   success: true
   response:

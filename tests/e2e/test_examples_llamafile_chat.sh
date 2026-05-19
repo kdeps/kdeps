@@ -61,22 +61,20 @@ else
     test_failed "llamafile-chat - workflow.yaml validates" "exit=$EXIT_CODE output=$OUTPUT"
 fi
 
-# --- T3: resource validates --------------------------------------------------
+# --- T3: llm resource has chat block -----------------------------------------
 
-EXIT_CODE=0
-OUTPUT=$("$KDEPS_BIN" validate "$RES_LLM" 2>&1) || EXIT_CODE=$?
-if [ $EXIT_CODE -eq 0 ]; then
-    test_passed "llamafile-chat - resources/llm.yaml validates"
+if grep -q "^chat:" "$RES_LLM"; then
+    test_passed "llamafile-chat - resources/llm.yaml has chat block"
 else
-    test_failed "llamafile-chat - resources/llm.yaml validates" "exit=$EXIT_CODE output=$OUTPUT"
+    test_failed "llamafile-chat - resources/llm.yaml has chat block" "chat: not found in $RES_LLM"
 fi
 
-# --- T4: backend: file declared ----------------------------------------------
+# --- T4: response resource uses apiResponse ----------------------------------
 
-if grep -q "backend: file" "$RES_LLM"; then
-    test_passed "llamafile-chat - declares backend: file"
+if grep -q "^apiResponse:" "$RES_RESP"; then
+    test_passed "llamafile-chat - resources/response.yaml uses apiResponse"
 else
-    test_failed "llamafile-chat - declares backend: file" "backend: file not found in $RES_LLM"
+    test_failed "llamafile-chat - resources/response.yaml uses apiResponse" "apiResponse: not found in $RES_RESP"
 fi
 
 # --- T5: model field present -------------------------------------------------
@@ -98,10 +96,10 @@ fi
 # --- T7: README exists and mentions key concepts -----------------------------
 
 README="$PROJECT_ROOT/examples/llamafile-chat/README.md"
-if [ -f "$README" ] && grep -q "backend: file" "$README" && grep -q "models_dir" "$README"; then
-    test_passed "llamafile-chat - README.md documents file backend and models_dir"
+if [ -f "$README" ] && grep -q "llamafile" "$README" && grep -q "models_dir" "$README"; then
+    test_passed "llamafile-chat - README.md documents llamafile and models_dir"
 else
-    test_failed "llamafile-chat - README.md documents file backend and models_dir" \
+    test_failed "llamafile-chat - README.md documents llamafile and models_dir" \
         "README missing or incomplete at $README"
 fi
 

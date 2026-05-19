@@ -36,11 +36,8 @@ interface:
       required: true
       description: SMTP password
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Send Email
-      actionId: send-email
+  - name: Send Email
+    actionId: send-email
     python:
       script: |
         import smtplib, json

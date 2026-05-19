@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: hashTool
-  name: Hash Generator Tool
+actionId: hashTool
+name: Hash Generator Tool
 
 python:
   script: |

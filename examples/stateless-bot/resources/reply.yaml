@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: reply
-  name: Reply
-  requires:
+actionId: reply
+name: Reply
+requires:
     - llm
 
 exec:

@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: sessionResponse
-  name: Response
-  requires: [loginHandler, sessionHandler]
+actionId: sessionResponse
+name: Response
+requires: [loginHandler, sessionHandler]
 
 apiResponse:
   success: true

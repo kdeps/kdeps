@@ -24,11 +24,8 @@ interface:
       default: 0
       description: Maximum number of results (0 = unlimited)
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Local Search
-      actionId: local-search
+  - name: Local Search
+    actionId: local-search
     python:
       script: |
         import os, json

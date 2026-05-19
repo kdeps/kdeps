@@ -8,11 +8,9 @@ metadata:
   targetActionId: api-response
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: "/process"
         methods: ["POST"]
@@ -22,13 +20,10 @@ settings:
 
 resources:
   # Process multiple items in parallel
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: process-items
-      name: process-items
-      description: "Fetch data for each item"
-      requires: []
+  - actionId: process-items
+    name: process-items
+    description: "Fetch data for each item"
+    requires: []
     items:
       - "{{input.items}}"  # Iterate over items from request
     httpClient:
@@ -39,13 +34,10 @@ resources:
       timeoutDuration: 10s
 
   # Transform each result
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: transform-results
-      name: transform-results
-      description: "Extract key information from each result"
-      requires: ["process-items"]
+  - actionId: transform-results
+    name: transform-results
+    description: "Extract key information from each result"
+    requires: ["process-items"]
     items:
       - "{{get('process-items')}}"  # Iterate over previous results
     exec:
@@ -54,13 +46,10 @@ resources:
         - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
 
   # Aggregate all results (for debugging/logging)
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: aggregate-results
-      name: aggregate-results
-      description: "Aggregate all processed items"
-      requires: ["transform-results"]
+  - actionId: aggregate-results
+    name: aggregate-results
+    description: "Aggregate all processed items"
+    requires: ["transform-results"]
     exec:
       command: "sh"
       args:
@@ -70,13 +59,10 @@ resources:
           echo {{json(get('transform-results'))}}
 
   # Format and return API response
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: api-response
-      name: api-response
-      description: "Format results as API response"
-      requires: ["transform-results"]
+  - actionId: api-response
+    name: api-response
+    description: "Format results as API response"
+    requires: ["transform-results"]
     apiResponse:
       success: true
       response:
@@ -84,6 +70,5 @@ resources:
           totalItems: "{{len(get('transform-results'))}}"
           message: "Successfully processed {{len(get('transform-results'))}} repositories"
         results: "{{get('transform-results')}}"
-      meta:
-        headers:
-          Content-Type: "application/json"
+      headers:
+        Content-Type: "application/json"

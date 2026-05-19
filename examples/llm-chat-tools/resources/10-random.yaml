@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: randomTool
-  name: Random Generator Tool
+actionId: randomTool
+name: Random Generator Tool
 
 python:
   script: |

@@ -38,7 +38,6 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
   portNum: 8080
   agentSettings:
     replicas: 2
@@ -157,7 +156,6 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
   portNum: 8080
   agentSettings:
     installOllama: true

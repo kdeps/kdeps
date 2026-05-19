@@ -141,10 +141,7 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			APIServer:     &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -188,10 +185,10 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "llm-resource",
-					Name:     "LLM Chat",
-				},
+
+				ActionID: "llm-resource",
+				Name:     "LLM Chat",
+
 				Chat: &domain.ChatConfig{
 					Model:   "llama3.2:1b",
 					Backend: "ollama",
@@ -534,10 +531,10 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "llm-resource",
-					Name:     "LLM Chat",
-				},
+
+				ActionID: "llm-resource",
+				Name:     "LLM Chat",
+
 				Chat: &domain.ChatConfig{
 					Model:   "llama3.2:1b",
 					Backend: "ollama",
@@ -641,15 +638,12 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 			Version: "2.1.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       9000,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.11",
 				PythonPackages: []string{"fastapi", "uvicorn", "pydantic"},
 				BaseOS:         "ubuntu",
 			},
-			APIServer: &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{PortNum: 9000},
 			SQLConnections: map[string]domain.SQLConnection{
 				"main": {
 					Connection: "postgresql://user:pass@db:5432/app",
@@ -695,7 +689,7 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
+			APIServer: &domain.APIServerConfig{},
 		},
 	}
 
@@ -791,7 +785,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
+					APIServer:     &domain.APIServerConfig{},
 					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 				},
 			},
@@ -1145,9 +1139,6 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.12",
 				PythonPackages: []string{"requests", "pandas"},
@@ -1614,10 +1605,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					HostIP:        "0.0.0.0",
-					PortNum:       9000,
-					APIServer:     &domain.APIServerConfig{},
+					APIServer: &domain.APIServerConfig{PortNum: 9000},
 					AgentSettings: domain.AgentSettings{
 						PythonVersion: "3.12",
 					},
@@ -1693,10 +1681,7 @@ func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			WebServer:     &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 
@@ -1716,12 +1701,8 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			WebServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			APIServer:     &domain.APIServerConfig{},
-			WebServer:     &domain.WebServerConfig{},
+			APIServer: &domain.APIServerConfig{},
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 

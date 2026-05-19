@@ -16,13 +16,9 @@ The `expr` block executes expressions **before** the resource's main action (cha
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: preProcessor
-  name: Pre-Processor
-
+actionId: preProcessor
+name: Pre-Processor
 expr:
   - set('normalized_input', get('q').toLowerCase())
   - set('timestamp', info('now'))
@@ -189,13 +185,9 @@ httpClient:
 You can create resources that only execute expressions (no main action):
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: setupContext
-  name: Setup Context
-
+actionId: setupContext
+name: Setup Context
 expr:
   - set('session_id', generateUUID())
   - set('start_time', info('now'))
@@ -276,13 +268,9 @@ expr:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: loggedRequest
-  name: Logged Request
-
+actionId: loggedRequest
+name: Logged Request
 expr:
   - set('request_id', generateUUID())
   - set('request_time', info('now'))
@@ -303,13 +291,9 @@ chat:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: validatedInput
-  name: Validated Input
-
+actionId: validatedInput
+name: Validated Input
 expr:
   - set('email', get('email').toLowerCase().trim())
   - set('age', parseInt(get('age')))
@@ -333,13 +317,9 @@ chat:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: sessionHandler
-  name: Session Handler
-
+actionId: sessionHandler
+name: Session Handler
 expr:
   - set('session_id', get('session_id', 'session', generateUUID()), 'session')
   - set('visit_count', get('visit_count', 'session', 0) + 1, 'session')

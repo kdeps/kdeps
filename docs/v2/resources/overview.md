@@ -7,17 +7,13 @@ Resources are the fundamental building blocks of KDeps workflows. Each resource 
 Every resource follows this structure:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: myResource        # Unique identifier
-  name: My Resource           # Human-readable name
-  description: What it does   # Optional description
-  category: api               # Optional: for organization
-  requires:                   # Dependencies
-    - otherResource
-
+actionId: myResource        # Unique identifier
+name: My Resource           # Human-readable name
+description: What it does   # Optional description
+category: api               # Optional: for organization
+requires:                   # Dependencies
+  - otherResource
 items:                        # Optional: for iteration
   - item1
   - item2
@@ -109,9 +105,7 @@ See the [Components guide](../concepts/components) for installation and usage de
 Unique identifier for the resource. Used to reference output from other resources.
 
 ```yaml
-metadata:
-  actionId: llmResource
-
+actionId: llmResource
 # Access output in another resource:
 data: get('llmResource')
 ```
@@ -120,25 +114,21 @@ data: get('llmResource')
 Human-readable description of what the resource does.
 
 ```yaml
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-  description: Processes user queries using language models
+actionId: llmResource
+name: LLM Chat
+description: Processes user queries using language models
 ```
 
 ### category (Optional)
 Organize resources by category for better management.
 
 ```yaml
-metadata:
-  actionId: userAuth
-  name: User Authentication
-  category: auth
-
-metadata:
-  actionId: dataProcessor
-  name: Data Processor
-  category: processing
+actionId: userAuth
+name: User Authentication
+category: auth
+actionId: dataProcessor
+name: Data Processor
+category: processing
 ```
 
 Common categories: `api`, `auth`, `processing`, `storage`, `ai`, `utils`.
@@ -147,11 +137,10 @@ Common categories: `api`, `auth`, `processing`, `storage`, `ai`, `utils`.
 List of resources that must execute before this one.
 
 ```yaml
-metadata:
-  actionId: responseResource
-  requires:
-    - llmResource
-    - httpResource
+actionId: responseResource
+requires:
+  - llmResource
+  - httpResource
 ```
 
 KDeps automatically builds a dependency graph and executes resources in the correct order.
@@ -319,14 +308,12 @@ Each resource produces output that can be accessed by dependent resources:
 
 ```yaml
 # LLM resource output
-metadata:
-  actionId: llmResource
+actionId: llmResource
 chat:
   prompt: "Answer: {{ get('q') }}"
 
 # Access in another resource
-metadata:
-  requires: [llmResource]
+requires: [llmResource]
 apiResponse:
   response:
     answer: get('llmResource')  # Get the LLM response

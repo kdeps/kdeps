@@ -1,10 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: finalResult
-  name: Combined HTTP Results
-  requires: [authenticatedApi, apiKeyAuth, proxyTls]
+actionId: finalResult
+name: Combined HTTP Results
+requires: [authenticatedApi, apiKeyAuth, proxyTls]
 
 apiResponse:
   success: true

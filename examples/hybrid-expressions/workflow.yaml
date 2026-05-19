@@ -8,11 +8,9 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/demo
         methods: [GET, POST]
@@ -25,11 +23,8 @@ settings:
     timezone: Etc/UTC
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: setup
-      name: Setup Values
+  - actionId: setup
+    name: Setup Values
     expr:
       - set('value', 21)
       - set('multiplier', 2)
@@ -40,13 +35,10 @@ resources:
       success: true
       response: {}
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: API Response
-      requires:
-        - setup
+  - actionId: response
+    name: API Response
+    requires:
+    - setup
     validations:
       methods: [GET, POST]
       routes: [/api/demo]

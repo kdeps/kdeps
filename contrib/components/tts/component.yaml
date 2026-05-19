@@ -23,18 +23,12 @@ interface:
       required: false
       description: OpenAI API key (required for speak-online resource)
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Speak Offline
-      actionId: speak-offline
+  - name: Speak Offline
+    actionId: speak-offline
     exec:
       command: "espeak '{{ get('tts.text') }}'"
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Speak Online
-      actionId: speak-online
+  - name: Speak Online
+    actionId: speak-online
     httpClient:
       url: "https://api.openai.com/v1/audio/speech"
       method: POST

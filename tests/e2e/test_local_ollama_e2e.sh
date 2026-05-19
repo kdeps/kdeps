@@ -100,10 +100,9 @@ metadata:
   targetActionId: responseResource
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3001
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3001
     routes:
       - path: /api/v1/test
         methods: [POST]
@@ -115,52 +114,44 @@ settings:
     pythonVersion: "3.12"
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: llmResource
-      name: LLM Test
-    run:
+  - actionId: llmResource
+    name: LLM Test
+    validations:
+      methods: [POST]
+      routes: [/api/v1/test]
+    preflightCheck:
       validations:
-        methods: [POST]
-        routes: [/api/v1/test]
-      preflightCheck:
-        validations:
-          - get('q') != ''
-        error:
-          code: 400
-          message: Query parameter 'q' is required
-      chat:
-        model: llama3.2:1b
-        role: user
-        prompt: "{{ get('q') }}"
-        scenario:
-          - role: assistant
-            prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
-        jsonResponse: true
-        jsonResponseKeys:
-          - answer
-        timeoutDuration: 45s
+        - get('q') != ''
+      error:
+        code: 400
+        message: Query parameter 'q' is required
+    chat:
+      model: llama3.2:1b
+      role: user
+      prompt: "{{ get('q') }}"
+      scenario:
+        - role: assistant
+          prompt: You are a helpful AI assistant for testing. Be brief and respond in 1-2 sentences.
+      jsonResponse: true
+      jsonResponseKeys:
+        - answer
+      timeoutDuration: 45s
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: responseResource
-      name: API Response
-      requires:
-        - llmResource
-    run:
-      validations:
-        methods: [POST]
-        routes: [/api/v1/test]
-      apiResponse:
-        success: true
-        response:
-          data: get('llmResource')
-          query: get('q')
-        meta:
-          headers:
-            Content-Type: application/json
+  - actionId: responseResource
+    name: API Response
+    requires:
+      - llmResource
+    validations:
+      methods: [POST]
+      routes: [/api/v1/test]
+    apiResponse:
+      success: true
+      response:
+        data: get('llmResource')
+        query: get('q')
+      meta:
+        headers:
+          Content-Type: application/json
 EOF
 
     # Run kdeps with the workflow

@@ -18,8 +18,6 @@ settings:
     prompt: "You: "
     sessionId: "llm-chat-session"
 
-  hostIp: "0.0.0.0"
-  portNum: 16400
 
   agentSettings:
     timezone: Etc/UTC

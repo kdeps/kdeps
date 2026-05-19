@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: summarize
-  name: Summarize a Paragraph
+actionId: summarize
+name: Summarize a Paragraph
 
 component:
   name: summarizer

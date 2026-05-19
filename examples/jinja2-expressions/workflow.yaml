@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: jinja2-expressions-demo
+  description: "Demonstrates Jinja2 preprocessing in kdeps"
+  version: "1.0.0"
+  targetActionId: response
+
+
+
+settings:
+  apiServerMode: true
+  hostIp: "0.0.0.0"
+
+  portNum: 16395
+
+
+  apiServer:
+    routes:
+      - path: /api/demo
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "*"
+
+  agentSettings:
+    timezone: Etc/UTC

@@ -63,12 +63,9 @@ component:
 ```yaml
 # Step 1: Call a remote translation agent
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: translate
-    name: Translate via Remote Agent
-
+  actionId: translate
+  name: Translate via Remote Agent
 component:
   name: remoteagent
   with:
@@ -77,14 +74,11 @@ component:
 
 # Step 2: Use the translation result
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: respond
-    name: Return Translation
-    requires:
-      - translate
-
+  actionId: respond
+  name: Return Translation
+  requires:
+    - translate
 apiResponse:
   success: true
   response:

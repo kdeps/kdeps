@@ -263,7 +263,7 @@ func (e *Engine) ExecuteWithItems(
 
 	// Store item values per action ID for item.values("actionId") access
 	ctx.mu.Lock()
-	ctx.ItemValues[resource.Metadata.ActionID] = evaluatedItems
+	ctx.ItemValues[resource.ActionID] = evaluatedItems
 	ctx.mu.Unlock()
 
 	// Execute resource for each item with iteration context.
@@ -291,7 +291,7 @@ func (e *Engine) ExecuteWithItems(
 		// Debug: Print current item context
 		if e.debugMode {
 			e.logger.Debug("Executing resource for item",
-				"actionID", resource.Metadata.ActionID,
+				"actionID", resource.ActionID,
 				"index", i,
 				"item", ctx.Items["item"])
 		}
@@ -305,7 +305,7 @@ func (e *Engine) ExecuteWithItems(
 		// Debug: Print result
 		if e.debugMode {
 			e.logger.Debug("Item execution result",
-				"actionID", resource.Metadata.ActionID,
+				"actionID", resource.ActionID,
 				"index", i,
 				"result", result)
 		}

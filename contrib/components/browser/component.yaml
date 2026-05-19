@@ -30,11 +30,8 @@ interface:
       default: /tmp/screenshot.png
       description: File path for screenshot action output
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Browser Action
-      actionId: browser-action
+  - name: Browser Action
+    actionId: browser-action
     python:
       script: |
         import json

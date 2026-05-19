@@ -139,14 +139,10 @@ sed "s/portNum: ${PORT}/portNum: ${API_PORT}/" "$WF" > "$WORK_DIR/workflow.yaml"
 cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 # fetch resource pointing at mock
 cat > "$WORK_DIR/resources/fetch.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch
-run:
-  scraper:
-    url: "http://127.0.0.1:${MOCK_PORT}/"
-    timeout: 10
+actionId: fetch
+scraper:
+  url: "http://127.0.0.1:${MOCK_PORT}/"
+  timeout: 10
 EOF
 cp "$EXAMPLE_DIR/resources/summarize.yaml" "$WORK_DIR/resources/"
 

@@ -1,9 +1,5 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
+actionId: visionLLM
+name: Vision LLM
 
 chat:
   model: llama3.2:1b

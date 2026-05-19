@@ -7,12 +7,8 @@ Items allow you to process multiple values in sequence, executing a resource for
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: processItems
-
+actionId: processItems
 items:
   - "Item 1"
   - "Item 2"
@@ -72,10 +68,7 @@ Both syntaxes are equivalent. Use whichever is more readable for your use case.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: processWithItemObject
+actionId: processWithItemObject
 items:
   - "first"
   - "second"
@@ -101,12 +94,9 @@ After processing, you can access all collected values from a resource that uses 
 ### Using `get('resourceId', 'itemvalues')`
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: collectResults
-  requires:
-    - processItems
+actionId: collectResults
+requires:
+  - processItems
 expr:
   # Get all collected values from the items iteration
   - set('allResults', get('processItems', 'itemvalues'))
@@ -122,12 +112,9 @@ apiResponse:
 You can also use the `item.values()` method with an action ID to get all iteration values from a specific resource:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: collectResults
-  requires:
-    - processItems
+actionId: collectResults
+requires:
+  - processItems
 expr:
   # Get all values from processItems resource
   - set('allResults', item.values('processItems'))
@@ -232,9 +219,7 @@ Process multiple queries:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: batchQueries
-
+actionId: batchQueries
 items:
   - "What is machine learning?"
   - "Explain neural networks"
@@ -256,10 +241,8 @@ Enrich a list of records:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: enrichProducts
-  requires: [fetchProducts]
-
+actionId: enrichProducts
+requires: [fetchProducts]
 # Items could come from a previous resource
 items: get('fetchProducts')
 
@@ -277,9 +260,7 @@ Generate sections of a report:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: generateReport
-
+actionId: generateReport
 items:
   - section: "executive_summary"
     title: "Executive Summary"
@@ -311,9 +292,7 @@ Translate text to multiple languages:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: translate
-
+actionId: translate
 items:
   - code: "es"
     name: "Spanish"
@@ -341,9 +320,7 @@ chat:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: chainedProcess
-
+actionId: chainedProcess
 items:
   - step: 1
     action: "gather_requirements"
@@ -372,9 +349,7 @@ Process multiple images:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: analyzeImages
-
+actionId: analyzeImages
 # Items from file upload or list
 items:
   - path: "/uploads/image1.jpg"
@@ -397,9 +372,7 @@ Item results are collected into an array:
 
 ```yaml
 # Processing resource
-metadata:
-  actionId: processItems
-
+actionId: processItems
 items:
   - "Item 1"
   - "Item 2"
@@ -409,10 +382,8 @@ chat:
 
 ---
 # Response resource
-metadata:
-  actionId: response
-  requires: [processItems]
-
+actionId: response
+requires: [processItems]
 apiResponse:
   response:
     # All results as array

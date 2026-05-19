@@ -7,8 +7,6 @@ metadata:
   targetActionId: main
 
 settings:
-  apiServerMode: true
-  portNum: 8080
   agentSettings:
     # Kubernetes-specific settings
     replicas: 3

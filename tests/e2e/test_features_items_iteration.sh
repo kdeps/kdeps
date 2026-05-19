@@ -42,7 +42,6 @@ metadata:
   targetActionId: processItems
 
 settings:
-  apiServerMode: true
   hostIp: "0.0.0.0"
   portNum: 3110
   apiServer:
@@ -55,28 +54,24 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: processItems
-  name: Process Items
+actionId: processItems
+name: Process Items
 
 items:
   - "item1"
   - "item2"
   - "item3"
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/items]
-  apiResponse:
-    success: true
-    response:
-      current_item: "{{ get('item') }}"
-      item_index: "{{ get('index', 'item') }}"
-      total_count: "{{ get('count', 'item') }}"
-      message: "Processing items"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/items]
+apiResponse:
+  success: true
+  response:
+    current_item: "{{ get('item') }}"
+    item_index: "{{ get('index', 'item') }}"
+    total_count: "{{ get('count', 'item') }}"
+    message: "Processing items"
 EOF
 
 # Test 1: Validate workflow

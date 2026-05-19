@@ -33,8 +33,7 @@ func TestGenerateManifests(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			PortNum:       8080,
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
 			AgentSettings: domain.AgentSettings{
 				Replicas: 3,
 				Env: map[string]string{
@@ -74,8 +73,7 @@ func TestGenerateManifests_WebServer(t *testing.T) {
 			Name: "web-app",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			PortNum:       9090,
+			WebServer: &domain.WebServerConfig{PortNum: 9090},
 		},
 	}
 
@@ -93,9 +91,7 @@ func TestGenerateManifests_Defaults(t *testing.T) {
 			Name:    "default-app",
 			Version: "0.1.0",
 		},
-		Settings: domain.WorkflowSettings{
-			PortNum: 0, // Should use default
-		},
+		Settings: domain.WorkflowSettings{},
 	}
 
 	generator := NewGenerator("default-image")

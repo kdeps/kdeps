@@ -30,11 +30,8 @@ interface:
       default: 10
       description: Maximum results to return for search operations
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Embedding Op
-      actionId: embedding-op
+  - name: Embedding Op
+    actionId: embedding-op
     python:
       script: |
         import sqlite3, uuid, json, os

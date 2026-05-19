@@ -15,11 +15,8 @@ interface:
       required: true
       description: Query or request body to send to the agent
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Call Agent
-      actionId: call-agent
+  - name: Call Agent
+    actionId: call-agent
     httpClient:
       url: "{{ get('remoteagent.url') }}"
       method: POST

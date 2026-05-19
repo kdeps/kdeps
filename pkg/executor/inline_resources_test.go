@@ -56,10 +56,10 @@ func TestEngine_InlineResources_Before(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Before: []domain.InlineResource{
 					{
 						HTTPClient: &domain.HTTPClientConfig{
@@ -119,10 +119,10 @@ func TestEngine_InlineResources_After(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Chat: &domain.ChatConfig{
 					Model:  "test-model",
 					Role:   "user",
@@ -182,10 +182,10 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Before: []domain.InlineResource{
 					{
 						HTTPClient: &domain.HTTPClientConfig{
@@ -243,10 +243,10 @@ func TestEngine_InlineResources_OnlyInline(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Before: []domain.InlineResource{
 					{
 						HTTPClient: &domain.HTTPClientConfig{
@@ -301,10 +301,10 @@ func TestEngine_InlineResources_Error(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Before: []domain.InlineResource{
 					{
 						HTTPClient: &domain.HTTPClientConfig{
@@ -344,10 +344,10 @@ func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
 				Before: []domain.InlineResource{
 					{
 						HTTPClient: &domain.HTTPClientConfig{

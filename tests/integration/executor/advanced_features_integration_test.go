@@ -41,17 +41,16 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 			TargetActionID: "final-result",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "conditional-resource",
-					Name:     "Conditional Resource",
-				},
+
+				ActionID: "conditional-resource",
+				Name:     "Conditional Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{
 						{Raw: "false"}, // Don't skip
@@ -65,10 +64,10 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "skipped-resource",
-					Name:     "Skipped Resource",
-				},
+
+				ActionID: "skipped-resource",
+				Name:     "Skipped Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{
 						{Raw: "true"}, // Skip this
@@ -82,10 +81,10 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "final-result",
-					Name:     "Final Result",
-				},
+
+				ActionID: "final-result",
+				Name:     "Final Result",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{
@@ -120,17 +119,16 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 			TargetActionID: "validated-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "set-data",
-					Name:     "Set Data",
-				},
+
+				ActionID: "set-data",
+				Name:     "Set Data",
+
 				ExprBefore: []domain.Expression{
 					{Raw: "set('userId', '123')"},
 					{Raw: "set('apiToken', 'token-abc')"},
@@ -143,11 +141,10 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "validated-resource",
-					Name:     "Validated Resource",
-					Requires: []string{"set-data"},
-				},
+
+				ActionID: "validated-resource",
+				Name:     "Validated Resource",
+				Requires: []string{"set-data"},
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
 						{Raw: "get('userId') != nil"},
@@ -192,17 +189,16 @@ func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 			TargetActionID: "validated-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "validated-resource",
-					Name:     "Validated Resource",
-				},
+
+				ActionID: "validated-resource",
+				Name:     "Validated Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
 						{Raw: "get('userId') != nil"}, // Will fail - userId not set
@@ -242,17 +238,16 @@ func TestAdvancedFeatures_ItemsIteration(t *testing.T) {
 			TargetActionID: "process-items",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-items",
-					Name:     "Process Items",
-				},
+
+				ActionID: "process-items",
+				Name:     "Process Items",
+
 				Items: []string{"item1", "item2", "item3"},
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
@@ -289,17 +284,16 @@ func TestAdvancedFeatures_RestrictToHTTPMethods(t *testing.T) {
 			TargetActionID: "restricted-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "restricted-resource",
-					Name:     "Restricted Resource",
-				},
+
+				ActionID: "restricted-resource",
+				Name:     "Restricted Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Methods: []string{"GET", "POST"},
 				},
@@ -345,17 +339,16 @@ func TestAdvancedFeatures_RestrictToRoutes(t *testing.T) {
 			TargetActionID: "route-restricted-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "route-restricted-resource",
-					Name:     "Route Restricted Resource",
-				},
+
+				ActionID: "route-restricted-resource",
+				Name:     "Route Restricted Resource",
+
 				Validations: &domain.ValidationsConfig{
 					Routes: []string{"/api/v1/data"},
 				},
@@ -401,17 +394,16 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 			TargetActionID: "expr-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "expr-resource",
-					Name:     "Expression Resource",
-				},
+
+				ActionID: "expr-resource",
+				Name:     "Expression Resource",
+
 				Expr: []domain.Expression{
 					{Raw: "set('computed', 42)"},
 					{Raw: "set('formatted', 'Result: ' + string(get('computed')))"},
@@ -452,17 +444,16 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 			TargetActionID: "final-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "setup",
-					Name:     "Setup",
-				},
+
+				ActionID: "setup",
+				Name:     "Setup",
+
 				ExprBefore: []domain.Expression{
 					{Raw: "set('userId', '123')"},
 				},
@@ -474,10 +465,10 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "conditional-step",
-					Name:     "Conditional Step",
-				},
+
+				ActionID: "conditional-step",
+				Name:     "Conditional Step",
+
 				Validations: &domain.ValidationsConfig{
 					Skip: []domain.Expression{
 						{Raw: "get('userId') == null"}, // Skip if userId not set
@@ -491,10 +482,10 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "validated-step",
-					Name:     "Validated Step",
-				},
+
+				ActionID: "validated-step",
+				Name:     "Validated Step",
+
 				Validations: &domain.ValidationsConfig{
 					Check: []domain.Expression{
 						{Raw: "get('userId') != null"},
@@ -508,10 +499,10 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "final-resource",
-					Name:     "Final Resource",
-				},
+
+				ActionID: "final-resource",
+				Name:     "Final Resource",
+
 				APIResponse: &domain.APIResponseConfig{
 					Success: true,
 					Response: map[string]interface{}{

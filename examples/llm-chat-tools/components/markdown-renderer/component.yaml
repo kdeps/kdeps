@@ -29,11 +29,8 @@ interface:
       description: "Output format: 'plain' (default) or 'html'."
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: renderMarkdown
-      name: Render Markdown
+  - actionId: renderMarkdown
+    name: Render Markdown
     python:
       script: |
         import json, re, html as html_mod

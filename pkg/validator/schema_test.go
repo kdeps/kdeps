@@ -234,10 +234,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test-action",
-					"name":     "Test Resource",
-				},
+				"actionId":   "test-action",
+				"name":       "Test Resource",
 				"chat": map[string]interface{}{
 					"model":           "llama3.2:latest",
 					"role":            "user",
@@ -252,10 +250,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "http-action",
-					"name":     "HTTP Resource",
-				},
+				"actionId":   "http-action",
+				"name":       "HTTP Resource",
 				"httpClient": map[string]interface{}{
 					"method":          "POST",
 					"url":             "https://api.example.com",
@@ -269,10 +265,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "sql-action",
-					"name":     "SQL Resource",
-				},
+				"actionId":   "sql-action",
+				"name":       "SQL Resource",
 				"sql": map[string]interface{}{
 					"connection": "postgresql://localhost:5432/db",
 					"query":      "SELECT * FROM users",
@@ -285,13 +279,11 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "dependent-action",
-					"name":     "Dependent Resource",
-					"requires": []interface{}{
-						"action1",
-						"action2",
-					},
+				"actionId":   "dependent-action",
+				"name":       "Dependent Resource",
+				"requires": []interface{}{
+					"action1",
+					"action2",
 				},
 				"apiResponse": map[string]interface{}{
 					"success": true,
@@ -307,9 +299,7 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"name": "Test Resource",
-				},
+				"name":       "Test Resource",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -322,9 +312,7 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-				},
+				"actionId":   "test",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -337,10 +325,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 			},
 			wantErr: false,
 		},
@@ -349,10 +335,8 @@ func TestSchemaValidator_ValidateResource(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "invalid/v999",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -406,10 +390,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"contextLength": "invalid", // Wrong type
 					"prompt":        "test",
@@ -424,10 +406,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"contextLength": 999,
 					"prompt":        "test",
@@ -442,10 +422,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"httpClient": map[string]interface{}{
 					"method": 123, // Wrong type
 					"url":    "https://api.example.com",
@@ -460,10 +438,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"httpClient": map[string]interface{}{
 					"method": "INVALID",
 					"url":    "https://api.example.com",
@@ -478,10 +454,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":         "llama3.2",
 					"contextLength": "invalid", // Wrong type
@@ -497,10 +471,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":         "llama3.2",
 					"contextLength": 5000, // Not in enum
@@ -516,10 +488,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "invalid/v999",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2",
 					"prompt": "test",
@@ -552,10 +522,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"sql": map[string]interface{}{
 					"connection": "postgresql://localhost:5432/db",
 					"query":      "SELECT * FROM users",
@@ -571,10 +539,8 @@ func TestSchemaValidator_EnhancedErrorMessages(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"sql": map[string]interface{}{
 					"connection": "postgresql://localhost:5432/db",
 					"query":      "SELECT * FROM users",
@@ -836,10 +802,8 @@ func TestSchemaValidator_EnhancedErrorMessages_PatternAndLength(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "", // Empty string violates minLength
-				},
+				"actionId":   "test",
+				"name":       "", // Empty string violates minLength
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -978,10 +942,8 @@ func TestSchemaValidator_GetTypeSuggestion(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": 123, // Wrong type - should be string, but is also enum so shows available options
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -1162,9 +1124,7 @@ func TestSchemaValidator_GetFieldExamples(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"name": "", // Missing required field
-				},
+				"name":       "", // Missing required field
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -1177,10 +1137,8 @@ func TestSchemaValidator_GetFieldExamples(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					// Missing name field
-				},
+				"actionId":   "test",
+				// Missing name field
 				"chat": map[string]interface{}{
 					"model":  "llama3.2:latest",
 					"prompt": "test",
@@ -1640,10 +1598,8 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting(t *testing.T) {
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
-		"metadata": map[string]interface{}{
-			"actionId": "test",
-			"name":     "Test",
-		},
+		"actionId":   "test",
+		"name":       "Test",
 		"chat": map[string]interface{}{
 			"contextLength": 999, // Should trigger enum error with options
 			"prompt":        "test",
@@ -1810,9 +1766,7 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_FieldExamples(t *testing.T) 
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
-		"metadata": map[string]interface{}{
-			"name": "", // Empty required field
-		},
+		"name":       "", // Empty required field
 		"chat": map[string]interface{}{
 			"model":  "llama3.2:latest",
 			"prompt": "test",
@@ -1994,9 +1948,7 @@ func TestSchemaValidator_GetRequiredFieldSuggestion_FieldExamples_Indirect(t *te
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
-		"metadata": map[string]interface{}{
-			"name": "", // Empty required field
-		},
+		"name":       "", // Empty required field
 		"chat": map[string]interface{}{
 			"model":  "llama3.2:latest",
 			"prompt": "test",
@@ -2027,10 +1979,10 @@ func TestSchemaValidator_GetEnumValues_FieldNormalization_Indirect(t *testing.T)
 	testFields := []string{
 		"routes.0.methods",                      // Should normalize to routes.methods
 		"settings.apiServer.routes.1.methods.0", // Should normalize to routes.methods
-		"chat.0.contextLength",              // Should normalize to chat.contextLength
-		"httpClient.0.method",               // Should normalize to httpClient.method
-		"sql.0.format",                      // Should normalize to sql.format
-		"validations.methods",               // Should match validations.methods enum
+		"chat.0.contextLength",                  // Should normalize to chat.contextLength
+		"httpClient.0.method",                   // Should normalize to httpClient.method
+		"sql.0.format",                          // Should normalize to sql.format
+		"validations.methods",                   // Should match validations.methods enum
 	}
 
 	for _, field := range testFields {
@@ -2057,10 +2009,8 @@ func TestSchemaValidator_EnhanceErrorMessage_EnumFormatting_Indirect(t *testing.
 	testData := map[string]interface{}{
 		"apiVersion": "kdeps.io/v1",
 		"kind":       "Resource",
-		"metadata": map[string]interface{}{
-			"actionId": "test",
-			"name":     "Test",
-		},
+		"actionId":   "test",
+		"name":       "Test",
 		"chat": map[string]interface{}{
 			"contextLength": 999, // Should show enum options
 			"prompt":        "test",

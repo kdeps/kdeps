@@ -128,12 +128,9 @@ func (g *Generator) generateBasicResource(resourceName, targetPath string) error
 	var content string
 	switch resourceName {
 	case "http-client":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: httpClient
-  name: HTTP Client
-  description: HTTP client for making API calls
+		content = `actionId: httpClient
+name: HTTP Client
+description: HTTP client for making API calls
 httpClient:
   method: GET
   url: "{{ get('url', 'https://api.example.com/data') }}"
@@ -150,12 +147,9 @@ validations:
       message: "URL must be a valid HTTP/HTTPS URL"
 `
 	case "llm":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: llm
-  name: LLM Processing
-  description: Large Language Model interaction
+		content = `actionId: llm
+name: LLM Processing
+description: Large Language Model interaction
 chat:
   model: llama3.2:1b
   role: user
@@ -175,12 +169,9 @@ validations:
       message: "Input is required"
 `
 	case "sql":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: sql
-  name: SQL Query
-  description: Execute SQL database queries
+		content = `actionId: sql
+name: SQL Query
+description: Execute SQL database queries
 sql:
   connectionName: main
   query: "SELECT * FROM users WHERE id = $1"
@@ -198,12 +189,9 @@ validations:
       message: "ID must be a valid integer"
 `
 	case "python":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: python
-  name: Python Script
-  description: Execute Python code
+		content = `actionId: python
+name: Python Script
+description: Execute Python code
 python:
   script: |
     # Your Python code here
@@ -221,23 +209,17 @@ python:
   timeoutDuration: "60s"
 `
 	case "exec":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: exec
-  name: Shell Command
-  description: Execute shell commands
+		content = `actionId: exec
+name: Shell Command
+description: Execute shell commands
 exec:
   command: "echo '{{ get('message', 'Hello World') }}'"
   timeoutDuration: "30s"
 `
 	case "response":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: response
-  name: API Response
-  description: Format API response
+		content = `actionId: response
+name: API Response
+description: Format API response
 apiResponse:
   response:
     success: true
