@@ -332,9 +332,9 @@ apiResponse:
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR6/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - inline usage with before/expr validates successfully"
+    test_passed "Browser - inline usage with before/after validates successfully"
 else
-    test_failed "Browser - inline usage with before/expr validates successfully" "Validation failed"
+    test_failed "Browser - inline usage with before/after validates successfully" "Validation failed"
 fi
 
 # ---------------------------------------------------------------------------
