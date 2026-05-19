@@ -43,9 +43,9 @@ metadata:
   targetActionId: postHandler
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3130
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3130
     routes:
       - path: /api/v1/methods
         methods: [GET, POST, PUT, DELETE]

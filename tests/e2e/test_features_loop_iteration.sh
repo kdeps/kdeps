@@ -44,9 +44,9 @@ metadata:
   targetActionId: loopCounter
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3140
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3140
     routes:
       - path: /api/v1/loop
         methods: [POST]

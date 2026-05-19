@@ -43,9 +43,9 @@ metadata:
   targetActionId: pythonResponse
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3080
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3080
     routes:
       - path: /api/v1/python
         methods: [POST]

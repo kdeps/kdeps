@@ -98,7 +98,7 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	}
 
 	// Extract ports: only set when explicitly configured.
-	if workflow.Settings.PortNum > 0 || workflow.Settings.APIServer != nil || workflow.Settings.WebServer != nil {
+	if workflow.Settings.APIServer != nil || workflow.Settings.WebServer != nil {
 		port := workflow.Settings.GetPortNum()
 		data.APIPort = port
 		if workflow.Settings.WebServer != nil {

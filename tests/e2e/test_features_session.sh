@@ -42,9 +42,9 @@ metadata:
   targetActionId: sessionHandler
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3030
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3030
     routes:
       - path: /api/v1/session
         methods: [POST]
@@ -218,9 +218,9 @@ metadata:
   targetActionId: setValue
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3031
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3031
     routes:
       - path: /api/v1/set
         methods: [POST]

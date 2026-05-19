@@ -67,9 +67,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  hostIp: "0.0.0.0"
-  portNum: ${PORT_API}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${PORT_API}
     routes:
       - path: /api/fetch
         methods: [GET]

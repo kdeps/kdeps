@@ -438,19 +438,6 @@ func TestWorkflowSettings_GetHostIP(t *testing.T) {
 			},
 			want: "192.168.1.1",
 		},
-		{
-			name:     "returns top-level HostIP when set",
-			settings: &domain.WorkflowSettings{HostIP: "10.0.0.1"},
-			want:     "10.0.0.1",
-		},
-		{
-			name: "top-level HostIP takes precedence over APIServer",
-			settings: &domain.WorkflowSettings{
-				HostIP:    "10.0.0.1",
-				APIServer: &domain.APIServerConfig{HostIP: "127.0.0.1"},
-			},
-			want: "10.0.0.1",
-		},
 	}
 
 	for _, tt := range tests {
@@ -487,19 +474,6 @@ func TestWorkflowSettings_GetPortNum(t *testing.T) {
 				WebServer: &domain.WebServerConfig{PortNum: 16395},
 			},
 			want: 16395,
-		},
-		{
-			name:     "returns top-level PortNum when set",
-			settings: &domain.WorkflowSettings{PortNum: 8080},
-			want:     8080,
-		},
-		{
-			name: "top-level PortNum takes precedence over APIServer",
-			settings: &domain.WorkflowSettings{
-				PortNum:   8080,
-				APIServer: &domain.APIServerConfig{PortNum: 9090},
-			},
-			want: 8080,
 		},
 	}
 

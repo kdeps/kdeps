@@ -44,9 +44,9 @@ metadata:
   targetActionId: finalStep
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3090
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3090
     routes:
       - path: /api/v1/multi
         methods: [POST]

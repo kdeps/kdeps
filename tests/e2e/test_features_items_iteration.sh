@@ -42,9 +42,9 @@ metadata:
   targetActionId: processItems
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3110
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3110
     routes:
       - path: /api/v1/items
         methods: [POST]

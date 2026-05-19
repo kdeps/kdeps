@@ -42,9 +42,9 @@ metadata:
   targetActionId: corsHandler
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3050
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3050
     routes:
       - path: /api/v1/cors
         methods: [GET, POST]

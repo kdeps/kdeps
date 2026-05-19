@@ -65,9 +65,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /calendar/ops
         methods: [POST]

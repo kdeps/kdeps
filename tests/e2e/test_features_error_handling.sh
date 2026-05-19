@@ -42,9 +42,9 @@ metadata:
   targetActionId: errorHandler
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3040
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3040
     routes:
       - path: /api/v1/error
         methods: [POST, GET]

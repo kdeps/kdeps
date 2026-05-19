@@ -42,9 +42,9 @@ metadata:
   targetActionId: expressionProcessor
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3100
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3100
     routes:
       - path: /api/v1/expression
         methods: [POST]

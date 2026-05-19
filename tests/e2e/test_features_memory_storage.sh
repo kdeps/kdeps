@@ -43,9 +43,9 @@ metadata:
   targetActionId: router
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3070
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3070
     routes:
       - path: /api/v1/set
         methods: [POST]

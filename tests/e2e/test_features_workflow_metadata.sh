@@ -42,9 +42,9 @@ metadata:
   targetActionId: metadataHandler
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3120
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3120
     routes:
       - path: /api/v1/metadata
         methods: [GET, POST]

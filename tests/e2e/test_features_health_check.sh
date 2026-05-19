@@ -42,9 +42,9 @@ metadata:
   targetActionId: testResource
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 3060
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3060
     routes:
       - path: /api/v1/test
         methods: [GET]

@@ -687,8 +687,8 @@ metadata:
   name: test
   targetActionId: test
 settings:
-  portNum: 16395
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/test
         methods: [POST]

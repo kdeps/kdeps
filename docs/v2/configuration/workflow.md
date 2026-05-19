@@ -53,17 +53,13 @@ Only the fields you specify in the profile override global values — everything
 
 ## API Server
 
-`hostIp` and `portNum` can be set at the top level of `settings:` as a shorthand. Top-level values take precedence over nested `apiServer.hostIp` / `apiServer.portNum`.
-
 ```yaml
 settings:
-  hostIp: "0.0.0.0"           # Bind address shorthand (default: 0.0.0.0)
-  portNum: 8080                # Port shorthand (default: 16395)
   certFile: "/etc/certs/server.crt"   # TLS certificate (PEM) - belongs in settings, not apiServer
   keyFile:  "/etc/certs/server.key"   # TLS private key (PEM)
   apiServer:
-    hostIp: "127.0.0.1"       # Bind address (default: 0.0.0.0); overridden by top-level hostIp
-    portNum: 16395             # Port (default: 16395); overridden by top-level portNum
+    hostIp: "127.0.0.1"       # Bind address (default: 127.0.0.1)
+    portNum: 16395             # Port (default: 16395)
     trustedProxies:
       - "10.0.0.0/8"
     routes:

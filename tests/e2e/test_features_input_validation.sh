@@ -42,10 +42,9 @@ metadata:
   targetActionId: validator
 
 settings:
-  hostIp: "0.0.0.0"
-  portNum: 16399
-
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 16399
     routes:
       - path: /api/v1/validate
         methods: [POST]
