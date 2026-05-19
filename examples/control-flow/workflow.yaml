@@ -29,17 +29,12 @@ resources:
       methods: [GET, POST]
       routes: [/api/demo]
 
-    expr:
-      # 1. IF-ELSE via ternary
+    before:
       - "set('age_label_20', 20 >= 18 ? 'adult' : 'child')"
       - "set('age_label_15', 15 >= 18 ? 'adult' : 'child')"
-
-      # 2. Logical operators
       - "set('logic_and', 20 >= 18 && true)"
       - "set('logic_or', false || true)"
       - "set('logic_not', !false)"
-
-      # 3. List operations (loop alternatives)
       - >-
         set('people', [
           {"name": "Alice", "age": 20},

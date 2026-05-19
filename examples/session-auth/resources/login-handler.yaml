@@ -26,11 +26,10 @@ python:
         sys.exit(1)
   timeoutDuration: 10s
 
-# These expr blocks only run if Python succeeds (exit 0)
-expr:
-  - "{{ set('user_id', get('username'), 'session') }}"
-  - "{{ set('logged_in', 'true', 'session') }}"
-  - "{{ set('login_time', info('current_time'), 'session') }}"
+after:
+  - "set('user_id', get('username'), 'session')"
+  - "set('logged_in', 'true', 'session')"
+  - "set('login_time', info('current_time'), 'session')"
 
 apiResponse:
   success: true

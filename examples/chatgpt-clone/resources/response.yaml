@@ -5,16 +5,13 @@ requires:
     - llmResource
     - modelsResource
 
-# Determine which endpoint was called
-expr:
-  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-  - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
-  # Get results from appropriate resource
-  - set('llmResult', get('llmResource'))
-  - set('modelsResult', get('modelsResource'))
-  - set('hasLLMError', safe(get('llmResult'), 'error') == true)
-  # Extract just the message content from LLM result (llmResult.message.content)
-  - set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))
+before:
+  - "set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')"
+  - "set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')"
+  - "set('llmResult', get('llmResource'))"
+  - "set('modelsResult', get('modelsResource'))"
+  - "set('hasLLMError', safe(get('llmResult'), 'error') == true)"
+  - "set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))"
 
 apiResponse:
   success: true

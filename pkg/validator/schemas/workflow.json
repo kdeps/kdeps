@@ -46,6 +46,9 @@
     "settings": {
       "type": "object",
       "properties": {
+        "hostIp": {
+          "type": "string"
+        },
         "portNum": {
           "type": "integer",
           "minimum": 1,

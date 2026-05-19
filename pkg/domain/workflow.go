@@ -132,6 +132,7 @@ type WorkflowMetadata struct {
 type WorkflowSettings struct {
 	CertFile       string                   `yaml:"certFile,omitempty"`
 	KeyFile        string                   `yaml:"keyFile,omitempty"`
+	HostIP         string                   `yaml:"hostIp,omitempty"`
 	PortNum        int                      `yaml:"portNum,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
@@ -262,6 +263,9 @@ type FileConfig struct {
 // GetHostIP returns the resolved host IP from the server config or default.
 func (w *WorkflowSettings) GetHostIP() string {
 	kdeps_debug.Log("enter: GetHostIP")
+	if w.HostIP != "" {
+		return w.HostIP
+	}
 	if w.APIServer != nil && w.APIServer.HostIP != "" {
 		return w.APIServer.HostIP
 	}

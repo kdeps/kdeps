@@ -438,6 +438,19 @@ func TestWorkflowSettings_GetHostIP(t *testing.T) {
 			},
 			want: "192.168.1.1",
 		},
+		{
+			name:     "returns top-level HostIP when set",
+			settings: &domain.WorkflowSettings{HostIP: "10.0.0.1"},
+			want:     "10.0.0.1",
+		},
+		{
+			name: "top-level HostIP takes precedence over APIServer",
+			settings: &domain.WorkflowSettings{
+				HostIP:    "10.0.0.1",
+				APIServer: &domain.APIServerConfig{HostIP: "127.0.0.1"},
+			},
+			want: "10.0.0.1",
+		},
 	}
 
 	for _, tt := range tests {

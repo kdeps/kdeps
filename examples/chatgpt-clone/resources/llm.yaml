@@ -17,10 +17,10 @@ validations:
       message: "Message cannot be empty"
 
 # Set default model if not provided
-expr:
-  - set('selectedModel', default(get('model'), 'llama3.2:1b'))
-  - set('userMessage', get('message'))
-  - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
+before:
+  - "set('selectedModel', default(get('model'), 'llama3.2:1b'))"
+  - "set('userMessage', get('message'))"
+  - "set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')"
 
 chat:
   model: llama3.2:1b
