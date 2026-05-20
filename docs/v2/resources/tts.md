@@ -77,16 +77,14 @@ component:
 
 ```yaml
 # resources/respond.yaml
-metadata:
-  actionId: respond
+actionId: respond
 chat:
   model: llama3
   prompt: "{{ input() }}"
 
 # resources/speak.yaml
-metadata:
-  actionId: speak
-  requires: [respond]
+actionId: speak
+requires: [respond]
 component:
   name: tts
   with:
@@ -95,9 +93,8 @@ component:
     apiKey: "{{ env('OPENAI_API_KEY') }}"
 
 # resources/reply.yaml
-metadata:
-  actionId: reply
-  requires: [speak]
+actionId: reply
+requires: [speak]
 apiResponse:
   success: true
   response:

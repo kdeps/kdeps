@@ -99,7 +99,7 @@ func TestFindAgencyFile_Found(t *testing.T) {
 // run.component.with: YAML syntax passes validation.
 func TestValidateWorkflow_ComponentSyntax(t *testing.T) {
 	dir := t.TempDir()
-	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-test\n  version: \"1.0.0\"\n  targetActionId: main\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-test\n  version: \"1.0.0\"\n  targetActionId: main\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
 	resource := "actionId: main\nname: main\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n      selector: \".article\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))
@@ -114,7 +114,7 @@ func TestValidateWorkflow_ComponentSyntax(t *testing.T) {
 // only required inputs.
 func TestValidateWorkflow_ComponentWithDefaults(t *testing.T) {
 	dir := t.TempDir()
-	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-defaults-test\n  version: \"1.0.0\"\n  targetActionId: fetch\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-defaults-test\n  version: \"1.0.0\"\n  targetActionId: fetch\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
 	resource := "actionId: fetch\nname: fetch\ncomponent:\n    name: scraper\n    with:\n      url: \"https://example.com\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))
@@ -129,7 +129,7 @@ func TestValidateWorkflow_ComponentWithDefaults(t *testing.T) {
 // before: inline block.
 func TestValidateWorkflow_ComponentInBeforeBlock(t *testing.T) {
 	dir := t.TempDir()
-	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-before-test\n  version: \"1.0.0\"\n  targetActionId: answer\nsettings:\n  apiServerMode: false\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
+	wf := "apiVersion: kdeps.io/v1\nkind: Workflow\nmetadata:\n  name: component-before-test\n  version: \"1.0.0\"\n  targetActionId: answer\nsettings:\n  agentSettings:\n    pythonVersion: \"3.12\"\n"
 	resource := "actionId: answer\nname: answer\nbefore:\n    - component:\n        name: search\n        with:\n          query: \"{{get('q')}}\"\n  chat:\n    model: gpt-4o\n    prompt: \"{{get('q')}}\"\n"
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644))

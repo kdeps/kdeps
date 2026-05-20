@@ -35,15 +35,13 @@ Access fields with `output('actionId').content` etc.
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetch
+actionId: fetch
 scraper:
   url: "{{ get('url') }}"
 
 ---
-metadata:
-  actionId: summarize
-  requires: [fetch]
+actionId: summarize
+requires: [fetch]
 chat:
   model: llama3.2:1b
   prompt: "Summarize: {{ output('fetch').content }}"
@@ -58,8 +56,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetchArticle
+actionId: fetchArticle
 scraper:
   url: "https://news.example.com/article"
   selector: "article.body"

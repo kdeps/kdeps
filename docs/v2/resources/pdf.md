@@ -67,17 +67,15 @@ Full pipeline: scrape a job description, score the match, generate a PDF report.
 
 ```yaml
 # resources/scrapeJD.yaml
-metadata:
-  actionId: scrapeJD
+actionId: scrapeJD
 component:
   name: scraper
   with:
     url: "{{ get('jd_url') }}"
 
 # resources/scoreMatch.yaml
-metadata:
-  actionId: scoreMatch
-  requires: [scrapeJD]
+actionId: scoreMatch
+requires: [scrapeJD]
 chat:
   model: gpt-4o
   prompt: |
@@ -86,9 +84,8 @@ chat:
     Rate the match from 0-100 and explain the top 3 strengths and gaps. Output JSON.
 
 # resources/generateReport.yaml
-metadata:
-  actionId: generateReport
-  requires: [scoreMatch]
+actionId: generateReport
+requires: [scoreMatch]
 component:
   name: pdf
   with:
@@ -123,8 +120,7 @@ Generate a personalized motivation letter as a PDF using an LLM:
 
 ```yaml
 # resources/writeLetter.yaml
-metadata:
-  actionId: writeLetter
+actionId: writeLetter
 chat:
   model: gpt-4o
   prompt: |
@@ -134,9 +130,8 @@ chat:
     Format as clean HTML with <h1>, <p> tags only.
 
 # resources/letterPDF.yaml
-metadata:
-  actionId: letterPDF
-  requires: [writeLetter]
+actionId: letterPDF
+requires: [writeLetter]
 component:
   name: pdf
   with:

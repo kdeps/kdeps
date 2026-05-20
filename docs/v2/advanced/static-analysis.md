@@ -6,7 +6,7 @@
 
 ### Unreachable Resources
 
-Resources not reachable from `metadata.targetActionId` through the dependency graph produce a warning. A resource is reachable if it is the target or is transitively required by the target via the `metadata.requires` field.
+Resources not reachable from `targetActionId` through the dependency graph produce a warning. A resource is reachable if it is the target or is transitively required by the target via the `requires` field.
 
 ```yaml
 # workflow.yaml
@@ -14,15 +14,12 @@ metadata:
   targetActionId: response
 
 resources:
-  - metadata:
-      actionId: response
-      requires: [fetch]   # reachable
+  - actionId: response
+    requires: [fetch]   # reachable
 
-  - metadata:
-      actionId: fetch     # reachable (required by response)
+  - actionId: fetch     # reachable (required by response)
 
-  - metadata:
-      actionId: unused    # warning: unreachable from targetActionId
+  - actionId: unused    # warning: unreachable from targetActionId
 ```
 
 Unreachable resources are **warnings** - validation still passes. Use them to find dead code.
@@ -47,16 +44,14 @@ Valid example:
 
 ```yaml
 resources:
-  - metadata:
-      actionId: fetchResult
-      requires: []
+  - actionId: fetchResult
+    requires: []
     httpClient:
       method: GET
       url: https://api.example.com/data
 
-  - metadata:
-      actionId: response
-      requires: [fetchResult]
+  - actionId: response
+    requires: [fetchResult]
     chat:
       model: llama3.2:1b
       role: user
@@ -128,6 +123,6 @@ Remove or wire unused resources into the dependency graph. There is no suppress 
 
 ## See Also
 
-- [Workflow Configuration](../configuration/workflow) - `metadata.requires` and `targetActionId`
+- [Workflow Configuration](../configuration/workflow) - `requires` and `targetActionId`
 - [Expression Functions](../reference/expression-functions-reference) - `get()` and `output()` syntax
 - [Components](../concepts/components) - `interface.inputs` definition

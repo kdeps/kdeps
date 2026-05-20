@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: mcp-tools
+  description: "Chat with MCP server tools (filesystem example)"
+  version: "1.0.0"
+  targetActionId: chat
+
+settings:
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 16395
+    routes:
+      - path: /chat
+        methods: [POST]
+
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true

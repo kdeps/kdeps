@@ -26,27 +26,30 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"regexp"
 	"strings"
 
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
+	"golang.org/x/net/html"
 	"gopkg.in/yaml.v3"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Format represents a supported data format.
 type Format string
 
 const (
-	eofLiteral        = "EOF"
-	minCSVRows        = 2
-	JSON       Format = "json"
-	YAML       Format = "yaml"
-	CSV        Format = "csv"
-	XML        Format = "xml"
-	TOML       Format = "toml"
-	Markdown   Format = "markdown"
-	SQL        Format = "sql"
-	HTML       Format = "html"
+	eofLiteral            = "EOF"
+	minCSVRows            = 2
+	tomlSplitParts        = 2
+	JSON           Format = "json"
+	YAML           Format = "yaml"
+	CSV            Format = "csv"
+	XML            Format = "xml"
+	TOML           Format = "toml"
+	Markdown       Format = "markdown"
+	SQL            Format = "sql"
+	HTML           Format = "html"
 )
 
 // Result holds the output of a format operation.
@@ -68,8 +71,14 @@ func ValidateString(input string, format Format) Result {
 		return validateCSV(input)
 	case XML:
 		return validateXML(input)
-	case TOML, Markdown, SQL, HTML:
-		return Result{Valid: true}
+	case TOML:
+		return validateTOML(input)
+	case Markdown:
+		return validateMarkdown(input)
+	case SQL:
+		return validateSQL(input)
+	case HTML:
+		return validateHTML(input)
 	default:
 		return Result{Valid: true}
 	}
@@ -85,8 +94,16 @@ func FormatString(input string, format Format) Result {
 		return formatYAML(input)
 	case XML:
 		return formatXML(input)
-	case CSV, TOML, Markdown, SQL, HTML:
+	case CSV:
 		return Result{Output: input}
+	case TOML:
+		return formatTOML(input)
+	case Markdown:
+		return Result{Output: input}
+	case SQL:
+		return formatSQL(input)
+	case HTML:
+		return formatHTML(input)
 	default:
 		return Result{Output: input}
 	}
@@ -104,7 +121,9 @@ func ConvertToJSON(from Format, input string) Result {
 		return csvToJSON(input)
 	case XML:
 		return xmlToJSON(input)
-	case TOML, Markdown, SQL, HTML:
+	case TOML:
+		return tomlToJSON(input)
+	case Markdown, SQL, HTML:
 		return Result{Error: fmt.Sprintf("conversion from %s to JSON not supported", from)}
 	default:
 		return Result{Error: fmt.Sprintf("unknown format: %s", from)}
@@ -339,6 +358,156 @@ func xmlToJSON(input string) Result {
 		return Result{Error: err.Error()}
 	}
 	return Result{Valid: true, Output: string(out)}
+}
+
+// tomlKeyVal matches lines of the form: key = value (bare TOML key=value pairs).
+var tomlKeyVal = regexp.MustCompile(`(?m)^\s*[A-Za-z0-9_.\-"']+\s*=`)
+
+func validateTOML(input string) Result {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return Result{Valid: false, Error: "empty TOML input"}
+	}
+	// Accept section headers [table] and key = value lines; reject obvious non-TOML.
+	for _, line := range strings.Split(trimmed, "\n") {
+		l := strings.TrimSpace(line)
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		if strings.HasPrefix(l, "[") {
+			continue
+		}
+		if !tomlKeyVal.MatchString(l) {
+			return Result{Valid: false, Error: fmt.Sprintf("invalid TOML line: %s", l)}
+		}
+	}
+	return Result{Valid: true}
+}
+
+func formatTOML(input string) Result {
+	// Normalize blank lines: collapse multiple consecutive blank lines into one.
+	lines := strings.Split(input, "\n")
+	var out []string
+	prev := false
+	for _, l := range lines {
+		blank := strings.TrimSpace(l) == ""
+		if blank && prev {
+			continue
+		}
+		out = append(out, l)
+		prev = blank
+	}
+	return Result{Valid: true, Output: strings.TrimSpace(strings.Join(out, "\n"))}
+}
+
+func tomlToJSON(input string) Result {
+	// Parse TOML manually: key = "value", key = number, [section] headers.
+	result := make(map[string]interface{})
+	current := result
+	for _, line := range strings.Split(input, "\n") {
+		l := strings.TrimSpace(line)
+		if l == "" || strings.HasPrefix(l, "#") {
+			continue
+		}
+		if strings.HasPrefix(l, "[") && strings.HasSuffix(l, "]") {
+			name := l[1 : len(l)-1]
+			m := make(map[string]interface{})
+			result[name] = m
+			current = m
+			continue
+		}
+		parts := strings.SplitN(l, "=", tomlSplitParts)
+		if len(parts) != tomlSplitParts {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		// Strip quotes
+		if (strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)) ||
+			(strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`)) {
+			current[key] = val[1 : len(val)-1]
+		} else {
+			current[key] = val
+		}
+	}
+	out, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return Result{Error: err.Error()}
+	}
+	return Result{Valid: true, Output: string(out)}
+}
+
+func validateMarkdown(input string) Result {
+	if strings.TrimSpace(input) == "" {
+		return Result{Valid: false, Error: "empty Markdown input"}
+	}
+	return Result{Valid: true}
+}
+
+var sqlKeywords = regexp.MustCompile(
+	`(?i)^\s*(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|WITH|EXPLAIN|SHOW|DESCRIBE|USE|BEGIN|COMMIT|ROLLBACK|TRUNCATE|MERGE|CALL|EXEC|PRAGMA)\b`,
+)
+
+func validateSQL(input string) Result {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return Result{Valid: false, Error: "empty SQL input"}
+	}
+	if !sqlKeywords.MatchString(trimmed) {
+		return Result{Valid: false, Error: "SQL must begin with a recognized keyword (SELECT, INSERT, UPDATE, ...)"}
+	}
+	return Result{Valid: true}
+}
+
+// sqlIndentKeywords are clauses that get their own indented line.
+var sqlIndentKeywords = regexp.MustCompile(
+	`(?i)\b(FROM|WHERE|AND|OR|ORDER BY|GROUP BY|HAVING|LIMIT|OFFSET|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|ON|SET|VALUES|RETURNING)\b`,
+)
+
+func formatSQL(input string) Result {
+	if v := validateSQL(input); !v.Valid {
+		return v
+	}
+	// Uppercase SQL keywords and add newlines before major clauses.
+	out := sqlIndentKeywords.ReplaceAllStringFunc(input, func(m string) string {
+		return "\n" + strings.ToUpper(m)
+	})
+	// Normalize whitespace
+	lines := strings.Split(out, "\n")
+	var result []string
+	for _, l := range lines {
+		if t := strings.TrimSpace(l); t != "" {
+			result = append(result, t)
+		}
+	}
+	return Result{Valid: true, Output: strings.Join(result, "\n")}
+}
+
+func validateHTML(input string) Result {
+	trimmed := strings.TrimSpace(input)
+	if trimmed == "" {
+		return Result{Valid: false, Error: "empty HTML input"}
+	}
+	_, err := html.Parse(strings.NewReader(trimmed))
+	if err != nil {
+		return Result{Valid: false, Error: err.Error()}
+	}
+	return Result{Valid: true}
+}
+
+func formatHTML(input string) Result {
+	if v := validateHTML(input); !v.Valid {
+		return v
+	}
+	doc, err := html.Parse(strings.NewReader(input))
+	if err != nil {
+		return Result{Valid: false, Error: err.Error()}
+	}
+	var buf bytes.Buffer
+	if renderErr := html.Render(&buf, doc); renderErr != nil {
+		return Result{Error: renderErr.Error()}
+	}
+	return Result{Valid: true, Output: buf.String()}
 }
 
 func normalizeForJSON(v interface{}) interface{} {

@@ -64,10 +64,88 @@ func TestValidateString_XML(t *testing.T) {
 	}
 }
 
-func TestValidateString_PassThrough(t *testing.T) {
-	r := ValidateString("anything", Markdown)
+func TestValidateString_TOML(t *testing.T) {
+	r := ValidateString("key = \"value\"\n[section]\nport = 8080", TOML)
 	if !r.Valid {
-		t.Error("Markdown validation should pass through")
+		t.Errorf("expected valid TOML, got: %s", r.Error)
+	}
+	r = ValidateString("", TOML)
+	if r.Valid {
+		t.Error("expected invalid for empty TOML")
+	}
+}
+
+func TestValidateString_Markdown(t *testing.T) {
+	r := ValidateString("# Title\n\nSome text.", Markdown)
+	if !r.Valid {
+		t.Errorf("expected valid Markdown, got: %s", r.Error)
+	}
+	r = ValidateString("", Markdown)
+	if r.Valid {
+		t.Error("expected invalid for empty Markdown")
+	}
+}
+
+func TestValidateString_SQL(t *testing.T) {
+	r := ValidateString("SELECT * FROM users WHERE id = 1", SQL)
+	if !r.Valid {
+		t.Errorf("expected valid SQL, got: %s", r.Error)
+	}
+	r = ValidateString("not sql at all", SQL)
+	if r.Valid {
+		t.Error("expected invalid SQL")
+	}
+	r = ValidateString("", SQL)
+	if r.Valid {
+		t.Error("expected invalid for empty SQL")
+	}
+}
+
+func TestValidateString_HTML(t *testing.T) {
+	r := ValidateString("<html><body><p>Hello</p></body></html>", HTML)
+	if !r.Valid {
+		t.Errorf("expected valid HTML, got: %s", r.Error)
+	}
+	r = ValidateString("", HTML)
+	if r.Valid {
+		t.Error("expected invalid for empty HTML")
+	}
+}
+
+func TestFormatString_TOML(t *testing.T) {
+	r := FormatString("key = \"value\"\n\n\n[section]\nport = 8080", TOML)
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+	if r.Output == "" {
+		t.Error("expected formatted output")
+	}
+}
+
+func TestFormatString_SQL(t *testing.T) {
+	r := FormatString("SELECT * FROM users WHERE id = 1", SQL)
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestFormatString_HTML(t *testing.T) {
+	r := FormatString("<html><body><p>Hello</p></body></html>", HTML)
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+	if r.Output == "" {
+		t.Error("expected formatted output")
+	}
+}
+
+func TestConvertToJSON_TOML(t *testing.T) {
+	r := ConvertToJSON(TOML, "name = \"Alice\"\nage = \"30\"\n[config]\nport = \"8080\"")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+	if r.Output == "" {
+		t.Error("expected JSON output")
 	}
 }
 

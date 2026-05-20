@@ -60,7 +60,6 @@ func TestSchemaValidator_ValidateWorkflow(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": false,
 					"agentSettings": map[string]interface{}{
 						"timezone": "UTC",
 					},
@@ -79,7 +78,6 @@ func TestSchemaValidator_ValidateWorkflow(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 16395,
@@ -648,7 +646,6 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 16395,
@@ -680,7 +677,6 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 99999, // Out of range (should be 1-65535)
@@ -704,7 +700,6 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 0, // Out of range (should be 1-65535)
@@ -776,7 +771,6 @@ func TestSchemaValidator_EnhancedErrorMessages_PatternAndLength(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 16395,
@@ -962,7 +956,6 @@ func TestSchemaValidator_GetTypeSuggestion(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": "invalid", // Wrong type - should be integer
@@ -973,25 +966,6 @@ func TestSchemaValidator_GetTypeSuggestion(t *testing.T) {
 				},
 			},
 			expected: "Expected type: integer",
-		},
-		{
-			name: "boolean type error - apiServerMode as string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Workflow",
-				"metadata": map[string]interface{}{
-					"name":           "Test",
-					"version":        "1.0.0",
-					"targetActionId": "main",
-				},
-				"settings": map[string]interface{}{
-					"apiServerMode": "true", // Wrong type - should be boolean
-					"agentSettings": map[string]interface{}{
-						"timezone": "UTC",
-					},
-				},
-			},
-			expected: "Expected type: boolean",
 		},
 	}
 
@@ -1075,7 +1049,6 @@ func TestSchemaValidator_GetRangeSuggestion(t *testing.T) {
 						"targetActionId": "main",
 					},
 					"settings": map[string]interface{}{
-						"apiServerMode": true,
 						"apiServer": map[string]interface{}{
 							"hostIp":  "0.0.0.0",
 							"portNum": 99999, // Out of range
@@ -1231,7 +1204,6 @@ func TestSchemaValidator_GetPatternSuggestion(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 16395,
@@ -1641,7 +1613,6 @@ func TestSchemaValidator_GetFieldSuggestion_ErrorTypePatterns(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": 16395,
@@ -1671,7 +1642,6 @@ func TestSchemaValidator_GetFieldSuggestion_ErrorTypePatterns(t *testing.T) {
 					"targetActionId": "main",
 				},
 				"settings": map[string]interface{}{
-					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
 						"portNum": "invalid", // Should trigger type error
@@ -1738,7 +1708,9 @@ func TestSchemaValidator_GetTypeSuggestion_RegexExtraction(t *testing.T) {
 			"targetActionId": "main",
 		},
 		"settings": map[string]interface{}{
-			"apiServerMode": "true", // Wrong type - should be boolean
+			"apiServer": map[string]interface{}{
+				"portNum": "not-an-int", // Wrong type - should be integer
+			},
 			"agentSettings": map[string]interface{}{
 				"timezone": "UTC",
 			},
@@ -1751,7 +1723,7 @@ func TestSchemaValidator_GetTypeSuggestion_RegexExtraction(t *testing.T) {
 	}
 
 	errMsg := err.Error()
-	if !contains(errMsg, "Expected type: boolean") {
+	if !contains(errMsg, "Expected type: integer") {
 		t.Errorf("Expected type suggestion in error message, got: %s", errMsg)
 	}
 }
@@ -1915,7 +1887,6 @@ func TestSchemaValidator_GetFieldSuggestion_ErrorTypePatterns_Indirect(t *testin
 			"targetActionId": "main",
 		},
 		"settings": map[string]interface{}{
-			"apiServerMode": true,
 			"apiServer": map[string]interface{}{
 				"hostIp":  "0.0.0.0",
 				"portNum": "invalid", // Wrong type - should trigger type error

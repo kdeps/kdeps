@@ -48,8 +48,7 @@ Tools that reference other KDeps resources:
 
 ```yaml
 # The tool resource
-metadata:
-  actionId: calcTool
+actionId: calcTool
 python:
   script: |
     import json
@@ -60,8 +59,7 @@ python:
 
 ---
 # The LLM that uses the tool
-metadata:
-  actionId: llmWithTools
+actionId: llmWithTools
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -248,8 +246,7 @@ LLM generates final response
 
 ```yaml
 # Calculator resource
-metadata:
-  actionId: calcTool
+actionId: calcTool
 python:
   script: |
     import json
@@ -277,8 +274,7 @@ python:
 
 ---
 # LLM with calculator
-metadata:
-  actionId: mathAssistant
+actionId: mathAssistant
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -306,8 +302,7 @@ chat:
 
 ```yaml
 # Database search resource
-metadata:
-  actionId: dbSearchTool
+actionId: dbSearchTool
 sql:
   connectionName: main
   query: |
@@ -324,8 +319,7 @@ sql:
 
 ---
 # LLM with search
-metadata:
-  actionId: productAssistant
+actionId: productAssistant
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -355,8 +349,7 @@ chat:
 
 ```yaml
 # Weather API resource
-metadata:
-  actionId: weatherTool
+actionId: weatherTool
 httpClient:
   method: GET
   url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
@@ -364,8 +357,7 @@ httpClient:
 
 ---
 # LLM with weather
-metadata:
-  actionId: weatherAssistant
+actionId: weatherAssistant
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -386,8 +378,7 @@ chat:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: smartAgent
+actionId: smartAgent
 chat:
   prompt: "{{ get('q') }}"
   scenario:
@@ -511,8 +502,7 @@ Add logging to understand tool execution:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: debugTool
+actionId: debugTool
 python:
   script: |
     import json

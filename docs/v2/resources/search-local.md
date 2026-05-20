@@ -46,8 +46,7 @@ Each result object:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findDocs
+actionId: findDocs
 searchLocal:
   path: "/workspace/docs"
   glob: "*.md"
@@ -60,8 +59,7 @@ searchLocal:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findInvoices
+actionId: findInvoices
 searchLocal:
   path: "/data/uploads"
   query: "overdue"
@@ -75,8 +73,7 @@ searchLocal:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findContracts
+actionId: findContracts
 searchLocal:
   path: "/data"
   glob: "*.txt"
@@ -90,16 +87,14 @@ searchLocal:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findFiles
+actionId: findFiles
 searchLocal:
   path: "/data/reports"
   query: "{{ get('query') }}"
 
 ---
-metadata:
-  actionId: answer
-  requires: [findFiles]
+actionId: answer
+requires: [findFiles]
 chat:
   model: llama3.2:1b
   prompt: "Files found: {{ output('findFiles').results }}. Summarize."
@@ -118,9 +113,3 @@ searchLocal:
 onError:
   action: continue
 ```
-
-## Next Steps
-
-- [Embedding Resource](embedding) - Index and keyword-search document content
-- [Scraper Resource](scraper) - Fetch web content
-- [Python Resource](python) - Advanced file processing

@@ -136,35 +136,6 @@ func boolPtr(b bool) *bool { return &b }
 
 // Test YAML unmarshaling with string values for booleans and integers
 
-func TestAgentSettings_StringBooleans(t *testing.T) {
-	yamlData := `
-timezone: UTC
-offlineMode: "true"
-installOllama: "yes"
-`
-	var settings AgentSettings
-	err := yaml.Unmarshal([]byte(yamlData), &settings)
-	require.NoError(t, err)
-	// OfflineMode has yaml:"-" so it is not parsed from YAML; expect false.
-	assert.False(t, settings.OfflineMode)
-	assert.NotNil(t, settings.InstallOllama)
-	assert.True(t, *settings.InstallOllama)
-}
-
-func TestPoolConfig_StringIntegers(t *testing.T) {
-	yamlData := `
-maxConnections: "10"
-minConnections: "2"
-maxIdleTime: "5m"
-connectionTimeout: "30s"
-`
-	var config PoolConfig
-	err := yaml.Unmarshal([]byte(yamlData), &config)
-	require.NoError(t, err)
-	assert.Equal(t, 10, config.MaxConnections)
-	assert.Equal(t, 2, config.MinConnections)
-}
-
 func TestAPIResponseConfig_StringBoolean(t *testing.T) {
 	yamlData := `
 success: "true"

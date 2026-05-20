@@ -20,8 +20,6 @@ package domain
 
 import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
-
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -479,55 +477,6 @@ type AgentSettings struct {
 	Resources   *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		Timezone         string            `yaml:"timezone"`
-		PythonVersion    string            `yaml:"pythonVersion,omitempty"`
-		PythonPackages   []string          `yaml:"pythonPackages,omitempty"`
-		RequirementsFile string            `yaml:"requirementsFile,omitempty"`
-		PyprojectFile    string            `yaml:"pyprojectFile,omitempty"`
-		LockFile         string            `yaml:"lockFile,omitempty"`
-		Repositories     []string          `yaml:"repositories,omitempty"`
-		Packages         []string          `yaml:"packages,omitempty"`
-		OSPackages       []string          `yaml:"osPackages,omitempty"`
-		BaseOS           string            `yaml:"baseOS,omitempty"`
-		InstallOllama    interface{}       `yaml:"installOllama,omitempty"`
-		Args             map[string]string `yaml:"args,omitempty"`
-		Env              map[string]string `yaml:"env,omitempty"`
-		Replicas         interface{}       `yaml:"replicas,omitempty"`
-		Resources        *Resources        `yaml:"resources,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.Replicas); ok {
-		a.Replicas = i
-	}
-	a.Resources = alias.Resources
-
-	a.InstallOllama = parseBoolPtr(alias.InstallOllama)
-
-	a.Timezone = alias.Timezone
-	a.PythonVersion = alias.PythonVersion
-	a.PythonPackages = alias.PythonPackages
-	a.RequirementsFile = alias.RequirementsFile
-	a.PyprojectFile = alias.PyprojectFile
-	a.LockFile = alias.LockFile
-	a.Repositories = alias.Repositories
-	a.Packages = alias.Packages
-	a.OSPackages = alias.OSPackages
-	a.BaseOS = alias.BaseOS
-	a.Args = alias.Args
-	a.Env = alias.Env
-
-	return nil
-}
-
 // SQLConnection represents a named SQL connection.
 type SQLConnection struct {
 	Connection string      `yaml:"connection"`
@@ -540,32 +489,4 @@ type PoolConfig struct {
 	MinConnections    int    `yaml:"minConnections"`
 	MaxIdleTime       string `yaml:"maxIdleTime"`
 	ConnectionTimeout string `yaml:"connectionTimeout"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
-func (p *PoolConfig) UnmarshalYAML(node *yaml.Node) error {
-	kdeps_debug.Log("enter: UnmarshalYAML")
-	type Alias struct {
-		MaxConnections    interface{} `yaml:"maxConnections"`
-		MinConnections    interface{} `yaml:"minConnections"`
-		MaxIdleTime       string      `yaml:"maxIdleTime"`
-		ConnectionTimeout string      `yaml:"connectionTimeout"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse integer fields that might be strings
-	if i, ok := parseInt(alias.MaxConnections); ok {
-		p.MaxConnections = i
-	}
-	if i, ok := parseInt(alias.MinConnections); ok {
-		p.MinConnections = i
-	}
-
-	p.MaxIdleTime = alias.MaxIdleTime
-	p.ConnectionTimeout = alias.ConnectionTimeout
-
-	return nil
 }

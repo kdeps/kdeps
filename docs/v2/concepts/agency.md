@@ -84,7 +84,6 @@ agent:
 ```
 
 - `name:` — resolves to the target agent by `metadata.name` in its `workflow.yaml`.
-  The legacy `agent:` key is also accepted for backward compatibility.
 - `params:` — key-value pairs forwarded as input to the target agent (accessible via
   `get('key')` inside the target).
 - The return value is the first `apiResponse.response` produced by the target, accessible

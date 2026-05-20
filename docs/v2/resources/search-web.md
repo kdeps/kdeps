@@ -59,8 +59,7 @@ output('search').json       # JSON string of the full result
 ### DuckDuckGo (no API key)
 
 ```yaml
-metadata:
-  actionId: search
+actionId: search
 searchWeb:
   query: "{{ get('query') }}"
   maxResults: 5
@@ -69,8 +68,7 @@ searchWeb:
 ### Brave Search
 
 ```yaml
-metadata:
-  actionId: search
+actionId: search
 searchWeb:
   query: "{{ get('query') }}"
   provider: brave
@@ -81,15 +79,13 @@ searchWeb:
 ### Feed results into an LLM
 
 ```yaml
-metadata:
-  actionId: search
+actionId: search
 searchWeb:
   query: "{{ get('query') }}"
 
 ---
-metadata:
-  actionId: answer
-  requires: [search]
+actionId: answer
+requires: [search]
 chat:
   model: llama3.2:1b
   prompt: |

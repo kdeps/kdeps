@@ -46,9 +46,6 @@
     "settings": {
       "type": "object",
       "properties": {
-        "apiServerMode": {
-          "type": "boolean"
-        },
         "apiServer": {
           "type": "object",
           "properties": {

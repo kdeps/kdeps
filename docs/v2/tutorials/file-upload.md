@@ -18,11 +18,11 @@ Create `workflow.yaml`:
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
-
-name: file-upload
-description: File upload handling example
-version: "1.0.0"
-targetActionId: fileProcessor
+metadata:
+  name: file-upload
+  description: File upload handling example
+  version: "1.0.0"
+  targetActionId: fileProcessor
 settings:
   apiServer:
     hostIp: "127.0.0.1"

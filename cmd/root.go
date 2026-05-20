@@ -174,4 +174,8 @@ func addSubcommands(rootCmd *cobra.Command) {
 	doctorCmd := newDoctorCmd()
 	doctorCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(doctorCmd)
+
+	mcpCmd := newMCPCmd()
+	mcpCmd.GroupID = groupDevelop
+	rootCmd.AddCommand(mcpCmd)
 }

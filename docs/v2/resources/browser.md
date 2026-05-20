@@ -5,24 +5,18 @@ The Browser resource enables full browser automation via [Playwright](https://pl
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: captureTitle
-  name: Capture Page Title
-
-run:
-  browser:
-    engine: chromium
-    url: "https://example.com"
-    actions:
-      - action: evaluate
-        script: "document.title"
-  apiResponse:
-    success: true
-    response:
-      title: "{{ get('captureTitle') }}"
+actionId: captureTitle
+name: Capture Page Title
+browser:
+  engine: chromium
+  url: "https://example.com"
+  actions:
+    - action: evaluate
+      script: "document.title"
+apiResponse:
+  success: true
+  response:
+    title: "{{ get('captureTitle') }}"
 ```
 
 ## Configuration Options
@@ -321,16 +315,15 @@ Enable `stealthMode: true` to evade bot detection on websites like LinkedIn that
 - Sets a realistic User-Agent string
 
 ```yaml
-run:
-  browser:
-    engine: chromium
-    headless: true
-    stealthMode: true
-    url: "https://www.linkedin.com/login"
-    actions:
-      - action: fill
-        selector: "#username"
-        value: "{{ get('email') }}"
+browser:
+  engine: chromium
+  headless: true
+  stealthMode: true
+  url: "https://www.linkedin.com/login"
+  actions:
+    - action: fill
+      selector: "#username"
+      value: "{{ get('email') }}"
 ```
 
 For sites with sophisticated bot detection, also consider:
@@ -346,31 +339,29 @@ By default each resource runs in a fresh, ephemeral browser context. Set `sessio
 
 ```yaml
 # Resource 1 – log in and save the session
-run:
-  browser:
-    engine: chromium
-    url: "https://app.example.com/login"
-    sessionId: "user-session"
-    actions:
-      - action: fill
-        selector: "#username"
-        value: "{{ get('username') }}"
-      - action: fill
-        selector: "#password"
-        value: "{{ get('password') }}"
-      - action: click
-        selector: "#login-button"
+browser:
+  engine: chromium
+  url: "https://app.example.com/login"
+  sessionId: "user-session"
+  actions:
+    - action: fill
+      selector: "#username"
+      value: "{{ get('username') }}"
+    - action: fill
+      selector: "#password"
+      value: "{{ get('password') }}"
+    - action: click
+      selector: "#login-button"
 
 # Resource 2 – reuse the authenticated session
-run:
-  browser:
-    engine: chromium
-    sessionId: "user-session"
-    actions:
-      - action: navigate
-        url: "https://app.example.com/dashboard"
-      - action: evaluate
-        script: "document.querySelector('.user-greeting').textContent"
+browser:
+  engine: chromium
+  sessionId: "user-session"
+  actions:
+    - action: navigate
+      url: "https://app.example.com/dashboard"
+    - action: evaluate
+      script: "document.querySelector('.user-greeting').textContent"
 ```
 
 </div>
@@ -382,11 +373,8 @@ run:
 For websites that block headless browsers, enable `stealthMode` and consider using non-headless mode to appear more human-like:
 
 ```yaml
-metadata:
-  actionId: linkedinLogin
-
-run:
-  browser:
+actionId: linkedinLogin
+browser:
     engine: chromium
     headless: true
     stealthMode: true
@@ -411,11 +399,8 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: submitForm
-
-run:
-  browser:
+actionId: submitForm
+browser:
     engine: chromium
     url: "https://forms.example.com/contact"
     waitFor: "#name"
@@ -446,11 +431,8 @@ run:
 ### Screenshot of a Dynamic Dashboard
 
 ```yaml
-metadata:
-  actionId: dashboardShot
-
-run:
-  browser:
+actionId: dashboardShot
+browser:
     engine: chromium
     url: "https://dashboard.example.com"
     viewport:
@@ -471,11 +453,8 @@ run:
 ### Extract JavaScript-Rendered Data
 
 ```yaml
-metadata:
-  actionId: extractData
-
-run:
-  browser:
+actionId: extractData
+browser:
     engine: chromium
     url: "https://spa.example.com/products"
     waitFor: ".product-list"
@@ -497,11 +476,8 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: loginStep
-
-run:
-  browser:
+actionId: loginStep
+browser:
     engine: firefox
     url: "https://secure.example.com/login"
     sessionId: "{{ get('session_id') }}"
@@ -529,11 +505,8 @@ run:
 ### File Upload
 
 ```yaml
-metadata:
-  actionId: uploadDocument
-
-run:
-  browser:
+actionId: uploadDocument
+browser:
     engine: chromium
     url: "https://docs.example.com/upload"
     actions:

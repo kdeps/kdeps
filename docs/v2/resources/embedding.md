@@ -50,15 +50,13 @@ embedding:
 
 ```yaml
 # Step 1: Scrape content
-metadata:
-  actionId: fetch
+actionId: fetch
 scraper:
   url: "{{ get('url') }}"
 
 # Step 2: Index it
-metadata:
-  actionId: storeDoc
-  requires: [fetch]
+actionId: storeDoc
+requires: [fetch]
 embedding:
   operation: "index"
   text: "{{ output('fetch').content }}"
@@ -66,8 +64,7 @@ embedding:
   dbPath: "/data/store.db"
 
 # Step 3: Search on user query
-metadata:
-  actionId: findDocs
+actionId: findDocs
 embedding:
   operation: "search"
   text: "{{ get('query') }}"
@@ -76,9 +73,8 @@ embedding:
   limit: 5
 
 # Step 4: Answer with context
-metadata:
-  actionId: answer
-  requires: [findDocs]
+actionId: answer
+requires: [findDocs]
 chat:
   model: llama3.2:1b
   prompt: |
