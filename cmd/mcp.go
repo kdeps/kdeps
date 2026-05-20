@@ -295,7 +295,7 @@ func registerComponentTools(r *tools.Registry, ctx *executor.ExecutionContext) {
 			continue
 		}
 
-		compDefs := tools.ComponentToolDefs([]*domain.Component{comp})
+		compDefs := tools.ComponentToolDefs([]*domain.Component{comp}, nil, nil)
 		for _, t := range compDefs {
 			captured := comp
 			t.Execute = func(args map[string]interface{}) (string, error) {

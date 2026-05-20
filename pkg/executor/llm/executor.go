@@ -1337,6 +1337,15 @@ func (e *Executor) executeTool(
 		return nil, err
 	}
 
+	// Direct execute function (agent mode / registry tools) — takes priority
+	if tool.Execute != nil {
+		result, execErr := tool.Execute(args)
+		if execErr != nil {
+			return nil, fmt.Errorf("tool execute failed: %w", execErr)
+		}
+		return result, nil
+	}
+
 	// MCP tool: delegate to MCP server via JSON-RPC 2.0 over stdio
 	if tool.MCP != nil {
 		result, mcpErr := mcpclient.ExecuteTool(tool.MCP, tool.Name, args)

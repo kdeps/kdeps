@@ -75,15 +75,24 @@ func (r *Registry) List() []*Tool {
 }
 
 // ToLLMTools converts registered tools to the LLM tool format.
+// Tools with an Execute function get it wired into the domain.Tool.Execute field
+// so the LLM executor can dispatch directly without a Script/MCP lookup.
 func (r *Registry) ToLLMTools() []domain.Tool {
 	kdeps_debug.Log("enter: ToLLMTools")
 	result := make([]domain.Tool, 0, len(r.tools))
 	for _, t := range r.List() {
-		result = append(result, domain.Tool{
+		dt := domain.Tool{
 			Name:        t.Name,
 			Description: t.Description,
 			Parameters:  t.Parameters,
-		})
+		}
+		if t.Execute != nil {
+			execute := t.Execute
+			dt.Execute = func(args map[string]interface{}) (string, error) {
+				return execute(args)
+			}
+		}
+		result = append(result, dt)
 	}
 	return result
 }

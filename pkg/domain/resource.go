@@ -266,6 +266,9 @@ type Tool struct {
 	MCP         *MCPConfig           `yaml:"mcp,omitempty"`    // MCP server config (alternative to script)
 	Description string               `yaml:"description"`
 	Parameters  map[string]ToolParam `yaml:"parameters"`
+	// Execute is a runtime-only direct dispatch function set by agent mode.
+	// When non-nil it takes priority over Script and MCP. Never serialized.
+	Execute func(args map[string]interface{}) (string, error) `yaml:"-" json:"-"`
 }
 
 // ToolParam represents a tool parameter.

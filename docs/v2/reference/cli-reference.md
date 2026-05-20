@@ -627,6 +627,44 @@ See [Kubernetes Deployment](../deployment/kubernetes) for full details.
 
 ---
 
+### `kdeps serve`
+
+Run a workflow in agent mode - an interactive LLM loop where every resource,
+component, and fformat tool is auto-registered as a callable tool.
+
+**Usage:**
+
+```bash
+kdeps serve [workflow.yaml] [flags]
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
+| `--backend` | `KDEPS_AGENT_BACKEND` or `ollama` | LLM backend |
+| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
+| `--system` | (none) | System prompt injected at conversation start |
+| `--debug` | false | Enable debug logging |
+
+**Examples:**
+
+```bash
+# Start agent REPL with a workflow
+kdeps serve workflow.yaml
+
+# Use a specific model
+kdeps serve workflow.yaml --model mistral
+
+# Provide a system prompt
+kdeps serve workflow.yaml --system "You are a helpful assistant."
+```
+
+See [Agent Mode](/concepts/agent-mode) for full details.
+
+---
+
 ## Command Workflow
 
 ### Typical Development Flow

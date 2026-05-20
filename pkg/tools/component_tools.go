@@ -16,11 +16,16 @@ package tools
 
 import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// ComponentToolDefs converts a slice of loaded components into Tool metadata entries.
-// Execute functions are not set; callers inject them after wiring component execution.
-func ComponentToolDefs(components []*domain.Component) []*Tool {
+// ComponentToolDefs wraps each component as a callable Tool.
+// The engine executes the component via a synthetic component resource.
+func ComponentToolDefs(
+	components []*domain.Component,
+	workflow *domain.Workflow,
+	eng *executor.Engine,
+) []*Tool {
 	tools := make([]*Tool, 0, len(components))
 	for _, comp := range components {
 		if comp == nil {
@@ -36,11 +41,57 @@ func ComponentToolDefs(components []*domain.Component) []*Tool {
 				}
 			}
 		}
-		tools = append(tools, &Tool{
-			Name:        comp.Metadata.Name,
-			Description: comp.Metadata.Description,
+		c := comp
+		t := &Tool{
+			Name:        c.Metadata.Name,
+			Description: c.Metadata.Description,
 			Parameters:  params,
-		})
+		}
+		if eng != nil && workflow != nil {
+			t.Execute = func(args map[string]interface{}) (string, error) {
+				return executeComponentTool(eng, workflow, c, args)
+			}
+		}
+		tools = append(tools, t)
 	}
 	return tools
+}
+
+// executeComponentTool runs a component via a synthetic component resource.
+func executeComponentTool(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	comp *domain.Component,
+	args map[string]interface{},
+) (string, error) {
+	with := make(map[string]interface{}, len(args))
+	for k, v := range args {
+		with[k] = v
+	}
+	actionID := "agent_component_" + comp.Metadata.Name
+	syntheticResource := &domain.Resource{
+		ActionID: actionID,
+		Name:     comp.Metadata.Name,
+		Component: &domain.ComponentCallConfig{
+			Name: comp.Metadata.Name,
+			With: with,
+		},
+	}
+	single := &domain.Workflow{
+		APIVersion: workflow.APIVersion,
+		Kind:       workflow.Kind,
+		Metadata: domain.WorkflowMetadata{
+			Name:           workflow.Metadata.Name,
+			Version:        workflow.Metadata.Version,
+			TargetActionID: actionID,
+		},
+		Settings:   workflow.Settings,
+		Components: workflow.Components,
+		Resources:  []*domain.Resource{syntheticResource},
+	}
+	result, err := eng.Execute(single, nil)
+	if err != nil {
+		return "", err
+	}
+	return marshalResult(result), nil
 }

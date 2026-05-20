@@ -178,4 +178,8 @@ func addSubcommands(rootCmd *cobra.Command) {
 	mcpCmd := newMCPCmd()
 	mcpCmd.GroupID = groupDevelop
 	rootCmd.AddCommand(mcpCmd)
+
+	serveCmd := newServeCmd()
+	serveCmd.GroupID = groupDevelop
+	rootCmd.AddCommand(serveCmd)
 }
