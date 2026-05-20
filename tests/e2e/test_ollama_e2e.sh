@@ -167,6 +167,10 @@ else
     PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
     ENDPOINT="/api/v1/chat"
     
+    # Kill any stale process on the port before starting.
+    lsof -ti:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    sleep 0.5
+
     # Start server
     SERVER_LOG=$(mktemp)
     KDEPS_DEFAULT_MODEL="$AVAILABLE_MODEL" timeout 120 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &
