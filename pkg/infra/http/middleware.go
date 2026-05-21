@@ -136,7 +136,6 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 		}
 		return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 	}
-	// lgtm[go/reflected-xss] - only reached for non-browser content types (JSON, binary); HTML is escaped above.
 	return w.ResponseWriter.Write(b)
 }
 

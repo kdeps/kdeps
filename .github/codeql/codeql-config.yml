@@ -3,3 +3,10 @@ name: "KDeps CodeQL Config"
 paths-ignore:
   - "kdeps-io.old/"
   - "private/"
+
+query-filters:
+  # ResponseWriterWrapper.Write routes browser-rendered content through html.EscapeString.
+  # The unescaped path is only reachable for non-browser content types (JSON, binary).
+  # This is a false positive — the XSS guard is the browserRenderedContentType check above it.
+  - exclude:
+      id: go/reflected-xss
