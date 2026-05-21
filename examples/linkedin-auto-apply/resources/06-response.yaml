@@ -1,13 +1,8 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: response
+name: response
+description: Return a summary of applied, skipped, and failed jobs.
+requires: [apply-job]
 
-metadata:
-  actionId: response
-  name: response
-  description: Return a summary of applied, skipped, and failed jobs.
-  requires: [apply-job]
-
-run:
-  apiResponse:
-    success: true
-    response: "{{ get('apply-job') }}"
+apiResponse:
+  success: true
+  response: "{{ get('apply-job') }}"

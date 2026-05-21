@@ -76,11 +76,10 @@ curl -s -X POST http://localhost:16400/api/v1/chat \
 In either mode the user's text is available via `input("message")`:
 
 ```yaml
-run:
-  chat:
-    model: llama3.2:1b
-    role: assistant
-    prompt: "{{ input('message') }}"
+chat:
+  model: llama3.2:1b
+  role: assistant
+  prompt: "{{ input('message') }}"
 ```
 
 ## Session Context

@@ -166,8 +166,7 @@ rules:
   - field: password
     type: string
 expr:
-  - expr: password == confirmPassword
-    message: Passwords must match
+  - "password == confirmPassword"
 `
 	var rules domain.ValidationsConfig
 	err := yaml.Unmarshal([]byte(yamlData), &rules)
@@ -177,7 +176,7 @@ expr:
 	if len(rules.Expr) != 1 {
 		t.Errorf("Expected 1 custom rule, got %d", len(rules.Expr))
 	}
-	if rules.Expr[0].Expr.Raw != "password == confirmPassword" {
+	if rules.Expr[0].Raw != "password == confirmPassword" {
 		t.Errorf("Custom rule expression mismatch")
 	}
 }

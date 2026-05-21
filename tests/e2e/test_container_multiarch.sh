@@ -254,7 +254,6 @@ metadata:
   targetActionId: healthResource
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -275,24 +274,20 @@ EOF
 
     # Create health resource
     cat > "$dir/resources/health.yaml" << 'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: healthResource
-  name: Health Check
+actionId: healthResource
+name: Health Check
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/health]
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/health]
 
-  apiResponse:
-    success: true
-    response:
-      status: ok
-    meta:
-      headers:
-        Content-Type: application/json
+apiResponse:
+  success: true
+  response:
+    status: ok
+  meta:
+    headers:
+      Content-Type: application/json
 EOF
 }
 

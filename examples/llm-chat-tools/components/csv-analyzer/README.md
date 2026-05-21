@@ -9,13 +9,12 @@ Version: 1.0.0
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: csv-analyzer
-    with:
-      data: "" # Raw CSV text to analyze.  # required
-      table_format: "" # Table style for display: 'simple' (default), 'grid', 'pipe', 'github', 'html'.
-      max_rows: "" # Maximum rows to display (default: 10).
+component:
+  name: csv-analyzer
+  with:
+    data: "" # Raw CSV text to analyze.  # required
+    table_format: "" # Table style for display: 'simple' (default), 'grid', 'pipe', 'github', 'html'.
+    max_rows: "" # Maximum rows to display (default: 10).
 ```
 
 ## Install

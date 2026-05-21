@@ -31,13 +31,9 @@ metadata:
   version: 1.0.0
   targetActionId: main
 `,
-			"resources/main.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-run:
-  apiResponse:
-    data: "hello"
+			"resources/main.yaml": `actionId: main
+apiResponse:
+  data: "hello"
 `,
 		},
 	}
@@ -127,40 +123,20 @@ func TestValidate_ResourceInvalidYAML(t *testing.T) {
 	assert.True(t, containsErr(errs, "invalid YAML"))
 }
 
-func TestValidate_ResourceMissingAPIVersion(t *testing.T) {
+func TestValidate_ResourceMissingActionId_WithAPIResponse(t *testing.T) {
 	wf := validWorkflow()
-	wf.Files["resources/main.yaml"] = `kind: Resource
-metadata:
-  actionId: main
-run:
-  apiResponse:
-    data: "ok"
+	wf.Files["resources/main.yaml"] = `name: something
+apiResponse:
+  data: "ok"
 `
 	errs := Validate(wf)
-	assert.True(t, containsErr(errs, "apiVersion"))
-}
-
-func TestValidate_ResourceMissingKind(t *testing.T) {
-	wf := validWorkflow()
-	wf.Files["resources/main.yaml"] = `apiVersion: kdeps.io/v1
-metadata:
-  actionId: main
-run:
-  apiResponse:
-    data: "ok"
-`
-	errs := Validate(wf)
-	assert.True(t, containsErr(errs, "kind"))
+	assert.True(t, containsErr(errs, "actionId"))
 }
 
 func TestValidate_ResourceMissingActionId(t *testing.T) {
 	wf := validWorkflow()
-	wf.Files["resources/main.yaml"] = `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  name: something
-run:
-  chat: {}
+	wf.Files["resources/main.yaml"] = `name: something
+chat: {}
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "actionId"))
@@ -168,24 +144,17 @@ run:
 
 func TestValidate_ResourceMissingRunSection(t *testing.T) {
 	wf := validWorkflow()
-	wf.Files["resources/main.yaml"] = `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
+	wf.Files["resources/main.yaml"] = `actionId: main
 `
 	errs := Validate(wf)
-	assert.True(t, containsErr(errs, "run section"))
+	assert.True(t, containsErr(errs, "no recognized action"))
 }
 
 func TestValidate_ResourceUnrecognizedAction(t *testing.T) {
 	wf := validWorkflow()
-	wf.Files["resources/main.yaml"] = `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-run:
-  http:
-    url: "https://example.com"
+	wf.Files["resources/main.yaml"] = `actionId: main
+http:
+  url: "https://example.com"
 `
 	errs := Validate(wf)
 	assert.True(t, containsErr(errs, "no recognized action"))
@@ -214,7 +183,7 @@ func TestValidate_AllValidRunActions(t *testing.T) {
 	}
 	for _, action := range actions {
 		wf := validWorkflow()
-		wf.Files["resources/main.yaml"] = "apiVersion: kdeps.io/v1\nkind: Resource\nmetadata:\n  actionId: main\nrun:\n  " + action + ": {}\n"
+		wf.Files["resources/main.yaml"] = "actionId: main\nname: main\n" + action + ": {}\n"
 		errs := Validate(wf)
 		assert.Empty(t, errs, "action %q should be valid", action)
 	}

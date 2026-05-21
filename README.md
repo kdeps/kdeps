@@ -32,35 +32,27 @@ A minimal agent that answers questions via an LLM:
 
 ```yaml
 # resources/chat.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: chat
-run:
-  chat:
-    prompt: "{{ get('message') }}"
-  apiResponse:
-    response: "{{ output('chat') }}"
+actionId: chat
+chat:
+  prompt: "{{ get('message') }}"
+apiResponse:
+  response: "{{ output('chat') }}"
 ```
 
 Wire resources into pipelines — outputs flow between steps via `requires:`:
 
 ```yaml
-metadata:
-  actionId: fetch
-run:
-  scraper:
-    url: "{{ get('url') }}"
+actionId: fetch
+scraper:
+  url: "{{ get('url') }}"
 
 ---
-metadata:
-  actionId: summarize
-  requires: [fetch]
-run:
-  chat:
-    prompt: "Summarize: {{ output('fetch').content }}"
-  apiResponse:
-    response: "{{ output('summarize') }}"
+actionId: summarize
+requires: [fetch]
+chat:
+  prompt: "Summarize: {{ output('fetch').content }}"
+apiResponse:
+  response: "{{ output('summarize') }}"
 ```
 
 ## Build and deploy

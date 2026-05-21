@@ -71,7 +71,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -109,7 +108,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -241,7 +239,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -284,7 +281,6 @@ metadata:
 settings:
   agentSettings:
     pythonVersion: "3.12"
-  apiServerMode: true
   apiServer:
     portNum: 16395
 `
@@ -454,7 +450,6 @@ settings:
     pythonPackages:
       - requests
       - numpy
-  apiServerMode: true
   apiServer:
     portNum: 16395
     routes:
@@ -472,17 +467,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: process-data
-  name: Process Data
-run:
-  python:
-    script: |
-      import requests
-      import numpy as np
-      print("Processing data with Python")
+actionId: process-data
+name: Process Data
+python:
+  script: |
+    import requests
+    import numpy as np
+    print("Processing data with Python")
 `
 
 	resourcePath := filepath.Join(resourcesDir, "process-data.yaml")
@@ -516,7 +507,6 @@ metadata:
   version: "1.0.0"
   targetActionId: serve-content
 settings:
-  webServerMode: true
   webServer:
     portNum: 16395
     routes:
@@ -538,16 +528,12 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: serve-content
-  name: Serve Content
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "Content served"
+actionId: serve-content
+name: Serve Content
+apiResponse:
+  success: true
+  response:
+    message: "Content served"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "serve-content.yaml")

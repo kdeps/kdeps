@@ -115,10 +115,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /scrape/plain
         methods: [POST]
@@ -131,80 +130,64 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/plain.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: scrapePlain
-  name: Scrape Plain Text
-run:
-  validations:
-    routes: [/scrape/plain]
-    methods: [POST]
-  component:
-    name: scraper
-    with:
-      url: "http://127.0.0.1:${HTTP_PORT}/plain"
-  apiResponse:
-    success: true
-    response:
-      result: "{{ output('scrapePlain').content }}"
+actionId: scrapePlain
+name: Scrape Plain Text
+validations:
+  routes: [/scrape/plain]
+  methods: [POST]
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${HTTP_PORT}/plain"
+apiResponse:
+  success: true
+  response:
+    result: "{{ output('scrapePlain').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/html.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: scrapeHtml
-  name: Scrape HTML Page
-run:
-  validations:
-    routes: [/scrape/html]
-    methods: [POST]
-  component:
-    name: scraper
-    with:
-      url: "http://127.0.0.1:${HTTP_PORT}/html"
-  apiResponse:
-    success: true
-    response:
-      result: "{{ output('scrapeHtml').content }}"
+actionId: scrapeHtml
+name: Scrape HTML Page
+validations:
+  routes: [/scrape/html]
+  methods: [POST]
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${HTTP_PORT}/html"
+apiResponse:
+  success: true
+  response:
+    result: "{{ output('scrapeHtml').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/selector.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: scrapeSelector
-  name: Scrape With CSS Selector
-run:
-  validations:
-    routes: [/scrape/selector]
-    methods: [POST]
-  component:
-    name: scraper
-    with:
-      url: "http://127.0.0.1:${HTTP_PORT}/html"
-      selector: "p.content"
-  apiResponse:
-    success: true
-    response:
-      result: "{{ output('scrapeSelector').content }}"
+actionId: scrapeSelector
+name: Scrape With CSS Selector
+validations:
+  routes: [/scrape/selector]
+  methods: [POST]
+component:
+  name: scraper
+  with:
+    url: "http://127.0.0.1:${HTTP_PORT}/html"
+    selector: "p.content"
+apiResponse:
+  success: true
+  response:
+    result: "{{ output('scrapeSelector').content }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [scrapePlain, scrapeHtml, scrapeSelector]
-run:
-  apiResponse:
-    success: true
-    response:
-      plainResult: "{{ output('scrapePlain') }}"
-      htmlResult: "{{ output('scrapeHtml') }}"
-      selectorResult: "{{ output('scrapeSelector') }}"
+actionId: response
+name: Response
+requires: [scrapePlain, scrapeHtml, scrapeSelector]
+apiResponse:
+  success: true
+  response:
+    plainResult: "{{ output('scrapePlain') }}"
+    htmlResult: "{{ output('scrapeHtml') }}"
+    selectorResult: "{{ output('scrapeSelector') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &

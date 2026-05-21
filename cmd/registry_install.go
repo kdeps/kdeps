@@ -285,8 +285,7 @@ func installRegistryComponent(cmd *cobra.Command, manifest *domain.KdepsPkg, arc
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage in your workflow:")
-	fmt.Fprintln(w, "  run:")
-	fmt.Fprintln(w, "    component:")
+	fmt.Fprintln(w, "  component:")
 	fmt.Fprintf(w, "      name: %s\n", manifest.Name)
 	fmt.Fprintln(w, "      with:")
 	fmt.Fprintf(w, "        # see kdeps registry info %s for available inputs\n", manifest.Name)

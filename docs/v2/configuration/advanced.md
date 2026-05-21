@@ -20,40 +20,35 @@ The `request` object provides access to HTTP request metadata in expressions.
 ### Usage Examples
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: logRequest
-run:
-  expr:
-    # Access request metadata
-    - set('method', request.method)
-    - set('path', request.path)
-    - set('clientIp', request.ip)
-    - set('requestId', request.id)
-    - set('session', request.sessionId)
+actionId: logRequest
+after:
+  # Access request metadata
+  - set('method', request.method)
+  - set('path', request.path)
+  - set('clientIp', request.ip)
+  - set('requestId', request.id)
+  - set('session', request.sessionId)
 
-    # Build log entry
-    - set('logEntry', json({
-        "timestamp": info('request.id'),
-        "method": get('method'),
-        "path": get('path'),
-        "ip": get('clientIp'),
-        "requestId": get('requestId')
-      }))
+  # Build log entry
+  - set('logEntry', json({
+      "timestamp": info('request.id'),
+      "method": get('method'),
+      "path": get('path'),
+      "ip": get('clientIp'),
+      "requestId": get('requestId')
+    }))
 ```
 
 ### Request-Based Routing
 
 ```yaml
-run:
-  expr:
-    # Different behavior based on request method
-    - set('isPost', request.method == 'POST')
-    - set('isGet', request.method == 'GET')
-  validations:
-    skip:
-      - "!get('isPost')"
+after:
+  # Different behavior based on request method
+  - set('isPost', request.method == 'POST')
+  - set('isGet', request.method == 'GET')
+validations:
+  skip:
+    - "!get('isPost')"
 ```
 
 ### Logging and Auditing
@@ -61,19 +56,18 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connection: logs
-    queries:
-      - query: |
-          INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
-          VALUES (?, ?, ?, ?, ?, NOW())
-        params:
-          - "{{ request.id }}"
-          - "{{ request.method }}"
-          - "{{ request.path }}"
-          - "{{ request.ip }}"
-          - "{{ request.sessionId }}"
+sql:
+  connection: logs
+  queries:
+    - query: |
+        INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
+        VALUES (?, ?, ?, ?, ?, NOW())
+      params:
+        - "{{ request.id }}"
+        - "{{ request.method }}"
+        - "{{ request.path }}"
+        - "{{ request.ip }}"
+        - "{{ request.sessionId }}"
 ```
 
 </div>
@@ -210,13 +204,12 @@ settings:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connection: primary  # Reference by name
-    queries:
-      - query: "SELECT * FROM users WHERE id = ?"
-        params:
-          - "{{ get('userId') }}"
+sql:
+  connection: primary  # Reference by name
+  queries:
+    - query: "SELECT * FROM users WHERE id = ?"
+      params:
+        - "{{ get('userId') }}"
 ```
 
 </div>
@@ -229,7 +222,6 @@ Configure trusted proxies for accurate client IP detection behind load balancers
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -243,7 +235,6 @@ settings:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -287,7 +278,6 @@ Define multiple routes with different methods and paths.
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     portNum: 16395
     routes:
@@ -318,7 +308,6 @@ Protect the API server with a shared secret. When `auth.token` is set, every req
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     auth:
       token: "${API_TOKEN}"
@@ -332,7 +321,6 @@ Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute`
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     rateLimit:
       requestsPerMinute: 60
@@ -345,7 +333,6 @@ Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` rec
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     maxBodyBytes: 1048576   # 1 MiB
 ```
@@ -356,7 +343,6 @@ Enable HTTPS by pointing `certFile` and `keyFile` at a PEM certificate and priva
 
 ```yaml
 settings:
-  apiServerMode: true
   certFile: "/etc/certs/server.crt"
   keyFile:  "/etc/certs/server.key"
   apiServer:
@@ -371,7 +357,6 @@ Cap the number of simultaneous in-flight requests the server handles. When the l
 
 ```yaml
 settings:
-  apiServerMode: true
   apiServer:
     maxConcurrent: 50
 ```

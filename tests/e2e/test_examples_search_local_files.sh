@@ -110,24 +110,20 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 
 # search resource pointing at the temp data dir
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: search
-run:
-  validations:
-    methods: [POST]
-    routes: [/search]
-    check:
-      - get('query') != ''
-    error:
-      code: 400
-      message: "query is required"
-  searchLocal:
-    path: "$DATA_DIR"
-    query: "{{ get('query') }}"
-    glob: "{{ get('glob', '') }}"
-    limit: 20
+actionId: search
+validations:
+  methods: [POST]
+  routes: [/search]
+  check:
+    - get('query') != ''
+  error:
+    code: 400
+    message: "query is required"
+searchLocal:
+  path: "$DATA_DIR"
+  query: "{{ get('query') }}"
+  glob: "{{ get('glob', '') }}"
+  limit: 20
 EOF
 
 "$KDEPS_BIN" run "$WORK_DIR/workflow.yaml" >"$LOG_FILE" 2>&1 &

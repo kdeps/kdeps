@@ -10,13 +10,12 @@ Version: 1.0.0
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: color-converter
-    with:
-      color: "" # Input color value. HEX (#rrggbb or #rgb), RGB (r,g,b), HSL (h,s%,l%), or color name.  # required
-      from_format: "" # Source format: 'hex', 'rgb', 'hsl', 'hsv', or 'auto' (default).
-      to_format: "" # Target format: 'all' (default), 'hex', 'rgb', 'hsl', 'hsv'.
+component:
+  name: color-converter
+  with:
+    color: "" # Input color value. HEX (#rrggbb or #rgb), RGB (r,g,b), HSL (h,s%,l%), or color name.  # required
+    from_format: "" # Source format: 'hex', 'rgb', 'hsl', 'hsv', or 'auto' (default).
+    to_format: "" # Target format: 'all' (default), 'hex', 'rgb', 'hsl', 'hsv'.
 ```
 
 ## Install

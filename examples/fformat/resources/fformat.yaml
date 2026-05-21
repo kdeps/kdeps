@@ -1,0 +1,117 @@
+actionId: fformat
+name: Format Operations
+
+validations:
+  routes: [/format]
+  methods: [POST]
+
+python:
+  script: |
+    import json, sys
+
+    data      = """{{ input('data') }}"""
+    fmt       = "{{ input('format', 'json') }}".lower()
+    operation = "{{ input('operation', 'validate') }}".lower()
+    to_fmt    = "{{ input('to', '') }}".lower()
+
+    # ── validators ────────────────────────────────────────────────────────────
+
+    def validate_json(s):
+        try: json.loads(s); return {"valid": True}
+        except Exception as e: return {"valid": False, "error": str(e)}
+
+    def validate_yaml(s):
+        try:
+            import yaml; yaml.safe_load(s); return {"valid": True}
+        except Exception as e: return {"valid": False, "error": str(e)}
+
+    def validate_csv(s):
+        import csv, io
+        try: list(csv.reader(io.StringIO(s))); return {"valid": True}
+        except Exception as e: return {"valid": False, "error": str(e)}
+
+    def validate_xml(s):
+        import xml.etree.ElementTree as ET
+        try: ET.fromstring(s); return {"valid": True}
+        except Exception as e: return {"valid": False, "error": str(e)}
+
+    def validate_toml(s):
+        try:
+            import tomllib; tomllib.loads(s); return {"valid": True}
+        except ImportError:
+            lines = [l.strip() for l in s.splitlines() if l.strip() and not l.strip().startswith("#")]
+            for l in lines:
+                if not (l.startswith("[") or "=" in l):
+                    return {"valid": False, "error": f"invalid TOML line: {l}"}
+            return {"valid": True}
+        except Exception as e: return {"valid": False, "error": str(e)}
+
+    validators = {"json": validate_json, "yaml": validate_yaml, "csv": validate_csv,
+                  "xml": validate_xml, "toml": validate_toml}
+
+    # ── converters ────────────────────────────────────────────────────────────
+
+    def json_to_yaml(s):
+        import yaml; return {"output": yaml.dump(json.loads(s), default_flow_style=False).rstrip()}
+
+    def yaml_to_json(s):
+        import yaml; return {"output": json.dumps(yaml.safe_load(s), indent=2)}
+
+    def csv_to_json(s):
+        import csv, io
+        rows = list(csv.DictReader(io.StringIO(s)))
+        return {"output": json.dumps(rows, indent=2)}
+
+    def json_to_csv(s):
+        import csv, io
+        rows = json.loads(s)
+        if not rows: return {"error": "empty array"}
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        w.writeheader(); w.writerows(rows)
+        return {"output": buf.getvalue().rstrip()}
+
+    converters = {
+        ("json", "yaml"): json_to_yaml,
+        ("yaml", "json"): yaml_to_json,
+        ("csv",  "json"): csv_to_json,
+        ("json", "csv"):  json_to_csv,
+    }
+
+    # ── pretty-printers ───────────────────────────────────────────────────────
+
+    def pretty_json(s):
+        return {"output": json.dumps(json.loads(s), indent=2)}
+
+    def pretty_yaml(s):
+        import yaml; return {"output": yaml.dump(yaml.safe_load(s), default_flow_style=False).rstrip()}
+
+    def pretty_xml(s):
+        import xml.dom.minidom
+        return {"output": xml.dom.minidom.parseString(s).toprettyxml(indent="  ").rstrip()}
+
+    prettifiers = {"json": pretty_json, "yaml": pretty_yaml, "xml": pretty_xml}
+
+    # ── dispatch ──────────────────────────────────────────────────────────────
+
+    try:
+        if operation == "validate":
+            fn = validators.get(fmt)
+            result = fn(data) if fn else {"error": f"unsupported format: {fmt}"}
+        elif operation == "convert":
+            fn = converters.get((fmt, to_fmt))
+            result = fn(data) if fn else {"error": f"conversion {fmt} → {to_fmt} not supported"}
+        elif operation == "pretty":
+            fn = prettifiers.get(fmt)
+            result = fn(data) if fn else {"output": data}
+        else:
+            result = {"error": f"unknown operation: {operation}. Use validate, convert, or pretty."}
+    except Exception as e:
+        result = {"error": str(e)}
+
+    print(json.dumps(result))
+
+apiResponse:
+  success: true
+  response:
+    result: "{{ output('fformat') }}"

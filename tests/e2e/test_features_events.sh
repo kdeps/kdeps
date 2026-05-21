@@ -95,15 +95,11 @@ settings:
 EOF
 
     cat > "$dir/resources/greet.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: greet
-  name: Greet
-run:
-  exec:
-    command: echo
-    args: ["hello from events test"]
+actionId: greet
+name: Greet
+exec:
+  command: echo
+  args: ["hello from events test"]
 EOF
 }
 
@@ -132,14 +128,10 @@ settings:
 EOF
 
     cat > "$dir/resources/bad.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: bad
-  name: Bad
-run:
-  exec:
-    command: this-command-definitely-does-not-exist-kdeps-test
+actionId: bad
+name: Bad
+exec:
+  command: this-command-definitely-does-not-exist-kdeps-test
 EOF
 }
 

@@ -8,11 +8,9 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/demo
         methods: [GET, POST]
@@ -25,45 +23,37 @@ settings:
     timezone: Etc/UTC
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: setup
-      name: Setup Values
-    run:
-      expr:
-        - set('value', 21)
-        - set('multiplier', 2)
-        - set('base_price', 50)
-        - set('quantity', 3)
-        - set('score', 85)
-      apiResponse:
-        success: true
-        response: {}
+  - actionId: setup
+    name: Setup Values
+    after:
+      - set('value', 21)
+      - set('multiplier', 2)
+      - set('base_price', 50)
+      - set('quantity', 3)
+      - set('score', 85)
+    apiResponse:
+      success: true
+      response: {}
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: API Response
-      requires:
-        - setup
-    run:
-      validations:
-        methods: [GET, POST]
-        routes: [/api/demo]
+  - actionId: response
+    name: API Response
+    requires:
+    - setup
+    validations:
+      methods: [GET, POST]
+      routes: [/api/demo]
 
-      apiResponse:
-        response:
-          # Arithmetic
-          doubled: "{{ get('value') * get('multiplier') }}"
-          total_price: "{{ get('base_price') * get('quantity') }}"
+    apiResponse:
+      response:
+        # Arithmetic
+        doubled: "{{ get('value') * get('multiplier') }}"
+        total_price: "{{ get('base_price') * get('quantity') }}"
 
-          # Comparison
-          passed: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
+        # Comparison
+        passed: "{{ get('score') >= 80 ? 'Pass' : 'Fail' }}"
 
-          # Default fallback
-          label: "{{ default(get('label'), 'default-label') }}"
+        # Default fallback
+        label: "{{ default(get('label'), 'default-label') }}"
 
-          # Timestamp from info
-          generated_at: "{{ info('current_time') }}"
+        # Timestamp from info
+        generated_at: "{{ info('current_time') }}"

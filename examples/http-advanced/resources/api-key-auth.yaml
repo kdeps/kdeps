@@ -1,40 +1,35 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: apiKeyAuth
+name: API Key Authentication
 
-metadata:
-  actionId: apiKeyAuth
-  name: API Key Authentication
+validations:
+  methods: [POST]
+  routes: [/api/v1/http-demo]
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/http-demo]
+httpClient:
+  method: POST
+  url: "https://httpbin.org/post"
+  data:
+    message: "Hello from KDeps!"
+    timestamp: "{{ info('current_time') }}"
+    user_id: "{{ get('user_id', '12345') }}"
 
-  httpClient:
-    method: POST
-    url: "https://httpbin.org/post"
-    data:
-      message: "Hello from KDeps!"
-      timestamp: "{{ info('current_time') }}"
-      user_id: "{{ get('user_id', '12345') }}"
+  # API key authentication
+  auth:
+    type: api_key
+    key: "X-API-Key"
+    value: "{{ get('api_key', 'your-api-key-here') }}"
 
-    # API key authentication
-    auth:
-      type: api_key
-      key: "X-API-Key"
-      value: "{{ get('api_key', 'your-api-key-here') }}"
+  headers:
+    Content-Type: "application/json"
+    X-Custom-Header: "{{ get('custom_header', 'default-value') }}"
 
-    headers:
-      Content-Type: "application/json"
-      X-Custom-Header: "{{ get('custom_header', 'default-value') }}"
+  # Advanced options
+  followRedirects: true
+  timeoutDuration: 15s
 
-    # Advanced options
-    followRedirects: true
-    timeoutDuration: 15s
-
-    # Retry with exponential backoff
-    retry:
-      maxAttempts: 5
-      backoff: 500ms
-      maxBackoff: 10s
-      retryOn: [429, 500, 502, 503]
+  # Retry with exponential backoff
+  retry:
+    maxAttempts: 5
+    backoff: 500ms
+    maxBackoff: 10s
+    retryOn: [429, 500, 502, 503]

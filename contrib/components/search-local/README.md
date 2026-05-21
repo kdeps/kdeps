@@ -39,45 +39,42 @@ Accessed via `output('<your-action-id>')`:
 Find all Markdown files in a directory:
 
 ```yaml
-run:
-  component:
-    name: search-local
-    with:
-      path: /workspace/docs
-      glob: "**/*.md"
-  apiResponse:
-    success: true
-    response:
-      files: "{{ output('findDocs').results }}"
-      total: "{{ output('findDocs').count }}"
+component:
+  name: search-local
+  with:
+    path: /workspace/docs
+    glob: "**/*.md"
+apiResponse:
+  success: true
+  response:
+    files: "{{ output('findDocs').results }}"
+    total: "{{ output('findDocs').count }}"
 ```
 
 Search file contents for a keyword:
 
 ```yaml
-run:
-  component:
-    name: search-local
-    with:
-      path: /workspace/src
-      query: "TODO"
-      limit: 20
-  apiResponse:
-    success: true
-    response:
-      todos: "{{ output('findTodos').results }}"
+component:
+  name: search-local
+  with:
+    path: /workspace/src
+    query: "TODO"
+    limit: 20
+apiResponse:
+  success: true
+  response:
+    todos: "{{ output('findTodos').results }}"
 ```
 
 List Python files only:
 
 ```yaml
-run:
-  component:
-    name: search-local
-    with:
-      path: "{{ input('projectDir') }}"
-      glob: "*.py"
-      limit: 50
+component:
+  name: search-local
+  with:
+    path: "{{ input('projectDir') }}"
+    glob: "*.py"
+    limit: 50
 ```
 
 ## Requirements

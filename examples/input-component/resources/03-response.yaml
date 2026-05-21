@@ -1,15 +1,10 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: response
-  name: Final Response
-  requires:
+actionId: response
+name: Final Response
+requires:
     - answer
 
-run:
-  apiResponse:
-    success: true
-    response:
-      inputs: "{{ output('collectInputs') }}"
-      answer: "{{ get('answer') }}"
+apiResponse:
+  success: true
+  response:
+    inputs: "{{ output('collectInputs') }}"
+    answer: "{{ get('answer') }}"

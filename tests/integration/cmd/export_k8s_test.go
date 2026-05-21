@@ -40,7 +40,6 @@ metadata:
   version: 1.2.3
   targetActionId: main
 settings:
-  apiServerMode: true
   portNum: 1234
   agentSettings:
     replicas: 2
@@ -65,7 +64,7 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
+  agentSettings: {}
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)
@@ -99,7 +98,7 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
+  agentSettings: {}
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowYAML), 0644)
 	assert.NoError(t, err)

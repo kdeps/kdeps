@@ -37,19 +37,14 @@ metadata:
   version: "1.0.0"
   targetActionId: respond
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: respond
-      name: Respond
-    run:
-      apiResponse:
-        success: true
-        response: "packed agent response"
+  - actionId: respond
+    name: Respond
+    apiResponse:
+      success: true
+      response: "packed agent response"
 `
 
 // createKdepsPackage creates a .kdeps (tar.gz) archive from a directory.

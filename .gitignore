@@ -250,3 +250,7 @@ output
 .codeql-db/
 codeql-results.sarif
 .codeql-local-models/
+
+# MCP integration test server binary (built by TestMain)
+tests/integration/mcp/testserver/testserver
+tests/integration/mcp/testserver/testserver.exe

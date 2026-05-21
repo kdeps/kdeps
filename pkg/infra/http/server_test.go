@@ -837,9 +837,9 @@ func TestServer_Start_MethodExists(t *testing.T) {
 	// This helps improve code coverage by ensuring the method is reached
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			PortNum:   0,
-			APIServer: &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{
+				HostIP: "127.0.0.1",
+			},
 		},
 	}
 
@@ -853,8 +853,7 @@ func TestServer_Start_MethodExists(t *testing.T) {
 	assert.NotNil(t, server.Router)
 
 	// Test that the server has the expected initial state
-	assert.Equal(t, "127.0.0.1", server.Workflow.Settings.HostIP)
-	assert.Equal(t, 0, server.Workflow.Settings.PortNum)
+	assert.Equal(t, "127.0.0.1", server.Workflow.Settings.APIServer.HostIP)
 }
 
 func TestRequestContext_Structure(t *testing.T) {

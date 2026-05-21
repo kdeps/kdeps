@@ -30,34 +30,30 @@ interface:
       default: /tmp/screenshot.png
       description: File path for screenshot action output
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Browser Action
-      actionId: browser-action
-    run:
-      python:
-        script: |
-          import json
-          from playwright.sync_api import sync_playwright
-          url = "{{ get('browser.url') }}"
-          action = "{{ get('browser.action', 'navigate') }}"
-          selector = "{{ get('browser.selector', '') }}"
-          screenshot_path = "{{ get('browser.screenshotPath', '/tmp/screenshot.png') }}"
-          result = ""
-          with sync_playwright() as p:
-              browser = p.chromium.launch(headless=True)
-              page = browser.new_page()
-              page.goto(url)
-              if action == "screenshot":
-                  page.screenshot(path=screenshot_path)
-                  result = screenshot_path
-              elif action == "getText":
-                  if selector:
-                      result = page.locator(selector).inner_text()
-                  else:
-                      result = page.content()
-              else:
-                  result = page.url
-              browser.close()
-          print(json.dumps({"result": result, "url": url, "action": action}))
+  - name: Browser Action
+    actionId: browser-action
+    python:
+      script: |
+        import json
+        from playwright.sync_api import sync_playwright
+        url = "{{ get('browser.url') }}"
+        action = "{{ get('browser.action', 'navigate') }}"
+        selector = "{{ get('browser.selector', '') }}"
+        screenshot_path = "{{ get('browser.screenshotPath', '/tmp/screenshot.png') }}"
+        result = ""
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url)
+            if action == "screenshot":
+                page.screenshot(path=screenshot_path)
+                result = screenshot_path
+            elif action == "getText":
+                if selector:
+                    result = page.locator(selector).inner_text()
+                else:
+                    result = page.content()
+            else:
+                result = page.url
+            browser.close()
+        print(json.dumps({"result": result, "url": url, "action": action}))

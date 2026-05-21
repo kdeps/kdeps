@@ -38,110 +38,51 @@ func TestSchemaValidator_AllResourceTypes_RequiredFields(t *testing.T) {
 		expectedField string
 	}{
 		{
-			name: "missing apiVersion",
+			name: "missing actionId",
 			data: map[string]interface{}{
-				"kind": "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
-				},
-			},
-			expectedError: "apiVersion is required",
-			expectedField: "apiVersion",
-		},
-		{
-			name: "missing kind",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
-				},
-			},
-			expectedError: "kind is required",
-			expectedField: "kind",
-		},
-		{
-			name: "missing metadata",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
-				},
-			},
-			expectedError: "metadata is required",
-			expectedField: "metadata",
-		},
-		{
-			name: "missing metadata.actionId",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"name": "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"name": "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedError: "actionId is required",
 			expectedField: "actionId",
 		},
 		{
-			name: "missing metadata.name",
+			name: "missing name",
 			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"actionId": "test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedError: "name is required",
 			expectedField: "name",
 		},
 		{
-			name: "missing run block",
+			name: "missing run block (now valid — run no longer required)",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
+				"actionId":   "test",
+				"name":       "Test",
 			},
-			expectedError: "run is required",
-			expectedField: "run",
+			expectedError: "",
+			expectedField: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
 			if validateErr == nil {
 				t.Fatal("Expected validation error but got nil")
 			}
@@ -176,15 +117,11 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": 123,
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedField: "apiVersion",
@@ -199,33 +136,27 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 					"actionId": "test",
 					"name":     "Test",
 				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedField: "kind",
 			expectedType:  "string",
 		},
 		{
-			name: "metadata.actionId wrong type - integer",
+			name: "actionId wrong type - integer",
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": 123,
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"actionId":   123,
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
-			expectedField: "metadata.actionId",
+			expectedField: "actionId",
 			expectedType:  "string",
 		},
 		{
@@ -233,17 +164,13 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"prompt": 123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"prompt": 123,
 				},
 			},
-			expectedField: "run.chat.prompt",
+			expectedField: "chat.prompt",
 			expectedType:  "string",
 		},
 		{
@@ -251,18 +178,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": 123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": 123,
 				},
 			},
-			expectedField: "run.chat.prompt",
+			expectedField: "chat.prompt",
 			expectedType:  "string",
 		},
 		{
@@ -270,19 +193,15 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":        "llama3.2",
-						"prompt":       "test",
-						"jsonResponse": "true",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":        "llama3.2",
+					"prompt":       "test",
+					"jsonResponse": "true",
 				},
 			},
-			expectedField: "run.chat.jsonResponse",
+			expectedField: "chat.jsonResponse",
 			expectedType:  "boolean",
 		},
 		{
@@ -290,18 +209,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
-						"method": "GET",
-						"url":    123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"httpClient": map[string]interface{}{
+					"method": "GET",
+					"url":    123,
 				},
 			},
-			expectedField: "run.httpClient.url",
+			expectedField: "httpClient.url",
 			expectedType:  "string",
 		},
 		{
@@ -309,18 +224,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
-						"connection": 123,
-						"query":      "SELECT * FROM users",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": 123,
+					"query":      "SELECT * FROM users",
 				},
 			},
-			expectedField: "run.sql.connection",
+			expectedField: "sql.connection",
 			expectedType:  "string",
 		},
 		{
@@ -328,18 +239,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
-						"connection": "postgresql://localhost:5432/db",
-						"query":      123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      123,
 				},
 			},
-			expectedField: "run.sql.query",
+			expectedField: "sql.query",
 			expectedType:  "string",
 		},
 		{
@@ -347,19 +254,15 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
-						"connection": "postgresql://localhost:5432/db",
-						"query":      "SELECT * FROM users",
-						"maxRows":    "100",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      "SELECT * FROM users",
+					"maxRows":    "100",
 				},
 			},
-			expectedField: "run.sql.maxRows",
+			expectedField: "sql.maxRows",
 			expectedType:  "integer",
 		},
 		{
@@ -367,17 +270,13 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"python": map[string]interface{}{
-						"script": 123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"script": 123,
 				},
 			},
-			expectedField: "run.python.script",
+			expectedField: "python.script",
 			expectedType:  "string",
 		},
 		{
@@ -385,17 +284,13 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"python": map[string]interface{}{
-						"file": 123,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"file": 123,
 				},
 			},
-			expectedField: "run.python.file",
+			expectedField: "python.file",
 			expectedType:  "string",
 		},
 		{
@@ -403,18 +298,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
-						"success":  "true",
-						"response": map[string]interface{}{},
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"apiResponse": map[string]interface{}{
+					"success":  "true",
+					"response": map[string]interface{}{},
 				},
 			},
-			expectedField: "run.apiResponse.success",
+			expectedField: "apiResponse.success",
 			expectedType:  "boolean",
 		},
 		// Note: apiResponse.response now accepts any type (string, array, object, etc.)
@@ -424,18 +315,14 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"prompt": "test",
-						"role":   8080,
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"prompt": "test",
+					"role":   8080,
 				},
 			},
-			expectedField: "run.chat.role",
+			expectedField: "chat.role",
 			expectedType:  "string",
 		},
 	}
@@ -443,6 +330,12 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
 			if validateErr == nil {
 				t.Fatal("Expected validation error but got nil")
 			}
@@ -484,18 +377,14 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{"INVALID"},
 				},
-				"run": map[string]interface{}{
-					"validations": map[string]interface{}{
-						"methods": []interface{}{"INVALID"},
-					},
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedField:  "methods",
@@ -506,18 +395,14 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{123},
 				},
-				"run": map[string]interface{}{
-					"validations": map[string]interface{}{
-						"methods": []interface{}{123},
-					},
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 			expectedField:  "methods",
@@ -528,6 +413,12 @@ func TestSchemaValidator_ValidationsMethodsEnum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			validateErr := validator.ValidateResource(tt.data)
+			if tt.expectedField == "" {
+				if validateErr != nil {
+					t.Errorf("Expected no error, got: %v", validateErr)
+				}
+				return
+			}
 			if validateErr == nil {
 				t.Fatal("Expected validation error but got nil")
 			}
@@ -568,15 +459,11 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 		},
@@ -585,15 +472,11 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"httpClient": map[string]interface{}{
-						"method": "GET",
-						"url":    "https://api.example.com",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"httpClient": map[string]interface{}{
+					"method": "GET",
+					"url":    "https://api.example.com",
 				},
 			},
 		},
@@ -602,15 +485,11 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"sql": map[string]interface{}{
-						"connection": "postgresql://localhost:5432/db",
-						"query":      "SELECT * FROM users",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"sql": map[string]interface{}{
+					"connection": "postgresql://localhost:5432/db",
+					"query":      "SELECT * FROM users",
 				},
 			},
 		},
@@ -619,14 +498,10 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"python": map[string]interface{}{
-						"script": "print('hello')",
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"python": map[string]interface{}{
+					"script": "print('hello')",
 				},
 			},
 		},
@@ -635,15 +510,11 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
-						"success":  true,
-						"response": map[string]interface{}{},
-					},
+				"actionId":   "test",
+				"name":       "Test",
+				"apiResponse": map[string]interface{}{
+					"success":  true,
+					"response": map[string]interface{}{},
 				},
 			},
 		},
@@ -652,18 +523,14 @@ func TestSchemaValidator_AllResourceTypes_ValidConfigs(t *testing.T) {
 			data: map[string]interface{}{
 				"apiVersion": "kdeps.io/v1",
 				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
+				"actionId":   "test",
+				"name":       "Test",
+				"validations": map[string]interface{}{
+					"methods": []interface{}{"GET", "POST"},
 				},
-				"run": map[string]interface{}{
-					"validations": map[string]interface{}{
-						"methods": []interface{}{"GET", "POST"},
-					},
-					"chat": map[string]interface{}{
-						"model":  "llama3.2",
-						"prompt": "test",
-					},
+				"chat": map[string]interface{}{
+					"model":  "llama3.2",
+					"prompt": "test",
 				},
 			},
 		},

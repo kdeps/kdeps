@@ -26,7 +26,6 @@ metadata:
   targetActionId: brain-response
 
 settings:
-  apiServerMode: false
 
   agentSettings:
     timezone: "UTC"
@@ -40,50 +39,42 @@ settings:
 resources:
 
   # ── Memory: initialise SQLite storage ───────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: init-db
-      name: Init Memory DB
-    run:
-      python:
-        script: |
-          import sqlite3, os
-          os.makedirs("/tmp/pa-memory", exist_ok=True)
-          conn = sqlite3.connect("/tmp/pa-memory/conversations.db")
-          conn.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-              id          INTEGER PRIMARY KEY AUTOINCREMENT,
-              session_id  TEXT    NOT NULL,
-              role        TEXT    NOT NULL,
-              content     TEXT    NOT NULL,
-              created_at  TEXT    DEFAULT (datetime('now'))
-            )
-          """)
-          conn.commit()
-          conn.close()
-          print("ready")
+  - actionId: init-db
+    name: Init Memory DB
+    python:
+      script: |
+        import sqlite3, os
+        os.makedirs("/tmp/pa-memory", exist_ok=True)
+        conn = sqlite3.connect("/tmp/pa-memory/conversations.db")
+        conn.execute("""
+          CREATE TABLE IF NOT EXISTS conversations (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id  TEXT    NOT NULL,
+            role        TEXT    NOT NULL,
+            content     TEXT    NOT NULL,
+            created_at  TEXT    DEFAULT (datetime('now'))
+          )
+        """)
+        conn.commit()
+        conn.close()
+        print("ready")
 
   # ── Memory: recall recent conversation turns ─────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: recall
-      name: Recall Memory
-      requires: [init-db]
-    run:
-      sql:
-        connectionName: memory
-        query: |
-          SELECT role, content
-          FROM   conversations
-          WHERE  session_id = $1
-          ORDER  BY id DESC
-          LIMIT  20
-        params:
-          - "get('session_id', 'default')"
-        format: json
-        timeoutDuration: 10s
+  - actionId: recall
+    name: Recall Memory
+    requires: [init-db]
+    sql:
+      connectionName: memory
+      query: |
+        SELECT role, content
+        FROM   conversations
+        WHERE  session_id = $1
+        ORDER  BY id DESC
+        LIMIT  20
+      params:
+        - "get('session_id', 'default')"
+      format: json
+      timeoutDuration: 10s
 
   # ────────────────────────────────────────────────────────────────────────────
   # TOOLS  (invoked by the LLM during ReAct reasoning — not in normal DAG flow)
@@ -91,436 +82,376 @@ resources:
 
   # ── Tool 1: web search ───────────────────────────────────────────────────────
   # DuckDuckGo instant-answer API — lightweight, no API key required.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: web-search-tool
-      name: Web Search Tool
-    run:
-      httpClient:
-        method: GET
-        url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
-        timeoutDuration: 10s
-        headers:
-          Accept: "application/json"
-          User-Agent: "personal-assistant/1.0"
+  - actionId: web-search-tool
+    name: Web Search Tool
+    httpClient:
+      method: GET
+      url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
+      timeoutDuration: 10s
+      headers:
+        Accept: "application/json"
+        User-Agent: "personal-assistant/1.0"
 
   # ── Tool 2: web scrape ───────────────────────────────────────────────────────
   # Fetches and parses the full text content of a URL.
   # Use this when web_search returns a link worth reading in full.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: web-scrape-tool
-      name: Web Scrape Tool
-    run:
-      component:
-        name: scraper
-        with:
-          url: "{{ get('url') }}"
-          timeout: 30
+  - actionId: web-scrape-tool
+    name: Web Scrape Tool
+    component:
+      name: scraper
+      with:
+        url: "{{ get('url') }}"
+        timeout: 30
 
   # ── Tool 3: send email ───────────────────────────────────────────────────────
   # Configure via SMTP_HOST / SMTP_USER / SMTP_PASS environment variables.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: send-email-tool
-      name: Send Email Tool
-    run:
-      component:
-        name: email
-        with:
-          to: "{{ get('to') }}"
-          subject: "{{ get('subject', 'Message from your AI assistant') }}"
-          body: "{{ get('body') }}"
-          smtpHost: "{{ env('SMTP_HOST', 'smtp.gmail.com') }}"
-          smtpPort: 587
-          smtpUser: "{{ env('SMTP_USER') }}"
-          smtpPass: "{{ env('SMTP_PASS') }}"
+  - actionId: send-email-tool
+    name: Send Email Tool
+    component:
+      name: email
+      with:
+        to: "{{ get('to') }}"
+        subject: "{{ get('subject', 'Message from your AI assistant') }}"
+        body: "{{ get('body') }}"
+        smtpHost: "{{ env('SMTP_HOST', 'smtp.gmail.com') }}"
+        smtpPort: 587
+        smtpUser: "{{ env('SMTP_USER') }}"
+        smtpPass: "{{ env('SMTP_PASS') }}"
 
   # ── Tool 4: read email ───────────────────────────────────────────────────────
   # Reads recent messages from the configured IMAP inbox via Python imaplib.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: read-email-tool
-      name: Read Email Tool
-    run:
-      python:
-        script: |
-          import imaplib, email, json, os
-          host = os.environ.get("IMAP_HOST", "imap.gmail.com")
-          user = os.environ.get("SMTP_USER", "")
-          pwd  = os.environ.get("SMTP_PASS", "")
-          mailbox = get("mailbox", "INBOX")
-          try:
-              conn = imaplib.IMAP4_SSL(host)
-              conn.login(user, pwd)
-              conn.select(mailbox)
-              _, data = conn.search(None, "ALL")
-              ids = data[0].split()[-10:]
-              msgs = []
-              for mid in reversed(ids):
-                  _, mdata = conn.fetch(mid, "(RFC822)")
-                  msg = email.message_from_bytes(mdata[0][1])
-                  msgs.append({"from": msg["From"], "subject": msg["Subject"], "date": msg["Date"]})
-              conn.logout()
-              print(json.dumps(msgs))
-          except Exception as ex:
-              print(json.dumps({"error": str(ex)}))
+  - actionId: read-email-tool
+    name: Read Email Tool
+    python:
+      script: |
+        import imaplib, email, json, os
+        host = os.environ.get("IMAP_HOST", "imap.gmail.com")
+        user = os.environ.get("SMTP_USER", "")
+        pwd  = os.environ.get("SMTP_PASS", "")
+        mailbox = get("mailbox", "INBOX")
+        try:
+            conn = imaplib.IMAP4_SSL(host)
+            conn.login(user, pwd)
+            conn.select(mailbox)
+            _, data = conn.search(None, "ALL")
+            ids = data[0].split()[-10:]
+            msgs = []
+            for mid in reversed(ids):
+                _, mdata = conn.fetch(mid, "(RFC822)")
+                msg = email.message_from_bytes(mdata[0][1])
+                msgs.append({"from": msg["From"], "subject": msg["Subject"], "date": msg["Date"]})
+            conn.logout()
+            print(json.dumps(msgs))
+        except Exception as ex:
+            print(json.dumps({"error": str(ex)}))
 
   # ── Tool 5: run shell command ────────────────────────────────────────────────
   # Safe read-only system queries. Restrict in production via allow-list.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: run-command-tool
-      name: Run Command Tool
-    run:
-      exec:
-        command: sh
-        args:
-          - "-c"
-          - "{{ get('command') }}"
-        timeoutDuration: 15s
+  - actionId: run-command-tool
+    name: Run Command Tool
+    exec:
+      command: sh
+      args:
+        - "-c"
+        - "{{ get('command') }}"
+      timeoutDuration: 15s
 
   # ── Tool 6: calculator ───────────────────────────────────────────────────────
   # Evaluates a mathematical expression safely (no arbitrary code execution).
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calculator-tool
-      name: Calculator Tool
-    run:
-      python:
-        script: |
-          import math, json
-          expr = "{{ get('expression', '') }}"
-          allowed = {
-              "__builtins__": {},
-              "abs": abs, "round": round, "min": min, "max": max,
-              "sum": sum, "pow": pow, "int": int, "float": float,
-              "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
-              "tan": math.tan, "log": math.log, "log10": math.log10,
-              "exp": math.exp, "ceil": math.ceil, "floor": math.floor,
-              "pi": math.pi, "e": math.e,
-          }
-          try:
-              result = eval(expr, allowed, {})
-              print(json.dumps({"result": result, "expression": expr}))
-          except Exception as ex:
-              print(json.dumps({"error": str(ex), "expression": expr}))
+  - actionId: calculator-tool
+    name: Calculator Tool
+    python:
+      script: |
+        import math, json
+        expr = "{{ get('expression', '') }}"
+        allowed = {
+            "__builtins__": {},
+            "abs": abs, "round": round, "min": min, "max": max,
+            "sum": sum, "pow": pow, "int": int, "float": float,
+            "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+            "tan": math.tan, "log": math.log, "log10": math.log10,
+            "exp": math.exp, "ceil": math.ceil, "floor": math.floor,
+            "pi": math.pi, "e": math.e,
+        }
+        try:
+            result = eval(expr, allowed, {})
+            print(json.dumps({"result": result, "expression": expr}))
+        except Exception as ex:
+            print(json.dumps({"error": str(ex), "expression": expr}))
 
   # ── Tool 7: calendar list ────────────────────────────────────────────────────
   # Lists upcoming events from /tmp/pa-memory/calendar.ics via Python icalendar.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calendar-list-tool
-      name: Calendar List Tool
-    run:
-      python:
-        script: |
-          import json, os
-          path = "/tmp/pa-memory/calendar.ics"
-          if not os.path.exists(path):
-              print(json.dumps([]))
-          else:
-              try:
-                  from icalendar import Calendar
-                  with open(path, "rb") as f:
-                      cal = Calendar.from_ical(f.read())
-                  events = []
-                  for component in cal.walk():
-                      if component.name == "VEVENT":
-                          events.append({
-                              "summary": str(component.get("SUMMARY", "")),
-                              "start": str(component.get("DTSTART").dt),
-                              "end": str(component.get("DTEND").dt),
-                              "description": str(component.get("DESCRIPTION", "")),
-                          })
-                  print(json.dumps(events))
-              except Exception as ex:
-                  print(json.dumps({"error": str(ex)}))
+  - actionId: calendar-list-tool
+    name: Calendar List Tool
+    python:
+      script: |
+        import json, os
+        path = "/tmp/pa-memory/calendar.ics"
+        if not os.path.exists(path):
+            print(json.dumps([]))
+        else:
+            try:
+                from icalendar import Calendar
+                with open(path, "rb") as f:
+                    cal = Calendar.from_ical(f.read())
+                events = []
+                for component in cal.walk():
+                    if component.name == "VEVENT":
+                        events.append({
+                            "summary": str(component.get("SUMMARY", "")),
+                            "start": str(component.get("DTSTART").dt),
+                            "end": str(component.get("DTEND").dt),
+                            "description": str(component.get("DESCRIPTION", "")),
+                        })
+                print(json.dumps(events))
+            except Exception as ex:
+                print(json.dumps({"error": str(ex)}))
 
   # ── Tool 8: calendar add ─────────────────────────────────────────────────────
   # Adds a new event to /tmp/pa-memory/calendar.ics.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: calendar-add-tool
-      name: Calendar Add Tool
-    run:
-      component:
-        name: calendar
-        with:
-          title: "{{ get('summary') }}"
-          start: "{{ get('start') }}"
-          end: "{{ get('end', '') }}"
-          description: "{{ get('description', '') }}"
-          outputFile: "/tmp/pa-memory/calendar.ics"
+  - actionId: calendar-add-tool
+    name: Calendar Add Tool
+    component:
+      name: calendar
+      with:
+        title: "{{ get('summary') }}"
+        start: "{{ get('start') }}"
+        end: "{{ get('end', '') }}"
+        description: "{{ get('description', '') }}"
+        outputFile: "/tmp/pa-memory/calendar.ics"
 
   # ── Tool 9: take note ────────────────────────────────────────────────────────
   # Appends a timestamped note to /tmp/pa-memory/notes.md.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: take-note-tool
-      name: Take Note Tool
-    run:
-      python:
-        script: |
-          import os, datetime
-          os.makedirs("/tmp/pa-memory", exist_ok=True)
-          note = "{{ get('note', '') }}"
-          ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-          with open("/tmp/pa-memory/notes.md", "a") as f:
-              f.write(f"\n## {ts}\n{note}\n")
-          print("Note saved.")
+  - actionId: take-note-tool
+    name: Take Note Tool
+    python:
+      script: |
+        import os, datetime
+        os.makedirs("/tmp/pa-memory", exist_ok=True)
+        note = "{{ get('note', '') }}"
+        ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        with open("/tmp/pa-memory/notes.md", "a") as f:
+            f.write(f"\n## {ts}\n{note}\n")
+        print("Note saved.")
 
   # ── Tool 10: read notes ──────────────────────────────────────────────────────
   # Returns all saved notes from /tmp/pa-memory/notes.md.
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: read-notes-tool
-      name: Read Notes Tool
-    run:
-      exec:
-        command: sh
-        args:
-          - "-c"
-          - |
-            FILE="/tmp/pa-memory/notes.md"
-            if [ -f "$FILE" ]; then cat "$FILE"; else echo "No notes yet."; fi
+  - actionId: read-notes-tool
+    name: Read Notes Tool
+    exec:
+      command: sh
+      args:
+        - "-c"
+        - |
+          FILE="/tmp/pa-memory/notes.md"
+          if [ -f "$FILE" ]; then cat "$FILE"; else echo "No notes yet."; fi
 
   # ────────────────────────────────────────────────────────────────────────────
 
   # ── Brain: LLM reasoning with ReAct tool-calling ────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: think
-      name: Think — ReAct Reasoning
-      requires: [recall]
-    run:
-      chat:
-        model: llama3.2:1b
-        role: user
-        prompt: "{{ get('message') }}"
-        scenario:
-          - role: assistant
-            prompt: |
-              You are a capable personal AI assistant with persistent memory and
-              access to ten tools. Choose the right tool for each request.
+  - actionId: think
+    name: Think — ReAct Reasoning
+    requires: [recall]
+    chat:
+      model: llama3.2:1b
+      role: user
+      prompt: "{{ get('message') }}"
+      scenario:
+        - role: assistant
+          prompt: |
+            You are a capable personal AI assistant with persistent memory and
+            access to ten tools. Choose the right tool for each request.
 
-              Conversation history (oldest first):
-              {{ get('recall') }}
-        tools:
-          - name: web_search
-            description: >-
-              Search the web for up-to-date information. Use for news, facts,
-              weather, prices, or anything that may have changed recently.
-              Returns an instant-answer summary.
-            script: web-search-tool
-            parameters:
-              query:
-                type: string
-                description: "The search query."
-                required: true
+            Conversation history (oldest first):
+            {{ get('recall') }}
+      tools:
+        - name: web_search
+          description: >-
+            Search the web for up-to-date information. Use for news, facts,
+            weather, prices, or anything that may have changed recently.
+            Returns an instant-answer summary.
+          script: web-search-tool
+          parameters:
+            query:
+              type: string
+              description: "The search query."
+              required: true
 
-          - name: web_scrape
-            description: >-
-              Fetch and read the full text content of a web page URL.
-              Use after web_search when you need the full article or page.
-            script: web-scrape-tool
-            parameters:
-              url:
-                type: string
-                description: "Full URL of the page to scrape (including https://)."
-                required: true
+        - name: web_scrape
+          description: >-
+            Fetch and read the full text content of a web page URL.
+            Use after web_search when you need the full article or page.
+          script: web-scrape-tool
+          parameters:
+            url:
+              type: string
+              description: "Full URL of the page to scrape (including https://)."
+              required: true
 
-          - name: send_email
-            description: >-
-              Send an email on the user's behalf.
-              Only use when the user explicitly asks to email someone.
-            script: send-email-tool
-            parameters:
-              to:
-                type: string
-                description: "Recipient email address."
-                required: true
-              subject:
-                type: string
-                description: "Email subject line."
-                required: true
-              body:
-                type: string
-                description: "Plain-text email body."
-                required: true
+        - name: send_email
+          description: >-
+            Send an email on the user's behalf.
+            Only use when the user explicitly asks to email someone.
+          script: send-email-tool
+          parameters:
+            to:
+              type: string
+              description: "Recipient email address."
+              required: true
+            subject:
+              type: string
+              description: "Email subject line."
+              required: true
+            body:
+              type: string
+              description: "Plain-text email body."
+              required: true
 
-          - name: read_email
-            description: >-
-              Read recent emails from the user's inbox.
-              Use when the user asks to check, summarise, or search their email.
-            script: read-email-tool
-            parameters:
-              mailbox:
-                type: string
-                description: "Mailbox to read (default: INBOX)."
-                required: false
+        - name: read_email
+          description: >-
+            Read recent emails from the user's inbox.
+            Use when the user asks to check, summarise, or search their email.
+          script: read-email-tool
+          parameters:
+            mailbox:
+              type: string
+              description: "Mailbox to read (default: INBOX)."
+              required: false
 
-          - name: run_command
-            description: >-
-              Run a safe read-only shell command and return output.
-              Good for: date, uptime, df -h, ls, hostname, uname -a.
-              Never use for writes, deletes, or network changes.
-            script: run-command-tool
-            parameters:
-              command:
-                type: string
-                description: "The shell command to execute."
-                required: true
+        - name: run_command
+          description: >-
+            Run a safe read-only shell command and return output.
+            Good for: date, uptime, df -h, ls, hostname, uname -a.
+            Never use for writes, deletes, or network changes.
+          script: run-command-tool
+          parameters:
+            command:
+              type: string
+              description: "The shell command to execute."
+              required: true
 
-          - name: calculate
-            description: >-
-              Evaluate a mathematical expression and return the numeric result.
-              Supports: +, -, *, /, **, sqrt, sin, cos, log, pi, e, etc.
-            script: calculator-tool
-            parameters:
-              expression:
-                type: string
-                description: "Math expression to evaluate, e.g. 'sqrt(144) + 2*pi'."
-                required: true
+        - name: calculate
+          description: >-
+            Evaluate a mathematical expression and return the numeric result.
+            Supports: +, -, *, /, **, sqrt, sin, cos, log, pi, e, etc.
+          script: calculator-tool
+          parameters:
+            expression:
+              type: string
+              description: "Math expression to evaluate, e.g. 'sqrt(144) + 2*pi'."
+              required: true
 
-          - name: calendar_list
-            description: >-
-              List upcoming calendar events. Optionally filter by date range
-              or keyword. Use when the user asks what's on their schedule.
-            script: calendar-list-tool
-            parameters:
-              since:
-                type: string
-                description: "Start date filter (YYYY-MM-DD). Leave empty for today."
-                required: false
-              before:
-                type: string
-                description: "End date filter (YYYY-MM-DD)."
-                required: false
-              search:
-                type: string
-                description: "Keyword to search in event titles/descriptions."
-                required: false
+        - name: calendar_list
+          description: >-
+            List upcoming calendar events. Optionally filter by date range
+            or keyword. Use when the user asks what's on their schedule.
+          script: calendar-list-tool
+          parameters:
+            since:
+              type: string
+              description: "Start date filter (YYYY-MM-DD). Leave empty for today."
+              required: false
+            before:
+              type: string
+              description: "End date filter (YYYY-MM-DD)."
+              required: false
+            search:
+              type: string
+              description: "Keyword to search in event titles/descriptions."
+              required: false
 
-          - name: calendar_add
-            description: >-
-              Add a new event to the user's calendar.
-              Use when the user asks to schedule, book, or add an appointment.
-            script: calendar-add-tool
-            parameters:
-              summary:
-                type: string
-                description: "Event title."
-                required: true
-              start:
-                type: string
-                description: "Start date/time in RFC3339 or YYYY-MM-DD format."
-                required: true
-              end:
-                type: string
-                description: "End date/time. Leave empty for a 1-hour default."
-                required: false
-              description:
-                type: string
-                description: "Optional event description or notes."
-                required: false
-              location:
-                type: string
-                description: "Optional event location."
-                required: false
+        - name: calendar_add
+          description: >-
+            Add a new event to the user's calendar.
+            Use when the user asks to schedule, book, or add an appointment.
+          script: calendar-add-tool
+          parameters:
+            summary:
+              type: string
+              description: "Event title."
+              required: true
+            start:
+              type: string
+              description: "Start date/time in RFC3339 or YYYY-MM-DD format."
+              required: true
+            end:
+              type: string
+              description: "End date/time. Leave empty for a 1-hour default."
+              required: false
+            description:
+              type: string
+              description: "Optional event description or notes."
+              required: false
+            location:
+              type: string
+              description: "Optional event location."
+              required: false
 
-          - name: take_note
-            description: >-
-              Save a note with a timestamp to the user's personal notes file.
-              Use when the user asks to remember, jot down, or note something.
-            script: take-note-tool
-            parameters:
-              note:
-                type: string
-                description: "The text to save as a note."
-                required: true
+        - name: take_note
+          description: >-
+            Save a note with a timestamp to the user's personal notes file.
+            Use when the user asks to remember, jot down, or note something.
+          script: take-note-tool
+          parameters:
+            note:
+              type: string
+              description: "The text to save as a note."
+              required: true
 
-          - name: read_notes
-            description: >-
-              Read all saved notes from the user's notes file.
-              Use when the user asks to see, recall, or list their notes.
-            script: read-notes-tool
-            parameters: {}
+        - name: read_notes
+          description: >-
+            Read all saved notes from the user's notes file.
+            Use when the user asks to see, recall, or list their notes.
+          script: read-notes-tool
+          parameters: {}
 
-        streaming: true
-        timeoutDuration: 120s
+      streaming: true
+      timeoutDuration: 120s
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: extract-reply
-      name: Extract Reply Text
-      requires: [think]
-    run:
-      expr:
-        - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
-      exec:
-        command: echo
-        args: ["{{ get('reply') }}"]
+  - actionId: extract-reply
+    name: Extract Reply Text
+    requires: [think]
+    after:
+      - "set('reply', safe(safe(get('think'), 'message'), 'content'))"
+    exec:
+      command: echo
+      args: ["{{ get('reply') }}"]
 
   # ── Memory: persist user turn ────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: save-user-turn
-      name: Save User Turn
-      requires: [extract-reply]
-    run:
-      sql:
-        connectionName: memory
-        query: |
-          INSERT INTO conversations (session_id, role, content)
-          VALUES ($1, $2, $3)
-        params:
-          - "get('session_id', 'default')"
-          - "'user'"
-          - "get('message')"
-        timeoutDuration: 10s
+  - actionId: save-user-turn
+    name: Save User Turn
+    requires: [extract-reply]
+    sql:
+      connectionName: memory
+      query: |
+        INSERT INTO conversations (session_id, role, content)
+        VALUES ($1, $2, $3)
+      params:
+        - "get('session_id', 'default')"
+        - "'user'"
+        - "get('message')"
+      timeoutDuration: 10s
 
   # ── Memory: persist assistant reply ─────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: save-assistant-turn
-      name: Save Assistant Turn
-      requires: [save-user-turn]
-    run:
-      sql:
-        connectionName: memory
-        query: |
-          INSERT INTO conversations (session_id, role, content)
-          VALUES ($1, $2, $3)
-        params:
-          - "get('session_id', 'default')"
-          - "'assistant'"
-          - "get('reply')"
-        timeoutDuration: 10s
+  - actionId: save-assistant-turn
+    name: Save Assistant Turn
+    requires: [save-user-turn]
+    sql:
+      connectionName: memory
+      query: |
+        INSERT INTO conversations (session_id, role, content)
+        VALUES ($1, $2, $3)
+      params:
+        - "get('session_id', 'default')"
+        - "'assistant'"
+        - "get('reply')"
+      timeoutDuration: 10s
 
   # ── Response ──────────────────────────────────────────────────────────────────
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: brain-response
-      name: Brain Response
-      requires: [save-assistant-turn]
-    run:
-      apiResponse:
-        success: true
-        response: "{{ get('reply') }}"
+  - actionId: brain-response
+    name: Brain Response
+    requires: [save-assistant-turn]
+    apiResponse:
+      success: true
+      response: "{{ get('reply') }}"

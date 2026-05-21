@@ -31,12 +31,10 @@ Resources access the content via `input("fileContent")` and the path via `input(
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: doc-summarizer
-  description: Summarize a document piped via stdin
-  version: "1.0.0"
-  targetActionId: summarize
-
+name: doc-summarizer
+description: Summarize a document piped via stdin
+version: "1.0.0"
+targetActionId: summarize
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -62,20 +60,15 @@ Key points:
 
 ```yaml
 # resources/summarize.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
-  name: Summarize Document
+actionId: summarize
+name: Summarize Document
+chat:
+  prompt: |
+    You are a concise document summarizer.
+    Summarize the following document in 3–5 bullet points:
 
-run:
-  chat:
-    prompt: |
-      You are a concise document summarizer.
-      Summarize the following document in 3–5 bullet points:
-
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 The `input('fileContent')` expression injects the file's text content into the LLM prompt. You can also access `input('filePath')` if you need to reference the source path.
@@ -142,11 +135,10 @@ settings:
 If you need to reference the source file path (for example, to log it or pass it to another resource):
 
 ```yaml
-run:
-  exec:
-    command: echo
-    args:
-      - "Processing file: {{ input('filePath') }}"
+exec:
+  command: echo
+  args:
+    - "Processing file: {{ input('filePath') }}"
 ```
 
 ---
@@ -157,29 +149,25 @@ You can chain multiple resources. The file content flows through the pipeline vi
 
 ```yaml
 # resources/extract.yaml
-metadata:
-  actionId: extract
-run:
-  exec:
-    command: bash
-    args:
-      - "-c"
-      - "echo '{{ input('fileContent') | replace('\n', ' ') }}' | wc -w"
+actionId: extract
+exec:
+  command: bash
+  args:
+    - "-c"
+    - "echo '{{ input('fileContent') | replace('\n', ' ') }}' | wc -w"
 ```
 
 ```yaml
 # resources/summarize.yaml
-metadata:
-  actionId: summarize
-  dependencies: [extract]
-run:
-  chat:
-    prompt: |
-      Document word count: {{ get('extract') }}
+actionId: summarize
+dependencies: [extract]
+chat:
+  prompt: |
+    Document word count: {{ get('extract') }}
 
-      Summarize this document:
+    Summarize this document:
 
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 ---
@@ -192,11 +180,9 @@ run:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: doc-summarizer
-  version: "1.0.0"
-  targetActionId: summarize
-
+name: doc-summarizer
+version: "1.0.0"
+targetActionId: summarize
 settings:
   agentSettings:
     installOllama: true
@@ -209,18 +195,13 @@ settings:
 **resources/summarize.yaml:**
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
+actionId: summarize
+chat:
+  prompt: |
+    Summarize this document in 3 bullet points:
 
-run:
-  chat:
-    prompt: |
-      Summarize this document in 3 bullet points:
-
-      {{ input('fileContent') }}
+    {{ input('fileContent') }}
 ```
 
 **Run it:**

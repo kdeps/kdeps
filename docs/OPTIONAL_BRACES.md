@@ -152,47 +152,44 @@ summary: "Total: {{price * quantity}}"
 ### API Responses
 
 ```yaml
-run:
-  apiResponse:
-    # Without braces for direct values
-    user_email: user.email
-    user_name: user.name
-    user_age: user.age
-    is_adult: user.age >= 18
-    
-    # With braces for messages
-    message: "Welcome {{user.name}}!"
-    summary: "User {{user.name}} ({{user.email}})"
+apiResponse:
+  # Without braces for direct values
+  user_email: user.email
+  user_name: user.name
+  user_age: user.age
+  is_adult: user.age >= 18
+
+  # With braces for messages
+  message: "Welcome {{user.name}}!"
+  summary: "User {{user.name}} ({{user.email}})"
 ```
 
 ### Conditional Logic
 
 ```yaml
-run:
-  preflightCheck:
-    # Without braces for conditions
-    validations:
-      - get('q') != ''
-      - user.age >= 18
-      - status == 'active'
-    
-    # With braces for error messages
-    error:
-      message: "User {{user.name}} does not meet requirements"
+preflightCheck:
+  # Without braces for conditions
+  validations:
+    - get('q') != ''
+    - user.age >= 18
+    - status == 'active'
+
+  # With braces for error messages
+  error:
+    message: "User {{user.name}} does not meet requirements"
 ```
 
 ### Data Transformation
 
 ```yaml
-run:
-  transform:
-    # Without braces for calculations
-    total: price * quantity
-    discount: total * 0.1
-    final: total - discount
-    
-    # With braces for formatted output
-    display: "Total: ${{total}}, Discount: ${{discount}}"
+transform:
+  # Without braces for calculations
+  total: price * quantity
+  discount: total * 0.1
+  final: total - discount
+
+  # With braces for formatted output
+  display: "Total: ${{total}}, Discount: ${{discount}}"
 ```
 
 ## Technical Details

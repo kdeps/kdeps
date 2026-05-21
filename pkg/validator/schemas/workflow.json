@@ -1,19 +1,31 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["apiVersion", "kind", "metadata", "settings"],
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "settings"
+  ],
   "properties": {
     "apiVersion": {
       "type": "string",
-      "enum": ["kdeps.io/v1"]
+      "enum": [
+        "kdeps.io/v1"
+      ]
     },
     "kind": {
       "type": "string",
-      "enum": ["Workflow"]
+      "enum": [
+        "Workflow"
+      ]
     },
     "metadata": {
       "type": "object",
-      "required": ["name", "targetActionId"],
+      "required": [
+        "name",
+        "targetActionId"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -34,9 +46,6 @@
     "settings": {
       "type": "object",
       "properties": {
-        "apiServerMode": {
-          "type": "boolean"
-        },
         "apiServer": {
           "type": "object",
           "properties": {
@@ -52,7 +61,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["path"],
+                "required": [
+                  "path"
+                ],
                 "properties": {
                   "path": {
                     "type": "string",
@@ -62,7 +73,13 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "DELETE",
+                        "PATCH"
+                      ]
                     }
                   }
                 }
@@ -92,7 +109,9 @@
         },
         "input": {
           "type": "object",
-          "required": ["sources"],
+          "required": [
+            "sources"
+          ],
           "properties": {
             "sources": {
               "type": "array",
@@ -100,7 +119,16 @@
               "uniqueItems": true,
               "items": {
                 "type": "string",
-                "enum": ["api", "audio", "video", "telephony", "bot", "file", "component", "llm"]
+                "enum": [
+                  "api",
+                  "audio",
+                  "video",
+                  "telephony",
+                  "bot",
+                  "file",
+                  "component",
+                  "llm"
+                ]
               }
             },
             "audio": {
@@ -121,11 +149,16 @@
             },
             "telephony": {
               "type": "object",
-              "required": ["type"],
+              "required": [
+                "type"
+              ],
               "properties": {
                 "type": {
                   "type": "string",
-                  "enum": ["local", "online"]
+                  "enum": [
+                    "local",
+                    "online"
+                  ]
                 },
                 "device": {
                   "type": "string"
@@ -156,7 +189,10 @@
               "properties": {
                 "executionType": {
                   "type": "string",
-                  "enum": ["stdin", "apiServer"]
+                  "enum": [
+                    "stdin",
+                    "apiServer"
+                  ]
                 },
                 "prompt": {
                   "type": "string"
@@ -168,26 +204,42 @@
             },
             "transcriber": {
               "type": "object",
-              "required": ["mode"],
+              "required": [
+                "mode"
+              ],
               "properties": {
                 "mode": {
                   "type": "string",
-                  "enum": ["online", "offline"]
+                  "enum": [
+                    "online",
+                    "offline"
+                  ]
                 },
                 "output": {
                   "type": "string",
-                  "enum": ["text", "media"]
+                  "enum": [
+                    "text",
+                    "media"
+                  ]
                 },
                 "language": {
                   "type": "string"
                 },
                 "online": {
                   "type": "object",
-                  "required": ["provider"],
+                  "required": [
+                    "provider"
+                  ],
                   "properties": {
                     "provider": {
                       "type": "string",
-                      "enum": ["openai-whisper", "google-stt", "aws-transcribe", "deepgram", "assemblyai"]
+                      "enum": [
+                        "openai-whisper",
+                        "google-stt",
+                        "aws-transcribe",
+                        "deepgram",
+                        "assemblyai"
+                      ]
                     },
                     "apiKey": {
                       "type": "string"
@@ -202,11 +254,18 @@
                 },
                 "offline": {
                   "type": "object",
-                  "required": ["engine"],
+                  "required": [
+                    "engine"
+                  ],
                   "properties": {
                     "engine": {
                       "type": "string",
-                      "enum": ["whisper", "faster-whisper", "vosk", "whisper-cpp"]
+                      "enum": [
+                        "whisper",
+                        "faster-whisper",
+                        "vosk",
+                        "whisper-cpp"
+                      ]
                     },
                     "model": {
                       "type": "string"
@@ -217,14 +276,20 @@
             },
             "activation": {
               "type": "object",
-              "required": ["phrase", "mode"],
+              "required": [
+                "phrase",
+                "mode"
+              ],
               "properties": {
                 "phrase": {
                   "type": "string"
                 },
                 "mode": {
                   "type": "string",
-                  "enum": ["online", "offline"]
+                  "enum": [
+                    "online",
+                    "offline"
+                  ]
                 },
                 "sensitivity": {
                   "type": "number",
@@ -237,11 +302,19 @@
                 },
                 "online": {
                   "type": "object",
-                  "required": ["provider"],
+                  "required": [
+                    "provider"
+                  ],
                   "properties": {
                     "provider": {
                       "type": "string",
-                      "enum": ["openai-whisper", "google-stt", "aws-transcribe", "deepgram", "assemblyai"]
+                      "enum": [
+                        "openai-whisper",
+                        "google-stt",
+                        "aws-transcribe",
+                        "deepgram",
+                        "assemblyai"
+                      ]
                     },
                     "apiKey": {
                       "type": "string"
@@ -256,11 +329,18 @@
                 },
                 "offline": {
                   "type": "object",
-                  "required": ["engine"],
+                  "required": [
+                    "engine"
+                  ],
                   "properties": {
                     "engine": {
                       "type": "string",
-                      "enum": ["whisper", "faster-whisper", "vosk", "whisper-cpp"]
+                      "enum": [
+                        "whisper",
+                        "faster-whisper",
+                        "vosk",
+                        "whisper-cpp"
+                      ]
                     },
                     "model": {
                       "type": "string"
@@ -274,11 +354,17 @@
             {
               "if": {
                 "properties": {
-                  "sources": { "contains": { "const": "telephony" } }
+                  "sources": {
+                    "contains": {
+                      "const": "telephony"
+                    }
+                  }
                 }
               },
               "then": {
-                "required": ["telephony"]
+                "required": [
+                  "telephony"
+                ]
               }
             }
           ]
@@ -295,37 +381,38 @@
   "$defs": {
     "resource": {
       "type": "object",
-      "required": ["apiVersion", "kind", "metadata", "run"],
+      "required": [
+        "actionId",
+        "name"
+      ],
       "properties": {
         "apiVersion": {
           "type": "string",
-          "enum": ["kdeps.io/v1"]
+          "enum": [
+            "kdeps.io/v1"
+          ]
         },
         "kind": {
           "type": "string",
-          "enum": ["Resource"]
+          "enum": [
+            "Resource"
+          ]
         },
-        "metadata": {
-          "type": "object",
-          "required": ["actionId", "name"],
-          "properties": {
-            "actionId": {
-              "type": "string",
-              "minLength": 1
-            },
-            "name": {
-              "type": "string",
-              "minLength": 1
-            },
-            "description": {
-              "type": "string"
-            },
-            "requires": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
           }
         },
         "items": {
@@ -333,9 +420,6 @@
           "items": {
             "type": "string"
           }
-        },
-        "run": {
-          "type": "object"
         }
       }
     }

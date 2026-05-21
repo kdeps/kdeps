@@ -5,13 +5,12 @@ The `embedding` executor is a native capability compiled into the `kdeps` binary
 ## Configuration
 
 ```yaml
-run:
-  embedding:
-    operation: "index"                    # required: index | search | upsert | delete
-    text: "document content here"         # required for index/search/upsert (optional for delete-all)
-    collection: "default"                 # optional namespace (default: "default")
-    dbPath: "/data/kdeps-store.db"       # optional path (default: "kdeps-embedding.db")
-    limit: 10                             # optional max search results (default: 10)
+embedding:
+  operation: "index"                    # required: index | search | upsert | delete
+  text: "document content here"         # required for index/search/upsert (optional for delete-all)
+  collection: "default"                 # optional namespace (default: "default")
+  dbPath: "/data/kdeps-store.db"       # optional path (default: "kdeps-embedding.db")
+  limit: 10                             # optional max search results (default: 10)
 ```
 
 | Field | Type | Required | Default | Description |
@@ -51,46 +50,38 @@ run:
 
 ```yaml
 # Step 1: Scrape content
-metadata:
-  actionId: fetch
-run:
-  scraper:
-    url: "{{ get('url') }}"
+actionId: fetch
+scraper:
+  url: "{{ get('url') }}"
 
 # Step 2: Index it
-metadata:
-  actionId: storeDoc
-  requires: [fetch]
-run:
-  embedding:
-    operation: "index"
-    text: "{{ output('fetch').content }}"
-    collection: "knowledge"
-    dbPath: "/data/store.db"
+actionId: storeDoc
+requires: [fetch]
+embedding:
+  operation: "index"
+  text: "{{ output('fetch').content }}"
+  collection: "knowledge"
+  dbPath: "/data/store.db"
 
 # Step 3: Search on user query
-metadata:
-  actionId: findDocs
-run:
-  embedding:
-    operation: "search"
-    text: "{{ get('query') }}"
-    collection: "knowledge"
-    dbPath: "/data/store.db"
-    limit: 5
+actionId: findDocs
+embedding:
+  operation: "search"
+  text: "{{ get('query') }}"
+  collection: "knowledge"
+  dbPath: "/data/store.db"
+  limit: 5
 
 # Step 4: Answer with context
-metadata:
-  actionId: answer
-  requires: [findDocs]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      Context: {{ output('findDocs').results }}
-      Question: {{ get('query') }}
-  apiResponse:
-    response: "{{ output('answer') }}"
+actionId: answer
+requires: [findDocs]
+chat:
+  model: llama3.2:1b
+  prompt: |
+    Context: {{ output('findDocs').results }}
+    Question: {{ get('query') }}
+apiResponse:
+  response: "{{ output('answer') }}"
 ```
 
 </div>

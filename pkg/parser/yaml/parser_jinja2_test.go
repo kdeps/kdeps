@@ -42,12 +42,14 @@ metadata:
   targetActionId: response
 {# Jinja2 comment - will be stripped #}
 settings:
-  apiServerMode: true
+  agentSettings: {}
+  apiServer:
 {% if env.TEST_PORT == '9090' %}
-  portNum: 9090
+    portNum: 9090
 {% else %}
-  portNum: 8080
+    portNum: 8080
 {% endif %}
+    routes: []
 `
 
 	tmpDir := t.TempDir()
@@ -60,7 +62,8 @@ settings:
 	require.NotNil(t, wf)
 
 	assert.Equal(t, "jinja2-workflow", wf.Metadata.Name)
-	assert.Equal(t, 9090, wf.Settings.PortNum)
+	require.NotNil(t, wf.Settings.APIServer)
+	assert.Equal(t, 9090, wf.Settings.APIServer.PortNum)
 }
 
 // TestParseWorkflow_PlainYAMLParsed verifies that a standard workflow YAML file
@@ -73,7 +76,7 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `
 	tmpDir := t.TempDir()
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -94,16 +97,12 @@ settings:
 func TestParseResource_Jinja2Preprocessing(t *testing.T) {
 	t.Setenv("ENABLE_HTTP", "true")
 
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: fetchData
-  name: Fetch Data
-run:
+	resourceYAML := `actionId: fetchData
+name: Fetch Data
 {% if env.ENABLE_HTTP == 'true' %}
-  httpClient:
-    method: GET
-    url: "{{ get('url') }}"
+httpClient:
+  method: GET
+  url: "{{ get('url') }}"
 {% endif %}
 `
 	tmpDir := t.TempDir()
@@ -115,25 +114,21 @@ run:
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	assert.Equal(t, "fetchData", res.Metadata.ActionID)
+	assert.Equal(t, "fetchData", res.ActionID)
 	// The runtime expression is auto-protected by PreprocessYAML and preserved as-is.
-	require.NotNil(t, res.Run.HTTPClient)
-	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
+	require.NotNil(t, res.HTTPClient)
+	assert.Equal(t, "{{ get('url') }}", res.HTTPClient.URL)
 }
 
 // TestParseResource_RuntimeExpressionsPreserved ensures that {{ }} runtime
 // API expressions in a resource YAML file are preserved verbatim through Jinja2
 // preprocessing (auto-protected) and available for runtime evaluation.
 func TestParseResource_RuntimeExpressionsPreserved(t *testing.T) {
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: response
-  name: API Response
-run:
-  httpClient:
-    method: GET
-    url: "{{ get('url') }}"
+	resourceYAML := `actionId: response
+name: API Response
+httpClient:
+  method: GET
+  url: "{{ get('url') }}"
 `
 	tmpDir := t.TempDir()
 	resourcePath := filepath.Join(tmpDir, "resource.yaml")
@@ -145,8 +140,8 @@ run:
 	require.NotNil(t, res)
 
 	// The runtime expression is auto-protected and preserved verbatim after Jinja2 preprocessing.
-	require.NotNil(t, res.Run.HTTPClient)
-	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
+	require.NotNil(t, res.HTTPClient)
+	assert.Equal(t, "{{ get('url') }}", res.HTTPClient.URL)
 }
 
 // TestParseResource_MixedJinja2AndRuntimeExpressions verifies that a resource YAML
@@ -155,18 +150,14 @@ run:
 func TestParseResource_MixedJinja2AndRuntimeExpressions(t *testing.T) {
 	t.Setenv("ENABLE_CALL", "yes")
 
-	resourceYAML := `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: callAPI
-  name: Call API
-run:
+	resourceYAML := `actionId: callAPI
+name: Call API
 {% if env.ENABLE_CALL == 'yes' %}
-  httpClient:
-    method: GET
-    url: "{{ get('url') }}"
-    headers:
-      X-Request-ID: "{{ info('request_id') }}"
+httpClient:
+  method: GET
+  url: "{{ get('url') }}"
+  headers:
+    X-Request-ID: "{{ info('request_id') }}"
 {% endif %}
 `
 	tmpDir := t.TempDir()
@@ -178,8 +169,8 @@ run:
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	require.NotNil(t, res.Run.HTTPClient)
+	require.NotNil(t, res.HTTPClient)
 	// Both kdeps runtime expressions are auto-protected and preserved verbatim.
-	assert.Equal(t, "{{ get('url') }}", res.Run.HTTPClient.URL)
-	assert.Equal(t, "{{ info('request_id') }}", res.Run.HTTPClient.Headers["X-Request-ID"])
+	assert.Equal(t, "{{ get('url') }}", res.HTTPClient.URL)
+	assert.Equal(t, "{{ info('request_id') }}", res.HTTPClient.Headers["X-Request-ID"])
 }

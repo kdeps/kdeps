@@ -55,20 +55,33 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  name: main-resource
-  actionId: main
-run:
-  python:
-    script: print("test")
+name: main-resource
+actionId: main
+python:
+  script: print("test")
 `
 	resourcePath := filepath.Join(resourcesDir, "main.yaml")
 	err = os.WriteFile(resourcePath, []byte(resourceContent), 0644)
 	require.NoError(t, err)
 
 	err = cmd.RunValidateCmd(&cobra.Command{}, []string{workflowPath})
+	assert.NoError(t, err)
+}
+
+func TestRunValidateCmd_ResourceFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	resourceContent := `actionId: readConfig
+name: Read Config
+exec:
+  command: "echo hello"
+  timeoutDuration: 5s
+`
+	resourcePath := filepath.Join(tmpDir, "read-config.yaml")
+	err := os.WriteFile(resourcePath, []byte(resourceContent), 0644)
+	require.NoError(t, err)
+
+	err = cmd.RunValidateCmd(&cobra.Command{}, []string{resourcePath})
 	assert.NoError(t, err)
 }
 

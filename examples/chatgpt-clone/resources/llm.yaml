@@ -1,42 +1,38 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmResource
-  name: LLM Chat Handler
-  description: Handles chat requests with the selected LLM model
+actionId: llmResource
+name: LLM Chat Handler
+description: Handles chat requests with the selected LLM model
 
-run:
-  # Only respond to POST requests on /api/v1/chat, and validate required input
-  validations:
-    methods:
-      - POST
-    routes:
-      - /api/v1/chat
-    required:
-      - message
-    rules:
-      - field: message
-        type: string
-        minLength: 1
-        message: "Message cannot be empty"
+# Only respond to POST requests on /api/v1/chat, and validate required input
+validations:
+  methods:
+    - POST
+  routes:
+    - /api/v1/chat
+  required:
+    - message
+  rules:
+    - field: message
+      type: string
+      minLength: 1
+      message: "Message cannot be empty"
 
-  # Set default model if not provided
-  expr:
-    - set('selectedModel', default(get('model'), 'llama3.2:1b'))
-    - set('userMessage', get('message'))
-    - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
+# Set default model if not provided
+before:
+  - "set('selectedModel', default(get('model'), 'llama3.2:1b'))"
+  - "set('userMessage', get('message'))"
+  - "set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')"
 
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('userMessage') }}"
-    scenario:
-      - role: system
-        prompt: "{{ get('systemPrompt') }}"
-    timeoutDuration: 300s
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('userMessage') }}"
+  scenario:
+    - role: system
+      prompt: "{{ get('systemPrompt') }}"
+  timeoutDuration: 300s
 
-  onError:
-    action: continue
-    fallback:
-      error: true
-      message: "Failed to get response from LLM. Please try again."
+onError:
+  action: continue
+  fallback:
+    error: true
+    message: "Failed to get response from LLM. Please try again."

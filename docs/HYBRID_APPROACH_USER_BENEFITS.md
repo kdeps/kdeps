@@ -95,22 +95,21 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  preflightCheck:
-    validations:
-      - get('q') != ''  # Still complex - needs expr-lang
-    error:
-      code: 400
-      message: Query parameter 'q' is required
-  
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"  # Just a simple variable!
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
+preflightCheck:
+  validations:
+    - get('q') != ''  # Still complex - needs expr-lang
+  error:
+    code: 400
+    message: Query parameter 'q' is required
+
+chat:
+  backend: ollama
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"  # Just a simple variable!
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.
 ```
 
 **After (Hybrid):**
@@ -121,22 +120,21 @@ metadata:
   actionId: llmResource
   name: LLM Chat
 
-run:
-  preflightCheck:
-    validations:
-      - get('q') != ''  # Complex - stays expr-lang
-    error:
-      code: 400
-      message: Query parameter 'q' is required
-  
-  chat:
-    backend: ollama
-    model: llama3.2:1b
-    role: user
-    prompt: "{{q}}"  # SIMPLER! No get() needed
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
+preflightCheck:
+  validations:
+    - get('q') != ''  # Complex - stays expr-lang
+  error:
+    code: 400
+    message: Query parameter 'q' is required
+
+chat:
+  backend: ollama
+  model: llama3.2:1b
+  role: user
+  prompt: "{{q}}"  # SIMPLER! No get() needed
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.
 ```
 
 **User Benefit:** Simpler for the common case (just getting a value), complex when needed (validation).
@@ -147,24 +145,22 @@ run:
 
 **Before (Current):**
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{ get('systemInfo') }}"
-      timestamp: "{{ info('current_time') }}"
-      workflow: "{{ info('name') }}"
+apiResponse:
+  success: true
+  response:
+    system_info: "{{ get('systemInfo') }}"
+    timestamp: "{{ info('current_time') }}"
+    workflow: "{{ info('name') }}"
 ```
 
 **After (Hybrid):**
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      system_info: "{{systemInfo}}"      # Cleaner!
-      timestamp: "{{current_time}}"      # More intuitive!
-      workflow: "{{name}}"                # Obvious meaning!
+apiResponse:
+  success: true
+  response:
+    system_info: "{{systemInfo}}"      # Cleaner!
+    timestamp: "{{current_time}}"      # More intuitive!
+    workflow: "{{name}}"                # Obvious meaning!
 ```
 
 **User Benefit:** 
@@ -178,40 +174,38 @@ run:
 
 **Before (Current - All expr-lang):**
 ```yaml
-run:
-  expr:
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
-    - set('llmResult', get('llmResource'))
-    - set('hasLLMError', safe(get('llmResult'), 'error') == true)
+before:
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
+  - set('llmResult', get('llmResource'))
+  - set('hasLLMError', safe(get('llmResult'), 'error') == true)
 
-  apiResponse:
-    success: true
-    response:
-      models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
-      message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
-      model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
-      query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
+apiResponse:
+  success: true
+  response:
+    models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
+    message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
+    model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
+    query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
 ```
 
 **After (Hybrid - Simple parts use mustache):**
 ```yaml
-run:
-  expr:
-    # Complex logic still uses expr-lang
-    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
-    - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
-    - set('llmResult', get('llmResource'))
-    - set('hasLLMError', safe(get('llmResult'), 'error') == true)
+before:
+  # Complex logic still uses expr-lang
+  - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+  - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
+  - set('llmResult', get('llmResource'))
+  - set('hasLLMError', safe(get('llmResult'), 'error') == true)
 
-  apiResponse:
-    success: true
-    response:
-      # Mix simple mustache with complex conditionals
-      models: "{{ get('isModelsEndpoint') ? availableModels : '' }}"  # Hybrid!
-      message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(llmResult, 'error') : messageContent) : '' }}"
-      model: "{{ isChatEndpoint ? selectedModel : '' }}"  # Cleaner!
-      query: "{{ isChatEndpoint ? userMessage : '' }}"    # More readable!
+apiResponse:
+  success: true
+  response:
+    # Mix simple mustache with complex conditionals
+    models: "{{ get('isModelsEndpoint') ? availableModels : '' }}"  # Hybrid!
+    message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(llmResult, 'error') : messageContent) : '' }}"
+    model: "{{ isChatEndpoint ? selectedModel : '' }}"  # Cleaner!
+    query: "{{ isChatEndpoint ? userMessage : '' }}"    # More readable!
 ```
 
 **User Benefit:** 

@@ -43,10 +43,9 @@ metadata:
   targetActionId: pythonResponse
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3080
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3080
     routes:
       - path: /api/v1/python
         methods: [POST]
@@ -56,47 +55,39 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE_PYTHON" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: pythonProcessor
-  name: Python Processor
+actionId: pythonProcessor
+name: Python Processor
 
-run:
-  python:
-    script: |
-      import json
-      
-      # Simple Python script that outputs JSON
-      result = {
-          "processed": True,
-          "computation": 2 + 2,
-          "message": "Python script executed successfully"
-      }
-      
-      # Output as JSON string (stdout)
-      print(json.dumps(result))
+python:
+  script: |
+    import json
+    
+    # Simple Python script that outputs JSON
+    result = {
+        "processed": True,
+        "computation": 2 + 2,
+        "message": "Python script executed successfully"
+    }
+    
+    # Output as JSON string (stdout)
+    print(json.dumps(result))
 EOF
 
 cat > "$RESOURCE_FILE_RESPONSE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: pythonResponse
-  name: Python Response
-  requires:
-    - pythonProcessor
+actionId: pythonResponse
+name: Python Response
+requires:
+  - pythonProcessor
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/python]
-  apiResponse:
-    success: true
-    response:
-      python_result: "{{ get('pythonProcessor') }}"
-      message: "Python execution completed"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/python]
+apiResponse:
+  success: true
+  response:
+    python_result: "{{ get('pythonProcessor') }}"
+    message: "Python execution completed"
 EOF
 
 # Test 1: Validate workflow

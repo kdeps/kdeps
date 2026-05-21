@@ -76,16 +76,15 @@ ttl: "7d"     # 7 days (168h)
 ### Store Data
 
 ```yaml
-run:
-  expr:
-    # Store user ID
-    - set('user_id', '123', 'session')
+after:
+  # Store user ID
+  - set('user_id', '123', 'session')
 
-    # Store preferences
-    - set('theme', 'dark', 'session')
+  # Store preferences
+  - set('theme', 'dark', 'session')
 
-    # Increment counter
-    - set('visits', get('visits', 'session') + 1, 'session')
+  # Increment counter
+  - set('visits', get('visits', 'session') + 1, 'session')
 ```
 
 ### Retrieve Data
@@ -93,11 +92,10 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: |
-      User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
-      This is visit #{{ get('visits', 'session') }}.
+chat:
+  prompt: |
+    User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
+    This is visit #{{ get('visits', 'session') }}.
 ```
 
 </div>
@@ -111,25 +109,24 @@ run:
 metadata:
   actionId: login
 
-run:
-  validations:
-    check:
-      - get('username') != ''
-      - get('password') != ''
-    error:
-      code: 400
-      message: Username and password required
+validations:
+  check:
+    - get('username') != ''
+    - get('password') != ''
+  error:
+    code: 400
+    message: Username and password required
 
-  expr:
-    # Validate credentials (simplified)
-    - set('authenticated', get('username') == 'admin', 'session')
-    - set('user', get('username'), 'session')
-    - set('login_time', info('timestamp'), 'session')
+after:
+  # Validate credentials (simplified)
+  - set('authenticated', get('username') == 'admin', 'session')
+  - set('user', get('username'), 'session')
+  - set('login_time', info('timestamp'), 'session')
 
-  apiResponse:
-    success: get('authenticated', 'session')
-    response:
-      message: <span v-pre>"{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"</span>
+apiResponse:
+  success: get('authenticated', 'session')
+  response:
+    message: <span v-pre>"{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"</span>
 ```
 
 ### Protected Route
@@ -140,16 +137,15 @@ run:
 metadata:
   actionId: protectedResource
 
-run:
-  validations:
-    check:
-      - get('authenticated', 'session') == true
-    error:
-      code: 401
-      message: Authentication required
+validations:
+  check:
+    - get('authenticated', 'session') == true
+  error:
+    code: 401
+    message: Authentication required
 
-  chat:
-    prompt: "Hello {{ get('user', 'session') }}, how can I help?"
+chat:
+  prompt: "Hello {{ get('user', 'session') }}, how can I help?"
 ```
 
 </div>
@@ -161,27 +157,25 @@ run:
 metadata:
   actionId: addToCart
 
-run:
-  expr:
-    - set('cart', get('cart', 'session') + [get('item')], 'session')
+after:
+  - set('cart', get('cart', 'session') + [get('item')], 'session')
 
-  apiResponse:
-    success: true
-    response:
-      cart: get('cart', 'session')
-      count: len(get('cart', 'session'))
+apiResponse:
+  success: true
+  response:
+    cart: get('cart', 'session')
+    count: len(get('cart', 'session'))
 
 ---
 # View cart
 metadata:
   actionId: viewCart
 
-run:
-  apiResponse:
-    success: true
-    response:
-      items: get('cart', 'session')
-      total: sum(get('cart', 'session').price)
+apiResponse:
+  success: true
+  response:
+    items: get('cart', 'session')
+    total: sum(get('cart', 'session').price)
 ```
 
 ### User Preferences
@@ -191,25 +185,23 @@ run:
 metadata:
   actionId: savePrefs
 
-run:
-  expr:
-    - set('language', get('language', 'en'), 'session')
-    - set('timezone', get('timezone', 'UTC'), 'session')
-    - set('theme', get('theme', 'light'), 'session')
+after:
+  - set('language', get('language', 'en'), 'session')
+  - set('timezone', get('timezone', 'UTC'), 'session')
+  - set('theme', get('theme', 'light'), 'session')
 
-  apiResponse:
-    success: true
-    response:
-      message: Preferences saved
+apiResponse:
+  success: true
+  response:
+    message: Preferences saved
 
 ---
 # Apply preferences
 metadata:
   actionId: getContent
 
-run:
-  chat:
-    prompt: |
+chat:
+  prompt: |
 <div v-pre>
       Respond in {{ get('language', 'session') }}.
       Current time in {{ get('timezone', 'session') }}: {{ info('timestamp') }}

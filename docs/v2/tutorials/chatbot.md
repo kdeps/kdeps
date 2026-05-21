@@ -23,14 +23,11 @@ Create `workflow.yaml`:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: chatbot
-  description: Simple LLM chatbot
-  version: "1.0.0"
-  targetActionId: responseResource
-
+name: chatbot
+description: Simple LLM chatbot
+version: "1.0.0"
+targetActionId: responseResource
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -56,19 +53,14 @@ Create `resources/llm.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+actionId: llmResource
+name: LLM Chat
+chat:
+  prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -83,21 +75,16 @@ run:
 Create `resources/response.yaml`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
-    - llmResource
-
-run:
-  apiResponse:
-    success: true
-    response:
-      data: get('llmResource')
-      query: get('q')
+actionId: responseResource
+name: API Response
+requires:
+  - llmResource
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
+    query: get('q')
 ```
 
 **Key Points:**
@@ -177,22 +164,17 @@ Add input validation to ensure the query is not empty:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
-run:
-  validations:
-    - get('q') != ''
-    - len(get('q')) > 3
-  chat:
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+actionId: llmResource
+name: LLM Chat
+validations:
+  - get('q') != ''
+  - len(get('q')) > 3
+chat:
+  prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -206,16 +188,15 @@ Add system prompts and conversation history:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are a helpful assistant that provides clear, concise answers."
-      - role: user
-        prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+chat:
+  scenario:
+    - role: system
+      prompt: "You are a helpful assistant that provides clear, concise answers."
+    - role: user
+      prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -227,7 +208,6 @@ Enable session storage to maintain conversation context:
 ```yaml
 settings:
   session:
-    enabled: true
     type: sqlite
     path: ./chatbot.db
 ```
@@ -237,15 +217,14 @@ Then access session data:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are a helpful assistant."
-      - role: assistant
-        prompt: "{{ get('previous_response', 'session') }}"
-      - role: user
-        prompt: "{{ get('q') }}"
+chat:
+  scenario:
+    - role: system
+      prompt: "You are a helpful assistant."
+    - role: assistant
+      prompt: "{{ get('previous_response', 'session') }}"
+    - role: user
+      prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -255,26 +234,21 @@ run:
 Handle errors gracefully:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: responseResource
-  name: API Response
-  requires:
-    - llmResource
-
-run:
-  apiResponse:
-    success: true
+actionId: responseResource
+name: API Response
+requires:
+  - llmResource
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
+    query: get('q')
+  onError:
+    success: false
     response:
-      data: get('llmResource')
-      query: get('q')
-    onError:
-      success: false
-      response:
-        error: "Failed to process request"
-        message: get('error')
+      error: "Failed to process request"
+      message: get('error')
 ```
 
 ## Next Steps

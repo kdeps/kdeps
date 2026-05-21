@@ -30,7 +30,7 @@ func isValidRunAction(action string) bool {
 	switch action {
 	case "chat", "httpClient", "exec", "python", "sql",
 		"apiResponse", "component", "agent", "scraper",
-		"embedding", "searchLocal", "searchWeb", "telephony":
+		"embedding", "searchLocal", "searchWeb", "telephony", "browser":
 		return true
 	}
 	return false
@@ -49,12 +49,10 @@ type wfDoc struct {
 
 // resourceDoc is the minimal structure of a resource file.
 type resourceDoc struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
-	Metadata   struct {
-		ActionID string `yaml:"actionId"`
-	} `yaml:"metadata"`
-	Run map[string]interface{} `yaml:"run"`
+	APIVersion string `yaml:"apiVersion,omitempty"`
+	Kind       string `yaml:"kind,omitempty"`
+	ActionID   string `yaml:"actionId"`
+	// Other action-type fields are checked via rawDoc below.
 }
 
 // Validate checks a GeneratedWorkflow for structural correctness.
@@ -122,39 +120,49 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 		*errs = append(*errs, fmt.Sprintf("%s: invalid YAML: %v", name, err))
 		return
 	}
-	if res.APIVersion == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing apiVersion (must be kdeps.io/v1)", name))
-	}
-	if res.Kind == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing kind (must be Resource)", name))
-	}
-	if res.Metadata.ActionID == "" {
-		*errs = append(*errs, fmt.Sprintf("%s: missing metadata.actionId", name))
+	if res.ActionID == "" {
+		*errs = append(*errs, fmt.Sprintf("%s: missing actionId", name))
 		return
 	}
-	ids[res.Metadata.ActionID] = true
+	ids[res.ActionID] = true
 
-	if len(res.Run) == 0 {
-		*errs = append(*errs, fmt.Sprintf("%s (actionId=%s): missing run section", name, res.Metadata.ActionID))
+	// Parse as raw map to check for action types at the top level (flattened schema).
+	var rawDoc map[string]interface{}
+	if err := yaml.Unmarshal([]byte(content), &rawDoc); err != nil {
 		return
+	}
+
+	metaKeys := map[string]bool{
+		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
+		"category": true, "requires": true, "items": true,
+		"tool": true, "validations": true, "loop": true,
+		"before": true, "after": true, "onError": true,
 	}
 
 	hasValid := false
-	for action := range res.Run {
-		if isValidRunAction(action) {
+	for key := range rawDoc {
+		if metaKeys[key] {
+			continue
+		}
+		if isValidRunAction(key) {
 			hasValid = true
 			break
 		}
 	}
 	if !hasValid {
 		var actions []string
-		for a := range res.Run {
-			actions = append(actions, a)
+		for key := range rawDoc {
+			if key == "apiVersion" || key == "kind" || key == "metadata" || key == "items" {
+				continue
+			}
+			actions = append(actions, key)
 		}
 		sort.Strings(actions)
-		msg := fmt.Sprintf("%s (actionId=%s): run has no recognized action", name, res.Metadata.ActionID)
-		msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
-			strings.Join(actions, ", "))
+		msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, res.ActionID)
+		if len(actions) > 0 {
+			msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
+				strings.Join(actions, ", "))
+		}
 		*errs = append(*errs, msg)
 	}
 }

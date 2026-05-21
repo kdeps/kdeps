@@ -36,45 +36,39 @@ json(data)
 
 **Basic usage:**
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: formatData
-run:
-  expr:
-    - set('user', {"name": "Alice", "age": 30})
-    - set('userJson', json(get('user')))
-    # Result: '{"name":"Alice","age":30}'
+actionId: formatData
+after:
+  - set('user', {"name": "Alice", "age": 30})
+  - set('userJson', json(get('user')))
+  # Result: '{"name":"Alice","age":30}'
 ```
 
 **Preparing API payload:**
 <div v-pre>
 
 ```yaml
-run:
-  expr:
-    - set('payload', json({
-        "query": get('q'),
-        "timestamp": info('request.id'),
-        "metadata": get('sessionData')
-      }))
-  httpClient:
-    url: "https://api.example.com/data"
-    method: POST
-    body: "{{ get('payload') }}"
+after:
+  - set('payload', json({
+      "query": get('q'),
+      "timestamp": info('request.id'),
+      "metadata": get('sessionData')
+    }))
+httpClient:
+  url: "https://api.example.com/data"
+  method: POST
+  body: "{{ get('payload') }}"
 ```
 
 </div>
 
 **Logging complex objects:**
 ```yaml
-run:
-  expr:
-    - set('debugLog', json({
-        "request": get('q'),
-        "response": get('llmResource'),
-        "duration": info('request.id')
-      }))
+after:
+  - set('debugLog', json({
+      "request": get('q'),
+      "response": get('llmResource'),
+      "duration": info('request.id')
+    }))
 ```
 
 ## safe()
@@ -98,38 +92,34 @@ safe(object, path)
 
 **Basic nested access:**
 ```yaml
-run:
-  expr:
-    # If user is {"profile": {"address": {"city": "NYC"}}}
-    - set('city', safe(get('user'), 'profile.address.city'))
-    # Result: "NYC"
+after:
+  # If user is {"profile": {"address": {"city": "NYC"}}}
+  - set('city', safe(get('user'), 'profile.address.city'))
+  # Result: "NYC"
 
-    # If path doesn't exist, returns nil instead of error
-    - set('country', safe(get('user'), 'profile.address.country'))
-    # Result: nil (no error thrown)
+  # If path doesn't exist, returns nil instead of error
+  - set('country', safe(get('user'), 'profile.address.country'))
+  # Result: nil (no error thrown)
 ```
 
 **With fallback using default():**
 ```yaml
-run:
-  expr:
-    - set('city', default(safe(get('user'), 'profile.address.city'), 'Unknown'))
+after:
+  - set('city', default(safe(get('user'), 'profile.address.city'), 'Unknown'))
 ```
 
 **Accessing API response data:**
 ```yaml
-run:
-  expr:
-    - set('errorMessage', safe(get('apiResponse'), 'error.details.message'))
-    - set('items', safe(get('apiResponse'), 'data.items'))
+after:
+  - set('errorMessage', safe(get('apiResponse'), 'error.details.message'))
+  - set('items', safe(get('apiResponse'), 'data.items'))
 ```
 
 **Handling optional configuration:**
 ```yaml
-run:
-  expr:
-    - set('timeout', default(safe(get('config'), 'http.timeout'), 30))
-    - set('retries', default(safe(get('config'), 'http.retries'), 3))
+after:
+  - set('timeout', default(safe(get('config'), 'http.timeout'), 30))
+  - set('retries', default(safe(get('config'), 'http.retries'), 3))
 ```
 
 ## debug()
@@ -152,38 +142,35 @@ debug(data)
 
 **Debug LLM response:**
 ```yaml
-run:
-  expr:
-    - set('debugInfo', debug(get('llmResource')))
-    # Result (formatted with indentation):
-    # {
-    #   "response": "...",
-    #   "model": "llama3.2:1b",
-    #   "tokens": 150
-    # }
+after:
+  - set('debugInfo', debug(get('llmResource')))
+  # Result (formatted with indentation):
+  # {
+  #   "response": "...",
+  #   "model": "llama3.2:1b",
+  #   "tokens": 150
+  # }
 ```
 
 **Debug request context:**
 ```yaml
-run:
-  expr:
-    - set('requestDebug', debug({
-        "query": get('q'),
-        "headers": get('Authorization'),
-        "session": get('userId', 'session')
-      }))
+after:
+  - set('requestDebug', debug({
+      "query": get('q'),
+      "headers": get('Authorization'),
+      "session": get('userId', 'session')
+    }))
 ```
 
 **Include in API response for debugging:**
 <div v-pre>
 
 ```yaml
-run:
-  apiResponse:
-    success: true
-    response:
-      data: get('result')
-      _debug: "{{ get('debugInfo') }}"  # Remove in production
+apiResponse:
+  success: true
+  response:
+    data: get('result')
+    _debug: "{{ get('debugInfo') }}"  # Remove in production
 ```
 
 </div>
@@ -209,42 +196,38 @@ default(value, fallback)
 
 **Basic fallback:**
 ```yaml
-run:
-  expr:
-    - set('name', default(get('userName'), 'Guest'))
-    - set('limit', default(get('pageSize'), 10))
+after:
+  - set('name', default(get('userName'), 'Guest'))
+  - set('limit', default(get('pageSize'), 10))
 ```
 
 **Chained defaults:**
 ```yaml
-run:
-  expr:
-    # Try multiple sources in order
-    - set('apiKey', default(
-        get('API_KEY', 'env'),
-        default(
-          get('apiKey', 'session'),
-          'default-key'
-        )
-      ))
+after:
+  # Try multiple sources in order
+  - set('apiKey', default(
+      get('API_KEY', 'env'),
+      default(
+        get('apiKey', 'session'),
+        'default-key'
+      )
+    ))
 ```
 
 **With safe() for nested access:**
 ```yaml
-run:
-  expr:
-    - set('email', default(safe(get('user'), 'contact.email'), 'no-email@example.com'))
+after:
+  - set('email', default(safe(get('user'), 'contact.email'), 'no-email@example.com'))
 ```
 
 **Configuration defaults:**
 ```yaml
-run:
-  expr:
-    - set('config', {
-        "timeout": default(get('timeout'), 30),
-        "retries": default(get('retries'), 3),
-        "model": default(get('model'), 'llama3.2:1b')
-      })
+after:
+  - set('config', {
+      "timeout": default(get('timeout'), 30),
+      "retries": default(get('retries'), 3),
+      "model": default(get('model'), 'llama3.2:1b')
+    })
 ```
 
 ## toJSON()
@@ -272,21 +255,19 @@ urlencode(str)
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
-      action: getText
+component:
+  name: browser
+  with:
+    url: "https://www.example.com/search?q={{ urlencode(get('query')) }}"
+    action: getText
 ```
 
 </div>
 
 ```yaml
-run:
-  expr:
-    - set('encoded', urlencode(get('searchTerm')))
-    # "hello world" -> "hello+world"
+after:
+  - set('encoded', urlencode(get('searchTerm')))
+  # "hello world" -> "hello+world"
 ```
 
 ## ternary()
@@ -312,20 +293,18 @@ ternary(condition, trueVal, falseVal)
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
-      action: getText
+component:
+  name: browser
+  with:
+    url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
+    action: getText
 ```
 
 </div>
 
 ```yaml
-run:
-  expr:
-    - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
+after:
+  - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
 ```
 
 ## input()
@@ -350,27 +329,24 @@ input.property
 
 **Function style:**
 ```yaml
-run:
-  expr:
-    - set('query', input('q'))
-    - set('limit', input('limit'))
+after:
+  - set('query', input('q'))
+  - set('limit', input('limit'))
 ```
 
 **Property access style:**
 ```yaml
-run:
-  expr:
-    - set('items', input.items)
-    - set('userId', input.userId)
+after:
+  - set('items', input.items)
+  - set('userId', input.userId)
 ```
 
 **Equivalent to get():**
 ```yaml
-run:
-  expr:
-    # These are equivalent:
-    - set('query1', get('q'))
-    - set('query2', input('q'))
+after:
+  # These are equivalent:
+  - set('query1', get('q'))
+  - set('query2', input('q'))
 ```
 
 ## output()
@@ -393,19 +369,17 @@ output(resourceId)
 
 **Basic usage:**
 ```yaml
-run:
-  expr:
-    - set('llmResult', output('llmResource'))
-    - set('sqlData', output('databaseQuery'))
+after:
+  - set('llmResult', output('llmResource'))
+  - set('sqlData', output('databaseQuery'))
 ```
 
 **Equivalent to get():**
 ```yaml
-run:
-  expr:
-    # These are equivalent:
-    - set('result1', get('llmResource'))
-    - set('result2', output('llmResource'))
+after:
+  # These are equivalent:
+  - set('result1', get('llmResource'))
+  - set('result2', output('llmResource'))
 ```
 
 ## Combining Helper Functions
@@ -413,62 +387,56 @@ run:
 ### Complex Data Transformation
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: processData
-  requires:
-    - fetchData
-run:
-  expr:
-    # Safely extract nested data with defaults
-    - set('items', default(safe(get('fetchData'), 'response.data.items'), []))
+actionId: processData
+requires:
+  - fetchData
+after:
+  # Safely extract nested data with defaults
+  - set('items', default(safe(get('fetchData'), 'response.data.items'), []))
 
-    # Format for logging
-    - set('log', json({
-        "itemCount": len(get('items')),
-        "query": get('q'),
-        "timestamp": info('request.id')
-      }))
+  # Format for logging
+  - set('log', json({
+      "itemCount": len(get('items')),
+      "query": get('q'),
+      "timestamp": info('request.id')
+    }))
 
-    # Debug complex structures during development
-    - set('debugOutput', debug({
-        "rawResponse": get('fetchData'),
-        "processedItems": get('items')
-      }))
+  # Debug complex structures during development
+  - set('debugOutput', debug({
+      "rawResponse": get('fetchData'),
+      "processedItems": get('items')
+    }))
 ```
 
 ### Error Handling Pattern
 
 ```yaml
-run:
-  expr:
-    # Check for error in response
-    - set('error', safe(get('apiResponse'), 'error.message'))
-    - set('hasError', get('error') != nil)
+after:
+  # Check for error in response
+  - set('error', safe(get('apiResponse'), 'error.message'))
+  - set('hasError', get('error') != nil)
 
-    # Get data or error message
-    - set('result', default(
-        safe(get('apiResponse'), 'data'),
-        {"error": default(get('error'), 'Unknown error')}
-      ))
+  # Get data or error message
+  - set('result', default(
+      safe(get('apiResponse'), 'data'),
+      {"error": default(get('error'), 'Unknown error')}
+    ))
 ```
 
 ### Configuration Loading
 
 ```yaml
-run:
-  expr:
-    # Load config with multiple fallback sources
-    - set('dbHost', default(
-        get('DB_HOST', 'env'),
-        default(safe(get('config'), 'database.host'), 'localhost')
-      ))
+after:
+  # Load config with multiple fallback sources
+  - set('dbHost', default(
+      get('DB_HOST', 'env'),
+      default(safe(get('config'), 'database.host'), 'localhost')
+    ))
 
-    - set('dbPort', default(
-        get('DB_PORT', 'env'),
-        default(safe(get('config'), 'database.port'), 5432)
-      ))
+  - set('dbPort', default(
+      get('DB_PORT', 'env'),
+      default(safe(get('config'), 'database.port'), 5432)
+    ))
 ```
 
 ## Best Practices

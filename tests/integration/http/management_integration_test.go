@@ -53,7 +53,7 @@ func minimalWorkflow(name, version string) *domain.Workflow {
 	wf.Metadata.Name = name
 	wf.Metadata.Version = version
 	wf.Metadata.TargetActionID = "action1"
-	wf.Settings.PortNum = 16395
+	wf.Settings.APIServer = &domain.APIServerConfig{PortNum: 16395}
 	return wf
 }
 

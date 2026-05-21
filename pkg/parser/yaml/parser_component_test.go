@@ -81,13 +81,9 @@ interface:
       type: string
       required: true
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: process
-    run:
-      exec:
-        command: echo "Processing"
+  - actionId: process
+    exec:
+      command: echo "Processing"
 `
 
 func newMockComponentParser() *yaml.Parser {
@@ -174,7 +170,7 @@ func TestParseComponent_WithResources(t *testing.T) {
 	require.NotNil(t, comp)
 
 	assert.Len(t, comp.Resources, 1)
-	assert.Equal(t, "process", comp.Resources[0].Metadata.ActionID)
+	assert.Equal(t, "process", comp.Resources[0].ActionID)
 }
 
 func TestParseComponent_InvalidAPIVersion(t *testing.T) {
@@ -260,10 +256,7 @@ interface:
 
 func TestParseComponent_ResourceActionIDRequired(t *testing.T) {
 	dir := t.TempDir()
-	badYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  name: Resource without actionId
+	badYAML := `name: Resource without actionId
 resources: []
 `
 	resPath := filepath.Join(dir, "resource.yaml")
@@ -289,7 +282,7 @@ metadata:
   name: test
   targetActionId: final
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	// Create components/ directory
@@ -304,14 +297,10 @@ kind: Component
 metadata:
   name: my-component
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: comp-action
-      name: Component Resource
-    run:
-      exec:
-        command: echo "Hello"
+  - actionId: comp-action
+    name: Component Resource
+    exec:
+      command: echo "Hello"
 `)
 
 	// Parse the workflow
@@ -325,7 +314,7 @@ resources:
 	// Verify that the component's resource was loaded
 	actionIDs := make([]string, 0, len(wf.Resources))
 	for _, r := range wf.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(
 		t,
@@ -479,13 +468,9 @@ kind: Component
 metadata:
   name: email
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: send-email
-    run:
-      exec:
-        command: echo "send"
+  - actionId: send-email
+    exec:
+      command: echo "send"
 `)
 
 	sv, err := validator.NewSchemaValidator()
@@ -497,7 +482,7 @@ resources:
 	assert.NotEmpty(t, resources)
 	actionIDs := make([]string, 0)
 	for _, r := range resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(t, actionIDs, "send-email")
 	p.Cleanup()
@@ -512,13 +497,9 @@ kind: Component
 metadata:
   name: email
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: send-email
-    run:
-      exec:
-        command: echo "send"
+  - actionId: send-email
+    exec:
+      command: echo "send"
 `)
 
 	sv, err := validator.NewSchemaValidator()
@@ -549,13 +530,9 @@ kind: Component
 metadata:
   name: base
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: shared-action
-    run:
-      exec:
-        command: echo "global"
+  - actionId: shared-action
+    exec:
+      command: echo "global"
 `)
 
 	// Local component: also defines "shared-action" (should win) + "local-only"
@@ -566,20 +543,12 @@ kind: Component
 metadata:
   name: mycomp
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: shared-action
-    run:
-      exec:
-        command: echo "local"
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: local-only
-    run:
-      exec:
-        command: echo "local-only"
+  - actionId: shared-action
+    exec:
+      command: echo "local"
+  - actionId: local-only
+    exec:
+      command: echo "local-only"
 `), 0o600))
 
 	workflowPath := filepath.Join(projectDir, "workflow.yaml")
@@ -589,7 +558,7 @@ metadata:
   name: test
   targetActionId: shared-action
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -601,7 +570,7 @@ settings:
 
 	actionIDs := make([]string, 0)
 	for _, r := range wf.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 
 	// local-only should be present
@@ -628,13 +597,9 @@ kind: Component
 metadata:
   name: tts
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: speak
-    run:
-      exec:
-        command: echo "speak"
+  - actionId: speak
+    exec:
+      command: echo "speak"
 `)
 
 	workflowPath := filepath.Join(projectDir, "workflow.yaml")
@@ -644,7 +609,7 @@ metadata:
   name: test
   targetActionId: speak
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -656,7 +621,7 @@ settings:
 
 	actionIDs := make([]string, 0)
 	for _, r := range wf.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(t, actionIDs, "speak")
 	p.Cleanup()
@@ -675,7 +640,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -696,14 +661,10 @@ func TestLoadComponentResources_J2SkippedWhenRenderedExists(t *testing.T) {
 	require.NoError(t, os.Mkdir(resourcesDir, 0o755))
 
 	// Both the rendered file and .j2 exist - .j2 should be skipped
-	rendered := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: rendered-action
-  name: Rendered Action
-run:
-  exec:
-    command: echo "rendered"
+	rendered := `actionId: rendered-action
+name: Rendered Action
+exec:
+  command: echo "rendered"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "action.yaml"), []byte(rendered), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "action.yaml.j2"), []byte("{{ jinja }}"), 0o600))
@@ -739,7 +700,7 @@ metadata:
   name: test
   targetActionId: rendered-action
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	wf, wfErr := p.ParseWorkflow(wfPath)
@@ -748,7 +709,7 @@ settings:
 	// Should load rendered-action exactly once (j2 skipped)
 	count := 0
 	for _, r := range wf.Resources {
-		if r.Metadata.ActionID == "rendered-action" {
+		if r.ActionID == "rendered-action" {
 			count++
 		}
 	}
@@ -775,7 +736,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -805,7 +766,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -841,7 +802,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -880,7 +841,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -923,7 +884,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -966,7 +927,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1021,7 +982,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `), 0o600))
 
 	sv, err := validator.NewSchemaValidator()
@@ -1052,13 +1013,9 @@ interface:
       required: false
       description: CSS selector
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: scrape-url
-    run:
-      exec:
-        command: echo ok
+  - actionId: scrape-url
+    exec:
+      command: echo ok
 `
 
 func TestLoadComponents_PopulatesWorkflowComponentsMap(t *testing.T) {
@@ -1077,7 +1034,7 @@ metadata:
   name: test
   targetActionId: action1
 settings:
-  apiServerMode: false
+  agentSettings: {}
 `
 	wfPath := filepath.Join(projectDir, "workflow.yaml")
 	require.NoError(t, os.WriteFile(wfPath, []byte(wfContent), 0o600))

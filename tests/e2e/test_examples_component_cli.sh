@@ -41,14 +41,10 @@ metadata:
   name: $name
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: ${name}Action
-      name: ${name} Action
-    run:
-      expr:
-        - set('${name}Result', '${name} executed')
+  - actionId: ${name}Action
+    name: ${name} Action
+    after:
+      - set('${name}Result', '${name} executed')
 YAML
     tar -czf "$out_file" -C "$tmp" .
     rm -rf "$tmp"
@@ -151,14 +147,10 @@ metadata:
   name: greeter
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: sayHi
-      name: Say Hi
-    run:
-      expr:
-        - set('hi', 'hello!')
+  - actionId: sayHi
+    name: Say Hi
+    after:
+      - set('hi', 'hello!')
 YAML
 cat > "$PROJ_DIR/workflow.yaml" << YAML
 apiVersion: kdeps.io/v1
@@ -167,7 +159,8 @@ metadata:
   name: test-local-comp
   targetActionId: sayHi
 settings:
-  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
 YAML
 
 if "$KDEPS_BIN" validate "$PROJ_DIR/workflow.yaml" &>/dev/null; then
@@ -187,7 +180,8 @@ metadata:
   name: test-packed-comp
   targetActionId: packerAction
 settings:
-  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
 YAML
 
 if "$KDEPS_BIN" validate "$PROJ_DIR/workflow2.yaml" &>/dev/null; then
@@ -207,7 +201,8 @@ metadata:
   name: test-global-comp
   targetActionId: globalAction
 settings:
-  apiServerMode: false
+  agentSettings:
+    pythonVersion: "3.12"
 YAML
 
 if KDEPS_COMPONENT_DIR="$GLOBAL_DIR" "$KDEPS_BIN" validate "$PROJ_DIR/workflow3.yaml" &>/dev/null; then

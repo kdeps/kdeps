@@ -158,23 +158,18 @@ metadata:
   version: "1.0.0"
   targetActionId: main
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
 mkdir -p "$TMPDIR_COMP_WF/resources"
 cat > "$TMPDIR_COMP_WF/resources/main.yaml" << 'YAML'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: main
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com"
-      selector: ".article"
+actionId: main
+name: main
+component:
+  name: scraper
+  with:
+    url: "https://example.com"
+    selector: ".article"
 YAML
 
 if "$KDEPS_BIN" validate "$TMPDIR_COMP_WF/workflow.yaml" &>/dev/null; then
@@ -195,26 +190,21 @@ metadata:
   version: "1.0.0"
   targetActionId: answer
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 YAML
 mkdir -p "$TMPDIR_BEFORE/resources"
 cat > "$TMPDIR_BEFORE/resources/answer.yaml" << 'YAML'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: answer
-  name: answer
-run:
-  before:
-    - component:
-        name: search
-        with:
-          query: "my query"
-  chat:
-    model: gpt-4o
-    prompt: "answer the question"
+actionId: answer
+name: answer
+before:
+  - component:
+      name: search
+      with:
+        query: "my query"
+chat:
+  model: gpt-4o
+  prompt: "answer the question"
 YAML
 
 if "$KDEPS_BIN" validate "$TMPDIR_BEFORE/workflow.yaml" &>/dev/null; then

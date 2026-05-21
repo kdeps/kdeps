@@ -150,15 +150,11 @@ cp "$EXAMPLE_DIR/resources/response.yaml" "$WORK_DIR/resources/"
 
 # search resource using mock DDG via KDEPS_DDG_URL env
 cat > "$WORK_DIR/resources/search.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query', 'Go language') }}"
-    provider: ddg
-    maxResults: 3
+actionId: search
+searchWeb:
+  query: "{{ get('query', 'Go language') }}"
+  provider: ddg
+  maxResults: 3
 EOF
 
 # Run kdeps with KDEPS_DDG_URL pointing to mock server

@@ -25,58 +25,53 @@ Accessed via `output('<your-action-id>')`:
 Scrape a full page:
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://news.ycombinator.com"
-  apiResponse:
-    success: true
-    response:
-      pageText: "{{ output('scrapeHN').result }}"
+component:
+  name: scraper
+  with:
+    url: "https://news.ycombinator.com"
+apiResponse:
+  success: true
+  response:
+    pageText: "{{ output('scrapeHN').result }}"
 ```
 
 Extract specific elements with a CSS selector:
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://news.ycombinator.com"
-      selector: ".titleline > a"
-  apiResponse:
-    success: true
-    response:
-      headlines: "{{ output('scrapeHeadlines').result }}"
+component:
+  name: scraper
+  with:
+    url: "https://news.ycombinator.com"
+    selector: ".titleline > a"
+apiResponse:
+  success: true
+  response:
+    headlines: "{{ output('scrapeHeadlines').result }}"
 ```
 
 Scrape with a custom timeout:
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://slow-site.example.com/data"
-      timeout: 60
+component:
+  name: scraper
+  with:
+    url: "https://slow-site.example.com/data"
+    timeout: 60
 ```
 
 Pipe scraped content into an LLM:
 
 ```yaml
 - actionId: scrapeArticle
-  run:
-    component:
-      name: scraper
-      with:
-        url: "{{ input('articleUrl') }}"
-        selector: "article"
+component:
+  name: scraper
+  with:
+    url: "{{ input('articleUrl') }}"
+    selector: "article"
 
 - actionId: summarise
-  run:
-    chat:
-      prompt: "Summarise this article in 3 bullet points:\n{{ output('scrapeArticle').result }}"
+chat:
+  prompt: "Summarise this article in 3 bullet points:\n{{ output('scrapeArticle').result }}"
 ```
 
 ## Requirements

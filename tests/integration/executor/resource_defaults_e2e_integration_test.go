@@ -136,14 +136,12 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('run-cmd').stdout }}",
-					},
-					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}},
+				ActionID: "run-cmd",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('run-cmd').stdout }}",
 				},
+				Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}},
 			},
 		},
 	}
@@ -173,14 +171,12 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "run-cmd"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('run-cmd').stdout }}",
-					},
-					Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}, Timeout: "10s"},
+				ActionID: "run-cmd",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('run-cmd').stdout }}",
 				},
+				Exec: &domain.ExecConfig{Command: "echo", Args: []string{"ok"}, Timeout: "10s"},
 			},
 		},
 	}
@@ -219,17 +215,15 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('call-api').body }}",
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    server.URL,
-						// No TimeoutDuration — global default applies
-					},
+				ActionID: "call-api",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('call-api').body }}",
+				},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    server.URL,
+					// No TimeoutDuration — global default applies
 				},
 			},
 		},
@@ -266,17 +260,15 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "call-api"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('call-api').body }}",
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method:  "GET",
-						URL:     server.URL,
-						Timeout: "5s",
-					},
+				ActionID: "call-api",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('call-api').body }}",
+				},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method:  "GET",
+					URL:     server.URL,
+					Timeout: "5s",
 				},
 			},
 		},
@@ -321,18 +313,16 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('chat-resource').message.content }}",
-					},
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Prompt:  "say hello",
-						BaseURL: server.URL,
-						// No TimeoutDuration or ContextLength — global defaults apply
-					},
+				ActionID: "chat-resource",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('chat-resource').message.content }}",
+				},
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Prompt:  "say hello",
+					BaseURL: server.URL,
+					// No TimeoutDuration or ContextLength — global defaults apply
 				},
 			},
 		},
@@ -373,19 +363,17 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-resource"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: "{{ output('chat-resource').message.content }}",
-					},
-					Chat: &domain.ChatConfig{
-						Model:         "llama3.2:1b",
-						Prompt:        "say hello",
-						BaseURL:       server.URL,
-						Timeout:       "10s",
-						ContextLength: 4096,
-					},
+				ActionID: "chat-resource",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: "{{ output('chat-resource').message.content }}",
+				},
+				Chat: &domain.ChatConfig{
+					Model:         "llama3.2:1b",
+					Prompt:        "say hello",
+					BaseURL:       server.URL,
+					Timeout:       "10s",
+					ContextLength: 4096,
 				},
 			},
 		},
@@ -539,13 +527,11 @@ resource_defaults:
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "run"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
-					Exec: &domain.ExecConfig{
-						Command: "echo",
-						Args:    []string{"all-defaults"},
-					},
+				ActionID:    "run",
+				APIResponse: &domain.APIResponseConfig{Success: true, Response: "ok"},
+				Exec: &domain.ExecConfig{
+					Command: "echo",
+					Args:    []string{"all-defaults"},
 				},
 			},
 		},

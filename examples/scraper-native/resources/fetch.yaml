@@ -1,17 +1,13 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch
-run:
-  validations:
-    methods: [POST]
-    routes: [/summarize]
-    check:
-      - get('url') != ''
-    error:
-      code: 400
-      message: "url is required"
-  scraper:
-    url: "{{ get('url') }}"
-    selector: "{{ get('selector', '') }}"
-    timeout: 30
+actionId: fetch
+validations:
+  methods: [POST]
+  routes: [/summarize]
+  check:
+    - get('url') != ''
+  error:
+    code: 400
+    message: "url is required"
+scraper:
+  url: "{{ get('url') }}"
+  selector: "{{ get('selector', '') }}"
+  timeout: 30

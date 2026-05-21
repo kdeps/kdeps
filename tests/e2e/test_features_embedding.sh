@@ -48,10 +48,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /embed/index
         methods: [POST]
@@ -64,90 +63,74 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/index.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: indexDoc
-  name: Index Document
-run:
-  validations:
-    routes: [/embed/index]
-    methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "index"
-      text: "{{ get('text', 'test document') }}"
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      id: "{{ output('indexDoc').id }}"
-      dimensions: "{{ output('indexDoc').dimensions }}"
+actionId: indexDoc
+name: Index Document
+validations:
+  routes: [/embed/index]
+  methods: [POST]
+component:
+  name: embedding
+  with:
+    operation: "index"
+    text: "{{ get('text', 'test document') }}"
+    collection: "e2e_docs"
+    dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    id: "{{ output('indexDoc').id }}"
+    dimensions: "{{ output('indexDoc').dimensions }}"
 EOF
 
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: searchDocs
-  name: Search Documents
-run:
-  validations:
-    routes: [/embed/search]
-    methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "search"
-      text: ""
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('searchDocs').count }}"
-      results: "{{ output('searchDocs').results }}"
+actionId: searchDocs
+name: Search Documents
+validations:
+  routes: [/embed/search]
+  methods: [POST]
+component:
+  name: embedding
+  with:
+    operation: "search"
+    text: ""
+    collection: "e2e_docs"
+    dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('searchDocs').count }}"
+    results: "{{ output('searchDocs').results }}"
 EOF
 
 cat > "$TEST_DIR/resources/delete.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: deleteDoc
-  name: Delete Document
-run:
-  validations:
-    routes: [/embed/delete]
-    methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "delete"
-      text: "{{ get('text', '') }}"
-      collection: "e2e_docs"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      deleted: "{{ output('deleteDoc').deleted }}"
+actionId: deleteDoc
+name: Delete Document
+validations:
+  routes: [/embed/delete]
+  methods: [POST]
+component:
+  name: embedding
+  with:
+    operation: "delete"
+    text: "{{ get('text', '') }}"
+    collection: "e2e_docs"
+    dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    deleted: "{{ output('deleteDoc').deleted }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [indexDoc, searchDocs, deleteDoc]
-run:
-  apiResponse:
-    success: true
-    response:
-      indexResult: "{{ output('indexDoc') }}"
-      searchResult: "{{ output('searchDocs') }}"
-      deleteResult: "{{ output('deleteDoc') }}"
+actionId: response
+name: Response
+requires: [indexDoc, searchDocs, deleteDoc]
+apiResponse:
+  success: true
+  response:
+    indexResult: "{{ output('indexDoc') }}"
+    searchResult: "{{ output('searchDocs') }}"
+    deleteResult: "{{ output('deleteDoc') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" &

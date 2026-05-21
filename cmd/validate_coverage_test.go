@@ -54,16 +54,12 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "test"
+actionId: test-action
+name: Test Action
+apiResponse:
+  success: true
+  response:
+    message: "test"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -94,16 +90,12 @@ settings:
 	resourcesDir := filepath.Join(tmpDir, "resources")
 	require.NoError(t, os.MkdirAll(resourcesDir, 0o755))
 
-	resourceContent := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: act
-  name: Act
-run:
-  apiResponse:
-    success: true
-    response:
-      msg: "ok"
+	resourceContent := `actionId: act
+name: Act
+apiResponse:
+  success: true
+  response:
+    msg: "ok"
 `
 	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "act.yaml"), []byte(resourceContent), 0o644))
 
@@ -171,16 +163,12 @@ settings:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
 
-	resourceContent := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+	resourceContent := `actionId: response
+name: Response
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))
@@ -295,16 +283,12 @@ settings:
 
 	// Create resource with expression
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      result: "{{ 1 + 2 }}"
+actionId: test-action
+name: Test Action
+apiResponse:
+  success: true
+  response:
+    result: "{{ 1 + 2 }}"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -349,16 +333,12 @@ settings:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
 
-	resourceContent := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+	resourceContent := `actionId: response
+name: Response
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))
@@ -399,16 +379,12 @@ settings:
 `
 	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(workflowContent), 0o644))
 
-	resourceContent := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-run:
-  apiResponse:
-    success: true
-    response:
-      data: "hello"
+	resourceContent := `actionId: response
+name: Response
+apiResponse:
+  success: true
+  response:
+    data: "hello"
 `
 	rPath := filepath.Join(agentDir, "resources", "response.yaml")
 	require.NoError(t, os.WriteFile(rPath, []byte(resourceContent), 0o644))

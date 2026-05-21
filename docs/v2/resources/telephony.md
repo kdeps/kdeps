@@ -5,30 +5,26 @@ The `run.telephony` resource provides programmable call control that generates T
 ## Basic Usage
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: greet
-  name: Greet Caller
-
-run:
-  telephony:
-    action: say
-    say: "Hello! Welcome to our service."
+actionId: greet
+name: Greet Caller
+telephony:
+  action: say
+  say: "Hello! Welcome to our service."
 ```
 
 ## Workflow Setup
 
-Enable telephony input in the workflow settings:
+Telephony actions are called as resources within a workflow. The workflow uses the default `api` input source and Twilio webhooks to trigger the telephony resource:
 
 ```yaml
 settings:
   input:
-    sources: [telephony]
-    telephony:
-      type: online
-      provider: twilio
+    sources: [api]
+  apiServer:
+    routes:
+      - path: /api/v1/telephony
+        methods: [POST]
 ```
 
 ## Actions
@@ -38,9 +34,8 @@ settings:
 Accept the inbound call. Usually the first resource in an IVR workflow.
 
 ```yaml
-run:
-  telephony:
-    action: answer
+telephony:
+  action: answer
 ```
 
 ### `say`
@@ -53,11 +48,10 @@ Speak text to the caller using text-to-speech.
 | `voice` | TTS voice (e.g. `alice`, `man`, `woman`).  |
 
 ```yaml
-run:
-  telephony:
-    action: say
-    say: "Your account balance is available."
-    voice: alice
+telephony:
+  action: say
+  say: "Your account balance is available."
+  voice: alice
 ```
 
 ### `ask`
@@ -76,13 +70,12 @@ Collect DTMF digits or speech from the caller.
 | `terminator`        | Key that ends input early (e.g. `#`).                      |
 
 ```yaml
-run:
-  telephony:
-    action: ask
-    say: "Please enter your 4-digit PIN."
-    limit: 4
-    terminator: "#"
-    timeout: 10s
+telephony:
+  action: ask
+  say: "Please enter your 4-digit PIN."
+  limit: 4
+  terminator: "#"
+  timeout: 10s
 ```
 
 ### `menu`
@@ -101,18 +94,17 @@ Gather a single digit and branch based on the caller's selection.
 | `timeout`   | Input timeout (e.g. `8s`).                                |
 
 ```yaml
-run:
-  telephony:
-    action: menu
-    say: "Press 1 for sales. Press 2 for support."
-    timeout: 8s
-    matches:
-      - keys: ["1"]
-        invoke: salesFlow
-      - keys: ["2"]
-        invoke: supportFlow
-    onNoMatch: repeatMenu
-    onNoInput: repeatMenu
+telephony:
+  action: menu
+  say: "Press 1 for sales. Press 2 for support."
+  timeout: 8s
+  matches:
+    - keys: ["1"]
+      invoke: salesFlow
+    - keys: ["2"]
+      invoke: supportFlow
+  onNoMatch: repeatMenu
+  onNoInput: repeatMenu
 ```
 
 ### `dial`
@@ -126,13 +118,12 @@ Transfer the call to one or more SIP URIs or PSTN numbers.
 | `for`   | Dial timeout (e.g. `30s`).                              |
 
 ```yaml
-run:
-  telephony:
-    action: dial
-    to:
-      - sip:agent@pbx.example.com
-      - "+15005550001"
-    for: 30s
+telephony:
+  action: dial
+  to:
+    - sip:agent@pbx.example.com
+    - "+15005550001"
+  for: 30s
 ```
 
 ### `record`
@@ -147,12 +138,11 @@ Record the caller's audio.
 | `format`        | Audio format (`mp3`, `wav`).                         |
 
 ```yaml
-run:
-  telephony:
-    action: record
-    say: "Leave your message after the beep."
-    maxDuration: 60s
-    interruptible: true
+telephony:
+  action: record
+  say: "Leave your message after the beep."
+  maxDuration: 60s
+  interruptible: true
 ```
 
 ### `hangup`
@@ -160,9 +150,8 @@ run:
 Terminate the call.
 
 ```yaml
-run:
-  telephony:
-    action: hangup
+telephony:
+  action: hangup
 ```
 
 ### `reject`
@@ -174,10 +163,9 @@ Reject an inbound call before it is answered.
 | `reason` | `busy` or `rejected` (default: `rejected`). |
 
 ```yaml
-run:
-  telephony:
-    action: reject
-    reason: busy
+telephony:
+  action: reject
+  reason: busy
 ```
 
 ### `redirect`
@@ -189,11 +177,10 @@ Redirect the call to another TwiML URL.
 | `to`   | List with one URL to redirect to.        |
 
 ```yaml
-run:
-  telephony:
-    action: redirect
-    to:
-      - https://example.com/after-hours-ivr
+telephony:
+  action: redirect
+  to:
+    - https://example.com/after-hours-ivr
 ```
 
 ### `mute` / `unmute`
@@ -201,9 +188,8 @@ run:
 Mute or unmute the caller's audio leg.
 
 ```yaml
-run:
-  telephony:
-    action: mute
+telephony:
+  action: mute
 ```
 
 ## Session Accessors in Expressions
@@ -224,10 +210,9 @@ After an `ask` or `menu` action, the session state is available in subsequent re
 | `twiml`      | string  | Accumulated TwiML for the current call            |
 
 ```yaml
-run:
-  telephony:
-    action: say
-    say: "You pressed {{ telephony.utterance }}. Thank you."
+telephony:
+  action: say
+  say: "You pressed {{ telephony.utterance }}. Thank you."
 ```
 
 ## TwiML Accumulation

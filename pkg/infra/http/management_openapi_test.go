@@ -49,23 +49,21 @@ func chatbotTestWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID:    "llmResource",
-					Name:        "LLM Chat Handler",
-					Description: "Handles chat requests",
-				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Methods:  []string{"POST"},
-						Routes:   []string{"/api/v1/chat"},
-						Required: []string{"message"},
-						Rules: []domain.FieldRule{
-							{
-								Field:     "message",
-								Type:      domain.FieldTypeString,
-								MinLength: &minLen,
-								Message:   "Message cannot be empty",
-							},
+
+				ActionID:    "llmResource",
+				Name:        "LLM Chat Handler",
+				Description: "Handles chat requests",
+
+				Validations: &domain.ValidationsConfig{
+					Methods:  []string{"POST"},
+					Routes:   []string{"/api/v1/chat"},
+					Required: []string{"message"},
+					Rules: []domain.FieldRule{
+						{
+							Field:     "message",
+							Type:      domain.FieldTypeString,
+							MinLength: &minLen,
+							Message:   "Message cannot be empty",
 						},
 					},
 				},

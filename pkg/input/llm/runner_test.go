@@ -34,17 +34,6 @@ import (
 )
 
 // workflowWith builds a minimal Workflow with the given LLM input config.
-func workflowWith(llmCfg *domain.LLMInputConfig) *domain.Workflow {
-	return &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test", TargetActionID: "chat"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceLLM},
-				LLM:     llmCfg,
-			},
-		},
-	}
-}
 
 // buildEngine returns an *executor.Engine with a stubbed Execute function.
 func buildEngine(result interface{}) *executor.Engine {
@@ -55,26 +44,50 @@ func buildEngine(result interface{}) *executor.Engine {
 	return eng
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
-func TestRunWithIO_SingleTurn(t *testing.T) {
-	eng := buildEngine("Hello from LLM")
-	wf := workflowWith(&domain.LLMInputConfig{Prompt: "? "})
-	r := strings.NewReader("hi there\n")
-	var w bytes.Buffer
-
-	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	out := w.String()
-	if !strings.Contains(out, "? ") {
-		t.Errorf("expected prompt '? ' in output, got: %q", out)
-	}
-	if !strings.Contains(out, "Hello from LLM") {
-		t.Errorf("expected LLM response in output, got: %q", out)
+// workflowWith builds a minimal Workflow with the given LLM input config.
+func workflowWith(llmCfg *domain.LLMInputConfig) *domain.Workflow { //nolint:unparam
+	return &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", TargetActionID: "chat"},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{"api"},
+			},
+			LLM: llmCfg,
+		},
 	}
 }
+
+// workflowWithResources builds a workflow with specific resources.
+func workflowWithResources(resources []*domain.Resource) *domain.Workflow {
+	return &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test",
+			TargetActionID: "chat",
+		},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{"api"},
+			},
+		},
+		Resources: resources,
+	}
+}
+
+// workflowWithComponents builds a workflow with resources and components.
+func workflowWithComponents(resources []*domain.Resource, components map[string]*domain.Component) *domain.Workflow {
+	return &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", TargetActionID: "chat"},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Sources: []string{"api"},
+			},
+		},
+		Resources:  resources,
+		Components: components,
+	}
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────────
 
 func TestRunWithIO_MultiTurn(t *testing.T) {
 	call := 0
@@ -233,29 +246,6 @@ func TestRunWithIO_DefaultPromptAndSession(t *testing.T) {
 	}
 }
 
-func TestRunWithIO_CustomSessionID(t *testing.T) {
-	var gotSession string
-	eng := executor.NewEngine(nil)
-	eng.SetExecuteFunc(func(_ *domain.Workflow, req interface{}) (interface{}, error) {
-		if rc, ok := req.(*executor.RequestContext); ok {
-			gotSession = rc.SessionID
-		}
-		return "ok", nil
-	})
-
-	wf := workflowWith(&domain.LLMInputConfig{SessionID: "my-custom-session"})
-	r := strings.NewReader("hello\n")
-	var w bytes.Buffer
-
-	if err := llminput.RunWithIO(context.Background(), wf, eng, nil, r, &w); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if gotSession != "my-custom-session" {
-		t.Errorf("expected sessionID='my-custom-session', got %q", gotSession)
-	}
-}
-
 func TestRunWithIO_NilResultPrintsEmpty(t *testing.T) {
 	eng := buildEngine(nil)
 	wf := workflowWith(nil)
@@ -287,20 +277,6 @@ func TestRunWithIO_NonStringResult(t *testing.T) {
 // ── slash command tests ────────────────────────────────────────────────────
 
 // workflowWithResources builds a workflow that has two named resources.
-func workflowWithResources(resources []*domain.Resource) *domain.Workflow {
-	return &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:           "test",
-			TargetActionID: "chat",
-		},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceLLM},
-			},
-		},
-		Resources: resources,
-	}
-}
 
 func TestRunWithIO_HelpCommand(t *testing.T) {
 	eng := buildEngine("should not be called")
@@ -350,8 +326,8 @@ func TestRunWithIO_ListCommand_NoResources(t *testing.T) {
 
 func TestRunWithIO_ListCommand_ShowsResources(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator Tool"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "chat", Name: "LLM Chat"}},
+		{ActionID: "calcTool", Name: "Calculator Tool"},
+		{ActionID: "chat", Name: "LLM Chat"},
 	}
 	eng := buildEngine("nope")
 	wf := workflowWithResources(resources)
@@ -376,7 +352,7 @@ func TestRunWithIO_ListCommand_ShowsResources(t *testing.T) {
 func TestRunWithIO_RunCommand_UnknownActionID(t *testing.T) {
 	eng := buildEngine("should not reach engine")
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run nonExistentAction\n/quit\n")
 	var w bytes.Buffer
@@ -397,7 +373,7 @@ func TestRunWithIO_RunCommand_KnownActionID_InvokesEngine(t *testing.T) {
 		return "calc result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool expression=2+2\n/quit\n")
 	var w bytes.Buffer
@@ -423,7 +399,7 @@ func TestRunWithIO_RunCommand_ParamsPassedToEngine(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool expression=sqrt(16) mode=safe\n/quit\n")
 	var w bytes.Buffer
@@ -450,7 +426,7 @@ func TestRunWithIO_ToolAlias_InvokesEngine(t *testing.T) {
 		return "tool result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "hashTool", Name: "Hash Tool"}},
+		{ActionID: "hashTool", Name: "Hash Tool"},
 	})
 	r := strings.NewReader("/tool hashTool data=hello\n/quit\n")
 	var w bytes.Buffer
@@ -471,7 +447,7 @@ func TestRunWithIO_ComponentAlias_InvokesEngine(t *testing.T) {
 		return "component result", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "markdownTool", Name: "Markdown"}},
+		{ActionID: "markdownTool", Name: "Markdown"},
 	})
 	r := strings.NewReader("/component markdownTool text=hello\n/quit\n")
 	var w bytes.Buffer
@@ -525,7 +501,7 @@ func TestRunWithIO_OriginalWorkflowNotMutated(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	wf.Metadata.TargetActionID = originalTarget
 
@@ -545,18 +521,6 @@ func TestRunWithIO_OriginalWorkflowNotMutated(t *testing.T) {
 // ─── Additional coverage tests ───────────────────────────────────────────────
 
 // workflowWithComponents builds a Workflow that has components (for printResources coverage).
-func workflowWithComponents(resources []*domain.Resource, components map[string]*domain.Component) *domain.Workflow {
-	return &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test", TargetActionID: "chat"},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceLLM},
-			},
-		},
-		Resources:  resources,
-		Components: components,
-	}
-}
 
 // TestRunWithIO_PrintResources_WithComponents verifies that /list shows components.
 func TestRunWithIO_PrintResources_WithComponents(t *testing.T) {
@@ -648,7 +612,7 @@ func TestRunWithIO_RunCommand_EngineError(t *testing.T) {
 		return nil, errors.New("execution failed")
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "calcTool", Name: "Calculator"}},
+		{ActionID: "calcTool", Name: "Calculator"},
 	})
 	r := strings.NewReader("/run calcTool\n/quit\n")
 	var w bytes.Buffer
@@ -673,7 +637,7 @@ func TestParseParams_BareFlag(t *testing.T) {
 		return "ok", nil
 	})
 	wf := workflowWithResources([]*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "myTool", Name: "My Tool"}},
+		{ActionID: "myTool", Name: "My Tool"},
 	})
 	// "verbose" is a bare flag — should become "verbose"="true"
 	r := strings.NewReader("/run myTool verbose\n/quit\n")

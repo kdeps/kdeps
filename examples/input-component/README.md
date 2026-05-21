@@ -45,13 +45,12 @@ Only non-empty slots are included in the JSON output.
 
 ```yaml
 # 1. Collect inputs
-run:
-  component:
-    name: input
-    with:
-      query: "What is the capital of France?"
-      text: "The Eiffel Tower is in Paris."
-      key: "location"
+component:
+  name: input
+  with:
+    query: "What is the capital of France?"
+    text: "The Eiffel Tower is in Paris."
+    key: "location"
 ```
 
 The output is a JSON object with only the provided slots:

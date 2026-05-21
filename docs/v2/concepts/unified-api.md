@@ -39,11 +39,11 @@ Stores data for later use.
 
 ```yaml
 # Store in memory (current request only)
-expr:
+after:
   - set('count', 1)
 
 # Store in session (persists across requests)
-expr:
+after:
   - set('user_id', '123', 'session')
 ```
 

@@ -43,10 +43,9 @@ metadata:
   targetActionId: router
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3070
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3070
     routes:
       - path: /api/v1/set
         methods: [POST]
@@ -58,62 +57,50 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE_SET" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: setMemory
-  name: Set Memory
+actionId: setMemory
+name: Set Memory
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/set]
-  expr:
-    - "{{ set('test_key', get('value'), 'memory') }}"
-  apiResponse:
-    success: true
-    response:
-      message: "Value stored in memory"
-      key: "{{ get('key') }}"
-      stored_value: "{{ get('value') }}"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/set]
+after:
+  - "{{ set('test_key', get('value'), 'memory') }}"
+apiResponse:
+  success: true
+  response:
+    message: "Value stored in memory"
+    key: "{{ get('key') }}"
+    stored_value: "{{ get('value') }}"
 EOF
 
 cat > "$RESOURCE_FILE_GET" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: getMemory
-  name: Get Memory
+actionId: getMemory
+name: Get Memory
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/get]
-  apiResponse:
-    success: true
-    response:
-      retrieved_value: "{{ get('test_key', 'memory') }}"
-      message: "Value retrieved from memory"
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/api/v1/get]
+apiResponse:
+  success: true
+  response:
+    retrieved_value: "{{ get('test_key', 'memory') }}"
+    message: "Value retrieved from memory"
 EOF
 
 RESOURCE_FILE_ROUTER="$TEST_DIR/resources/router.yaml"
 cat > "$RESOURCE_FILE_ROUTER" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: router
-  name: Router
-  requires:
-    - setMemory
-    - getMemory
+actionId: router
+name: Router
+requires:
+  - setMemory
+  - getMemory
 
-run:
-  apiResponse:
-    success: true
-    response:
-      set_result: "{{ get('setMemory') }}"
-      get_result: "{{ get('getMemory') }}"
+apiResponse:
+  success: true
+  response:
+    set_result: "{{ get('setMemory') }}"
+    get_result: "{{ get('getMemory') }}"
 EOF
 
 # Test 1: Validate workflow

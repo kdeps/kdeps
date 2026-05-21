@@ -10,9 +10,8 @@ Use <span v-pre>`{{ }}`</span> to embed expressions in any string field.
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Hello {{ get('name') }}, today is {{ info('timestamp') }}"
+chat:
+  prompt: "Hello {{ get('name') }}, today is {{ info('timestamp') }}"
 ```
 
 </div>
@@ -21,16 +20,15 @@ run:
 Use `expr` blocks to run logic steps. These are executed sequentially.
 
 ```yaml
-run:
-  expr:
-    # Variable assignment
-    - set('normalized_query', lower(trim(get('q'))))
-    
-    # Conditional logic
-    - set('is_admin', get('role') == 'admin')
-    
-    # Math
-    - set('total', get('price') * get('quantity'))
+after:
+  # Variable assignment
+  - set('normalized_query', lower(trim(get('q'))))
+
+  # Conditional logic
+  - set('is_admin', get('role') == 'admin')
+
+  # Math
+  - set('total', get('price') * get('quantity'))
 ```
 
 ### 3. Conditions

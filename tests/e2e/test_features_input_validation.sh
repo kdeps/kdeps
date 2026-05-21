@@ -42,11 +42,9 @@ metadata:
   targetActionId: validator
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16399
-
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 16399
     routes:
       - path: /api/v1/validate
         methods: [POST]
@@ -59,23 +57,19 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: validator
-  name: Input Validator
+actionId: validator
+name: Input Validator
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/validate]
-  apiResponse:
-    success: true
-    response:
-      message: "Validation passed"
-      userId: "{{ input('userId') }}"
-      email: "{{ input('email') }}"
+validations:
+  methods: [POST]
+  routes: [/api/v1/validate]
+apiResponse:
+  success: true
+  response:
+    message: "Validation passed"
+    userId: "{{ input('userId') }}"
+    email: "{{ input('email') }}"
 EOF
 
 # Test 1: Validate workflow

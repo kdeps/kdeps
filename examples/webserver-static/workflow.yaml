@@ -8,11 +8,9 @@ metadata:
   targetActionId: "none"
 
 settings:
-  webServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   webServer:
+    portNum: 16395
     routes:
       - path: "/"
         serverType: "static"

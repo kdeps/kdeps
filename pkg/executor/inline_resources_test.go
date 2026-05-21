@@ -56,29 +56,27 @@ func TestEngine_InlineResources_Before(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
+						},
+					},
+					{
+						Exec: &domain.ExecConfig{
+							Command: "echo hello",
+						},
+					},
 				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
-						},
-						{
-							Exec: &domain.ExecConfig{
-								Command: "echo hello",
-							},
-						},
-					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
 				},
 			},
 		},
@@ -121,25 +119,23 @@ func TestEngine_InlineResources_After(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
-					After: []domain.InlineResource{
-						{SQL: &domain.SQLConfig{
-							Connection: "test",
-							Query:      "SELECT 1",
-						}},
-						{Python: &domain.PythonConfig{
-							Script: "print('hello')",
-						}},
-					},
+				After: []domain.InlineResource{
+					{SQL: &domain.SQLConfig{
+						Connection: "test",
+						Query:      "SELECT 1",
+					}},
+					{Python: &domain.PythonConfig{
+						Script: "print('hello')",
+					}},
 				},
 			},
 		},
@@ -186,29 +182,27 @@ func TestEngine_InlineResources_BeforeAndAfter(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
-					Chat: &domain.ChatConfig{
-						Model:  "test-model",
-						Role:   "user",
-						Prompt: "test prompt",
-					},
-					After: []domain.InlineResource{
-						{Exec: &domain.ExecConfig{
-							Command: "echo after",
-						}},
-					},
+				},
+				Chat: &domain.ChatConfig{
+					Model:  "test-model",
+					Role:   "user",
+					Prompt: "test prompt",
+				},
+				After: []domain.InlineResource{
+					{Exec: &domain.ExecConfig{
+						Command: "echo after",
+					}},
 				},
 			},
 		},
@@ -249,24 +243,22 @@ func TestEngine_InlineResources_OnlyInline(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
-					After: []domain.InlineResource{
-						{
-							Exec: &domain.ExecConfig{
-								Command: "echo after",
-							},
+				},
+				After: []domain.InlineResource{
+					{
+						Exec: &domain.ExecConfig{
+							Command: "echo after",
 						},
 					},
 				},
@@ -309,17 +301,15 @@ func TestEngine_InlineResources_Error(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
 				},
@@ -354,17 +344,15 @@ func TestEngine_InlineResources_NoExecutor(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "main",
-					Name:     "Main Resource",
-				},
-				Run: domain.RunConfig{
-					Before: []domain.InlineResource{
-						{
-							HTTPClient: &domain.HTTPClientConfig{
-								Method: "GET",
-								URL:    "http://example.com",
-							},
+
+				ActionID: "main",
+				Name:     "Main Resource",
+
+				Before: []domain.InlineResource{
+					{
+						HTTPClient: &domain.HTTPClientConfig{
+							Method: "GET",
+							URL:    "http://example.com",
 						},
 					},
 				},

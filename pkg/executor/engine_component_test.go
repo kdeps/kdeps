@@ -41,7 +41,7 @@ func makeComponentTestWorkflow(
 	wf := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
-		Metadata:   domain.WorkflowMetadata{Name: "test", TargetActionID: callerResource.Metadata.ActionID},
+		Metadata:   domain.WorkflowMetadata{Name: "test", TargetActionID: callerResource.ActionID},
 		Resources:  []*domain.Resource{callerResource},
 		Components: map[string]*domain.Component{componentName: comp},
 	}
@@ -57,8 +57,8 @@ func TestExecuteComponentCall_NilConfig(t *testing.T) {
 		Components: map[string]*domain.Component{},
 	}
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run:      domain.RunConfig{Component: nil},
+		ActionID:  "caller",
+		Component: nil,
 	}
 	wf.Resources = []*domain.Resource{resource}
 	_, err := eng.Execute(wf, nil)
@@ -74,10 +74,8 @@ func TestExecuteComponentCall_UnknownComponent(t *testing.T) {
 		Components: map[string]*domain.Component{},
 	}
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{Name: "nonexistent"},
-		},
+		ActionID:  "caller",
+		Component: &domain.ComponentCallConfig{Name: "nonexistent"},
 	}
 	wf.Resources = []*domain.Resource{resource}
 	_, err := eng.Execute(wf, nil)
@@ -96,12 +94,10 @@ func TestExecuteComponentCall_MissingRequiredInput(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "greeter",
-				With: map[string]interface{}{}, // missing required "name"
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "greeter",
+			With: map[string]interface{}{}, // missing required "name"
 		},
 	}
 	wf := makeComponentTestWorkflow("greeter", comp, callerRes)
@@ -122,12 +118,10 @@ func TestExecuteComponentCall_RequiredInputWithDefault_NoError(t *testing.T) {
 		Resources: []*domain.Resource{}, // no-op resources
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "greeter",
-				With: map[string]interface{}{}, // not provided - should use default
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "greeter",
+			With: map[string]interface{}{}, // not provided - should use default
 		},
 	}
 	wf := makeComponentTestWorkflow("greeter", comp, callerRes)
@@ -150,20 +144,16 @@ func TestExecuteComponentCall_InjectsCallerScopedKeys(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata:   domain.ResourceMetadata{ActionID: "echo-msg"},
-				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{Command: `echo ok`},
-				},
+				ActionID:   "echo-msg",
+				Exec:       &domain.ExecConfig{Command: `echo ok`},
 			},
 		},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "my-caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "echo",
-				With: map[string]interface{}{"message": "hello"},
-			},
+		ActionID: "my-caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "echo",
+			With: map[string]interface{}{"message": "hello"},
 		},
 	}
 	wf := makeComponentTestWorkflow("echo", comp, callerRes)
@@ -181,12 +171,10 @@ func TestExecuteComponentCall_NoResources_ReturnsStatus(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "empty",
-				With: map[string]interface{}{},
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "empty",
+			With: map[string]interface{}{},
 		},
 	}
 	wf := makeComponentTestWorkflow("empty", comp, callerRes)
@@ -210,12 +198,10 @@ func TestExecuteComponentCall_UnknownInputKey_NoError(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "simple",
-				With: map[string]interface{}{"x": "1", "undeclared": "2"},
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "simple",
+			With: map[string]interface{}{"x": "1", "undeclared": "2"},
 		},
 	}
 	wf := makeComponentTestWorkflow("simple", comp, callerRes)
@@ -233,10 +219,8 @@ func TestExecuteComponentCall_EmptyName_Error(t *testing.T) {
 		Components: map[string]*domain.Component{},
 	}
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{Name: ""},
-		},
+		ActionID:  "caller",
+		Component: &domain.ComponentCallConfig{Name: ""},
 	}
 	wf.Resources = []*domain.Resource{resource}
 	_, err := eng.Execute(wf, nil)
@@ -267,18 +251,16 @@ func TestExecuteComponentCall_InlineComponent_Before(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Before: []domain.InlineResource{
-				{
-					Component: &domain.ComponentCallConfig{
-						Name: "prep",
-						With: map[string]interface{}{"key": "val"},
-					},
+		ActionID: "caller",
+		Before: []domain.InlineResource{
+			{
+				Component: &domain.ComponentCallConfig{
+					Name: "prep",
+					With: map[string]interface{}{"key": "val"},
 				},
 			},
-			Exec: &domain.ExecConfig{Command: "echo done"},
 		},
+		Exec: &domain.ExecConfig{Command: "echo done"},
 	}
 	wf := makeComponentTestWorkflow("prep", comp, callerRes)
 	eng := executor.NewEngine(slog.Default())
@@ -330,8 +312,8 @@ func TestExecuteComponentCall_AutoEnv_RestoredAfterExecution(t *testing.T) {
 	compRes := &domain.Resource{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Resource",
-		Metadata:   domain.ResourceMetadata{ActionID: "inner-action"},
-		Run:        domain.RunConfig{Exec: &domain.ExecConfig{Command: "echo hi"}},
+		ActionID:   "inner-action",
+		Exec:       &domain.ExecConfig{Command: "echo hi"},
 	}
 	comp := &domain.Component{
 		Metadata:  domain.ComponentMetadata{Name: "mycomp", TargetActionID: "inner-action"},
@@ -339,12 +321,10 @@ func TestExecuteComponentCall_AutoEnv_RestoredAfterExecution(t *testing.T) {
 		Resources: []*domain.Resource{compRes},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "mycomp",
-				With: map[string]interface{}{},
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "mycomp",
+			With: map[string]interface{}{},
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
@@ -361,12 +341,10 @@ func TestExecuteComponentCall_VersionMismatch(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name:    "mycomp",
-				Version: "2.0.0",
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name:    "mycomp",
+			Version: "2.0.0",
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
@@ -385,12 +363,10 @@ func TestExecuteComponentCall_VersionMatch(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name:    "mycomp",
-				Version: "1.0.0",
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name:    "mycomp",
+			Version: "1.0.0",
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
@@ -406,11 +382,9 @@ func TestExecuteComponentCall_VersionNotPinned(t *testing.T) {
 		Resources: []*domain.Resource{},
 	}
 	callerRes := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "caller"},
-		Run: domain.RunConfig{
-			Component: &domain.ComponentCallConfig{
-				Name: "mycomp",
-			},
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "mycomp",
 		},
 	}
 	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)

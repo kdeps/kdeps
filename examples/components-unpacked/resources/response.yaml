@@ -1,12 +1,8 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: finalResponse
-  name: Final Response
-  requires:
+actionId: finalResponse
+name: Final Response
+requires:
     - sayHello
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "{{ get('greeting') }}"
+apiResponse:
+  success: true
+  response:
+    message: "{{ get('greeting') }}"

@@ -29,7 +29,6 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
   input:

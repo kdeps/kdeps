@@ -1,39 +1,34 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: proxyTls
+name: Proxy and TLS Configuration
 
-metadata:
-  actionId: proxyTls
-  name: Proxy and TLS Configuration
+validations:
+  methods: [GET]
+  routes: [/api/v1/http-demo]
 
-run:
-  validations:
-    methods: [GET]
-    routes: [/api/v1/http-demo]
+httpClient:
+  method: GET
+  url: "https://httpbin.org/get"
+  headers:
+    User-Agent: "KDeps-Advanced-HTTP/1.0"
 
-  httpClient:
-    method: GET
-    url: "https://httpbin.org/get"
-    headers:
-      User-Agent: "KDeps-Advanced-HTTP/1.0"
+  # Proxy configuration (uncomment and set proxy URL)
+  # proxy: "http://proxy.company.com:8080"
 
-    # Proxy configuration (uncomment and set proxy URL)
-    # proxy: "http://proxy.company.com:8080"
+  # TLS configuration
+  tls:
+    # Skip certificate verification (use with caution!)
+    insecureSkipVerify: false
 
-    # TLS configuration
-    tls:
-      # Skip certificate verification (use with caution!)
-      insecureSkipVerify: false
+    # Custom certificates (uncomment if needed)
+    # certFile: "/path/to/client.crt"
+    # keyFile: "/path/to/client.key"
+    # caFile: "/path/to/ca.crt"
 
-      # Custom certificates (uncomment if needed)
-      # certFile: "/path/to/client.crt"
-      # keyFile: "/path/to/client.key"
-      # caFile: "/path/to/ca.crt"
+  # No redirects
+  followRedirects: false
 
-    # No redirects
-    followRedirects: false
-
-    # Aggressive retry for demonstration
-    retry:
-      maxAttempts: 2
-      backoff: 100ms
-      retryOn: [408, 429, 500, 502, 503, 504]
+  # Aggressive retry for demonstration
+  retry:
+    maxAttempts: 2
+    backoff: 100ms
+    retryOn: [408, 429, 500, 502, 503, 504]

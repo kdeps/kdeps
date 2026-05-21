@@ -1,29 +1,24 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: llmResource
+name: LLM Chat
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/chat]
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: Query parameter 'q' is required
 
-    check:
-      - get('q') != ''
-    error:
-      code: 400
-      message: Query parameter 'q' is required
-
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: assistant
-        prompt: You are a helpful AI assistant.
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeoutDuration: 60s
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
+  scenario:
+    - role: assistant
+      prompt: You are a helpful AI assistant.
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+  timeoutDuration: 60s

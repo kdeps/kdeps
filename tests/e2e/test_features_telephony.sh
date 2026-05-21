@@ -62,10 +62,9 @@ metadata:
   version: "1.0.0"
   targetActionId: twimlResponse
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /twilio/say
         methods: [POST]
@@ -82,10 +81,7 @@ settings:
       - path: /twilio/reject
         methods: [POST]
   input:
-    sources: [telephony]
-    telephony:
-      type: online
-      provider: twilio
+    sources: [api]
   agentSettings:
     pythonVersion: "3.12"
 EOF
@@ -93,164 +89,132 @@ EOF
 # -- Resource: say -------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/say.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: sayHello
-  name: Say Hello
-run:
-  validations:
-    routes: [/twilio/say]
-    methods: [POST]
-  telephony:
-    action: say
-    say: "Hello from kdeps telephony."
-    voice: alice
+actionId: sayHello
+name: Say Hello
+validations:
+  routes: [/twilio/say]
+  methods: [POST]
+telephony:
+  action: say
+  say: "Hello from kdeps telephony."
+  voice: alice
 EOF
 
 # -- Resource: ask -------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/ask.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: askPin
-  name: Ask PIN
-run:
-  validations:
-    routes: [/twilio/ask]
-    methods: [POST]
-  telephony:
-    action: ask
-    say: "Please enter your 4-digit PIN."
-    limit: 4
-    timeout: 10s
-    terminator: "#"
+actionId: askPin
+name: Ask PIN
+validations:
+  routes: [/twilio/ask]
+  methods: [POST]
+telephony:
+  action: ask
+  say: "Please enter your 4-digit PIN."
+  limit: 4
+  timeout: 10s
+  terminator: "#"
 EOF
 
 # -- Resource: menu ------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/menu.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: mainMenu
-  name: Main Menu
-run:
-  validations:
-    routes: [/twilio/menu]
-    methods: [POST]
-  telephony:
-    action: menu
-    say: "Press 1 for sales. Press 2 for support."
-    timeout: 8s
-    matches:
-      - keys: ["1"]
-        invoke: salesFlow
-      - keys: ["2"]
-        invoke: supportFlow
-    onNoMatch: repeatMenu
+actionId: mainMenu
+name: Main Menu
+validations:
+  routes: [/twilio/menu]
+  methods: [POST]
+telephony:
+  action: menu
+  say: "Press 1 for sales. Press 2 for support."
+  timeout: 8s
+  matches:
+    - keys: ["1"]
+      invoke: salesFlow
+    - keys: ["2"]
+      invoke: supportFlow
+  onNoMatch: repeatMenu
 EOF
 
 # -- Resource: dial ------------------------------------------------------------
 
 cat > "$TEST_DIR/resources/dial.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: dialAgent
-  name: Dial Agent
-run:
-  validations:
-    routes: [/twilio/dial]
-    methods: [POST]
-  telephony:
-    action: dial
-    to:
-      - sip:agent@pbx.example.com
-      - "+15005550001"
-    for: 30s
+actionId: dialAgent
+name: Dial Agent
+validations:
+  routes: [/twilio/dial]
+  methods: [POST]
+telephony:
+  action: dial
+  to:
+    - sip:agent@pbx.example.com
+    - "+15005550001"
+  for: 30s
 EOF
 
 # -- Resource: record ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/record.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: recordMsg
-  name: Record Message
-run:
-  validations:
-    routes: [/twilio/record]
-    methods: [POST]
-  telephony:
-    action: record
-    say: "Leave a message after the beep."
-    maxDuration: 60s
-    interruptible: true
+actionId: recordMsg
+name: Record Message
+validations:
+  routes: [/twilio/record]
+  methods: [POST]
+telephony:
+  action: record
+  say: "Leave a message after the beep."
+  maxDuration: 60s
+  interruptible: true
 EOF
 
 # -- Resource: hangup ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/hangup.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: hangupCall
-  name: Hangup
-run:
-  validations:
-    routes: [/twilio/hangup]
-    methods: [POST]
-  telephony:
-    action: hangup
+actionId: hangupCall
+name: Hangup
+validations:
+  routes: [/twilio/hangup]
+  methods: [POST]
+telephony:
+  action: hangup
 EOF
 
 # -- Resource: reject ----------------------------------------------------------
 
 cat > "$TEST_DIR/resources/reject.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: rejectCall
-  name: Reject Busy
-run:
-  validations:
-    routes: [/twilio/reject]
-    methods: [POST]
-  telephony:
-    action: reject
-    reason: busy
+actionId: rejectCall
+name: Reject Busy
+validations:
+  routes: [/twilio/reject]
+  methods: [POST]
+telephony:
+  action: reject
+  reason: busy
 EOF
 
 # -- Resource: aggregated response ---------------------------------------------
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: twimlResponse
-  name: TwiML Response
-  requires:
-    - sayHello
-    - askPin
-    - mainMenu
-    - dialAgent
-    - recordMsg
-    - hangupCall
-    - rejectCall
-run:
-  apiResponse:
-    success: true
-    response:
-      say:    "{{ output('sayHello') }}"
-      ask:    "{{ output('askPin') }}"
-      menu:   "{{ output('mainMenu') }}"
-      dial:   "{{ output('dialAgent') }}"
-      record: "{{ output('recordMsg') }}"
-      hangup: "{{ output('hangupCall') }}"
-      reject: "{{ output('rejectCall') }}"
+actionId: twimlResponse
+name: TwiML Response
+requires:
+  - sayHello
+  - askPin
+  - mainMenu
+  - dialAgent
+  - recordMsg
+  - hangupCall
+  - rejectCall
+apiResponse:
+  success: true
+  response:
+    say:    "{{ output('sayHello') }}"
+    ask:    "{{ output('askPin') }}"
+    menu:   "{{ output('mainMenu') }}"
+    dial:   "{{ output('dialAgent') }}"
+    record: "{{ output('recordMsg') }}"
+    hangup: "{{ output('hangupCall') }}"
+    reject: "{{ output('rejectCall') }}"
 EOF
 
 # -- Start KDeps ---------------------------------------------------------------
@@ -283,24 +247,23 @@ fi
 
 test_passed "Telephony - Server startup"
 
-# Helper: extract twiml field from response JSON.
-# Pass JSON via env var to avoid shell/heredoc escape issues.
+# Helper: extract twiml field from response JSON via stdin pipe.
 extract_twiml() {
     local json="$1"
     local field="$2"
-    TWIML_JSON="$json" TWIML_FIELD="$field" python3 - <<'PY' 2>/dev/null || echo ""
-import os, json as j
+    echo "$json" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
-    block = data.get(os.environ['TWIML_FIELD'], {})
+    block = data.get('$field', {})
     if isinstance(block, dict):
         print(block.get('twiml', ''))
     else:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo ""
 }
 
 # -- Test 1: say ---------------------------------------------------------------
@@ -385,10 +348,10 @@ MENU_MATCH_RESP=$(curl -sf --max-time 5 \
     -H "Content-Type: application/json" \
     -d '{"CallSid":"CA_MENU_002","From":"+14155551234","Digits":"1"}' 2>&1)
 
-MENU_STATUS=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
-import os, json as j
+MENU_STATUS=$(echo "$MENU_MATCH_RESP" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
@@ -401,7 +364,7 @@ try:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo "")
 
 if [ "$MENU_STATUS" = "match" ]; then
     test_passed "Telephony - menu match status"
@@ -409,10 +372,10 @@ else
     test_failed "Telephony - menu match status" "status='$MENU_STATUS'"
 fi
 
-MENU_INTERP=$(TWIML_JSON="$MENU_MATCH_RESP" python3 - <<'PY' 2>/dev/null || echo "")
-import os, json as j
+MENU_INTERP=$(echo "$MENU_MATCH_RESP" | python3 -c "
+import sys, json as j
 try:
-    d = j.loads(os.environ['TWIML_JSON'])
+    d = j.load(sys.stdin)
     data = d.get('data', d)
     block = data.get('menu', {})
     if isinstance(block, dict):
@@ -425,7 +388,7 @@ try:
         print('')
 except Exception:
     print('')
-PY
+" 2>/dev/null || echo "")
 
 if [ "$MENU_INTERP" = "1" ]; then
     test_passed "Telephony - menu match interpretation"

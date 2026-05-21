@@ -9,18 +9,17 @@ When you define tools in a chat resource, the LLM can automatically decide when 
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: calculate
-        description: Perform mathematical calculations
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            description: Math expression to evaluate
-            required: true
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: calculate
+      description: Perform mathematical calculations
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          description: Math expression to evaluate
+          required: true
 ```
 
 </div>
@@ -49,33 +48,29 @@ Tools that reference other KDeps resources:
 
 ```yaml
 # The tool resource
-metadata:
-  actionId: calcTool
-run:
-  python:
-    script: |
-      import json
-      import math
-      expr = """{{ get('expression') }}"""
-      result = eval(expr, {"__builtins__": {}, "math": math})
-      print(json.dumps({"result": result}))
+actionId: calcTool
+python:
+  script: |
+    import json
+    import math
+    expr = """{{ get('expression') }}"""
+    result = eval(expr, {"__builtins__": {}, "math": math})
+    print(json.dumps({"result": result}))
 
 ---
 # The LLM that uses the tool
-metadata:
-  actionId: llmWithTools
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: calculate
-        description: Evaluate mathematical expressions
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            description: "Math expression (e.g., '2 + 2', 'math.sqrt(16)')"
-            required: true
+actionId: llmWithTools
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: calculate
+      description: Evaluate mathematical expressions
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          description: "Math expression (e.g., '2 + 2', 'math.sqrt(16)')"
+          required: true
 ```
 
 </div>
@@ -122,21 +117,20 @@ tools:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: read_file
-        description: Read the contents of a file
-        mcp:
-          server: npx
-          args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
-          transport: stdio
-        parameters:
-          path:
-            type: string
-            description: Absolute path of the file to read
-            required: true
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: read_file
+      description: Read the contents of a file
+      mcp:
+        server: npx
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+        transport: stdio
+      parameters:
+        path:
+          type: string
+          description: Absolute path of the file to read
+          required: true
 ```
 
 </div>
@@ -146,22 +140,21 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: search
-        description: Search internal knowledge base
-        mcp:
-          server: /usr/local/bin/my-search-mcp
-          args: ["--index", "/data/index"]
-          env:
-            SEARCH_API_KEY: "{{ get('SEARCH_KEY', 'env') }}"
-        parameters:
-          query:
-            type: string
-            description: Search query
-            required: true
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: search
+      description: Search internal knowledge base
+      mcp:
+        server: /usr/local/bin/my-search-mcp
+        args: ["--index", "/data/index"]
+        env:
+          SEARCH_API_KEY: "{{ get('SEARCH_KEY', 'env') }}"
+      parameters:
+        query:
+          type: string
+          description: Search query
+          required: true
 ```
 
 </div>
@@ -173,48 +166,47 @@ Define multiple tools for different capabilities:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: calculate
-        description: Perform math calculations
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            required: true
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: calculate
+      description: Perform math calculations
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          required: true
 
-      - name: search_database
-        description: Search the product database
-        script: dbSearchTool
-        parameters:
-          query:
-            type: string
-            description: Search query
-            required: true
-          category:
-            type: string
-            description: Product category filter
-            required: false
-          limit:
-            type: integer
-            description: Maximum results
-            required: false
+    - name: search_database
+      description: Search the product database
+      script: dbSearchTool
+      parameters:
+        query:
+          type: string
+          description: Search query
+          required: true
+        category:
+          type: string
+          description: Product category filter
+          required: false
+        limit:
+          type: integer
+          description: Maximum results
+          required: false
 
-      - name: send_email
-        description: Send an email notification
-        script: emailTool
-        parameters:
-          to:
-            type: string
-            required: true
-          subject:
-            type: string
-            required: true
-          body:
-            type: string
-            required: true
+    - name: send_email
+      description: Send an email notification
+      script: emailTool
+      parameters:
+        to:
+          type: string
+          required: true
+        subject:
+          type: string
+          required: true
+        body:
+          type: string
+          required: true
 ```
 
 </div>
@@ -254,56 +246,52 @@ LLM generates final response
 
 ```yaml
 # Calculator resource
-metadata:
-  actionId: calcTool
-run:
-  python:
-    script: |
-      import json
-      import math
+actionId: calcTool
+python:
+  script: |
+    import json
+    import math
 
-      expression = """{{ get('expression') }}"""
+    expression = """{{ get('expression') }}"""
 
-      # Safe evaluation with math functions
-      safe_dict = {
-          'abs': abs, 'round': round,
-          'min': min, 'max': max,
-          'sum': sum, 'pow': pow,
-          'sqrt': math.sqrt, 'sin': math.sin,
-          'cos': math.cos, 'tan': math.tan,
-          'log': math.log, 'log10': math.log10,
-          'exp': math.exp, 'pi': math.pi, 'e': math.e
-      }
+    # Safe evaluation with math functions
+    safe_dict = {
+        'abs': abs, 'round': round,
+        'min': min, 'max': max,
+        'sum': sum, 'pow': pow,
+        'sqrt': math.sqrt, 'sin': math.sin,
+        'cos': math.cos, 'tan': math.tan,
+        'log': math.log, 'log10': math.log10,
+        'exp': math.exp, 'pi': math.pi, 'e': math.e
+    }
 
-      try:
-          result = eval(expression, {"__builtins__": {}}, safe_dict)
-          print(json.dumps({"result": result, "expression": expression}))
-      except Exception as e:
-          print(json.dumps({"error": str(e)}))
-    timeout: 30s
+    try:
+        result = eval(expression, {"__builtins__": {}}, safe_dict)
+        print(json.dumps({"result": result, "expression": expression}))
+    except Exception as e:
+        print(json.dumps({"error": str(e)}))
+  timeout: 30s
 
 ---
 # LLM with calculator
-metadata:
-  actionId: mathAssistant
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: calculate
-        description: |
-          Evaluate mathematical expressions.
-          Supports: +, -, *, /, **, sqrt, sin, cos, tan, log, exp, pi, e
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            description: "Math expression like '2 + 2' or 'sqrt(16)'"
-            required: true
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-      - calculation
+actionId: mathAssistant
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: calculate
+      description: |
+        Evaluate mathematical expressions.
+        Supports: +, -, *, /, **, sqrt, sin, cos, tan, log, exp, pi, e
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          description: "Math expression like '2 + 2' or 'sqrt(16)'"
+          required: true
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+    - calculation
 ```
 
 </div>
@@ -314,47 +302,43 @@ run:
 
 ```yaml
 # Database search resource
-metadata:
-  actionId: dbSearchTool
-run:
-  sql:
-    connectionName: main
-    query: |
-      SELECT id, name, description, price, category
-      FROM products
-      WHERE (name ILIKE $1 OR description ILIKE $1)
-        AND ($2 = '' OR category = $2)
-      LIMIT $3
-    params:
-      - "'%' || get('query') || '%'"
-      - get('category', '')
-      - get('limit', '10')
-    format: json
+actionId: dbSearchTool
+sql:
+  connectionName: main
+  query: |
+    SELECT id, name, description, price, category
+    FROM products
+    WHERE (name ILIKE $1 OR description ILIKE $1)
+      AND ($2 = '' OR category = $2)
+    LIMIT $3
+  params:
+    - "'%' || get('query') || '%'"
+    - get('category', '')
+    - get('limit', '10')
+  format: json
 
 ---
 # LLM with search
-metadata:
-  actionId: productAssistant
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: search_products
-        description: Search the product catalog
-        script: dbSearchTool
-        parameters:
-          query:
-            type: string
-            description: Search terms
-            required: true
-          category:
-            type: string
-            description: Filter by category (electronics, clothing, etc.)
-            required: false
-          limit:
-            type: integer
-            description: Max results (default 10)
-            required: false
+actionId: productAssistant
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: search_products
+      description: Search the product catalog
+      script: dbSearchTool
+      parameters:
+        query:
+          type: string
+          description: Search terms
+          required: true
+        category:
+          type: string
+          description: Filter by category (electronics, clothing, etc.)
+          required: false
+        limit:
+          type: integer
+          description: Max results (default 10)
+          required: false
 ```
 
 </div>
@@ -365,30 +349,26 @@ run:
 
 ```yaml
 # Weather API resource
-metadata:
-  actionId: weatherTool
-run:
-  httpClient:
-    method: GET
-    url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
-    timeout: 30s
+actionId: weatherTool
+httpClient:
+  method: GET
+  url: "https://api.openweathermap.org/data/2.5/weather?q={{ get('city') }}&appid={{ get('OPENWEATHER_API_KEY', 'env') }}&units=metric"
+  timeout: 30s
 
 ---
 # LLM with weather
-metadata:
-  actionId: weatherAssistant
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: get_weather
-        description: Get current weather for a city
-        script: weatherTool
-        parameters:
-          city:
-            type: string
-            description: City name (e.g., "London", "New York")
-            required: true
+actionId: weatherAssistant
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: get_weather
+      description: Get current weather for a city
+      script: weatherTool
+      parameters:
+        city:
+          type: string
+          description: City name (e.g., "London", "New York")
+          required: true
 ```
 
 </div>
@@ -398,53 +378,51 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: smartAgent
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: system
-        prompt: |
-          You are a helpful assistant with access to tools.
-          Use tools when needed to answer questions accurately.
-          Always explain what you're doing.
-    tools:
-      - name: calculate
-        description: Math calculations
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            required: true
+actionId: smartAgent
+chat:
+  prompt: "{{ get('q') }}"
+  scenario:
+    - role: system
+      prompt: |
+        You are a helpful assistant with access to tools.
+        Use tools when needed to answer questions accurately.
+        Always explain what you're doing.
+  tools:
+    - name: calculate
+      description: Math calculations
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          required: true
 
-      - name: search_products
-        description: Search product catalog
-        script: dbSearchTool
-        parameters:
-          query:
-            type: string
-            required: true
+    - name: search_products
+      description: Search product catalog
+      script: dbSearchTool
+      parameters:
+        query:
+          type: string
+          required: true
 
-      - name: get_weather
-        description: Current weather
-        script: weatherTool
-        parameters:
-          city:
-            type: string
-            required: true
+    - name: get_weather
+      description: Current weather
+      script: weatherTool
+      parameters:
+        city:
+          type: string
+          required: true
 
-      - name: send_notification
-        description: Send a notification
-        script: notifyTool
-        parameters:
-          message:
-            type: string
-            required: true
-          channel:
-            type: string
-            description: "slack, email, or sms"
-            required: true
+    - name: send_notification
+      description: Send a notification
+      script: notifyTool
+      parameters:
+        message:
+          type: string
+          required: true
+        channel:
+          type: string
+          description: "slack, email, or sms"
+          required: true
 ```
 
 </div>
@@ -524,20 +502,18 @@ Add logging to understand tool execution:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: debugTool
-run:
-  python:
-    script: |
-      import json
-      import sys
+actionId: debugTool
+python:
+  script: |
+    import json
+    import sys
 
-      # Log to stderr (not captured as output)
-      print(f"Tool called with: {{ get('params') }}", file=sys.stderr)
+    # Log to stderr (not captured as output)
+    print(f"Tool called with: {{ get('params') }}", file=sys.stderr)
 
-      # Process and return result
-      result = {"status": "success"}
-      print(json.dumps(result))
+    # Process and return result
+    result = {"status": "success"}
+    print(json.dumps(result))
 ```
 
 </div>

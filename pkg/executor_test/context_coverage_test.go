@@ -978,8 +978,7 @@ func TestNewExecutionContext_WithSessionTTL(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			Session: &domain.SessionConfig{
-				Enabled: true,
-				TTL:     "1h",
+				TTL: "1h",
 			},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
@@ -992,14 +991,11 @@ func TestNewExecutionContext_WithSessionTTL(t *testing.T) {
 	assert.NotNil(t, ctx)
 }
 
-// TestNewExecutionContext_SessionDisabled tests NewExecutionContext with session disabled.
+// TestNewExecutionContext_SessionDisabled tests NewExecutionContext with session omitted (disabled).
 func TestNewExecutionContext_SessionDisabled(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			Session: &domain.SessionConfig{
-				Enabled: false,
-			},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -1733,9 +1729,8 @@ func TestGraph_GetExecutionOrder_NotFound(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "existing",
-		},
+
+		ActionID: "existing",
 	}
 
 	err := graph.AddResource(resource)
@@ -1756,16 +1751,14 @@ func TestGraph_TopologicalSortUtil_Cycle(t *testing.T) {
 	// Add resources that form a cycle
 	resources := []*domain.Resource{
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "a",
-				Requires: []string{"b"},
-			},
+
+			ActionID: "a",
+			Requires: []string{"b"},
 		},
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "b",
-				Requires: []string{"a"},
-			},
+
+			ActionID: "b",
+			Requires: []string{"a"},
 		},
 	}
 
@@ -2160,16 +2153,14 @@ func TestGraph_GetExecutionOrder_WithCycle(t *testing.T) {
 	// Add resources that form a cycle
 	resources := []*domain.Resource{
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "a",
-				Requires: []string{"b"},
-			},
+
+			ActionID: "a",
+			Requires: []string{"b"},
 		},
 		{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "b",
-				Requires: []string{"a"},
-			},
+
+			ActionID: "b",
+			Requires: []string{"a"},
 		},
 	}
 

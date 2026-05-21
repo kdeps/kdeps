@@ -39,14 +39,11 @@ Create `workflow.yaml`:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: vision
-  description: Vision model example
-  version: "1.0.0"
-  targetActionId: visionResponse
-
+name: vision
+description: Vision model example
+version: "1.0.0"
+targetActionId: visionResponse
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -73,25 +70,20 @@ Create `resources/vision-llm.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
-run:
-  chat:
-    role: user
-    prompt: "{{ get('q', 'param') }}"
-    files:
-      # Get uploaded file path
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
-      - scene
+actionId: visionLLM
+name: Vision LLM
+chat:
+  role: user
+  prompt: "{{ get('q', 'param') }}"
+  files:
+    # Get uploaded file path
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
+    - scene
 ```
 
 </div>
@@ -108,24 +100,19 @@ Create `resources/vision-response.yaml`:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionResponse
-  name: Vision Response
-  requires:
-    - visionLLM
-
-run:
-  apiResponse:
-    success: true
-    response:
-      query: get('q', 'param')
-      analysis: get('visionLLM')
-      file_info:
-        filename: get('file', 'filename')
-        filetype: get('file', 'filetype')
+actionId: visionResponse
+name: Vision Response
+requires:
+  - visionLLM
+apiResponse:
+  success: true
+  response:
+    query: get('q', 'param')
+    analysis: get('visionLLM')
+    file_info:
+      filename: get('file', 'filename')
+      filetype: get('file', 'filetype')
 ```
 
 </div>
@@ -256,11 +243,10 @@ model: llava:13b
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Describe this image in detail"
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Describe this image in detail"
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -270,15 +256,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "List all objects in this image"
-    jsonResponse: true
-    jsonResponseKeys:
-      - objects
-      - count
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "List all objects in this image"
+  jsonResponse: true
+  jsonResponseKeys:
+    - objects
+    - count
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -288,17 +273,16 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Analyze the scene: location, time of day, weather, mood"
-    jsonResponse: true
-    jsonResponseKeys:
-      - location
-      - time_of_day
-      - weather
-      - mood
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Analyze the scene: location, time of day, weather, mood"
+  jsonResponse: true
+  jsonResponseKeys:
+    - location
+    - time_of_day
+    - weather
+    - mood
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -308,16 +292,15 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Compare these two images and describe the differences"
-    files:
-      - "{{ get('file1', 'filepath') }}"
-      - "{{ get('file2', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - differences
-      - similarities
+chat:
+  prompt: "Compare these two images and describe the differences"
+  files:
+    - "{{ get('file1', 'filepath') }}"
+    - "{{ get('file2', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - differences
+    - similarities
 ```
 
 </div>
@@ -327,15 +310,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "Extract all text from this image"
-    jsonResponse: true
-    jsonResponseKeys:
-      - text
-      - confidence
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  prompt: "Extract all text from this image"
+  jsonResponse: true
+  jsonResponseKeys:
+    - text
+    - confidence
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -347,15 +329,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    scenario:
-      - role: system
-        prompt: "You are an expert image analyst. Provide detailed, accurate descriptions."
-      - role: user
-        prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
+chat:
+  scenario:
+    - role: system
+      prompt: "You are an expert image analyst. Provide detailed, accurate descriptions."
+    - role: user
+      prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
 ```
 
 </div>
@@ -367,18 +348,17 @@ Combine vision with function calling:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-    tools:
-      - name: save_analysis
-        description: Save the image analysis
-        parameters:
-          description:
-            type: string
-            description: The image description
+chat:
+  prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+  tools:
+    - name: save_analysis
+      description: Save the image analysis
+      parameters:
+        description:
+          type: string
+          description: The image description
 ```
 
 </div>
@@ -404,26 +384,21 @@ Handle errors gracefully:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
-run:
-  validations:
-    - info('filecount') > 0
-    - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
-  chat:
-    prompt: "{{ get('q') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-  onError:
-    apiResponse:
-      success: false
-      response:
-        error: "Failed to process image"
+actionId: visionLLM
+name: Vision LLM
+validations:
+  - info('filecount') > 0
+  - get('file', 'filetype') in ['image/jpeg', 'image/png', 'image/webp']
+chat:
+  prompt: "{{ get('q') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+onError:
+  apiResponse:
+    success: false
+    response:
+      error: "Failed to process image"
 ```
 
 </div>
@@ -436,13 +411,10 @@ run:
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: vision-demo
-  version: "1.0.0"
-  targetActionId: visionResponse
-
+name: vision-demo
+version: "1.0.0"
+targetActionId: visionResponse
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -456,40 +428,30 @@ settings:
 
 ---
 # resources/vision-llm.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
-run:
-  chat:
-    prompt: "{{ get('q', 'param') }}"
-    files:
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
+actionId: visionLLM
+name: Vision LLM
+chat:
+  prompt: "{{ get('q', 'param') }}"
+  files:
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
 
 ---
 # resources/vision-response.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: visionResponse
-  name: Vision Response
-  requires:
-    - visionLLM
-
-run:
-  apiResponse:
-    success: true
-    response:
-      query: get('q', 'param')
-      analysis: get('visionLLM')
+actionId: visionResponse
+name: Vision Response
+requires:
+  - visionLLM
+apiResponse:
+  success: true
+  response:
+    query: get('q', 'param')
+    analysis: get('visionLLM')
 ```
 
 </div>

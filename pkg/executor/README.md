@@ -3,10 +3,9 @@
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: 
-    with:
+component:
+  name: 
+  with:
 ```
 
 ## Install

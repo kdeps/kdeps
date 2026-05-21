@@ -42,7 +42,6 @@ metadata:
     - resources/06-response.yaml
 
 settings:
-  apiServerMode: false
 
   input:
     sources: ["file"]

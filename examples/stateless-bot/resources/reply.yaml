@@ -1,15 +1,10 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: reply
-  name: Reply
-  requires:
+actionId: reply
+name: Reply
+requires:
     - llm
 
-run:
-  exec:
-    command: sh
-    args:
-      - "-c"
-      - "printf '%s' '{{ get('llm') }}'"
+exec:
+  command: sh
+  args:
+    - "-c"
+    - "printf '%s' '{{ get('llm') }}'"

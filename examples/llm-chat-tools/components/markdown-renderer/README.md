@@ -9,12 +9,11 @@ Version: 1.0.0
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: markdown-renderer
-    with:
-      text: "" # Markdown source text to render.  # required
-      output_format: "" # Output format: 'plain' (default) or 'html'.
+component:
+  name: markdown-renderer
+  with:
+    text: "" # Markdown source text to render.  # required
+    output_format: "" # Output format: 'plain' (default) or 'html'.
 ```
 
 ## Install

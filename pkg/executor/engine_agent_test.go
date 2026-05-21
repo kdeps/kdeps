@@ -43,19 +43,14 @@ metadata:
   version: "1.0.0"
   targetActionId: echo
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: echo
-      name: Echo
-    run:
-      apiResponse:
-        success: true
-        response: "{{ get('greeting') }}"
+  - actionId: echo
+    name: Echo
+    apiResponse:
+      success: true
+      response: "{{ get('greeting') }}"
 `
 
 // minimalAgentWorkflow is a simple workflow YAML that returns a fixed response.
@@ -66,19 +61,14 @@ metadata:
   version: "1.0.0"
   targetActionId: respond
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: respond
-      name: Respond
-    run:
-      apiResponse:
-        success: true
-        response: "helper-result"
+  - actionId: respond
+    name: Respond
+    apiResponse:
+      success: true
+      response: "helper-result"
 `
 
 // TestExecuteAgent_MissingAgencyContext verifies that executeAgent returns an
@@ -100,15 +90,13 @@ func TestExecuteAgent_MissingAgencyContext(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callHelper",
-					Name:     "Call Helper",
-				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "helper-agent",
-						Params: map[string]interface{}{"key": "value"},
-					},
+
+				ActionID: "callHelper",
+				Name:     "Call Helper",
+
+				Agent: &domain.AgentCallConfig{
+					Name:   "helper-agent",
+					Params: map[string]interface{}{"key": "value"},
 				},
 			},
 		},
@@ -139,14 +127,12 @@ func TestExecuteAgent_AgentNotFound(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callHelper",
-					Name:     "Call Helper",
-				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name: "nonexistent-agent",
-					},
+
+				ActionID: "callHelper",
+				Name:     "Call Helper",
+
+				Agent: &domain.AgentCallConfig{
+					Name: "nonexistent-agent",
 				},
 			},
 		},
@@ -182,15 +168,13 @@ func TestExecuteAgent_SubAgentExecution(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callHelper",
-					Name:     "Call Helper",
-				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "helper-agent",
-						Params: map[string]interface{}{"greeting": "hello"},
-					},
+
+				ActionID: "callHelper",
+				Name:     "Call Helper",
+
+				Agent: &domain.AgentCallConfig{
+					Name:   "helper-agent",
+					Params: map[string]interface{}{"greeting": "hello"},
 				},
 			},
 		},
@@ -227,10 +211,8 @@ func TestSetNewExecutionContextForAgency(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata:   domain.ResourceMetadata{ActionID: "go", Name: "Go"},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{Name: "agent-a"},
-				},
+				ActionID:   "go", Name: "Go",
+				Agent: &domain.AgentCallConfig{Name: "agent-a"},
 			},
 		},
 	}
@@ -271,17 +253,15 @@ func TestExecuteAgent_ParamsExpressions_EvaluatedBeforeHandoff(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callEcho",
-					Name:     "Call Echo",
-				},
-				Run: domain.RunConfig{
-					// The expression "{{ get('greeting') }}" must be resolved to "Alice"
-					// from the caller's query param before the sub-agent sees it.
-					Agent: &domain.AgentCallConfig{
-						Name:   "param-echo-agent",
-						Params: map[string]interface{}{"greeting": "{{ get('greeting') }}"},
-					},
+
+				ActionID: "callEcho",
+				Name:     "Call Echo",
+
+				// The expression "{{ get('greeting') }}" must be resolved to "Alice"
+				// from the caller's query param before the sub-agent sees it.
+				Agent: &domain.AgentCallConfig{
+					Name:   "param-echo-agent",
+					Params: map[string]interface{}{"greeting": "{{ get('greeting') }}"},
 				},
 			},
 		},
@@ -325,15 +305,13 @@ func TestExecuteAgent_ParamsExpressions_StaticValueUnchanged(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callEcho",
-					Name:     "Call Echo",
-				},
-				Run: domain.RunConfig{
-					Agent: &domain.AgentCallConfig{
-						Name:   "param-echo-agent",
-						Params: map[string]interface{}{"greeting": "Bob"},
-					},
+
+				ActionID: "callEcho",
+				Name:     "Call Echo",
+
+				Agent: &domain.AgentCallConfig{
+					Name:   "param-echo-agent",
+					Params: map[string]interface{}{"greeting": "Bob"},
 				},
 			},
 		},
@@ -369,17 +347,15 @@ func TestExecuteAgent_ParamsExpressions_DefaultValue(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "callEcho",
-					Name:     "Call Echo",
-				},
-				Run: domain.RunConfig{
-					// "World" is the default — no "greeting" param in the request.
-					Agent: &domain.AgentCallConfig{
-						Name: "param-echo-agent",
-						Params: map[string]interface{}{
-							"greeting": "{{ get('greeting', 'World') }}",
-						},
+
+				ActionID: "callEcho",
+				Name:     "Call Echo",
+
+				// "World" is the default — no "greeting" param in the request.
+				Agent: &domain.AgentCallConfig{
+					Name: "param-echo-agent",
+					Params: map[string]interface{}{
+						"greeting": "{{ get('greeting', 'World') }}",
 					},
 				},
 			},

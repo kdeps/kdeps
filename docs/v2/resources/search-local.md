@@ -5,12 +5,11 @@ The `searchLocal` executor is a native capability compiled into the `kdeps` bina
 ## Configuration
 
 ```yaml
-run:
-  searchLocal:
-    path: "/data/documents"    # required: directory to search
-    query: "invoice total"     # optional: keyword in file contents
-    glob: "*.txt"              # optional: filename pattern
-    limit: 10                  # optional: max results (0 = unlimited)
+searchLocal:
+  path: "/data/documents"    # required: directory to search
+  query: "invoice total"     # optional: keyword in file contents
+  glob: "*.txt"              # optional: filename pattern
+  limit: 10                  # optional: max results (0 = unlimited)
 ```
 
 | Field | Type | Required | Default | Description |
@@ -47,12 +46,10 @@ Each result object:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findDocs
-run:
-  searchLocal:
-    path: "/workspace/docs"
-    glob: "*.md"
+actionId: findDocs
+searchLocal:
+  path: "/workspace/docs"
+  glob: "*.md"
 ```
 
 </div>
@@ -62,13 +59,11 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findInvoices
-run:
-  searchLocal:
-    path: "/data/uploads"
-    query: "overdue"
-    limit: 20
+actionId: findInvoices
+searchLocal:
+  path: "/data/uploads"
+  query: "overdue"
+  limit: 20
 ```
 
 </div>
@@ -78,13 +73,11 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findContracts
-run:
-  searchLocal:
-    path: "/data"
-    glob: "*.txt"
-    query: "termination clause"
+actionId: findContracts
+searchLocal:
+  path: "/data"
+  glob: "*.txt"
+  query: "termination clause"
 ```
 
 </div>
@@ -94,23 +87,19 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: findFiles
-run:
-  searchLocal:
-    path: "/data/reports"
-    query: "{{ get('query') }}"
+actionId: findFiles
+searchLocal:
+  path: "/data/reports"
+  query: "{{ get('query') }}"
 
 ---
-metadata:
-  actionId: answer
-  requires: [findFiles]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "Files found: {{ output('findFiles').results }}. Summarize."
-  apiResponse:
-    response: "{{ output('answer') }}"
+actionId: answer
+requires: [findFiles]
+chat:
+  model: llama3.2:1b
+  prompt: "Files found: {{ output('findFiles').results }}. Summarize."
+apiResponse:
+  response: "{{ output('answer') }}"
 ```
 
 </div>
@@ -118,16 +107,9 @@ run:
 ## Error Handling
 
 ```yaml
-run:
-  searchLocal:
-    path: "/data"
-    query: "keyword"
-  onError:
-    action: continue
+searchLocal:
+  path: "/data"
+  query: "keyword"
+onError:
+  action: continue
 ```
-
-## Next Steps
-
-- [Embedding Resource](embedding) - Index and keyword-search document content
-- [Scraper Resource](scraper) - Fetch web content
-- [Python Resource](python) - Advanced file processing

@@ -72,19 +72,17 @@ func TestEngine_OnError_Continue_WithFallback(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:   "continue",
-						Fallback: map[string]interface{}{"default": "value"},
-					},
+				OnError: &domain.OnErrorConfig{
+					Action:   "continue",
+					Fallback: map[string]interface{}{"default": "value"},
 				},
 			},
 		},
@@ -122,18 +120,16 @@ func TestEngine_OnError_Continue_WithoutFallback(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action: "continue",
-					},
+				OnError: &domain.OnErrorConfig{
+					Action: "continue",
 				},
 			},
 		},
@@ -173,20 +169,18 @@ func TestEngine_OnError_Retry_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:     "retry",
-						MaxRetries: 3,
-						RetryDelay: "10ms",
-					},
+				OnError: &domain.OnErrorConfig{
+					Action:     "retry",
+					MaxRetries: 3,
+					RetryDelay: "10ms",
 				},
 			},
 		},
@@ -227,20 +221,18 @@ func TestEngine_OnError_Retry_AllFailed(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:     "retry",
-						MaxRetries: 3,
-						RetryDelay: "10ms",
-					},
+				OnError: &domain.OnErrorConfig{
+					Action:     "retry",
+					MaxRetries: 3,
+					RetryDelay: "10ms",
 				},
 			},
 		},
@@ -276,18 +268,16 @@ func TestEngine_OnError_Fail(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action: "fail",
-					},
+				OnError: &domain.OnErrorConfig{
+					Action: "fail",
 				},
 			},
 		},
@@ -327,17 +317,15 @@ func TestEngine_OnError_NoConfig(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					// No OnError config - should fail immediately
-				},
+				// No OnError config - should fail immediately
 			},
 		},
 	}
@@ -370,19 +358,17 @@ func TestEngine_OnError_SuccessNoHandling(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
-					},
-					OnError: &domain.OnErrorConfig{
-						Action:   "continue",
-						Fallback: "fallback value",
-					},
+				OnError: &domain.OnErrorConfig{
+					Action:   "continue",
+					Fallback: "fallback value",
 				},
 			},
 		},
@@ -418,25 +404,23 @@ func TestEngine_OnError_WithExpressions(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-resource",
-					Name:     "HTTP Resource",
+
+				ActionID: "http-resource",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com/api",
 				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com/api",
+				OnError: &domain.OnErrorConfig{
+					Action: "continue",
+					Expr: []domain.Expression{
+						{Raw: "set('errorMessage', error.message)"},
+						{Raw: "set('errorHandled', true)"},
 					},
-					OnError: &domain.OnErrorConfig{
-						Action: "continue",
-						Expr: []domain.Expression{
-							{Raw: "set('errorMessage', error.message)"},
-							{Raw: "set('errorHandled', true)"},
-						},
-						Fallback: map[string]interface{}{
-							"status":  "error",
-							"handled": true,
-						},
+					Fallback: map[string]interface{}{
+						"status":  "error",
+						"handled": true,
 					},
 				},
 			},

@@ -37,8 +37,7 @@ func TestWebServer_CreateWebHandler_Static2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -68,8 +67,7 @@ func TestWebServer_CreateWebHandler_App2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -100,8 +98,7 @@ func TestWebServer_CreateWebHandler_UnsupportedType(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -130,8 +127,7 @@ func TestWebServer_CreateWebHandler_AppWithCommand2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())

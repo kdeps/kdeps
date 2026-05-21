@@ -1,20 +1,15 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: visionLLM
+name: Vision LLM
 
-metadata:
-  actionId: visionLLM
-  name: Vision LLM
-
-run:
-  chat:
-    model: llama3.2:1b
-    role: "user"
-    prompt: "{{ get('q') }}"
-    files:
-      # Get uploaded file path - use 'file' field name from upload
-      - "{{ get('file', 'filepath') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - description
-      - objects
-      - scene
+chat:
+  model: llama3.2:1b
+  role: "user"
+  prompt: "{{ get('q') }}"
+  files:
+    # Get uploaded file path - use 'file' field name from upload
+    - "{{ get('file', 'filepath') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - description
+    - objects
+    - scene

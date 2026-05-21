@@ -44,10 +44,9 @@ metadata:
   targetActionId: loopCounter
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3140
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3140
     routes:
       - path: /api/v1/loop
         methods: [POST]
@@ -57,27 +56,23 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: loopCounter
-  name: Loop Counter
+actionId: loopCounter
+name: Loop Counter
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/loop]
-  loop:
-    while: "loop.index() < 5"
-    maxIterations: 1000
-  expr:
-    - "{{ set('result', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ get('result') }}"
-      index: "{{ loop.index() }}"
-      iteration: "{{ loop.count() }}"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/loop]
+loop:
+  while: "loop.index() < 5"
+  maxIterations: 1000
+after:
+  - "{{ set('result', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    count: "{{ get('result') }}"
+    index: "{{ loop.index() }}"
+    iteration: "{{ loop.count() }}"
 EOF
 
 # Test 1: Validate loop workflow
@@ -230,29 +225,24 @@ metadata:
   targetActionId: accumulator
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$RESOURCE_FILE2" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: accumulator
-  name: Accumulator
+actionId: accumulator
+name: Accumulator
 
-run:
-  loop:
-    while: "loop.index() < 4"
-    maxIterations: 100
-  expr:
-    - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      partial_sum: "{{ get('sum') }}"
+loop:
+  while: "loop.index() < 4"
+  maxIterations: 100
+after:
+  - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    partial_sum: "{{ get('sum') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$WORKFLOW_FILE2" &> /dev/null; then
@@ -276,23 +266,18 @@ metadata:
   version: "1.0.0"
   targetActionId: selfRef
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$RESOURCE_FILE3" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: selfRef
-  name: Self Referential
-run:
-  loop:
-    while: "len(loop.results()) < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('n', loop.count()) }}"
+actionId: selfRef
+name: Self Referential
+loop:
+  while: "len(loop.results()) < 3"
+  maxIterations: 10
+after:
+  - "{{ set('n', loop.count()) }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR3/workflow.yaml" &> /dev/null; then
@@ -317,28 +302,23 @@ metadata:
   version: "1.0.0"
   targetActionId: ticker
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR4/resources/ticker.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: ticker
-  name: Ticker
-run:
-  loop:
-    while: "loop.index() < 3"
-    maxIterations: 10
-    every: "1ms"
-  expr:
-    - "{{ set('tick', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      tick: "{{ get('tick') }}"
+actionId: ticker
+name: Ticker
+loop:
+  while: "loop.index() < 3"
+  maxIterations: 10
+  every: "1ms"
+after:
+  - "{{ set('tick', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    tick: "{{ get('tick') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR4/workflow.yaml" &> /dev/null; then
@@ -366,24 +346,19 @@ metadata:
   version: "1.0.0"
   targetActionId: badEvery
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR5/resources/bad-every.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: badEvery
-  name: Bad Every
-run:
-  loop:
-    while: "loop.index() < 2"
-    maxIterations: 5
-    every: "not-a-duration"
-  expr:
-    - "{{ set('n', loop.count()) }}"
+actionId: badEvery
+name: Bad Every
+loop:
+  while: "loop.index() < 2"
+  maxIterations: 5
+  every: "not-a-duration"
+after:
+  - "{{ set('n', loop.count()) }}"
 EOF
 
 # The 'every' field has a schema pattern (^[0-9]+(ms|s|m|h)$) so validation
@@ -406,30 +381,25 @@ metadata:
   version: "1.0.0"
   targetActionId: atScheduled
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR6/resources/at-scheduled.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: atScheduled
-  name: At Scheduled
-run:
-  loop:
-    while: "loop.index() < 2"
-    maxIterations: 10
-    at:
-      - "2026-03-15T10:00:00Z"
-      - "2026-03-15T14:00:00Z"
-  expr:
-    - "{{ set('tick', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      tick: "{{ get('tick') }}"
+actionId: atScheduled
+name: At Scheduled
+loop:
+  while: "loop.index() < 2"
+  maxIterations: 10
+  at:
+    - "2026-03-15T10:00:00Z"
+    - "2026-03-15T14:00:00Z"
+after:
+  - "{{ set('tick', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    tick: "{{ get('tick') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR6/workflow.yaml" &> /dev/null; then

@@ -77,15 +77,13 @@ Resources within one agent can delegate work to another agent in the same agency
 the `agent` resource type.
 
 ```yaml
-run:
-  agent:
-    name: summariser-agent   # metadata.name of the target agent's workflow
-    params:
-      text: "{{ get('body') }}"
+agent:
+  name: summariser-agent   # metadata.name of the target agent's workflow
+  params:
+    text: "{{ get('body') }}"
 ```
 
 - `name:` — resolves to the target agent by `metadata.name` in its `workflow.yaml`.
-  The legacy `agent:` key is also accepted for backward compatibility.
 - `params:` — key-value pairs forwarded as input to the target agent (accessible via
   `get('key')` inside the target).
 - The return value is the first `apiResponse.response` produced by the target, accessible

@@ -370,12 +370,12 @@ func printResources(w io.Writer, workflow *domain.Workflow) {
 		sorted := make([]*domain.Resource, len(workflow.Resources))
 		copy(sorted, workflow.Resources)
 		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].Metadata.ActionID < sorted[j].Metadata.ActionID
+			return sorted[i].ActionID < sorted[j].ActionID
 		})
 
 		for _, res := range sorted {
-			id := res.Metadata.ActionID
-			name := res.Metadata.Name
+			id := res.ActionID
+			name := res.Name
 			suffix := ""
 			if id == targetID {
 				suffix = " (target)"
@@ -429,18 +429,17 @@ func parseParams(args []string) map[string]interface{} {
 func resourceActionIDs(workflow *domain.Workflow) map[string]struct{} {
 	ids := make(map[string]struct{}, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		if r.Metadata.ActionID != "" {
-			ids[r.Metadata.ActionID] = struct{}{}
+		if r.ActionID != "" {
+			ids[r.ActionID] = struct{}{}
 		}
 	}
 	return ids
 }
 
-// llmConfig returns the LLMInputConfig from the workflow, or an empty config
-// if none is set.
+// llmConfig returns the LLMInputConfig from workflow settings, or defaults.
 func llmConfig(workflow *domain.Workflow) *domain.LLMInputConfig {
-	if workflow.Settings.Input != nil && workflow.Settings.Input.LLM != nil {
-		return workflow.Settings.Input.LLM
+	if workflow.Settings.LLM != nil {
+		return workflow.Settings.LLM
 	}
 	return &domain.LLMInputConfig{}
 }

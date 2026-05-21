@@ -65,10 +65,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /calendar/ops
         methods: [POST]
@@ -77,58 +76,46 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/create.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: calCreate
-  name: Calendar Create
-run:
-  validations:
-    routes: [/calendar/ops]
-    methods: [POST]
-  calendar:
-    action: create
-    filePath: "${CAL_FILE}"
-    summary: "E2E Test Meeting"
-    start: "2026-04-01T10:00:00Z"
-    end: "2026-04-01T11:00:00Z"
-    description: "Created by E2E test"
-  apiResponse:
-    success: true
-    response:
-      createResult: "{{ output('calCreate') }}"
+actionId: calCreate
+name: Calendar Create
+validations:
+  routes: [/calendar/ops]
+  methods: [POST]
+calendar:
+  action: create
+  filePath: "${CAL_FILE}"
+  summary: "E2E Test Meeting"
+  start: "2026-04-01T10:00:00Z"
+  end: "2026-04-01T11:00:00Z"
+  description: "Created by E2E test"
+apiResponse:
+  success: true
+  response:
+    createResult: "{{ output('calCreate') }}"
 EOF
 
 cat > "$TEST_DIR/resources/list.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: calList
-  name: Calendar List
-  requires: [calCreate]
-run:
-  calendar:
-    action: list
-    filePath: "${CAL_FILE}"
-  apiResponse:
-    success: true
-    response:
-      listResult: "{{ output('calList') }}"
+actionId: calList
+name: Calendar List
+requires: [calCreate]
+calendar:
+  action: list
+  filePath: "${CAL_FILE}"
+apiResponse:
+  success: true
+  response:
+    listResult: "{{ output('calList') }}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [calCreate, calList]
-run:
-  apiResponse:
-    success: true
-    response:
-      createResult: "{{ output('calCreate') }}"
-      listResult: "{{ output('calList') }}"
+actionId: response
+name: Response
+requires: [calCreate, calList]
+apiResponse:
+  success: true
+  response:
+    createResult: "{{ output('calCreate') }}"
+    listResult: "{{ output('calList') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &

@@ -5,11 +5,10 @@ The `scraper` executor is a native capability compiled into the `kdeps` binary. 
 ## Configuration
 
 ```yaml
-run:
-  scraper:
-    url: "https://example.com"     # required
-    selector: "article.content"    # optional CSS selector
-    timeout: 30                    # seconds (default: 30)
+scraper:
+  url: "https://example.com"     # required
+  selector: "article.content"    # optional CSS selector
+  timeout: 30                    # seconds (default: 30)
 ```
 
 | Field | Type | Required | Default | Description |
@@ -36,22 +35,18 @@ Access fields with `output('actionId').content` etc.
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetch
-run:
-  scraper:
-    url: "{{ get('url') }}"
+actionId: fetch
+scraper:
+  url: "{{ get('url') }}"
 
 ---
-metadata:
-  actionId: summarize
-  requires: [fetch]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "Summarize: {{ output('fetch').content }}"
-  apiResponse:
-    response: "{{ output('summarize') }}"
+actionId: summarize
+requires: [fetch]
+chat:
+  model: llama3.2:1b
+  prompt: "Summarize: {{ output('fetch').content }}"
+apiResponse:
+  response: "{{ output('summarize') }}"
 ```
 
 </div>
@@ -61,12 +56,10 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetchArticle
-run:
-  scraper:
-    url: "https://news.example.com/article"
-    selector: "article.body"
+actionId: fetchArticle
+scraper:
+  url: "https://news.example.com/article"
+  selector: "article.body"
 ```
 
 </div>
@@ -76,12 +69,11 @@ run:
 Use `onError` to handle unreachable URLs gracefully:
 
 ```yaml
-run:
-  scraper:
-    url: "https://example.com"
-  onError:
-    action: continue
-    fallback: ""
+scraper:
+  url: "https://example.com"
+onError:
+  action: continue
+  fallback: ""
 ```
 
 ---

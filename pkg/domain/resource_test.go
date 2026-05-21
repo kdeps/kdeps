@@ -29,32 +29,28 @@ import (
 
 func TestResourceYAMLUnmarshal(t *testing.T) {
 	yamlData := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Resource
-  description: A test resource
-  category: testing
-  requires:
+actionId: test-action
+name: Test Resource
+description: A test resource
+category: testing
+requires:
     - dep1
     - dep2
 items:
   - item1
   - item2
-run:
-  validations:
-    methods:
-      - GET
-      - POST
-    routes:
-      - /api/test
-  chat:
-    model: llama3.2:latest
-    role: user
-    prompt: "Test prompt"
-    jsonResponse: true
-    timeout: 30s
+validations:
+  methods:
+    - GET
+    - POST
+  routes:
+    - /api/test
+chat:
+  model: llama3.2:latest
+  role: user
+  prompt: "Test prompt"
+  jsonResponse: true
+  timeout: 30s
 `
 
 	var resource domain.Resource
@@ -63,26 +59,17 @@ run:
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
 
-	// Verify basic fields.
-	if resource.APIVersion != "kdeps.io/v1" {
-		t.Errorf("APIVersion = %v, want %v", resource.APIVersion, "kdeps.io/v1")
+	// Verify fields.
+	if resource.ActionID != "test-action" {
+		t.Errorf("ActionID = %v, want %v", resource.ActionID, "test-action")
 	}
 
-	if resource.Kind != "Resource" {
-		t.Errorf("Kind = %v, want %v", resource.Kind, "Resource")
+	if resource.Name != "Test Resource" {
+		t.Errorf("Name = %v, want %v", resource.Name, "Test Resource")
 	}
 
-	// Verify metadata.
-	if resource.Metadata.ActionID != "test-action" {
-		t.Errorf("ActionID = %v, want %v", resource.Metadata.ActionID, "test-action")
-	}
-
-	if resource.Metadata.Name != "Test Resource" {
-		t.Errorf("Name = %v, want %v", resource.Metadata.Name, "Test Resource")
-	}
-
-	if len(resource.Metadata.Requires) != 2 {
-		t.Errorf("Requires length = %v, want %v", len(resource.Metadata.Requires), 2)
+	if len(resource.Requires) != 2 {
+		t.Errorf("Requires length = %v, want %v", len(resource.Requires), 2)
 	}
 
 	// Verify items.
@@ -91,29 +78,29 @@ run:
 	}
 
 	// Verify run config.
-	if resource.Run.Validations == nil || len(resource.Run.Validations.Methods) != 2 {
+	if resource.Validations == nil || len(resource.Validations.Methods) != 2 {
 		t.Errorf(
 			"Validations.Methods length = %v, want %v",
 			func() int {
-				if resource.Run.Validations == nil {
+				if resource.Validations == nil {
 					return 0
 				}
-				return len(resource.Run.Validations.Methods)
+				return len(resource.Validations.Methods)
 			}(),
 			2,
 		)
 	}
 
 	// Verify chat config.
-	if resource.Run.Chat == nil {
+	if resource.Chat == nil {
 		t.Fatal("Chat config is nil")
 	}
 
-	if resource.Run.Chat.Model != "llama3.2:latest" {
-		t.Errorf("Chat.Model = %v, want %v", resource.Run.Chat.Model, "llama3.2:latest")
+	if resource.Chat.Model != "llama3.2:latest" {
+		t.Errorf("Chat.Model = %v, want %v", resource.Chat.Model, "llama3.2:latest")
 	}
 
-	if !resource.Run.Chat.JSONResponse {
+	if !resource.Chat.JSONResponse {
 		t.Error("Chat.JSONResponse should be true")
 	}
 }
@@ -122,17 +109,15 @@ func TestResourceYAMLMarshal(t *testing.T) {
 	resource := domain.Resource{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Resource",
-		Metadata: domain.ResourceMetadata{
-			ActionID:    "test-action",
-			Name:        "Test Resource",
-			Description: "A test resource",
-		},
-		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Model:  "llama3.2:latest",
-				Role:   "user",
-				Prompt: "Test prompt",
-			},
+
+		ActionID:    "test-action",
+		Name:        "Test Resource",
+		Description: "A test resource",
+
+		Chat: &domain.ChatConfig{
+			Model:  "llama3.2:latest",
+			Role:   "user",
+			Prompt: "Test prompt",
 		},
 	}
 
@@ -148,11 +133,11 @@ func TestResourceYAMLMarshal(t *testing.T) {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
 
-	if result.Metadata.ActionID != resource.Metadata.ActionID {
-		t.Errorf("ActionID = %v, want %v", result.Metadata.ActionID, resource.Metadata.ActionID)
+	if result.ActionID != resource.ActionID {
+		t.Errorf("ActionID = %v, want %v", result.ActionID, resource.ActionID)
 	}
 
-	if result.Run.Chat == nil {
+	if result.Chat == nil {
 		t.Fatal("Chat config is nil after round-trip")
 	}
 	// Model is a runtime field (yaml:"-") and does not round-trip through YAML.
@@ -276,9 +261,8 @@ response:
   data:
     id: 123
     name: Test
-meta:
-  headers:
-    Content-Type: application/json
+headers:
+  Content-Type: application/json
 `
 
 	var config domain.APIResponseConfig
@@ -303,14 +287,10 @@ meta:
 		)
 	}
 
-	if config.Meta == nil {
-		t.Fatal("Meta is nil")
-	}
-
-	if config.Meta.Headers["Content-Type"] != "application/json" {
+	if config.Headers["Content-Type"] != "application/json" {
 		t.Errorf(
 			"Content-Type header = %v, want %v",
-			config.Meta.Headers["Content-Type"],
+			config.Headers["Content-Type"],
 			"application/json",
 		)
 	}
@@ -400,8 +380,7 @@ command: echo test
 	}
 }
 
-// TestAgentCallConfig_UnmarshalYAML verifies both the new "name:" key and the
-// legacy "agent:" key are accepted by AgentCallConfig.UnmarshalYAML.
+// TestAgentCallConfig_UnmarshalYAML verifies the name: key is parsed correctly.
 func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -409,19 +388,9 @@ func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 		wantName string
 	}{
 		{
-			name:     "new name: key",
+			name:     "name: key",
 			yamlData: `name: sql-agent`,
 			wantName: "sql-agent",
-		},
-		{
-			name:     "legacy agent: key",
-			yamlData: `agent: sql-agent`,
-			wantName: "sql-agent",
-		},
-		{
-			name:     "name: preferred over agent:",
-			yamlData: "name: preferred\nagent: ignored",
-			wantName: "preferred",
 		},
 		{
 			name:     "with params",
@@ -433,7 +402,7 @@ func TestAgentCallConfig_UnmarshalYAML(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var cfg domain.AgentCallConfig
 			if err := yaml.Unmarshal([]byte(tt.yamlData), &cfg); err != nil {
-				t.Fatalf("UnmarshalYAML() error = %v", err)
+				t.Fatalf("Unmarshal() error = %v", err)
 			}
 			if cfg.Name != tt.wantName {
 				t.Errorf("AgentCallConfig.Name = %q, want %q", cfg.Name, tt.wantName)
@@ -455,7 +424,7 @@ func TestAgentCallConfig_DecodeError(t *testing.T) {
 
 // TestChatConfig_ComponentTools_YAML verifies that componentTools is correctly
 // parsed from YAML into ChatConfig.ComponentTools.
-// TestErrorConfig_DecodeError covers the node.Decode error path in ErrorConfig.UnmarshalYAML.
+// TestErrorConfig_DecodeError covers decoding a scalar into ErrorConfig.
 func TestErrorConfig_DecodeError(t *testing.T) {
 	var cfg domain.ErrorConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -464,7 +433,7 @@ func TestErrorConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestOnErrorConfig_DecodeError covers the node.Decode error path in OnErrorConfig.UnmarshalYAML.
+// TestOnErrorConfig_DecodeError covers decoding a scalar into OnErrorConfig.
 func TestOnErrorConfig_DecodeError(t *testing.T) {
 	var cfg domain.OnErrorConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -473,7 +442,7 @@ func TestOnErrorConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestChatConfig_DecodeError covers the node.Decode error path in ChatConfig.UnmarshalYAML.
+// TestChatConfig_DecodeError covers decoding a scalar into ChatConfig.
 func TestChatConfig_DecodeError(t *testing.T) {
 	var cfg domain.ChatConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -482,19 +451,18 @@ func TestChatConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestChatConfig_Streaming_String covers the ParseBool(Streaming) ok=true branch.
-func TestChatConfig_Streaming_String(t *testing.T) {
-	yamlData := "model: gpt-4\nrole: user\nprompt: hi\nstreaming: \"true\"\n"
+func TestChatConfig_Streaming(t *testing.T) {
+	yamlData := "model: gpt-4\nrole: user\nprompt: hi\nstreaming: true\n"
 	var cfg domain.ChatConfig
 	if err := yaml.Unmarshal([]byte(yamlData), &cfg); err != nil {
-		t.Fatalf("UnmarshalYAML error: %v", err)
+		t.Fatalf("Unmarshal error: %v", err)
 	}
 	if !cfg.Streaming {
-		t.Error("Streaming should be true when set via string 'true'")
+		t.Error("Streaming should be true")
 	}
 }
 
-// TestToolParam_DecodeError covers the node.Decode error path in ToolParam.UnmarshalYAML.
+// TestToolParam_DecodeError covers decoding a scalar into ToolParam.
 func TestToolParam_DecodeError(t *testing.T) {
 	var cfg domain.ToolParam
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -503,7 +471,7 @@ func TestToolParam_DecodeError(t *testing.T) {
 	}
 }
 
-// TestRetryConfig_DecodeError covers the node.Decode error path in RetryConfig.UnmarshalYAML.
+// TestRetryConfig_DecodeError covers decoding a scalar into RetryConfig.
 func TestRetryConfig_DecodeError(t *testing.T) {
 	var cfg domain.RetryConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -512,7 +480,7 @@ func TestRetryConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestHTTPCacheConfig_DecodeError covers the node.Decode error path in HTTPCacheConfig.UnmarshalYAML.
+// TestHTTPCacheConfig_DecodeError covers decoding a scalar into HTTPCacheConfig.
 func TestHTTPCacheConfig_DecodeError(t *testing.T) {
 	var cfg domain.HTTPCacheConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
@@ -539,12 +507,12 @@ func TestSQLConfig_DecodeError(t *testing.T) {
 	}
 }
 
-// TestResponseMeta_DecodeError covers the node.Decode error path in ResponseMeta.UnmarshalYAML.
-func TestResponseMeta_DecodeError(t *testing.T) {
-	var cfg domain.ResponseMeta
+// TestAPIResponseConfig_DecodeError covers the node.Decode error path in APIResponseConfig.UnmarshalYAML.
+func TestAPIResponseConfig_DecodeError(t *testing.T) {
+	var cfg domain.APIResponseConfig
 	err := yaml.Unmarshal([]byte("- scalar"), &cfg)
 	if err == nil {
-		t.Error("expected error when decoding scalar into ResponseMeta")
+		t.Error("expected error when decoding scalar into APIResponseConfig")
 	}
 }
 

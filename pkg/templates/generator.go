@@ -128,130 +128,106 @@ func (g *Generator) generateBasicResource(resourceName, targetPath string) error
 	var content string
 	switch resourceName {
 	case "http-client":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: httpClient
-  name: HTTP Client
-  description: HTTP client for making API calls
-run:
-  httpClient:
-    method: GET
-    url: "{{ get('url', 'https://api.example.com/data') }}"
-    headers:
-      Content-Type: "application/json"
-      Authorization: "Bearer {{ get('token', '') }}"
-    timeoutDuration: "30s"
-  validations:
-    required:
-      - url
-    rules:
-      - field: url
-        type: url
-        message: "URL must be a valid HTTP/HTTPS URL"
+		content = `actionId: httpClient
+name: HTTP Client
+description: HTTP client for making API calls
+httpClient:
+  method: GET
+  url: "{{ get('url', 'https://api.example.com/data') }}"
+  headers:
+    Content-Type: "application/json"
+    Authorization: "Bearer {{ get('token', '') }}"
+  timeoutDuration: "30s"
+validations:
+  required:
+    - url
+  rules:
+    - field: url
+      type: url
+      message: "URL must be a valid HTTP/HTTPS URL"
 `
 	case "llm":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: llm
-  name: LLM Processing
-  description: Large Language Model interaction
-run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('input', 'Hello, how can you help me?') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-      - reasoning
-    timeoutDuration: "60s"
-  validations:
-    required:
-      - input
-    rules:
-      - field: input
-        type: string
-        minLength: 1
-        message: "Input is required"
+		content = `actionId: llm
+name: LLM Processing
+description: Large Language Model interaction
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('input', 'Hello, how can you help me?') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+    - reasoning
+  timeoutDuration: "60s"
+validations:
+  required:
+    - input
+  rules:
+    - field: input
+      type: string
+      minLength: 1
+      message: "Input is required"
 `
 	case "sql":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: sql
-  name: SQL Query
-  description: Execute SQL database queries
-run:
-  sql:
-    connectionName: main
-    query: "SELECT * FROM users WHERE id = $1"
-    params:
-      - "{{ get('id') }}"
-    format: json
-    maxRows: 100
-    timeoutDuration: "30s"
-  validations:
-    required:
-      - id
-    rules:
-      - field: id
-        type: integer
-        message: "ID must be a valid integer"
+		content = `actionId: sql
+name: SQL Query
+description: Execute SQL database queries
+sql:
+  connectionName: main
+  query: "SELECT * FROM users WHERE id = $1"
+  params:
+    - "{{ get('id') }}"
+  format: json
+  maxRows: 100
+  timeoutDuration: "30s"
+validations:
+  required:
+    - id
+  rules:
+    - field: id
+      type: integer
+      message: "ID must be a valid integer"
 `
 	case "python":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: python
-  name: Python Script
-  description: Execute Python code
-run:
-  python:
-    script: |
-      # Your Python code here
-      import json
-      import sys
-      
-      # Access input via environment or stdin
-      input_data = "{{ get('input', '{}') }}"
-      
-      # Process data
-      result = {"processed": True, "input": input_data}
-      
-      # Output result as JSON (will be captured as stdout)
-      print(json.dumps(result))
-    timeoutDuration: "60s"
+		content = `actionId: python
+name: Python Script
+description: Execute Python code
+python:
+  script: |
+    # Your Python code here
+    import json
+    import sys
+
+    # Access input via environment or stdin
+    input_data = "{{ get('input', '{}') }}"
+
+    # Process data
+    result = {"processed": True, "input": input_data}
+
+    # Output result as JSON (will be captured as stdout)
+    print(json.dumps(result))
+  timeoutDuration: "60s"
 `
 	case "exec":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: exec
-  name: Shell Command
-  description: Execute shell commands
-run:
-  exec:
-    command: "echo '{{ get('message', 'Hello World') }}'"
-    timeoutDuration: "30s"
+		content = `actionId: exec
+name: Shell Command
+description: Execute shell commands
+exec:
+  command: "echo '{{ get('message', 'Hello World') }}'"
+  timeoutDuration: "30s"
 `
 	case "response":
-		content = `apiVersion: v2
-kind: Resource
-metadata:
-  actionId: response
-  name: API Response
-  description: Format API response
-run:
-  apiResponse:
-    response:
-      success: true
-      data:
-        result: "{{ get('result') }}"
-      meta:
-        timestamp: "{{ info('current_time') }}"
-        requestId: "{{ info('request.ID') }}"
+		content = `actionId: response
+name: API Response
+description: Format API response
+apiResponse:
+  response:
+    success: true
+    data:
+      result: "{{ get('result') }}"
+    meta:
+      timestamp: "{{ info('current_time') }}"
+      requestId: "{{ info('request.ID') }}"
 `
 	default:
 		return fmt.Errorf("unknown resource type: %s", resourceName)

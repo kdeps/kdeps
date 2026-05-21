@@ -33,11 +33,10 @@ agency/
 ### Agent resource syntax
 
 ```yaml
-run:
-  agent:
-    name: responder-agent   # target agent metadata.name (preferred over legacy "agent:" key)
-    params:
-      name: "{{ get('name') }}"
+agent:
+  name: responder-agent   # target agent metadata.name (preferred over legacy "agent:" key)
+  params:
+    name: "{{ get('name') }}"
 ```
 
 ## Running

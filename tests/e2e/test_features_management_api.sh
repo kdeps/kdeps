@@ -55,10 +55,9 @@ metadata:
   targetActionId: mgmtResource
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${MGMT_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${MGMT_PORT}
     routes:
       - path: /api/v1/ping
         methods: [GET]
@@ -68,20 +67,16 @@ settings:
 EOF
 
     cat > "$dir/resources/ping.yaml" << 'RESEOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: mgmtResource
-  name: Ping
+actionId: mgmtResource
+name: Ping
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/ping]
-  apiResponse:
-    success: true
-    response:
-      pong: true
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/api/v1/ping]
+apiResponse:
+  success: true
+  response:
+    pong: true
 RESEOF
 }
 
@@ -208,7 +203,6 @@ metadata:
   version: "2.0.0"
   targetActionId: mgmtResource
 settings:
-  apiServerMode: true
 EOF
 
 WRONG_TOKEN_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -248,10 +242,9 @@ metadata:
   targetActionId: mgmtResource
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${NO_TOKEN_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${NO_TOKEN_PORT}
     routes:
       - path: /api/v1/ping
         methods: [GET]

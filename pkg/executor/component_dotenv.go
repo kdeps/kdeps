@@ -101,28 +101,28 @@ func scanComponentEnvVars(comp *domain.Component) []string {
 
 // scanResourceEnvVars extracts env var names from all string fields in r.
 func scanResourceEnvVars(r *domain.Resource, seen map[string]struct{}) {
-	if r.Run.Exec != nil {
-		scanEnvExprs(seen, r.Run.Exec.Command)
-		for k, v := range r.Run.Exec.Env {
+	if r.Exec != nil {
+		scanEnvExprs(seen, r.Exec.Command)
+		for k, v := range r.Exec.Env {
 			scanEnvExprs(seen, k, v)
 		}
 	}
-	if r.Run.Python != nil {
-		scanEnvExprs(seen, r.Run.Python.Script, r.Run.Python.ScriptFile)
+	if r.Python != nil {
+		scanEnvExprs(seen, r.Python.Script, r.Python.ScriptFile)
 	}
-	if r.Run.Chat != nil {
-		scanEnvExprs(seen, r.Run.Chat.Prompt, r.Run.Chat.BaseURL)
+	if r.Chat != nil {
+		scanEnvExprs(seen, r.Chat.Prompt, r.Chat.BaseURL)
 	}
-	if r.Run.HTTPClient != nil {
-		scanEnvExprs(seen, r.Run.HTTPClient.URL)
-		for k, v := range r.Run.HTTPClient.Headers {
+	if r.HTTPClient != nil {
+		scanEnvExprs(seen, r.HTTPClient.URL)
+		for k, v := range r.HTTPClient.Headers {
 			scanEnvExprs(seen, k, v)
 		}
-		if r.Run.HTTPClient.Auth != nil {
+		if r.HTTPClient.Auth != nil {
 			scanEnvExprs(seen,
-				r.Run.HTTPClient.Auth.Token,
-				r.Run.HTTPClient.Auth.Username,
-				r.Run.HTTPClient.Auth.Password,
+				r.HTTPClient.Auth.Token,
+				r.HTTPClient.Auth.Username,
+				r.HTTPClient.Auth.Password,
 			)
 		}
 	}
@@ -239,7 +239,7 @@ func buildReadmeContent(comp *domain.Component) string {
 		sb.WriteString("\n\n")
 	}
 	sb.WriteString("## Usage\n\n")
-	sb.WriteString("```yaml\nrun:\n  component:\n    name: ")
+	sb.WriteString("```yaml\ncomponent:\n    name: ")
 	sb.WriteString(name)
 	sb.WriteString("\n    with:\n")
 	writeReadmeInputs(&sb, comp)

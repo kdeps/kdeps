@@ -62,15 +62,11 @@ settings:
       - path: /api/reload
         methods: [POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Reload Action
-      actionId: reload-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+  - actionId: reload-action
+    name: Reload Action
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
 	require.NoError(t, err)
@@ -122,15 +118,11 @@ settings:
       - path: /api/default
         methods: [POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Default Action
-      actionId: default-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+  - actionId: default-action
+    name: Default Action
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile("workflow.yaml", []byte(workflowContent), 0644)
 	require.NoError(t, err)
@@ -267,15 +259,11 @@ settings:
       - path: /api/new
         methods: [GET, POST]
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Route Action
-      actionId: route-action
-    run:
-      apiResponse:
-        success: true
-        response: {}
+  - actionId: route-action
+    name: Route Action
+    apiResponse:
+      success: true
+      response: {}
 `
 	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
 	require.NoError(t, err)

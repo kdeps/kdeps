@@ -33,7 +33,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -47,6 +46,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -73,6 +73,11 @@ import (
 const (
 	// maxExtractFileSize is the maximum size allowed for extracted files to prevent decompression bombs.
 	maxExtractFileSize = 100 * 1024 * 1024 // 100MB
+
+	// maxPortScanRange is the number of consecutive ports checked when the configured port is busy.
+	maxPortScanRange = 100
+	// maxPort is the highest valid TCP port number.
+	maxPort = 65535
 
 	agencyFile       = "agency.yaml"
 	agencyYAMLJ2File = "agency.yaml.j2"
@@ -433,9 +438,6 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	// 3. Setup Python environment (if needed)
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
 	printIORequirements(workflow)
-	if ioErr := installIOTools(workflow); ioErr != nil {
-		return fmt.Errorf("I/O tools setup failed: %w", ioErr)
-	}
 	if setupErr := SetupEnvironment(workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}
@@ -735,25 +737,21 @@ func ValidateWorkflow(workflow *domain.Workflow) error {
 }
 
 // printIORequirements prints the system packages needed for the workflow's I/O features.
-// It is a no-op when the workflow has no non-API input sources.
+// It is a no-op when the workflow has no non-API input sources (bot, file).
 func printIORequirements(workflow *domain.Workflow) {
 	kdeps_debug.Log("enter: printIORequirements")
 	input := workflow.Settings.Input
-	hasNonAPIInput := input != nil && input.HasNonAPISource()
+	if input == nil {
+		return
+	}
 
-	if !hasNonAPIInput {
+	hasIO := input.HasBotSource() || input.HasFileSource()
+	if !hasIO {
 		return
 	}
 
 	fmt.Fprintln(os.Stdout, "  I/O requirements:")
-
-	if hasNonAPIInput {
-		printBotRequirements(input)
-		printCaptureRequirements(input)
-		printedSTT := make(map[string]bool)
-		printTranscriberRequirements(input.Transcriber, printedSTT)
-		printActivationRequirements(input.Activation, printedSTT)
-	}
+	printBotRequirements(input)
 }
 
 // printBotRequirements prints a note for each configured bot platform.
@@ -820,224 +818,6 @@ func notFound(avail bool) string {
 		return ""
 	}
 	return "  [not found]"
-}
-
-func printCaptureRequirements(input *domain.InputConfig) {
-	kdeps_debug.Log("enter: printCaptureRequirements")
-	ffmpegOK := isBinaryAvailable("ffmpeg")
-	for _, src := range input.Sources {
-		if domain.IsBotSource(src) {
-			continue // bot sources handled by printBotRequirements
-		}
-		switch src {
-		case domain.InputSourceAudio:
-			fmt.Fprintln(os.Stdout, "    Audio capture:")
-			fmt.Fprintf(
-				os.Stdout,
-				"      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n",
-				notFound(ffmpegOK),
-			)
-			fmt.Fprintln(
-				os.Stdout,
-				"      arecord   — apt install alsa-utils  (Linux, preferred over ffmpeg)",
-			)
-			if runtime.GOOS == "darwin" {
-				fmt.Fprintln(
-					os.Stdout,
-					"      macOS: grant microphone access in System Settings → Privacy & Security → Microphone",
-				)
-			}
-		case domain.InputSourceVideo:
-			fmt.Fprintln(os.Stdout, "    Video capture:")
-			fmt.Fprintf(
-				os.Stdout,
-				"      ffmpeg    — brew install ffmpeg  /  apt install ffmpeg%s\n",
-				notFound(ffmpegOK),
-			)
-			if runtime.GOOS == "darwin" {
-				fmt.Fprintln(
-					os.Stdout,
-					"      macOS: grant camera access in System Settings → Privacy & Security → Camera",
-				)
-			}
-		}
-	}
-}
-
-func printTranscriberRequirements(cfg *domain.TranscriberConfig, printed map[string]bool) {
-	kdeps_debug.Log("enter: printTranscriberRequirements")
-	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
-		return
-	}
-	printOfflineSTTRequirement(cfg.Offline.Engine, printed)
-}
-
-func printActivationRequirements(cfg *domain.ActivationConfig, printed map[string]bool) {
-	kdeps_debug.Log("enter: printActivationRequirements")
-	if cfg == nil || cfg.Mode != domain.TranscriberModeOffline || cfg.Offline == nil {
-		return
-	}
-	printOfflineSTTRequirement(cfg.Offline.Engine, printed)
-}
-
-func printOfflineSTTRequirement(engine string, printed map[string]bool) {
-	kdeps_debug.Log("enter: printOfflineSTTRequirement")
-	if printed[engine] {
-		return
-	}
-	printed[engine] = true
-	switch engine {
-	case domain.TranscriberEngineWhisper:
-		ok := isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") ||
-			isPythonModuleAvailable("whisper")
-		fmt.Fprintf(os.Stdout, "    Transcription (whisper):%s\n", notFound(ok))
-		fmt.Fprintln(
-			os.Stdout,
-			"      uv tool install whisperx --python 3.12  (auto-installed, recommended)",
-		)
-		fmt.Fprintln(
-			os.Stdout,
-			"      OR  uv tool install openai-whisper  /  pip install openai-whisper",
-		)
-	case domain.TranscriberEngineFasterWhisper:
-		fmt.Fprintln(os.Stdout, "    Transcription (faster-whisper):")
-		fmt.Fprintln(os.Stdout, "      auto-managed via uv (no installation required)")
-	case domain.TranscriberEngineVosk:
-		ok := isPythonModuleAvailable("vosk")
-		fmt.Fprintf(os.Stdout, "    Transcription (vosk):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      pip install vosk")
-	case domain.TranscriberEngineWhisperCPP:
-		ok := isBinaryAvailable("whisper-cpp")
-		fmt.Fprintf(os.Stdout, "    Transcription (whisper-cpp):%s\n", notFound(ok))
-		fmt.Fprintln(os.Stdout, "      Binary — https://github.com/ggerganov/whisper.cpp")
-	}
-}
-
-// installIOTools auto-installs I/O Python tools via uv when they are missing.
-// It is a no-op when uv is not installed or when no I/O tools are required.
-// Errors are returned for failed installs so the user sees a clear message
-// instead of a cryptic runtime failure during transcription.
-func installIOTools(workflow *domain.Workflow) error {
-	kdeps_debug.Log("enter: installIOTools")
-
-	if !isBinaryAvailable("uv") {
-		return nil // uv not available; user already saw [not found] hints
-	}
-
-	input := workflow.Settings.Input
-	// hasHardwareInput is true only for hardware sources (audio/video/telephony),
-	// not for bot sources which need no Python I/O tools.
-	hasHardwareInput := func() bool {
-		if input == nil {
-			return false
-		}
-		for _, s := range input.Sources {
-			if s != domain.InputSourceAPI && !domain.IsBotSource(s) {
-				return true
-			}
-		}
-		return false
-	}()
-
-	if !hasHardwareInput {
-		return nil
-	}
-
-	manager := python.NewManager("")
-
-	if hasHardwareInput {
-		if err := installInputTools(manager, input); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func installInputTools(manager *python.Manager, input *domain.InputConfig) error {
-	kdeps_debug.Log("enter: installInputTools")
-	seen := make(map[string]bool)
-	if t := input.Transcriber; t != nil && t.Mode == domain.TranscriberModeOffline &&
-		t.Offline != nil {
-		if err := installSTTTool(manager, t.Offline.Engine, seen); err != nil {
-			return err
-		}
-	}
-	if a := input.Activation; a != nil && a.Mode == domain.TranscriberModeOffline &&
-		a.Offline != nil {
-		if err := installSTTTool(manager, a.Offline.Engine, seen); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func installSTTTool(manager *python.Manager, engine string, seen map[string]bool) error {
-	kdeps_debug.Log("enter: installSTTTool")
-	if seen[engine] {
-		return nil
-	}
-	seen[engine] = true
-
-	switch engine {
-	case domain.TranscriberEngineWhisper:
-		// Skip if a whisper-compatible binary is already on PATH.
-		if isBinaryAvailable("whisper") || isBinaryAvailable("whisperx") {
-			return nil
-		}
-		// Skip if venv already exists.
-		if python.IOToolBin("whisperx", "whisperx") != "" {
-			return nil
-		}
-		fmt.Fprintln(os.Stdout, "  ⏳ Installing whisperx venv (first run may take a minute)...")
-		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(
-			python.IOToolsPythonVersion,
-			[]string{"whisperx"},
-			"",
-			"whisperx",
-		); err != nil {
-			kdepslog.Warn("auto-install whisperx failed", "error", err)
-			kdepslog.Info("consider using engine: faster-whisper instead")
-			return nil // non-fatal
-		}
-		fmt.Fprintln(os.Stdout, "  ✓ Installed whisperx")
-	case domain.TranscriberEngineFasterWhisper:
-		// Skip if venv already exists.
-		if python.IOToolPythonBin("faster-whisper") != "" {
-			return nil
-		}
-		fmt.Fprintln(
-			os.Stdout,
-			"  ⏳ Installing faster-whisper venv (first run may take a minute)...",
-		)
-		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(
-			python.IOToolsPythonVersion,
-			[]string{"faster-whisper"},
-			"",
-			"faster-whisper",
-		); err != nil {
-			return fmt.Errorf("auto-install faster-whisper: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "  ✓ Installed faster-whisper")
-	case domain.TranscriberEngineVosk:
-		if python.IOToolPythonBin("vosk") != "" {
-			return nil
-		}
-		fmt.Fprintln(os.Stdout, "  ⏳ Installing vosk venv (first run may take a minute)...")
-		ioManager := python.NewManager(python.IOToolsBaseDir())
-		if _, err := ioManager.EnsureVenv(python.IOToolsPythonVersion, []string{"vosk"}, "", "vosk"); err != nil {
-			return fmt.Errorf("auto-install vosk: %w", err)
-		}
-		fmt.Fprintln(os.Stdout, "  ✓ Installed vosk")
-	case domain.TranscriberEngineWhisperCPP:
-		if !isBinaryAvailable("whisper-cpp") {
-			kdepslog.Warn("whisper-cpp binary not found — see https://github.com/ggerganov/whisper.cpp")
-		}
-	}
-	_ = manager // manager retained for signature compatibility
-	return nil
 }
 
 // SetupEnvironment sets up the execution environment.
@@ -1133,21 +913,50 @@ func (a *RequestContextAdapter) Execute(
 }
 
 // CheckPortAvailable checks if a port is available for binding (exported for testing).
+// It probes both tcp4 and tcp6 because on macOS Go's "tcp" with an IPv4 literal
+// (e.g. "0.0.0.0:port") creates an IPv4-only socket, which does not conflict with
+// an IPv6 dual-stack socket that may already hold the port. Probing both families
+// ensures the check mirrors the dual-stack socket the actual server will create.
 func CheckPortAvailable(host string, port int) error {
 	kdeps_debug.Log("enter: CheckPortAvailable")
-	addr := fmt.Sprintf("%s:%d", host, port)
-	listener, err := (&net.ListenConfig{
-		Control:   nil,
-		KeepAlive: 0,
-	}).Listen(context.Background(), "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
+	addrs := []struct {
+		network string
+		addr    string
+	}{
+		{"tcp4", fmt.Sprintf("%s:%d", host, port)},
+		{"tcp6", fmt.Sprintf("[::]:%d", port)},
 	}
-	if closeErr := listener.Close(); closeErr != nil {
-		// Log the error but don't fail the check since the port was available
-		kdepslog.Warn("failed to close test listener", "error", closeErr)
+	for _, a := range addrs {
+		ln, err := (&net.ListenConfig{}).Listen(context.Background(), a.network, a.addr)
+		if err != nil {
+			return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
+		}
+		if closeErr := ln.Close(); closeErr != nil {
+			kdepslog.Warn("failed to close test listener", "error", closeErr)
+		}
 	}
 	return nil
+}
+
+// FindAvailablePort returns the first available port starting from the given port,
+// incrementing by 1 up to maxPortScanRange ports. Prints a notice when the
+// configured port is in use and a different port is selected.
+func FindAvailablePort(host string, port int) (int, error) {
+	kdeps_debug.Log("enter: FindAvailablePort")
+	for offset := range maxPortScanRange {
+		candidate := port + offset
+		if candidate > maxPort {
+			break
+		}
+		checkErr := CheckPortAvailable(host, candidate)
+		if checkErr == nil {
+			if offset > 0 {
+				fmt.Fprintf(os.Stdout, "  ⚠ Port %d in use, using port %d instead\n", port, candidate)
+			}
+			return candidate, nil
+		}
+	}
+	return 0, fmt.Errorf("no available port found in range %d-%d on %s", port, port+maxPortScanRange-1, host)
 }
 
 // Ollama management constants.
@@ -1288,7 +1097,7 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 	// If any chat resources exist, check the configured backend.
 	hasChatResources := false
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
+		if resource.Chat != nil {
 			hasChatResources = true
 			break
 		}
@@ -1315,13 +1124,13 @@ func dispatchExecution(
 	kdeps_debug.Log("enter: dispatchExecution")
 	s := workflow.Settings
 
-	if s.WebServerMode && s.APIServerMode {
+	if s.WebServer != nil && s.APIServer != nil {
 		return StartBothServers(workflow, workflowPath, devMode, debugMode)
 	}
-	if s.WebServerMode {
+	if s.WebServer != nil {
 		return StartWebServer(workflow, workflowPath, devMode)
 	}
-	if s.APIServerMode {
+	if s.APIServer != nil {
 		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
@@ -1329,18 +1138,6 @@ func dispatchExecution(
 	}
 	if s.Input != nil && s.Input.HasFileSource() {
 		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
-	}
-	if s.Input != nil && s.Input.HasLLMSource() {
-		return StartLLMRunner(workflow, debugMode, workflowPath, devMode)
-	}
-	if s.Input != nil && s.Input.HasComponentSource() {
-		// Component-mode workflow: no external listener. Execute once inline,
-		// driven by run.component invocations from a parent workflow.
-		return ExecuteSingleRun(workflow)
-	}
-	if s.Input != nil && s.Input.HasMediaSource() &&
-		s.Input.ExecutionType == domain.InputExecutionTypePolling {
-		return StartMediaRunners(workflow, debugMode)
 	}
 	return ExecuteSingleRun(workflow)
 }
@@ -1419,7 +1216,7 @@ func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, 
 }
 
 // StartLLMRunner starts the LLM interactive runner.
-// When executionType is "apiServer" (or the workflow has apiServerMode enabled),
+// When executionType is "apiServer" (or the workflow has an apiServer block),
 // the HTTP API server is started. Otherwise an interactive stdin REPL is started.
 func StartLLMRunner(
 	workflow *domain.Workflow,
@@ -1429,10 +1226,10 @@ func StartLLMRunner(
 ) error {
 	kdeps_debug.Log("enter: StartLLMRunner")
 	var llmCfg *domain.LLMInputConfig
-	if workflow.Settings.Input != nil {
-		llmCfg = workflow.Settings.Input.LLM
+	if workflow.Settings.LLM != nil {
+		llmCfg = workflow.Settings.LLM
 	}
-	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
+	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMExecutionTypeAPIServer {
 		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
 	}
 
@@ -1443,31 +1240,6 @@ func StartLLMRunner(
 
 	ctx := context.Background()
 	return llminput.Run(ctx, workflow, engine, logger)
-}
-
-// startLLMRunnerWithEngine is like StartLLMRunner but uses a pre-built engine.
-func startLLMRunnerWithEngine(
-	eng *executor.Engine,
-	workflow *domain.Workflow,
-	debugMode bool,
-	workflowPath string,
-	devMode bool,
-) error {
-	kdeps_debug.Log("enter: startLLMRunnerWithEngine")
-	var llmCfg *domain.LLMInputConfig
-	if workflow.Settings.Input != nil {
-		llmCfg = workflow.Settings.Input.LLM
-	}
-	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMInputExecutionTypeAPIServer {
-		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
-	}
-
-	logger := logging.NewLogger(debugMode)
-	fmt.Fprintln(os.Stdout, "  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)")
-	fmt.Fprintln(os.Stdout, "")
-
-	ctx := context.Background()
-	return llminput.Run(ctx, workflow, eng, logger)
 }
 
 // startInteractiveMode runs the workflow's normal execution concurrently with an
@@ -1507,44 +1279,6 @@ func startInteractiveMode(
 	return llminput.Run(ctx, workflow, eng, logger)
 }
 
-// StartMediaRunners starts a continuous media capture-execute loop for audio/video/telephony
-// sources configured with executionType: polling. Each iteration captures hardware media,
-// optionally transcribes it, runs the workflow resources, and then immediately restarts.
-// Blocks until SIGINT/SIGTERM.
-func StartMediaRunners(workflow *domain.Workflow, debugMode bool) error {
-	kdeps_debug.Log("enter: StartMediaRunners")
-	engine := setupEngine(workflow, debugMode)
-
-	fmt.Fprintln(os.Stdout, "  ✓ Starting media input loop (polling mode)")
-	fmt.Fprintln(os.Stdout, "\n✓ Media runner ready! Waiting for input... (press Ctrl+C to stop)")
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Fprintln(os.Stdout, "\n✓ Media runner stopped")
-			return nil
-		default:
-		}
-
-		_, execErr := engine.Execute(workflow, nil)
-
-		// Check if we were interrupted (context cancelled during capture or execution).
-		select {
-		case <-ctx.Done():
-			fmt.Fprintln(os.Stdout, "\n✓ Media runner stopped")
-			return nil
-		default:
-		}
-
-		if execErr != nil {
-			kdepslog.Warn("execution error", "error", execErr)
-		}
-	}
-}
-
 // StartHTTPServer starts the HTTP API server (exported for testing).
 func StartHTTPServer(
 	workflow *domain.Workflow,
@@ -1559,12 +1293,13 @@ func StartHTTPServer(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	printRoutes(workflow.Settings.APIServer)
@@ -1658,6 +1393,7 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetSearchLocalExecutor(executorSearchLocal.NewAdapter())
 	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())
 	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
+	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 
 	ollamaURL := ollamaDefaultURL
 	if v := os.Getenv("OLLAMA_HOST"); v != "" {
@@ -1690,20 +1426,20 @@ func dispatchExecutionWithEngine(
 	workflowPath string,
 	devMode, debugMode bool,
 	fileArg string,
-	skipLLMRepl bool,
+	_ bool, // was skipLLMRepl
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
 	s := workflow.Settings
 
 	// For server and bot modes, the pre-built engine is used where possible.
 	// HTTP/Web/BotReply server paths create their own long-running executor loop.
-	if s.WebServerMode && s.APIServerMode {
+	if s.WebServer != nil && s.APIServer != nil {
 		return startBothServersWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	}
-	if s.WebServerMode {
+	if s.WebServer != nil {
 		return StartWebServer(workflow, workflowPath, devMode)
 	}
-	if s.APIServerMode {
+	if s.APIServer != nil {
 		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	}
 	if s.Input != nil && s.Input.HasBotSource() {
@@ -1711,22 +1447,6 @@ func dispatchExecutionWithEngine(
 	}
 	if s.Input != nil && s.Input.HasFileSource() {
 		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
-	}
-	if s.Input != nil && s.Input.HasLLMSource() {
-		if skipLLMRepl {
-			// --interactive already owns stdin; skip the background LLM REPL to
-			// avoid two goroutines competing on stdin.
-			return nil
-		}
-		return startLLMRunnerWithEngine(eng, workflow, debugMode, workflowPath, devMode)
-	}
-	if s.Input != nil && s.Input.HasComponentSource() {
-		// Component-mode workflow: no external listener. Execute once inline.
-		return executeSingleRunWithEngine(eng, workflow)
-	}
-	if s.Input != nil && s.Input.HasMediaSource() &&
-		s.Input.ExecutionType == domain.InputExecutionTypePolling {
-		return StartMediaRunners(workflow, debugMode)
 	}
 	return executeSingleRunWithEngine(eng, workflow)
 }
@@ -1759,11 +1479,13 @@ func startHTTPServerWithEngine(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	printRoutes(workflow.Settings.APIServer)
@@ -1843,6 +1565,12 @@ func startBothServersWithEngine(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
+
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
+		return fmt.Errorf("server cannot start: %w", err)
+	}
+	portNum = availablePort
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
@@ -1983,12 +1711,13 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("web server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting web server on %s\n", addr)
 	fmt.Fprintln(os.Stdout, "\nRoutes:")
@@ -2217,13 +1946,18 @@ func StartBothServers(
 	// Merge web routes onto API router
 	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
-	// Print server info
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
 
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
+
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
+		return fmt.Errorf("server cannot start: %w", err)
+	}
+	portNum = availablePort
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")

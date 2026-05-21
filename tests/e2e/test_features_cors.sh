@@ -42,10 +42,9 @@ metadata:
   targetActionId: corsHandler
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3050
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3050
     routes:
       - path: /api/v1/cors
         methods: [GET, POST]
@@ -61,20 +60,16 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: corsHandler
-  name: CORS Handler
+actionId: corsHandler
+name: CORS Handler
 
-run:
-  restrictToHttpMethods: [GET, POST]
-  restrictToRoutes: [/api/v1/cors]
-  apiResponse:
-    success: true
-    response:
-      message: "CORS enabled"
+restrictToHttpMethods: [GET, POST]
+restrictToRoutes: [/api/v1/cors]
+apiResponse:
+  success: true
+  response:
+    message: "CORS enabled"
 EOF
 
 # Test 1: Validate workflow

@@ -9,14 +9,12 @@ metadata:
 
 settings:
   input:
-    sources: [llm]
-    llm:
-      executionType: stdin
-      prompt: "You: "
-      sessionId: "chat-tools-session"
+    sources: [api]
+  llm:
+    executionType: stdin
+    prompt: "You: "
+    sessionId: "chat-tools-session"
 
-  hostIp: "0.0.0.0"
-  portNum: 16401
 
   agentSettings:
     timezone: Etc/UTC

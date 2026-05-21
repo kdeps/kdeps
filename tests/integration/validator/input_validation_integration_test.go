@@ -41,7 +41,6 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -49,19 +48,17 @@ func TestInputValidationIntegration_RequiredFields(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
+
+				ActionID: "response",
+				Name:     "Response",
+
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"userId", "email"},
 				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"userId", "email"},
-					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Success",
-						},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "Success",
 					},
 				},
 			},
@@ -131,7 +128,6 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -139,37 +135,35 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Rules: []domain.FieldRule{
-							{
-								Field: "age",
-								Type:  domain.FieldTypeInteger,
-								Min:   func() *float64 { v := 18.0; return &v }(),
-								Max:   func() *float64 { v := 100.0; return &v }(),
-							},
-							{
-								Field:     "email",
-								Type:      domain.FieldTypeEmail,
-								MinLength: func() *int { v := 5; return &v }(),
-							},
-							{
-								Field:     "name",
-								Type:      domain.FieldTypeString,
-								MinLength: func() *int { v := 3; return &v }(),
-								MaxLength: func() *int { v := 50; return &v }(),
-							},
+
+				ActionID: "response",
+				Name:     "Response",
+
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{
+							Field: "age",
+							Type:  domain.FieldTypeInteger,
+							Min:   func() *float64 { v := 18.0; return &v }(),
+							Max:   func() *float64 { v := 100.0; return &v }(),
+						},
+						{
+							Field:     "email",
+							Type:      domain.FieldTypeEmail,
+							MinLength: func() *int { v := 5; return &v }(),
+						},
+						{
+							Field:     "name",
+							Type:      domain.FieldTypeString,
+							MinLength: func() *int { v := 3; return &v }(),
+							MaxLength: func() *int { v := 50; return &v }(),
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Valid",
-						},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "Valid",
 					},
 				},
 			},
@@ -338,7 +332,6 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -346,32 +339,20 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Expr: []domain.CustomRule{
-							{
-								Expr: domain.Expression{
-									Raw: "get('password') == get('confirmPassword')",
-								},
-								Message: "Passwords must match",
-							},
-							{
-								Expr: domain.Expression{
-									Raw: "get('age') >= 18",
-								},
-								Message: "Must be 18 or older",
-							},
-						},
+
+				ActionID: "response",
+				Name:     "Response",
+
+				Validations: &domain.ValidationsConfig{
+					Expr: []domain.Expression{
+						{Raw: "get('password') == get('confirmPassword')"},
+						{Raw: "get('age') >= 18"},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Valid",
-						},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "Valid",
 					},
 				},
 			},
@@ -404,7 +385,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 				"age":             25,
 			},
 			shouldFail:    true,
-			expectedError: "Passwords must match",
+			expectedError: "expression failed",
 		},
 		{
 			name: "invalid - age too young",
@@ -414,7 +395,7 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 				"age":             15,
 			},
 			shouldFail:    true,
-			expectedError: "Must be 18 or older",
+			expectedError: "expression failed",
 		},
 	}
 
@@ -510,7 +491,6 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 			TargetActionID: "response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -518,39 +498,32 @@ func TestInputValidationIntegration_CombinedRules(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "response",
-					Name:     "Response",
-				},
-				Run: domain.RunConfig{
-					Validations: &domain.ValidationsConfig{
-						Required: []string{"email", "name"},
-						Rules: []domain.FieldRule{
-							{
-								Field:     "email",
-								Type:      domain.FieldTypeEmail,
-								MinLength: func() *int { v := 5; return &v }(),
-							},
-							{
-								Field:     "name",
-								Type:      domain.FieldTypeString,
-								MinLength: func() *int { v := 2; return &v }(),
-							},
+
+				ActionID: "response",
+				Name:     "Response",
+
+				Validations: &domain.ValidationsConfig{
+					Required: []string{"email", "name"},
+					Rules: []domain.FieldRule{
+						{
+							Field:     "email",
+							Type:      domain.FieldTypeEmail,
+							MinLength: func() *int { v := 5; return &v }(),
 						},
-						Expr: []domain.CustomRule{
-							{
-								Expr: domain.Expression{
-									Raw: "len(get('name')) > 0",
-								},
-								Message: "Name must not be empty",
-							},
+						{
+							Field:     "name",
+							Type:      domain.FieldTypeString,
+							MinLength: func() *int { v := 2; return &v }(),
 						},
 					},
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "All validations passed",
-						},
+					Expr: []domain.Expression{
+						{Raw: "len(get('name')) > 0"},
+					},
+				},
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "All validations passed",
 					},
 				},
 			},

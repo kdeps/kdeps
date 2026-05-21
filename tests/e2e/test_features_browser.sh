@@ -44,31 +44,26 @@ metadata:
   targetActionId: navigateResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR/resources/navigate.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: navigateResource
-  name: Navigate to Example
+actionId: navigateResource
+name: Navigate to Example
 
-run:
-  browser:
-    engine: chromium
-    url: "https://example.com"
-    timeoutDuration: 30s
-    actions:
-      - action: screenshot
-        outputFile: /tmp/screenshot.png
-  apiResponse:
-    success: true
-    response:
-      url: "{{ get('navigateResource') }}"
+browser:
+  engine: chromium
+  url: "https://example.com"
+  timeoutDuration: 30s
+  actions:
+    - action: screenshot
+      outputFile: /tmp/screenshot.png
+apiResponse:
+  success: true
+  response:
+    url: "{{ get('navigateResource') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR/workflow.yaml" &> /dev/null; then
@@ -93,60 +88,55 @@ metadata:
   targetActionId: allActionsResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR2/resources/all-actions.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: allActionsResource
-  name: Browser All Actions
+actionId: allActionsResource
+name: Browser All Actions
 
-run:
-  browser:
-    engine: chromium
-    url: "https://example.com"
-    timeoutDuration: 30s
-    actions:
-      - action: navigate
-        url: "https://example.com"
-      - action: click
-        selector: "button"
-      - action: fill
-        selector: "#email"
-        value: "test@example.com"
-      - action: type
-        selector: "#name"
-        value: "Alice"
-      - action: select
-        selector: "select"
-        value: "option1"
-      - action: check
-        selector: "#agree"
-      - action: uncheck
-        selector: "#newsletter"
-      - action: hover
-        selector: ".menu"
-      - action: scroll
-        value: "300"
-      - action: press
-        key: "Enter"
-      - action: clear
-        selector: "#search"
-      - action: evaluate
-        script: "document.title"
-      - action: screenshot
-        outputFile: /tmp/all-actions.png
-      - action: wait
-        wait: "100ms"
-  apiResponse:
-    success: true
-    response:
-      title: "{{ get('allActionsResource') }}"
+browser:
+  engine: chromium
+  url: "https://example.com"
+  timeoutDuration: 30s
+  actions:
+    - action: navigate
+      url: "https://example.com"
+    - action: click
+      selector: "button"
+    - action: fill
+      selector: "#email"
+      value: "test@example.com"
+    - action: type
+      selector: "#name"
+      value: "Alice"
+    - action: select
+      selector: "select"
+      value: "option1"
+    - action: check
+      selector: "#agree"
+    - action: uncheck
+      selector: "#newsletter"
+    - action: hover
+      selector: ".menu"
+    - action: scroll
+      value: "300"
+    - action: press
+      key: "Enter"
+    - action: clear
+      selector: "#search"
+    - action: evaluate
+      script: "document.title"
+    - action: screenshot
+      outputFile: /tmp/all-actions.png
+    - action: wait
+      wait: "100ms"
+apiResponse:
+  success: true
+  response:
+    title: "{{ get('allActionsResource') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR2/workflow.yaml" &> /dev/null; then
@@ -171,36 +161,31 @@ metadata:
   targetActionId: viewportResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR3/resources/viewport.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: viewportResource
-  name: Browser with Viewport
+actionId: viewportResource
+name: Browser with Viewport
 
-run:
-  browser:
-    engine: firefox
-    url: "https://example.com"
-    headless: true
-    sessionId: "persistent-session-1"
-    viewport:
-      width: 1920
-      height: 1080
-    timeoutDuration: 30s
-    actions:
-      - action: screenshot
-        fullPage: true
-  apiResponse:
-    success: true
-    response:
-      url: "{{ get('viewportResource') }}"
+browser:
+  engine: firefox
+  url: "https://example.com"
+  headless: true
+  sessionId: "persistent-session-1"
+  viewport:
+    width: 1920
+    height: 1080
+  timeoutDuration: 30s
+  actions:
+    - action: screenshot
+      fullPage: true
+apiResponse:
+  success: true
+  response:
+    url: "{{ get('viewportResource') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR3/workflow.yaml" &> /dev/null; then
@@ -234,27 +219,22 @@ metadata:
   targetActionId: webkitResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR4/resources/webkit.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: webkitResource
-  name: WebKit Browser
+actionId: webkitResource
+name: WebKit Browser
 
-run:
-  browser:
-    engine: webkit
-    url: "https://example.com"
-  apiResponse:
-    success: true
-    response:
-      url: "{{ get('webkitResource') }}"
+browser:
+  engine: webkit
+  url: "https://example.com"
+apiResponse:
+  success: true
+  response:
+    url: "{{ get('webkitResource') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR4/workflow.yaml" &> /dev/null; then
@@ -281,32 +261,27 @@ metadata:
   targetActionId: uploadResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR5/resources/upload.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: uploadResource
-  name: Browser File Upload
+actionId: uploadResource
+name: Browser File Upload
 
-run:
-  browser:
-    engine: chromium
-    url: "https://example.com"
-    actions:
-      - action: upload
-        selector: "#file-input"
-        files:
-          - /tmp/test-upload.txt
-  apiResponse:
-    success: true
-    response:
-      result: "{{ get('uploadResource') }}"
+browser:
+  engine: chromium
+  url: "https://example.com"
+  actions:
+    - action: upload
+      selector: "#file-input"
+      files:
+        - /tmp/test-upload.txt
+apiResponse:
+  success: true
+  response:
+    result: "{{ get('uploadResource') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR5/workflow.yaml" &> /dev/null; then
@@ -331,40 +306,35 @@ metadata:
   targetActionId: inlineResource
 
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 EOF
 
 cat > "$TEST_DIR6/resources/inline.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: inlineResource
-  name: Browser Inline Usage
+actionId: inlineResource
+name: Browser Inline Usage
 
-run:
-  exprBefore:
-    - "{{ set('target_url', 'https://example.com') }}"
-  browser:
-    engine: chromium
-    url: "https://example.com"
-    actions:
-      - action: evaluate
-        script: "document.title"
-  expr:
-    - "{{ set('page_title', get('inlineResource')) }}"
-  apiResponse:
-    success: true
-    response:
-      title: "{{ get('page_title') }}"
+before:
+  - "set('target_url', 'before-value')"
+browser:
+  engine: chromium
+  url: "https://example.com"
+  actions:
+    - action: evaluate
+      script: "document.title"
+after:
+  - "set('page_title', get('inlineResource'))"
+apiResponse:
+  success: true
+  response:
+    title: "{{ get('page_title') }}"
 EOF
 
 if "$KDEPS_BIN" validate "$TEST_DIR6/workflow.yaml" &> /dev/null; then
-    test_passed "Browser - inline usage with exprBefore/expr validates successfully"
+    test_passed "Browser - inline usage with before/after validates successfully"
 else
-    test_failed "Browser - inline usage with exprBefore/expr validates successfully" "Validation failed"
+    test_failed "Browser - inline usage with before/after validates successfully" "Validation failed"
 fi
 
 # ---------------------------------------------------------------------------

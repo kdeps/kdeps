@@ -57,18 +57,13 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: false
   agentSettings:
     timezone: "UTC"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: Response
-    run:
-      response:
-        data: "hello"
+  - actionId: response
+    name: Response
+    response:
+      data: "hello"
 `
 
 func newAgencyParser() *yaml.Parser {

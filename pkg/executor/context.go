@@ -215,7 +215,7 @@ type FileUpload struct {
 // sessionID is optional - if provided, it will be used for session storage.
 // If not provided, a new session ID will be generated.
 //
-//nolint:gocognit,nestif,funlen // session setup requires explicit branching; config load is intentional
+//nolint:gocognit,nestif // session setup requires explicit branching; config load is intentional
 func NewExecutionContext(
 	workflow *domain.Workflow,
 	sessionID ...string,
@@ -232,55 +232,42 @@ func NewExecutionContext(
 		providedSessionID = sessionID[0]
 	}
 
-	// Configure session storage from workflow settings
+	// Configure session storage from workflow settings.
+	// Presence of session: block implies enabled; omit it entirely to disable.
 	var sessionStorage *storage.SessionStorage
 	if workflow.Settings.Session != nil {
-		// If enabled is explicitly false, skip session storage
-		if !workflow.Settings.Session.Enabled {
-			// Skip session storage initialization
-			sessionStorage, err = storage.NewSessionStorageWithTTL(
-				"",
-				providedSessionID,
-				defaultSessionTTLMinutes*time.Minute,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create session storage: %w", err)
+		// Parse TTL
+		defaultTTL := defaultSessionTTLMinutes * time.Minute
+		if workflow.Settings.Session.TTL != "" {
+			if parsedTTL, parseErr := time.ParseDuration(workflow.Settings.Session.TTL); parseErr == nil {
+				defaultTTL = parsedTTL
 			}
-		} else {
-			// Parse TTL
-			defaultTTL := defaultSessionTTLMinutes * time.Minute
-			if workflow.Settings.Session.TTL != "" {
-				if parsedTTL, parseErr := time.ParseDuration(workflow.Settings.Session.TTL); parseErr == nil {
-					defaultTTL = parsedTTL
-				}
-			}
+		}
 
-			// Get database path (check both direct field and nested Storage)
-			dbPath := workflow.Settings.Session.GetPath()
-			if dbPath == "" {
-				homeDir, homeErr := os.UserHomeDir()
-				if homeErr == nil {
-					dbPath = filepath.Join(homeDir, ".kdeps", "sessions.db")
-				}
+		// Get database path (check both direct field and nested Storage)
+		dbPath := workflow.Settings.Session.GetPath()
+		if dbPath == "" {
+			homeDir, homeErr := os.UserHomeDir()
+			if homeErr == nil {
+				dbPath = filepath.Join(homeDir, ".kdeps", "sessions.db")
 			}
+		}
 
-			// Use provided session ID or generate a new one
-			useSessionID := providedSessionID
-			if useSessionID == "" {
-				useSessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
-			}
+		// Use provided session ID or generate a new one
+		useSessionID := providedSessionID
+		if useSessionID == "" {
+			useSessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
+		}
 
-			// Get storage type (check both direct field and nested Storage)
-			storageType := workflow.Settings.Session.GetType()
-			if storageType == "memory" {
-				// For memory storage, use empty path
-				dbPath = ""
-			}
+		// Get storage type (check both direct field and nested Storage)
+		storageType := workflow.Settings.Session.GetType()
+		if storageType == "memory" {
+			dbPath = ""
+		}
 
-			sessionStorage, err = storage.NewSessionStorageWithTTL(dbPath, useSessionID, defaultTTL)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create session storage: %w", err)
-			}
+		sessionStorage, err = storage.NewSessionStorageWithTTL(dbPath, useSessionID, defaultTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create session storage: %w", err)
 		}
 	} else {
 		// Default: use default TTL of 30 minutes

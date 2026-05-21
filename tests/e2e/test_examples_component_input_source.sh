@@ -51,11 +51,11 @@ else
         test_failed "component-input-source - README.md exists" "File not found: $CIS_DIR/README.md"
     fi
 
-    # Test 4: workflow declares sources: [component]
-    if grep -q "component" "$CIS_WF" && grep -q "sources:" "$CIS_WF"; then
-        test_passed "component-input-source - workflow declares component source"
+    # Test 4: workflow declares sources: [api]
+    if grep -q "sources:.*\[api\]" "$CIS_WF"; then
+        test_passed "component-input-source - workflow checks workflow source"
     else
-        test_failed "component-input-source - workflow declares component source" "sources: [component] not found in $CIS_WF"
+        test_failed "component-input-source - workflow checks workflow source" "sources: [api] not found in $CIS_WF"
     fi
 
     # Test 5: workflow has component.description
