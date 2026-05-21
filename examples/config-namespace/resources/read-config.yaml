@@ -8,4 +8,4 @@ validations:
 exec:
   # Echo the model from config so it appears in the resource output.
   command: "echo '{{ get(\"config.llm.model\", \"llama3.2\") }}'"
-  timeoutDuration: 5s
+  timeout: 5s

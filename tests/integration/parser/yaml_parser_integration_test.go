@@ -98,7 +98,7 @@ chat:
   jsonResponse: true
   jsonResponseKeys:
     - answer
-  timeoutDuration: 60s
+  timeout: 60s
 `
 
 	err = os.WriteFile(resourcePath, []byte(resourceYAML), 0644)
@@ -202,7 +202,7 @@ httpClient:
   headers:
     Authorization: "Bearer token123"
     Content-Type: "application/json"
-  timeoutDuration: "30s"
+  timeout: "30s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
@@ -242,7 +242,7 @@ python:
     import json
     data = {"processed": True, "count": len(input_data)}
     print(json.dumps(data))
-  timeoutDuration: "60s"
+  timeout: "60s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
@@ -258,7 +258,7 @@ python:
 name: System Command
 exec:
   command: "ls -la /tmp"
-  timeoutDuration: "10s"
+  timeout: "10s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)

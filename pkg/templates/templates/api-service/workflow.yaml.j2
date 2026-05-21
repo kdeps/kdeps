@@ -15,7 +15,6 @@ settings:
       - path: /api/process
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "http://localhost:{{ port }}"
       allowMethods:
@@ -44,7 +43,7 @@ resources:
         url: "https://api.example.com/data/{% raw %}{{ get('id') }}{% endraw %}"
         headers:
           Authorization: "Bearer {% raw %}{{ get('api_token') }}{% endraw %}"
-        timeoutDuration: "30s"
+        timeout: "30s"
       validations:
         required:
           - id
@@ -79,7 +78,7 @@ resources:
         jsonResponseKeys:
           - summary
           - insights
-        timeoutDuration: "60s"
+        timeout: "60s"
 {%- endif %}
 
 {%- if "response" in resources %}

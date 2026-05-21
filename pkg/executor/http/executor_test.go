@@ -713,9 +713,8 @@ func TestExecutor_Execute_CacheHit(t *testing.T) {
 		Method: "GET",
 		URL:    server.URL + "/api/cached",
 		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
-			Key:     uniqueCacheKey, // Unique key for this test
-			TTL:     "1h",
+			Key: uniqueCacheKey, // Unique key for this test
+			TTL: "1h",
 		},
 	}
 
@@ -1739,9 +1738,8 @@ func TestExecutor_Execute_CacheCustomKey(t *testing.T) {
 		Method: "GET",
 		URL:    server.URL + "/api/cached",
 		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
-			Key:     uniqueCacheKey,
-			TTL:     "1h",
+			Key: uniqueCacheKey,
+			TTL: "1h",
 		},
 	}
 
@@ -2164,8 +2162,7 @@ func TestExecutor_Execute_Cache_Miss(t *testing.T) {
 		Method: "GET",
 		URL:    server.URL + "/api/fresh",
 		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
-			Key:     uniqueKey, // Unique key ensures cache miss
+			Key: uniqueKey, // Unique key ensures cache miss
 		},
 	}
 
@@ -2197,8 +2194,7 @@ func TestExecutor_Execute_Cache_DefaultKey(t *testing.T) {
 	config := &domain.HTTPClientConfig{
 		Method: "GET",
 		URL:    server.URL + "/api/default-cache",
-		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
+		Cache:  &domain.HTTPCacheConfig{
 			// No custom key - should use default key generation
 		},
 	}
@@ -2354,9 +2350,8 @@ func TestExecutor_Execute_Cache_WithTTL(t *testing.T) {
 		Method: "GET",
 		URL:    server.URL + "/api/ttl",
 		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
-			Key:     uniqueKey,
-			TTL:     "1h", // TTL is checked but not enforced in current implementation
+			Key: uniqueKey,
+			TTL: "1h", // TTL is checked but not enforced in current implementation
 		},
 	}
 

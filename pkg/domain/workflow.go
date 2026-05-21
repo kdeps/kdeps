@@ -142,7 +142,6 @@ type WorkflowSettings struct {
 
 // WebAppConfig contains WASM web application configuration.
 type WebAppConfig struct {
-	Enabled     bool   `yaml:"enabled"               json:"enabled"`
 	Title       string `yaml:"title"                 json:"title"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	Template    string `yaml:"template"              json:"template"`
@@ -281,12 +280,10 @@ func (w *WorkflowSettings) GetPortNum() int {
 }
 
 // GetCORSConfig returns the CORS configuration, providing defaults if not set.
+// Presence of a cors: block always enables CORS. To disable, omit the block.
 func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	kdeps_debug.Log("enter: GetCORSConfig")
-	// 1. Default configuration
-	enabled := true
 	defaults := &CORS{
-		EnableCORS:   &enabled,
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders: []string{
@@ -299,25 +296,11 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 		AllowCredentials: true,
 	}
 
-	// 2. If no config at all, return defaults
 	if w.APIServer == nil || w.APIServer.CORS == nil {
 		return defaults
 	}
 
-	// 3. User provided some config, merge it with defaults
 	config := w.APIServer.CORS
-
-	// If enableCors is explicitly nil, it means it wasn't set, so we default to true
-	if config.EnableCORS == nil {
-		config.EnableCORS = &enabled
-	}
-
-	// If explicitly disabled, return as is (EnableCORS will be false)
-	if !*config.EnableCORS {
-		return config
-	}
-
-	// Merge missing fields from defaults
 	if len(config.AllowOrigins) == 0 {
 		config.AllowOrigins = defaults.AllowOrigins
 	}
@@ -327,18 +310,6 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	if len(config.AllowHeaders) == 0 {
 		config.AllowHeaders = defaults.AllowHeaders
 	}
-
-	// AllowCredentials defaults to true in our new behavior,
-	// but since it's a bool, we can't easily tell if user set it to false
-	// vs it defaulting to false.
-	// However, the user request says "make enableCors: true the default behavior",
-	// and typically if they specify a cors block they might want to override.
-	// For now, we follow the logic that if they didn't specify credentials in YAML,
-	// it will be false by standard Go defaulting if they provided a cors block.
-	// But to be "smart", if they didn't specify it, we might want it true.
-	// Given the previous implementation of GetCORSConfig, it was returning true
-	// only if no config was present.
-
 	return config
 }
 
@@ -418,8 +389,8 @@ type Route struct {
 }
 
 // CORS represents CORS configuration.
+// Presence of a cors: block enables CORS. To disable, omit the block.
 type CORS struct {
-	EnableCORS       *bool    `yaml:"enableCors"`
 	AllowOrigins     []string `yaml:"allowOrigins,omitempty"`
 	AllowMethods     []string `yaml:"allowMethods,omitempty"`
 	AllowHeaders     []string `yaml:"allowHeaders,omitempty"`

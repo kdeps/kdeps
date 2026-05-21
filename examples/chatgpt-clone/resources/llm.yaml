@@ -29,7 +29,7 @@ chat:
   scenario:
     - role: system
       prompt: "{{ get('systemPrompt') }}"
-  timeoutDuration: 300s
+  timeout: 300s
 
 onError:
   action: continue

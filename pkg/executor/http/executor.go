@@ -174,7 +174,7 @@ func (e *Executor) Execute(
 	}
 
 	// Check cache first
-	if resolvedConfig.Cache != nil && resolvedConfig.Cache.Enabled {
+	if resolvedConfig.Cache != nil {
 		if cached, found := e.checkCache(ctx, resolvedConfig.Cache, urlStr, method, headers); found {
 			return cached, nil
 		}
@@ -789,7 +789,7 @@ func (e *Executor) processResponse(
 	}
 
 	// Cache the response if caching is enabled
-	if config.Cache != nil && config.Cache.Enabled {
+	if config.Cache != nil {
 		e.cacheResponse(ctx, config.Cache, urlStr, method, headers, response)
 	}
 

@@ -17,7 +17,6 @@ settings:
       - path: /api/v1/review
         methods: [POST]
     cors:
-      enableCors: true
       allowedOrigins: ["*"]
 
   agentSettings:

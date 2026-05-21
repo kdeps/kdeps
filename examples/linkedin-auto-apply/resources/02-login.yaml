@@ -28,7 +28,7 @@ browser:
   executablePath: "{{ default(get('chrome_executable_path'), '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') }}"
   userDataDir: "{{ default(get('chrome_profile_path'), '/Users/joel/Library/Application Support/Google/Chrome/Default') }}"
   url: "https://www.linkedin.com/login"
-  timeoutDuration: 90s
+  timeout: 90s
   actions:
     - action: evaluate
       script: |

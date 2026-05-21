@@ -57,13 +57,18 @@ func (e *Executor) Execute(
 		return nil, errors.New("scraper: url is required")
 	}
 
-	timeout := config.Timeout
-	if timeout <= 0 {
+	var timeoutDuration time.Duration
+	if config.Timeout != "" {
+		if d, parseErr := time.ParseDuration(config.Timeout); parseErr == nil {
+			timeoutDuration = d
+		}
+	}
+	if timeoutDuration == 0 {
 		defaults, _ := kdepsconfig.GetDefaults()
-		timeout = defaults.Scraper.Timeout
+		timeoutDuration = time.Duration(defaults.Scraper.Timeout) * time.Second
 	}
 
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	client := &http.Client{Timeout: timeoutDuration}
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, config.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("scraper: failed to create request for %s: %w", config.URL, err)
