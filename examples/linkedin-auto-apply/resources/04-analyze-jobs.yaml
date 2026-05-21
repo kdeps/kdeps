@@ -33,7 +33,7 @@ chat:
   jsonResponseKeys:
     - match_score
     - cover_letter
-  timeoutDuration: 90s
+  timeout: 90s
   scenario:
     - role: assistant
       prompt: >-

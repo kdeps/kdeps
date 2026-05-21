@@ -49,7 +49,6 @@ settings:
       - path: /api/v1/session
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins: ["*"]
 
   agentSettings:
@@ -225,7 +224,6 @@ settings:
       - path: /api/v1/set
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins: ["*"]
 
   agentSettings:

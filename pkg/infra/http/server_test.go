@@ -303,7 +303,6 @@ func TestServer_CorsMiddleware_Enabled(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"http://localhost:16395", "https://example.com"},
 					AllowMethods: []string{"GET", "POST"},
 					AllowHeaders: []string{"Content-Type", "Authorization"},
@@ -336,44 +335,11 @@ func TestServer_CorsMiddleware_Enabled(t *testing.T) {
 	assert.Equal(t, "Content-Type, Authorization", w.Header().Get("Access-Control-Allow-Headers"))
 }
 
-func TestServer_CorsMiddleware_Disabled(t *testing.T) {
-	workflow := &domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				CORS: &domain.CORS{
-					EnableCORS: &[]bool{false}[0],
-				},
-			},
-		},
-	}
-
-	server, err := httppkg.NewServer(workflow, nil, nil)
-	require.NoError(t, err)
-
-	handlerCalled := false
-	nextHandler := func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		handlerCalled = true
-		w.WriteHeader(stdhttp.StatusOK)
-	}
-
-	middleware := server.CorsMiddleware(nextHandler)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:16395")
-
-	middleware(w, req)
-
-	assert.True(t, handlerCalled)
-	assert.Empty(t, w.Header().Get("Access-Control-Allow-Origin"))
-}
-
 func TestServer_CorsMiddleware_OptionsRequest(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"*"},
 				},
 			},
@@ -406,7 +372,6 @@ func TestServer_CorsMiddleware_DisallowedOrigin(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"http://localhost:16395"},
 				},
 			},
@@ -804,9 +769,7 @@ func TestServer_Start_WithCORS(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
-				CORS: &domain.CORS{
-					EnableCORS: &[]bool{true}[0],
-				},
+				CORS: &domain.CORS{},
 			},
 		},
 	}

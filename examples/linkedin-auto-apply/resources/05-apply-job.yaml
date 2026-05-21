@@ -28,7 +28,7 @@ browser:
   stealthMode: true
   sessionId: linkedin-session
   url: "{{ item['job_link'] }}"
-  timeoutDuration: 60s
+  timeout: 60s
   actions:
     # Click Easy Apply via JS to avoid React event issues
     - action: evaluate

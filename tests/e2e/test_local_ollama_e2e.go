@@ -242,7 +242,6 @@ settings:
       - path: /api/v1/test
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
 
@@ -274,7 +273,7 @@ resources:
       jsonResponse: true
       jsonResponseKeys:
         - answer
-      timeoutDuration: 30s
+      timeout: 30s
 
   - actionId: responseResource
     name: API Response

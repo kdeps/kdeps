@@ -75,7 +75,7 @@ resources:
         - quality
         - next_steps
         - estimated_fix_effort
-      timeoutDuration: 120s
+      timeout: 120s
 
   # ── Return final report to intake agent ───────────────────────────────────────
   - actionId: report-response

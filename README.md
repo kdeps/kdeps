@@ -1,19 +1,8 @@
 # kdeps
 
-**Straightforward LLM dependency orchestration for multi-agent workflows.** Compose chat, code, and data into declarative pipelines in YAML. Export AI workflows as a single binary, ISO, Docker, or Kubernetes pods. Use Ollama, llamafile, or any cloud AI provider.
+Build and deploy AI agents in YAML. Three modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop), **MCP** (tool server for Claude and friends).
 
-> **Highly experimental.** APIs, YAML schemas, and CLI flags can change without notice. Do not use in production. [Report issues or give feedback](https://github.com/kdeps/kdeps/issues).
-
-## Why kdeps?
-
-Chat AIs and their MCP extensions are tools you operate. kdeps is for building **deployable AI workflows** — pipelines that chain LLM calls with code execution, data lookups, and API requests, then export as a binary, Docker, ISO, or Kubernetes pod.
-
-| | Chat AI + MCP | kdeps |
-|---|---|---|
-| **Deployed as** | A chat session | Binary, Docker, ISO, Kubernetes |
-| **Logic lives in** | Prompts | YAML — versioned, reviewed, tested |
-| **Orchestration** | Model-driven | Explicit dependency pipelines |
-| **Ships to production** | No | Yes |
+> **Highly experimental.** APIs, schemas, and CLI flags change without notice. Not for production. [Report issues](https://github.com/kdeps/kdeps/issues).
 
 ## Install
 
@@ -21,71 +10,154 @@ Chat AIs and their MCP extensions are tools you operate. kdeps is for building *
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-## Quick start
+## Three modes
 
-```bash
-kdeps new                    # scaffold a project
-kdeps run workflow.yaml --dev  # hot-reload, no Docker needed
-```
+### Workflow mode
 
-A minimal agent that answers questions via an LLM:
+DAG-deterministic request/response pipelines. Resources declare dependencies via `requires:` and execute in order. Supports API server, web server, file input, and bot input.
 
 ```yaml
-# resources/chat.yaml
-actionId: chat
-chat:
-  prompt: "{{ get('message') }}"
-apiResponse:
-  response: "{{ output('chat') }}"
+# workflow.yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: summarizer
+  version: "1.0.0"
+  targetActionId: respond
+settings:
+  apiServer:
+    portNum: 16395
+    routes:
+      - path: /summarize
+        methods: [POST]
+  agentSettings:
+    installOllama: true
 ```
 
-Wire resources into pipelines — outputs flow between steps via `requires:`:
-
 ```yaml
+# resources/fetch.yaml
 actionId: fetch
-scraper:
+httpClient:
+  method: GET
   url: "{{ get('url') }}"
+  timeout: 10s
 
 ---
-actionId: summarize
+actionId: respond
 requires: [fetch]
 chat:
-  prompt: "Summarize: {{ output('fetch').content }}"
+  model: llama3.2:1b
+  prompt: "Summarize this page: {{ output('fetch').body }}"
 apiResponse:
-  response: "{{ output('summarize') }}"
+  response: "{{ output('respond') }}"
+```
+
+```bash
+kdeps run workflow.yaml          # local, instant startup
+kdeps run workflow.yaml --dev    # hot reload
+```
+
+**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`
+
+**Expressions:** `get('key')` reads request input, `output('actionId')` reads a prior step's result, `set('key', val)` stores state. All expressions are safe inside `{{ }}` — Jinja2 control flow (`{% if %}`, `{% for %}`) is also supported.
+
+### Agent mode
+
+Autonomous LLM loop. Every resource in the workflow is auto-registered as a callable tool. The agent plans and executes multi-step tasks using the kdeps engine.
+
+```bash
+kdeps serve workflow.yaml
+kdeps serve workflow.yaml --model llama3.2 --system "You are a DevOps assistant."
+```
+
+The agent reads from stdin and runs until you exit. All resource types (http, python, exec, sql, ...) are available as tools without any extra wiring.
+
+```
+KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
+KDEPS_AGENT_BACKEND=anthropic
+```
+
+### MCP mode
+
+Exposes kdeps resources as MCP tools over stdio. Connect to Claude Desktop, Cursor, or any MCP-compatible client.
+
+```bash
+kdeps mcp
+```
+
+Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "kdeps": {
+      "command": "kdeps",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Exposed tools include all built-in executors (python, exec, http, sql, scraper, browser, embedding, search) plus fformat utilities (JSON/YAML/CSV/XML validate, format, convert) and any installed components.
+
+## Agencies
+
+Multiple agents collaborating. Each agent is a separate workflow; the `agent:` resource type calls another agent by name and passes parameters.
+
+```yaml
+# resources/pipeline.yaml
+actionId: analyze
+agent:
+  name: code-reviewer
+  params:
+    code: "{{ get('source') }}"
+
+---
+actionId: report
+requires: [analyze]
+agent:
+  name: report-writer
+  params:
+    findings: "{{ output('analyze') }}"
+apiResponse:
+  response: "{{ output('report') }}"
+```
+
+Run an agency:
+
+```bash
+kdeps run agency.yaml
 ```
 
 ## Build and deploy
 
 ```bash
 kdeps bundle build          # Docker image
-kdeps export k8s            # Kubernetes manifests
 kdeps bundle export iso     # bootable edge ISO
 kdeps bundle prepackage     # self-contained binary per arch
+kdeps export k8s            # Kubernetes manifests
+```
+
+## Registry
+
+```bash
+kdeps registry search <query>
+kdeps registry install <package>
+kdeps registry publish
 ```
 
 ## Global config
 
 ```bash
 kdeps edit    # opens ~/.kdeps/config.yaml
-kdeps doctor  # check system health (config, Ollama, Python, agents)
+kdeps doctor  # check config, Ollama, Python, installed agents
 ```
 
-Config is validated on load. Warnings are printed to stderr for:
-- Typos in API key / field names
-- Backend set without a corresponding API key
-- Invalid routing strategy values
-- Malformed duration strings
-- Agent profiles not matching any installed workflow
-- Empty agent profiles
-
-Warnings and errors use structured JSON logging (via `log/slog`). Set `KDEPS_LOG_FORMAT=json` for production JSON output. Log level defaults to WARN; use `--verbose` for INFO or `--debug` for DEBUG.
-
 ```yaml
+# ~/.kdeps/config.yaml
 llm:
   backend: ollama           # ollama, openai, anthropic, groq, ...
-  # openai_api_key: sk-...
-  # anthropic_api_key: sk-ant-...
+  openai_api_key: sk-...
 
 defaults:
   timezone: UTC
@@ -93,13 +165,29 @@ defaults:
 
 resource_defaults:
   chat:
-    timeout: "60s"
+    timeout: 60s
     context_length: 4096
   http:
-    timeout: "30s"
+    timeout: 30s
 ```
 
-**Security** - set in `workflow.yaml` under `settings.apiServer`: `auth.token` requires a Bearer or `X-Api-Key` header on every request; `rateLimit` enforces per-IP throttling; `maxBodyBytes` caps request body size. Enable TLS via `settings.certFile` / `settings.keyFile`. See [Security](https://kdeps.com/configuration/advanced#security).
+Per-agent config overrides: add a key under `agents.<workflow-name>` to override globals for that agent only.
+
+Config is validated on load. Warnings go to stderr for unknown keys, missing API keys, invalid durations, and agent profiles that don't match any installed workflow.
+
+## Security
+
+Set in `workflow.yaml` under `settings.apiServer`:
+
+- `auth.token` - Bearer or `X-Api-Key` header required on every request
+- `rateLimit.requestsPerMinute` / `rateLimit.burst` - per-IP throttling
+- `maxBodyBytes` - request body size cap
+- `cors.allowOrigins` - CORS origins (presence of `cors:` block enables CORS)
+- `settings.certFile` / `settings.keyFile` - TLS
+
+## Logging
+
+Structured JSON via `log/slog`. Set `KDEPS_LOG_FORMAT=json` for production output. Default level: WARN. Flags: `--verbose` (INFO), `--debug` (DEBUG).
 
 ---
 

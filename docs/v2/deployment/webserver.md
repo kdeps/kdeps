@@ -288,7 +288,6 @@ settings:
       - path: /health
         methods: [GET]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
 
@@ -382,7 +381,6 @@ Enable CORS on the API server:
 ```yaml
 apiServer:
   cors:
-    enableCors: true
     allowOrigins:
       - http://localhost:16395
     allowMethods:

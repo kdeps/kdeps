@@ -33,13 +33,11 @@ import (
 
 // TestServer_CorsMiddleware_Enabled2 tests CorsMiddleware with CORS enabled.
 func TestServer_CorsMiddleware_Enabled2(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"http://localhost:16395"},
 				},
 			},
@@ -63,13 +61,11 @@ func TestServer_CorsMiddleware_Enabled2(t *testing.T) {
 
 // TestServer_CorsMiddleware_WildcardOrigin tests CorsMiddleware with wildcard origin.
 func TestServer_CorsMiddleware_WildcardOrigin(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"*"},
 				},
 			},
@@ -93,13 +89,11 @@ func TestServer_CorsMiddleware_WildcardOrigin(t *testing.T) {
 
 // TestServer_CorsMiddleware_OriginNotAllowed tests CorsMiddleware with origin not in allowed list.
 func TestServer_CorsMiddleware_OriginNotAllowed(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"http://localhost:16395"},
 				},
 			},
@@ -124,13 +118,11 @@ func TestServer_CorsMiddleware_OriginNotAllowed(t *testing.T) {
 
 // TestServer_CorsMiddleware_Preflight tests CorsMiddleware with OPTIONS preflight request.
 func TestServer_CorsMiddleware_Preflight(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"http://localhost:16395"},
 					AllowMethods: []string{"GET", "POST"},
 					AllowHeaders: []string{"Content-Type"},
@@ -155,45 +147,13 @@ func TestServer_CorsMiddleware_Preflight(t *testing.T) {
 	assert.NotEmpty(t, w.Header().Get("Access-Control-Allow-Headers"))
 }
 
-// TestServer_CorsMiddleware_Disabled2 tests CorsMiddleware with CORS disabled.
-func TestServer_CorsMiddleware_Disabled2(t *testing.T) {
-	disabled := false
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				CORS: &domain.CORS{
-					EnableCORS: &disabled,
-				},
-			},
-		},
-	}
-	server, err := httppkg.NewServer(workflow, nil, slog.Default())
-	require.NoError(t, err)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:16395")
-
-	handler := server.CorsMiddleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-		w.WriteHeader(stdhttp.StatusOK)
-	})
-
-	handler(w, req)
-	assert.Equal(t, stdhttp.StatusOK, w.Code)
-	// CORS disabled, so no CORS headers should be set
-	assert.Empty(t, w.Header().Get("Access-Control-Allow-Origin"))
-}
-
 // TestServer_CorsMiddleware_DefaultMethods tests CorsMiddleware with default methods.
 func TestServer_CorsMiddleware_DefaultMethods(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"*"},
 					// No AllowMethods - should use defaults
 				},
@@ -219,13 +179,11 @@ func TestServer_CorsMiddleware_DefaultMethods(t *testing.T) {
 
 // TestServer_CorsMiddleware_DefaultHeaders tests CorsMiddleware with default headers.
 func TestServer_CorsMiddleware_DefaultHeaders(t *testing.T) {
-	enabled := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &enabled,
 					AllowOrigins: []string{"*"},
 					// No AllowHeaders - should use defaults
 				},

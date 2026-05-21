@@ -12,7 +12,7 @@ run:
       - "{% raw %}{{ get('id') }}{% endraw %}"
     format: json
     maxRows: 100
-    timeoutDuration: "30s"
+    timeout: "30s"
   validations:
     required:
       - id

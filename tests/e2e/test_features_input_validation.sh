@@ -49,7 +49,6 @@ settings:
       - path: /api/v1/validate
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins: ["*"]
 
   agentSettings:

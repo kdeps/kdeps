@@ -8,7 +8,7 @@ validations:
 httpClient:
   method: GET
   url: "https://httpbin.org/bearer"
-  timeoutDuration: 10s
+  timeout: 10s
 
   # Bearer token authentication
   auth:
@@ -24,6 +24,5 @@ httpClient:
 
   # Response caching
   cache:
-    enabled: true
     ttl: 5m
     key: "bearer_auth_test"

@@ -15,7 +15,6 @@ settings:
       - path: /api/v1/http-demo
         methods: [GET, POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

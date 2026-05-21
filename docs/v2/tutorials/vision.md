@@ -51,7 +51,6 @@ settings:
       - path: /api/v1/vision
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
 

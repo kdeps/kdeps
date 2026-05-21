@@ -105,7 +105,6 @@ func TestServer_Start_WithCORS2(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"*"},
 				},
 				Routes: []domain.Route{
