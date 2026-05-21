@@ -21,7 +21,7 @@ exec:
 | `args` | List of arguments to pass to the command. |
 | `workingDir` | The directory in which the command should execute. |
 | `env` | Map of environment variables specific to this execution. |
-| `timeoutDuration` | Maximum time allowed for execution (e.g., "30s", "1m"). |
+| `timeout` | Maximum time allowed for execution (e.g., "30s", "1m"). |
 
 ## Command Execution
 

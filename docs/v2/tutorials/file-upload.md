@@ -31,7 +31,6 @@ settings:
       - path: /api/v1/upload
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
 
