@@ -1,10 +1,22 @@
 # Quickstart
 
+Build a working LLM API in under five minutes.
+
 ## Prerequisites
 
+Install kdeps:
+
 ```bash
-# Install via script (Mac/Linux)
+# macOS / Linux
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+```
+
+Install and start Ollama (for local LLM):
+
+```bash
+# macOS / Linux
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull llama3.2:1b
 ```
 
 ## Create a project
@@ -14,10 +26,10 @@ kdeps new my-agent
 cd my-agent
 ```
 
-Or manually create the structure:
+Or create the structure manually:
 
 ```bash
-mkdir my-agent && cd my-agent && mkdir resources
+mkdir -p my-agent/resources && cd my-agent
 ```
 
 ## Define your workflow
@@ -27,9 +39,12 @@ mkdir my-agent && cd my-agent && mkdir resources
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
-name: my-agent
-version: "1.0.0"
-targetActionId: responseResource
+
+metadata:
+  name: my-agent
+  version: "1.0.0"
+  targetActionId: response
+
 settings:
   apiServer:
     hostIp: "127.0.0.1"
@@ -46,7 +61,7 @@ settings:
 <div v-pre>
 
 ```yaml
-actionId: llmResource
+actionId: llm
 validations:
   methods: [POST]
   routes: [/api/v1/chat]
@@ -54,7 +69,7 @@ validations:
     - get('q') != ''
   error:
     code: 400
-    message: Query parameter 'q' is required
+    message: "'q' is required"
 chat:
   model: llama3.2:1b
   role: user
@@ -69,12 +84,12 @@ chat:
 `resources/response.yaml`:
 
 ```yaml
-actionId: responseResource
-requires: [llmResource]
+actionId: response
+requires: [llm]
 apiResponse:
   success: true
   response:
-    data: get('llmResource')
+    answer: get('llm')
 ```
 
 ## Run it
@@ -88,19 +103,53 @@ Test the API:
 ```bash
 curl -X POST http://localhost:16395/api/v1/chat \
   -H "Content-Type: application/json" \
-  -d '{"q": "What is AI?"}'
+  -d '{"q": "What is entropy?"}'
+```
+
+Expected response:
+
+```json
+{
+  "success": true,
+  "response": {
+    "answer": "Entropy is a measure of disorder..."
+  }
+}
 ```
 
 ## How it works
 
-1. Request arrives at `/api/v1/chat` with `{"q": "..."}`
-2. Validation checks `q` is not empty
-3. LLM resource sends the prompt to the model
-4. Response resource formats the output
-5. API responds with the result
+1. A POST request arrives at `/api/v1/chat` with `{"q": "..."}`.
+2. kdeps validates that `q` is not empty.
+3. The `llm` resource sends the prompt to `llama3.2:1b`.
+4. The `response` resource depends on `llm` and formats the output.
+5. The API returns the result.
+
+The two resources form a simple DAG: `llm` -> `response`. This is workflow mode.
+
+## Try agent mode
+
+Run the same workflow as an interactive LLM agent that can call your resources as tools:
+
+```bash
+kdeps serve workflow.yaml
+```
+
+The agent REPL starts. Type a prompt and the LLM calls your resources as needed.
+
+## Try MCP mode
+
+Expose your resources as MCP tools for Claude Desktop or Cursor:
+
+```bash
+kdeps mcp
+```
+
+Then configure your MCP client to use `kdeps mcp` as the server command.
 
 ## Next steps
 
-- [CLI Reference](/reference/cli-reference)
-- [Workflow Configuration](../configuration/workflow)
-- [LLM Resource](../resources/llm)
+- [Three Modes](/modes/workflow-mode) - Understand workflow, agent, and MCP modes
+- [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
+- [Resources Overview](../resources/overview) - All resource types
+- [CLI Reference](../reference/cli-reference) - All commands and flags

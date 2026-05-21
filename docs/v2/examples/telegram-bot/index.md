@@ -72,5 +72,4 @@ kdeps run workflow.yaml
 
 ## See Also
 
-- [Bot Tutorial](../../tutorials/bot.md) — Step-by-step walkthrough
 - [Input Sources](../../concepts/input-sources.md) — Full platform config reference
