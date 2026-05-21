@@ -549,16 +549,16 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		"metadata.name":     `"My Resource"`,
 
 		// Chat fields
-		"run.chat.model":           `"llama3.2:latest"`,
-		"run.chat.prompt":          `"What is the weather?"`,
-		"run.chat.role":            `"user" or "assistant"`,
-		"run.chat.baseUrl":         `"http://localhost:11434"`,
-		"run.chat.timeoutDuration": `"30s"`,
+		"run.chat.model":   `"llama3.2:latest"`,
+		"run.chat.prompt":  `"What is the weather?"`,
+		"run.chat.role":    `"user" or "assistant"`,
+		"run.chat.baseUrl": `"http://localhost:11434"`,
+		"run.chat.timeout": `"30s"`,
 
 		// HTTP fields
-		"run.httpClient.url":             `"https://api.example.com/users"`,
-		"run.httpClient.method":          `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
-		"run.httpClient.timeoutDuration": `"10s"`,
+		"run.httpClient.url":     `"https://api.example.com/users"`,
+		"run.httpClient.method":  `"GET", "POST", "PUT", "DELETE", or "PATCH"`,
+		"run.httpClient.timeout": `"10s"`,
 
 		// SQL fields
 		"run.sql.connection": `"postgresql://user:pass@localhost:5432/dbname"`,
@@ -566,11 +566,11 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		"run.sql.format":     `"json", "csv", or "table"`,
 
 		// Python fields
-		"run.python.script":          `"print('Hello, World!')"`,
-		"run.python.file":            `"script.py"`,
-		"run.python.scriptFile":      `"script.py"`,
-		"run.python.venvName":        `"my-python-env"`,
-		"run.python.timeoutDuration": `"30s"`,
+		"run.python.script":     `"print('Hello, World!')"`,
+		"run.python.file":       `"script.py"`,
+		"run.python.scriptFile": `"script.py"`,
+		"run.python.venvName":   `"my-python-env"`,
+		"run.python.timeout":    `"30s"`,
 
 		// API Response fields
 		"run.apiResponse.success":  `true or false`,

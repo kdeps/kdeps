@@ -137,7 +137,7 @@ httpClient:
   headers:
     Content-Type: "application/json"
     Authorization: "Bearer {{ get('token', '') }}"
-  timeoutDuration: "30s"
+  timeout: "30s"
 validations:
   required:
     - url
@@ -158,7 +158,7 @@ chat:
   jsonResponseKeys:
     - answer
     - reasoning
-  timeoutDuration: "60s"
+  timeout: "60s"
 validations:
   required:
     - input
@@ -179,7 +179,7 @@ sql:
     - "{{ get('id') }}"
   format: json
   maxRows: 100
-  timeoutDuration: "30s"
+  timeout: "30s"
 validations:
   required:
     - id
@@ -206,7 +206,7 @@ python:
 
     # Output result as JSON (will be captured as stdout)
     print(json.dumps(result))
-  timeoutDuration: "60s"
+  timeout: "60s"
 `
 	case "exec":
 		content = `actionId: exec
@@ -214,7 +214,7 @@ name: Shell Command
 description: Execute shell commands
 exec:
   command: "echo '{{ get('message', 'Hello World') }}'"
-  timeoutDuration: "30s"
+  timeout: "30s"
 `
 	case "response":
 		content = `actionId: response

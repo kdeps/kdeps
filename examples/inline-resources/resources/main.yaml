@@ -32,7 +32,7 @@ chat:
   model: llama3.2:1b
   role: user
   prompt: "Process this data: {{get('data')}}"
-  timeoutDuration: 30s
+  timeout: 30s
 
 # Inline resources that run AFTER the main resource
 after:

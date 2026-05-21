@@ -49,7 +49,6 @@ settings:
       - path: /api/v1/error
         methods: [POST, GET]
     cors:
-      enableCors: true
       allowOrigins: ["*"]
 
   agentSettings:

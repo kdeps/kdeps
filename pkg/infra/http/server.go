@@ -702,11 +702,6 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		cors := s.Workflow.Settings.GetCORSConfig()
 
-		if cors.EnableCORS != nil && !*cors.EnableCORS {
-			next(w, r)
-			return
-		}
-
 		s.setCorsOrigin(w, r, cors)
 		s.setCorsMethods(w, cors)
 		s.setCorsHeaders(w, cors)

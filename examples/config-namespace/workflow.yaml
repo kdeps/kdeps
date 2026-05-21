@@ -32,7 +32,6 @@ settings:
       - path: /api/v1/config
         methods: [GET]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

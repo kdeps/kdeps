@@ -24,7 +24,7 @@ python:
         # Exit with error to prevent session from being set
         print(json.dumps({"success": False, "error": "Invalid credentials"}), file=sys.stderr)
         sys.exit(1)
-  timeoutDuration: 10s
+  timeout: 10s
 
 after:
   - "set('user_id', get('username'), 'session')"

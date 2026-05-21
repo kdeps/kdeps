@@ -7,4 +7,4 @@ validations:
 
 exec:
   command: "echo 'System Info:' && uname -a && echo 'Current Directory:' && pwd && echo 'Date:' && date"
-  timeoutDuration: 10s
+  timeout: 10s

@@ -31,7 +31,7 @@ resources:
       url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
       headers:
         Accept: "application/vnd.github.v3+json"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Transform each result
   - actionId: transform-results

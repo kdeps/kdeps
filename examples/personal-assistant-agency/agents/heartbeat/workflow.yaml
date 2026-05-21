@@ -65,7 +65,7 @@ resources:
           echo "Uptime   : $(uptime)"
           echo "Disk     : $(df -h / | tail -1)"
           echo "Load     : $(cat /proc/loadavg 2>/dev/null || sysctl -n vm.loadavg 2>/dev/null || echo 'n/a')"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # ── Assess which tasks need attention ────────────────────────────────────────
   # LLM reviews the task list + system context and picks what to action now.
@@ -101,7 +101,7 @@ resources:
             You ALWAYS respond with valid JSON and nothing else.
       jsonResponse: true
       jsonResponseKeys: [needs_action, deferred, summary]
-      timeoutDuration: 60s
+      timeout: 60s
 
   # ── Execute immediate actions ─────────────────────────────────────────────────
   # Runs lightweight shell actions for tasks that can be resolved automatically
@@ -127,7 +127,7 @@ resources:
           tail -5 /var/log/syslog 2>/dev/null || \
             journalctl -n 5 --no-pager 2>/dev/null || \
             echo "(no system log available)"
-      timeoutDuration: 15s
+      timeout: 15s
 
   # ── Response ──────────────────────────────────────────────────────────────────
   - actionId: heartbeat-response

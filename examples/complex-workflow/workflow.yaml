@@ -31,7 +31,7 @@ resources:
       headers:
         Accept: "application/vnd.github.v3+json"
         User-Agent: "KDeps-Workflow"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Step 2: Fetch recent commits (parallel with step 3)
   - actionId: fetch-commits
@@ -44,7 +44,7 @@ resources:
       headers:
         Accept: "application/vnd.github.v3+json"
         User-Agent: "KDeps-Workflow"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Step 3: Fetch contributors (parallel with step 2)
   - actionId: fetch-contributors
@@ -57,7 +57,7 @@ resources:
       headers:
         Accept: "application/vnd.github.v3+json"
         User-Agent: "KDeps-Workflow"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Step 4: Fetch issues (parallel with steps 2 & 3)
   - actionId: fetch-issues
@@ -70,7 +70,7 @@ resources:
       headers:
         Accept: "application/vnd.github.v3+json"
         User-Agent: "KDeps-Workflow"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Step 5: Analyze repository activity
   - actionId: analyze-activity
@@ -101,7 +101,7 @@ resources:
         - role: "assistant"
           prompt: "You are a software development analyst."
       jsonResponse: true
-      timeoutDuration: 60s
+      timeout: 60s
 
   # Step 6: Generate recommendations
   - actionId: generate-recommendations
@@ -126,7 +126,7 @@ resources:
         - role: "assistant"
           prompt: "You are a DevOps and open source community expert."
       jsonResponse: true
-      timeoutDuration: 60s
+      timeout: 60s
 
   # Step 7: Save analysis to file
   - actionId: save-analysis
@@ -165,7 +165,7 @@ resources:
 
           echo "Analysis saved to: $OUTPUT_FILE"
           cat "$OUTPUT_FILE"
-      timeoutDuration: 30s
+      timeout: 30s
 
   # Step 8: Final report
   - actionId: final-report
@@ -188,7 +188,7 @@ resources:
           Analysis saved to ./output/
 
           ═══════════════════════════════════════════
-      timeoutDuration: 10s
+      timeout: 10s
 
   # Step 9: API Response
   - actionId: api-response

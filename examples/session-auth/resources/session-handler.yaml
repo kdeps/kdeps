@@ -21,7 +21,7 @@ python:
         "message": "Session data retrieved",
         "session": session_data
     }))
-  timeoutDuration: 10s
+  timeout: 10s
 
 apiResponse:
   success: true

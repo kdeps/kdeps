@@ -15,7 +15,7 @@ browser:
   sessionId: linkedin-session
   url: "https://www.linkedin.com/jobs/search/?keywords={{ urlencode(get('job_title')) }}&location={{ urlencode(default(get('location'), '')) }}&f_TPR={{ default(get('date_posted'), 'r604800') }}&f_WT={{ ternary(get('remote_only') == 'true', '2', '') }}&f_LF={{ ternary(get('easy_apply_only') == 'true', 'f_AL', '') }}"
   waitFor: "li[data-occludable-job-id]"
-  timeoutDuration: 90s
+  timeout: 90s
   actions:
     - action: evaluate
       script: |

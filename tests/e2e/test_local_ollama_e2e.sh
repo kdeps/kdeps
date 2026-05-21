@@ -107,7 +107,6 @@ settings:
       - path: /api/v1/test
         methods: [POST]
     cors:
-      enableCors: true
 
   agentSettings:
     timezone: Etc/UTC
@@ -135,7 +134,7 @@ resources:
       jsonResponse: true
       jsonResponseKeys:
         - answer
-      timeoutDuration: 45s
+      timeout: 45s
 
   - actionId: responseResource
     name: API Response

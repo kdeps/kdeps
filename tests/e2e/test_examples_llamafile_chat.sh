@@ -87,7 +87,7 @@ fi
 
 # --- T6: timeoutDuration set (llamafile may be slow to start) ----------------
 
-if grep -q "timeoutDuration:" "$RES_LLM"; then
+if grep -q "timeout:" "$RES_LLM"; then
     test_passed "llamafile-chat - timeoutDuration set"
 else
     test_failed "llamafile-chat - timeoutDuration set" "timeoutDuration not found in $RES_LLM"

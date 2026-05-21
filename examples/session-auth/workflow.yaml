@@ -17,7 +17,6 @@ settings:
       - path: /api/v1/session
         methods: [GET, POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

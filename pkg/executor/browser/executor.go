@@ -145,7 +145,7 @@ func parseConfig(cfg *domain.BrowserConfig, ctx *executor.ExecutionContext) brow
 		r.engineName = domain.BrowserEngineChromium
 	}
 
-	if ts := evaluateText(cfg.TimeoutDuration, ctx); ts != "" {
+	if ts := evaluateText(cfg.Timeout, ctx); ts != "" {
 		if d, dErr := time.ParseDuration(ts); dErr == nil {
 			r.timeout = d
 		}
