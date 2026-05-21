@@ -37,18 +37,18 @@ Static Jinja2 variable expressions such as `{{ env.PORT }}` are evaluated normal
 
 ```jinja2
 # workflow.yaml
-apiVersion: v2
+apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: my-api
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
+  apiServer:
 {% if env.PORT %}
-  portNum: {{ env.PORT | int }}
+    portNum: {{ env.PORT | int }}
 {% else %}
-  portNum: 8080
+    portNum: 8080
 {% endif %}
 ```
 
@@ -56,18 +56,14 @@ settings:
 
 ```jinja2
 # resources/fetch.yaml
-apiVersion: v2
-kind: Resource
-metadata:
-  actionId: fetchData
-  name: Fetch Data
-run:
+actionId: fetchData
+name: Fetch Data
 {% if env.ENABLE_HTTP == 'true' %}
-  httpClient:
-    method: GET
-    url: "{{ get('url') }}"
-    headers:
-      X-Request-ID: "{{ info('request_id') }}"
+httpClient:
+  method: GET
+  url: "{{ get('url') }}"
+  headers:
+    X-Request-ID: "{{ info('request_id') }}"
 {% endif %}
 ```
 
@@ -134,8 +130,8 @@ Use `-` to trim whitespace around tags:
 ```jinja2
 resources:
 {%- if "http-client" in resources %}
-  - apiVersion: v2
-    kind: Resource
+  - actionId: fetchData
+    name: Fetch Data
 {%- endif %}
 ```
 
@@ -150,7 +146,7 @@ resources:
 Example: `pkg/templates/templates/my-service/workflow.yaml.j2`
 
 ```jinja2
-apiVersion: v2
+apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
   name: {{ name }}
@@ -158,21 +154,16 @@ metadata:
   version: {{ version }}
 
 settings:
-  apiServerMode: true
   apiServer:
     portNum: {{ port }}
 
 resources:
 {%- if "http-client" in resources %}
-  - apiVersion: v2
-    kind: Resource
-    metadata:
-      actionId: fetchData
-      name: Fetch Data
-    run:
-      httpClient:
-        method: GET
-        url: "{% raw %}{{ get('url') }}{% endraw %}"
+  - actionId: fetchData
+    name: Fetch Data
+    httpClient:
+      method: GET
+      url: "{% raw %}{{ get('url') }}{% endraw %}"
 {%- endif %}
 ```
 

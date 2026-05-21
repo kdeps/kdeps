@@ -38,8 +38,11 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
-  portNum: 8080
+  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [GET]
   agentSettings:
     replicas: 2
     resources:
@@ -157,8 +160,11 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
-  portNum: 8080
+  apiServer:
+    portNum: 8080
+    routes:
+      - path: /api
+        methods: [GET]
   agentSettings:
     installOllama: true
 WFEOF

@@ -18,12 +18,11 @@ The Remote Agent component invokes a remote kdeps agent over HTTP, sending a que
 ## Using the Remote Agent Component
 
 ```yaml
-run:
-  component:
-    name: remoteagent
-    with:
-      url: "https://remote-agent.example.com"
-      query: "Translate 'Hello, world!' to French"
+component:
+  name: remoteagent
+  with:
+    url: "https://remote-agent.example.com"
+    query: "Translate 'Hello, world!' to French"
 ```
 
 Access the result via `output('<callerActionId>')`. The result includes the agent's response.
@@ -46,12 +45,11 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: remoteagent
-    with:
-      url: "{{ env('REMOTE_AGENT_URL') }}"
-      query: "{{ get('user_query') }}"
+component:
+  name: remoteagent
+  with:
+    url: "{{ env('REMOTE_AGENT_URL') }}"
+    query: "{{ get('user_query') }}"
 ```
 
 </div>
@@ -65,34 +63,26 @@ run:
 ```yaml
 # Step 1: Call a remote translation agent
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: translate
-    name: Translate via Remote Agent
-
-  run:
-    component:
-      name: remoteagent
-      with:
-        url: "{{ env('TRANSLATOR_AGENT_URL') }}"
-        query: "{{ get('text_to_translate') }}"
+  actionId: translate
+  name: Translate via Remote Agent
+component:
+  name: remoteagent
+  with:
+    url: "{{ env('TRANSLATOR_AGENT_URL') }}"
+    query: "{{ get('text_to_translate') }}"
 
 # Step 2: Use the translation result
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: respond
-    name: Return Translation
-    requires:
-      - translate
-
-  run:
-    apiResponse:
-      success: true
-      response:
-        translation: "{{ output('translate').response }}"
+  actionId: respond
+  name: Return Translation
+  requires:
+    - translate
+apiResponse:
+  success: true
+  response:
+    translation: "{{ output('translate').response }}"
 ```
 
 </div>

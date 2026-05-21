@@ -119,14 +119,10 @@ metadata:
   name: mergetest
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('NEW_SECRET') }}"
+  - actionId: doWork
+    name: Do Work
+    exec:
+      command: "echo {{ env('NEW_SECRET') }}"
 `
 	writeCompYAML(t, dir, compYAML)
 	// Pre-create .env with a different var
@@ -148,14 +144,10 @@ metadata:
   name: presenttest
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('ALREADY_SET') }}"
+  - actionId: doWork
+    name: Do Work
+    exec:
+      command: "echo {{ env('ALREADY_SET') }}"
 `
 	writeCompYAML(t, dir, compYAML)
 	original := "ALREADY_SET=myvalue\n"

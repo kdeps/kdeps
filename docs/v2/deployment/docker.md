@@ -387,7 +387,6 @@ Configure Kubernetes settings in `workflow.yaml`:
 
 ```yaml
 settings:
-  apiServerMode: true
   portNum: 16395
   agentSettings:
     replicas: 3
@@ -484,7 +483,6 @@ Before exposing a container externally, apply these settings in `workflow.yaml`:
 
 ```yaml
 settings:
-  apiServerMode: true
   certFile: "/run/secrets/server.crt"
   keyFile:  "/run/secrets/server.key"
   apiServer:

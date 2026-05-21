@@ -42,16 +42,12 @@ metadata:
   version: 1.0.0
   targetActionId: main
 settings:
-  apiServerMode: true
+  agentSettings: {}
 </file>
 <file name="resources/main.yaml">
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-run:
-  exec:
-    command: "echo hello"
+actionId: main
+exec:
+  command: "echo hello"
 </file>
 </kdeps-workflow>`
 

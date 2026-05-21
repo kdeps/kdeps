@@ -174,6 +174,11 @@ test-integration:
 		go tool cover -func=coverage-integration.out | tail -1; \
 	fi
 
+# Run integration tests that require build tag (MCP stdio, browser stealth, etc.)
+test-integration-tagged:
+	@echo "Running tagged integration tests..."
+	@go test -tags integration -timeout 60s -v ./tests/integration/...
+
 # Run E2E tests
 test-e2e: build
 	@echo "Running E2E tests..."

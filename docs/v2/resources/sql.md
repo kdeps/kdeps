@@ -7,20 +7,15 @@ The SQL resource enables database queries with support for multiple database typ
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: sqlResource
-  name: Database Query
-
-run:
-  sql:
-    connectionName: main
-    query: "SELECT * FROM users WHERE id = $1"
-    params:
-      - get('user_id')
-    timeout: 30s
+actionId: sqlResource
+name: Database Query
+sql:
+  connectionName: main
+  query: "SELECT * FROM users WHERE id = $1"
+  params:
+    - get('user_id')
+  timeout: 30s
 ```
 
 </div>
@@ -63,19 +58,17 @@ settings:
 Use in resources:
 
 ```yaml
-run:
-  sql:
-    connectionName: main  # Reference the named connection
-    query: "SELECT * FROM users"
+sql:
+  connectionName: main  # Reference the named connection
+  query: "SELECT * FROM users"
 ```
 
 ### Inline Connection
 
 ```yaml
-run:
-  sql:
-    connection: "postgres://user:pass@localhost:5432/myapp"
-    query: "SELECT * FROM users"
+sql:
+  connection: "postgres://user:pass@localhost:5432/myapp"
+  query: "SELECT * FROM users"
 ```
 
 ## Query Types
@@ -83,13 +76,12 @@ run:
 ### Simple Query
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: "SELECT name, email FROM users WHERE active = true"
-    format: json
-    maxRows: 100
-    timeout: 30s
+sql:
+  connectionName: main
+  query: "SELECT name, email FROM users WHERE active = true"
+  format: json
+  maxRows: 100
+  timeout: 30s
 ```
 
 ### Parameterized Query
@@ -97,22 +89,21 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: |
-      SELECT * FROM orders
-      WHERE customer_id = $1
-        AND created_at >= $2
-        AND status = $3
-      ORDER BY created_at DESC
-      LIMIT $4
-    params:
-      - get('customer_id')
-      - get('start_date')
-      - get('status', 'active')  # With default
-      - get('limit', '100')
-    format: json
+sql:
+  connectionName: main
+  query: |
+    SELECT * FROM orders
+    WHERE customer_id = $1
+      AND created_at >= $2
+      AND status = $3
+    ORDER BY created_at DESC
+    LIMIT $4
+  params:
+    - get('customer_id')
+    - get('start_date')
+    - get('status', 'active')  # With default
+    - get('limit', '100')
+  format: json
 ```
 
 </div>
@@ -120,16 +111,15 @@ run:
 ### Insert / Update / Delete
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: |
-      INSERT INTO users (name, email, created_at)
-      VALUES ($1, $2, NOW())
-      RETURNING id
-    params:
-      - get('name')
-      - get('email')
+sql:
+  connectionName: main
+  query: |
+    INSERT INTO users (name, email, created_at)
+    VALUES ($1, $2, NOW())
+    RETURNING id
+  params:
+    - get('name')
+    - get('email')
 ```
 
 ## Transactions
@@ -137,28 +127,27 @@ run:
 Execute multiple queries in a transaction:
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    transaction: true
-    queries:
-      - query: "UPDATE accounts SET balance = balance - $1 WHERE id = $2"
-        params:
-          - get('amount')
-          - get('from_account')
+sql:
+  connectionName: main
+  transaction: true
+  queries:
+    - query: "UPDATE accounts SET balance = balance - $1 WHERE id = $2"
+      params:
+        - get('amount')
+        - get('from_account')
 
-      - query: "UPDATE accounts SET balance = balance + $1 WHERE id = $2"
-        params:
-          - get('amount')
-          - get('to_account')
+    - query: "UPDATE accounts SET balance = balance + $1 WHERE id = $2"
+      params:
+        - get('amount')
+        - get('to_account')
 
-      - query: |
-          INSERT INTO transactions (from_id, to_id, amount, created_at)
-          VALUES ($1, $2, $3, NOW())
-        params:
-          - get('from_account')
-          - get('to_account')
-          - get('amount')
+    - query: |
+        INSERT INTO transactions (from_id, to_id, amount, created_at)
+        VALUES ($1, $2, $3, NOW())
+      params:
+        - get('from_account')
+        - get('to_account')
+        - get('amount')
 ```
 
 If any query fails, the entire transaction is rolled back.
@@ -170,15 +159,14 @@ Process multiple records efficiently:
 <div v-pre>
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    transaction: true
-    queries:
-      - query: |
-          INSERT INTO products (name, price, category)
-          VALUES ($1, $2, $3)
-        paramsBatch: "{{ get('products') }}"
+sql:
+  connectionName: main
+  transaction: true
+  queries:
+    - query: |
+        INSERT INTO products (name, price, category)
+        VALUES ($1, $2, $3)
+      paramsBatch: "{{ get('products') }}"
 ```
 
 </div>
@@ -197,11 +185,10 @@ Where `products` is an array of parameter arrays:
 ### JSON (Default)
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: "SELECT id, name, email FROM users"
-    format: json
+sql:
+  connectionName: main
+  query: "SELECT id, name, email FROM users"
+  format: json
 ```
 
 Output:
@@ -215,11 +202,10 @@ Output:
 ### CSV
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: "SELECT id, name, email FROM users"
-    format: csv
+sql:
+  connectionName: main
+  query: "SELECT id, name, email FROM users"
+  format: csv
 ```
 
 Output:
@@ -232,11 +218,10 @@ id,name,email
 ### Table
 
 ```yaml
-run:
-  sql:
-    connectionName: main
-    query: "SELECT id, name, email FROM users"
-    format: table
+sql:
+  connectionName: main
+  query: "SELECT id, name, email FROM users"
+  format: table
 ```
 
 Output:
@@ -270,90 +255,78 @@ settings:
 ### User Lookup
 
 ```yaml
-metadata:
-  actionId: userLookup
+actionId: userLookup
+validations:
+  check:
+    - get('user_id') != ''
+  error:
+    code: 400
+    message: User ID is required
 
-run:
-  validations:
-    check:
-      - get('user_id') != ''
-    error:
-      code: 400
-      message: User ID is required
-
-  sql:
-    connectionName: main
-    query: |
-      SELECT id, name, email, created_at
-      FROM users
-      WHERE id = $1
-    params:
-      - get('user_id')
-    format: json
-    timeout: 10s
+sql:
+  connectionName: main
+  query: |
+    SELECT id, name, email, created_at
+    FROM users
+    WHERE id = $1
+  params:
+    - get('user_id')
+  format: json
+  timeout: 10s
 ```
 
 ### Analytics Query
 
 ```yaml
-metadata:
-  actionId: analytics
-
-run:
-  sql:
-    connectionName: analytics
-    query: |
-      SELECT
-        DATE(created_at) as date,
-        COUNT(*) as total_orders,
-        SUM(amount) as revenue,
-        AVG(amount) as avg_order
-      FROM orders
-      WHERE created_at >= $1
-        AND created_at < $2
-      GROUP BY DATE(created_at)
-      ORDER BY date DESC
-    params:
-      - get('start_date', '2024-01-01')
-      - get('end_date', '2024-12-31')
-    format: csv
-    maxRows: 365
-    timeout: 60s
+actionId: analytics
+sql:
+  connectionName: analytics
+  query: |
+    SELECT
+      DATE(created_at) as date,
+      COUNT(*) as total_orders,
+      SUM(amount) as revenue,
+      AVG(amount) as avg_order
+    FROM orders
+    WHERE created_at >= $1
+      AND created_at < $2
+    GROUP BY DATE(created_at)
+    ORDER BY date DESC
+  params:
+    - get('start_date', '2024-01-01')
+    - get('end_date', '2024-12-31')
+  format: csv
+  maxRows: 365
+  timeout: 60s
 ```
 
 ### Multi-Database Workflow
 
 ```yaml
 # Fetch from source database
-metadata:
-  actionId: fetchSource
-
-run:
-  sql:
-    connectionName: source_db
-    query: "SELECT * FROM products WHERE updated_at > $1"
-    params:
-      - get('last_sync')
-    format: json
+actionId: fetchSource
+sql:
+  connectionName: source_db
+  query: "SELECT * FROM products WHERE updated_at > $1"
+  params:
+    - get('last_sync')
+  format: json
 
 ---
 # Insert into destination database
-metadata:
-  actionId: syncProducts
-  requires: [fetchSource]
-
-run:
-  sql:
-    connectionName: dest_db
-    transaction: true
-    queries:
-      - query: |
-          INSERT INTO products (id, name, price, updated_at)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            price = EXCLUDED.price,
-            updated_at = EXCLUDED.updated_at
+actionId: syncProducts
+requires: [fetchSource]
+sql:
+  connectionName: dest_db
+  transaction: true
+  queries:
+    - query: |
+        INSERT INTO products (id, name, price, updated_at)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (id) DO UPDATE SET
+          name = EXCLUDED.name,
+          price = EXCLUDED.price,
+          updated_at = EXCLUDED.updated_at
 <div v-pre>
         paramsBatch: "{{ get('fetchSource') }}"
 </div>
@@ -367,42 +340,36 @@ run:
 
 ```yaml
 # Search database
-metadata:
-  actionId: searchProducts
-
-run:
-  sql:
-    connectionName: main
-    query: |
-      SELECT id, name, description, price
-      FROM products
-      WHERE name ILIKE $1 OR description ILIKE $1
-      LIMIT 10
-    params:
-      - "'%' || get('q') || '%'"
-    format: json
+actionId: searchProducts
+sql:
+  connectionName: main
+  query: |
+    SELECT id, name, description, price
+    FROM products
+    WHERE name ILIKE $1 OR description ILIKE $1
+    LIMIT 10
+  params:
+    - "'%' || get('q') || '%'"
+  format: json
 
 ---
 # Enhance with LLM
-metadata:
-  actionId: enhancedSearch
-  requires: [searchProducts]
+actionId: enhancedSearch
+requires: [searchProducts]
+chat:
+  model: llama3.2:1b
+  prompt: |
+    User searched for: {{ get('q') }}
 
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      User searched for: {{ get('q') }}
+    Found products:
+    {{ get('searchProducts') }}
 
-      Found products:
-      {{ get('searchProducts') }}
-
-      Provide a helpful summary and recommendations.
-    jsonResponse: true
-    jsonResponseKeys:
-      - summary
-      - recommended
-      - suggestions
+    Provide a helpful summary and recommendations.
+  jsonResponse: true
+  jsonResponseKeys:
+    - summary
+    - recommended
+    - suggestions
 ```
 
 </div>
@@ -411,20 +378,17 @@ run:
 
 ```yaml
 # In another resource
-metadata:
-  requires: [sqlResource]
+requires: [sqlResource]
+apiResponse:
+  response:
+    # Full result set
+    users: get('sqlResource')
 
-run:
-  apiResponse:
-    response:
-      # Full result set
-      users: get('sqlResource')
+    # First row
+    first_user: get('sqlResource')[0]
 
-      # First row
-      first_user: get('sqlResource')[0]
-
-      # Specific field from first row
-      first_name: get('sqlResource')[0].name
+    # Specific field from first row
+    first_name: get('sqlResource')[0].name
 ```
 
 ## Best Practices

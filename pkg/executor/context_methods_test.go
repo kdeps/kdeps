@@ -633,9 +633,7 @@ func TestExecutionContext_GetAllSession(t *testing.T) {
 	t.Run("returns all session data when session exists", func(t *testing.T) {
 		workflow := &domain.Workflow{
 			Settings: domain.WorkflowSettings{
-				Session: &domain.SessionConfig{
-					Enabled: true,
-				},
+				Session: &domain.SessionConfig{},
 			},
 		}
 		ctx, err := executor.NewExecutionContext(workflow)

@@ -55,23 +55,18 @@ metadata:
   version: "1.0.0"
   targetActionId: do-search
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-search
-  name: Do Search
-run:
-  searchLocal:
-    path: "${SEARCH_DIR}"
-    glob: "*.go"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('do-search').count }}"
+actionId: do-search
+name: Do Search
+searchLocal:
+  path: "${SEARCH_DIR}"
+  glob: "*.go"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('do-search').count }}"
 YAML
 
     local result
@@ -95,23 +90,18 @@ metadata:
   version: "1.0.0"
   targetActionId: do-search
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-search
-  name: Do Search
-run:
-  searchLocal:
-    path: "${SEARCH_DIR}"
-    query: "hello"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('do-search').count }}"
+actionId: do-search
+name: Do Search
+searchLocal:
+  path: "${SEARCH_DIR}"
+  query: "hello"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('do-search').count }}"
 YAML
 
     local result
@@ -135,24 +125,19 @@ metadata:
   version: "1.0.0"
   targetActionId: do-search
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-search
-  name: Do Search
-run:
-  searchLocal:
-    path: "${SEARCH_DIR}"
-    glob: "*.txt"
-    query: "hello"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('do-search').count }}"
+actionId: do-search
+name: Do Search
+searchLocal:
+  path: "${SEARCH_DIR}"
+  glob: "*.txt"
+  query: "hello"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('do-search').count }}"
 YAML
 
     local result

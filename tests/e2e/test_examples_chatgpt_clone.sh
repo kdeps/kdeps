@@ -75,6 +75,10 @@ API_PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*por
 CHAT_ENDPOINT="/api/v1/chat"
 MODELS_ENDPOINT="/api/v1/models"
 
+# Kill any stale process on the port before starting.
+lsof -ti:"$API_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+sleep 0.5
+
 # Start server
 SERVER_LOG=$(mktemp)
 timeout 180 "$KDEPS_BIN" run "$WORKFLOW_PATH" > "$SERVER_LOG" 2>&1 &

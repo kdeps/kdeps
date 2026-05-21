@@ -1,11 +1,6 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: llm
+name: LLM Response
 
-metadata:
-  actionId: llm
-  name: LLM Response
-
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "{{ input('message') }}"
+chat:
+  model: llama3.2:1b
+  prompt: "{{ input('message') }}"

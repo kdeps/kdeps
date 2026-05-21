@@ -18,12 +18,10 @@ telegram-bot/
 apiVersion: kdeps.io/v1
 kind: Workflow
 
-metadata:
-  name: telegram-llm-bot
-  description: Telegram bot that answers messages with an LLM
-  version: "1.0.0"
-  targetActionId: reply
-
+name: telegram-llm-bot
+description: Telegram bot that answers messages with an LLM
+version: "1.0.0"
+targetActionId: reply
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -43,36 +41,26 @@ settings:
 ## resources/llm.yaml
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llm
-  name: LLM Response
-
-run:
-  chat:
-    messages:
-      - role: user
-        content: "{{ input('message') }}"
+actionId: llm
+name: LLM Response
+chat:
+  messages:
+    - role: user
+      content: "{{ input('message') }}"
 ```
 
 ## resources/reply.yaml
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: reply
-  name: Reply
-
+actionId: reply
+name: Reply
 dependencies:
   - llm
 
-run:
-  botReply:
-    text: "{{ get('llm') }}"
+botReply:
+  text: "{{ get('llm') }}"
 ```
 
 ## Running

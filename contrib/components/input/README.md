@@ -12,12 +12,11 @@ logging, validation, or forwarding inputs to downstream resources.
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: input
-    with:
-      query: "{{ input('userQuery') }}"
-      text: "Some text to forward"
+component:
+  name: input
+  with:
+    query: "{{ input('userQuery') }}"
+    text: "Some text to forward"
 ```
 
 The component returns a JSON object containing only the slots that received

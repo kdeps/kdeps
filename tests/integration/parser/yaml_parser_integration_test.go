@@ -50,7 +50,6 @@ metadata:
   version: "1.0.0"
   targetActionId: responseResource
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -76,9 +75,9 @@ settings:
 	assert.Equal(t, "Workflow", workflow.Kind)
 	assert.Equal(t, "testAgent", workflow.Metadata.Name)
 	assert.Equal(t, "1.0.0", workflow.Metadata.Version)
-	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
-	assert.Equal(t, 16395, workflow.Settings.PortNum)
+	require.NotNil(t, workflow.Settings.APIServer)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
+	assert.Equal(t, 16395, workflow.Settings.APIServer.PortNum)
 }
 
 func TestYAMLParser_ParseAndValidate_Resource(t *testing.T) {
@@ -90,20 +89,16 @@ func TestYAMLParser_ParseAndValidate_Resource(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	resourcePath := filepath.Join(tmpDir, "llm.yaml")
-	resourceYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmResource
-  name: Test LLM
-run:
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeoutDuration: 60s
+	resourceYAML := `actionId: llmResource
+name: Test LLM
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+  timeoutDuration: 60s
 `
 
 	err = os.WriteFile(resourcePath, []byte(resourceYAML), 0644)
@@ -112,9 +107,9 @@ run:
 	resource, err := parser.ParseResource(resourcePath)
 	require.NoError(t, err)
 
-	assert.Equal(t, "llmResource", resource.Metadata.ActionID)
-	assert.NotNil(t, resource.Run.Chat)
-	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
+	assert.Equal(t, "llmResource", resource.ActionID)
+	assert.NotNil(t, resource.Chat)
+	assert.Equal(t, "llama3.2:1b", resource.Chat.Model)
 }
 
 func TestYAMLParser_ParseComplexWorkflow(t *testing.T) {
@@ -134,7 +129,6 @@ metadata:
   version: "2.1.0"
   targetActionId: final-aggregation
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -166,9 +160,9 @@ settings:
 	assert.Equal(t, "final-aggregation", workflow.Metadata.TargetActionID)
 
 	// Verify API server settings
-	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
-	assert.Equal(t, 16395, workflow.Settings.PortNum)
+	require.NotNil(t, workflow.Settings.APIServer)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
+	assert.Equal(t, 16395, workflow.Settings.APIServer.PortNum)
 
 	// Verify agent settings
 	assert.Equal(t, "3.11", workflow.Settings.AgentSettings.PythonVersion)
@@ -200,93 +194,77 @@ func TestYAMLParser_ParseMultipleResourceTypes(t *testing.T) {
 	}{
 		{
 			filename: "http-resource.yaml",
-			resourceYAML: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: http-api-call
-  name: HTTP API Call
-run:
-  httpClient:
-    url: "https://api.example.com/users"
-    method: "GET"
-    headers:
-      Authorization: "Bearer token123"
-      Content-Type: "application/json"
-    timeoutDuration: "30s"
+			resourceYAML: `actionId: http-api-call
+name: HTTP API Call
+httpClient:
+  url: "https://api.example.com/users"
+  method: "GET"
+  headers:
+    Authorization: "Bearer token123"
+    Content-Type: "application/json"
+  timeoutDuration: "30s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
-				assert.Equal(t, "http-api-call", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.HTTPClient)
-				assert.Equal(t, "https://api.example.com/users", resource.Run.HTTPClient.URL)
-				assert.Equal(t, "GET", resource.Run.HTTPClient.Method)
-				assert.Contains(t, resource.Run.HTTPClient.Headers, "Authorization")
+				assert.Equal(t, "http-api-call", resource.ActionID)
+				assert.NotNil(t, resource.HTTPClient)
+				assert.Equal(t, "https://api.example.com/users", resource.HTTPClient.URL)
+				assert.Equal(t, "GET", resource.HTTPClient.Method)
+				assert.Contains(t, resource.HTTPClient.Headers, "Authorization")
 			},
 		},
 		{
 			filename: "sql-resource.yaml",
-			resourceYAML: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: db-query
-  name: Database Query
-run:
-  sql:
-    connection: "primary"
-    query: "SELECT id, name FROM users WHERE active = ?"
-    params:
-      - true
-    format: "json"
+			resourceYAML: `actionId: db-query
+name: Database Query
+sql:
+  connection: "primary"
+  query: "SELECT id, name FROM users WHERE active = ?"
+  params:
+    - true
+  format: "json"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
-				assert.Equal(t, "db-query", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.SQL)
-				assert.Equal(t, "primary", resource.Run.SQL.Connection)
-				assert.Contains(t, resource.Run.SQL.Query, "SELECT")
-				assert.Equal(t, "json", resource.Run.SQL.Format)
+				assert.Equal(t, "db-query", resource.ActionID)
+				assert.NotNil(t, resource.SQL)
+				assert.Equal(t, "primary", resource.SQL.Connection)
+				assert.Contains(t, resource.SQL.Query, "SELECT")
+				assert.Equal(t, "json", resource.SQL.Format)
 			},
 		},
 		{
 			filename: "python-resource.yaml",
-			resourceYAML: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: data-processor
-  name: Data Processor
-run:
-  python:
-    script: |
-      import json
-      data = {"processed": True, "count": len(input_data)}
-      print(json.dumps(data))
-    timeoutDuration: "60s"
+			resourceYAML: `actionId: data-processor
+name: Data Processor
+python:
+  script: |
+    import json
+    data = {"processed": True, "count": len(input_data)}
+    print(json.dumps(data))
+  timeoutDuration: "60s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
-				assert.Equal(t, "data-processor", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.Python)
-				assert.Contains(t, resource.Run.Python.Script, "import json")
-				assert.Contains(t, resource.Run.Python.Script, "processed")
+				assert.Equal(t, "data-processor", resource.ActionID)
+				assert.NotNil(t, resource.Python)
+				assert.Contains(t, resource.Python.Script, "import json")
+				assert.Contains(t, resource.Python.Script, "processed")
 			},
 		},
 		{
 			filename: "exec-resource.yaml",
-			resourceYAML: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: system-command
-  name: System Command
-run:
-  exec:
-    command: "ls -la /tmp"
-    timeoutDuration: "10s"
+			resourceYAML: `actionId: system-command
+name: System Command
+exec:
+  command: "ls -la /tmp"
+  timeoutDuration: "10s"
 `,
 			checkFunc: func(t *testing.T, res interface{}) {
 				resource := res.(*domain.Resource)
-				assert.Equal(t, "system-command", resource.Metadata.ActionID)
-				assert.NotNil(t, resource.Run.Exec)
-				assert.Contains(t, resource.Run.Exec.Command, "ls -la")
+				assert.Equal(t, "system-command", resource.ActionID)
+				assert.NotNil(t, resource.Exec)
+				assert.Contains(t, resource.Exec.Command, "ls -la")
 			},
 		},
 	}
@@ -341,41 +319,29 @@ settings:
 	}{
 		{
 			"step1",
-			`apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: step1
-  name: Step 1
-run:
-  apiResponse:
-    success: true
-    response: {"step": 1}
+			`actionId: step1
+name: Step 1
+apiResponse:
+  success: true
+  response: {"step": 1}
 `,
 		},
 		{
 			"step2",
-			`apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: step2
-  name: Step 2
-run:
-  apiResponse:
-    success: true
-    response: {"step": 2}
+			`actionId: step2
+name: Step 2
+apiResponse:
+  success: true
+  response: {"step": 2}
 `,
 		},
 		{
 			"final-step",
-			`apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: final-step
-  name: Final Step
-run:
-  apiResponse:
-    success: true
-    response: {"completed": true, "total_steps": 3}
+			`actionId: final-step
+name: Final Step
+apiResponse:
+  success: true
+  response: {"completed": true, "total_steps": 3}
 `,
 		},
 	}
@@ -427,18 +393,14 @@ settings:
 	err = os.MkdirAll(resourcesDir, 0755)
 	require.NoError(t, err)
 
-	resourceYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: dynamic-response
-  name: Dynamic Response
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "Hello @{request.query.name || 'World'}"
-      timestamp: "@{new Date().toISOString()}"
-      version: "@{workflow.metadata.version}"
+	resourceYAML := `actionId: dynamic-response
+name: Dynamic Response
+apiResponse:
+  success: true
+  response:
+    message: "Hello @{request.query.name || 'World'}"
+    timestamp: "@{new Date().toISOString()}"
+    version: "@{workflow.metadata.version}"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "dynamic-response.yaml")
@@ -449,9 +411,9 @@ run:
 	resource, err := parser.ParseResource(resourcePath)
 	require.NoError(t, err)
 
-	assert.Equal(t, "dynamic-response", resource.Metadata.ActionID)
-	assert.NotNil(t, resource.Run.APIResponse)
-	responseMap := resource.Run.APIResponse.Response.(map[string]interface{})
+	assert.Equal(t, "dynamic-response", resource.ActionID)
+	assert.NotNil(t, resource.APIResponse)
+	responseMap := resource.APIResponse.Response.(map[string]interface{})
 	assert.Contains(
 		t,
 		responseMap["message"].(string),
@@ -493,13 +455,9 @@ metadata:
 		},
 		{
 			name: "InvalidResourceStructure",
-			content: `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: invalid-resource
-run:
-  unknownType:
-    invalidField: value
+			content: `actionId: invalid-resource
+unknownType:
+  invalidField: value
 `,
 			expectError: true,
 		},
@@ -565,10 +523,9 @@ metadata:
   version: "3.2.1"
   targetActionId: final-aggregation
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 9090
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 9090
     routes:
       - path: /api/test
         methods: [GET]
@@ -607,9 +564,9 @@ settings:
 	assert.Equal(t, "3.2.1", workflow.Metadata.Version)
 	assert.Equal(t, "final-aggregation", workflow.Metadata.TargetActionID)
 
-	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
-	assert.Equal(t, 9090, workflow.Settings.PortNum)
+	require.NotNil(t, workflow.Settings.APIServer)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
+	assert.Equal(t, 9090, workflow.Settings.APIServer.PortNum)
 
 	assert.Equal(t, "3.12", workflow.Settings.AgentSettings.PythonVersion)
 	assert.Len(t, workflow.Settings.AgentSettings.PythonPackages, 8)

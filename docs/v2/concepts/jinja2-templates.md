@@ -19,7 +19,6 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
 {% if env.PORT %}
   portNum: {{ env.PORT | int }}
 {% else %}
@@ -35,7 +34,6 @@ Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated n
 
 ```yaml
 # resource.yaml — no {% raw %} needed
-run:
 {% if env.ENABLE_HTTP == 'true' %}
   httpClient:
     method: GET

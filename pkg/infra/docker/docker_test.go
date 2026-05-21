@@ -141,10 +141,7 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			APIServer:     &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -188,17 +185,15 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "llm-resource",
-					Name:     "LLM Chat",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "test",
-					},
+
+				ActionID: "llm-resource",
+				Name:     "LLM Chat",
+
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "test",
 				},
 			},
 		},
@@ -536,17 +531,15 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "llm-resource",
-					Name:     "LLM Chat",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "test",
-					},
+
+				ActionID: "llm-resource",
+				Name:     "LLM Chat",
+
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "test",
 				},
 			},
 		},
@@ -645,15 +638,12 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 			Version: "2.1.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       9000,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.11",
 				PythonPackages: []string{"fastapi", "uvicorn", "pydantic"},
 				BaseOS:         "ubuntu",
 			},
-			APIServer: &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{PortNum: 9000},
 			SQLConnections: map[string]domain.SQLConnection{
 				"main": {
 					Connection: "postgresql://user:pass@db:5432/app",
@@ -662,19 +652,15 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama3.2:1b",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
+					Model:   "llama3.2:1b",
 				},
 			},
 			{
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://api.example.com",
 				},
 			},
 		},
@@ -703,7 +689,7 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
+			APIServer: &domain.APIServerConfig{},
 		},
 	}
 
@@ -799,7 +785,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
+					APIServer:     &domain.APIServerConfig{},
 					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 				},
 			},
@@ -815,9 +801,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -876,9 +860,7 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 				Metadata: domain.WorkflowMetadata{Name: "test"},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -891,9 +873,7 @@ func TestBuilderTemplates_generateEntrypoint(t *testing.T) {
 				Metadata: domain.WorkflowMetadata{Name: "test"},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "vllm"},
-						},
+						Chat: &domain.ChatConfig{Backend: "vllm"},
 					},
 				},
 			},
@@ -945,9 +925,7 @@ func TestBuilderTemplates_generateSupervisord(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 				},
 			},
@@ -1161,9 +1139,6 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.12",
 				PythonPackages: []string{"requests", "pandas"},
@@ -1173,11 +1148,9 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama2",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
+					Model:   "llama2",
 				},
 			},
 		},
@@ -1211,11 +1184,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			name: "ollama backend from resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Backend: "ollama",
-							Model:   "llama2:7b",
-						},
+					Chat: &domain.ChatConfig{
+						Backend: "ollama",
+						Model:   "llama2:7b",
 					},
 				},
 			},
@@ -1238,11 +1209,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			name: "no LLM resources - no ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						HTTPClient: &domain.HTTPClientConfig{
-							Method: "GET",
-							URL:    "https://api.example.com",
-						},
+					HTTPClient: &domain.HTTPClientConfig{
+						Method: "GET",
+						URL:    "https://api.example.com",
 					},
 				},
 			},
@@ -1255,11 +1224,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Role:   "user",
-							Prompt: "test",
-						},
+					Chat: &domain.ChatConfig{
+						Role:   "user",
+						Prompt: "test",
 					},
 				},
 			},
@@ -1271,11 +1238,9 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 			envBackend: "openai",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Role:   "user",
-							Prompt: "test",
-						},
+					Chat: &domain.ChatConfig{
+						Role:   "user",
+						Prompt: "test",
 					},
 				},
 			},
@@ -1330,11 +1295,9 @@ func TestBuilder_getDefaultModel(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: tt.backend,
-								// No model specified, should use default
-							},
+						Chat: &domain.ChatConfig{
+							Backend: tt.backend,
+							// No model specified, should use default
 						},
 					},
 				},
@@ -1600,9 +1563,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama2"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama2"},
 					},
 				},
 			},
@@ -1625,9 +1586,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama3.2:1b"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama", Model: "llama3.2:1b"},
 					},
 				},
 			},
@@ -1646,10 +1605,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					HostIP:        "0.0.0.0",
-					PortNum:       9000,
-					APIServer:     &domain.APIServerConfig{},
+					APIServer: &domain.APIServerConfig{PortNum: 9000},
 					AgentSettings: domain.AgentSettings{
 						PythonVersion: "3.12",
 					},
@@ -1669,14 +1625,10 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "ollama"},
-						},
+						Chat: &domain.ChatConfig{Backend: "ollama"},
 					},
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{Backend: "vllm"},
-						},
+						Chat: &domain.ChatConfig{Backend: "vllm"},
 					},
 				},
 			},
@@ -1729,10 +1681,7 @@ func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			WebServer:     &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 
@@ -1752,12 +1701,8 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			WebServerMode: true,
-			HostIP:        "0.0.0.0",
-			PortNum:       16395,
-			APIServer:     &domain.APIServerConfig{},
-			WebServer:     &domain.WebServerConfig{},
+			APIServer: &domain.APIServerConfig{},
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 

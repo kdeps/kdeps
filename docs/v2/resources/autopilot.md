@@ -19,13 +19,12 @@ The Autopilot component is kdeps' goal-directed task execution engine. Describe 
 ## Using the Autopilot Component
 
 ```yaml
-run:
-  component:
-    name: autopilot
-    with:
-      task: "Research the top 5 open-source LLM frameworks and summarize their strengths"
-      context: "Focus on frameworks that support local inference"
-      model: "gpt-4o"
+component:
+  name: autopilot
+  with:
+    task: "Research the top 5 open-source LLM frameworks and summarize their strengths"
+    context: "Focus on frameworks that support local inference"
+    model: "gpt-4o"
 ```
 
 Access the result via `output('<callerActionId>')`.
@@ -53,13 +52,12 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: autopilot
-    with:
-      task: "{{ get('user_task') }}"
-      context: "{{ get('user_context') }}"
-      model: gpt-4o
+component:
+  name: autopilot
+  with:
+    task: "{{ get('user_task') }}"
+    context: "{{ get('user_context') }}"
+    model: gpt-4o
 ```
 
 </div>
@@ -73,19 +71,14 @@ run:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: research
-  name: Autopilot Researcher
-
-run:
-  component:
-    name: autopilot
-    with:
-      task: "Search the web for '{{ get('q') }}' and return a 3-paragraph summary."
-      model: "gpt-4o"
+actionId: research
+name: Autopilot Researcher
+component:
+  name: autopilot
+  with:
+    task: "Search the web for '{{ get('q') }}' and return a 3-paragraph summary."
+    model: "gpt-4o"
 ```
 
 </div>
@@ -95,22 +88,17 @@ run:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyze
-  name: Autopilot Data Analysis
-
-run:
-  component:
-    name: autopilot
-    with:
-      task: |
-        Analyze the following data and return key insights as JSON:
-        {{ get('data') }}
-      context: "Focus on trends and anomalies."
-      model: gpt-4o
+actionId: analyze
+name: Autopilot Data Analysis
+component:
+  name: autopilot
+  with:
+    task: |
+      Analyze the following data and return key insights as JSON:
+      {{ get('data') }}
+    context: "Focus on trends and anomalies."
+    model: gpt-4o
 ```
 
 </div>

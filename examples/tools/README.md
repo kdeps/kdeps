@@ -84,19 +84,18 @@ tools/
 Tools are defined in the `tools` field of ChatConfig:
 
 ```yaml
-run:
-  chat:
-    model: "llama3.2:1b"
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: tool_name
-        description: "Tool description"
-        script: "resourceActionID"  # References a resource to execute
-        parameters:
-          param1:
-            type: "string"
-            description: "Parameter description"
-            required: true
+chat:
+  model: "llama3.2:1b"
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: tool_name
+      description: "Tool description"
+      script: "resourceActionID"  # References a resource to execute
+      parameters:
+        param1:
+          type: "string"
+          description: "Parameter description"
+          required: true
 ```
 
 **Key Point**: The `script` field must reference a resource `actionID`. When the LLM calls the tool, that resource will be executed with the tool arguments available via `get()`.
@@ -209,25 +208,24 @@ tools:
 # calcTool resource (resources/calc-tool.yaml)
 metadata:
   actionId: calcTool
-run:
-  python:
-    script: |
-      import json
-      import math
-      
-      expression = "{{ get('expression', 'memory') }}"
-      
-      # Safely evaluate with restricted namespace
-      allowed_names = {
-          "__builtins__": {},
-          'abs': abs, 'round': round, 'min': min, 'max': max,
-          'sum': sum, 'pow': pow, 'int': int, 'float': float,
-          'sqrt': math.sqrt, 'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
-          'log': math.log, 'log10': math.log10, 'exp': math.exp,
-          'pi': math.pi, 'e': math.e, # ... and more
-      }
-      result = eval(expression, allowed_names, {})
-      print(json.dumps({"result": result, "expression": expression}))
+python:
+  script: |
+    import json
+    import math
+
+    expression = "{{ get('expression', 'memory') }}"
+
+    # Safely evaluate with restricted namespace
+    allowed_names = {
+        "__builtins__": {},
+        'abs': abs, 'round': round, 'min': min, 'max': max,
+        'sum': sum, 'pow': pow, 'int': int, 'float': float,
+        'sqrt': math.sqrt, 'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+        'log': math.log, 'log10': math.log10, 'exp': math.exp,
+        'pi': math.pi, 'e': math.e, # ... and more
+    }
+    result = eval(expression, allowed_names, {})
+    print(json.dumps({"result": result, "expression": expression}))
 ```
 
 When LLM calls `calculate({"expression": "sqrt(16) + sin(pi/2)"})`:

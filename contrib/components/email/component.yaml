@@ -36,31 +36,27 @@ interface:
       required: true
       description: SMTP password
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Send Email
-      actionId: send-email
-    run:
-      python:
-        script: |
-          import smtplib, json
-          from email.mime.text import MIMEText
-          from email.mime.multipart import MIMEMultipart
-          host = "{{ get('email.smtpHost') }}"
-          port = int("{{ get('email.smtpPort', '587') }}")
-          user = "{{ get('email.smtpUser') }}"
-          password = "{{ get('email.smtpPass') }}"
-          to = "{{ get('email.to') }}"
-          subject = "{{ get('email.subject') }}"
-          body = "{{ get('email.body') }}"
-          msg = MIMEMultipart()
-          msg["From"] = user
-          msg["To"] = to
-          msg["Subject"] = subject
-          msg.attach(MIMEText(body, "plain"))
-          with smtplib.SMTP(host, port) as server:
-              server.starttls()
-              server.login(user, password)
-              server.sendmail(user, to, msg.as_string())
-          print(json.dumps({"sent": True, "to": to}))
+  - name: Send Email
+    actionId: send-email
+    python:
+      script: |
+        import smtplib, json
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        host = "{{ get('email.smtpHost') }}"
+        port = int("{{ get('email.smtpPort', '587') }}")
+        user = "{{ get('email.smtpUser') }}"
+        password = "{{ get('email.smtpPass') }}"
+        to = "{{ get('email.to') }}"
+        subject = "{{ get('email.subject') }}"
+        body = "{{ get('email.body') }}"
+        msg = MIMEMultipart()
+        msg["From"] = user
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body, "plain"))
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            server.login(user, password)
+            server.sendmail(user, to, msg.as_string())
+        print(json.dumps({"sent": True, "to": to}))

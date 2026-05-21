@@ -85,11 +85,10 @@ When `installOllama: true`, Ollama is installed via the official install script 
 resources:
   - metadata:
       actionId: llm
-    run:
-      chat:
-        backend: "ollama"
-        model: "llama3.2:1b"
-        prompt: "{{ get('q') }}"
+    chat:
+      backend: "ollama"
+      model: "llama3.2:1b"
+      prompt: "{{ get('q') }}"
 ```
 
 Ollama is automatically installed when:
@@ -336,21 +335,19 @@ resources:
   # Fast local inference for simple tasks
   - metadata:
       actionId: quickChat
-    run:
-      chat:
-        backend: "ollama"
-        model: "llama3.2:1b"
-        prompt: "Quick answer: {{ get('q') }}"
+    chat:
+      backend: "ollama"
+      model: "llama3.2:1b"
+      prompt: "Quick answer: {{ get('q') }}"
 
   # Cloud provider for complex tasks
   - metadata:
       actionId: deepAnalysis
-    run:
-      chat:
-        backend: "anthropic"
-        model: "claude-3-5-sonnet-20241022"
-        apiKey: "{{ get('ANTHROPIC_API_KEY', 'env') }}"
-        prompt: "Detailed analysis: {{ get('q') }}"
+    chat:
+      backend: "anthropic"
+      model: "claude-3-5-sonnet-20241022"
+      apiKey: "{{ get('ANTHROPIC_API_KEY', 'env') }}"
+      prompt: "Detailed analysis: {{ get('q') }}"
 ```
 
 **Result:** Ollama installed locally, cloud APIs used for specific resources

@@ -8,11 +8,9 @@ metadata:
   targetActionId: mixed
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/demo
         methods: [GET, POST]
@@ -25,49 +23,37 @@ settings:
     timezone: Etc/UTC
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: withoutBraces
-      name: Direct Expressions Without Braces
-    run:
-      validations:
-        methods: [GET, POST]
-        routes: [/api/demo]
+  - actionId: withoutBraces
+    name: Direct Expressions Without Braces
+    validations:
+      methods: [GET, POST]
+      routes: [/api/demo]
 
-      apiResponse:
-        response:
-          # Direct expressions WITHOUT braces
-          query: get('q')
-          count: get('count')
-          isValid: get('count') > 0
+    apiResponse:
+      response:
+        # Direct expressions WITHOUT braces
+        query: get('q')
+        count: get('count')
+        isValid: get('count') > 0
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: withBraces
-      name: String Interpolation With Braces
-      requires:
-        - withoutBraces
-    run:
-      apiResponse:
-        response:
-          # String interpolation REQUIRES braces
-          greeting: "You searched for: {{ get('q') }}"
-          summary: "Found {{ get('count') }} results"
-          queryResult: "Query: {{ get('q') }}"
+  - actionId: withBraces
+    name: String Interpolation With Braces
+    requires:
+    - withoutBraces
+    apiResponse:
+      response:
+        # String interpolation REQUIRES braces
+        greeting: "You searched for: {{ get('q') }}"
+        summary: "Found {{ get('count') }} results"
+        queryResult: "Query: {{ get('q') }}"
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: mixed
-      name: Mixed Direct and Interpolated
-      requires:
-        - withBraces
-    run:
-      apiResponse:
-        response:
-          # Direct without braces
-          count: get('count')
-          # Interpolation with braces
-          message: "Got {{ get('count') }} results for: {{ get('q') }}"
+  - actionId: mixed
+    name: Mixed Direct and Interpolated
+    requires:
+    - withBraces
+    apiResponse:
+      response:
+        # Direct without braces
+        count: get('count')
+        # Interpolation with braces
+        message: "Got {{ get('count') }} results for: {{ get('q') }}"

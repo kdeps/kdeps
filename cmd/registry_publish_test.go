@@ -46,9 +46,8 @@ func TestDoRegistryVerify_CleanDir(t *testing.T) {
 func TestDoRegistryVerify_WithErrors(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "res.yaml"), []byte(`
-run:
-  chat:
-    apiKey: "sk-hardcoded-key"
+chat:
+  apiKey: "sk-hardcoded-key"
 `), 0600))
 
 	c := &cobra.Command{}

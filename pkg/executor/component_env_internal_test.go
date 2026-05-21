@@ -118,9 +118,7 @@ func TestEnv_WithComponent_UnsetScopedAndPlain(t *testing.T) {
 
 func TestScanResourceEnvVars_ExecCommand(t *testing.T) {
 	r := &domain.Resource{
-		Run: domain.RunConfig{
-			Exec: &domain.ExecConfig{Command: `echo "{{ env('SECRET_KEY') }}"`},
-		},
+		Exec: &domain.ExecConfig{Command: `echo "{{ env('SECRET_KEY') }}"`},
 	}
 	seen := map[string]struct{}{}
 	scanResourceEnvVars(r, seen)
@@ -129,9 +127,7 @@ func TestScanResourceEnvVars_ExecCommand(t *testing.T) {
 
 func TestScanResourceEnvVars_PythonScript(t *testing.T) {
 	r := &domain.Resource{
-		Run: domain.RunConfig{
-			Python: &domain.PythonConfig{Script: "key = env('PYTHON_VAR')"},
-		},
+		Python: &domain.PythonConfig{Script: "key = env('PYTHON_VAR')"},
 	}
 	seen := map[string]struct{}{}
 	scanResourceEnvVars(r, seen)
@@ -140,10 +136,8 @@ func TestScanResourceEnvVars_PythonScript(t *testing.T) {
 
 func TestScanResourceEnvVars_ChatFields(t *testing.T) {
 	r := &domain.Resource{
-		Run: domain.RunConfig{
-			Chat: &domain.ChatConfig{
-				Prompt: "use {{ env('CHAT_PROMPT_VAR') }}",
-			},
+		Chat: &domain.ChatConfig{
+			Prompt: "use {{ env('CHAT_PROMPT_VAR') }}",
 		},
 	}
 	seen := map[string]struct{}{}
@@ -153,12 +147,10 @@ func TestScanResourceEnvVars_ChatFields(t *testing.T) {
 
 func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 	r := &domain.Resource{
-		Run: domain.RunConfig{
-			HTTPClient: &domain.HTTPClientConfig{
-				URL: "https://api.example.com/{{ env('API_ENDPOINT') }}",
-				Auth: &domain.HTTPAuthConfig{
-					Token: "{{ env('API_TOKEN') }}",
-				},
+		HTTPClient: &domain.HTTPClientConfig{
+			URL: "https://api.example.com/{{ env('API_ENDPOINT') }}",
+			Auth: &domain.HTTPAuthConfig{
+				Token: "{{ env('API_TOKEN') }}",
 			},
 		},
 	}
@@ -170,9 +162,7 @@ func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 
 func TestScanResourceEnvVars_NoEnvExprs(t *testing.T) {
 	r := &domain.Resource{
-		Run: domain.RunConfig{
-			Exec: &domain.ExecConfig{Command: "echo hello"},
-		},
+		Exec: &domain.ExecConfig{Command: "echo hello"},
 	}
 	seen := map[string]struct{}{}
 	scanResourceEnvVars(r, seen)
@@ -197,9 +187,9 @@ func TestMergeDotEnv_AppendsNewVars(t *testing.T) {
 
 	comp := &domain.Component{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{Command: `echo "{{ env('NEW_VAR') }}"`},
-			}},
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('NEW_VAR') }"`},
+			},
 		},
 	}
 	n, err := mergeDotEnv(comp, dotEnvPath)
@@ -218,9 +208,9 @@ func TestMergeDotEnv_NoNewVarsReturnsZero(t *testing.T) {
 
 	comp := &domain.Component{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
-			}},
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }"`},
+			},
 		},
 	}
 	n, err := mergeDotEnv(comp, dotEnvPath)

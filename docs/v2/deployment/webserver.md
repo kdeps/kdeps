@@ -22,7 +22,6 @@ metadata:
   targetActionId: responseResource
 
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -30,7 +29,6 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
 
-  webServerMode: true
   webServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -46,7 +44,6 @@ Serve static files from a directory:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -95,7 +92,6 @@ Forward requests to backend applications:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -220,7 +216,6 @@ Combine static files and multiple apps:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -254,7 +249,6 @@ For deployments behind a load balancer:
 
 ```yaml
 settings:
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -283,7 +277,6 @@ metadata:
 
 settings:
   # API Server
-  apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
     portNum: 16395
@@ -300,7 +293,6 @@ settings:
         - http://localhost:16395
 
   # Web Server
-  webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
     portNum: 16395

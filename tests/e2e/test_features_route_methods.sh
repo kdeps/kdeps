@@ -43,10 +43,9 @@ metadata:
   targetActionId: postHandler
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3130
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3130
     routes:
       - path: /api/v1/methods
         methods: [GET, POST, PUT, DELETE]
@@ -56,39 +55,31 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE_GET" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: getHandler
-  name: GET Handler
+actionId: getHandler
+name: GET Handler
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/methods]
-  apiResponse:
-    success: true
-    response:
-      method: "GET"
-      message: "GET method handler"
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/api/v1/methods]
+apiResponse:
+  success: true
+  response:
+    method: "GET"
+    message: "GET method handler"
 EOF
 
 cat > "$RESOURCE_FILE_POST" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: postHandler
-  name: POST Handler
+actionId: postHandler
+name: POST Handler
 
-run:
-  restrictToHttpMethods: [POST]
-  restrictToRoutes: [/api/v1/methods]
-  apiResponse:
-    success: true
-    response:
-      method: "POST"
-      message: "POST method handler"
+restrictToHttpMethods: [POST]
+restrictToRoutes: [/api/v1/methods]
+apiResponse:
+  success: true
+  response:
+    method: "POST"
+    message: "POST method handler"
 EOF
 
 # Test 1: Validate workflow

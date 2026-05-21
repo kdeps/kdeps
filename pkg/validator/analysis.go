@@ -132,7 +132,7 @@ func AnalyzeWorkflow(workflow *domain.Workflow) *WorkflowAnalysis {
 func buildActionIDIndex(workflow *domain.Workflow) map[string]bool {
 	m := make(map[string]bool, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		m[r.Metadata.ActionID] = true
+		m[r.ActionID] = true
 	}
 	return m
 }
@@ -160,7 +160,7 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 
 	requires := make(map[string][]string, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		requires[r.Metadata.ActionID] = r.Metadata.Requires
+		requires[r.ActionID] = r.Requires
 	}
 
 	visited := make(map[string]bool)
@@ -178,9 +178,9 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
-		if !visited[r.Metadata.ActionID] {
+		if !visited[r.ActionID] {
 			issues = append(issues, AnalysisIssue{
-				ActionID: r.Metadata.ActionID,
+				ActionID: r.ActionID,
 				Severity: "warning",
 				Message:  "resource is unreachable from targetActionId",
 			})
@@ -206,7 +206,7 @@ func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs, componentName
 				seen[ref] = true
 				if !actionIDs[ref] && !componentNames[ref] {
 					issues = append(issues, AnalysisIssue{
-						ActionID: r.Metadata.ActionID,
+						ActionID: r.ActionID,
 						Severity: "error",
 						Message:  fmt.Sprintf("expression references unknown actionId %q", ref),
 					})
@@ -227,7 +227,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
-		cc := r.Run.Component
+		cc := r.Component
 		if cc == nil {
 			continue
 		}
@@ -241,7 +241,7 @@ func detectMissingComponentInputs(workflow *domain.Workflow) []AnalysisIssue {
 			}
 			if _, provided := cc.With[input.Name]; !provided {
 				issues = append(issues, AnalysisIssue{
-					ActionID: r.Metadata.ActionID,
+					ActionID: r.ActionID,
 					Severity: "error",
 					Message: fmt.Sprintf(
 						"component %q requires input %q but it is not provided in 'with'",
@@ -298,20 +298,12 @@ func extractActionIDRefs(s string) []string {
 func collectResourceStrings(r *domain.Resource) []string {
 	var out []string
 
-	appendExprs := func(exprs []domain.Expression) {
-		for _, e := range exprs {
-			out = append(out, e.Raw)
-		}
-	}
-
-	appendExprs(r.Run.ExprBefore)
-	appendExprs(r.Run.Expr)
-	out = append(out, collectOnErrorStrings(r.Run.OnError)...)
-	out = append(out, collectValidationStrings(r.Run.Validations)...)
-	out = append(out, collectChatStrings(r.Run.Chat)...)
+	out = append(out, collectOnErrorStrings(r.OnError)...)
+	out = append(out, collectValidationStrings(r.Validations)...)
+	out = append(out, collectChatStrings(r.Chat)...)
 	out = append(out, collectExecTypeStrings(r)...)
-	out = append(out, collectInlineListStrings(r.Run.Before)...)
-	out = append(out, collectInlineListStrings(r.Run.After)...)
+	out = append(out, collectInlineListStrings(r.Before)...)
+	out = append(out, collectInlineListStrings(r.After)...)
 
 	return out
 }
@@ -358,37 +350,44 @@ func collectChatStrings(cfg *domain.ChatConfig) []string {
 
 func collectExecTypeStrings(r *domain.Resource) []string {
 	var out []string
-	if r.Run.Python != nil {
-		out = append(out, r.Run.Python.Script)
+	if r.Python != nil {
+		out = append(out, r.Python.Script)
 	}
-	if r.Run.Exec != nil {
-		out = append(out, r.Run.Exec.Command)
+	if r.Exec != nil {
+		out = append(out, r.Exec.Command)
 	}
-	if r.Run.HTTPClient != nil {
-		out = append(out, r.Run.HTTPClient.URL)
-		if s, ok := r.Run.HTTPClient.Data.(string); ok {
+	if r.HTTPClient != nil {
+		out = append(out, r.HTTPClient.URL)
+		if s, ok := r.HTTPClient.Data.(string); ok {
 			out = append(out, s)
 		}
 	}
-	if r.Run.SQL != nil {
-		for _, q := range r.Run.SQL.Queries {
+	if r.SQL != nil {
+		for _, q := range r.SQL.Queries {
 			out = append(out, q.Query)
 			for _, p := range q.Params {
 				out = append(out, fmt.Sprintf("%v", p))
 			}
 		}
 	}
-	if r.Run.Scraper != nil {
-		out = append(out, r.Run.Scraper.URL)
+	if r.Scraper != nil {
+		out = append(out, r.Scraper.URL)
 	}
-	if r.Run.Embedding != nil {
-		out = append(out, r.Run.Embedding.Text)
+	if r.Embedding != nil {
+		out = append(out, r.Embedding.Text)
 	}
-	if r.Run.SearchLocal != nil {
-		out = append(out, r.Run.SearchLocal.Query)
+	if r.SearchLocal != nil {
+		out = append(out, r.SearchLocal.Query)
 	}
-	if r.Run.SearchWeb != nil {
-		out = append(out, r.Run.SearchWeb.Query)
+	if r.SearchWeb != nil {
+		out = append(out, r.SearchWeb.Query)
+	}
+	if r.Browser != nil {
+		out = append(out, r.Browser.URL)
+		out = append(out, r.Browser.WaitFor)
+		for _, a := range r.Browser.Actions {
+			out = append(out, a.URL, a.Selector, a.Value, a.Script)
+		}
 	}
 	return out
 }
@@ -404,6 +403,9 @@ func collectInlineListStrings(inlines []domain.InlineResource) []string {
 // collectInlineStrings collects expression strings from an inline (before/after) action.
 func collectInlineStrings(ac *domain.ActionConfig) []string {
 	var out []string
+	if ac.Expr != "" {
+		out = append(out, ac.Expr)
+	}
 	if ac.Chat != nil {
 		out = append(out, ac.Chat.Prompt)
 	}

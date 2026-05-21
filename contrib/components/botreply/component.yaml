@@ -19,15 +19,11 @@ interface:
       required: true
       description: Message text to send
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Send Message
-      actionId: send-message
-    run:
-      httpClient:
-        url: "https://api.telegram.org/bot{{ get('botreply.token') }}/sendMessage"
-        method: POST
-        headers:
-          Content-Type: application/json
-        data: '{"chat_id":"{{ get(''botreply.chatId'') }}","text":"{{ get(''botreply.text'') }}"}'
+  - name: Send Message
+    actionId: send-message
+    httpClient:
+      url: "https://api.telegram.org/bot{{ get('botreply.token') }}/sendMessage"
+      method: POST
+      headers:
+        Content-Type: application/json
+      data: '{"chat_id":"{{ get(''botreply.chatId'') }}","text":"{{ get(''botreply.text'') }}"}'

@@ -7,13 +7,12 @@ It queries the web and returns structured results. The default provider is **Duc
 ## Configuration
 
 ```yaml
-run:
-  searchWeb:
-    query: "{{ get('query') }}"     # required
-    provider: ddg                    # optional: ddg (default) | brave | bing | tavily
-    apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
-    maxResults: 5                    # optional, default 5
-    timeout: 15                      # optional, seconds, default 15
+searchWeb:
+  query: "{{ get('query') }}"     # required
+  provider: ddg                    # optional: ddg (default) | brave | bing | tavily
+  apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
+  maxResults: 5                    # optional, default 5
+  timeout: 15                      # optional, seconds, default 15
 ```
 
 ### Config fields
@@ -60,49 +59,41 @@ output('search').json       # JSON string of the full result
 ### DuckDuckGo (no API key)
 
 ```yaml
-metadata:
-  actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
-    maxResults: 5
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
+  maxResults: 5
 ```
 
 ### Brave Search
 
 ```yaml
-metadata:
-  actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
-    provider: brave
-    apiKey: "{{ env('BRAVE_API_KEY') }}"
-    maxResults: 10
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
+  provider: brave
+  apiKey: "{{ env('BRAVE_API_KEY') }}"
+  maxResults: 10
 ```
 
 ### Feed results into an LLM
 
 ```yaml
-metadata:
-  actionId: search
-run:
-  searchWeb:
-    query: "{{ get('query') }}"
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
 
 ---
-metadata:
-  actionId: answer
-  requires: [search]
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: |
-      Answer based on these results:
-      {% for r in output('search').results %}
-      - {{ r.title }}: {{ r.snippet }}
-      {% endfor %}
-      Question: {{ get('query') }}
+actionId: answer
+requires: [search]
+chat:
+  model: llama3.2:1b
+  prompt: |
+    Answer based on these results:
+    {% for r in output('search').results %}
+    - {{ r.title }}: {{ r.snippet }}
+    {% endfor %}
+    Question: {{ get('query') }}
 ```
 
 ## Error handling

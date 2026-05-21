@@ -1,11 +1,7 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  requires: [summarize]
-run:
-  apiResponse:
-    success: true
-    response:
-      url: "{{ get('url') }}"
-      summary: "{{ output('summarize').summary }}"
+actionId: response
+requires: [summarize]
+apiResponse:
+  success: true
+  response:
+    url: "{{ get('url') }}"
+    summary: "{{ output('summarize').summary }}"

@@ -7,23 +7,18 @@ The `loop` block enables conditional, unbounded iteration — making kdeps workf
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: countToFive
-  name: Count to Five
-
-run:
-  loop:
-    while: "loop.index() < 5"
-    maxIterations: 1000   # safety cap (default: 1000)
-  expr:
-    - "{{ set('result', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ get('result') }}"
+actionId: countToFive
+name: Count to Five
+loop:
+  while: "loop.index() < 5"
+  maxIterations: 1000   # safety cap (default: 1000)
+after:
+  - "{{ set('result', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    count: "{{ get('result') }}"
 ```
 
 </div>
@@ -43,11 +38,10 @@ Inside the loop body, special callables are available:
 ### Method Syntax
 
 ```yaml
-run:
-  expr:
-    - "{{ set('idx', loop.index()) }}"
-    - "{{ set('cnt', loop.count()) }}"
-    - "{{ set('prev', loop.results()) }}"
+after:
+  - "{{ set('idx', loop.index()) }}"
+  - "{{ set('cnt', loop.count()) }}"
+  - "{{ set('prev', loop.results()) }}"
 ```
 
 ### Comparison: `loop` vs `item`
@@ -67,12 +61,11 @@ Use `'loop'` as a storage type hint to scope variables to the loop context, mirr
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "default(get('step', 'loop'), 0) < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('step', loop.count(), 'loop') }}"
+loop:
+  while: "default(get('step', 'loop'), 0) < 3"
+  maxIterations: 10
+after:
+  - "{{ set('step', loop.count(), 'loop') }}"
 ```
 
 </div>
@@ -84,12 +77,11 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "len(loop.results()) < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('n', loop.count()) }}"
+loop:
+  while: "len(loop.results()) < 3"
+  maxIterations: 10
+after:
+  - "{{ set('n', loop.count()) }}"
 ```
 
 </div>
@@ -103,16 +95,15 @@ When `apiResponse` is present, every iteration produces one response map. Multip
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "loop.index() < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('tick', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      tick: "{{ get('tick') }}"
+loop:
+  while: "loop.index() < 3"
+  maxIterations: 10
+after:
+  - "{{ set('tick', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    tick: "{{ get('tick') }}"
 ```
 
 </div>
@@ -130,10 +121,9 @@ No iterations → empty slice.
 - Turing completeness is preserved because the cap is configurable, not fixed
 
 ```yaml
-run:
-  loop:
-    while: "true"
-    maxIterations: 50000   # allow up to 50k iterations
+loop:
+  while: "true"
+  maxIterations: 50000   # allow up to 50k iterations
 ```
 
 ## `every:` — Repeated Scheduled Tasks
@@ -143,18 +133,17 @@ Add `every:` to pause the loop for a fixed duration **between** iterations, turn
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "loop.index() < 10"
-    every: "5s"           # wait 5 seconds between each iteration
-    maxIterations: 100
-  expr:
-    - "{{ set('tick', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      tick: "{{ get('tick') }}"
-      at:   "{{ loop.count() }}"
+loop:
+  while: "loop.index() < 10"
+  every: "5s"           # wait 5 seconds between each iteration
+  maxIterations: 100
+after:
+  - "{{ set('tick', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    tick: "{{ get('tick') }}"
+    at:   "{{ loop.count() }}"
 ```
 
 </div>
@@ -166,15 +155,14 @@ The sleep is **skipped after the last iteration** — the caller receives result
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "true"          # run until maxIterations
-    every: "30s"           # poll every 30 seconds
-    maxIterations: 1440    # up to 12 hours (1440 × 30 s)
-  exec:
-    command: "poll-service.sh"
-  expr:
-    - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
+loop:
+  while: "true"          # run until maxIterations
+  every: "30s"           # poll every 30 seconds
+  maxIterations: 1440    # up to 12 hours (1440 × 30 s)
+exec:
+  command: "poll-service.sh"
+after:
+  - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
 ```
 
 </div>
@@ -199,19 +187,18 @@ Use `at:` to fire the loop body at a list of specific dates and/or times, in ord
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "loop.index() < 2"
-    maxIterations: 10
-    at:
-      - "2026-03-15T10:00:00Z"   # RFC3339 absolute timestamp
-      - "2026-03-15T14:30:00Z"
-  expr:
-    - "{{ set('tick', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      tick: "{{ get('tick') }}"
+loop:
+  while: "loop.index() < 2"
+  maxIterations: 10
+  at:
+    - "2026-03-15T10:00:00Z"   # RFC3339 absolute timestamp
+    - "2026-03-15T14:30:00Z"
+after:
+  - "{{ set('tick', loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    tick: "{{ get('tick') }}"
 ```
 
 </div>
@@ -231,15 +218,14 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "true"
-    maxIterations: 30  # run for 30 days
-    at:
-      - "08:00"   # fire at 08:00 every morning (next occurrence)
-      - "20:00"   # fire at 20:00 every evening
-  exec:
-    command: "daily-report.sh"
+loop:
+  while: "true"
+  maxIterations: 30  # run for 30 days
+  at:
+    - "08:00"   # fire at 08:00 every morning (next occurrence)
+    - "20:00"   # fire at 20:00 every evening
+exec:
+  command: "daily-report.sh"
 ```
 
 </div>
@@ -291,16 +277,15 @@ Together with `loop.results()` feeding back into the `while` condition, the syst
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "loop.index() < 4"
-    maxIterations: 100
-  expr:
-    - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      partial_sum: "{{ get('sum') }}"
+loop:
+  while: "loop.index() < 4"
+  maxIterations: 100
+after:
+  - "{{ set('sum', int(default(get('sum'), 0)) + loop.count()) }}"
+apiResponse:
+  success: true
+  response:
+    partial_sum: "{{ get('sum') }}"
 ```
 
 </div>
@@ -310,16 +295,15 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "int(default(get('phase'), 0)) < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('phase', int(default(get('phase'), 0)) + 1) }}"
-  apiResponse:
-    success: true
-    response:
-      phase: "{{ get('phase') }}"
+loop:
+  while: "int(default(get('phase'), 0)) < 3"
+  maxIterations: 10
+after:
+  - "{{ set('phase', int(default(get('phase'), 0)) + 1) }}"
+apiResponse:
+  success: true
+  response:
+    phase: "{{ get('phase') }}"
 ```
 
 </div>
@@ -329,18 +313,17 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "get('done') == nil"
-    maxIterations: 100
-  exec:
-    command: "check-condition.sh"
-  expr:
-    - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
-  apiResponse:
-    success: true
-    response:
-      iterations: "{{ loop.count() }}"
+loop:
+  while: "get('done') == nil"
+  maxIterations: 100
+exec:
+  command: "check-condition.sh"
+after:
+  - "{{ get('execResource').exitCode == 0 ? set('done', true) : set('noop', 0) }}"
+apiResponse:
+  success: true
+  response:
+    iterations: "{{ loop.count() }}"
 ```
 
 </div>
@@ -350,16 +333,15 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  loop:
-    while: "len(loop.results()) < 5"
-    maxIterations: 50
-  chat:
-    prompt: "Generate item {{ loop.count() }}"
-  apiResponse:
-    success: true
-    response:
-      item: "{{ get('chatResource') }}"
+loop:
+  while: "len(loop.results()) < 5"
+  maxIterations: 50
+chat:
+  prompt: "Generate item {{ loop.count() }}"
+apiResponse:
+  success: true
+  response:
+    item: "{{ get('chatResource') }}"
 ```
 
 </div>
@@ -372,25 +354,21 @@ A resource that runs a loop and a downstream resource that reads the final state
 
 ```yaml
 # resources/compute.yaml
-metadata:
-  actionId: compute
-run:
-  loop:
-    while: "loop.index() < 3"
-    maxIterations: 10
-  expr:
-    - "{{ set('computed', loop.count()) }}"
+actionId: compute
+loop:
+  while: "loop.index() < 3"
+  maxIterations: 10
+after:
+  - "{{ set('computed', loop.count()) }}"
 
 ---
 # resources/respond.yaml
-metadata:
-  actionId: respond
-  requires: [compute]
-run:
-  apiResponse:
-    success: true
-    response:
-      value: "{{ get('computed') }}"   # reads final value set by the loop
+actionId: respond
+requires: [compute]
+apiResponse:
+  success: true
+  response:
+    value: "{{ get('computed') }}"   # reads final value set by the loop
 ```
 
 </div>

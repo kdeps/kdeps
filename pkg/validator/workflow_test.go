@@ -99,9 +99,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "valid API server settings",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -111,22 +110,11 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "API server mode without config",
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					APIServer:     nil,
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "invalid port number - too low",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       -1,
 					APIServer: &domain.APIServerConfig{
+						PortNum: -1,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -139,9 +127,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "invalid port number - too high",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       70000,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 70000,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -154,10 +141,9 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "no routes",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
-						Routes: []domain.Route{},
+						PortNum: 16395,
+						Routes:  []domain.Route{},
 					},
 				},
 			},
@@ -167,9 +153,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "route missing path",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "", Methods: []string{"GET"}},
 						},
@@ -182,9 +167,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			name: "route path without leading slash",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
+						PortNum: 16395,
 						Routes: []domain.Route{
 							{Path: "api/test", Methods: []string{"GET"}},
 						},
@@ -196,9 +180,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 		{
 			name: "API server mode false",
 			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					APIServerMode: false,
-				},
+				Settings: domain.WorkflowSettings{},
 			},
 			wantErr: false,
 		},
@@ -230,9 +212,8 @@ func TestWorkflowValidator_ValidateTargetAction(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -246,9 +227,8 @@ func TestWorkflowValidator_ValidateTargetAction(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -278,9 +258,9 @@ func TestWorkflowValidator_ValidateUniqueActionIDs(t *testing.T) {
 			name: "all unique actionIDs",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action2"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action3"}},
+					{ActionID: "action1"},
+					{ActionID: "action2"},
+					{ActionID: "action3"},
 				},
 			},
 			wantErr: false,
@@ -289,9 +269,9 @@ func TestWorkflowValidator_ValidateUniqueActionIDs(t *testing.T) {
 			name: "duplicate actionID",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action2"}},
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
+					{ActionID: "action1"},
+					{ActionID: "action2"},
+					{ActionID: "action1"},
 				},
 			},
 			wantErr: true,
@@ -320,11 +300,10 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "valid dependencies",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
-					{Metadata: domain.ResourceMetadata{
+					{ActionID: "action1"},
+					{
 						ActionID: "action2",
-						Requires: []string{"action1"},
-					}},
+						Requires: []string{"action1"}},
 				},
 			},
 			wantErr: false,
@@ -333,10 +312,9 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "missing dependency",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{
+					{
 						ActionID: "action1",
-						Requires: []string{"nonexistent"},
-					}},
+						Requires: []string{"nonexistent"}},
 				},
 			},
 			wantErr: true,
@@ -345,7 +323,7 @@ func TestWorkflowValidator_ValidateDependencies(t *testing.T) {
 			name: "no dependencies",
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
-					{Metadata: domain.ResourceMetadata{ActionID: "action1"}},
+					{ActionID: "action1"},
 				},
 			},
 			wantErr: false,
@@ -373,15 +351,13 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid chat resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "llama3.2:latest",
-						Prompt: "Test prompt",
-					},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
+				Chat: &domain.ChatConfig{
+					Model:  "llama3.2:latest",
+					Prompt: "Test prompt",
 				},
 			},
 			wantErr: false,
@@ -389,15 +365,13 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid HTTP resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "http-test",
-					Name:     "HTTP Resource",
-				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://api.example.com",
-					},
+
+				ActionID: "http-test",
+				Name:     "HTTP Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://api.example.com",
 				},
 			},
 			wantErr: false,
@@ -405,15 +379,13 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid SQL resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "sql-test",
-					Name:     "SQL Resource",
-				},
-				Run: domain.RunConfig{
-					SQL: &domain.SQLConfig{
-						Connection: "postgresql://localhost:5432/db",
-						Query:      "SELECT * FROM users",
-					},
+
+				ActionID: "sql-test",
+				Name:     "SQL Resource",
+
+				SQL: &domain.SQLConfig{
+					Connection: "postgresql://localhost:5432/db",
+					Query:      "SELECT * FROM users",
 				},
 			},
 			wantErr: false,
@@ -421,14 +393,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid Python resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "python-test",
-					Name:     "Python Resource",
-				},
-				Run: domain.RunConfig{
-					Python: &domain.PythonConfig{
-						Script: "print('hello')",
-					},
+
+				ActionID: "python-test",
+				Name:     "Python Resource",
+
+				Python: &domain.PythonConfig{
+					Script: "print('hello')",
 				},
 			},
 			wantErr: false,
@@ -436,15 +406,13 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "valid API response resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "api-test",
-					Name:     "API Response Resource",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"data": "ok"},
-					},
+
+				ActionID: "api-test",
+				Name:     "API Response Resource",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"data": "ok"},
 				},
 			},
 			wantErr: false,
@@ -452,14 +420,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "missing actionID",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					Name: "Test Resource",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "llama3.2:latest",
-						Prompt: "Test prompt",
-					},
+
+				Name: "Test Resource",
+
+				Chat: &domain.ChatConfig{
+					Model:  "llama3.2:latest",
+					Prompt: "Test prompt",
 				},
 			},
 			wantErr: true,
@@ -467,14 +433,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "missing name",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "llama3.2:latest",
-						Prompt: "Test prompt",
-					},
+
+				ActionID: "test",
+
+				Chat: &domain.ChatConfig{
+					Model:  "llama3.2:latest",
+					Prompt: "Test prompt",
 				},
 			},
 			wantErr: true,
@@ -482,25 +446,21 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "no execution type",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
-				Run: domain.RunConfig{},
+
+				ActionID: "test",
+				Name:     "Test Resource",
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid exec resource",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "exec-test",
-					Name:     "Exec Resource",
-				},
-				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{
-						Command: "echo",
-					},
+
+				ActionID: "exec-test",
+				Name:     "Exec Resource",
+
+				Exec: &domain.ExecConfig{
+					Command: "echo",
 				},
 			},
 			wantErr: false,
@@ -508,19 +468,17 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "multiple execution types",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
+				Chat: &domain.ChatConfig{
+					Model:  "llama3.2:latest",
+					Prompt: "Test prompt",
 				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "llama3.2:latest",
-						Prompt: "Test prompt",
-					},
-					HTTPClient: &domain.HTTPClientConfig{
-						Method: "GET",
-						URL:    "https://example.com",
-					},
+				HTTPClient: &domain.HTTPClientConfig{
+					Method: "GET",
+					URL:    "https://example.com",
 				},
 			},
 			wantErr: true,
@@ -528,14 +486,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "chat config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						// Missing model and prompt - should fail validation
-					},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
+				Chat: &domain.ChatConfig{
+					// Missing model and prompt - should fail validation
 				},
 			},
 			wantErr: true,
@@ -543,14 +499,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "HTTP config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
-				Run: domain.RunConfig{
-					HTTPClient: &domain.HTTPClientConfig{
-						// Missing method and URL - should fail validation
-					},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
+				HTTPClient: &domain.HTTPClientConfig{
+					// Missing method and URL - should fail validation
 				},
 			},
 			wantErr: true,
@@ -558,14 +512,12 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 		{
 			name: "SQL config validation error",
 			resource: &domain.Resource{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test",
-					Name:     "Test Resource",
-				},
-				Run: domain.RunConfig{
-					SQL: &domain.SQLConfig{
-						// Missing connection and query - should fail validation
-					},
+
+				ActionID: "test",
+				Name:     "Test Resource",
+
+				SQL: &domain.SQLConfig{
+					// Missing connection and query - should fail validation
 				},
 			},
 			wantErr: true,
@@ -841,15 +793,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -865,28 +815,23 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "step1",
-							Name:     "Step 1",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Step 1",
-							},
+
+						ActionID: "step1",
+						Name:     "Step 1",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Step 1",
 						},
 					},
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "final",
-							Name:     "Final Step",
-							Requires: []string{"step1"},
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Final step",
-							},
+
+						ActionID: "final",
+						Name:     "Final Step",
+						Requires: []string{"step1"},
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Final step",
 						},
 					},
 				},
@@ -913,10 +858,8 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-						},
-						Run: domain.RunConfig{},
+
+						ActionID: "main",
 					},
 				},
 			},
@@ -930,15 +873,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -953,15 +894,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -977,15 +916,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main",
+						Name:     "Main Resource",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -1001,27 +938,23 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource 1",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main",
+						Name:     "Main Resource 1",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main", // Duplicate
-							Name:     "Main Resource 2",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "main", // Duplicate
+						Name:     "Main Resource 2",
+
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Test prompt",
 						},
 					},
 				},
@@ -1037,44 +970,13 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "final",
-							Name:     "Final Resource",
-							Requires: []string{"missing"},
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Final step",
-							},
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "API server validation error",
-			workflow: &domain.Workflow{
-				Metadata: domain.WorkflowMetadata{
-					Name:           "Test Workflow",
-					TargetActionID: "main",
-				},
-				Settings: domain.WorkflowSettings{
-					APIServerMode: true,
-					APIServer:     nil, // Missing config
-				},
-				Resources: []*domain.Resource{
-					{
-						Metadata: domain.ResourceMetadata{
-							ActionID: "main",
-							Name:     "Main Resource",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "llama3.2:latest",
-								Prompt: "Test prompt",
-							},
+
+						ActionID: "final",
+						Name:     "Final Resource",
+						Requires: []string{"missing"},
+						Chat: &domain.ChatConfig{
+							Model:  "llama3.2:latest",
+							Prompt: "Final step",
 						},
 					},
 				},
@@ -1093,136 +995,6 @@ func TestWorkflowValidator_Validate(t *testing.T) {
 	}
 }
 
-func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-
-	tests := []struct {
-		name    string
-		config  *domain.InputConfig
-		wantErr bool
-	}{
-		{
-			name:    "valid api source",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAPI}},
-			wantErr: false,
-		},
-		{
-			name:    "valid audio source",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceAudio}},
-			wantErr: false,
-		},
-		{
-			name: "valid audio source with device",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Audio:   &domain.AudioConfig{Device: "hw:0,0"},
-			},
-			wantErr: false,
-		},
-		{
-			name:    "valid video source",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceVideo}},
-			wantErr: false,
-		},
-		{
-			name: "valid video source with device",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceVideo},
-				Video:   &domain.VideoConfig{Device: "/dev/video0"},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid telephony local",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{
-					Type:   domain.TelephonyTypeLocal,
-					Device: "/dev/ttyUSB0",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid telephony online",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{
-					Type:     domain.TelephonyTypeOnline,
-					Provider: "twilio",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name:    "missing source",
-			config:  &domain.InputConfig{},
-			wantErr: true,
-		},
-		{
-			name:    "invalid source",
-			config:  &domain.InputConfig{Sources: []string{"invalid"}},
-			wantErr: true,
-		},
-		{
-			name: "telephony missing type",
-			config: &domain.InputConfig{
-				Sources:   []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "telephony invalid type",
-			config: &domain.InputConfig{
-				Sources:   []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{Type: "invalid"},
-			},
-			wantErr: true,
-		},
-		{
-			name:    "telephony without telephony block (nil)",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceTelephony}},
-			wantErr: true,
-		},
-		{
-			name: "duplicate source rejected",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio, domain.InputSourceAudio},
-			},
-			wantErr: true,
-		},
-		{
-			name: "duplicate api source rejected",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAPI, domain.InputSourceAPI},
-			},
-			wantErr: true,
-		},
-		{
-			name:    "valid component source",
-			config:  &domain.InputConfig{Sources: []string{domain.InputSourceComponent}},
-			wantErr: false,
-		},
-		{
-			name: "valid component source mixed with api",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAPI, domain.InputSourceComponent},
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateInputConfig(tt.config)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateInputConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
 	v := validator.NewWorkflowValidator(nil)
 
@@ -1231,15 +1003,6 @@ func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
 		workflow *domain.Workflow
 		wantErr  bool
 	}{
-		{
-			name: "valid audio input",
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					Input: &domain.InputConfig{Sources: []string{domain.InputSourceAudio}},
-				},
-			},
-			wantErr: false,
-		},
 		{
 			name: "valid file input",
 			workflow: &domain.Workflow{
@@ -1274,438 +1037,6 @@ func TestWorkflowValidator_ValidateSettings_WithInput(t *testing.T) {
 				t.Errorf("ValidateSettings() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestWorkflowValidator_ValidateTranscriberConfig(t *testing.T) {
-	v := validator.NewWorkflowValidator(nil)
-
-	tests := []struct {
-		name    string
-		config  *domain.InputConfig
-		wantErr bool
-		errMsg  string
-	}{
-		// Valid online transcribers
-		{
-			name: "valid online openai-whisper",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderOpenAIWhisper,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid online google-stt",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderGoogleSTT,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid online aws-transcribe",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderAWSTranscribe,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid online deepgram",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderDeepgram,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid online assemblyai",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderAssemblyAI,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		// Valid offline transcribers
-		{
-			name: "valid offline whisper",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: domain.TranscriberEngineWhisper,
-						Model:  "base",
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid offline faster-whisper",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceVideo},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: domain.TranscriberEngineFasterWhisper,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid offline vosk",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceTelephony},
-				Telephony: &domain.TelephonyConfig{
-					Type: domain.TelephonyTypeLocal,
-				},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: domain.TranscriberEngineVosk,
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid offline whisper-cpp",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode:   domain.TranscriberModeOffline,
-					Output: domain.TranscriberOutputMedia,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: domain.TranscriberEngineWhisperCPP,
-						Model:  "/models/ggml-small.bin",
-					},
-				},
-			},
-			wantErr: false,
-		},
-		// Error cases
-		{
-			name: "transcriber on API source rejected",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAPI},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: domain.TranscriberEngineWhisper,
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "transcriber is not supported when all sources are api",
-		},
-		{
-			name: "missing transcriber mode",
-			config: &domain.InputConfig{
-				Sources:     []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{},
-			},
-			wantErr: true,
-			errMsg:  "transcriber.mode is required",
-		},
-		{
-			name: "invalid transcriber mode",
-			config: &domain.InputConfig{
-				Sources:     []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{Mode: "hybrid"},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber mode",
-		},
-		{
-			name: "invalid transcriber output",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode:   domain.TranscriberModeOnline,
-					Output: "audio",
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: domain.TranscriberProviderDeepgram,
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber output",
-		},
-		{
-			name: "online mode without online config",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-				},
-			},
-			wantErr: true,
-			errMsg:  "transcriber.online is required when mode is online",
-		},
-		{
-			name: "offline mode without offline config",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-				},
-			},
-			wantErr: true,
-			errMsg:  "transcriber.offline is required when mode is offline",
-		},
-		{
-			name: "online provider missing",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode:   domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{},
-				},
-			},
-			wantErr: true,
-			errMsg:  "transcriber.online.provider is required",
-		},
-		{
-			name: "invalid online provider",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOnline,
-					Online: &domain.OnlineTranscriberConfig{
-						Provider: "amazon-transcribe",
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber online provider",
-		},
-		{
-			name: "offline engine missing",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode:    domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{},
-				},
-			},
-			wantErr: true,
-			errMsg:  "transcriber.offline.engine is required",
-		},
-		{
-			name: "invalid offline engine",
-			config: &domain.InputConfig{
-				Sources: []string{domain.InputSourceAudio},
-				Transcriber: &domain.TranscriberConfig{
-					Mode: domain.TranscriberModeOffline,
-					Offline: &domain.OfflineTranscriberConfig{
-						Engine: "coqui",
-					},
-				},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber offline engine",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateInputConfig(tt.config)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateInputConfig() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && tt.errMsg != "" && err != nil {
-				if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("error message %q does not contain %q", err.Error(), tt.errMsg)
-				}
-			}
-		})
-	}
-}
-
-func TestValidateActivationConfig(t *testing.T) {
-	sv, _ := validator.NewSchemaValidator()
-	v := validator.NewWorkflowValidator(sv)
-
-	offlineCfg := &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper}
-	onlineCfg := &domain.OnlineTranscriberConfig{Provider: domain.TranscriberProviderDeepgram}
-
-	tests := []struct {
-		name    string
-		config  *domain.ActivationConfig
-		wantErr bool
-		errMsg  string
-	}{
-		{
-			name: "valid offline activation",
-			config: &domain.ActivationConfig{
-				Phrase:  "hey kdeps",
-				Mode:    domain.TranscriberModeOffline,
-				Offline: offlineCfg,
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid online activation",
-			config: &domain.ActivationConfig{
-				Phrase: "hey kdeps",
-				Mode:   domain.TranscriberModeOnline,
-				Online: onlineCfg,
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid with sensitivity and chunkSeconds",
-			config: &domain.ActivationConfig{
-				Phrase:       "hello there",
-				Mode:         domain.TranscriberModeOffline,
-				Sensitivity:  0.7,
-				ChunkSeconds: 5,
-				Offline:      offlineCfg,
-			},
-			wantErr: false,
-		},
-		{
-			name: "missing phrase",
-			config: &domain.ActivationConfig{
-				Mode:    domain.TranscriberModeOffline,
-				Offline: offlineCfg,
-			},
-			wantErr: true,
-			errMsg:  "activation.phrase is required",
-		},
-		{
-			name: "missing mode",
-			config: &domain.ActivationConfig{
-				Phrase:  "hey kdeps",
-				Offline: offlineCfg,
-			},
-			wantErr: true,
-			errMsg:  "activation.mode is required",
-		},
-		{
-			name: "invalid mode",
-			config: &domain.ActivationConfig{
-				Phrase:  "hey kdeps",
-				Mode:    "bad-mode",
-				Offline: offlineCfg,
-			},
-			wantErr: true,
-			errMsg:  "invalid activation mode",
-		},
-		{
-			name: "sensitivity out of range",
-			config: &domain.ActivationConfig{
-				Phrase:      "hey kdeps",
-				Mode:        domain.TranscriberModeOffline,
-				Sensitivity: 1.5,
-				Offline:     offlineCfg,
-			},
-			wantErr: true,
-			errMsg:  "activation.sensitivity must be between",
-		},
-		{
-			name: "online mode without online config",
-			config: &domain.ActivationConfig{
-				Phrase: "hey kdeps",
-				Mode:   domain.TranscriberModeOnline,
-			},
-			wantErr: true,
-			errMsg:  "activation.online is required",
-		},
-		{
-			name: "offline mode without offline config",
-			config: &domain.ActivationConfig{
-				Phrase: "hey kdeps",
-				Mode:   domain.TranscriberModeOffline,
-			},
-			wantErr: true,
-			errMsg:  "activation.offline is required",
-		},
-		{
-			name: "invalid online provider",
-			config: &domain.ActivationConfig{
-				Phrase: "hey kdeps",
-				Mode:   domain.TranscriberModeOnline,
-				Online: &domain.OnlineTranscriberConfig{Provider: "unknown-stt"},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber online provider",
-		},
-		{
-			name: "invalid offline engine",
-			config: &domain.ActivationConfig{
-				Phrase:  "hey kdeps",
-				Mode:    domain.TranscriberModeOffline,
-				Offline: &domain.OfflineTranscriberConfig{Engine: "dragon"},
-			},
-			wantErr: true,
-			errMsg:  "invalid transcriber offline engine",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := v.ValidateActivationConfig(tt.config)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateActivationConfig() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.wantErr && tt.errMsg != "" && err != nil {
-				if !strings.Contains(err.Error(), tt.errMsg) {
-					t.Errorf("error message %q does not contain %q", err.Error(), tt.errMsg)
-				}
-			}
-		})
-	}
-}
-
-func TestValidateInputConfig_ActivationOnAPIRejected(t *testing.T) {
-	sv, _ := validator.NewSchemaValidator()
-	v := validator.NewWorkflowValidator(sv)
-
-	cfg := &domain.InputConfig{
-		Sources: []string{domain.InputSourceAPI},
-		Activation: &domain.ActivationConfig{
-			Phrase:  "hey kdeps",
-			Mode:    domain.TranscriberModeOffline,
-			Offline: &domain.OfflineTranscriberConfig{Engine: domain.TranscriberEngineWhisper},
-		},
-	}
-	err := v.ValidateInputConfig(cfg)
-	if err == nil {
-		t.Fatal("expected error when activation is set on api source")
-	}
-	if !strings.Contains(err.Error(), "activation is not supported when all sources are api") {
-		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
@@ -1768,24 +1099,20 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop with exec is valid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "loop-exec", Name: "Loop Exec"},
-			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{While: "loop.index() < 5"},
-				Exec: &domain.ExecConfig{Command: "echo"},
-			},
+			ActionID: "loop-exec", Name: "Loop Exec",
+			Loop: &domain.LoopConfig{While: "loop.index() < 5"},
+			Exec: &domain.ExecConfig{Command: "echo"},
 		}
 		if err := v.ValidateResource(resource, workflow); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
-	t.Run("loop with expr-only is valid", func(t *testing.T) {
+	t.Run("loop with before-only is valid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "loop-expr", Name: "Loop Expr"},
-			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{While: "loop.index() < 3"},
-				Expr: []domain.Expression{{Raw: "set('x', loop.index())"}},
-			},
+			ActionID: "loop-expr", Name: "Loop Expr",
+			Loop:   &domain.LoopConfig{While: "loop.index() < 3"},
+			Before: []domain.ActionConfig{{Expr: "set('x', loop.index())"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -1794,11 +1121,9 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop without while condition is invalid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "bad-loop", Name: "Bad Loop"},
-			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{While: ""},
-				Expr: []domain.Expression{{Raw: "set('x', 1)"}},
-			},
+			ActionID: "bad-loop", Name: "Bad Loop",
+			Loop:   &domain.LoopConfig{While: ""},
+			Before: []domain.ActionConfig{{Expr: "set('x', 1)"}},
 		}
 		if err := v.ValidateResource(resource, workflow); err == nil {
 			t.Error("expected error for loop without while condition")
@@ -1807,10 +1132,8 @@ func TestWorkflowValidator_ValidateResource_Loop(t *testing.T) {
 
 	t.Run("loop without expr and without primary type is invalid", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{ActionID: "lone-loop", Name: "Lone Loop"},
-			Run: domain.RunConfig{
-				Loop: &domain.LoopConfig{While: "true"},
-			},
+			ActionID: "lone-loop", Name: "Lone Loop",
+			Loop: &domain.LoopConfig{While: "true"},
 		}
 		if err := v.ValidateResource(resource, workflow); err == nil {
 			t.Error("expected error for loop with no execution body")

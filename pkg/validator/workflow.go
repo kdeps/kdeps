@@ -54,7 +54,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 	}
 
 	// 3. Validate resources exist (skip for WebServer mode without resources)
-	if len(workflow.Resources) == 0 && !workflow.Settings.WebServerMode {
+	if len(workflow.Resources) == 0 && workflow.Settings.WebServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"workflow must have at least one resource",
@@ -64,7 +64,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 
 	// 4. Validate target action exists (skip for WebServer mode or when no
 	//    original resources were defined)
-	if len(workflow.Resources) > 0 && !workflow.Settings.WebServerMode {
+	if len(workflow.Resources) > 0 && workflow.Settings.WebServer == nil {
 		if err := v.ValidateTargetAction(workflow); err != nil {
 			return err
 		}
@@ -83,7 +83,7 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 	// 7. Validate resources
 	for _, resource := range workflow.Resources {
 		if err := v.ValidateResource(resource, workflow); err != nil {
-			return fmt.Errorf("invalid resource '%s': %w", resource.Metadata.ActionID, err)
+			return fmt.Errorf("invalid resource '%s': %w", resource.ActionID, err)
 		}
 	}
 
@@ -117,7 +117,7 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 	}
 
 	// Skip targetActionID validation for WebServer mode without resources
-	if workflow.Metadata.TargetActionID == "" && !workflow.Settings.WebServerMode {
+	if workflow.Metadata.TargetActionID == "" && workflow.Settings.WebServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"workflow targetActionID is required",
@@ -132,17 +132,29 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ValidateSettings")
 	// Validate port if specified
-	port := workflow.Settings.PortNum
-	if port != 0 && (port < 1 || port > 65535) {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"server port must be between 1 and 65535",
-			nil,
-		)
+	validatePort := func(port int) error {
+		if port != 0 && (port < 1 || port > 65535) {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"server port must be between 1 and 65535",
+				nil,
+			)
+		}
+		return nil
+	}
+	if workflow.Settings.APIServer != nil {
+		if err := validatePort(workflow.Settings.APIServer.PortNum); err != nil {
+			return err
+		}
+	}
+	if workflow.Settings.WebServer != nil {
+		if err := validatePort(workflow.Settings.WebServer.PortNum); err != nil {
+			return err
+		}
 	}
 
 	// Validate API server settings
-	if workflow.Settings.APIServerMode {
+	if workflow.Settings.APIServer != nil {
 		if err := v.ValidateAPIServerSettings(workflow.Settings.APIServer); err != nil {
 			return err
 		}
@@ -164,7 +176,7 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 	if apiServer == nil {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
-			"apiServer settings required when apiServerMode is true",
+			"apiServer settings required",
 			nil,
 		)
 	}
@@ -204,7 +216,7 @@ func (v *WorkflowValidator) ValidateTargetAction(workflow *domain.Workflow) erro
 	targetID := workflow.Metadata.TargetActionID
 
 	for _, resource := range workflow.Resources {
-		if resource.Metadata.ActionID == targetID {
+		if resource.ActionID == targetID {
 			return nil
 		}
 	}
@@ -222,7 +234,7 @@ func (v *WorkflowValidator) ValidateUniqueActionIDs(workflow *domain.Workflow) e
 	seen := make(map[string]bool)
 
 	for _, resource := range workflow.Resources {
-		actionID := resource.Metadata.ActionID
+		actionID := resource.ActionID
 		if seen[actionID] {
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
@@ -242,18 +254,18 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 	// Build set of all actionIDs.
 	actionIDs := make(map[string]bool)
 	for _, resource := range workflow.Resources {
-		actionIDs[resource.Metadata.ActionID] = true
+		actionIDs[resource.ActionID] = true
 	}
 
 	// Validate each resource's dependencies exist.
 	for _, resource := range workflow.Resources {
-		for _, dep := range resource.Metadata.Requires {
+		for _, dep := range resource.Requires {
 			if !actionIDs[dep] {
 				return domain.NewError(
 					domain.ErrCodeInvalidWorkflow,
 					fmt.Sprintf(
 						"resource '%s' depends on unknown resource '%s'",
-						resource.Metadata.ActionID,
+						resource.ActionID,
 						dep,
 					),
 					nil,
@@ -294,7 +306,20 @@ func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	if run.Telephony != nil {
 		n++
 	}
+	if run.Browser != nil {
+		n++
+	}
 	return n
+}
+
+// hasExpressionEntries reports whether any entry in the slice is an expression step.
+func hasExpressionEntries(entries []domain.ActionConfig) bool {
+	for _, e := range entries {
+		if e.Expr != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateResource validates a single resource.
@@ -304,31 +329,31 @@ func (v *WorkflowValidator) ValidateResource(
 ) error {
 	kdeps_debug.Log("enter: ValidateResource")
 	// Validate metadata.
-	if resource.Metadata.ActionID == "" {
+	if resource.ActionID == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource actionID is required", nil)
 	}
-	if resource.Metadata.Name == "" {
+	if resource.Name == "" {
 		return domain.NewError(domain.ErrCodeInvalidResource, "resource name is required", nil)
 	}
 
 	// Validate execution types.
 	// Primary execution types (only one allowed): chat, httpClient, sql, python, exec, agent.
 	// apiResponse can be combined with any primary execution type or used alone.
-	primaryCount := countPrimaryExecutionTypes(&resource.Run)
-	hasAPIResponse := resource.Run.APIResponse != nil
-	hasExprBlocks := len(resource.Run.Expr) > 0 ||
-		len(resource.Run.ExprBefore) > 0
+	primaryCount := countPrimaryExecutionTypes(resource)
+	hasAPIResponse := resource.APIResponse != nil
+	hasExprEntries := hasExpressionEntries(resource.Before) || hasExpressionEntries(resource.After)
 
 	// A resource is valid if it has:
 	//   a) at least one primary execution type, or
 	//   b) an apiResponse block, or
-	//   c) expression blocks (expr/exprBefore) used for variable assignment, or
-	//   d) a loop with expression blocks (for Turing-complete while loops).
-	if primaryCount == 0 && !hasAPIResponse && !hasExprBlocks {
+	//   c) before/after entries (expression steps or inline resources) for variable assignment, or
+	//   d) a loop with before/after entries (for Turing-complete while loops).
+	if primaryCount == 0 && !hasAPIResponse && !hasExprEntries &&
+		len(resource.Before) == 0 && len(resource.After) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource must specify at least one execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony, apiResponse, expr)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser, apiResponse, before, after)",
 			nil,
 		)
 	}
@@ -336,14 +361,14 @@ func (v *WorkflowValidator) ValidateResource(
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
 			"resource can only specify one primary execution type"+
-				" (chat, httpClient, sql, python, exec, agent, component, telephony)",
+				" (chat, httpClient, sql, python, exec, agent, component, telephony, browser)",
 			nil,
 		)
 	}
 
 	// Validate loop configuration.
-	if resource.Run.Loop != nil {
-		if err := ValidateLoopConfig(resource.Run.Loop); err != nil {
+	if resource.Loop != nil {
+		if err := ValidateLoopConfig(resource.Loop); err != nil {
 			return err
 		}
 	}
@@ -357,23 +382,23 @@ func (v *WorkflowValidator) validateResourceExecutionTypes(
 	resource *domain.Resource,
 	workflow *domain.Workflow,
 ) error {
-	if resource.Run.Chat != nil {
-		if err := v.ValidateChatConfig(resource.Run.Chat); err != nil {
+	if resource.Chat != nil {
+		if err := v.ValidateChatConfig(resource.Chat); err != nil {
 			return err
 		}
 	}
-	if resource.Run.SQL != nil {
-		if err := v.ValidateSQLConfig(resource.Run.SQL, workflow); err != nil {
+	if resource.SQL != nil {
+		if err := v.ValidateSQLConfig(resource.SQL, workflow); err != nil {
 			return err
 		}
 	}
-	if resource.Run.HTTPClient != nil {
-		if err := v.ValidateHTTPConfig(resource.Run.HTTPClient); err != nil {
+	if resource.HTTPClient != nil {
+		if err := v.ValidateHTTPConfig(resource.HTTPClient); err != nil {
 			return err
 		}
 	}
-	if resource.Run.Telephony != nil {
-		if err := v.ValidateTelephonyActionConfig(resource.Run.Telephony); err != nil {
+	if resource.Telephony != nil {
+		if err := v.ValidateTelephonyActionConfig(resource.Telephony); err != nil {
 			return err
 		}
 	}
@@ -523,17 +548,11 @@ func (v *WorkflowValidator) ValidateHTTPConfig(config *domain.HTTPClientConfig) 
 func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) error {
 	kdeps_debug.Log("enter: validateSourcesList")
 	validSources := map[string]bool{
-		domain.InputSourceAPI:       true,
-		domain.InputSourceAudio:     true,
-		domain.InputSourceVideo:     true,
-		domain.InputSourceTelephony: true,
-		domain.InputSourceBot:       true,
-		domain.InputSourceFile:      true,
-		domain.InputSourceComponent: true,
-		domain.InputSourceLLM:       true,
+		domain.InputSourceAPI:  true,
+		domain.InputSourceBot:  true,
+		domain.InputSourceFile: true,
 	}
 
-	hasTelephony := false
 	hasBot := false
 	seen := make(map[string]bool)
 	for _, source := range config.Sources {
@@ -548,7 +567,7 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			return domain.NewError(
 				domain.ErrCodeInvalidWorkflow,
 				fmt.Sprintf(
-					"invalid input source: %s. Available options: [api, audio, video, telephony, bot, file, component, llm]",
+					"invalid input source: %s. Available options: [api, bot, file]",
 					source,
 				),
 				nil,
@@ -562,24 +581,8 @@ func (v *WorkflowValidator) validateSourcesList(config *domain.InputConfig) erro
 			)
 		}
 		seen[source] = true
-		switch source {
-		case domain.InputSourceTelephony:
-			hasTelephony = true
-		case domain.InputSourceBot:
+		if source == domain.InputSourceBot {
 			hasBot = true
-		}
-	}
-
-	if hasTelephony {
-		if config.Telephony == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"input.telephony is required when sources includes telephony",
-				nil,
-			)
-		}
-		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
-			return err
 		}
 	}
 
@@ -677,295 +680,6 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 
 	if err := v.validateSourcesList(config); err != nil {
 		return err
-	}
-
-	// Validate executionType for media (audio/video/telephony) sources.
-	if config.ExecutionType != "" {
-		if config.ExecutionType != domain.InputExecutionTypePolling &&
-			config.ExecutionType != domain.InputExecutionTypeStateless {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf(
-					"input.executionType must be %q or %q, got %q",
-					domain.InputExecutionTypePolling,
-					domain.InputExecutionTypeStateless,
-					config.ExecutionType,
-				),
-				nil,
-			)
-		}
-	}
-
-	// Transcribers apply only to non-API sources
-	if config.Transcriber != nil {
-		if config.AllSourcesAPI() {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber is not supported when all sources are api",
-				nil,
-			)
-		}
-		if err := v.ValidateTranscriberConfig(config.Transcriber); err != nil {
-			return err
-		}
-	}
-
-	// Activation applies only to non-API sources
-	if config.Activation != nil {
-		if config.AllSourcesAPI() {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation is not supported when all sources are api",
-				nil,
-			)
-		}
-		if err := v.ValidateActivationConfig(config.Activation); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ValidateTelephonyConfig validates telephony configuration.
-func (v *WorkflowValidator) ValidateTelephonyConfig(config *domain.TelephonyConfig) error {
-	kdeps_debug.Log("enter: ValidateTelephonyConfig")
-	validTypes := map[string]bool{
-		domain.TelephonyTypeLocal:  true,
-		domain.TelephonyTypeOnline: true,
-	}
-
-	if config.Type == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"telephony.type is required",
-			nil,
-		)
-	}
-
-	if !validTypes[config.Type] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid telephony type: %s. Available options: [local, online]",
-				config.Type,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateTranscriberConfig validates transcriber configuration for analog media inputs.
-func (v *WorkflowValidator) ValidateTranscriberConfig(config *domain.TranscriberConfig) error {
-	kdeps_debug.Log("enter: ValidateTranscriberConfig")
-	validModes := map[string]bool{
-		domain.TranscriberModeOnline:  true,
-		domain.TranscriberModeOffline: true,
-	}
-
-	if config.Mode == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.mode is required",
-			nil,
-		)
-	}
-
-	if !validModes[config.Mode] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber mode: %s. Available options: [online, offline]",
-				config.Mode,
-			),
-			nil,
-		)
-	}
-
-	// Validate output type if specified
-	if config.Output != "" {
-		validOutputs := map[string]bool{
-			domain.TranscriberOutputText:  true,
-			domain.TranscriberOutputMedia: true,
-		}
-		if !validOutputs[config.Output] {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf(
-					"invalid transcriber output: %s. Available options: [text, media]",
-					config.Output,
-				),
-				nil,
-			)
-		}
-	}
-
-	switch config.Mode {
-	case domain.TranscriberModeOnline:
-		if config.Online == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber.online is required when mode is online",
-				nil,
-			)
-		}
-		if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
-			return err
-		}
-	case domain.TranscriberModeOffline:
-		if config.Offline == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"transcriber.offline is required when mode is offline",
-				nil,
-			)
-		}
-		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// ValidateOnlineTranscriberConfig validates online (cloud) transcriber settings.
-func (v *WorkflowValidator) ValidateOnlineTranscriberConfig(
-	config *domain.OnlineTranscriberConfig,
-) error {
-	kdeps_debug.Log("enter: ValidateOnlineTranscriberConfig")
-	validProviders := map[string]bool{
-		domain.TranscriberProviderOpenAIWhisper: true,
-		domain.TranscriberProviderGoogleSTT:     true,
-		domain.TranscriberProviderAWSTranscribe: true,
-		domain.TranscriberProviderDeepgram:      true,
-		domain.TranscriberProviderAssemblyAI:    true,
-	}
-
-	if config.Provider == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.online.provider is required",
-			nil,
-		)
-	}
-
-	if !validProviders[config.Provider] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber online provider: %s."+
-					" Available options: [openai-whisper, google-stt, aws-transcribe, deepgram, assemblyai]",
-				config.Provider,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateOfflineTranscriberConfig validates offline (local) transcriber settings.
-func (v *WorkflowValidator) ValidateOfflineTranscriberConfig(
-	config *domain.OfflineTranscriberConfig,
-) error {
-	kdeps_debug.Log("enter: ValidateOfflineTranscriberConfig")
-	validEngines := map[string]bool{
-		domain.TranscriberEngineWhisper:       true,
-		domain.TranscriberEngineFasterWhisper: true,
-		domain.TranscriberEngineVosk:          true,
-		domain.TranscriberEngineWhisperCPP:    true,
-	}
-
-	if config.Engine == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"transcriber.offline.engine is required",
-			nil,
-		)
-	}
-
-	if !validEngines[config.Engine] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid transcriber offline engine: %s. Available options: [whisper, faster-whisper, vosk, whisper-cpp]",
-				config.Engine,
-			),
-			nil,
-		)
-	}
-
-	return nil
-}
-
-// ValidateActivationConfig validates wake-phrase activation configuration.
-func (v *WorkflowValidator) ValidateActivationConfig(config *domain.ActivationConfig) error {
-	kdeps_debug.Log("enter: ValidateActivationConfig")
-	validModes := map[string]bool{
-		domain.TranscriberModeOnline:  true,
-		domain.TranscriberModeOffline: true,
-	}
-
-	if config.Phrase == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.phrase is required",
-			nil,
-		)
-	}
-
-	if config.Mode == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.mode is required",
-			nil,
-		)
-	}
-
-	if !validModes[config.Mode] {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			fmt.Sprintf(
-				"invalid activation mode: %s. Available options: [online, offline]",
-				config.Mode,
-			),
-			nil,
-		)
-	}
-
-	if config.Sensitivity != 0 && (config.Sensitivity < 0 || config.Sensitivity > 1) {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"activation.sensitivity must be between 0.0 and 1.0",
-			nil,
-		)
-	}
-
-	switch config.Mode {
-	case domain.TranscriberModeOnline:
-		if config.Online == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation.online is required when mode is online",
-				nil,
-			)
-		}
-		if err := v.ValidateOnlineTranscriberConfig(config.Online); err != nil {
-			return err
-		}
-	case domain.TranscriberModeOffline:
-		if config.Offline == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"activation.offline is required when mode is offline",
-				nil,
-			)
-		}
-		if err := v.ValidateOfflineTranscriberConfig(config.Offline); err != nil {
-			return err
-		}
 	}
 
 	return nil

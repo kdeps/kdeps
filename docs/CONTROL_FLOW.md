@@ -150,21 +150,20 @@ valid: {{(score > 50 || bonus > 10) && !disqualified}}
 ## While Loops
 
 The `loop` block on a resource enables **while-loop** iteration — the resource body (primary
-execution type and `expr` blocks) is repeated as long as the `while` condition is truthy.
+execution type and `before`/`after` blocks) is repeated as long as the `while` condition is truthy.
 
 ### Syntax
 
 ```yaml
-run:
-  loop:
-    while: "<expression>"   # required: loop continues while this is truthy
-    maxIterations: 1000     # optional: safety cap (default: 1000)
-  expr:
-    - "{{ <body expressions> }}"
+loop:
+  while: "<expression>"   # required: loop continues while this is truthy
+  maxIterations: 1000     # optional: safety cap (default: 1000)
+before:
+  - "<body expression>"
 ```
 
 `loop` can be combined with any primary execution type (`exec`, `python`, `sql`, `httpClient`, etc.)
-or used with only `expr`/`exprBefore`/`exprAfter` blocks.
+or used with only `before`/`after` blocks.
 
 Every resource block runs on **each iteration** of the loop — including primary execution types
 (`httpClient`, `chat`, `exec`, `python`, `sql`, `tts`, `botReply`, `scraper`, `embedding`) and
@@ -193,15 +192,14 @@ to the `'item'` storage type used by the `items` feature.
 metadata:
   actionId: count-to-five
   name: Count to Five
-run:
-  loop:
-    while: "loop.index() < 5"
-  expr:
-    - "{{ set('result', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ get('result') }}"
+loop:
+  while: "loop.index() < 5"
+before:
+  - "set('result', loop.count())"
+apiResponse:
+  success: true
+  response:
+    count: "{{ get('result') }}"
 ```
 
 #### Loop with State Mutation
@@ -210,21 +208,19 @@ run:
 metadata:
   actionId: fibonacci
   name: Fibonacci Loop
-run:
-  loop:
-    while: "loop.index() < 10"
-    maxIterations: 20
-  exprBefore:
-    - "{{ set('a', get('a') == nil ? 0 : get('a')) }}"
-    - "{{ set('b', get('b') == nil ? 1 : get('b')) }}"
-  expr:
-    - "{{ set('tmp', get('b')) }}"
-    - "{{ set('b', get('a') + get('b')) }}"
-    - "{{ set('a', get('tmp')) }}"
-  apiResponse:
-    success: true
-    response:
-      fib: "{{ get('a') }}"
+loop:
+  while: "loop.index() < 10"
+  maxIterations: 20
+before:
+  - "set('a', get('a') == nil ? 0 : get('a'))"
+  - "set('b', get('b') == nil ? 1 : get('b'))"
+  - "set('tmp', get('b'))"
+  - "set('b', get('a') + get('b'))"
+  - "set('a', get('tmp'))"
+apiResponse:
+  success: true
+  response:
+    fib: "{{ get('a') }}"
 ```
 
 #### Accumulate Results (loop.results())
@@ -233,16 +229,15 @@ run:
 metadata:
   actionId: collect-three
   name: Collect Three Results
-run:
-  loop:
-    # Stop once we have 3 accumulated results (parallel to item.values() in items)
-    while: "len(loop.results()) < 3"
-  expr:
-    - "{{ set('val', loop.count()) }}"
-  apiResponse:
-    success: true
-    response:
-      collected: "{{ loop.results() }}"
+loop:
+  # Stop once we have 3 accumulated results (parallel to item.values() in items)
+  while: "len(loop.results()) < 3"
+before:
+  - "set('val', loop.count())"
+apiResponse:
+  success: true
+  response:
+    collected: "{{ loop.results() }}"
 ```
 
 #### Loop-scoped Variables (set/get with 'loop' type)
@@ -251,15 +246,13 @@ run:
 metadata:
   actionId: loop-scoped-counter
   name: Loop-scoped Counter
-run:
-  loop:
-    # Read loop-scoped variable (parallel to get('k', 'item') in items)
-    while: "default(get('step', 'loop'), 0) < 5"
-  expr:
-    # Write to loop scope (parallel to set('k', v, 'item') in items)
-    - "{{ set('step', loop.count(), 'loop') }}"
-  apiResponse:
-    success: true
+loop:
+  # Read loop-scoped variable (parallel to get('k', 'item') in items)
+  while: "default(get('step', 'loop'), 0) < 5"
+before:
+  - "set('step', loop.count(), 'loop')"
+apiResponse:
+  success: true
 ```
 
 #### Loop with Primary Execution Type
@@ -268,14 +261,13 @@ run:
 metadata:
   actionId: retry-until-success
   name: Retry Until Success
-run:
-  loop:
-    while: "get('status') != 'ok' && loop.index() < 5"
-  httpClient:
-    method: GET
-    url: "https://api.example.com/status"
-  expr:
-    - "{{ set('status', http.responseBody('retry-until-success')) }}"
+loop:
+  while: "get('status') != 'ok' && loop.index() < 5"
+httpClient:
+  method: GET
+  url: "https://api.example.com/status"
+after:
+  - "set('status', http.responseBody('retry-until-success'))"
 ```
 
 ### Safety Cap

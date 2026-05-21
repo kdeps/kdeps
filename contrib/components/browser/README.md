@@ -34,40 +34,37 @@ Accessed via `output('<your-action-id>')`:
 Navigate and return the resolved URL:
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://example.com"
-      action: navigate
-  apiResponse:
-    success: true
-    response:
-      finalUrl: "{{ output('loadPage').result }}"
+component:
+  name: browser
+  with:
+    url: "https://example.com"
+    action: navigate
+apiResponse:
+  success: true
+  response:
+    finalUrl: "{{ output('loadPage').result }}"
 ```
 
 Take a screenshot:
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://dashboard.example.com"
-      action: screenshot
-      screenshotPath: /tmp/dashboard.png
+component:
+  name: browser
+  with:
+    url: "https://dashboard.example.com"
+    action: screenshot
+    screenshotPath: /tmp/dashboard.png
 ```
 
 Extract text using a CSS selector:
 
 ```yaml
-run:
-  component:
-    name: browser
-    with:
-      url: "https://news.ycombinator.com"
-      action: getText
-      selector: ".titleline > a"
+component:
+  name: browser
+  with:
+    url: "https://news.ycombinator.com"
+    action: getText
+    selector: ".titleline > a"
 ```
 
 ## Requirements

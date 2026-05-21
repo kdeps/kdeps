@@ -7,18 +7,13 @@ The HTTP Client resource enables making external API calls with support for auth
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: httpResource
-  name: API Call
-
-run:
-  httpClient:
-    method: GET
-    url: "https://api.example.com/data"
-    timeout: 30s
+actionId: httpResource
+name: API Call
+httpClient:
+  method: GET
+  url: "https://api.example.com/data"
+  timeout: 30s
 ```
 
 </div>
@@ -28,44 +23,43 @@ run:
 ### Complete Reference
 
 ```yaml
-run:
-  httpClient:
-    # Request Configuration
-    method: GET                      # GET, POST, PUT, PATCH, DELETE
-    url: <span v-pre>"https://api.example.com/{{ get('id') }}"</span>
-    headers:
-      Authorization: <span v-pre>"Bearer {{ get('token') }}"</span>
-      Content-Type: application/json
-    data:                            # Request body
-      key: value
-    timeout: 30s
+httpClient:
+  # Request Configuration
+  method: GET                      # GET, POST, PUT, PATCH, DELETE
+  url: <span v-pre>"https://api.example.com/{{ get('id') }}"</span>
+  headers:
+    Authorization: <span v-pre>"Bearer {{ get('token') }}"</span>
+    Content-Type: application/json
+  data:                            # Request body
+    key: value
+  timeout: 30s
 
-    # Authentication
-    auth:
-      type: bearer                   # basic, bearer, api_key, oauth2
-      token: <span v-pre>"{{ get('api_token') }}"</span>
+  # Authentication
+  auth:
+    type: bearer                   # basic, bearer, api_key, oauth2
+    token: <span v-pre>"{{ get('api_token') }}"</span>
 
-    # Retry Configuration
-    retry:
-      maxAttempts: 3
-      backoff: 1s
-      maxBackoff: 30s
-      retryOn: [500, 502, 503, 504]
+  # Retry Configuration
+  retry:
+    maxAttempts: 3
+    backoff: 1s
+    maxBackoff: 30s
+    retryOn: [500, 502, 503, 504]
 
-    # Caching
-    cache:
-      enabled: true
-      ttl: 5m
-      key: "custom-cache-key"
+  # Caching
+  cache:
+    enabled: true
+    ttl: 5m
+    key: "custom-cache-key"
 
-    # Advanced Options
-    followRedirects: true
-    proxy: "http://proxy:16395"
-    tls:
-      insecureSkipVerify: false
-      certFile: "/path/to/cert.pem"
-      keyFile: "/path/to/key.pem"
-      caFile: "/path/to/ca.pem"
+  # Advanced Options
+  followRedirects: true
+  proxy: "http://proxy:16395"
+  tls:
+    insecureSkipVerify: false
+    certFile: "/path/to/cert.pem"
+    keyFile: "/path/to/key.pem"
+    caFile: "/path/to/ca.pem"
 ```
 
 ## HTTP Methods
@@ -261,33 +255,23 @@ Set to `false` to prevent following redirects.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: fetchData
-
-run:
-  httpClient:
-    method: GET
-    url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
-    headers:
-      Accept: application/vnd.github.v3+json
-      Authorization: "Bearer {{ get('GITHUB_TOKEN', 'env') }}"
-    timeout: 30s
+actionId: fetchData
+httpClient:
+  method: GET
+  url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
+  headers:
+    Accept: application/vnd.github.v3+json
+    Authorization: "Bearer {{ get('GITHUB_TOKEN', 'env') }}"
+  timeout: 30s
 
 ---
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: analyzeRepo
-  requires: [fetchData]
-
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
+actionId: analyzeRepo
+requires: [fetchData]
+chat:
+  model: llama3.2:1b
+  prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
 ```
 
 </div>
@@ -297,24 +281,23 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  httpClient:
-    method: POST
-    url: "https://api.stripe.com/v1/charges"
-    auth:
-      type: bearer
-      token: "{{ get('STRIPE_SECRET_KEY', 'env') }}"
-    headers:
-      Content-Type: application/x-www-form-urlencoded
-    data:
-      amount: "{{ get('amount') }}"
-      currency: usd
-      source: "{{ get('token') }}"
-    retry:
-      maxAttempts: 3
-      backoff: 2s
-      retryOn: [500, 502, 503]
-    timeout: 30s
+httpClient:
+  method: POST
+  url: "https://api.stripe.com/v1/charges"
+  auth:
+    type: bearer
+    token: "{{ get('STRIPE_SECRET_KEY', 'env') }}"
+  headers:
+    Content-Type: application/x-www-form-urlencoded
+  data:
+    amount: "{{ get('amount') }}"
+    currency: usd
+    source: "{{ get('token') }}"
+  retry:
+    maxAttempts: 3
+    backoff: 2s
+    retryOn: [500, 502, 503]
+  timeout: 30s
 ```
 
 </div>
@@ -324,18 +307,17 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  httpClient:
-    method: POST
-    url: "{{ get('webhook_url') }}"
-    headers:
-      Content-Type: application/json
-      X-Webhook-Secret: "{{ get('WEBHOOK_SECRET', 'env') }}"
-    data:
-      event: order_completed
-      order_id: "{{ get('order_id') }}"
-      timestamp: "{{ info('timestamp') }}"
-    timeout: 10s
+httpClient:
+  method: POST
+  url: "{{ get('webhook_url') }}"
+  headers:
+    Content-Type: application/json
+    X-Webhook-Secret: "{{ get('WEBHOOK_SECRET', 'env') }}"
+  data:
+    event: order_completed
+    order_id: "{{ get('order_id') }}"
+    timestamp: "{{ info('timestamp') }}"
+  timeout: 10s
 ```
 
 </div>
@@ -343,15 +325,14 @@ run:
 ### Cached External API
 
 ```yaml
-run:
-  httpClient:
-    method: GET
-    url: "https://api.exchangerate.host/latest"
-    cache:
-      enabled: true
-      ttl: 1h
-      key: "exchange-rates"
-    timeout: 30s
+httpClient:
+  method: GET
+  url: "https://api.exchangerate.host/latest"
+  cache:
+    enabled: true
+    ttl: 1h
+    key: "exchange-rates"
+  timeout: 30s
 ```
 
 ## Accessing Response
@@ -360,22 +341,19 @@ The HTTP client response includes:
 
 ```yaml
 # In another resource
-metadata:
-  requires: [httpResource]
+requires: [httpResource]
+apiResponse:
+  response:
+    # Full response body (parsed JSON or raw string)
+    data: get('httpResource')
 
-run:
-  apiResponse:
-    response:
-      # Full response body (parsed JSON or raw string)
-      data: get('httpResource')
+    # If JSON response, access fields directly
+    user_name: get('httpResource').name
+    user_email: get('httpResource').email
 
-      # If JSON response, access fields directly
-      user_name: get('httpResource').name
-      user_email: get('httpResource').email
-      
-      # Access response details
-      status_code: get('httpResource').statusCode
-      headers: get('httpResource').headers
+    # Access response details
+    status_code: get('httpResource').statusCode
+    headers: get('httpResource').headers
 ```
 
 ### Advanced Response Access
@@ -383,22 +361,21 @@ run:
 Use resource-specific accessors for detailed response information:
 
 ```yaml
-run:
-  expr:
-    # Get response body only
-    - set('response_body', http.responseBody('httpResource'))
-    
-    # Get specific header
-    - set('content_type', http.responseHeader('httpResource', 'Content-Type'))
-    
-    # Check status
-    - set('is_success', get('httpResource').statusCode >= 200 && get('httpResource').statusCode < 300)
-  
-  apiResponse:
-    response:
-      body: get('response_body')
-      content_type: get('content_type')
-      success: get('is_success')
+after:
+  # Get response body only
+  - set('response_body', http.responseBody('httpResource'))
+
+  # Get specific header
+  - set('content_type', http.responseHeader('httpResource', 'Content-Type'))
+
+  # Check status
+  - set('is_success', get('httpResource').statusCode >= 200 && get('httpResource').statusCode < 300)
+
+apiResponse:
+  response:
+    body: get('response_body')
+    content_type: get('content_type')
+    success: get('is_success')
 ```
 
 See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for details.
@@ -410,21 +387,20 @@ Use preflight checks to validate before making requests:
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    check:
-      - get('api_token') != ''
-      - get('user_id') != ''
-    error:
-      code: 400
-      message: "API token and user ID are required"
+validations:
+  check:
+    - get('api_token') != ''
+    - get('user_id') != ''
+  error:
+    code: 400
+    message: "API token and user ID are required"
 
-  httpClient:
-    method: GET
-    url: "https://api.example.com/users/{{ get('user_id') }}"
-    auth:
-      type: bearer
-      token: "{{ get('api_token') }}"
+httpClient:
+  method: GET
+  url: "https://api.example.com/users/{{ get('user_id') }}"
+  auth:
+    type: bearer
+    token: "{{ get('api_token') }}"
 ```
 
 </div>

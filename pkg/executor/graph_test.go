@@ -40,10 +40,9 @@ func TestGraph_AddResource(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-action",
-			Name:     "Test Resource",
-		},
+
+		ActionID: "test-action",
+		Name:     "Test Resource",
 	}
 
 	err := graph.AddResource(resource)
@@ -56,15 +55,13 @@ func TestGraph_AddResourceDuplicate(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource1 := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-action",
-		},
+
+		ActionID: "test-action",
 	}
 
 	resource2 := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test-action",
-		},
+
+		ActionID: "test-action",
 	}
 
 	err := graph.AddResource(resource1)
@@ -88,15 +85,13 @@ func TestGraph_Build(t *testing.T) {
 			name: "simple dependency chain",
 			resources: []*domain.Resource{
 				{
-					Metadata: domain.ResourceMetadata{
-						ActionID: "action1",
-					},
+
+					ActionID: "action1",
 				},
 				{
-					Metadata: domain.ResourceMetadata{
-						ActionID: "action2",
-						Requires: []string{"action1"},
-					},
+
+					ActionID: "action2",
+					Requires: []string{"action1"},
 				},
 			},
 			wantErr: false,
@@ -105,10 +100,9 @@ func TestGraph_Build(t *testing.T) {
 			name: "missing dependency",
 			resources: []*domain.Resource{
 				{
-					Metadata: domain.ResourceMetadata{
-						ActionID: "action1",
-						Requires: []string{"nonexistent"},
-					},
+
+					ActionID: "action1",
+					Requires: []string{"nonexistent"},
 				},
 			},
 			wantErr: true,
@@ -117,9 +111,8 @@ func TestGraph_Build(t *testing.T) {
 			name: "no dependencies",
 			resources: []*domain.Resource{
 				{
-					Metadata: domain.ResourceMetadata{
-						ActionID: "action1",
-					},
+
+					ActionID: "action1",
 				},
 			},
 			wantErr: false,
@@ -150,33 +143,33 @@ func TestGraph_DetectCycles(t *testing.T) {
 		{
 			name: "no cycle",
 			resources: []*domain.Resource{
-				{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-				{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-				{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"b"}}},
+				{ActionID: "a"},
+				{ActionID: "b", Requires: []string{"a"}},
+				{ActionID: "c", Requires: []string{"b"}},
 			},
 			wantErr: false,
 		},
 		{
 			name: "simple cycle (a -> b -> a)",
 			resources: []*domain.Resource{
-				{Metadata: domain.ResourceMetadata{ActionID: "a", Requires: []string{"b"}}},
-				{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
+				{ActionID: "a", Requires: []string{"b"}},
+				{ActionID: "b", Requires: []string{"a"}},
 			},
 			wantErr: true,
 		},
 		{
 			name: "three-node cycle (a -> b -> c -> a)",
 			resources: []*domain.Resource{
-				{Metadata: domain.ResourceMetadata{ActionID: "a", Requires: []string{"b"}}},
-				{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"c"}}},
-				{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"a"}}},
+				{ActionID: "a", Requires: []string{"b"}},
+				{ActionID: "b", Requires: []string{"c"}},
+				{ActionID: "c", Requires: []string{"a"}},
 			},
 			wantErr: true,
 		},
 		{
 			name: "self-reference",
 			resources: []*domain.Resource{
-				{Metadata: domain.ResourceMetadata{ActionID: "a", Requires: []string{"a"}}},
+				{ActionID: "a", Requires: []string{"a"}},
 			},
 			wantErr: true,
 		},
@@ -199,10 +192,10 @@ func TestGraph_DetectCycles(t *testing.T) {
 
 func TestGraph_TopologicalSort(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"b"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "d", Requires: []string{"a"}}},
+		{ActionID: "a"},
+		{ActionID: "b", Requires: []string{"a"}},
+		{ActionID: "c", Requires: []string{"b"}},
+		{ActionID: "d", Requires: []string{"a"}},
 	}
 
 	graph := executor.NewGraph()
@@ -222,7 +215,7 @@ func TestGraph_TopologicalSort(t *testing.T) {
 	// Build position map for verification.
 	positions := make(map[string]int)
 	for i, r := range result {
-		positions[r.Metadata.ActionID] = i
+		positions[r.ActionID] = i
 	}
 
 	// Verify dependencies come before dependents.
@@ -241,10 +234,10 @@ func TestGraph_TopologicalSort(t *testing.T) {
 
 func TestGraph_GetExecutionOrder(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"b"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "d"}}, // Not a dependency of c.
+		{ActionID: "a"},
+		{ActionID: "b", Requires: []string{"a"}},
+		{ActionID: "c", Requires: []string{"b"}},
+		{ActionID: "d"}, // Not a dependency of c.
 	}
 
 	graph := executor.NewGraph()
@@ -265,7 +258,7 @@ func TestGraph_GetExecutionOrder(t *testing.T) {
 	// Build set of returned actionIDs.
 	ids := make(map[string]bool)
 	for _, r := range result {
-		ids[r.Metadata.ActionID] = true
+		ids[r.ActionID] = true
 	}
 
 	// Verify correct resources are included.
@@ -285,7 +278,7 @@ func TestGraph_GetExecutionOrder(t *testing.T) {
 	// Build position map.
 	positions := make(map[string]int)
 	for i, r := range result {
-		positions[r.Metadata.ActionID] = i
+		positions[r.ActionID] = i
 	}
 
 	// Verify correct order.
@@ -301,9 +294,8 @@ func TestGraph_GetExecutionOrderNonexistentTarget(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "a",
-		},
+
+		ActionID: "a",
 	}
 	_ = graph.AddResource(resource)
 
@@ -315,11 +307,11 @@ func TestGraph_GetExecutionOrderNonexistentTarget(t *testing.T) {
 
 func TestGraph_GetTransitiveDependencies(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"b"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "d", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "e", Requires: []string{"c", "d"}}},
+		{ActionID: "a"},
+		{ActionID: "b", Requires: []string{"a"}},
+		{ActionID: "c", Requires: []string{"b"}},
+		{ActionID: "d", Requires: []string{"a"}},
+		{ActionID: "e", Requires: []string{"c", "d"}},
 	}
 
 	graph := executor.NewGraph()
@@ -357,9 +349,8 @@ func TestGraph_GetNode(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: "test",
-		},
+
+		ActionID: "test",
 	}
 	_ = graph.AddResource(resource)
 
@@ -382,9 +373,9 @@ func TestGraph_GetAllNodes(t *testing.T) {
 	graph := executor.NewGraph()
 
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c"}},
+		{ActionID: "a"},
+		{ActionID: "b"},
+		{ActionID: "c"},
 	}
 
 	for _, r := range resources {
@@ -406,9 +397,9 @@ func TestGraph_GetAllNodes(t *testing.T) {
 
 func TestGraph_BuildDependents(t *testing.T) {
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"a"}}},
+		{ActionID: "a"},
+		{ActionID: "b", Requires: []string{"a"}},
+		{ActionID: "c", Requires: []string{"a"}},
 	}
 
 	graph := executor.NewGraph()
@@ -452,12 +443,12 @@ func TestGraph_ComplexDependencyGraph(t *testing.T) {
 	//       f
 
 	resources := []*domain.Resource{
-		{Metadata: domain.ResourceMetadata{ActionID: "a"}},
-		{Metadata: domain.ResourceMetadata{ActionID: "b", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "c", Requires: []string{"a"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "d", Requires: []string{"b", "c"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "e", Requires: []string{"c"}}},
-		{Metadata: domain.ResourceMetadata{ActionID: "f", Requires: []string{"d", "e"}}},
+		{ActionID: "a"},
+		{ActionID: "b", Requires: []string{"a"}},
+		{ActionID: "c", Requires: []string{"a"}},
+		{ActionID: "d", Requires: []string{"b", "c"}},
+		{ActionID: "e", Requires: []string{"c"}},
+		{ActionID: "f", Requires: []string{"d", "e"}},
 	}
 
 	graph := executor.NewGraph()
@@ -478,7 +469,7 @@ func TestGraph_ComplexDependencyGraph(t *testing.T) {
 	// Build position map.
 	positions := make(map[string]int)
 	for i, r := range result {
-		positions[r.Metadata.ActionID] = i
+		positions[r.ActionID] = i
 	}
 
 	// Verify all dependencies are satisfied.

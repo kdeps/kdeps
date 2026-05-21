@@ -102,13 +102,11 @@ func singleLLMWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "step-1", Name: "Step 1"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						Prompt: "hello",
-						Role:   "user",
-					},
+				ActionID: "step-1", Name: "Step 1",
+				Chat: &domain.ChatConfig{
+					Model:  "gpt-4",
+					Prompt: "hello",
+					Role:   "user",
 				},
 			},
 		},
@@ -130,27 +128,22 @@ func twoStepWorkflow() *domain.Workflow {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "step-1", Name: "Step 1"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						Prompt: "first",
-						Role:   "user",
-					},
+				ActionID: "step-1", Name: "Step 1",
+				Chat: &domain.ChatConfig{
+					Model:  "gpt-4",
+					Prompt: "first",
+					Role:   "user",
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step-2",
-					Name:     "Step 2",
-					Requires: []string{"step-1"},
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:  "gpt-4",
-						Prompt: "second",
-						Role:   "user",
-					},
+
+				ActionID: "step-2",
+				Name:     "Step 2",
+				Requires: []string{"step-1"},
+				Chat: &domain.ChatConfig{
+					Model:  "gpt-4",
+					Prompt: "second",
+					Role:   "user",
 				},
 			},
 		},

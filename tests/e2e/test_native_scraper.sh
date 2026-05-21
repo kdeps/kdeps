@@ -84,23 +84,18 @@ metadata:
   version: "1.0.0"
   targetActionId: fetch-page
 settings:
-  apiServerMode: false
 YAML
 
     mkdir -p "$pkg_dir/resources"
     cat > "$pkg_dir/resources/fetch-page.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch-page
-  name: Fetch Page
-run:
-  scraper:
-    url: "http://127.0.0.1:${SERVER_PORT}/"
-  apiResponse:
-    success: true
-    response:
-      content: "{{ output('fetch-page').content }}"
+actionId: fetch-page
+name: Fetch Page
+scraper:
+  url: "http://127.0.0.1:${SERVER_PORT}/"
+apiResponse:
+  success: true
+  response:
+    content: "{{ output('fetch-page').content }}"
 YAML
 
     local result
@@ -132,23 +127,18 @@ metadata:
   version: "1.0.0"
   targetActionId: fetch-with-selector
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/fetch-with-selector.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch-with-selector
-  name: Fetch With Selector
-run:
-  scraper:
-    url: "http://127.0.0.1:${SERVER_PORT}/"
-    selector: "p.result"
-  apiResponse:
-    success: true
-    response:
-      content: "{{ output('fetch-with-selector').content }}"
+actionId: fetch-with-selector
+name: Fetch With Selector
+scraper:
+  url: "http://127.0.0.1:${SERVER_PORT}/"
+  selector: "p.result"
+apiResponse:
+  success: true
+  response:
+    content: "{{ output('fetch-with-selector').content }}"
 YAML
 
     local result

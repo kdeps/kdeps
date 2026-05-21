@@ -66,61 +66,57 @@ Accessed via `output('<your-action-id>')`:
 Index a document:
 
 ```yaml
-run:
-  component:
-    name: embedding
-    with:
-      operation: index
-      text: "kdeps is an AI workflow engine for building local-first agents"
-      collection: docs
-      dbPath: /data/my-docs.db
-  apiResponse:
-    success: true
-    response:
-      docId: "{{ output('indexDoc').id }}"
+component:
+  name: embedding
+  with:
+    operation: index
+    text: "kdeps is an AI workflow engine for building local-first agents"
+    collection: docs
+    dbPath: /data/my-docs.db
+apiResponse:
+  success: true
+  response:
+    docId: "{{ output('indexDoc').id }}"
 ```
 
 Search for documents:
 
 ```yaml
-run:
-  component:
-    name: embedding
-    with:
-      operation: search
-      text: "workflow engine"
-      collection: docs
-      dbPath: /data/my-docs.db
-      limit: 5
-  apiResponse:
-    success: true
-    response:
-      results: "{{ output('searchDocs').results }}"
-      count: "{{ output('searchDocs').count }}"
+component:
+  name: embedding
+  with:
+    operation: search
+    text: "workflow engine"
+    collection: docs
+    dbPath: /data/my-docs.db
+    limit: 5
+apiResponse:
+  success: true
+  response:
+    results: "{{ output('searchDocs').results }}"
+    count: "{{ output('searchDocs').count }}"
 ```
 
 Upsert (idempotent index):
 
 ```yaml
-run:
-  component:
-    name: embedding
-    with:
-      operation: upsert
-      text: "{{ output('prevStep').content }}"
-      collection: cache
+component:
+  name: embedding
+  with:
+    operation: upsert
+    text: "{{ output('prevStep').content }}"
+    collection: cache
 ```
 
 Delete a document:
 
 ```yaml
-run:
-  component:
-    name: embedding
-    with:
-      operation: delete
-      text: "document text to remove"
-      collection: docs
+component:
+  name: embedding
+  with:
+    operation: delete
+    text: "document text to remove"
+    collection: docs
 ```
 
 ## Requirements

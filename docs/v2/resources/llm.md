@@ -8,11 +8,10 @@ The LLM (chat) resource enables interaction with language models for text genera
 
 ```yaml
 # resources/my-resource.yaml
-run:
-  chat:
-    model: llama3.2:1b          # Per-resource model selection
-    role: user
-    prompt: "{{ get('q') }}"
+chat:
+  model: llama3.2:1b          # Per-resource model selection
+  role: user
+  prompt: "{{ get('q') }}"
 ```
 
 **Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`:
@@ -33,17 +32,12 @@ For router configuration and multi-backend routing, see [LLM Backends](llm-backe
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: llmResource
-  name: LLM Chat
-
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    timeout: 60s
+actionId: llmResource
+name: LLM Chat
+chat:
+  prompt: "{{ get('q') }}"
+  timeout: 60s
 ```
 
 </div>
@@ -55,51 +49,50 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    model: llama3.2:1b              # Model name, or "router" to delegate to config
-    # Prompt Configuration
-    role: user                       # Role: user, assistant, system
-    prompt: "{{ get('q') }}"        # The prompt to send
+chat:
+  model: llama3.2:1b              # Model name, or "router" to delegate to config
+  # Prompt Configuration
+  role: user                       # Role: user, assistant, system
+  prompt: "{{ get('q') }}"        # The prompt to send
 
-    # Generation Parameters
-    contextLength: 8192              # Context window size (tokens)
-    temperature: 0.7                 # 0.0 to 2.0
-    maxTokens: 1000                  # Max tokens to generate
-    topP: 0.9                        # Nucleus sampling (0.0 to 1.0)
-    frequencyPenalty: 0.0            # -2.0 to 2.0
-    presencePenalty: 0.0             # -2.0 to 2.0
+  # Generation Parameters
+  contextLength: 8192              # Context window size (tokens)
+  temperature: 0.7                 # 0.0 to 2.0
+  maxTokens: 1000                  # Max tokens to generate
+  topP: 0.9                        # Nucleus sampling (0.0 to 1.0)
+  frequencyPenalty: 0.0            # -2.0 to 2.0
+  presencePenalty: 0.0             # -2.0 to 2.0
 
-    # Conversation Context
-    scenario:
-      - role: system
-        prompt: You are a helpful assistant.
-      - role: assistant
-        prompt: I am ready to help!
+  # Conversation Context
+  scenario:
+    - role: system
+      prompt: You are a helpful assistant.
+    - role: assistant
+      prompt: I am ready to help!
 
-    # Tools (Function Calling)
-    tools:
-      - name: calculate
-        description: Perform math
-        script: calcResource
-        parameters:
-          expression:
-            type: string
-            required: true
+  # Tools (Function Calling)
+  tools:
+    - name: calculate
+      description: Perform math
+      script: calcResource
+      parameters:
+        expression:
+          type: string
+          required: true
 
-    # File Attachments (Vision)
-    files:
-      - "{{ get('file', 'filepath') }}"
+  # File Attachments (Vision)
+  files:
+    - "{{ get('file', 'filepath') }}"
 
-    # Response Formatting
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-      - confidence
+  # Response Formatting
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+    - confidence
 
-    # Timeout and Streaming
-    timeout: 60s
-    streaming: true              # Ollama only: stream NDJSON chunks
+  # Timeout and Streaming
+  timeout: 60s
+  streaming: true              # Ollama only: stream NDJSON chunks
 ```
 
 </div>
@@ -209,34 +202,31 @@ Enable LLMs to call other resources:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: llmWithTools
+actionId: llmWithTools
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: calculate
+      description: Perform mathematical calculations
+      script: calcTool
+      parameters:
+        expression:
+          type: string
+          description: Math expression (e.g., "2 + 2")
+          required: true
 
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    tools:
-      - name: calculate
-        description: Perform mathematical calculations
-        script: calcTool
-        parameters:
-          expression:
-            type: string
-            description: Math expression (e.g., "2 + 2")
-            required: true
-
-      - name: search_db
-        description: Search the database
-        script: dbSearchTool
-        parameters:
-          query:
-            type: string
-            description: Search query
-            required: true
-          limit:
-            type: integer
-            description: Max results
-            required: false
+    - name: search_db
+      description: Search the database
+      script: dbSearchTool
+      parameters:
+        query:
+          type: string
+          description: Search query
+          required: true
+        limit:
+          type: integer
+          description: Max results
+          required: false
 ```
 
 </div>
@@ -251,12 +241,11 @@ kdeps registry install search
 ```
 
 ```yaml
-run:
-  chat:
-    prompt: "Research {{ get('q') }} and summarize the findings."
-    componentTools:
-      - scraper
-      - search
+chat:
+  prompt: "Research {{ get('q') }} and summarize the findings."
+  componentTools:
+    - scraper
+    - search
 ```
 
 ## Streaming (Ollama only)
@@ -266,10 +255,9 @@ Set `streaming: true` to have Ollama stream the response as NDJSON chunks. KDeps
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    streaming: true
+chat:
+  prompt: "{{ get('q') }}"
+  streaming: true
 ```
 
 </div>
@@ -281,17 +269,16 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "{{ get('q') }}"
-    scenario:
-      - role: system
-        prompt: Answer questions concisely.
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
-    timeout: 30s
+chat:
+  model: llama3.2:1b
+  prompt: "{{ get('q') }}"
+  scenario:
+    - role: system
+      prompt: Answer questions concisely.
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
+  timeout: 30s
 ```
 
 </div>
@@ -301,20 +288,19 @@ run:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    model: llama3.2:1b
-    prompt: "Write a Python function that {{ get('task') }}"
-    scenario:
-      - role: system
-        prompt: |
-          You are an expert Python developer.
-          Write clean, documented code with type hints.
-    jsonResponse: true
-    jsonResponseKeys:
-      - code
-      - explanation
-    timeout: 60s
+chat:
+  model: llama3.2:1b
+  prompt: "Write a Python function that {{ get('task') }}"
+  scenario:
+    - role: system
+      prompt: |
+        You are an expert Python developer.
+        Write clean, documented code with type hints.
+  jsonResponse: true
+  jsonResponseKeys:
+    - code
+    - explanation
+  timeout: 60s
 ```
 
 </div>
@@ -325,34 +311,28 @@ run:
 
 ```yaml
 # Fast classification resource
-metadata:
-  actionId: classifier
-
-run:
-  chat:
-    prompt: "Classify this query: {{ get('q') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - category
-      - confidence
+actionId: classifier
+chat:
+  prompt: "Classify this query: {{ get('q') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - category
+    - confidence
 
 ---
 # Detailed response (only runs when confidence >= 0.8)
-metadata:
-  actionId: detailedResponse
-  requires: [classifier]
+actionId: detailedResponse
+requires: [classifier]
+validations:
+  skip:
+  - get('classifier').confidence < 0.8
 
-run:
-  validations:
-    skip:
-    - get('classifier').confidence < 0.8
-
-  chat:
-    prompt: |
-      Category: {{ get('classifier').category }}
-      Query: {{ get('q') }}
-      Provide a detailed response.
-    timeout: 120s
+chat:
+  prompt: |
+    Category: {{ get('classifier').category }}
+    Query: {{ get('q') }}
+    Provide a detailed response.
+  timeout: 120s
 ```
 
 </div>
@@ -360,14 +340,11 @@ run:
 ## Accessing Output
 
 ```yaml
-metadata:
-  requires: [llmResource]
-
-run:
-  apiResponse:
-    response:
-      llm_output: get('llmResource')
-      answer: get('llmResource').answer  # If jsonResponse: true
+requires: [llmResource]
+apiResponse:
+  response:
+    llm_output: get('llmResource')
+    answer: get('llmResource').answer  # If jsonResponse: true
 ```
 
 ## See Also

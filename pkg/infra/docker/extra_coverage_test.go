@@ -31,10 +31,8 @@ func TestBuilder_ShouldInstallUV_PythonResource(t *testing.T) {
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "py-res"},
-				Run: domain.RunConfig{
-					Python: &domain.PythonConfig{Script: "print('hello')"},
-				},
+				ActionID: "py-res",
+				Python:   &domain.PythonConfig{Script: "print('hello')"},
 			},
 		},
 	}
@@ -118,14 +116,12 @@ func TestBuilder_GenerateDockerfile_OllamaUbuntu(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "ollama-app", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-res"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "hello",
-					},
+				ActionID: "chat-res",
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "hello",
 				},
 			},
 		},
@@ -144,14 +140,12 @@ func TestBuilder_GenerateDockerfile_OllamaAlpine(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{Name: "alpine-ollama", Version: "1.0.0"},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "chat-res"},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Model:   "llama3.2:1b",
-						Backend: "ollama",
-						Role:    "user",
-						Prompt:  "hello",
-					},
+				ActionID: "chat-res",
+				Chat: &domain.ChatConfig{
+					Model:   "llama3.2:1b",
+					Backend: "ollama",
+					Role:    "user",
+					Prompt:  "hello",
 				},
 			},
 		},
@@ -219,9 +213,7 @@ func TestBuilder_CreateBuildContext_WithAPIServer(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api-test", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			PortNum:       16395,
-			APIServer:     &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{PortNum: 16395},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},

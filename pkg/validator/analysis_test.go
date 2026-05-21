@@ -43,10 +43,9 @@ func mkWorkflow(targetActionID string, resources ...*domain.Resource) *domain.Wo
 
 func mkResource(id string, requires ...string) *domain.Resource {
 	return &domain.Resource{
-		Metadata: domain.ResourceMetadata{
-			ActionID: id,
-			Requires: requires,
-		},
+
+		ActionID: id,
+		Requires: requires,
 	}
 }
 
@@ -147,7 +146,7 @@ func TestAnalyzeWorkflow_NoTargetActionID(t *testing.T) {
 func TestAnalyzeWorkflow_GoodExpressionRef(t *testing.T) {
 	dep := mkResource("dep")
 	r := mkResource("target", "dep")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "answer: {{ dep.result }}"}
+	r.Chat = &domain.ChatConfig{Prompt: "answer: {{ dep.result }}"}
 	w := mkWorkflow("target", r, dep)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -158,7 +157,7 @@ func TestAnalyzeWorkflow_BadExpressionRef_GetFunc(t *testing.T) {
 	// get('id.field') is not checked (ambiguous with request-body access);
 	// bare template refs {{ id.field }} are the detectable form.
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ missing.field }}"}
+	r.Chat = &domain.ChatConfig{Prompt: "{{ missing.field }}"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -169,7 +168,7 @@ func TestAnalyzeWorkflow_BadExpressionRef_GetFunc(t *testing.T) {
 
 func TestAnalyzeWorkflow_BadExpressionRef_OutputFunc(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "output('ghost')"}
+	r.Chat = &domain.ChatConfig{Prompt: "output('ghost')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -180,7 +179,7 @@ func TestAnalyzeWorkflow_BadExpressionRef_OutputFunc(t *testing.T) {
 
 func TestAnalyzeWorkflow_BadExpressionRef_Template(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "value: {{ nowhere.x }}"}
+	r.Chat = &domain.ChatConfig{Prompt: "value: {{ nowhere.x }}"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -192,7 +191,7 @@ func TestAnalyzeWorkflow_BadExpressionRef_Template(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionRef_NoFalsePositive_SelfRef(t *testing.T) {
 	// output('target') should not flag when 'target' is a known actionId.
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "output('target')"}
+	r.Chat = &domain.ChatConfig{Prompt: "output('target')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -202,7 +201,7 @@ func TestAnalyzeWorkflow_ExpressionRef_NoFalsePositive_SelfRef(t *testing.T) {
 func TestAnalyzeWorkflow_ExpressionRef_DedupedPerResource(t *testing.T) {
 	// Same bad ref used twice in the same resource should produce one error.
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{
+	r.Chat = &domain.ChatConfig{
 		Prompt: "output('ghost') and {{ ghost.b }}",
 	}
 	w := mkWorkflow("target", r)
@@ -211,18 +210,18 @@ func TestAnalyzeWorkflow_ExpressionRef_DedupedPerResource(t *testing.T) {
 	assert.Len(t, wa.Errors(), 1)
 }
 
-func TestAnalyzeWorkflow_ExpressionInExpr(t *testing.T) {
+func TestAnalyzeWorkflow_ExpressionInAfter(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Expr = []domain.Expression{{Raw: "output('missing')"}}
+	r.After = []domain.ActionConfig{{Expr: "output('missing')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
 	assert.NotEmpty(t, wa.Errors())
 }
 
-func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
+func TestAnalyzeWorkflow_ExpressionInBefore(t *testing.T) {
 	r := mkResource("target")
-	r.Run.ExprBefore = []domain.Expression{{Raw: "output('gone')"}}
+	r.Before = []domain.ActionConfig{{Expr: "output('gone')"}}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -231,7 +230,7 @@ func TestAnalyzeWorkflow_ExpressionInExprBefore(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInValidations(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Validations = &domain.ValidationsConfig{
+	r.Validations = &domain.ValidationsConfig{
 		Skip:  []domain.Expression{{Raw: "output('absent')"}},
 		Check: []domain.Expression{{Raw: "output('target')"}}, // valid (target exists)
 	}
@@ -245,7 +244,7 @@ func TestAnalyzeWorkflow_ExpressionInValidations(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInOnError(t *testing.T) {
 	r := mkResource("target")
-	r.Run.OnError = &domain.OnErrorConfig{
+	r.OnError = &domain.OnErrorConfig{
 		Expr: []domain.Expression{{Raw: "output('nowhere')"}},
 	}
 	w := mkWorkflow("target", r)
@@ -256,7 +255,7 @@ func TestAnalyzeWorkflow_ExpressionInOnError(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInPythonScript(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Python = &domain.PythonConfig{Script: "output('ghost')"}
+	r.Python = &domain.PythonConfig{Script: "output('ghost')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -265,7 +264,7 @@ func TestAnalyzeWorkflow_ExpressionInPythonScript(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInExecCommand(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Exec = &domain.ExecConfig{Command: "echo output('missing')"}
+	r.Exec = &domain.ExecConfig{Command: "echo output('missing')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -274,7 +273,7 @@ func TestAnalyzeWorkflow_ExpressionInExecCommand(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInHTTPURL(t *testing.T) {
 	r := mkResource("target")
-	r.Run.HTTPClient = &domain.HTTPClientConfig{URL: "http://{{ gone.host }}/path"}
+	r.HTTPClient = &domain.HTTPClientConfig{URL: "http://{{ gone.host }}/path"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -283,7 +282,7 @@ func TestAnalyzeWorkflow_ExpressionInHTTPURL(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 	r := mkResource("target")
-	r.Run.HTTPClient = &domain.HTTPClientConfig{
+	r.HTTPClient = &domain.HTTPClientConfig{
 		URL:  "http://example.com",
 		Data: "output('absent')",
 	}
@@ -295,7 +294,7 @@ func TestAnalyzeWorkflow_ExpressionInHTTPData(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SQL = &domain.SQLConfig{
+	r.SQL = &domain.SQLConfig{
 		Queries: []domain.QueryItem{
 			{Query: "SELECT * WHERE id = output('nope')"},
 		},
@@ -308,7 +307,7 @@ func TestAnalyzeWorkflow_ExpressionInSQLQuery(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInScraperURL(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Scraper = &domain.ScraperConfig{URL: "{{ gone.url }}"}
+	r.Scraper = &domain.ScraperConfig{URL: "{{ gone.url }}"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -317,7 +316,7 @@ func TestAnalyzeWorkflow_ExpressionInScraperURL(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Embedding = &domain.EmbeddingConfig{Text: "{{ gone.text }}"}
+	r.Embedding = &domain.EmbeddingConfig{Text: "{{ gone.text }}"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -326,7 +325,7 @@ func TestAnalyzeWorkflow_ExpressionInEmbeddingText(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SearchLocal = &domain.SearchLocalConfig{Query: "output('gone')"}
+	r.SearchLocal = &domain.SearchLocalConfig{Query: "output('gone')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -335,7 +334,7 @@ func TestAnalyzeWorkflow_ExpressionInSearchLocalQuery(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
 	r := mkResource("target")
-	r.Run.SearchWeb = &domain.SearchWebConfig{Query: "output('gone')"}
+	r.SearchWeb = &domain.SearchWebConfig{Query: "output('gone')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -344,7 +343,7 @@ func TestAnalyzeWorkflow_ExpressionInSearchWebQuery(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInBeforeInline(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Before = []domain.ActionConfig{
+	r.Before = []domain.ActionConfig{
 		{Exec: &domain.ExecConfig{Command: "output('ghost')"}},
 	}
 	w := mkWorkflow("target", r)
@@ -355,7 +354,7 @@ func TestAnalyzeWorkflow_ExpressionInBeforeInline(t *testing.T) {
 
 func TestAnalyzeWorkflow_ExpressionInAfterInline(t *testing.T) {
 	r := mkResource("target")
-	r.Run.After = []domain.ActionConfig{
+	r.After = []domain.ActionConfig{
 		{Python: &domain.PythonConfig{Script: "{{ gone.x }}"}},
 	}
 	w := mkWorkflow("target", r)
@@ -369,7 +368,7 @@ func TestAnalyzeWorkflow_ExpressionInAfterInline(t *testing.T) {
 // be reliably distinguished from actionId refs without runtime context.
 func TestAnalyzeWorkflow_GetNotChecked(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "{{ get('q') }} and get('page') and get('event.text')"}
+	r.Chat = &domain.ChatConfig{Prompt: "{{ get('q') }} and get('page') and get('event.text')"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -387,7 +386,7 @@ func TestAnalyzeWorkflow_ComponentMissingRequiredInput(t *testing.T) {
 		},
 	}
 	r := mkResource("target")
-	r.Run.Component = &domain.ComponentCallConfig{
+	r.Component = &domain.ComponentCallConfig{
 		Name: "scraper",
 		With: map[string]interface{}{}, // url not provided
 	}
@@ -410,7 +409,7 @@ func TestAnalyzeWorkflow_ComponentOptionalInputNotRequired(t *testing.T) {
 		},
 	}
 	r := mkResource("target")
-	r.Run.Component = &domain.ComponentCallConfig{
+	r.Component = &domain.ComponentCallConfig{
 		Name: "scraper",
 		With: map[string]interface{}{},
 	}
@@ -431,7 +430,7 @@ func TestAnalyzeWorkflow_ComponentAllRequiredInputsProvided(t *testing.T) {
 		},
 	}
 	r := mkResource("target")
-	r.Run.Component = &domain.ComponentCallConfig{
+	r.Component = &domain.ComponentCallConfig{
 		Name: "scraper",
 		With: map[string]interface{}{"url": "https://example.com"},
 	}
@@ -445,7 +444,7 @@ func TestAnalyzeWorkflow_ComponentAllRequiredInputsProvided(t *testing.T) {
 func TestAnalyzeWorkflow_ComponentNotFound(t *testing.T) {
 	// Component referenced but not in workflow.Components - should not error.
 	r := mkResource("target")
-	r.Run.Component = &domain.ComponentCallConfig{Name: "unknown"}
+	r.Component = &domain.ComponentCallConfig{Name: "unknown"}
 	w := mkWorkflow("target", r)
 	w.Components = map[string]*domain.Component{}
 
@@ -457,7 +456,7 @@ func TestAnalyzeWorkflow_ComponentNoInterface(t *testing.T) {
 	// Component exists but has no Interface defined - skip input validation.
 	comp := &domain.Component{}
 	r := mkResource("target")
-	r.Run.Component = &domain.ComponentCallConfig{Name: "simple"}
+	r.Component = &domain.ComponentCallConfig{Name: "simple"}
 	w := mkWorkflow("target", r)
 	w.Components = map[string]*domain.Component{"simple": comp}
 
@@ -479,7 +478,7 @@ func TestAnalyzeWorkflow_NoComponents(t *testing.T) {
 func TestExtractActionIDRefs_BareGetNoDetection(t *testing.T) {
 	// get() calls are never checked for actionId refs
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "get('dep') and get('dep.field')"}
+	r.Chat = &domain.ChatConfig{Prompt: "get('dep') and get('dep.field')"}
 	w := mkWorkflow("target", r) // 'dep' not defined - should NOT error
 	wa := validator.AnalyzeWorkflow(w)
 	assert.Empty(t, wa.Errors())
@@ -488,7 +487,7 @@ func TestExtractActionIDRefs_BareGetNoDetection(t *testing.T) {
 func TestExtractActionIDRefs_DotGet_Valid(t *testing.T) {
 	// get() is not analyzed; this test confirms no false positive on get("dep.field")
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: `get("dep.field")`}
+	r.Chat = &domain.ChatConfig{Prompt: `get("dep.field")`}
 	dep := mkResource("dep")
 	w := mkWorkflow("target", r, dep)
 
@@ -498,7 +497,7 @@ func TestExtractActionIDRefs_DotGet_Valid(t *testing.T) {
 
 func TestExtractActionIDRefs_OutputFunc(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "output('dep')"}
+	r.Chat = &domain.ChatConfig{Prompt: "output('dep')"}
 	dep := mkResource("dep")
 	w := mkWorkflow("target", r, dep)
 
@@ -508,7 +507,7 @@ func TestExtractActionIDRefs_OutputFunc(t *testing.T) {
 
 func TestExtractActionIDRefs_TemplatePattern(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "value: {{ dep.result }}"}
+	r.Chat = &domain.ChatConfig{Prompt: "value: {{ dep.result }}"}
 	dep := mkResource("dep")
 	w := mkWorkflow("target", r, dep)
 
@@ -518,7 +517,7 @@ func TestExtractActionIDRefs_TemplatePattern(t *testing.T) {
 
 func TestExtractActionIDRefs_NoMatch(t *testing.T) {
 	r := mkResource("target")
-	r.Run.Chat = &domain.ChatConfig{Prompt: "no refs here at all"}
+	r.Chat = &domain.ChatConfig{Prompt: "no refs here at all"}
 	w := mkWorkflow("target", r)
 
 	wa := validator.AnalyzeWorkflow(w)
@@ -530,7 +529,7 @@ func TestExtractActionIDRefs_NoMatch(t *testing.T) {
 func TestExtractActionIDRefs_BuiltinVarsNotFlagged(t *testing.T) {
 	r := mkResource("target")
 	// All kdeps/Jinja2 built-in objects - none should be flagged as unknown actionIds.
-	r.Run.Chat = &domain.ChatConfig{
+	r.Chat = &domain.ChatConfig{
 		Prompt: `{{ request.method }} {{ request.path }} {{ request.ip }}` +
 			` {{ loop.index }} {{ loop.first }}` +
 			` {{ error.message }} {{ item.value }}` +
@@ -550,7 +549,7 @@ func TestAnalyzeWorkflow_ComponentNameRefsNotFlagged(t *testing.T) {
 	// "autopilot" is a component name in workflow.Components, it must not be
 	// flagged as an unknown actionId.
 	r := mkResource("plan-and-execute")
-	r.Run.Chat = &domain.ChatConfig{
+	r.Chat = &domain.ChatConfig{
 		Prompt: `Task: {{ get("autopilot.task") }} Context: {{ get("autopilot.context") }}`,
 	}
 	w := mkWorkflow("plan-and-execute", r)
@@ -564,7 +563,7 @@ func TestAnalyzeWorkflow_ComponentNameRefsNotFlagged(t *testing.T) {
 
 func TestAnalyzeWorkflow_CombinedIssues(t *testing.T) {
 	target := mkResource("target")
-	target.Run.Chat = &domain.ChatConfig{Prompt: "output('gone')"}
+	target.Chat = &domain.ChatConfig{Prompt: "output('gone')"}
 	orphan := mkResource("orphan")
 	w := mkWorkflow("target", target, orphan)
 
@@ -589,7 +588,7 @@ func TestAnalyzeWorkflow_DefaultPathValuesNotFlaggedAsActionIds(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := mkResource("comp-resource")
-			r.Run.Python = &domain.PythonConfig{Script: tc.script}
+			r.Python = &domain.PythonConfig{Script: tc.script}
 			w := mkWorkflow("comp-resource", r)
 			w.Components = map[string]*domain.Component{
 				"browser": {}, "calendar": {}, "embedding": {}, "pdf": {},

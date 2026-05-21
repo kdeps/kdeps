@@ -1,14 +1,9 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: colorTool
+name: Color Converter Tool
 
-metadata:
-  actionId: colorTool
-  name: Color Converter Tool
-
-run:
-  component:
-    name: color-converter
-    with:
-      color: "{{ get('color', 'memory') }}"
-      from_format: "{{ get('from_format', 'memory') }}"
-      to_format: "{{ get('to_format', 'memory') }}"
+component:
+  name: color-converter
+  with:
+    color: "{{ get('color', 'memory') }}"
+    from_format: "{{ get('from_format', 'memory') }}"
+    to_format: "{{ get('to_format', 'memory') }}"

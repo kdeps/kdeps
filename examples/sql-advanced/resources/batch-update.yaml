@@ -1,22 +1,17 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: batchUpdate
+name: Batch User Updates
 
-metadata:
-  actionId: batchUpdate
-  name: Batch User Updates
+validations:
+  methods: [POST]
+  routes: [/api/v1/sql-demo]
 
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/sql-demo]
-
-  sql:
-    connectionName: analytics
-    transaction: true
-    queries:
-      - query: |
-          UPDATE users
-          SET status = $1,
-              updated_at = NOW()
-          WHERE id = $2
-        paramsBatch: "{{ get('user_updates') }}"
+sql:
+  connectionName: analytics
+  transaction: true
+  queries:
+    - query: |
+        UPDATE users
+        SET status = $1,
+            updated_at = NOW()
+        WHERE id = $2
+      paramsBatch: "{{ get('user_updates') }}"

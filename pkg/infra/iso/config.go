@@ -289,7 +289,7 @@ func ShouldInstallOllama(workflow *domain.Workflow) bool {
 	// Check KDEPS_DEFAULT_BACKEND env var (set by config.yaml llm.backend).
 	hasChatResources := false
 	for _, resource := range workflow.Resources {
-		if resource.Run.Chat != nil {
+		if resource.Chat != nil {
 			hasChatResources = true
 			break
 		}

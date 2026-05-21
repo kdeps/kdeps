@@ -8,11 +8,9 @@ metadata:
   targetActionId: response
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16395
 
   apiServer:
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -46,27 +44,19 @@ settings:
     # LLM models to download (optional)
 
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: llm
-      name: LLM Chat
-    run:
-      chat:
-        model: llama3.2:1b
-        # Backend will be auto-detected and installed in Docker image
-        # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
-        role: "user"
-        prompt: "{{ get('q') }}"
+  - actionId: llm
+    name: LLM Chat
+    chat:
+      model: llama3.2:1b
+      # Backend will be auto-detected and installed in Docker image
+      # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
+      role: "user"
+      prompt: "{{ get('q') }}"
 
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: API Response
-      requires: [llm]
-    run:
-      apiResponse:
-        success: true
-        response:
-          answer: "{{ get('llm') }}"
+  - actionId: response
+    name: API Response
+    requires: [llm]
+    apiResponse:
+      success: true
+      response:
+        answer: "{{ get('llm') }}"

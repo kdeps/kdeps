@@ -42,9 +42,6 @@ func TestNewWebServer(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{},
 			},
@@ -72,7 +69,6 @@ func TestNewWebServer(t *testing.T) {
 func TestWebServer_SetWorkflowDir(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{},
 			},
@@ -113,10 +109,9 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 			TargetActionID: "none",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       26395, // Use different port to avoid conflicts
 			WebServer: &domain.WebServerConfig{
+				HostIP:  "127.0.0.1",
+				PortNum: 26395,
 				Routes: []domain.WebRoute{
 					{
 						Path:       "/",
@@ -204,7 +199,6 @@ func TestWebServer_PathResolution(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			workflow := &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					WebServerMode: true,
 					WebServer: &domain.WebServerConfig{
 						Routes: []domain.WebRoute{
 							{
@@ -242,9 +236,6 @@ func TestWebServer_RouteConfiguration(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{
 					{
@@ -301,9 +292,6 @@ func TestWebServer_HandleWebSocketProxy(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{
 					{
@@ -411,10 +399,7 @@ func TestWebServer_HandleWebSocketProxy(t *testing.T) {
 func TestWebServer_HandleWebSocketProxy_ErrorCases(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       16395,
-			WebServer:     &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 
@@ -536,7 +521,6 @@ func TestWebServer_HandleWebSocketProxy_ErrorCases(t *testing.T) {
 func TestWebServer_StartAppCommand(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			WebServerMode: true,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{},
 			},

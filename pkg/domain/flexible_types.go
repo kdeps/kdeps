@@ -73,31 +73,6 @@ func parseInt(v interface{}) (int, bool) {
 	return 0, false
 }
 
-// parseFloat parses a float from various types (float, int, string).
-// Returns the float value and true if parsing succeeded.
-func parseFloat(v interface{}) (float64, bool) {
-	kdeps_debug.Log("enter: parseFloat")
-	switch val := v.(type) {
-	case float64:
-		return val, true
-	case float32:
-		return float64(val), true
-	case int:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	case string:
-		trimmed := strings.TrimSpace(val)
-		if trimmed == "" {
-			return 0, true
-		}
-		if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
-			return f, true
-		}
-	}
-	return 0, false
-}
-
 // parseBoolPtr parses a boolean pointer from various types.
 // Returns nil if the value is nil, otherwise returns a pointer to the boolean.
 func parseBoolPtr(v interface{}) *bool {
@@ -107,32 +82,6 @@ func parseBoolPtr(v interface{}) *bool {
 	}
 	if b, ok := ParseBool(v); ok {
 		return &b
-	}
-	return nil
-}
-
-// parseIntPtr parses an integer pointer from various types.
-// Returns nil if the value is nil, otherwise returns a pointer to the integer.
-func parseIntPtr(v interface{}) *int {
-	kdeps_debug.Log("enter: parseIntPtr")
-	if v == nil {
-		return nil
-	}
-	if i, ok := parseInt(v); ok {
-		return &i
-	}
-	return nil
-}
-
-// parseFloatPtr parses a float pointer from various types.
-// Returns nil if the value is nil, otherwise returns a pointer to the float.
-func parseFloatPtr(v interface{}) *float64 {
-	kdeps_debug.Log("enter: parseFloatPtr")
-	if v == nil {
-		return nil
-	}
-	if f, ok := parseFloat(v); ok {
-		return &f
 	}
 	return nil
 }

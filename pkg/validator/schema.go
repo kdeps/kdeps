@@ -286,6 +286,15 @@ func (sv *SchemaValidator) enhanceErrorMessage(
 	errorType := desc.Type()
 	descStr := desc.String()
 
+	// For required-field errors at root, extract the actual field name from the description.
+	// gojsonschema reports these as field="(root)" with descStr="(root): <fieldName> is required".
+	if field == "(root)" && strings.Contains(descStr, "is required") {
+		re := regexp.MustCompile(`\(root\):\s*(\S+)\s+is required`)
+		if m := re.FindStringSubmatch(descStr); len(m) > 1 {
+			field = m[1]
+		}
+	}
+
 	// Try to get enum values for this field
 	enumValues := sv.getEnumValues(field, schemaType)
 	if len(enumValues) > 0 {
@@ -534,6 +543,8 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		// Metadata fields
 		"apiVersion":        `"kdeps.io/v1"`,
 		"kind":              `"Resource" or "Workflow"`,
+		"actionId":          `"my-action"`,
+		"name":              `"My Resource"`,
 		"metadata.actionId": `"my-action"`,
 		"metadata.name":     `"My Resource"`,
 

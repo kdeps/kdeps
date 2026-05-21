@@ -51,10 +51,9 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: ${API_PORT}
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: ${API_PORT}
     routes:
       - path: /embed/upsert
         methods: [POST]
@@ -65,60 +64,48 @@ settings:
 EOF
 
 cat > "$TEST_DIR/resources/upsert.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: embedUpsert
-  name: Embed Upsert
-run:
-  validations:
-    routes: [/embed/upsert]
-    methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "upsert"
-      text: "The quick brown fox jumps over the lazy dog"
-      collection: "e2e_upsert"
-      dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      upsert: "{{ output('embedUpsert') }}"
+actionId: embedUpsert
+name: Embed Upsert
+validations:
+  routes: [/embed/upsert]
+  methods: [POST]
+component:
+  name: embedding
+  with:
+    operation: "upsert"
+    text: "The quick brown fox jumps over the lazy dog"
+    collection: "e2e_upsert"
+    dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    upsert: "{{ output('embedUpsert') }}"
 EOF
 
 cat > "$TEST_DIR/resources/search.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: embedSearch
-  name: Embed Search
-run:
-  validations:
-    routes: [/embed/search]
-    methods: [POST]
-  component:
-    name: embedding
-    with:
-      operation: "search"
-      text: ""
-      collection: "e2e_upsert"
-      dbPath: "${DB_PATH}"
+actionId: embedSearch
+name: Embed Search
+validations:
+  routes: [/embed/search]
+  methods: [POST]
+component:
+  name: embedding
+  with:
+    operation: "search"
+    text: ""
+    collection: "e2e_upsert"
+    dbPath: "${DB_PATH}"
 EOF
 
 cat > "$TEST_DIR/resources/response.yaml" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response
-  name: Response
-  requires: [embedUpsert, embedSearch]
-run:
-  apiResponse:
-    success: true
-    response:
-      upsert: "{{ output('embedUpsert') }}"
-      search: "{{ output('embedSearch') }}"
+actionId: response
+name: Response
+requires: [embedUpsert, embedSearch]
+apiResponse:
+  success: true
+  response:
+    upsert: "{{ output('embedUpsert') }}"
+    search: "{{ output('embedSearch') }}"
 EOF
 
 "$KDEPS_BIN" run "$TEST_DIR/workflow.yaml" > "$LOG_FILE" 2>&1 &

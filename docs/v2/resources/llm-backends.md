@@ -8,11 +8,10 @@ KDeps supports LLM integrations through Ollama for local model serving and any O
 
 ```yaml
 # resources/my-resource.yaml
-run:
-  chat:
-    model: llama3.2:1b    # Per-resource model selection
-    role: user
-    prompt: "{{ get('q') }}"
+chat:
+  model: llama3.2:1b    # Per-resource model selection
+  role: user
+  prompt: "{{ get('q') }}"
 ```
 
 Set `model: router` to delegate model selection to the LLM router (see [Routing](#routing) below).
@@ -108,11 +107,10 @@ Routing delegates model selection from resource YAML to the config. Set a resour
 
 ```yaml
 # resources/llm.yaml
-run:
-  chat:
-    model: router       # delegate to config.yaml router
-    role: user
-    prompt: "{{ get('q') }}"
+chat:
+  model: router       # delegate to config.yaml router
+  role: user
+  prompt: "{{ get('q') }}"
 ```
 
 The router in `~/.kdeps/config.yaml` selects which model to use based on the configured strategy.
@@ -439,10 +437,9 @@ Set `streaming: true` on a `chat:` resource to have Ollama stream the response a
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    streaming: true      # Ollama only
+chat:
+  prompt: "{{ get('q') }}"
+  streaming: true      # Ollama only
 ```
 
 </div>
@@ -496,13 +493,12 @@ Handle rate limits with retry configuration via `onError`:
 <div v-pre>
 
 ```yaml
-run:
-  chat:
-    prompt: "{{ get('q') }}"
-    onError:
-      action: "retry"
-      maxRetries: 3
-      retryDelay: "5s"
+chat:
+  prompt: "{{ get('q') }}"
+  onError:
+    action: "retry"
+    maxRetries: 3
+    retryDelay: "5s"
 ```
 
 </div>

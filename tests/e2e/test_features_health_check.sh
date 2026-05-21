@@ -42,10 +42,9 @@ metadata:
   targetActionId: testResource
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3060
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3060
     routes:
       - path: /api/v1/test
         methods: [GET]
@@ -55,20 +54,16 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: testResource
-  name: Test Resource
+actionId: testResource
+name: Test Resource
 
-run:
-  restrictToHttpMethods: [GET]
-  restrictToRoutes: [/api/v1/test]
-  apiResponse:
-    success: true
-    response:
-      message: "Test endpoint"
+restrictToHttpMethods: [GET]
+restrictToRoutes: [/api/v1/test]
+apiResponse:
+  success: true
+  response:
+    message: "Test endpoint"
 EOF
 
 # Test 1: Validate workflow

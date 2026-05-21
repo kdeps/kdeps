@@ -27,12 +27,10 @@ mkdir my-agent && cd my-agent && mkdir resources
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
-metadata:
-  name: my-agent
-  version: "1.0.0"
-  targetActionId: responseResource
+name: my-agent
+version: "1.0.0"
+targetActionId: responseResource
 settings:
-  apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
     portNum: 16395
@@ -48,24 +46,20 @@ settings:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: llmResource
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/chat]
-    check:
-      - get('q') != ''
-    error:
-      code: 400
-      message: Query parameter 'q' is required
-  chat:
-    model: llama3.2:1b
-    role: user
-    prompt: "{{ get('q') }}"
-    timeout: 60s
+actionId: llmResource
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: Query parameter 'q' is required
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{{ get('q') }}"
+  timeout: 60s
 ```
 
 </div>
@@ -75,16 +69,12 @@ run:
 `resources/response.yaml`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: responseResource
-  requires: [llmResource]
-run:
-  apiResponse:
-    success: true
-    response:
-      data: get('llmResource')
+actionId: responseResource
+requires: [llmResource]
+apiResponse:
+  success: true
+  response:
+    data: get('llmResource')
 ```
 
 ## Run it

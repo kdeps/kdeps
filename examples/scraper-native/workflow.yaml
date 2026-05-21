@@ -6,10 +6,8 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 16402
   apiServer:
+    portNum: 16402
     routes:
       - path: /summarize
         methods: [POST]

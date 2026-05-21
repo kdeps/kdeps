@@ -73,14 +73,13 @@ metadata:
   version: 3.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
 
 	archive := buildKdepsArchive(t, map[string]string{
 		"workflow.yaml":       workflowYAML,
-		"resources/res1.yaml": "apiVersion: kdeps.io/v1\nkind: Resource\n",
+		"resources/res1.yaml": "actionId: res1\n",
 		"data/file.txt":       "hello",
 		"scripts/run.sh":      "#!/bin/sh\necho hi",
 	})
@@ -338,7 +337,6 @@ metadata:
   version: 1.0.0
   targetActionId: a
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `
@@ -369,7 +367,6 @@ metadata:
   version: 9.0.0
   targetActionId: action1
 settings:
-  portNum: 16395
   agentSettings:
     timezone: UTC
 `

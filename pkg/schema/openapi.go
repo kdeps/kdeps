@@ -244,10 +244,10 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 	resourcesByRoute := make(map[routeKey][]*domain.Resource)
 
 	for _, res := range workflow.Resources {
-		if res.Run.Validations == nil {
+		if res.Validations == nil {
 			continue
 		}
-		v := res.Run.Validations
+		v := res.Validations
 		for _, route := range v.Routes {
 			methods := v.Methods
 			if len(methods) == 0 {
@@ -385,10 +385,10 @@ func collectOperationValidations(
 	}
 
 	for _, res := range resources {
-		if res.Run.Validations == nil {
+		if res.Validations == nil {
 			continue
 		}
-		v := res.Run.Validations
+		v := res.Validations
 
 		for _, req := range v.Required {
 			result.requiredFields[req] = struct{}{}
@@ -481,13 +481,13 @@ func buildOperation(
 
 	// Use the first matching resource for summary / description.
 	first := resources[0]
-	op.Summary = first.Metadata.Name
-	op.Description = first.Metadata.Description
+	op.Summary = first.Name
+	op.Description = first.Description
 
 	// Derive a unique operationId.  Prefer the resource's actionId; add the
 	// HTTP method as a suffix if the actionId has already been used (which can
 	// happen when the same resource handles multiple methods).
-	baseID := first.Metadata.ActionID
+	baseID := first.ActionID
 	if baseID == "" {
 		baseID = operationID(method, path)
 	}

@@ -25,17 +25,16 @@ The Email component sends email via SMTP using Python `smtplib`.
 ## Using the Email Component
 
 ```yaml
-run:
-  component:
-    name: email
-    with:
-      to: "recipient@example.com"
-      subject: "Hello from KDeps"
-      body: "Your workflow completed successfully."
-      smtpHost: "smtp.example.com"
-      smtpPort: 587
-      smtpUser: "user@example.com"
-      smtpPass: "app-password"
+component:
+  name: email
+  with:
+    to: "recipient@example.com"
+    subject: "Hello from KDeps"
+    body: "Your workflow completed successfully."
+    smtpHost: "smtp.example.com"
+    smtpPort: 587
+    smtpUser: "user@example.com"
+    smtpPass: "app-password"
 ```
 
 Access the result via `output('<callerActionId>')`.
@@ -71,17 +70,16 @@ All fields support [KDeps expressions](/advanced/expressions):
 <div v-pre>
 
 ```yaml
-run:
-  component:
-    name: email
-    with:
-      to: "{{ get('recipient') }}"
-      subject: "[Report] {{ get('candidate_name') }} - {{ get('score') }}%"
-      body: "{{ get('email_body') }}"
-      smtpHost: "{{ env('SMTP_HOST') }}"
-      smtpPort: 587
-      smtpUser: "{{ env('SMTP_USER') }}"
-      smtpPass: "{{ env('SMTP_PASS') }}"
+component:
+  name: email
+  with:
+    to: "{{ get('recipient') }}"
+    subject: "[Report] {{ get('candidate_name') }} - {{ get('score') }}%"
+    body: "{{ get('email_body') }}"
+    smtpHost: "{{ env('SMTP_HOST') }}"
+    smtpPort: 587
+    smtpUser: "{{ env('SMTP_USER') }}"
+    smtpPass: "{{ env('SMTP_PASS') }}"
 ```
 
 </div>
@@ -94,34 +92,30 @@ run:
 
 ```yaml
 - apiVersion: kdeps.io/v1
-  kind: Resource
 
-  metadata:
-    actionId: send-email
-    name: Email Distribution
-
+  actionId: send-email
+  name: Email Distribution
   validations:
     skip: "{{ get('compute-match.is_match') == false }}"
 
-  run:
-    component:
-      name: email
-      with:
-        to: "{{ get('distribution_list') }}"
-        subject: >-
-          [CV Match] {{ get('extract-cv.name') }} -
-          {{ get('extract-jd.title') }}
-          ({{ get('compute-match.score_pct') }}%)
-        body: |
-          CV/JD Match Report
+component:
+  name: email
+  with:
+    to: "{{ get('distribution_list') }}"
+    subject: >-
+      [CV Match] {{ get('extract-cv.name') }} -
+      {{ get('extract-jd.title') }}
+      ({{ get('compute-match.score_pct') }}%)
+    body: |
+      CV/JD Match Report
 
-          Candidate: {{ get('extract-cv.name') }}
-          Position: {{ get('extract-jd.title') }}
-          Match Score: {{ get('compute-match.score_pct') }}%
-        smtpHost: "{{ env('SMTP_HOST') }}"
-        smtpPort: 587
-        smtpUser: "{{ env('SMTP_USERNAME') }}"
-        smtpPass: "{{ env('SMTP_PASSWORD') }}"
+      Candidate: {{ get('extract-cv.name') }}
+      Position: {{ get('extract-jd.title') }}
+      Match Score: {{ get('compute-match.score_pct') }}%
+    smtpHost: "{{ env('SMTP_HOST') }}"
+    smtpPort: 587
+    smtpUser: "{{ env('SMTP_USERNAME') }}"
+    smtpPass: "{{ env('SMTP_PASSWORD') }}"
 ```
 
 </div>

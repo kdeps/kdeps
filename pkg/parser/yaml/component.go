@@ -116,7 +116,7 @@ func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) 
 	// Build set of existing actionIds so component resources are skipped when overridden.
 	existing := make(map[string]struct{}, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		existing[r.Metadata.ActionID] = struct{}{}
+		existing[r.ActionID] = struct{}{}
 	}
 
 	if workflow.Components == nil {
@@ -301,9 +301,9 @@ func (p *Parser) processComponentEntry(
 
 	var resources []*domain.Resource
 	for _, r := range componentResources {
-		if _, ok := existing[r.Metadata.ActionID]; !ok {
+		if _, ok := existing[r.ActionID]; !ok {
 			resources = append(resources, r)
-			existing[r.Metadata.ActionID] = struct{}{}
+			existing[r.ActionID] = struct{}{}
 		}
 	}
 	return resources, component, nil

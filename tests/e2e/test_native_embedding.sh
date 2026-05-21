@@ -49,25 +49,20 @@ metadata:
   version: "1.0.0"
   targetActionId: do-index
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-index.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-index
-  name: Do Index
-run:
-  embedding:
-    operation: "index"
-    text: "hello world embedding test"
-    collection: "e2e-test"
-    dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      success: "{{ output('do-index').success }}"
+actionId: do-index
+name: Do Index
+embedding:
+  operation: "index"
+  text: "hello world embedding test"
+  collection: "e2e-test"
+  dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    success: "{{ output('do-index').success }}"
 YAML
 
     local result
@@ -91,25 +86,20 @@ metadata:
   version: "1.0.0"
   targetActionId: do-search
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-search.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-search
-  name: Do Search
-run:
-  embedding:
-    operation: "search"
-    text: "hello"
-    collection: "e2e-test"
-    dbPath: "${DB_PATH}"
-  apiResponse:
-    success: true
-    response:
-      count: "{{ output('do-search').count }}"
+actionId: do-search
+name: Do Search
+embedding:
+  operation: "search"
+  text: "hello"
+  collection: "e2e-test"
+  dbPath: "${DB_PATH}"
+apiResponse:
+  success: true
+  response:
+    count: "{{ output('do-search').count }}"
 YAML
 
     local result
@@ -134,25 +124,20 @@ metadata:
   version: "1.0.0"
   targetActionId: do-upsert
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-upsert.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-upsert
-  name: Do Upsert
-run:
-  embedding:
-    operation: "upsert"
-    text: "upsert test content"
-    collection: "upsert-col"
-    dbPath: "${upsert_db}"
-  apiResponse:
-    success: true
-    response:
-      success: "{{ output('do-upsert').success }}"
+actionId: do-upsert
+name: Do Upsert
+embedding:
+  operation: "upsert"
+  text: "upsert test content"
+  collection: "upsert-col"
+  dbPath: "${upsert_db}"
+apiResponse:
+  success: true
+  response:
+    success: "{{ output('do-upsert').success }}"
 YAML
 
     local result
@@ -177,25 +162,20 @@ metadata:
   version: "1.0.0"
   targetActionId: do-delete
 settings:
-  apiServerMode: false
 YAML
 
     cat > "$pkg_dir/resources/do-delete.yaml" <<YAML
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: do-delete
-  name: Do Delete
-run:
-  embedding:
-    operation: "delete"
-    text: ""
-    collection: "del-col"
-    dbPath: "${del_db}"
-  apiResponse:
-    success: true
-    response:
-      affected: "{{ output('do-delete').affected }}"
+actionId: do-delete
+name: Do Delete
+embedding:
+  operation: "delete"
+  text: ""
+  collection: "del-col"
+  dbPath: "${del_db}"
+apiResponse:
+  success: true
+  response:
+    affected: "{{ output('do-delete').affected }}"
 YAML
 
     local result

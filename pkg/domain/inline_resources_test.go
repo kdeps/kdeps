@@ -37,160 +37,174 @@ func TestInlineResource_YAMLParsing(t *testing.T) {
 		{
 			name: "inline resources before",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: http://example.com
-    - exec:
-        command: echo hello
-  chat:
-    model: test-model
-    role: user
-    prompt: test
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: GET
+      url: http://example.com
+  - exec:
+      command: echo hello
+chat:
+  model: test-model
+  role: user
+  prompt: test
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
-				require.Len(t, resource.Run.Before, 2)
-				assert.NotNil(t, resource.Run.Before[0].HTTPClient)
-				assert.Equal(t, "GET", resource.Run.Before[0].HTTPClient.Method)
-				assert.Equal(t, "http://example.com", resource.Run.Before[0].HTTPClient.URL)
-				assert.NotNil(t, resource.Run.Before[1].Exec)
-				assert.Equal(t, "echo hello", resource.Run.Before[1].Exec.Command)
-				assert.NotNil(t, resource.Run.Chat)
+				require.Len(t, resource.Before, 2)
+				assert.NotNil(t, resource.Before[0].HTTPClient)
+				assert.Equal(t, "GET", resource.Before[0].HTTPClient.Method)
+				assert.Equal(t, "http://example.com", resource.Before[0].HTTPClient.URL)
+				assert.NotNil(t, resource.Before[1].Exec)
+				assert.Equal(t, "echo hello", resource.Before[1].Exec.Command)
+				assert.NotNil(t, resource.Chat)
 			},
 		},
 		{
 			name: "inline resources after",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  chat:
-    model: test-model
-    role: user
-    prompt: test
-  after:
-    - sql:
-        connection: sqlite3://./db.sqlite
-        query: INSERT INTO logs VALUES (?)
-    - python:
-        script: print('done')
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - sql:
+      connection: sqlite3://./db.sqlite
+      query: INSERT INTO logs VALUES (?)
+  - python:
+      script: print('done')
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
-				require.Len(t, resource.Run.After, 2)
-				assert.NotNil(t, resource.Run.After[0].SQL)
-				assert.Equal(t, "sqlite3://./db.sqlite", resource.Run.After[0].SQL.Connection)
-				assert.Equal(t, "INSERT INTO logs VALUES (?)", resource.Run.After[0].SQL.Query)
-				assert.NotNil(t, resource.Run.After[1].Python)
-				assert.Equal(t, "print('done')", resource.Run.After[1].Python.Script)
-				assert.NotNil(t, resource.Run.Chat)
+				require.Len(t, resource.After, 2)
+				assert.NotNil(t, resource.After[0].SQL)
+				assert.Equal(t, "sqlite3://./db.sqlite", resource.After[0].SQL.Connection)
+				assert.Equal(t, "INSERT INTO logs VALUES (?)", resource.After[0].SQL.Query)
+				assert.NotNil(t, resource.After[1].Python)
+				assert.Equal(t, "print('done')", resource.After[1].Python.Script)
+				assert.NotNil(t, resource.Chat)
 			},
 		},
 		{
 			name: "inline resources before and after",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  before:
-    - httpClient:
-        method: POST
-        url: http://example.com/before
-  chat:
-    model: test-model
-    role: user
-    prompt: test
-  after:
-    - exec:
-        command: echo after
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: POST
+      url: http://example.com/before
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - exec:
+      command: echo after
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
-				require.Len(t, resource.Run.Before, 1)
-				require.Len(t, resource.Run.After, 1)
-				assert.NotNil(t, resource.Run.Before[0].HTTPClient)
-				assert.Equal(t, "POST", resource.Run.Before[0].HTTPClient.Method)
-				assert.NotNil(t, resource.Run.After[0].Exec)
-				assert.Equal(t, "echo after", resource.Run.After[0].Exec.Command)
-				assert.NotNil(t, resource.Run.Chat)
+				require.Len(t, resource.Before, 1)
+				require.Len(t, resource.After, 1)
+				assert.NotNil(t, resource.Before[0].HTTPClient)
+				assert.Equal(t, "POST", resource.Before[0].HTTPClient.Method)
+				assert.NotNil(t, resource.After[0].Exec)
+				assert.Equal(t, "echo after", resource.After[0].Exec.Command)
+				assert.NotNil(t, resource.Chat)
 			},
 		},
 		{
 			name: "only inline resources no main",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  before:
-    - httpClient:
-        method: GET
-        url: http://example.com
-  after:
-    - exec:
-        command: echo done
+actionId: test
+name: Test Resource
+before:
+  - httpClient:
+      method: GET
+      url: http://example.com
+after:
+  - exec:
+      command: echo done
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
-				require.Len(t, resource.Run.Before, 1)
-				require.Len(t, resource.Run.After, 1)
-				assert.Nil(t, resource.Run.Chat)
-				assert.Nil(t, resource.Run.HTTPClient)
-				assert.Nil(t, resource.Run.SQL)
-				assert.Nil(t, resource.Run.Python)
-				assert.Nil(t, resource.Run.Exec)
+				require.Len(t, resource.Before, 1)
+				require.Len(t, resource.After, 1)
+				assert.Nil(t, resource.Chat)
+				assert.Nil(t, resource.HTTPClient)
+				assert.Nil(t, resource.SQL)
+				assert.Nil(t, resource.Python)
+				assert.Nil(t, resource.Exec)
 			},
 		},
 		{
 			name: "multiple inline resources of different types",
 			yaml: `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  before:
-    - chat:
-        model: helper-model
-        role: user
-        prompt: prepare
-    - httpClient:
-        method: GET
-        url: http://example.com
-    - sql:
-        connection: sqlite3://./db.sqlite
-        query: SELECT * FROM config
-    - python:
-        script: print('setup')
-    - exec:
-        command: mkdir -p /tmp/test
-  chat:
-    model: main-model
-    role: user
-    prompt: main prompt
+actionId: test
+name: Test Resource
+before:
+  - chat:
+      model: helper-model
+      role: user
+      prompt: prepare
+  - httpClient:
+      method: GET
+      url: http://example.com
+  - sql:
+      connection: sqlite3://./db.sqlite
+      query: SELECT * FROM config
+  - python:
+      script: print('setup')
+  - exec:
+      command: mkdir -p /tmp/test
+chat:
+  model: main-model
+  role: user
+  prompt: main prompt
 `,
 			validate: func(t *testing.T, resource *domain.Resource) {
-				require.Len(t, resource.Run.Before, 5)
-				assert.NotNil(t, resource.Run.Before[0].Chat)
-				assert.Equal(t, "helper-model", resource.Run.Before[0].Chat.Model)
-				assert.NotNil(t, resource.Run.Before[1].HTTPClient)
-				assert.NotNil(t, resource.Run.Before[2].SQL)
-				assert.NotNil(t, resource.Run.Before[3].Python)
-				assert.NotNil(t, resource.Run.Before[4].Exec)
-				assert.NotNil(t, resource.Run.Chat)
-				assert.Equal(t, "main-model", resource.Run.Chat.Model)
+				require.Len(t, resource.Before, 5)
+				assert.NotNil(t, resource.Before[0].Chat)
+				assert.Equal(t, "helper-model", resource.Before[0].Chat.Model)
+				assert.NotNil(t, resource.Before[1].HTTPClient)
+				assert.NotNil(t, resource.Before[2].SQL)
+				assert.NotNil(t, resource.Before[3].Python)
+				assert.NotNil(t, resource.Before[4].Exec)
+				assert.NotNil(t, resource.Chat)
+				assert.Equal(t, "main-model", resource.Chat.Model)
+			},
+		},
+		{
+			name: "bare scalar expression in before",
+			yaml: `
+actionId: test
+name: Test Resource
+before:
+  - "{{ set('x', 1) }}"
+chat:
+  model: test-model
+  role: user
+  prompt: test
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.Before, 1)
+				assert.Equal(t, "{{ set('x', 1) }}", resource.Before[0].Expr)
+			},
+		},
+		{
+			name: "bare scalar expression in after",
+			yaml: `
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
+after:
+  - "{{ get('test') }}"
+`,
+			validate: func(t *testing.T, resource *domain.Resource) {
+				require.Len(t, resource.After, 1)
+				assert.Equal(t, "{{ get('test') }}", resource.After[0].Expr)
 			},
 		},
 	}
@@ -207,22 +221,18 @@ run:
 
 func TestInlineResource_EmptyArrays(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-  name: Test Resource
-run:
-  chat:
-    model: test-model
-    role: user
-    prompt: test
+actionId: test
+name: Test Resource
+chat:
+  model: test-model
+  role: user
+  prompt: test
 `
 
 	var resource domain.Resource
 	err := yaml.Unmarshal([]byte(yamlContent), &resource)
 	require.NoError(t, err)
-	assert.Empty(t, resource.Run.Before)
-	assert.Empty(t, resource.Run.After)
-	assert.NotNil(t, resource.Run.Chat)
+	assert.Empty(t, resource.Before)
+	assert.Empty(t, resource.After)
+	assert.NotNil(t, resource.Chat)
 }

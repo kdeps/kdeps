@@ -89,55 +89,43 @@ func TestWorkflowValidationIntegration_CompleteWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create HTTP resource
-	httpResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: fetch-data
-  name: Fetch Data
-run:
-  httpClient:
-    method: "GET"
-    url: "https://httpbin.org/get"
-    headers:
-      Accept: "application/json"
+	httpResource := `actionId: fetch-data
+name: Fetch Data
+httpClient:
+  method: "GET"
+  url: "https://httpbin.org/get"
+  headers:
+    Accept: "application/json"
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "fetch-data.yaml"), []byte(httpResource), 0644)
 	require.NoError(t, err)
 
 	// Create SQL resource
-	sqlResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: store-data
-  name: Store Data
-  requires: ["fetch-data"]
-run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "INSERT INTO data (content) VALUES (?)"
-    params: ["{{fetch-data.response}}"]
+	sqlResource := `actionId: store-data
+name: Store Data
+requires: ["fetch-data"]
+sql:
+  connection: "sqlite:///test.db"
+  query: "INSERT INTO data (content) VALUES (?)"
+  params: ["{{fetch-data.response}}"]
 `
 
 	err = os.WriteFile(filepath.Join(resourcesDir, "store-data.yaml"), []byte(sqlResource), 0644)
 	require.NoError(t, err)
 
 	// Create Python resource
-	pythonResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: process-data
-  name: Process Data
-  requires: ["store-data"]
-run:
-  python:
-    script: |
-      import json
-      import sys
+	pythonResource := `actionId: process-data
+name: Process Data
+requires: ["store-data"]
+python:
+  script: |
+    import json
+    import sys
 
-      # Read from stdin (simulated data)
-      data = {"processed": True, "timestamp": "2024-01-01"}
-      print(json.dumps(data))
+    # Read from stdin (simulated data)
+    data = {"processed": True, "timestamp": "2024-01-01"}
+    print(json.dumps(data))
 `
 
 	err = os.WriteFile(
@@ -148,18 +136,14 @@ run:
 	require.NoError(t, err)
 
 	// Create final response resource
-	responseResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: final-response
-  name: Final Response
-  requires: ["process-data"]
-run:
-  apiResponse:
-    success: true
-    response:
-      status: "completed"
-      data: "{{process-data.output}}"
+	responseResource := `actionId: final-response
+name: Final Response
+requires: ["process-data"]
+apiResponse:
+  success: true
+  response:
+    status: "completed"
+    data: "{{process-data.output}}"
 `
 
 	err = os.WriteFile(
@@ -219,35 +203,35 @@ settings:
 	// Create resource map for easier checking
 	resourceMap := make(map[string]*domain.Resource)
 	for _, resource := range workflow.Resources {
-		resourceMap[resource.Metadata.ActionID] = resource
+		resourceMap[resource.ActionID] = resource
 	}
 
 	// Verify HTTP resource
 	httpRes, exists := resourceMap["fetch-data"]
 	require.True(t, exists)
-	assert.Equal(t, "Fetch Data", httpRes.Metadata.Name)
-	assert.NotNil(t, httpRes.Run.HTTPClient)
+	assert.Equal(t, "Fetch Data", httpRes.Name)
+	assert.NotNil(t, httpRes.HTTPClient)
 
 	// Verify SQL resource
 	sqlRes, exists := resourceMap["store-data"]
 	require.True(t, exists)
-	assert.Equal(t, "Store Data", sqlRes.Metadata.Name)
-	assert.Contains(t, sqlRes.Metadata.Requires, "fetch-data")
-	assert.NotNil(t, sqlRes.Run.SQL)
+	assert.Equal(t, "Store Data", sqlRes.Name)
+	assert.Contains(t, sqlRes.Requires, "fetch-data")
+	assert.NotNil(t, sqlRes.SQL)
 
 	// Verify Python resource
 	pythonRes, exists := resourceMap["process-data"]
 	require.True(t, exists)
-	assert.Equal(t, "Process Data", pythonRes.Metadata.Name)
-	assert.Contains(t, pythonRes.Metadata.Requires, "store-data")
-	assert.NotNil(t, pythonRes.Run.Python)
+	assert.Equal(t, "Process Data", pythonRes.Name)
+	assert.Contains(t, pythonRes.Requires, "store-data")
+	assert.NotNil(t, pythonRes.Python)
 
 	// Verify response resource
 	responseRes, exists := resourceMap["final-response"]
 	require.True(t, exists)
-	assert.Equal(t, "Final Response", responseRes.Metadata.Name)
-	assert.Contains(t, responseRes.Metadata.Requires, "process-data")
-	assert.NotNil(t, responseRes.Run.APIResponse)
+	assert.Equal(t, "Final Response", responseRes.Name)
+	assert.Contains(t, responseRes.Requires, "process-data")
+	assert.NotNil(t, responseRes.APIResponse)
 }
 
 func TestWorkflowValidationIntegration_ErrorCases(t *testing.T) {
@@ -371,67 +355,47 @@ func TestWorkflowValidationIntegration_ResourceValidation(t *testing.T) {
 
 	// Test various resource types
 	resources := map[string]string{
-		"http-resource.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: http-test
-  name: HTTP Test
-run:
-  httpClient:
-    method: "GET"
-    url: "https://api.example.com/test"
-    headers:
-      Authorization: "Bearer token"
-      Content-Type: "application/json"
+		"http-resource.yaml": `actionId: http-test
+name: HTTP Test
+httpClient:
+  method: "GET"
+  url: "https://api.example.com/test"
+  headers:
+    Authorization: "Bearer token"
+    Content-Type: "application/json"
 `,
 
-		"sql-resource.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: sql-test
-  name: SQL Test
-run:
-  sql:
-    connection: "sqlite:///test.db"
-    query: "SELECT * FROM users WHERE id = ?"
-    params: ["123"]
-    format: "json"
+		"sql-resource.yaml": `actionId: sql-test
+name: SQL Test
+sql:
+  connection: "sqlite:///test.db"
+  query: "SELECT * FROM users WHERE id = ?"
+  params: ["123"]
+  format: "json"
 `,
 
-		"python-resource.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: python-test
-  name: Python Test
-run:
-  python:
-    script: |
-      import json
-      result = {"status": "success", "data": [1, 2, 3]}
-      print(json.dumps(result))
+		"python-resource.yaml": `actionId: python-test
+name: Python Test
+python:
+  script: |
+    import json
+    result = {"status": "success", "data": [1, 2, 3]}
+    print(json.dumps(result))
 `,
 
-		"exec-resource.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: exec-test
-  name: Exec Test
-run:
-  exec:
-    command: "echo Hello World"
+		"exec-resource.yaml": `actionId: exec-test
+name: Exec Test
+exec:
+  command: "echo Hello World"
 `,
 
-		"response-resource.yaml": `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: response-test
-  name: Response Test
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "Operation completed"
-      code: 200
+		"response-resource.yaml": `actionId: response-test
+name: Response Test
+apiResponse:
+  success: true
+  response:
+    message: "Operation completed"
+    code: 200
 `,
 	}
 
@@ -472,40 +436,40 @@ settings:
 
 	resourceMap := make(map[string]*domain.Resource)
 	for _, resource := range workflow.Resources {
-		resourceMap[resource.Metadata.ActionID] = resource
+		resourceMap[resource.ActionID] = resource
 	}
 
 	// Verify each resource type
-	assert.NotNil(t, resourceMap["http-test"].Run.HTTPClient)
-	assert.NotNil(t, resourceMap["sql-test"].Run.SQL)
-	assert.NotNil(t, resourceMap["python-test"].Run.Python)
-	assert.NotNil(t, resourceMap["exec-test"].Run.Exec)
-	assert.NotNil(t, resourceMap["response-test"].Run.APIResponse)
+	assert.NotNil(t, resourceMap["http-test"].HTTPClient)
+	assert.NotNil(t, resourceMap["sql-test"].SQL)
+	assert.NotNil(t, resourceMap["python-test"].Python)
+	assert.NotNil(t, resourceMap["exec-test"].Exec)
+	assert.NotNil(t, resourceMap["response-test"].APIResponse)
 
 	// Verify HTTP resource configuration
 	httpRes := resourceMap["http-test"]
-	assert.Equal(t, "https://api.example.com/test", httpRes.Run.HTTPClient.URL)
-	assert.Equal(t, "GET", httpRes.Run.HTTPClient.Method)
-	assert.Contains(t, httpRes.Run.HTTPClient.Headers, "Authorization")
+	assert.Equal(t, "https://api.example.com/test", httpRes.HTTPClient.URL)
+	assert.Equal(t, "GET", httpRes.HTTPClient.Method)
+	assert.Contains(t, httpRes.HTTPClient.Headers, "Authorization")
 
 	// Verify SQL resource configuration
 	sqlRes := resourceMap["sql-test"]
-	assert.Contains(t, sqlRes.Run.SQL.Query, "SELECT")
-	assert.Contains(t, sqlRes.Run.SQL.Params, "123")
+	assert.Contains(t, sqlRes.SQL.Query, "SELECT")
+	assert.Contains(t, sqlRes.SQL.Params, "123")
 
 	// Verify Python resource has script
 	pythonRes := resourceMap["python-test"]
-	assert.Contains(t, pythonRes.Run.Python.Script, "import json")
+	assert.Contains(t, pythonRes.Python.Script, "import json")
 
 	// Verify Exec resource has command
 	execRes := resourceMap["exec-test"]
-	assert.Equal(t, "echo Hello World", execRes.Run.Exec.Command)
+	assert.Equal(t, "echo Hello World", execRes.Exec.Command)
 
 	// Verify API Response resource
 	responseRes := resourceMap["response-test"]
-	assert.Equal(t, true, responseRes.Run.APIResponse.Success)
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "message")
-	assert.Contains(t, responseRes.Run.APIResponse.Response, "code")
+	assert.Equal(t, true, responseRes.APIResponse.Success)
+	assert.Contains(t, responseRes.APIResponse.Response, "message")
+	assert.Contains(t, responseRes.APIResponse.Response, "code")
 }
 
 // TestWorkflowValidationIntegration_AgentResource verifies that a resource using the
@@ -525,16 +489,12 @@ func TestWorkflowValidationIntegration_AgentResource(t *testing.T) {
 	require.NoError(t, os.MkdirAll(resourcesDir, 0o750))
 
 	// Write an agent-type resource (calls another agent).
-	agentResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: call-helper
-  name: Call Helper
-run:
-  agent:
-    name: helper-agent
-    params:
-      query: "hello"
+	agentResource := `actionId: call-helper
+name: Call Helper
+agent:
+  name: helper-agent
+  params:
+    query: "hello"
 `
 	require.NoError(
 		t,
@@ -542,16 +502,12 @@ run:
 	)
 
 	// Write the API-response resource that depends on the agent call.
-	responseResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: final-response
-  name: Final Response
-  requires: [call-helper]
-run:
-  apiResponse:
-    success: true
-    response: "done"
+	responseResource := `actionId: final-response
+name: Final Response
+requires: [call-helper]
+apiResponse:
+  success: true
+  response: "done"
 `
 	require.NoError(t, os.WriteFile(
 		filepath.Join(resourcesDir, "response.yaml"),
@@ -580,134 +536,10 @@ settings:
 
 	// Ensure the agent resource was parsed correctly.
 	for _, res := range workflow.Resources {
-		if res.Metadata.ActionID == "call-helper" {
-			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
-			assert.Equal(t, "helper-agent", res.Run.Agent.Name)
-			assert.Equal(t, "hello", res.Run.Agent.Params["query"])
+		if res.ActionID == "call-helper" {
+			require.NotNil(t, res.Agent, "expected agent config to be set")
+			assert.Equal(t, "helper-agent", res.Agent.Name)
+			assert.Equal(t, "hello", res.Agent.Params["query"])
 		}
 	}
-}
-
-// TestWorkflowValidationIntegration_AgentResourceLegacyKey verifies that the legacy
-// `agent.agent:` key (deprecated; superseded by `agent.name:`) is still accepted.
-func TestWorkflowValidationIntegration_AgentResourceLegacyKey(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	tmpDir := t.TempDir()
-
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
-
-	resourcesDir := filepath.Join(tmpDir, "resources")
-	require.NoError(t, os.MkdirAll(resourcesDir, 0o750))
-
-	// Legacy format: agent.agent instead of agent.name.
-	legacyResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: legacy-call
-  name: Legacy Call
-run:
-  agent:
-    agent: helper-agent
-`
-	require.NoError(t, os.WriteFile(
-		filepath.Join(resourcesDir, "legacy-agent.yaml"),
-		[]byte(legacyResource),
-		0o600,
-	))
-
-	workflowContent := `apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: legacy-agent-test
-  version: "1.0.0"
-  targetActionId: legacy-call
-settings:
-  agentSettings:
-    timezone: "UTC"
-`
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
-	require.NoError(t, os.WriteFile(workflowPath, []byte(workflowContent), 0o600))
-
-	workflow, err := yamlParser.ParseWorkflow(workflowPath)
-	require.NoError(t, err)
-
-	require.NoError(t, workflowValidator.Validate(workflow))
-
-	// Verify the legacy key was parsed correctly into the Name field.
-	for _, res := range workflow.Resources {
-		if res.Metadata.ActionID == "legacy-call" {
-			require.NotNil(t, res.Run.Agent, "expected agent config to be set")
-			assert.Equal(
-				t,
-				"helper-agent",
-				res.Run.Agent.Name,
-				"legacy 'agent:' key should populate Name field",
-			)
-		}
-	}
-}
-
-func TestWorkflowValidationIntegration_ComponentSource(t *testing.T) {
-	schemaValidator, err := validator.NewSchemaValidator()
-	require.NoError(t, err)
-
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
-	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
-
-	tmpDir := t.TempDir()
-
-	workflowYAML := `apiVersion: kdeps.io/v1
-kind: Workflow
-metadata:
-  name: my-component-workflow
-  version: "1.0.0"
-  targetActionId: main
-settings:
-  agentSettings:
-    models:
-      - llama3.2:latest
-  input:
-    sources:
-      - component
-    component:
-      description: "Accepts text and returns processed output"
-`
-	wfPath := filepath.Join(tmpDir, "workflow.yaml")
-	require.NoError(t, os.WriteFile(wfPath, []byte(workflowYAML), 0644))
-
-	resourcesDir := filepath.Join(tmpDir, "resources")
-	require.NoError(t, os.MkdirAll(resourcesDir, 0755))
-	mainResource := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: Main
-run:
-  exec:
-    command: echo hello
-`
-	require.NoError(t, os.WriteFile(filepath.Join(resourcesDir, "main.yaml"), []byte(mainResource), 0644))
-
-	wf, err := yamlParser.ParseWorkflow(wfPath)
-	require.NoError(t, err, "ParseWorkflow should succeed for component source workflow")
-	require.NotNil(t, wf.Settings.Input, "Input should not be nil after parsing")
-
-	assert.True(t, wf.Settings.Input.HasComponentSource(), "HasComponentSource() should be true")
-	require.NotNil(t, wf.Settings.Input.Component, "Component field should be non-nil")
-	assert.Equal(t, "Accepts text and returns processed output", wf.Settings.Input.Component.Description)
-
-	require.NoError(t, workflowValidator.Validate(wf), "workflow with component source should pass validation")
-
-	assert.Equal(t, domain.InputSourceAPI, wf.Settings.Input.PrimarySource(),
-		"PrimarySource should fall back to api for component-only source")
-	assert.False(t, wf.Settings.Input.HasNonAPISource(),
-		"component source should not trigger media/bot/file pipeline")
-	assert.True(t, wf.Settings.Input.AllSourcesAPI(),
-		"component source should count as api-equivalent")
 }

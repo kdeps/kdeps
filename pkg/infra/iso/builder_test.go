@@ -428,11 +428,9 @@ func TestOllamaDetection_BackendOllama(t *testing.T) {
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-						Model:   "llama2:7b",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
+					Model:   "llama2:7b",
 				},
 			},
 		},
@@ -448,9 +446,7 @@ func TestOllamaDetection_OnlineProvider(t *testing.T) {
 	workflow := &domain.Workflow{
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{},
-				},
+				Chat: &domain.ChatConfig{},
 			},
 		},
 	}

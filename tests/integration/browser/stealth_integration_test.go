@@ -29,16 +29,12 @@ import (
 // parsed from YAML configuration.
 func TestBrowserConfig_StealthModeUnmarshal(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-run:
-  browser:
-    engine: chromium
-    headless: true
-    stealthMode: true
-    url: "https://example.com"
+actionId: test
+browser:
+  engine: chromium
+  headless: true
+  stealthMode: true
+  url: "https://example.com"
 `
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "resource-*.yaml")
@@ -58,15 +54,11 @@ run:
 // parsed from YAML configuration.
 func TestBrowserConfig_UserAgentUnmarshal(t *testing.T) {
 	yamlContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test
-run:
-  browser:
-    engine: chromium
-    userAgent: "Mozilla/5.0 (Custom Bot)"
-    url: "https://example.com"
+actionId: test
+browser:
+  engine: chromium
+  userAgent: "Mozilla/5.0 (Custom Bot)"
+  url: "https://example.com"
 `
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "resource-*.yaml")

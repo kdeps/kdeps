@@ -48,11 +48,9 @@ func TestScaffoldComponentFiles_CreatesEnvAndReadme(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "scrape"},
-				Run: domain.RunConfig{
-					Exec: &domain.ExecConfig{
-						Command: `echo "{{ env('OPENAI_API_KEY') }}"`,
-					},
+				ActionID: "scrape",
+				Exec: &domain.ExecConfig{
+					Command: `echo "{{ env('OPENAI_API_KEY') }}"`,
 				},
 			},
 		},
@@ -237,14 +235,10 @@ func TestParseComponentForUpdate_WithResourcesDir(t *testing.T) {
 	require.NoError(t, os.MkdirAll(resDir, 0o755))
 
 	resYAML := []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: doThing
-  name: Do Thing
-run:
-  exec:
-    command: "echo {{ env('MY_VAR') }}"
+actionId: doThing
+name: Do Thing
+exec:
+  command: "echo {{ env('MY_VAR') }}"
 `)
 	require.NoError(t, os.WriteFile(filepath.Join(resDir, "thing.yaml"), resYAML, 0o644))
 
@@ -294,9 +288,9 @@ func TestUpdateComponentFiles_MergesExistingDotEnv(t *testing.T) {
 		Metadata: domain.ComponentMetadata{Name: "mycomp"},
 		Dir:      dir,
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{Command: `echo "{{ env('NEW_VAR') }}"`},
-			}},
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('NEW_VAR') }"`},
+			},
 		},
 	}
 	result, err := executor.UpdateComponentFiles(comp, dir)
@@ -319,9 +313,9 @@ func TestUpdateComponentFiles_NoMergeWhenAllPresent(t *testing.T) {
 		Metadata: domain.ComponentMetadata{Name: "mycomp"},
 		Dir:      dir,
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
-			}},
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }"`},
+			},
 		},
 	}
 	result, err := executor.UpdateComponentFiles(comp, dir)
@@ -351,15 +345,15 @@ func TestUpdateComponentFiles_NoOverwriteExistingReadme(t *testing.T) {
 func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 	vars := executor.ScanComponentEnvVars(&domain.Component{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
+			{
 				HTTPClient: &domain.HTTPClientConfig{
-					URL:     `{{ env('HTTP_URL') }}`,
+					URL:     `{{ env('HTTP_URL') }`,
 					Headers: map[string]string{"Authorization": `Bearer {{ env('HTTP_TOKEN') }}`},
 					Auth: &domain.HTTPAuthConfig{
 						Username: `{{ env('HTTP_USER') }}`,
 					},
 				},
-			}},
+			},
 		},
 	})
 	assert.Contains(t, vars, "HTTP_URL")
@@ -370,9 +364,9 @@ func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 func TestScanResourceEnvVars_ChatConfig(t *testing.T) {
 	vars := executor.ScanComponentEnvVars(&domain.Component{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
+			{
 				Chat: &domain.ChatConfig{},
-			}},
+			},
 		},
 	})
 	assert.NotContains(t, vars, "CHAT_API_KEY")
@@ -381,11 +375,11 @@ func TestScanResourceEnvVars_ChatConfig(t *testing.T) {
 func TestScanResourceEnvVars_PythonScript(t *testing.T) {
 	vars := executor.ScanComponentEnvVars(&domain.Component{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{
+			{
 				Python: &domain.PythonConfig{
-					Script: `import os; key = "{{ env('PY_SECRET') }}"`,
+					Script: `import os; key = "{{ env('PY_SECRET') }"`,
 				},
-			}},
+			},
 		},
 	})
 	assert.Contains(t, vars, "PY_SECRET")

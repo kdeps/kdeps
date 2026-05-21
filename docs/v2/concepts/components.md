@@ -26,11 +26,10 @@ kdeps registry install autopilot   # LLM-directed task execution
 Invoked with `run.component:` in any resource:
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com"
+component:
+  name: scraper
+  with:
+    url: "https://example.com"
 ```
 
 ### 2. Custom components (user-defined)
@@ -69,11 +68,10 @@ my-workflow/
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Component
-metadata:
-  name: greeter                # Required: component name
-  description: "A greeting component"
-  version: "1.0.0"
-  targetActionId: greet        # Optional: default action to invoke
+name: greeter                # Required: component name
+description: "A greeting component"
+version: "1.0.0"
+targetActionId: greet        # Optional: default action to invoke
 interface:
   inputs:
     - name: message            # Required: input parameter name
@@ -83,9 +81,7 @@ interface:
       default: "Hello"         # Optional: default value if not required
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
+    actionId: greet
     # ... resource definition
 ```
 
@@ -169,12 +165,9 @@ When the parent workflow calls the component's target action, it supplies these 
 ```yaml
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
-    run:
-      chat:
-        prompt: "{{ inputs.message }}"
+    actionId: greet
+    chat:
+      prompt: "{{ inputs.message }}"
 ```
 
 ## Resources
@@ -231,12 +224,11 @@ Installed components can be exposed as LLM function-calling tools via the `compo
 # kdeps registry install scraper
 # kdeps registry install search
 
-run:
-  chat:
-    prompt: "Research {{ get('q') }} and summarize the findings."
-    componentTools:
-      - scraper
-      - search
+chat:
+  prompt: "Research {{ get('q') }} and summarize the findings."
+  componentTools:
+    - scraper
+    - search
 ```
 
 The component's `interface.inputs` become the tool's parameter schema. The LLM uses this schema to decide when and how to call the tool.
@@ -259,13 +251,12 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 Once a component is installed, resources invoke it using the `run.component:` block instead of a raw executor key. The `with:` map passes typed inputs that are validated against the component's `interface.inputs` declaration.
 
 ```yaml
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com"
-      selector: ".article"
-      timeout: 15
+component:
+  name: scraper
+  with:
+    url: "https://example.com"
+    selector: ".article"
+    timeout: 15
 ```
 
 ### Input Validation
@@ -296,23 +287,19 @@ After `run.component:` executes, results are stored under the caller resource's 
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: fetch-article
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://example.com/article"
-      selector: ".content"
+actionId: fetch-article
+component:
+  name: scraper
+  with:
+    url: "https://example.com/article"
+    selector: ".content"
 
 ---
 
-metadata:
-  actionId: summarize
-  requires: [fetch-article]
-run:
-  chat:
-    prompt: "Summarize: {{ output('fetch-article').content }}"
+actionId: summarize
+requires: [fetch-article]
+chat:
+  prompt: "Summarize: {{ output('fetch-article').content }}"
 ```
 
 </div>
@@ -325,23 +312,19 @@ Because inputs are scoped to the caller's `actionId`, you can use the same compo
 
 ```yaml
 # First call — fetch the job description
-metadata:
-  actionId: fetch-jd
-run:
-  component:
-    name: scraper
-    with:
-      url: "{{ get('jd_url') }}"
+actionId: fetch-jd
+component:
+  name: scraper
+  with:
+    url: "{{ get('jd_url') }}"
 
 # Second call — fetch the company page
-metadata:
-  actionId: fetch-company
-run:
-  component:
-    name: scraper
-    with:
-      url: "{{ get('company_url') }}"
-      timeout: 60
+actionId: fetch-company
+component:
+  name: scraper
+  with:
+    url: "{{ get('company_url') }}"
+    timeout: 60
 ```
 
 </div>
@@ -360,54 +343,39 @@ kdeps registry install scraper
 
 ```yaml
 # resources/scrape-page.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: scrape-page
-  name: Scrape Article
-
-run:
-  component:
-    name: scraper
-    with:
-      url: "https://news.example.com/article"
-      selector: ".article-body"
-      timeout: 30
+actionId: scrape-page
+name: Scrape Article
+component:
+  name: scraper
+  with:
+    url: "https://news.example.com/article"
+    selector: ".article-body"
+    timeout: 30
 
 ---
 
 # resources/summarize.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: summarize
-  name: Summarize Article
-  requires:
-    - scrape-page
-
-run:
-  chat:
-    prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
+actionId: summarize
+name: Summarize Article
+requires:
+  - scrape-page
+chat:
+  prompt: "Summarize the following article in 3 bullet points:\n\n{{ output('scrape-page').content }}"
 
 ---
 
 # resources/respond.yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: respond
-  name: Return Summary
-  requires:
-    - summarize
-
-run:
-  apiResponse:
-    success: true
-    response:
-      summary: "{{ output('summarize') }}"
+actionId: respond
+name: Return Summary
+requires:
+  - summarize
+apiResponse:
+  success: true
+  response:
+    summary: "{{ output('summarize') }}"
 ```
 
 </div>
@@ -535,10 +503,9 @@ kdeps registry update ./my-agency
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Component
-metadata:
-  name: greeter
-  version: "1.0.0"
-  targetActionId: greet
+name: greeter
+version: "1.0.0"
+targetActionId: greet
 interface:
   inputs:
     - name: message
@@ -551,12 +518,9 @@ interface:
       default: "World"
 resources:
   - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: greet
-    run:
-      exec:
-        command: "echo '{{ inputs.message }}, {{ inputs.recipient }}!'"
+    actionId: greet
+    exec:
+      command: "echo '{{ inputs.message }}, {{ inputs.recipient }}!'"
 ```
 
 **`my-workflow/resources/main.yaml`**
@@ -564,18 +528,13 @@ resources:
 Call the `greeter` component from a workflow resource using `run.component:`:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: main
-
-run:
-  component:
-    name: greeter
-    with:
-      message: "Hello"
-      recipient: "KDeps"
+actionId: main
+component:
+  name: greeter
+  with:
+    message: "Hello"
+    recipient: "KDeps"
 ```
 
 After execution, access the result with `output('main')`.

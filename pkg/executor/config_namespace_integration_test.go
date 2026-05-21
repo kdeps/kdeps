@@ -166,17 +166,17 @@ func TestIntegration_SetFunction_WorkflowPath(t *testing.T) {
 }
 
 // TestIntegration_ResourceNamespace verifies that resource fields are
-// accessible via {{ resource.myaction.metadata.name }}.
+// accessible via {{ resource.myaction.name }}.
 func TestIntegration_ResourceNamespace(t *testing.T) {
 	ctx := newIntegrationCtx(t)
 	ctx.Resources["myaction"] = &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "myaction", Name: "My Action"},
+		ActionID: "myaction", Name: "My Action",
 	}
 	api := makeIntegrationAPI(ctx)
 	ev := expression.NewEvaluator(api)
 
 	expr := &domain.Expression{
-		Raw:  "get('resource.myaction.metadata.name')",
+		Raw:  "get('resource.myaction.name')",
 		Type: domain.ExprTypeDirect,
 	}
 	result, err := ev.Evaluate(expr, map[string]interface{}{})

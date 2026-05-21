@@ -1,13 +1,8 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: markdownTool
+name: Markdown Renderer Tool
 
-metadata:
-  actionId: markdownTool
-  name: Markdown Renderer Tool
-
-run:
-  component:
-    name: markdown-renderer
-    with:
-      text: "{{ get('text', 'memory') }}"
-      output_format: "{{ get('output_format', 'memory') }}"
+component:
+  name: markdown-renderer
+  with:
+    text: "{{ get('text', 'memory') }}"
+    output_format: "{{ get('output_format', 'memory') }}"

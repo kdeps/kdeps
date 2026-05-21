@@ -1,16 +1,11 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: readConfig
+name: Read Config
 
-metadata:
-  actionId: readConfig
-  name: Read Config
+validations:
+  methods: [GET]
+  routes: [/api/v1/config]
 
-run:
-  validations:
-    methods: [GET]
-    routes: [/api/v1/config]
-
-  exec:
-    # Echo the model from config so it appears in the resource output.
-    command: "echo '{{ get(\"config.llm.model\", \"llama3.2\") }}'"
-    timeoutDuration: 5s
+exec:
+  # Echo the model from config so it appears in the resource output.
+  command: "echo '{{ get(\"config.llm.model\", \"llama3.2\") }}'"
+  timeoutDuration: 5s

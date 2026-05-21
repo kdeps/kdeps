@@ -52,11 +52,11 @@ else
         test_failed "component-input-source - workflow validates" "Validation failed for $CIS_WF"
     fi
 
-    # T4: sources: [component] declared
-    if grep -q "sources:.*component\|component" "$CIS_WF" && grep -q "sources:" "$CIS_WF"; then
-        test_passed "component-input-source - declares sources: [component]"
+    # T4: sources: [api] declared
+    if grep -q "sources:.*\[api\]" "$CIS_WF"; then
+        test_passed "component-input-source - checks workflow sources: [api]"
     else
-        test_failed "component-input-source - declares sources: [component]" "sources: [component] not found in $CIS_WF"
+        test_failed "component-input-source - checks workflow sources: [api]" "sources: [api] not found in $CIS_WF"
     fi
 
     # T5: component.description is set
@@ -183,10 +183,10 @@ else
     fi
 
     # T20: apiServerMode is false (single-shot)
-    if grep -q "apiServerMode: false" "$FP_WF"; then
-        test_passed "file-processor - apiServerMode: false (single-shot)"
+    if ! grep -q "apiServerMode:" "$FP_WF"; then
+        test_passed "file-processor - no apiServerMode (single-shot)"
     else
-        test_failed "file-processor - apiServerMode: false" "apiServerMode: false not found in $FP_WF"
+        test_failed "file-processor - no apiServerMode" "apiServerMode: still found in $FP_WF"
     fi
 
     # T21: summarize resource uses input('fileContent')

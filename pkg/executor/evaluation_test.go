@@ -63,22 +63,18 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("API Response Meta Evaluation", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "api-test",
-			},
-			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"message": "Hello {{get('targetModel')}}",
-					},
-					Meta: &domain.ResponseMeta{
-						Model:   "{{get('targetModel')}}",
-						Backend: "{{get('targetBackend')}}",
-						Headers: map[string]string{
-							"X-Custom-Model": "{{get('targetModel')}}",
-						},
-					},
+
+			ActionID: "api-test",
+
+			APIResponse: &domain.APIResponseConfig{
+				Success: true,
+				Response: map[string]interface{}{
+					"message": "Hello {{get('targetModel')}}",
+				},
+				Model:   "{{get('targetModel')}}",
+				Backend: "{{get('targetBackend')}}",
+				Headers: map[string]string{
+					"X-Custom-Model": "{{get('targetModel')}}",
 				},
 			},
 		}
@@ -107,18 +103,16 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("OnError RetryDelay Evaluation", func(_ *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "error-test",
+
+			ActionID: "error-test",
+
+			Exec: &domain.ExecConfig{
+				Command: "exit 1", // Will fail
 			},
-			Run: domain.RunConfig{
-				Exec: &domain.ExecConfig{
-					Command: "exit 1", // Will fail
-				},
-				OnError: &domain.OnErrorConfig{
-					Action:     "retry",
-					MaxRetries: 2,
-					RetryDelay: "{{get('retryDelay')}}",
-				},
+			OnError: &domain.OnErrorConfig{
+				Action:     "retry",
+				MaxRetries: 2,
+				RetryDelay: "{{get('retryDelay')}}",
 			},
 		}
 
@@ -128,18 +122,16 @@ func TestEngine_FieldEvaluation(t *testing.T) {
 
 	t.Run("PreflightCheck Error Message Evaluation", func(t *testing.T) {
 		resource := &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: "preflight-test",
-			},
-			Run: domain.RunConfig{
-				Validations: &domain.ValidationsConfig{
-					Check: []domain.Expression{
-						{Raw: "false"}, // Will fail
-					},
-					Error: &domain.ErrorConfig{
-						Code:    400,
-						Message: "{{get('errorMessage')}}",
-					},
+
+			ActionID: "preflight-test",
+
+			Validations: &domain.ValidationsConfig{
+				Check: []domain.Expression{
+					{Raw: "false"}, // Will fail
+				},
+				Error: &domain.ErrorConfig{
+					Code:    400,
+					Message: "{{get('errorMessage')}}",
 				},
 			},
 		}

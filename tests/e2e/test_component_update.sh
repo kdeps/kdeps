@@ -45,14 +45,10 @@ interface:
       type: string
       required: true
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('MY_SECRET') }}"
+  - actionId: doWork
+    name: Do Work
+    exec:
+      command: "echo {{ env('MY_SECRET') }}"
 EOF
 
 "$KDEPS_BIN" registry update "$T/components/mycomp"
@@ -95,14 +91,10 @@ metadata:
   description: "My test component"
   version: "1.0.0"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: doWork
-      name: Do Work
-    run:
-      exec:
-        command: "echo {{ env('NEW_VAR') }}"
+  - actionId: doWork
+    name: Do Work
+    exec:
+      command: "echo {{ env('NEW_VAR') }}"
 EOF
 "$KDEPS_BIN" registry update "$T/components/mycomp"
 

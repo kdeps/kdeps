@@ -50,43 +50,40 @@ The output is the raw OpenAI API response. The audio binary is returned in the H
 Offline TTS (no API key):
 
 ```yaml
-run:
-  component:
-    name: tts
-    with:
-      text: "Hello! Your order has been confirmed."
-  apiResponse:
-    success: true
-    response:
-      ok: "{{ output('speakOffline').success }}"
+component:
+  name: tts
+  with:
+    text: "Hello! Your order has been confirmed."
+apiResponse:
+  success: true
+  response:
+    ok: "{{ output('speakOffline').success }}"
 ```
 
 Online TTS with OpenAI:
 
 ```yaml
-run:
-  component:
-    name: tts
-    with:
-      text: "Welcome back! Here is your daily briefing."
-      voice: nova
-      apiKey: "{{ get('env.OPENAI_API_KEY') }}"
-  apiResponse:
-    success: true
-    response:
-      audio: "{{ output('speakOnline') }}"
+component:
+  name: tts
+  with:
+    text: "Welcome back! Here is your daily briefing."
+    voice: nova
+    apiKey: "{{ get('env.OPENAI_API_KEY') }}"
+apiResponse:
+  success: true
+  response:
+    audio: "{{ output('speakOnline') }}"
 ```
 
 Choosing a voice:
 
 ```yaml
-run:
-  component:
-    name: tts
-    with:
-      text: "{{ output('summaryStep').text }}"
-      voice: shimmer
-      apiKey: "{{ get('env.OPENAI_API_KEY') }}"
+component:
+  name: tts
+  with:
+    text: "{{ output('summaryStep').text }}"
+    voice: shimmer
+    apiKey: "{{ get('env.OPENAI_API_KEY') }}"
 ```
 
 ## Requirements

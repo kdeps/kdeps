@@ -64,18 +64,14 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: expr-resource
-      name: Expression Only
-    run:
-      expr:
-        - set('value', 42)
-      apiResponse:
-        success: true
-        response:
-          result: "{{get('value')}}"
+  - actionId: expr-resource
+    name: Expression Only
+    after:
+      - set('value', 42)
+    apiResponse:
+      success: true
+      response:
+        result: "{{get('value')}}"
 EOF
 
 if "$KDEPS_BIN" validate "$EXPR_ONLY_WORKFLOW" &> /dev/null; then
@@ -105,28 +101,20 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: skipped
-      name: Skipped Resource
-    run:
-      skipCondition:
-        - "true"
-      apiResponse:
-        success: true
-        response:
-          message: "skipped"
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: final
-      name: Final Resource
-    run:
-      apiResponse:
-        success: true
-        response:
-          message: "final"
+  - actionId: skipped
+    name: Skipped Resource
+    skipCondition:
+      - "true"
+    apiResponse:
+      success: true
+      response:
+        message: "skipped"
+  - actionId: final
+    name: Final Resource
+    apiResponse:
+      success: true
+      response:
+        message: "final"
 EOF
 
 if "$KDEPS_BIN" validate "$SKIP_WORKFLOW" &> /dev/null; then
@@ -155,22 +143,18 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: resource
-      name: Preflight Resource
-    run:
-      preflightCheck:
-        validations:
-          - "false"
-        error:
-          code: 400
-          message: "Preflight check failed"
-      apiResponse:
-        success: true
-        response:
-          message: "success"
+  - actionId: resource
+    name: Preflight Resource
+    preflightCheck:
+      validations:
+        - "false"
+      error:
+        code: 400
+        message: "Preflight check failed"
+    apiResponse:
+      success: true
+      response:
+        message: "success"
 EOF
 
 if "$KDEPS_BIN" validate "$PREFLIGHT_WORKFLOW" &> /dev/null; then
@@ -200,20 +184,16 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: resource
-      name: Error Handler Resource
-    run:
-      onError:
-        action: continue
-        fallback:
-          message: "fallback value"
-      apiResponse:
-        success: true
-        response:
-          message: "{{get('message')}}"
+  - actionId: resource
+    name: Error Handler Resource
+    onError:
+      action: continue
+      fallback:
+        message: "fallback value"
+    apiResponse:
+      success: true
+      response:
+        message: "{{get('message')}}"
 EOF
 
 if "$KDEPS_BIN" validate "$ONERROR_WORKFLOW" &> /dev/null; then
@@ -242,18 +222,14 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: process
-      name: Process Items
+  - actionId: process
+    name: Process Items
     items:
       - "[]"
-    run:
-      apiResponse:
-        success: true
-        response:
-          item: "{{get('item')}}"
+    apiResponse:
+      success: true
+      response:
+        item: "{{get('item')}}"
 EOF
 
 if "$KDEPS_BIN" validate "$ITEMS_EMPTY_WORKFLOW" &> /dev/null; then
@@ -282,17 +258,13 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: API Response
-    run:
-      apiResponse:
-        success: true
-        response:
-          data:
-            message: "wrapped"
+  - actionId: response
+    name: API Response
+    apiResponse:
+      success: true
+      response:
+        data:
+          message: "wrapped"
 EOF
 
 if "$KDEPS_BIN" validate "$UNWRAP_WORKFLOW" &> /dev/null; then

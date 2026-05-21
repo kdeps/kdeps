@@ -70,9 +70,8 @@ resources:
     kind: Resource
     metadata:
       actionId: myAction
-    run:
-      expr:
-        - set('result', 'done')
+    expr:
+      - set('result', 'done')
 EOF
 ```
 

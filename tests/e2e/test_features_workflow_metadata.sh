@@ -42,10 +42,9 @@ metadata:
   targetActionId: metadataHandler
 
 settings:
-  apiServerMode: true
-  hostIp: "0.0.0.0"
-  portNum: 3120
   apiServer:
+    hostIp: "0.0.0.0"
+    portNum: 3120
     routes:
       - path: /api/v1/metadata
         methods: [GET, POST]
@@ -55,23 +54,19 @@ settings:
 EOF
 
 cat > "$RESOURCE_FILE" <<'EOF'
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: metadataHandler
-  name: Metadata Handler
+actionId: metadataHandler
+name: Metadata Handler
 
-run:
-  restrictToHttpMethods: [GET, POST]
-  restrictToRoutes: [/api/v1/metadata]
-  apiResponse:
-    success: true
-    response:
-      workflow_name: "{{ info('name') }}"
-      workflow_version: "{{ info('version') }}"
-      current_time: "{{ info('current_time') }}"
-      message: "Metadata accessed"
+restrictToHttpMethods: [GET, POST]
+restrictToRoutes: [/api/v1/metadata]
+apiResponse:
+  success: true
+  response:
+    workflow_name: "{{ info('name') }}"
+    workflow_version: "{{ info('version') }}"
+    current_time: "{{ info('current_time') }}"
+    message: "Metadata accessed"
 EOF
 
 # Test 1: Validate workflow

@@ -74,7 +74,7 @@ else
 fi
 
 # ── Test 6: agent resource type in greeter workflow ──────────────────────────
-if grep -q "^      agent:" "$GREETER_WF"; then
+if grep -q "^    agent:" "$GREETER_WF"; then
     test_passed "Agency - Greeter uses agent resource type"
 else
     test_failed "Agency - Greeter uses agent resource type" "No 'agent:' block found in $GREETER_WF"

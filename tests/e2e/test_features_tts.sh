@@ -50,12 +50,8 @@ settings:
 EOF
 
     cat > "$TEST_DIR/resources/main.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: Main
-run:
+actionId: main
+name: Main
 ${tts_yaml}
 EOF
 
@@ -90,12 +86,8 @@ settings:
 EOF
 
     cat > "$TEST_DIR/resources/main.yaml" <<EOF
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: main
-  name: Main
-run:
+actionId: main
+name: Main
 ${tts_yaml}
 EOF
 
@@ -114,119 +106,119 @@ EOF
 
 # Test: TTS with OpenAI online provider
 test_tts_valid "TTS - OpenAI online provider" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from OpenAI TTS"
-      voice: alloy
-      apiKey: sk-test'
+'component:
+  name: tts
+  with:
+    text: "Hello from OpenAI TTS"
+    voice: alloy
+    apiKey: sk-test'
 
 # Test: TTS with Google Cloud TTS
 test_tts_valid "TTS - Google Cloud TTS online" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Google TTS"
-      voice: en-US-Standard-A'
+'component:
+  name: tts
+  with:
+    text: "Hello from Google TTS"
+    voice: en-US-Standard-A'
 
 # Test: TTS with ElevenLabs
 test_tts_valid "TTS - ElevenLabs online provider" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from ElevenLabs"
-      voice: "21m00Tcm4TlvDq8ikWAM"'
+'component:
+  name: tts
+  with:
+    text: "Hello from ElevenLabs"
+    voice: "21m00Tcm4TlvDq8ikWAM"'
 
 # Test: TTS with AWS Polly
 test_tts_valid "TTS - AWS Polly online provider" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Polly"
-      voice: Joanna'
+'component:
+  name: tts
+  with:
+    text: "Hello from Polly"
+    voice: Joanna'
 
 # Test: TTS with Azure Cognitive Services
 test_tts_valid "TTS - Azure TTS online provider" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Azure"
-      voice: en-US-JennyNeural'
+'component:
+  name: tts
+  with:
+    text: "Hello from Azure"
+    voice: en-US-JennyNeural'
 
 # Test: TTS with Piper offline engine
 test_tts_valid "TTS - Piper offline engine" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Piper"'
+'component:
+  name: tts
+  with:
+    text: "Hello from Piper"'
 
 # Test: TTS with eSpeak offline engine
 test_tts_valid "TTS - eSpeak offline engine" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from eSpeak"'
+'component:
+  name: tts
+  with:
+    text: "Hello from eSpeak"'
 
 # Test: TTS with Festival offline engine
 test_tts_valid "TTS - Festival offline engine" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Festival"'
+'component:
+  name: tts
+  with:
+    text: "Hello from Festival"'
 
 # Test: TTS with Coqui-TTS offline engine
 test_tts_valid "TTS - Coqui TTS offline engine" \
-'  component:
-    name: tts
-    with:
-      text: "Hello from Coqui"'
+'component:
+  name: tts
+  with:
+    text: "Hello from Coqui"'
 
 # Test: TTS with expression in text
 test_tts_valid "TTS - Expression in text field" \
-'  component:
-    name: tts
-    with:
-      text: "Hello there"'
+'component:
+  name: tts
+  with:
+    text: "Hello there"'
 
 # Test: TTS with explicit output file
 test_tts_valid "TTS - Explicit output file" \
-'  component:
-    name: tts
-    with:
-      text: "Hello with explicit output"'
+'component:
+  name: tts
+  with:
+    text: "Hello with explicit output"'
 
 # Test: TTS as inline Before resource
 test_tts_valid "TTS - Inline before resource" \
-'  before:
-    - component:
-        name: tts
-        with:
-          text: "Before the main resource"
-  apiResponse:
-    success: true
-    response:
-      status: ok'
+'before:
+  - component:
+      name: tts
+      with:
+        text: "Before the main resource"
+apiResponse:
+  success: true
+  response:
+    status: ok'
 
 # Test: TTS as inline After resource
 test_tts_valid "TTS - Inline after resource" \
-'  after:
-    - component:
-        name: tts
-        with:
-          text: "After the main resource"
-  apiResponse:
-    success: true
-    response:
-      status: ok'
+'after:
+  - component:
+      name: tts
+      with:
+        text: "After the main resource"
+apiResponse:
+  success: true
+  response:
+    status: ok'
 
 # Test: TTS with all optional fields
 test_tts_valid "TTS - All optional fields" \
-'  component:
-    name: tts
-    with:
-      text: "Full configuration test"
-      voice: alloy
-      apiKey: sk-full-test'
+'component:
+  name: tts
+  with:
+    text: "Full configuration test"
+    voice: alloy
+    apiKey: sk-full-test'
 
 echo ""
 echo "TTS feature tests complete."

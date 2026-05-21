@@ -7,20 +7,15 @@ Items allow you to process multiple values in sequence, executing a resource for
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
 
-metadata:
-  actionId: processItems
-
+actionId: processItems
 items:
   - "Item 1"
   - "Item 2"
   - "Item 3"
 
-run:
-  chat:
-    prompt: "Process: {{ get('current') }}"
+chat:
+  prompt: "Process: {{ get('current') }}"
 ```
 
 </div>
@@ -45,15 +40,14 @@ You can also access item context through the `item` object with callable methods
 ### Method Syntax
 
 ```yaml
-run:
-  expr:
-    # Method-style access
-    - set('curr', item.current())
-    - set('prev', item.prev())
-    - set('next', item.next())
-    - set('idx', item.index())
-    - set('cnt', item.count())
-    - set('all', item.values())
+after:
+  # Method-style access
+  - set('curr', item.current())
+  - set('prev', item.prev())
+  - set('next', item.next())
+  - set('idx', item.index())
+  - set('cnt', item.count())
+  - set('all', item.values())
 ```
 
 ### Comparison: get() vs item.method()
@@ -74,25 +68,21 @@ Both syntaxes are equivalent. Use whichever is more readable for your use case.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: processWithItemObject
+actionId: processWithItemObject
 items:
   - "first"
   - "second"
   - "third"
-run:
-  expr:
-    # Using item object methods
-    - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
-    - set('hasPrevious', item.prev() != nil)
-    - set('hasNext', item.next() != nil)
-  chat:
-    prompt: |
-      {{ get('position') }}
-      Current: {{ item.current() }}
-      {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
+after:
+  # Using item object methods
+  - set('position', "Item " + string(item.index() + 1) + " of " + string(item.count()))
+  - set('hasPrevious', item.prev() != nil)
+  - set('hasNext', item.next() != nil)
+chat:
+  prompt: |
+    {{ get('position') }}
+    Current: {{ item.current() }}
+    {{ get('hasPrevious') ? 'After: ' + item.prev() : 'First item' }}
 ```
 
 </div>
@@ -104,21 +94,17 @@ After processing, you can access all collected values from a resource that uses 
 ### Using `get('resourceId', 'itemvalues')`
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: collectResults
-  requires:
-    - processItems
-run:
-  expr:
-    # Get all collected values from the items iteration
-    - set('allResults', get('processItems', 'itemvalues'))
-    - set('resultCount', len(get('allResults')))
-  apiResponse:
-    response:
-      results: get('allResults')
-      count: get('resultCount')
+actionId: collectResults
+requires:
+  - processItems
+after:
+  # Get all collected values from the items iteration
+  - set('allResults', get('processItems', 'itemvalues'))
+  - set('resultCount', len(get('allResults')))
+apiResponse:
+  response:
+    results: get('allResults')
+    count: get('resultCount')
 ```
 
 ### Using `item.values(actionID)`
@@ -126,22 +112,18 @@ run:
 You can also use the `item.values()` method with an action ID to get all iteration values from a specific resource:
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: collectResults
-  requires:
-    - processItems
-run:
-  expr:
-    # Get all values from processItems resource
-    - set('allResults', item.values('processItems'))
-    - set('resultCount', len(get('allResults')))
-  
-  apiResponse:
-    response:
-      results: get('allResults')
-      count: get('resultCount')
+actionId: collectResults
+requires:
+  - processItems
+after:
+  # Get all values from processItems resource
+  - set('allResults', item.values('processItems'))
+  - set('resultCount', len(get('allResults')))
+
+apiResponse:
+  response:
+    results: get('allResults')
+    count: get('resultCount')
 ```
 
 **Note:** `item.values()` without arguments returns all items for the current iteration context (equivalent to `item.values()` or `get('all')`). With an action ID, it returns all values from that specific resource's items iteration.
@@ -158,11 +140,10 @@ items:
   - "banana"
   - "cherry"
 
-run:
-  chat:
-    prompt: |
-      Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
-      Describe this fruit.
+chat:
+  prompt: |
+    Item {{ get('index') + 1 }} of {{ get('count') }}: {{ get('current') }}
+    Describe this fruit.
 ```
 
 </div>
@@ -177,12 +158,11 @@ items:
   - "Main Content"
   - "Conclusion"
 
-run:
-  chat:
-    prompt: |
-      Write the {{ get('current') }} section.
-      {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
-      {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
+chat:
+  prompt: |
+    Write the {{ get('current') }} section.
+    {{ get('prev') ? 'Previous section was: ' + get('prev') : 'This is the first section.' }}
+    {{ get('next') ? 'Next section will be: ' + get('next') : 'This is the last section.' }}
 ```
 
 </div>
@@ -197,13 +177,12 @@ items:
   - "skip_this"
   - "process"
 
-run:
-  validations:
-    skip:
-    - get('current') == 'skip_this'
+validations:
+  skip:
+  - get('current') == 'skip_this'
 
-  chat:
-    prompt: "Processing: {{ get('current') }}"
+chat:
+  prompt: "Processing: {{ get('current') }}"
 ```
 
 </div>
@@ -221,13 +200,12 @@ items:
   - value: "Task 3"
     priority: "high"
 
-run:
-  validations:
-    skip:
-    - get('current').priority != 'high'
+validations:
+  skip:
+  - get('current').priority != 'high'
 
-  chat:
-    prompt: "Handle high-priority task: {{ get('current').value }}"
+chat:
+  prompt: "Handle high-priority task: {{ get('current').value }}"
 ```
 
 </div>
@@ -241,20 +219,17 @@ Process multiple queries:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: batchQueries
-
+actionId: batchQueries
 items:
   - "What is machine learning?"
   - "Explain neural networks"
   - "What is deep learning?"
 
-run:
-  chat:
-    prompt: "{{ get('current') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - answer
+chat:
+  prompt: "{{ get('current') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - answer
 ```
 
 </div>
@@ -266,17 +241,14 @@ Enrich a list of records:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: enrichProducts
-  requires: [fetchProducts]
-
+actionId: enrichProducts
+requires: [fetchProducts]
 # Items could come from a previous resource
 items: get('fetchProducts')
 
-run:
-  httpClient:
-    method: GET
-    url: "https://api.example.com/details/{{ get('current').id }}"
+httpClient:
+  method: GET
+  url: "https://api.example.com/details/{{ get('current').id }}"
 ```
 
 </div>
@@ -288,9 +260,7 @@ Generate sections of a report:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: generateReport
-
+actionId: generateReport
 items:
   - section: "executive_summary"
     title: "Executive Summary"
@@ -301,17 +271,16 @@ items:
   - section: "conclusion"
     title: "Conclusion"
 
-run:
-  chat:
-    prompt: |
-      Generate the "{{ get('current').title }}" section of the report.
-      Data: {{ get('reportData') }}
+chat:
+  prompt: |
+    Generate the "{{ get('current').title }}" section of the report.
+    Data: {{ get('reportData') }}
 
-      {{ get('prev') ? 'Previous section: ' + get('prev').title : '' }}
-    jsonResponse: true
-    jsonResponseKeys:
-      - content
-      - key_points
+    {{ get('prev') ? 'Previous section: ' + get('prev').title : '' }}
+  jsonResponse: true
+  jsonResponseKeys:
+    - content
+    - key_points
 ```
 
 </div>
@@ -323,9 +292,7 @@ Translate text to multiple languages:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: translate
-
+actionId: translate
 items:
   - code: "es"
     name: "Spanish"
@@ -336,15 +303,14 @@ items:
   - code: "ja"
     name: "Japanese"
 
-run:
-  chat:
-    prompt: |
-      Translate to {{ get('current').name }}:
-      "{{ get('originalText') }}"
-    jsonResponse: true
-    jsonResponseKeys:
-      - translation
-      - language_code
+chat:
+  prompt: |
+    Translate to {{ get('current').name }}:
+    "{{ get('originalText') }}"
+  jsonResponse: true
+  jsonResponseKeys:
+    - translation
+    - language_code
 ```
 
 </div>
@@ -354,9 +320,7 @@ run:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: chainedProcess
-
+actionId: chainedProcess
 items:
   - step: 1
     action: "gather_requirements"
@@ -367,14 +331,13 @@ items:
   - step: 4
     action: "test"
 
-run:
-  chat:
-    prompt: |
-      Step {{ get('current').step }}: {{ get('current').action }}
+chat:
+  prompt: |
+    Step {{ get('current').step }}: {{ get('current').action }}
 
-      {{ get('prev') ? 'Previous step output: ' + get('prev').result : 'Starting fresh.' }}
+    {{ get('prev') ? 'Previous step output: ' + get('prev').result : 'Starting fresh.' }}
 
-      Complete this step.
+    Complete this step.
 ```
 
 </div>
@@ -386,20 +349,17 @@ Process multiple images:
 <div v-pre>
 
 ```yaml
-metadata:
-  actionId: analyzeImages
-
+actionId: analyzeImages
 # Items from file upload or list
 items:
   - path: "/uploads/image1.jpg"
   - path: "/uploads/image2.jpg"
   - path: "/uploads/image3.jpg"
 
-run:
-  chat:
-    prompt: "Describe this image"
-    files:
-      - "{{ get('current').path }}"
+chat:
+  prompt: "Describe this image"
+  files:
+    - "{{ get('current').path }}"
 ```
 
 </div>
@@ -412,34 +372,28 @@ Item results are collected into an array:
 
 ```yaml
 # Processing resource
-metadata:
-  actionId: processItems
-
+actionId: processItems
 items:
   - "Item 1"
   - "Item 2"
 
-run:
-  chat:
-    prompt: "Process {{ get('current') }}"
+chat:
+  prompt: "Process {{ get('current') }}"
 
 ---
 # Response resource
-metadata:
-  actionId: response
-  requires: [processItems]
+actionId: response
+requires: [processItems]
+apiResponse:
+  response:
+    # All results as array
+    results: get('processItems')
 
-run:
-  apiResponse:
-    response:
-      # All results as array
-      results: get('processItems')
+    # First result
+    first: get('processItems')[0]
 
-      # First result
-      first: get('processItems')[0]
-
-      # Result count
-      count: len(get('processItems'))
+    # Result count
+    count: len(get('processItems'))
 ```
 
 </div>

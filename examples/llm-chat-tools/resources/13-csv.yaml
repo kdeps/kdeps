@@ -1,14 +1,9 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: csvTool
+name: CSV Analyzer Tool
 
-metadata:
-  actionId: csvTool
-  name: CSV Analyzer Tool
-
-run:
-  component:
-    name: csv-analyzer
-    with:
-      data: "{{ get('data', 'memory') }}"
-      table_format: "{{ get('table_format', 'memory') }}"
-      max_rows: "{{ get('max_rows', 'memory') }}"
+component:
+  name: csv-analyzer
+  with:
+    data: "{{ get('data', 'memory') }}"
+    table_format: "{{ get('table_format', 'memory') }}"
+    max_rows: "{{ get('max_rows', 'memory') }}"

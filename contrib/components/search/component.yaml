@@ -20,15 +20,11 @@ interface:
       default: 5
       description: Maximum number of results to return
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      name: Web Search
-      actionId: web-search
-    run:
-      httpClient:
-        url: "https://api.tavily.com/search"
-        method: POST
-        headers:
-          Content-Type: application/json
-        data: '{"api_key":"{{ get("search.apiKey") }}","query":"{{ get("search.query") }}","max_results":{{ get("search.maxResults", "5") }}}'
+  - name: Web Search
+    actionId: web-search
+    httpClient:
+      url: "https://api.tavily.com/search"
+      method: POST
+      headers:
+        Content-Type: application/json
+      data: '{"api_key":"{{ get("search.apiKey") }}","query":"{{ get("search.query") }}","max_results":{{ get("search.maxResults", "5") }}}'

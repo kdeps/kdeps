@@ -159,12 +159,12 @@ else
     fi
 fi
 
-# ── Test 15: gateway uses webServerMode for static UI ────────────────────────
-if grep -q "webServerMode: true" "$GATEWAY_WF"; then
-    test_passed "Personal Assistant Agency - gateway serves static UI (webServerMode: true)"
+# ── Test 15: gateway uses webServer: block for static UI ─────────────────────
+if grep -q "webServer:" "$GATEWAY_WF"; then
+    test_passed "Personal Assistant Agency - gateway serves static UI"
 else
     test_failed "Personal Assistant Agency - gateway serves static UI" \
-        "webServerMode: true not found in $GATEWAY_WF"
+        "webServer: block not found in $GATEWAY_WF"
 fi
 
 echo ""

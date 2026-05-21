@@ -74,20 +74,15 @@ metadata:
   version: "1.0.0"
   targetActionId: response
 settings:
-  apiServerMode: false
   agentSettings:
     pythonVersion: "3.12"
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: response
-      name: Test Response
-    run:
-      apiResponse:
-        success: true
-        response:
-          message: "E2E test successful"
+  - actionId: response
+    name: Test Response
+    apiResponse:
+      success: true
+      response:
+        message: "E2E test successful"
 EOF
 
 test_run "$SIMPLE_WORKFLOW" "Run simple workflow" 3

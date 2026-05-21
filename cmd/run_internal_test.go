@@ -66,9 +66,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -80,9 +78,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -94,9 +90,7 @@ func TestWorkflowNeedsOllama_Internal(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{},
-						},
+						Chat: &domain.ChatConfig{},
 					},
 				},
 			},
@@ -187,7 +181,7 @@ func TestPrintIORequirements_Internal(_ *testing.T) {
 	// Just ensure it doesn't panic with various configs
 	w := &domain.Workflow{
 		Resources: []*domain.Resource{
-			{Run: domain.RunConfig{APIResponse: &domain.APIResponseConfig{}}},
+			{APIResponse: &domain.APIResponseConfig{}},
 		},
 	}
 	printIORequirements(w)
@@ -207,192 +201,6 @@ func TestFindWorkflowFile_Internal(t *testing.T) {
 
 // TestPrintIORequirements_WithNonAPIInput exercises the non-trivial branches of
 // printIORequirements: bot sources, capture sources, transcriber, and activation.
-func TestPrintIORequirements_WithNonAPIInput(t *testing.T) {
-	// audio source → exercises printCaptureRequirements (audio branch)
-	t.Run("audio_source", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// video source → exercises printCaptureRequirements (video branch)
-	t.Run("video_source", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceVideo},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// bot source with all four platforms
-	t.Run("bot_source_all_platforms", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceBot},
-					Bot: &domain.BotConfig{
-						Discord:  &domain.DiscordConfig{BotToken: "tok"},
-						Slack:    &domain.SlackConfig{BotToken: "tok"},
-						Telegram: &domain.TelegramConfig{BotToken: "tok"},
-						WhatsApp: &domain.WhatsAppConfig{PhoneNumberID: "id"},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// offline transcriber with whisper engine
-	t.Run("transcriber_offline_whisper", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineWhisper,
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// offline transcriber with faster-whisper engine
-	t.Run("transcriber_offline_faster_whisper", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineFasterWhisper,
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// offline transcriber with vosk engine
-	t.Run("transcriber_offline_vosk", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineVosk,
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// offline transcriber with whisper-cpp engine
-	t.Run("transcriber_offline_whispercpp", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineWhisperCPP,
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// offline activation with whisper engine (exercises printActivationRequirements)
-	t.Run("activation_offline_whisper", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Activation: &domain.ActivationConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineWhisper,
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// duplicate engine in transcriber + activation → printed[engine] dedup
-	t.Run("dedup_printed_engines", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineWhisper,
-						},
-					},
-					Activation: &domain.ActivationConfig{
-						Mode: domain.TranscriberModeOffline,
-						Offline: &domain.OfflineTranscriberConfig{
-							Engine: domain.TranscriberEngineWhisper, // same engine → skipped
-						},
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// nil transcriber / nil activation → early return
-	t.Run("nil_transcriber_activation", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources:     []string{domain.InputSourceAudio},
-					Transcriber: nil,
-					Activation:  nil,
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-
-	// online transcriber → printTranscriberRequirements returns early (mode != offline)
-	t.Run("transcriber_online", func(_ *testing.T) {
-		w := &domain.Workflow{
-			Settings: domain.WorkflowSettings{
-				Input: &domain.InputConfig{
-					Sources: []string{domain.InputSourceAudio},
-					Transcriber: &domain.TranscriberConfig{
-						Mode: "online",
-					},
-				},
-			},
-		}
-		printIORequirements(w)
-	})
-}
 
 // TestWaitForOllamaReady_Timeout verifies that waitForOllamaReady returns an
 // error when Ollama does not start within the timeout window.

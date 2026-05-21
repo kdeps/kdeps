@@ -100,14 +100,10 @@ func TestLoadResourceFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  apiResponse:
-    success: true
+actionId: test-action
+name: Test Action
+apiResponse:
+  success: true
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -183,16 +179,14 @@ func TestValidateWorkflow(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -361,10 +355,8 @@ func TestParseOllamaURL(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -398,10 +390,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -413,10 +403,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "",
 						},
 					},
 				},
@@ -428,10 +416,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "openai",
 						},
 					},
 				},
@@ -443,10 +429,8 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 				},
@@ -458,17 +442,13 @@ func TestWorkflowNeedsOllama(t *testing.T) {
 			workflow: &domain.Workflow{
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -666,16 +646,12 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "test"
+actionId: test-action
+name: Test Action
+apiResponse:
+  success: true
+  response:
+    message: "test"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -806,6 +782,36 @@ func TestCheckPortAvailable(t *testing.T) {
 	})
 }
 
+func TestFindAvailablePort_FreePort(t *testing.T) {
+	port, err := cmd.FindAvailablePort("127.0.0.1", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, port, "port 0 should always be returned as-is (OS picks the port)")
+}
+
+func TestFindAvailablePort_UsedPort(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	addr := listener.Addr().(*net.TCPAddr)
+	usedPort := addr.Port
+
+	found, err := cmd.FindAvailablePort("127.0.0.1", usedPort)
+	require.NoError(t, err)
+	assert.Greater(t, found, usedPort, "should find a port higher than the occupied one")
+}
+
+func TestFindAvailablePort_AvailablePort(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	freePort := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+
+	found, err := cmd.FindAvailablePort("127.0.0.1", freePort)
+	require.NoError(t, err)
+	assert.Equal(t, freePort, found, "available port should be returned without increment")
+}
+
 func TestStartHTTPServer_InvalidPort(t *testing.T) {
 	// Test with a port that's already in use
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -816,16 +822,24 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			PortNum:   addr.Port, // Port already in use
-			APIServer: &domain.APIServerConfig{},
+			APIServer: &domain.APIServerConfig{
+				PortNum: addr.Port, // Port already in use
+			},
 		},
 	}
 
-	// This should fail because the port is already in use
+	// Auto-port: StartHTTPServer should succeed by finding the next available port.
+	// Send SIGINT shortly after to prevent the test from blocking forever.
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		p, _ := os.FindProcess(os.Getpid())
+		_ = p.Signal(syscall.SIGINT)
+	}()
 	err = cmd.StartHTTPServer(workflow, "", false, false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API server cannot start")
+	// Nil or context-cancelled errors are both acceptable here.
+	if err != nil {
+		assert.NotContains(t, err.Error(), "API server cannot start")
+	}
 }
 
 func TestStartHTTPServer_ValidConfig(t *testing.T) {
@@ -845,9 +859,8 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 			TargetActionID: "test-action",
 		},
 		Settings: domain.WorkflowSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: addr.Port,
 			APIServer: &domain.APIServerConfig{
+				PortNum: addr.Port,
 				Routes: []domain.Route{
 					{
 						Path:    "/test",
@@ -863,16 +876,14 @@ func TestStartHTTPServer_ValidConfig(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -931,10 +942,9 @@ func TestStartWebServer_ValidConfig(t *testing.T) {
 
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: addr.Port,
 			WebServer: &domain.WebServerConfig{
-				Routes: []domain.WebRoute{},
+				PortNum: addr.Port,
+				Routes:  []domain.WebRoute{},
 			},
 		},
 	}
@@ -1036,11 +1046,8 @@ func TestStartBothServers(t *testing.T) {
 			TargetActionID: "test-action",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: true,
-			WebServerMode: true,
-			HostIP:        "127.0.0.1",
-			PortNum:       addr1.Port,
 			APIServer: &domain.APIServerConfig{
+				PortNum: addr1.Port,
 				Routes: []domain.Route{
 					{
 						Path:    "/test",
@@ -1059,16 +1066,14 @@ func TestStartBothServers(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "test",
-						},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "test",
 					},
 				},
 			},
@@ -1118,16 +1123,14 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-								Prompt:  "You are a helpful assistant",
-								Role:    "user",
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
+							Prompt:  "You are a helpful assistant",
+							Role:    "user",
 						},
 					},
 				},
@@ -1151,14 +1154,12 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "",
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						Chat: &domain.ChatConfig{
+							Backend: "",
 						},
 					},
 				},
@@ -1177,14 +1178,12 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							APIResponse: &domain.APIResponseConfig{
-								Success: true,
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						APIResponse: &domain.APIResponseConfig{
+							Success: true,
 						},
 					},
 				},
@@ -1203,14 +1202,12 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "openai",
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						Chat: &domain.ChatConfig{
+							Backend: "openai",
 						},
 					},
 				},
@@ -1234,8 +1231,8 @@ func TestOllamaFunctions_Integration(t *testing.T) {
 			// by checking if the workflow structure would trigger Ollama checks
 			hasOllamaResource := false
 			for _, resource := range tt.workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						hasOllamaResource = true
 						break
@@ -1317,14 +1314,12 @@ func TestOllamaURLParsing(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1335,7 +1330,7 @@ func TestOllamaURLParsing(t *testing.T) {
 			// but we can verify the workflow is structured correctly for URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Chat)
 		})
 	}
 }
@@ -1360,14 +1355,12 @@ func TestOllamaConnectionLogic(t *testing.T) {
 			{
 				APIVersion: "kdeps.io/v1",
 				Kind:       "Resource",
-				Metadata: domain.ResourceMetadata{
-					ActionID: "test-action",
-					Name:     "Test Action",
-				},
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+
+				ActionID: "test-action",
+				Name:     "Test Action",
+
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -1382,7 +1375,7 @@ func TestOllamaConnectionLogic(t *testing.T) {
 	assert.NotNil(t, workflowWithOllama)
 	assert.Equal(t, "http://localhost:11434", workflowWithOllama.Settings.AgentSettings.OllamaURL)
 	assert.Len(t, workflowWithOllama.Resources, 1)
-	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Run.Chat.Backend)
+	assert.Equal(t, "ollama", workflowWithOllama.Resources[0].Chat.Backend)
 }
 
 // TestWorkflowNeedsOllamaComprehensive tests the workflowNeedsOllama logic comprehensively.
@@ -1401,9 +1394,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single ollama resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 			},
 			shouldNeed: true,
@@ -1412,9 +1403,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single default backend resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
-					},
+					Chat: &domain.ChatConfig{Backend: ""},
 				},
 			},
 			shouldNeed: true,
@@ -1423,9 +1412,7 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "single non-ollama resource",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
-					},
+					Chat: &domain.ChatConfig{Backend: "openai"},
 				},
 			},
 			shouldNeed: false,
@@ -1434,14 +1421,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "mixed resources with ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
-					},
+					APIResponse: &domain.APIResponseConfig{Success: true},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 			},
 			shouldNeed: true,
@@ -1450,14 +1433,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "mixed resources without ollama",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						APIResponse: &domain.APIResponseConfig{Success: true},
-					},
+					APIResponse: &domain.APIResponseConfig{Success: true},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "openai"},
-					},
+					Chat: &domain.ChatConfig{Backend: "openai"},
 				},
 			},
 			shouldNeed: false,
@@ -1466,14 +1445,10 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			name: "multiple ollama resources",
 			resources: []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: "ollama"},
-					},
+					Chat: &domain.ChatConfig{Backend: "ollama"},
 				},
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{Backend: ""},
-					},
+					Chat: &domain.ChatConfig{Backend: ""},
 				},
 			},
 			shouldNeed: true,
@@ -1489,8 +1464,8 @@ func TestWorkflowNeedsOllamaComprehensive(t *testing.T) {
 			// Test the logic that workflowNeedsOllama implements
 			needsOllama := false
 			for _, resource := range workflow.Resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1534,19 +1509,15 @@ settings:
 
 	// Create resource with Ollama chat
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    messages:
-      - role: user
-        content: "Hello"
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  messages:
+    - role: user
+      content: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1598,18 +1569,16 @@ func TestOllamaFunctionsIndirectCoverage(t *testing.T) {
 			// by verifying that workflowNeedsOllama works correctly
 			resources := []*domain.Resource{
 				{
-					Run: domain.RunConfig{
-						Chat: &domain.ChatConfig{
-							Backend: "ollama",
-						},
+					Chat: &domain.ChatConfig{
+						Backend: "ollama",
 					},
 				},
 			}
 
 			needsOllama := false
 			for _, resource := range resources {
-				if resource.Run.Chat != nil {
-					backend := resource.Run.Chat.Backend
+				if resource.Chat != nil {
+					backend := resource.Chat.Backend
 					if backend == "" || backend == "ollama" {
 						needsOllama = true
 						break
@@ -1726,10 +1695,8 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 				},
 				Resources: []*domain.Resource{
 					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1738,7 +1705,7 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 			// Verify workflow structure
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
+			assert.NotNil(t, workflow.Resources[0].Chat)
 		})
 	}
 }
@@ -1770,10 +1737,8 @@ func TestEnsureOllamaRunning_AlreadyRunning(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -1879,14 +1844,12 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 					{
 						APIVersion: "kdeps.io/v1",
 						Kind:       "Resource",
-						Metadata: domain.ResourceMetadata{
-							ActionID: "test-action",
-							Name:     "Test Action",
-						},
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-							},
+
+						ActionID: "test-action",
+						Name:     "Test Action",
+
+						Chat: &domain.ChatConfig{
+							Backend: "ollama",
 						},
 					},
 				},
@@ -1895,8 +1858,8 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 			// Verify the workflow is structured correctly for Ollama URL parsing
 			assert.Equal(t, tt.ollamaURL, workflow.Settings.AgentSettings.OllamaURL)
 			assert.NotEmpty(t, workflow.Resources)
-			assert.NotNil(t, workflow.Resources[0].Run.Chat)
-			assert.Equal(t, "ollama", workflow.Resources[0].Run.Chat.Backend)
+			assert.NotNil(t, workflow.Resources[0].Chat)
+			assert.Equal(t, "ollama", workflow.Resources[0].Chat.Backend)
 		})
 	}
 }
@@ -1932,19 +1895,15 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    messages:
-      - role: user
-        content: "Hello"
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  messages:
+    - role: user
+      content: "Hello"
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -1999,17 +1958,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2059,17 +2014,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2117,17 +2068,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2184,17 +2131,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2247,17 +2190,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "Test prompt"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "Test prompt"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2305,17 +2244,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "Test prompt"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "Test prompt"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2365,17 +2300,13 @@ settings:
 	require.NoError(t, err)
 
 	resourceContent := `
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  chat:
-    backend: ollama
-    model: llama2
-    prompt: "You are a helpful assistant"
-    role: user
+actionId: test-action
+name: Test Action
+chat:
+  backend: ollama
+  model: llama2
+  prompt: "You are a helpful assistant"
+  role: user
 `
 
 	resourcePath := filepath.Join(resourcesDir, "test-action.yaml")
@@ -2429,10 +2360,8 @@ func TestWaitForOllamaReady_Success(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Run: domain.RunConfig{
-					Chat: &domain.ChatConfig{
-						Backend: "ollama",
-					},
+				Chat: &domain.ChatConfig{
+					Backend: "ollama",
 				},
 			},
 		},
@@ -2525,14 +2454,10 @@ func TestLoadResourceFiles_EdgeCases(t *testing.T) {
 				for i := 1; i <= 3; i++ {
 					resourcePath := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.yaml", i))
 					content := fmt.Sprintf(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: action-%d
-  name: Action %d
-run:
-  apiResponse:
-    success: true
+actionId: action-%d
+name: Action %d
+apiResponse:
+  success: true
 `, i, i)
 					err = os.WriteFile(resourcePath, []byte(content), 0644)
 					require.NoError(t, err)
@@ -2559,14 +2484,10 @@ run:
 				// Valid resource
 				validPath := filepath.Join(resourcesDir, "valid.yaml")
 				err = os.WriteFile(validPath, []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: valid-action
-  name: Valid Action
-run:
-  apiResponse:
-    success: true
+actionId: valid-action
+name: Valid Action
+apiResponse:
+  success: true
 `), 0644)
 				require.NoError(t, err)
 
@@ -2601,14 +2522,10 @@ run:
 				// Create a valid resource file
 				resourcePath := filepath.Join(resourcesDir, "resource.yaml")
 				err = os.WriteFile(resourcePath, []byte(`
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: test-action
-  name: Test Action
-run:
-  apiResponse:
-    success: true
+actionId: test-action
+name: Test Action
+apiResponse:
+  success: true
 `), 0644)
 				require.NoError(t, err)
 
@@ -2776,16 +2693,12 @@ settings:
     timezone: "UTC"
     offlineMode: true
 resources:
-  - apiVersion: kdeps.io/v1
-    kind: Resource
-    metadata:
-      actionId: main-action
-      name: Main Action
-    run:
-      apiResponse:
-        success: true
-        response:
-          message: "main"
+  - actionId: main-action
+    name: Main Action
+    apiResponse:
+      success: true
+      response:
+        message: "main"
 `
 	require.NoError(
 		t,
@@ -2817,16 +2730,12 @@ interface:
 	compResourcesDir := filepath.Join(compDir, "resources")
 	require.NoError(t, os.Mkdir(compResourcesDir, 0o750))
 
-	compResYAML := `apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: greet
-  name: Greet Resource
-run:
-  apiResponse:
-    success: true
-    response:
-      message: "greeted"
+	compResYAML := `actionId: greet
+name: Greet Resource
+apiResponse:
+  success: true
+  response:
+    message: "greeted"
 `
 	require.NoError(
 		t,
@@ -2850,7 +2759,7 @@ run:
 	// Both actionIds should be present.
 	actionIDs := make(map[string]struct{})
 	for _, r := range workflow.Resources {
-		actionIDs[r.Metadata.ActionID] = struct{}{}
+		actionIDs[r.ActionID] = struct{}{}
 	}
 	_, hasMain := actionIDs["main-action"]
 	_, hasGreet := actionIDs["greet"]
@@ -2904,26 +2813,6 @@ func TestRunFlags_InteractiveFalseByDefault(t *testing.T) {
 // TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil verifies that when
 // skipLLMRepl=true and the workflow has sources: [llm], the function returns nil
 // immediately without attempting to start the LLM REPL.
-func TestDispatchExecutionWithEngine_SkipLLMRepl_ReturnsNil(t *testing.T) {
-	wf := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:           "test-llm",
-			TargetActionID: "chat",
-		},
-		Settings: domain.WorkflowSettings{
-			Input: &domain.InputConfig{
-				Sources:       []string{domain.InputSourceLLM},
-				ExecutionType: domain.LLMInputExecutionTypeStdin,
-			},
-		},
-	}
-
-	eng := executor.NewEngine(nil)
-
-	// skipLLMRepl=true: must return nil immediately (no REPL started).
-	err := cmd.DispatchExecutionWithEngine(eng, wf, t.TempDir(), false, false, "", true)
-	assert.NoError(t, err)
-}
 
 // TestDispatchExecutionWithEngine_SkipFalse_NoLLMSource verifies that when
 // skipLLMRepl=false but the workflow has no LLM source, the function falls

@@ -1,19 +1,14 @@
-apiVersion: kdeps.io/v1
-kind: Resource
+actionId: response
+name: Response
+requires: [readConfig]
 
-metadata:
-  actionId: response
-  name: Response
-  requires: [readConfig]
-
-run:
-  apiResponse:
-    success: true
-    response:
-      # Direct namespace object access.
-      workflow_name: "{{ workflow.metadata.name }}"
-      workflow_version: "{{ workflow.metadata.version }}"
-      # get() with namespace path and fallback default.
-      timezone: "{{ get('config.defaults.timezone', 'UTC') }}"
-      # Exec output.
-      model_from_exec: "{{ get('readConfig') }}"
+apiResponse:
+  success: true
+  response:
+    # Direct namespace object access.
+    workflow_name: "{{ workflow.metadata.name }}"
+    workflow_version: "{{ workflow.metadata.version }}"
+    # get() with namespace path and fallback default.
+    timezone: "{{ get('config.defaults.timezone', 'UTC') }}"
+    # Exec output.
+    model_from_exec: "{{ get('readConfig') }}"

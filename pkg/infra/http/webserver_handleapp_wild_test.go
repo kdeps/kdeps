@@ -36,8 +36,7 @@ func TestWebServer_HandleAppRequest_NoPort2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -61,8 +60,7 @@ func TestWebServer_HandleAppRequest_WithPort(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -114,7 +112,6 @@ func TestWebServer_HandleAppRequest_InvalidURL(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "invalid-host-format",
 			WebServer: &domain.WebServerConfig{},
 		},
 	}
@@ -141,8 +138,7 @@ func TestWebServer_HandleAppRequest_WebSocketUpgrade(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -170,8 +166,7 @@ func TestWebServer_HandleAppRequest_PathForwarding(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -196,8 +191,7 @@ func TestWebServer_HandleAppRequest_RootPath(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			HostIP:    "127.0.0.1",
-			WebServer: &domain.WebServerConfig{},
+			WebServer: &domain.WebServerConfig{HostIP: "127.0.0.1"},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())

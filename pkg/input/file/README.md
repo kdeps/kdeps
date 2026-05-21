@@ -110,10 +110,9 @@ kind: Resource
 metadata:
   actionId: summarize
 
-run:
-  chat:
-    model: llama3.2:3b
-    prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
+chat:
+  model: llama3.2:3b
+  prompt: "Summarize the following document:\n\n{{ input('fileContent') }}"
 ```
 
 ## Input resolution order

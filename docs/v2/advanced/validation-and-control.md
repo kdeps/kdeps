@@ -20,18 +20,14 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: conditionalResource
-  name: Conditional Resource
-run:
-  validations:
-    skip:
-      - get('skip') == true
-      - get('mode') == 'dry-run'
-  chat:
-    prompt: "{{ get('q') }}"
+actionId: conditionalResource
+name: Conditional Resource
+validations:
+  skip:
+    - get('skip') == true
+    - get('mode') == 'dry-run'
+chat:
+  prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -67,22 +63,18 @@ Preflight checks validate inputs **before** resource execution begins. If any co
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: validatedResource
-  name: Validated Resource
-run:
-  validations:
-    check:
-      - get('q') != ''
-      - get('userId') != null
-      - len(get('q')) > 3
-    error:
-      code: 400
-      message: Query parameter 'q' is required and must be at least 3 characters
-  chat:
-    prompt: "{{ get('q') }}"
+actionId: validatedResource
+name: Validated Resource
+validations:
+  check:
+    - get('q') != ''
+    - get('userId') != null
+    - len(get('q')) > 3
+  error:
+    code: 400
+    message: Query parameter 'q' is required and must be at least 3 characters
+chat:
+  prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -138,17 +130,13 @@ Limit which HTTP requests can trigger a resource.
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: apiResource
-  name: API Resource
-run:
-  validations:
-    methods: [GET, POST]
-    routes: [/api/v1/data, /api/v1/query]
-  chat:
-    prompt: "{{ get('q') }}"
+actionId: apiResource
+name: API Resource
+validations:
+  methods: [GET, POST]
+  routes: [/api/v1/data, /api/v1/query]
+chat:
+  prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -182,14 +170,13 @@ validations:
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    methods: [POST]
-    routes:
-      - /api/v1/create
-      - /api/v1/update
-  chat:
-    prompt: "Create: {{ get('data') }}"
+validations:
+  methods: [POST]
+  routes:
+    - /api/v1/create
+    - /api/v1/update
+chat:
+  prompt: "Create: {{ get('data') }}"
 ```
 
 </div>
@@ -203,29 +190,25 @@ Validate the structure and content of request data using `required`, `rules`, an
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: validatedInput
-  name: Validated Input
-run:
-  validations:
-    required:
-      - userId
-      - action
-    properties:
-      userId:
-        type: string
-        minLength: 1
-      action:
-        type: string
-        enum: [create, update, delete]
-      age:
-        type: number
-        minimum: 18
-        maximum: 120
-  chat:
-    prompt: "{{ get('action') }} user {{ get('userId') }}"
+actionId: validatedInput
+name: Validated Input
+validations:
+  required:
+    - userId
+    - action
+  properties:
+    userId:
+      type: string
+      minLength: 1
+    action:
+      type: string
+      enum: [create, update, delete]
+    age:
+      type: number
+      minimum: 18
+      maximum: 120
+chat:
+  prompt: "{{ get('action') }} user {{ get('userId') }}"
 ```
 
 </div>
@@ -294,25 +277,22 @@ validations:
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    required: [email, password, confirmPassword]
-    properties:
-      email:
-        type: string
-        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
-      password:
-        type: string
-        minLength: 8
-      confirmPassword:
-        type: string
-    expr:
-      - expr: get('password') == get('confirmPassword')
-        message: "Passwords do not match"
-      - expr: get('email').includes('@')
-        message: "Email must contain @ symbol"
-  chat:
-    prompt: "Process user: {{ get('email') }}"
+validations:
+  required: [email, password, confirmPassword]
+  properties:
+    email:
+      type: string
+      pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+    password:
+      type: string
+      minLength: 8
+    confirmPassword:
+      type: string
+  expr:
+    - "get('password') == get('confirmPassword')"
+    - "get('email').includes('@')"
+chat:
+  prompt: "Process user: {{ get('email') }}"
 ```
 
 </div>
@@ -326,14 +306,13 @@ Restrict which headers and query parameters are allowed in requests.
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    headers:
-      - Authorization
-      - Content-Type
-      - X-API-Key
-  chat:
-    prompt: "{{ get('q') }}"
+validations:
+  headers:
+    - Authorization
+    - Content-Type
+    - X-API-Key
+chat:
+  prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -345,14 +324,13 @@ Headers not in this list are inaccessible via `get()`.
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    params:
-      - q
-      - userId
-      - action
-  chat:
-    prompt: "{{ get('q') }}"
+validations:
+  params:
+    - q
+    - userId
+    - action
+chat:
+  prompt: "{{ get('q') }}"
 ```
 
 </div>
@@ -364,17 +342,16 @@ Parameters not in this list are inaccessible via `get()`.
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/secure]
-    headers:
-      - Authorization
-      - Content-Type
-    params:
-      - action
-  chat:
-    prompt: "Secure action: {{ get('action') }}"
+validations:
+  methods: [POST]
+  routes: [/api/v1/secure]
+  headers:
+    - Authorization
+    - Content-Type
+  params:
+    - action
+chat:
+  prompt: "Secure action: {{ get('action') }}"
 ```
 
 </div>
@@ -435,20 +412,19 @@ validations:
 <div v-pre>
 
 ```yaml
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/admin]
-    headers: [Authorization]
-    check:
-      - get('adminToken') != null
-    error:
-      code: 401
-      message: Admin token required
-    skip:
-      - get('dryRun') == true
-  chat:
-    prompt: "Admin: {{ get('action') }}"
+validations:
+  methods: [POST]
+  routes: [/api/v1/admin]
+  headers: [Authorization]
+  check:
+    - get('adminToken') != null
+  error:
+    code: 401
+    message: Admin token required
+  skip:
+    - get('dryRun') == true
+chat:
+  prompt: "Admin: {{ get('action') }}"
 ```
 
 </div>
@@ -458,25 +434,21 @@ run:
 ### Example 1: Conditional Processing
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: smartProcessor
-  name: Smart Processor
-run:
-  validations:
-    skip:
-      - get('process') != true
-    check:
-      - get('data') != null
-      - len(get('data')) > 0
-    error:
-      code: 400
-      message: Data is required
-  python:
-    script: |
-      data = get('data')
-      return process(data)
+actionId: smartProcessor
+name: Smart Processor
+validations:
+  skip:
+    - get('process') != true
+  check:
+    - get('data') != null
+    - len(get('data')) > 0
+  error:
+    code: 400
+    message: Data is required
+python:
+  script: |
+    data = get('data')
+    return process(data)
 ```
 
 ### Example 2: Secure Endpoint
@@ -484,24 +456,20 @@ run:
 <div v-pre>
 
 ```yaml
-apiVersion: kdeps.io/v1
-kind: Resource
-metadata:
-  actionId: secureEndpoint
-  name: Secure Endpoint
-run:
-  validations:
-    methods: [POST]
-    routes: [/api/v1/secure]
-    headers: [Authorization, Content-Type]
-    check:
-      - get('Authorization') != null
-      - get('Authorization').startsWith('Bearer ')
-    error:
-      code: 401
-      message: Valid authorization token required
-  chat:
-    prompt: "Secure: {{ get('q') }}"
+actionId: secureEndpoint
+name: Secure Endpoint
+validations:
+  methods: [POST]
+  routes: [/api/v1/secure]
+  headers: [Authorization, Content-Type]
+  check:
+    - get('Authorization') != null
+    - get('Authorization').startsWith('Bearer ')
+  error:
+    code: 401
+    message: Valid authorization token required
+chat:
+  prompt: "Secure: {{ get('q') }}"
 ```
 
 </div>

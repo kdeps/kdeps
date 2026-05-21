@@ -204,16 +204,16 @@ func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
 func validateWASMResource(res *domain.Resource) []string {
 	kdeps_debug.Log("enter: validateWASMResource")
 	var errors []string
-	actionID := res.Metadata.ActionID
+	actionID := res.ActionID
 
-	if res.Run.Exec != nil {
+	if res.Exec != nil {
 		errors = append(errors, fmt.Sprintf(
 			"resource '%s': exec is not supported in WASM builds",
 			actionID,
 		))
 	}
 
-	if res.Run.Python != nil {
+	if res.Python != nil {
 		errors = append(errors, fmt.Sprintf(
 			"resource '%s': python is not supported in WASM builds",
 			actionID,
@@ -221,8 +221,8 @@ func validateWASMResource(res *domain.Resource) []string {
 	}
 
 	// Check for Ollama backend (not supported in WASM).
-	if res.Run.Chat != nil {
-		backend := res.Run.Chat.Backend
+	if res.Chat != nil {
+		backend := res.Chat.Backend
 		if backend == "" || backend == "ollama" {
 			errors = append(errors, fmt.Sprintf(
 				"resource '%s': ollama backend is not supported in WASM; use an online LLM backend (openai, anthropic, google, etc.)",

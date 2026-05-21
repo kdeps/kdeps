@@ -781,7 +781,7 @@ func TestCVMatcherExample(t *testing.T) {
 	// Collect actionIds for validation.
 	actionIDs := make([]string, 0, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 
 	// Verify the key pipeline steps are present.
@@ -872,7 +872,7 @@ func TestComponentKomponentExample(t *testing.T) {
 	// Verify that the component's resource was loaded
 	actionIDs := make([]string, 0, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(
 		t,
@@ -938,7 +938,7 @@ func TestComponentsUnpackedExample(t *testing.T) {
 	// Verify that the component's resource was loaded
 	actionIDs := make([]string, 0, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(
 		t,
@@ -994,7 +994,7 @@ func TestComponentsAdvancedExample(t *testing.T) {
 	// Verify that resources from both component types were loaded
 	actionIDs := make([]string, 0, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	// From unpacked formatter component
 	assert.Contains(t, actionIDs, "formatName")
@@ -1079,7 +1079,7 @@ func TestConfigNamespaceExample_ResourceParsing(t *testing.T) {
 
 	actionIDs := make([]string, 0, len(workflow.Resources))
 	for _, r := range workflow.Resources {
-		actionIDs = append(actionIDs, r.Metadata.ActionID)
+		actionIDs = append(actionIDs, r.ActionID)
 	}
 	assert.Contains(t, actionIDs, "readConfig", "readConfig resource should be loaded")
 	assert.Contains(t, actionIDs, "response", "response resource should be loaded")
@@ -1168,12 +1168,11 @@ func TestLlamafileChatExample_ResourceParsing(t *testing.T) {
 	require.NotNil(t, resource)
 
 	// Verify the resource has a chat config with backend: file.
-	require.NotNil(t, resource.Run)
-	require.NotNil(t, resource.Run.Chat)
+	require.NotNil(t, resource.Chat)
 	// Backend has yaml:"-" so it is not parsed from YAML; expect empty string.
-	assert.Equal(t, "", resource.Run.Chat.Backend)
-	assert.Equal(t, "llama3.2:1b", resource.Run.Chat.Model)
-	assert.Equal(t, "user", resource.Run.Chat.Role)
+	assert.Equal(t, "", resource.Chat.Backend)
+	assert.Equal(t, "llama3.2:1b", resource.Chat.Model)
+	assert.Equal(t, "user", resource.Chat.Role)
 }
 
 // TestLlamafileChatExample_MockExecution exercises the full execution path

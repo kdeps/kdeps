@@ -1,16 +1,11 @@
-apiVersion: kdeps.io/v1
-kind: Resource
-
-metadata:
-  actionId: response
-  name: Final Response
-  requires:
+actionId: response
+name: Final Response
+requires:
     - translate
     - summarize
 
-run:
-  apiResponse:
-    success: true
-    response:
-      translation: "{{ output('translate') }}"
-      summary:     "{{ output('summarize') }}"
+apiResponse:
+  success: true
+  response:
+    translation: "{{ output('translate') }}"
+    summary:     "{{ output('summarize') }}"

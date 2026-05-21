@@ -26,29 +26,27 @@ The output shape is the raw Telegram API response body, parsed as JSON.
 ## Usage
 
 ```yaml
-run:
-  component:
-    name: botreply
-    with:
-      token: "{{ get('env.TELEGRAM_TOKEN') }}"
-      chatId: "{{ get('env.CHAT_ID') }}"
-      text: "Deployment complete! Version 1.2.3 is live."
-  apiResponse:
-    success: true
-    response:
-      sent: "{{ output('notify').ok }}"
+component:
+  name: botreply
+  with:
+    token: "{{ get('env.TELEGRAM_TOKEN') }}"
+    chatId: "{{ get('env.CHAT_ID') }}"
+    text: "Deployment complete! Version 1.2.3 is live."
+apiResponse:
+  success: true
+  response:
+    sent: "{{ output('notify').ok }}"
 ```
 
 Using workflow session values:
 
 ```yaml
-run:
-  component:
-    name: botreply
-    with:
-      token: "{{ get('env.TELEGRAM_TOKEN') }}"
-      chatId: "123456789"
-      text: "{{ output('prevStep').summary }}"
+component:
+  name: botreply
+  with:
+    token: "{{ get('env.TELEGRAM_TOKEN') }}"
+    chatId: "123456789"
+    text: "{{ output('prevStep').summary }}"
 ```
 
 ## Requirements

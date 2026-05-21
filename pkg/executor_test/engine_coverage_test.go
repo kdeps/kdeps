@@ -41,12 +41,10 @@ func TestEngine_Execute_APIResponseUnwrap_WithoutData(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "api"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"value": "test"},
-					},
+				ActionID: "api",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"value": "test"},
 				},
 			},
 		},
@@ -87,12 +85,10 @@ func TestEngine_Execute_APIResponseUnwrap_WithSuccessButNoDataKey(t *testing.T) 
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "api"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"result": "ok"},
-					},
+				ActionID: "api",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"result": "ok"},
 				},
 			},
 		},
@@ -112,11 +108,9 @@ func TestEngine_ExecuteAPIResponse_NilContext(t *testing.T) {
 	engine.SetEvaluatorForTesting(nil) // Ensure evaluator is nil
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-			},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
 		},
 	}
 
@@ -142,18 +136,14 @@ func TestEngine_ExecuteAPIResponse_MetaHeadersOnly(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
-				Meta: &domain.ResponseMeta{
-					Headers: map[string]string{
-						"X-Custom": "value",
-					},
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
+			},
+			Headers: map[string]string{
+				"X-Custom": "value",
 			},
 		},
 	}
@@ -191,18 +181,14 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_ExistingMeta(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
-				Meta: &domain.ResponseMeta{
-					Headers: map[string]string{
-						"X-Custom": "value",
-					},
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
+			},
+			Headers: map[string]string{
+				"X-Custom": "value",
 			},
 		},
 	}
@@ -240,13 +226,11 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_NewMeta(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
 			},
 		},
 	}
@@ -284,13 +268,11 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_Partial(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
 			},
 		},
 	}
@@ -329,18 +311,14 @@ func TestEngine_ExecuteAPIResponse_LLMMetadata_YAMLOverride(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
-				Meta: &domain.ResponseMeta{
-					Model:   "claude-3",  // YAML overrides
-					Backend: "anthropic", // YAML overrides
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
 			},
+			Model:   "claude-3",  // YAML overrides
+			Backend: "anthropic", // YAML overrides
 		},
 	}
 
@@ -372,16 +350,11 @@ func TestEngine_ExecuteAPIResponse_EmptyMetaMap(t *testing.T) {
 	engine.SetEvaluatorForTesting(expression.NewEvaluator(ctx.API))
 
 	resource := &domain.Resource{
-		Metadata: domain.ResourceMetadata{ActionID: "test"},
-		Run: domain.RunConfig{
-			APIResponse: &domain.APIResponseConfig{
-				Success: true,
-				Response: map[string]interface{}{
-					"message": "ok",
-				},
-				Meta: &domain.ResponseMeta{
-					// All fields empty
-				},
+		ActionID: "test",
+		APIResponse: &domain.APIResponseConfig{
+			Success: true,
+			Response: map[string]interface{}{
+				"message": "ok",
 			},
 		},
 	}
@@ -411,12 +384,10 @@ func TestEngine_Execute_AfterEvaluatorInit(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "test"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+				ActionID: "test",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ok": true},
 				},
 			},
 		},
@@ -441,12 +412,10 @@ func TestEngine_Execute_EvaluatorDebugMode(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "test"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success:  true,
-						Response: map[string]interface{}{"ok": true},
-					},
+				ActionID: "test",
+				APIResponse: &domain.APIResponseConfig{
+					Success:  true,
+					Response: map[string]interface{}{"ok": true},
 				},
 			},
 		},
@@ -470,11 +439,9 @@ func TestEngine_Execute_GetExecutionOrderError(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "test"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-					},
+				ActionID: "test",
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
 				},
 			},
 		},
@@ -497,13 +464,11 @@ func TestEngine_Execute_ResourceOutput_NotMap(t *testing.T) {
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{ActionID: "test"},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"data": "simple string",
-						},
+				ActionID: "test",
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"data": "simple string",
 					},
 				},
 			},

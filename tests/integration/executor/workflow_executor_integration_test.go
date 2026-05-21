@@ -42,24 +42,21 @@ func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
 			TargetActionID: "hello-response",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "hello-response",
-					Name:     "Hello Response",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message": "Hello from integration test!",
-							"test":    "single-resource",
-						},
+
+				ActionID: "hello-response",
+				Name:     "Hello Response",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message": "Hello from integration test!",
+						"test":    "single-resource",
 					},
 				},
 			},
@@ -94,55 +91,48 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 			TargetActionID: "final-result",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step1",
-					Name:     "Step 1",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"step":   1,
-							"output": "first step completed",
-						},
+
+				ActionID: "step1",
+				Name:     "Step 1",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"step":   1,
+						"output": "first step completed",
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step2",
-					Name:     "Step 2",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"step":   2,
-							"output": "second step completed",
-						},
+
+				ActionID: "step2",
+				Name:     "Step 2",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"step":   2,
+						"output": "second step completed",
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "final-result",
-					Name:     "Final Result",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"message":     "Multi-resource workflow completed!",
-							"total_steps": 3,
-							"test":        "multi-resource",
-						},
+
+				ActionID: "final-result",
+				Name:     "Final Result",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"message":     "Multi-resource workflow completed!",
+						"total_steps": 3,
+						"test":        "multi-resource",
 					},
 				},
 			},
@@ -178,64 +168,57 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 			TargetActionID: "combine-results",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "get-user-data",
-					Name:     "Get User Data",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"user_id": 123,
-							"name":    "John Doe",
-							"email":   "john@example.com",
-						},
+
+				ActionID: "get-user-data",
+				Name:     "Get User Data",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"user_id": 123,
+						"name":    "John Doe",
+						"email":   "john@example.com",
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-user",
-					Name:     "Process User",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"processed": true,
-							"user_info": map[string]interface{}{
-								"id":    123,
-								"name":  "John Doe",
-								"email": "john@example.com",
-							},
-							"timestamp": "2024-01-01T10:00:00Z",
+
+				ActionID: "process-user",
+				Name:     "Process User",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"processed": true,
+						"user_info": map[string]interface{}{
+							"id":    123,
+							"name":  "John Doe",
+							"email": "john@example.com",
 						},
+						"timestamp": "2024-01-01T10:00:00Z",
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "combine-results",
-					Name:     "Combine Results",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"status": "completed",
-							"data": map[string]interface{}{
-								"user_processed": true,
-								"workflow":       "dependency-test",
-							},
-							"test": "dependencies",
+
+				ActionID: "combine-results",
+				Name:     "Combine Results",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"status": "completed",
+						"data": map[string]interface{}{
+							"user_processed": true,
+							"workflow":       "dependency-test",
 						},
+						"test": "dependencies",
 					},
 				},
 			},
@@ -275,24 +258,21 @@ func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
 			TargetActionID: "failing-resource",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "failing-resource",
-					Name:     "Failing Resource",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: false,
-						Response: map[string]interface{}{
-							"error": "Simulated failure",
-							"code":  500,
-						},
+
+				ActionID: "failing-resource",
+				Name:     "Failing Resource",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: false,
+					Response: map[string]interface{}{
+						"error": "Simulated failure",
+						"code":  500,
 					},
 				},
 			},
@@ -326,7 +306,6 @@ func TestWorkflowExecutor_EmptyWorkflow(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -357,55 +336,48 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 			TargetActionID: "step3",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step1",
-					Name:     "Step 1",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order": "first",
-							"step":  1,
-						},
+
+				ActionID: "step1",
+				Name:     "Step 1",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order": "first",
+						"step":  1,
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step2",
-					Name:     "Step 2",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order": "second",
-							"step":  2,
-						},
+
+				ActionID: "step2",
+				Name:     "Step 2",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order": "second",
+						"step":  2,
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "step3",
-					Name:     "Step 3",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"order":     "third",
-							"step":      3,
-							"completed": true,
-						},
+
+				ActionID: "step3",
+				Name:     "Step 3",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"order":     "third",
+						"step":      3,
+						"completed": true,
 					},
 				},
 			},
@@ -441,58 +413,51 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 			TargetActionID: "aggregate",
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
 		},
 		Resources: []*domain.Resource{
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "collect-data",
-					Name:     "Collect Data",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"data": []interface{}{1, 2, 3, 4, 5},
-							"type": "numbers",
-						},
+
+				ActionID: "collect-data",
+				Name:     "Collect Data",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"data": []interface{}{1, 2, 3, 4, 5},
+						"type": "numbers",
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "process-data",
-					Name:     "Process Data",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"processed": true,
-							"count":     5,
-							"sum":       15,
-						},
+
+				ActionID: "process-data",
+				Name:     "Process Data",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"processed": true,
+						"count":     5,
+						"sum":       15,
 					},
 				},
 			},
 			{
-				Metadata: domain.ResourceMetadata{
-					ActionID: "aggregate",
-					Name:     "Aggregate Results",
-				},
-				Run: domain.RunConfig{
-					APIResponse: &domain.APIResponseConfig{
-						Success: true,
-						Response: map[string]interface{}{
-							"workflow":    "dataflow-test",
-							"completed":   true,
-							"data_points": 5,
-							"total_sum":   15,
-							"test":        "dataflow",
-						},
+
+				ActionID: "aggregate",
+				Name:     "Aggregate Results",
+
+				APIResponse: &domain.APIResponseConfig{
+					Success: true,
+					Response: map[string]interface{}{
+						"workflow":    "dataflow-test",
+						"completed":   true,
+						"data_points": 5,
+						"total_sum":   15,
+						"test":        "dataflow",
 					},
 				},
 			},
@@ -530,18 +495,16 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 
 	for i := range numResources {
 		resources[i] = &domain.Resource{
-			Metadata: domain.ResourceMetadata{
-				ActionID: fmt.Sprintf("resource-%d", i),
-				Name:     fmt.Sprintf("Resource %d", i),
-			},
-			Run: domain.RunConfig{
-				APIResponse: &domain.APIResponseConfig{
-					Success: true,
-					Response: map[string]interface{}{
-						"index": i,
-						"name":  fmt.Sprintf("resource-%d", i),
-						"data":  fmt.Sprintf("data-%d", i),
-					},
+
+			ActionID: fmt.Sprintf("resource-%d", i),
+			Name:     fmt.Sprintf("Resource %d", i),
+
+			APIResponse: &domain.APIResponseConfig{
+				Success: true,
+				Response: map[string]interface{}{
+					"index": i,
+					"name":  fmt.Sprintf("resource-%d", i),
+					"data":  fmt.Sprintf("data-%d", i),
 				},
 			},
 		}
@@ -556,7 +519,6 @@ func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
 			TargetActionID: fmt.Sprintf("resource-%d", numResources-1),
 		},
 		Settings: domain.WorkflowSettings{
-			APIServerMode: false,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
