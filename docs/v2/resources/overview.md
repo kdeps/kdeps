@@ -389,7 +389,7 @@ Use `validations.check` to validate inputs before expensive operations.
 Only list direct dependencies in `requires`. KDeps handles transitive dependencies.
 
 ### 5. Use Appropriate Timeouts
-Set realistic `timeoutDuration` values based on expected execution time.
+Set realistic `timeout` values based on expected execution time.
 
 ## Next Steps
 

@@ -4,6 +4,8 @@ Cross-Origin Resource Sharing (CORS) configuration allows you to control how the
 
 CORS settings are defined within the `apiServer` configuration under the `cors` block. These settings are particularly useful when your API is accessed by web applications hosted on different domains.
 
+**CORS is active whenever a `cors:` block is present.** If no `cors:` block is defined, KDeps uses permissive defaults (all origins, common methods, credentials allowed).
+
 ## Basic Configuration
 
 To configure CORS, you define the `cors` block inside the `apiServer` configuration:
@@ -17,7 +19,6 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
         - https://myapp.com
@@ -36,7 +37,6 @@ settings:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enableCors` | boolean | Enables or disables CORS support (default: `true`) |
 | `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). KDeps smartly echoes the requested origin when `"*"` is used to support credentials. |
 | `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. Default: all common methods. |
 | `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). Default: common headers including `Content-Type`, `Authorization`, `Accept`, `X-Requested-With`. |
@@ -55,7 +55,6 @@ KDeps achieves this by checking if the incoming `Origin` matches your `allowOrig
 ```yaml
 # Default behavior (no config needed)
 cors:
-  enableCors: true
   allowOrigins: ["*"]
   allowCredentials: true
 ```
@@ -66,7 +65,6 @@ For production, it is highly recommended to restrict to specific domains:
 
 ```yaml
 cors:
-  enableCors: true
   allowOrigins:
     - https://myapp.com
     - https://www.myapp.com
@@ -94,14 +92,12 @@ You can configure different CORS settings for different environments:
 ```yaml
 # Development
 cors:
-  enableCors: true
   allowOrigins:
     - http://localhost:16395
   allowCredentials: true
 
 # Production
 cors:
-  enableCors: true
   allowOrigins:
     - https://myapp.com
   allowCredentials: true
@@ -146,15 +142,14 @@ cors:
 
 If you see CORS errors in the browser console:
 
-1. **Check `enableCors`**: Ensure `enableCors: true` is set.
-2. **Verify Origins**: Make sure your frontend origin is in the `allowOrigins` list.
-3. **Check Methods**: Ensure the HTTP method is in `allowMethods`.
-4. **Check Headers**: Verify custom headers are in `allowHeaders`.
-5. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
+1. **Verify Origins**: Make sure your frontend origin is in the `allowOrigins` list.
+2. **Check Methods**: Ensure the HTTP method is in `allowMethods`.
+3. **Check Headers**: Verify custom headers are in `allowHeaders`.
+4. **Credentials Mismatch**: If using credentials, ensure `allowCredentials: true` and origins are not `"*"`.
 
 ### Common Error Messages
 
-- **"No 'Access-Control-Allow-Origin' header"**: CORS is disabled or origin not in `allowOrigins`.
+- **"No 'Access-Control-Allow-Origin' header"**: Origin not in `allowOrigins`.
 - **"Method not allowed"**: HTTP method not in `allowMethods`.
 - **"Header not allowed"**: Custom header not in `allowHeaders`.
 - **"Credentials not allowed"**: Using credentials with wildcard origin (`"*"`).
@@ -178,7 +173,6 @@ settings:
       - path: /api/v1/data
         methods: [GET, POST, PUT, DELETE]
     cors:
-      enableCors: true
       allowOrigins:
         - https://myapp.com
         - https://admin.myapp.com

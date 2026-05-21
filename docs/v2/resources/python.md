@@ -52,7 +52,7 @@ python:
 | `scriptFile` | Path to a `.py` file to execute. |
 | `args` | List of command-line arguments. |
 | `venvName` | Name of the virtual environment to use. Defaults to "default". |
-| `timeoutDuration` | Maximum time allowed for execution. |
+| `timeout` | Maximum time allowed for execution. |
 
 ## Inline Scripts
 

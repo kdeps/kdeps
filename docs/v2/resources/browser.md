@@ -28,7 +28,7 @@ apiResponse:
 | `waitFor` | CSS selector to wait for before running actions | — |
 | `headless` | Run browser in headless mode | `true` |
 | `sessionId` | Reuse a named persistent browser session | — |
-| `timeoutDuration` | Global action timeout (e.g. `"30s"`) | `30s` |
+| `timeout` | Global action timeout (e.g. `"30s"`) | `30s` |
 | `viewport.width` | Browser viewport width in pixels | `1280` |
 | `viewport.height` | Browser viewport height in pixels | `720` |
 | `userAgent` | Custom User-Agent string for the browser | *(default Mozilla/5.0)* |

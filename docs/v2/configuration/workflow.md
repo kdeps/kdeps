@@ -66,7 +66,6 @@ settings:
       - path: /api/v1/chat
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
     auth:
