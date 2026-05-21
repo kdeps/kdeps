@@ -136,7 +136,8 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 		}
 		return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 	}
-	return w.ResponseWriter.Write(b) //nolint:lll // codeql[go/reflected-xss]
+	// lgtm[go/reflected-xss] - only reached for non-browser content types (JSON, binary); HTML is escaped above.
+	return w.ResponseWriter.Write(b)
 }
 
 // HeadersWritten returns whether headers have been written.
