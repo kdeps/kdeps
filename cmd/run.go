@@ -74,6 +74,11 @@ const (
 	// maxExtractFileSize is the maximum size allowed for extracted files to prevent decompression bombs.
 	maxExtractFileSize = 100 * 1024 * 1024 // 100MB
 
+	// maxPortScanRange is the number of consecutive ports checked when the configured port is busy.
+	maxPortScanRange = 100
+	// maxPort is the highest valid TCP port number.
+	maxPort = 65535
+
 	agencyFile       = "agency.yaml"
 	agencyYAMLJ2File = "agency.yaml.j2"
 	agencyYMLFile    = "agency.yml"
@@ -908,21 +913,50 @@ func (a *RequestContextAdapter) Execute(
 }
 
 // CheckPortAvailable checks if a port is available for binding (exported for testing).
+// It probes both tcp4 and tcp6 because on macOS Go's "tcp" with an IPv4 literal
+// (e.g. "0.0.0.0:port") creates an IPv4-only socket, which does not conflict with
+// an IPv6 dual-stack socket that may already hold the port. Probing both families
+// ensures the check mirrors the dual-stack socket the actual server will create.
 func CheckPortAvailable(host string, port int) error {
 	kdeps_debug.Log("enter: CheckPortAvailable")
-	addr := fmt.Sprintf("%s:%d", host, port)
-	listener, err := (&net.ListenConfig{
-		Control:   nil,
-		KeepAlive: 0,
-	}).Listen(context.Background(), "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
+	addrs := []struct {
+		network string
+		addr    string
+	}{
+		{"tcp4", fmt.Sprintf("%s:%d", host, port)},
+		{"tcp6", fmt.Sprintf("[::]:%d", port)},
 	}
-	if closeErr := listener.Close(); closeErr != nil {
-		// Log the error but don't fail the check since the port was available
-		kdepslog.Warn("failed to close test listener", "error", closeErr)
+	for _, a := range addrs {
+		ln, err := (&net.ListenConfig{}).Listen(context.Background(), a.network, a.addr)
+		if err != nil {
+			return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
+		}
+		if closeErr := ln.Close(); closeErr != nil {
+			kdepslog.Warn("failed to close test listener", "error", closeErr)
+		}
 	}
 	return nil
+}
+
+// FindAvailablePort returns the first available port starting from the given port,
+// incrementing by 1 up to maxPortScanRange ports. Prints a notice when the
+// configured port is in use and a different port is selected.
+func FindAvailablePort(host string, port int) (int, error) {
+	kdeps_debug.Log("enter: FindAvailablePort")
+	for offset := range maxPortScanRange {
+		candidate := port + offset
+		if candidate > maxPort {
+			break
+		}
+		checkErr := CheckPortAvailable(host, candidate)
+		if checkErr == nil {
+			if offset > 0 {
+				fmt.Fprintf(os.Stdout, "  ⚠ Port %d in use, using port %d instead\n", port, candidate)
+			}
+			return candidate, nil
+		}
+	}
+	return 0, fmt.Errorf("no available port found in range %d-%d on %s", port, port+maxPortScanRange-1, host)
 }
 
 // Ollama management constants.
@@ -1259,12 +1293,13 @@ func StartHTTPServer(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	printRoutes(workflow.Settings.APIServer)
@@ -1444,11 +1479,13 @@ func startHTTPServerWithEngine(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	printRoutes(workflow.Settings.APIServer)
@@ -1528,6 +1565,12 @@ func startBothServersWithEngine(
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
+
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
+		return fmt.Errorf("server cannot start: %w", err)
+	}
+	portNum = availablePort
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
@@ -1668,12 +1711,13 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
-	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, portNum); err != nil {
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
 		return fmt.Errorf("web server cannot start: %w", err)
 	}
+	portNum = availablePort
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting web server on %s\n", addr)
 	fmt.Fprintln(os.Stdout, "\nRoutes:")
@@ -1902,13 +1946,18 @@ func StartBothServers(
 	// Merge web routes onto API router
 	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
-	// Print server info
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
 
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
+
+	availablePort, err := FindAvailablePort(hostIP, portNum)
+	if err != nil {
+		return fmt.Errorf("server cannot start: %w", err)
+	}
+	portNum = availablePort
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")

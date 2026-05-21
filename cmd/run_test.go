@@ -782,6 +782,36 @@ func TestCheckPortAvailable(t *testing.T) {
 	})
 }
 
+func TestFindAvailablePort_FreePort(t *testing.T) {
+	port, err := cmd.FindAvailablePort("127.0.0.1", 0)
+	require.NoError(t, err)
+	assert.Equal(t, 0, port, "port 0 should always be returned as-is (OS picks the port)")
+}
+
+func TestFindAvailablePort_UsedPort(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	addr := listener.Addr().(*net.TCPAddr)
+	usedPort := addr.Port
+
+	found, err := cmd.FindAvailablePort("127.0.0.1", usedPort)
+	require.NoError(t, err)
+	assert.Greater(t, found, usedPort, "should find a port higher than the occupied one")
+}
+
+func TestFindAvailablePort_AvailablePort(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	freePort := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+
+	found, err := cmd.FindAvailablePort("127.0.0.1", freePort)
+	require.NoError(t, err)
+	assert.Equal(t, freePort, found, "available port should be returned without increment")
+}
+
 func TestStartHTTPServer_InvalidPort(t *testing.T) {
 	// Test with a port that's already in use
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -798,10 +828,18 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 		},
 	}
 
-	// This should fail because the port is already in use
+	// Auto-port: StartHTTPServer should succeed by finding the next available port.
+	// Send SIGINT shortly after to prevent the test from blocking forever.
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		p, _ := os.FindProcess(os.Getpid())
+		_ = p.Signal(syscall.SIGINT)
+	}()
 	err = cmd.StartHTTPServer(workflow, "", false, false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "API server cannot start")
+	// Nil or context-cancelled errors are both acceptable here.
+	if err != nil {
+		assert.NotContains(t, err.Error(), "API server cannot start")
+	}
 }
 
 func TestStartHTTPServer_ValidConfig(t *testing.T) {
