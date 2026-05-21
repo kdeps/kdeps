@@ -167,9 +167,7 @@ func TestTemplateData_ToJinja2Data(t *testing.T) {
 		Version:     "1.0.0",
 		Port:        8080,
 		Resources:   []string{"http-client", "llm", "response"},
-		Features: map[string]bool{
-			"enableCors": true,
-		},
+		Features:    map[string]bool{},
 	}
 
 	result := data.ToJinja2Data()
@@ -179,7 +177,6 @@ func TestTemplateData_ToJinja2Data(t *testing.T) {
 	assert.Equal(t, "1.0.0", result["version"])
 	assert.Equal(t, 8080, result["port"])
 	assert.Equal(t, []string{"http-client", "llm", "response"}, result["resources"])
-	assert.Equal(t, true, result["enableCors"])
 }
 
 func TestGenerator_Jinja2TemplateGeneration(t *testing.T) {

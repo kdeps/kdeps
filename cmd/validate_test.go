@@ -75,7 +75,7 @@ func TestRunValidateCmd_ResourceFile(t *testing.T) {
 name: Read Config
 exec:
   command: "echo hello"
-  timeoutDuration: 5s
+  timeout: 5s
 `
 	resourcePath := filepath.Join(tmpDir, "read-config.yaml")
 	err := os.WriteFile(resourcePath, []byte(resourceContent), 0644)

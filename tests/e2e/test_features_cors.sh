@@ -49,7 +49,6 @@ settings:
       - path: /api/v1/cors
         methods: [GET, POST]
     cors:
-      enableCors: true
       allowOrigins:
         - http://localhost:16395
         - https://example.com

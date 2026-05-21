@@ -198,9 +198,7 @@ func TestServer_CorsMiddleware_NoCORS(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
-				CORS: &domain.CORS{
-					EnableCORS: &[]bool{false}[0],
-				},
+				CORS: &domain.CORS{},
 			},
 		},
 	}
@@ -226,7 +224,6 @@ func TestServer_CorsMiddleware_WithCORS(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"http://localhost:16395"},
 					AllowMethods: []string{"GET", "POST"},
 					AllowHeaders: []string{"Content-Type"},

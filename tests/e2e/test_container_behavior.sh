@@ -73,7 +73,6 @@ settings:
       - path: /echo
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 
@@ -107,7 +106,6 @@ settings:
       - path: /echo
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

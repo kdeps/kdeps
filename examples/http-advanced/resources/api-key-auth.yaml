@@ -25,7 +25,7 @@ httpClient:
 
   # Advanced options
   followRedirects: true
-  timeoutDuration: 15s
+  timeout: 15s
 
   # Retry with exponential backoff
   retry:

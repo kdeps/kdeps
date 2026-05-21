@@ -74,7 +74,7 @@ resources:
       params:
         - "get('session_id', 'default')"
       format: json
-      timeoutDuration: 10s
+      timeout: 10s
 
   # ────────────────────────────────────────────────────────────────────────────
   # TOOLS  (invoked by the LLM during ReAct reasoning — not in normal DAG flow)
@@ -87,7 +87,7 @@ resources:
     httpClient:
       method: GET
       url: "https://api.duckduckgo.com/?q={{ get('query') }}&format=json&no_html=1&skip_disambig=1"
-      timeoutDuration: 10s
+      timeout: 10s
       headers:
         Accept: "application/json"
         User-Agent: "personal-assistant/1.0"
@@ -154,7 +154,7 @@ resources:
       args:
         - "-c"
         - "{{ get('command') }}"
-      timeoutDuration: 15s
+      timeout: 15s
 
   # ── Tool 6: calculator ───────────────────────────────────────────────────────
   # Evaluates a mathematical expression safely (no arbitrary code execution).
@@ -406,7 +406,7 @@ resources:
           parameters: {}
 
       streaming: true
-      timeoutDuration: 120s
+      timeout: 120s
 
   # ── Extract plain-text reply from raw Ollama response ───────────────────────
   - actionId: extract-reply
@@ -431,7 +431,7 @@ resources:
         - "get('session_id', 'default')"
         - "'user'"
         - "get('message')"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # ── Memory: persist assistant reply ─────────────────────────────────────────
   - actionId: save-assistant-turn
@@ -446,7 +446,7 @@ resources:
         - "get('session_id', 'default')"
         - "'assistant'"
         - "get('reply')"
-      timeoutDuration: 10s
+      timeout: 10s
 
   # ── Response ──────────────────────────────────────────────────────────────────
   - actionId: brain-response

@@ -187,7 +187,6 @@ routes:
     methods:
       - GET
 cors:
-  enableCors: true
   allowOrigins:
     - https://example.com
   allowMethods:
@@ -212,10 +211,6 @@ cors:
 
 	if config.CORS == nil {
 		t.Fatal("CORS is nil")
-	}
-
-	if config.CORS.EnableCORS == nil || !*config.CORS.EnableCORS {
-		t.Error("EnableCORS should be true")
 	}
 
 	if !config.CORS.AllowCredentials {
@@ -351,36 +346,25 @@ routes:
 // TestWorkflow_UnmarshalYAML tests the UnmarshalYAML method for Workflow.
 
 func TestGetCORSConfig(t *testing.T) {
-	trueVal := true
-	falseVal := false
-
 	tests := []struct {
-		name     string
-		settings domain.WorkflowSettings
-		expected bool
+		name            string
+		settings        domain.WorkflowSettings
+		wantOrigins     []string
+		wantMethodsNone bool
 	}{
 		{
-			name:     "default settings (no APIServer)",
-			settings: domain.WorkflowSettings{},
-			expected: true,
+			name:        "default settings (no APIServer)",
+			settings:    domain.WorkflowSettings{},
+			wantOrigins: []string{"*"},
 		},
 		{
-			name: "explicitly enabled",
+			name: "cors block with origins",
 			settings: domain.WorkflowSettings{
 				APIServer: &domain.APIServerConfig{
-					CORS: &domain.CORS{EnableCORS: &trueVal},
+					CORS: &domain.CORS{AllowOrigins: []string{"https://example.com"}},
 				},
 			},
-			expected: true,
-		},
-		{
-			name: "explicitly disabled",
-			settings: domain.WorkflowSettings{
-				APIServer: &domain.APIServerConfig{
-					CORS: &domain.CORS{EnableCORS: &falseVal},
-				},
-			},
-			expected: false,
+			wantOrigins: []string{"https://example.com"},
 		},
 		{
 			name: "partially overridden - should merge",
@@ -391,23 +375,21 @@ func TestGetCORSConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			wantOrigins: []string{"https://custom.com"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := tt.settings.GetCORSConfig()
-			if config.EnableCORS == nil || *config.EnableCORS != tt.expected {
-				t.Errorf("GetCORSConfig().EnableCORS = %v, want %v", config.EnableCORS, tt.expected)
+			if len(config.AllowOrigins) == 0 {
+				t.Error("AllowOrigins should not be empty")
 			}
-			if tt.name == "partially overridden - should merge" {
-				if len(config.AllowOrigins) != 1 || config.AllowOrigins[0] != "https://custom.com" {
-					t.Errorf("AllowOrigins not merged correctly: %v", config.AllowOrigins)
-				}
-				if len(config.AllowMethods) == 0 {
-					t.Error("AllowMethods should have defaults")
-				}
+			if tt.wantOrigins != nil && config.AllowOrigins[0] != tt.wantOrigins[0] {
+				t.Errorf("AllowOrigins[0] = %v, want %v", config.AllowOrigins[0], tt.wantOrigins[0])
+			}
+			if tt.name == "partially overridden - should merge" && len(config.AllowMethods) == 0 {
+				t.Error("AllowMethods should have defaults")
 			}
 		})
 	}

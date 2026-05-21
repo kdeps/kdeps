@@ -19,7 +19,6 @@ settings:
       - path: /api/v1/process
         methods: [POST]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

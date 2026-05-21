@@ -292,7 +292,7 @@
         "streaming": {
           "type": "boolean"
         },
-        "timeoutDuration": {
+        "timeout": {
           "type": "string"
         },
         "temperature": {
@@ -371,7 +371,7 @@
         "maxRows": {
           "type": "integer"
         },
-        "timeoutDuration": {
+        "timeout": {
           "type": "string"
         }
       }
@@ -394,7 +394,7 @@
             "type": "string"
           }
         },
-        "timeoutDuration": {
+        "timeout": {
           "type": "string"
         },
         "venvName": {
@@ -415,7 +415,7 @@
             "type": "string"
           }
         },
-        "timeoutDuration": {
+        "timeout": {
           "type": "string"
         },
         "workingDir": {

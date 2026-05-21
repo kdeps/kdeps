@@ -27,4 +27,4 @@ chat:
   jsonResponse: true
   jsonResponseKeys:
     - answer
-  timeoutDuration: 120s
+  timeout: 120s

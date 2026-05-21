@@ -60,7 +60,7 @@ func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
 			Type:  "bearer",
 			Token: "token-123",
 		},
-		Cache: &domain.HTTPCacheConfig{Enabled: true},
+		Cache: &domain.HTTPCacheConfig{},
 	}
 
 	result, err := exec.Execute(ctx, config)

@@ -204,12 +204,12 @@ func TestParseConfig_AllFields(t *testing.T) {
 	t.Parallel()
 	headless := false
 	cfg := &domain.BrowserConfig{
-		Engine:          domain.BrowserEngineFirefox,
-		URL:             "https://example.com",
-		SessionID:       "sess-1",
-		WaitFor:         ".ready",
-		TimeoutDuration: "10s",
-		Headless:        &headless,
+		Engine:    domain.BrowserEngineFirefox,
+		URL:       "https://example.com",
+		SessionID: "sess-1",
+		WaitFor:   ".ready",
+		Timeout:   "10s",
+		Headless:  &headless,
 	}
 	r := parseConfig(cfg, nil)
 	assert.Equal(t, domain.BrowserEngineFirefox, r.engineName)
@@ -222,7 +222,7 @@ func TestParseConfig_AllFields(t *testing.T) {
 
 func TestParseConfig_InvalidDuration(t *testing.T) {
 	t.Parallel()
-	r := parseConfig(&domain.BrowserConfig{TimeoutDuration: "notaduration"}, nil)
+	r := parseConfig(&domain.BrowserConfig{Timeout: "notaduration"}, nil)
 	assert.Equal(t, defaultBrowserTimeout, r.timeout)
 }
 
@@ -1252,7 +1252,7 @@ func TestParseConfig_StealthModeNil(t *testing.T) {
 
 func TestParseConfig_ValidDuration(t *testing.T) {
 	t.Parallel()
-	cfg := &domain.BrowserConfig{TimeoutDuration: "5s"}
+	cfg := &domain.BrowserConfig{Timeout: "5s"}
 	r := parseConfig(cfg, nil)
 	assert.Equal(t, 5*time.Second, r.timeout)
 }

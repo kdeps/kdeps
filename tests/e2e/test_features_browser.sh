@@ -56,7 +56,7 @@ name: Navigate to Example
 browser:
   engine: chromium
   url: "https://example.com"
-  timeoutDuration: 30s
+  timeout: 30s
   actions:
     - action: screenshot
       outputFile: /tmp/screenshot.png
@@ -100,7 +100,7 @@ name: Browser All Actions
 browser:
   engine: chromium
   url: "https://example.com"
-  timeoutDuration: 30s
+  timeout: 30s
   actions:
     - action: navigate
       url: "https://example.com"
@@ -178,7 +178,7 @@ browser:
   viewport:
     width: 1920
     height: 1080
-  timeoutDuration: 30s
+  timeout: 30s
   actions:
     - action: screenshot
       fullPage: true

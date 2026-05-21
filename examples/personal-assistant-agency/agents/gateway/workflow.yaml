@@ -25,7 +25,6 @@ settings:
       - path: /api/v1/heartbeat
         methods: [POST]
     cors:
-      enableCors: true
       allowedOrigins: ["*"]
 
   webServer:

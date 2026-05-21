@@ -26,4 +26,4 @@ sql:
 
   format: csv
   maxRows: 30
-  timeoutDuration: 30s
+  timeout: 30s

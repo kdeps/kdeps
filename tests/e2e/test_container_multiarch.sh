@@ -261,7 +261,6 @@ settings:
       - path: /health
         methods: [GET]
     cors:
-      enableCors: true
       allowOrigins:
         - "*"
 

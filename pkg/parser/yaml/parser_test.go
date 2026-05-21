@@ -296,7 +296,7 @@ chat:
   role: user
   prompt: "Test prompt"
   jsonResponse: true
-  timeoutDuration: 30s
+  timeout: 30s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -312,7 +312,7 @@ httpClient:
   url: https://api.example.com
   headers:
     Content-Type: application/json
-  timeoutDuration: 10s
+  timeout: 10s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -328,7 +328,7 @@ sql:
   query: SELECT * FROM users
   params:
     - 123
-  timeoutDuration: 5s
+  timeout: 5s
 `,
 			validator:    &mockSchemaValidator{},
 			wantErr:      false,
@@ -429,7 +429,7 @@ name: Test
 chat:
   model: llama3.2:latest
   prompt: test
-  timeoutDuration: 30s
+  timeout: 30s
 `
 
 	tmpDir := t.TempDir()

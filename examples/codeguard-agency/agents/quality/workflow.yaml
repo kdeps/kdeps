@@ -61,7 +61,7 @@ resources:
             You ALWAYS respond with valid JSON and nothing else.
       jsonResponse: true
       jsonResponseKeys: [score, suggestions, summary]
-      timeoutDuration: 120s
+      timeout: 120s
 
   # ── Return result to intake agent ─────────────────────────────────────────────
   - actionId: quality-response

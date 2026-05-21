@@ -63,9 +63,8 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 		Proxy:   "{{get('proxy')}}",
 		Timeout: "{{get('timeout')}}",
 		Cache: &domain.HTTPCacheConfig{
-			Enabled: true,
-			TTL:     "{{get('ttl')}}",
-			Key:     "{{get('cacheKey')}}",
+			TTL: "{{get('ttl')}}",
+			Key: "{{get('cacheKey')}}",
 		},
 		Retry: &domain.RetryConfig{
 			MaxAttempts: 3,

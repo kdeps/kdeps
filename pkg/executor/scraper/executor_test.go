@@ -135,7 +135,7 @@ func TestExecute_DefaultTimeout(t *testing.T) {
 	defer srv.Close()
 
 	e := scraperexec.NewExecutor()
-	res, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{URL: srv.URL, Timeout: 0})
+	res, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{URL: srv.URL})
 	require.NoError(t, err)
 	assert.NotNil(t, res)
 }
