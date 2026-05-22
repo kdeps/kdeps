@@ -23,7 +23,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	kdeps_mcp "github.com/kdeps/kdeps/v2/pkg/mcp"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
@@ -114,7 +113,8 @@ func resolveMCPPath(path string) (string, func(), error) {
 	return absPath, nil, nil
 }
 
-// registerWorkflowTools parses a workflow file and registers its resources as MCP tools.
+// registerWorkflowTools parses a workflow file and registers it as a single MCP tool.
+// The tool name is workflow.metadata.name; calling it runs the full workflow DAG.
 func registerWorkflowTools(r *tools.Registry, workflowPath string, debug bool) error {
 	workflow, err := ParseWorkflowFile(workflowPath)
 	if err != nil {
@@ -123,19 +123,7 @@ func registerWorkflowTools(r *tools.Registry, workflowPath string, debug bool) e
 
 	eng := setupEngine(workflow, debug)
 
-	for _, t := range tools.ResourceToolDefs(workflow, eng) {
-		r.Register(t)
-	}
-
-	if len(workflow.Components) > 0 {
-		comps := make([]*domain.Component, 0, len(workflow.Components))
-		for _, c := range workflow.Components {
-			comps = append(comps, c)
-		}
-		for _, t := range tools.ComponentToolDefs(comps, workflow, eng) {
-			r.Register(t)
-		}
-	}
+	r.Register(tools.WorkflowToolDef(workflow, eng))
 	return nil
 }
 
