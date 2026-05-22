@@ -66,12 +66,11 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Three Modes',
+          text: 'Modes',
           collapsed: false,
           items: [
             { text: 'Workflow Mode', link: '/modes/workflow-mode' },
             { text: 'Agent Mode (kdeps serve)', link: '/modes/agent-mode' },
-            { text: 'MCP Mode (kdeps mcp)', link: '/modes/mcp-mode' },
           ]
         },
         {

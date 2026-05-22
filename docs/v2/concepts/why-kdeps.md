@@ -2,21 +2,20 @@
 
 ## The AI Appliance Model
 
-Chat AIs (Claude, Gemini, ChatGPT) and their CLI and MCP extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
+Chat AIs (Claude, Gemini, ChatGPT) and their extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
 
 kdeps is an **AI appliance builder**. You define what the agent does, bundle it, and deploy it as a self-contained unit. It exposes an HTTP API, runs on a schedule, responds to bot messages, or processes files - without a human in the loop, without a chat session, without anyone prompting it.
 
-## Three Modes for Three Use Cases
+## Two Modes for Two Use Cases
 
-kdeps runs in three modes depending on what you need:
+kdeps runs in two modes depending on what you need:
 
 | Mode | Command | Use case |
 |---|---|---|
 | **Workflow** | `kdeps run` | Deterministic DAG pipelines. A request arrives, resources execute in declared dependency order, a response is returned. |
 | **Agent** | `kdeps serve` | Autonomous LLM loop. Every resource is auto-registered as a tool. The LLM plans and calls them to complete the user's task. |
-| **MCP** | `kdeps mcp` | Expose your resources as MCP tools. Claude Desktop, Cursor, and any MCP-compatible host can call them. |
 
-You choose the mode at runtime. The same `workflow.yaml` runs in all three.
+You choose the mode at runtime. The same `workflow.yaml` runs in both.
 
 ## Coordinated Multi-Agent Systems
 
@@ -28,11 +27,11 @@ Single-agent workflows are often insufficient for complex business logic. kdeps 
 
 ## Chat AI vs. kdeps
 
-| | Chat AI + MCP | kdeps (Appliance) |
+| | Chat AI | kdeps (Appliance) |
 |---|---|---|
 | **Who drives it** | You | The system (autonomous/event-driven) |
 | **Deployed as** | A chat session | Docker, Edge ISO, or Binary |
-| **Logic lives in** | Prompts and MCP config | YAML code - versioned, reviewed, tested |
+| **Logic lives in** | Prompts | YAML code - versioned, reviewed, tested |
 | **Orchestration** | Model-driven | Fully defined control flow |
 | **Multi-Agent** | Sequential prompts | Coordinated, specialized Agencies |
 | **Ships to production** | No | Yes |

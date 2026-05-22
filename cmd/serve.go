@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -70,7 +71,14 @@ Environment variables (override defaults):
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
-			return runServeCmd(args[0], flags)
+			resolved, cleanup, err := resolveMCPPath(args[0])
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
+			return runServeCmd(resolved, flags)
 		},
 	}
 
@@ -147,4 +155,21 @@ func runREPL(loop *agent.Loop) error {
 		fmt.Fprintln(os.Stdout, resp)
 	}
 	return scanner.Err()
+}
+
+// resolvePath resolves a user-supplied path to an absolute workflow or agency file.
+// Accepts a file path or a directory (uses ResolveDirectoryPath for directories).
+func resolveMCPPath(path string) (string, func(), error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid path %q: %w", path, err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("path not found %q: %w", path, err)
+	}
+	if info.IsDir() {
+		return ResolveDirectoryPath(absPath)
+	}
+	return absPath, nil, nil
 }
