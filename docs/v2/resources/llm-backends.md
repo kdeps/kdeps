@@ -1,25 +1,27 @@
 # LLM Backends Reference
 
-KDeps supports LLM integrations through Ollama for local model serving and any OpenAI-compatible API endpoint for cloud or self-hosted models.
+kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
-## Model Configuration
+## Model configuration
 
-**Model is set per resource** in `run.chat.model` in resource YAML. **Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`.
+Model is set per resource in `chat.model`:
 
 ```yaml
 # resources/my-resource.yaml
 chat:
-  model: llama3.2:1b    # Per-resource model selection
+  model: llama3.2:1b    # which model to call
   role: user
   prompt: "{{ get('q') }}"
 ```
 
-Set `model: router` to delegate model selection to the LLM router (see [Routing](#routing) below).
+Set `model: router` to delegate model selection to the router in `~/.kdeps/config.yaml` (see [Routing](#routing) below).
+
+Backend, base URL, and API keys go in `~/.kdeps/config.yaml`:
 
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: ollama              # Default backend
+  backend: ollama              # default backend for all resources
   # base_url: http://localhost:11434
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...

@@ -1,96 +1,91 @@
 # Unified API
 
-KDeps v2 simplifies data access with a unified API. Just a few core functions provide access to all data sources, replacing the complex API surface of previous versions.
+`get()` and `set()` are the two functions you use for almost everything in kdeps. They work the same way in string interpolation `{{ }}`, in `before:`/`after:` blocks, and in `validations.check` conditions.
 
-## Core Functions
+## get() -- read any value
 
-These functions are available in all expression contexts (string interpolation <span v-pre>`{{ }}`</span> and `expr` blocks).
+`get('key')` searches a priority chain and returns the first match. You rarely need to specify a source explicitly.
 
-### 1. get()
-The workhorse function for retrieving data. It uses a smart priority chain to find what you're looking for.
-
-```yaml
-# Auto-detect source
-query: get('q')
+```
+get('q') search order:
+  1. items context    (loop/iteration current item)
+  2. memory           (values set with set() this request)
+  3. session          (values set with set(..., 'session'))
+  4. resource outputs (values produced by prior resources)
+  5. URL query params (?q=hello)
+  6. request body     ({"q": "hello"})
+  7. request headers
+  8. uploaded files
+  9. system metadata
 ```
 
-**Priority Chain:**
-1. **Items** (Iteration context)
-2. **Memory** (Request-scoped storage)
-3. **Session** (User persistent storage)
-4. **Outputs** (Resource execution results)
-5. **Query** (URL parameters)
-6. **Body** (Request body)
-7. **Headers** (HTTP headers)
-8. **Files** (Uploaded files)
-9. **Metadata** (System info)
-
-**Explicit Source:**
-You can bypass the chain by specifying a type hint:
+To skip the chain and read from a specific source:
 
 ```yaml
-get('q', 'param')      # Force query/body param
-get('auth', 'header')  # Force header
-get('user', 'session') # Force session
+get('q', 'param')      # URL param or body field only
+get('auth', 'header')  # request header only
+get('user', 'session') # session only -- persists across requests
+get('API_KEY', 'env')  # environment variable
 ```
 
-### 2. set()
-Stores data for later use.
+Reading a resource output works the same way -- `get('llm')` returns whatever the `llm` resource produced:
 
 ```yaml
-# Store in memory (current request only)
+requires: [llm]
+apiResponse:
+  response:
+    answer: get('llm')          # full output
+    text: get('llm').answer     # field access when LLM returns JSON
+```
+
+## set() -- store a value
+
+`set()` writes into memory (current request) by default. Pass `'session'` to persist across requests.
+
+```yaml
 after:
-  - set('count', 1)
+  - set('normalized', lower(trim(get('q'))))   # available to downstream resources
+  - set('user_id', get('id'), 'session')        # survives to the next request
+```
 
-# Store in session (persists across requests)
+`set()` is like assigning to a variable. Downstream resources read it with `get()`.
+
+## file() -- read uploaded files
+
+```yaml
+content: file('doc.pdf')    # file uploaded with the request
+images: file('*.jpg')       # glob pattern -- returns first match
+```
+
+## info() -- request metadata
+
+```yaml
+id: info('requestId')    # unique ID for this request
+ip: info('clientIp')     # caller IP address
+path: info('path')       # URL path
+ts: info('timestamp')    # current timestamp
+```
+
+## Resource-specific accessors
+
+`get('resourceId')` returns the main output of a resource. Use these accessors when you need lower-level details:
+
+```yaml
 after:
-  - set('user_id', '123', 'session')
+  # Python and exec resources
+  - set('ok',  exec.exitCode('build') == 0)
+  - set('err', exec.stderr('build'))
+
+  # HTTP resources
+  - set('status', http.responseBody('api').statusCode)
+  - set('ct',     http.responseHeader('api', 'Content-Type'))
+
+  # LLM resources
+  - set('raw', llm.response('chat'))
 ```
 
-### 3. file()
-Accesses file content.
-
-```yaml
-# Get uploaded file content
-content: file('doc.pdf')
-
-# Get by pattern
-images: file('*.jpg')
-```
-
-### 4. info()
-Accesses request and system metadata.
-
-```yaml
-id: info('requestId')
-ip: info('clientIp')
-path: info('path')
-```
-
-## Advanced Functions
-
-For more specialized needs, additional helper functions are available:
-
-- `json(data)` - Convert data to JSON string
-- `safe(obj, path)` - Safely access nested properties
-- `debug(obj)` - Inspect objects
-- `default(val, fallback)` - Handle missing values
-
-See the [Expression Functions Reference](/reference/expression-functions-reference) for the complete list.
-
-## Resource Accessors
-
-While `get('resourceId')` is the standard way to access outputs, resource-specific accessors provide granular data:
-
-- **Python/Exec**: `python.stdout('id')`, `python.stderr('id')`, `python.exitCode('id')`
-- **HTTP**: `http.responseBody('id')`, `http.responseHeader('id', 'Name')`
-- **LLM**: `llm.response('id')`, `llm.prompt('id')`
-
-These are typically used in `expr` blocks for conditional logic or error handling.
-
-## Next Steps
+## See Also
 
 - [Request Object](/concepts/request-object) - HTTP request data and file methods
-- [Resources Overview](../resources/overview) - Learn about resource types
-- [Tools](tools) - LLM function calling
-- [Workflow Configuration](../configuration/workflow) - Session settings
+- [Expression Functions Reference](/reference/expression-functions-reference) - Complete function list
+- [Expressions](/advanced/expressions) - Expression syntax

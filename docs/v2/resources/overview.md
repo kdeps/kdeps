@@ -1,52 +1,51 @@
 # Resources Overview
 
-Resources are the fundamental building blocks of KDeps workflows. Each resource performs a specific action and can depend on other resources.
+A resource is a single step in a workflow. It has an ID, optional dependencies, optional validation, and exactly one action. kdeps builds a dependency graph from all resources and runs them in order.
 
 ## Resource Structure
 
-Every resource follows this structure:
-
 ```yaml
+actionId: myResource        # unique ID -- used by requires: and get()
+name: My Resource           # human-readable label (optional)
+description: What it does   # optional
+category: api               # optional grouping label
 
-actionId: myResource        # Unique identifier
-name: My Resource           # Human-readable name
-description: What it does   # Optional description
-category: api               # Optional: for organization
-requires:                   # Dependencies
-  - otherResource
-items:                        # Optional: for iteration
+requires:                   # like imports -- these run first and must produce output
+  - otherResource           # myResource will not run until otherResource is done
+
+items:                      # optional: run this resource once per item in the list
   - item1
   - item2
 
-# Request restrictions and validation
+# Restrict which requests trigger this resource (optional)
 validations:
-  methods: [POST]
-  routes: [/api/v1/endpoint]
-  headers: [Authorization]
-  params: [q, limit]
+  methods: [POST]                # only run on POST requests
+  routes: [/api/v1/endpoint]    # only run on this route
+  headers: [Authorization]      # only run when this header is present
+  params: [q, limit]            # only run when these params are present
   skip:
-  - get('skip') == true
+    - get('skip') == true       # skip if this expression is true
   check:
-    - get('q') != ''
+    - get('q') != ''            # fail with error below if false
   error:
     code: 400
     message: Query required
 
-# Processing expressions
-before:                 # Runs BEFORE the main action
+# Expressions that run before/after the action
+before:                 # runs before the action; use to prepare values
   - set('pre', 'value')
-after:                  # Runs AFTER the main action
+after:                  # runs after the action; use to process output
   - set('post', 'value')
 
-# Action (only one per resource)
-chat: { ... }        # LLM chat (core)
-httpClient: { ... }  # HTTP request (core)
-sql: { ... }         # Database query (core)
-python: { ... }      # Python script (core)
-exec: { ... }        # Shell command (core)
-agent: { ... }       # Call another agent — agency mode (core)
-apiResponse: { ... } # API response (core)
-component:           # Installable registry component
+# Exactly one action per resource:
+chat: { ... }        # send a prompt to an LLM; output is the model response
+httpClient: { ... }  # make an HTTP request; output is the parsed response body
+sql: { ... }         # run a SQL query; output is the row set
+python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
+exec: { ... }        # run a shell command; output is its stdout
+agent: { ... }       # run another agent's full workflow; output is its apiResponse
+apiResponse: { ... } # build the HTTP response returned to the caller
+component:           # call an installable registry component
   name: botreply
   with:
     platform: telegram
@@ -86,119 +85,53 @@ These executors are compiled into the `kdeps` binary and require no installation
 
 See the [Components guide](../concepts/components) for installation and usage details.
 
-## Metadata
+## actionId and requires
 
-### actionId (Required)
-Unique identifier for the resource. Used to reference output from other resources.
-
-```yaml
-actionId: llmResource
-# Access output in another resource:
-data: get('llmResource')
-```
-
-### description (Optional)
-Human-readable description of what the resource does.
+`actionId` is the resource's unique name. It has two purposes: it controls which resource `targetActionId` points to, and it is the key you pass to `get()` to read a resource's output.
 
 ```yaml
-actionId: llmResource
-name: LLM Chat
-description: Processes user queries using language models
+actionId: llm
+chat:
+  prompt: "{{ get('q') }}"
+
+---
+actionId: response
+requires: [llm]          # response will not run until llm is done
+apiResponse:
+  response:
+    answer: get('llm')   # reads the output of the llm resource
 ```
 
-### category (Optional)
-Organize resources by category for better management.
-
-```yaml
-actionId: userAuth
-name: User Authentication
-category: auth
-actionId: dataProcessor
-name: Data Processor
-category: processing
-```
-
-Common categories: `api`, `auth`, `processing`, `storage`, `ai`, `utils`.
-
-### requires (Dependencies)
-List of resources that must execute before this one.
-
-```yaml
-actionId: responseResource
-requires:
-  - llmResource
-  - httpResource
-```
-
-KDeps automatically builds a dependency graph and executes resources in the correct order.
-
-## Request Restrictions
-
-### validations.methods
-Limit which HTTP methods trigger this resource:
-
-```yaml
-validations:
-  methods: [GET, POST]
-```
-
-### validations.routes
-Limit which routes trigger this resource:
-
-```yaml
-validations:
-  routes: [/api/v1/chat, /api/v1/query]
-```
-
-### validations.headers / validations.params
-Whitelist specific headers or parameters:
-
-```yaml
-validations:
-  headers:
-    - Authorization
-    - X-API-Key
-  params:
-    - q
-    - limit
-    - offset
-```
+`requires:` lists direct dependencies only. kdeps resolves transitive dependencies automatically -- you do not need to list the entire chain.
 
 ## Validation
 
-### validations.skip
-Skip resource execution based on conditions:
+`validations` gates whether a resource runs at all. It fires before the action -- failing fast means no LLM call, no HTTP call, no wasted work.
 
 ```yaml
 validations:
+  methods: [POST]          # skip unless the request method matches
+  routes: [/api/v1/chat]  # skip unless the route matches
+  headers: [Authorization] # skip unless this header is present
+  params: [q]              # skip unless this query/body param is present
+
   skip:
-    - get('skip') == true
-    - get('mode') == 'fast'
-```
+    - get('mode') == 'fast'  # skip entirely when true (no error, just no-op)
 
-If any condition evaluates to `true`, the resource is skipped.
-
-### validations.check
-Validate inputs before execution:
-
-```yaml
-validations:
   check:
-    - get('q') != ''
+    - get('q') != ''         # must be true or the request is rejected
     - get('limit') <= 100
   error:
     code: 400
-    message: Invalid request parameters
+    message: "q is required and limit must be <= 100"
 ```
 
-If validation fails, the error response is returned immediately.
+`skip` silently no-ops the resource. `check` returns an error to the caller. Both take a list -- any one true condition is enough to trigger the behavior.
 
-## Processing with Expressions
+## before and after expressions
 
-Execute logic before or after the main action:
-
-### before
-Runs **before** the main action. Use this to prepare data used in the resource's own configuration (like prompts or URLs).
+`before:` runs before the action; use it to compute values the action reads.
+`after:` runs after the action; use it to process output for downstream resources.
 
 <div v-pre>
 
@@ -206,22 +139,10 @@ Runs **before** the main action. Use this to prepare data used in the resource's
 before:
   - set('full_name', get('first') + ' ' + get('last'))
 chat:
-  prompt: "Hello {{ get('full_name') }}"
-```
-
-</div>
-
-### expr (or exprAfter)
-Runs **after** the main action. Use this to process results or update state for subsequent resources.
-
-<div v-pre>
-
-```yaml
-chat:
-  prompt: "Summary of {{ get('q') }}"
+  prompt: "Hello {{ get('full_name') }}"   # reads the value set above
 after:
-  - set('summary', get('myResourceId'))
-  - set('processed_at', info('timestamp'))
+  - set('summary', get('myResourceId'))    # store output under a new key
+  - set('ts', info('timestamp'))
 ```
 
 </div>

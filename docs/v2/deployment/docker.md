@@ -474,25 +474,20 @@ For the full management API reference see [Management API](/advanced/management-
 
 ## Security Hardening
 
-Before exposing a container externally, apply these settings in `workflow.yaml`:
-
-- **Auth token** - set `settings.apiServer.auth.token` (or inject via `${API_TOKEN}`) so every request requires a `Bearer` or `X-Api-Key` credential.
-- **TLS** - mount a certificate and key into the container, then point `settings.certFile` / `settings.keyFile` at the mounted paths to enable HTTPS.
-- **Body and rate limits** - set `settings.apiServer.maxBodyBytes` to cap request body size and `settings.apiServer.rateLimit.requestsPerMinute` / `burst` to throttle per-IP traffic.
-- **Concurrent request cap** - set `settings.apiServer.maxConcurrent` to limit simultaneous in-flight requests; excess requests get a `503` immediately.
+Before exposing a container externally, add these fields to `workflow.yaml`:
 
 ```yaml
 settings:
-  certFile: "/run/secrets/server.crt"
+  certFile: "/run/secrets/server.crt"  # mount cert into container; enables HTTPS
   keyFile:  "/run/secrets/server.key"
   apiServer:
     auth:
-      token: "${API_TOKEN}"
+      token: "${API_TOKEN}"            # require Bearer or X-Api-Key header on every request
     rateLimit:
-      requestsPerMinute: 60
-      burst: 10
-    maxBodyBytes: 1048576
-    maxConcurrent: 50
+      requestsPerMinute: 60            # sustained per-IP rate
+      burst: 10                        # burst allowance above the sustained rate
+    maxBodyBytes: 1048576              # 1 MB cap on request body size
+    maxConcurrent: 50                  # excess requests get 503 immediately
 ```
 
 See [Security](../configuration/advanced#security) for the full reference.

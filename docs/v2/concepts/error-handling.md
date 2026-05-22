@@ -1,59 +1,34 @@
 # Error Handling (onError)
 
-KDeps provides built-in error handling for all resource types through the `onError` configuration. This allows you to gracefully handle failures with retries, fallback values, and custom error processing.
+`onError` defines what happens when a resource fails. Without it, any error stops the workflow immediately. With it, you can retry, substitute a fallback value, or log the error and continue.
 
-## Overview
-
-The `onError` block can be added to any resource to define how errors should be handled:
+## Complete reference
 
 ```yaml
-actionId: myResource
-httpClient:
-  url: "https://api.example.com/data"
-  method: GET
-
 onError:
-  action: continue
-  fallback:
+  action: continue    # "continue" (use fallback), "retry", or "fail" (default)
+
+  maxRetries: 3       # for action: retry -- total attempts after the first
+  retryDelay: "1s"    # wait between retries
+
+  fallback:           # for action: continue -- what get('resourceId') returns on failure
     status: "error"
     message: "Service unavailable"
-```
 
-## Configuration Options
-
-### Complete Reference
-
-```yaml
-onError:
-  # Action to take on error
-  action: continue    # "continue", "fail", "retry"
-
-  # Retry configuration (for action: retry)
-  maxRetries: 3       # Number of retry attempts
-  retryDelay: "1s"    # Delay between retries
-
-  # Fallback value (for action: continue)
-  fallback:
-    default: "value"
-
-  # Expressions to execute on error (has access to 'error' object)
-  after:
+  after:              # expressions that run when an error is caught
     - set('errorMessage', error.message)
     - set('errorLogged', true)
 
-  # Conditions for when to apply error handling
-  when:
-    - error.type == 'timeout'
+  when:               # only apply onError if one of these is true
+    - error.type == 'timeout'          # otherwise the error propagates normally
     - contains(error.message, 'connection refused')
 ```
 
-### Action Types
-
-| Action | Behavior |
+| action | what happens |
 |--------|----------|
-| `continue` | Continue workflow execution with fallback value or error info |
-| `fail` | Stop execution and return the error (default behavior) |
-| `retry` | Retry the resource execution with backoff |
+| `continue` | downstream resources run; `get('resourceId')` returns the fallback |
+| `fail` | workflow stops and returns the error (default when no onError block) |
+| `retry` | resource is retried up to `maxRetries` times; fails after that |
 
 ## Basic Usage
 

@@ -119,13 +119,24 @@ Expected response:
 
 ## How it works
 
-1. A POST request arrives at `/api/v1/chat` with `{"q": "..."}`.
-2. kdeps validates that `q` is not empty.
-3. The `llm` resource sends the prompt to `llama3.2:1b`.
-4. The `response` resource depends on `llm` and formats the output.
-5. The API returns the result.
+```
+POST /api/v1/chat {"q": "What is entropy?"}
+        |
+        v
++-------------------------+
+|  resource: llm          |  <- validates get('q') != ''; calls llama3.2:1b
++-------------------------+
+        |  output stored as get('llm')
+        v
++-------------------------+
+|  resource: response     |  <- requires: [llm]; reads get('llm')
++-------------------------+
+        |
+        v
+{"success": true, "response": {"answer": "..."}}
+```
 
-The two resources form a simple DAG: `llm` -> `response`. This is workflow mode.
+`requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest workflow mode pipeline.
 
 ## Try agent mode
 

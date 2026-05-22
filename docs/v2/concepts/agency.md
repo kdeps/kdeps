@@ -73,21 +73,29 @@ kdeps run my-agency/agency.yaml
 
 ## Inter-Agent Calls (`agent:`)
 
-Resources within one agent can delegate work to another agent in the same agency using
-the `agent` resource type.
+The `agent:` resource type is like calling a function where the function is an entire workflow. kdeps runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
+
+```
+calling agent                         target agent
++---------------------+               +---------------------+
+|  actionId: draft    |               |  workflow.yaml      |
+|  agent:             |  -- params -> |  name: summariser   |
+|    name: summariser |               |  resources/...      |
+|    params:          | <- output --- |  apiResponse: ...   |
+|      text: ...      |               +---------------------+
++---------------------+
+```
 
 ```yaml
 agent:
-  name: summariser-agent   # metadata.name of the target agent's workflow
+  name: summariser-agent   # matches metadata.name in the target's workflow.yaml
   params:
-    text: "{{ get('body') }}"
+    text: "{{ get('body') }}"   # becomes get('text') inside the target agent
 ```
 
-- `name:` — resolves to the target agent by `metadata.name` in its `workflow.yaml`.
-- `params:` — key-value pairs forwarded as input to the target agent (accessible via
-  `get('key')` inside the target).
-- The return value is the first `apiResponse.response` produced by the target, accessible
-  via `output('actionId')` in the calling resource.
+- `name:` resolves to the target agent by `metadata.name` in its `workflow.yaml`.
+- `params:` are key-value pairs the target reads via `get('key')`.
+- The caller reads the result via `output('actionId')` or `get('actionId')`.
 
 ## Packaging an Agency (`.kagency`)
 

@@ -1,39 +1,41 @@
 # Why kdeps?
 
-## The Problem
+## The problem
 
-Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
+Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere -- not a chat session that ends when the browser tab closes.
 
-kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit: an HTTP API, a scheduled job, a bot, a file processor - without a human in the loop.
+kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit -- an HTTP API, a bot, a file processor -- without a human in the loop.
 
-## Two Modes
+## Two modes, one workflow file
 
-| Mode | Command | Use case |
-|---|---|---|
-| **Workflow** | `kdeps run` | Deterministic DAG pipeline. Inputs arrive, resources execute in dependency order, output is returned. Ships to production. |
-| **Agent** | `kdeps serve` | Interactive LLM loop. Every resource is auto-registered as a tool. The LLM calls them to complete tasks. |
+```
+workflow.yaml
+    |
+    +-- kdeps run    -> workflow mode: DAG pipeline, deterministic, ships to production
+    |
+    +-- kdeps serve  -> agent mode: interactive LLM loop, tools on demand
+```
 
-The same `workflow.yaml` runs in both. Workflow mode is for production - autonomous, event-driven, predictable. Agent mode is for interactive use - a chat interface backed by your custom toolset instead of a generic model.
+Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which resources to call and in what order, using your workflow as a toolbox.
 
-## Defined Control Flow
+The same `workflow.yaml` works in both. You do not need to rewrite anything to switch.
 
-Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, outputs are typed, dependencies are explicit, and validations are enforced before any LLM is called. If something is wrong, it fails fast with a clear error rather than hallucinating a response.
+## Defined control flow
+
+Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, dependencies are explicit, and validations fire before any LLM is called. If the input is wrong, the workflow fails fast with a clear error instead of hallucinating a response.
 
 This is what makes workflow output reproducible, auditable, and safe to run unattended.
 
 ## Agencies
 
-Single-agent workflows are often insufficient for complex logic. kdeps lets you orchestrate **Agencies** - collections of specialized agents that coordinate and delegate tasks via the `agent:` resource type.
-
-- Each agent can be locked to specific models and tools optimized for its task
-- Agents communicate through a fully defined control flow
-- Every step is visible, version-controlled, and testable
+Single-agent workflows have limited scope. kdeps agencies let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output -- every step is version-controlled, testable, and independently deployable.
 
 ## Who it is for
 
-- **Marketing and growth teams** automating content generation, SEO pipelines, social media publishing, lead scoring, and campaign reporting
-- **Operations teams** eliminating repetitive manual work - data entry, report generation, invoice processing, email triage, document summarization
-- **Developers** shipping AI features into products (APIs, bots, internal tools) without glue code
-- **Any team** that has a workflow currently done by a human clicking through tabs and copy-pasting between tools
-- Engineers who need agent logic in version control - reviewable, testable, and reproducible across environments
+| Role | Use case |
+|------|----------|
+| Developers | Ship AI features into products (APIs, bots, internal tools) without glue code |
+| Operations teams | Automate repetitive work: reports, triage, data entry, document processing |
+| Marketing and growth | Content pipelines, SEO automation, campaign reporting |
+| Any team | Replace a human clicking through tabs and copy-pasting between tools |
 

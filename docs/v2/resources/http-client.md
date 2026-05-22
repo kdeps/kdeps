@@ -1,65 +1,49 @@
 # HTTP Client Resource
 
-The HTTP Client resource enables making external API calls with support for authentication, retries, caching, and advanced TLS configuration.
+The `httpClient:` resource makes an outbound HTTP request and stores the parsed response body as its output. JSON responses are parsed automatically; other content types are stored as a string.
 
-## Basic Usage
+## Complete reference
 
 <div v-pre>
 
 ```yaml
-
-actionId: httpResource
-name: API Call
 httpClient:
-  method: GET
-  url: "https://api.example.com/data"
-  timeout: 30s
-```
-
-</div>
-
-## Configuration Options
-
-### Complete Reference
-
-```yaml
-httpClient:
-  # Request Configuration
-  method: GET                      # GET, POST, PUT, PATCH, DELETE
-  url: <span v-pre>"https://api.example.com/{{ get('id') }}"</span>
+  method: GET                    # GET, POST, PUT, PATCH, DELETE
+  url: "https://api.example.com/{{ get('id') }}"
   headers:
-    Authorization: <span v-pre>"Bearer {{ get('token') }}"</span>
+    Authorization: "Bearer {{ get('token') }}"
     Content-Type: application/json
-  data:                            # Request body
+  data:                          # request body -- serialised as JSON
     key: value
-  timeout: 30s
+  timeout: 30s                   # hard stop -- returns error, does not retry
 
-  # Authentication
+  # Auth shortcuts (alternative to setting Authorization header manually)
   auth:
-    type: bearer                   # basic, bearer, api_key, oauth2
-    token: <span v-pre>"{{ get('api_token') }}"</span>
+    type: bearer                 # basic, bearer, api_key, oauth2
+    token: "{{ get('api_token') }}"
 
-  # Retry Configuration
+  # Retry on transient failures
   retry:
-    maxAttempts: 3
-    backoff: 1s
-    maxBackoff: 30s
+    maxAttempts: 3               # total attempts including the first
+    backoff: 1s                  # initial wait; doubles on each retry
+    maxBackoff: 30s              # ceiling on the retry wait
     retryOn: [500, 502, 503, 504]
 
-  # Caching (presence of cache: block enables it)
+  # Response caching -- presence of the cache: block enables it
   cache:
-    ttl: 5m
+    ttl: 5m                      # cache lifetime; key defaults to the URL
     key: "custom-cache-key"
 
-  # Advanced Options
-  followRedirects: true
+  followRedirects: true          # set false to stop at the first 3xx
   proxy: "http://proxy:16395"
   tls:
-    insecureSkipVerify: false
+    insecureSkipVerify: false    # never set true in production
     certFile: "/path/to/cert.pem"
     keyFile: "/path/to/key.pem"
     caFile: "/path/to/ca.pem"
 ```
+
+</div>
 
 ## HTTP Methods
 
