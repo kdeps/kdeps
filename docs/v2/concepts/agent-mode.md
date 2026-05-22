@@ -1,20 +1,19 @@
 # Agent Mode
 
-Agent mode (`kdeps serve`) runs a workflow as a live LLM-driven agent. Every
-resource, component, and sub-agent defined in the workflow is auto-registered as
-a callable tool so the LLM can invoke them during a conversation.
+Agent mode (`kdeps serve`) runs a workflow as a live LLM-driven agent. Every resource defined in the workflow is auto-registered as a callable tool so the LLM can invoke them during a conversation.
+
+See the full reference at [Three Modes - Agent Mode](/modes/agent-mode).
 
 ## How it works
 
 1. `kdeps serve workflow.yaml` loads the workflow and builds a tool registry.
 2. All workflow resources become tools (tool name = `actionId`).
-3. All components become tools (tool name = component `metadata.name`).
-4. fformat built-in tools (JSON/YAML/CSV/XML) are always available.
-5. The agent loop runs a synthetic chat resource with the full tool set attached.
-6. The engine's existing tool-call dispatch handles every LLM function call.
+3. Built-in format tools (JSON, YAML, CSV, XML) are always available.
+4. An interactive REPL starts. The LLM receives the user prompt and decides which tools to call.
+5. Tool call dispatch runs the target resource with arguments as query params. The result is returned to the LLM.
+6. The loop continues until the LLM produces a final answer.
 
-The workflow engine is unchanged - agent mode is additive. `kdeps run` continues
-to work exactly as before.
+The workflow engine is unchanged. `kdeps run` continues to work exactly as before. Agent mode is additive.
 
 ## Command
 
@@ -26,9 +25,9 @@ kdeps serve workflow.yaml [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `--model` | `KDEPS_AGENT_MODEL` env or `llama3.2` | LLM model name |
-| `--backend` | `KDEPS_AGENT_BACKEND` env or `ollama` | LLM backend |
-| `--base-url` | `KDEPS_AGENT_BASE_URL` env | LLM API base URL |
+| `--model` | `KDEPS_AGENT_MODEL` or `llama3.2` | LLM model name |
+| `--backend` | `KDEPS_AGENT_BACKEND` or `ollama` | LLM backend |
+| `--base-url` | `KDEPS_AGENT_BASE_URL` | LLM API base URL |
 | `--system` | (none) | System prompt injected at conversation start |
 | `--debug` | false | Enable debug logging |
 
@@ -56,9 +55,7 @@ KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
 
 ## Tool dispatch
 
-When the LLM calls a tool, the engine creates a minimal single-resource workflow
-targeting that resource and runs it. Tool arguments are injected as query params
-and body fields so resources can access them via `get('key')`.
+When the LLM calls a tool, kdeps creates a minimal single-resource workflow targeting that resource and runs it. Tool arguments are injected as query params and body fields so resources can access them via `get('key')`.
 
 ## Differences from workflow mode
 
