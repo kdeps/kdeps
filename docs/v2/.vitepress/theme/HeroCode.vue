@@ -11,23 +11,16 @@
         <span class="y"></span>
         <span class="g"></span>
       </div>
-      <span class="code-filename">resources/summarize.yaml</span>
+      <span class="code-filename">resources/answer.yaml</span>
     </div>
 
     <!-- Code body -->
-    <pre class="code-body" v-pre><code><span class="key">actionId</span><span class="op">:</span> <span class="str">fetch</span>
-<span class="key">httpClient</span><span class="op">:</span>
-  <span class="key">url</span><span class="op">:</span> <span class="str">"{{ get('url') }}"</span>
-  <span class="key">timeout</span><span class="op">:</span> <span class="str">10s</span>
-
-<span class="cm">---</span>
-<span class="key">actionId</span><span class="op">:</span> <span class="str">summarize</span>
-<span class="key">requires</span><span class="op">:</span> <span class="op">[</span><span class="str">fetch</span><span class="op">]</span>
+    <pre class="code-body" v-pre><code><span class="key">actionId</span><span class="op">:</span> <span class="str">answer</span>
 <span class="key">chat</span><span class="op">:</span>
   <span class="key">model</span><span class="op">:</span> <span class="str">llama3.2:1b</span>
-  <span class="key">prompt</span><span class="op">:</span> <span class="str">"Summarize: {{ output('fetch').body }}"</span>
+  <span class="key">prompt</span><span class="op">:</span> <span class="str">"{{ get('q') }}"</span>
 <span class="key">apiResponse</span><span class="op">:</span>
-  <span class="key">response</span><span class="op">:</span> <span class="str">"{{ output('summarize') }}"</span></code></pre>
+  <span class="key">response</span><span class="op">:</span> <span class="str">"{{ output('answer') }}"</span></code></pre>
 
     <!-- Status bar -->
     <div class="code-statusbar">
