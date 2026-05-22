@@ -75,6 +75,58 @@ chat:
 
 </div>
 
+### External MCP Tools
+
+Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
+
+```yaml
+tools:
+  - name: tool_name
+    description: What it does
+    mcp:
+      server: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+      transport: stdio        # only "stdio" supported (default)
+      env:
+        HOME: /tmp
+    parameters:
+      path:
+        type: string
+        description: File path
+        required: true
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `server` | string | Executable to start the MCP server (e.g. `npx`, `uvx`, `/usr/bin/my-mcp`) |
+| `args` | list | Arguments passed to the executable |
+| `transport` | string | Transport type - `stdio` (default) |
+| `env` | map | Extra environment variables injected into the subprocess |
+
+`mcp:` and `script:` are mutually exclusive. A fresh subprocess is started per tool invocation.
+
+**Example — filesystem access via npx:**
+
+<div v-pre>
+
+```yaml
+chat:
+  prompt: "{{ get('q') }}"
+  tools:
+    - name: read_file
+      description: Read the contents of a file
+      mcp:
+        server: npx
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+      parameters:
+        path:
+          type: string
+          description: Absolute path of the file to read
+          required: true
+```
+
+</div>
+
 ### Multiple Tools
 
 Define multiple tools for different capabilities:
