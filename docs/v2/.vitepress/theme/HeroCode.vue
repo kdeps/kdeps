@@ -7,79 +7,61 @@ import { ref } from 'vue'
 
 const active = ref(0)
 
+const K = (v) => `<span class="k">${v}</span>`
+const S = (v) => `<span class="s">${v}</span>`
+const N = (v) => `<span class="n">${v}</span>`
+const O = (v) => `<span class="o">${v}</span>`
+
 const files = [
   {
     name: 'workflow.yaml',
-    lines: [
-      { t: 'key', v: 'apiVersion' }, { t: 'op', v: ': ' }, { t: 'str', v: 'kdeps.io/v1' },
-      { t: 'key', v: 'kind' },       { t: 'op', v: ': ' }, { t: 'str', v: 'Workflow' },
-      { t: 'break' },
-      { t: 'key', v: 'metadata' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'name' },           { t: 'op', v: ': ' }, { t: 'str', v: 'summarizer' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'version' },        { t: 'op', v: ': ' }, { t: 'str', v: '"1.0.0"' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'targetActionId' }, { t: 'op', v: ': ' }, { t: 'str', v: 'summarize' },
-      { t: 'break' },
-      { t: 'key', v: 'settings' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'apiServer' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '    ' }, { t: 'key', v: 'portNum' }, { t: 'op', v: ': ' }, { t: 'num', v: '16395' },
-      { t: 'indent', v: '    ' }, { t: 'key', v: 'routes' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '      ' }, { t: 'op', v: '- ' }, { t: 'key', v: 'path' },    { t: 'op', v: ': ' }, { t: 'str', v: '/summarize' },
-      { t: 'indent', v: '        ' }, { t: 'key', v: 'methods' }, { t: 'op', v: ': ' }, { t: 'str', v: '[POST]' },
-    ]
+    html: [
+      `${K('apiVersion')}${O(': ')}${S('kdeps.io/v1')}`,
+      `${K('kind')}${O(': ')}${S('Workflow')}`,
+      ``,
+      `${K('metadata')}${O(':')}`,
+      `  ${K('name')}${O(': ')}${S('summarizer')}`,
+      `  ${K('version')}${O(': ')}${S('"1.0.0"')}`,
+      `  ${K('targetActionId')}${O(': ')}${S('summarize')}`,
+      ``,
+      `${K('settings')}${O(':')}`,
+      `  ${K('apiServer')}${O(':')}`,
+      `    ${K('portNum')}${O(': ')}${N('16395')}`,
+      `    ${K('routes')}${O(':')}`,
+      `      ${O('- ')}${K('path')}${O(': ')}${S('/summarize')}`,
+      `        ${K('methods')}${O(': ')}${S('[POST]')}`,
+    ].join('\n'),
   },
   {
     name: 'resources/fetch.yaml',
-    lines: [
-      { t: 'key', v: 'actionId' }, { t: 'op', v: ': ' }, { t: 'str', v: 'fetch' },
-      { t: 'key', v: 'httpClient' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'method' },  { t: 'op', v: ': ' }, { t: 'str', v: 'GET' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'url' },     { t: 'op', v: ': ' }, { t: 'str', v: '"{{ get(\'url\') }}"' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'timeout' }, { t: 'op', v: ': ' }, { t: 'str', v: '10s' },
-    ]
+    html: [
+      `${K('actionId')}${O(': ')}${S('fetch')}`,
+      `${K('httpClient')}${O(':')}`,
+      `  ${K('method')}${O(': ')}${S('GET')}`,
+      `  ${K('url')}${O(': ')}${S('"{{ get(\'url\') }}"')}`,
+      `  ${K('timeout')}${O(': ')}${S('10s')}`,
+    ].join('\n'),
   },
   {
     name: 'resources/summarize.yaml',
-    lines: [
-      { t: 'key', v: 'actionId' }, { t: 'op', v: ': ' }, { t: 'str', v: 'summarize' },
-      { t: 'key', v: 'requires' }, { t: 'op', v: ': ' }, { t: 'str', v: '[fetch]' },
-      { t: 'key', v: 'chat' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'model' },  { t: 'op', v: ': ' }, { t: 'str', v: 'llama3.2:1b' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'prompt' }, { t: 'op', v: ': ' }, { t: 'str', v: '"Summarize: {{ output(\'fetch\').body }}"' },
-      { t: 'key', v: 'apiResponse' }, { t: 'op', v: ':' },
-      { t: 'indent', v: '  ' }, { t: 'key', v: 'response' }, { t: 'op', v: ': ' }, { t: 'str', v: '"{{ output(\'summarize\') }}"' },
-    ]
+    html: [
+      `${K('actionId')}${O(': ')}${S('summarize')}`,
+      `${K('requires')}${O(': ')}${S('[fetch]')}`,
+      `${K('chat')}${O(':')}`,
+      `  ${K('model')}${O(': ')}${S('llama3.2:1b')}`,
+      `  ${K('prompt')}${O(': ')}${S('"Summarize: {{ output(\'fetch\').body }}"')}`,
+      `${K('apiResponse')}${O(':')}`,
+      `  ${K('response')}${O(': ')}${S('"{{ output(\'summarize\') }}"')}`,
+    ].join('\n'),
   },
 ]
-
-// Group flat tokens into display lines
-function toDisplayLines(tokens) {
-  const result = []
-  let current = []
-  for (const tok of tokens) {
-    if (tok.t === 'break') {
-      result.push(current)
-      current = []
-      result.push([{ t: 'blank' }])
-    } else if (tok.t === 'indent') {
-      result.push(current)
-      current = [tok]
-    } else {
-      current.push(tok)
-    }
-  }
-  if (current.length) result.push(current)
-  return result.filter(l => l.length > 0)
-}
 </script>
 
 <template>
   <div class="hero-window">
-    <!-- File tabs -->
     <div class="titlebar">
       <div class="dots">
-        <span class="r"></span>
-        <span class="y"></span>
-        <span class="g"></span>
+        <span class="r"></span><span class="y"></span><span class="g"></span>
       </div>
       <div class="tabs">
         <button
@@ -91,39 +73,17 @@ function toDisplayLines(tokens) {
       </div>
     </div>
 
-    <!-- Code body -->
-    <pre class="code-body"><code>
-<template v-for="(line, li) in toDisplayLines(files[active].lines)" :key="li">
-<span v-if="line[0]?.t === 'blank'">&nbsp;</span>
-<span v-else><template v-for="(tok, ti) in line" :key="ti"><span v-if="tok.t === 'indent'">{{ tok.v }}</span><span v-else :class="tok.t">{{ tok.v }}</span></template></span>
-</template>
-</code></pre>
+    <pre class="code-body"><code v-html="files[active].html"></code></pre>
 
-    <!-- Terminal section -->
     <div class="terminal">
-      <div class="term-line">
-        <span class="prompt">$</span>
-        <span class="cmd">kdeps run workflow.yaml</span>
-      </div>
-      <div class="term-line out">Listening on :16395</div>
-      <div class="term-spacer"></div>
-      <div class="term-line">
-        <span class="prompt">$</span>
-        <span class="cmd">curl -s -X POST localhost:16395/summarize \</span>
-      </div>
-      <div class="term-line">
-        <span class="term-pad"></span>
-        <span class="cmd dim">-H "Content-Type: application/json" \</span>
-      </div>
-      <div class="term-line">
-        <span class="term-pad"></span>
-        <span class="cmd dim">-d '{"url": "https://example.com"}'</span>
-      </div>
-      <div class="term-spacer"></div>
-      <div class="term-line resp">{</div>
-      <div class="term-line resp">&nbsp;&nbsp;"success": true,</div>
-      <div class="term-line resp">&nbsp;&nbsp;"data": { "response": "Example.com is a domain used for illustrative examples in documentation." }</div>
-      <div class="term-line resp">}</div>
+      <div class="tl"><span class="p">$</span><span class="c">kdeps run workflow.yaml</span></div>
+      <div class="tl dim">Listening on :16395</div>
+      <div class="tl">&nbsp;</div>
+      <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/summarize \</span></div>
+      <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
+      <div class="tl"><span class="pad"></span><span class="c dim">-d '{"url": "https://example.com"}'</span></div>
+      <div class="tl">&nbsp;</div>
+      <div class="tl resp">{"success": true, "data": {"response": "Example.com is used for illustrative examples in documentation."}}</div>
     </div>
   </div>
 </template>
@@ -132,9 +92,9 @@ function toDisplayLines(tokens) {
 .hero-window {
   font-family: var(--vp-font-family-mono);
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.55;
   background: #070707;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.08);
   border-left: 2px solid var(--vp-c-brand-1);
   border-radius: 2px;
   overflow: hidden;
@@ -143,44 +103,35 @@ function toDisplayLines(tokens) {
   box-shadow: var(--vp-shadow-3);
 }
 
-/* Title bar */
 .titlebar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
   padding: 6px 14px 0;
-  background: rgba(0, 229, 255, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0,229,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .dots {
   display: flex;
+  align-items: center;
   gap: 5px;
   padding-bottom: 6px;
   flex-shrink: 0;
 }
 
-.dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
+.dots span { width: 8px; height: 8px; border-radius: 50%; }
 .dots .r { background: #FF5F57; }
 .dots .y { background: #FFBD2E; }
 .dots .g { background: #28CA42; }
 
-.tabs {
-  display: flex;
-  gap: 0;
-  overflow-x: auto;
-}
+.tabs { display: flex; }
 
 .tab {
   font-family: var(--vp-font-family-mono);
   font-size: 10px;
   padding: 4px 10px 6px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255,255,255,0.3);
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
@@ -189,24 +140,17 @@ function toDisplayLines(tokens) {
   transition: color 0.15s;
 }
 
-.tab:hover {
-  color: rgba(255, 255, 255, 0.6);
-}
+.tab:hover { color: rgba(255,255,255,0.6); }
+.tab.active { color: rgba(255,255,255,0.85); border-bottom-color: var(--vp-c-brand-1); }
 
-.tab.active {
-  color: rgba(255, 255, 255, 0.85);
-  border-bottom-color: var(--vp-c-brand-1);
-}
-
-/* Code body */
 .code-body {
   margin: 0;
   padding: 12px 16px;
   color: #c8cce8;
   overflow-x: auto;
   white-space: pre;
-  min-height: 120px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 110px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
 .code-body code {
@@ -218,64 +162,28 @@ function toDisplayLines(tokens) {
   border: none;
 }
 
-.key  { color: #FF2D78; }
-.str  { color: #FFD60A; }
-.num  { color: #FF9500; }
-.op   { color: var(--vp-c-brand-1); }
+:deep(.k) { color: #FF2D78; }
+:deep(.s) { color: #FFD60A; }
+:deep(.n) { color: #FF9500; }
+:deep(.o) { color: var(--vp-c-brand-1); }
 
-/* Terminal section */
-.terminal {
-  padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.3);
-}
+.terminal { padding: 10px 16px; background: rgba(0,0,0,0.25); }
 
-.term-line {
+.tl {
   display: flex;
   gap: 8px;
-  white-space: pre;
   line-height: 1.5;
+  white-space: pre;
 }
 
-.term-spacer {
-  height: 6px;
-}
+.p { color: var(--vp-c-brand-1); user-select: none; flex-shrink: 0; }
+.c { color: #c8cce8; }
+.c.dim { color: rgba(200,204,232,0.5); }
+.tl.dim { color: rgba(200,204,232,0.35); padding-left: 16px; }
+.pad { display: inline-block; width: 16px; flex-shrink: 0; }
+.resp { color: #FFD60A; white-space: pre-wrap; word-break: break-word; }
 
-.prompt {
-  color: var(--vp-c-brand-1);
-  user-select: none;
-  flex-shrink: 0;
-}
-
-.cmd {
-  color: #c8cce8;
-}
-
-.cmd.dim {
-  color: rgba(200, 204, 232, 0.5);
-}
-
-.term-pad {
-  display: inline-block;
-  width: 16px;
-  flex-shrink: 0;
-}
-
-.out {
-  color: rgba(200, 204, 232, 0.35);
-  padding-left: 16px;
-}
-
-.resp {
-  color: #FFD60A;
-  padding-left: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-@media (max-width: 960px) {
-  .hero-window { max-width: 100%; }
-}
-
+@media (max-width: 960px) { .hero-window { max-width: 100%; } }
 @media (max-width: 640px) {
   .hero-window { font-size: 11px; }
   .tab { font-size: 9px; padding: 4px 7px 6px; }
