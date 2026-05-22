@@ -2,7 +2,7 @@
 
 Agent mode (`kdeps serve`) runs a workflow as a live LLM-driven agent. Every resource defined in the workflow is auto-registered as a callable tool so the LLM can invoke them during a conversation.
 
-See the full reference at [Three Modes - Agent Mode](/modes/agent-mode).
+See the full reference at [Agent Mode](/modes/agent-mode).
 
 ## How it works
 

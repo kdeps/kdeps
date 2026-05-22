@@ -10,7 +10,7 @@ Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **a
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 ```
 
-## Three modes
+## Modes
 
 ### Workflow mode
 
