@@ -1,0 +1,29 @@
+direction: down
+vars: {
+  d2-config: {
+    sketch: false
+  }
+}
+style.fill: "#141414"
+style.stroke: "#2a2a2a"
+style.stroke-width: 1
+style.font-color: "#d0d0d0"
+style.font-size: 13
+style.border-radius: 2
+style.shadow: false
+
+A: Request {
+  style.stroke: "#00E5FF"
+  style.font-color: "#00E5FF"
+}
+B: validate
+C: llm
+D: apiResponse {
+  style.stroke: "#00E5FF"
+  style.font-color: "#00E5FF"
+}
+
+A -> B -> C -> D {
+  style.stroke: "#00E5FF"
+  style.stroke-width: 1
+}

@@ -1,0 +1,37 @@
+direction: down
+vars: {
+  d2-config: {
+    sketch: false
+  }
+}
+style.fill: "#141414"
+style.stroke: "#2a2a2a"
+style.stroke-width: 1
+style.font-color: "#d0d0d0"
+style.font-size: 13
+style.border-radius: 2
+style.shadow: false
+
+A: Caller {
+  style.stroke: "#00E5FF"
+  style.font-color: "#00E5FF"
+}
+B: Summariser
+C: Translator
+D: Response {
+  style.stroke: "#00E5FF"
+  style.font-color: "#00E5FF"
+}
+
+A -> B {
+  style.stroke: "#00E5FF"
+}
+B -> C: agent: {
+  style.stroke: "#FF2D78"
+}
+C -> B: result {
+  style.stroke: "#00E5FF"
+}
+B -> D {
+  style.stroke: "#00E5FF"
+}
