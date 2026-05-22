@@ -148,7 +148,7 @@ kdeps serve workflow.yaml
 
 The agent REPL starts. Type a prompt and the LLM calls your resources as needed.
 
-## Next steps
+## See Also
 
 - [Modes](/modes/workflow-mode) - Understand workflow and agent modes
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference

@@ -149,7 +149,7 @@ The port configured in `workflow.yaml` under `settings.apiServer.portNum` (defau
 curl http://localhost:16395/api/chat -d '{"message":"Hello"}'
 ```
 
-## Next Steps
+## See Also
 
 - [Package Command](../getting-started/quickstart) — Creating `.kdeps` archives
 - [Docker Deployment](docker) — Containerized deployment

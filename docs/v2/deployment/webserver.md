@@ -398,7 +398,7 @@ apiServer:
     allowCredentials: true
 ```
 
-## Next Steps
+## See Also
 
 - [Docker Deployment](docker) - Package for production
 - [Workflow Configuration](../configuration/workflow) - Full settings reference

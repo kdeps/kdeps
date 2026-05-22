@@ -152,7 +152,7 @@ settings:
 
 See [Input Sources](../concepts/input-sources) for full configuration.
 
-## See also
+## See Also
 
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources Overview](../resources/overview) - Resource types and fields

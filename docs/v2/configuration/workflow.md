@@ -164,3 +164,9 @@ settings:
     ttl: "30m"     # how long a session lives without activity
     type: sqlite   # storage backend
 ```
+
+## See Also
+
+- [Global Config](/configuration/advanced) - Backend, defaults, and agent profiles
+- [Resources Overview](/resources/overview) - Resource types and fields
+- [Agencies](/concepts/agency) - Multi-agent orchestration

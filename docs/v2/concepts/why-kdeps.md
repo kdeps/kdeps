@@ -39,3 +39,9 @@ Single-agent workflows have limited scope. kdeps agencies let you compose multip
 | Marketing and growth | Content pipelines, SEO automation, campaign reporting |
 | Any team | Replace a human clicking through tabs and copy-pasting between tools |
 
+
+## See Also
+
+- [Quick Start](/getting-started/quickstart) - Build your first workflow in minutes
+- [Workflow Mode](/modes/workflow-mode) - Deterministic DAG pipelines
+- [Agent Mode](/modes/agent-mode) - Autonomous LLM loop

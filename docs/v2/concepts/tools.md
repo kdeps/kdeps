@@ -500,7 +500,7 @@ python:
 
 </div>
 
-## Next Steps
+## See Also
 
 - [LLM Resource](../resources/llm) - Full LLM configuration
 - [LLM Backends](../resources/llm-backends) - Streaming and backend options
