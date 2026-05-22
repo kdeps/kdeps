@@ -153,4 +153,4 @@ The agent REPL starts. Type a prompt and the LLM calls your resources as needed.
 - [Modes](/modes/workflow-mode) - Understand workflow and agent modes
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources Overview](../resources/overview) - All resource types
-- [CLI Reference](../reference/cli-reference) - All commands and flags
+- [CLI Reference](/reference/cli/) - All commands and flags

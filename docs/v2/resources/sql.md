@@ -424,8 +424,8 @@ query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 
 </div>
 
-## Next Steps
+## See Also
 
-- [Python Resource](python) - Data processing scripts
-- [HTTP Client](http-client) - External API calls
-- [Workflow Configuration](../configuration/workflow) - Connection settings
+- [Python Resource](python) -- data processing scripts
+- [HTTP Client](http-client) -- external API calls
+- [Workflow Configuration](../configuration/workflow) -- connection settings

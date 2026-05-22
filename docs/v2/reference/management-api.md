@@ -62,7 +62,7 @@ The `workflow` field is omitted when no workflow is loaded.
 
 ## Using `kdeps cloud push`
 
-The `kdeps cloud push` command is the recommended way to call the management API. See the see the [CLI reference](/reference/cli-reference) for details.
+The `kdeps cloud push` command is the recommended way to call the management API. See [CLI Reference](/reference/cli/) for details.
 
 ```bash
 # Push a workflow directory

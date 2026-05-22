@@ -387,6 +387,6 @@ apiResponse:
 ## Next Steps
 
 - [Items Iteration](items) — Fixed-list iteration
-- [Expressions](/advanced/expressions) — Expression syntax
+- [Expressions](/concepts/expressions) — Expression syntax
 - [Expression Functions Reference](/reference/expression-functions-reference) — Complete function list
-- [Validation and Control Flow](/advanced/validation-and-control) — Skip conditions, preflight checks
+- [Validation and Control Flow](/concepts/validation-and-control) — Skip conditions, preflight checks

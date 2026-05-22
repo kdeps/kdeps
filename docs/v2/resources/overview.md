@@ -147,7 +147,7 @@ after:
 
 </div>
 
-See [Expressions](/advanced/expressions) for detailed documentation.
+See [Expressions](/concepts/expressions) for detailed documentation.
 
 ## Items Iteration
 
@@ -301,13 +301,13 @@ Only list direct dependencies in `requires`. KDeps handles transitive dependenci
 ### 5. Use Appropriate Timeouts
 Set realistic `timeout` values based on expected execution time.
 
-## Next Steps
+## See Also
 
-- [LLM Resource](llm) - AI model integration
-- [HTTP Client](http-client) - External API calls
-- [SQL Resource](sql) - Database operations
-- [Python Resource](python) - Script execution
-- [Exec Resource](exec) - Shell commands
-- [API Response](api-response) - Response formatting
-- [Agency & Multi-Agent](../concepts/agency) - Multi-agent orchestration
-- [Components](../concepts/components) - Installable capability extensions (scraper, tts, pdf, email, and more)
+- [LLM Resource](llm) -- AI model integration
+- [HTTP Client](http-client) -- external API calls
+- [SQL Resource](sql) -- database operations
+- [Python Resource](python) -- script execution
+- [Exec Resource](exec) -- shell commands
+- [API Response](api-response) -- response formatting
+- [Agency & Multi-Agent](../concepts/agency) -- multi-agent orchestration
+- [Components](../concepts/components) -- installable capability extensions

@@ -336,7 +336,7 @@ apiResponse:
 
 ## Related Documentation
 
-- [Expressions](/advanced/expressions) - Expression syntax and operators
+- [Expressions](/concepts/expressions) - Expression syntax and operators
 - [Unified API](/concepts/unified-api) - Using `get()` and `set()`
 - [Resources Overview](../resources/overview.md) - Resource structure
-- [Validation and Control Flow](/advanced/validation-and-control) - Preflight checks
+- [Validation and Control Flow](/concepts/validation-and-control) - Preflight checks

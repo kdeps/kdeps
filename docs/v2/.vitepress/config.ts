@@ -60,65 +60,62 @@ export default defineConfig({
         {
           text: 'Getting Started',
           items: [
-            { text: 'What is KDeps?', link: '/' },
+            { text: 'Why kdeps?', link: '/' },
             { text: 'Installation', link: '/getting-started/installation' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
           ]
         },
         {
-          text: 'Modes',
+          text: 'Concepts',
           collapsed: false,
           items: [
             { text: 'Workflow Mode', link: '/modes/workflow-mode' },
-            { text: 'Agent Mode (kdeps serve)', link: '/modes/agent-mode' },
+            { text: 'Agent Mode', link: '/modes/agent-mode' },
+            { text: 'Agencies', link: '/concepts/agency' },
+            { text: 'Resources Overview', link: '/resources/overview' },
+            { text: 'Components', link: '/concepts/components' },
+            { text: 'Expressions', link: '/concepts/expressions' },
+            { text: 'Validation & Control', link: '/concepts/validation-and-control' },
+            { text: 'Items & Loop', link: '/concepts/loop' },
+            { text: 'Session & Memory', link: '/configuration/session' },
+            { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
         {
-          text: 'Workflow Configuration',
-          collapsed: false,
+          text: 'Configuration',
+          collapsed: true,
           items: [
-            { text: 'workflow.yaml Reference', link: '/configuration/workflow' },
+            { text: 'workflow.yaml', link: '/configuration/workflow' },
             { text: 'Global Config', link: '/configuration/advanced' },
-            { text: 'Session & Persistence', link: '/configuration/session' },
             { text: 'CORS & Security', link: '/configuration/cors' },
+            { text: 'Route Restrictions', link: '/configuration/route-restrictions' },
           ]
         },
         {
           text: 'Resources',
           collapsed: false,
           items: [
-            { text: 'Overview', link: '/resources/overview' },
             { text: 'LLM (Chat)', link: '/resources/llm' },
             { text: 'LLM Backends & Routing', link: '/resources/llm-backends' },
             { text: 'HTTP Client', link: '/resources/http-client' },
-            { text: 'SQL Databases', link: '/resources/sql' },
-            { text: 'Python Scripts', link: '/resources/python' },
+            { text: 'Python', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
+            { text: 'SQL', link: '/resources/sql' },
             { text: 'Scraper', link: '/resources/scraper' },
-            { text: 'Browser Automation', link: '/resources/browser' },
+            { text: 'Browser', link: '/resources/browser' },
             { text: 'Embedding', link: '/resources/embedding' },
             { text: 'Search', link: '/resources/search' },
             { text: 'API Response', link: '/resources/api-response' },
           ]
         },
         {
-          text: 'Logic & Expressions',
-          collapsed: true,
+          text: 'Guides',
+          collapsed: false,
           items: [
-            { text: 'Expressions Guide', link: '/advanced/expressions' },
-            { text: 'Jinja2 Templates', link: '/concepts/jinja2-templates' },
-            { text: 'Validation & Control Flow', link: '/advanced/validation-and-control' },
-            { text: 'Error Handling', link: '/concepts/error-handling' },
-            { text: 'Looping & Iteration', link: '/concepts/loop' },
-            { text: 'Inline Resources', link: '/concepts/inline-resources' },
-          ]
-        },
-        {
-          text: 'Agencies & Components',
-          collapsed: true,
-          items: [
-            { text: 'Agencies', link: '/concepts/agency' },
-            { text: 'Components', link: '/concepts/components' },
+            { text: 'Deployment Guide', link: '/guides/deployment-guide' },
+            { text: 'Execution Flow', link: '/guides/execution-flow' },
+            { text: 'Troubleshooting', link: '/guides/troubleshooting' },
+            { text: 'FAQ', link: '/guides/faq' },
           ]
         },
         {
@@ -135,8 +132,26 @@ export default defineConfig({
           text: 'Reference',
           collapsed: false,
           items: [
-            { text: 'CLI Reference', link: '/reference/cli-reference' },
+            { text: 'CLI Reference', link: '/reference/cli/' },
+            { text: 'Dev Commands', link: '/reference/cli/dev' },
+            { text: 'Registry Commands', link: '/reference/cli/registry' },
+            { text: 'Packaging Commands', link: '/reference/cli/packaging' },
+            { text: 'Components Reference', link: '/reference/components' },
             { text: 'Expression Functions', link: '/reference/expression-functions-reference' },
+            { text: 'Expression Operators', link: '/reference/expression-operators' },
+            { text: 'Expression Blocks', link: '/reference/expr-blocks' },
+            { text: 'Management API', link: '/reference/management-api' },
+            { text: 'Glossary', link: '/reference/glossary' },
+          ]
+        },
+        {
+          text: 'Examples',
+          collapsed: false,
+          items: [
+            { text: 'Overview', link: '/examples/' },
+            { text: 'Stateless Bot', link: '/examples/stateless-bot/' },
+            { text: 'Telegram Bot', link: '/examples/telegram-bot/' },
+            { text: 'Showcase', link: '/examples/showcase' },
           ]
         },
       ]
