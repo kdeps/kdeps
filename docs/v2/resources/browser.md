@@ -1,6 +1,6 @@
 # Browser Automation Resource
 
-The Browser resource enables full browser automation via [Playwright](https://playwright.dev/), allowing you to navigate web pages, fill forms, click elements, extract data with JavaScript, capture screenshots, and maintain stateful browser sessions across multiple resources.
+The `browser:` resource drives a real browser (Chromium, Firefox, or WebKit) via [Playwright](https://playwright.dev/). Use it to navigate pages, fill forms, run JavaScript, capture screenshots, and maintain authenticated sessions across resources.
 
 ## Basic Usage
 

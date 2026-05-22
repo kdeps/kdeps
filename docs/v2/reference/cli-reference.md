@@ -1,10 +1,6 @@
 # CLI Reference
 
-Complete reference for all KDeps command-line interface commands.
-
-## Overview
-
-KDeps provides a simple CLI for creating, running, and deploying AI agents:
+The `kdeps` CLI creates, runs, tests, packages, and deploys agents. All commands follow the same structure:
 
 ```bash
 kdeps [command] [options]

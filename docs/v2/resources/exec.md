@@ -1,6 +1,6 @@
 # Exec Resource
 
-The Exec resource enables execution of shell commands and scripts for system operations, file manipulation, and external tool integration.
+The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that don't have a native resource type.
 
 ## Basic Usage
 

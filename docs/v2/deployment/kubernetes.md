@@ -1,6 +1,6 @@
 # Kubernetes Deployment
 
-KDeps can generate ready-to-apply Kubernetes manifests directly from your `workflow.yaml` using `kdeps export k8s`.
+`kdeps export k8s` generates a Kubernetes `Deployment` and `ClusterIP` `Service` from your `workflow.yaml` -- no manual YAML authoring required.
 
 ## Quick Start
 

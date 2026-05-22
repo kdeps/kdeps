@@ -1,18 +1,11 @@
 # Inline Resource Blocks (before / after)
 
-Inline resource blocks (`before` and `after`) allow you to execute expressions and actions around the main resource action. Use `before:` for pre-processing and `after:` for post-processing.
+`before:` and `after:` are expression lists that run around a resource's main action -- `before:` prepares data before the action runs, `after:` processes output after it completes. Think of them like setup/teardown blocks around a function call.
 
-## Overview
+- `before:` runs before the main action (chat, httpClient, sql, etc.)
+- `after:` runs after the main action
 
-- `before:` executes **before** the resource's main action (chat, httpClient, sql, etc.)
-- `after:` executes **after** the resource's main action
-
-Both accept bare scalar expressions and action config maps. Items in each array execute in order and can:
-
-- Transform data with `set()`
-- Store values in memory or session
-- Perform calculations
-- Prepare data for the main action
+Both accept bare scalar expressions. Each item executes in sequence and can call `set()` to store values, perform calculations, or read from memory and session.
 
 ## Basic Usage
 
@@ -104,21 +97,25 @@ httpClient:
 
 ## Execution Order
 
-Expressions execute in this order:
-
-1. **expr block** - Pre-processing expressions
-2. **Main action** - chat, httpClient, sql, python, exec, or apiResponse
+Expressions in each block run top to bottom. The full per-resource order is:
 
 ```
 Request
-    ↓
-┌─────────────┐
-│ expr Block  │ → Execute expressions in sequence
-└──────┬──────┘
-       ↓
-┌─────────────┐
-│ Main Action │ → Execute resource action
-└─────────────┘
+    |
+    v
++---------------+
+|  before:      |  -> expressions run in order; values stored via set()
++-------+-------+
+        |
+        v
++---------------+
+|  Main Action  |  -> chat, httpClient, sql, python, exec, or apiResponse
++-------+-------+
+        |
+        v
++---------------+
+|  after:       |  -> expressions run in order; output is accessible via get()
++---------------+
 ```
 
 ## Common Patterns

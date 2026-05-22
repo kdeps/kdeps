@@ -1,9 +1,6 @@
-# Prepackage — Standalone Executables
+# Prepackage -- Standalone Executables
 
-The `prepackage` command bundles a `.kdeps` workflow archive together with the
-entire kdeps runtime into a single, self-contained executable binary per
-architecture.  No separate kdeps installation is required to run a prepackaged
-binary — just copy it to the target machine and execute it.
+`kdeps bundle prepackage` embeds a `.kdeps` workflow archive directly into the kdeps binary, producing a single self-contained executable per architecture. Copy it to the target machine and run it -- no kdeps installation required.
 
 ## Overview
 
@@ -23,11 +20,7 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 
 ## How It Works
 
-1. The `.kdeps` archive is appended to the kdeps binary.
-2. A small 24-byte magic trailer is written after the archive so the binary can
-   detect its own embedded payload at startup.
-3. When a prepackaged binary is executed, it automatically detects the embedded
-   `.kdeps` archive and runs `kdeps run` on it — no flags required.
+The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically -- exactly like `kdeps run`.
 
 ```
 ┌──────────────────────┐
@@ -40,9 +33,7 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 └──────────────────────┘
 ```
 
-## Workflow
-
-The typical workflow is:
+## Typical Workflow
 
 ```bash
 # 1. Create your agent
@@ -141,8 +132,7 @@ A typical GitHub Actions workflow:
 
 ## Running a Prepackaged Binary
 
-A prepackaged binary behaves exactly like `kdeps run myagent.kdeps` — it
-starts an API server, processes requests, and handles all workflow steps.
+A prepackaged binary behaves exactly like `kdeps run myagent.kdeps` -- it starts an API server, processes requests, and handles all workflow steps.
 
 ```bash
 # Linux/macOS

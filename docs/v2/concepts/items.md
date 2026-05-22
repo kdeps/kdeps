@@ -1,6 +1,6 @@
 # Items Iteration
 
-Items allow you to process multiple values in sequence, executing a resource for each item.
+`items:` runs a resource once per entry in a list -- like a for-each loop, but each iteration is a full resource execution with its own output.
 
 ## Basic Usage
 

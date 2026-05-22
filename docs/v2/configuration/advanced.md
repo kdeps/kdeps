@@ -1,7 +1,6 @@
 # Advanced Configuration
 
-This guide covers advanced configuration options for KDeps workflows.
-
+This reference covers security, rate limiting, trusted proxies, resource output caps, and other server-level settings that live in `workflow.yaml` under `settings:`.
 
 ## Request Object
 

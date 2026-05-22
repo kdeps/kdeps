@@ -1,6 +1,6 @@
 # SQL Resource
 
-The SQL resource enables database queries with support for multiple database types, connection pooling, transactions, and batch operations.
+The `sql:` resource runs SQL queries against a named connection and returns the result set as the resource's output. Use it to read, write, or transact against any supported database.
 
 ## Basic Usage
 
