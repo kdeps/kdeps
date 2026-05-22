@@ -53,6 +53,25 @@ func AgentToolDef(
 	}
 }
 
+// AgentToolDefWithName is like AgentToolDef but uses an explicit name and description.
+// Used for agencies where the tool name is the agency name, not the entry-point workflow name.
+func AgentToolDefWithName(name, desc string, workflow *domain.Workflow, eng *executor.Engine) *Tool {
+	return &Tool{
+		Name:        name,
+		Description: desc,
+		Parameters: map[string]domain.ToolParam{
+			"input": {
+				Type:        "string",
+				Description: "Input message or data forwarded to the agent.",
+				Required:    true,
+			},
+		},
+		Execute: func(args map[string]interface{}) (string, error) {
+			return executeAgentTool(eng, workflow, args)
+		},
+	}
+}
+
 // executeAgentTool runs an agent workflow with the provided args as request params.
 func executeAgentTool(
 	eng *executor.Engine,

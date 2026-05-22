@@ -77,27 +77,31 @@ The LLM now has three tools: `research-agent`, `writer-agent`, `summarizer-agent
 ```mermaid
 flowchart TD
     A([user prompt]) --> B
-    B["LLM receives prompt<br/><small>tool registry: one tool per workflow/agency + one per component</small>"] -->|LLM picks a tool| C
+    B["LLM receives prompt<br/><small>tool registry: one tool per workflow, one per agency, one per component</small>"] -->|LLM picks a tool| C
     C{"tool type?"} -->|workflow| D
-    C -->|component| E
-    D["kdeps runs full workflow pipeline<br/><small>all requires: deps resolve in order<br/>tool args become get&#40;'key'&#41; inside the workflow</small>"] -->|apiResponse returned to LLM| F
-    E["kdeps runs component in isolation<br/><small>inputs map to component interface fields</small>"] -->|result returned to LLM| F
+    C -->|agency| E
+    C -->|component| H
+    D["kdeps runs full workflow pipeline<br/><small>all requires: deps resolve in order</small>"] -->|apiResponse returned to LLM| F
+    E["kdeps runs agency entry-point pipeline<br/><small>internal agents resolve via agent: resource type</small>"] -->|result returned to LLM| F
+    H["kdeps runs component in isolation<br/><small>inputs map to component interface fields</small>"] -->|result returned to LLM| F
     F{"more tools<br/>needed?"} -->|yes| C
     F -->|no| G
     G([final answer])
 ```
 
-Why whole workflows and not individual resources? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order. Components are self-contained by design, so they can run independently as tools.
+Why whole workflows and not individual resources? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order.
+
+Why agencies are one tool and not one tool per internal agent? Agencies are designed as a single orchestrated unit. The entry-point agent coordinates the other agents internally via `agent:` resources -- the LLM does not need to know about the internal structure. One agency = one tool call.
 
 ## Tool registration
 
 | `kdeps serve` target | Tools registered |
 |---|---|
-| Single workflow file | One workflow tool (`metadata.name`) + one tool per component in that workflow |
-| Single agency file | One tool per agent inside the agency + their components |
-| Folder | One workflow tool per workflow/agency found recursively + all components |
+| Single workflow file/dir | One tool (`metadata.name`) + one tool per component in that workflow |
+| Single agency file | One tool (`agency metadata.name`) -- the agency's entry-point runs when called; internal agents are not exposed individually |
+| Folder | One tool per workflow/agency found recursively + component tools for each workflow |
 
-Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Component tool inputs map to the component's declared interface fields.
+Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Agency tool input runs the agency's entry-point workflow. Component tool inputs map to the component's declared interface fields.
 
 ## When to use agent mode
 

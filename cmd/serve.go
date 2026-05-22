@@ -30,26 +30,34 @@ func newServeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve <path>",
 		Short: "Start agent mode (interactive LLM loop with workflows as tools)",
-		Long: `Start agent mode -- an interactive LLM loop where whole workflows are
-registered as callable tools.
+		Long: `Start agent mode -- an interactive LLM loop where whole workflows and
+components are registered as callable tools.
 
-Pass a single workflow file to expose one tool, or a directory to expose
-every workflow and agency found inside as separate tools. The tool name
-for each workflow is its metadata.name field. Each tool call runs the
-full workflow DAG so requires: dependencies always resolve.
+Pass a directory to expose every workflow and agency found inside as
+separate tools. Each workflow becomes one tool. Each agency becomes one
+tool (the agency's entry point runs; internal agents are not exposed
+individually). Pass a single workflow file or agency file to expose just
+that one tool.
+
+The tool name for each workflow or agency is its metadata.name field.
+Each tool call runs the full workflow DAG so requires: dependencies
+always resolve.
 
 Examples:
-  # One tool from a single workflow
-  kdeps serve workflow.yaml
-
-  # All workflows in a folder become separate tools
+  # All workflows and agencies in a folder -- each becomes one tool
   kdeps serve ./agents/
 
+  # One tool from a single workflow directory
+  kdeps serve ./my-agent/
+
+  # One tool from an agency file (entry point runs when called)
+  kdeps serve agency.yaml
+
   # Override the model
-  kdeps serve workflow.yaml --model mistral
+  kdeps serve ./agents/ --model mistral
 
   # Provide a system prompt
-  kdeps serve workflow.yaml --system "You are a helpful assistant."
+  kdeps serve ./agents/ --system "You are a helpful assistant."
 
 Environment variables (override defaults):
   KDEPS_AGENT_MODEL      LLM model name (default: llama3.2)
@@ -84,33 +92,12 @@ func runServeCmd(path string, flags *serveFlags) error {
 		return fmt.Errorf("serve: path not found %q: %w", path, err)
 	}
 
-	eng := setupEngine(nil, flags.Debug)
 	registry := tools.NewRegistry()
 	tools.RegisterFFormatTools(registry)
 
-	var hostWorkflow = newMinimalHostWorkflow()
-
-	if info.IsDir() {
-		wfPaths := findServeWorkflowFiles(absPath)
-		if len(wfPaths) == 0 {
-			return fmt.Errorf("serve: no workflow or agency files found under %s", absPath)
-		}
-		for _, p := range wfPaths {
-			wf, loadErr := ParseWorkflowFile(p)
-			if loadErr != nil {
-				return fmt.Errorf("serve: failed to load %s: %w", p, loadErr)
-			}
-			registry.Register(tools.AgentToolDef(wf, eng))
-			registerComponentTools(registry, wf, eng)
-		}
-	} else {
-		wf, loadErr := ParseWorkflowFile(absPath)
-		if loadErr != nil {
-			return fmt.Errorf("serve: failed to load workflow: %w", loadErr)
-		}
-		hostWorkflow = wf
-		registry.Register(tools.AgentToolDef(wf, eng))
-		registerComponentTools(registry, wf, eng)
+	hostWorkflow, err := loadAndRegisterAll(absPath, info.IsDir(), registry, flags.Debug)
+	if err != nil {
+		return err
 	}
 
 	cfg := agent.Config{
@@ -119,8 +106,98 @@ func runServeCmd(path string, flags *serveFlags) error {
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
 	}
+	eng := setupEngine(nil, flags.Debug)
 	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	return runREPL(loop)
+}
+
+// loadAndRegisterAll loads workflow/agency files from path and registers tools.
+// If isDir, walks the directory; otherwise loads the single file.
+// Returns the first workflow loaded for use as the agent loop host.
+func loadAndRegisterAll(absPath string, isDir bool, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
+	hostWorkflow := newMinimalHostWorkflow()
+
+	paths := []string{absPath}
+	if isDir {
+		paths = findServeWorkflowFiles(absPath)
+		if len(paths) == 0 {
+			return nil, fmt.Errorf("serve: no workflow or agency files found under %s", absPath)
+		}
+	}
+
+	for _, p := range paths {
+		first, err := registerServeTools(p, registry, debug)
+		if err != nil {
+			return nil, err
+		}
+		if first != nil && hostWorkflow.Metadata.Name == "agent" {
+			hostWorkflow = first
+		}
+	}
+	return hostWorkflow, nil
+}
+
+// registerServeTools loads a workflow or agency file and registers tools.
+//
+// Workflow: registers one tool (metadata.name) + its component tools.
+// Agency: registers one tool (agency metadata.name) whose Execute runs
+// the agency entry-point workflow. Internal agents are NOT exposed as
+// individual tools. A dedicated engine with the agency's agentPaths is
+// created so agent: resources inside the entry-point workflow resolve.
+func registerServeTools(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
+	if isAgencyFile(p) {
+		return registerAgencyTool(p, registry, debug)
+	}
+	return registerWorkflowTool(p, registry, debug)
+}
+
+func registerWorkflowTool(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
+	wf, err := ParseWorkflowFile(p)
+	if err != nil {
+		return nil, fmt.Errorf("serve: failed to load workflow %s: %w", p, err)
+	}
+	eng := setupEngine(nil, debug)
+	registry.Register(tools.AgentToolDef(wf, eng))
+	registerComponentTools(registry, wf, eng)
+	return wf, nil
+}
+
+func registerAgencyTool(p string, registry *tools.Registry, debug bool) (*domain.Workflow, error) {
+	agency, agentPaths, err := ParseAgencyFile(p)
+	if err != nil {
+		return nil, fmt.Errorf("serve: failed to load agency %s: %w", p, err)
+	}
+	nameMap, targetPath, err := buildAgentNameMap(agentPaths, agency.Metadata.TargetAgentID)
+	if err != nil {
+		return nil, fmt.Errorf("serve: agency %s: %w", p, err)
+	}
+	targetWF, err := ParseWorkflowFile(targetPath)
+	if err != nil {
+		return nil, fmt.Errorf("serve: agency %s target: %w", p, err)
+	}
+
+	// Give the agency its own engine so AgentPaths is scoped correctly.
+	agencyEng := setupEngine(nil, debug)
+	agencyEng.SetNewExecutionContextForAgency(nameMap)
+
+	// Register one tool named after the agency (not the individual agents).
+	agencyTool := agencyToolDef(agency, targetWF, agencyEng)
+	registry.Register(agencyTool)
+	return targetWF, nil
+}
+
+// agencyToolDef wraps a whole agency as a single callable tool.
+// The tool name is the agency's metadata.name. Execute runs the entry-point workflow.
+func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *executor.Engine) *tools.Tool {
+	name := agency.Metadata.Name
+	if name == "" {
+		name = "agency"
+	}
+	desc := agency.Metadata.Description
+	if desc == "" {
+		desc = fmt.Sprintf("Agency: %s v%s", name, agency.Metadata.Version)
+	}
+	return tools.AgentToolDefWithName(name, desc, entryWorkflow, eng)
 }
 
 func runREPL(loop *agent.Loop) error {
