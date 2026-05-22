@@ -23,7 +23,7 @@ kdeps registry install remoteagent # call a remote kdeps agent
 kdeps registry install autopilot   # LLM-directed task execution
 ```
 
-Invoked with `run.component:` in any resource:
+Invoked with `component:` in any resource:
 
 ```yaml
 component:
@@ -246,9 +246,9 @@ The component's `interface.inputs` become the tool's parameter schema. The LLM u
 
 ---
 
-## Calling a Component: `run.component:` Syntax
+## Calling a component
 
-Once a component is installed, resources invoke it using the `run.component:` block instead of a raw executor key. The `with:` map passes typed inputs that are validated against the component's `interface.inputs` declaration.
+Once a component is installed, resources invoke it using the `component:` block. The `with:` map passes typed inputs that are validated against the component's `interface.inputs` declaration.
 
 ```yaml
 component:
@@ -282,7 +282,7 @@ Inside component resources, reference inputs with either key or via `inputs.<inp
 
 ### Accessing Component Output
 
-After `run.component:` executes, results are stored under the caller resource's `actionId` and retrieved with `output('<callerActionId>')`:
+After `component:` executes, results are stored under the caller resource's `actionId` and retrieved with `output('<callerActionId>')`:
 
 <div v-pre>
 
@@ -525,7 +525,7 @@ resources:
 
 **`my-workflow/resources/main.yaml`**
 
-Call the `greeter` component from a workflow resource using `run.component:`:
+Call the `greeter` component from a workflow resource:
 
 ```yaml
 

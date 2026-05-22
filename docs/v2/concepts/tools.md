@@ -1,10 +1,24 @@
 # Tools (Function Calling)
 
-Tools enable LLMs to call other resources or scripts to perform actions like calculations, database lookups, or API calls.
+Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output -- it does not see the resource YAML.
 
-## Overview
-
-When you define tools in a chat resource, the LLM can automatically decide when to use them based on the user's prompt. This enables powerful agentic workflows.
+```
+chat resource receives prompt
+        |
+        v
+LLM: "I need to calculate something"
+        |  calls tool "calculate"
+        v
++-------------------------+
+|  resource: calcTool     |  <- tool args become get('expression') inside
++-------------------------+
+        |  output returned to LLM
+        v
+LLM: "The answer is 42"
+        |
+        v
+    final response
+```
 
 <div v-pre>
 
@@ -13,8 +27,8 @@ chat:
   prompt: "{{ get('q') }}"
   tools:
     - name: calculate
-      description: Perform mathematical calculations
-      script: calcTool
+      description: Perform mathematical calculations  # LLM uses this to decide when to call
+      script: calcTool                                # actionId of the resource to run
       parameters:
         expression:
           type: string
@@ -24,18 +38,18 @@ chat:
 
 </div>
 
-## Basic Tool Definition
+## Tool definition
 
 ```yaml
 tools:
-  - name: tool_name           # Unique identifier
-    description: What it does # Help the LLM decide when to use it
-    script: resourceId        # Reference to another resource
-    parameters:               # Input parameters
+  - name: tool_name           # must be unique within this chat resource
+    description: What it does # the LLM reads this to decide when to call it
+    script: resourceId        # actionId of the resource that executes the tool
+    parameters:               # inputs the LLM must supply
       param_name:
         type: string          # string, number, integer, boolean, object, array
         description: What this parameter is for
-        required: true        # Is it required?
+        required: true
 ```
 
 ## Tool Types

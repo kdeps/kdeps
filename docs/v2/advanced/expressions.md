@@ -1,11 +1,10 @@
 # Expressions
 
-Expressions allow you to add logic, data transformation, and dynamic values to your workflow. They are powered by the [expr-lang](https://expr-lang.org/) engine.
+Expressions are how you pass data between resources, validate inputs, and run conditional logic. They are powered by [expr-lang](https://expr-lang.org/).
 
-## Where to Use Expressions
+## Where expressions are used
 
-### 1. String Interpolation
-Use <span v-pre>`{{ }}`</span> to embed expressions in any string field.
+**String interpolation** -- embed an expression inside any string field using `{{ }}`:
 
 <div v-pre>
 
@@ -16,71 +15,32 @@ chat:
 
 </div>
 
-### 2. Expression Blocks (`expr`)
-Use `expr` blocks to run logic steps. These are executed sequentially.
+**before:/after: blocks** -- a list of statements executed sequentially. Each statement is a bare expression, not wrapped in `{{ }}`:
 
 ```yaml
 after:
-  # Variable assignment
-  - set('normalized_query', lower(trim(get('q'))))
-
-  # Conditional logic
-  - set('is_admin', get('role') == 'admin')
-
-  # Math
+  - set('normalized', lower(trim(get('q'))))   # stores a value
+  - set('is_admin', get('role') == 'admin')    # boolean
   - set('total', get('price') * get('quantity'))
 ```
 
-### 3. Conditions
-Used in `validations.skip`, `validations.check`, and `onError`.
+**validations.skip / validations.check / onError.when** -- a list of boolean expressions; any one true is enough:
 
 ```yaml
 validations:
   skip:
-  - get('q') == ''
+    - get('q') == ''           # bare expression, evaluated as bool
   check:
     - len(get('password')) >= 8
 ```
 
-## Expression Types
+## Standard library
 
-KDeps supports three types of expressions:
-
-### Literal
-Raw values returned as-is.
-```yaml
-key: "value"
-count: 10
-```
-
-### Direct
-Evaluated directly (used in `expr` blocks and conditions).
-```yaml
-- get('count') + 1
-- user.name == 'Alice'
-```
-
-### Interpolated
-String templates containing <span v-pre>`{{ }}`</span>.
-<div v-pre>
-
-```yaml
-message: "Count is {{ get('count') }}"
-```
-
-</div>
-
-## Standard Library
-
-Since KDeps uses `expr-lang`, you have access to a rich standard library of functions:
+Expressions have access to the full [expr-lang standard library](https://expr-lang.org/docs/language-definition):
 
 - **String**: `trim()`, `lower()`, `upper()`, `split()`, `replace()`, `join()`
 - **Math**: `min()`, `max()`, `abs()`, `ceil()`, `floor()`
 - **List**: `len()`, `filter()`, `map()`, `first()`, `last()`, `contains()`
-- **Type**: `int()`, `float()`, `string()`, `bool()`
+- **Type casting**: `int()`, `float()`, `string()`, `bool()`
 
-See the [Expr Language Documentation](https://expr-lang.org/docs/language-definition) for a full list of built-in operators and functions.
-
-## Helper Functions
-
-KDeps adds specific helper functions for workflow context. See the [Expression Functions Reference](/reference/expression-functions-reference) for details.
+kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.

@@ -1,6 +1,6 @@
 # Agent Mode
 
-Agent mode (`kdeps serve`) runs your workflow as a live, interactive LLM agent. Every resource defined in the workflow is automatically registered as a callable tool. The LLM plans and calls them in whatever order is needed to complete the user's request.
+Agent mode (`kdeps serve`) turns your workflow into an interactive LLM loop. Every resource is auto-registered as a callable tool. The LLM decides which tools to call and in what order based on the user's prompt.
 
 Run with:
 
@@ -10,14 +10,31 @@ kdeps serve workflow.yaml
 
 ## How it works
 
-1. `kdeps serve workflow.yaml` loads the workflow and builds a tool registry.
-2. Each resource's `actionId` becomes a tool name.
-3. Built-in format tools (JSON, YAML, CSV, XML) are always available.
-4. An interactive REPL starts. You enter a prompt; the LLM decides which tools to call.
-5. When the LLM calls a tool, kdeps runs that resource with the tool arguments as query parameters. Results are returned to the LLM.
-6. The loop continues until the LLM produces a final answer.
+```
+you type a prompt
+        |
+        v
++-------------------------+
+|  LLM receives prompt    |  <- model set by --model flag or KDEPS_AGENT_MODEL
+|  + tool registry        |  <- one tool per actionId in workflow.yaml
++-------------------------+
+        |  LLM decides to call tool "fetch"
+        v
++-------------------------+
+|  kdeps runs resource    |  <- tool args become get('key') inside the resource
+|  actionId: fetch        |
++-------------------------+
+        |  result returned to LLM
+        v
++-------------------------+
+|  LLM continues loop     |  <- may call more tools or produce final answer
++-------------------------+
+        |
+        v
+   final answer printed
+```
 
-The underlying workflow engine is unchanged. `kdeps run` continues to work exactly as before. Agent mode is additive.
+The same workflow.yaml runs in both modes. `kdeps run` is unchanged -- agent mode is additive.
 
 ## When to use agent mode
 
@@ -66,7 +83,7 @@ KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
 
 ## Tool dispatch
 
-When the LLM calls a tool, kdeps creates a minimal single-resource workflow targeting that resource and runs it. Tool arguments become `get('key')` values inside the resource so it can access them normally.
+When the LLM calls a tool, kdeps creates a minimal single-resource workflow targeting that resource and runs it. Tool arguments become `get('key')` values inside the resource -- the same way request parameters work in workflow mode. The resource does not need any special wiring to work as a tool.
 
 ## Differences from workflow mode
 
