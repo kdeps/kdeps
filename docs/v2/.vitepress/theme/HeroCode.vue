@@ -3,36 +3,45 @@
   Licensed under the Apache License, Version 2.0
 -->
 <template>
-  <div class="hero-code-window">
-    <!-- Title bar -->
-    <div class="code-titlebar">
+  <div class="hero-terminal">
+    <div class="terminal-titlebar">
       <div class="code-dots">
         <span class="r"></span>
         <span class="y"></span>
         <span class="g"></span>
       </div>
-      <span class="code-filename">resources/answer.yaml</span>
+      <span class="terminal-title">terminal</span>
     </div>
 
-    <!-- Code body -->
-    <pre class="code-body" v-pre><code><span class="key">actionId</span><span class="op">:</span> <span class="str">answer</span>
-<span class="key">chat</span><span class="op">:</span>
-  <span class="key">model</span><span class="op">:</span> <span class="str">llama3.2:1b</span>
-  <span class="key">prompt</span><span class="op">:</span> <span class="str">"{{ get('q') }}"</span>
-<span class="key">apiResponse</span><span class="op">:</span>
-  <span class="key">response</span><span class="op">:</span> <span class="str">"{{ output('answer') }}"</span></code></pre>
+    <div class="terminal-body">
+      <div class="line">
+        <span class="prompt">$</span>
+        <span class="cmd">kdeps run workflow.yaml</span>
+      </div>
+      <div class="line output">Listening on :16395</div>
+      <div class="line spacer"></div>
+      <div class="line">
+        <span class="prompt">$</span>
+        <span class="cmd">curl localhost:16395/ask \</span>
+      </div>
+      <div class="line">
+        <span class="indent"></span>
+        <span class="cmd dim">-d '{"q": "explain REST in one line"}'</span>
+      </div>
+      <div class="line spacer"></div>
+      <div class="line response">{"response": "REST is HTTP + URLs + JSON, stateless by design."}</div>
+    </div>
 
-    <!-- Status bar -->
-    <div class="code-statusbar">
+    <div class="terminal-statusbar">
       <span class="status-dot"></span>
-      <span>kdeps run workflow.yaml</span>
+      <span>running</span>
       <span>port 16395</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.hero-code-window {
+.hero-terminal {
   font-family: var(--vp-font-family-mono);
   font-size: 13px;
   line-height: 1.6;
@@ -46,8 +55,7 @@
   box-shadow: var(--vp-shadow-3);
 }
 
-/* Title bar */
-.code-titlebar {
+.terminal-titlebar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -71,37 +79,60 @@
 .code-dots .y { background: #FFBD2E; }
 .code-dots .g { background: #28CA42; }
 
-.code-filename {
+.terminal-title {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.35);
   margin-left: 4px;
 }
 
-/* Code body */
-.code-body {
-  margin: 0;
+.terminal-body {
   padding: 16px;
   color: #c8cce8;
-  overflow-x: auto;
+}
+
+.line {
+  display: flex;
+  gap: 8px;
   white-space: pre;
 }
 
-.code-body code {
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-  background: transparent;
-  padding: 0;
-  border: none;
+.line.spacer {
+  height: 8px;
 }
 
-.key { color: #FF2D78; }
-.str { color: #FFD60A; }
-.op  { color: var(--vp-c-brand-1); }
-.cm  { color: rgba(200, 204, 232, 0.3); font-style: italic; }
+.prompt {
+  color: var(--vp-c-brand-1);
+  user-select: none;
+  flex-shrink: 0;
+}
 
-/* Status bar */
-.code-statusbar {
+.cmd {
+  color: #c8cce8;
+}
+
+.cmd.dim {
+  color: rgba(200, 204, 232, 0.6);
+}
+
+.indent {
+  display: inline-block;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.output {
+  color: rgba(200, 204, 232, 0.4);
+  padding-left: 16px;
+}
+
+.response {
+  color: #FFD60A;
+  padding-left: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.terminal-statusbar {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -126,14 +157,14 @@
 }
 
 @media (max-width: 960px) {
-  .hero-code-window {
+  .hero-terminal {
     max-width: 100%;
     font-size: 12px;
   }
 }
 
 @media (max-width: 640px) {
-  .hero-code-window {
+  .hero-terminal {
     font-size: 11px;
   }
 }
