@@ -49,12 +49,12 @@ file('*', 'count')           # Get total file count
 ### info(field)
 Retrieves request metadata.
 
-- **field**: One of `requestId`, `timestamp`, `path`, `method`, `clientIp`, `sessionId`, `filecount`, `files`, `filetypes`.
+- **field**: One of `ID`, `IP`, `timestamp`, `path`, `method`, `sessionId`, `filecount`, `files`, `filetypes`.
 
 **Examples:**
 ```yaml
-info('requestId')            # Get request ID
-info('clientIp')             # Get client IP
+info('ID')                   # Get request ID
+info('IP')                   # Get client IP
 ```
 
 ## Data Handling Functions
@@ -133,16 +133,17 @@ output('llmResource')        # Get LLM output
 
 Available inside `items:` blocks to access the state of the current loop iteration.
 
-### item(type?)
-Accesses current iteration context.
+### item object
+Accesses current iteration context. `item` is an object -- call its methods to read iteration state.
 
-- **type** (optional): `current`, `prev`, `next`, `index`, `count`, `values`.
-
-**Examples:**
+**Methods:**
 ```yaml
-item('current')              # Current item value
-item('index')                # Current index (0-based)
-item('count')                # Total items count
+item.current()   # Current item value
+item.prev()      # Previous item (nil on first iteration)
+item.next()      # Next item (nil on last iteration)
+item.index()     # Current index (0-based)
+item.count()     # Total items count
+item.values()    # All items as an array
 ```
 
 ## Session Functions
@@ -254,19 +255,21 @@ after:
 
 ### String Matching
 
+`contains`, `startsWith`, `endsWith`, and `matches` are infix operators, not functions.
+
 ```yaml
 # resources/example.yaml
 after:
-  - set('hasKeyword', contains(get('text'), 'important'))
-  - set('isUrl', startsWith(get('url'), 'https://'))
-  - set('isImage', endsWith(get('filename'), '.jpg'))
-  - set('isEmail', matches(get('email'), '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'))
+  - set('hasKeyword', get('text') contains 'important')
+  - set('isUrl', get('url') startsWith 'https://')
+  - set('isImage', get('filename') endsWith '.jpg')
+  - set('isEmail', get('email') matches '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$')
 ```
 
 ## Type Conversion
 
 ### type(value)
-Returns the type as a string: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"null"`.
+Returns the type as a string: `"string"`, `"int"`, `"float"`, `"bool"`, `"array"`, `"map"`, `"nil"`.
 
 ```yaml
 # resources/example.yaml
@@ -282,37 +285,27 @@ after:
   - set('age', int(get('ageString')))       # "123" -> 123
   - set('price', float(get('priceString'))) # "3.14" -> 3.14
   - set('idString', string(get('id')))      # 42 -> "42"
-  - set('isEnabled', bool(get('enabled')))  # "true" -> true, 1 -> true, 0 -> false
 ```
 
 ## Date & Time
 
+### info('timestamp')
+Returns the current time as an RFC3339 string (e.g. `2024-12-25T14:30:00Z`). Use this for timestamps in responses, logging, and audit fields.
+
+```yaml
+# resources/example.yaml
+after:
+  - set('ts', info('timestamp'))
+```
+
 ### now()
-Returns the current time as an ISO 8601 timestamp string.
+Returns the current time as a `time.Time` value. Useful with comparison operators or passing to `date()` for parsing.
 
 ```yaml
 # resources/example.yaml
 after:
-  - set('now', now())
+  - set('currentTime', now())
 ```
-
-### format(date, layout)
-Formats a timestamp using Go's reference time layout (`2006-01-02 15:04:05`).
-
-```yaml
-# resources/example.yaml
-after:
-  - set('date', format(now(), '2006-01-02'))
-  - set('datetime', format(now(), '2006-01-02 15:04:05'))
-  - set('timestamp', format(now(), '2006-01-02T15:04:05Z'))
-```
-
-Common layout patterns:
-| Pattern | Output |
-|---|---|
-| `2006-01-02` | `2024-12-25` |
-| `2006-01-02 15:04:05` | `2024-12-25 14:30:00` |
-| `01/02/2006` | `12/25/2024` |
 
 ## Conditional Logic
 

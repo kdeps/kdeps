@@ -21,6 +21,7 @@ kdeps uses structured JSON logging via Go's `log/slog`. Warnings and errors go t
 | (none) | WARN | Warnings and errors only |
 | `--verbose` | INFO | Informational messages + above |
 | `--debug` or `KDEPS_DEBUG=true` | DEBUG | Debug details + above |
+| `KDEPS_LOG_FORMAT=json` | (any) | Structured JSON output on stderr |
 
 **JSON format:**
 
@@ -59,21 +60,13 @@ kdeps new my-agent
 cd my-agent
 kdeps validate workflow.yaml
 
-# 3. Generate self-tests from your resources
-kdeps run workflow.yaml --write-tests
-
-# 4. Run locally with hot reload
+# 3. Run locally with hot reload
 kdeps run workflow.yaml --dev
 
-# 5. Test and iterate (server auto-reloads on file changes)
-
-# 6. Run tests in CI
-kdeps run workflow.yaml --self-test-only
-
-# 7. Package for deployment
+# 4. Package for deployment
 kdeps bundle package . --output dist/
 
-# 8. Build Docker image (optional)
+# 5. Build Docker image (optional)
 kdeps bundle build dist/my-agent-1.0.0.kdeps --tag my-agent:latest
 ```
 
@@ -92,16 +85,15 @@ kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --gpu cuda
 
 # 4. Push to registry
-kdeps bundle build dist/my-agent-1.0.0.kdeps \
-  --tag registry.com/my-agent:v1.0.0 \
-  --push
+docker push registry.com/my-agent:v1.0.0
 ```
 
 ### Kubernetes Deployment Flow
 
 ```bash
-# 1. Build and push Docker image
-kdeps bundle build . --tag registry.com/my-agent:v1.0.0 --push
+# 1. Build Docker image
+kdeps bundle build . --tag registry.com/my-agent:v1.0.0
+docker push registry.com/my-agent:v1.0.0
 
 # 2. Generate Kubernetes manifests
 kdeps export k8s . \
@@ -126,7 +118,8 @@ kubectl rollout status deployment/my-agent
 
 | Variable | Description |
 |---|---|
-| `KDEPS_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, `error` |
+| `KDEPS_DEBUG` | Set `true` to enable debug logging (equivalent to `--debug`) |
+| `KDEPS_LOG_FORMAT` | Set `json` for structured JSON log output |
 | `KDEPS_EDITOR` | Editor for `kdeps edit` (overrides `VISUAL`/`EDITOR`) |
 | `KDEPS_PYTHON_VERSION` | Global Python version (e.g., `3.12`) |
 | `KDEPS_OFFLINE_MODE` | Set `true` to block all external LLM calls |

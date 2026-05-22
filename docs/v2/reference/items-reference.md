@@ -33,11 +33,12 @@ chat:
 # resources/enrich-products.yaml
 actionId: enrichProducts
 requires: [fetchProducts]
-items: get('fetchProducts')
+items:
+  - "get('fetchProducts')"
 
 httpClient:
   method: GET
-  url: "https://api.example.com/details/{{ get('current').id }}"
+  url: "https://api.example.com/details/{{ get('current') }}"
 ```
 
 </div>
@@ -50,21 +51,17 @@ httpClient:
 # resources/generate-report.yaml
 actionId: generateReport
 items:
-  - section: "executive_summary"
-    title: "Executive Summary"
-  - section: "analysis"
-    title: "Market Analysis"
-  - section: "recommendations"
-    title: "Recommendations"
-  - section: "conclusion"
-    title: "Conclusion"
+  - "executive_summary|Executive Summary"
+  - "analysis|Market Analysis"
+  - "recommendations|Recommendations"
+  - "conclusion|Conclusion"
 
 chat:
   prompt: |
-    Generate the "{{ get('current').title }}" section of the report.
+    Generate the "{{ split(get('current'), '|')[1] }}" section of the report.
     Data: {{ get('reportData') }}
 
-    {{ get('prev') ? 'Previous section: ' + get('prev').title : '' }}
+    {{ get('prev') ? 'Previous section: ' + get('prev') : '' }}
   jsonResponse: true
   jsonResponseKeys:
     - content
@@ -81,18 +78,14 @@ chat:
 # resources/translate.yaml
 actionId: translate
 items:
-  - code: "es"
-    name: "Spanish"
-  - code: "fr"
-    name: "French"
-  - code: "de"
-    name: "German"
-  - code: "ja"
-    name: "Japanese"
+  - "es|Spanish"
+  - "fr|French"
+  - "de|German"
+  - "ja|Japanese"
 
 chat:
   prompt: |
-    Translate to {{ get('current').name }}:
+    Translate to {{ split(get('current'), '|')[1] }}:
     "{{ get('originalText') }}"
   jsonResponse: true
   jsonResponseKeys:
@@ -110,20 +103,16 @@ chat:
 # resources/chained-process.yaml
 actionId: chainedProcess
 items:
-  - step: 1
-    action: "gather_requirements"
-  - step: 2
-    action: "design_solution"
-  - step: 3
-    action: "implement"
-  - step: 4
-    action: "test"
+  - "1|gather_requirements"
+  - "2|design_solution"
+  - "3|implement"
+  - "4|test"
 
 chat:
   prompt: |
-    Step {{ get('current').step }}: {{ get('current').action }}
+    Step {{ split(get('current'), '|')[0] }}: {{ split(get('current'), '|')[1] }}
 
-    {{ get('prev') ? 'Previous step output: ' + get('prev').result : 'Starting fresh.' }}
+    {{ get('prev') ? 'Previous step output: ' + get('prev') : 'Starting fresh.' }}
 
     Complete this step.
 ```
@@ -138,14 +127,14 @@ chat:
 # resources/analyze-images.yaml
 actionId: analyzeImages
 items:
-  - path: "/uploads/image1.jpg"
-  - path: "/uploads/image2.jpg"
-  - path: "/uploads/image3.jpg"
+  - "/uploads/image1.jpg"
+  - "/uploads/image2.jpg"
+  - "/uploads/image3.jpg"
 
 chat:
   prompt: "Describe this image"
   files:
-    - "{{ get('current').path }}"
+    - "{{ get('current') }}"
 ```
 
 </div>
@@ -181,17 +170,20 @@ apiResponse:
 
 ## Dynamic Items
 
-Items can come from expressions or previous resources:
+Items can come from expressions or previous resources. The `items:` field is always a YAML list; a single expression that returns an array is expanded into multiple iterations:
 
 ```yaml
-# From expression
-items: split(get('csv_data'), ',')
+# From expression - evaluates to array, each element becomes one iteration
+items:
+  - "split(get('csv_data'), ',')"
 
-# From previous resource
-items: get('fetchItems')
+# From previous resource output
+items:
+  - "get('fetchItems')"
 
 # Filtered items
-items: filter(get('allItems'), .status == 'active')
+items:
+  - "filter(get('allItems'), .status == 'active')"
 ```
 
 ## Performance Considerations

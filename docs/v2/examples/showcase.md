@@ -98,7 +98,7 @@ before:
 chat:
   prompt: |
     Transactions: {{ get('httpClient') }}
-    Today: {{ info('current_date') }}
+    Today: {{ info('timestamp') }}
     List bills due in 7 days. Flag anything overdue.
   jsonResponse: true
   jsonResponseKeys: [due_soon, overdue, balance_after]

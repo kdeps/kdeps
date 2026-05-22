@@ -43,8 +43,9 @@ Expressions have access to the full [expr-lang standard library](https://expr-la
 
 - **String**: `trim()`, `lower()`, `upper()`, `split()`, `replace()`, `join()`
 - **Math**: `min()`, `max()`, `abs()`, `ceil()`, `floor()`
-- **List**: `len()`, `filter()`, `map()`, `first()`, `last()`, `contains()`
-- **Type casting**: `int()`, `float()`, `string()`, `bool()`
+- **List**: `len()`, `filter()`, `map()`, `first()`, `last()`
+- **String matching** (infix operators): `contains`, `startsWith`, `endsWith`, `matches`
+- **Type casting**: `int()`, `float()`, `string()`
 
 kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.
 ## See Also

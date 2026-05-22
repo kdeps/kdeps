@@ -64,8 +64,8 @@ images: file('*.jpg')       # glob pattern -- returns first match
 
 ```yaml
 # resources/example.yaml
-id: info('requestId')    # unique ID for this request
-ip: info('clientIp')     # caller IP address
+id: info('ID')           # unique ID for this request
+ip: info('IP')           # caller IP address
 path: info('path')       # URL path
 ts: info('timestamp')    # current timestamp
 ```
@@ -82,7 +82,7 @@ after:
   - set('err', exec.stderr('build'))
 
   # HTTP resources
-  - set('status', http.responseBody('api').statusCode)
+  - set('status', get('api').statusCode)
   - set('ct',     http.responseHeader('api', 'Content-Type'))
 
   # LLM resources

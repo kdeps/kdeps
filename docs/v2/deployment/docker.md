@@ -317,7 +317,8 @@ KDeps generates Kubernetes manifests directly from your `workflow.yaml` using `k
 
 ```bash
 # Build and push the Docker image first
-kdeps bundle build . --tag myregistry/myagent:1.0.0 --push
+kdeps bundle build . --tag myregistry/myagent:1.0.0
+docker push myregistry/myagent:1.0.0
 
 # Generate manifests
 kdeps export k8s . \

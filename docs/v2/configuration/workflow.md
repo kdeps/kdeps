@@ -15,10 +15,17 @@ E: HTTP response {shape: oval}
 
 A -> B -> C -> D -> E
 
-B2: "webServer (optional)\nserves static files or proxies subprocess"
-B3: "agentSettings\nPython packages, OS packages, env vars"
-B4: "sqlConnections\nnamed DB connections for sql: resources"
-B5: "session\npersists set('key', val, 'session') across requests"
+settings: workflow.yaml settings {
+  B2: "webServer\nstatic files or subprocess proxy"
+  B3: "agentSettings\nPython, OS packages, env vars"
+  B4: "sqlConnections\nnamed DB connections"
+  B5: "session\ncross-request key-value store"
+}
+
+settings.B3 -> C: configures runtime
+settings.B4 -> C: provides connections
+settings.B5 -> C: provides session store
+settings.B2 -> B: runs alongside
 ```
 
 ## Basic structure

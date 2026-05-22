@@ -16,13 +16,13 @@ onError:
     status: "error"
     message: "Service unavailable"
 
-  after:              # expressions that run when an error is caught
+  expr:               # expressions that run when an error is caught
     - set('errorMessage', error.message)
     - set('errorLogged', true)
 
   when:               # only apply onError if one of these is true
-    - error.type == 'timeout'          # otherwise the error propagates normally
-    - contains(error.message, 'connection refused')
+    - error.type == 'TIMEOUT'          # otherwise the error propagates normally
+    - error.message contains 'connection refused'
 ```
 
 | action | what happens |
@@ -123,12 +123,12 @@ onError:
     status: "timeout"
   when:
     - error.type == 'TIMEOUT'
-    - contains(error.message, 'deadline exceeded')
+    - error.message contains 'deadline exceeded'
 ```
 
 If the error doesn't match any `when` condition, the error is NOT handled and propagates normally.
 
-### Execute Expressions on Error
+### Execute Expressions on Error (`expr`)
 
 Run expressions when an error occurs (useful for logging, metrics, etc.):
 
@@ -136,7 +136,7 @@ Run expressions when an error occurs (useful for logging, metrics, etc.):
 # resources/example.yaml
 onError:
   action: continue
-  after:
+  expr:
     - set('lastError', error.message, 'session')
     - set('errorCount', get('errorCount', 'session') + 1, 'session')
     - set('errorTimestamp', info('timestamp'))
@@ -225,7 +225,7 @@ httpClient:
 
 onError:
   action: continue
-  after:
+  expr:
     # Increment failure count
     - set('failCount', default(get('failCount', 'session'), 0) + 1, 'session')
     # Open circuit after 5 failures

@@ -12,9 +12,9 @@ The `request` object provides access to HTTP request metadata in expressions.
 |----------|------|-------------|
 | `request.method` | string | HTTP method (GET, POST, etc.) |
 | `request.path` | string | Request path |
-| `request.ip` | string | Client IP address |
-| `request.id` | string | Unique request ID |
-| `request.sessionId` | string | Session ID (if sessions enabled) |
+| `request.IP` | string | Client IP address |
+| `request.ID` | string | Unique request ID |
+| `sessionId` | string | Session ID (if sessions enabled) |
 
 ### Usage Examples
 
@@ -25,13 +25,13 @@ after:
   # Access request metadata
   - set('method', request.method)
   - set('path', request.path)
-  - set('clientIp', request.ip)
-  - set('requestId', request.id)
-  - set('session', request.sessionId)
+  - set('clientIp', request.IP)
+  - set('requestId', request.ID)
+  - set('session', info('sessionId'))
 
   # Build log entry
   - set('logEntry', json({
-      "timestamp": info('request.id'),
+      "timestamp": info('ID'),
       "method": get('method'),
       "path": get('path'),
       "ip": get('clientIp'),
@@ -65,11 +65,11 @@ sql:
         INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
         VALUES (?, ?, ?, ?, ?, NOW())
       params:
-        - "{{ request.id }}"
+        - "{{ request.ID }}"
         - "{{ request.method }}"
         - "{{ request.path }}"
-        - "{{ request.ip }}"
-        - "{{ request.sessionId }}"
+        - "{{ request.IP }}"
+        - "{{ info('sessionId') }}"
 ```
 
 </div>
@@ -110,9 +110,6 @@ settings:
     # Docker Configuration
     baseOS: "ubuntu"  # alpine, ubuntu, debian
 
-    # Docker/Ollama Configuration
-    ollamaImageTag: "0.3.0"
-
     # Environment
     args:
       BUILD_TYPE: production
@@ -145,15 +142,8 @@ settings:
 
 | Field | Description |
 |-------|-------------|
-| `baseOS` | Base Docker image OS |
-| `ollamaImageTag` | Ollama Docker image version |
-
-#### Docker Settings (extended)
-
-| Field | Description |
-|-------|-------------|
-| `ollamaImageTag` | Ollama Docker image version |
-| `installOllama` | Force/suppress Ollama installation in image |
+| `baseOS` | Base Docker image OS (`alpine`, `ubuntu`, `debian`) |
+| `installOllama` | Force/suppress Ollama installation in Docker image (default: auto-detect) |
 
 > LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
 

@@ -71,10 +71,10 @@ A resource action type for making HTTP requests. Supports GET, POST, PUT, DELETE
 ## I
 
 ### info
-Returns request metadata: `requestId`, `timestamp`, `path`, `method`, `clientIp`, `sessionId`, `filecount`, `files`, `filetypes`.
+Returns request metadata: `ID`, `timestamp`, `path`, `method`, `IP`, `sessionId`, `filecount`, `files`, `filetypes`.
 
 ### items
-An array of data that a resource iterates over. When set, the resource runs once per item. Access the current item via `item('current')` or `get('...', 'item')`. See [Items & Loop](/concepts/items).
+An array of data that a resource iterates over. When set, the resource runs once per item. Access the current item via `item.current()` or `get('current')`. See [Items & Loop](/concepts/items).
 
 ## J
 
@@ -112,7 +112,7 @@ The fundamental building block of a kdeps workflow. Each resource has an `action
 ## S
 
 ### scenario
-A test scenario defined for a resource or workflow. Scenarios specify inputs and expected outputs, used for validation during `kdeps run --validate`.
+A test scenario defined for a resource or workflow. Scenarios specify inputs and expected outputs, used for validation during `kdeps validate`.
 
 ### scraper
 A resource action type for web scraping. Extracts structured data from HTML pages using CSS selectors. See [Scraper](/resources/scraper).

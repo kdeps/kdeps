@@ -17,10 +17,10 @@ All comparison and logical operators available in `validations.check`, `validati
 
 | Operator | Description | Example |
 |---|---|---|
-| `contains` | String contains substring | `contains(get('text'), 'urgent')` |
-| `startsWith` | String starts with prefix | `startsWith(get('url'), 'https://')` |
-| `endsWith` | String ends with suffix | `endsWith(get('file'), '.pdf')` |
-| `matches` | Regex match | `matches(get('email'), '^[^@]+@[^@]+$')` |
+| `contains` | String contains substring | `get('text') contains 'urgent'` |
+| `startsWith` | String starts with prefix | `get('url') startsWith 'https://'` |
+| `endsWith` | String ends with suffix | `get('file') endsWith '.pdf'` |
+| `matches` | Regex match | `get('email') matches '^[^@]+@[^@]+$'` |
 
 ## Array Operators
 
@@ -28,7 +28,7 @@ All comparison and logical operators available in `validations.check`, `validati
 |---|---|---|
 | `in` | Value is in array | `get('role') in ['admin', 'mod']` |
 | `notIn` | Value is not in array | `get('role') notIn ['banned']` |
-| `contains` | Array contains value | `contains(get('tags'), 'featured')` |
+| `contains` | Array contains value | `get('tags') contains 'featured'` |
 | `len` | Array or string length | `len(get('items')) > 0` |
 
 ## Logical Operators
@@ -72,7 +72,7 @@ Highest to lowest:
 validations:
   check:
     - get('email') != nil
-    - contains(get('email'), '@')
+    - get('email') contains '@'
     - len(get('password')) >= 8
   error:
     code: 400

@@ -261,8 +261,8 @@ Access in other resources:
 requires: [execResource]
 apiResponse:
   response:
-    result: get('execResource')
-    status: get('execResource').status
+    result: get('execResource').stdout
+    success: get('execResource').success
 ```
 
 ## Environment Variables

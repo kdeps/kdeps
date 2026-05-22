@@ -163,7 +163,7 @@ Get a list of MIME types for all uploaded files.
 # resources/example.yaml
 after:
   - set('types', request.filetypes())
-  - set('hasImages', contains(get('types'), 'image/png'))
+  - set('hasImages', get('types') contains 'image/png')
 ```
 
 **Returns:** Array of MIME types (strings)
@@ -351,8 +351,8 @@ The `request` object provides an alternative way to access request data. Both ap
 |----------------|------------|-------------|
 | `request.method` | `info('method')` | HTTP method |
 | `request.path` | `info('path')` | Request path |
-| `request.IP` | `info('clientIp')` | Client IP |
-| `request.ID` | `info('requestId')` | Request ID |
+| `request.IP` | `info('IP')` | Client IP |
+| `request.ID` | `info('ID')` | Request ID |
 | `request.params('key')` | `get('key', 'param')` | Query parameter |
 | `request.header('Name')` | `get('Name', 'header')` | Request header |
 | `request.data()` | `request.body` | Request body |

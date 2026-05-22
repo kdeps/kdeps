@@ -52,13 +52,13 @@ after:
 after:
   - set('payload', json({
       "query": get('q'),
-      "timestamp": info('request.id'),
+      "timestamp": info('timestamp'),
       "metadata": get('sessionData')
     }))
 httpClient:
   url: "https://api.example.com/data"
   method: POST
-  body: "{{ get('payload') }}"
+  data: "{{ get('payload') }}"
 ```
 
 </div>
@@ -70,7 +70,7 @@ after:
   - set('debugLog', json({
       "request": get('q'),
       "response": get('llmResource'),
-      "duration": info('request.id')
+      "duration": info('timestamp')
     }))
 ```
 
@@ -313,7 +313,7 @@ ternary(condition, trueVal, falseVal)
 component:
   name: browser
   with:
-    url: "https://example.com/jobs?remote={{ get('remote_only') == 'true' | ternary('2', '') }}"
+    url: "https://example.com/jobs?remote={{ ternary(get('remote_only') == 'true', '2', '') }}"
     action: getText
 ```
 

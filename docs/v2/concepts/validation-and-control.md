@@ -109,10 +109,10 @@ validations:
   check:
     - get('q') != ''
     - get('userId') != null
-    - typeof(get('age')) == 'number'
+    - type(get('age')) == 'int' || type(get('age')) == 'float'
     - get('age') >= 18
     - len(get('email')) > 5
-    - get('email').includes('@')
+    - get('email') contains '@'
     - get('status') == 'active' || get('status') == 'pending'
     - get('previousResource') != null
   error:
@@ -314,7 +314,7 @@ validations:
       type: string
   expr:
     - "get('password') == get('confirmPassword')"
-    - "get('email').includes('@')"
+    - "get('email') contains '@'"
 chat:
   prompt: "Process user: {{ get('email') }}"
 ```

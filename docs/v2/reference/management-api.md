@@ -60,22 +60,7 @@ Oversized uploads are rejected before any data is written to disk.
 
 The `workflow` field is omitted when no workflow is loaded.
 
-## Using `kdeps cloud push`
-
-The `kdeps cloud push` command is the recommended way to call the management API. See [CLI Reference](/reference/cli/) for details.
-
-```bash
-# Push a workflow directory
-kdeps cloud push ./my-agent http://container:16395
-
-# Push a packaged .kdeps archive
-kdeps cloud push myagent-2.0.0.kdeps http://container:16395
-
-# Explicit token (overrides KDEPS_MANAGEMENT_TOKEN)
-kdeps cloud push --token mysecret myagent-2.0.0.kdeps http://container:16395
-```
-
-## Direct curl Examples
+## Examples
 
 ```bash
 # Check status (no auth required)

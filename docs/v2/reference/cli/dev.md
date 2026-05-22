@@ -22,9 +22,6 @@ kdeps run [workflow.yaml | package.kdeps] [flags]
 | `--port` | API server port number | From workflow config |
 | `--debug` | Enable debug logging | `false` |
 | `--interactive` | Open an interactive LLM REPL alongside the running workflow | `false` |
-| `--self-test` | Run `tests:` block after server starts, keep running | `false` |
-| `--self-test-only` | Run `tests:` block then exit (non-zero on failure) | `false` |
-| `--write-tests` | Generate tests from resources and write to workflow file, then exit | `false` |
 
 **Examples:**
 
@@ -34,26 +31,8 @@ kdeps run myapp.kdeps                      # Run from package
 kdeps run workflow.yaml --dev              # Hot reload
 kdeps run workflow.yaml --debug            # Debug logging
 kdeps run workflow.yaml --port 16395       # Custom port
-kdeps run workflow.yaml --write-tests      # Generate test scaffold
-kdeps run workflow.yaml --self-test        # Run tests, keep server
-kdeps run workflow.yaml --self-test-only   # CI: run tests, exit
 kdeps run workflow.yaml --interactive      # LLM REPL alongside server
 ```
-
-**Self-test workflow:**
-
-```bash
-# Step 1: scaffold tests from your workflow resources
-kdeps run workflow.yaml --write-tests
-
-# Step 2: review and edit workflow.yaml tests: section
-
-# Step 3: run them in CI
-kdeps run workflow.yaml --self-test-only
-echo "Exit code: $?"
-```
-
-When no explicit `tests:` block is present, `--self-test` and `--self-test-only` auto-generate smoke tests from workflow routes and resources at runtime (nothing is written to disk).
 
 ---
 
@@ -109,7 +88,6 @@ kdeps validate [workflow.yaml | directory] [flags]
 
 ```bash
 kdeps validate workflow.yaml
-kdeps validate workflow.yaml --verbose
 kdeps validate .                            # Validate all in directory
 kdeps validate myapp.kdeps                  # Validate package
 ```
@@ -141,16 +119,16 @@ kdeps new [agent-name] [flags]
 
 | Flag | Description | Default |
 |---|---|---|
-| `--template, -t` | Agent template to use | Interactive selection |
+| `--template, -t` | Agent template to use | `api-service` |
 | `--force` | Overwrite existing directory | `false` |
 
-**Available templates:** `api-service`, `sql-agent`, `file-processor`, `cli-tool`
+**Available templates:** `api-service`, `sql-agent`
 
 **Examples:**
 
 ```bash
-kdeps new my-agent                           # Interactive mode
-kdeps new my-agent --template api-service    # Quick start
+kdeps new my-agent                           # Uses api-service template
+kdeps new my-agent --template sql-agent      # SQL agent template
 kdeps new my-agent --force                   # Overwrite existing
 ```
 
@@ -162,7 +140,6 @@ my-agent/
 │   ├── http_client.yaml
 │   ├── llm.yaml
 │   └── response.yaml
-├── .env.example
 └── README.md
 ```
 
@@ -223,7 +200,6 @@ kdeps chat [flags]
 |---|---|---|
 | `--model` | LLM model for workflow generation | From config |
 | `--base-url` | LLM backend base URL | `http://localhost:11434` |
-| `--api-key` | API key for online LLM providers | From env |
 | `--session` | Resume a previous session by ID | New session |
 | `--no-execute` | Generate workflow but do not allow `/run` | `false` |
 

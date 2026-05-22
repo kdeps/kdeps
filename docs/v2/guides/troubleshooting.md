@@ -72,7 +72,7 @@ An expression in `before:`, `after:`, or [`validations`](/reference/glossary#val
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
-- **Nil access**: `get('name').toLowerCase()` when name is nil -- use `get('name') ?? ''` first
+- **Nil access**: `lower(get('name'))` when name is nil -- use `lower(get('name') ?? '')` instead
 - **Undefined function**: using a function that doesn't exist in expr-lang
 
 ### Missing value in string interpolation
@@ -197,18 +197,10 @@ Shows detailed execution logs including expression evaluation, dependency resolu
 ### Validate workflow without executing
 
 ```bash
-kdeps run workflow.yaml --validate
+kdeps validate workflow.yaml
 ```
 
 Checks the workflow schema, dependency graph, and expression syntax without running any actions.
-
-### Check schema only
-
-```bash
-kdeps run workflow.yaml --check-schema
-```
-
-Validates the YAML structure matches the expected schema. Faster than `--validate`.
 
 ## See Also
 
