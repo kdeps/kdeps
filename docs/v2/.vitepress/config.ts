@@ -141,6 +141,8 @@ export default defineConfig({
             { text: 'Expression Operators', link: '/reference/expression-operators' },
             { text: 'Expression Blocks', link: '/reference/expr-blocks' },
             { text: 'Management API', link: '/reference/management-api' },
+            { text: 'Browser Actions', link: '/reference/browser-actions' },
+            { text: 'Tools Reference', link: '/reference/tools-reference' },
             { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
