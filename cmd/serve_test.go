@@ -11,7 +11,7 @@ func TestNewServeCmd_Flags(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("expected non-nil command")
 	}
-	if cmd.Use != "serve [workflow.yaml | agency.yaml]" {
+	if cmd.Use != "serve <path>" {
 		t.Errorf("unexpected Use: %q", cmd.Use)
 	}
 	for _, flagName := range []string{"model", "backend", "base-url", "system"} {
