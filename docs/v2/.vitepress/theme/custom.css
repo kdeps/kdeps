@@ -556,8 +556,16 @@ div[class*='language-'] > span.lang,
 .vp-doc .d2-diagram .fill-N2 { fill: #d0d0d0 !important; }
 .vp-doc .d2-diagram .fill-N3 { fill: #a0a0a0 !important; }
 .vp-doc .d2-diagram .fill-N4 { fill: #606060 !important; }
-.vp-doc .d2-diagram .fill-N5 { fill: #404040 !important; }
+.vp-doc .d2-diagram .fill-N5 { fill: #404060 !important; }
 .vp-doc .d2-diagram .fill-N6 { fill: #242424 !important; }
+
+/* Label hierarchy: first tspan = title (bold, full white),
+   subsequent tspans = description (normal weight, muted, smaller) */
+.vp-doc .d2-diagram text tspan:not(:first-child) {
+  font-weight: 400 !important;
+  font-size: 12px !important;
+  fill: #808080 !important;
+}
 
 @media (max-width: 640px) {
   .vp-doc .d2-diagram svg { font-size: 11px; }
