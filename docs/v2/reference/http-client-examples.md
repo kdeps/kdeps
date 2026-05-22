@@ -7,6 +7,7 @@ Example `httpClient:` resources for common API integration patterns. See [HTTP C
 <div v-pre>
 
 ```yaml
+# resources/fetch-data.yaml
 actionId: fetchData
 httpClient:
   method: GET
@@ -32,6 +33,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: POST
   url: "https://api.stripe.com/v1/charges"
@@ -58,6 +60,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: POST
   url: "{{ get('webhook_url') }}"
@@ -76,6 +79,7 @@ httpClient:
 ## Cached External API
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.exchangerate.host/latest"

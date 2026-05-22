@@ -78,6 +78,7 @@ See [Kubernetes Deployment](/deployment/kubernetes) for full manifest structure,
 ### GitHub Actions
 
 ```yaml
+# .github/workflows/deploy.yml
 name: Deploy
 on:
   push:
@@ -117,6 +118,7 @@ jobs:
 ### GitLab CI
 
 ```yaml
+# docker-compose.yml
 deploy:
   stage: deploy
   only:

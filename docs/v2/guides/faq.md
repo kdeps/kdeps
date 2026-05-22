@@ -1,12 +1,14 @@
 # Frequently Asked Questions
 
+Common questions about kdeps installation, usage, and architecture.
+
 ## Is kdeps free?
 
 Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all resources are free to use.
 
 ## What's the difference between workflow mode and agent mode?
 
-[Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by `requires` dependencies. You control exactly what runs and when.
+[Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
 [Agent mode](/modes/agent-mode) (`kdeps serve`) registers all resources as tools and lets an LLM decide which to call in response to user prompts. The LLM drives execution dynamically.
 
@@ -53,7 +55,7 @@ kdeps has no code dependency -- install the binary, write a YAML file, and run.
 
 ## Can I call one workflow from another?
 
-Yes, via [agencies](/concepts/agency). Use the `agent:` action type to call another agent or component as a sub-agent. The caller passes a prompt, the callee runs autonomously, and the result is returned.
+Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to call another agent or component as a sub-agent. The caller passes a prompt, the callee runs autonomously, and the result is returned.
 
 ## Can I deploy kdeps as an API server?
 
@@ -68,6 +70,7 @@ Use environment variables. Reference them in your workflow with `get('SECRET_NAM
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   url: https://api.example.com
   headers:

@@ -22,6 +22,7 @@ kdeps registry install browser     # browser automation
 Invoke with `component:`:
 
 ```yaml
+# resources/component-resource.yaml
 component:
   name: scraper
   with:
@@ -55,6 +56,7 @@ Components cannot contain `settings` (no server modes, port bindings) -- they ar
 ## Calling a Component
 
 ```yaml
+# resources/fetch.yaml
 actionId: fetch-article
 component:
   name: scraper
@@ -70,6 +72,7 @@ After execution, access results via `output('fetch-article')`.
 Installed components can be exposed as LLM function-calling tools via `componentTools:` on a `chat:` resource. By default, no components are registered -- you opt in explicitly:
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Research {{ get('q') }} and summarize."
   componentTools:

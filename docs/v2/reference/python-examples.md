@@ -9,6 +9,7 @@ Examples, error handling, and debugging guidance for the [`python:` resource](/r
 <div v-pre>
 
 ```yaml
+# resources/transform-data.yaml
 actionId: transformData
 requires: [fetchData]
 python:
@@ -42,6 +43,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/ml-predict.yaml
 actionId: mlPredict
 validations:
   check:
@@ -80,6 +82,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/text-analysis.yaml
 actionId: textAnalysis
 python:
   script: |
@@ -113,6 +116,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/image-process.yaml
 actionId: imageProcess
 python:
   script: |
@@ -146,6 +150,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/external-api.yaml
 actionId: externalApi
 python:
   script: |

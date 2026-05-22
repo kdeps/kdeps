@@ -5,6 +5,7 @@ All validation, filtering, and control-flow for a resource lives in a single `va
 ## Quick Reference
 
 ```yaml
+# resources/example.yaml
 validations:
   # HTTP filtering
   methods: [GET, POST]              # allow only these methods
@@ -40,6 +41,7 @@ validations:
 ### `methods` — Restrict HTTP methods
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [GET, POST]
 sql:
@@ -53,6 +55,7 @@ sql:
 ### `routes` — Restrict URL routes
 
 ```yaml
+# resources/example.yaml
 validations:
   routes: [/api/v1/users, /api/v1/profiles]
 chat:
@@ -66,6 +69,7 @@ chat:
 ### `headers` — Whitelist accepted headers
 
 ```yaml
+# resources/example.yaml
 validations:
   headers:
     - Authorization
@@ -80,6 +84,7 @@ Only listed headers are accessible via `get('HeaderName')`. Other headers are ig
 ### `params` — Whitelist accepted query parameters
 
 ```yaml
+# resources/example.yaml
 validations:
   params:
     - q
@@ -96,13 +101,14 @@ Only listed parameters are accessible. Protects against parameter pollution.
 
 ## Control Flow
 
-### `skip` — Conditional skip (OR logic)
+### [`skip`](/reference/glossary#skip) — Conditional skip (OR logic)
 
 Resource is skipped when **any** condition is `true`:
 
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     - get('q') == nil || get('q') == ''
@@ -113,13 +119,14 @@ chat:
 
 </div>
 
-### `check` + `error` — Preflight validation (AND logic)
+### [`check`](/reference/glossary#check) + `error` — Preflight validation (AND logic)
 
 All conditions must be `true`; if any fail the custom error is returned immediately:
 
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('q') != ''
@@ -140,6 +147,7 @@ chat:
 ### `required` — Mandatory fields
 
 ```yaml
+# resources/example.yaml
 validations:
   required:
     - username
@@ -150,6 +158,7 @@ validations:
 ### `rules` — Field validation rules (array format)
 
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, name]
   rules:
@@ -169,6 +178,7 @@ validations:
 ### `properties` / `fields` — Map format (alternative to `rules`)
 
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, name]
   properties:
@@ -189,6 +199,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   required: [password, confirmPassword]
   expr:
@@ -233,6 +244,7 @@ Request
 <div v-pre>
 
 ```yaml
+# resources/create-user.yaml
 actionId: createUser
 validations:
   methods: [POST]

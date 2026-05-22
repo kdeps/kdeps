@@ -36,6 +36,7 @@ json(data)
 
 **Basic usage:**
 ```yaml
+# resources/example.yaml
 actionId: formatData
 after:
   - set('user', {"name": "Alice", "age": 30})
@@ -47,6 +48,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('payload', json({
       "query": get('q'),
@@ -63,6 +65,7 @@ httpClient:
 
 **Logging complex objects:**
 ```yaml
+# resources/example.yaml
 after:
   - set('debugLog', json({
       "request": get('q'),
@@ -92,6 +95,7 @@ safe(object, path)
 
 **Basic nested access:**
 ```yaml
+# resources/example.yaml
 after:
   # If user is {"profile": {"address": {"city": "NYC"}}}
   - set('city', safe(get('user'), 'profile.address.city'))
@@ -104,12 +108,14 @@ after:
 
 **With fallback using default():**
 ```yaml
+# resources/example.yaml
 after:
   - set('city', default(safe(get('user'), 'profile.address.city'), 'Unknown'))
 ```
 
 **Accessing API response data:**
 ```yaml
+# resources/example.yaml
 after:
   - set('errorMessage', safe(get('apiResponse'), 'error.details.message'))
   - set('items', safe(get('apiResponse'), 'data.items'))
@@ -117,6 +123,7 @@ after:
 
 **Handling optional configuration:**
 ```yaml
+# resources/example.yaml
 after:
   - set('timeout', default(safe(get('config'), 'http.timeout'), 30))
   - set('retries', default(safe(get('config'), 'http.retries'), 3))
@@ -142,6 +149,7 @@ debug(data)
 
 **Debug LLM response:**
 ```yaml
+# resources/example.yaml
 after:
   - set('debugInfo', debug(get('llmResource')))
   # Result (formatted with indentation):
@@ -154,6 +162,7 @@ after:
 
 **Debug request context:**
 ```yaml
+# resources/example.yaml
 after:
   - set('requestDebug', debug({
       "query": get('q'),
@@ -166,6 +175,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -196,6 +206,7 @@ default(value, fallback)
 
 **Basic fallback:**
 ```yaml
+# resources/example.yaml
 after:
   - set('name', default(get('userName'), 'Guest'))
   - set('limit', default(get('pageSize'), 10))
@@ -203,6 +214,7 @@ after:
 
 **Chained defaults:**
 ```yaml
+# resources/example.yaml
 after:
   # Try multiple sources in order
   - set('apiKey', default(
@@ -216,12 +228,14 @@ after:
 
 **With safe() for nested access:**
 ```yaml
+# resources/example.yaml
 after:
   - set('email', default(safe(get('user'), 'contact.email'), 'no-email@example.com'))
 ```
 
 **Configuration defaults:**
 ```yaml
+# resources/example.yaml
 after:
   - set('config', {
       "timeout": default(get('timeout'), 30),
@@ -255,6 +269,7 @@ urlencode(str)
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 component:
   name: browser
   with:
@@ -265,6 +280,7 @@ component:
 </div>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('encoded', urlencode(get('searchTerm')))
   # "hello world" -> "hello+world"
@@ -293,6 +309,7 @@ ternary(condition, trueVal, falseVal)
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 component:
   name: browser
   with:
@@ -303,6 +320,7 @@ component:
 </div>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('label', ternary(get('isAdmin'), 'Admin', 'User'))
 ```
@@ -329,6 +347,7 @@ input.property
 
 **Function style:**
 ```yaml
+# resources/example.yaml
 after:
   - set('query', input('q'))
   - set('limit', input('limit'))
@@ -336,6 +355,7 @@ after:
 
 **Property access style:**
 ```yaml
+# resources/example.yaml
 after:
   - set('items', input.items)
   - set('userId', input.userId)
@@ -343,6 +363,7 @@ after:
 
 **Equivalent to get():**
 ```yaml
+# resources/example.yaml
 after:
   # These are equivalent:
   - set('query1', get('q'))
@@ -369,6 +390,7 @@ output(resourceId)
 
 **Basic usage:**
 ```yaml
+# resources/example.yaml
 after:
   - set('llmResult', output('llmResource'))
   - set('sqlData', output('databaseQuery'))
@@ -376,6 +398,7 @@ after:
 
 **Equivalent to get():**
 ```yaml
+# resources/example.yaml
 after:
   # These are equivalent:
   - set('result1', get('llmResource'))

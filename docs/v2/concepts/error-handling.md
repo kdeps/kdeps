@@ -5,6 +5,7 @@
 ## Complete reference
 
 ```yaml
+# resources/example.yaml
 onError:
   action: continue    # "continue" (use fallback), "retry", or "fail" (default)
 
@@ -37,6 +38,7 @@ onError:
 Continue execution even if the resource fails, using a fallback value:
 
 ```yaml
+# resources/fetch-data.yaml
 actionId: fetchData
 httpClient:
   url: "https://api.example.com/data"
@@ -57,6 +59,7 @@ When the HTTP request fails, the resource returns the fallback value instead of 
 If no fallback is provided, the resource returns an error info object:
 
 ```yaml
+# resources/example.yaml
 onError:
   action: continue
 ```
@@ -76,6 +79,7 @@ The output will be:
 Automatically retry failed operations:
 
 ```yaml
+# resources/unreliable-api.yaml
 actionId: unreliableApi
 httpClient:
   url: "https://flaky-api.example.com/data"
@@ -98,6 +102,7 @@ This will:
 Explicitly mark that errors should stop execution (useful for documentation):
 
 ```yaml
+# resources/example.yaml
 onError:
   action: fail
 ```
@@ -111,6 +116,7 @@ This is the default behavior when no `onError` is configured.
 Handle only specific types of errors:
 
 ```yaml
+# resources/example.yaml
 onError:
   action: continue
   fallback:
@@ -127,6 +133,7 @@ If the error doesn't match any `when` condition, the error is NOT handled and pr
 Run expressions when an error occurs (useful for logging, metrics, etc.):
 
 ```yaml
+# resources/example.yaml
 onError:
   action: continue
   after:
@@ -152,6 +159,7 @@ Fallback values can include expressions:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 onError:
   action: continue
   fallback:
@@ -169,6 +177,7 @@ onError:
 <div v-pre>
 
 ```yaml
+# resources/fetch-user-data.yaml
 actionId: fetchUserData
 httpClient:
   url: "https://api.example.com/users/{{ get('userId') }}"
@@ -188,6 +197,7 @@ onError:
 <div v-pre>
 
 ```yaml
+# resources/llm-enhancement.yaml
 actionId: llmEnhancement
 chat:
   prompt: "Enhance this text: {{ get('text') }}"
@@ -202,6 +212,7 @@ onError:
 ### Circuit Breaker Pattern
 
 ```yaml
+# resources/external-service.yaml
 actionId: externalService
 # Check circuit breaker state first
 validations:
@@ -229,6 +240,7 @@ onError:
 <div v-pre>
 
 ```yaml
+# resources/query-primary.yaml
 actionId: queryPrimary
 sql:
   connection: primary
@@ -264,6 +276,7 @@ sql:
 <div v-pre>
 
 ```yaml
+# resources/primary-l-l-m.yaml
 actionId: primaryLLM
 chat:
   prompt: "{{ get('q') }}"

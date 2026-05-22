@@ -37,6 +37,7 @@ mkdir -p my-agent/resources && cd my-agent
 `workflow.yaml`:
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
 
@@ -61,6 +62,7 @@ settings:
 <div v-pre>
 
 ```yaml
+# resources/llm.yaml
 actionId: llm
 validations:
   methods: [POST]
@@ -84,6 +86,7 @@ chat:
 `resources/response.yaml`:
 
 ```yaml
+# resources/response.yaml
 actionId: response
 requires: [llm]
 apiResponse:

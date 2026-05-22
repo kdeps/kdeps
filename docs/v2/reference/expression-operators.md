@@ -68,6 +68,7 @@ Highest to lowest:
 ### In validations.check (all must pass)
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('email') != nil
@@ -81,6 +82,7 @@ validations:
 ### In validations.skip (any triggers skip)
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     - get('q') == ''
@@ -90,6 +92,7 @@ validations:
 ### In before:/after: blocks
 
 ```yaml
+# resources/example.yaml
 after:
   - set('isAdmin', get('role') in ['admin', 'superadmin'])
   - set('needsReview', get('amount') > 1000 || get('isNewUser'))
@@ -101,6 +104,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: |
     User is {{ get('age') >= 18 ? 'adult' : 'minor' }}.

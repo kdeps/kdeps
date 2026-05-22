@@ -3,6 +3,7 @@
 The `validations:` block controls whether a resource runs and what it accepts. It fires before the action -- before any LLM call, HTTP request, or script execution.
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [POST]          # skip unless method matches
   routes: [/api/v1/data]  # skip unless route matches
@@ -23,8 +24,8 @@ Fields summary:
 |-------|-------|--------------------------------|
 | `methods` / `routes` | match | skip silently if no match |
 | `headers` / `params` | match | skip silently if no match |
-| `skip` | OR -- any true | skip silently |
-| `check` | AND -- all must be true | return error to caller |
+| [`skip`](/reference/glossary#skip) | OR -- any true | skip silently |
+| [`check`](/reference/glossary#check) | AND -- all must be true | return error to caller |
 
 ## Skip Conditions
 
@@ -35,6 +36,7 @@ Skip conditions allow you to conditionally skip resource execution based on runt
 <div v-pre>
 
 ```yaml
+# resources/conditional-resource.yaml
 actionId: conditionalResource
 name: Conditional Resource
 validations:
@@ -54,6 +56,7 @@ Any true condition skips the resource silently -- it produces no output but its 
 ### Common Patterns
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     # Skip if flag is set
@@ -75,6 +78,7 @@ Preflight checks validate inputs **before** resource execution begins. If any co
 <div v-pre>
 
 ```yaml
+# resources/validated-resource.yaml
 actionId: validatedResource
 name: Validated Resource
 validations:
@@ -100,6 +104,7 @@ All `check` conditions must pass (AND logic). If any one fails, execution stops 
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('q') != ''
@@ -140,6 +145,7 @@ Limit which HTTP requests can trigger a resource.
 <div v-pre>
 
 ```yaml
+# resources/api-resource.yaml
 actionId: apiResource
 name: API Resource
 validations:
@@ -160,6 +166,7 @@ chat:
 ### Method Restrictions
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [GET]         # only GET
   methods: [GET, POST]   # GET and POST
@@ -169,6 +176,7 @@ validations:
 ### Route Restrictions
 
 ```yaml
+# resources/example.yaml
 validations:
   routes: [/api/v1/users]                   # single route
   routes: [/api/v1/users, /api/v1/profiles] # multiple routes
@@ -180,6 +188,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [POST]
   routes:
@@ -200,6 +209,7 @@ Validate the structure and content of request data using `required`, `rules`, an
 <div v-pre>
 
 ```yaml
+# resources/validated-input.yaml
 actionId: validatedInput
 name: Validated Input
 validations:
@@ -229,6 +239,7 @@ KDeps supports multiple syntaxes for field validation:
 
 **`properties` (map format)**
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, name]
   properties:
@@ -242,6 +253,7 @@ validations:
 
 **`rules` (array format)**
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, name]
   rules:
@@ -255,6 +267,7 @@ validations:
 
 **`fields` (alternative map format)**
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, name]
   fields:
@@ -287,6 +300,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   required: [email, password, confirmPassword]
   properties:
@@ -316,6 +330,7 @@ Restrict which headers and query parameters are allowed in requests.
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   headers:
     - Authorization
@@ -334,6 +349,7 @@ Headers not in this list are inaccessible via `get()`.
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   params:
     - q
@@ -352,6 +368,7 @@ Parameters not in this list are inaccessible via `get()`.
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [POST]
   routes: [/api/v1/secure]

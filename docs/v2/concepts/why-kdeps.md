@@ -1,5 +1,7 @@
 # Why kdeps?
 
+kdeps exists because most AI tooling is built for prototyping, not for running unattended in production.
+
 ## The problem
 
 Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere -- not a chat session that ends when the browser tab closes.
@@ -28,7 +30,7 @@ This is what makes workflow output reproducible, auditable, and safe to run unat
 
 ## Agencies
 
-Single-agent workflows have limited scope. kdeps agencies let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output -- every step is version-controlled, testable, and independently deployable.
+Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output -- every step is version-controlled, testable, and independently deployable.
 
 ## Who it is for
 

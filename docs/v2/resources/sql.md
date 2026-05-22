@@ -11,6 +11,7 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). 
 <div v-pre>
 
 ```yaml
+# resources/sql.yaml
 
 actionId: sqlResource
 name: Database Query
@@ -62,6 +63,7 @@ settings:
 Use in resources:
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main  # Reference the named connection
   query: "SELECT * FROM users"
@@ -70,6 +72,7 @@ sql:
 ### Inline Connection
 
 ```yaml
+# resources/example.yaml
 sql:
   connection: "postgres://user:pass@localhost:5432/myapp"
   query: "SELECT * FROM users"
@@ -80,6 +83,7 @@ sql:
 ### Simple Query
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: "SELECT name, email FROM users WHERE active = true"
@@ -93,6 +97,7 @@ sql:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: |
@@ -115,6 +120,7 @@ sql:
 ### Insert / Update / Delete
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: |
@@ -131,6 +137,7 @@ sql:
 Execute multiple queries in a transaction:
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   transaction: true
@@ -163,6 +170,7 @@ Process multiple records efficiently:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   transaction: true
@@ -189,6 +197,7 @@ Where `products` is an array of parameter arrays:
 ### JSON (Default)
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: "SELECT id, name, email FROM users"
@@ -206,6 +215,7 @@ Output:
 ### CSV
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: "SELECT id, name, email FROM users"
@@ -222,6 +232,7 @@ id,name,email
 ### Table
 
 ```yaml
+# resources/example.yaml
 sql:
   connectionName: main
   query: "SELECT id, name, email FROM users"
@@ -243,6 +254,7 @@ Output:
 Configure connection pools in workflow settings:
 
 ```yaml
+# workflow.yaml
 settings:
   sqlConnections:
     main:
@@ -299,6 +311,7 @@ params:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 ```
 

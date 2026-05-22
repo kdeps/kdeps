@@ -5,6 +5,7 @@ Full schema, lifecycle, and packaging reference for kdeps components. For an int
 ## component.yaml Reference
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Component
 name: greeter                # Required: component name
@@ -32,7 +33,7 @@ resources:
 | `kind` | string | yes | Must be `Component` |
 | `name` | string | yes | Unique component name within the workflow |
 | `version` | string | no | Component version for packaging |
-| `targetActionId` | string | no | Default resource `actionId` when component is invoked |
+| [`targetActionId`](/reference/glossary#targetactionid) | string | no | Default resource [`actionId`](/reference/glossary#actionid) when component is invoked |
 | `setup.pythonPackages` | `[]string` | no | Python packages installed via `uv pip install` |
 | `setup.osPackages` | `[]string` | no | OS packages installed via system package manager |
 | `setup.commands` | `[]string` | no | Shell commands run after package installs |
@@ -49,6 +50,7 @@ resources:
 ### `setup` Block
 
 ```yaml
+# workflow.yaml
 setup:
   pythonPackages:     # Python packages installed into the workflow venv via uv
     - requests
@@ -68,6 +70,7 @@ setup:
 ### `teardown` Block
 
 ```yaml
+# workflow.yaml
 teardown:
   commands:           # Shell commands run after component resources finish
     - "rm -rf /tmp/mycomponent-*"
@@ -86,6 +89,7 @@ The top-level `pythonPackages:` field on `Component` is deprecated. Prefer `setu
 The `interface` section defines the component's public contract. Inputs behave like function arguments:
 
 ```yaml
+# resources/example.yaml
 interface:
   inputs:
     - name: user_query
@@ -100,6 +104,7 @@ interface:
 Inside component resources, reference inputs:
 
 ```yaml
+# resources/example.yaml
 resources:
   - apiVersion: kdeps.io/v1
     actionId: greet
@@ -133,6 +138,7 @@ After `component:` executes, results are stored under the caller resource's `act
 <div v-pre>
 
 ```yaml
+# resources/fetch.yaml
 actionId: fetch-article
 component:
   name: scraper
@@ -156,6 +162,7 @@ Inputs are scoped to the caller's `actionId`, so the same component works with d
 <div v-pre>
 
 ```yaml
+# resources/fetch.yaml
 actionId: fetch-jd
 component:
   name: scraper
@@ -214,6 +221,7 @@ kdeps registry uninstall scraper # Uninstall a component
 Installed components can be exposed as LLM tools via `componentTools:` on `chat:` resources:
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Research {{ get('q') }} and summarize."
   componentTools:
@@ -348,6 +356,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Component
 name: greeter
@@ -375,6 +384,7 @@ resources:
 **Workflow resource calling the component:**
 
 ```yaml
+# resources/main.yaml
 actionId: main
 component:
   name: greeter

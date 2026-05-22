@@ -4,15 +4,16 @@ Best practices and examples for the [`validations:` block](/concepts/validation-
 
 ## Best Practices
 
-### Use `skip` for Optional Logic
+### Use [`skip`](/reference/glossary#skip) for Optional Logic
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     - get('enableCache') != true
 ```
 
-### Validate Early with `check`
+### Validate Early with [`check`](/reference/glossary#check)
 
 <div v-pre>
 
@@ -34,6 +35,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   routes: [/api/v1/admin]
   methods: [POST]
@@ -46,6 +48,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [POST]
   routes: [/api/v1/admin]
@@ -68,6 +71,7 @@ chat:
 ### Conditional Processing
 
 ```yaml
+# resources/smart-processor.yaml
 actionId: smartProcessor
 name: Smart Processor
 validations:
@@ -90,6 +94,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/secure-endpoint.yaml
 actionId: secureEndpoint
 name: Secure Endpoint
 validations:

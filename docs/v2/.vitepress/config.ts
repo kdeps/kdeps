@@ -78,7 +78,6 @@ export default defineConfig({
             { text: 'Validation & Control', link: '/concepts/validation-and-control' },
             { text: 'Items & Loop', link: '/concepts/loop' },
             { text: 'Session & Memory', link: '/configuration/session' },
-            { text: 'Glossary', link: '/reference/glossary' },
           ]
         },
         {

@@ -55,6 +55,7 @@ kdeps registry submit --tag v1.2.0
 ### Formula File Format
 
 ```yaml
+# workflow.yaml
 name: my-agent
 version: 1.2.0
 type: agent

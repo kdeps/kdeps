@@ -17,6 +17,7 @@ The default source is `api`. If no input config is specified, the workflow start
 The `api` source starts an HTTP REST server. This is the default for all workflows.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     hostIp: "127.0.0.1"
@@ -35,6 +36,7 @@ Use `validations.methods` and `validations.routes` in individual resources to sc
 The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
 
 ```yaml
+# workflow.yaml
 settings:
   input:
     sources: [bot]
@@ -57,6 +59,7 @@ Execution types:
 The `file` source reads file content from stdin, the `KDEPS_FILE_PATH` environment variable, or a configured path. The workflow executes once and exits.
 
 ```yaml
+# workflow.yaml
 settings:
   input:
     sources: [file]

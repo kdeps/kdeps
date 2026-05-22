@@ -31,6 +31,7 @@ session               -- persists set('key', val, 'session') across requests
 ## Basic structure
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
 
@@ -63,13 +64,14 @@ agents:
       timezone: America/New_York
 ```
 
-In an agency, each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that don't match any installed workflow name (non-fatal).
+In an [agency](/reference/glossary#agency), each agent resolves its own profile independently. Without a matching profile, the global config is used unchanged. On startup, kdeps warns about profiles that don't match any installed workflow name (non-fatal).
 
 ## API Server
 
 `apiServer` starts an HTTP server. TLS certificate paths go in `settings` (not under `apiServer`).
 
 ```yaml
+# workflow.yaml
 settings:
   certFile: "/etc/certs/server.crt"   # TLS certificate PEM -- omit for plain HTTP
   keyFile:  "/etc/certs/server.key"   # TLS private key PEM
@@ -100,6 +102,7 @@ See [Security](advanced.md#security) for the full security reference.
 `webServer` serves static files or proxies to a running app process. Use it alongside `apiServer` to serve a frontend next to your API.
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "127.0.0.1"
@@ -119,6 +122,7 @@ settings:
 `agentSettings` controls the runtime environment. These settings affect Docker image builds and local execution.
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     timezone: Etc/UTC
@@ -141,6 +145,7 @@ Model selection goes in `chat.model` inside each resource file. Backend and API 
 Named connections are declared here and referenced by name in `sql:` resources. The name `analytics` below becomes `connectionName: analytics` in any SQL resource.
 
 ```yaml
+# workflow.yaml
 settings:
   sqlConnections:
     analytics:
@@ -159,6 +164,7 @@ Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` d
 Session storage persists values set with `set('key', val, 'session')` across requests from the same caller.
 
 ```yaml
+# workflow.yaml
 settings:
   session:
     ttl: "30m"     # how long a session lives without activity

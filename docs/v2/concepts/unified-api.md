@@ -31,6 +31,7 @@ get('API_KEY', 'env')  # environment variable
 Reading a resource output works the same way -- `get('llm')` returns whatever the `llm` resource produced:
 
 ```yaml
+# resources/example.yaml
 requires: [llm]
 apiResponse:
   response:
@@ -43,6 +44,7 @@ apiResponse:
 `set()` writes into memory (current request) by default. Pass `'session'` to persist across requests.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('normalized', lower(trim(get('q'))))   # available to downstream resources
   - set('user_id', get('id'), 'session')        # survives to the next request
@@ -53,6 +55,7 @@ after:
 ## file() -- read uploaded files
 
 ```yaml
+# resources/example.yaml
 content: file('doc.pdf')    # file uploaded with the request
 images: file('*.jpg')       # glob pattern -- returns first match
 ```
@@ -60,6 +63,7 @@ images: file('*.jpg')       # glob pattern -- returns first match
 ## info() -- request metadata
 
 ```yaml
+# resources/example.yaml
 id: info('requestId')    # unique ID for this request
 ip: info('clientIp')     # caller IP address
 path: info('path')       # URL path
@@ -71,6 +75,7 @@ ts: info('timestamp')    # current timestamp
 `get('resourceId')` returns the main output of a resource. Use these accessors when you need lower-level details:
 
 ```yaml
+# resources/example.yaml
 after:
   # Python and exec resources
   - set('ok',  exec.exitCode('build') == 0)

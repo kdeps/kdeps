@@ -45,6 +45,7 @@ docker service create \
 ### Enable Logging
 
 ```yaml
+# docker-compose.yml
 services:
   myagent:
     logging:
@@ -57,6 +58,7 @@ services:
 ### Network Security
 
 ```yaml
+# docker-compose.yml
 services:
   myagent:
     networks:
@@ -74,6 +76,7 @@ networks:
 Before exposing a container externally, add these fields to `workflow.yaml`:
 
 ```yaml
+# workflow.yaml
 settings:
   certFile: "/run/secrets/server.crt"  # mount cert into container; enables HTTPS
   keyFile:  "/run/secrets/server.key"
@@ -139,6 +142,7 @@ curl http://localhost:16395/_kdeps/status
 ### Docker Compose with Management API
 
 ```yaml
+# docker-compose.yml
 services:
   myagent:
     image: myregistry/myagent:latest

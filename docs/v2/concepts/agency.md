@@ -1,4 +1,4 @@
-# Autonomous AI Agencies — Multi-Agent Orchestration
+# Autonomous AI Agencies -- Multi-Agent Orchestration
 
 An **autonomous AI Agency** is a collection of kdeps AI Agents that cooperate to handle complex tasks entirely without human-in-the-loop intervention. Each agent in the agency has its own `workflow.yaml` (its own resources, routes, and settings), bundled together under a single `agency.yaml` manifest that makes them operate as one self-governing system.
 
@@ -32,6 +32,7 @@ my-agency/
 ## Agency Manifest (`agency.yaml`)
 
 ```yaml
+# workflow-agency.yaml
 apiVersion: kdeps.io/v1
 kind: Agency
 
@@ -87,6 +88,7 @@ calling agent                         target agent
 ```
 
 ```yaml
+# resources/example.yaml
 agent:
   name: summariser-agent   # matches metadata.name in the target's workflow.yaml
   params:

@@ -7,6 +7,7 @@
 Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
 
 ```yaml
+# resources/create-user.yaml
 actionId: createUser
 validations:
   methods: [POST]
@@ -77,6 +78,7 @@ sql:
 Limit a resource to specific URL routes using `routes:` inside the `validations:` block:
 
 ```yaml
+# resources/admin-dashboard.yaml
 actionId: adminDashboard
 validations:
   routes:
@@ -155,6 +157,7 @@ sql:
 Combine method and route restrictions for precise control:
 
 ```yaml
+# resources/user-create.yaml
 actionId: userCreate
 validations:
   methods: [POST]
@@ -185,6 +188,7 @@ Complete RESTful API using restrictions:
 
 **workflow.yaml:**
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
 name: rest-api
@@ -205,6 +209,7 @@ settings:
 
 **resources/list-users.yaml:**
 ```yaml
+# resources/list-users.yaml
 actionId: listUsers
 validations:
   methods: [GET]
@@ -217,6 +222,7 @@ sql:
 
 **resources/create-user.yaml:**
 ```yaml
+# resources/create-user.yaml
 actionId: createUser
 validations:
   methods: [POST]
@@ -233,6 +239,7 @@ sql:
 
 **resources/get-user.yaml:**
 ```yaml
+# resources/get-user.yaml
 actionId: getUser
 validations:
   methods: [GET]
@@ -246,6 +253,7 @@ sql:
 
 **resources/update-user.yaml:**
 ```yaml
+# resources/update-user.yaml
 actionId: updateUser
 validations:
   methods: [PUT]
@@ -262,6 +270,7 @@ sql:
 
 **resources/delete-user.yaml:**
 ```yaml
+# resources/delete-user.yaml
 actionId: deleteUser
 validations:
   methods: [DELETE]
@@ -276,9 +285,9 @@ sql:
 ## Best Practices
 
 1. **Be Specific**: Use exact routes when possible rather than wildcards
-2. **Combine with `check`**: Add preflight validation for secure endpoints
+2. **Combine with [`check`](/reference/glossary#check)**: Add preflight validation for secure endpoints
 3. **Handle All Methods**: Ensure all expected methods have corresponding resources
-4. **Use `skip` as Fallback**: For complex routing logic, combine with `skip` conditions
+4. **Use [`skip`](/reference/glossary#skip) as Fallback**: For complex routing logic, combine with `skip` conditions
 
 ## See Also
 

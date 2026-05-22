@@ -10,6 +10,7 @@ Sessions let resources persist values across multiple requests from the same cal
 ## Configuration
 
 ```yaml
+# workflow.yaml
 settings:
   session:
     type: sqlite                    # "sqlite" or "memory"
@@ -25,6 +26,7 @@ settings:
 Persists to a file -- survives restarts and can be shared via a mounted volume.
 
 ```yaml
+# workflow.yaml
 settings:
   session:
     type: sqlite
@@ -38,6 +40,7 @@ settings:
 Fast (no disk I/O) but lost on restart. Use for development or single-instance setups.
 
 ```yaml
+# workflow.yaml
 settings:
   session:
     type: memory
@@ -50,6 +53,7 @@ settings:
 Session expiration durations:
 
 ```yaml
+# workflow.yaml
 ttl: "30s"    # 30 seconds
 ttl: "5m"     # 5 minutes
 ttl: "1h"     # 1 hour
@@ -62,6 +66,7 @@ ttl: "7d"     # 7 days (168h)
 ### Store Data
 
 ```yaml
+# resources/example.yaml
 after:
   # Store user ID
   - set('user_id', '123', 'session')
@@ -78,6 +83,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: |
     User {{ get('user_id', 'session') }} prefers {{ get('theme', 'session') }}.
@@ -124,6 +130,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 metadata:
   actionId: protectedResource
 
@@ -205,6 +212,7 @@ chat:
 Each session has a unique ID accessible via:
 
 ```yaml
+# resources/example.yaml
 session_id: info('sessionId')
 ```
 
@@ -215,6 +223,7 @@ The session ID is typically stored in a cookie or passed as a header.
 Expired sessions are automatically cleaned up based on `cleanupInterval`:
 
 ```yaml
+# resources/example.yaml
 session:
   ttl: "30m"              # Sessions expire after 30 minutes
   cleanupInterval: "5m"   # Check for expired sessions every 5 minutes

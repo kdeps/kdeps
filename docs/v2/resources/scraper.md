@@ -40,6 +40,7 @@ Access fields with `output('actionId').content` etc.
 <div v-pre>
 
 ```yaml
+# resources/fetch.yaml
 actionId: fetch
 scraper:
   url: "{{ get('url') }}"
@@ -61,6 +62,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/fetch-article.yaml
 actionId: fetchArticle
 scraper:
   url: "https://news.example.com/article"
@@ -74,6 +76,7 @@ scraper:
 Use `onError` to handle unreachable URLs gracefully:
 
 ```yaml
+# resources/example.yaml
 scraper:
   url: "https://example.com"
 onError:

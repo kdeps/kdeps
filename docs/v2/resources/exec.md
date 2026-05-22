@@ -32,6 +32,7 @@ exec:
 ### Simple Command
 
 ```yaml
+# resources/example.yaml
 exec:
   command: "date"
   timeout: 10s
@@ -40,6 +41,7 @@ exec:
 ### Command with Arguments
 
 ```yaml
+# resources/example.yaml
 exec:
   command: "your-command"    # The command to execute
   args:                      # Optional: command arguments
@@ -54,6 +56,7 @@ exec:
 ### Multi-line Script
 
 ```yaml
+# resources/example.yaml
 exec:
   command: |
     echo "Starting process..."
@@ -68,6 +71,7 @@ exec:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 exec:
   command: "curl -s https://api.example.com/users/{{ get('user_id') }}"
   timeout: 30s
@@ -80,6 +84,7 @@ exec:
 ### System Information
 
 ```yaml
+# resources/system-info.yaml
 actionId: systemInfo
 exec:
   command: |
@@ -92,6 +97,7 @@ exec:
 <div v-pre>
 
 ```yaml
+# resources/file-ops.yaml
 actionId: fileOps
 exec:
   command: |
@@ -115,6 +121,7 @@ exec:
 ### Git Operations
 
 ```yaml
+# resources/git-info.yaml
 actionId: gitInfo
 exec:
   command: |
@@ -133,6 +140,7 @@ exec:
 <div v-pre>
 
 ```yaml
+# resources/process-image.yaml
 actionId: processImage
 exec:
   command: |
@@ -154,6 +162,7 @@ exec:
 ### FFmpeg Video Processing
 
 ```yaml
+# resources/extract-audio.yaml
 actionId: extractAudio
 exec:
   command: |
@@ -175,6 +184,7 @@ exec:
 <div v-pre>
 
 ```yaml
+# resources/ocr-process.yaml
 actionId: ocrProcess
 exec:
   command: |
@@ -196,6 +206,7 @@ exec:
 ### Docker Operations
 
 ```yaml
+# resources/docker-info.yaml
 actionId: dockerInfo
 exec:
   command: |
@@ -211,6 +222,7 @@ exec:
 <div v-pre>
 
 ```yaml
+# resources/api-call.yaml
 actionId: apiCall
 exec:
   command: |
@@ -231,6 +243,7 @@ exec:
 The exec resource captures stdout as the result. For structured output, echo JSON:
 
 ```yaml
+# resources/example.yaml
 exec:
   command: |
     # Process something
@@ -244,6 +257,7 @@ exec:
 Access in other resources:
 
 ```yaml
+# resources/example.yaml
 requires: [execResource]
 apiResponse:
   response:
@@ -279,6 +293,7 @@ exec:
 Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
+# resources/example.yaml
 requires: [execResource]
 after:
   # Check if command succeeded
@@ -299,6 +314,7 @@ See [Unified API](../concepts/unified-api.md#resource-specific-accessors) for de
 Check command exit codes:
 
 ```yaml
+# resources/example.yaml
 exec:
   command: |
     if ! command -v ffmpeg &> /dev/null; then

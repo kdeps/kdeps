@@ -10,7 +10,7 @@ Common errors, what they mean, and how to fix them.
 Error: dependency cycle detected (code: DEPENDENCY_CYCLE)
 ```
 
-Two or more resources form a circular `requires` chain (A requires B, B requires A). The engine detects cycles during graph construction and fails before execution.
+Two or more resources form a circular [`requires`](/reference/glossary#requires) chain (A requires B, B requires A). The engine detects cycles during graph construction and fails before execution.
 
 Fix: break the cycle by removing one of the `requires` edges. If both resources genuinely need each other's output, merge them into a single resource.
 
@@ -32,7 +32,7 @@ Error: target resource 'respond' not found
 
 `metadata.targetActionId` references a resource that doesn't exist.
 
-Fix: ensure the actionId in `targetActionId` matches exactly (case-sensitive) one of the resources in the workflow.
+Fix: ensure the actionId in [`targetActionId`](/reference/glossary#targetactionid) matches exactly (case-sensitive) one of the resources in the workflow.
 
 ## Validation Errors
 
@@ -68,7 +68,7 @@ Fix: validate the expression syntax. Common causes:
 Error: Expression evaluation failed (code: EXPRESSION_ERR)
 ```
 
-An expression in `before:`, `after:`, or `validations` couldn't be evaluated.
+An expression in `before:`, `after:`, or [`validations`](/reference/glossary#validations) couldn't be evaluated.
 
 Common causes:
 - **Type mismatch**: `get('age') > 'old'` (comparing number to string)
@@ -123,6 +123,7 @@ The resource's action exceeded its timeout.
 
 Fix: increase the timeout on the resource:
 ```yaml
+# resources/example.yaml
 httpClient:
   url: https://api.example.com/slow
   timeout: 60s  # increase from default 30s

@@ -42,7 +42,7 @@ apiResponse:
 
 ## Action Types
 
-16 action types are available: `navigate`, `click`, `fill`, `type`, `upload`, `select`, `check`, `uncheck`, `hover`, `scroll`, `press`, `clear`, `evaluate`, `screenshot`, `wait`. See the [Browser Action Types Reference](/reference/browser-actions) for the complete field-level documentation of each action.
+16 action types are available: `navigate`, `click`, `fill`, `type`, `upload`, `select`, [`check`](/reference/glossary#check), `uncheck`, `hover`, `scroll`, `press`, `clear`, `evaluate`, `screenshot`, `wait`. See the [Browser Action Types Reference](/reference/browser-actions) for the complete field-level documentation of each action.
 
 ## Stealth Mode
 
@@ -54,6 +54,7 @@ Enable `stealthMode: true` to evade bot detection on websites like LinkedIn that
 - Sets a realistic User-Agent string
 
 ```yaml
+# resources/example.yaml
 browser:
   engine: chromium
   headless: true
@@ -112,6 +113,7 @@ browser:
 For websites that block headless browsers, enable `stealthMode` and consider using non-headless mode to appear more human-like:
 
 ```yaml
+# resources/linkedin-login.yaml
 actionId: linkedinLogin
 browser:
     engine: chromium
@@ -138,6 +140,7 @@ browser:
 <div v-pre>
 
 ```yaml
+# resources/submit-form.yaml
 actionId: submitForm
 browser:
     engine: chromium
@@ -170,6 +173,7 @@ browser:
 ### Screenshot of a Dynamic Dashboard
 
 ```yaml
+# resources/dashboard-shot.yaml
 actionId: dashboardShot
 browser:
     engine: chromium
@@ -192,6 +196,7 @@ browser:
 ### Extract JavaScript-Rendered Data
 
 ```yaml
+# resources/extract-data.yaml
 actionId: extractData
 browser:
     engine: chromium
@@ -215,6 +220,7 @@ browser:
 <div v-pre>
 
 ```yaml
+# resources/login-step.yaml
 actionId: loginStep
 browser:
     engine: firefox
@@ -244,6 +250,7 @@ browser:
 ### File Upload
 
 ```yaml
+# resources/upload-document.yaml
 actionId: uploadDocument
 browser:
     engine: chromium

@@ -18,6 +18,7 @@ llm:
 When building Docker images, Ollama is automatically installed when `backend: ollama` is set. The `installOllama` workflow flag can force or suppress this:
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     ollamaImageTag: "0.13.5"  # Ollama version to install

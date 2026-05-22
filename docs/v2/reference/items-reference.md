@@ -9,6 +9,7 @@ Use cases, dynamic items, collecting results, and best practices for the [`items
 <div v-pre>
 
 ```yaml
+# resources/batch-queries.yaml
 actionId: batchQueries
 items:
   - "What is machine learning?"
@@ -29,6 +30,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/enrich-products.yaml
 actionId: enrichProducts
 requires: [fetchProducts]
 items: get('fetchProducts')
@@ -45,6 +47,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/generate-report.yaml
 actionId: generateReport
 items:
   - section: "executive_summary"
@@ -75,6 +78,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/translate.yaml
 actionId: translate
 items:
   - code: "es"
@@ -103,6 +107,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/chained-process.yaml
 actionId: chainedProcess
 items:
   - step: 1
@@ -130,6 +135,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/analyze-images.yaml
 actionId: analyzeImages
 items:
   - path: "/uploads/image1.jpg"

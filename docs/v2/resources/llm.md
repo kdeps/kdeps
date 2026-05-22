@@ -48,6 +48,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   model: llama3.2:1b    # model name, or "router" to delegate to config
   role: user            # role for this message: user, assistant, system
@@ -96,6 +97,7 @@ chat:
 ## Advanced Parameters
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Write a creative story"
   temperature: 0.9      # 0.0 = deterministic, 1.0+ = more random/creative
@@ -110,6 +112,7 @@ chat:
 Control the context window:
 
 ```yaml
+# resources/example.yaml
 chat:
   contextLength: 8192  # Options: 4096, 8192, 16384, 32768, 65536, 131072, 262144
 ```
@@ -121,6 +124,7 @@ Build multi-turn conversations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   scenario:
@@ -148,6 +152,7 @@ Get structured JSON output:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Analyze: {{ get('q') }}"
   jsonResponse: true
@@ -177,6 +182,7 @@ Process images (set a vision-capable model in `chat.model` in your resource file
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   model: llama3.2-vision
   prompt: "Describe this image"
@@ -194,6 +200,7 @@ Enable LLMs to call other resources:
 <div v-pre>
 
 ```yaml
+# resources/llm-with-tools.yaml
 actionId: llmWithTools
 chat:
   prompt: "{{ get('q') }}"
@@ -233,6 +240,7 @@ kdeps registry install search
 ```
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Research {{ get('q') }} and summarize the findings."
   componentTools:
@@ -247,6 +255,7 @@ Set `streaming: true` to have Ollama stream the response as NDJSON chunks. KDeps
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   streaming: true
@@ -261,6 +270,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   model: llama3.2:1b
   prompt: "{{ get('q') }}"
@@ -280,6 +290,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   model: llama3.2:1b
   prompt: "Write a Python function that {{ get('task') }}"
@@ -332,6 +343,7 @@ chat:
 ## Accessing Output
 
 ```yaml
+# resources/example.yaml
 requires: [llmResource]
 apiResponse:
   response:

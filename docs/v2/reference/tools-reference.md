@@ -142,6 +142,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/smart-agent.yaml
 actionId: smartAgent
 chat:
   prompt: "{{ get('q') }}"
@@ -222,6 +223,7 @@ description: Search stuff
 ### Define All Parameters
 
 ```yaml
+# resources/example.yaml
 parameters:
   query:
     type: string
@@ -266,6 +268,7 @@ Add logging to understand tool execution:
 <div v-pre>
 
 ```yaml
+# resources/debug-tool.yaml
 actionId: debugTool
 python:
   script: |
