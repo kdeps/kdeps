@@ -37,7 +37,3 @@ Single-agent workflows are often insufficient for complex logic. kdeps lets you 
 - **Any team** that has a workflow currently done by a human clicking through tabs and copy-pasting between tools
 - Engineers who need agent logic in version control - reviewable, testable, and reproducible across environments
 
-## Who it is not for
-
-- One-off Q&A or research - use a chat interface directly
-- No-code AI builders - kdeps is YAML infrastructure, not a drag-and-drop tool
