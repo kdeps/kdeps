@@ -23,16 +23,17 @@ import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
+import HomeModes from './HomeModes.vue'
+import HomeHowItWorks from './HomeHowItWorks.vue'
 import './custom.css'
 
 export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
-      // Full info block: logo + text + tagline with tight spacing
       'home-hero-info': () => h(HeroInfo),
-      // Right side: YAML code window
       'home-hero-image': () => h(HeroCode),
+      'home-features-after': () => [h(HomeHowItWorks), h(HomeModes)],
     })
   }
 } satisfies Theme
