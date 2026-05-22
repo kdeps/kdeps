@@ -23,14 +23,14 @@ kdeps run workflow.yaml
 - You want full control over which resources run and in what order.
 - You need validation, early-exit, and explicit error handling.
 
-## Comparison with other modes
+## Comparison with agent mode
 
-| | Workflow mode (`kdeps run`) | Agent mode (`kdeps serve`) | MCP mode (`kdeps mcp`) |
-|---|---|---|---|
-| Execution | DAG, deterministic | LLM loop, tool-driven | Per-tool call, stateless |
-| Entry point | `metadata.targetActionId` | User prompt | Tool name from MCP client |
-| Resources | Declared order | Called as tools on demand | Each resource = one tool |
-| Session | Single execution | Interactive REPL | Stateless per call |
+| | Workflow mode (`kdeps run`) | Agent mode (`kdeps serve`) |
+|---|---|---|
+| Execution | DAG, deterministic | LLM loop, tool-driven |
+| Entry point | `metadata.targetActionId` | User prompt |
+| Resources | Declared order | Called as tools on demand |
+| Session | Single execution | Interactive REPL |
 
 ## Minimal example
 
@@ -111,4 +111,3 @@ See [Input Sources](../concepts/input-sources) for full configuration.
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources Overview](../resources/overview) - Resource types and fields
 - [Agent Mode](agent-mode) - Autonomous LLM loop
-- [MCP Mode](mcp-mode) - Expose resources as MCP tools

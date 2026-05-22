@@ -1,6 +1,6 @@
 # kdeps
 
-Build and deploy AI agents in YAML. Three modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop), **MCP** (tool server for Claude and friends).
+Build and deploy AI agents in YAML. Two modes: **workflow** (DAG pipelines), **agent** (autonomous LLM loop).
 
 > **Highly experimental.** APIs, schemas, and CLI flags change without notice. Not for production. [Report issues](https://github.com/kdeps/kdeps/issues).
 
@@ -76,29 +76,6 @@ The agent reads from stdin and runs until you exit. All resource types (http, py
 KDEPS_AGENT_MODEL=claude-3-5-sonnet   # override model via env
 KDEPS_AGENT_BACKEND=anthropic
 ```
-
-### MCP mode
-
-Exposes kdeps resources as MCP tools over stdio. Connect to Claude Desktop, Cursor, or any MCP-compatible client.
-
-```bash
-kdeps mcp
-```
-
-Claude Desktop config:
-
-```json
-{
-  "mcpServers": {
-    "kdeps": {
-      "command": "kdeps",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Exposed tools include all built-in executors (python, exec, http, sql, scraper, browser, embedding, search) plus fformat utilities (JSON/YAML/CSV/XML validate, format, convert) and any installed components.
 
 ## Agencies
 

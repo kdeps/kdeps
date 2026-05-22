@@ -75,21 +75,19 @@ chat:
 
 </div>
 
-### MCP Tools (Model Context Protocol)
+### External MCP Tools
 
-Use `mcp:` instead of `script:` to connect a tool to an external MCP server over stdio. KDeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, then shuts the process down.
+Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
 ```yaml
 tools:
-  - name: tool_name           # Must match the name the MCP server exposes
+  - name: tool_name
     description: What it does
     mcp:
-      server: npx             # Executable to start the MCP server
-      args:                   # Arguments passed to the executable
-        - "-y"
-        - "@modelcontextprotocol/server-filesystem"
-      transport: stdio        # Only "stdio" is supported (default)
-      env:                    # Extra environment variables for the subprocess
+      server: npx
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+      transport: stdio        # only "stdio" supported (default)
+      env:
         HOME: /tmp
     parameters:
       path:
@@ -98,21 +96,16 @@ tools:
         required: true
 ```
 
-**Fields:**
-
 | Field | Type | Description |
 |-------|------|-------------|
-| `server` | string | Executable that starts the MCP server (e.g. `npx`, `/usr/bin/my-mcp`) |
-| `args` | list | Command-line arguments for the server executable |
-| `transport` | string | Transport type — currently `stdio` (default) |
-| `env` | map | Additional environment variables injected into the subprocess |
+| `server` | string | Executable to start the MCP server (e.g. `npx`, `uvx`, `/usr/bin/my-mcp`) |
+| `args` | list | Arguments passed to the executable |
+| `transport` | string | Transport type - `stdio` (default) |
+| `env` | map | Extra environment variables injected into the subprocess |
 
-**Notes:**
-- `mcp:` and `script:` are mutually exclusive on the same tool.
-- A fresh subprocess is started per tool invocation and killed immediately after.
-- If the server fails to start or returns a tool error, the error is embedded in the conversation and the LLM is asked to continue — it is **not** a fatal workflow error.
+`mcp:` and `script:` are mutually exclusive. A fresh subprocess is started per tool invocation.
 
-**Example — filesystem tool via npx:**
+**Example — filesystem access via npx:**
 
 <div v-pre>
 
@@ -125,35 +118,10 @@ chat:
       mcp:
         server: npx
         args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
-        transport: stdio
       parameters:
         path:
           type: string
           description: Absolute path of the file to read
-          required: true
-```
-
-</div>
-
-**Example — custom MCP binary with environment variables:**
-
-<div v-pre>
-
-```yaml
-chat:
-  prompt: "{{ get('q') }}"
-  tools:
-    - name: search
-      description: Search internal knowledge base
-      mcp:
-        server: /usr/local/bin/my-search-mcp
-        args: ["--index", "/data/index"]
-        env:
-          SEARCH_API_KEY: "{{ get('SEARCH_KEY', 'env') }}"
-      parameters:
-        query:
-          type: string
-          description: Search query
           required: true
 ```
 
