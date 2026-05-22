@@ -15,6 +15,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -74,4 +75,18 @@ func executeAgentTool(
 		return "", err
 	}
 	return marshalResult(result), nil
+}
+
+func marshalResult(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
 }

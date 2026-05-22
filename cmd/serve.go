@@ -1,25 +1,10 @@
-// Copyright 2026 Kdeps, KvK 94834768
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-//go:build !js
-
 package cmd
 
 import (
 	"bufio"
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -30,7 +15,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
-// serveFlags holds command-line flags for the serve subcommand.
 type serveFlags struct {
 	Model        string
 	Backend      string
@@ -43,22 +27,25 @@ func newServeCmd() *cobra.Command {
 	flags := &serveFlags{}
 
 	cmd := &cobra.Command{
-		Use:   "serve [workflow.yaml | agency.yaml]",
-		Short: "Run a workflow or agency in agent mode (interactive LLM loop)",
-		Long: `Run a KDeps workflow or agency in agent mode.
+		Use:   "serve <path>",
+		Short: "Start agent mode (interactive LLM loop with workflows as tools)",
+		Long: `Start agent mode -- an interactive LLM loop where whole workflows are
+registered as callable tools.
 
-Every resource, component, and agency defined in the workflow is auto-registered
-as a callable LLM tool. The agent uses the kdeps engine as its tool executor so
-all existing resource types (http, python, exec, sql, chat, ...) work unchanged.
-
-The session runs as an interactive REPL on stdin/stdout.
+Pass a single workflow file to expose one tool, or a directory to expose
+every workflow and agency found inside as separate tools. The tool name
+for each workflow is its metadata.name field. Each tool call runs the
+full workflow DAG so requires: dependencies always resolve.
 
 Examples:
-  # Start agent mode with a workflow
+  # One tool from a single workflow
   kdeps serve workflow.yaml
 
+  # All workflows in a folder become separate tools
+  kdeps serve ./agents/
+
   # Override the model
-  kdeps serve workflow.yaml --model llama3.2
+  kdeps serve workflow.yaml --model mistral
 
   # Provide a system prompt
   kdeps serve workflow.yaml --system "You are a helpful assistant."
@@ -71,14 +58,7 @@ Environment variables (override defaults):
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
-			resolved, cleanup, err := resolveMCPPath(args[0])
-			if err != nil {
-				return err
-			}
-			if cleanup != nil {
-				defer cleanup()
-			}
-			return runServeCmd(resolved, flags)
+			return runServeCmd(args[0], flags)
 		},
 	}
 
@@ -93,33 +73,41 @@ Environment variables (override defaults):
 	return cmd
 }
 
-func runServeCmd(workflowPath string, flags *serveFlags) error {
-	workflow, err := ParseWorkflowFile(workflowPath)
+func runServeCmd(path string, flags *serveFlags) error {
+	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("serve: failed to load workflow: %w", err)
+		return fmt.Errorf("serve: invalid path %q: %w", path, err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("serve: path not found %q: %w", path, err)
 	}
 
-	eng := setupEngine(workflow, flags.Debug)
-
+	eng := setupEngine(nil, flags.Debug)
 	registry := tools.NewRegistry()
-
-	// Register fformat built-in tools.
 	tools.RegisterFFormatTools(registry)
 
-	// Register all workflow resources as tools.
-	for _, t := range tools.ResourceToolDefs(workflow, eng) {
-		registry.Register(t)
-	}
+	var hostWorkflow = newMinimalHostWorkflow()
 
-	// Convert components map to slice and register with execution engine.
-	if len(workflow.Components) > 0 {
-		comps := make([]*domain.Component, 0, len(workflow.Components))
-		for _, c := range workflow.Components {
-			comps = append(comps, c)
+	if info.IsDir() {
+		wfPaths := findServeWorkflowFiles(absPath)
+		if len(wfPaths) == 0 {
+			return fmt.Errorf("serve: no workflow or agency files found under %s", absPath)
 		}
-		for _, t := range tools.ComponentToolDefs(comps, workflow, eng) {
-			registry.Register(t)
+		for _, p := range wfPaths {
+			wf, loadErr := ParseWorkflowFile(p)
+			if loadErr != nil {
+				return fmt.Errorf("serve: failed to load %s: %w", p, loadErr)
+			}
+			registry.Register(tools.AgentToolDef(wf, eng))
 		}
+	} else {
+		wf, loadErr := ParseWorkflowFile(absPath)
+		if loadErr != nil {
+			return fmt.Errorf("serve: failed to load workflow: %w", loadErr)
+		}
+		hostWorkflow = wf
+		registry.Register(tools.AgentToolDef(wf, eng))
 	}
 
 	cfg := agent.Config{
@@ -128,12 +116,10 @@ func runServeCmd(workflowPath string, flags *serveFlags) error {
 		BaseURL:      flags.BaseURL,
 		SystemPrompt: flags.SystemPrompt,
 	}
-	loop := agent.New(eng, workflow, registry, cfg)
-
+	loop := agent.New(eng, hostWorkflow, registry, cfg)
 	return runREPL(loop)
 }
 
-// runREPL runs a simple stdin/stdout interactive loop.
 func runREPL(loop *agent.Loop) error {
 	ctx := context.Background()
 	scanner := bufio.NewScanner(os.Stdin)
@@ -157,19 +143,38 @@ func runREPL(loop *agent.Loop) error {
 	return scanner.Err()
 }
 
-// resolvePath resolves a user-supplied path to an absolute workflow or agency file.
-// Accepts a file path or a directory (uses ResolveDirectoryPath for directories).
-func resolveMCPPath(path string) (string, func(), error) {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", nil, fmt.Errorf("invalid path %q: %w", path, err)
+// newMinimalHostWorkflow returns a bare workflow used as the agent loop host
+// when no single workflow is the canonical entry point (e.g. folder mode).
+func newMinimalHostWorkflow() *domain.Workflow {
+	return &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:    "agent",
+			Version: "1.0.0",
+		},
 	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return "", nil, fmt.Errorf("path not found %q: %w", path, err)
-	}
-	if info.IsDir() {
-		return ResolveDirectoryPath(absPath)
-	}
-	return absPath, nil, nil
+}
+
+// findServeWorkflowFiles walks root recursively and returns one workflow or
+// agency file per directory. Agency files take precedence over workflow files.
+func findServeWorkflowFiles(root string) []string {
+	var paths []string
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if p := FindAgencyFile(path); p != "" {
+			paths = append(paths, p)
+			return nil
+		}
+		if p := FindWorkflowFile(path); p != "" {
+			paths = append(paths, p)
+		}
+		return nil
+	})
+	return paths
 }
