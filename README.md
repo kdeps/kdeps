@@ -154,13 +154,23 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing API
 
 ## Security
 
-Set in `workflow.yaml` under `settings.apiServer`:
+Configure under `settings.apiServer` in your `workflow.yaml`:
 
-- `auth.token` - Bearer or `X-Api-Key` header required on every request
-- `rateLimit.requestsPerMinute` / `rateLimit.burst` - per-IP throttling
-- `maxBodyBytes` - request body size cap
-- `cors.allowOrigins` - CORS origins (presence of `cors:` block enables CORS)
-- `settings.certFile` / `settings.keyFile` - TLS
+```yaml
+settings:
+  apiServer:
+    auth:
+      token: "your-secret-token"     # require Bearer or X-Api-Key header
+    rateLimit:
+      requestsPerMinute: 60
+      burst: 10
+    maxBodyBytes: 1048576            # 1 MB request body cap
+    cors:
+      allowOrigins:
+        - https://myapp.com
+    certFile: /path/to/cert.pem     # TLS
+    keyFile: /path/to/key.pem
+```
 
 ## Logging
 
