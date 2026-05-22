@@ -2,6 +2,10 @@
 
 The `sql:` resource runs SQL queries against a named connection and returns the result set as the resource's output. Use it to read, write, or transact against any supported database.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+
 ## Basic Usage
 
 <div v-pre>

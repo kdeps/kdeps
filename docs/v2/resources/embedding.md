@@ -2,9 +2,14 @@
 
 The `embedding` executor is a native capability compiled into the `kdeps` binary. It provides a SQLite-backed keyword store for indexing, searching, upserting, and deleting text documents. Use it as the storage layer for RAG pipelines that run fully on-prem.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+
 ## Configuration
 
 ```yaml
+# resources/store.yaml
 embedding:
   operation: "index"                    # required: index | search | upsert | delete
   text: "document content here"         # required for index/search/upsert (optional for delete-all)

@@ -2,6 +2,10 @@
 
 The `python:` resource runs a Python script and stores its stdout (parsed as JSON) as the resource's output.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+
 ## Complete reference
 
 <div v-pre>

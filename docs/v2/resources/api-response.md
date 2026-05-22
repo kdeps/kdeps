@@ -2,10 +2,14 @@
 
 `apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by `targetActionId` in `workflow.yaml`.
 
+## Where it runs
+
+[Workflow mode](/modes/workflow-mode) only. `apiResponse:` is the terminal node that builds the HTTP response. It is not registered as a tool in agent mode.
+
 ## Basic Usage
 
 ```yaml
-
+# resources/respond.yaml
 actionId: responseResource
 name: API Response
 requires:

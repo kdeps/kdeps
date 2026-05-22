@@ -2,9 +2,14 @@
 
 A resource is a single step in a workflow. It has an ID, optional dependencies, optional validation, and exactly one action. kdeps builds a dependency graph from all resources and runs them in order.
 
+## Where it runs
+
+All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, every resource is auto-registered as a callable tool -- the LLM decides which ones to invoke.
+
 ## Resource Structure
 
 ```yaml
+# resources/my-resource.yaml
 actionId: myResource        # unique ID -- used by requires: and get()
 name: My Resource           # human-readable label (optional)
 description: What it does   # optional

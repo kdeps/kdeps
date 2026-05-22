@@ -2,6 +2,10 @@
 
 kdeps provides two native search executors compiled into the binary: `searchLocal` for local file search and `searchWeb` for web search.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode each executor runs as a DAG step. In agent mode both are auto-registered as callable tools.
+
 ---
 
 ## searchLocal
@@ -223,7 +227,7 @@ chat:
 
 ---
 
-## See also
+## See Also
 
 - [Embedding Resource](embedding) - SQLite keyword store for on-prem RAG
 - [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines

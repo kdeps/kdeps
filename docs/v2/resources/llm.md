@@ -2,6 +2,10 @@
 
 The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is a string (or a JSON object when `jsonResponse: true`).
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode every `chat:` resource is auto-registered as a callable tool.
+
 ## Where config lives
 
 Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. This lets you change backends without touching your workflow.
