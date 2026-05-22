@@ -35,7 +35,7 @@ flowchart TD
 |---|---|---|
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |
-| Resources | Declared order | Called as tools on demand |
+| Resources | Declared order | Run as part of a whole-workflow tool |
 | Session | Single execution | Interactive REPL |
 
 ## Minimal example

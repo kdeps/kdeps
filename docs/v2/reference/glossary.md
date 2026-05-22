@@ -5,7 +5,7 @@ Every kdeps term defined in one place. First mention of any term in other docs p
 ## A
 
 ### actionId
-A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies and as the tool name in [agent mode](#agent-mode). Must be unique across all resources in the workflow.
+A unique string identifier for a [resource](#resource) within a workflow. Used as the target for `requires` dependencies. Must be unique across all resources in the workflow. In [agent mode](#agent-mode), resources are not exposed as tools directly -- the whole workflow is the tool, named after `metadata.name`.
 
 ### agent
 An autonomous LLM-driven pipeline defined by `kind: Agent` in a workflow. Agents have tools, memory, and multi-step reasoning. Run with `kdeps serve`. See [Agent Mode](/modes/agent-mode).
@@ -144,7 +144,7 @@ A boolean field on `chat` resources. When `true`, the LLM response is streamed t
 The entry point resource for a workflow. Execution starts by resolving the dependency graph from this resource backward. Set in `metadata.targetActionId`.
 
 ### tools
-Functions registered with the LLM in agent mode. Each resource's actionId becomes a tool name. The LLM decides which tools to call based on the user prompt. Also refers to custom functions defined in `chat.tools` for workflow mode. See [Tools](/concepts/tools).
+Functions registered with the LLM. In [agent mode](#agent-mode), tools are whole workflows (named after `metadata.name`) and components -- not individual resources. The LLM decides which tool to call based on the user prompt. In workflow mode, tools are custom functions defined in `chat.tools` on a `chat:` resource. See [Tools](/concepts/tools).
 
 ## V
 
