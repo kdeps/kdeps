@@ -22,14 +22,23 @@
       <div class="line spacer"></div>
       <div class="line">
         <span class="prompt">$</span>
-        <span class="cmd">curl localhost:16395/ask \</span>
+        <span class="cmd">curl -s -X POST localhost:16395/ask \</span>
       </div>
       <div class="line">
         <span class="indent"></span>
-        <span class="cmd dim">-d '{"q": "explain REST in one line"}'</span>
+        <span class="cmd dim">-H "Content-Type: application/json" \</span>
+      </div>
+      <div class="line">
+        <span class="indent"></span>
+        <span class="cmd dim">-d '{"q": "what is REST?"}'</span>
       </div>
       <div class="line spacer"></div>
-      <div class="line response">{"response": "REST is HTTP + URLs + JSON, stateless by design."}</div>
+      <div class="line response">{</div>
+      <div class="line response">  "success": true,</div>
+      <div class="line response">  "data": {</div>
+      <div class="line response">    "response": "REST is HTTP + URLs + JSON."</div>
+      <div class="line response">  }</div>
+      <div class="line response">}</div>
     </div>
 
     <div class="terminal-statusbar">
