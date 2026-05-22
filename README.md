@@ -79,25 +79,43 @@ KDEPS_AGENT_BACKEND=anthropic
 
 ## Agencies
 
-Multiple agents collaborating. Each agent is a separate workflow; the `agent:` resource type hands off to another agent by name.
+An agency is a collection of agents that work together. Each agent is its own `workflow.yaml` with its own resources, model, and logic. You wire them together using the `agent:` resource type, which runs another agent's full workflow and returns its output — like calling a function, but the function is an entire AI pipeline.
 
-Example: a marketing pipeline where one agent drafts a blog post and another schedules it for publishing.
+```
+POST /run-marketing-pipeline
+        │
+        ▼
+┌─────────────────────┐
+│   content-writer    │  ← its own workflow.yaml, writes the blog post
+└────────┬────────────┘
+         │ output passed as params
+         ▼
+┌─────────────────────┐
+│   cms-publisher     │  ← its own workflow.yaml, publishes to CMS
+└─────────────────────┘
+         │
+         ▼
+      response
+```
+
+The orchestrating workflow calls each agent in order using `agent:`:
 
 ```yaml
 # resources/pipeline.yaml
+
 actionId: draft
 agent:
-  name: content-writer
+  name: content-writer        # runs agents/content-writer/workflow.yaml
   params:
-    topic: "{{ get('topic') }}"
+    topic: "{{ get('topic') }}"  # passed as get('topic') inside that agent
 
 ---
 actionId: publish
 requires: [draft]
 agent:
-  name: cms-publisher
+  name: cms-publisher         # runs agents/cms-publisher/workflow.yaml
   params:
-    content: "{{ output('draft') }}"
+    content: "{{ output('draft') }}"  # previous agent's output forwarded
 apiResponse:
   response: "{{ output('publish') }}"
 ```
