@@ -83,8 +83,8 @@ onError:
 > kdeps registry install scraper
 > ```
 
-## Next Steps
+## See Also
 
-- [Embedding Resource](embedding) - Store and search scraped content
-- [LLM Resource](llm) - Feed scraped content into prompts
-- [HTTP Client](http-client) - Lower-level HTTP with auth, headers, caching
+- [Embedding Resource](embedding) -- store and search scraped content
+- [LLM Resource](llm) -- feed scraped content into prompts
+- [HTTP Client](http-client) -- lower-level HTTP with auth, headers, caching

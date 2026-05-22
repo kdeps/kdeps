@@ -457,7 +457,7 @@ after:
 ## See Also
 
 - [Unified API](/concepts/unified-api) - Core get() and set() functions
-- [Expressions](/advanced/expressions) - Expression syntax and operators
+- [Expressions](/concepts/expressions) - Expression syntax and operators
 - [Expression Functions Reference](/reference/expression-functions-reference) - Complete function reference
-- [Advanced Expressions](/advanced/advanced-expressions) - Advanced expression features
+- [Expression Functions Reference](/reference/expression-functions-reference) - Full function reference with array, string, and type operations
 - [Items Iteration](items) - Processing multiple items

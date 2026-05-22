@@ -558,8 +558,8 @@ npx playwright install chromium
 npx playwright install
 ```
 
-## Related Resources
+## See Also
 
-- [HTTP Client](http-client) — Simple HTTP requests without a browser
-- [Scraper](scraper) — Text extraction from already-fetched pages
+- [HTTP Client](http-client) -- simple HTTP requests without a browser
+- [Scraper](scraper) -- text extraction from already-fetched pages
 - [Python](python) — Custom Python automation scripts

@@ -354,8 +354,8 @@ validations:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'
 ```
 
-## Next Steps
+## See Also
 
-- [Python Resource](python) - For complex data processing
-- [HTTP Client](http-client) - For API calls (preferred over curl)
-- [Workflow Configuration](../configuration/workflow) - OS package settings
+- [Python Resource](python) -- complex data processing
+- [HTTP Client](http-client) -- API calls (preferred over curl)
+- [Workflow Configuration](../configuration/workflow) -- OS package settings

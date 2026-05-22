@@ -98,4 +98,4 @@ When the LLM calls a tool, kdeps creates a minimal single-resource workflow targ
 
 - [Workflow Mode](workflow-mode) - Deterministic DAG pipelines
 - [Tools](../concepts/tools) - Function calling in chat resources
-- [CLI Reference](../reference/cli-reference) - `kdeps serve` flags
+- [CLI: Dev Commands](/reference/cli/dev) - `kdeps serve` flags

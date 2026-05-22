@@ -156,3 +156,194 @@ Returns the entire session data object.
 ```yaml
 session()                    # Get all session data
 ```
+
+## Array Operations
+
+### filter(array, predicate)
+Filters an array by a predicate expression. Use `.` to reference the current element.
+
+```yaml
+after:
+  - set('activeUsers', filter(get('users'), .status == 'active'))
+  - set('premiumActive', filter(get('users'), .status == 'active' && .tier == 'premium'))
+  - set('expensiveItems', filter(get('products'), .price > 100))
+```
+
+### map(array, expression)
+Transforms each element in an array.
+
+```yaml
+after:
+  - set('userNames', map(get('users'), .name))
+  - set('emails', map(get('users'), .email))
+  - set('pricesWithTax', map(get('items'), .price * 1.1))
+```
+
+### Aggregation
+
+```yaml
+after:
+  - set('total', sum(get('prices')))
+  - set('minPrice', min(get('prices')))
+  - set('maxPrice', max(get('prices')))
+  - set('avgPrice', sum(get('prices')) / len(get('prices')))
+```
+
+### slice(array, start, end)
+Extracts a sub-array. Negative indices count from the end.
+
+```yaml
+after:
+  - set('firstFive', slice(get('items'), 0, 5))
+  - set('lastTen', slice(get('items'), -10, len(get('items'))))
+```
+
+### first(array) / last(array)
+Returns the first or last element of an array.
+
+```yaml
+after:
+  - set('firstItem', first(get('items')))
+  - set('lastItem', last(get('items')))
+```
+
+### len(value)
+Returns the length of an array or string.
+
+```yaml
+after:
+  - set('itemCount', len(get('items')))
+  - set('textLength', len(get('text')))
+```
+
+## String Operations
+
+### Case Conversion
+
+```yaml
+after:
+  - set('lowercase', lower(get('text')))
+  - set('uppercase', upper(get('text')))
+  - set('trimmed', trim(get('text')))
+```
+
+### Splitting & Joining
+
+```yaml
+after:
+  - set('words', split(get('csv'), ','))
+  - set('lines', split(get('text'), '\n'))
+  - set('commaSeparated', join(get('items'), ', '))
+```
+
+### Replacing
+
+```yaml
+after:
+  - set('replaced', replace(get('text'), 'old', 'new'))
+```
+
+### String Matching
+
+```yaml
+after:
+  - set('hasKeyword', contains(get('text'), 'important'))
+  - set('isUrl', startsWith(get('url'), 'https://'))
+  - set('isImage', endsWith(get('filename'), '.jpg'))
+  - set('isEmail', matches(get('email'), '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$'))
+```
+
+## Type Conversion
+
+### type(value)
+Returns the type as a string: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"null"`.
+
+```yaml
+after:
+  - set('valueType', type(get('value')))
+```
+
+### Casting Functions
+
+```yaml
+after:
+  - set('age', int(get('ageString')))       # "123" -> 123
+  - set('price', float(get('priceString'))) # "3.14" -> 3.14
+  - set('idString', string(get('id')))      # 42 -> "42"
+  - set('isEnabled', bool(get('enabled')))  # "true" -> true, 1 -> true, 0 -> false
+```
+
+## Date & Time
+
+### now()
+Returns the current time as an ISO 8601 timestamp string.
+
+```yaml
+after:
+  - set('now', now())
+```
+
+### format(date, layout)
+Formats a timestamp using Go's reference time layout (`2006-01-02 15:04:05`).
+
+```yaml
+after:
+  - set('date', format(now(), '2006-01-02'))
+  - set('datetime', format(now(), '2006-01-02 15:04:05'))
+  - set('timestamp', format(now(), '2006-01-02T15:04:05Z'))
+```
+
+Common layout patterns:
+| Pattern | Output |
+|---|---|
+| `2006-01-02` | `2024-12-25` |
+| `2006-01-02 15:04:05` | `2024-12-25 14:30:00` |
+| `01/02/2006` | `12/25/2024` |
+
+## Conditional Logic
+
+### Ternary Operator
+
+```yaml
+after:
+  - set('status', get('score') >= 70 ? 'pass' : 'fail')
+  - set('discount', get('isPremium') ? 0.2 : 0.1)
+```
+
+### Null Coalescing
+
+The `??` operator returns the right-hand value when the left-hand is nil or empty string.
+
+```yaml
+after:
+  - set('name', get('name') ?? 'Anonymous')
+  - set('limit', get('limit') ?? 10)
+```
+
+## Operator Precedence
+
+Expressions evaluate left-to-right with this precedence (highest to lowest):
+
+1. Parentheses: `(a + b) * c`
+2. Unary: `!`, `-`
+3. Multiplicative: `*`, `/`, `%`
+4. Additive: `+`, `-`
+5. Comparison: `<`, `<=`, `>`, `>=`
+6. Equality: `==`, `!=`
+7. Logical AND: `&&`
+8. Logical OR: `||`
+9. Ternary: `? :`
+10. Null coalescing: `??`
+
+## Best Practices
+
+- **Use parentheses for clarity** -- `(a + b) * c` is clearer than relying on precedence
+- **Break complex expressions** into multiple statements for readability
+- **Validate before processing** -- check types and null values before operations
+- **Keep expressions simple** -- complex logic belongs in Python resources
+
+## See Also
+
+- [Expressions Guide](/concepts/expressions) -- where expressions are used and basic syntax
+- [Validation & Control Flow](/concepts/validation-and-control) -- skip, check, and error handling
+- [Inline Resource Blocks](/reference/expr-blocks) -- `before:` and `after:` expression blocks

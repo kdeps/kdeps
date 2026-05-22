@@ -278,6 +278,6 @@ sql:
 ## See Also
 
 - [Resources Overview](../resources/overview) — Resource configuration
-- [Expressions](/advanced/expressions) — Expression syntax
+- [Expressions](/concepts/expressions) — Expression syntax
 - [Expression Helpers](/concepts/expression-helpers) — Helper functions
 - [Error Handling](/concepts/error-handling) — `onError` with retries and fallbacks

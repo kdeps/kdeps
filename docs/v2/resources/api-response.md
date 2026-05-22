@@ -340,8 +340,8 @@ apiResponse:
 4. **Include metadata** - Model version, timing, etc.
 5. **Handle errors gracefully** - Clear error messages
 
-## Next Steps
+## See Also
 
-- [Resources Overview](overview) - All resource types
-- [LLM Resource](llm) - AI model integration
-- [Unified API](../concepts/unified-api) - Data access patterns
+- [Resources Overview](overview) -- all resource types
+- [LLM Resource](llm) -- AI model integration
+- [Unified API](../concepts/unified-api) -- data access patterns

@@ -111,8 +111,8 @@ embedding:
 > kdeps registry install embedding
 > ```
 
-## Next Steps
+## See Also
 
-- [Scraper Resource](scraper) - Fetch content to index
-- [Search Resource](search) - Search local files and the web
-- [LLM Resource](llm) - Use search results as context
+- [Scraper Resource](scraper) -- fetch content to index
+- [Search Resource](search) -- search local files and the web
+- [LLM Resource](llm) -- use search results as context

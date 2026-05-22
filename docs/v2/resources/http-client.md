@@ -395,8 +395,8 @@ httpClient:
 5. **Use appropriate authentication** - Match the API's requirements
 6. **Validate inputs** - Check required parameters before calling
 
-## Next Steps
+## See Also
 
-- [SQL Resource](sql.md) - Database operations
-- [LLM Resource](llm.md) - AI model integration
-- [Unified API](../concepts/unified-api.md) - Data access patterns
+- [SQL Resource](sql.md) -- database operations
+- [LLM Resource](llm.md) -- AI model integration
+- [Unified API](../concepts/unified-api.md) -- data access patterns

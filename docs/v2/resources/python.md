@@ -452,8 +452,8 @@ result = {"data": "value"}
 print(json.dumps(result))
 ```
 
-## Next Steps
+## See Also
 
-- [Exec Resource](exec) - Shell command execution
-- [LLM Resource](llm) - Combine with AI
-- [Workflow Configuration](../configuration/workflow) - Python settings
+- [Exec Resource](exec) -- shell command execution
+- [LLM Resource](llm) -- combine with AI
+- [Workflow Configuration](../configuration/workflow) -- Python settings

@@ -380,7 +380,7 @@ after:
 
 ## See Also
 
-- [Expression Blocks](/advanced/expr-blocks) - Using `before` and `exprAfter`
+- [Expression Blocks](/reference/expr-blocks) - Using `before` and `after`
 - [Error Handling](error-handling.md) - Handling errors in resources
 - [Items](items.md) - Iterating over collections
 - [Examples](https://github.com/kdeps/kdeps/tree/main/examples/inline-resources) - Complete example with inline resources

@@ -487,7 +487,7 @@ chat:
 ## Related Documentation
 
 - [Validation](/concepts/validation) — Full `validations:` block reference
-- [Expressions](/advanced/expressions) — Expression syntax for conditions
+- [Expressions](/concepts/expressions) — Expression syntax for conditions
 - [Resources Overview](../resources/overview.md) — Resource structure
 - [Unified API](/concepts/unified-api) — Using `get()` in validations
 - [Workflow Configuration](../configuration/workflow.md) — Route configuration
