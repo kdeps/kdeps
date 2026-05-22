@@ -31,12 +31,13 @@ Single-agent workflows are often insufficient for complex logic. kdeps lets you 
 
 ## Who it is for
 
-- Developers shipping AI features into products (APIs, bots, pipelines)
-- Teams that need agent logic in version control - reviewable and reproducible
-- Engineers deploying to edge, Docker, or air-gapped environments
-- Anyone running LLM workflows on a schedule or in response to events
+- **Marketing and growth teams** automating content generation, SEO pipelines, social media publishing, lead scoring, and campaign reporting
+- **Operations teams** eliminating repetitive manual work - data entry, report generation, invoice processing, email triage, document summarization
+- **Developers** shipping AI features into products (APIs, bots, internal tools) without glue code
+- **Any team** that has a workflow currently done by a human clicking through tabs and copy-pasting between tools
+- Engineers who need agent logic in version control - reviewable, testable, and reproducible across environments
 
 ## Who it is not for
 
 - One-off Q&A or research - use a chat interface directly
-- No-code AI assistants - kdeps is infrastructure, not an end-user app
+- No-code AI builders - kdeps is YAML infrastructure, not a drag-and-drop tool
