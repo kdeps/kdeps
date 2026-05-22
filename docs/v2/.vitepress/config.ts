@@ -220,8 +220,8 @@ export default defineConfig({
     config: (md) => {
       md.use(d2, {
         layout: Layout.ELK,
-        theme: Theme.DARK_MAUVE,
-        darkTheme: Theme.DARK_MAUVE,
+        theme: Theme.DARK_MUAVE,
+        darkTheme: Theme.DARK_MUAVE,
         sketch: false,
         padding: 50,
       })
