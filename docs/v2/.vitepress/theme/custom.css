@@ -135,6 +135,45 @@
   .VPHero .tagline { font-size: 24px; }
 }
 
+/* Background gradient blobs behind hero */
+.VPHero {
+  position: relative;
+  overflow: hidden;
+}
+
+.VPHero::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(0, 229, 255, 0.10) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.VPHero::after {
+  content: '';
+  position: absolute;
+  top: 40px;
+  right: -80px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(100, 100, 255, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.VPHero .container {
+  position: relative;
+  z-index: 1;
+}
+
 /* Hide default VitePress image when using home-hero-image slot for HeroCode */
 .VPHero .image {
   display: flex;
@@ -481,10 +520,50 @@ div[class*='language-'] > span.lang,
    ===================================================== */
 .VPFooter {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 40px 24px;
+  text-align: center;
 }
 
 .dark .VPFooter {
   background: var(--vp-c-bg);
+}
+
+.footer-ctas {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.footer-ctas a {
+  display: inline-block;
+  border-radius: 2px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.footer-ctas .primary {
+  background: var(--vp-c-brand-1);
+  color: #080808;
+  border: 1px solid var(--vp-c-brand-1);
+}
+
+.footer-ctas .primary:hover {
+  background: #33eaff;
+  border-color: #33eaff;
+}
+
+.footer-ctas .secondary {
+  background: transparent;
+  color: var(--vp-c-text-1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.footer-ctas .secondary:hover {
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* =====================================================
