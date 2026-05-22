@@ -36,13 +36,16 @@ Each inline resource can be: `chat`, `httpClient`, `sql`, `python`, or `exec`.
 
 ## Execution Order
 
-```mermaid
-flowchart TD
-    A["expressions in before:<br/><small>set&#40;&#41; / get&#40;&#41; statements</small>"] --> B
-    B["inline resources in before:<br/><small>httpClient, exec, etc.</small>"] --> C
-    C["main action<br/><small>chat, sql, python, exec...</small>"] --> D
-    D["inline resources in after:<br/><small>httpClient, sql, etc.</small>"] --> E
-    E["expressions in after:<br/><small>set&#40;&#41; / get&#40;&#41; statements</small>"]
+```d2
+direction: down
+
+A: "expressions in before:\nset() / get() statements"
+B: "inline resources in before:\nhttpClient, exec, etc."
+C: "main action\nchat, sql, python, exec..."
+D: "inline resources in after:\nhttpClient, sql, etc."
+E: "expressions in after:\nset() / get() statements"
+
+A -> B -> C -> D -> E
 ```
 
 ## Common Use Cases

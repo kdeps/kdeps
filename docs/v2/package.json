@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "vitepress": "^1.6.4",
+    "vitepress-plugin-d2": "^1.1.0",
     "vue": "^3.5.0"
   },
   "keywords": [
@@ -19,9 +20,5 @@
     "llm",
     "documentation"
   ],
-  "license": "MIT",
-  "dependencies": {
-    "mermaid": "^11.15.0",
-    "vitepress-plugin-mermaid": "^2.0.17"
-  }
+  "license": "MIT"
 }

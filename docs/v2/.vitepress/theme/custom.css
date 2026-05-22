@@ -505,9 +505,9 @@ div[class*='language-'] > span.lang,
 }
 
 /* =====================================================
-   MERMAID DIAGRAMS
+   D2 DIAGRAMS
    ===================================================== */
-.vp-doc .mermaid {
+.vp-doc .d2 {
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -515,84 +515,15 @@ div[class*='language-'] > span.lang,
   text-align: center;
 }
 
-/* container svg */
-.vp-doc .mermaid svg {
-  font-family: 'JetBrains Mono', monospace;
+.vp-doc .d2 svg {
   max-width: 100%;
   height: auto;
   border-radius: 2px;
   display: inline-block;
 }
 
-/* all node rects/polygons */
-.vp-doc .mermaid .node rect,
-.vp-doc .mermaid .node polygon,
-.vp-doc .mermaid .node circle,
-.vp-doc .mermaid .node ellipse,
-.vp-doc .mermaid .node path {
-  fill: #141414 !important;
-  stroke: #2a2a2a !important;
-  stroke-width: 1px !important;
-}
-
-/* terminal/stadium nodes (rounded ends) */
-.vp-doc .mermaid .node .label-container {
-  fill: #0f0f0f !important;
-  stroke: #00E5FF !important;
-  stroke-width: 1px !important;
-}
-
-/* edge paths */
-.vp-doc .mermaid .edgePath .path,
-.vp-doc .mermaid .flowchart-link {
-  stroke: #00E5FF !important;
-  stroke-width: 1.5px !important;
-  fill: none !important;
-}
-
-/* arrowheads */
-.vp-doc .mermaid marker path {
-  fill: #00E5FF !important;
-  stroke: none !important;
-}
-
-/* all text */
-.vp-doc .mermaid text,
-.vp-doc .mermaid .nodeLabel,
-.vp-doc .mermaid .edgeLabel {
-  fill: #e0e0e0 !important;
-  color: #e0e0e0 !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  font-size: 12px !important;
-}
-
-/* edge label background */
-.vp-doc .mermaid .edgeLabel rect,
-.vp-doc .mermaid .edgeLabel .label rect {
-  fill: #0d0d0d !important;
-  stroke: none !important;
-  opacity: 0.9 !important;
-}
-
-/* subgraph */
-.vp-doc .mermaid .cluster rect {
-  fill: #0f0f0f !important;
-  stroke: #2a2a2a !important;
-  stroke-width: 1px !important;
-  stroke-dasharray: 4 2 !important;
-}
-.vp-doc .mermaid .cluster text {
-  fill: #606060 !important;
-  font-size: 11px !important;
-}
-
 @media (max-width: 640px) {
-  .vp-doc .mermaid svg {
-    font-size: 10px !important;
-  }
-  .vp-doc .mermaid text,
-  .vp-doc .mermaid .nodeLabel,
-  .vp-doc .mermaid .edgeLabel {
-    font-size: 10px !important;
+  .vp-doc .d2 svg {
+    font-size: 11px !important;
   }
 }

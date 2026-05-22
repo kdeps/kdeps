@@ -122,12 +122,17 @@ Expected response:
 
 ## How it works
 
-```mermaid
-flowchart TD
-    A(["POST /api/v1/chat<br/>{&quot;q&quot;: &quot;What is entropy?&quot;}"]) --> B
-    B["resource: llm<br/><small>validates get&#40;'q'&#41; != ''; calls llama3.2:1b</small>"] -->|output stored as get&#40;'llm'&#41;| C
-    C["resource: response<br/><small>requires: [llm]; reads get&#40;'llm'&#41;</small>"] --> D
-    D(["{&quot;success&quot;: true, &quot;response&quot;: {&quot;answer&quot;: &quot;...&quot;}}"])
+```d2
+direction: down
+
+A: "POST /api/v1/chat\n{\"q\": \"What is entropy?\"}" {shape: oval}
+B: "resource: llm\nvalidates get('q') != ''; calls llama3.2:1b"
+C: "resource: response\nrequires: [llm]; reads get('llm')"
+D: "{\"success\": true, \"response\": {\"answer\": \"...\"}}" {shape: oval}
+
+A -> B
+B -> C: "output stored as get('llm')"
+C -> D
 ```
 
 `requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest workflow mode pipeline.

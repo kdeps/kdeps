@@ -10,14 +10,20 @@ kdeps run workflow.yaml
 
 ## How it works
 
-```mermaid
-flowchart TD
-    A([incoming request<br/>POST /api/v1/chat]) --> B
-    B["resolve dep graph<br/><small>walks backward from targetActionId</small>"] --> C
-    C["resource: validate<br/><small>fails fast if input invalid</small>"] -->|output stored as get&#40;'validate'&#41;| D
-    D["resource: llm<br/><small>reads get&#40;'q'&#41;; calls the model</small>"] -->|output stored as get&#40;'llm'&#41;| E
-    E["resource: resp<br/><small>reads get&#40;'llm'&#41;; builds the response</small>"] --> F
-    F([HTTP response])
+```d2
+direction: down
+
+A: "incoming request\nPOST /api/v1/chat" {shape: oval}
+B: "resolve dep graph\nwalks backward from targetActionId"
+C: "resource: validate\nfails fast if input invalid"
+D: "resource: llm\nreads get('q'); calls the model"
+E: "resource: resp\nreads get('llm'); builds the response"
+F: HTTP response {shape: oval}
+
+A -> B -> C
+C -> D: "output stored as get('validate')"
+D -> E: "output stored as get('llm')"
+E -> F
 ```
 
 `requires:` is like an import -- the resource won't run until its dependencies have output. Resources with no shared dependency path run concurrently.

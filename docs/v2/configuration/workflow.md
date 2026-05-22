@@ -4,18 +4,21 @@
 
 ## How the pieces fit together
 
-```mermaid
-flowchart TD
-    A(["incoming request"]) --> B
-    B["apiServer<br/><small>HTTP server: TLS, auth, rate limit, routes</small>"] --> C
-    C["resources/<br/><small>DAG pipeline: chat, sql, http, python, exec</small>"] --> D
-    D["apiResponse<br/><small>terminal resource; builds the HTTP response</small>"] --> E
-    E(["HTTP response"])
+```d2
+direction: down
 
-    B2["webServer &#40;optional&#41;<br/><small>serves static files or proxies subprocess</small>"]
-    B3["agentSettings<br/><small>Python packages, OS packages, env vars</small>"]
-    B4["sqlConnections<br/><small>named DB connections for sql: resources</small>"]
-    B5["session<br/><small>persists set&#40;'key', val, 'session'&#41; across requests</small>"]
+A: incoming request {shape: oval}
+B: "apiServer\nHTTP server: TLS, auth, rate limit, routes"
+C: "resources/\nDAG pipeline: chat, sql, http, python, exec"
+D: "apiResponse\nterminal resource; builds the HTTP response"
+E: HTTP response {shape: oval}
+
+A -> B -> C -> D -> E
+
+B2: "webServer (optional)\nserves static files or proxies subprocess"
+B3: "agentSettings\nPython packages, OS packages, env vars"
+B4: "sqlConnections\nnamed DB connections for sql: resources"
+B5: "session\npersists set('key', val, 'session') across requests"
 ```
 
 ## Basic structure
