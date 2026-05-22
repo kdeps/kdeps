@@ -1,172 +1,230 @@
-# Search Resource
+# Search Resources
 
-> **Note**: This capability is now provided as an installable component. See the [Components guide](../concepts/components) for how to install and use it.
->
-> Install: `kdeps registry install search`
->
-> Usage: `run: { component: { name: search, with: { query: "...", apiKey: "...", maxResults: 5 } } }`
+kdeps provides two native search executors compiled into the binary: `searchLocal` for local file search and `searchWeb` for web search.
 
-The Search component discovers content from the web via the [Tavily](https://tavily.com/) AI-optimized search API, returning a list of results (title, URL, snippet) for downstream processing.
+---
 
-## Component Inputs
+## searchLocal
 
-| Input | Type | Required | Default | Description |
+The `searchLocal` executor walks a local directory and returns matching files by filename glob pattern and/or content keyword.
+
+### Configuration
+
+```yaml
+searchLocal:
+  path: "/data/documents"    # required: directory to search
+  query: "invoice total"     # optional: keyword in file contents
+  glob: "*.txt"              # optional: filename pattern
+  limit: 10                  # optional: max results (0 = unlimited)
+```
+
+| Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `query` | string | yes | — | Search query string |
-| `apiKey` | string | yes | — | Tavily API key |
-| `maxResults` | integer | no | `5` | Maximum number of results to return |
+| `path` | string | yes | - | Directory to search recursively |
+| `query` | string | no | - | Case-insensitive keyword to find in file contents |
+| `glob` | string | no | - | Filename glob pattern (e.g. `*.md`, `report_*.csv`) |
+| `limit` | integer | no | `0` | Max results (0 = unlimited) |
 
-## Using the Search Component
+When both `query` and `glob` are set, a file must match **both** to be included.
 
-```yaml
-component:
-  name: search
-  with:
-    query: "kdeps AI agent framework"
-    apiKey: "tvly-your-api-key"
-    maxResults: 10
-```
+### Output
 
-Access the result via `output('<callerActionId>')`. The result is a list of objects with `title`, `url`, and `snippet` fields.
+| Key | Type | Description |
+|-----|------|-------------|
+| `results` | array | List of matching file objects |
+| `count` | integer | Number of results |
+| `path` | string | The search root used |
+| `json` | string | Full result as JSON string |
 
----
+Each result object:
 
-## Basic Usage
+| Key | Type | Description |
+|-----|------|-------------|
+| `path` | string | Full file path |
+| `name` | string | Filename |
+| `size` | integer | File size in bytes |
+| `isDir` | bool | Always `false` |
+
+### Examples
+
+**Find all Markdown files:**
 
 <div v-pre>
 
 ```yaml
+actionId: findDocs
+searchLocal:
+  path: "/workspace/docs"
+  glob: "*.md"
+```
 
-actionId: findArticles
-name: Find Articles
-component:
-  name: search
-  with:
-    query: "{{ get('topic') }}"
-    apiKey: "{{ env('TAVILY_API_KEY') }}"
-    maxResults: 5
+</div>
+
+**Find files containing a keyword:**
+
+<div v-pre>
+
+```yaml
+actionId: findInvoices
+searchLocal:
+  path: "/data/uploads"
+  query: "overdue"
+  limit: 20
+```
+
+</div>
+
+**Feed results into an LLM:**
+
+<div v-pre>
+
+```yaml
+actionId: findFiles
+searchLocal:
+  path: "/data/reports"
+  query: "{{ get('query') }}"
+
+---
+actionId: answer
+requires: [findFiles]
+chat:
+  model: llama3.2:1b
+  prompt: "Files found: {{ output('findFiles').results }}. Summarize."
 ```
 
 </div>
 
 ---
 
-## Result Map
+## searchWeb
 
-```json
-{
-  "query": "kdeps AI workflow",
-  "results": [
-    {
-      "title": "Introduction to kdeps",
-      "url": "https://kdeps.io/docs/intro",
-      "snippet": "kdeps is an open-source AI workflow engine..."
-    }
-  ],
-  "count": 1,
-  "success": true
-}
+The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo - no API key required.
+
+### Configuration
+
+```yaml
+searchWeb:
+  query: "{{ get('query') }}"     # required
+  provider: ddg                    # optional: ddg (default) | brave | bing | tavily
+  apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
+  maxResults: 5                    # optional, default 5
+  timeout: 15                      # optional, seconds, default 15
 ```
 
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `query` | string | yes | - | Search query |
+| `provider` | string | no | `ddg` | Search provider |
+| `apiKey` | string | no* | - | API key (required for non-DDG providers) |
+| `maxResults` | integer | no | `5` | Maximum number of results |
+| `timeout` | integer | no | `15` | HTTP request timeout in seconds |
+
+*Required when `provider` is `brave`, `bing`, or `tavily`.
+
+### Providers
+
+| Provider | Value | API Key |
+|----------|-------|---------|
+| DuckDuckGo | `ddg` | Not required |
+| Brave Search | `brave` | Required |
+| Bing | `bing` | Required |
+| Tavily | `tavily` | Required |
+
+### Output
+
+```yaml
+output('search').results    # list of result objects
+output('search').count      # number of results returned
+output('search').query      # the query string
+output('search').provider   # provider used
+output('search').json       # JSON string of the full result
+```
+
+Result object fields:
+
 | Field | Type | Description |
-|---|---|---|
-| `query` | string | The query string that was used. |
-| `results` | []object | Array of result items. |
-| `count` | int | Number of results returned. |
-| `success` | bool | `true` when the search completed without error. |
-| `error` | string | Error message (only present when `success` is `false`). |
+|-------|------|-------------|
+| `title` | string | Page title |
+| `url` | string | Page URL |
+| `snippet` | string | Description or summary snippet |
 
-**Result item fields:**
+### Examples
 
-| Field | Type | Description |
-|---|---|---|
-| `title` | string | Page title. |
-| `url` | string | Page URL. |
-| `snippet` | string | Excerpt or description. |
-
----
-
-## Expression Support
-
-All `with:` fields support [KDeps expressions](/advanced/expressions):
+**DuckDuckGo (no API key):**
 
 <div v-pre>
 
 ```yaml
-component:
-  name: search
-  with:
-    query: "{{ get('user_query') }}"
-    apiKey: "{{ env('TAVILY_API_KEY') }}"
-    maxResults: "{{ get('result_count', 5) }}"
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
+  maxResults: 5
 ```
 
 </div>
 
----
-
-## Full Example: Web Research Pipeline
-
-This pipeline searches the web for a topic, scrapes the top result, and asks an LLM to
-summarize it.
+**Brave Search:**
 
 <div v-pre>
 
 ```yaml
-# Step 1: Search for the topic
-- apiVersion: kdeps.io/v1
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
+  provider: brave
+  apiKey: "{{ env('BRAVE_API_KEY') }}"
+  maxResults: 10
+```
 
-  actionId: webSearch
-  name: Web Search
-component:
-  name: search
-  with:
-    query: "{{ get('research_topic') }}"
-    apiKey: "{{ env('TAVILY_API_KEY') }}"
-    maxResults: 3
+</div>
 
-# Step 2: Scrape the first result
-- apiVersion: kdeps.io/v1
+**Feed results into an LLM:**
 
-  actionId: scrapeTop
-  name: Scrape Top Result
-  requires:
-    - webSearch
-component:
-  name: scraper
-  with:
-    url: "{{ output('webSearch').results[0].url }}"
-    timeout: 30
+<div v-pre>
 
-# Step 3: LLM summarizes the scraped content
-- apiVersion: kdeps.io/v1
+```yaml
+actionId: search
+searchWeb:
+  query: "{{ get('query') }}"
 
-  actionId: summarise
-  name: Summarise Research
-  requires:
-    - scrapeTop
-llm:
+---
+actionId: answer
+requires: [search]
+chat:
+  model: llama3.2:1b
   prompt: |
-    You are a research assistant. Summarise the following content about
-    "{{ get('research_topic') }}":
-
-    {{ output('scrapeTop').content }}
-
-    Provide a concise 3-paragraph summary.
-
-# Step 4: Return the summary
-- apiVersion: kdeps.io/v1
-
-  actionId: researchResponse
-  name: Research Response
-  requires:
-    - summarise
-apiResponse:
-  success: true
-  response:
-    summary: "{{ output('summarise') }}"
-    source_url: "{{ output('webSearch').results[0].url }}"
-    source_title: "{{ output('webSearch').results[0].title }}"
+    Answer based on these results:
+    {% for r in output('search').results %}
+    - {{ r.title }}: {{ r.snippet }}
+    {% endfor %}
+    Question: {{ get('query') }}
 ```
 
 </div>
+
+### Error handling
+
+| Error | Cause |
+|-------|-------|
+| `query is required` | Empty query string |
+| `apiKey required for brave provider` | Missing API key for Brave |
+| `apiKey required for bing provider` | Missing API key for Bing |
+| `apiKey required for tavily provider` | Missing API key for Tavily |
+| `unknown provider "x"` | Invalid provider value |
+
+### Environment variable overrides
+
+| Variable | Description |
+|----------|-------------|
+| `KDEPS_DDG_URL` | Override DuckDuckGo base URL |
+| `KDEPS_BRAVE_URL` | Override Brave API base URL |
+| `KDEPS_BING_URL` | Override Bing API base URL |
+| `KDEPS_TAVILY_URL` | Override Tavily API base URL |
+
+---
+
+## See also
+
+- [Embedding Resource](embedding) - SQLite keyword store for on-prem RAG
+- [Scraper Resource](scraper) - Fetch URL content to feed into search pipelines
+- [LLM Resource](llm) - Use search results as context for chat resources

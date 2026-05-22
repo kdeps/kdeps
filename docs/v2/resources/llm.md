@@ -4,7 +4,7 @@ The LLM (chat) resource enables interaction with language models for text genera
 
 ## Model and Backend Configuration
 
-**Model is set per resource** in `run.chat.model`. Set `model: router` to delegate model selection to the LLM router.
+**Model is set per resource** in `chat.model`. Set `model: router` to delegate model selection to the LLM router.
 
 ```yaml
 # resources/my-resource.yaml

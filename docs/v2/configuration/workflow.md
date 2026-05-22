@@ -120,7 +120,7 @@ settings:
 
 ### LLM Model
 
-Set per resource in `run.chat.model`. Backend and API keys are in `~/.kdeps/config.yaml`.
+Set per resource in `chat.model`. Backend and API keys are in `~/.kdeps/config.yaml`.
 
 ```yaml
 chat:
@@ -129,7 +129,7 @@ chat:
   prompt: "{{ get('q') }}"
 ```
 
-Set `model: router` to use the LLM router. See [LLM Backends](../resources/llm-backends).
+Set `model: router` to use the LLM router. See [LLM Backends](../resources/llm-backends) for routing configuration.
 
 ## SQL Connections
 

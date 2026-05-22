@@ -46,9 +46,8 @@ httpClient:
     maxBackoff: 30s
     retryOn: [500, 502, 503, 504]
 
-  # Caching
+  # Caching (presence of cache: block enables it)
   cache:
-    enabled: true
     ttl: 5m
     key: "custom-cache-key"
 
@@ -188,14 +187,13 @@ Retry timing example:
 
 ## Response Caching
 
-Cache responses to reduce API calls:
+Cache responses to reduce API calls. Presence of the `cache:` block enables caching.
 
 ```yaml
 httpClient:
   method: GET
   url: "https://api.example.com/static-data"
   cache:
-    enabled: true
     ttl: 5m                  # Cache for 5 minutes
     key: "static-data-cache" # Optional: custom cache key
 ```
@@ -329,7 +327,6 @@ httpClient:
   method: GET
   url: "https://api.exchangerate.host/latest"
   cache:
-    enabled: true
     ttl: 1h
     key: "exchange-rates"
   timeout: 30s

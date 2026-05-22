@@ -46,11 +46,11 @@ python: { ... }      # Python script (core)
 exec: { ... }        # Shell command (core)
 agent: { ... }       # Call another agent — agency mode (core)
 apiResponse: { ... } # API response (core)
-component:           # Installable component (e.g. scraper, tts, pdf…)
-  name: scraper
+component:           # Installable registry component
+  name: botreply
   with:
-    url: "https://example.com"
-    selector: ".article"
+    platform: telegram
+    message: "Hello!"
 ```
 
 ## Resource Types
@@ -70,30 +70,19 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `embedding` | Keyword store | SQLite index/search/upsert/delete |
 | `searchLocal` | File search | Glob + keyword search across local files |
 | `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
-
-These additional keys are also always available as part of the core resource model:
-
-| YAML key | Description |
-|----------|-------------|
-| `agent` | Inter-agent delegation (agency mode) |
-| `apiResponse` | Return data to the HTTP caller |
+| `browser` | Browser automation | Playwright-based navigation, screenshots, JS eval |
+| `agent` | Inter-agent delegation | Call another agent in an agency |
+| `apiResponse` | API response | Return data to the HTTP caller |
 
 ### Registry components (installable via `kdeps registry install`)
 
-| Type | Install name | Description |
-|------|-------------|----------|
-| `component: { name: scraper }` | `scraper` | Content extraction from web pages, PDFs, documents, and images (type auto-detected) |
-| `component: { name: tts }` | `tts` | Text-to-Speech via OpenAI TTS (online) or espeak (offline) |
-| `component: { name: pdf }` | `pdf` | PDF generation from HTML or plain text via pdfkit |
-| `component: { name: calendar }` | `calendar` | ICS calendar event creation |
-| `component: { name: search }` | `search` | Web search via Tavily API |
-| `component: { name: botreply }` | `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
-| `component: { name: embedding }` | `embedding` | Vector embeddings via OpenAI Embeddings API |
-| `component: { name: browser }` | `browser` | Browser automation via Playwright (navigate, screenshot, getText) |
-| `component: { name: remoteagent }` | `remoteagent` | Invoke a remote kdeps agent over HTTP |
-| `component: { name: memory }` | `memory` | Persistent key-value storage backed by SQLite |
-| `component: { name: email }` | `email` | Email sending via SMTP |
-| `component: { name: autopilot }` | `autopilot` | LLM-directed task execution |
+| Install name | Description |
+|-------------|-------------|
+| `scraper` | Extended content extraction: PDFs, .docx, .xlsx, images (type auto-detected) |
+| `browser` | Playwright browser with stealth mode, persistent sessions, and file upload |
+| `botreply` | Chat bot reply (Discord, Slack, Telegram, WhatsApp) |
+| `embedding` | Vector embeddings via OpenAI Embeddings API |
+| `search` | Web search via Tavily API |
 
 See the [Components guide](../concepts/components) for installation and usage details.
 

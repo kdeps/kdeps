@@ -66,11 +66,20 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Configuration',
+          text: 'Three Modes',
           collapsed: false,
           items: [
-            { text: 'Workflow (workflow.yaml)', link: '/configuration/workflow' },
-            { text: 'Global Defaults', link: '/configuration/advanced' },
+            { text: 'Workflow Mode', link: '/modes/workflow-mode' },
+            { text: 'Agent Mode (kdeps serve)', link: '/modes/agent-mode' },
+            { text: 'MCP Mode (kdeps mcp)', link: '/modes/mcp-mode' },
+          ]
+        },
+        {
+          text: 'Workflow Configuration',
+          collapsed: false,
+          items: [
+            { text: 'workflow.yaml Reference', link: '/configuration/workflow' },
+            { text: 'Global Config', link: '/configuration/advanced' },
             { text: 'Session & Persistence', link: '/configuration/session' },
             { text: 'CORS & Security', link: '/configuration/cors' },
           ]
@@ -79,24 +88,18 @@ export default defineConfig({
           text: 'Resources',
           collapsed: false,
           items: [
+            { text: 'Overview', link: '/resources/overview' },
             { text: 'LLM (Chat)', link: '/resources/llm' },
             { text: 'LLM Backends & Routing', link: '/resources/llm-backends' },
             { text: 'HTTP Client', link: '/resources/http-client' },
             { text: 'SQL Databases', link: '/resources/sql' },
             { text: 'Python Scripts', link: '/resources/python' },
             { text: 'Exec (Shell)', link: '/resources/exec' },
-            { text: 'API Response', link: '/resources/api-response' },
             { text: 'Scraper', link: '/resources/scraper' },
-            { text: 'Embedding (Keyword Store)', link: '/resources/embedding' },
-            { text: 'Search', link: '/resources/search' },
             { text: 'Browser Automation', link: '/resources/browser' },
-            { text: 'PDF Processing', link: '/resources/pdf' },
-            { text: 'TTS (Speech)', link: '/resources/tts' },
-            { text: 'Email', link: '/resources/email' },
-            { text: 'Calendar', link: '/resources/calendar' },
-            { text: 'Telephony (IVR)', link: '/resources/telephony' },
-            { text: 'Remote Agent', link: '/resources/remote-agent' },
-            { text: 'Autopilot', link: '/resources/autopilot' },
+            { text: 'Embedding', link: '/resources/embedding' },
+            { text: 'Search', link: '/resources/search' },
+            { text: 'API Response', link: '/resources/api-response' },
           ]
         },
         {
@@ -104,10 +107,19 @@ export default defineConfig({
           collapsed: true,
           items: [
             { text: 'Expressions Guide', link: '/advanced/expressions' },
+            { text: 'Jinja2 Templates', link: '/concepts/jinja2-templates' },
             { text: 'Validation & Control Flow', link: '/advanced/validation-and-control' },
             { text: 'Error Handling', link: '/concepts/error-handling' },
             { text: 'Looping & Iteration', link: '/concepts/loop' },
             { text: 'Inline Resources', link: '/concepts/inline-resources' },
+          ]
+        },
+        {
+          text: 'Agencies & Components',
+          collapsed: true,
+          items: [
+            { text: 'Agencies', link: '/concepts/agency' },
+            { text: 'Components', link: '/concepts/components' },
           ]
         },
         {
@@ -116,7 +128,7 @@ export default defineConfig({
           items: [
             { text: 'Docker', link: '/deployment/docker' },
             { text: 'Kubernetes', link: '/deployment/kubernetes' },
-            { text: 'WebServer Mode', link: '/deployment/webserver' },
+            { text: 'Web Server Mode', link: '/deployment/webserver' },
             { text: 'Standalone Binaries', link: '/deployment/prepackage' },
           ]
         },

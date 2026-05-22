@@ -114,5 +114,5 @@ embedding:
 ## Next Steps
 
 - [Scraper Resource](scraper) - Fetch content to index
-- [Search Local Resource](search-local) - Search local files by keyword or glob
+- [Search Resource](search) - Search local files and the web
 - [LLM Resource](llm) - Use search results as context

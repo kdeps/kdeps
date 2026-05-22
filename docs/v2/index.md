@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: kdeps
-  text: Straightforward LLM dependency orchestration for multi-agent workflows.
-  tagline: Compose chat, code, and data into declarative pipelines in YAML. Export AI workflows as a single binary, ISO, Docker, or Kubernetes pods. Use Ollama, llamafile, or any cloud AI provider.
+  text: Build and deploy AI agents in YAML.
+  tagline: Three modes - workflow pipelines, autonomous agents, and MCP servers. Export as Docker, Kubernetes, ISO, or a single binary. Works with Ollama, OpenAI, Anthropic, and any OpenAI-compatible backend.
   image: false
   actions:
     - theme: brand
@@ -19,15 +19,15 @@ hero:
 
 features:
   - icon: 🏗️
-    title: Declarative Pipelines
-    details: Compose chat, code, and data into YAML pipelines with explicit control flow. No glue code, no boilerplate.
+    title: Workflow Mode
+    details: DAG-deterministic pipelines. Declare dependencies with `requires:`, compose chat, SQL, HTTP, Python, and shell into a single YAML workflow.
+  - icon: 🤖
+    title: Agent Mode
+    details: Run `kdeps serve` to turn your workflow into an autonomous LLM loop. Every resource auto-registers as a callable tool. The LLM plans and executes multi-step tasks.
+  - icon: 🔌
+    title: MCP Mode
+    details: Run `kdeps mcp` to expose your resources as Model Context Protocol tools. Connect to Claude Desktop, Cursor, or any MCP-compatible host.
   - icon: 📦
     title: Self-Contained Exports
-    details: Export AI workflows as a single binary, Docker image, bootable ISO, or Kubernetes pod.
-  - icon: 🤖
-    title: Multi-Agent Orchestration
-    details: Coordinate specialized agents with dependency-based execution order. Chain LLM calls with code and data.
-  - icon: 🛡️
-    title: Defined Control Flow
-    details: Predictable and auditable pipelines. Inputs are declared, outputs are typed, validations enforced before any LLM call.
+    details: Export AI workflows as a single binary, Docker image, bootable ISO, or Kubernetes manifests. Ship to production without glue code.
 ---

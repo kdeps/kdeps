@@ -71,7 +71,7 @@ kdeps run my-agency/
 kdeps run my-agency/agency.yaml
 ```
 
-## Inter-Agent Calls (`run.agent:`)
+## Inter-Agent Calls (`agent:`)
 
 Resources within one agent can delegate work to another agent in the same agency using
 the `agent` resource type.
@@ -174,7 +174,7 @@ curl "http://localhost:17100/api/v1/greet?name=Alice"
 
 ## See Also
 
-- [Agent resource](../resources/overview.md#agent) — `run.agent:` reference
+- [Agent resource](../resources/overview.md#agent) — `agent:` resource reference
 - [`examples/agency/`](https://github.com/kdeps/kdeps/tree/main/examples/agency) — runnable example
 - [Packaging workflows](/reference/cli-reference) — `.kdeps` and `.kagency` formats
 - [Docker deployment](../deployment/docker.md) — building Docker images
