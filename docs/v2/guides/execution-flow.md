@@ -14,45 +14,15 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 
 ## Execution Order
 
-```
-Request enters at targetActionId
-              │
-              v
-┌──────────────────────────────┐
-│  1. Build dependency graph   │  <- each resource is a node; requires = edges
-│     Detect cycles            │  <- fails fast with ErrCodeDependencyCycle
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│  2. Walk transitive deps     │  <- from targetActionId backward through requires
-│     Collect relevant nodes   │  <- only resources needed to reach target
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│  3. Topological sort         │  <- dependencies always run before dependents
-│     (resources without       │  <- resources that share no transitive deps
-│      shared deps can run     │     are independent and can run concurrently)
-│      concurrently)           │
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│  4. Execute each resource    │
-│     a. Run before: block     │  <- prepare data, normalize inputs
-│     b. Evaluate skip         │  <- any true? skip silently, continue
-│     c. Evaluate check        │  <- all true? proceed, else fail
-│     d. Run main action       │  <- chat, httpClient, sql, etc.
-│     e. Run after: block      │  <- process output, store in memory/session
-│     f. Handle onError        │  <- if main action fails, run error handler
-└──────────────┬───────────────┘
-               │
-               v
-┌──────────────────────────────┐
-│  5. Terminal resource runs   │  <- typically apiResponse: formats output
-│     Response returned        │  <- JSON body with success/data/error
-└──────────────────────────────┘
+```mermaid
+flowchart TD
+    A(["Request at targetActionId"]) --> B
+    B["1. Build dependency graph<br/><small>each resource = node; requires = edges<br/>fails fast on cycles</small>"] --> C
+    C["2. Walk transitive deps<br/><small>backward from targetActionId<br/>collect only needed nodes</small>"] --> D
+    D["3. Topological sort<br/><small>deps always run before dependents<br/>independent resources run concurrently</small>"] --> E
+    E["4. Execute each resource<br/><small>a. before: block<br/>b. skip — any true? skip silently<br/>c. check — all true? proceed, else fail<br/>d. main action &#40;chat, sql, http...&#41;<br/>e. after: block<br/>f. onError handler</small>"] --> F
+    F["5. Terminal resource<br/><small>apiResponse: formats output</small>"] --> G
+    G(["JSON response returned"])
 ```
 
 ## Dependency Graph
@@ -189,20 +159,21 @@ validations:
 
 When a resource has a [`loop`](/reference/glossary#loop) config, the engine runs the full resource cycle (before -> check -> action -> after) repeatedly:
 
-```
-┌─────────────────────────────────┐
-│  while loop.condition is true:  │
-│    ┌──────────────────────┐     │
-│    │  before: block       │     │
-│    │  check (every iter)  │     │
-│    │  main action         │     │
-│    │  after: block        │     │
-│    └──────────────────────┘     │
-│    if loop.every is set:        │
-│      sleep(every)               │
-│    if iteration >= maxIterations:│
-│      break (safety cap)         │
-└─────────────────────────────────┘
+```mermaid
+flowchart TD
+    A(["loop starts"]) --> B
+    B{"loop.condition<br/>is true?"} -->|yes| C
+    B -->|no| G
+    C["before: block"] --> D
+    D["check &#40;every iteration&#41;"] --> E
+    E["main action"] --> F
+    F["after: block"] --> H
+    H{"loop.every set?"} -->|yes| I
+    H -->|no| J
+    I["sleep&#40;every&#41;"] --> J
+    J{"iteration >=<br/>maxIterations?"} -->|yes, safety cap| G
+    J -->|no| B
+    G(["loop ends"])
 ```
 
 See [Loop](/concepts/loop) for full details.

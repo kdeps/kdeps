@@ -19,5 +19,9 @@
     "llm",
     "documentation"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "mermaid": "^11.15.0",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  }
 }

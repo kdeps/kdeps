@@ -241,49 +241,24 @@ apiResponse:
 
 ## Execution Flow
 
-```
-Request
-    ↓
-┌─────────────────┐
-│ Route Matching  │
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│ Build Dep Graph │
-└────────┬────────┘
-         ↓
-For each resource (in order):
-    ┌─────────────────┐
-    │ Check Route     │ → Skip if not matching
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Check Skip      │ → Skip if condition true
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Preflight Check │ → Error if validation fails
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Execute before │
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Execute Action  │
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Execute expr    │
-    └────────┬────────┘
-             ↓
-    ┌─────────────────┐
-    │ Store Output    │
-    └─────────────────┘
-         ↓
-┌─────────────────┐
-│ Return Target   │
-└─────────────────┘
+```mermaid
+flowchart TD
+    A([Request]) --> B[Route Matching]
+    B --> C[Build Dep Graph]
+    C --> D
+    subgraph D["For each resource (in order)"]
+        D1[Check Route] -->|not matching| D1S([skip])
+        D1 --> D2[Check Skip]
+        D2 -->|condition true| D2S([skip silently])
+        D2 --> D3[Preflight Check]
+        D3 -->|validation fails| D3E([error])
+        D3 --> D4[Execute before:]
+        D4 --> D5[Execute Action]
+        D5 --> D6[Execute after:]
+        D6 --> D7[Store Output]
+    end
+    D7 --> E[Return Target]
+    E --> F([Response])
 ```
 
 ## Best Practices

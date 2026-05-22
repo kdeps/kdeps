@@ -2,31 +2,14 @@
 
 Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
 
-```
-incoming request
-        |
-        v
-+---------------------+
-|  auth check         |  <- 401 if Bearer/X-Api-Key wrong or missing
-+---------------------+
-        |
-        v
-+---------------------+
-|  rate limit         |  <- 429 if over requestsPerMinute + burst
-+---------------------+
-        |
-        v
-+---------------------+
-|  body size check    |  <- 413 if body exceeds maxBodyBytes
-+---------------------+
-        |
-        v
-+---------------------+
-|  concurrency cap    |  <- 503 if over maxConcurrent in-flight requests
-+---------------------+
-        |
-        v
-   workflow DAG
+```mermaid
+flowchart TD
+    A(["incoming request"]) --> B
+    B["auth check<br/><small>401 if Bearer / X-Api-Key wrong or missing</small>"] --> C
+    C["rate limit<br/><small>429 if over requestsPerMinute + burst</small>"] --> D
+    D["body size check<br/><small>413 if body exceeds maxBodyBytes</small>"] --> E
+    E["concurrency cap<br/><small>503 if over maxConcurrent in-flight requests</small>"] --> F
+    F(["workflow DAG"])
 ```
 
 ## Authentication
