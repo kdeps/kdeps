@@ -234,92 +234,6 @@ httpClient:
 
 Set to `false` to prevent following redirects.
 
-## Examples
-
-### Fetch Data and Process
-
-<div v-pre>
-
-```yaml
-
-actionId: fetchData
-httpClient:
-  method: GET
-  url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
-  headers:
-    Accept: application/vnd.github.v3+json
-    Authorization: "Bearer {{ get('GITHUB_TOKEN', 'env') }}"
-  timeout: 30s
-
----
-
-actionId: analyzeRepo
-requires: [fetchData]
-chat:
-  model: llama3.2:1b
-  prompt: "Analyze this GitHub repo: {{ get('fetchData') }}"
-```
-
-</div>
-
-### Authenticated API with Retry
-
-<div v-pre>
-
-```yaml
-httpClient:
-  method: POST
-  url: "https://api.stripe.com/v1/charges"
-  auth:
-    type: bearer
-    token: "{{ get('STRIPE_SECRET_KEY', 'env') }}"
-  headers:
-    Content-Type: application/x-www-form-urlencoded
-  data:
-    amount: "{{ get('amount') }}"
-    currency: usd
-    source: "{{ get('token') }}"
-  retry:
-    maxAttempts: 3
-    backoff: 2s
-    retryOn: [500, 502, 503]
-  timeout: 30s
-```
-
-</div>
-
-### Webhook Call
-
-<div v-pre>
-
-```yaml
-httpClient:
-  method: POST
-  url: "{{ get('webhook_url') }}"
-  headers:
-    Content-Type: application/json
-    X-Webhook-Secret: "{{ get('WEBHOOK_SECRET', 'env') }}"
-  data:
-    event: order_completed
-    order_id: "{{ get('order_id') }}"
-    timestamp: "{{ info('timestamp') }}"
-  timeout: 10s
-```
-
-</div>
-
-### Cached External API
-
-```yaml
-httpClient:
-  method: GET
-  url: "https://api.exchangerate.host/latest"
-  cache:
-    ttl: 1h
-    key: "exchange-rates"
-  timeout: 30s
-```
-
 ## Accessing Response
 
 The HTTP client response includes:
@@ -401,6 +315,7 @@ httpClient:
 
 ## See Also
 
+- [HTTP Client Examples](/reference/http-client-examples) - GitHub, Stripe, webhook, cached API examples
 - [SQL Resource](sql.md) -- database operations
 - [LLM Resource](llm.md) -- AI model integration
 - [Unified API](../concepts/unified-api.md) -- data access patterns
