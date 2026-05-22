@@ -59,11 +59,9 @@ kdeps bundle build [path] [flags]
 
 | Flag | Description | Default |
 |---|---|---|
-| `--gpu` | GPU support: `cuda` or `rocm` | None (CPU only) |
-| `--os` | Base OS: `alpine` or `ubuntu` | Auto-detect |
+| `--gpu` | GPU type: `cuda`, `rocm`, `intel`, `vulkan` (auto-selects Ubuntu base) | None (CPU, Alpine) |
 | `--tag, -t` | Docker image tag | From workflow metadata |
 | `--no-cache` | Build without cache | `false` |
-| `--push` | Push to registry after build | `false` |
 
 **Examples:**
 
@@ -73,7 +71,6 @@ kdeps bundle build examples/chatbot --gpu cuda                 # NVIDIA GPU
 kdeps bundle build examples/chatbot --gpu rocm                 # AMD GPU
 kdeps bundle build examples/chatbot --tag my-agent:v1.0.0
 kdeps bundle build myapp-1.0.0.kdeps                          # From package
-kdeps bundle build examples/chatbot --tag reg.com/app:v1 --push
 ```
 
 ---

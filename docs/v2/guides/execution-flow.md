@@ -36,6 +36,9 @@ A -> B -> C -> D -> E -> F -> G
 
 ```yaml
 # workflow.yaml (conceptual)
+metadata:
+  targetActionId: respond            # engine walks backward from here
+
 resources:
   - actionId: fetchData
     httpClient:
@@ -50,9 +53,6 @@ resources:
     requires: [analyzeData]          # runs only after analyzeData succeeds
     apiResponse:
       response: "{{ output('analyzeData') }}"
-
-metadata:
-  targetActionId: respond            # engine walks backward from here
 ```
 
 </div>

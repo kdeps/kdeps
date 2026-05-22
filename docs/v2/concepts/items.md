@@ -197,24 +197,23 @@ chat:
 
 ### Conditional Processing
 
+Items iterate over expressions that evaluate to strings. To filter, use `skip` on the value:
+
 <div v-pre>
 
 ```yaml
 # resources/example.yaml
 items:
-  - value: "Task 1"
-    priority: "high"
-  - value: "Task 2"
-    priority: "low"
-  - value: "Task 3"
-    priority: "high"
+  - "Task 1|high"
+  - "Task 2|low"
+  - "Task 3|high"
 
 validations:
   skip:
-  - get('current').priority != 'high'
+    - "!(get('current') contains '|high')"
 
 chat:
-  prompt: "Handle high-priority task: {{ get('current').value }}"
+  prompt: "Handle high-priority task: {{ split(get('current'), '|')[0] }}"
 ```
 
 </div>

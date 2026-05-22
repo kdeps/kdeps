@@ -349,9 +349,7 @@ chat:
   prompt: "{{get('prompt')}}"
 
 after:
-  - if(get('should_notify'), 
-      set('notification_sent', true),
-      set('notification_sent', false))
+  - set('notification_sent', get('should_notify') == true)
 ```
 
 ### Combining with Items
@@ -366,15 +364,15 @@ items:
 
 before:
   - httpClient:
-      url: "https://api.example.com/prepare/{{item()}}"
+      url: "https://api.example.com/prepare/{{item.current()}}"
 
 chat:
-  prompt: "Process {{item()}}"
+  prompt: "Process {{item.current()}}"
 
 after:
   - sql:
       query: "INSERT INTO results VALUES (?)"
-      params: ["{{item()}}"]
+      params: ["{{item.current()}}"]
 ```
 
 ## See Also

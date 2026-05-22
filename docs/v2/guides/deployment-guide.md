@@ -4,12 +4,15 @@ End-to-end CI/CD pipeline: package your workflow, build a Docker image, push to 
 
 ## Overview
 
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌──────────────┐
-│  1. Validate    │     │  2. Package      │     │  3. Build        │     │  4. Deploy   │
-│  kdeps validate │ ──▶ │  kdeps bundle    │ ──▶ │  kdeps bundle    │ ──▶ │  kubectl     │
-│  workflow.yaml  │     │  package         │     │  build --push    │     │  apply       │
-└─────────────────┘     └──────────────────┘     └─────────────────┘     └──────────────┘
+```d2
+direction: right
+
+A: "1. Validate\nkdeps validate\nworkflow.yaml"
+B: "2. Package\nkdeps bundle\npackage"
+C: "3. Build\nkdeps bundle\nbuild + docker push"
+D: "4. Deploy\nkubectl\napply"
+
+A -> B -> C -> D
 ```
 
 Each step is a single `kdeps` command. No Dockerfiles, no manual YAML authoring, no glue scripts.
@@ -41,8 +44,8 @@ Build a Docker image from the package:
 
 ```bash
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
-  --tag registry.example.com/my-agent:v1.0.0 \
-  --push
+  --tag registry.example.com/my-agent:v1.0.0
+docker push registry.example.com/my-agent:v1.0.0
 ```
 
 No Dockerfile needed -- kdeps generates a multi-stage build from your workflow config. GPU support is a flag away:
@@ -50,8 +53,8 @@ No Dockerfile needed -- kdeps generates a multi-stage build from your workflow c
 ```bash
 kdeps bundle build dist/my-agent-1.0.0.kdeps \
   --tag registry.example.com/my-agent:v1.0.0-gpu \
-  --gpu cuda \
-  --push
+  --gpu cuda
+docker push registry.example.com/my-agent:v1.0.0-gpu
 ```
 
 See [Docker Deployment](/deployment/docker) for base OS selection, offline mode, and custom image configuration.
@@ -102,8 +105,8 @@ jobs:
       - name: Build and Push
         run: |
           kdeps bundle build dist/*.kdeps \
-            --tag ${{ secrets.REGISTRY }}/my-agent:${{ github.ref_name }} \
-            --push
+            --tag ${{ secrets.REGISTRY }}/my-agent:${{ github.ref_name }}
+          docker push ${{ secrets.REGISTRY }}/my-agent:${{ github.ref_name }}
         env:
           DOCKER_CONFIG: ${{ secrets.DOCKER_CONFIG }}
 
@@ -127,7 +130,8 @@ deploy:
     - curl -fsSL https://kdeps.io/install.sh | bash
     - kdeps validate workflow.yaml
     - kdeps bundle package . --output dist/
-    - kdeps bundle build dist/*.kdeps --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --push
+    - kdeps bundle build dist/*.kdeps --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG
     - kdeps export k8s dist/*.kdeps --image $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG --output k8s.yaml
     - kubectl apply -f k8s.yaml
 ```

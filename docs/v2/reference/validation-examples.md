@@ -103,7 +103,7 @@ validations:
   headers: [Authorization, Content-Type]
   check:
     - get('Authorization') != null
-    - get('Authorization').startsWith('Bearer ')
+    - get('Authorization') startsWith 'Bearer '
   error:
     code: 401
     message: Valid authorization token required

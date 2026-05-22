@@ -70,7 +70,7 @@ apiResponse:
     query: get('q')
     answer: get('llmResource').answer
     timestamp: info('timestamp')
-    request_id: info('requestId')
+    request_id: info('ID')
 ```
 
 ### Nested Structure
@@ -85,7 +85,7 @@ apiResponse:
       name: get('userResource').name
     data:
       items: get('dataResource')
-      count: get('dataResource').length
+      count: len(get('dataResource'))
     pagination:
       page: get('page', '1')
       limit: get('limit', '10')
@@ -105,7 +105,7 @@ apiResponse:
     data: get('result')
   headers:
     Content-Type: application/json
-    X-Request-Id: info('requestId')
+    X-Request-Id: info('ID')
     X-Processing-Time: "{{ get('processingTime') }}ms"
     Cache-Control: "max-age=3600"
 ```
@@ -340,14 +340,14 @@ Transform data before returning:
 actionId: transformedResponse
 requires: [rawData]
 after:
-  - set('formatted', formatData(get('rawData')))
+  - set('formatted', filter(get('rawData'), .active == true))
 
 apiResponse:
   success: true
   response:
     data: get('formatted')
-    original_count: get('rawData').length
-    processed_count: get('formatted').length
+    original_count: len(get('rawData'))
+    processed_count: len(get('formatted'))
 ```
 
 ## Best Practices

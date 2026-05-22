@@ -100,8 +100,7 @@ chat:
 
 ```yaml
 # Login resource
-metadata:
-  actionId: login
+actionId: login
 
 validations:
   check:
@@ -131,8 +130,7 @@ apiResponse:
 
 ```yaml
 # resources/example.yaml
-metadata:
-  actionId: protectedResource
+actionId: protectedResource
 
 validations:
   check:
@@ -151,8 +149,7 @@ chat:
 
 ```yaml
 # Add to cart
-metadata:
-  actionId: addToCart
+actionId: addToCart
 
 after:
   - set('cart', get('cart', 'session') + [get('item')], 'session')
@@ -165,22 +162,20 @@ apiResponse:
 
 ---
 # View cart
-metadata:
-  actionId: viewCart
+actionId: viewCart
 
 apiResponse:
   success: true
   response:
     items: get('cart', 'session')
-    total: sum(get('cart', 'session').price)
+    total: sum(map(get('cart', 'session'), .price))
 ```
 
 ### User Preferences
 
 ```yaml
 # Save preferences
-metadata:
-  actionId: savePrefs
+actionId: savePrefs
 
 after:
   - set('language', get('language', 'en'), 'session')
@@ -194,8 +189,7 @@ apiResponse:
 
 ---
 # Apply preferences
-metadata:
-  actionId: getContent
+actionId: getContent
 
 chat:
   prompt: |

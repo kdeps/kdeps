@@ -11,7 +11,7 @@ Agencies are the natural evolution from single AI Agents. Where a single agent h
 | One workflow file, one port | Multiple specialized agents coordinated within one agency (optionally runnable standalone) |
 | All resources coupled together | Each agent is independently deployable and testable |
 | Hard to reuse logic across projects | Agents can be packaged as `.kdeps` archives and reused |
-| No inter-agent delegation | Agents delegate work to each other via `run.agent:` |
+| No inter-agent delegation | Agents delegate work to each other via `agent:` resource |
 | Limited scope | Self-governing system handles complex end-to-end tasks autonomously |
 
 ## Directory Structure
@@ -151,10 +151,10 @@ A `.kagency` archive (or a plain `.kdeps` workflow archive) can be embedded dire
 into the kdeps binary, producing a **zero-dependency single binary**:
 
 ```bash
-kdeps bundle prepackage my-agency-1.0.0.kagency --output my-agency-binary
+kdeps bundle prepackage my-agency-1.0.0.kagency --output dist/
 
 # The binary auto-detects the embedded archive and runs it
-./my-agency-binary
+./dist/my-agency-linux-amd64
 ```
 
 When executed, the binary inspects its own bytes, extracts the embedded archive to a

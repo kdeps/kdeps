@@ -16,8 +16,8 @@ Both accept bare scalar expressions. Each item executes in sequence and can call
 actionId: preProcessor
 name: Pre-Processor
 after:
-  - set('normalized_input', get('q').toLowerCase())
-  - set('timestamp', info('now'))
+  - set('normalized_input', lower(get('q')))
+  - set('timestamp', info('timestamp'))
   - set('user_id', get('userId', 'session'))
 
 chat:
@@ -35,14 +35,14 @@ Transform data before using it:
 ```yaml
 # resources/example.yaml
 after:
-  - set('cleaned_data', get('rawData').trim())
-  - set('formatted_date', formatDate(get('date'), 'YYYY-MM-DD'))
+  - set('cleaned_data', trim(get('rawData')))
+  - set('request_time', info('timestamp'))
 
 httpClient:
   url: "https://api.example.com/process"
   data:
     input: get('cleaned_data')
-    date: get('formatted_date')
+    timestamp: get('request_time')
 ```
 
 ### 2. Memory/Session Operations
@@ -55,7 +55,7 @@ Store values for later use:
 # resources/example.yaml
 after:
   - set('last_query', get('q'), 'memory')
-  - set('query_count', get('query_count', 'memory', 0) + 1, 'memory')
+  - set('query_count', (get('query_count', 'memory') ?? 0) + 1, 'memory')
   - set('user_preferences', get('prefs'), 'session')
 
 chat:
@@ -95,7 +95,6 @@ after:
 httpClient:
   url: "https://api.example.com/data"
   cache:
-    enabled: true
     ttl: get('cache_ttl')
 ```
 
@@ -122,8 +121,8 @@ A -> B -> C -> D -> E
 ```yaml
 # resources/example.yaml
 after:
-  - set('normalized_email', get('email').toLowerCase().trim())
-  - set('normalized_name', get('name').trim())
+  - set('normalized_email', lower(trim(get('email'))))
+  - set('normalized_name', trim(get('name')))
 
 sql:
   query: |
@@ -141,9 +140,9 @@ sql:
 ```yaml
 # resources/example.yaml
 after:
-  - set('request_id', generateUUID())
-  - set('request_count', get('request_count', 'memory', 0) + 1, 'memory')
-  - set('last_request_time', info('now'), 'memory')
+  - set('request_id', info('ID'))
+  - set('request_count', (get('request_count', 'memory') ?? 0) + 1, 'memory')
+  - set('last_request_time', info('timestamp'), 'memory')
 
 chat:
   prompt: "Request #{{ get('request_count') }}: {{ get('q') }}"
@@ -158,7 +157,7 @@ chat:
 after:
   - set('items', get('previousResource'))
   - set('total_items', len(get('items')))
-  - set('total_value', sum(get('items').map(item => item.price)))
+  - set('total_value', sum(map(get('items'), .price)))
 
 apiResponse:
   response:
@@ -172,8 +171,8 @@ apiResponse:
 ```yaml
 # resources/example.yaml
 after:
-  - set('fallback_value', get('default', 'memory', 'N/A'))
-  - set('retry_count', get('retry_count', 'memory', 0))
+  - set('fallback_value', get('default', 'memory') ?? 'N/A')
+  - set('retry_count', get('retry_count', 'memory') ?? 0)
 
 httpClient:
   url: "https://api.example.com/data"
@@ -190,10 +189,10 @@ You can create resources that only execute expressions (no main action):
 actionId: setupContext
 name: Setup Context
 after:
-  - set('session_id', generateUUID())
-  - set('start_time', info('now'))
-  - set('environment', get('ENV', 'env', 'development'))
-  - set('user_context', get('user', 'session', {}))
+  - set('session_id', info('ID'))
+  - set('start_time', info('timestamp'))
+  - set('environment', get('ENV', 'env') ?? 'development')
+  - set('user_context', get('user', 'session') ?? {})
 ```
 
 This resource returns `{"status": "expressions_executed"}` and can be used as a dependency for other resources.
@@ -207,7 +206,7 @@ Values set in `expr` blocks are immediately available via `get()`:
 ```yaml
 # resources/example.yaml
 after:
-  - set('processed_data', processData(get('raw_data')))
+  - set('processed_data', lower(trim(get('raw_data'))))
 
 # Use the processed data
 chat:
@@ -223,12 +222,12 @@ chat:
 ```yaml
 # Good: Simple, clear expressions
 after:
-  - set('normalized', get('input').trim())
+  - set('normalized', trim(get('input')))
   - set('count', len(get('items')))
 
 # Avoid: Complex logic (use Python resource instead)
-after:
-  - set('result', complexCalculation(get('data')))
+# after:
+#   - set('result', get('a') * get('b') / get('c') + get('d') - ...)
 ```
 
 ### 2. Use for Side Effects
@@ -237,7 +236,7 @@ after:
 # Good: Storing state
 after:
   - set('last_action', get('action'), 'memory')
-  - set('timestamp', info('now'), 'session')
+  - set('timestamp', info('timestamp'), 'session')
 
 # Avoid: Complex data processing (use Python)
 ```
@@ -249,9 +248,9 @@ Expressions execute in sequence:
 ```yaml
 # Correct order
 after:
-  - set('step1', process(get('input')))
-  - set('step2', process(get('step1')))
-  - set('final', process(get('step2')))
+  - set('step1', trim(get('input')))
+  - set('step2', lower(get('step1')))
+  - set('final', replace(get('step2'), ' ', '_'))
 
 # Wrong: step2 depends on step1, must come after
 ```
@@ -274,8 +273,8 @@ after:
 actionId: loggedRequest
 name: Logged Request
 after:
-  - set('request_id', generateUUID())
-  - set('request_time', info('now'))
+  - set('request_id', info('ID'))
+  - set('request_time', info('timestamp'))
   - set('request_log', {
       'id': get('request_id'),
       'time': get('request_time'),
@@ -297,9 +296,9 @@ chat:
 actionId: validatedInput
 name: Validated Input
 after:
-  - set('email', get('email').toLowerCase().trim())
-  - set('age', parseInt(get('age')))
-  - set('is_valid', get('email').includes('@') && get('age') >= 18)
+  - set('email', lower(trim(get('email'))))
+  - set('age', int(get('age')))
+  - set('is_valid', get('email') contains '@' && get('age') >= 18)
 
 validations:
   check:
@@ -323,9 +322,9 @@ chat:
 actionId: sessionHandler
 name: Session Handler
 after:
-  - set('session_id', get('session_id', 'session', generateUUID()), 'session')
-  - set('visit_count', get('visit_count', 'session', 0) + 1, 'session')
-  - set('last_visit', info('now'), 'session')
+  - set('session_id', get('session_id', 'session') ?? info('sessionId'), 'session')
+  - set('visit_count', (get('visit_count', 'session') ?? 0) + 1, 'session')
+  - set('last_visit', info('timestamp'), 'session')
 
 apiResponse:
   response:
