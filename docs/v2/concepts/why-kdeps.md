@@ -1,56 +1,42 @@
 # Why kdeps?
 
-## The AI Appliance Model
+## The Problem
 
-Chat AIs (Claude, Gemini, ChatGPT) and their extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
+Shipping AI into production means more than calling an API. You need deterministic pipelines, typed inputs and outputs, dependency ordering, retries, validation, and the ability to deploy anywhere - not a chat session that ends when the browser tab closes.
 
-kdeps is an **AI appliance builder**. You define what the agent does, bundle it, and deploy it as a self-contained unit. It exposes an HTTP API, runs on a schedule, responds to bot messages, or processes files - without a human in the loop, without a chat session, without anyone prompting it.
+kdeps is an **AI appliance builder**. You define what the agent does in YAML, and it runs as a self-contained unit: an HTTP API, a scheduled job, a bot, a file processor - without a human in the loop.
 
-## Two Modes for Two Use Cases
-
-kdeps runs in two modes depending on what you need:
+## Two Modes
 
 | Mode | Command | Use case |
 |---|---|---|
-| **Workflow** | `kdeps run` | Deterministic DAG pipelines. A request arrives, resources execute in declared dependency order, a response is returned. |
-| **Agent** | `kdeps serve` | Autonomous LLM loop. Every resource is auto-registered as a tool. The LLM plans and calls them to complete the user's task. |
+| **Workflow** | `kdeps run` | Deterministic DAG pipeline. Inputs arrive, resources execute in dependency order, output is returned. Ships to production. |
+| **Agent** | `kdeps serve` | Interactive LLM loop. Every resource is auto-registered as a tool. The LLM calls them to complete tasks. |
 
-You choose the mode at runtime. The same `workflow.yaml` runs in both.
-
-## Coordinated Multi-Agent Systems
-
-Single-agent workflows are often insufficient for complex business logic. kdeps allows you to orchestrate **Agencies** - collections of specialized agents that coordinate and delegate tasks.
-
-- **Specialization**: Each agent can be locked to specific models and tools optimized for its task.
-- **Coordination**: Agents communicate through a fully defined control flow, ensuring predictable interactions.
-- **Auditable**: Every step of the multi-agent coordination is visible, version-controlled, and testable.
-
-## Chat AI vs. kdeps
-
-| | Chat AI | kdeps (Appliance) |
-|---|---|---|
-| **Who drives it** | You | The system (autonomous/event-driven) |
-| **Deployed as** | A chat session | Docker, Edge ISO, or Binary |
-| **Logic lives in** | Prompts | YAML code - versioned, reviewed, tested |
-| **Orchestration** | Model-driven | Fully defined control flow |
-| **Multi-Agent** | Sequential prompts | Coordinated, specialized Agencies |
-| **Ships to production** | No | Yes |
+The same `workflow.yaml` runs in both. Workflow mode is for production - autonomous, event-driven, predictable. Agent mode is for interactive use - a chat interface backed by your custom toolset instead of a generic model.
 
 ## Defined Control Flow
 
-Chat AIs are deliberately open-ended - you can ask anything, and the model decides what to do. That flexibility is great for exploration and terrible for production. kdeps is the opposite: inputs are declared, outputs are typed, dependencies are explicit, and validations are enforced before any LLM is called. If something is wrong, it fails fast with a clear error rather than hallucinating a plausible-looking response.
+Chat interfaces are deliberately open-ended. kdeps workflow mode is the opposite: inputs are declared, outputs are typed, dependencies are explicit, and validations are enforced before any LLM is called. If something is wrong, it fails fast with a clear error rather than hallucinating a response.
 
-Think of it like duck-typing vs. static types. A chat AI will try to do something with whatever you give it. kdeps requires you to be precise about what goes in and what comes out - and that precision is what makes the behavior reproducible, auditable, and safe to run unattended.
+This is what makes workflow output reproducible, auditable, and safe to run unattended.
+
+## Agencies
+
+Single-agent workflows are often insufficient for complex logic. kdeps lets you orchestrate **Agencies** - collections of specialized agents that coordinate and delegate tasks via the `agent:` resource type.
+
+- Each agent can be locked to specific models and tools optimized for its task
+- Agents communicate through a fully defined control flow
+- Every step is visible, version-controlled, and testable
 
 ## Who it is for
 
 - Developers shipping AI features into products (APIs, bots, pipelines)
 - Teams that need agent logic in version control - reviewable and reproducible
 - Engineers deploying to edge, Docker, or air-gapped environments
-- Anyone who needs to run LLM workflows on a schedule or in response to events
+- Anyone running LLM workflows on a schedule or in response to events
 
 ## Who it is not for
 
-- Interactive coding assistance - use Claude Code or Copilot
-- One-off research or Q&A - use a chat interface
+- One-off Q&A or research - use a chat interface directly
 - No-code AI assistants - kdeps is infrastructure, not an end-user app
