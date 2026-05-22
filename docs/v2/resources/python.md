@@ -4,7 +4,7 @@ The `python:` resource runs a Python script and stores its stdout (parsed as JSO
 
 ## Where it runs
 
-Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
 ## Complete reference
 

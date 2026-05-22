@@ -182,13 +182,13 @@ See [Loop](/concepts/loop) for full details.
 
 In agent mode (`kdeps serve`), the execution model differs:
 
-1. All resources are registered as tools (tool name = [`actionId`](/reference/glossary#actionid))
-2. The LLM receives the user prompt and decides which tool(s) to call
-3. Each tool call dispatches a single-resource execution (before -> check -> action -> after)
-4. Results return to the LLM, which may call more tools or produce a final answer
-5. The loop continues until the LLM stops calling tools
+1. Whole workflows are registered as tools (tool name = `metadata.name` of the workflow)
+2. The LLM receives the user prompt and decides which workflow to invoke
+3. Each tool call runs the full workflow DAG -- all `requires:` dependencies execute in order
+4. The workflow's `apiResponse.response` is returned to the LLM
+5. The LLM may call more workflows or produce a final answer
 
-Agent mode does not use `targetActionId` or the DAG -- the LLM drives execution dynamically.
+Pointing at a single file registers one tool. Pointing at a folder registers one tool per workflow/agency found recursively. Agent mode uses the full DAG for each tool call -- `targetActionId` and `requires:` work exactly as in workflow mode.
 
 ## See Also
 
