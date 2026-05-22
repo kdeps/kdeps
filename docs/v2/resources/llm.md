@@ -1,31 +1,28 @@
 # LLM Resource
 
-The LLM (chat) resource enables interaction with language models for text generation, question answering, and AI-powered tasks.
+The `chat:` resource sends a prompt to a language model and stores the response as the resource's output. The output is a string (or a JSON object when `jsonResponse: true`).
 
-## Model and Backend Configuration
+## Where config lives
 
-**Model is set per resource** in `chat.model`. Set `model: router` to delegate model selection to the LLM router.
+Model selection goes in the resource file. Backend and API keys go in `~/.kdeps/config.yaml`. This lets you change backends without touching your workflow.
 
 ```yaml
 # resources/my-resource.yaml
 chat:
-  model: llama3.2:1b          # Per-resource model selection
+  model: llama3.2:1b    # which model to call
   role: user
   prompt: "{{ get('q') }}"
 ```
 
-**Backend, base URL, and API keys** are configured in `~/.kdeps/config.yaml`:
-
 ```yaml
 # ~/.kdeps/config.yaml
 llm:
-  backend: ollama              # Default backend (ollama, openai, anthropic, ...)
-  # base_url: http://localhost:11434
+  backend: ollama              # ollama, openai, anthropic, groq, ...
   # openai_api_key: sk-...
   # anthropic_api_key: sk-ant-...
 ```
 
-For router configuration and multi-backend routing, see [LLM Backends](llm-backends).
+Set `model: router` to delegate model selection to the router configured in `~/.kdeps/config.yaml`. See [LLM Backends](llm-backends) for routing strategies.
 
 ## Basic Usage
 
@@ -42,57 +39,52 @@ chat:
 
 </div>
 
-## Configuration Options
-
-### Complete Reference
+## Complete reference
 
 <div v-pre>
 
 ```yaml
 chat:
-  model: llama3.2:1b              # Model name, or "router" to delegate to config
-  # Prompt Configuration
-  role: user                       # Role: user, assistant, system
-  prompt: "{{ get('q') }}"        # The prompt to send
+  model: llama3.2:1b    # model name, or "router" to delegate to config
+  role: user            # role for this message: user, assistant, system
 
-  # Generation Parameters
-  contextLength: 8192              # Context window size (tokens)
-  temperature: 0.7                 # 0.0 to 2.0
-  maxTokens: 1000                  # Max tokens to generate
-  topP: 0.9                        # Nucleus sampling (0.0 to 1.0)
-  frequencyPenalty: 0.0            # -2.0 to 2.0
-  presencePenalty: 0.0             # -2.0 to 2.0
+  prompt: "{{ get('q') }}"  # the prompt; supports {{ }} interpolation
 
-  # Conversation Context
+  contextLength: 8192   # context window in tokens (4096, 8192, 16384, ...)
+  temperature: 0.7      # 0.0 = deterministic, 2.0 = very random
+  maxTokens: 1000       # hard cap on generated tokens
+  topP: 0.9             # nucleus sampling threshold (0.0 to 1.0)
+  frequencyPenalty: 0.0 # penalises tokens that have appeared frequently (-2.0 to 2.0)
+  presencePenalty: 0.0  # penalises any token that has appeared at all (-2.0 to 2.0)
+
+  # pre-fill the conversation history before the prompt
   scenario:
     - role: system
       prompt: You are a helpful assistant.
     - role: assistant
       prompt: I am ready to help!
 
-  # Tools (Function Calling)
+  # let the LLM call other resources as functions
   tools:
     - name: calculate
       description: Perform math
-      script: calcResource
+      script: calcResource   # actionId of the resource to call
       parameters:
         expression:
           type: string
           required: true
 
-  # File Attachments (Vision)
+  # attach files for vision-capable models
   files:
     - "{{ get('file', 'filepath') }}"
 
-  # Response Formatting
-  jsonResponse: true
-  jsonResponseKeys:
+  jsonResponse: true         # ask the model to return valid JSON
+  jsonResponseKeys:          # keys to extract from the JSON response
     - answer
     - confidence
 
-  # Timeout and Streaming
-  timeout: 60s
-  streaming: true              # Ollama only: stream NDJSON chunks
+  timeout: 60s               # hard stop -- returns error, does not retry
+  streaming: true            # Ollama only: stream NDJSON; kdeps accumulates before returning
 ```
 
 </div>
@@ -180,7 +172,7 @@ Output:
 
 ## Vision (File Attachments)
 
-Process images (set a vision-capable model in `run.chat.model` in your resource YAML):
+Process images (set a vision-capable model in `chat.model` in your resource file):
 
 <div v-pre>
 

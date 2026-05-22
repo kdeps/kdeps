@@ -4,7 +4,7 @@ KDeps allows you to restrict resources to specific HTTP methods and routes using
 
 ## HTTP Method Restrictions
 
-Limit a resource to specific HTTP methods using `validations.methods`:
+Limit a resource to specific HTTP methods using `validations.methods:` in the resource file:
 
 ```yaml
 actionId: createUser
@@ -74,7 +74,7 @@ sql:
 
 ## Route Restrictions
 
-Limit a resource to specific URL routes using `validations.routes`:
+Limit a resource to specific URL routes using `validations.routes:` in the resource file:
 
 ```yaml
 actionId: adminDashboard

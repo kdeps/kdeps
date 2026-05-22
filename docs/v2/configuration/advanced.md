@@ -152,7 +152,7 @@ settings:
 | `ollamaImageTag` | Ollama Docker image version |
 | `installOllama` | Force/suppress Ollama installation in image |
 
-> LLM model is set per resource in `run.chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
+> LLM model is set per resource in `chat.model`. Backend, base URL, and API keys are configured in `~/.kdeps/config.yaml`. See [LLM Backends](../resources/llm-backends).
 
 #### Environment
 

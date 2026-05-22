@@ -86,7 +86,7 @@ Ports are derived from your workflow settings:
 | `webServer:` with `portNum` | `web` | Web server |
 | `installOllama: true` (or auto-detected) | `backend` | Ollama LLM backend (11434) |
 
-Ollama port is auto-detected when any resource uses `run.chat`.
+Ollama port is auto-detected when any resource uses a `chat:` executor.
 
 ### Resources
 

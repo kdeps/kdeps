@@ -1,15 +1,30 @@
 # Validation and Control Flow
 
-KDeps provides multiple mechanisms to control resource execution and validate inputs before processing. All of these live under the unified `run.validations:` block.
+The `validations:` block controls whether a resource runs and what it accepts. It fires before the action -- before any LLM call, HTTP request, or script execution.
 
-## Overview
+```yaml
+validations:
+  methods: [POST]          # skip unless method matches
+  routes: [/api/v1/data]  # skip unless route matches
+  headers: [Authorization] # skip unless header present
+  params: [q]              # skip unless param present
+  skip:
+    - get('mode') == 'dry-run'  # skip silently (no error)
+  check:
+    - get('q') != ''            # fail with error below if false
+  error:
+    code: 400
+    message: "q is required"
+```
 
-The `validations:` block handles:
-- **`methods`** / **`routes`** — Limit which requests trigger the resource
-- **`headers`** / **`params`** — Whitelist accepted headers and parameters
-- **`skip`** — Skip execution based on runtime conditions (OR logic)
-- **`check`** / **`error`** — Validate inputs before execution (AND logic, returns error on failure)
-- **`required`** / **`rules`** / **`expr`** — Validate request data structure
+Fields summary:
+
+| Field | Logic | Behavior when condition triggers |
+|-------|-------|--------------------------------|
+| `methods` / `routes` | match | skip silently if no match |
+| `headers` / `params` | match | skip silently if no match |
+| `skip` | OR -- any true | skip silently |
+| `check` | AND -- all must be true | return error to caller |
 
 ## Skip Conditions
 

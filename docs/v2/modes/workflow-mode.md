@@ -1,6 +1,6 @@
 # Workflow Mode
 
-Workflow mode is the default execution mode in kdeps. You define a set of resources with explicit dependencies, and kdeps resolves the execution order as a DAG. The workflow runs in response to an incoming request, processes it through the resource graph, and returns a structured response.
+Workflow mode runs a deterministic DAG pipeline: a request arrives, resources execute in dependency order, and the result is returned. Every run follows the same path for the same input.
 
 Run with:
 
@@ -10,11 +10,35 @@ kdeps run workflow.yaml
 
 ## How it works
 
-1. A request arrives at the configured input source (API, bot, or file).
-2. kdeps resolves the dependency graph from `targetActionId` backward.
-3. Resources execute in dependency order. Resources with no common dependency path execute concurrently.
-4. Each resource reads prior outputs via `get('actionId')` and produces its own output.
-5. The resource named in `metadata.targetActionId` defines the response.
+```
+incoming request  (POST /api/v1/chat)
+        |
+        v
++-------------------------+
+|  resolve dep graph      |  <- walks backward from targetActionId
+|  targetActionId: resp   |
++-------------------------+
+        |
+        v
++-------------------------+
+|  resource: validate     |  <- runs first; fails fast if input invalid
++-------------------------+
+        |  output stored as get('validate')
+        v
++-------------------------+
+|  resource: llm          |  <- reads get('q'); calls the model
++-------------------------+
+        |  output stored as get('llm')
+        v
++-------------------------+
+|  resource: resp         |  <- reads get('llm'); builds the response
++-------------------------+
+        |
+        v
+     HTTP response
+```
+
+`requires:` is like an import -- the resource won't run until its dependencies have output. Resources with no shared dependency path run concurrently.
 
 ## When to use workflow mode
 
@@ -98,11 +122,33 @@ curl -X POST http://localhost:16395/api/v1/chat \
 
 ## Input sources
 
-Workflow mode supports three input sources. Configure them in `settings`:
+Workflow mode supports three input sources configured in `settings`:
 
-- `api` - HTTP REST server (default)
-- `bot` - Discord, Slack, Telegram, WhatsApp
-- `file` - Read from stdin, env var, or file path
+```yaml
+# API (default) - starts an HTTP server
+settings:
+  apiServer:
+    portNum: 16395
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+
+# Bot - connects to a chat platform; blocks until SIGINT
+settings:
+  input:
+    sources: [bot]
+    bot:
+      executionType: polling   # polling = persistent; stateless = one message then exit
+      discord:
+        botToken: "${DISCORD_BOT_TOKEN}"
+
+# File - reads one file from disk or stdin, runs once, exits
+settings:
+  input:
+    sources: [file]
+    file:
+      path: /data/input.txt
+```
 
 See [Input Sources](../concepts/input-sources) for full configuration.
 
