@@ -9,6 +9,9 @@ const { frontmatter } = useData()
 
 <template>
   <div class="hero-info">
+    <span v-if="frontmatter.hero?.announcement" class="announcement">
+      {{ frontmatter.hero.announcement }}
+    </span>
     <p v-if="frontmatter.hero?.text" class="hero-text">
       {{ frontmatter.hero.text }}
     </p>
@@ -24,6 +27,19 @@ const { frontmatter } = useData()
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+}
+
+.announcement {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 2px;
+  padding: 4px 10px;
+  margin-bottom: 4px;
 }
 
 .hero-text {

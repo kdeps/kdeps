@@ -25,6 +25,9 @@ import HeroInfo from './HeroInfo.vue'
 import HeroCode from './HeroCode.vue'
 import HomeModes from './HomeModes.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
+import HomeCapabilities from './HomeCapabilities.vue'
+import HomeComparison from './HomeComparison.vue'
+import HomeUseCases from './HomeUseCases.vue'
 import './custom.css'
 
 export default {
@@ -33,7 +36,17 @@ export default {
     return h(DefaultTheme.Layout, null, {
       'home-hero-info': () => h(HeroInfo),
       'home-hero-after': () => h(HeroCode),
-      'home-features-after': () => [h(HomeHowItWorks), h(HomeModes)],
+      'home-features-after': () => [
+        h(HomeHowItWorks),
+        h(HomeCapabilities),
+        h(HomeModes),
+        h(HomeComparison),
+        h(HomeUseCases),
+      ],
+      'layout-bottom': () => h('div', { class: 'footer-ctas' }, [
+        h('a', { class: 'primary', href: '/getting-started/installation' }, 'Get Started'),
+        h('a', { class: 'secondary', href: 'https://github.com/kdeps/kdeps', target: '_blank' }, 'Star on GitHub'),
+      ]),
     })
   }
 } satisfies Theme
