@@ -74,19 +74,28 @@ The LLM now has three tools: `research-agent`, `writer-agent`, `summarizer-agent
 
 ## How it works
 
-```mermaid
-flowchart TD
-    A([user prompt]) --> B
-    B["LLM receives prompt<br/><small>tool registry: one tool per workflow, one per agency, one per component</small>"] -->|LLM picks a tool| C
-    C{"tool type?"} -->|workflow| D
-    C -->|agency| E
-    C -->|component| H
-    D["kdeps runs full workflow pipeline<br/><small>all requires: deps resolve in order</small>"] -->|apiResponse returned to LLM| F
-    E["kdeps runs agency entry-point pipeline<br/><small>internal agents resolve via agent: resource type</small>"] -->|result returned to LLM| F
-    H["kdeps runs component in isolation<br/><small>inputs map to component interface fields</small>"] -->|result returned to LLM| F
-    F{"more tools<br/>needed?"} -->|yes| C
-    F -->|no| G
-    G([final answer])
+```d2
+direction: down
+
+A: user prompt {shape: oval}
+B: "LLM receives prompt\ntool registry: one tool per workflow, one per agency, one per component"
+C: tool type? {shape: diamond}
+D: "kdeps runs full workflow pipeline\nall requires: deps resolve in order"
+E: "kdeps runs agency entry-point pipeline\ninternal agents resolve via agent: resource type"
+H: "kdeps runs component in isolation\ninputs map to component interface fields"
+F: more tools needed? {shape: diamond}
+G: final answer {shape: oval}
+
+A -> B
+B -> C: LLM picks a tool
+C -> D: workflow
+C -> E: agency
+C -> H: component
+D -> F: apiResponse returned to LLM
+E -> F: result returned to LLM
+H -> F: result returned to LLM
+F -> C: yes
+F -> G: no
 ```
 
 Why whole workflows and not individual resources? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order.

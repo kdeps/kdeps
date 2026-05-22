@@ -2,14 +2,17 @@
 
 Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
 
-```mermaid
-flowchart TD
-    A(["incoming request"]) --> B
-    B["auth check<br/><small>401 if Bearer / X-Api-Key wrong or missing</small>"] --> C
-    C["rate limit<br/><small>429 if over requestsPerMinute + burst</small>"] --> D
-    D["body size check<br/><small>413 if body exceeds maxBodyBytes</small>"] --> E
-    E["concurrency cap<br/><small>503 if over maxConcurrent in-flight requests</small>"] --> F
-    F(["workflow DAG"])
+```d2
+direction: down
+
+A: incoming request {shape: oval}
+B: "auth check\n401 if Bearer / X-Api-Key wrong or missing"
+C: "rate limit\n429 if over requestsPerMinute + burst"
+D: "body size check\n413 if body exceeds maxBodyBytes"
+E: "concurrency cap\n503 if over maxConcurrent in-flight requests"
+F: workflow DAG {shape: oval}
+
+A -> B -> C -> D -> E -> F
 ```
 
 ## Authentication

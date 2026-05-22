@@ -241,24 +241,37 @@ apiResponse:
 
 ## Execution Flow
 
-```mermaid
-flowchart TD
-    A([Request]) --> B[Route Matching]
-    B --> C[Build Dep Graph]
-    C --> D
-    subgraph D["For each resource (in order)"]
-        D1[Check Route] -->|not matching| D1S([skip])
-        D1 --> D2[Check Skip]
-        D2 -->|condition true| D2S([skip silently])
-        D2 --> D3[Preflight Check]
-        D3 -->|validation fails| D3E([error])
-        D3 --> D4[Execute before:]
-        D4 --> D5[Execute Action]
-        D5 --> D6[Execute after:]
-        D6 --> D7[Store Output]
-    end
-    D7 --> E[Return Target]
-    E --> F([Response])
+```d2
+direction: down
+
+A: Request {shape: oval}
+B: Route Matching
+C: Build Dep Graph
+
+loop: "For each resource (in order)" {
+  D1: Check Route
+  D1S: skip {shape: oval}
+  D2: Check Skip
+  D2S: skip silently {shape: oval}
+  D3: Preflight Check
+  D3E: error {shape: oval}
+  D4: "execute before:"
+  D5: Execute Action
+  D6: "execute after:"
+  D7: Store Output
+
+  D1 -> D1S: not matching
+  D1 -> D2
+  D2 -> D2S: condition true
+  D2 -> D3
+  D3 -> D3E: validation fails
+  D3 -> D4 -> D5 -> D6 -> D7
+}
+
+E: Return Target
+F: Response {shape: oval}
+
+A -> B -> C -> loop -> E -> F
 ```
 
 ## Best Practices

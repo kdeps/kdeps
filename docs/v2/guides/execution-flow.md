@@ -14,15 +14,18 @@ When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 
 ## Execution Order
 
-```mermaid
-flowchart TD
-    A(["Request at targetActionId"]) --> B
-    B["1. Build dependency graph<br/><small>each resource = node; requires = edges<br/>fails fast on cycles</small>"] --> C
-    C["2. Walk transitive deps<br/><small>backward from targetActionId<br/>collect only needed nodes</small>"] --> D
-    D["3. Topological sort<br/><small>deps always run before dependents<br/>independent resources run concurrently</small>"] --> E
-    E["4. Execute each resource<br/><small>a. before: block<br/>b. skip — any true? skip silently<br/>c. check — all true? proceed, else fail<br/>d. main action &#40;chat, sql, http...&#41;<br/>e. after: block<br/>f. onError handler</small>"] --> F
-    F["5. Terminal resource<br/><small>apiResponse: formats output</small>"] --> G
-    G(["JSON response returned"])
+```d2
+direction: down
+
+A: Request at targetActionId {shape: oval}
+B: "1. Build dependency graph\neach resource = node; requires = edges\nfails fast on cycles"
+C: "2. Walk transitive deps\nbackward from targetActionId\ncollect only needed nodes"
+D: "3. Topological sort\ndeps always run before dependents\nindependent resources run concurrently"
+E: "4. Execute each resource\na. before: block\nb. skip — any true? skip silently\nc. check — all true? proceed, else fail\nd. main action (chat, sql, http...)\ne. after: block\nf. onError handler"
+F: "5. Terminal resource\napiResponse: formats output"
+G: JSON response returned {shape: oval}
+
+A -> B -> C -> D -> E -> F -> G
 ```
 
 ## Dependency Graph
@@ -159,21 +162,29 @@ validations:
 
 When a resource has a [`loop`](/reference/glossary#loop) config, the engine runs the full resource cycle (before -> check -> action -> after) repeatedly:
 
-```mermaid
-flowchart TD
-    A(["loop starts"]) --> B
-    B{"loop.condition<br/>is true?"} -->|yes| C
-    B -->|no| G
-    C["before: block"] --> D
-    D["check &#40;every iteration&#41;"] --> E
-    E["main action"] --> F
-    F["after: block"] --> H
-    H{"loop.every set?"} -->|yes| I
-    H -->|no| J
-    I["sleep&#40;every&#41;"] --> J
-    J{"iteration >=<br/>maxIterations?"} -->|yes, safety cap| G
-    J -->|no| B
-    G(["loop ends"])
+```d2
+direction: down
+
+A: loop starts {shape: oval}
+B: "loop.condition is true?" {shape: diamond}
+C: "before: block"
+D: check (every iteration)
+E: main action
+F: "after: block"
+H: "loop.every set?" {shape: diamond}
+I: sleep(every)
+J: "iteration >= maxIterations?" {shape: diamond}
+G: loop ends {shape: oval}
+
+A -> B
+B -> C: yes
+B -> G: no
+C -> D -> E -> F -> H
+H -> I: yes
+H -> J: no
+I -> J
+J -> G: yes, safety cap
+J -> B: no
 ```
 
 See [Loop](/concepts/loop) for full details.
