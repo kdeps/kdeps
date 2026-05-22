@@ -59,7 +59,7 @@ When no explicit `tests:` block is present, `--self-test` and `--self-test-only`
 
 ## `kdeps serve`
 
-Start agent mode -- an interactive LLM loop where whole workflows are registered as callable tools. Pass a single file to expose one tool, or a folder to expose every workflow and agency inside as separate tools.
+Start agent mode -- an interactive LLM loop where whole workflows and components are registered as callable tools. Pass a single file to expose one workflow tool plus its components, or a folder to expose every workflow and agency inside as separate tools along with all their components.
 
 ```bash
 kdeps serve <path> [flags]
