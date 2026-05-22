@@ -14,7 +14,24 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
 ### Workflow mode
 
-DAG-deterministic request/response pipelines. Resources declare dependencies via `requires:` and execute in order. Supports API server, web server, file input, and bot input.
+DAG-deterministic request/response pipelines. Each resource declares its dependencies via `requires:` and runs in order. Supports API server, web server, file input, and bot input.
+
+```
+POST /summarize  {"url": "..."}
+        |
+        v
++---------------------+
+|  fetch              |  httpClient -- fetches the URL
++---------------------+
+        |
+        v
++---------------------+
+|  respond            |  chat -- summarizes the fetched body
++---------------------+
+        |
+        v
+   apiResponse        <- output('respond') becomes the HTTP response body
+```
 
 ```yaml
 # workflow.yaml
@@ -63,7 +80,30 @@ kdeps run workflow.yaml --dev    # hot reload
 
 ### Agent mode
 
-Autonomous LLM loop. Every resource in the workflow is auto-registered as a callable tool. The agent plans and executes multi-step tasks using the kdeps engine.
+Autonomous LLM loop. Every resource in the workflow is auto-registered as a callable tool -- the LLM decides which tools to call, in what order, to complete the task.
+
+```
+stdin prompt
+      |
+      v
++---------------------+
+|  LLM                |  plans steps, picks tools
++---------------------+
+      |
+      +-- call tool: httpClient  -->  fetch URL
+      |
+      +-- call tool: python      -->  process data
+      |
+      +-- call tool: sql         -->  query database
+      |
+      v
++---------------------+
+|  LLM (again)        |  synthesizes results into final answer
++---------------------+
+      |
+      v
+   stdout response
+```
 
 ```bash
 kdeps serve workflow.yaml
