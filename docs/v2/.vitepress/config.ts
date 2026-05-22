@@ -62,7 +62,7 @@ export default defineConfig({
         {
           text: 'Getting Started',
           items: [
-            { text: 'Why kdeps?', link: '/' },
+            { text: 'Why kdeps?', link: '/concepts/why-kdeps' },
             { text: 'Installation', link: '/getting-started/installation' },
             { text: 'Quickstart', link: '/getting-started/quickstart' },
           ]
