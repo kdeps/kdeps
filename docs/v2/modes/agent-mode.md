@@ -5,14 +5,72 @@ Agent mode (`kdeps serve`) starts an interactive LLM loop where whole workflows 
 ## Single workflow vs folder
 
 ```bash
-# One workflow = one tool
-kdeps serve workflow.yaml
+# One workflow = one tool (named after metadata.name)
+kdeps serve ./my-agent/
 
-# Folder = all workflows and agencies in the folder become tools
+# Folder = every workflow and agency inside becomes a separate tool
 kdeps serve ./agents/
 ```
 
-When you point to a folder, kdeps discovers every `workflow.yaml` and `agency.yaml` inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest.
+When you point to a folder, kdeps discovers every workflow and agency file inside it (recursively). Each becomes a separate tool. The tool name is `metadata.name` from the workflow's manifest -- not the filename.
+
+## Concrete example
+
+Given this workflow:
+
+```yaml
+# my-agent/workflow.yaml
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: my-agent          # this becomes the tool name the LLM sees
+  version: "1.0.0"
+  description: "Answers questions about our product"
+  targetActionId: response
+
+settings:
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 16395
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+```
+
+Running:
+
+```bash
+kdeps serve ./my-agent/
+```
+
+The LLM receives one tool named `my-agent`. When it calls that tool, kdeps runs the full workflow DAG -- every resource in dependency order -- and returns `apiResponse.response` to the LLM.
+
+The LLM never sees individual resources. It sees:
+
+```
+Tool: my-agent
+Description: Answers questions about our product
+Input: { "input": string }
+```
+
+## Folder mode -- multiple tools
+
+```
+agents/
+  research/
+    workflow.yaml    # metadata.name: research-agent
+  writer/
+    workflow.yaml    # metadata.name: writer-agent
+  summarizer/
+    workflow.yaml    # metadata.name: summarizer-agent
+```
+
+```bash
+kdeps serve ./agents/
+```
+
+The LLM now has three tools: `research-agent`, `writer-agent`, `summarizer-agent`. It routes between them based on the user's prompt.
 
 ## How it works
 
@@ -35,9 +93,9 @@ Why whole workflows and not individual resources? A resource that calls `get('ot
 
 | `kdeps serve` target | Tools registered |
 |---|---|
-| `workflow.yaml` | One workflow tool (`metadata.name`) + one tool per component defined in that workflow |
-| `agency.yaml` | One tool per agent inside the agency + their components |
-| `./folder/` | One workflow tool per `workflow.yaml` and `agency.yaml` found recursively + all components |
+| Single workflow file | One workflow tool (`metadata.name`) + one tool per component in that workflow |
+| Single agency file | One tool per agent inside the agency + their components |
+| Folder | One workflow tool per workflow/agency found recursively + all components |
 
 Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Component tool inputs map to the component's declared interface fields.
 
@@ -54,7 +112,7 @@ Workflow tool input is forwarded as `get('key')` request params inside the pipel
 kdeps serve <path> [flags]
 ```
 
-`<path>` is either a single `workflow.yaml` / `agency.yaml` file, or a folder.
+`<path>` is a workflow or agency file, or a directory. The tool name comes from `metadata.name` inside each file -- not from the filename itself.
 
 ### Flags
 
@@ -77,10 +135,10 @@ KDEPS_AGENT_BASE_URL=http://localhost:11434
 ## Examples
 
 ```bash
-# One workflow as the single tool
-kdeps serve workflow.yaml
+# Single workflow -- one tool
+kdeps serve ./my-agent/
 
-# All workflows in a folder become tools
+# All workflows in a folder
 kdeps serve ./agents/
 
 # Specify model and system prompt
@@ -99,7 +157,7 @@ KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
 | Entry point | `metadata.targetActionId` | User prompt |
 | Unit of work | Individual resources | Whole workflows |
 | Tools exposed | N/A | One per workflow + one per component |
-| Input | `<path>` is a single workflow | `<path>` is a file or folder |
+| Input | Single workflow path | File or folder |
 
 ## See Also
 
