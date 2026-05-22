@@ -53,14 +53,14 @@ Static Jinja2 expressions like <code v-pre>{{ env.PORT }}</code> are evaluated n
 
 ### Variables
 
-```jinja2
+```jinja
 port: {{ env.PORT | int }}
 name: {{ env.SERVICE_NAME | default('my-service') }}
 ```
 
 ### Conditionals
 
-```jinja2
+```jinja
 {% if env.DEBUG == 'true' %}
   logLevel: debug
 {% else %}
@@ -70,7 +70,7 @@ name: {{ env.SERVICE_NAME | default('my-service') }}
 
 ### Comments
 
-```jinja2
+```jinja
 {# This comment is stripped before parsing #}
 ```
 
@@ -78,7 +78,7 @@ name: {{ env.SERVICE_NAME | default('my-service') }}
 
 Use `-` to trim surrounding whitespace:
 
-```jinja2
+```jinja
 settings:
 {%- if env.TLS_ENABLED == 'true' %}
   tls: true
