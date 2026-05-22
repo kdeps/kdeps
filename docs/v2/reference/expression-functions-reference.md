@@ -1,6 +1,6 @@
 # Expression Functions Reference
 
-Every function available in kdeps expressions -- usable in any field that supports `{{ }}` interpolation or in `expr` blocks.
+Every function available in kdeps expressions -- usable in any field that supports <span v-pre>`{{ }}`</span> interpolation or in `expr` blocks.
 
 ## Core Functions
 

@@ -1,6 +1,6 @@
 # Unified API
 
-`get()` and `set()` are the two functions you use for almost everything in kdeps. They work the same way in string interpolation `{{ }}`, in `before:`/`after:` blocks, and in `validations.check` conditions.
+`get()` and `set()` are the two functions you use for almost everything in kdeps. They work the same way in string interpolation <span v-pre>`{{ }}`</span>, in `before:`/`after:` blocks, and in `validations.check` conditions.
 
 ## get() -- read any value
 
