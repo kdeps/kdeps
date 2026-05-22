@@ -59,7 +59,7 @@ Yes, via [agencies](/reference/glossary#agency). Use the `agent:` action type to
 
 ## Can I deploy kdeps as an API server?
 
-Yes. Run `kdeps serve workflow.yaml` for agent mode, or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
+Yes. Run `kdeps serve ./my-agent/` for agent mode (registers the workflow as a tool by its `metadata.name`), or use `kdeps run` behind the built-in web server for workflow mode. See [Web Server Mode](/deployment/webserver).
 
 For production, use the [Docker](/deployment/docker) or [Kubernetes](/deployment/kubernetes) deployment options.
 
