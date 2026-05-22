@@ -75,7 +75,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `searchLocal` | File search | Glob + keyword search across local files |
 | `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
 | `browser` | Browser automation | Playwright-based navigation, screenshots, JS eval |
-| `agent` | Inter-agent delegation | Call another agent in an agency |
+| `agent` | Inter-agent delegation | Call another agent in an [agency](/reference/glossary#agency) |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
 ### Registry components (installable via `kdeps registry install`)
@@ -92,9 +92,10 @@ See the [Components guide](../concepts/components) for installation and usage de
 
 ## actionId and requires
 
-`actionId` is the resource's unique name. It has two purposes: it controls which resource `targetActionId` points to, and it is the key you pass to `get()` to read a resource's output.
+[`actionId`](/reference/glossary#actionid) is the resource's unique name. It has two purposes: it controls which resource [`targetActionId`](/reference/glossary#targetactionid) points to, and it is the key you pass to `get()` to read a resource's output.
 
 ```yaml
+# resources/llm.yaml
 actionId: llm
 chat:
   prompt: "{{ get('q') }}"
@@ -111,9 +112,10 @@ apiResponse:
 
 ## Validation
 
-`validations` gates whether a resource runs at all. It fires before the action -- failing fast means no LLM call, no HTTP call, no wasted work.
+[`validations`](/reference/glossary#validations) gates whether a resource runs at all. It fires before the action -- failing fast means no LLM call, no HTTP call, no wasted work.
 
 ```yaml
+# resources/example.yaml
 validations:
   methods: [POST]          # skip unless the request method matches
   routes: [/api/v1/chat]  # skip unless the route matches
@@ -131,7 +133,7 @@ validations:
     message: "q is required and limit must be <= 100"
 ```
 
-`skip` silently no-ops the resource. `check` returns an error to the caller. Both take a list -- any one true condition is enough to trigger the behavior.
+[`skip`](/reference/glossary#skip) silently no-ops the resource. [`check`](/reference/glossary#check) returns an error to the caller. Both take a list -- any one true condition is enough to trigger the behavior.
 
 ## before and after expressions
 
@@ -141,6 +143,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 before:
   - set('full_name', get('first') + ' ' + get('last'))
 chat:
@@ -161,6 +164,7 @@ Process multiple items in sequence:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 items:
   - "First item"
   - "Second item"
@@ -186,6 +190,7 @@ Repeat a resource body while a condition is true (Turing-complete while-loop). A
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "loop.index() < 5"
   maxIterations: 1000   # safety cap (default: 1000)
@@ -301,7 +306,7 @@ Each resource should do one thing well. Split complex logic into multiple resour
 Use `validations.check` to validate inputs before expensive operations.
 
 ### 4. Handle Dependencies
-Only list direct dependencies in `requires`. KDeps handles transitive dependencies.
+Only list direct dependencies in [`requires`](/reference/glossary#requires). KDeps handles transitive dependencies.
 
 ### 5. Use Appropriate Timeouts
 Set realistic `timeout` values based on expected execution time.

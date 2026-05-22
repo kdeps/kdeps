@@ -5,6 +5,7 @@ Example queries for the [`sql:` resource](/resources/sql). All examples use para
 ## User Lookup
 
 ```yaml
+# resources/user-lookup.yaml
 actionId: userLookup
 validations:
   check:
@@ -28,6 +29,7 @@ sql:
 ## Analytics Query
 
 ```yaml
+# resources/analytics.yaml
 actionId: analytics
 sql:
   connectionName: analytics

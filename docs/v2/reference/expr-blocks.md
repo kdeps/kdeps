@@ -33,6 +33,7 @@ chat:
 Transform data before using it:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('cleaned_data', get('rawData').trim())
   - set('formatted_date', formatDate(get('date'), 'YYYY-MM-DD'))
@@ -51,6 +52,7 @@ Store values for later use:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('last_query', get('q'), 'memory')
   - set('query_count', get('query_count', 'memory', 0) + 1, 'memory')
@@ -67,6 +69,7 @@ chat:
 Perform calculations before execution:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('total', get('price') * get('quantity'))
   - set('discount', get('total') * 0.1)
@@ -84,6 +87,7 @@ apiResponse:
 Set values based on conditions:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('mode', get('env') == 'production' ? 'strict' : 'debug')
   - set('cache_ttl', get('mode') == 'strict' ? '1h' : '5m')
@@ -123,6 +127,7 @@ Request
 ### Pattern 1: Data Normalization
 
 ```yaml
+# resources/example.yaml
 after:
   - set('normalized_email', get('email').toLowerCase().trim())
   - set('normalized_name', get('name').trim())
@@ -141,6 +146,7 @@ sql:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('request_id', generateUUID())
   - set('request_count', get('request_count', 'memory', 0) + 1, 'memory')
@@ -155,6 +161,7 @@ chat:
 ### Pattern 3: Data Aggregation
 
 ```yaml
+# resources/example.yaml
 after:
   - set('items', get('previousResource'))
   - set('total_items', len(get('items')))
@@ -170,6 +177,7 @@ apiResponse:
 ### Pattern 4: Error Handling Preparation
 
 ```yaml
+# resources/example.yaml
 after:
   - set('fallback_value', get('default', 'memory', 'N/A'))
   - set('retry_count', get('retry_count', 'memory', 0))
@@ -204,6 +212,7 @@ Values set in `expr` blocks are immediately available via `get()`:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('processed_data', processData(get('raw_data')))
 

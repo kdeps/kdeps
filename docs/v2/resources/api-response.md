@@ -1,6 +1,6 @@
 # API Response Resource
 
-`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by `targetActionId` in `workflow.yaml`.
+`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by [`targetActionId`](/reference/glossary#targetactionid) in `workflow.yaml`.
 
 ## Where it runs
 
@@ -25,6 +25,7 @@ apiResponse:
 ## Configuration Options
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true                # Boolean: request success status
   response:                    # Response body (any structure)
@@ -42,6 +43,7 @@ apiResponse:
 ### Simple Response
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -61,6 +63,7 @@ Output:
 ### Dynamic Response
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -73,6 +76,7 @@ apiResponse:
 ### Nested Structure
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -94,6 +98,7 @@ Set response headers:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -112,6 +117,7 @@ apiResponse:
 Include model and backend information in responses:
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -164,6 +170,7 @@ Response format:
 You can also manually specify metadata to override automatic values:
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: true
   response:
@@ -183,6 +190,7 @@ For error handling, use preflight checks or conditional responses:
 ### Preflight Validation
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('user_id') != ''
@@ -199,6 +207,7 @@ apiResponse:
 ### Conditional Success
 
 ```yaml
+# resources/example.yaml
 apiResponse:
   success: get('operationResource').status == 'success'
   response:
@@ -211,6 +220,7 @@ apiResponse:
 ### Chat API Response
 
 ```yaml
+# resources/chat-response.yaml
 actionId: chatResponse
 requires: [llmResource]
 apiResponse:
@@ -228,6 +238,7 @@ apiResponse:
 ### File Upload Response
 
 ```yaml
+# resources/upload-response.yaml
 actionId: uploadResponse
 requires: [processFile]
 apiResponse:
@@ -246,6 +257,7 @@ apiResponse:
 ### Paginated List Response
 
 ```yaml
+# resources/list-response.yaml
 actionId: listResponse
 requires: [fetchItems]
 apiResponse:
@@ -265,6 +277,7 @@ apiResponse:
 ### Multi-Resource Response
 
 ```yaml
+# resources/dashboard-response.yaml
 actionId: dashboardResponse
 requires:
   - userResource
@@ -323,6 +336,7 @@ apiResponse:
 Transform data before returning:
 
 ```yaml
+# resources/transformed-response.yaml
 actionId: transformedResponse
 requires: [rawData]
 after:

@@ -113,6 +113,7 @@ kdeps bundle prepackage myagent-1.1.0.kdeps --output dist/
 A typical GitHub Actions workflow:
 
 ```yaml
+# .github/workflows/deploy.yml
 - name: Package workflow
   run: kdeps bundle package my-agent/ --output dist/
 

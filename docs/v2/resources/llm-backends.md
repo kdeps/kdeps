@@ -43,6 +43,7 @@ Run `kdeps edit` to open the config file, or edit it directly.
 When `strategy` is absent, `llm.models` is a simple list of permitted model names:
 
 ```yaml
+# resources/example.yaml
 llm:
   backend: ollama
   models:
@@ -53,6 +54,7 @@ llm:
 Each entry is a plain model name. Models can be specified as strings (as above) or as objects with only the `model` field set:
 
 ```yaml
+# resources/example.yaml
 llm:
   models:
     - model: llama3.2:1b  # object form (equivalent to "llama3.2:1b")
@@ -65,6 +67,7 @@ Any request for a model not in this list is overridden to the first model and a 
 When `strategy` is set, the models list acts as router routes:
 
 ```yaml
+# resources/example.yaml
 llm:
   strategy: token_threshold
   models:
@@ -80,6 +83,7 @@ llm:
 Plain string entries in routing mode (no `model:` key) are still allowed — they inherit the default `llm.backend`:
 
 ```yaml
+# resources/example.yaml
 llm:
   backend: ollama
   strategy: fallback
@@ -126,6 +130,7 @@ The router in `~/.kdeps/config.yaml` selects which model to use based on the con
 Routes by estimated prompt token count. The first entry where `min_tokens <= tokens <= max_tokens` wins. Falls through to the entry with `default: true` when no range matches.
 
 ```yaml
+# resources/example.yaml
 llm:
   strategy: token_threshold
   models:
@@ -145,6 +150,7 @@ Token counts are estimated using tiktoken.
 Tries routes in priority order. On error, automatically retries the next route.
 
 ```yaml
+# resources/example.yaml
 llm:
   strategy: fallback
   models:
@@ -167,6 +173,7 @@ Lower priority values are tried first. `default: true` marks the catch-all route
 Selects the cheapest route based on cost per 1K input tokens.
 
 ```yaml
+# resources/example.yaml
 llm:
   strategy: cost_optimized
   models:
@@ -186,6 +193,7 @@ Nil cost is treated as zero. Falls to `default: true` on tie.
 Distributes requests evenly across models using an atomic counter.
 
 ```yaml
+# resources/example.yaml
 llm:
   strategy: round_robin
   models:
@@ -208,6 +216,7 @@ Set `streaming: true` on a `chat:` resource to have Ollama stream the response a
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   streaming: true      # Ollama only
@@ -215,7 +224,7 @@ chat:
 
 </div>
 
-| `streaming` | What happens |
+| [`streaming`](/reference/glossary#streaming) | What happens |
 |-------------|-------------|
 | `false` (default) | Single JSON response |
 | `true` | Ollama streams NDJSON; KDeps accumulates and returns merged map |
@@ -264,6 +273,7 @@ Handle rate limits with retry configuration via `onError`:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   onError:

@@ -23,6 +23,7 @@ LLM: "The answer is 42"
 <div v-pre>
 
 ```yaml
+# resources/chat.yaml
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -41,6 +42,7 @@ chat:
 ## Tool definition
 
 ```yaml
+# resources/example.yaml
 tools:
   - name: tool_name           # must be unique within this chat resource
     description: What it does # the LLM reads this to decide when to call it
@@ -94,6 +96,7 @@ chat:
 Use `mcp:` instead of `script:` to call a tool on an external MCP server. kdeps spawns the server as a subprocess, performs the JSON-RPC initialize handshake, calls the tool, and shuts the process down.
 
 ```yaml
+# resources/example.yaml
 tools:
   - name: tool_name
     description: What it does
@@ -124,6 +127,7 @@ tools:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   tools:
@@ -148,6 +152,7 @@ Define multiple tools for different capabilities:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{ get('q') }}"
   tools:

@@ -6,9 +6,9 @@ How kdeps resolves, orders, and runs resources in a workflow.
 
 When you run `kdeps run workflow.yaml` or call `POST /api/v1/run`, the engine:
 
-1. Parses the workflow and builds a dependency graph from `requires` fields
+1. Parses the workflow and builds a dependency graph from [`requires`](/reference/glossary#requires) fields
 2. Detects cycles (fails fast if any exist)
-3. Finds the `targetActionId` resource and walks its transitive dependencies
+3. Finds the [`targetActionId`](/reference/glossary#targetactionid) resource and walks its transitive dependencies
 4. Topologically sorts resources so dependencies run before dependents
 5. Executes resources in order -- resources without shared dependencies can run concurrently
 
@@ -62,6 +62,7 @@ Request enters at targetActionId
 <div v-pre>
 
 ```yaml
+# workflow.yaml (conceptual)
 resources:
   - actionId: fetchData
     httpClient:
@@ -92,6 +93,7 @@ The engine resolves the full transitive closure. If A requires B, and B requires
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 - actionId: C
   exec:
     command: echo "first"
@@ -118,6 +120,7 @@ Resources that don't depend on each other (neither directly nor transitively) ca
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 - actionId: fetchUsers
   httpClient:
     url: https://api.example.com/users
@@ -163,6 +166,7 @@ Both run before the main action, but they behave differently:
 ### Skip example
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     - get('q') == ''          # if query is empty, skip this resource
@@ -171,6 +175,7 @@ validations:
 ### Check example
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('apiKey') != nil    # must have API key
@@ -182,7 +187,7 @@ validations:
 
 ## Loop Execution
 
-When a resource has a `loop` config, the engine runs the full resource cycle (before -> check -> action -> after) repeatedly:
+When a resource has a [`loop`](/reference/glossary#loop) config, the engine runs the full resource cycle (before -> check -> action -> after) repeatedly:
 
 ```
 ┌─────────────────────────────────┐
@@ -206,7 +211,7 @@ See [Loop](/concepts/loop) for full details.
 
 In agent mode (`kdeps serve`), the execution model differs:
 
-1. All resources are registered as tools (tool name = `actionId`)
+1. All resources are registered as tools (tool name = [`actionId`](/reference/glossary#actionid))
 2. The LLM receives the user prompt and decides which tool(s) to call
 3. Each tool call dispatches a single-resource execution (before -> check -> action -> after)
 4. Results return to the LLM, which may call more tools or produce a final answer

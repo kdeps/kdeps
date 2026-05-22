@@ -5,6 +5,7 @@ CORS controls which browser origins can call your API. Set it inside the `cors:`
 ## Basic Configuration
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     hostIp: "127.0.0.1"
@@ -58,6 +59,7 @@ cors:
 For production, it is highly recommended to restrict to specific domains:
 
 ```yaml
+# workflow.yaml
 cors:
   allowOrigins:
     - https://myapp.com
@@ -151,6 +153,7 @@ If you see CORS errors in the browser console:
 ## Example: Full Configuration
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
 

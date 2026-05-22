@@ -126,6 +126,7 @@ kdeps bundle build myagent-1.0.0.kdeps --gpu cuda
 Bake models into the image for air-gapped deployments:
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     offlineMode: true
@@ -147,6 +148,7 @@ The resulting image contains all models and doesn't require internet access.
 ### Using requirements.txt
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     requirementsFile: "requirements.txt"
@@ -157,6 +159,7 @@ KDeps uses [uv](https://github.com/astral-sh/uv) for fast Python package managem
 ### Inline Packages
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     pythonVersion: "3.12"
@@ -171,6 +174,7 @@ settings:
 Install OS-level packages:
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     osPackages:
@@ -187,6 +191,7 @@ settings:
 ### Build-time Args
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     args:
@@ -201,6 +206,7 @@ docker build --build-arg BUILD_VERSION=1.0.0 ...
 ### Runtime Environment
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     env:
@@ -218,6 +224,7 @@ docker run -e LOG_LEVEL=debug myregistry/myagent:latest
 KDeps generates a `docker-compose.yml`:
 
 ```yaml
+# docker-compose.yml
 version: '3.8'
 
 services:
@@ -284,6 +291,7 @@ The build process also automatically handles:
 Add a health endpoint:
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     routes:
@@ -293,6 +301,7 @@ settings:
 
 In Docker Compose:
 ```yaml
+# docker-compose.yml
 services:
   myagent:
     healthcheck:
@@ -322,6 +331,7 @@ kubectl apply -f k8s.yaml
 Configure Kubernetes settings in `workflow.yaml`:
 
 ```yaml
+# workflow.yaml
 settings:
   portNum: 16395
   agentSettings:

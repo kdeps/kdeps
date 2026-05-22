@@ -15,6 +15,7 @@ The `searchLocal` executor walks a local directory and returns matching files by
 ### Configuration
 
 ```yaml
+# resources/search.yaml
 searchLocal:
   path: "/data/documents"    # required: directory to search
   query: "invoice total"     # optional: keyword in file contents
@@ -56,6 +57,7 @@ Each result object:
 <div v-pre>
 
 ```yaml
+# resources/find-docs.yaml
 actionId: findDocs
 searchLocal:
   path: "/workspace/docs"
@@ -69,6 +71,7 @@ searchLocal:
 <div v-pre>
 
 ```yaml
+# resources/find-invoices.yaml
 actionId: findInvoices
 searchLocal:
   path: "/data/uploads"
@@ -83,6 +86,7 @@ searchLocal:
 <div v-pre>
 
 ```yaml
+# resources/find-files.yaml
 actionId: findFiles
 searchLocal:
   path: "/data/reports"
@@ -107,6 +111,7 @@ The `searchWeb` executor queries the web and returns structured results. The def
 ### Configuration
 
 ```yaml
+# resources/example.yaml
 searchWeb:
   query: "{{ get('query') }}"     # required
   provider: ddg                    # optional: ddg (default) | brave | bing | tavily
@@ -159,6 +164,7 @@ Result object fields:
 <div v-pre>
 
 ```yaml
+# resources/search.yaml
 actionId: search
 searchWeb:
   query: "{{ get('query') }}"
@@ -172,6 +178,7 @@ searchWeb:
 <div v-pre>
 
 ```yaml
+# resources/search.yaml
 actionId: search
 searchWeb:
   query: "{{ get('query') }}"
@@ -187,6 +194,7 @@ searchWeb:
 <div v-pre>
 
 ```yaml
+# resources/search.yaml
 actionId: search
 searchWeb:
   query: "{{ get('query') }}"

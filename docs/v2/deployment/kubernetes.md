@@ -57,6 +57,7 @@ kdeps export k8s examples/chatbot \
 Configure Kubernetes-specific settings in `workflow.yaml` under `agentSettings`:
 
 ```yaml
+# workflow.yaml
 settings:
   portNum: 8080
   agentSettings:
@@ -93,6 +94,7 @@ Ollama port is auto-detected when any resource uses a `chat:` executor.
 When `resources` is set, the manifest includes both `limits` and `requests`:
 
 ```yaml
+# workflow.yaml
 agentSettings:
   resources:
     cpuLimit: "500m"
@@ -110,6 +112,7 @@ When `resources` is absent, no `resources:` block is emitted (Kubernetes default
 ### Deployment
 
 ```yaml
+# k8s.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -161,6 +164,7 @@ spec:
 ### Service
 
 ```yaml
+# k8s.yaml
 apiVersion: v1
 kind: Service
 metadata:

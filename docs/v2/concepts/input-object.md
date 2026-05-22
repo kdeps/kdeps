@@ -6,36 +6,20 @@ The `input` object is a property-style shorthand for request body fields. Instea
 
 ### Property Access
 
-
-
 Access request body fields as properties:
-
-
 
 <div v-pre>
 
-
-
 ```yaml
-
-
+# resources/example.yaml
 after:
-
   - set('query', input.q)
-
   - set('userId', input.userId)
-
   - set('items', input.items)
 
-
-
 chat:
-
   prompt: "User {{ get('userId') }} asked: {{ get('query') }}"
-
 ```
-
-
 
 </div>
 
@@ -46,6 +30,7 @@ Use `input` directly in interpolated strings:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Hello {{ input.name }}, you asked about {{ input.topic }}"
 ```
@@ -57,6 +42,7 @@ chat:
 Access nested object properties:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('city', input.user.address.city)
   - set('email', input.user.email)
@@ -75,7 +61,7 @@ The `input` object is a convenience wrapper around request body data. Both appro
 **Example:**
 
 ```yaml
-# Using input object
+# resources/example.yaml -- using input object
 after:
   - set('name', input.name)
   - set('email', input.user.email)
@@ -103,6 +89,7 @@ after:
 ### Simple Form Data
 
 ```yaml
+# resources/create-user.yaml
 actionId: createUser
 validations:
   required:
@@ -134,6 +121,7 @@ sql:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   # Access nested properties
   - set('shippingCity', input.order.shippingAddress.city)
@@ -153,6 +141,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('items', input.items)
   - set('totalItems', len(get('items')))
@@ -171,6 +160,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('hasItems', input.items != nil && len(input.items) > 0)
   - set('isPremium', input.user.tier == 'premium')
@@ -193,6 +183,7 @@ chat:
 The `input` object is the same as `request.body`:
 
 ```yaml
+# resources/example.yaml
 after:
   # These are equivalent:
   - set('name1', input.name)

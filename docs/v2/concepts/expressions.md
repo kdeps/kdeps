@@ -9,6 +9,7 @@ Expressions are how you pass data between resources, validate inputs, and run co
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "Hello {{ get('name') }}, today is {{ info('timestamp') }}"
 ```
@@ -18,6 +19,7 @@ chat:
 **before:/after: blocks** -- a list of statements executed sequentially. Each statement is a bare expression, not wrapped in `{{ }}`:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('normalized', lower(trim(get('q'))))   # stores a value
   - set('is_admin', get('role') == 'admin')    # boolean
@@ -27,6 +29,7 @@ after:
 **validations.skip / validations.check / onError.when** -- a list of boolean expressions; any one true is enough:
 
 ```yaml
+# resources/example.yaml
 validations:
   skip:
     - get('q') == ''           # bare expression, evaluated as bool

@@ -11,6 +11,7 @@ Each item in the `actions` list requires an `action` field that selects the oper
 Navigate to a URL mid-sequence.
 
 ```yaml
+# resources/example.yaml
 - action: navigate
   url: "https://example.com/login"
 ```
@@ -26,6 +27,7 @@ Navigate to a URL mid-sequence.
 Click on an element.
 
 ```yaml
+# resources/example.yaml
 - action: click
   selector: "#submit-button"
 ```
@@ -41,6 +43,7 @@ Click on an element.
 Fill a text input field (replaces existing content atomically).
 
 ```yaml
+# resources/example.yaml
 - action: fill
   selector: "#email"
   value: "user@example.com"
@@ -58,6 +61,7 @@ Fill a text input field (replaces existing content atomically).
 Type text character-by-character (useful for fields with key handlers).
 
 ```yaml
+# resources/example.yaml
 - action: type
   selector: "#search"
   value: "my query"
@@ -75,6 +79,7 @@ Type text character-by-character (useful for fields with key handlers).
 Upload one or more local files to a file input element.
 
 ```yaml
+# resources/example.yaml
 - action: upload
   selector: "#file-input"
   files:
@@ -94,6 +99,7 @@ Upload one or more local files to a file input element.
 Choose an option in a `<select>` dropdown by value.
 
 ```yaml
+# resources/example.yaml
 - action: select
   selector: "#country"
   value: "US"
@@ -106,11 +112,12 @@ Choose an option in a `<select>` dropdown by value.
 
 ---
 
-## `check`
+## [`check`](/reference/glossary#check)
 
 Check a checkbox or radio button.
 
 ```yaml
+# resources/example.yaml
 - action: check
   selector: "#agree-terms"
 ```
@@ -126,6 +133,7 @@ Check a checkbox or radio button.
 Uncheck a checkbox.
 
 ```yaml
+# resources/example.yaml
 - action: uncheck
   selector: "#newsletter"
 ```
@@ -141,6 +149,7 @@ Uncheck a checkbox.
 Hover the mouse cursor over an element (useful for triggering tooltips / menus).
 
 ```yaml
+# resources/example.yaml
 - action: hover
   selector: ".dropdown-trigger"
 ```
@@ -199,6 +208,7 @@ Press a keyboard key, optionally scoped to a focused element.
 Clear the contents of a text input field.
 
 ```yaml
+# resources/example.yaml
 - action: clear
   selector: "#notes"
 ```
@@ -214,6 +224,7 @@ Clear the contents of a text input field.
 Execute a JavaScript expression and capture the return value.
 
 ```yaml
+# resources/example.yaml
 - action: evaluate
   script: "document.title"
 ```

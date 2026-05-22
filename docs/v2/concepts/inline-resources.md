@@ -5,6 +5,7 @@ Inline resources are full resource actions (chat, httpClient, sql, python, exec)
 ## Basic Syntax
 
 ```yaml
+# resources/example.yaml
 actionId: example
 name: Example Resource
 # Inline resources to run BEFORE the main resource
@@ -72,6 +73,7 @@ Each inline resource can be: `chat`, `httpClient`, `sql`, `python`, or `exec`.
 Fetch additional data before processing:
 
 ```yaml
+# resources/example.yaml
 before:
   - httpClient:
       method: GET
@@ -87,6 +89,7 @@ chat:
 Record operations in a database:
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{get('prompt')}}"
 
@@ -102,6 +105,7 @@ after:
 Send alerts after completion:
 
 ```yaml
+# resources/example.yaml
 python:
   script: "process_data.py"
 
@@ -119,6 +123,7 @@ after:
 Prepare files or environment before execution:
 
 ```yaml
+# resources/example.yaml
 before:
   - exec:
       command: "mkdir -p /tmp/workspace"
@@ -138,6 +143,7 @@ after:
 Store results for future use:
 
 ```yaml
+# resources/example.yaml
 chat:
   prompt: "{{get('query')}}"
 
@@ -152,6 +158,7 @@ after:
 You can have multiple inline resources of the same or different types:
 
 ```yaml
+# resources/example.yaml
 before:
   - httpClient:
       method: GET
@@ -181,6 +188,7 @@ after:
 You can have a resource with only inline resources and no main resource type:
 
 ```yaml
+# resources/example.yaml
 before:
   - httpClient:
       method: GET
@@ -205,6 +213,7 @@ If an inline resource fails:
 You can use the resource's `onError` configuration to handle errors:
 
 ```yaml
+# resources/example.yaml
 before:
   - httpClient:
       method: GET
@@ -225,6 +234,7 @@ onError:
 Inline resources have access to the full execution context:
 
 ```yaml
+# resources/example.yaml
 before:
   - set('user_id', get('input.user_id'))
 
@@ -245,6 +255,7 @@ Each inline resource supports the same configuration options as the standalone r
 
 ### HTTP Client
 ```yaml
+# resources/example.yaml
 - httpClient:
     method: POST
     url: "https://api.example.com"
@@ -260,6 +271,7 @@ Each inline resource supports the same configuration options as the standalone r
 
 ### SQL
 ```yaml
+# resources/example.yaml
 - sql:
     connection: "postgresql://localhost/db"
     query: "SELECT * FROM users WHERE id = ?"
@@ -270,6 +282,7 @@ Each inline resource supports the same configuration options as the standalone r
 
 ### Python
 ```yaml
+# resources/example.yaml
 - python:
     script: |
       import json
@@ -281,6 +294,7 @@ Each inline resource supports the same configuration options as the standalone r
 
 ### Exec
 ```yaml
+# resources/example.yaml
 - exec:
     command: "process_file.sh"
     args:
@@ -290,6 +304,7 @@ Each inline resource supports the same configuration options as the standalone r
 
 ### Chat (LLM)
 ```yaml
+# resources/example.yaml
 - chat:
     role: user
     prompt: "{{get('prompt')}}"
@@ -344,6 +359,7 @@ after:
 Use expressions with inline resources:
 
 ```yaml
+# resources/example.yaml
 before:
   - set('should_notify', get('input.notify') == true)
 
@@ -361,6 +377,7 @@ after:
 Inline resources work with the `items` feature:
 
 ```yaml
+# resources/example.yaml
 items:
   - item1
   - item2

@@ -22,6 +22,7 @@ incoming request  (e.g., port 16395)
 ## Basic Configuration
 
 ```yaml
+# workflow.yaml
 apiVersion: kdeps.io/v1
 kind: Workflow
 
@@ -52,6 +53,7 @@ settings:
 Serve static files from a directory:
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "0.0.0.0"
@@ -89,6 +91,7 @@ my-agent/
 For React, Vue, or Angular apps:
 
 ```yaml
+# workflow.yaml
 routes:
   - path: "/"
     serverType: "static"
@@ -100,6 +103,7 @@ routes:
 Forward requests to backend applications:
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "0.0.0.0"
@@ -115,6 +119,7 @@ settings:
 ### Streamlit Example
 
 ```yaml
+# workflow.yaml
 routes:
   - path: "/dashboard"
     serverType: "app"
@@ -144,6 +149,7 @@ if st.button("Submit"):
 ### Gradio Example
 
 ```yaml
+# workflow.yaml
 routes:
   - path: "/demo"
     serverType: "app"
@@ -171,6 +177,7 @@ demo.launch(server_name="0.0.0.0", server_port=7860)
 ### Flask Example
 
 ```yaml
+# workflow.yaml
 routes:
   - path: "/admin"
     serverType: "app"
@@ -197,6 +204,7 @@ if __name__ == '__main__':
 WebSocket connections are automatically proxied:
 
 ```yaml
+# workflow.yaml
 routes:
   - path: "/ws-app"
     serverType: "app"
@@ -224,6 +232,7 @@ asyncio.get_event_loop().run_forever()
 Combine static files and multiple apps:
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "0.0.0.0"
@@ -257,6 +266,7 @@ settings:
 For deployments behind a load balancer:
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "0.0.0.0"

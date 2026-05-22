@@ -32,7 +32,7 @@ export default {
   Layout() {
     return h(DefaultTheme.Layout, null, {
       'home-hero-info': () => h(HeroInfo),
-      'home-hero-image': () => h(HeroCode),
+      'home-hero-after': () => h(HeroCode),
       'home-features-after': () => [h(HomeHowItWorks), h(HomeModes)],
     })
   }

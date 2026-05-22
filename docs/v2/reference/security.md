@@ -34,6 +34,7 @@ incoming request
 Protect the API server with a shared secret. When `auth.token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     auth:
@@ -47,6 +48,7 @@ Omit `auth` (or leave `token` empty) to disable authentication entirely.
 Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests allowed above that rate in a single burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     rateLimit:
@@ -59,6 +61,7 @@ settings:
 Cap the size of incoming request bodies. Requests that exceed `maxBodyBytes` receive a `413` response. This limit does not apply to `multipart/form-data` uploads.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     maxBodyBytes: 1048576   # 1 MiB
@@ -69,6 +72,7 @@ settings:
 Enable HTTPS by pointing `certFile` and `keyFile` at a PEM certificate and private key. These fields belong in `settings`, not in `apiServer`.
 
 ```yaml
+# workflow.yaml
 settings:
   certFile: "/etc/certs/server.crt"
   keyFile:  "/etc/certs/server.key"
@@ -83,6 +87,7 @@ settings:
 Cap the number of simultaneous in-flight requests. When the limit is reached, new requests receive `503 Service Unavailable` immediately rather than queuing. Omit or set to `0` to disable.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     maxConcurrent: 50
@@ -100,6 +105,7 @@ Four environment variables limit how many bytes executor resources return to the
 | `KDEPS_PYTHON_MAX_OUTPUT_BYTES` | Python resource stdout |
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     env:

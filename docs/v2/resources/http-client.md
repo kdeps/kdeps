@@ -11,6 +11,7 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). 
 <div v-pre>
 
 ```yaml
+# resources/http-client.yaml
 httpClient:
   method: GET                    # GET, POST, PUT, PATCH, DELETE
   url: "https://api.example.com/{{ get('id') }}"
@@ -91,6 +92,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/protected"
@@ -106,6 +108,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/protected"
@@ -122,6 +125,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/data"
@@ -138,6 +142,7 @@ httpClient:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/oauth/data"
@@ -153,6 +158,7 @@ httpClient:
 Automatic retries with exponential backoff:
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/data"
@@ -178,6 +184,7 @@ Retry timing example:
 Cache responses to reduce API calls. Presence of the `cache:` block enables caching.
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/static-data"
@@ -193,6 +200,7 @@ Cache key defaults to the URL if not specified.
 ### Skip Certificate Verification (Development Only)
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://self-signed.example.com"
@@ -205,6 +213,7 @@ httpClient:
 ### Custom Certificates
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://internal.example.com"
@@ -217,6 +226,7 @@ httpClient:
 ## Proxy Configuration
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/data"
@@ -226,6 +236,7 @@ httpClient:
 ## Redirect Handling
 
 ```yaml
+# resources/example.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/redirect"
@@ -260,6 +271,7 @@ apiResponse:
 Use resource-specific accessors for detailed response information:
 
 ```yaml
+# resources/example.yaml
 after:
   # Get response body only
   - set('response_body', http.responseBody('httpResource'))
@@ -286,6 +298,7 @@ Use preflight checks to validate before making requests:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 validations:
   check:
     - get('api_token') != ''

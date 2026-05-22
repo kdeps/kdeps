@@ -7,6 +7,7 @@ The `request` object gives you direct access to the HTTP request -- method, path
 Access request data as properties:
 
 ```yaml
+# resources/example.yaml
 after:
   - set('method', request.method)
   - set('path', request.path)
@@ -40,6 +41,7 @@ Get the content of an uploaded file by field name.
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('fileContent', request.file('document'))
 
@@ -61,6 +63,7 @@ Get the file path of an uploaded file.
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('filePath', request.filepath('image'))
 
@@ -83,6 +86,7 @@ python:
 Get the MIME type of an uploaded file.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('mimeType', request.filetype('upload'))
   - set('isImage', get('mimeType') startsWith 'image/')
@@ -98,6 +102,7 @@ after:
 Get all uploaded files matching a specific MIME type.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('images', request.filesByType('image/png'))
   - set('pdfs', request.filesByType('application/pdf'))
@@ -110,6 +115,7 @@ after:
 
 **Example:**
 ```yaml
+# resources/example.yaml
 after:
   - set('allImages', request.filesByType('image/*'))
   - set('imageCount', len(get('allImages')))
@@ -122,6 +128,7 @@ after:
 Get the total number of uploaded files.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('fileCount', request.filecount())
 
@@ -140,6 +147,7 @@ validations:
 Get a list of all uploaded file paths.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('allFiles', request.files())
   - set('fileList', join(get('allFiles'), ', '))
@@ -152,6 +160,7 @@ after:
 Get a list of MIME types for all uploaded files.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('types', request.filetypes())
   - set('hasImages', contains(get('types'), 'image/png'))
@@ -166,6 +175,7 @@ after:
 Get the entire request body as an object.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('requestData', request.data())
   - set('userId', get('requestData').userId)
@@ -180,6 +190,7 @@ after:
 Get a query parameter value.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('userId', request.params('userId'))
   - set('page', request.params('page'))
@@ -197,6 +208,7 @@ after:
 Get a request header value.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('auth', request.header('Authorization'))
   - set('contentType', request.header('Content-Type'))
@@ -216,6 +228,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/process-upload.yaml
 actionId: processUpload
 after:
   # Check file count
@@ -250,6 +263,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   # Get all images
   - set('images', request.filesByType('image/*'))
@@ -274,6 +288,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 after:
   - set('requestInfo', {
       "method": request.method,
@@ -294,6 +309,7 @@ apiResponse:
 ### Conditional Processing Based on Request
 
 ```yaml
+# resources/example.yaml
 after:
   - set('isPost', request.method == 'POST')
   - set('isApiPath', request.path startsWith '/api/')
@@ -313,6 +329,7 @@ validations:
 ### File Type Validation
 
 ```yaml
+# resources/example.yaml
 after:
   - set('fileTypes', request.filetypes())
   - set('allowedTypes', ['image/png', 'image/jpeg', 'application/pdf'])

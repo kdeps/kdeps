@@ -7,6 +7,7 @@
 <div v-pre>
 
 ```yaml
+# resources/process-items.yaml
 
 actionId: processItems
 items:
@@ -40,6 +41,7 @@ You can also access item context through the `item` object with callable methods
 ### Method Syntax
 
 ```yaml
+# resources/example.yaml
 after:
   # Method-style access
   - set('curr', item.current())
@@ -68,6 +70,7 @@ Both syntaxes are equivalent. Use whichever is more readable for your use case.
 <div v-pre>
 
 ```yaml
+# resources/process-with-item-object.yaml
 actionId: processWithItemObject
 items:
   - "first"
@@ -94,6 +97,7 @@ After processing, you can access all collected values from a resource that uses 
 ### Using `get('resourceId', 'itemvalues')`
 
 ```yaml
+# resources/collect-results.yaml
 actionId: collectResults
 requires:
   - processItems
@@ -112,6 +116,7 @@ apiResponse:
 You can also use the `item.values()` method with an action ID to get all iteration values from a specific resource:
 
 ```yaml
+# resources/collect-results.yaml
 actionId: collectResults
 requires:
   - processItems
@@ -135,6 +140,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 items:
   - "apple"
   - "banana"
@@ -153,6 +159,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 items:
   - "Introduction"
   - "Main Content"
@@ -172,6 +179,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 items:
   - "process"
   - "skip_this"
@@ -192,6 +200,7 @@ chat:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 items:
   - value: "Task 1"
     priority: "high"

@@ -58,37 +58,50 @@ const files = [
 </script>
 
 <template>
-  <div class="hero-window">
-    <div class="titlebar">
-      <div class="dots">
-        <span class="r"></span><span class="y"></span><span class="g"></span>
-      </div>
-      <div class="tabs">
-        <button
-          v-for="(f, i) in files"
-          :key="i"
-          :class="['tab', { active: active === i }]"
-          @click="active = i"
-        >{{ f.name }}</button>
-      </div>
-    </div>
+  <div class="hero-code-section">
+    <div class="hero-code-container">
+      <div class="hero-window">
+        <div class="titlebar">
+          <div class="dots">
+            <span class="r"></span><span class="y"></span><span class="g"></span>
+          </div>
+          <div class="tabs">
+            <button
+              v-for="(f, i) in files"
+              :key="i"
+              :class="['tab', { active: active === i }]"
+              @click="active = i"
+            >{{ f.name }}</button>
+          </div>
+        </div>
 
-    <pre class="code-body"><code v-html="files[active].html"></code></pre>
+        <pre class="code-body"><code v-html="files[active].html"></code></pre>
 
-    <div class="terminal">
-      <div class="tl"><span class="p">$</span><span class="c">kdeps run workflow.yaml</span></div>
-      <div class="tl dim">Listening on :16395</div>
-      <div class="tl">&nbsp;</div>
-      <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/summarize \</span></div>
-      <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
-      <div class="tl"><span class="pad"></span><span class="c dim">-d '{"url": "https://example.com"}'</span></div>
-      <div class="tl">&nbsp;</div>
-      <div class="tl resp">{"success": true, "data": {"response": "Example.com is used for illustrative examples in documentation."}}</div>
+        <div class="terminal">
+          <div class="tl"><span class="p">$</span><span class="c">kdeps run workflow.yaml</span></div>
+          <div class="tl dim">Listening on :16395</div>
+          <div class="tl">&nbsp;</div>
+          <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/summarize \</span></div>
+          <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
+          <div class="tl"><span class="pad"></span><span class="c dim">-d '{"url": "https://example.com"}'</span></div>
+          <div class="tl">&nbsp;</div>
+          <div class="tl resp">{"success": true, "data": {"response": "Example.com is used for illustrative examples in documentation."}}</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.hero-code-section {
+  padding: 0 24px 64px;
+}
+
+.hero-code-container {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 .hero-window {
   font-family: var(--vp-font-family-mono);
   font-size: 12px;
@@ -99,7 +112,6 @@ const files = [
   border-radius: 2px;
   overflow: hidden;
   width: 100%;
-  max-width: 520px;
   box-shadow: var(--vp-shadow-3);
 }
 
@@ -183,8 +195,11 @@ const files = [
 .pad { display: inline-block; width: 16px; flex-shrink: 0; }
 .resp { color: #FFD60A; white-space: pre-wrap; word-break: break-word; }
 
-@media (max-width: 960px) { .hero-window { max-width: 100%; } }
+@media (max-width: 960px) {
+  .hero-code-section { padding: 0 16px 48px; }
+}
 @media (max-width: 640px) {
+  .hero-code-section { padding: 0 12px 40px; }
   .hero-window { font-size: 11px; }
   .tab { font-size: 9px; padding: 4px 7px 6px; }
 }

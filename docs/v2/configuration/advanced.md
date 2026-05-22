@@ -19,6 +19,7 @@ The `request` object provides access to HTTP request metadata in expressions.
 ### Usage Examples
 
 ```yaml
+# resources/log-request.yaml
 actionId: logRequest
 after:
   # Access request metadata
@@ -41,6 +42,7 @@ after:
 ### Request-Based Routing
 
 ```yaml
+# resources/example.yaml
 after:
   # Different behavior based on request method
   - set('isPost', request.method == 'POST')
@@ -55,6 +57,7 @@ validations:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 sql:
   connection: logs
   queries:
@@ -78,6 +81,7 @@ The `agentSettings` section configures the runtime environment.
 ### Complete Reference
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     # Timezone
@@ -167,6 +171,7 @@ Define named database connections for reuse across resources.
 ### Configuration
 
 ```yaml
+# workflow.yaml
 settings:
   sqlConnections:
     primary:
@@ -203,6 +208,7 @@ settings:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 sql:
   connection: primary  # Reference by name
   queries:
@@ -220,6 +226,7 @@ Configure trusted proxies for accurate client IP detection behind load balancers
 ### API Server
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     hostIp: "0.0.0.0"
@@ -233,6 +240,7 @@ settings:
 ### Web Server
 
 ```yaml
+# workflow.yaml
 settings:
   webServer:
     hostIp: "0.0.0.0"
@@ -249,6 +257,7 @@ Use environment variables in configuration values.
 ### Syntax
 
 ```yaml
+# workflow.yaml
 settings:
   agentSettings:
     env:
@@ -265,6 +274,7 @@ settings:
 ### In SQL Connections
 
 ```yaml
+# workflow.yaml
 settings:
   sqlConnections:
     primary:
@@ -276,6 +286,7 @@ settings:
 Define multiple routes with different methods and paths.
 
 ```yaml
+# workflow.yaml
 settings:
   apiServer:
     portNum: 16395

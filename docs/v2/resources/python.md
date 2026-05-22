@@ -11,6 +11,7 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). 
 <div v-pre>
 
 ```yaml
+# resources/python.yaml
 python:
   script: |                  # inline Python -- must print JSON to stdout
     import json
@@ -36,6 +37,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 python:
   script: |
     import json
@@ -61,6 +63,7 @@ python:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 python:
   scriptFile: "./scripts/data_processor.py"
   args:
@@ -164,6 +167,7 @@ print(json.dumps(result))
 Access the output in other resources:
 
 ```yaml
+# resources/example.yaml
 requires: [pythonResource]
 apiResponse:
   response:
@@ -201,6 +205,7 @@ debug = os.environ.get('DEBUG') == 'true'
 Access stdout, stderr, and exit codes from other resources:
 
 ```yaml
+# resources/example.yaml
 requires: [pythonResource]
 after:
   # Check if Python script succeeded

@@ -42,6 +42,7 @@ settings:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 chat:
   prompt: |
@@ -64,6 +65,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 chat:
   prompt: |
@@ -85,6 +87,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 before:
   - httpClient:
@@ -112,6 +115,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 before:
   - httpClient:
@@ -138,6 +142,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 before:
   - component:
@@ -162,6 +167,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 before:
   - httpClient:
@@ -187,6 +193,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 before:
   - component:
@@ -213,6 +220,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/respond.yaml
 actionId: respond
 chat:
   prompt: |

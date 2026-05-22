@@ -1,12 +1,13 @@
 # While-Loop Iteration
 
-The `loop` block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
+The [`loop`](/reference/glossary#loop) block enables conditional, unbounded iteration — making kdeps workflows Turing complete. Unlike `items` (which iterates over a fixed list), `loop` repeats a resource body while an optional expression is true (or for a fixed count when `while:` is omitted), with full access to mutable state via `set()`/`get()`. Add `every:` to turn the loop into a **repeated scheduled task** that pauses for a fixed duration between iterations.
 
 ## Basic Usage
 
 <div v-pre>
 
 ```yaml
+# resources/count.yaml
 
 actionId: countToFive
 name: Count to Five
@@ -38,6 +39,7 @@ Inside the loop body, special callables are available:
 ### Method Syntax
 
 ```yaml
+# resources/example.yaml
 after:
   - "{{ set('idx', loop.index()) }}"
   - "{{ set('cnt', loop.count()) }}"
@@ -61,6 +63,7 @@ Use `'loop'` as a storage type hint to scope variables to the loop context, mirr
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "default(get('step', 'loop'), 0) < 3"
   maxIterations: 10
@@ -77,6 +80,7 @@ after:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "len(loop.results()) < 3"
   maxIterations: 10
@@ -95,6 +99,7 @@ When `apiResponse` is present, every iteration produces one response map. Multip
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "loop.index() < 3"
   maxIterations: 10
@@ -121,6 +126,7 @@ No iterations → empty slice.
 - Turing completeness is preserved because the cap is configurable, not fixed
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "true"
   maxIterations: 50000   # allow up to 50k iterations
@@ -133,6 +139,7 @@ Add `every:` to pause the loop for a fixed duration **between** iterations, turn
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "loop.index() < 10"
   every: "5s"           # wait 5 seconds between each iteration
@@ -155,6 +162,7 @@ The sleep is **skipped after the last iteration** — the caller receives result
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "true"          # run until maxIterations
   every: "30s"           # poll every 30 seconds
@@ -187,6 +195,7 @@ Use `at:` to fire the loop body at a list of specific dates and/or times, in ord
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "loop.index() < 2"
   maxIterations: 10
@@ -218,6 +227,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "true"
   maxIterations: 30  # run for 30 days
@@ -277,6 +287,7 @@ Together with `loop.results()` feeding back into the `while` condition, the syst
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "loop.index() < 4"
   maxIterations: 100
@@ -295,6 +306,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "int(default(get('phase'), 0)) < 3"
   maxIterations: 10
@@ -313,6 +325,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "get('done') == nil"
   maxIterations: 100
@@ -333,6 +346,7 @@ apiResponse:
 <div v-pre>
 
 ```yaml
+# resources/example.yaml
 loop:
   while: "len(loop.results()) < 5"
   maxIterations: 50

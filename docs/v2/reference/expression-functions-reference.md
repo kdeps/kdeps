@@ -163,6 +163,7 @@ session()                    # Get all session data
 Filters an array by a predicate expression. Use `.` to reference the current element.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('activeUsers', filter(get('users'), .status == 'active'))
   - set('premiumActive', filter(get('users'), .status == 'active' && .tier == 'premium'))
@@ -173,6 +174,7 @@ after:
 Transforms each element in an array.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('userNames', map(get('users'), .name))
   - set('emails', map(get('users'), .email))
@@ -182,6 +184,7 @@ after:
 ### Aggregation
 
 ```yaml
+# resources/example.yaml
 after:
   - set('total', sum(get('prices')))
   - set('minPrice', min(get('prices')))
@@ -193,6 +196,7 @@ after:
 Extracts a sub-array. Negative indices count from the end.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('firstFive', slice(get('items'), 0, 5))
   - set('lastTen', slice(get('items'), -10, len(get('items'))))
@@ -202,6 +206,7 @@ after:
 Returns the first or last element of an array.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('firstItem', first(get('items')))
   - set('lastItem', last(get('items')))
@@ -211,6 +216,7 @@ after:
 Returns the length of an array or string.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('itemCount', len(get('items')))
   - set('textLength', len(get('text')))
@@ -221,6 +227,7 @@ after:
 ### Case Conversion
 
 ```yaml
+# resources/example.yaml
 after:
   - set('lowercase', lower(get('text')))
   - set('uppercase', upper(get('text')))
@@ -230,6 +237,7 @@ after:
 ### Splitting & Joining
 
 ```yaml
+# resources/example.yaml
 after:
   - set('words', split(get('csv'), ','))
   - set('lines', split(get('text'), '\n'))
@@ -239,6 +247,7 @@ after:
 ### Replacing
 
 ```yaml
+# resources/example.yaml
 after:
   - set('replaced', replace(get('text'), 'old', 'new'))
 ```
@@ -246,6 +255,7 @@ after:
 ### String Matching
 
 ```yaml
+# resources/example.yaml
 after:
   - set('hasKeyword', contains(get('text'), 'important'))
   - set('isUrl', startsWith(get('url'), 'https://'))
@@ -259,6 +269,7 @@ after:
 Returns the type as a string: `"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"null"`.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('valueType', type(get('value')))
 ```
@@ -266,6 +277,7 @@ after:
 ### Casting Functions
 
 ```yaml
+# resources/example.yaml
 after:
   - set('age', int(get('ageString')))       # "123" -> 123
   - set('price', float(get('priceString'))) # "3.14" -> 3.14
@@ -279,6 +291,7 @@ after:
 Returns the current time as an ISO 8601 timestamp string.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('now', now())
 ```
@@ -287,6 +300,7 @@ after:
 Formats a timestamp using Go's reference time layout (`2006-01-02 15:04:05`).
 
 ```yaml
+# resources/example.yaml
 after:
   - set('date', format(now(), '2006-01-02'))
   - set('datetime', format(now(), '2006-01-02 15:04:05'))
@@ -305,6 +319,7 @@ Common layout patterns:
 ### Ternary Operator
 
 ```yaml
+# resources/example.yaml
 after:
   - set('status', get('score') >= 70 ? 'pass' : 'fail')
   - set('discount', get('isPremium') ? 0.2 : 0.1)
@@ -315,6 +330,7 @@ after:
 The `??` operator returns the right-hand value when the left-hand is nil or empty string.
 
 ```yaml
+# resources/example.yaml
 after:
   - set('name', get('name') ?? 'Anonymous')
   - set('limit', get('limit') ?? 10)
