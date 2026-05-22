@@ -18,13 +18,10 @@ hero:
       link: https://kdeps.io
 
 features:
-  - icon: 🏗️
-    title: Workflow Mode
-    details: DAG-deterministic pipelines. Declare dependencies with `requires:`, compose chat, SQL, HTTP, Python, and shell into a single YAML workflow.
-  - icon: 🤖
-    title: Agent Mode
-    details: Run `kdeps serve` to turn your workflow into an autonomous LLM loop. Every resource auto-registers as a callable tool. The LLM plans and executes multi-step tasks.
-  - icon: 📦
-    title: Self-Contained Exports
-    details: Export AI workflows as a single binary, Docker image, bootable ISO, or Kubernetes manifests. Ship to production without glue code.
+  - title: Any backend
+    details: Ollama, OpenAI, Anthropic, Groq, or any OpenAI-compatible endpoint. Switch backends in config without touching workflow files.
+  - title: Deploy anywhere
+    details: Export as a Docker image, bootable ISO, single binary, or Kubernetes manifests. The same workflow runs locally and in production.
+  - title: Component registry
+    details: Install pre-built scraper, search, browser, and embedding components from the registry. Compose them into your workflow with one line.
 ---
