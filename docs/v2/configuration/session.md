@@ -104,6 +104,8 @@ chat:
 
 ### Login Session
 
+<div v-pre>
+
 ```yaml
 # Login resource
 metadata:
@@ -126,8 +128,10 @@ after:
 apiResponse:
   success: get('authenticated', 'session')
   response:
-    message: <span v-pre>"{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"</span>
+    message: "{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"
 ```
+
+</div>
 
 ### Protected Route
 

@@ -338,13 +338,17 @@ settings:
 
 When using user input in commands, be careful about command injection:
 
+<div v-pre>
+
 ```yaml
-# Dangerous - command injection possible
-<span v-pre>`command: "echo {{ get('user_input') }}"`</span>
+# Dangerous -- command injection possible
+command: "echo {{ get('user_input') }}"
+```
 
+</div>
 
-# Safer - use Python for complex input handling
-# Or validate input first
+```yaml
+# Safer -- validate input before use
 validations:
   check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'

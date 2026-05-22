@@ -408,14 +408,21 @@ apiResponse:
 - Use connection strings from environment in production
 
 ```yaml
-# Good - parameterized
+# Good -- parameterized; user input never touches the query string
 query: "SELECT * FROM users WHERE id = $1"
 params:
   - get('user_id')
+```
 
 **Bad - SQL injection risk**
-<span v-pre>`query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"`</span>
+
+<div v-pre>
+
+```yaml
+query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 ```
+
+</div>
 
 ## Next Steps
 
