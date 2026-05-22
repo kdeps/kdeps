@@ -6,15 +6,12 @@
 
 Requests hit a single port. kdeps matches the path prefix and dispatches to the right handler.
 
-```
-incoming request  (e.g., port 16395)
-        |
-        +-- /api/v1/...  --> apiServer --> workflow DAG --> JSON response
-        |
-        +-- /app/...     --> subprocess on appPort (started on demand)
-        |                    proxy: GET /app/foo  ->  localhost:8501/foo
-        +-- /...         --> static files from publicPath
-                             404 if file not found
+```mermaid
+flowchart TD
+    A(["incoming request<br/>port 16395"]) --> B{path prefix}
+    B -->|/api/v1/...| C["apiServer → workflow DAG"] --> D(["JSON response"])
+    B -->|/app/...| E["subprocess on appPort<br/><small>started on demand<br/>proxy to localhost:appPort</small>"] --> F(["proxied response"])
+    B -->|/...| G["static files from publicPath"] --> H(["file or 404"])
 ```
 
 `apiServer` and `webServer` share the same port. Path prefix determines which handler fires.

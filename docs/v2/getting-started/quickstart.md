@@ -122,21 +122,12 @@ Expected response:
 
 ## How it works
 
-```
-POST /api/v1/chat {"q": "What is entropy?"}
-        |
-        v
-+-------------------------+
-|  resource: llm          |  <- validates get('q') != ''; calls llama3.2:1b
-+-------------------------+
-        |  output stored as get('llm')
-        v
-+-------------------------+
-|  resource: response     |  <- requires: [llm]; reads get('llm')
-+-------------------------+
-        |
-        v
-{"success": true, "response": {"answer": "..."}}
+```mermaid
+flowchart TD
+    A(["POST /api/v1/chat<br/>{&quot;q&quot;: &quot;What is entropy?&quot;}"]) --> B
+    B["resource: llm<br/><small>validates get&#40;'q'&#41; != ''; calls llama3.2:1b</small>"] -->|output stored as get&#40;'llm'&#41;| C
+    C["resource: response<br/><small>requires: [llm]; reads get&#40;'llm'&#41;</small>"] --> D
+    D(["{&quot;success&quot;: true, &quot;response&quot;: {&quot;answer&quot;: &quot;...&quot;}}"])
 ```
 
 `requires: [llm]` means `response` will not run until `llm` has finished. This two-resource DAG is the simplest workflow mode pipeline.

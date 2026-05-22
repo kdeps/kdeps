@@ -22,15 +22,12 @@ kdeps bundle prepackage myagent-1.0.0.kdeps --kdeps-version 2.0.1
 
 The archive is appended to the kdeps binary. A 24-byte magic trailer marks where the archive starts so the binary can find it at startup. When you run the prepackaged binary, it detects the embedded `.kdeps` archive and runs it automatically -- exactly like `kdeps run`.
 
-```
-┌──────────────────────┐
-│  kdeps runtime (ELF) │  ← identical to a normal kdeps binary
-├──────────────────────┤
-│  .kdeps archive data │  ← your workflow, resources, data
-├──────────────────────┤
-│  [8-byte size field] │  ← uint64 big-endian: size of archive
-│  [16-byte magic]     │  ← "KDEPS_PACK\0\0\0\0\0\0"
-└──────────────────────┘
+```mermaid
+block-beta
+    columns 1
+    A["kdeps runtime &#40;ELF&#41;<br/><small>identical to a normal kdeps binary</small>"]
+    B[".kdeps archive data<br/><small>your workflow, resources, data</small>"]
+    C["24-byte trailer<br/><small>8-byte size field + 16-byte magic 'KDEPS_PACK'</small>"]
 ```
 
 ## Typical Workflow

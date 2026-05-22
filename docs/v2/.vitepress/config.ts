@@ -19,8 +19,9 @@
  */
 
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'KDeps',
   description: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.',
 
@@ -222,4 +223,4 @@ export default defineConfig({
       __VUE_OPTIONS_API__: false
     }
   }
-})
+}))

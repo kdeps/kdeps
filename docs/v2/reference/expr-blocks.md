@@ -103,23 +103,13 @@ httpClient:
 
 Expressions in each block run top to bottom. The full per-resource order is:
 
-```
-Request
-    |
-    v
-+---------------+
-|  before:      |  -> expressions run in order; values stored via set()
-+-------+-------+
-        |
-        v
-+---------------+
-|  Main Action  |  -> chat, httpClient, sql, python, exec, or apiResponse
-+-------+-------+
-        |
-        v
-+---------------+
-|  after:       |  -> expressions run in order; output is accessible via get()
-+---------------+
+```mermaid
+flowchart TD
+    A(["Request"]) --> B
+    B["before:<br/><small>expressions run in order<br/>values stored via set&#40;&#41;</small>"] --> C
+    C["Main Action<br/><small>chat, httpClient, sql, python, exec, apiResponse</small>"] --> D
+    D["after:<br/><small>expressions run in order<br/>output accessible via get&#40;&#41;</small>"] --> E
+    E(["response"])
 ```
 
 ## Common Patterns

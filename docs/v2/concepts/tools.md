@@ -2,22 +2,13 @@
 
 Tools let an LLM call other resources mid-response. When the LLM decides a tool is needed, kdeps runs the target resource, feeds the result back to the LLM, and the LLM continues. The LLM only sees the tool's output -- it does not see the resource YAML.
 
-```
-chat resource receives prompt
-        |
-        v
-LLM: "I need to calculate something"
-        |  calls tool "calculate"
-        v
-+-------------------------+
-|  resource: calcTool     |  <- tool args become get('expression') inside
-+-------------------------+
-        |  output returned to LLM
-        v
-LLM: "The answer is 42"
-        |
-        v
-    final response
+```mermaid
+flowchart TD
+    A([chat resource receives prompt]) --> B
+    B["LLM: 'I need to calculate something'"] -->|calls tool 'calculate'| C
+    C["resource: calcTool<br/><small>tool args become get&#40;'expression'&#41;</small>"] -->|output returned to LLM| D
+    D["LLM: 'The answer is 42'"] --> E
+    E([final response])
 ```
 
 <div v-pre>

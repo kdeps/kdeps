@@ -4,28 +4,18 @@
 
 ## How the pieces fit together
 
-```
-incoming request
-        |
-        v
-+---------------------+
-|  apiServer          |  <- HTTP server: TLS, auth, rate limit, routes
-+---------------------+
-        |
-        v
-+---------------------+
-|  resources/         |  <- DAG pipeline: chat, sql, http, python, exec
-+---------------------+
-        |
-        v
-+---------------------+
-|  apiResponse        |  <- terminal resource; builds the HTTP response
-+---------------------+
+```mermaid
+flowchart TD
+    A(["incoming request"]) --> B
+    B["apiServer<br/><small>HTTP server: TLS, auth, rate limit, routes</small>"] --> C
+    C["resources/<br/><small>DAG pipeline: chat, sql, http, python, exec</small>"] --> D
+    D["apiResponse<br/><small>terminal resource; builds the HTTP response</small>"] --> E
+    E(["HTTP response"])
 
-webServer (optional)  -- serves static files or proxies to a subprocess
-agentSettings         -- runtime: Python packages, OS packages, env vars
-sqlConnections        -- named DB connections used by sql: resources
-session               -- persists set('key', val, 'session') across requests
+    B2["webServer &#40;optional&#41;<br/><small>serves static files or proxies subprocess</small>"]
+    B3["agentSettings<br/><small>Python packages, OS packages, env vars</small>"]
+    B4["sqlConnections<br/><small>named DB connections for sql: resources</small>"]
+    B5["session<br/><small>persists set&#40;'key', val, 'session'&#41; across requests</small>"]
 ```
 
 ## Basic structure

@@ -10,12 +10,10 @@ kdeps is an **AI appliance builder**. You define what the agent does in YAML, an
 
 ## Two modes, one workflow file
 
-```
-workflow.yaml
-    |
-    +-- kdeps run    -> workflow mode: DAG pipeline, deterministic, ships to production
-    |
-    +-- kdeps serve  -> agent mode: interactive LLM loop, tools on demand
+```mermaid
+flowchart LR
+    A["workflow.yaml"] --> B["kdeps run<br/><small>workflow mode<br/>DAG pipeline, deterministic<br/>ships to production</small>"]
+    A --> C["kdeps serve<br/><small>agent mode<br/>interactive LLM loop<br/>tools on demand</small>"]
 ```
 
 Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which resources to call and in what order, using your workflow as a toolbox.

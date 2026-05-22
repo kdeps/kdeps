@@ -10,28 +10,14 @@ kdeps serve workflow.yaml
 
 ## How it works
 
-```
-you type a prompt
-        |
-        v
-+-------------------------+
-|  LLM receives prompt    |  <- model set by --model flag or KDEPS_AGENT_MODEL
-|  + tool registry        |  <- one tool per actionId in workflow.yaml
-+-------------------------+
-        |  LLM decides to call tool "fetch"
-        v
-+-------------------------+
-|  kdeps runs resource    |  <- tool args become get('key') inside the resource
-|  actionId: fetch        |
-+-------------------------+
-        |  result returned to LLM
-        v
-+-------------------------+
-|  LLM continues loop     |  <- may call more tools or produce final answer
-+-------------------------+
-        |
-        v
-   final answer printed
+```mermaid
+flowchart TD
+    A([user prompt]) --> B
+    B["LLM receives prompt<br/><small>model + tool registry &#40;one tool per actionId&#41;</small>"] -->|LLM decides to call tool 'fetch'| C
+    C["kdeps runs resource<br/><small>actionId: fetch<br/>tool args become get&#40;'key'&#41;</small>"] -->|result returned to LLM| D
+    D{"more tools<br/>needed?"} -->|yes| C
+    D -->|no| E
+    E([final answer])
 ```
 
 The same workflow.yaml runs in both modes. `kdeps run` is unchanged -- agent mode is additive.

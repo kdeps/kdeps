@@ -76,15 +76,10 @@ kdeps run my-agency/agency.yaml
 
 The `agent:` resource type is like calling a function where the function is an entire workflow. kdeps runs the target agent's full pipeline and returns its `apiResponse.response` as the output of the calling resource.
 
-```
-calling agent                         target agent
-+---------------------+               +---------------------+
-|  actionId: draft    |               |  workflow.yaml      |
-|  agent:             |  -- params -> |  name: summariser   |
-|    name: summariser |               |  resources/...      |
-|    params:          | <- output --- |  apiResponse: ...   |
-|      text: ...      |               +---------------------+
-+---------------------+
+```mermaid
+flowchart LR
+    A["calling agent<br/><small>actionId: draft<br/>agent: name: summariser<br/>params: text: ...</small>"] -->|params| B
+    B["target agent<br/><small>workflow.yaml<br/>name: summariser<br/>resources/...<br/>apiResponse: ...</small>"] -->|output| A
 ```
 
 ```yaml
