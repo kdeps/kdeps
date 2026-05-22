@@ -56,7 +56,7 @@ Error: Preflight check failed: validation expression error: ...
 A check expression contains a syntax error or references an undefined variable.
 
 Fix: validate the expression syntax. Common causes:
-- Unclosed `{{ }}` braces
+- Unclosed <span v-pre>`{{ }}`</span> braces
 - Misspelled function names (`get` not `Get`, `len` not `length`)
 - Referencing a key that doesn't exist without a nil check
 
