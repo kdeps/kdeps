@@ -21,7 +21,39 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default withMermaid(defineConfig({
+export default withMermaid({
+  mermaid: {
+    theme: 'base',
+    themeVariables: {
+      // backgrounds
+      background:       '#0d0d0d',
+      mainBkg:          '#141414',
+      nodeBorder:       '#2a2a2a',
+      clusterBkg:       '#111111',
+      clusterBorder:    '#2a2a2a',
+      // text
+      primaryTextColor: '#e0e0e0',
+      secondaryTextColor: '#a0a0a0',
+      tertiaryTextColor: '#a0a0a0',
+      // edges
+      lineColor:        '#00E5FF',
+      edgeLabelBackground: '#141414',
+      // special nodes
+      primaryColor:     '#141414',
+      primaryBorderColor: '#00E5FF',
+      secondaryColor:   '#1a1a1a',
+      secondaryBorderColor: '#2a2a2a',
+      tertiaryColor:    '#111111',
+      tertiaryBorderColor: '#2a2a2a',
+      // flowchart
+      fillType0: '#141414',
+      fillType1: '#1a1a1a',
+      // font
+      fontFamily:       'JetBrains Mono, monospace',
+      fontSize:         '13px',
+    }
+  },
+  ...defineConfig({
   title: 'KDeps',
   description: 'AI agents in YAML. Orchestrate LLMs, databases, and APIs without glue code.',
 
@@ -223,4 +255,4 @@ export default withMermaid(defineConfig({
       __VUE_OPTIONS_API__: false
     }
   }
-}))
+  })})
