@@ -4,6 +4,8 @@ Every function available in kdeps expressions -- usable in any field that suppor
 
 ## Core Functions
 
+The four functions used in almost every resource: read data, write data, access uploaded files, and read request metadata.
+
 ### get(key, typeHint?)
 Retrieves data from any source.
 
@@ -57,6 +59,8 @@ info('clientIp')             # Get client IP
 
 ## Data Handling Functions
 
+Utilities for converting, inspecting, and safely traversing data structures.
+
 ### json(data)
 Converts data to a JSON string.
 
@@ -101,6 +105,8 @@ default(get('limit'), 10)    # Return 10 if limit is missing
 
 ## Input/Output Functions
 
+Explicit accessors for request inputs and resource outputs -- use these when `get()` auto-detection is ambiguous.
+
 ### input(name, type?)
 Accesses input data (similar to `get` but strictly for inputs).
 
@@ -125,6 +131,8 @@ output('llmResource')        # Get LLM output
 
 ## Iteration Functions
 
+Available inside `items:` blocks to access the state of the current loop iteration.
+
 ### item(type?)
 Accesses current iteration context.
 
@@ -138,6 +146,8 @@ item('count')                # Total items count
 ```
 
 ## Session Functions
+
+Access session-scoped data set with `set('key', val, 'session')` in any resource.
 
 ### session()
 Returns the entire session data object.

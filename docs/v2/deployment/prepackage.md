@@ -143,7 +143,7 @@ chmod +x my-agent-1.0.0-linux-amd64
 my-agent-1.0.0-windows-amd64.exe
 ```
 
-The port configured in `settings.apiServer.portNum` (default 16395) is automatically used:
+The port configured in `workflow.yaml` under `settings.apiServer.portNum` (default 16395) is automatically used:
 
 ```bash
 curl http://localhost:16395/api/chat -d '{"message":"Hello"}'

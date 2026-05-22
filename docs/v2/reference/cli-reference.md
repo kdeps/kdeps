@@ -40,9 +40,8 @@ kdeps run workflow.yaml
 # Enable debug with JSON
 KDEPS_LOG_FORMAT=json kdeps run workflow.yaml --debug
 ```
-- Diagnosing performance bottlenecks
 
-Use `--debug` in combination with `--verbose` for maximum detail.
+Use `--debug` in combination with `--verbose` for maximum detail, including diagnosing performance bottlenecks.
 
 ## Commands
 
