@@ -2,9 +2,16 @@
   Copyright 2026 Kdeps, KvK 94834768
   Licensed under the Apache License, Version 2.0
 -->
+<script setup>
+import workflowSvg from './d2/cap-workflow.svg?raw'
+import agentSvg from './d2/cap-agent.svg?raw'
+import agencySvg from './d2/cap-agency.svg?raw'
+</script>
+
 <template>
   <section class="capabilities">
     <div class="container">
+      <p class="section-eyebrow">run modes</p>
       <h2 class="section-title">Three ways to run</h2>
       <p class="section-sub">Workflows, agents, and agencies — all from the same YAML.</p>
 
@@ -13,16 +20,7 @@
           <div class="col-badge workflow">workflow</div>
           <h3>Deterministic pipelines</h3>
           <p>Resources run in DAG order defined by <code>requires:</code>. Every request takes the same path. Predictable, auditable, ships to production.</p>
-          <div class="diagram">
-            <pre class="d2">
-direction: down
-A: Request
-B: validate
-C: llm
-D: apiResponse
-A -> B -> C -> D
-</pre>
-          </div>
+          <div class="diagram" v-html="workflowSvg" />
           <div class="cmd"><span class="prompt">$</span> kdeps run workflow.yaml</div>
           <a href="/modes/workflow-mode" class="learn">Learn more -></a>
         </div>
@@ -31,19 +29,7 @@ A -> B -> C -> D
           <div class="col-badge agent">agent</div>
           <h3>Autonomous LLM loop</h3>
           <p>The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. No wiring required.</p>
-          <div class="diagram">
-            <pre class="d2">
-direction: down
-A: Prompt
-B: LLM
-C: Tools
-A -> B
-B -> C: decides
-C -> B: result
-B -> D: answer
-D: Response
-</pre>
-          </div>
+          <div class="diagram" v-html="agentSvg" />
           <div class="cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
           <a href="/modes/agent-mode" class="learn">Learn more -></a>
         </div>
@@ -52,19 +38,7 @@ D: Response
           <div class="col-badge agency">agency</div>
           <h3>Multi-agent orchestration</h3>
           <p>One agent calls another via the <code>agent:</code> resource type. Compose agents like functions — each runs independently, results flow back.</p>
-          <div class="diagram">
-            <pre class="d2">
-direction: down
-A: Caller
-B: Summariser
-C: Translator
-D: Response
-A -> B
-B -> C: agent:
-C -> B: result
-B -> D
-</pre>
-          </div>
+          <div class="diagram" v-html="agencySvg" />
           <div class="cmd"><span class="prompt">$</span> kdeps run agency.yaml</div>
           <a href="/concepts/agency" class="learn">Learn more -></a>
         </div>
@@ -80,12 +54,22 @@ B -> D
 }
 
 .container {
-  max-width: 1024px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
 .section-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
@@ -112,7 +96,12 @@ B -> D
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
 }
+
+.col:nth-child(1):hover { border-color: rgba(255, 214, 10, 0.25); transform: translateY(-2px); }
+.col:nth-child(2):hover { border-color: rgba(0, 229, 255, 0.25); transform: translateY(-2px); }
+.col:nth-child(3):hover { border-color: rgba(255, 45, 120, 0.25); transform: translateY(-2px); }
 
 .col-badge {
   font-family: var(--vp-font-family-mono);
@@ -157,21 +146,35 @@ B -> D
 }
 
 .diagram {
-  background: rgba(0, 0, 0, 0.25);
+  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 2px;
   padding: 12px;
   overflow-x: auto;
 }
 
-.d2 {
-  font-family: var(--vp-font-family-mono);
-  font-size: 10px;
-  line-height: 1.5;
-  color: rgba(200, 204, 232, 0.5);
-  margin: 0;
-  white-space: pre;
+.diagram :deep(.fill-N7) {
+  fill: transparent !important;
 }
+
+.diagram :deep(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* per-column accent color overrides to match badge palette */
+.col:nth-child(1) .diagram :deep(.stroke-B1) { stroke: rgba(255, 214, 10, 0.6) !important; }
+.col:nth-child(1) .diagram :deep(.fill-B1)   { fill: rgba(255, 214, 10, 0.6) !important; }
+.col:nth-child(1) .diagram :deep(.fill-B6)   { fill: rgba(255, 214, 10, 0.06) !important; }
+
+.col:nth-child(2) .diagram :deep(.stroke-B1) { stroke: rgba(0, 229, 255, 0.6) !important; }
+.col:nth-child(2) .diagram :deep(.fill-B1)   { fill: rgba(0, 229, 255, 0.6) !important; }
+.col:nth-child(2) .diagram :deep(.fill-B6)   { fill: rgba(0, 229, 255, 0.06) !important; }
+
+.col:nth-child(3) .diagram :deep(.stroke-B1) { stroke: rgba(255, 45, 120, 0.6) !important; }
+.col:nth-child(3) .diagram :deep(.fill-B1)   { fill: rgba(255, 45, 120, 0.6) !important; }
+.col:nth-child(3) .diagram :deep(.fill-B6)   { fill: rgba(255, 45, 120, 0.06) !important; }
 
 .cmd {
   font-family: var(--vp-font-family-mono);
