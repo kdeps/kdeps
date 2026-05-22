@@ -78,9 +78,10 @@ kdeps serve <path> [flags]
 **Examples:**
 
 ```bash
-kdeps serve workflow.yaml
-kdeps serve workflow.yaml --model mistral
-kdeps serve workflow.yaml --system "You are a helpful assistant."
+kdeps serve ./my-agent/                                       # one tool: metadata.name
+kdeps serve ./agents/                                         # all workflows in folder
+kdeps serve ./my-agent/ --model mistral
+kdeps serve ./agents/ --system "You are a helpful assistant."
 ```
 
 See [Agent Mode](/modes/agent-mode) for full details.

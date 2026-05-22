@@ -134,16 +134,17 @@ flowchart TD
 
 ## Try agent mode
 
-Run the workflow as a tool in an interactive LLM loop. The whole workflow runs as a single tool -- the LLM calls it by name (`my-agent`), the full pipeline executes, and the result comes back.
+Run the workflow as a tool in an interactive LLM loop. The tool name is `my-agent` (from `metadata.name`). The LLM calls `my-agent`, the full pipeline executes, and the result comes back.
 
 ```bash
-kdeps serve workflow.yaml
+# Serve the current project directory -- registers one tool named "my-agent"
+kdeps serve .
 
-# or point at a folder to expose every workflow inside as a separate tool
+# Point at a folder to expose every workflow inside as separate tools
 kdeps serve ./agents/
 ```
 
-The agent REPL starts. Type a prompt and the LLM calls your resources as needed.
+The agent REPL starts. Type a prompt and the LLM calls your workflow tools as needed.
 
 ## See Also
 
