@@ -154,41 +154,47 @@ kdeps doctor  # check config, Ollama, Python, installed agents
 # ~/.kdeps/config.yaml
 llm:
   backend: ollama           # ollama, openai, anthropic, groq, ...
-  openai_api_key: sk-...
+  openai_api_key: sk-...    # only needed for the relevant backend
 
 defaults:
   timezone: UTC
   python_version: "3.12"
 
-resource_defaults:
+resource_defaults:          # applied to every resource of that type
   chat:
-    timeout: 60s
+    timeout: 60s            # hard stop per LLM call
     context_length: 4096
   http:
     timeout: 30s
 ```
 
-Per-agent config overrides: add a key under `agents.<workflow-name>` to override globals for that agent only.
+Per-agent config overrides: add an `agents:` block keyed by the workflow name to override globals for that agent only:
+
+```yaml
+agents:
+  my-agent:          # matches metadata.name in workflow.yaml
+    llm:
+      backend: openai
+      openai_api_key: sk-...
+```
 
 Config is validated on load. Warnings go to stderr for unknown keys, missing API keys, invalid durations, and agent profiles that don't match any installed workflow.
 
 ## Security
 
-Configure under `settings.apiServer` in your `workflow.yaml`:
-
 ```yaml
 settings:
   apiServer:
     auth:
-      token: "your-secret-token"     # require Bearer or X-Api-Key header
+      token: "your-secret-token"     # require Bearer or X-Api-Key header; omit to disable
     rateLimit:
-      requestsPerMinute: 60
-      burst: 10
-    maxBodyBytes: 1048576            # 1 MB request body cap
+      requestsPerMinute: 60          # sustained per-IP rate; excess gets 429
+      burst: 10                      # burst allowance above the sustained rate
+    maxBodyBytes: 1048576            # 1 MB request body cap; 413 if exceeded
     cors:
       allowOrigins:
         - https://myapp.com
-    certFile: /path/to/cert.pem     # TLS
+    certFile: /path/to/cert.pem      # TLS -- omit for plain HTTP
     keyFile: /path/to/key.pem
 ```
 
