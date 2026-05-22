@@ -12,6 +12,7 @@ import (
 
 	"github.com/kdeps/kdeps/v2/pkg/agent"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
@@ -100,6 +101,7 @@ func runServeCmd(path string, flags *serveFlags) error {
 				return fmt.Errorf("serve: failed to load %s: %w", p, loadErr)
 			}
 			registry.Register(tools.AgentToolDef(wf, eng))
+			registerComponentTools(registry, wf, eng)
 		}
 	} else {
 		wf, loadErr := ParseWorkflowFile(absPath)
@@ -108,6 +110,7 @@ func runServeCmd(path string, flags *serveFlags) error {
 		}
 		hostWorkflow = wf
 		registry.Register(tools.AgentToolDef(wf, eng))
+		registerComponentTools(registry, wf, eng)
 	}
 
 	cfg := agent.Config{
@@ -153,6 +156,20 @@ func newMinimalHostWorkflow() *domain.Workflow {
 			Name:    "agent",
 			Version: "1.0.0",
 		},
+	}
+}
+
+// registerComponentTools registers each component from wf as a callable tool.
+func registerComponentTools(registry *tools.Registry, wf *domain.Workflow, eng *executor.Engine) {
+	if len(wf.Components) == 0 {
+		return
+	}
+	comps := make([]*domain.Component, 0, len(wf.Components))
+	for _, c := range wf.Components {
+		comps = append(comps, c)
+	}
+	for _, t := range tools.ComponentToolDefs(comps, wf, eng) {
+		registry.Register(t)
 	}
 }
 
