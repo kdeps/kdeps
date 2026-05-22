@@ -301,6 +301,35 @@ settings:
 
 ## Security
 
+Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
+
+```
+incoming request
+        |
+        v
++---------------------+
+|  auth check         |  <- 401 if Bearer/X-Api-Key wrong or missing
++---------------------+
+        |
+        v
++---------------------+
+|  rate limit         |  <- 429 if over requestsPerMinute + burst
++---------------------+
+        |
+        v
++---------------------+
+|  body size check    |  <- 413 if body exceeds maxBodyBytes
++---------------------+
+        |
+        v
++---------------------+
+|  concurrency cap    |  <- 503 if over maxConcurrent in-flight requests
++---------------------+
+        |
+        v
+   workflow DAG
+```
+
 ### Authentication
 
 Protect the API server with a shared secret. When `auth.token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.

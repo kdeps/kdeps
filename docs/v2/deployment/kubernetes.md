@@ -139,23 +139,23 @@ spec:
           value: "production"
         resources:
           limits:
-            cpu: "1000m"
-            memory: "1Gi"
+            cpu: "1000m"    # hard cap -- container is throttled at this limit
+            memory: "1Gi"   # hard cap -- container is OOM-killed if exceeded
           requests:
-            cpu: "250m"
-            memory: "256Mi"
-        readinessProbe:
+            cpu: "250m"     # guaranteed allocation used for scheduling
+            memory: "256Mi" # guaranteed allocation used for scheduling
+        readinessProbe:     # traffic is held until this passes
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-        livenessProbe:
+          initialDelaySeconds: 10  # wait 10s after start before first probe
+          periodSeconds: 10        # re-probe every 10s
+        livenessProbe:      # container is restarted if this fails
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 30
+          initialDelaySeconds: 30  # longer grace period than readiness
+          periodSeconds: 30        # re-probe every 30s
 ```
 
 ### Service
