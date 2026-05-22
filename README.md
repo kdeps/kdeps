@@ -79,25 +79,27 @@ KDEPS_AGENT_BACKEND=anthropic
 
 ## Agencies
 
-Multiple agents collaborating. Each agent is a separate workflow; the `agent:` resource type calls another agent by name and passes parameters.
+Multiple agents collaborating. Each agent is a separate workflow; the `agent:` resource type hands off to another agent by name.
+
+Example: a marketing pipeline where one agent drafts a blog post and another schedules it for publishing.
 
 ```yaml
 # resources/pipeline.yaml
-actionId: analyze
+actionId: draft
 agent:
-  name: code-reviewer
+  name: content-writer
   params:
-    code: "{{ get('source') }}"
+    topic: "{{ get('topic') }}"
 
 ---
-actionId: report
-requires: [analyze]
+actionId: publish
+requires: [draft]
 agent:
-  name: report-writer
+  name: cms-publisher
   params:
-    findings: "{{ output('analyze') }}"
+    content: "{{ output('draft') }}"
 apiResponse:
-  response: "{{ output('report') }}"
+  response: "{{ output('publish') }}"
 ```
 
 Run an agency:
