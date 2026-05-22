@@ -2,7 +2,7 @@
 
 ## The AI Appliance Model
 
-Chat AIs (Claude, Gemini, ChatGPT) and their CLI and MCP extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
+Chat AIs (Claude, Gemini, ChatGPT) and their extensions are tools you operate. You prompt them, they respond, the session ends. They are powerful, but they are not something you ship.
 
 kdeps is an **AI appliance builder**. You define what the agent does, bundle it, and deploy it as a self-contained unit. It exposes an HTTP API, runs on a schedule, responds to bot messages, or processes files - without a human in the loop, without a chat session, without anyone prompting it.
 
