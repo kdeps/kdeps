@@ -137,19 +137,9 @@ kdeps serve workflow.yaml
 
 The agent REPL starts. Type a prompt and the LLM calls your resources as needed.
 
-## Try MCP mode
-
-Expose your resources as MCP tools for Claude Desktop or Cursor:
-
-```bash
-kdeps mcp
-```
-
-Then configure your MCP client to use `kdeps mcp` as the server command.
-
 ## Next steps
 
-- [Three Modes](/modes/workflow-mode) - Understand workflow, agent, and MCP modes
+- [Modes](/modes/workflow-mode) - Understand workflow and agent modes
 - [Workflow Configuration](../configuration/workflow) - Full `workflow.yaml` reference
 - [Resources Overview](../resources/overview) - All resource types
 - [CLI Reference](../reference/cli-reference) - All commands and flags

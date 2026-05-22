@@ -22,44 +22,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// WorkflowToolDef registers the entire workflow as a single callable Tool.
-// The tool name is workflow.metadata.name; calling it runs the full DAG.
-func WorkflowToolDef(workflow *domain.Workflow, eng *executor.Engine) *Tool {
-	desc := workflow.Metadata.Name
-	if workflow.Metadata.Description != "" {
-		desc = workflow.Metadata.Description
-	}
-	return &Tool{
-		Name:        workflow.Metadata.Name,
-		Description: desc,
-		Parameters: map[string]domain.ToolParam{
-			"input": {
-				Type:        "string",
-				Description: "Input passed to the workflow via get('input').",
-				Required:    false,
-			},
-		},
-		Execute: func(args map[string]interface{}) (string, error) {
-			query := make(map[string]string, len(args))
-			body := make(map[string]interface{}, len(args))
-			for k, v := range args {
-				query[k] = fmt.Sprintf("%v", v)
-				body[k] = v
-			}
-			reqCtx := &executor.RequestContext{
-				Method: "POST",
-				Query:  query,
-				Body:   body,
-			}
-			result, err := eng.Execute(workflow, reqCtx)
-			if err != nil {
-				return "", err
-			}
-			return marshalResult(result), nil
-		},
-	}
-}
-
 // ResourceToolDefs wraps each resource in workflow as a callable Tool.
 // The tool name is the resource's actionId; arguments are forwarded as query
 // params and body fields so the resource can read them via get('key').

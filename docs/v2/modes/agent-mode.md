@@ -80,6 +80,5 @@ When the LLM calls a tool, kdeps creates a minimal single-resource workflow targ
 ## See also
 
 - [Workflow Mode](workflow-mode) - Deterministic DAG pipelines
-- [MCP Mode](mcp-mode) - Expose resources as MCP tools
 - [Tools](../concepts/tools) - Function calling in chat resources
 - [CLI Reference](../reference/cli-reference) - `kdeps serve` flags
