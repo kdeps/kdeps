@@ -1,6 +1,6 @@
 # API Response Resource
 
-The API Response resource formats the final output returned to API clients.
+`apiResponse:` builds and returns the HTTP response sent back to the caller. It is always the last resource in the dependency chain -- the resource pointed to by `targetActionId` in `workflow.yaml`.
 
 ## Basic Usage
 

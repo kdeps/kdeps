@@ -1,9 +1,6 @@
 # Installation
 
-KDeps requires minimal dependencies to get started. The only requirements are:
-
-- **KDeps CLI** - The command-line interface
-- **Docker** (optional) - Only needed for building container images
+Install the `kdeps` CLI to start building agents locally. Docker is optional -- only needed if you want to build container images for deployment.
 
 ## Installing KDeps CLI
 

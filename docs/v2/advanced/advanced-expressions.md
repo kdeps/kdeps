@@ -1,6 +1,6 @@
 # Advanced Expression Features
 
-KDeps expressions support advanced features beyond basic operators and functions, including array operations, type conversions, and utility functions.
+Expressions in kdeps give you array transforms, string utilities, type conversions, and date helpers on top of the basic operators. These are usable in any `before:`/`after:` block, `{{ }}` interpolation, or `validations.check` condition.
 
 ## Array Operations
 

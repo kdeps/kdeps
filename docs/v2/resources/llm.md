@@ -91,18 +91,14 @@ chat:
 
 ## Advanced Parameters
 
-- **temperature**: Controls randomness. Higher (e.g. 0.8) = more random, lower (e.g. 0.2) = more focused.
-- **maxTokens**: Maximum tokens to generate.
-- **topP**: Nucleus sampling - considers tokens with top_p probability mass.
-- **frequencyPenalty**: Penalizes repeated tokens, reducing verbatim repetition.
-- **presencePenalty**: Penalizes any token that has appeared, encouraging new topics.
-
 ```yaml
 chat:
   prompt: "Write a creative story"
-  temperature: 0.9
-  presencePenalty: 0.6
-  maxTokens: 500
+  temperature: 0.9      # 0.0 = deterministic, 1.0+ = more random/creative
+  maxTokens: 500        # hard cap on generated tokens; 0 = model default
+  topP: 0.9             # nucleus sampling -- lower = less diverse vocabulary
+  frequencyPenalty: 0.0 # penalises tokens repeated in the output (-2.0 to 2.0)
+  presencePenalty: 0.6  # penalises any token that appeared at all (-2.0 to 2.0)
 ```
 
 ## Context Length

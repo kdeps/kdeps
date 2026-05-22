@@ -2,6 +2,32 @@
 
 `workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`.
 
+## How the pieces fit together
+
+```
+incoming request
+        |
+        v
++---------------------+
+|  apiServer          |  <- HTTP server: TLS, auth, rate limit, routes
++---------------------+
+        |
+        v
++---------------------+
+|  resources/         |  <- DAG pipeline: chat, sql, http, python, exec
++---------------------+
+        |
+        v
++---------------------+
+|  apiResponse        |  <- terminal resource; builds the HTTP response
++---------------------+
+
+webServer (optional)  -- serves static files or proxies to a subprocess
+agentSettings         -- runtime: Python packages, OS packages, env vars
+sqlConnections        -- named DB connections used by sql: resources
+session               -- persists set('key', val, 'session') across requests
+```
+
 ## Basic structure
 
 ```yaml

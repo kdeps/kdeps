@@ -1,14 +1,8 @@
 # CORS Configuration
 
-Cross-Origin Resource Sharing (CORS) configuration allows you to control how the KDeps API Server handles cross-origin HTTP requests. By defining CORS settings, you can specify which origins, methods, and headers are allowed, ensuring secure and controlled access to your API resources.
-
-CORS settings are defined within the `apiServer` configuration under the `cors` block. These settings are particularly useful when your API is accessed by web applications hosted on different domains.
-
-**CORS is active whenever a `cors:` block is present.** If no `cors:` block is defined, KDeps uses permissive defaults (all origins, common methods, credentials allowed).
+CORS controls which browser origins can call your API. Set it inside the `cors:` block under `apiServer:`. If no `cors:` block is present, kdeps allows all origins with credentials enabled by default.
 
 ## Basic Configuration
-
-To configure CORS, you define the `cors` block inside the `apiServer` configuration:
 
 ```yaml
 settings:

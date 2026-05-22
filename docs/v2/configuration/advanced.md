@@ -1,7 +1,6 @@
 # Advanced Configuration
 
-This guide covers advanced configuration options for KDeps workflows.
-
+This reference covers security, rate limiting, trusted proxies, resource output caps, and other server-level settings that live in `workflow.yaml` under `settings:`.
 
 ## Request Object
 
@@ -301,6 +300,35 @@ settings:
 ```
 
 ## Security
+
+Every request passes through a chain of gates before reaching the workflow DAG. Each gate can reject the request with a specific status code.
+
+```
+incoming request
+        |
+        v
++---------------------+
+|  auth check         |  <- 401 if Bearer/X-Api-Key wrong or missing
++---------------------+
+        |
+        v
++---------------------+
+|  rate limit         |  <- 429 if over requestsPerMinute + burst
++---------------------+
+        |
+        v
++---------------------+
+|  body size check    |  <- 413 if body exceeds maxBodyBytes
++---------------------+
+        |
+        v
++---------------------+
+|  concurrency cap    |  <- 503 if over maxConcurrent in-flight requests
++---------------------+
+        |
+        v
+   workflow DAG
+```
 
 ### Authentication
 

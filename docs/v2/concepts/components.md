@@ -1,6 +1,6 @@
 # Components
 
-KDeps has two categories of components. Understanding the difference is important before reading anything else here.
+A component is a reusable resource bundle you call with `component:` in any resource. kdeps has two kinds: registry components you install with `kdeps registry install`, and custom components you build yourself in a `components/` directory.
 
 ## Types of Components
 

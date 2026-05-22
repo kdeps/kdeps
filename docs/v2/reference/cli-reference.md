@@ -1,10 +1,6 @@
 # CLI Reference
 
-Complete reference for all KDeps command-line interface commands.
-
-## Overview
-
-KDeps provides a simple CLI for creating, running, and deploying AI agents:
+The `kdeps` CLI creates, runs, tests, packages, and deploys agents. All commands follow the same structure:
 
 ```bash
 kdeps [command] [options]
@@ -44,9 +40,8 @@ kdeps run workflow.yaml
 # Enable debug with JSON
 KDEPS_LOG_FORMAT=json kdeps run workflow.yaml --debug
 ```
-- Diagnosing performance bottlenecks
 
-Use `--debug` in combination with `--verbose` for maximum detail.
+Use `--debug` in combination with `--verbose` for maximum detail, including diagnosing performance bottlenecks.
 
 ## Commands
 

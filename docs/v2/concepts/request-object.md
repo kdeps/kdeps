@@ -1,10 +1,6 @@
 # Request Object
 
-The `request` object provides access to HTTP request data and methods for working with uploaded files. It's available in all expressions and `expr` blocks.
-
-## Overview
-
-The `request` object is automatically available in expressions when running in API server mode. It provides both property access and method-based access to request data.
+The `request` object gives you direct access to the HTTP request -- method, path, headers, query params, body, and uploaded files. It is available in all expressions and `expr` blocks when running in workflow mode.
 
 ## Properties
 

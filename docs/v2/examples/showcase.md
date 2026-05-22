@@ -1,6 +1,18 @@
 # Real-World Workflows Showcase
 
-These examples demonstrate how complex agents can be built in ~20 lines of YAML with no custom code.
+These examples show how complex agents can be built in ~20 lines of YAML with no custom code. Each example is a complete workflow: POST a JSON body, get a structured JSON response.
+
+The pattern for all examples:
+
+```
+POST /api/v1/run  {"q": "...", ...other fields...}
+        |
+        v
+  chat resource reads fields via get('field')
+        |
+        v
+{"success": true, "response": {"data": {...structured output...}}}
+```
 
 Every agent shares the same entry point:
 

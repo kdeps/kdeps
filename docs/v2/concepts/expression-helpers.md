@@ -1,6 +1,6 @@
 # Expression Helper Functions
 
-KDeps provides several built-in helper functions beyond `get()` and `set()` for data manipulation and debugging in expressions.
+Expression helper functions give you safe nested-property access, null coalescing, JSON serialization, URL encoding, and conditionals -- the utilities you reach for after `get()` and `set()` are not enough.
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Example: Stateless Bot (stdin/stdout)
 
-A one-shot kdeps workflow that reads a bot message from stdin (or environment variables), runs an LLM, and writes the reply to stdout. Useful for cron jobs, CI pipelines, or custom integrations.
+This workflow runs in workflow mode (`kdeps run`) as a one-shot stdin/stdout bot -- reads a message from stdin (or an env var), calls an LLM, and writes the reply to stdout. Useful for cron jobs, CI pipelines, or custom integrations.
 
 ## Files
 
