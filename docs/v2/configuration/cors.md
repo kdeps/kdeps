@@ -188,7 +188,7 @@ settings:
       maxAge: "24h"
 ```
 
-## Related Documentation
+## See Also
 
 - [Workflow Configuration](workflow.md) - Full workflow settings reference
 - [API Server Settings](workflow.md#api-server-settings) - Complete API server configuration

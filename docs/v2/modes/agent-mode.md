@@ -94,7 +94,7 @@ When the LLM calls a tool, kdeps creates a minimal single-resource workflow targ
 | Resources | Run in declared order | Called as tools on demand |
 | Session | Single execution | Interactive REPL |
 
-## See also
+## See Also
 
 - [Workflow Mode](workflow-mode) - Deterministic DAG pipelines
 - [Tools](../concepts/tools) - Function calling in chat resources

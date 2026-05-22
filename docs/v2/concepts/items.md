@@ -428,7 +428,7 @@ items: filter(get('allItems'), .status == 'active')
 4. **Collect results appropriately** - Use the right data structure for results
 5. **Consider alternatives** - For large batches, Python may be more efficient
 
-## Next Steps
+## See Also
 
 - [Resources Overview](../resources/overview) - Resource configuration
 - [Expressions](/concepts/expressions) - Expression syntax

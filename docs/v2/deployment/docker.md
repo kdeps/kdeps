@@ -495,7 +495,7 @@ settings:
 
 See [Security](../configuration/advanced#security) for the full reference.
 
-## Next Steps
+## See Also
 
 - [Workflow Configuration](../configuration/workflow) - Agent settings
 - [WebServer Mode](webserver) - Serve frontends

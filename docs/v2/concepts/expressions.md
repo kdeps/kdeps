@@ -44,3 +44,8 @@ Expressions have access to the full [expr-lang standard library](https://expr-la
 - **Type casting**: `int()`, `float()`, `string()`, `bool()`
 
 kdeps adds workflow-specific helpers on top. See the [Expression Functions Reference](/reference/expression-functions-reference) for the full list.
+## See Also
+
+- [Expression Functions Reference](/reference/expression-functions-reference) - All kdeps-specific functions
+- [Expression Operators](/reference/expression-operators) - Comparison and logic operators
+- [Expression Blocks](/reference/expr-blocks) - `before:` / `after:` statement blocks

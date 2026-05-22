@@ -80,7 +80,7 @@ kdeps run workflow.yaml --interactive
 
 This opens a terminal REPL where you can send prompts and invoke tools interactively.
 
-## See also
+## See Also
 
 - [Workflow Configuration](../configuration/workflow) - Full `settings` reference
 - [Workflow Mode](../modes/workflow-mode) - How the request-response cycle works

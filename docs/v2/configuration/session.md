@@ -267,7 +267,7 @@ For multiple containers sharing sessions:
 - Implement logout by clearing session data
 - Set reasonable TTL to limit exposure
 
-## Next Steps
+## See Also
 
 - [Workflow Configuration](workflow.md) - Full settings reference
 - [Unified API](../concepts/unified-api.md) - get() and set() usage
