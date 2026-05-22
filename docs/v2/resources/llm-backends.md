@@ -2,6 +2,10 @@
 
 kdeps separates two concerns: which model to call (set in the resource file) and where to call it (set in `~/.kdeps/config.yaml`). This lets you switch backends without touching your workflow.
 
+## Where it runs
+
+Backend configuration applies to both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). All `chat:` resources in both modes resolve their backend from `~/.kdeps/config.yaml`.
+
 ## Model configuration
 
 Model is set per resource in `chat.model`:

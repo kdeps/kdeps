@@ -2,10 +2,14 @@
 
 The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that don't have a native resource type.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+
 ## Basic Usage
 
 ```yaml
-
+# resources/run.yaml
 actionId: execResource
 name: System Command
 exec:

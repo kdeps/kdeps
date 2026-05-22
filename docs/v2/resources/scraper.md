@@ -2,9 +2,14 @@
 
 The `scraper` executor is a native capability compiled into the `kdeps` binary. It fetches a URL and returns the text content, with optional CSS selector filtering.
 
+## Where it runs
+
+Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode it is auto-registered as a callable tool.
+
 ## Configuration
 
 ```yaml
+# resources/fetch.yaml
 scraper:
   url: "https://example.com"     # required
   selector: "article.content"    # optional CSS selector
