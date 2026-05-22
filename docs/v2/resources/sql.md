@@ -1,6 +1,6 @@
 # SQL Resource
 
-The SQL resource enables database queries with support for multiple database types, connection pooling, transactions, and batch operations.
+The `sql:` resource runs SQL queries against a named connection and returns the result set as the resource's output. Use it to read, write, or transact against any supported database.
 
 ## Basic Usage
 
@@ -408,14 +408,21 @@ apiResponse:
 - Use connection strings from environment in production
 
 ```yaml
-# Good - parameterized
+# Good -- parameterized; user input never touches the query string
 query: "SELECT * FROM users WHERE id = $1"
 params:
   - get('user_id')
+```
 
 **Bad - SQL injection risk**
-<span v-pre>`query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"`</span>
+
+<div v-pre>
+
+```yaml
+query: "SELECT * FROM users WHERE id = {{ get('user_id') }}"
 ```
+
+</div>
 
 ## Next Steps
 

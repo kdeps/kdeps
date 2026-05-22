@@ -1,15 +1,11 @@
 # Session Configuration
 
-Session storage enables persistent data storage across multiple requests for the same user.
-
-## Overview
-
-KDeps supports two session storage backends:
+Sessions let resources persist values across multiple requests from the same caller using `set('key', val, 'session')`. Configure the storage backend in `workflow.yaml` under `settings.session:`.
 
 | Type | Persistence | Use Case |
 |------|-------------|----------|
-| `sqlite` | Persistent (file-based) | Production, multi-container |
-| `memory` | In-memory only | Development, single instance |
+| `sqlite` | File-based, survives restart | Production, multi-container |
+| `memory` | In-memory only, lost on restart | Development, single instance |
 
 ## Configuration
 
@@ -24,23 +20,22 @@ settings:
 
 ## Session Types
 
-### SQLite (Recommended for Production)
+### SQLite (recommended for production)
+
+Persists to a file -- survives restarts and can be shared via a mounted volume.
 
 ```yaml
 settings:
   session:
     type: sqlite
-    path: "/data/sessions.db"   # Absolute or relative path
-    ttl: "24h"                  # 24 hour sessions
-    cleanupInterval: "1h"       # Cleanup hourly
+    path: "/data/sessions.db"   # absolute or relative path
+    ttl: "24h"                  # how long a session lives without activity
+    cleanupInterval: "1h"       # how often expired sessions are purged
 ```
 
-Benefits:
-- Survives container restarts
-- Can be shared across instances (with shared volume)
-- Reliable for production use
-
 ### Memory
+
+Fast (no disk I/O) but lost on restart. Use for development or single-instance setups.
 
 ```yaml
 settings:
@@ -49,15 +44,6 @@ settings:
     ttl: "30m"
     cleanupInterval: "5m"
 ```
-
-Benefits:
-- Fast (no disk I/O)
-- Simple (no external dependencies)
-- Good for development
-
-Limitations:
-- Lost on restart
-- Not shared across instances
 
 ## TTL (Time To Live)
 
@@ -104,6 +90,8 @@ chat:
 
 ### Login Session
 
+<div v-pre>
+
 ```yaml
 # Login resource
 metadata:
@@ -126,8 +114,10 @@ after:
 apiResponse:
   success: get('authenticated', 'session')
   response:
-    message: <span v-pre>"{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"</span>
+    message: "{{ get('authenticated', 'session') ? 'Login successful' : 'Invalid credentials' }}"
 ```
+
+</div>
 
 ### Protected Route
 

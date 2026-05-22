@@ -1,6 +1,6 @@
 # Example: Telegram LLM Bot
 
-A minimal ready-to-run kdeps workflow that connects a Telegram bot to a local Ollama LLM.
+This workflow runs in workflow mode (`kdeps run`) as a Telegram bot -- it polls for messages and replies with an Ollama LLM response. Two resources: `llm` calls the model, `reply` sends the answer back.
 
 ## Files
 

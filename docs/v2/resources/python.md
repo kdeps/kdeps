@@ -1,62 +1,35 @@
 # Python Resource
 
-The Python resource enables execution of Python scripts for data processing, ML inference, and custom logic.
+The `python:` resource runs a Python script and stores its stdout (parsed as JSON) as the resource's output.
 
-## Basic Usage
+## Complete reference
+
+<div v-pre>
 
 ```yaml
-
-actionId: pythonResource
-name: Data Processing
 python:
-  script: |
+  script: |                  # inline Python -- must print JSON to stdout
     import json
-    <span v-pre>data = {{ get('inputData') }}</span>
-    result = {"processed": len(data)}
-    print(json.dumps(result))
-  timeout: 60s
+    data = {{ get('inputData') }}
+    print(json.dumps({"processed": len(data)}))
 
-```
+  scriptFile: "./scripts/process.py"  # alternative: path to a .py file
 
-## Configuration Options
-
-```yaml
-python:
-  # Script content (inline)
-  script: |
-    print("Hello, World!")
-
-  # Or script file path
-  scriptFile: "./scripts/process.py"
-
-  # Command line arguments
-  args:
+  args:                      # command-line arguments passed to the script
     - "--input"
-    - <span v-pre>"{{ get('input_file') }}"</span>
+    - "{{ get('input_file') }}"
 
-
-  # Custom virtual environment name (for isolation)
-  # Each venvName creates a separate virtual environment
-  # Resources with the same venvName share the same environment
-  venvName: "my-project-env"
-
-  # Timeout
-  timeout: 60s
+  venvName: "my-project-env" # isolated venv -- resources sharing the same name share packages
+  timeout: 60s               # hard stop; non-zero exit code also counts as failure
 ```
 
-## Configuration Options
+</div>
 
-| Option | Description |
-|--------|-------------|
-| `script` | Inline Python code to execute. |
-| `scriptFile` | Path to a `.py` file to execute. |
-| `args` | List of command-line arguments. |
-| `venvName` | Name of the virtual environment to use. Defaults to "default". |
-| `timeout` | Maximum time allowed for execution. |
+`script` and `scriptFile` are mutually exclusive. The script must write valid JSON to stdout -- that output becomes `get('actionId')` for downstream resources.
 
 ## Inline Scripts
 
-Write Python code directly in YAML:
+<div v-pre>
 
 ```yaml
 python:
@@ -64,15 +37,10 @@ python:
     import json
     import pandas as pd
 
-    # Access input data
-    <span v-pre>raw_data = {{ get('httpResource') }}</span>
-
-    # Process with pandas
-
+    raw_data = {{ get('httpResource') }}
     df = pd.DataFrame(raw_data)
     summary = df.describe()
 
-    # Output result (must print JSON)
     result = {
         "rows": len(df),
         "columns": list(df.columns),
@@ -82,9 +50,11 @@ python:
   timeout: 120s
 ```
 
+</div>
+
 ## Script Files
 
-Reference external Python files:
+<div v-pre>
 
 ```yaml
 python:
@@ -93,10 +63,11 @@ python:
     - "--mode"
     - "analyze"
     - "--data"
-    - <span v-pre>"{{ get('data') }}"</span>
+    - "{{ get('data') }}"
   timeout: 60s
-
 ```
+
+</div>
 
 The script receives arguments via `sys.argv`:
 

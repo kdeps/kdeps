@@ -1,10 +1,10 @@
 # Route and Method Restrictions
 
-KDeps allows you to restrict resources to specific HTTP methods and routes using the `validations:` block.
+`validations:` gates which HTTP methods and routes can trigger a resource -- resources are skipped silently when the incoming request does not match.
 
 ## HTTP Method Restrictions
 
-Limit a resource to specific HTTP methods using `validations.methods:` in the resource file:
+Limit a resource to specific HTTP methods using `methods:` inside the `validations:` block:
 
 ```yaml
 actionId: createUser
@@ -20,7 +20,7 @@ sql:
         - "{{ get('email') }}"
 ```
 
-When `validations.methods` is set:
+When `methods:` is set inside `validations:`:
 - Resource only executes for matching HTTP methods
 - Mismatched methods skip the resource silently
 - Multiple methods can be specified
@@ -74,7 +74,7 @@ sql:
 
 ## Route Restrictions
 
-Limit a resource to specific URL routes using `validations.routes:` in the resource file:
+Limit a resource to specific URL routes using `routes:` inside the `validations:` block:
 
 ```yaml
 actionId: adminDashboard

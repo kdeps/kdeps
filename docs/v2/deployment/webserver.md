@@ -1,14 +1,23 @@
 # WebServer Mode
 
-WebServer mode enables serving static files and reverse proxying to web applications alongside your AI agent API.
+`webServer:` serves static files or proxies to a running subprocess alongside your API server. Use it to serve a React frontend, a Streamlit dashboard, or any other web app next to your agent API.
 
-## Overview
+## How routing works
 
-KDeps can serve:
-- **Static files** - HTML, CSS, JavaScript, images
-- **Single Page Applications** - React, Vue, Angular builds
-- **Reverse proxy** - Streamlit, Gradio, Django, Flask apps
-- **WebSocket connections** - Real-time applications
+Requests hit a single port. kdeps matches the path prefix and dispatches to the right handler.
+
+```
+incoming request  (e.g., port 16395)
+        |
+        +-- /api/v1/...  --> apiServer --> workflow DAG --> JSON response
+        |
+        +-- /app/...     --> subprocess on appPort (started on demand)
+        |                    proxy: GET /app/foo  ->  localhost:8501/foo
+        +-- /...         --> static files from publicPath
+                             404 if file not found
+```
+
+`apiServer` and `webServer` share the same port. Path prefix determines which handler fires.
 
 ## Basic Configuration
 

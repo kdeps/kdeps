@@ -1,14 +1,6 @@
 # Inline Resources
 
-Inline resources allow you to configure multiple LLM, HTTP, Exec, SQL, and Python resources to execute **before** or **after** the main resource within a single resource definition.
-
-## Overview
-
-Instead of creating separate resource files for preparatory or cleanup tasks, inline resources let you:
-- Execute tasks before the main resource runs
-- Perform post-processing after the main resource completes
-- Keep related operations organized in one place
-- Reduce boilerplate and improve readability
+Inline resources are full resource actions (chat, httpClient, sql, python, exec) placed directly inside a resource's `before:` or `after:` block. They run as part of that resource instead of requiring separate files.
 
 ## Basic Syntax
 
@@ -39,45 +31,38 @@ after:
 
 ## Supported Resource Types
 
-Each inline resource can be one of:
-
-- **chat**: LLM interaction (Ollama, OpenAI, Anthropic, etc.)
-- **httpClient**: HTTP requests
-- **sql**: Database queries
-- **python**: Python script execution
-- **exec**: Shell command execution
+Each inline resource can be: `chat`, `httpClient`, `sql`, `python`, or `exec`.
 
 ## Execution Order
 
-Resources with inline resources execute in the following order:
-
-1. **ExprBefore** expressions (if configured)
-2. **Before** inline resources (executed sequentially)
-3. **Main resource** (the primary resource type)
-4. **After** inline resources (executed sequentially)
-5. **Expr/ExprAfter** expressions (if configured)
-6. **APIResponse** formatting (if configured)
-
-Example:
-```yaml
-before:
-  - set('start_time', now())
-
-before:
-  - httpClient: { ... }  # Step 1
-  - exec: { ... }        # Step 2
-
-chat: { ... }            # Step 3 (main resource)
-
-after:
-  - sql: { ... }         # Step 4
-  - python: { ... }      # Step 5
-
-after:
-  - set('duration', now() - get('start_time'))
-
-apiResponse:
-  data: { ... }
+```
++-------------------+
+|  expression items |  <- bare set()/get() in before:
+|  in before:       |
++--------+----------+
+         |
+         v
++-------------------+
+|  inline resources |  <- httpClient, exec, etc. in before:
+|  in before:       |
++--------+----------+
+         |
+         v
++-------------------+
+|  main action      |  <- chat, sql, python, exec, etc.
++--------+----------+
+         |
+         v
++-------------------+
+|  inline resources |  <- httpClient, sql, etc. in after:
+|  in after:        |
++--------+----------+
+         |
+         v
++-------------------+
+|  expression items |  <- bare set()/get() in after:
+|  in after:        |
++-------------------+
 ```
 
 ## Common Use Cases

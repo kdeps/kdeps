@@ -1,10 +1,6 @@
 # Input Object
 
-The `input` object provides convenient property-based access to request body data. It's available in all expressions and `expr` blocks.
-
-## Overview
-
-The `input` object is automatically populated with the request body data, allowing you to access fields directly as properties instead of using `get()`.
+The `input` object is a property-style shorthand for request body fields. Instead of `get('field')`, you write `input.field`. It is automatically available in all expressions and `expr` blocks.
 
 ## Basic Usage
 

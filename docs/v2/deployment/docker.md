@@ -1,6 +1,6 @@
 # Docker Deployment
 
-KDeps can package your AI agent into optimized Docker images for production deployment.
+`kdeps bundle build` packages your workflow into a Docker image that starts an API server when run. No Dockerfile needed -- kdeps generates one from your `workflow.yaml`.
 
 ## Overview
 
@@ -27,11 +27,14 @@ This creates `myagent-1.0.0.kdeps` (name and version from workflow metadata).
 
 ### What's Included
 
-- `workflow.yaml` - Workflow configuration
-- `resources/` - All resource YAML files
-- `data/` - Data files and scripts
-- `requirements.txt` - Python dependencies (if present)
-- `public/` - Static files (if present)
+```
+myagent-1.0.0.kdeps
+├── workflow.yaml          # workflow entry point
+├── resources/             # all resource YAML files
+├── data/                  # data files and scripts
+├── requirements.txt       # Python dependencies (if present)
+└── public/                # static files (if present)
+```
 
 ## Building Docker Images
 

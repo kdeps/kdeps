@@ -1,6 +1,6 @@
 # Exec Resource
 
-The Exec resource enables execution of shell commands and scripts for system operations, file manipulation, and external tool integration.
+The `exec:` resource runs a shell command and stores its stdout as the resource's output. Use it for system operations, file manipulation, or wrapping CLI tools that don't have a native resource type.
 
 ## Basic Usage
 
@@ -338,13 +338,17 @@ settings:
 
 When using user input in commands, be careful about command injection:
 
+<div v-pre>
+
 ```yaml
-# Dangerous - command injection possible
-<span v-pre>`command: "echo {{ get('user_input') }}"`</span>
+# Dangerous -- command injection possible
+command: "echo {{ get('user_input') }}"
+```
 
+</div>
 
-# Safer - use Python for complex input handling
-# Or validate input first
+```yaml
+# Safer -- validate input before use
 validations:
   check:
     - get('user_input') matches '^[a-zA-Z0-9_-]+$'

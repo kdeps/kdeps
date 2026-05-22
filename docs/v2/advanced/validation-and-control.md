@@ -49,10 +49,7 @@ chat:
 
 ### How It Works
 
-- If **any** condition evaluates to `true`, the resource is skipped
-- Skipped resources don't execute and produce no output
-- Dependencies are still resolved (other resources can still reference it)
-- Use `get()` to access any data source
+Any true condition skips the resource silently -- it produces no output but its slot in the dependency graph still exists so downstream resources can reference it. Use `get()` to access any data source in skip conditions.
 
 ### Common Patterns
 
@@ -96,9 +93,7 @@ chat:
 
 ### How It Works
 
-- All `check` conditions must pass (AND logic)
-- If any condition fails, execution stops and the `error` is returned
-- Runs before any resource action executes
+All `check` conditions must pass (AND logic). If any one fails, execution stops immediately and the configured `error` is returned to the caller -- no LLM call, no HTTP request, no work done.
 
 ### Check Expressions
 
