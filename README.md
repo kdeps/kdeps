@@ -79,10 +79,13 @@ KDEPS_AGENT_BACKEND=anthropic
 
 ### MCP mode
 
-Exposes kdeps resources as MCP tools over stdio. Connect to Claude Desktop, Cursor, or any MCP-compatible client.
+Turns any workflow or agency into an MCP tool server. Every `actionId` in the workflow becomes a callable tool. Connect to Claude Desktop, Cursor, or any MCP-compatible client.
 
 ```bash
-kdeps mcp
+kdeps mcp workflow.yaml          # expose workflow resources as tools
+kdeps mcp ./my-agent/            # auto-discover workflow or agency in directory
+kdeps mcp agency.yaml            # expose all agents in an agency as tools
+kdeps mcp                        # built-in tools only (no workflow)
 ```
 
 Claude Desktop config:
@@ -90,15 +93,15 @@ Claude Desktop config:
 ```json
 {
   "mcpServers": {
-    "kdeps": {
+    "my-agent": {
       "command": "kdeps",
-      "args": ["mcp"]
+      "args": ["mcp", "/path/to/my-agent"]
     }
   }
 }
 ```
 
-Exposed tools include all built-in executors (python, exec, http, sql, scraper, browser, embedding, search) plus fformat utilities (JSON/YAML/CSV/XML validate, format, convert) and any installed components.
+Without a path, exposes built-in fformat utilities (JSON/YAML/CSV/XML validate, format, convert) only.
 
 ## Agencies
 

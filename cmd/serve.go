@@ -70,7 +70,14 @@ Environment variables (override defaults):
 		RunE: func(cmd *cobra.Command, args []string) error {
 			debugMode, _ := cmd.Flags().GetBool("debug")
 			flags.Debug = debugMode
-			return runServeCmd(args[0], flags)
+			resolved, cleanup, err := resolveMCPPath(args[0])
+			if err != nil {
+				return err
+			}
+			if cleanup != nil {
+				defer cleanup()
+			}
+			return runServeCmd(resolved, flags)
 		},
 	}
 
