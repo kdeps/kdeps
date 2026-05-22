@@ -333,16 +333,20 @@ div[class*='language-'] {
    MERMAID DIAGRAMS
    ===================================================== */
 .vp-doc .mermaid {
-  display: flex;
-  justify-content: center;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 28px 0;
+  text-align: center;
 }
 
 /* container svg */
 .vp-doc .mermaid svg {
   font-family: 'JetBrains Mono', monospace;
   max-width: 100%;
+  height: auto;
   border-radius: 2px;
+  display: inline-block;
 }
 
 /* all node rects/polygons */
@@ -405,4 +409,15 @@ div[class*='language-'] {
 .vp-doc .mermaid .cluster text {
   fill: #606060 !important;
   font-size: 11px !important;
+}
+
+@media (max-width: 640px) {
+  .vp-doc .mermaid svg {
+    font-size: 10px !important;
+  }
+  .vp-doc .mermaid text,
+  .vp-doc .mermaid .nodeLabel,
+  .vp-doc .mermaid .edgeLabel {
+    font-size: 10px !important;
+  }
 }

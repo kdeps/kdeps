@@ -16,20 +16,23 @@
             <h3>Deterministic pipelines</h3>
           </div>
           <p class="mode-desc">Resources run in DAG order defined by <code>requires:</code>. Every request takes the same path. Predictable, testable, auditable.</p>
-          <pre class="mode-diagram">POST /summarize
-      |
-      v
- +---------+
- |  fetch  |  httpClient
- +---------+
-      |
-      v
- +-----------+
- | summarize |  chat
- +-----------+
-      |
-      v
-  apiResponse</pre>
+
+          <div class="flow">
+            <div class="flow-node entry">POST /summarize</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node">
+              <span class="node-name">fetch</span>
+              <span class="node-type">httpClient</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node">
+              <span class="node-name">summarize</span>
+              <span class="node-type">chat</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node exit">apiResponse</div>
+          </div>
+
           <div class="mode-cmd"><span class="prompt">$</span> kdeps run workflow.yaml</div>
         </div>
 
@@ -40,23 +43,29 @@
             <h3>Autonomous LLM loop</h3>
           </div>
           <p class="mode-desc">The LLM decides which resources to call and in what order. Every resource auto-registers as a tool. Multi-step reasoning, no wiring required.</p>
-          <pre class="mode-diagram">stdin prompt
-      |
-      v
- +---------+
- |   LLM   |  plans steps
- +---------+
-   |  |  |
-   v  v  v
- http sql python  <-- tools
-      |
-      v
- +---------+
- |   LLM   |  synthesizes
- +---------+
-      |
-      v
-   response</pre>
+
+          <div class="flow">
+            <div class="flow-node entry">stdin prompt</div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node llm">
+              <span class="node-name">LLM</span>
+              <span class="node-type">plans steps</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-tools">
+              <div class="tool-node">http</div>
+              <div class="tool-node">sql</div>
+              <div class="tool-node">python</div>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node llm">
+              <span class="node-name">LLM</span>
+              <span class="node-type">synthesizes</span>
+            </div>
+            <div class="flow-arrow">↓</div>
+            <div class="flow-node exit">response</div>
+          </div>
+
           <div class="mode-cmd"><span class="prompt">$</span> kdeps serve workflow.yaml</div>
         </div>
       </div>
@@ -145,21 +154,82 @@
   color: #00E5FF;
 }
 
-.mode-diagram {
-  font-family: var(--vp-font-family-mono);
-  font-size: 11px;
-  line-height: 1.5;
-  color: rgba(200, 204, 232, 0.5);
-  background: rgba(0, 0, 0, 0.3);
+/* --- flowchart --- */
+.flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 2px;
-  padding: 12px 14px;
-  margin: 0;
-  white-space: pre;
-  overflow-x: auto;
+  padding: 16px 12px;
   flex: 1;
 }
 
+.flow-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 200px;
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  padding: 6px 12px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  color: rgba(200, 204, 232, 0.75);
+  text-align: center;
+}
+
+.flow-node.entry,
+.flow-node.exit {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.flow-node.llm {
+  border-color: rgba(0, 229, 255, 0.35);
+}
+
+.node-name {
+  color: rgba(200, 204, 232, 0.9);
+  font-weight: 500;
+}
+
+.node-type {
+  color: rgba(200, 204, 232, 0.35);
+  font-size: 10px;
+}
+
+.flow-arrow {
+  font-size: 14px;
+  color: var(--vp-c-brand-1);
+  line-height: 1;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.flow-tools {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+}
+
+.tool-node {
+  background: #141414;
+  border: 1px solid #2a2a2a;
+  border-radius: 2px;
+  padding: 4px 10px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  color: rgba(200, 204, 232, 0.55);
+}
+
+/* --- terminal command --- */
 .mode-cmd {
   font-family: var(--vp-font-family-mono);
   font-size: 12px;
@@ -179,6 +249,9 @@
 @media (max-width: 768px) {
   .modes {
     grid-template-columns: 1fr;
+  }
+  .modes-section {
+    padding: 48px 16px;
   }
 }
 </style>
