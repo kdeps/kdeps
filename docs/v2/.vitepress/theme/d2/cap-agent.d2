@@ -1,42 +1,9 @@
 direction: down
-vars: {
-  d2-config: {
-    sketch: false
-  }
-}
-style.fill: "#141414"
-style.stroke: "#2a2a2a"
-style.stroke-width: 1
-style.font-color: "#d0d0d0"
-style.font-size: 13
-style.border-radius: 2
-style.shadow: false
-
-A: Prompt {
-  style.stroke: "#00E5FF"
-  style.font-color: "#00E5FF"
-}
+A: Prompt
 B: LLM
-C: Tools {
-  style.stroke: "#FFD60A"
-  style.font-color: "#FFD60A"
-}
-D: Response {
-  style.stroke: "#00E5FF"
-  style.font-color: "#00E5FF"
-}
-
-A -> B {
-  style.stroke: "#00E5FF"
-}
-B -> C: decides {
-  style.stroke: "#00E5FF"
-  style.stroke-dash: 4
-}
-C -> B: result {
-  style.stroke: "#00E5FF"
-  style.stroke-dash: 4
-}
-B -> D: answer {
-  style.stroke: "#00E5FF"
-}
+C: Tools
+D: Response
+A -> B
+B -> C: decides
+C -> B: result
+B -> D: answer
