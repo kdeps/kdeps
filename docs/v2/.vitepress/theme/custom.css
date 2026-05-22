@@ -186,6 +186,52 @@
 }
 
 /* =====================================================
+   PAGE HEADINGS
+   H1 with bottom border separator; H2 sections with subtle divider.
+   ===================================================== */
+.vp-doc h1 {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+}
+
+.vp-doc h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 8px;
+  margin-top: 48px;
+}
+
+.vp-doc h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--vp-c-text-1);
+}
+
+/* =====================================================
+   LEAD PARAGRAPH
+   Prominent page intro text. Usage: ::: lead ... :::
+   ===================================================== */
+.vp-doc .custom-block.lead {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0 0 32px 0;
+}
+
+.vp-doc .custom-block.lead p {
+  font-size: 1.15em;
+  line-height: 1.75;
+  font-weight: 400;
+  color: var(--vp-c-text-2);
+  border: none;
+  margin: 0;
+}
+
+/* =====================================================
    CODE BLOCKS
    ===================================================== */
 .dark div[class*='language-'] {
@@ -200,9 +246,34 @@ div[class*='language-'] {
   border-radius: 2px;
 }
 
+/* Filename label (the [filename] syntax in VitePress code blocks) */
+div[class*='language-'] > span.lang,
 .vp-code-group .tabs label {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0.04em;
   border-radius: 0;
+}
+
+/* Code group tabs: active tab uses bottom border indicator, no background fill */
+.vp-code-group .tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0 12px;
+}
+
+.vp-code-group .tabs label {
+  padding: 8px 12px 10px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--vp-c-text-2);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.vp-code-group .tabs input:checked + label {
+  border-bottom-color: #00E5FF;
+  color: var(--vp-c-text-1);
 }
 
 /* =====================================================
@@ -219,25 +290,76 @@ div[class*='language-'] {
 
 /* =====================================================
    TABLES
+   Prominent header row, row separators, muted first-column labels.
    ===================================================== */
 .vp-doc table {
   display: table;
   width: 100%;
   border-collapse: collapse;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
 .dark .vp-doc th {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
   font-weight: 600;
-  color: var(--vp-c-text-1);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-2);
 }
 
 .dark .vp-doc tr {
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.dark .vp-doc tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .vp-doc td, .vp-doc th {
   padding: 10px 16px;
+}
+
+/* First column as a label: monospace, muted */
+.vp-doc td:first-child {
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.88em;
+  white-space: nowrap;
+}
+
+/* =====================================================
+   DEFINITION LISTS
+   Two-column grid: monospace muted label (dt) + full-color value (dd).
+   ===================================================== */
+.vp-doc dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 24px;
+  margin: 20px 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.vp-doc dt {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  letter-spacing: 0.03em;
+  padding: 3px 0;
+}
+
+.vp-doc dd {
+  font-size: 0.9em;
+  color: var(--vp-c-text-1);
+  padding: 3px 0;
+  margin: 0;
 }
 
 /* =====================================================
@@ -257,21 +379,37 @@ div[class*='language-'] {
 
 /* =====================================================
    CUSTOM CONTAINERS (tip / warning / danger / info)
-   Monochrome — only the tip block uses the cyan accent.
+   Solid bordered box with bg tint. Only tip uses the cyan accent.
    ===================================================== */
-.dark .custom-block {
+.custom-block {
   border-radius: 2px;
+  border-width: 1px;
+  border-style: solid;
+  padding: 12px 16px;
+}
+
+.custom-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .custom-block.tip    { border-color: var(--vp-c-brand-1); }
-.custom-block.warning { border-color: rgba(255, 255, 255, 0.35); }
+.custom-block.warning { border-color: rgba(255, 200, 0, 0.45); }
 .custom-block.danger  { border-color: rgba(220, 80, 80, 0.6); }
 .custom-block.info    { border-color: rgba(255, 255, 255, 0.18); }
 
 .dark .custom-block.tip     { background: rgba(0, 229, 255, 0.05); }
-.dark .custom-block.warning { background: rgba(255, 255, 255, 0.03); }
+.dark .custom-block.warning { background: rgba(255, 200, 0, 0.04); }
 .dark .custom-block.danger  { background: rgba(220, 80, 80, 0.05); }
 .dark .custom-block.info    { background: rgba(255, 255, 255, 0.03); }
+
+.custom-block.tip .custom-block-title    { color: #00E5FF; }
+.custom-block.warning .custom-block-title { color: rgba(255, 200, 0, 0.8); }
+.custom-block.danger .custom-block-title  { color: rgba(220, 80, 80, 0.9); }
+.custom-block.info .custom-block-title    { color: var(--vp-c-text-2); }
 
 /* =====================================================
    SIDEBAR
@@ -284,9 +422,46 @@ div[class*='language-'] {
   color: var(--vp-c-text-3);
 }
 
+/* Active sidebar item: cyan accent */
+.VPSidebarItem.is-active > .item .link .text {
+  color: #00E5FF !important;
+}
+
 .dark .VPSidebar {
   background: var(--vp-c-bg) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Sidebar section group spacing */
+.VPSidebarItem.level-0 {
+  padding-top: 20px;
+}
+
+.VPSidebarItem.level-0:first-child {
+  padding-top: 0;
+}
+
+/* Sidebar item hover */
+.VPSidebarItem .item .link:hover .text {
+  color: var(--vp-c-text-1) !important;
+}
+
+/* =====================================================
+   OUTLINE (On this page)
+   ===================================================== */
+.VPDocAsideOutline .outline-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+
+.VPDocOutlineItem.is-active > a {
+  color: #00E5FF !important;
+  border-left: 2px solid #00E5FF;
+  padding-left: 6px;
+  margin-left: -8px;
 }
 
 /* =====================================================
