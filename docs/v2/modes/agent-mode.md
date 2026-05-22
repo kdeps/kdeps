@@ -1,6 +1,6 @@
 # Agent Mode
 
-Agent mode (`kdeps serve`) starts an interactive LLM loop where whole workflows are registered as callable tools. The LLM decides which workflow to invoke based on the user's prompt, runs it as a complete pipeline, and synthesizes the result. Individual resources inside a workflow are never exposed as tools -- the whole workflow runs atomically so all `requires:` dependencies resolve correctly.
+Agent mode (`kdeps serve`) starts an interactive LLM loop where whole workflows and components are registered as callable tools. The LLM decides which tool to invoke based on the user's prompt. Workflow tools run the full pipeline atomically so all `requires:` dependencies resolve correctly. Component tools run a single reusable component in isolation. Individual resources are never exposed as tools directly.
 
 ## Single workflow vs folder
 
@@ -19,24 +19,27 @@ When you point to a folder, kdeps discovers every `workflow.yaml` and `agency.ya
 ```mermaid
 flowchart TD
     A([user prompt]) --> B
-    B["LLM receives prompt<br/><small>tool registry: one tool per workflow/agency</small>"] -->|LLM picks a workflow| C
-    C["kdeps runs full workflow pipeline<br/><small>all requires: deps resolve in order<br/>tool args become get&#40;'key'&#41; inside the workflow</small>"] -->|apiResponse returned to LLM| D
-    D{"more workflows<br/>needed?"} -->|yes| C
-    D -->|no| E
-    E([final answer])
+    B["LLM receives prompt<br/><small>tool registry: one tool per workflow/agency + one per component</small>"] -->|LLM picks a tool| C
+    C{"tool type?"} -->|workflow| D
+    C -->|component| E
+    D["kdeps runs full workflow pipeline<br/><small>all requires: deps resolve in order<br/>tool args become get&#40;'key'&#41; inside the workflow</small>"] -->|apiResponse returned to LLM| F
+    E["kdeps runs component in isolation<br/><small>inputs map to component interface fields</small>"] -->|result returned to LLM| F
+    F{"more tools<br/>needed?"} -->|yes| C
+    F -->|no| G
+    G([final answer])
 ```
 
-Why whole workflows? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order.
+Why whole workflows and not individual resources? A resource that calls `get('otherDep')` depends on an upstream resource having run first. If the LLM called that resource in isolation, the upstream data would be missing and the output would be wrong. Running the full workflow guarantees all dependencies execute in the correct order. Components are self-contained by design, so they can run independently as tools.
 
 ## Tool registration
 
 | `kdeps serve` target | Tools registered |
 |---|---|
-| `workflow.yaml` | One tool: `metadata.name` of that workflow |
-| `agency.yaml` | One tool per agent inside the agency |
-| `./folder/` | One tool per `workflow.yaml` and `agency.yaml` found recursively |
+| `workflow.yaml` | One workflow tool (`metadata.name`) + one tool per component defined in that workflow |
+| `agency.yaml` | One tool per agent inside the agency + their components |
+| `./folder/` | One workflow tool per `workflow.yaml` and `agency.yaml` found recursively + all components |
 
-Tool input schema is derived from the workflow's declared routes and validations. Tool output is the workflow's `apiResponse.response`.
+Workflow tool input is forwarded as `get('key')` request params inside the pipeline. Output is the workflow's `apiResponse.response`. Component tool inputs map to the component's declared interface fields.
 
 ## When to use agent mode
 
@@ -95,7 +98,7 @@ KDEPS_AGENT_BACKEND=openai KDEPS_AGENT_BASE_URL=https://api.openai.com \
 | Execution | DAG, deterministic | LLM loop, tool-driven |
 | Entry point | `metadata.targetActionId` | User prompt |
 | Unit of work | Individual resources | Whole workflows |
-| Tool granularity | N/A | One tool per workflow |
+| Tools exposed | N/A | One per workflow + one per component |
 | Input | `<path>` is a single workflow | `<path>` is a file or folder |
 
 ## See Also
