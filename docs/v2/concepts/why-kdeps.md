@@ -16,7 +16,7 @@ flowchart LR
     A --> C["kdeps serve<br/><small>agent mode<br/>interactive LLM loop<br/>tools on demand</small>"]
 ```
 
-Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which resources to call and in what order, using your workflow as a toolbox.
+Workflow mode is for production: inputs are validated, resources execute in a fixed order, output is predictable and auditable. Agent mode is for exploration: the LLM decides which workflows to call and in what order, with each workflow running as a complete pipeline.
 
 The same `workflow.yaml` works in both. You do not need to rewrite anything to switch.
 

@@ -10,7 +10,7 @@ Yes. kdeps is open source under the Apache 2.0 license. The CLI, engine, and all
 
 [Workflow mode](/modes/workflow-mode) (`kdeps run`) runs resources in a deterministic DAG order defined by [`requires`](/reference/glossary#requires) dependencies. You control exactly what runs and when.
 
-[Agent mode](/modes/agent-mode) (`kdeps serve`) registers all resources as tools and lets an LLM decide which to call in response to user prompts. The LLM drives execution dynamically.
+[Agent mode](/modes/agent-mode) (`kdeps serve`) registers whole workflows as tools and lets an LLM decide which to run in response to user prompts. Each workflow executes as a complete pipeline so all `requires:` dependencies resolve. Point at a single file for one tool, or a folder to expose every workflow inside as a separate tool.
 
 Use workflow mode when you know the pipeline upfront. Use agent mode when you want an interactive, conversational interface.
 

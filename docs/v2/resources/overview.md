@@ -4,7 +4,7 @@ A resource is a single step in a workflow. It has an ID, optional dependencies, 
 
 ## Where it runs
 
-All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, every resource is auto-registered as a callable tool -- the LLM decides which ones to invoke.
+All resource types work in both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode, resources execute as DAG steps ordered by `requires:`. In agent mode, whole workflows are registered as callable tools -- the LLM invokes a workflow as a unit, and all resource dependencies inside it resolve correctly.
 
 ## Resource Structure
 
