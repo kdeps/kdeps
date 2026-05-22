@@ -506,8 +506,11 @@ div[class*='language-'] > span.lang,
 
 /* =====================================================
    D2 DIAGRAMS
+   CSS overrides to match kdeps near-black + cyan palette.
+   D2 SVG uses utility classes (fill-N*, fill-B*, stroke-B*)
+   with no internal <style> block, so !important wins cleanly.
    ===================================================== */
-.vp-doc .d2 {
+.vp-doc .d2-diagram {
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -515,15 +518,47 @@ div[class*='language-'] > span.lang,
   text-align: center;
 }
 
-.vp-doc .d2 svg {
+.vp-doc .d2-diagram svg {
   max-width: 100%;
   height: auto;
   border-radius: 2px;
   display: inline-block;
 }
 
+/* Canvas background */
+.vp-doc .d2-diagram .fill-N7 { fill: #080808 !important; }
+
+/* Node fills: dark layers */
+.vp-doc .d2-diagram .fill-B6 { fill: #141414 !important; }
+.vp-doc .d2-diagram .fill-B5 { fill: #0f0f0f !important; }
+.vp-doc .d2-diagram .fill-B4 { fill: #111111 !important; }
+.vp-doc .d2-diagram .fill-B3 { fill: #1a1a1a !important; }
+.vp-doc .d2-diagram .fill-B2 { fill: #111111 !important; }
+
+/* Node borders: hairline */
+.vp-doc .d2-diagram .stroke-B1 {
+  stroke: #2a2a2a !important;
+  stroke-width: 1 !important;
+}
+
+/* Edges: cyan accent */
+.vp-doc .d2-diagram .connection.stroke-B1 {
+  stroke: #00E5FF !important;
+  stroke-width: 1.5 !important;
+}
+
+/* Arrowheads: cyan */
+.vp-doc .d2-diagram .connection.fill-B1 { fill: #00E5FF !important; }
+.vp-doc .d2-diagram .fill-B1           { fill: #2a2a2a !important; }
+
+/* Text hierarchy */
+.vp-doc .d2-diagram .fill-N1 { fill: #f0f0f0 !important; }
+.vp-doc .d2-diagram .fill-N2 { fill: #d0d0d0 !important; }
+.vp-doc .d2-diagram .fill-N3 { fill: #a0a0a0 !important; }
+.vp-doc .d2-diagram .fill-N4 { fill: #606060 !important; }
+.vp-doc .d2-diagram .fill-N5 { fill: #404040 !important; }
+.vp-doc .d2-diagram .fill-N6 { fill: #242424 !important; }
+
 @media (max-width: 640px) {
-  .vp-doc .d2 svg {
-    font-size: 11px !important;
-  }
+  .vp-doc .d2-diagram svg { font-size: 11px; }
 }
