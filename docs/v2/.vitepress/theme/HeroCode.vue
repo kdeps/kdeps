@@ -40,6 +40,7 @@ const files = [
       `  ${K('method')}${O(': ')}${S('GET')}`,
       `  ${K('url')}${O(': ')}${S('"{{ get(\'url\') }}"')}`,
       `  ${K('timeout')}${O(': ')}${S('10s')}`,
+      '', '', '', '', '', '', '', '',
     ].join('\n'),
   },
   {
@@ -52,6 +53,7 @@ const files = [
       `  ${K('prompt')}${O(': ')}${S('"Summarize: {{ output(\'fetch\').body }}"')}`,
       `${K('apiResponse')}${O(':')}`,
       `  ${K('response')}${O(': ')}${S('"{{ output(\'summarize\') }}"')}`,
+      '', '', '', '', '', '',
     ].join('\n'),
   },
 ]
@@ -108,7 +110,6 @@ const files = [
   line-height: 1.55;
   background: #070707;
   border: 1px solid rgba(255,255,255,0.08);
-  border-left: 2px solid var(--vp-c-brand-1);
   border-radius: 2px;
   overflow: hidden;
   width: 100%;
@@ -153,6 +154,7 @@ const files = [
 }
 
 .tab:hover { color: rgba(255,255,255,0.6); }
+.tab:focus-visible { outline: 1px solid rgba(0, 229, 255, 0.5); outline-offset: -2px; }
 .tab.active { color: rgba(255,255,255,0.85); border-bottom-color: var(--vp-c-brand-1); }
 
 .code-body {
@@ -161,7 +163,7 @@ const files = [
   color: #c8cce8;
   overflow-x: auto;
   white-space: pre;
-  min-height: 110px;
+  height: 260px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 

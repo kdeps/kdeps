@@ -111,14 +111,28 @@
   font-weight: 400;
 }
 
-/* Ensure the code window doesn't overflow and stacks correctly */
 .VPHero .container {
   display: flex;
   flex-direction: column;
   gap: 32px;
+  margin: 0 auto;
+  padding: 0 48px;
+  position: relative;
+  z-index: 1;
 }
 
 .VPHero .main {
+  width: 100%;
+}
+
+.VPHero .image {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.VPHero .image-container {
   width: 100%;
 }
 
@@ -127,9 +141,14 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    max-width: none;
+    padding: 0 64px;
   }
   .VPHero .main {
-    max-width: 580px;
+    flex: 1 1 auto;
+  }
+  .VPHero .image {
+    flex: 1 1 auto;
   }
   .VPHero .name    { font-size: 64px; }
   .VPHero .tagline { font-size: 24px; }
@@ -169,30 +188,17 @@
   z-index: 0;
 }
 
-.VPHero .container {
-  position: relative;
-  z-index: 1;
-}
-
-/* Hide default VitePress image when using home-hero-image slot for HeroCode */
-.VPHero .image {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-}
-
-.VPHero .image-container {
-  width: 100%;
-  max-width: 480px;
-}
-
 /* =====================================================
    BUTTONS
    ===================================================== */
+.VPHero .actions {
+  gap: 16px;
+}
+
 .VPButton {
   border-radius: 2px !important;
   font-weight: 600;
+  padding: 0 28px;
 }
 
 .VPButton.brand {

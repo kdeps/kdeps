@@ -5,6 +5,7 @@
 <template>
   <section class="how-it-works">
     <div class="container">
+      <p class="section-eyebrow">getting started</p>
       <h2 class="section-title">How it works</h2>
       <p class="section-sub">Three steps from idea to running AI API.</p>
 
@@ -52,8 +53,18 @@
   margin: 0 auto;
 }
 
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
 .section-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
@@ -80,11 +91,20 @@
 }
 
 .step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--vp-font-family-mono);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   color: var(--vp-c-brand-1);
+  flex-shrink: 0;
 }
 
 .step-body h3 {
