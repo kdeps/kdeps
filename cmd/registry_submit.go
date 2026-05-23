@@ -36,7 +36,7 @@ func newRegistrySubmitCmd() *cobra.Command {
 To publish a package:
   1. Tag a release in your GitHub repo (e.g. git tag v1.2.0 && git push --tags)
   2. Run kdeps registry submit --tag v1.2.0
-  3. Open a PR to https://github.com/kdeps-io/registry adding the printed formula
+  3. Open a PR to https://github.com/kdeps/registry adding the printed formula
      under formulas/<your-package-name>.yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +75,6 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 		)
 	}
 
-	version := strings.TrimPrefix(tag, "v")
 	tarbullURL := fmt.Sprintf("https://github.com/%s/archive/refs/tags/%s.tar.gz", githubRepo, tag)
 
 	hash, err := computeRemoteSHA256(tarbullURL)
@@ -97,7 +96,7 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 
 	f := formula{
 		Name:        m.Name,
-		Version:     version,
+		Version:     m.Version,
 		Type:        m.Type,
 		GitHub:      githubRepo,
 		Tarball:     tarbullURL,
@@ -115,7 +114,7 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 	}
 
 	w := cmd.OutOrStdout()
-	fmt.Fprintln(w, "# Save this as formulas/"+m.Name+".yaml in a PR to https://github.com/kdeps-io/registry")
+	fmt.Fprintln(w, "# Save this as formulas/"+m.Name+".yaml in a PR to https://github.com/kdeps/registry")
 	fmt.Fprintln(w)
 	fmt.Fprint(w, buf.String())
 	return nil
