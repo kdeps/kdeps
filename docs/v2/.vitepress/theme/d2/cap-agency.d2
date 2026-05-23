@@ -1,6 +1,9 @@
 direction: right
 A: Caller
-B: Agent A
-C: Agent B
+B: Summariser
+C: Translator
 D: Response
-A -> B -> C -> D
+A -> B
+B -> C: agent:
+C -> B: result
+B -> D
