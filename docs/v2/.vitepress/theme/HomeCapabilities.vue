@@ -153,28 +153,11 @@ import agencySvg from './d2/cap-agency.svg?raw'
   overflow-x: auto;
 }
 
-.diagram :deep(.fill-N7) {
-  fill: transparent !important;
-}
-
 .diagram :deep(svg) {
   display: block;
   width: 100%;
   height: auto;
 }
-
-/* per-column accent color overrides to match badge palette */
-.col:nth-child(1) .diagram :deep(.stroke-B1) { stroke: rgba(255, 214, 10, 0.6) !important; }
-.col:nth-child(1) .diagram :deep(.fill-B1)   { fill: rgba(255, 214, 10, 0.6) !important; }
-.col:nth-child(1) .diagram :deep(.fill-B6)   { fill: rgba(255, 214, 10, 0.06) !important; }
-
-.col:nth-child(2) .diagram :deep(.stroke-B1) { stroke: rgba(0, 229, 255, 0.6) !important; }
-.col:nth-child(2) .diagram :deep(.fill-B1)   { fill: rgba(0, 229, 255, 0.6) !important; }
-.col:nth-child(2) .diagram :deep(.fill-B6)   { fill: rgba(0, 229, 255, 0.06) !important; }
-
-.col:nth-child(3) .diagram :deep(.stroke-B1) { stroke: rgba(255, 45, 120, 0.6) !important; }
-.col:nth-child(3) .diagram :deep(.fill-B1)   { fill: rgba(255, 45, 120, 0.6) !important; }
-.col:nth-child(3) .diagram :deep(.fill-B6)   { fill: rgba(255, 45, 120, 0.06) !important; }
 
 .cmd {
   font-family: var(--vp-font-family-mono);
