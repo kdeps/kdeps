@@ -150,7 +150,7 @@ import agencySvg from './d2/cap-agency.svg?raw'
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 2px;
   padding: 12px;
-  height: 220px;
+  height: 800px;
   display: flex;
   align-items: center;
   justify-content: center;

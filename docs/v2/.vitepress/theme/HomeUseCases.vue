@@ -5,6 +5,7 @@
 <template>
   <section class="use-cases">
     <div class="container">
+      <p class="section-eyebrow">examples</p>
       <h2 class="section-title">What you can build</h2>
       <p class="section-sub">Real patterns from the examples directory. Every one is a working workflow.</p>
 
@@ -45,17 +46,27 @@
 
 <style scoped>
 .use-cases {
-  padding: 72px 24px 96px;
+  padding: 72px 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .container {
-  max-width: 1024px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
 .section-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
@@ -86,9 +97,14 @@
   transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-.card:hover {
+.card:has(.mode-tag:not(.agency-tag)):hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 229, 255, 0.3);
+  border-color: rgba(255, 214, 10, 0.25);
+}
+
+.card:has(.agency-tag):hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 45, 120, 0.25);
 }
 
 .card h3 {
@@ -99,7 +115,7 @@
 }
 
 .card p {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--vp-c-text-2);
   margin: 0;
@@ -125,7 +141,7 @@
 }
 
 @media (max-width: 768px) {
-  .use-cases { padding: 48px 16px 72px; }
+  .use-cases { padding: 48px 16px; }
   .cards { grid-template-columns: 1fr; }
 }
 </style>

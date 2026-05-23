@@ -5,6 +5,7 @@
 <template>
   <section class="comparison">
     <div class="container">
+      <p class="section-eyebrow">why kdeps</p>
       <h2 class="section-title">YAML replaces glue code</h2>
       <p class="section-sub">No Python scripts, no wiring, no boilerplate.</p>
 
@@ -63,8 +64,18 @@
   margin: 0 auto;
 }
 
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
 .section-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
@@ -98,6 +109,12 @@ th {
   color: var(--vp-c-text-2);
   padding: 12px 20px;
   text-align: left;
+}
+
+th:last-child {
+  color: var(--vp-c-text-1);
+  border-top: 2px solid rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.04);
 }
 
 td {

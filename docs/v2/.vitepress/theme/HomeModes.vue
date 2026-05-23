@@ -5,6 +5,7 @@
 <template>
   <section class="modes-section">
     <div class="container">
+      <p class="section-eyebrow">architecture</p>
       <h2 class="section-title">Two modes</h2>
       <p class="section-sub">Pick the one that fits the task. Mix them in an agency.</p>
 
@@ -84,8 +85,18 @@
   margin: 0 auto;
 }
 
+.section-eyebrow {
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+  margin: 0 0 10px;
+}
+
 .section-title {
-  font-size: 28px;
+  font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--vp-c-text-1);
