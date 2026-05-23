@@ -567,6 +567,152 @@ div[class*='language-'] > span.lang,
 }
 
 /* =====================================================
+   DOC FOOTER (edit link + last updated + prev/next)
+   ===================================================== */
+.VPDocFooter {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.edit-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.edit-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.edit-link-button:hover {
+  color: var(--vp-c-brand-1);
+}
+
+.VPLastUpdated {
+  font-size: 12px;
+  color: var(--vp-c-text-3);
+}
+
+.prev-next {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  background: var(--vp-c-bg-soft);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.pager-link:hover {
+  border-color: rgba(0, 229, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.pager-link.next {
+  text-align: right;
+}
+
+.pager-link .desc {
+  font-size: 11px;
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+}
+
+.pager-link .title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vp-c-text-1);
+}
+
+/* =====================================================
+   OUTLINE PANEL (non-active items)
+   ===================================================== */
+.VPDocOutlineItem a {
+  transition: color 0.15s;
+}
+
+.VPDocOutlineItem a:hover {
+  color: var(--vp-c-text-1) !important;
+}
+
+/* =====================================================
+   SIDEBAR - collapsible toggle animation
+   ===================================================== */
+.VPSidebarItem .caret-icon {
+  transition: transform 0.15s ease;
+}
+
+/* =====================================================
+   MOBILE LOCAL NAV
+   ===================================================== */
+.VPLocalNav {
+  background: rgba(8, 8, 8, 0.92) !important;
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.VPLocalNavOutlineDropdown summary {
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.VPLocalNavOutlineDropdown summary:hover {
+  color: var(--vp-c-text-1);
+}
+
+/* =====================================================
+   SEARCH BUTTON
+   ===================================================== */
+.VPNavBarSearch .DocSearch-Button {
+  border-radius: 2px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: border-color 0.15s;
+}
+
+.VPNavBarSearch .DocSearch-Button:hover {
+  border-color: rgba(0, 229, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.VPNavBarSearch .DocSearch-Button-Placeholder {
+  font-family: var(--vp-font-family-base);
+  font-size: 13px;
+  color: var(--vp-c-text-3);
+}
+
+.VPNavBarSearch .DocSearch-Button-Key {
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  color: var(--vp-c-text-3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+}
+
+/* =====================================================
    SCROLLBAR: thin, monochrome
    ===================================================== */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -649,3 +795,19 @@ div[class*='language-'] > span.lang,
 @media (max-width: 640px) {
   .vp-doc .d2-diagram svg { font-size: 11px; }
 }
+
+/* =====================================================
+   D2 DIAGRAMS ON LANDING PAGE (no .vp-doc wrapper)
+   Dark Mauve theme produces light SVGs — override to
+   match near-black palette.
+   ===================================================== */
+.capabilities .diagram svg .fill-N7 { fill: transparent !important; }
+.capabilities .diagram svg .fill-N1 { fill: #f0f0f0 !important; }
+.capabilities .diagram svg .fill-N2 { fill: #d0d0d0 !important; }
+.capabilities .diagram svg .fill-N3 { fill: #a0a0a0 !important; }
+.capabilities .diagram svg .fill-B6 { fill: #141414 !important; }
+.capabilities .diagram svg .stroke-B1 { stroke: #2a2a2a !important; }
+.capabilities .diagram svg .connection.stroke-B1 { stroke: #00E5FF !important; }
+.capabilities .diagram svg .connection.fill-B1 { fill: #00E5FF !important; }
+.capabilities .diagram svg .fill-B1 { fill: #2a2a2a !important; }
+.capabilities .diagram svg text.text-bold { fill: #f0f0f0 !important; }
