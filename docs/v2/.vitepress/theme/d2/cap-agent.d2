@@ -3,4 +3,7 @@ A: Prompt
 B: LLM
 C: Tools
 D: Response
-A -> B -> C -> D
+A -> B
+B -> C: decides
+C -> B: result
+B -> D: answer
