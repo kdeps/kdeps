@@ -150,7 +150,11 @@ import agencySvg from './d2/cap-agency.svg?raw'
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 2px;
   padding: 12px;
-  overflow-x: auto;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .diagram :deep(.fill-N7) {
@@ -159,8 +163,10 @@ import agencySvg from './d2/cap-agency.svg?raw'
 
 .diagram :deep(svg) {
   display: block;
-  width: 100%;
-  height: auto;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .cmd {
