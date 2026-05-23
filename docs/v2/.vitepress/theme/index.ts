@@ -27,7 +27,9 @@ import HomeBackends from './HomeBackends.vue'
 import HomeHowItWorks from './HomeHowItWorks.vue'
 import HomeCapabilities from './HomeCapabilities.vue'
 import HomeComparison from './HomeComparison.vue'
+import HomeRegistry from './HomeRegistry.vue'
 import HomeUseCases from './HomeUseCases.vue'
+import FooterCTAs from './FooterCTAs.vue'
 import './custom.css'
 
 export default {
@@ -41,12 +43,10 @@ export default {
         h(HomeBackends),
         h(HomeCapabilities),
         h(HomeComparison),
+        h(HomeRegistry),
         h(HomeUseCases),
       ],
-      'layout-bottom': () => h('div', { class: 'footer-ctas' }, [
-        h('a', { class: 'primary', href: '/getting-started/installation' }, 'Get Started'),
-        h('a', { class: 'secondary', href: 'https://github.com/kdeps/kdeps', target: '_blank' }, 'Star on GitHub'),
-      ]),
+      'layout-bottom': () => h(FooterCTAs),
     })
   }
 } satisfies Theme

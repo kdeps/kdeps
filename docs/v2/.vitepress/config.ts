@@ -41,6 +41,7 @@ export default defineConfig({
   cleanUrls: true,
 
   themeConfig: {
+    logo: '/kdeps-logo.png',
     siteTitle: false,
 
     nav: [

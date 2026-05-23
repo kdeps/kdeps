@@ -140,15 +140,16 @@
   .VPHero .container {
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
-    max-width: none;
-    padding: 0 64px;
+    justify-content: center;
+    gap: 64px;
+    max-width: 960px;
+    padding: 0 48px;
   }
   .VPHero .main {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
   }
   .VPHero .image {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
   }
   .VPHero .name    { font-size: 64px; }
   .VPHero .tagline { font-size: 24px; }
