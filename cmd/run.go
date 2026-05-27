@@ -46,7 +46,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	executorBotReply "github.com/kdeps/kdeps/v2/pkg/executor/botreply"
 	executorBrowser "github.com/kdeps/kdeps/v2/pkg/executor/browser"
+	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
 	executorEmbedding "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
 	executorHTTP "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -1394,6 +1396,8 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	registry.SetSearchWebExecutor(executorSearchWeb.NewAdapter())
 	registry.SetTelephonyExecutor(executorTelephony.NewAdapter())
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
+	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
+	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
 
 	ollamaURL := ollamaDefaultURL
 	if v := os.Getenv("OLLAMA_HOST"); v != "" {

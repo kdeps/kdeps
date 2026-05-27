@@ -101,6 +101,33 @@ func (e *Engine) executeExec(
 	return executor.Execute(ctx, resource.Exec)
 }
 
+// executeEmail executes an email resource.
+func (e *Engine) executeEmail(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeEmail")
+	if resource.Email == nil {
+		return nil, fmt.Errorf("resource %s has no email configuration", resource.ActionID)
+	}
+	exec := e.registry.GetEmailExecutor()
+	if exec == nil {
+		return nil, errors.New("email executor not available")
+	}
+	return exec.Execute(ctx, resource.Email)
+}
+
+// executeBotReply executes a botReply resource, sending the reply text to the
+// originating bot platform via the BotSend function set on the execution context.
+func (e *Engine) executeBotReply(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
+	kdeps_debug.Log("enter: executeBotReply")
+	if resource.BotReply == nil {
+		return nil, fmt.Errorf("resource %s has no botReply configuration", resource.ActionID)
+	}
+	exec := e.registry.GetBotReplyExecutor()
+	if exec == nil {
+		return nil, errors.New("botReply executor not available")
+	}
+	return exec.Execute(ctx, resource.BotReply)
+}
+
 // executeScraper executes a scraper resource.
 func (e *Engine) executeScraper(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScraper")

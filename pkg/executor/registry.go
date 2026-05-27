@@ -121,6 +121,8 @@ const (
 	ExecutorSearchWeb   = "searchWeb"
 	ExecutorTelephony   = "telephony"
 	ExecutorBrowser     = "browser"
+	ExecutorBotReply    = "botReply"
+	ExecutorEmail       = "email"
 )
 
 func (r *Registry) SetLLMExecutor(exec ResourceExecutor)    { r.Register(ExecutorLLM, exec) }
@@ -174,5 +176,17 @@ func (r *Registry) GetTelephonyExecutor() ResourceExecutor {
 func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
 func (r *Registry) GetBrowserExecutor() ResourceExecutor {
 	e, _ := r.GetByName(ExecutorBrowser)
+	return e
+}
+
+func (r *Registry) SetBotReplyExecutor(exec ResourceExecutor) { r.Register(ExecutorBotReply, exec) }
+func (r *Registry) GetBotReplyExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorBotReply)
+	return e
+}
+
+func (r *Registry) SetEmailExecutor(exec ResourceExecutor) { r.Register(ExecutorEmail, exec) }
+func (r *Registry) GetEmailExecutor() ResourceExecutor {
+	e, _ := r.GetByName(ExecutorEmail)
 	return e
 }

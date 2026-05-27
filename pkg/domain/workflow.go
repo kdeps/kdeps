@@ -128,16 +128,17 @@ type WorkflowMetadata struct {
 
 // WorkflowSettings contains workflow settings.
 type WorkflowSettings struct {
-	CertFile       string                   `yaml:"certFile,omitempty"`
-	KeyFile        string                   `yaml:"keyFile,omitempty"`
-	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
-	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
-	AgentSettings  AgentSettings            `yaml:"agentSettings"`
-	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
-	Session        *SessionConfig           `yaml:"session,omitempty"`
-	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
-	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
-	LLM            *LLMInputConfig          `yaml:"llm,omitempty"            json:"llm,omitempty"`
+	CertFile        string                     `yaml:"certFile,omitempty"`
+	KeyFile         string                     `yaml:"keyFile,omitempty"`
+	APIServer       *APIServerConfig           `yaml:"apiServer,omitempty"`
+	WebServer       *WebServerConfig           `yaml:"webServer,omitempty"`
+	AgentSettings   AgentSettings              `yaml:"agentSettings"`
+	SQLConnections  map[string]SQLConnection   `yaml:"sqlConnections,omitempty"`
+	IMAPConnections map[string]EmailIMAPConfig `yaml:"imapConnections,omitempty"`
+	Session         *SessionConfig             `yaml:"session,omitempty"`
+	WebApp          *WebAppConfig              `yaml:"webApp,omitempty"          json:"webApp,omitempty"`
+	Input           *InputConfig               `yaml:"input,omitempty"           json:"input,omitempty"`
+	LLM             *LLMInputConfig            `yaml:"llm,omitempty"             json:"llm,omitempty"`
 }
 
 // WebAppConfig contains WASM web application configuration.

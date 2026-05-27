@@ -55,6 +55,8 @@ type Resource struct {
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
+	BotReply    *BotReplyConfig        `yaml:"botReply,omitempty"`
+	Email       *EmailConfig           `yaml:"email,omitempty"`
 }
 
 // LoopConfig configures while-loop repetition for a resource, enabling Turing-complete
@@ -131,6 +133,7 @@ type ActionConfig struct {
 	SearchWeb   *SearchWebConfig       `yaml:"searchWeb,omitempty"`
 	Telephony   *TelephonyActionConfig `yaml:"telephony,omitempty"`
 	Browser     *BrowserConfig         `yaml:"browser,omitempty"`
+	Email       *EmailConfig           `yaml:"email,omitempty"`
 }
 
 // actionConfigAlias is used for normal YAML struct unmarshaling without recursion.
@@ -392,6 +395,91 @@ type AgentCallConfig struct {
 	// Params are key-value pairs forwarded to the target agent as input.
 	// The target agent accesses them via get('key').
 	Params map[string]interface{} `yaml:"params,omitempty"`
+}
+
+// BotReplyConfig sends a text reply back to the bot platform that delivered
+// the current message (Discord, Slack, Telegram, WhatsApp, or stdout in
+// stateless mode).
+type BotReplyConfig struct {
+	// Text is the message to send. Expression evaluation is supported,
+	// e.g. "{{ get('llm') }}".
+	Text string `yaml:"text" json:"text"`
+}
+
+// EmailAction identifies the operation performed by an email resource.
+type EmailAction = string
+
+const (
+	EmailActionSend   EmailAction = "send"
+	EmailActionRead   EmailAction = "read"
+	EmailActionSearch EmailAction = "search"
+	EmailActionModify EmailAction = "modify"
+)
+
+// EmailSMTPConfig holds SMTP server settings for outbound email.
+type EmailSMTPConfig struct {
+	Host               string `yaml:"host"`
+	Port               int    `yaml:"port,omitempty"`
+	Username           string `yaml:"username,omitempty"`
+	Password           string `yaml:"password,omitempty"`
+	TLS                bool   `yaml:"tls,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// EmailIMAPConfig holds IMAP server settings for inbound email.
+type EmailIMAPConfig struct {
+	Host               string `yaml:"host"`
+	Port               int    `yaml:"port,omitempty"`
+	Username           string `yaml:"username,omitempty"`
+	Password           string `yaml:"password,omitempty"`
+	TLS                bool   `yaml:"tls,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// EmailSearchConfig specifies IMAP search criteria.
+type EmailSearchConfig struct {
+	From    string `yaml:"from,omitempty"`
+	To      string `yaml:"to,omitempty"`
+	Subject string `yaml:"subject,omitempty"`
+	Body    string `yaml:"body,omitempty"`
+	Since   string `yaml:"since,omitempty"`
+	Before  string `yaml:"before,omitempty"`
+	Unseen  bool   `yaml:"unseen,omitempty"`
+	Flagged bool   `yaml:"flagged,omitempty"`
+}
+
+// EmailModifyConfig specifies IMAP flag changes and mailbox operations.
+type EmailModifyConfig struct {
+	MarkSeen    *bool  `yaml:"markSeen,omitempty"`
+	MarkFlagged *bool  `yaml:"markFlagged,omitempty"`
+	MarkDeleted *bool  `yaml:"markDeleted,omitempty"`
+	MoveTo      string `yaml:"moveTo,omitempty"`
+	Expunge     bool   `yaml:"expunge,omitempty"`
+}
+
+// EmailConfig is the top-level configuration for an email resource.
+type EmailConfig struct {
+	Action         EmailAction     `yaml:"action,omitempty"`
+	SMTP           EmailSMTPConfig `yaml:"smtp,omitempty"`
+	IMAPConnection string          `yaml:"imapConnection,omitempty"` // named connection from settings.imapConnections
+	From           string          `yaml:"from,omitempty"`
+	To             []string        `yaml:"to,omitempty"`
+	CC             []string        `yaml:"cc,omitempty"`
+	BCC            []string        `yaml:"bcc,omitempty"`
+	Subject        string          `yaml:"subject,omitempty"`
+	Body           string          `yaml:"body,omitempty"`
+	HTML           bool            `yaml:"html,omitempty"`
+
+	Attachments []string `yaml:"attachments,omitempty"`
+	Mailbox     string   `yaml:"mailbox,omitempty"`
+	Limit       int      `yaml:"limit,omitempty"`
+	MarkRead    bool     `yaml:"markRead,omitempty"`
+	UIDs        []string `yaml:"uids,omitempty"`
+
+	Search          EmailSearchConfig `yaml:"search,omitempty"`
+	Modify          EmailModifyConfig `yaml:"modify,omitempty"`
+	TimeoutDuration string            `yaml:"timeoutDuration,omitempty"`
+	Timeout         string            `yaml:"timeout,omitempty"`
 }
 
 // ScraperConfig represents web scraper configuration.
