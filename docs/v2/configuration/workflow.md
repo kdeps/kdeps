@@ -1,6 +1,6 @@
 # Workflow Configuration
 
-`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, and SQL connections. Resources live in separate files under `resources/`.
+`workflow.yaml` is the entry point for a kdeps workflow. It declares metadata, the HTTP server or input source, agent settings, SQL connections, and IMAP connections. Resources live in separate files under `resources/`.
 
 ## How the pieces fit together
 
@@ -19,11 +19,13 @@ settings: workflow.yaml settings {
   B2: "webServer\nstatic files or subprocess proxy"
   B3: "agentSettings\nPython, OS packages, env vars"
   B4: "sqlConnections\nnamed DB connections"
+  B6: "imapConnections\nnamed IMAP connections"
   B5: "session\ncross-request key-value store"
 }
 
 settings.B3 -> C: configures runtime
 settings.B4 -> C: provides connections
+settings.B6 -> C: provides connections
 settings.B5 -> C: provides session store
 settings.B2 -> B: runs alongside
 ```
@@ -45,8 +47,9 @@ settings:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
   agentSettings: { ... }   # runtime environment (Python, OS packages, Ollama)
-  sqlConnections: { ... }  # named database connections
-  session: { ... }         # session persistence settings
+  sqlConnections: { ... }   # named database connections
+  imapConnections: { ... }  # named IMAP connections for email read/search/modify
+  session: { ... }          # session persistence settings
 ```
 
 ## Metadata and config profiles
@@ -158,6 +161,40 @@ settings:
 ```
 
 Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` driver.
+
+## IMAP Connections
+
+Named IMAP connections are declared here and referenced by name in `email:` resources that use `action: read`, `search`, or `modify`. SMTP credentials stay inline in the resource; only IMAP goes here.
+
+```yaml
+# workflow.yaml
+settings:
+  imapConnections:
+    inbox:
+      host: "${IMAP_HOST}"      # e.g. imap.gmail.com
+      port: 993                 # 993 for TLS, 143 for plain
+      username: "${IMAP_USER}"
+      password: "${IMAP_PASS}"
+      tls: true
+    archive:
+      host: "${ARCHIVE_IMAP_HOST}"
+      port: 993
+      username: "${ARCHIVE_USER}"
+      password: "${ARCHIVE_PASS}"
+      tls: true
+```
+
+Reference by name in a resource:
+
+```yaml
+email:
+  action: read
+  imapConnection: inbox   # references settings.imapConnections.inbox
+  mailbox: "INBOX"
+  limit: 20
+```
+
+See [Email Resource](/resources/email) for full field reference.
 
 ## Session
 

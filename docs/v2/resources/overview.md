@@ -48,6 +48,7 @@ httpClient: { ... }  # make an HTTP request; output is the parsed response body
 sql: { ... }         # run a SQL query; output is the row set
 python: { ... }      # run a Python script; output is its stdout (parsed as JSON)
 exec: { ... }        # run a shell command; output is its stdout
+email: { ... }       # send SMTP email or read/search/modify IMAP messages
 agent: { ... }       # run another agent's full workflow; output is its apiResponse
 apiResponse: { ... } # build the HTTP response returned to the caller
 component:           # call an installable registry component
@@ -75,6 +76,7 @@ These executors are compiled into the `kdeps` binary and require no installation
 | `searchLocal` | File search | Glob + keyword search across local files |
 | `searchWeb` | Web search | DuckDuckGo (default), Brave, Bing, Tavily |
 | `browser` | Browser automation | Playwright-based navigation, screenshots, JS eval |
+| `email` | Email send/receive | SMTP send, IMAP read/search/modify |
 | `agent` | Inter-agent delegation | Call another agent in an [agency](/reference/glossary#agency) |
 | `apiResponse` | API response | Return data to the HTTP caller |
 
@@ -306,6 +308,7 @@ Set realistic `timeout` values based on expected execution time.
 - [SQL Resource](sql) -- database operations
 - [Python Resource](python) -- script execution
 - [Exec Resource](exec) -- shell commands
+- [Email Resource](email) -- SMTP send, IMAP read/search/modify
 - [API Response](api-response) -- response formatting
 - [Agency & Multi-Agent](../concepts/agency) -- multi-agent orchestration
 - [Components](../concepts/components) -- installable capability extensions
