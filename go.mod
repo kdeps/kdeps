@@ -15,7 +15,7 @@ require (
 	github.com/expr-lang/expr v1.17.8
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sql-driver/mysql v1.10.0
-	github.com/go-telegram/bot v1.20.0
+	github.com/go-telegram/bot v1.21.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.12.3
@@ -24,7 +24,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
-	github.com/slack-go/slack v0.23.1
+	github.com/slack-go/slack v0.24.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
@@ -37,7 +37,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/alecthomas/chroma/v2 v2.24.1 // indirect
+	github.com/alecthomas/chroma/v2 v2.25.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
@@ -46,7 +46,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
 	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
-	github.com/charmbracelet/x/exp/slice v0.0.0-20260519012233-798e623c8447 // indirect
+	github.com/charmbracelet/x/exp/slice v0.0.0-20260525135217-abeec2b8bf0b // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
@@ -57,6 +57,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.9.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.12.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.1.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emersion/go-imap/v2 v2.0.0-beta.8 // indirect
@@ -104,7 +105,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
-	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
+	golang.org/x/exp v0.0.0-20260527015227-08cc5374adb3 // indirect
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
