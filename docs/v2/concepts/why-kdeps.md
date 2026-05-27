@@ -35,6 +35,29 @@ This is what makes workflow output reproducible, auditable, and safe to run unat
 
 Single-agent workflows have limited scope. kdeps [agencies](/reference/glossary#agency) let you compose multiple specialized agents into a single system. Each agent has its own model, resources, and logic. They communicate via the `agent:` resource type, which runs another agent's full pipeline and returns its output -- every step is version-controlled, testable, and independently deployable.
 
+## Built to last
+
+Most AI tooling has a short half-life. A workflow written against a popular AI SDK in 2023 is unlikely to run without modification today. Model APIs deprecate. SDK interfaces churn. Libraries get abandoned.
+
+kdeps is designed around a different premise: a workflow you deploy today should still be running in 10-15 years.
+
+Three properties make this possible:
+
+- **Versioned schema.** Every `workflow.yaml` declares `apiVersion: kdeps.io/v1`. Breaking changes ship under a new API version. Your existing workflows do not move until you explicitly migrate.
+- **Local LLMs never break underneath you.** If you use Ollama or any self-hosted model, the interface does not change unless you update it. No vendor deprecation notices, no sunset dates.
+- **Backend decoupled from workflow.** Cloud model names live in `~/.kdeps/config.yaml`, not in `workflow.yaml`. When a model is deprecated, you change one line in config. The workflow is untouched.
+
+The two resource types coupled to external systems that can change on their own timeline:
+
+| Resource | Risk | Mitigation |
+|---|---|---|
+| `httpClient:` | External APIs change schema, auth, endpoints | Always target a versioned path (`/v2/users`, not `/users`) |
+| `browser:` | Website DOM changes without notice | Use stable selectors (ARIA roles, data attributes) over structural CSS |
+
+Everything else -- SQL, LLM prompts, Python, exec, email, inter-agent calls -- is code you own. It changes when you change it.
+
+A company that commissions a kdeps agent today can hand the YAML files and Docker image to a new engineer in 2035 and expect it to still run.
+
 ## Who it is for
 
 | Role | Use case |
