@@ -118,13 +118,6 @@ func scanResourceEnvVars(r *domain.Resource, seen map[string]struct{}) {
 		for k, v := range r.HTTPClient.Headers {
 			scanEnvExprs(seen, k, v)
 		}
-		if r.HTTPClient.Auth != nil {
-			scanEnvExprs(seen,
-				r.HTTPClient.Auth.Token,
-				r.HTTPClient.Auth.Username,
-				r.HTTPClient.Auth.Password,
-			)
-		}
 	}
 }
 

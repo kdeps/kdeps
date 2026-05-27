@@ -349,16 +349,12 @@ func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 				HTTPClient: &domain.HTTPClientConfig{
 					URL:     `{{ env('HTTP_URL') }`,
 					Headers: map[string]string{"Authorization": `Bearer {{ env('HTTP_TOKEN') }}`},
-					Auth: &domain.HTTPAuthConfig{
-						Username: `{{ env('HTTP_USER') }}`,
-					},
 				},
 			},
 		},
 	})
 	assert.Contains(t, vars, "HTTP_URL")
 	assert.Contains(t, vars, "HTTP_TOKEN")
-	assert.Contains(t, vars, "HTTP_USER")
 }
 
 func TestScanResourceEnvVars_ChatConfig(t *testing.T) {

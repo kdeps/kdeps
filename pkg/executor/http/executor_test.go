@@ -48,14 +48,15 @@ func TestMain(m *testing.M) {
 
 // MockHTTPClientFactory is a mock implementation for testing.
 type MockHTTPClientFactory struct {
-	CreateClientFunc func(config *domain.HTTPClientConfig) (*http.Client, error)
+	CreateClientFunc func(config *domain.HTTPClientConfig, proxy string) (*http.Client, error)
 }
 
 func (m *MockHTTPClientFactory) CreateClient(
 	config *domain.HTTPClientConfig,
+	proxy string,
 ) (*http.Client, error) {
 	if m.CreateClientFunc != nil {
-		return m.CreateClientFunc(config)
+		return m.CreateClientFunc(config, proxy)
 	}
 	return &http.Client{}, nil
 }
@@ -71,12 +72,26 @@ func TestNewExecutorWithFactory(t *testing.T) {
 	assert.NotNil(t, exec)
 }
 
+func newHTTPCtxWithConnection(t *testing.T, conn domain.HTTPConnectionConfig) *executor.ExecutionContext {
+	t.Helper()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			HTTPConnections: map[string]domain.HTTPConnectionConfig{
+				"test": conn,
+			},
+		},
+	})
+	require.NoError(t, err)
+	return ctx
+}
+
 func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 	factory := &httpexecutor.DefaultClientFactory{}
 
 	t.Run("basic client creation", func(t *testing.T) {
 		config := &domain.HTTPClientConfig{}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 		assert.Equal(t, 30*time.Second, client.Timeout)
@@ -86,7 +101,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		config := &domain.HTTPClientConfig{
 			Timeout: "5s",
 		}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.Equal(t, 5*time.Second, client.Timeout)
 	})
@@ -95,7 +110,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		config := &domain.HTTPClientConfig{
 			Timeout: "invalid",
 		}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err) // Invalid duration should be ignored
 		assert.Equal(t, 30*time.Second, client.Timeout)
 	})
@@ -103,7 +118,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 	t.Run("env var timeout applied when no resource timeout", func(t *testing.T) {
 		t.Setenv("KDEPS_HTTP_TIMEOUT", "45s")
 		config := &domain.HTTPClientConfig{}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.Equal(t, 45*time.Second, client.Timeout)
 	})
@@ -111,7 +126,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 	t.Run("resource timeout overrides env var", func(t *testing.T) {
 		t.Setenv("KDEPS_HTTP_TIMEOUT", "45s")
 		config := &domain.HTTPClientConfig{Timeout: "10s"}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.Equal(t, 10*time.Second, client.Timeout)
 	})
@@ -119,7 +134,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 	t.Run("invalid env var timeout falls back to default", func(t *testing.T) {
 		t.Setenv("KDEPS_HTTP_TIMEOUT", "not-a-duration")
 		config := &domain.HTTPClientConfig{}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.Equal(t, 30*time.Second, client.Timeout)
 	})
@@ -129,7 +144,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		config := &domain.HTTPClientConfig{
 			FollowRedirects: &followRedirects,
 		}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.NotNil(t, client.CheckRedirect)
 	})
@@ -139,25 +154,21 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		config := &domain.HTTPClientConfig{
 			FollowRedirects: &followRedirects,
 		}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		assert.Nil(t, client.CheckRedirect)
 	})
 
 	t.Run("proxy configuration", func(t *testing.T) {
-		config := &domain.HTTPClientConfig{
-			Proxy: "http://proxy.example.com:8080",
-		}
-		client, err := factory.CreateClient(config)
+		config := &domain.HTTPClientConfig{}
+		client, err := factory.CreateClient(config, "http://proxy.example.com:8080")
 		require.NoError(t, err)
 		assert.NotNil(t, client.Transport)
 	})
 
 	t.Run("invalid proxy URL", func(t *testing.T) {
-		config := &domain.HTTPClientConfig{
-			Proxy: "://invalid-proxy-url",
-		}
-		_, err := factory.CreateClient(config)
+		config := &domain.HTTPClientConfig{}
+		_, err := factory.CreateClient(config, "://invalid-proxy-url")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid proxy URL")
 	})
@@ -168,7 +179,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 				InsecureSkipVerify: true,
 			},
 		}
-		client, err := factory.CreateClient(config)
+		client, err := factory.CreateClient(config, "")
 		require.NoError(t, err)
 		transport, ok := client.Transport.(*http.Transport)
 		require.True(t, ok)
@@ -182,7 +193,7 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 				KeyFile:  "/nonexistent/key.pem",
 			},
 		}
-		_, err := factory.CreateClient(config)
+		_, err := factory.CreateClient(config, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load client certificate")
 	})
@@ -369,18 +380,14 @@ func TestExecutor_Execute_BearerAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "secret-token"},
+	})
 
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    server.URL + "/api/protected",
-		Auth: &domain.HTTPAuthConfig{
-			Type:  "bearer",
-			Token: "secret-token",
-		},
+		Method:         "GET",
+		URL:            server.URL + "/api/protected",
+		ConnectionName: "test",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -404,19 +411,14 @@ func TestExecutor_Execute_BasicAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "basic", Username: "admin", Password: "password123"},
+	})
 
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    server.URL + "/api/protected",
-		Auth: &domain.HTTPAuthConfig{
-			Type:     "basic",
-			Username: "admin",
-			Password: "password123",
-		},
+		Method:         "GET",
+		URL:            server.URL + "/api/protected",
+		ConnectionName: "test",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -438,19 +440,14 @@ func TestExecutor_Execute_APIKeyAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "api_key", Key: "X-API-Key", Value: "my-secret-key"},
+	})
 
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    server.URL + "/api/protected",
-		Auth: &domain.HTTPAuthConfig{
-			Type:  "api_key",
-			Key:   "X-API-Key",
-			Value: "my-secret-key",
-		},
+		Method:         "GET",
+		URL:            server.URL + "/api/protected",
+		ConnectionName: "test",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -472,18 +469,14 @@ func TestExecutor_Execute_OAuth2Auth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "oauth2", Token: "oauth2-token"},
+	})
 
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    server.URL + "/api/protected",
-		Auth: &domain.HTTPAuthConfig{
-			Type:  "oauth2",
-			Token: "oauth2-token",
-		},
+		Method:         "GET",
+		URL:            server.URL + "/api/protected",
+		ConnectionName: "test",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -496,20 +489,17 @@ func TestExecutor_Execute_OAuth2Auth(t *testing.T) {
 
 func TestExecutor_Execute_UnsupportedAuth(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "unsupported_auth_type"},
+	})
 
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    "http://example.com/api/test",
-		Auth: &domain.HTTPAuthConfig{
-			Type: "unsupported_auth_type",
-		},
+		Method:         "GET",
+		URL:            "http://example.com/api/test",
+		ConnectionName: "test",
 	}
 
-	_, err = exec.Execute(ctx, config)
+	_, err := exec.Execute(ctx, config)
 	require.Error(t, err) // handleAuth returns error for unsupported auth types
 	assert.Contains(t, err.Error(), "unsupported auth type")
 }
@@ -1772,16 +1762,15 @@ func TestExecutor_Execute_Proxy(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
-
 	// Use a proxy URL that doesn't exist (tests the configuration path)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Proxy: "http://127.0.0.1:3128",
+	})
+
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    server.URL + "/api/test",
-		Proxy:  "http://127.0.0.1:3128", // Non-existent proxy, tests error path
+		Method:         "GET",
+		URL:            server.URL + "/api/test",
+		ConnectionName: "test",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -1957,22 +1946,17 @@ func TestExecutor_Execute_DataEvaluation_Error(t *testing.T) {
 // TestExecutor_Execute_AuthEvaluation_Error tests auth evaluation errors.
 func TestExecutor_Execute_AuthEvaluation_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "{{invalid expression syntax}}"},
+	})
 
-	// Test invalid expression in auth token
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    "http://example.com/api/test",
-		Auth: &domain.HTTPAuthConfig{
-			Type:  "bearer",
-			Token: "{{invalid expression syntax}}",
-		},
+		Method:         "GET",
+		URL:            "http://example.com/api/test",
+		ConnectionName: "test",
 	}
 
-	_, err = exec.Execute(ctx, config)
+	_, err := exec.Execute(ctx, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to evaluate token")
 }
@@ -2070,19 +2054,17 @@ func TestExecutor_Execute_FormURLEncoded_Error(t *testing.T) {
 // TestExecutor_Execute_Proxy_Error tests proxy configuration errors.
 func TestExecutor_Execute_Proxy_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
+	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+		Proxy: "://invalid-proxy-url",
+	})
 
-	// Test invalid proxy URL
 	config := &domain.HTTPClientConfig{
-		Method: "GET",
-		URL:    "http://example.com/api/test",
-		Proxy:  "://invalid-proxy-url",
+		Method:         "GET",
+		URL:            "http://example.com/api/test",
+		ConnectionName: "test",
 	}
 
-	_, err = exec.Execute(ctx, config)
+	_, err := exec.Execute(ctx, config)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid proxy URL")
 }

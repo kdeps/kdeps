@@ -39,7 +39,7 @@ type MockClientFactory struct {
 	CapturedConfig *domain.HTTPClientConfig
 }
 
-func (f *MockClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
+func (f *MockClientFactory) CreateClient(config *domain.HTTPClientConfig, _ string) (*http.Client, error) {
 	f.CapturedConfig = config
 	return &http.Client{}, nil
 }
@@ -51,7 +51,6 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 
 	workflow := &domain.Workflow{}
 	ctx, _ := executor.NewExecutionContext(workflow)
-	ctx.API.Set("proxy", "http://proxy.local")
 	ctx.API.Set("timeout", "45s")
 	ctx.API.Set("ttl", "1h")
 	ctx.API.Set("cacheKey", "custom-key")
@@ -60,7 +59,6 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 
 	config := &domain.HTTPClientConfig{
 		URL:     "http://example.com",
-		Proxy:   "{{get('proxy')}}",
 		Timeout: "{{get('timeout')}}",
 		Cache: &domain.HTTPCacheConfig{
 			TTL: "{{get('ttl')}}",
@@ -78,7 +76,6 @@ func TestHTTPExecutor_AllFieldsEvaluation(t *testing.T) {
 	_, _ = e.Execute(ctx, config)
 
 	require.NotNil(t, factory.CapturedConfig)
-	assert.Equal(t, "http://proxy.local", factory.CapturedConfig.Proxy)
 	assert.Equal(t, "45s", factory.CapturedConfig.Timeout)
 	assert.Equal(t, "1h", factory.CapturedConfig.Cache.TTL)
 	assert.Equal(t, "custom-key", factory.CapturedConfig.Cache.Key)

@@ -48,19 +48,22 @@ func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			HTTPConnections: map[string]domain.HTTPConnectionConfig{
+				"test": {Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "token-123"}},
+			},
+		},
+	})
 	require.NoError(t, err)
 
 	exec := httpexecutor.NewExecutor()
 	config := &domain.HTTPClientConfig{
-		Method:  http.MethodGet,
-		URL:     server.URL + "/data?q=1",
-		Headers: map[string]string{"X-Test": "value"},
-		Auth: &domain.HTTPAuthConfig{
-			Type:  "bearer",
-			Token: "token-123",
-		},
-		Cache: &domain.HTTPCacheConfig{},
+		Method:         http.MethodGet,
+		URL:            server.URL + "/data?q=1",
+		Headers:        map[string]string{"X-Test": "value"},
+		ConnectionName: "test",
+		Cache:          &domain.HTTPCacheConfig{},
 	}
 
 	result, err := exec.Execute(ctx, config)

@@ -108,11 +108,37 @@ func (e *Executor) Execute(
 
 // --- Send ---
 
+func (e *Executor) resolveSMTPConfig(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (domain.EmailSMTPConfig, error) {
+	kdeps_debug.Log("enter: resolveSMTPConfig")
+	if cfg.SMTPConnection == "" {
+		return domain.EmailSMTPConfig{}, errors.New(
+			"email executor: smtpConnection is required for send" +
+				" — define a named connection in settings.smtpConnections",
+		)
+	}
+	smtp, ok := ctx.Workflow.Settings.SMTPConnections[cfg.SMTPConnection]
+	if !ok {
+		return domain.EmailSMTPConfig{}, fmt.Errorf(
+			"email executor: smtpConnection %q not found in settings.smtpConnections",
+			cfg.SMTPConnection,
+		)
+	}
+	return smtp, nil
+}
+
 func (e *Executor) executeSend(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeSend")
+	smtpCfg, smtpErr := e.resolveSMTPConfig(ctx, cfg)
+	if smtpErr != nil {
+		return nil, smtpErr
+	}
+
 	ev := e.makeEvaluator(ctx)
 	from := ev(cfg.From)
 	subject := ev(cfg.Subject)
@@ -122,12 +148,12 @@ func (e *Executor) executeSend(
 	bcc := evalSlice(cfg.BCC, ev)
 	attachments := evalSlice(cfg.Attachments, ev)
 
-	smtpHost := ev(cfg.SMTP.Host)
-	smtpUser := ev(cfg.SMTP.Username)
-	smtpPass := ev(cfg.SMTP.Password)
+	smtpHost := ev(smtpCfg.Host)
+	smtpUser := ev(smtpCfg.Username)
+	smtpPass := ev(smtpCfg.Password)
 
 	if smtpHost == "" {
-		return nil, errors.New("email executor: smtp.host is required for send")
+		return nil, errors.New("email executor: smtp host is required for send")
 	}
 	if from == "" {
 		return nil, errors.New("email executor: from is required for send")
@@ -144,9 +170,9 @@ func (e *Executor) executeSend(
 	}
 
 	timeout := resolveTimeout(cfg)
-	port := cfg.SMTP.Port
+	port := smtpCfg.Port
 	if port == 0 {
-		if cfg.SMTP.TLS {
+		if smtpCfg.TLS {
 			port = 465
 		} else {
 			port = 587
@@ -161,12 +187,12 @@ func (e *Executor) executeSend(
 
 	allRecipients := append(append(to, cc...), bcc...)
 	var sendErr error
-	if cfg.SMTP.TLS {
+	if smtpCfg.TLS {
 		sendErr = sendImplicitTLS(addr, smtpHost, smtpUser, smtpPass,
-			from, allRecipients, msg, cfg.SMTP.InsecureSkipVerify, timeout)
+			from, allRecipients, msg, smtpCfg.InsecureSkipVerify, timeout)
 	} else {
 		sendErr = sendSTARTTLS(addr, smtpHost, smtpUser, smtpPass,
-			from, allRecipients, msg, cfg.SMTP.InsecureSkipVerify, timeout)
+			from, allRecipients, msg, smtpCfg.InsecureSkipVerify, timeout)
 	}
 	if sendErr != nil {
 		return nil, fmt.Errorf("email executor: send: %w", sendErr)

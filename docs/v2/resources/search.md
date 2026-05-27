@@ -106,7 +106,23 @@ chat:
 
 ## searchWeb
 
-The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo - no API key required.
+The `searchWeb` executor queries the web and returns structured results. The default provider is DuckDuckGo -- no connection or API key required. Paid providers (Brave, Bing, Tavily) require a named connection in `workflow.yaml` settings.
+
+### Global Named Connections (paid providers)
+
+API keys belong in `settings.searchConnections`, not inline in resource files:
+
+```yaml
+# workflow.yaml
+settings:
+  searchConnections:
+    brave:
+      apiKey: "${BRAVE_API_KEY}"
+    bing:
+      apiKey: "${BING_API_KEY}"
+    tavily:
+      apiKey: "${TAVILY_API_KEY}"
+```
 
 ### Configuration
 
@@ -115,7 +131,7 @@ The `searchWeb` executor queries the web and returns structured results. The def
 searchWeb:
   query: "{{ get('query') }}"     # required
   provider: ddg                    # optional: ddg (default) | brave | bing | tavily
-  apiKey: "{{ get('apiKey') }}"   # required for brave/bing/tavily
+  connectionName: brave            # required for brave/bing/tavily; references settings.searchConnections
   maxResults: 5                    # optional, default 5
   timeout: 15                      # optional, seconds, default 15
 ```
@@ -123,8 +139,8 @@ searchWeb:
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `query` | string | yes | - | Search query |
-| `provider` | string | no | `ddg` | Search provider |
-| `apiKey` | string | no* | - | API key (required for non-DDG providers) |
+| `provider` | string | no | `ddg` | Search provider: `ddg`, `brave`, `bing`, `tavily` |
+| `connectionName` | string | no* | - | Named connection from `settings.searchConnections` |
 | `maxResults` | integer | no | `5` | Maximum number of results |
 | `timeout` | integer | no | `15` | HTTP request timeout in seconds |
 
@@ -132,12 +148,12 @@ searchWeb:
 
 ### Providers
 
-| Provider | Value | API Key |
-|----------|-------|---------|
-| DuckDuckGo | `ddg` | Not required |
-| Brave Search | `brave` | Required |
-| Bing | `bing` | Required |
-| Tavily | `tavily` | Required |
+| Provider | Value | Connection required |
+|----------|-------|---------------------|
+| DuckDuckGo | `ddg` | No |
+| Brave Search | `brave` | Yes |
+| Bing | `bing` | Yes |
+| Tavily | `tavily` | Yes |
 
 ### Output
 
@@ -159,7 +175,7 @@ Result object fields:
 
 ### Examples
 
-**DuckDuckGo (no API key):**
+**DuckDuckGo (no connection needed):**
 
 <div v-pre>
 
@@ -175,6 +191,14 @@ searchWeb:
 
 **Brave Search:**
 
+```yaml
+# workflow.yaml
+settings:
+  searchConnections:
+    brave:
+      apiKey: "${BRAVE_API_KEY}"
+```
+
 <div v-pre>
 
 ```yaml
@@ -183,7 +207,7 @@ actionId: search
 searchWeb:
   query: "{{ get('query') }}"
   provider: brave
-  apiKey: "{{ env('BRAVE_API_KEY') }}"
+  connectionName: brave
   maxResults: 10
 ```
 
@@ -219,9 +243,9 @@ chat:
 | Error | Cause |
 |-------|-------|
 | `query is required` | Empty query string |
-| `apiKey required for brave provider` | Missing API key for Brave |
-| `apiKey required for bing provider` | Missing API key for Bing |
-| `apiKey required for tavily provider` | Missing API key for Tavily |
+| `connectionName required for brave provider` | No connection set for Brave |
+| `connectionName required for bing provider` | No connection set for Bing |
+| `connectionName required for tavily provider` | No connection set for Tavily |
 | `unknown provider "x"` | Invalid provider value |
 
 ### Environment variable overrides
