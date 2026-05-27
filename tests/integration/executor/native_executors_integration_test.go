@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	embeddingexec "github.com/kdeps/kdeps/v2/pkg/executor/embedding"
@@ -48,13 +49,13 @@ func newCtxWithSearch(t *testing.T, apiKey string) *executor.ExecutionContext {
 	t.Helper()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			SearchConnections: map[string]domain.SearchConnectionConfig{
-				"test": {APIKey: apiKey},
-			},
-		},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SearchConnections: map[string]kdepsconfig.SearchConnectionConfig{
+			"test": {APIKey: apiKey},
+		},
+	}
 	return ctx
 }
 

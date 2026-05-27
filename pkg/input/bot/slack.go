@@ -30,20 +30,31 @@ import (
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 const slackPlatform = "slack"
 
 type slackRunner struct {
-	cfg    *domain.SlackConfig
-	logger *slog.Logger
-	client *slack.Client
+	botToken string
+	appToken string
+	logger   *slog.Logger
+	client   *slack.Client
 }
 
-func newSlackRunner(cfg *domain.SlackConfig, logger *slog.Logger) *slackRunner {
+func newSlackRunner(
+	_ *domain.SlackConfig,
+	creds *kdepsconfig.SlackConnectionConfig,
+	logger *slog.Logger,
+) *slackRunner {
 	kdeps_debug.Log("enter: newSlackRunner")
-	return &slackRunner{cfg: cfg, logger: logger}
+	var botToken, appToken string
+	if creds != nil {
+		botToken = creds.BotToken
+		appToken = creds.AppToken
+	}
+	return &slackRunner{botToken: botToken, appToken: appToken, logger: logger}
 }
 
 // Start connects to Slack via Socket Mode and forwards messages to ch.
@@ -51,8 +62,8 @@ func newSlackRunner(cfg *domain.SlackConfig, logger *slog.Logger) *slackRunner {
 func (r *slackRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
 	api := slack.New(
-		r.cfg.BotToken,
-		slack.OptionAppLevelToken(r.cfg.AppToken),
+		r.botToken,
+		slack.OptionAppLevelToken(r.appToken),
 	)
 	r.client = api
 

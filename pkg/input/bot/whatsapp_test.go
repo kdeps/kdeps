@@ -34,16 +34,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // ─── newWhatsAppRunner ────────────────────────────────────────────────────────
 
 func TestNewWhatsAppRunner(t *testing.T) {
-	cfg := &domain.WhatsAppConfig{AccessToken: "tok", PhoneNumberID: "123"}
-	r := newWhatsAppRunner(cfg, nil)
+	cfg := &domain.WhatsAppConfig{}
+	creds := &kdepsconfig.WhatsAppConnectionConfig{AccessToken: "tok", PhoneNumberID: "123"}
+	r := newWhatsAppRunner(cfg, creds, nil)
 	require.NotNil(t, r)
-	assert.Equal(t, cfg, r.cfg)
+	assert.Equal(t, "tok", r.accessToken)
+	assert.Equal(t, "123", r.phoneNumberID)
 }
 
 // ─── verifySignature ─────────────────────────────────────────────────────────
@@ -55,27 +58,27 @@ func makeHMAC(secret string, body []byte) string {
 }
 
 func TestVerifySignature_Valid(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: "mysecret"}}
+	r := &whatsAppRunner{webhookSecret: "mysecret"}
 	body := []byte(`{"test":"payload"}`)
 	sig := makeHMAC("mysecret", body)
 	assert.True(t, r.verifySignature(body, sig))
 }
 
 func TestVerifySignature_Invalid(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: "mysecret"}}
+	r := &whatsAppRunner{webhookSecret: "mysecret"}
 	body := []byte(`{"test":"payload"}`)
 	assert.False(t, r.verifySignature(body, "sha256=badhash"))
 }
 
 func TestVerifySignature_TooShort(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: "s"}}
+	r := &whatsAppRunner{webhookSecret: "s"}
 	assert.False(t, r.verifySignature([]byte("body"), "sha2"))
 }
 
 // ─── handleWebhookPost ───────────────────────────────────────────────────────
 
 func TestHandleWebhookPost_ValidPayload(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: ""}, logger: nil}
+	r := &whatsAppRunner{webhookSecret: "", logger: nil}
 
 	payload := map[string]interface{}{
 		"entry": []interface{}{
@@ -115,7 +118,7 @@ func TestHandleWebhookPost_ValidPayload(t *testing.T) {
 }
 
 func TestHandleWebhookPost_InvalidSignature(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: "secret"}, logger: nil}
+	r := &whatsAppRunner{webhookSecret: "secret", logger: nil}
 	body := []byte(`{}`)
 	ch := make(chan Message, 1)
 	req := httptest.NewRequest(http.MethodPost, "/webhook", bytes.NewReader(body))
@@ -127,7 +130,7 @@ func TestHandleWebhookPost_InvalidSignature(t *testing.T) {
 }
 
 func TestHandleWebhookPost_ValidSignature(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{WebhookSecret: "s3cr3t"}, logger: nil}
+	r := &whatsAppRunner{webhookSecret: "s3cr3t", logger: nil}
 	payload := `{"entry":[]}`
 	body := []byte(payload)
 	sig := makeHMAC("s3cr3t", body)
@@ -141,7 +144,7 @@ func TestHandleWebhookPost_ValidSignature(t *testing.T) {
 }
 
 func TestHandleWebhookPost_EmptyTextSkipped(t *testing.T) {
-	r := &whatsAppRunner{cfg: &domain.WhatsAppConfig{}, logger: nil}
+	r := &whatsAppRunner{webhookSecret: "", logger: nil}
 	payload := map[string]interface{}{
 		"entry": []interface{}{
 			map[string]interface{}{
@@ -177,16 +180,11 @@ func TestWhatsAppReply_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cfg := &domain.WhatsAppConfig{
-		AccessToken:   "test-token",
-		PhoneNumberID: "123",
-	}
 	r := &whatsAppRunner{
-		cfg:    cfg,
-		client: srv.Client(),
+		accessToken:   "test-token",
+		phoneNumberID: "123",
+		client:        &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}},
 	}
-	// Redirect the request to the test server by injecting a custom transport.
-	r.client = &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}}
 
 	err := r.Reply(context.Background(), "recipient-id", "hello")
 	require.NoError(t, err)
@@ -198,10 +196,10 @@ func TestWhatsAppReply_APIError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cfg := &domain.WhatsAppConfig{AccessToken: "bad-tok", PhoneNumberID: "123"}
 	r := &whatsAppRunner{
-		cfg:    cfg,
-		client: &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}},
+		accessToken:   "bad-tok",
+		phoneNumberID: "123",
+		client:        &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}},
 	}
 
 	err := r.Reply(context.Background(), "recipient-id", "hello")
@@ -224,11 +222,11 @@ func (rt *rewriteHostTransport) RoundTrip(req *http.Request) (*http.Response, er
 // ─── Start (WhatsApp) — immediate cancel ─────────────────────────────────────
 
 func TestWhatsAppStart_ImmediateCancel(t *testing.T) {
-	cfg := &domain.WhatsAppConfig{
-		WebhookPort:   getFreePort(t),
-		WebhookSecret: "",
-	}
-	r := newWhatsAppRunner(cfg, slog.Default())
+	r := newWhatsAppRunner(
+		&domain.WhatsAppConfig{WebhookPort: getFreePort(t)},
+		&kdepsconfig.WhatsAppConnectionConfig{},
+		slog.Default(),
+	)
 	ch := make(chan Message, 1)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -256,63 +254,51 @@ func getFreePort(t *testing.T) int {
 // ─── New() helper ─────────────────────────────────────────────────────────────
 
 func TestNew_Unsupported(t *testing.T) {
-	_, err := New("unsupported-platform", &domain.BotConfig{}, nil)
+	_, err := New("unsupported-platform", &domain.BotConfig{}, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported platform")
 }
 
 func TestNew_Discord_NilConfig(t *testing.T) {
-	_, err := New("discord", &domain.BotConfig{Discord: nil}, nil)
+	_, err := New("discord", &domain.BotConfig{Discord: nil}, nil, nil)
 	require.Error(t, err)
 }
 
 func TestNew_Slack_NilConfig(t *testing.T) {
-	_, err := New("slack", &domain.BotConfig{Slack: nil}, nil)
+	_, err := New("slack", &domain.BotConfig{Slack: nil}, nil, nil)
 	require.Error(t, err)
 }
 
 func TestNew_Telegram_NilConfig(t *testing.T) {
-	_, err := New("telegram", &domain.BotConfig{Telegram: nil}, nil)
+	_, err := New("telegram", &domain.BotConfig{Telegram: nil}, nil, nil)
 	require.Error(t, err)
 }
 
 func TestNew_WhatsApp_NilConfig(t *testing.T) {
-	_, err := New("whatsapp", &domain.BotConfig{WhatsApp: nil}, nil)
+	_, err := New("whatsapp", &domain.BotConfig{WhatsApp: nil}, nil, nil)
 	require.Error(t, err)
 }
 
 func TestNew_Discord_Success(t *testing.T) {
-	r, err := New("discord", &domain.BotConfig{Discord: &domain.DiscordConfig{BotToken: "t"}}, nil)
+	r, err := New("discord", &domain.BotConfig{Discord: &domain.DiscordConfig{}}, nil, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
 
 func TestNew_Slack_Success(t *testing.T) {
-	r, err := New(
-		"slack",
-		&domain.BotConfig{Slack: &domain.SlackConfig{BotToken: "xoxb-t", AppToken: "xapp-t"}},
-		nil,
-	)
+	r, err := New("slack", &domain.BotConfig{Slack: &domain.SlackConfig{}}, nil, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
 
 func TestNew_Telegram_Success(t *testing.T) {
-	r, err := New(
-		"telegram",
-		&domain.BotConfig{Telegram: &domain.TelegramConfig{BotToken: "t"}},
-		nil,
-	)
+	r, err := New("telegram", &domain.BotConfig{Telegram: &domain.TelegramConfig{}}, nil, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
 
 func TestNew_WhatsApp_Success(t *testing.T) {
-	r, err := New(
-		"whatsapp",
-		&domain.BotConfig{WhatsApp: &domain.WhatsAppConfig{AccessToken: "t"}},
-		nil,
-	)
+	r, err := New("whatsapp", &domain.BotConfig{WhatsApp: &domain.WhatsAppConfig{}}, nil, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 }
@@ -320,7 +306,7 @@ func TestNew_WhatsApp_Success(t *testing.T) {
 // ─── newSlackRunner ───────────────────────────────────────────────────────────
 
 func TestNewSlackRunner(t *testing.T) {
-	cfg := &domain.SlackConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}
-	r := newSlackRunner(cfg, nil)
+	creds := &kdepsconfig.SlackConnectionConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}
+	r := newSlackRunner(&domain.SlackConfig{}, creds, nil)
 	require.NotNil(t, r)
 }

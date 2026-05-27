@@ -7,13 +7,12 @@ Example `httpClient:` resources for common API integration patterns. See [HTTP C
 <div v-pre>
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    github:
-      auth:
-        type: bearer
-        token: "${GITHUB_TOKEN}"
+# ~/.kdeps/config.yaml
+http_connections:
+  github:
+    auth:
+      type: bearer
+      token: "${GITHUB_TOKEN}"
 
 # resources/fetch-data.yaml
 actionId: fetchData
@@ -41,13 +40,12 @@ chat:
 <div v-pre>
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    stripe:
-      auth:
-        type: bearer
-        token: "${STRIPE_SECRET_KEY}"
+# ~/.kdeps/config.yaml
+http_connections:
+  stripe:
+    auth:
+      type: bearer
+      token: "${STRIPE_SECRET_KEY}"
 
 # resources/example.yaml
 httpClient:

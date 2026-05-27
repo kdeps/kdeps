@@ -48,6 +48,7 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
@@ -111,22 +112,28 @@ func (e *Executor) Execute(
 func (e *Executor) resolveSMTPConfig(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
-) (domain.EmailSMTPConfig, error) {
+) (kdepsconfig.SMTPConnectionConfig, error) {
 	kdeps_debug.Log("enter: resolveSMTPConfig")
 	if cfg.SMTPConnection == "" {
-		return domain.EmailSMTPConfig{}, errors.New(
+		return kdepsconfig.SMTPConnectionConfig{}, errors.New(
 			"email executor: smtpConnection is required for send" +
-				" — define a named connection in settings.smtpConnections",
+				" — define a named connection in ~/.kdeps/config.yaml smtp_connections",
 		)
 	}
-	smtp, ok := ctx.Workflow.Settings.SMTPConnections[cfg.SMTPConnection]
-	if !ok {
-		return domain.EmailSMTPConfig{}, fmt.Errorf(
-			"email executor: smtpConnection %q not found in settings.smtpConnections",
+	if ctx.Config == nil {
+		return kdepsconfig.SMTPConnectionConfig{}, fmt.Errorf(
+			"email executor: smtpConnection %q set but no global config loaded",
 			cfg.SMTPConnection,
 		)
 	}
-	return smtp, nil
+	smtpConn, ok := ctx.Config.SMTPConnections[cfg.SMTPConnection]
+	if !ok {
+		return kdepsconfig.SMTPConnectionConfig{}, fmt.Errorf(
+			"email executor: smtpConnection %q not found in ~/.kdeps/config.yaml smtp_connections",
+			cfg.SMTPConnection,
+		)
+	}
+	return smtpConn, nil
 }
 
 func (e *Executor) executeSend(
@@ -455,22 +462,28 @@ func collectAffectedUIDs(uidSet imap.UIDSet) []uint32 {
 func (e *Executor) resolveIMAPConfig(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
-) (domain.EmailIMAPConfig, error) {
+) (kdepsconfig.IMAPConnectionConfig, error) {
 	kdeps_debug.Log("enter: resolveIMAPConfig")
 	if cfg.IMAPConnection == "" {
-		return domain.EmailIMAPConfig{}, errors.New(
+		return kdepsconfig.IMAPConnectionConfig{}, errors.New(
 			"email executor: imapConnection is required for read/search/modify" +
-				" — define a named connection in settings.imapConnections",
+				" — define a named connection in ~/.kdeps/config.yaml imap_connections",
 		)
 	}
-	imap, ok := ctx.Workflow.Settings.IMAPConnections[cfg.IMAPConnection]
-	if !ok {
-		return domain.EmailIMAPConfig{}, fmt.Errorf(
-			"email executor: imapConnection %q not found in settings.imapConnections",
+	if ctx.Config == nil {
+		return kdepsconfig.IMAPConnectionConfig{}, fmt.Errorf(
+			"email executor: imapConnection %q set but no global config loaded",
 			cfg.IMAPConnection,
 		)
 	}
-	return imap, nil
+	imapConn, ok := ctx.Config.IMAPConnections[cfg.IMAPConnection]
+	if !ok {
+		return kdepsconfig.IMAPConnectionConfig{}, fmt.Errorf(
+			"email executor: imapConnection %q not found in ~/.kdeps/config.yaml imap_connections",
+			cfg.IMAPConnection,
+		)
+	}
+	return imapConn, nil
 }
 
 func (e *Executor) dialIMAP(

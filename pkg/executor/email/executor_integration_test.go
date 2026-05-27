@@ -44,6 +44,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorEmail "github.com/kdeps/kdeps/v2/pkg/executor/email"
@@ -169,21 +170,21 @@ func newExecCtx(t *testing.T) *executor.ExecutionContext {
 	return ctx
 }
 
-func newExecCtxWithIMAP(t *testing.T, imapCfg domain.EmailIMAPConfig) *executor.ExecutionContext {
+func newExecCtxWithIMAP(t *testing.T, imapCfg kdepsconfig.IMAPConnectionConfig) *executor.ExecutionContext {
 	t.Helper()
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
 		},
-		Settings: domain.WorkflowSettings{
-			IMAPConnections: map[string]domain.EmailIMAPConfig{
-				"test": imapCfg,
-			},
-		},
 	}
 	ctx, err := executor.NewExecutionContext(wf)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		IMAPConnections: map[string]kdepsconfig.IMAPConnectionConfig{
+			"test": imapCfg,
+		},
+	}
 	return ctx
 }
 
@@ -200,21 +201,21 @@ func TestIntegration_NilConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
-func newExecCtxWithSMTP(t *testing.T, smtpCfg domain.EmailSMTPConfig) *executor.ExecutionContext {
+func newExecCtxWithSMTP(t *testing.T, smtpCfg kdepsconfig.SMTPConnectionConfig) *executor.ExecutionContext {
 	t.Helper()
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
 		},
-		Settings: domain.WorkflowSettings{
-			SMTPConnections: map[string]domain.EmailSMTPConfig{
-				"test": smtpCfg,
-			},
-		},
 	}
 	ctx, err := executor.NewExecutionContext(wf)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SMTPConnections: map[string]kdepsconfig.SMTPConnectionConfig{
+			"test": smtpCfg,
+		},
+	}
 	return ctx
 }
 
@@ -227,7 +228,7 @@ func TestIntegration_MissingHost(t *testing.T) {
 }
 
 func TestIntegration_MissingFrom(t *testing.T) {
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		To:             []string{"to@x.com"}, Subject: "s", Body: "b",
@@ -237,7 +238,7 @@ func TestIntegration_MissingFrom(t *testing.T) {
 }
 
 func TestIntegration_MissingTo(t *testing.T) {
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		From:           "from@x.com", Subject: "s", Body: "b",
@@ -247,7 +248,7 @@ func TestIntegration_MissingTo(t *testing.T) {
 }
 
 func TestIntegration_MissingSubject(t *testing.T) {
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		From:           "from@x.com", To: []string{"to@x.com"}, Body: "b",
@@ -262,7 +263,7 @@ func TestIntegration_PlainText_Send(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -292,7 +293,7 @@ func TestIntegration_HTML_Send(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -316,7 +317,7 @@ func TestIntegration_CC_InResultAndEnvelope(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -338,7 +339,7 @@ func TestIntegration_BCC_InEnvelopeNotHeaders(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -362,7 +363,7 @@ func TestIntegration_ResultMap_AllFields(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "sender@example.com",
@@ -390,7 +391,7 @@ func TestIntegration_WithAttachment(t *testing.T) {
 	require.NoError(t, os.WriteFile(attPath, []byte("%PDF-1.4 fake report\n"), 0o644))
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -414,7 +415,7 @@ func TestIntegration_MissingAttachment_Error(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
 	_, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -439,7 +440,7 @@ func TestIntegration_DefaultPort_STARTTLS_587(t *testing.T) {
 	ln.Close()
 
 	_, err = newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "127.0.0.1", Port: p}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@x.com",
@@ -461,7 +462,7 @@ func TestIntegration_DefaultPort_ImplicitTLS_465(t *testing.T) {
 	ln.Close()
 
 	_, err = newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p, TLS: true}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "127.0.0.1", Port: p, TLS: true}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@x.com",
@@ -483,7 +484,7 @@ func TestIntegration_Timeout_Respected(t *testing.T) {
 	ln.Close()
 
 	_, err = newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "127.0.0.1", Port: p}),
 		&domain.EmailConfig{
 			SMTPConnection:  "test",
 			From:            "from@x.com",
@@ -499,7 +500,7 @@ func TestIntegration_Timeout_Alias_Accepted(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "from@example.com",
@@ -531,7 +532,7 @@ func TestIntegration_CVMatch_EmailDistribution(t *testing.T) {
 </html>`
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			SMTPConnection: "test",
 			From:           "cv-matcher@example.com",
@@ -565,7 +566,7 @@ func TestIntegration_Action_ResultHasActionField(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: host, Port: port}),
 		&domain.EmailConfig{
 			Action:         domain.EmailActionSend,
 			SMTPConnection: "test",
@@ -628,7 +629,7 @@ func closedPort(t *testing.T) int {
 
 func TestIntegration_Read_ConnectionRefused(t *testing.T) {
 	p := closedPort(t)
-	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, domain.EmailIMAPConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
 		Action:         domain.EmailActionRead,
 		IMAPConnection: "test",
 	})
@@ -637,7 +638,7 @@ func TestIntegration_Read_ConnectionRefused(t *testing.T) {
 
 func TestIntegration_Search_ConnectionRefused(t *testing.T) {
 	p := closedPort(t)
-	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, domain.EmailIMAPConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
 		Action:         domain.EmailActionSearch,
 		IMAPConnection: "test",
 	})
@@ -646,7 +647,7 @@ func TestIntegration_Search_ConnectionRefused(t *testing.T) {
 
 func TestIntegration_Modify_ConnectionRefused(t *testing.T) {
 	p := closedPort(t)
-	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, domain.EmailIMAPConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "127.0.0.1", Port: p}), &domain.EmailConfig{
 		Action:         domain.EmailActionModify,
 		IMAPConnection: "test",
 		UIDs:           []string{"1"},
@@ -730,8 +731,8 @@ func (fi *memIMAPServer) port() int {
 	return n
 }
 
-func (fi *memIMAPServer) imapConfig() domain.EmailIMAPConfig {
-	return domain.EmailIMAPConfig{
+func (fi *memIMAPServer) imapConfig() kdepsconfig.IMAPConnectionConfig {
+	return kdepsconfig.IMAPConnectionConfig{
 		Host:     fi.host(),
 		Port:     fi.port(),
 		Username: "testuser",
@@ -1008,7 +1009,7 @@ func TestIntegration_Real_IMAP(t *testing.T) {
 		useTLS = false
 	}
 
-	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, domain.EmailIMAPConfig{
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{
 		Host:     imapHost,
 		Port:     port,
 		Username: os.Getenv("KDEPS_TEST_IMAP_USER"),
@@ -1037,7 +1038,7 @@ func TestIntegration_Real_SMTP(t *testing.T) {
 	}
 
 	result, err := newAdapter().Execute(
-		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{
+		newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{
 			Host:     smtpHost,
 			Port:     port,
 			Username: os.Getenv("KDEPS_TEST_SMTP_USER"),

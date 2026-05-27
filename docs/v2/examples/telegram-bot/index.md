@@ -35,8 +35,7 @@ settings:
     bot:
       executionType: polling
       telegram:
-        botToken: "{{ env('TELEGRAM_BOT_TOKEN') }}"
-        pollIntervalSeconds: 1
+        pollIntervalSeconds: 1  # credentials go in ~/.kdeps/config.yaml bot_connections.telegram
 ```
 
 ## resources/llm.yaml

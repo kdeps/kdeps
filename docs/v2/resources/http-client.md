@@ -8,28 +8,27 @@ Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). 
 
 ## Global Named Connections
 
-Authentication credentials and proxy settings belong in `workflow.yaml` settings as named connections, not inline in resource files. Resources reference them by name.
+Authentication credentials and proxy settings belong in `~/.kdeps/config.yaml` as named connections, not inline in resource files or `workflow.yaml`. Resources reference them by name.
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    stripe:
-      auth:
-        type: bearer
-        token: "${STRIPE_SECRET_KEY}"
-    internal-api:
-      auth:
-        type: basic
-        username: "${API_USER}"
-        password: "${API_PASS}"
-    corporate-proxy:
-      proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
-    github:
-      auth:
-        type: api_key
-        key: Authorization       # header name
-        value: "token ${GITHUB_TOKEN}"
+# ~/.kdeps/config.yaml
+http_connections:
+  stripe:
+    auth:
+      type: bearer
+      token: "${STRIPE_SECRET_KEY}"
+  internal-api:
+    auth:
+      type: basic
+      username: "${API_USER}"
+      password: "${API_PASS}"
+  corporate-proxy:
+    proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
+  github:
+    auth:
+      type: api_key
+      key: Authorization       # header name
+      value: "token ${GITHUB_TOKEN}"
 ```
 
 Reference a connection in a resource:
@@ -38,7 +37,7 @@ Reference a connection in a resource:
 httpClient:
   method: GET
   url: "https://api.stripe.com/v1/charges"
-  connectionName: stripe   # references settings.httpConnections.stripe
+  connectionName: stripe   # references http_connections.stripe in ~/.kdeps/config.yaml
 ```
 
 ## Complete reference
@@ -122,13 +121,12 @@ All auth types are defined in `settings.httpConnections` and referenced via `con
 ### Bearer Token
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    myapi:
-      auth:
-        type: bearer
-        token: "${API_TOKEN}"
+# ~/.kdeps/config.yaml
+http_connections:
+  myapi:
+    auth:
+      type: bearer
+      token: "${API_TOKEN}"
 ```
 
 ```yaml
@@ -142,52 +140,48 @@ httpClient:
 ### Basic Auth
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    legacy:
-      auth:
-        type: basic
-        username: "${API_USER}"
-        password: "${API_PASS}"
+# ~/.kdeps/config.yaml
+http_connections:
+  legacy:
+    auth:
+      type: basic
+      username: "${API_USER}"
+      password: "${API_PASS}"
 ```
 
 ### API Key
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    analytics:
-      auth:
-        type: api_key
-        key: X-API-Key        # header name
-        value: "${ANALYTICS_KEY}"
+# ~/.kdeps/config.yaml
+http_connections:
+  analytics:
+    auth:
+      type: api_key
+      key: X-API-Key        # header name
+      value: "${ANALYTICS_KEY}"
 ```
 
 ### OAuth2
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    oauth:
-      auth:
-        type: oauth2
-        token: "${OAUTH2_ACCESS_TOKEN}"
+# ~/.kdeps/config.yaml
+http_connections:
+  oauth:
+    auth:
+      type: oauth2
+      token: "${OAUTH2_ACCESS_TOKEN}"
 ```
 
 ### Proxy with Auth
 
 ```yaml
-# workflow.yaml
-settings:
-  httpConnections:
-    via-proxy:
-      proxy: "http://${PROXY_USER}:${PROXY_PASS}@proxy.corp:8080"
-      auth:
-        type: bearer
-        token: "${API_TOKEN}"
+# ~/.kdeps/config.yaml
+http_connections:
+  via-proxy:
+    proxy: "http://${PROXY_USER}:${PROXY_PASS}@proxy.corp:8080"
+    auth:
+      type: bearer
+      token: "${API_TOKEN}"
 ```
 
 ## Retry Configuration
@@ -341,7 +335,7 @@ httpClient:
 
 </div>
 
-## `httpConnections` fields (in `workflow.yaml` settings)
+## `http_connections` fields (in `~/.kdeps/config.yaml`)
 
 | Field | Type | Description |
 |---|---|---|

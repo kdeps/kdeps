@@ -65,13 +65,13 @@ func (e *Executor) resolveAPIKey(
 	if cfg.ConnectionName == "" {
 		return "", nil
 	}
-	if ctx == nil || ctx.Workflow == nil {
-		return "", fmt.Errorf("searchWeb: connectionName %q set but no workflow context", cfg.ConnectionName)
+	if ctx == nil || ctx.Config == nil {
+		return "", fmt.Errorf("searchWeb: connectionName %q set but no global config loaded", cfg.ConnectionName)
 	}
-	conn, ok := ctx.Workflow.Settings.SearchConnections[cfg.ConnectionName]
+	conn, ok := ctx.Config.SearchConnections[cfg.ConnectionName]
 	if !ok {
 		return "", fmt.Errorf(
-			"searchWeb: connectionName %q not found in settings.searchConnections",
+			"searchWeb: connectionName %q not found in ~/.kdeps/config.yaml search_connections",
 			cfg.ConnectionName,
 		)
 	}

@@ -110,18 +110,17 @@ The `searchWeb` executor queries the web and returns structured results. The def
 
 ### Global Named Connections (paid providers)
 
-API keys belong in `settings.searchConnections`, not inline in resource files:
+API keys belong in `~/.kdeps/config.yaml`, not inline in resource files or `workflow.yaml`:
 
 ```yaml
-# workflow.yaml
-settings:
-  searchConnections:
-    brave:
-      apiKey: "${BRAVE_API_KEY}"
-    bing:
-      apiKey: "${BING_API_KEY}"
-    tavily:
-      apiKey: "${TAVILY_API_KEY}"
+# ~/.kdeps/config.yaml
+search_connections:
+  brave:
+    apiKey: "${BRAVE_API_KEY}"
+  bing:
+    apiKey: "${BING_API_KEY}"
+  tavily:
+    apiKey: "${TAVILY_API_KEY}"
 ```
 
 ### Configuration
@@ -192,11 +191,10 @@ searchWeb:
 **Brave Search:**
 
 ```yaml
-# workflow.yaml
-settings:
-  searchConnections:
-    brave:
-      apiKey: "${BRAVE_API_KEY}"
+# ~/.kdeps/config.yaml
+search_connections:
+  brave:
+    apiKey: "${BRAVE_API_KEY}"
 ```
 
 <div v-pre>

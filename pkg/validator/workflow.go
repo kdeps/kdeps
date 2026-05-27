@@ -642,34 +642,6 @@ func (v *WorkflowValidator) validateBotConfig(cfg *domain.BotConfig) error {
 			nil,
 		)
 	}
-	if cfg.Discord != nil && cfg.Discord.BotToken == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.bot.discord.botToken is required",
-			nil,
-		)
-	}
-	if cfg.Slack != nil && cfg.Slack.BotToken == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.bot.slack.botToken is required",
-			nil,
-		)
-	}
-	if cfg.Telegram != nil && cfg.Telegram.BotToken == "" {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.bot.telegram.botToken is required",
-			nil,
-		)
-	}
-	if cfg.WhatsApp != nil && (cfg.WhatsApp.PhoneNumberID == "" || cfg.WhatsApp.AccessToken == "") {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"input.bot.whatsApp.phoneNumberId and input.bot.whatsApp.accessToken are required",
-			nil,
-		)
-	}
 	return nil
 }
 

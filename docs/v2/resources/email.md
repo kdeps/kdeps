@@ -19,26 +19,25 @@ Set `action:` to one of four values:
 
 ## Global Named Connections
 
-Both SMTP and IMAP credentials are defined once in `workflow.yaml` under `settings` and referenced by name in each resource. This keeps all secrets in one place and out of resource files.
+SMTP and IMAP credentials belong in `~/.kdeps/config.yaml`, not in `workflow.yaml`. Resources reference connections by name. This keeps all secrets in one machine-local file and out of version-controlled workflow files.
 
 ```yaml
-# workflow.yaml
-settings:
-  smtpConnections:
-    default:
-      host: "${SMTP_HOST}"      # e.g. smtp.gmail.com
-      port: 587
-      username: "${SMTP_USER}"
-      password: "${SMTP_PASS}"
-      tls: true
+# ~/.kdeps/config.yaml
+smtp_connections:
+  default:
+    host: "${SMTP_HOST}"      # e.g. smtp.gmail.com
+    port: 587
+    username: "${SMTP_USER}"
+    password: "${SMTP_PASS}"
+    tls: false                # false = STARTTLS on 587, true = implicit TLS on 465
 
-  imapConnections:
-    inbox:
-      host: "${IMAP_HOST}"      # e.g. imap.gmail.com
-      port: 993
-      username: "${IMAP_USER}"
-      password: "${IMAP_PASS}"
-      tls: true
+imap_connections:
+  inbox:
+    host: "${IMAP_HOST}"      # e.g. imap.gmail.com
+    port: 993
+    username: "${IMAP_USER}"
+    password: "${IMAP_PASS}"
+    tls: true
 ```
 
 ## Sending Email
@@ -51,7 +50,7 @@ actionId: notify
 requires: [llm]
 email:
   action: send
-  smtpConnection: default   # references settings.smtpConnections.default
+  smtpConnection: default   # references smtp_connections.default in ~/.kdeps/config.yaml
   from: "reports@example.com"
   to:
     - "alice@example.com"
@@ -105,7 +104,7 @@ email:
 actionId: checkInbox
 email:
   action: read
-  imapConnection: inbox   # references settings.imapConnections.inbox
+  imapConnection: inbox   # references imap_connections.inbox in ~/.kdeps/config.yaml
   mailbox: "INBOX"
   limit: 10
   markRead: true
@@ -182,7 +181,7 @@ email:
 
 ## Configuration Reference
 
-### `smtpConnections` fields (in `workflow.yaml` settings)
+### `smtp_connections` fields (in `~/.kdeps/config.yaml`)
 
 | Field | Type | Description |
 |---|---|---|
@@ -193,7 +192,7 @@ email:
 | `tls` | bool | `true` = implicit TLS (port 465), `false` = STARTTLS (port 587) |
 | `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
 
-### `imapConnections` fields (in `workflow.yaml` settings)
+### `imap_connections` fields (in `~/.kdeps/config.yaml`)
 
 | Field | Type | Description |
 |---|---|---|
@@ -239,21 +238,20 @@ email:
 
 ## Secrets
 
-Always use environment variables — never hardcode credentials in workflow files:
+Always use environment variables -- never hardcode credentials:
 
 ```yaml
-# workflow.yaml
-settings:
-  smtpConnections:
-    default:
-      host: "${SMTP_HOST}"
-      username: "${SMTP_USER}"
-      password: "${SMTP_PASS}"
-  imapConnections:
-    inbox:
-      host: "${IMAP_HOST}"
-      username: "${IMAP_USER}"
-      password: "${IMAP_PASS}"
+# ~/.kdeps/config.yaml
+smtp_connections:
+  default:
+    host: "${SMTP_HOST}"
+    username: "${SMTP_USER}"
+    password: "${SMTP_PASS}"
+imap_connections:
+  inbox:
+    host: "${IMAP_HOST}"
+    username: "${IMAP_USER}"
+    password: "${IMAP_PASS}"
 ```
 
 **Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833), not your account password. SMTP: `smtp.gmail.com:587` with `tls: false` (STARTTLS). IMAP: `imap.gmail.com:993` with `tls: true`.
@@ -265,15 +263,14 @@ settings:
 <div v-pre>
 
 ```yaml
-# workflow.yaml
-settings:
-  smtpConnections:
-    reports:
-      host: "${SMTP_HOST}"
-      port: 587
-      username: "${SMTP_USER}"
-      password: "${SMTP_PASS}"
-      tls: false
+# ~/.kdeps/config.yaml
+smtp_connections:
+  reports:
+    host: "${SMTP_HOST}"
+    port: 587
+    username: "${SMTP_USER}"
+    password: "${SMTP_PASS}"
+    tls: false
 
 # resources/send-report.yaml
 actionId: sendReport
@@ -283,7 +280,7 @@ email:
   smtpConnection: reports
   from: "${REPORT_FROM}"
   to: ["${REPORT_TO}"]
-  subject: "Weekly Summary — {{ get('week') }}"
+  subject: "Weekly Summary - {{ get('week') }}"
   body: "{{ get('generateReport') }}"
 ```
 

@@ -25,21 +25,27 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 // ─── Discord ─────────────────────────────────────────────────────────────────
 
 func TestDiscordRunner_NewRunner(t *testing.T) {
-	cfg := &domain.DiscordConfig{BotToken: "Bot testtoken"}
-	runner := newDiscordRunner(cfg, nil)
+	cfg := &domain.DiscordConfig{}
+	creds := &kdepsconfig.DiscordConnectionConfig{BotToken: "Bot testtoken"}
+	runner := newDiscordRunner(cfg, creds, nil)
 	require.NotNil(t, runner)
-	assert.Equal(t, cfg, runner.cfg)
+	assert.Equal(t, "Bot testtoken", runner.botToken)
 	assert.Nil(t, runner.session)
 }
 
 func TestDiscordRunner_Reply_SessionNil(t *testing.T) {
-	runner := newDiscordRunner(&domain.DiscordConfig{BotToken: "Bot testtoken"}, nil)
+	runner := newDiscordRunner(
+		&domain.DiscordConfig{},
+		&kdepsconfig.DiscordConnectionConfig{BotToken: "Bot testtoken"},
+		nil,
+	)
 	// Session is nil before Start() is called — should return error.
 	err := runner.Reply(context.Background(), "channel-1", "hello")
 	require.Error(t, err)
@@ -49,15 +55,19 @@ func TestDiscordRunner_Reply_SessionNil(t *testing.T) {
 // ─── Slack ────────────────────────────────────────────────────────────────────
 
 func TestSlackRunner_NewRunner(t *testing.T) {
-	cfg := &domain.SlackConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}
-	runner := newSlackRunner(cfg, nil)
+	creds := &kdepsconfig.SlackConnectionConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}
+	runner := newSlackRunner(&domain.SlackConfig{}, creds, nil)
 	require.NotNil(t, runner)
-	assert.Equal(t, cfg, runner.cfg)
+	assert.Equal(t, "xoxb-test", runner.botToken)
 	assert.Nil(t, runner.client)
 }
 
 func TestSlackRunner_Reply_ClientNil(t *testing.T) {
-	runner := newSlackRunner(&domain.SlackConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}, nil)
+	runner := newSlackRunner(
+		&domain.SlackConfig{},
+		&kdepsconfig.SlackConnectionConfig{BotToken: "xoxb-test", AppToken: "xapp-test"},
+		nil,
+	)
 	// client is nil before Start() is called — should return error.
 	err := runner.Reply(context.Background(), "C12345", "hello")
 	require.Error(t, err)
@@ -67,15 +77,19 @@ func TestSlackRunner_Reply_ClientNil(t *testing.T) {
 // ─── Telegram ─────────────────────────────────────────────────────────────────
 
 func TestTelegramRunner_NewRunner(t *testing.T) {
-	cfg := &domain.TelegramConfig{BotToken: "12345:test-token"}
-	runner := newTelegramRunner(cfg, nil)
+	creds := &kdepsconfig.TelegramConnectionConfig{BotToken: "12345:test-token"}
+	runner := newTelegramRunner(&domain.TelegramConfig{}, creds, nil)
 	require.NotNil(t, runner)
-	assert.Equal(t, cfg, runner.cfg)
+	assert.Equal(t, "12345:test-token", runner.botToken)
 	assert.Nil(t, runner.bot)
 }
 
 func TestTelegramRunner_Reply_BotNil(t *testing.T) {
-	runner := newTelegramRunner(&domain.TelegramConfig{BotToken: "12345:test-token"}, nil)
+	runner := newTelegramRunner(
+		&domain.TelegramConfig{},
+		&kdepsconfig.TelegramConnectionConfig{BotToken: "12345:test-token"},
+		nil,
+	)
 	// bot is nil before Start() is called — should return error.
 	err := runner.Reply(context.Background(), "12345", "hello")
 	require.Error(t, err)

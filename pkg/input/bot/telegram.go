@@ -32,6 +32,7 @@ import (
 	telegrambot "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -40,14 +41,27 @@ const telegramPlatform = "telegram"
 const defaultTelegramPollTimeout = 30 * time.Second
 
 type telegramRunner struct {
-	cfg    *domain.TelegramConfig
-	logger *slog.Logger
-	bot    *telegrambot.Bot
+	botToken            string
+	pollIntervalSeconds int
+	logger              *slog.Logger
+	bot                 *telegrambot.Bot
 }
 
-func newTelegramRunner(cfg *domain.TelegramConfig, logger *slog.Logger) *telegramRunner {
+func newTelegramRunner(
+	cfg *domain.TelegramConfig,
+	creds *kdepsconfig.TelegramConnectionConfig,
+	logger *slog.Logger,
+) *telegramRunner {
 	kdeps_debug.Log("enter: newTelegramRunner")
-	return &telegramRunner{cfg: cfg, logger: logger}
+	var botToken string
+	var pollInterval int
+	if creds != nil {
+		botToken = creds.BotToken
+	}
+	if cfg != nil {
+		pollInterval = cfg.PollIntervalSeconds
+	}
+	return &telegramRunner{botToken: botToken, pollIntervalSeconds: pollInterval, logger: logger}
 }
 
 // Start connects to Telegram via long-polling and forwards messages to ch.
@@ -55,8 +69,8 @@ func newTelegramRunner(cfg *domain.TelegramConfig, logger *slog.Logger) *telegra
 func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
 	pollTimeout := defaultTelegramPollTimeout
-	if r.cfg.PollIntervalSeconds > 0 {
-		pollTimeout = time.Duration(r.cfg.PollIntervalSeconds) * time.Second
+	if r.pollIntervalSeconds > 0 {
+		pollTimeout = time.Duration(r.pollIntervalSeconds) * time.Second
 	}
 
 	handler := func(ctx context.Context, _ *telegrambot.Bot, update *models.Update) {
@@ -77,7 +91,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 		}
 	}
 
-	b, err := telegrambot.New(r.cfg.BotToken,
+	b, err := telegrambot.New(r.botToken,
 		telegrambot.WithDefaultHandler(handler),
 		telegrambot.WithHTTPClient(pollTimeout, &http.Client{}),
 	)
