@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -48,14 +49,13 @@ func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			HTTPConnections: map[string]domain.HTTPConnectionConfig{
-				"test": {Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "token-123"}},
-			},
-		},
-	})
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		HTTPConnections: map[string]kdepsconfig.HTTPConnectionConfig{
+			"test": {Auth: &kdepsconfig.HTTPAuthConfig{Type: "bearer", Token: "token-123"}},
+		},
+	}
 
 	exec := httpexecutor.NewExecutor()
 	config := &domain.HTTPClientConfig{

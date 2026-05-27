@@ -26,6 +26,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -42,9 +43,11 @@ type Dispatcher struct {
 }
 
 // NewDispatcher creates a Dispatcher for the bot platforms configured in workflow.Settings.Input.Bot.
+// creds provides bot credentials from ~/.kdeps/config.yaml bot_connections.
 func NewDispatcher(
 	workflow *domain.Workflow,
 	engine *executor.Engine,
+	creds *kdepsconfig.BotConnectionConfig,
 	logger *slog.Logger,
 ) (*Dispatcher, error) {
 	kdeps_debug.Log("enter: NewDispatcher")
@@ -79,7 +82,7 @@ func NewDispatcher(
 		if !p.nonNil {
 			continue
 		}
-		r, err := New(p.name, cfg.Bot, logger)
+		r, err := New(p.name, cfg.Bot, creds, logger)
 		if err != nil {
 			return nil, fmt.Errorf("bot dispatcher: create runner for %s: %w", p.name, err)
 		}

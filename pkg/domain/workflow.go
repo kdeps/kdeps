@@ -128,20 +128,16 @@ type WorkflowMetadata struct {
 
 // WorkflowSettings contains workflow settings.
 type WorkflowSettings struct {
-	CertFile          string                            `yaml:"certFile,omitempty"`
-	KeyFile           string                            `yaml:"keyFile,omitempty"`
-	APIServer         *APIServerConfig                  `yaml:"apiServer,omitempty"`
-	WebServer         *WebServerConfig                  `yaml:"webServer,omitempty"`
-	AgentSettings     AgentSettings                     `yaml:"agentSettings"`
-	SQLConnections    map[string]SQLConnection          `yaml:"sqlConnections,omitempty"`
-	IMAPConnections   map[string]EmailIMAPConfig        `yaml:"imapConnections,omitempty"`
-	SMTPConnections   map[string]EmailSMTPConfig        `yaml:"smtpConnections,omitempty"`
-	HTTPConnections   map[string]HTTPConnectionConfig   `yaml:"httpConnections,omitempty"`
-	SearchConnections map[string]SearchConnectionConfig `yaml:"searchConnections,omitempty"`
-	Session           *SessionConfig                    `yaml:"session,omitempty"`
-	WebApp            *WebAppConfig                     `yaml:"webApp,omitempty"            json:"webApp,omitempty"`
-	Input             *InputConfig                      `yaml:"input,omitempty"             json:"input,omitempty"`
-	LLM               *LLMInputConfig                   `yaml:"llm,omitempty"               json:"llm,omitempty"`
+	CertFile       string                   `yaml:"certFile,omitempty"`
+	KeyFile        string                   `yaml:"keyFile,omitempty"`
+	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
+	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
+	AgentSettings  AgentSettings            `yaml:"agentSettings"`
+	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
+	Session        *SessionConfig           `yaml:"session,omitempty"`
+	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
+	Input          *InputConfig             `yaml:"input,omitempty"          json:"input,omitempty"`
+	LLM            *LLMInputConfig          `yaml:"llm,omitempty"            json:"llm,omitempty"`
 }
 
 // WebAppConfig contains WASM web application configuration.
@@ -218,34 +214,30 @@ type BotConfig struct {
 	WhatsApp      *WhatsAppConfig `yaml:"whatsApp,omitempty"      json:"whatsApp,omitempty"`
 }
 
-// DiscordConfig contains Discord bot configuration.
+// DiscordConfig contains Discord bot workflow settings.
+// Credentials (botToken) belong in ~/.kdeps/config.yaml bot_connections.discord.
 type DiscordConfig struct {
-	BotToken string `yaml:"botToken"          json:"botToken"`
-	GuildID  string `yaml:"guildId,omitempty" json:"guildId,omitempty"` // optional: restrict to one guild
+	GuildID string `yaml:"guildId,omitempty" json:"guildId,omitempty"` // optional: restrict to one guild
 }
 
-// SlackConfig contains Slack bot configuration.
+// SlackConfig contains Slack bot workflow settings.
+// Credentials (botToken, appToken, signingSecret) belong in ~/.kdeps/config.yaml bot_connections.slack.
 // Mode is "socket" (default) which uses Socket Mode WebSocket.
 type SlackConfig struct {
-	BotToken      string `yaml:"botToken"                json:"botToken"`
-	AppToken      string `yaml:"appToken,omitempty"      json:"appToken,omitempty"`      // xapp-... for Socket Mode
-	SigningSecret string `yaml:"signingSecret,omitempty" json:"signingSecret,omitempty"` // for request verification
-	Mode          string `yaml:"mode,omitempty"          json:"mode,omitempty"`          // "socket" (default)
+	Mode string `yaml:"mode,omitempty" json:"mode,omitempty"` // "socket" (default)
 }
 
-// TelegramConfig contains Telegram bot configuration.
+// TelegramConfig contains Telegram bot workflow settings.
+// Credentials (botToken) belong in ~/.kdeps/config.yaml bot_connections.telegram.
 type TelegramConfig struct {
-	BotToken            string `yaml:"botToken"                      json:"botToken"`
-	PollIntervalSeconds int    `yaml:"pollIntervalSeconds,omitempty" json:"pollIntervalSeconds,omitempty"` // default 1
+	PollIntervalSeconds int `yaml:"pollIntervalSeconds,omitempty" json:"pollIntervalSeconds,omitempty"` // default 1
 }
 
-// WhatsAppConfig contains WhatsApp Cloud API configuration.
+// WhatsAppConfig contains WhatsApp Cloud API workflow settings.
+// Credentials (phoneNumberId, accessToken, webhookSecret) belong in ~/.kdeps/config.yaml bot_connections.whatsapp.
 // An embedded HTTP webhook server is started (on WebhookPort) since Meta has no polling API.
 type WhatsAppConfig struct {
-	PhoneNumberID string `yaml:"phoneNumberId"           json:"phoneNumberId"`
-	AccessToken   string `yaml:"accessToken"             json:"accessToken"`
-	WebhookSecret string `yaml:"webhookSecret,omitempty" json:"webhookSecret,omitempty"` // for HMAC verification
-	WebhookPort   int    `yaml:"webhookPort,omitempty"   json:"webhookPort,omitempty"`   // default 16396
+	WebhookPort int `yaml:"webhookPort,omitempty" json:"webhookPort,omitempty"` // default 16396
 }
 
 // FileConfig contains configuration for file input.

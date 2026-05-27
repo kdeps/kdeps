@@ -29,6 +29,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -55,10 +56,16 @@ type Runner interface {
 	Reply(ctx context.Context, chatID, text string) error
 }
 
-// New creates a Runner for the given platform name using cfg.
+// New creates a Runner for the given platform name using cfg and creds.
 // platform is one of "discord", "slack", "telegram", "whatsapp".
+// creds provides the platform credentials from ~/.kdeps/config.yaml bot_connections.
 // Returns an error if the platform is unsupported or the required config is missing.
-func New(platform string, cfg *domain.BotConfig, logger *slog.Logger) (Runner, error) {
+func New(
+	platform string,
+	cfg *domain.BotConfig,
+	creds *kdepsconfig.BotConnectionConfig,
+	logger *slog.Logger,
+) (Runner, error) {
 	kdeps_debug.Log("enter: New")
 	if logger == nil {
 		logger = slog.Default()
@@ -68,22 +75,38 @@ func New(platform string, cfg *domain.BotConfig, logger *slog.Logger) (Runner, e
 		if cfg.Discord == nil {
 			return nil, errors.New("bot: discord config is required")
 		}
-		return newDiscordRunner(cfg.Discord, logger), nil
+		var discordCreds *kdepsconfig.DiscordConnectionConfig
+		if creds != nil {
+			discordCreds = creds.Discord
+		}
+		return newDiscordRunner(cfg.Discord, discordCreds, logger), nil
 	case "slack":
 		if cfg.Slack == nil {
 			return nil, errors.New("bot: slack config is required")
 		}
-		return newSlackRunner(cfg.Slack, logger), nil
+		var slackCreds *kdepsconfig.SlackConnectionConfig
+		if creds != nil {
+			slackCreds = creds.Slack
+		}
+		return newSlackRunner(cfg.Slack, slackCreds, logger), nil
 	case "telegram":
 		if cfg.Telegram == nil {
 			return nil, errors.New("bot: telegram config is required")
 		}
-		return newTelegramRunner(cfg.Telegram, logger), nil
+		var telegramCreds *kdepsconfig.TelegramConnectionConfig
+		if creds != nil {
+			telegramCreds = creds.Telegram
+		}
+		return newTelegramRunner(cfg.Telegram, telegramCreds, logger), nil
 	case "whatsapp":
 		if cfg.WhatsApp == nil {
 			return nil, errors.New("bot: whatsapp config is required")
 		}
-		return newWhatsAppRunner(cfg.WhatsApp, logger), nil
+		var whatsAppCreds *kdepsconfig.WhatsAppConnectionConfig
+		if creds != nil {
+			whatsAppCreds = creds.WhatsApp
+		}
+		return newWhatsAppRunner(cfg.WhatsApp, whatsAppCreds, logger), nil
 	default:
 		return nil, fmt.Errorf("bot: unsupported platform: %s", platform)
 	}

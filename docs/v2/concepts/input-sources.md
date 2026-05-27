@@ -35,18 +35,25 @@ Use `validations.methods` and `validations.routes` in individual resources to sc
 
 The `bot` source connects to chat platforms. Supported platforms: Discord, Slack, Telegram, WhatsApp.
 
+Bot credentials belong in `~/.kdeps/config.yaml`, not `workflow.yaml`. The workflow only declares which platforms to enable.
+
 ```yaml
+# ~/.kdeps/config.yaml
+bot_connections:
+  discord:
+    botToken: "${DISCORD_BOT_TOKEN}"
+  slack:
+    botToken: "${SLACK_BOT_TOKEN}"
+    appToken: "${SLACK_APP_TOKEN}"
+
 # workflow.yaml
 settings:
   input:
     sources: [bot]
     bot:
       executionType: polling
-      discord:
-        botToken: "${DISCORD_BOT_TOKEN}"
-      slack:
-        botToken: "${SLACK_BOT_TOKEN}"
-        appToken: "${SLACK_APP_TOKEN}"
+      discord: {}   # presence enables the platform; credentials are in ~/.kdeps/config.yaml
+      slack: {}
 ```
 
 Execution types:

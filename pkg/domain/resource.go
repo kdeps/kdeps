@@ -281,17 +281,6 @@ type ToolParam struct {
 	Default     interface{} `yaml:"default,omitempty"` // Default value
 }
 
-// HTTPConnectionConfig holds named HTTP connection settings (auth, proxy).
-type HTTPConnectionConfig struct {
-	Auth  *HTTPAuthConfig `yaml:"auth,omitempty"`
-	Proxy string          `yaml:"proxy,omitempty"`
-}
-
-// SearchConnectionConfig holds named web search provider settings.
-type SearchConnectionConfig struct {
-	APIKey string `yaml:"apiKey"`
-}
-
 // HTTPClientConfig represents HTTP client configuration.
 type HTTPClientConfig struct {
 	Method  string            `yaml:"method"`
@@ -327,16 +316,6 @@ type RetryConfig struct {
 type HTTPCacheConfig struct {
 	TTL string `yaml:"ttl,omitempty"` // Time to live
 	Key string `yaml:"key,omitempty"` // Custom cache key
-}
-
-// HTTPAuthConfig represents HTTP authentication configuration.
-type HTTPAuthConfig struct {
-	Type     string `yaml:"type"` // "basic", "bearer", "oauth2", "api_key"
-	Username string `yaml:"username,omitempty"`
-	Password string `yaml:"password,omitempty"`
-	Token    string `yaml:"token,omitempty"`
-	Key      string `yaml:"key,omitempty"`   // API key name
-	Value    string `yaml:"value,omitempty"` // API key value
 }
 
 // HTTPTLSConfig represents TLS configuration.
@@ -425,26 +404,6 @@ const (
 	EmailActionSearch EmailAction = "search"
 	EmailActionModify EmailAction = "modify"
 )
-
-// EmailSMTPConfig holds SMTP server settings for outbound email.
-type EmailSMTPConfig struct {
-	Host               string `yaml:"host"`
-	Port               int    `yaml:"port,omitempty"`
-	Username           string `yaml:"username,omitempty"`
-	Password           string `yaml:"password,omitempty"`
-	TLS                bool   `yaml:"tls,omitempty"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
-}
-
-// EmailIMAPConfig holds IMAP server settings for inbound email.
-type EmailIMAPConfig struct {
-	Host               string `yaml:"host"`
-	Port               int    `yaml:"port,omitempty"`
-	Username           string `yaml:"username,omitempty"`
-	Password           string `yaml:"password,omitempty"`
-	TLS                bool   `yaml:"tls,omitempty"`
-	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
-}
 
 // EmailSearchConfig specifies IMAP search criteria.
 type EmailSearchConfig struct {

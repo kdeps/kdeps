@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
@@ -65,21 +66,21 @@ func TestExecute_NilConfig(t *testing.T) {
 
 // --- Execute — required field validation ---
 
-func newExecCtxWithSMTP(t *testing.T, smtpCfg domain.EmailSMTPConfig) *executor.ExecutionContext {
+func newExecCtxWithSMTP(t *testing.T, smtpCfg kdepsconfig.SMTPConnectionConfig) *executor.ExecutionContext {
 	t.Helper()
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
 		Resources: []*domain.Resource{
 			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
 		},
-		Settings: domain.WorkflowSettings{
-			SMTPConnections: map[string]domain.EmailSMTPConfig{
-				"test": smtpCfg,
-			},
-		},
 	}
 	ctx, err := executor.NewExecutionContext(wf)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SMTPConnections: map[string]kdepsconfig.SMTPConnectionConfig{
+			"test": smtpCfg,
+		},
+	}
 	return ctx
 }
 
@@ -97,7 +98,7 @@ func TestExecute_MissingHost(t *testing.T) {
 
 func TestExecute_MissingFrom(t *testing.T) {
 	ex := NewAdapter(nil)
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := ex.Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		To:             []string{"to@example.com"},
@@ -110,7 +111,7 @@ func TestExecute_MissingFrom(t *testing.T) {
 
 func TestExecute_MissingTo(t *testing.T) {
 	ex := NewAdapter(nil)
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := ex.Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		From:           "from@example.com",
@@ -123,7 +124,7 @@ func TestExecute_MissingTo(t *testing.T) {
 
 func TestExecute_MissingSubject(t *testing.T) {
 	ex := NewAdapter(nil)
-	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "smtp.example.com"})
 	_, err := ex.Execute(ctx, &domain.EmailConfig{
 		SMTPConnection: "test",
 		From:           "from@example.com",

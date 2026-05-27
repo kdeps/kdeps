@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -72,17 +73,17 @@ func TestNewExecutorWithFactory(t *testing.T) {
 	assert.NotNil(t, exec)
 }
 
-func newHTTPCtxWithConnection(t *testing.T, conn domain.HTTPConnectionConfig) *executor.ExecutionContext {
+func newHTTPCtxWithConnection(t *testing.T, conn kdepsconfig.HTTPConnectionConfig) *executor.ExecutionContext {
 	t.Helper()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			HTTPConnections: map[string]domain.HTTPConnectionConfig{
-				"test": conn,
-			},
-		},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		HTTPConnections: map[string]kdepsconfig.HTTPConnectionConfig{
+			"test": conn,
+		},
+	}
 	return ctx
 }
 
@@ -380,8 +381,8 @@ func TestExecutor_Execute_BearerAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "secret-token"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "bearer", Token: "secret-token"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -411,8 +412,8 @@ func TestExecutor_Execute_BasicAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "basic", Username: "admin", Password: "password123"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "basic", Username: "admin", Password: "password123"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -440,8 +441,8 @@ func TestExecutor_Execute_APIKeyAuth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "api_key", Key: "X-API-Key", Value: "my-secret-key"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "api_key", Key: "X-API-Key", Value: "my-secret-key"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -469,8 +470,8 @@ func TestExecutor_Execute_OAuth2Auth(t *testing.T) {
 	defer server.Close()
 
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "oauth2", Token: "oauth2-token"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "oauth2", Token: "oauth2-token"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -489,8 +490,8 @@ func TestExecutor_Execute_OAuth2Auth(t *testing.T) {
 
 func TestExecutor_Execute_UnsupportedAuth(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "unsupported_auth_type"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "unsupported_auth_type"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -1763,7 +1764,7 @@ func TestExecutor_Execute_Proxy(t *testing.T) {
 
 	exec := httpexecutor.NewExecutor()
 	// Use a proxy URL that doesn't exist (tests the configuration path)
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
 		Proxy: "http://127.0.0.1:3128",
 	})
 
@@ -1946,8 +1947,8 @@ func TestExecutor_Execute_DataEvaluation_Error(t *testing.T) {
 // TestExecutor_Execute_AuthEvaluation_Error tests auth evaluation errors.
 func TestExecutor_Execute_AuthEvaluation_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
-		Auth: &domain.HTTPAuthConfig{Type: "bearer", Token: "{{invalid expression syntax}}"},
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
+		Auth: &kdepsconfig.HTTPAuthConfig{Type: "bearer", Token: "{{invalid expression syntax}}"},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -2054,7 +2055,7 @@ func TestExecutor_Execute_FormURLEncoded_Error(t *testing.T) {
 // TestExecutor_Execute_Proxy_Error tests proxy configuration errors.
 func TestExecutor_Execute_Proxy_Error(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
-	ctx := newHTTPCtxWithConnection(t, domain.HTTPConnectionConfig{
+	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
 		Proxy: "://invalid-proxy-url",
 	})
 
@@ -2368,7 +2369,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 
 	t.Run("bearer auth", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:  "bearer",
 			Token: "test-token",
 		}
@@ -2379,7 +2380,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 
 	t.Run("basic auth", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:     "basic",
 			Username: "user",
 			Password: "pass",
@@ -2394,7 +2395,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 
 	t.Run("api_key auth", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:  "api_key",
 			Key:   "X-API-Key",
 			Value: "secret-key",
@@ -2406,7 +2407,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 
 	t.Run("oauth2 auth", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:  "oauth2",
 			Token: "oauth-token",
 		}
@@ -2417,7 +2418,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 
 	t.Run("unsupported auth type", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type: "unsupported",
 		}
 		err9 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
@@ -2428,7 +2429,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 	t.Run("bearer auth with expression", func(t *testing.T) {
 		ctx.API.Set("token", "expr-token")
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:  "bearer",
 			Token: "{{get('token')}}",
 		}
@@ -2440,7 +2441,7 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 	t.Run("api_key auth with expression", func(t *testing.T) {
 		ctx.API.Set("key", "expr-key")
 		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		auth := &domain.HTTPAuthConfig{
+		auth := &kdepsconfig.HTTPAuthConfig{
 			Type:  "api_key",
 			Key:   "X-API-Key",
 			Value: "{{get('key')}}",

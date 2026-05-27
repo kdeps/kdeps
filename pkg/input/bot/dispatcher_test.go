@@ -39,7 +39,7 @@ func makeWorkflow(input *domain.InputConfig) *domain.Workflow {
 
 func TestNewDispatcher_NilInputConfig(t *testing.T) {
 	wf := makeWorkflow(nil)
-	_, err := NewDispatcher(wf, nil, nil)
+	_, err := NewDispatcher(wf, nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no input config")
 }
@@ -49,7 +49,7 @@ func TestNewDispatcher_NilBotConfig(t *testing.T) {
 		Sources: []string{domain.InputSourceBot},
 		Bot:     nil,
 	})
-	_, err := NewDispatcher(wf, nil, nil)
+	_, err := NewDispatcher(wf, nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no bot config")
 }
@@ -62,7 +62,7 @@ func TestNewDispatcher_NoPlatforms_ReturnsError(t *testing.T) {
 			// All platform sub-configs nil
 		},
 	})
-	_, err := NewDispatcher(wf, nil, nil)
+	_, err := NewDispatcher(wf, nil, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no bot platforms configured")
 }
@@ -73,12 +73,11 @@ func TestNewDispatcher_TelegramConfig_CreatesRunner(t *testing.T) {
 		Bot: &domain.BotConfig{
 			ExecutionType: domain.BotExecutionTypePolling,
 			Telegram: &domain.TelegramConfig{
-				BotToken:            "test-token",
 				PollIntervalSeconds: 1,
 			},
 		},
 	})
-	d, err := NewDispatcher(wf, nil, nil)
+	d, err := NewDispatcher(wf, nil, nil, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, d)
 	assert.Contains(t, d.runners, "telegram")
@@ -89,12 +88,10 @@ func TestNewDispatcher_DiscordConfig_CreatesRunner(t *testing.T) {
 		Sources: []string{domain.InputSourceBot},
 		Bot: &domain.BotConfig{
 			ExecutionType: domain.BotExecutionTypePolling,
-			Discord: &domain.DiscordConfig{
-				BotToken: "Bot test-token",
-			},
+			Discord:       &domain.DiscordConfig{},
 		},
 	})
-	d, err := NewDispatcher(wf, nil, nil)
+	d, err := NewDispatcher(wf, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Contains(t, d.runners, "discord")
 }
@@ -104,15 +101,11 @@ func TestNewDispatcher_MultiPlatform(t *testing.T) {
 		Sources: []string{domain.InputSourceBot},
 		Bot: &domain.BotConfig{
 			ExecutionType: domain.BotExecutionTypePolling,
-			Telegram: &domain.TelegramConfig{
-				BotToken: "tg-token",
-			},
-			Discord: &domain.DiscordConfig{
-				BotToken: "Bot dc-token",
-			},
+			Telegram:      &domain.TelegramConfig{},
+			Discord:       &domain.DiscordConfig{},
 		},
 	})
-	d, err := NewDispatcher(wf, nil, nil)
+	d, err := NewDispatcher(wf, nil, nil, nil)
 	require.NoError(t, err)
 	assert.Contains(t, d.runners, "telegram")
 	assert.Contains(t, d.runners, "discord")
@@ -124,12 +117,10 @@ func TestDispatcher_Run_CancelContext(t *testing.T) {
 		Sources: []string{domain.InputSourceBot},
 		Bot: &domain.BotConfig{
 			ExecutionType: domain.BotExecutionTypePolling,
-			Telegram: &domain.TelegramConfig{
-				BotToken: "test-token",
-			},
+			Telegram:      &domain.TelegramConfig{},
 		},
 	})
-	d, err := NewDispatcher(wf, nil, nil)
+	d, err := NewDispatcher(wf, nil, nil, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)

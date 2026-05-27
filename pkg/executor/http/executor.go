@@ -154,16 +154,16 @@ func NewExecutorWithFactory(factory ClientFactory) *Executor {
 	}
 }
 
-// resolveHTTPConnection returns the named HTTPConnectionConfig for the given config, or nil.
+// resolveHTTPConnection returns the named HTTPConnectionConfig from ~/.kdeps/config.yaml, or nil.
 func (e *Executor) resolveHTTPConnection(
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
-) *domain.HTTPConnectionConfig {
+) *kdepsconfig.HTTPConnectionConfig {
 	kdeps_debug.Log("enter: resolveHTTPConnection")
-	if config.ConnectionName == "" || ctx == nil || ctx.Workflow == nil {
+	if config.ConnectionName == "" || ctx == nil || ctx.Config == nil {
 		return nil
 	}
-	conn, ok := ctx.Workflow.Settings.HTTPConnections[config.ConnectionName]
+	conn, ok := ctx.Config.HTTPConnections[config.ConnectionName]
 	if !ok {
 		return nil
 	}
@@ -181,7 +181,7 @@ func (e *Executor) Execute(
 	// Resolve named HTTP connection (auth, proxy).
 	conn := e.resolveHTTPConnection(ctx, config)
 	proxy := ""
-	var auth *domain.HTTPAuthConfig
+	var auth *kdepsconfig.HTTPAuthConfig
 	if conn != nil {
 		proxy = conn.Proxy
 		auth = conn.Auth
@@ -523,7 +523,7 @@ func (e *Executor) headersToMap(headers http.Header) map[string]string {
 
 // handleAuth handles authentication configuration.
 func (e *Executor) handleAuth(
-	auth *domain.HTTPAuthConfig,
+	auth *kdepsconfig.HTTPAuthConfig,
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 ) (map[string]string, error) {
@@ -581,7 +581,7 @@ func (e *Executor) prepareRequest(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
-	auth *domain.HTTPAuthConfig,
+	auth *kdepsconfig.HTTPAuthConfig,
 ) (string, string, map[string]string, error) {
 	kdeps_debug.Log("enter: prepareRequest")
 	// Evaluate URL (only if it contains expression syntax)
@@ -942,7 +942,7 @@ func (e *Executor) HandleAuthForTesting(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 	req *http.Request,
-	auth *domain.HTTPAuthConfig,
+	auth *kdepsconfig.HTTPAuthConfig,
 ) error {
 	kdeps_debug.Log("enter: HandleAuthForTesting")
 	headers, err := e.handleAuth(auth, evaluator, ctx)

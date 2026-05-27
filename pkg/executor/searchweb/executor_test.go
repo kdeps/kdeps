@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	searchwebexec "github.com/kdeps/kdeps/v2/pkg/executor/searchweb"
@@ -45,13 +46,13 @@ func newSearchWebCtxWithSearch(t *testing.T, apiKey, _ string) *executor.Executi
 	t.Helper()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			SearchConnections: map[string]domain.SearchConnectionConfig{
-				"test": {APIKey: apiKey},
-			},
-		},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SearchConnections: map[string]kdepsconfig.SearchConnectionConfig{
+			"test": {APIKey: apiKey},
+		},
+	}
 	return ctx
 }
 

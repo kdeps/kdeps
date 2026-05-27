@@ -36,9 +36,9 @@ func TestTelegramRunner_Reply_InvalidChatID(t *testing.T) {
 	require.NoError(t, err)
 
 	runner := &telegramRunner{
-		cfg:    &domain.TelegramConfig{BotToken: "test-bot-token-12345"},
-		logger: slog.Default(),
-		bot:    b,
+		botToken: "test-bot-token-12345",
+		logger:   slog.Default(),
+		bot:      b,
 	}
 
 	// A non-numeric chatID must fail before any network call is made.
@@ -73,7 +73,7 @@ func TestHandleMessage_UnknownPlatform(_ *testing.T) {
 func TestHandleMessage_KnownPlatform_NilEngine(_ *testing.T) {
 	// Use a no-op runner that always succeeds for Reply.
 	noopRunner := &discordRunner{
-		cfg: &domain.DiscordConfig{BotToken: "Bot test"},
+		botToken: "Bot test",
 	}
 
 	d := &Dispatcher{

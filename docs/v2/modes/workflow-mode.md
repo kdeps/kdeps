@@ -125,13 +125,13 @@ settings:
         methods: [POST]
 
 # Bot - connects to a chat platform; blocks until SIGINT
+# Credentials go in ~/.kdeps/config.yaml bot_connections, not here
 settings:
   input:
     sources: [bot]
     bot:
       executionType: polling   # polling = persistent; stateless = one message then exit
-      discord:
-        botToken: "${DISCORD_BOT_TOKEN}"
+      discord: {}              # presence enables the platform
 
 # File - reads one file from disk or stdin, runs once, exits
 settings:

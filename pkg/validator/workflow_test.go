@@ -1157,7 +1157,17 @@ func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
 				Sources: []string{domain.InputSourceBot},
 				Bot: &domain.BotConfig{
 					ExecutionType: domain.BotExecutionTypePolling,
-					Discord:       &domain.DiscordConfig{BotToken: "token123"},
+					Discord:       &domain.DiscordConfig{},
+				},
+			},
+		},
+		{
+			name: "valid polling with whatsapp",
+			input: &domain.InputConfig{
+				Sources: []string{domain.InputSourceBot},
+				Bot: &domain.BotConfig{
+					ExecutionType: domain.BotExecutionTypePolling,
+					WhatsApp:      &domain.WhatsAppConfig{WebhookPort: 16396},
 				},
 			},
 		},
@@ -1191,54 +1201,6 @@ func TestWorkflowValidator_ValidateBotConfig(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "executionType must be",
-		},
-		{
-			name: "discord without token fails",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					Discord:       &domain.DiscordConfig{BotToken: ""},
-				},
-			},
-			wantErr: true,
-			errMsg:  "discord.botToken is required",
-		},
-		{
-			name: "slack without token fails",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					Slack:         &domain.SlackConfig{BotToken: ""},
-				},
-			},
-			wantErr: true,
-			errMsg:  "slack.botToken is required",
-		},
-		{
-			name: "telegram without token fails",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					Telegram:      &domain.TelegramConfig{BotToken: ""},
-				},
-			},
-			wantErr: true,
-			errMsg:  "telegram.botToken is required",
-		},
-		{
-			name: "whatsapp without required fields fails",
-			input: &domain.InputConfig{
-				Sources: []string{domain.InputSourceBot},
-				Bot: &domain.BotConfig{
-					ExecutionType: domain.BotExecutionTypePolling,
-					WhatsApp:      &domain.WhatsAppConfig{},
-				},
-			},
-			wantErr: true,
-			errMsg:  "whatsApp.phoneNumberId",
 		},
 	}
 

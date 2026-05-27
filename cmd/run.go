@@ -1164,6 +1164,12 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 		return bot.RunStateless(ctx, workflow, engine, logger)
 	}
 
+	// Load bot credentials from ~/.kdeps/config.yaml.
+	var botCreds *config.BotConnectionConfig
+	if globalCfg, cfgErr := config.LoadStructWithAgent(workflow.Metadata.Name); cfgErr == nil && globalCfg != nil {
+		botCreds = globalCfg.BotConnections
+	}
+
 	// Polling mode.
 	var platforms []string
 	if input.Bot != nil {
@@ -1183,7 +1189,7 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
 	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
 
-	dispatcher, err := bot.NewDispatcher(workflow, engine, logger)
+	dispatcher, err := bot.NewDispatcher(workflow, engine, botCreds, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create bot dispatcher: %w", err)
 	}
@@ -1631,6 +1637,12 @@ func StartBotRunnersWithEngine(
 		return bot.RunStateless(ctx, workflow, eng, logger)
 	}
 
+	// Load bot credentials from ~/.kdeps/config.yaml.
+	var botCreds *config.BotConnectionConfig
+	if globalCfg, cfgErr := config.LoadStructWithAgent(workflow.Metadata.Name); cfgErr == nil && globalCfg != nil {
+		botCreds = globalCfg.BotConnections
+	}
+
 	var platforms []string
 	if input.Bot != nil {
 		if input.Bot.Discord != nil {
@@ -1649,7 +1661,7 @@ func StartBotRunnersWithEngine(
 	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
 	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
 
-	dispatcher, dispErr := bot.NewDispatcher(workflow, eng, logger)
+	dispatcher, dispErr := bot.NewDispatcher(workflow, eng, botCreds, logger)
 	if dispErr != nil {
 		return fmt.Errorf("failed to create bot dispatcher: %w", dispErr)
 	}

@@ -210,12 +210,90 @@ type LLMKeys struct {
 	OpenRouter string `yaml:"openrouter_api_key"`
 }
 
+// HTTPAuthConfig holds authentication credentials for a named HTTP connection.
+type HTTPAuthConfig struct {
+	Type     string `yaml:"type"` // basic | bearer | api_key | oauth2
+	Username string `yaml:"username,omitempty"`
+	Password string `yaml:"password,omitempty"`
+	Token    string `yaml:"token,omitempty"`
+	Key      string `yaml:"key,omitempty"`   // header name for api_key
+	Value    string `yaml:"value,omitempty"` // header value for api_key
+}
+
+// HTTPConnectionConfig holds auth and proxy settings for a named HTTP connection.
+type HTTPConnectionConfig struct {
+	Auth  *HTTPAuthConfig `yaml:"auth,omitempty"`
+	Proxy string          `yaml:"proxy,omitempty"`
+}
+
+// SearchConnectionConfig holds an API key for a named web search provider.
+type SearchConnectionConfig struct {
+	APIKey string `yaml:"apiKey"`
+}
+
+// SMTPConnectionConfig holds SMTP server settings for a named outbound email connection.
+type SMTPConnectionConfig struct {
+	Host               string `yaml:"host"`
+	Port               int    `yaml:"port,omitempty"`
+	Username           string `yaml:"username,omitempty"`
+	Password           string `yaml:"password,omitempty"`
+	TLS                bool   `yaml:"tls,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// IMAPConnectionConfig holds IMAP server settings for a named inbound email connection.
+type IMAPConnectionConfig struct {
+	Host               string `yaml:"host"`
+	Port               int    `yaml:"port,omitempty"`
+	Username           string `yaml:"username,omitempty"`
+	Password           string `yaml:"password,omitempty"`
+	TLS                bool   `yaml:"tls,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify,omitempty"`
+}
+
+// DiscordConnectionConfig holds Discord bot credentials.
+type DiscordConnectionConfig struct {
+	BotToken string `yaml:"botToken"`
+}
+
+// SlackConnectionConfig holds Slack bot credentials.
+type SlackConnectionConfig struct {
+	BotToken      string `yaml:"botToken"`
+	AppToken      string `yaml:"appToken,omitempty"`      // xapp-... for Socket Mode
+	SigningSecret string `yaml:"signingSecret,omitempty"` // for request verification
+}
+
+// TelegramConnectionConfig holds Telegram bot credentials.
+type TelegramConnectionConfig struct {
+	BotToken string `yaml:"botToken"`
+}
+
+// WhatsAppConnectionConfig holds WhatsApp Cloud API credentials.
+type WhatsAppConnectionConfig struct {
+	PhoneNumberID string `yaml:"phoneNumberId"`
+	AccessToken   string `yaml:"accessToken"`
+	WebhookSecret string `yaml:"webhookSecret,omitempty"` // for HMAC verification
+}
+
+// BotConnectionConfig holds credentials for all configured bot platforms.
+type BotConnectionConfig struct {
+	Discord  *DiscordConnectionConfig  `yaml:"discord,omitempty"`
+	Slack    *SlackConnectionConfig    `yaml:"slack,omitempty"`
+	Telegram *TelegramConnectionConfig `yaml:"telegram,omitempty"`
+	WhatsApp *WhatsAppConnectionConfig `yaml:"whatsapp,omitempty"`
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
-	LLM              LLMKeys           `yaml:"llm"`
-	Defaults         Defaults          `yaml:"defaults"`
-	ResourceDefaults ResourceDefaults  `yaml:"resource_defaults"`
-	Agents           map[string]Config `yaml:"agents,omitempty"`
+	LLM               LLMKeys                           `yaml:"llm"`
+	Defaults          Defaults                          `yaml:"defaults"`
+	ResourceDefaults  ResourceDefaults                  `yaml:"resource_defaults"`
+	HTTPConnections   map[string]HTTPConnectionConfig   `yaml:"http_connections,omitempty"`
+	SearchConnections map[string]SearchConnectionConfig `yaml:"search_connections,omitempty"`
+	SMTPConnections   map[string]SMTPConnectionConfig   `yaml:"smtp_connections,omitempty"`
+	IMAPConnections   map[string]IMAPConnectionConfig   `yaml:"imap_connections,omitempty"`
+	BotConnections    *BotConnectionConfig              `yaml:"bot_connections,omitempty"`
+	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
@@ -637,6 +715,33 @@ func mergeConfig(dst *Config, src *Config) { //nolint:gocognit,gocyclo,cyclop,fu
 	if rd.OnError.RetryDelay != "" {
 		dst.ResourceDefaults.OnError.RetryDelay = rd.OnError.RetryDelay
 	}
+	for k, v := range src.HTTPConnections {
+		if dst.HTTPConnections == nil {
+			dst.HTTPConnections = make(map[string]HTTPConnectionConfig)
+		}
+		dst.HTTPConnections[k] = v
+	}
+	for k, v := range src.SearchConnections {
+		if dst.SearchConnections == nil {
+			dst.SearchConnections = make(map[string]SearchConnectionConfig)
+		}
+		dst.SearchConnections[k] = v
+	}
+	for k, v := range src.SMTPConnections {
+		if dst.SMTPConnections == nil {
+			dst.SMTPConnections = make(map[string]SMTPConnectionConfig)
+		}
+		dst.SMTPConnections[k] = v
+	}
+	for k, v := range src.IMAPConnections {
+		if dst.IMAPConnections == nil {
+			dst.IMAPConnections = make(map[string]IMAPConnectionConfig)
+		}
+		dst.IMAPConnections[k] = v
+	}
+	if src.BotConnections != nil {
+		dst.BotConnections = src.BotConnections
+	}
 }
 
 // LoadWithAgent loads config.yaml and applies the named agent profile on top.
@@ -821,6 +926,60 @@ defaults:
 #     action: "fail"              # "fail" | "continue" | "retry"
 #     max_retries: 3
 #     retry_delay: "1s"
+
+# ── Named HTTP connections — auth + proxy for httpClient resources ─────────
+# http_connections:
+#   stripe:
+#     auth:
+#       type: bearer
+#       token: "${STRIPE_SECRET_KEY}"
+#   internal-api:
+#     auth:
+#       type: basic
+#       username: "${API_USER}"
+#       password: "${API_PASS}"
+#   via-proxy:
+#     proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
+
+# ── Named search connections — API keys for web search resources ────────────
+# search_connections:
+#   brave:
+#     apiKey: "${BRAVE_API_KEY}"
+#   tavily:
+#     apiKey: "${TAVILY_API_KEY}"
+
+# ── Named SMTP connections — outbound email send ────────────────────────────
+# smtp_connections:
+#   default:
+#     host: "${SMTP_HOST}"     # e.g. smtp.gmail.com
+#     port: 587                # 465 for implicit TLS, 587 for STARTTLS
+#     username: "${SMTP_USER}"
+#     password: "${SMTP_PASS}"
+#     tls: false               # false = STARTTLS on 587, true = implicit TLS on 465
+
+# ── Named IMAP connections — inbound email read/search/modify ───────────────
+# imap_connections:
+#   inbox:
+#     host: "${IMAP_HOST}"     # e.g. imap.gmail.com
+#     port: 993
+#     username: "${IMAP_USER}"
+#     password: "${IMAP_PASS}"
+#     tls: true
+
+# ── Bot credentials — tokens and secrets for chat-bot platform runners ───────
+# bot_connections:
+#   discord:
+#     botToken: "${DISCORD_BOT_TOKEN}"
+#   slack:
+#     botToken: "${SLACK_BOT_TOKEN}"
+#     appToken: "${SLACK_APP_TOKEN}"         # xapp-... for Socket Mode
+#     signingSecret: "${SLACK_SIGNING_SECRET}"
+#   telegram:
+#     botToken: "${TELEGRAM_BOT_TOKEN}"
+#   whatsapp:
+#     phoneNumberId: "${WHATSAPP_PHONE_NUMBER_ID}"
+#     accessToken: "${WHATSAPP_ACCESS_TOKEN}"
+#     webhookSecret: "${WHATSAPP_WEBHOOK_SECRET}"
 
 # ── Per-agent config profiles ──────────────────────────────────────────────
 # Each key under agents: must match a workflow metadata.name value. When that

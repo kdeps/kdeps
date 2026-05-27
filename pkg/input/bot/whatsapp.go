@@ -34,6 +34,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -47,22 +48,45 @@ const (
 )
 
 type whatsAppRunner struct {
-	cfg    *domain.WhatsAppConfig
-	logger *slog.Logger
+	phoneNumberID string
+	accessToken   string
+	webhookSecret string
+	webhookPort   int
+	logger        *slog.Logger
 	// client is the HTTP client used by Reply. Defaults to http.DefaultClient when nil.
 	client *http.Client
 }
 
-func newWhatsAppRunner(cfg *domain.WhatsAppConfig, logger *slog.Logger) *whatsAppRunner {
+func newWhatsAppRunner(
+	cfg *domain.WhatsAppConfig,
+	creds *kdepsconfig.WhatsAppConnectionConfig,
+	logger *slog.Logger,
+) *whatsAppRunner {
 	kdeps_debug.Log("enter: newWhatsAppRunner")
-	return &whatsAppRunner{cfg: cfg, logger: logger}
+	var phoneNumberID, accessToken, webhookSecret string
+	var webhookPort int
+	if creds != nil {
+		phoneNumberID = creds.PhoneNumberID
+		accessToken = creds.AccessToken
+		webhookSecret = creds.WebhookSecret
+	}
+	if cfg != nil {
+		webhookPort = cfg.WebhookPort
+	}
+	return &whatsAppRunner{
+		phoneNumberID: phoneNumberID,
+		accessToken:   accessToken,
+		webhookSecret: webhookSecret,
+		webhookPort:   webhookPort,
+		logger:        logger,
+	}
 }
 
 // Start starts an embedded HTTP server that receives WhatsApp webhook events
 // and forwards inbound messages to ch. It blocks until ctx is cancelled.
 func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
-	port := r.cfg.WebhookPort
+	port := r.webhookPort
 	if port == 0 {
 		port = whatsAppDefaultWebhookPort
 	}
@@ -76,7 +100,7 @@ func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 			mode := req.URL.Query().Get("hub.mode")
 			token := req.URL.Query().Get("hub.verify_token")
 			challenge := req.URL.Query().Get("hub.challenge")
-			if mode == "subscribe" && token == r.cfg.WebhookSecret {
+			if mode == "subscribe" && token == r.webhookSecret {
 				// Validate that challenge is numeric to prevent reflected XSS.
 				// Use the parsed integer to write the response, breaking the
 				// taint chain from the user-supplied query parameter.
@@ -134,7 +158,7 @@ func (r *whatsAppRunner) handleWebhookPost(
 	}
 
 	// Verify HMAC signature when WebhookSecret is configured.
-	if r.cfg.WebhookSecret != "" {
+	if r.webhookSecret != "" {
 		sig := req.Header.Get("X-Hub-Signature-256")
 		if !r.verifySignature(body, sig) {
 			http.Error(w, "invalid signature", http.StatusForbidden)
@@ -191,7 +215,7 @@ func (r *whatsAppRunner) verifySignature(body []byte, sig string) bool {
 	if len(sig) < whatsAppSigPrefixLen {
 		return false
 	}
-	mac := hmac.New(sha256.New, []byte(r.cfg.WebhookSecret))
+	mac := hmac.New(sha256.New, []byte(r.webhookSecret))
 	mac.Write(body)
 	expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(sig), []byte(expected))
@@ -200,7 +224,7 @@ func (r *whatsAppRunner) verifySignature(body []byte, sig string) bool {
 // Reply sends a text message via the WhatsApp Cloud API.
 func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
 	kdeps_debug.Log("enter: Reply")
-	url := fmt.Sprintf("%s/%s/messages", whatsAppAPIBase, r.cfg.PhoneNumberID)
+	url := fmt.Sprintf("%s/%s/messages", whatsAppAPIBase, r.phoneNumberID)
 
 	payload := map[string]interface{}{
 		"messaging_product": "whatsapp",
@@ -219,7 +243,7 @@ func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
 		return fmt.Errorf("whatsapp: build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+r.cfg.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+r.accessToken)
 
 	httpClient := r.client
 	if httpClient == nil {

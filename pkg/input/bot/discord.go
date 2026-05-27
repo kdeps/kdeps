@@ -28,28 +28,41 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 const discordPlatform = "discord"
 
 type discordRunner struct {
-	cfg    *domain.DiscordConfig
-	logger *slog.Logger
+	botToken string
+	guildID  string
+	logger   *slog.Logger
 	// session is set after Start is called.
 	session *discordgo.Session
 }
 
-func newDiscordRunner(cfg *domain.DiscordConfig, logger *slog.Logger) *discordRunner {
+func newDiscordRunner(
+	cfg *domain.DiscordConfig,
+	creds *kdepsconfig.DiscordConnectionConfig,
+	logger *slog.Logger,
+) *discordRunner {
 	kdeps_debug.Log("enter: newDiscordRunner")
-	return &discordRunner{cfg: cfg, logger: logger}
+	var botToken, guildID string
+	if creds != nil {
+		botToken = creds.BotToken
+	}
+	if cfg != nil {
+		guildID = cfg.GuildID
+	}
+	return &discordRunner{botToken: botToken, guildID: guildID, logger: logger}
 }
 
 // Start connects to Discord Gateway and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
-	s, err := discordgo.New("Bot " + r.cfg.BotToken)
+	s, err := discordgo.New("Bot " + r.botToken)
 	if err != nil {
 		return fmt.Errorf("discord: create session: %w", err)
 	}
@@ -61,7 +74,7 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 			return
 		}
 		// If GuildID is configured, only handle messages from that guild.
-		if r.cfg.GuildID != "" && m.GuildID != r.cfg.GuildID {
+		if r.guildID != "" && m.GuildID != r.guildID {
 			return
 		}
 		select {
