@@ -74,7 +74,7 @@ kdeps run workflow.yaml          # local, instant startup
 kdeps run workflow.yaml --dev    # hot reload
 ```
 
-**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`
+**Resource types:** `chat`, `httpClient`, `python`, `exec`, `sql`, `email`, `scraper`, `browser`, `embedding`, `searchLocal`, `searchWeb`, `agent`, `component`
 
 **Expressions:** `get('key')` reads request input, `output('actionId')` reads a prior step's result, `set('key', val)` stores state. All expressions are safe inside `{{ }}` — Jinja2 control flow (`{% if %}`, `{% for %}`) is also supported.
 
