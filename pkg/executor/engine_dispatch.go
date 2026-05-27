@@ -61,7 +61,7 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, agent, component)
+	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, agent, component, botReply)
 	hasPrimaryType := resource.Chat != nil ||
 		resource.HTTPClient != nil ||
 		resource.SQL != nil ||
@@ -74,7 +74,9 @@ func (e *Engine) ExecuteResource(
 		resource.SearchLocal != nil ||
 		resource.SearchWeb != nil ||
 		resource.Telephony != nil ||
-		resource.Browser != nil
+		resource.Browser != nil ||
+		resource.BotReply != nil ||
+		resource.Email != nil
 
 	var primaryResult interface{}
 	var err error
@@ -108,6 +110,10 @@ func (e *Engine) ExecuteResource(
 			primaryResult, err = e.executeTelephony(resource, ctx)
 		case resource.Browser != nil:
 			primaryResult, err = e.executeBrowser(resource, ctx)
+		case resource.BotReply != nil:
+			primaryResult, err = e.executeBotReply(resource, ctx)
+		case resource.Email != nil:
+			primaryResult, err = e.executeEmail(resource, ctx)
 		}
 
 		if err != nil {

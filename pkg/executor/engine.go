@@ -607,6 +607,10 @@ func resourceTypeName(r *domain.Resource) string {
 		return ExecutorSearchWeb
 	case r.Telephony != nil:
 		return ExecutorTelephony
+	case r.BotReply != nil:
+		return ExecutorBotReply
+	case r.Email != nil:
+		return ExecutorEmail
 	default:
 		return "unknown"
 	}
