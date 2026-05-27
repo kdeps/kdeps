@@ -7,6 +7,14 @@ Example `httpClient:` resources for common API integration patterns. See [HTTP C
 <div v-pre>
 
 ```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    github:
+      auth:
+        type: bearer
+        token: "${GITHUB_TOKEN}"
+
 # resources/fetch-data.yaml
 actionId: fetchData
 httpClient:
@@ -14,7 +22,7 @@ httpClient:
   url: "https://api.github.com/repos/{{ get('owner') }}/{{ get('repo') }}"
   headers:
     Accept: application/vnd.github.v3+json
-    Authorization: "Bearer {{ get('GITHUB_TOKEN', 'env') }}"
+  connectionName: github
   timeout: 30s
 
 ---
@@ -33,13 +41,19 @@ chat:
 <div v-pre>
 
 ```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    stripe:
+      auth:
+        type: bearer
+        token: "${STRIPE_SECRET_KEY}"
+
 # resources/example.yaml
 httpClient:
   method: POST
   url: "https://api.stripe.com/v1/charges"
-  auth:
-    type: bearer
-    token: "{{ get('STRIPE_SECRET_KEY', 'env') }}"
+  connectionName: stripe
   headers:
     Content-Type: application/x-www-form-urlencoded
   data:
@@ -92,5 +106,3 @@ httpClient:
 ## See Also
 
 - [HTTP Client Resource](/resources/http-client) - Full configuration reference
-- [Tools Reference](/reference/tools-reference) - Use HTTP client as an LLM tool
-- [SQL Examples](/reference/sql-examples) - Database query patterns

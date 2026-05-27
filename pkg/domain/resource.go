@@ -281,6 +281,17 @@ type ToolParam struct {
 	Default     interface{} `yaml:"default,omitempty"` // Default value
 }
 
+// HTTPConnectionConfig holds named HTTP connection settings (auth, proxy).
+type HTTPConnectionConfig struct {
+	Auth  *HTTPAuthConfig `yaml:"auth,omitempty"`
+	Proxy string          `yaml:"proxy,omitempty"`
+}
+
+// SearchConnectionConfig holds named web search provider settings.
+type SearchConnectionConfig struct {
+	APIKey string `yaml:"apiKey"`
+}
+
 // HTTPClientConfig represents HTTP client configuration.
 type HTTPClientConfig struct {
 	Method  string            `yaml:"method"`
@@ -295,13 +306,12 @@ type HTTPClientConfig struct {
 	// Caching configuration
 	Cache *HTTPCacheConfig `yaml:"cache,omitempty"`
 
-	// Authentication
-	Auth *HTTPAuthConfig `yaml:"auth,omitempty"`
+	// ConnectionName references a named connection in settings.httpConnections.
+	ConnectionName string `yaml:"connectionName,omitempty"`
 
 	// Advanced options
 	// FollowRedirects: nil (default) = follow redirects, false = don't follow, true = follow
 	FollowRedirects *bool          `yaml:"followRedirects,omitempty"`
-	Proxy           string         `yaml:"proxy,omitempty"`
 	TLS             *HTTPTLSConfig `yaml:"tls,omitempty"`
 }
 
@@ -459,16 +469,16 @@ type EmailModifyConfig struct {
 
 // EmailConfig is the top-level configuration for an email resource.
 type EmailConfig struct {
-	Action         EmailAction     `yaml:"action,omitempty"`
-	SMTP           EmailSMTPConfig `yaml:"smtp,omitempty"`
-	IMAPConnection string          `yaml:"imapConnection,omitempty"` // named connection from settings.imapConnections
-	From           string          `yaml:"from,omitempty"`
-	To             []string        `yaml:"to,omitempty"`
-	CC             []string        `yaml:"cc,omitempty"`
-	BCC            []string        `yaml:"bcc,omitempty"`
-	Subject        string          `yaml:"subject,omitempty"`
-	Body           string          `yaml:"body,omitempty"`
-	HTML           bool            `yaml:"html,omitempty"`
+	Action         EmailAction `yaml:"action,omitempty"`
+	SMTPConnection string      `yaml:"smtpConnection,omitempty"` // named connection from settings.smtpConnections
+	IMAPConnection string      `yaml:"imapConnection,omitempty"` // named connection from settings.imapConnections
+	From           string      `yaml:"from,omitempty"`
+	To             []string    `yaml:"to,omitempty"`
+	CC             []string    `yaml:"cc,omitempty"`
+	BCC            []string    `yaml:"bcc,omitempty"`
+	Subject        string      `yaml:"subject,omitempty"`
+	Body           string      `yaml:"body,omitempty"`
+	HTML           bool        `yaml:"html,omitempty"`
 
 	Attachments []string `yaml:"attachments,omitempty"`
 	Mailbox     string   `yaml:"mailbox,omitempty"`
@@ -508,11 +518,11 @@ type SearchLocalConfig struct {
 
 // SearchWebConfig represents web search configuration.
 type SearchWebConfig struct {
-	Query      string `yaml:"query"`
-	Provider   string `yaml:"provider,omitempty"`   // ddg (default) | brave | bing | tavily
-	APIKey     string `yaml:"apiKey,omitempty"`     // required for brave/bing/tavily
-	MaxResults int    `yaml:"maxResults,omitempty"` // default 5
-	Timeout    int    `yaml:"timeout,omitempty"`    // seconds, default 15
+	Query          string `yaml:"query"`
+	Provider       string `yaml:"provider,omitempty"`       // ddg (default) | brave | bing | tavily
+	ConnectionName string `yaml:"connectionName,omitempty"` // named connection from settings.searchConnections
+	MaxResults     int    `yaml:"maxResults,omitempty"`     // default 5
+	Timeout        int    `yaml:"timeout,omitempty"`        // seconds, default 15
 }
 
 // TelephonyActionConfig represents an in-call telephony action.

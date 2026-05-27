@@ -19,13 +19,17 @@ settings: workflow.yaml settings {
   B2: "webServer\nstatic files or subprocess proxy"
   B3: "agentSettings\nPython, OS packages, env vars"
   B4: "sqlConnections\nnamed DB connections"
-  B6: "imapConnections\nnamed IMAP connections"
+  B6: "smtpConnections / imapConnections\nemail send + receive"
+  B7: "httpConnections\nHTTP auth + proxy"
+  B8: "searchConnections\nweb search API keys"
   B5: "session\ncross-request key-value store"
 }
 
 settings.B3 -> C: configures runtime
 settings.B4 -> C: provides connections
 settings.B6 -> C: provides connections
+settings.B7 -> C: provides connections
+settings.B8 -> C: provides connections
 settings.B5 -> C: provides session store
 settings.B2 -> B: runs alongside
 ```
@@ -47,9 +51,12 @@ settings:
   apiServer: { ... }       # HTTP REST server settings
   webServer: { ... }       # static file or app proxy settings
   agentSettings: { ... }   # runtime environment (Python, OS packages, Ollama)
-  sqlConnections: { ... }   # named database connections
-  imapConnections: { ... }  # named IMAP connections for email read/search/modify
-  session: { ... }          # session persistence settings
+  sqlConnections: { ... }    # named database connections
+  smtpConnections: { ... }   # named SMTP connections for email send
+  imapConnections: { ... }   # named IMAP connections for email read/search/modify
+  httpConnections: { ... }   # named HTTP auth + proxy (for httpClient resources)
+  searchConnections: { ... } # named API keys for web search (brave/bing/tavily)
+  session: { ... }           # session persistence settings
 ```
 
 ## Metadata and config profiles
@@ -162,9 +169,39 @@ settings:
 
 Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` driver.
 
+## SMTP Connections
+
+Named SMTP connections are declared here and referenced by name in `email:` resources that use `action: send`.
+
+```yaml
+# workflow.yaml
+settings:
+  smtpConnections:
+    default:
+      host: "${SMTP_HOST}"      # e.g. smtp.gmail.com
+      port: 587                 # 465 for implicit TLS, 587 for STARTTLS
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASS}"
+      tls: false                # false = STARTTLS on port 587, true = implicit TLS on port 465
+```
+
+Reference by name in a resource:
+
+```yaml
+email:
+  action: send
+  smtpConnection: default   # references settings.smtpConnections.default
+  from: "reports@example.com"
+  to: ["alice@example.com"]
+  subject: "Report"
+  body: "..."
+```
+
+See [Email Resource](/resources/email) for full field reference.
+
 ## IMAP Connections
 
-Named IMAP connections are declared here and referenced by name in `email:` resources that use `action: read`, `search`, or `modify`. SMTP credentials stay inline in the resource; only IMAP goes here.
+Named IMAP connections are declared here and referenced by name in `email:` resources that use `action: read`, `search`, or `modify`.
 
 ```yaml
 # workflow.yaml
@@ -175,12 +212,6 @@ settings:
       port: 993                 # 993 for TLS, 143 for plain
       username: "${IMAP_USER}"
       password: "${IMAP_PASS}"
-      tls: true
-    archive:
-      host: "${ARCHIVE_IMAP_HOST}"
-      port: 993
-      username: "${ARCHIVE_USER}"
-      password: "${ARCHIVE_PASS}"
       tls: true
 ```
 
@@ -195,6 +226,63 @@ email:
 ```
 
 See [Email Resource](/resources/email) for full field reference.
+
+## HTTP Connections
+
+Named HTTP connections hold auth credentials and proxy settings for `httpClient:` resources. This keeps API keys and passwords out of resource files.
+
+```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    stripe:
+      auth:
+        type: bearer             # basic | bearer | api_key | oauth2
+        token: "${STRIPE_KEY}"
+    internal:
+      auth:
+        type: basic
+        username: "${API_USER}"
+        password: "${API_PASS}"
+    via-proxy:
+      proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
+```
+
+Reference by name in a resource:
+
+```yaml
+httpClient:
+  method: POST
+  url: "https://api.stripe.com/v1/charges"
+  connectionName: stripe   # references settings.httpConnections.stripe
+```
+
+See [HTTP Client Resource](/resources/http-client) for full field reference.
+
+## Search Connections
+
+Named search connections hold API keys for paid web search providers (Brave, Bing, Tavily). DuckDuckGo requires no connection.
+
+```yaml
+# workflow.yaml
+settings:
+  searchConnections:
+    brave:
+      apiKey: "${BRAVE_API_KEY}"
+    tavily:
+      apiKey: "${TAVILY_API_KEY}"
+```
+
+Reference by name in a resource:
+
+```yaml
+searchWeb:
+  query: "{{ get('q') }}"
+  provider: brave
+  connectionName: brave   # references settings.searchConnections.brave
+```
+
+See [Search Resource](/resources/search) for full field reference.
 
 ## Session
 

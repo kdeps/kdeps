@@ -149,15 +149,11 @@ func TestScanResourceEnvVars_HTTPClient(t *testing.T) {
 	r := &domain.Resource{
 		HTTPClient: &domain.HTTPClientConfig{
 			URL: "https://api.example.com/{{ env('API_ENDPOINT') }}",
-			Auth: &domain.HTTPAuthConfig{
-				Token: "{{ env('API_TOKEN') }}",
-			},
 		},
 	}
 	seen := map[string]struct{}{}
 	scanResourceEnvVars(r, seen)
 	assert.Contains(t, seen, "API_ENDPOINT")
-	assert.Contains(t, seen, "API_TOKEN")
 }
 
 func TestScanResourceEnvVars_NoEnvExprs(t *testing.T) {

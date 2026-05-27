@@ -17,34 +17,28 @@ Set `action:` to one of four values:
 | `search` | Search messages in an IMAP mailbox by criteria |
 | `modify` | Change flags or move/delete messages via IMAP |
 
-## SMTP Configuration (inline)
+## Global Named Connections
 
-SMTP credentials are defined inline in the `email:` resource block.
-
-## IMAP Configuration (global named connections)
-
-IMAP credentials are defined once in `workflow.yaml` under `settings.imapConnections` and referenced by name in each resource — the same pattern as `sqlConnections`.
+Both SMTP and IMAP credentials are defined once in `workflow.yaml` under `settings` and referenced by name in each resource. This keeps all secrets in one place and out of resource files.
 
 ```yaml
 # workflow.yaml
 settings:
+  smtpConnections:
+    default:
+      host: "${SMTP_HOST}"      # e.g. smtp.gmail.com
+      port: 587
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASS}"
+      tls: true
+
   imapConnections:
     inbox:
-      host: "${IMAP_HOST}"
+      host: "${IMAP_HOST}"      # e.g. imap.gmail.com
       port: 993
       username: "${IMAP_USER}"
       password: "${IMAP_PASS}"
       tls: true
-```
-
-Then reference by name in resources:
-
-```yaml
-email:
-  action: read
-  imapConnection: inbox   # references settings.imapConnections.inbox
-  mailbox: "INBOX"
-  limit: 10
 ```
 
 ## Sending Email
@@ -57,12 +51,7 @@ actionId: notify
 requires: [llm]
 email:
   action: send
-  smtp:
-    host: "${SMTP_HOST}"
-    port: 587
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: true
+  smtpConnection: default   # references settings.smtpConnections.default
   from: "reports@example.com"
   to:
     - "alice@example.com"
@@ -79,12 +68,7 @@ HTML email — set `html: true` and put HTML in `body:`:
 ```yaml
 email:
   action: send
-  smtp:
-    host: "${SMTP_HOST}"
-    port: 465
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: true
+  smtpConnection: default
   from: "noreply@example.com"
   to: ["{{ get('recipient') }}"]
   subject: "Your Report"
@@ -99,12 +83,7 @@ With attachments:
 ```yaml
 email:
   action: send
-  smtp:
-    host: "${SMTP_HOST}"
-    port: 587
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: true
+  smtpConnection: default
   from: "reports@example.com"
   to: ["cfo@example.com"]
   subject: "Q3 Report"
@@ -116,7 +95,7 @@ email:
 ### Output (send)
 
 ```json
-{"success": true, "recipients": 1}
+{"success": true, "action": "send", "from": "...", "to": [...], "subject": "..."}
 ```
 
 ## Reading Email
@@ -126,7 +105,7 @@ email:
 actionId: checkInbox
 email:
   action: read
-  imapConnection: inbox   # named connection from settings.imapConnections
+  imapConnection: inbox   # references settings.imapConnections.inbox
   mailbox: "INBOX"
   limit: 10
   markRead: true
@@ -161,7 +140,7 @@ Access fields with `get('checkInbox')[0].subject`, `get('checkInbox')[0].body`, 
 actionId: findOrders
 email:
   action: search
-  imapConnection: inbox   # named connection from settings.imapConnections
+  imapConnection: inbox
   mailbox: "INBOX"
   limit: 50
   search:
@@ -184,7 +163,7 @@ Search fields: `from`, `to`, `subject`, `body`, `since` (ISO date), `before` (IS
 actionId: archive
 email:
   action: modify
-  imapConnection: inbox   # named connection from settings.imapConnections
+  imapConnection: inbox
   mailbox: "INBOX"
   uids:
     - "{{ get('findOrders')[0].uid }}"
@@ -203,6 +182,17 @@ email:
 
 ## Configuration Reference
 
+### `smtpConnections` fields (in `workflow.yaml` settings)
+
+| Field | Type | Description |
+|---|---|---|
+| `host` | string | SMTP server hostname |
+| `port` | int | Port (default: 465 for TLS, 587 for STARTTLS) |
+| `username` | string | Auth username |
+| `password` | string | Auth password |
+| `tls` | bool | `true` = implicit TLS (port 465), `false` = STARTTLS (port 587) |
+| `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
+
 ### `imapConnections` fields (in `workflow.yaml` settings)
 
 | Field | Type | Description |
@@ -214,22 +204,12 @@ email:
 | `tls` | bool | Enable TLS |
 | `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
 
-### SMTP fields (inline in resource)
-
-| Field | Type | Description |
-|---|---|---|
-| `host` | string | SMTP server hostname |
-| `port` | int | Port (default: 587) |
-| `username` | string | Auth username |
-| `password` | string | Auth password |
-| `tls` | bool | Enable TLS/STARTTLS |
-| `insecureSkipVerify` | bool | Skip TLS certificate verification (dev only) |
-
 ### Top-level `email:` fields
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `action` | string | `send` | `send`, `read`, `search`, or `modify` |
+| `smtpConnection` | string | | Named SMTP connection (required for send) |
 | `imapConnection` | string | | Named IMAP connection (required for read/search/modify) |
 | `from` | string | | Sender address (send only) |
 | `to` | []string | | Recipients (send only) |
@@ -264,6 +244,11 @@ Always use environment variables — never hardcode credentials in workflow file
 ```yaml
 # workflow.yaml
 settings:
+  smtpConnections:
+    default:
+      host: "${SMTP_HOST}"
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASS}"
   imapConnections:
     inbox:
       host: "${IMAP_HOST}"
@@ -271,7 +256,7 @@ settings:
       password: "${IMAP_PASS}"
 ```
 
-**Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833), not your account password. SMTP: `smtp.gmail.com:587` with `tls: true`. IMAP: `imap.gmail.com:993` with `tls: true`.
+**Gmail:** Use an [App Password](https://support.google.com/accounts/answer/185833), not your account password. SMTP: `smtp.gmail.com:587` with `tls: false` (STARTTLS). IMAP: `imap.gmail.com:993` with `tls: true`.
 
 ## Common Patterns
 
@@ -280,17 +265,22 @@ settings:
 <div v-pre>
 
 ```yaml
+# workflow.yaml
+settings:
+  smtpConnections:
+    reports:
+      host: "${SMTP_HOST}"
+      port: 587
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASS}"
+      tls: false
+
 # resources/send-report.yaml
 actionId: sendReport
 requires: [generateReport]
 email:
   action: send
-  smtp:
-    host: "${SMTP_HOST}"
-    port: 587
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: true
+  smtpConnection: reports
   from: "${REPORT_FROM}"
   to: ["${REPORT_TO}"]
   subject: "Weekly Summary — {{ get('week') }}"
@@ -317,12 +307,7 @@ email:
 ```yaml
 email:
   action: send
-  smtp:
-    host: "${SMTP_HOST}"
-    port: 587
-    username: "${SMTP_USER}"
-    password: "${SMTP_PASS}"
-    tls: true
+  smtpConnection: default
   from: "alerts@example.com"
   to: ["ops@example.com"]
   subject: "Alert"

@@ -6,6 +6,41 @@ The `httpClient:` resource makes an outbound HTTP request and stores the parsed 
 
 Both [workflow mode](/modes/workflow-mode) and [agent mode](/modes/agent-mode). In workflow mode it executes as a DAG step. In agent mode, the workflow containing this resource runs as a single callable tool.
 
+## Global Named Connections
+
+Authentication credentials and proxy settings belong in `workflow.yaml` settings as named connections, not inline in resource files. Resources reference them by name.
+
+```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    stripe:
+      auth:
+        type: bearer
+        token: "${STRIPE_SECRET_KEY}"
+    internal-api:
+      auth:
+        type: basic
+        username: "${API_USER}"
+        password: "${API_PASS}"
+    corporate-proxy:
+      proxy: "http://${PROXY_HOST}:${PROXY_PORT}"
+    github:
+      auth:
+        type: api_key
+        key: Authorization       # header name
+        value: "token ${GITHUB_TOKEN}"
+```
+
+Reference a connection in a resource:
+
+```yaml
+httpClient:
+  method: GET
+  url: "https://api.stripe.com/v1/charges"
+  connectionName: stripe   # references settings.httpConnections.stripe
+```
+
 ## Complete reference
 
 <div v-pre>
@@ -16,16 +51,12 @@ httpClient:
   method: GET                    # GET, POST, PUT, PATCH, DELETE
   url: "https://api.example.com/{{ get('id') }}"
   headers:
-    Authorization: "Bearer {{ get('token') }}"
     Content-Type: application/json
   data:                          # request body -- serialised as JSON
     key: value
   timeout: 30s                   # hard stop -- returns error, does not retry
 
-  # Auth shortcuts (alternative to setting Authorization header manually)
-  auth:
-    type: bearer                 # basic, bearer, api_key, oauth2
-    token: "{{ get('api_token') }}"
+  connectionName: myapi          # named connection (auth + proxy) from settings.httpConnections
 
   # Retry on transient failures
   retry:
@@ -40,7 +71,6 @@ httpClient:
     key: "custom-cache-key"
 
   followRedirects: true          # set false to stop at the first 3xx
-  proxy: "http://proxy:16395"
   tls:
     insecureSkipVerify: false    # never set true in production
     certFile: "/path/to/cert.pem"
@@ -87,71 +117,78 @@ httpClient:
 
 ## Authentication
 
+All auth types are defined in `settings.httpConnections` and referenced via `connectionName:`.
+
 ### Bearer Token
 
-<div v-pre>
+```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    myapi:
+      auth:
+        type: bearer
+        token: "${API_TOKEN}"
+```
 
 ```yaml
-# resources/example.yaml
+# resources/fetch.yaml
 httpClient:
   method: GET
   url: "https://api.example.com/protected"
-  auth:
-    type: bearer
-    token: "{{ get('api_token') }}"
+  connectionName: myapi
 ```
-
-</div>
 
 ### Basic Auth
 
-<div v-pre>
-
 ```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/protected"
-  auth:
-    type: basic
-    username: "{{ get('username') }}"
-    password: "{{ get('password') }}"
+# workflow.yaml
+settings:
+  httpConnections:
+    legacy:
+      auth:
+        type: basic
+        username: "${API_USER}"
+        password: "${API_PASS}"
 ```
-
-</div>
 
 ### API Key
 
-<div v-pre>
-
 ```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/data"
-  auth:
-    type: api_key
-    key: X-API-Key           # Header name
-    value: "{{ get('api_key') }}"
+# workflow.yaml
+settings:
+  httpConnections:
+    analytics:
+      auth:
+        type: api_key
+        key: X-API-Key        # header name
+        value: "${ANALYTICS_KEY}"
 ```
-
-</div>
 
 ### OAuth2
 
-<div v-pre>
-
 ```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/oauth/data"
-  auth:
-    type: oauth2
-    token: "{{ get('access_token') }}"
+# workflow.yaml
+settings:
+  httpConnections:
+    oauth:
+      auth:
+        type: oauth2
+        token: "${OAUTH2_ACCESS_TOKEN}"
 ```
 
-</div>
+### Proxy with Auth
+
+```yaml
+# workflow.yaml
+settings:
+  httpConnections:
+    via-proxy:
+      proxy: "http://${PROXY_USER}:${PROXY_PASS}@proxy.corp:8080"
+      auth:
+        type: bearer
+        token: "${API_TOKEN}"
+```
 
 ## Retry Configuration
 
@@ -223,16 +260,6 @@ httpClient:
     caFile: "/certs/ca.pem"
 ```
 
-## Proxy Configuration
-
-```yaml
-# resources/example.yaml
-httpClient:
-  method: GET
-  url: "https://api.example.com/data"
-  proxy: "http://proxy.internal:16395"
-```
-
 ## Redirect Handling
 
 ```yaml
@@ -301,30 +328,30 @@ Use preflight checks to validate before making requests:
 # resources/example.yaml
 validations:
   check:
-    - get('api_token') != ''
     - get('user_id') != ''
   error:
     code: 400
-    message: "API token and user ID are required"
+    message: "user_id is required"
 
 httpClient:
   method: GET
   url: "https://api.example.com/users/{{ get('user_id') }}"
-  auth:
-    type: bearer
-    token: "{{ get('api_token') }}"
+  connectionName: myapi
 ```
 
 </div>
 
-## Best Practices
+## `httpConnections` fields (in `workflow.yaml` settings)
 
-1. **Always set timeouts** - Prevent hanging requests
-2. **Use retries for external APIs** - Handle transient failures
-3. **Cache static data** - Reduce API calls and latency
-4. **Store secrets in environment** - Never hardcode API keys
-5. **Use appropriate authentication** - Match the API's requirements
-6. **Validate inputs** - Check required parameters before calling
+| Field | Type | Description |
+|---|---|---|
+| `auth.type` | string | `basic`, `bearer`, `api_key`, or `oauth2` |
+| `auth.username` | string | Basic auth username |
+| `auth.password` | string | Basic auth password |
+| `auth.token` | string | Bearer / OAuth2 token |
+| `auth.key` | string | API key header name |
+| `auth.value` | string | API key header value |
+| `proxy` | string | Proxy URL (may include `user:pass@`) |
 
 ## See Also
 

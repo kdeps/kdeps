@@ -41,6 +41,20 @@ func newSearchWebCtx(t *testing.T) *executor.ExecutionContext {
 	return ctx
 }
 
+func newSearchWebCtxWithSearch(t *testing.T, apiKey, _ string) *executor.ExecutionContext {
+	t.Helper()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			SearchConnections: map[string]domain.SearchConnectionConfig{
+				"test": {APIKey: apiKey},
+			},
+		},
+	})
+	require.NoError(t, err)
+	return ctx
+}
+
 func ddgHTML(n int) string {
 	var sb strings.Builder
 	sb.WriteString(`<html><body>`)
@@ -128,8 +142,8 @@ func TestExecute_Brave_Success(t *testing.T) {
 	t.Setenv("KDEPS_BRAVE_URL", srv.URL)
 
 	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{
-		Query: "test", Provider: "brave", APIKey: "test-key",
+	res, err := e.Execute(newSearchWebCtxWithSearch(t, "test-key", "brave"), &domain.SearchWebConfig{
+		Query: "test", Provider: "brave", ConnectionName: "test",
 	})
 	require.NoError(t, err)
 	m := res.(map[string]interface{})
@@ -142,7 +156,7 @@ func TestExecute_Brave_MissingAPIKey(t *testing.T) {
 	e := searchwebexec.NewExecutor()
 	_, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiKey required")
+	assert.Contains(t, err.Error(), "connectionName required")
 }
 
 func TestExecute_Bing_Success(t *testing.T) {
@@ -155,8 +169,8 @@ func TestExecute_Bing_Success(t *testing.T) {
 	t.Setenv("KDEPS_BING_URL", srv.URL)
 
 	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{
-		Query: "test", Provider: "bing", APIKey: "bing-key",
+	res, err := e.Execute(newSearchWebCtxWithSearch(t, "bing-key", "bing"), &domain.SearchWebConfig{
+		Query: "test", Provider: "bing", ConnectionName: "test",
 	})
 	require.NoError(t, err)
 	m := res.(map[string]interface{})
@@ -169,7 +183,7 @@ func TestExecute_Bing_MissingAPIKey(t *testing.T) {
 	e := searchwebexec.NewExecutor()
 	_, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "bing"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiKey required")
+	assert.Contains(t, err.Error(), "connectionName required")
 }
 
 func TestExecute_Tavily_Success(t *testing.T) {
@@ -183,8 +197,8 @@ func TestExecute_Tavily_Success(t *testing.T) {
 	t.Setenv("KDEPS_TAVILY_URL", srv.URL)
 
 	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{
-		Query: "test", Provider: "tavily", APIKey: "tavily-key",
+	res, err := e.Execute(newSearchWebCtxWithSearch(t, "tavily-key", "tavily"), &domain.SearchWebConfig{
+		Query: "test", Provider: "tavily", ConnectionName: "test",
 	})
 	require.NoError(t, err)
 	m := res.(map[string]interface{})
@@ -197,7 +211,7 @@ func TestExecute_Tavily_MissingAPIKey(t *testing.T) {
 	e := searchwebexec.NewExecutor()
 	_, err := e.Execute(newSearchWebCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "tavily"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiKey required")
+	assert.Contains(t, err.Error(), "connectionName required")
 }
 
 func TestExecute_EmptyQuery(t *testing.T) {

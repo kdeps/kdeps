@@ -57,9 +57,30 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
+func (e *Executor) resolveAPIKey(
+	ctx *executor.ExecutionContext,
+	cfg *domain.SearchWebConfig,
+) (string, error) {
+	kdeps_debug.Log("enter: resolveAPIKey")
+	if cfg.ConnectionName == "" {
+		return "", nil
+	}
+	if ctx == nil || ctx.Workflow == nil {
+		return "", fmt.Errorf("searchWeb: connectionName %q set but no workflow context", cfg.ConnectionName)
+	}
+	conn, ok := ctx.Workflow.Settings.SearchConnections[cfg.ConnectionName]
+	if !ok {
+		return "", fmt.Errorf(
+			"searchWeb: connectionName %q not found in settings.searchConnections",
+			cfg.ConnectionName,
+		)
+	}
+	return conn.APIKey, nil
+}
+
 // Execute performs a web search and returns structured results.
 func (e *Executor) Execute(
-	_ *executor.ExecutionContext,
+	ctx *executor.ExecutionContext,
 	config *domain.SearchWebConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
@@ -84,29 +105,39 @@ func (e *Executor) Execute(
 		provider = "ddg"
 	}
 
+	apiKey, err := e.resolveAPIKey(ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
 
 	var results []map[string]interface{}
-	var err error
 
 	switch provider {
 	case "ddg":
 		results, err = e.searchDDG(client, config.Query, maxResults)
 	case "brave":
-		if config.APIKey == "" {
-			return nil, errors.New("searchWeb: apiKey required for brave provider")
+		if apiKey == "" {
+			return nil, errors.New(
+				"searchWeb: connectionName required for brave provider — define a named connection in settings.searchConnections",
+			)
 		}
-		results, err = e.searchBrave(client, config.Query, config.APIKey, maxResults)
+		results, err = e.searchBrave(client, config.Query, apiKey, maxResults)
 	case "bing":
-		if config.APIKey == "" {
-			return nil, errors.New("searchWeb: apiKey required for bing provider")
+		if apiKey == "" {
+			return nil, errors.New(
+				"searchWeb: connectionName required for bing provider — define a named connection in settings.searchConnections",
+			)
 		}
-		results, err = e.searchBing(client, config.Query, config.APIKey, maxResults)
+		results, err = e.searchBing(client, config.Query, apiKey, maxResults)
 	case "tavily":
-		if config.APIKey == "" {
-			return nil, errors.New("searchWeb: apiKey required for tavily provider")
+		if apiKey == "" {
+			return nil, errors.New(
+				"searchWeb: connectionName required for tavily provider — define a named connection in settings.searchConnections",
+			)
 		}
-		results, err = e.searchTavily(client, config.Query, config.APIKey, maxResults)
+		results, err = e.searchTavily(client, config.Query, apiKey, maxResults)
 	default:
 		return nil, fmt.Errorf("searchWeb: unknown provider %q", provider)
 	}

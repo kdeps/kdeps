@@ -200,36 +200,57 @@ func TestIntegration_NilConfig(t *testing.T) {
 	require.Error(t, err)
 }
 
+func newExecCtxWithSMTP(t *testing.T, smtpCfg domain.EmailSMTPConfig) *executor.ExecutionContext {
+	t.Helper()
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+		Settings: domain.WorkflowSettings{
+			SMTPConnections: map[string]domain.EmailSMTPConfig{
+				"test": smtpCfg,
+			},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	return ctx
+}
+
 func TestIntegration_MissingHost(t *testing.T) {
 	_, err := newAdapter().Execute(nil, &domain.EmailConfig{
 		From: "from@x.com", To: []string{"to@x.com"}, Subject: "s", Body: "b",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "smtp.host")
+	assert.Contains(t, err.Error(), "smtpConnection")
 }
 
 func TestIntegration_MissingFrom(t *testing.T) {
-	_, err := newAdapter().Execute(nil, &domain.EmailConfig{
-		SMTP: domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		To:   []string{"to@x.com"}, Subject: "s", Body: "b",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		To:             []string{"to@x.com"}, Subject: "s", Body: "b",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "from")
 }
 
 func TestIntegration_MissingTo(t *testing.T) {
-	_, err := newAdapter().Execute(nil, &domain.EmailConfig{
-		SMTP: domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		From: "from@x.com", Subject: "s", Body: "b",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@x.com", Subject: "s", Body: "b",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "recipient")
 }
 
 func TestIntegration_MissingSubject(t *testing.T) {
-	_, err := newAdapter().Execute(nil, &domain.EmailConfig{
-		SMTP: domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		From: "from@x.com", To: []string{"to@x.com"}, Body: "b",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := newAdapter().Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@x.com", To: []string{"to@x.com"}, Body: "b",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "subject")
@@ -240,13 +261,15 @@ func TestIntegration_MissingSubject(t *testing.T) {
 func TestIntegration_PlainText_Send(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		Subject: "Test subject",
-		Body:    "Test body",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "Test subject",
+			Body:           "Test body",
+		})
 	require.NoError(t, err)
 
 	m, ok := result.(map[string]interface{})
@@ -268,14 +291,16 @@ func TestIntegration_PlainText_Send(t *testing.T) {
 func TestIntegration_HTML_Send(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		Subject: "HTML email",
-		Body:    "<h1>Hello</h1><p>World</p>",
-		HTML:    true,
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "HTML email",
+			Body:           "<h1>Hello</h1><p>World</p>",
+			HTML:           true,
+		})
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 
@@ -290,14 +315,16 @@ func TestIntegration_HTML_Send(t *testing.T) {
 func TestIntegration_CC_InResultAndEnvelope(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		CC:      []string{"cc@example.com"},
-		Subject: "With CC",
-		Body:    "body",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			CC:             []string{"cc@example.com"},
+			Subject:        "With CC",
+			Body:           "body",
+		})
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, true, m["success"])
@@ -310,14 +337,16 @@ func TestIntegration_CC_InResultAndEnvelope(t *testing.T) {
 func TestIntegration_BCC_InEnvelopeNotHeaders(t *testing.T) {
 	host, port, getCapture := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		BCC:     []string{"bcc@example.com"},
-		Subject: "BCC test",
-		Body:    "body",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			BCC:            []string{"bcc@example.com"},
+			Subject:        "BCC test",
+			Body:           "body",
+		})
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 
@@ -332,13 +361,15 @@ func TestIntegration_BCC_InEnvelopeNotHeaders(t *testing.T) {
 func TestIntegration_ResultMap_AllFields(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "sender@example.com",
-		To:      []string{"r1@example.com", "r2@example.com"},
-		Subject: "Result map test",
-		Body:    "body",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "sender@example.com",
+			To:             []string{"r1@example.com", "r2@example.com"},
+			Subject:        "Result map test",
+			Body:           "body",
+		})
 	require.NoError(t, err)
 	m, ok := result.(map[string]interface{})
 	require.True(t, ok)
@@ -358,14 +389,16 @@ func TestIntegration_WithAttachment(t *testing.T) {
 	attPath := filepath.Join(t.TempDir(), "match-report.pdf")
 	require.NoError(t, os.WriteFile(attPath, []byte("%PDF-1.4 fake report\n"), 0o644))
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:        domain.EmailSMTPConfig{Host: host, Port: port},
-		From:        "from@example.com",
-		To:          []string{"to@example.com"},
-		Subject:     "CV Match Report",
-		Body:        "Please find the match report attached.",
-		Attachments: []string{attPath},
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "CV Match Report",
+			Body:           "Please find the match report attached.",
+			Attachments:    []string{attPath},
+		})
 	require.NoError(t, err)
 	m := result.(map[string]interface{})
 	assert.Equal(t, true, m["success"])
@@ -380,14 +413,16 @@ func TestIntegration_WithAttachment(t *testing.T) {
 func TestIntegration_MissingAttachment_Error(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
-	_, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:        domain.EmailSMTPConfig{Host: host, Port: port},
-		From:        "from@example.com",
-		To:          []string{"to@example.com"},
-		Subject:     "Missing attachment",
-		Body:        "body",
-		Attachments: []string{"/nonexistent/kdeps-test-file.pdf"},
-	})
+	_, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "Missing attachment",
+			Body:           "body",
+			Attachments:    []string{"/nonexistent/kdeps-test-file.pdf"},
+		})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "read attachment")
 }
@@ -403,13 +438,15 @@ func TestIntegration_DefaultPort_STARTTLS_587(t *testing.T) {
 	require.NoError(t, convErr)
 	ln.Close()
 
-	_, err = newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p},
-		From:    "from@x.com",
-		To:      []string{"to@x.com"},
-		Subject: "Port test",
-		Body:    "body",
-	})
+	_, err = newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@x.com",
+			To:             []string{"to@x.com"},
+			Subject:        "Port test",
+			Body:           "body",
+		})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf(":%d", p))
 }
@@ -423,13 +460,15 @@ func TestIntegration_DefaultPort_ImplicitTLS_465(t *testing.T) {
 	require.NoError(t, convErr)
 	ln.Close()
 
-	_, err = newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p, TLS: true},
-		From:    "from@x.com",
-		To:      []string{"to@x.com"},
-		Subject: "TLS port test",
-		Body:    "body",
-	})
+	_, err = newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p, TLS: true}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@x.com",
+			To:             []string{"to@x.com"},
+			Subject:        "TLS port test",
+			Body:           "body",
+		})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf(":%d", p))
 }
@@ -443,28 +482,32 @@ func TestIntegration_Timeout_Respected(t *testing.T) {
 	p, _ := strconv.Atoi(portStr)
 	ln.Close()
 
-	_, err = newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:            domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p},
-		From:            "from@x.com",
-		To:              []string{"to@x.com"},
-		Subject:         "Timeout test",
-		Body:            "body",
-		TimeoutDuration: "1s",
-	})
+	_, err = newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "127.0.0.1", Port: p}),
+		&domain.EmailConfig{
+			SMTPConnection:  "test",
+			From:            "from@x.com",
+			To:              []string{"to@x.com"},
+			Subject:         "Timeout test",
+			Body:            "body",
+			TimeoutDuration: "1s",
+		})
 	require.Error(t, err)
 }
 
 func TestIntegration_Timeout_Alias_Accepted(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		Subject: "Timeout alias",
-		Body:    "body",
-		Timeout: "30s",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "Timeout alias",
+			Body:           "body",
+			Timeout:        "30s",
+		})
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 }
@@ -487,16 +530,18 @@ func TestIntegration_CVMatch_EmailDistribution(t *testing.T) {
 </body>
 </html>`
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP:        domain.EmailSMTPConfig{Host: host, Port: port},
-		From:        "cv-matcher@example.com",
-		To:          []string{"hr@example.com", "hiring@example.com"},
-		CC:          []string{"manager@example.com"},
-		Subject:     "[CV Match] Jane Smith - Senior Backend Engineer (87%)",
-		Body:        html,
-		HTML:        true,
-		Attachments: []string{pdfPath},
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           "cv-matcher@example.com",
+			To:             []string{"hr@example.com", "hiring@example.com"},
+			CC:             []string{"manager@example.com"},
+			Subject:        "[CV Match] Jane Smith - Senior Backend Engineer (87%)",
+			Body:           html,
+			HTML:           true,
+			Attachments:    []string{pdfPath},
+		})
 	require.NoError(t, err)
 
 	m, ok := result.(map[string]interface{})
@@ -519,14 +564,16 @@ func TestIntegration_CVMatch_EmailDistribution(t *testing.T) {
 func TestIntegration_Action_ResultHasActionField(t *testing.T) {
 	host, port, _ := startFakeSMTP(t)
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		Action:  domain.EmailActionSend,
-		SMTP:    domain.EmailSMTPConfig{Host: host, Port: port},
-		From:    "from@example.com",
-		To:      []string{"to@example.com"},
-		Subject: "Action field test",
-		Body:    "body",
-	})
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: host, Port: port}),
+		&domain.EmailConfig{
+			Action:         domain.EmailActionSend,
+			SMTPConnection: "test",
+			From:           "from@example.com",
+			To:             []string{"to@example.com"},
+			Subject:        "Action field test",
+			Body:           "body",
+		})
 	require.NoError(t, err)
 	m, ok := result.(map[string]interface{})
 	require.True(t, ok)
@@ -989,18 +1036,20 @@ func TestIntegration_Real_SMTP(t *testing.T) {
 		port, _ = strconv.Atoi(ps)
 	}
 
-	result, err := newAdapter().Execute(newExecCtx(t), &domain.EmailConfig{
-		SMTP: domain.EmailSMTPConfig{
+	result, err := newAdapter().Execute(
+		newExecCtxWithSMTP(t, domain.EmailSMTPConfig{
 			Host:     smtpHost,
 			Port:     port,
 			Username: os.Getenv("KDEPS_TEST_SMTP_USER"),
 			Password: os.Getenv("KDEPS_TEST_SMTP_PASS"),
-		},
-		From:    os.Getenv("KDEPS_TEST_SMTP_FROM"),
-		To:      []string{os.Getenv("KDEPS_TEST_SMTP_TO")},
-		Subject: "kdeps email executor integration test",
-		Body:    "This is an automated test email from the kdeps email executor.",
-	})
+		}),
+		&domain.EmailConfig{
+			SMTPConnection: "test",
+			From:           os.Getenv("KDEPS_TEST_SMTP_FROM"),
+			To:             []string{os.Getenv("KDEPS_TEST_SMTP_TO")},
+			Subject:        "kdeps email executor integration test",
+			Body:           "This is an automated test email from the kdeps email executor.",
+		})
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
 }

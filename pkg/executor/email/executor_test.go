@@ -65,6 +65,24 @@ func TestExecute_NilConfig(t *testing.T) {
 
 // --- Execute — required field validation ---
 
+func newExecCtxWithSMTP(t *testing.T, smtpCfg domain.EmailSMTPConfig) *executor.ExecutionContext {
+	t.Helper()
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+		Settings: domain.WorkflowSettings{
+			SMTPConnections: map[string]domain.EmailSMTPConfig{
+				"test": smtpCfg,
+			},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	return ctx
+}
+
 func TestExecute_MissingHost(t *testing.T) {
 	ex := NewAdapter(nil)
 	_, err := ex.Execute(nil, &domain.EmailConfig{
@@ -74,16 +92,17 @@ func TestExecute_MissingHost(t *testing.T) {
 		Body:    "Hello",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "smtp.host")
+	assert.Contains(t, err.Error(), "smtpConnection")
 }
 
 func TestExecute_MissingFrom(t *testing.T) {
 	ex := NewAdapter(nil)
-	_, err := ex.Execute(nil, &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		To:      []string{"to@example.com"},
-		Subject: "Test",
-		Body:    "Hello",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		To:             []string{"to@example.com"},
+		Subject:        "Test",
+		Body:           "Hello",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "from")
@@ -91,11 +110,12 @@ func TestExecute_MissingFrom(t *testing.T) {
 
 func TestExecute_MissingTo(t *testing.T) {
 	ex := NewAdapter(nil)
-	_, err := ex.Execute(nil, &domain.EmailConfig{
-		SMTP:    domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		From:    "from@example.com",
-		Subject: "Test",
-		Body:    "Hello",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		Subject:        "Test",
+		Body:           "Hello",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "recipient")
@@ -103,11 +123,12 @@ func TestExecute_MissingTo(t *testing.T) {
 
 func TestExecute_MissingSubject(t *testing.T) {
 	ex := NewAdapter(nil)
-	_, err := ex.Execute(nil, &domain.EmailConfig{
-		SMTP: domain.EmailSMTPConfig{Host: "smtp.example.com"},
-		From: "from@example.com",
-		To:   []string{"to@example.com"},
-		Body: "Hello",
+	ctx := newExecCtxWithSMTP(t, domain.EmailSMTPConfig{Host: "smtp.example.com"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		To:             []string{"to@example.com"},
+		Body:           "Hello",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "subject")

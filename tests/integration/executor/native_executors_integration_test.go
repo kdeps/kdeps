@@ -44,6 +44,20 @@ func newCtx(t *testing.T) *executor.ExecutionContext {
 	return ctx
 }
 
+func newCtxWithSearch(t *testing.T, apiKey string) *executor.ExecutionContext {
+	t.Helper()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			SearchConnections: map[string]domain.SearchConnectionConfig{
+				"test": {APIKey: apiKey},
+			},
+		},
+	})
+	require.NoError(t, err)
+	return ctx
+}
+
 func newIntTestDB(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), "test.db")
@@ -212,7 +226,10 @@ func TestIntegration_SearchWeb_Brave(t *testing.T) {
 	t.Setenv("KDEPS_BRAVE_URL", srv.URL)
 
 	e := searchwebexec.NewExecutor()
-	res, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave", APIKey: "key"})
+	res, err := e.Execute(
+		newCtxWithSearch(t, "key"),
+		&domain.SearchWebConfig{Query: "test", Provider: "brave", ConnectionName: "test"},
+	)
 	require.NoError(t, err)
 	m := res.(map[string]interface{})
 	assert.Equal(t, 1, m["count"])
@@ -222,5 +239,5 @@ func TestIntegration_SearchWeb_MissingKey(t *testing.T) {
 	e := searchwebexec.NewExecutor()
 	_, err := e.Execute(newCtx(t), &domain.SearchWebConfig{Query: "test", Provider: "brave"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "apiKey required")
+	assert.Contains(t, err.Error(), "connectionName required")
 }

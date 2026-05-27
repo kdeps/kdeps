@@ -45,7 +45,7 @@ import (
 
 // ClientFactory creates HTTP clients with custom configuration.
 type ClientFactory interface {
-	CreateClient(config *domain.HTTPClientConfig) (*http.Client, error)
+	CreateClient(config *domain.HTTPClientConfig, proxy string) (*http.Client, error)
 }
 
 // DefaultClientFactory implements ClientFactory using standard library.
@@ -69,7 +69,7 @@ func resolveHTTPTimeout(config *domain.HTTPClientConfig) time.Duration {
 }
 
 // CreateClient creates an HTTP client with the given configuration.
-func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*http.Client, error) {
+func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig, proxy string) (*http.Client, error) {
 	kdeps_debug.Log("enter: CreateClient")
 	client := &http.Client{
 		Timeout: resolveHTTPTimeout(config),
@@ -92,8 +92,8 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig) (*h
 		client.CheckRedirect = nil
 	}
 
-	// Configure proxy: resource > KDEPS_HTTP_PROXY > empty (no proxy)
-	proxyURL := config.Proxy
+	// Configure proxy: connection > KDEPS_HTTP_PROXY > empty (no proxy)
+	proxyURL := proxy
 	if proxyURL == "" {
 		proxyURL = os.Getenv("KDEPS_HTTP_PROXY")
 	}
@@ -154,6 +154,22 @@ func NewExecutorWithFactory(factory ClientFactory) *Executor {
 	}
 }
 
+// resolveHTTPConnection returns the named HTTPConnectionConfig for the given config, or nil.
+func (e *Executor) resolveHTTPConnection(
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPClientConfig,
+) *domain.HTTPConnectionConfig {
+	kdeps_debug.Log("enter: resolveHTTPConnection")
+	if config.ConnectionName == "" || ctx == nil || ctx.Workflow == nil {
+		return nil
+	}
+	conn, ok := ctx.Workflow.Settings.HTTPConnections[config.ConnectionName]
+	if !ok {
+		return nil
+	}
+	return &conn
+}
+
 // Execute executes an HTTP client resource.
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
@@ -162,13 +178,22 @@ func (e *Executor) Execute(
 	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
+	// Resolve named HTTP connection (auth, proxy).
+	conn := e.resolveHTTPConnection(ctx, config)
+	proxy := ""
+	var auth *domain.HTTPAuthConfig
+	if conn != nil {
+		proxy = conn.Proxy
+		auth = conn.Auth
+	}
+
 	// Resolve configuration with evaluated expressions
 	resolvedConfig, err := e.resolveResolvedConfig(evaluator, ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	urlStr, method, headers, err := e.prepareRequest(evaluator, ctx, resolvedConfig)
+	urlStr, method, headers, err := e.prepareRequest(evaluator, ctx, resolvedConfig, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +211,7 @@ func (e *Executor) Execute(
 	}
 	headers = updatedHeaders
 
-	req, client, err := e.createRequest(resolvedConfig, method, urlStr, body, headers)
+	req, client, err := e.createRequest(resolvedConfig, method, urlStr, body, headers, proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -213,15 +238,6 @@ func (e *Executor) resolveResolvedConfig(
 ) (*domain.HTTPClientConfig, error) {
 	kdeps_debug.Log("enter: resolveResolvedConfig")
 	resolvedConfig := *config
-
-	// Evaluate Proxy if it contains expression syntax
-	if config.Proxy != "" {
-		proxyStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Proxy)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate proxy URL: %w", err)
-		}
-		resolvedConfig.Proxy = proxyStr
-	}
 
 	// Evaluate TimeoutDuration if it contains expression syntax
 	if config.Timeout != "" {
@@ -565,6 +581,7 @@ func (e *Executor) prepareRequest(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
+	auth *domain.HTTPAuthConfig,
 ) (string, string, map[string]string, error) {
 	kdeps_debug.Log("enter: prepareRequest")
 	// Evaluate URL (only if it contains expression syntax)
@@ -607,9 +624,9 @@ func (e *Executor) prepareRequest(
 		headers["User-Agent"] = "KDeps/" + version.Version
 	}
 
-	// Handle authentication
-	if config.Auth != nil {
-		authHeaders, authErr := e.handleAuth(config.Auth, evaluator, ctx)
+	// Handle authentication from resolved connection.
+	if auth != nil {
+		authHeaders, authErr := e.handleAuth(auth, evaluator, ctx)
 		if authErr != nil {
 			return "", "", nil, fmt.Errorf("failed to handle authentication: %w", authErr)
 		}
@@ -681,6 +698,7 @@ func (e *Executor) createRequest(
 	method, urlStr string,
 	body io.Reader,
 	headers map[string]string,
+	proxy string,
 ) (*http.Request, *http.Client, error) {
 	kdeps_debug.Log("enter: createRequest")
 	// Create request
@@ -695,7 +713,7 @@ func (e *Executor) createRequest(
 	}
 
 	// Create HTTP client with custom configuration
-	client, err := e.clientFactory.CreateClient(config)
+	client, err := e.clientFactory.CreateClient(config, proxy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
