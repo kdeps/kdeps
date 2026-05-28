@@ -125,7 +125,7 @@ test_input_source_valid "Input Sources - Bot source with Discord" \
     sources: [bot]
     bot:
       discord:
-        botToken: test-token'
+        guildId: "123456789"'
 
 # ---------------------------------------------------------------------------
 # Test 3: Bot input source with Slack
@@ -135,8 +135,7 @@ test_input_source_valid "Input Sources - Bot source with Slack" \
     sources: [bot]
     bot:
       slack:
-        botToken: xoxb-test
-        appToken: xapp-test'
+        mode: socket'
 
 # ---------------------------------------------------------------------------
 # Test 4: File input source
@@ -167,7 +166,7 @@ test_input_source_invalid "Input Sources - Missing source field rejected" \
 '  input:
     bot:
       discord:
-        botToken: test'
+        guildId: "123456789"'
 
 # ---------------------------------------------------------------------------
 # Test 8: Duplicate sources rejected
