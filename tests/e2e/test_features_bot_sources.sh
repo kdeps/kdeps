@@ -114,24 +114,22 @@ RESEOF
 # Valid configurations
 # ---------------------------------------------------------------------------
 
-# Test 1: Telegram polling bot
-test_bot_valid "Bot - Telegram polling with botToken" \
+# Test 1: Telegram polling bot (credentials in ~/.kdeps/config.yaml bot_connections.telegram)
+test_bot_valid "Bot - Telegram polling" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       telegram:
-        botToken: "test-token"
         pollIntervalSeconds: 1'
 
 # Test 2: Discord polling bot
-test_bot_valid "Bot - Discord polling with botToken" \
+test_bot_valid "Bot - Discord polling" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
-      discord:
-        botToken: "Bot test-token"'
+      discord: {}'
 
 # Test 3: Discord polling with guildId
 test_bot_valid "Bot - Discord polling with guildId" \
@@ -140,40 +138,33 @@ test_bot_valid "Bot - Discord polling with guildId" \
     bot:
       executionType: polling
       discord:
-        botToken: "Bot test-token"
         guildId: "123456789"'
 
 # Test 4: Slack polling bot
-test_bot_valid "Bot - Slack polling with botToken" \
+test_bot_valid "Bot - Slack polling" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       slack:
-        botToken: "xoxb-test-token"
-        appToken: "xapp-test-token"
         mode: socket'
 
 # Test 5: WhatsApp polling bot
-test_bot_valid "Bot - WhatsApp polling with required fields" \
+test_bot_valid "Bot - WhatsApp polling" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       whatsApp:
-        phoneNumberId: "123456789"
-        accessToken: "EAAtest"'
+        webhookPort: 16396'
 
-# Test 6: WhatsApp with optional fields
-test_bot_valid "Bot - WhatsApp polling with all fields" \
+# Test 6: WhatsApp with webhookPort only
+test_bot_valid "Bot - WhatsApp polling with webhookPort" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       whatsApp:
-        phoneNumberId: "123456789"
-        accessToken: "EAAtest"
-        webhookSecret: "mysecret"
         webhookPort: 16396'
 
 # Test 7: Stateless mode - no platform required
@@ -190,7 +181,7 @@ test_bot_valid "Bot - Stateless mode with telegram" \
     bot:
       executionType: stateless
       telegram:
-        botToken: "test-token"'
+        pollIntervalSeconds: 1'
 
 # Test 9: Default executionType (empty) with telegram
 test_bot_valid "Bot - Default executionType (empty) with telegram" \
@@ -198,7 +189,7 @@ test_bot_valid "Bot - Default executionType (empty) with telegram" \
     sources: [bot]
     bot:
       telegram:
-        botToken: "test-token"'
+        pollIntervalSeconds: 1'
 
 # Test 10: Multi-platform (Telegram + Discord)
 test_bot_valid "Bot - Multi-platform Telegram + Discord" \
@@ -207,9 +198,9 @@ test_bot_valid "Bot - Multi-platform Telegram + Discord" \
     bot:
       executionType: polling
       telegram:
-        botToken: "tg-token"
+        pollIntervalSeconds: 1
       discord:
-        botToken: "Bot dc-token"'
+        guildId: "123456789"'
 
 # Test 11: Multi-platform (all four)
 test_bot_valid "Bot - All four platforms" \
@@ -218,14 +209,10 @@ test_bot_valid "Bot - All four platforms" \
     bot:
       executionType: polling
       telegram:
-        botToken: "tg-token"
-      discord:
-        botToken: "Bot dc-token"
-      slack:
-        botToken: "xoxb-sl-token"
-      whatsApp:
-        phoneNumberId: "123"
-        accessToken: "EAAtest"'
+        pollIntervalSeconds: 1
+      discord: {}
+      slack: {}
+      whatsApp: {}'
 
 # ---------------------------------------------------------------------------
 # Invalid configurations
@@ -250,10 +237,10 @@ test_bot_invalid "Bot - Invalid executionType rejected" \
     bot:
       executionType: webhook
       telegram:
-        botToken: "tg-token"'
+        pollIntervalSeconds: 1'
 
-# Test 15: Discord without botToken
-test_bot_invalid "Bot - Discord without botToken rejected" \
+# Test 15: Discord with only guildId is valid (credentials in config.yaml)
+test_bot_valid "Bot - Discord with guildId only is valid" \
 '  input:
     sources: [bot]
     bot:
@@ -261,41 +248,40 @@ test_bot_invalid "Bot - Discord without botToken rejected" \
       discord:
         guildId: "123456789"'
 
-# Test 16: Telegram without botToken
-test_bot_invalid "Bot - Telegram without botToken rejected" \
+# Test 16: Telegram with pollIntervalSeconds only is valid (credentials in config.yaml)
+test_bot_valid "Bot - Telegram with pollIntervalSeconds only is valid" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       telegram:
-        pollIntervalSeconds: 1'
+        pollIntervalSeconds: 5'
 
-# Test 17: Slack without botToken
-test_bot_invalid "Bot - Slack without botToken rejected" \
+# Test 17: Slack with mode only is valid (credentials in config.yaml)
+test_bot_valid "Bot - Slack with mode only is valid" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       slack:
-        appToken: "xapp-token"'
+        mode: socket'
 
-# Test 18: WhatsApp without phoneNumberId
-test_bot_invalid "Bot - WhatsApp without phoneNumberId rejected" \
+# Test 18: WhatsApp with webhookPort only is valid (credentials in config.yaml)
+test_bot_valid "Bot - WhatsApp with webhookPort only is valid" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
       whatsApp:
-        accessToken: "EAAtest"'
+        webhookPort: 16396'
 
-# Test 19: WhatsApp without accessToken
-test_bot_invalid "Bot - WhatsApp without accessToken rejected" \
+# Test 19: WhatsApp empty block is valid (all config in config.yaml)
+test_bot_valid "Bot - WhatsApp empty block is valid" \
 '  input:
     sources: [bot]
     bot:
       executionType: polling
-      whatsApp:
-        phoneNumberId: "123456789"'
+      whatsApp: {}'
 
 echo ""
 echo "Bot Input Sources tests complete."
