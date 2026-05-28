@@ -243,7 +243,7 @@ onError:
 # resources/query-primary.yaml
 actionId: queryPrimary
 sql:
-  connection: primary
+  connectionName: primary
   query: "SELECT * FROM users WHERE id = ?"
   params:
     - "{{ get('userId') }}"
@@ -263,7 +263,7 @@ validations:
   - safe(get('queryPrimary'), '_error') == nil
 
 sql:
-  connection: replica
+  connectionName: replica
   query: "SELECT * FROM users WHERE id = ?"
   params:
     - "{{ get('userId') }}"

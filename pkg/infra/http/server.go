@@ -974,8 +974,8 @@ func (s *Server) applySecurityMiddleware() {
 		return
 	}
 	api := s.Workflow.Settings.APIServer
-	if api.Auth != nil && api.Auth.Token != "" {
-		s.Router.Use(AuthMiddleware(api.Auth.Token))
+	if token := os.Getenv("KDEPS_API_AUTH_TOKEN"); token != "" {
+		s.Router.Use(AuthMiddleware(token))
 	}
 	if api.RateLimit != nil && api.RateLimit.RequestsPerMinute > 0 {
 		burst := api.RateLimit.Burst

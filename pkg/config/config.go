@@ -283,6 +283,11 @@ type BotConnectionConfig struct {
 	WhatsApp *WhatsAppConnectionConfig `yaml:"whatsapp,omitempty"`
 }
 
+// SQLConnectionConfig holds a database connection string for a named SQL connection.
+type SQLConnectionConfig struct {
+	Connection string `yaml:"connection"` // DSN, e.g. "postgres://user:pass@host/db"
+}
+
 // Config is the top-level structure of ~/.kdeps/config.yaml.
 type Config struct {
 	LLM               LLMKeys                           `yaml:"llm"`
@@ -293,6 +298,8 @@ type Config struct {
 	SMTPConnections   map[string]SMTPConnectionConfig   `yaml:"smtp_connections,omitempty"`
 	IMAPConnections   map[string]IMAPConnectionConfig   `yaml:"imap_connections,omitempty"`
 	BotConnections    *BotConnectionConfig              `yaml:"bot_connections,omitempty"`
+	SQLConnections    map[string]SQLConnectionConfig    `yaml:"sql_connections,omitempty"`
+	APIAuthToken      string                            `yaml:"api_auth_token,omitempty"`
 	Agents            map[string]Config                 `yaml:"agents,omitempty"`
 }
 
@@ -585,6 +592,9 @@ func applyEnv(cfg Config) {
 	// Per-resource defaults.
 	applyResourceDefaults(cfg.ResourceDefaults)
 
+	// API server auth token.
+	setIfUnset("KDEPS_API_AUTH_TOKEN", cfg.APIAuthToken)
+
 	// Router env: serialize unified config to JSON when strategy is set or models have routing metadata.
 	applyRouterEnv(cfg.LLM)
 }
@@ -742,6 +752,15 @@ func mergeConfig(dst *Config, src *Config) { //nolint:gocognit,gocyclo,cyclop,fu
 	if src.BotConnections != nil {
 		dst.BotConnections = src.BotConnections
 	}
+	for k, v := range src.SQLConnections {
+		if dst.SQLConnections == nil {
+			dst.SQLConnections = make(map[string]SQLConnectionConfig)
+		}
+		dst.SQLConnections[k] = v
+	}
+	if src.APIAuthToken != "" {
+		dst.APIAuthToken = src.APIAuthToken
+	}
 }
 
 // LoadWithAgent loads config.yaml and applies the named agent profile on top.
@@ -789,6 +808,7 @@ func knownConfigEnvVars() []string {
 		"KDEPS_ON_ERROR_ACTION", "KDEPS_ON_ERROR_MAX_RETRIES",
 		"KDEPS_ON_ERROR_RETRY_DELAY",
 		"KDEPS_LLM_ROUTER",
+		"KDEPS_API_AUTH_TOKEN",
 	}
 }
 
@@ -980,6 +1000,23 @@ defaults:
 #     phoneNumberId: "${WHATSAPP_PHONE_NUMBER_ID}"
 #     accessToken: "${WHATSAPP_ACCESS_TOKEN}"
 #     webhookSecret: "${WHATSAPP_WEBHOOK_SECRET}"
+
+# ── Named SQL connections — DSNs for sql resources ───────────────────────────
+# Resources reference connections by name via sql.connectionName.
+# Pool config (maxConnections, minConnections, maxIdleTime, connectionTimeout)
+# stays in workflow.yaml under settings.sqlConnections.<name>.pool.
+# sql_connections:
+#   default:
+#     connection: "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/${DB_NAME}"
+#   analytics:
+#     connection: "postgres://${ANALYTICS_DSN}"
+#   local:
+#     connection: "sqlite3://./dev.db"
+
+# ── API server auth token ─────────────────────────────────────────────────────
+# Bearer token required on all requests to the agent HTTP server.
+# Set here or via KDEPS_API_AUTH_TOKEN env var. When empty, auth is disabled.
+# api_auth_token: "${API_AUTH_TOKEN}"
 
 # ── Per-agent config profiles ──────────────────────────────────────────────
 # Each key under agents: must match a workflow metadata.name value. When that

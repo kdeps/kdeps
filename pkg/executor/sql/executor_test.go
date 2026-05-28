@@ -29,11 +29,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	sqlexecutor "github.com/kdeps/kdeps/v2/pkg/executor/sql"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
+
+// sqlConfig builds a *kdepsconfig.Config with a single named SQL connection "test".
+func sqlConfig(dsn string) *kdepsconfig.Config {
+	return &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"test": {Connection: dsn},
+		},
+	}
+}
 
 func TestNewExecutor(t *testing.T) {
 	executor := sqlexecutor.NewExecutor()
@@ -115,10 +125,11 @@ func TestExecutor_Execute_SelectQuery(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = sqlConfig("sqlite://:memory:")
 
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1 as value, 'test' as name",
+		ConnectionName: "test",
+		Query:          "SELECT 1 as value, 'test' as name",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -158,12 +169,13 @@ func TestExecutor_Execute_JSONFormat(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = sqlConfig("sqlite://:memory:")
 
 	// Simple SELECT query with JSON format
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1 as id, 'test' as name",
-		Format:     "json",
+		ConnectionName: "test",
+		Query:          "SELECT 1 as id, 'test' as name",
+		Format:         "json",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -210,10 +222,11 @@ func TestExecutor_Execute_InvalidConnection(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = sqlConfig("invalid-connection-string")
 
 	config := &domain.SQLConfig{
-		Connection: "invalid-connection-string",
-		Query:      "SELECT 1",
+		ConnectionName: "test",
+		Query:          "SELECT 1",
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -233,10 +246,11 @@ func TestExecutor_Execute_WithTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test SELECT query with valid timeout (exercises timeout parsing branch)
+	ctx.Config = sqlConfig("sqlite://:memory:")
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1 as value",
-		Timeout:    "5s", // Valid timeout duration
+		ConnectionName: "test",
+		Query:          "SELECT 1 as value",
+		Timeout:        "5s", // Valid timeout duration
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -271,10 +285,11 @@ func TestExecutor_Execute_MaxRows(t *testing.T) {
 
 	// Simple SELECT query with maxRows limit
 	// Note: MaxRows is enforced in the executor, so even if we return 5 values, maxRows limits it
+	ctx.Config = sqlConfig("sqlite://:memory:")
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5",
-		MaxRows:    3,
+		ConnectionName: "test",
+		Query:          "SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5",
+		MaxRows:        3,
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -350,9 +365,10 @@ func TestExecutor_ExecuteBatchQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	// This will fail due to no database connection, but tests the code path
+	ctx.Config = sqlConfig("invalid-connection")
 	config := &domain.SQLConfig{
-		Connection:  "invalid-connection",
-		Transaction: true,
+		ConnectionName: "test",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query:       "SELECT 1",
@@ -379,9 +395,10 @@ func TestExecutor_ExecuteTransactionQuery(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing
+	ctx.Config = sqlConfig("file::memory:?cache=shared")
 	config := &domain.SQLConfig{
-		Connection:  "file::memory:?cache=shared",
-		Transaction: true,
+		ConnectionName: "test",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query:  "SELECT 1 as value",
@@ -421,9 +438,10 @@ func TestExecutor_ExecuteTransactionSelect(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing
+	ctx.Config = sqlConfig("file::memory:?cache=shared")
 	config := &domain.SQLConfig{
-		Connection:  "file::memory:?cache=shared",
-		Transaction: true,
+		ConnectionName: "test",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query:  "SELECT 1 as value, 'test' as name",
@@ -461,9 +479,10 @@ func TestExecutor_ExecuteTransactionDML(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use SQLite in-memory database for testing - need to create table first
+	ctx.Config = sqlConfig("file::memory:?cache=shared")
 	config := &domain.SQLConfig{
-		Connection:  "file::memory:?cache=shared",
-		Transaction: true,
+		ConnectionName: "test",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query:  "CREATE TABLE test (id INTEGER PRIMARY KEY, value INTEGER)",
@@ -545,9 +564,10 @@ func TestExecutor_Execute_ExpressionParameters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with a simple literal parameter that should work even with connection issues
+	ctx.Config = sqlConfig("invalid-connection")
 	config := &domain.SQLConfig{
-		Connection: "invalid-connection",
-		Query:      "SELECT ? as literal",
+		ConnectionName: "test",
+		Query:          "SELECT ? as literal",
 		Params: []interface{}{
 			"test_value", // Literal string parameter
 		},
@@ -576,9 +596,10 @@ func TestExecutor_Execute_InvalidExpressionParameters(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with invalid expression parameters - this will fail at parameter evaluation
+	ctx.Config = sqlConfig("invalid-connection")
 	config := &domain.SQLConfig{
-		Connection: "invalid-connection",
-		Query:      "SELECT ? as result",
+		ConnectionName: "test",
+		Query:          "SELECT ? as result",
 		Params: []interface{}{
 			"invalid.syntax.expression", // This should cause evaluation error
 		},
@@ -618,9 +639,10 @@ func TestExecutor_Execute_ComplexExpressionParameters(t *testing.T) {
 	}
 
 	// Test with complex expressions in parameters - will fail due to connection
+	ctx.Config = sqlConfig("invalid-connection")
 	config := &domain.SQLConfig{
-		Connection: "invalid-connection",
-		Query:      "SELECT ? as request_method, ? as query_param, ? as body_value, ? as len_result",
+		ConnectionName: "test",
+		Query:          "SELECT ? as request_method, ? as query_param, ? as body_value, ? as len_result",
 		Params: []interface{}{
 			"request.method",       // Expression accessing request method
 			"request.query.userId", // Expression accessing query param
@@ -871,10 +893,11 @@ func TestExecutor_ResolvePoolConfig_WithMaxIdleTime(t *testing.T) {
 	}
 
 	// Test through Execute which calls resolvePoolConfig internally
+	ctx.Config = sqlConfig("mock://test")
 	config := &domain.SQLConfig{
-		Connection: "mock://test",
-		Query:      "SELECT 1",
-		Pool:       poolConfig,
+		ConnectionName: "test",
+		Query:          "SELECT 1",
+		Pool:           poolConfig,
 	}
 
 	// This will fail on connection but exercises resolvePoolConfig
@@ -898,10 +921,11 @@ func TestExecutor_ResolvePoolConfig_WithConnectionTimeout(t *testing.T) {
 		ConnectionTimeout: "30s",
 	}
 
+	ctx.Config = sqlConfig("mock://test")
 	config := &domain.SQLConfig{
-		Connection: "mock://test",
-		Query:      "SELECT 1",
-		Pool:       poolConfig,
+		ConnectionName: "test",
+		Query:          "SELECT 1",
+		Pool:           poolConfig,
 	}
 
 	// This will fail on connection but exercises resolvePoolConfig
@@ -925,10 +949,11 @@ func TestExecutor_ResolvePoolConfig_WithBothSettings(t *testing.T) {
 		ConnectionTimeout: "60s",
 	}
 
+	ctx.Config = sqlConfig("mock://test")
 	config := &domain.SQLConfig{
-		Connection: "mock://test",
-		Query:      "SELECT 1",
-		Pool:       poolConfig,
+		ConnectionName: "test",
+		Query:          "SELECT 1",
+		Pool:           poolConfig,
 	}
 
 	// This will fail on connection but exercises resolvePoolConfig with both settings
@@ -967,9 +992,10 @@ func TestExecutor_ExecuteQuery_QueryEvalError(t *testing.T) {
 
 	// Query contains expression syntax ({{ }}) which triggers evaluateStringOrLiteral;
 	// the malformed expression causes an evaluation error before the DB is even used.
+	ctx.Config = sqlConfig("sqlite://:memory:")
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "{{invalid_expr(}}", // malformed expression
+		ConnectionName: "test",
+		Query:          "{{invalid_expr(}}", // malformed expression
 	}
 
 	result, err := exec.Execute(ctx, config)
@@ -994,10 +1020,11 @@ func TestExecutor_ExecuteQuery_ParamsError(t *testing.T) {
 
 	// Use an in-memory SQLite connection so connection succeeds but the param
 	// triggers an evaluation error.
+	ctx.Config = sqlConfig("sqlite://:memory:")
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT ?",
-		Params:     []interface{}{"get("}, // malformed function call param
+		ConnectionName: "test",
+		Query:          "SELECT ?",
+		Params:         []interface{}{"get("}, // malformed function call param
 	}
 
 	result, err := exec.Execute(ctx, config)

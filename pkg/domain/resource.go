@@ -329,7 +329,6 @@ type HTTPTLSConfig struct {
 // SQLConfig represents SQL query configuration.
 type SQLConfig struct {
 	ConnectionName string        `yaml:"connectionName,omitempty"`
-	Connection     string        `yaml:"connection,omitempty"`
 	Pool           *PoolConfig   `yaml:"pool,omitempty"`
 	Query          string        `yaml:"query,omitempty"`
 	Params         []interface{} `yaml:"params,omitempty"`

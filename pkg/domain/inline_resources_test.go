@@ -71,7 +71,7 @@ chat:
   prompt: test
 after:
   - sql:
-      connection: sqlite3://./db.sqlite
+      connectionName: local
       query: INSERT INTO logs VALUES (?)
   - python:
       script: print('done')
@@ -79,7 +79,7 @@ after:
 			validate: func(t *testing.T, resource *domain.Resource) {
 				require.Len(t, resource.After, 2)
 				assert.NotNil(t, resource.After[0].SQL)
-				assert.Equal(t, "sqlite3://./db.sqlite", resource.After[0].SQL.Connection)
+				assert.Equal(t, "local", resource.After[0].SQL.ConnectionName)
 				assert.Equal(t, "INSERT INTO logs VALUES (?)", resource.After[0].SQL.Query)
 				assert.NotNil(t, resource.After[1].Python)
 				assert.Equal(t, "print('done')", resource.After[1].Python.Script)

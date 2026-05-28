@@ -130,8 +130,8 @@ func TestEngine_InlineResources_After(t *testing.T) {
 				},
 				After: []domain.InlineResource{
 					{SQL: &domain.SQLConfig{
-						Connection: "test",
-						Query:      "SELECT 1",
+						ConnectionName: "test",
+						Query:          "SELECT 1",
 					}},
 					{Python: &domain.PythonConfig{
 						Script: "print('hello')",

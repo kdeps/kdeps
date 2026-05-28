@@ -81,8 +81,7 @@ settings:
   certFile: "/run/secrets/server.crt"  # mount cert into container; enables HTTPS
   keyFile:  "/run/secrets/server.key"
   apiServer:
-    auth:
-      token: "${API_TOKEN}"            # require Bearer or X-Api-Key header on every request
+    # auth token: set KDEPS_API_AUTH_TOKEN env var or api_auth_token in ~/.kdeps/config.yaml
     rateLimit:
       requestsPerMinute: 60            # sustained per-IP rate
       burst: 10                        # burst allowance above the sustained rate

@@ -255,7 +255,7 @@ Each inline resource supports the same configuration options as the standalone r
 ```yaml
 # resources/example.yaml
 - sql:
-    connection: "postgresql://localhost/db"
+    connectionName: main  # DSN defined in ~/.kdeps/config.yaml sql_connections.main.connection
     query: "SELECT * FROM users WHERE id = ?"
     params:
       - "{{get('user_id')}}"

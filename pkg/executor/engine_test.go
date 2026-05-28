@@ -250,9 +250,9 @@ func TestEngine_Execute_WithDependencies(t *testing.T) {
 				Name:     "Fetch Data",
 
 				SQL: &domain.SQLConfig{
-					Connection: "sqlite:///test.db",
-					Query:      "SELECT * FROM data",
-					Format:     "json",
+					ConnectionName: "testdb",
+					Query:          "SELECT * FROM data",
+					Format:         "json",
 				},
 			},
 			{
@@ -554,8 +554,8 @@ func TestEngine_Execute_AllResourceTypes(t *testing.T) {
 				Name:     "SQL Task",
 
 				SQL: &domain.SQLConfig{
-					Connection: "sqlite:///test.db",
-					Query:      "SELECT * FROM users",
+					ConnectionName: "testdb",
+					Query:          "SELECT * FROM users",
 				},
 			},
 			{
@@ -2784,8 +2784,8 @@ func TestEngine_executeSQL_ErrorCases(t *testing.T) {
 		Name:     "Test Resource",
 
 		SQL: &domain.SQLConfig{
-			Connection: "sqlite:///test.db",
-			Query:      "SELECT * FROM test",
+			ConnectionName: "testdb",
+			Query:          "SELECT * FROM test",
 		},
 	}
 

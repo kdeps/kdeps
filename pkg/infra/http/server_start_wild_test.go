@@ -207,12 +207,11 @@ func TestServer_ApplySecurityMiddleware_AllBranches(t *testing.T) {
 	})
 
 	t.Run("auth token wired", func(t *testing.T) {
+		t.Setenv("KDEPS_API_AUTH_TOKEN", "tok")
 		workflow := &domain.Workflow{
 			Metadata: domain.WorkflowMetadata{Name: "test"},
 			Settings: domain.WorkflowSettings{
-				APIServer: &domain.APIServerConfig{
-					Auth: &domain.AuthConfig{Token: "tok"},
-				},
+				APIServer: &domain.APIServerConfig{},
 			},
 		}
 		server, err := httppkg.NewServer(workflow, nil, slog.Default())

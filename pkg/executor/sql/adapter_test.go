@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	sqlexecutor "github.com/kdeps/kdeps/v2/pkg/executor/sql"
@@ -50,8 +51,8 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 
 	// Test with valid SQL config - this should execute successfully
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1 as result",
+		ConnectionName: "mem",
+		Query:          "SELECT 1 as result",
 	}
 
 	// Create a minimal execution context
@@ -60,6 +61,11 @@ func TestAdapter_Execute_ValidConfig(t *testing.T) {
 			Metadata: domain.WorkflowMetadata{Name: "test"},
 		},
 		FSRoot: t.TempDir(),
+		Config: &kdepsconfig.Config{
+			SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+				"mem": {Connection: "sqlite://:memory:"},
+			},
+		},
 	}
 
 	// This should execute successfully and return results

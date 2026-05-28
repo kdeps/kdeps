@@ -271,7 +271,6 @@ env:
 
 func TestSQLConnectionYAML(t *testing.T) {
 	yamlData := `
-connection: postgresql://localhost:5432/mydb
 pool:
   maxConnections: 10
   minConnections: 2
@@ -283,10 +282,6 @@ pool:
 	err := yaml.Unmarshal([]byte(yamlData), &conn)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
-	}
-
-	if conn.Connection != "postgresql://localhost:5432/mydb" {
-		t.Errorf("Connection = %v, want %v", conn.Connection, "postgresql://localhost:5432/mydb")
 	}
 
 	if conn.Pool == nil {
