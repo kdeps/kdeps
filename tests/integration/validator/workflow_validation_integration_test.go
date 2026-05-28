@@ -106,7 +106,7 @@ httpClient:
 name: Store Data
 requires: ["fetch-data"]
 sql:
-  connection: "sqlite:///test.db"
+  connectionName: "default"
   query: "INSERT INTO data (content) VALUES (?)"
   params: ["{{fetch-data.response}}"]
 `
@@ -167,8 +167,7 @@ settings:
       - requests
       - pandas
   sqlConnections:
-    default:
-      connection: "sqlite:///test.db"
+    default: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -368,7 +367,7 @@ httpClient:
 		"sql-resource.yaml": `actionId: sql-test
 name: SQL Test
 sql:
-  connection: "sqlite:///test.db"
+  connectionName: "testdb"
   query: "SELECT * FROM users WHERE id = ?"
   params: ["123"]
   format: "json"
@@ -416,8 +415,7 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   sqlConnections:
-    testdb:
-      connection: "sqlite:///test.db"
+    testdb: {}
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")

@@ -44,7 +44,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/config"
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	executorExec "github.com/kdeps/kdeps/v2/pkg/executor/exec"
@@ -78,7 +78,7 @@ func loadConfigDefaults(t *testing.T, yamlContent string) {
 	for _, k := range envKeys {
 		require.NoError(t, os.Unsetenv(k))
 	}
-	_, err := config.Load()
+	_, err := kdepsconfig.Load()
 	require.NoError(t, err)
 }
 
@@ -418,10 +418,15 @@ resource_defaults:
 		Metadata: domain.WorkflowMetadata{Name: "sql-defaults-test"},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT * FROM items",
+		ConnectionName: "mem",
+		Query:          "SELECT * FROM items",
 		// No TimeoutDuration or MaxRows — global defaults apply
 	})
 	require.NoError(t, execErr)
@@ -452,12 +457,17 @@ resource_defaults:
 		Metadata: domain.WorkflowMetadata{Name: "sql-override-test"},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	result, execErr := sqlE.Execute(ctx, &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1",
-		Timeout:    "10s",
-		MaxRows:    100, // resource value wins
+		ConnectionName: "mem",
+		Query:          "SELECT 1",
+		Timeout:        "10s",
+		MaxRows:        100, // resource value wins
 	})
 	require.NoError(t, execErr)
 	assert.NotNil(t, result)
@@ -562,7 +572,7 @@ resource_defaults:
     timeout: "from-config"
 `), 0600))
 	t.Setenv("KDEPS_CONFIG_PATH", path)
-	_, err := config.Load()
+	_, err := kdepsconfig.Load()
 	require.NoError(t, err)
 
 	// Env vars must not have been overwritten
