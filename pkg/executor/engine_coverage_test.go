@@ -2139,7 +2139,7 @@ func TestEngine_executeInlineSQL_Success(t *testing.T) {
 			{
 				ActionID: "parent",
 				Before: []domain.InlineResource{
-					{SQL: &domain.SQLConfig{Connection: "x", Query: "SELECT 1"}},
+					{SQL: &domain.SQLConfig{ConnectionName: "x", Query: "SELECT 1"}},
 				},
 				After: []domain.ActionConfig{{Expr: "1+1"}},
 			},
@@ -3343,7 +3343,7 @@ func TestEngine_executeSQL_NoExecutor(t *testing.T) {
 
 	resource := &domain.Resource{
 		ActionID: "r",
-		SQL:      &domain.SQLConfig{Connection: "test", Query: "SELECT 1"},
+		SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
 	}
 	_, err = engine.ExecuteResource(resource, ctx)
 	require.Error(t, err)
@@ -3363,7 +3363,7 @@ func TestEngine_executeSQL_WithMock(t *testing.T) {
 		Resources: []*domain.Resource{
 			{
 				ActionID: "r",
-				SQL:      &domain.SQLConfig{Connection: "test", Query: "SELECT 1"},
+				SQL:      &domain.SQLConfig{ConnectionName: "test", Query: "SELECT 1"},
 			},
 		},
 	}

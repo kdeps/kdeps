@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	httpexecutor "github.com/kdeps/kdeps/v2/pkg/executor/http"
@@ -89,14 +90,19 @@ func TestSQLExecutor_AllFieldsEvaluation(t *testing.T) {
 
 	workflow := &domain.Workflow{}
 	ctx, _ := executor.NewExecutionContext(workflow)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite3::memory:"},
+		},
+	}
 	ctx.API.Set("format", "json")
 	ctx.API.Set("timeout", "10s")
 	ctx.API.Set("idle", "5m")
 	ctx.API.Set("queryName", "GetUsers")
 
 	config := &domain.SQLConfig{
-		Connection: "sqlite3::memory:",
-		Query:      "SELECT 1",
+		ConnectionName: "mem",
+		Query:          "SELECT 1",
 		Format:     "{{get('format')}}",
 		Timeout:    "{{get('timeout')}}",
 		Pool: &domain.PoolConfig{

@@ -17,17 +17,22 @@ A -> B -> C -> D -> E -> F
 
 ## Authentication
 
-Protect the API server with a shared secret. When `auth.token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.
+Protect the API server with a shared secret. When `api_auth_token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.
+
+Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 
 ```yaml
-# workflow.yaml
-settings:
-  apiServer:
-    auth:
-      token: "${API_TOKEN}"
+# ~/.kdeps/config.yaml
+api_auth_token: "your-secret-token"
 ```
 
-Omit `auth` (or leave `token` empty) to disable authentication entirely.
+Or via environment variable:
+
+```bash
+export KDEPS_API_AUTH_TOKEN="your-secret-token"
+```
+
+No `auth:` block in `workflow.yaml`. Omit `api_auth_token` (or leave it empty) to disable authentication entirely.
 
 ## Rate Limiting
 

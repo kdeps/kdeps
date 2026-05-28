@@ -59,7 +59,7 @@ validations:
 ```yaml
 # resources/example.yaml
 sql:
-  connection: logs
+  connectionName: logs
   queries:
     - query: |
         INSERT INTO audit_log (request_id, method, path, ip, session_id, timestamp)
@@ -156,32 +156,39 @@ settings:
 
 ## SQL Connections
 
-Define named database connections for reuse across resources.
+SQL connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
 
 ### Configuration
 
+`~/.kdeps/config.yaml` - credentials (machine-local, never committed):
+
 ```yaml
-# workflow.yaml
+sql_connections:
+  primary:
+    connection: "postgres://user:pass@localhost:5432/mydb?sslmode=disable"
+  analytics:
+    connection: "mysql://analyst:pass@analytics-db:3306/analytics"
+  cache:
+    connection: "sqlite://./cache.db"
+```
+
+`workflow.yaml` - pool config only (no credentials):
+
+```yaml
 settings:
   sqlConnections:
     primary:
-      connection: "postgres://user:pass@localhost:5432/mydb?sslmode=disable"
       pool:
         maxConnections: 25
         minConnections: 5
         maxIdleTime: "30m"
         connectionTimeout: "10s"
-
     analytics:
-      connection: "mysql://analyst:pass@analytics-db:3306/analytics"
       pool:
         maxConnections: 10
         minConnections: 2
         maxIdleTime: "15m"
         connectionTimeout: "5s"
-
-    cache:
-      connection: "sqlite://./cache.db"
 ```
 
 ### Pool Configuration
@@ -200,7 +207,7 @@ settings:
 ```yaml
 # resources/example.yaml
 sql:
-  connection: primary  # Reference by name
+  connectionName: primary  # Reference by name -- must match key in sql_connections in ~/.kdeps/config.yaml
   queries:
     - query: "SELECT * FROM users WHERE id = ?"
       params:
@@ -264,11 +271,10 @@ settings:
 ### In SQL Connections
 
 ```yaml
-# workflow.yaml
-settings:
-  sqlConnections:
-    primary:
-      connection: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}"
+# ~/.kdeps/config.yaml
+sql_connections:
+  primary:
+    connection: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}"
 ```
 
 ## Multiple Route Definitions

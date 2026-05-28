@@ -350,13 +350,6 @@ func (s *SessionConfig) GetPath() string {
 	return s.Path
 }
 
-// AuthConfig holds bearer-token / API-key authentication settings for the agent HTTP server.
-type AuthConfig struct {
-	// Token is the secret value accepted in Authorization: Bearer <token> or X-API-Key: <token>.
-	// When empty, authentication is disabled.
-	Token string `yaml:"token"`
-}
-
 // RateLimitConfig controls per-IP request rate limiting.
 type RateLimitConfig struct {
 	// RequestsPerMinute is the sustained request rate allowed per client IP.
@@ -372,7 +365,6 @@ type APIServerConfig struct {
 	TrustedProxies []string         `yaml:"trustedProxies,omitempty"`
 	Routes         []Route          `yaml:"routes"`
 	CORS           *CORS            `yaml:"cors,omitempty"`
-	Auth           *AuthConfig      `yaml:"auth,omitempty"`
 	RateLimit      *RateLimitConfig `yaml:"rateLimit,omitempty"`
 	MaxBodyBytes   int64            `yaml:"maxBodyBytes,omitempty"`
 	MaxConcurrent  int              `yaml:"maxConcurrent,omitempty"`
@@ -444,10 +436,10 @@ type AgentSettings struct {
 	Resources   *Resources        `yaml:"resources,omitempty"` // Kubernetes resources
 }
 
-// SQLConnection represents a named SQL connection.
+// SQLConnection represents pool configuration for a named SQL connection.
+// The connection string (DSN) lives in ~/.kdeps/config.yaml under sql_connections.<name>.connection.
 type SQLConnection struct {
-	Connection string      `yaml:"connection"`
-	Pool       *PoolConfig `yaml:"pool,omitempty"`
+	Pool *PoolConfig `yaml:"pool,omitempty"`
 }
 
 // PoolConfig represents connection pool configuration.

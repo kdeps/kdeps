@@ -444,7 +444,7 @@ func (v *WorkflowValidator) ValidateChatConfig(config *domain.ChatConfig) error 
 // ValidateSQLConfig validates SQL configuration.
 func (v *WorkflowValidator) ValidateSQLConfig(
 	config *domain.SQLConfig,
-	workflow *domain.Workflow,
+	_ *domain.Workflow,
 ) error {
 	kdeps_debug.Log("enter: ValidateSQLConfig")
 	// Validate that either query or queries is provided
@@ -456,38 +456,13 @@ func (v *WorkflowValidator) ValidateSQLConfig(
 		)
 	}
 
-	// Validate connection: either connection or connectionName must be provided
-	if config.Connection == "" && config.ConnectionName == "" {
+	// connectionName is required; connection string lives in ~/.kdeps/config.yaml
+	if config.ConnectionName == "" {
 		return domain.NewError(
 			domain.ErrCodeInvalidResource,
-			"sql.connection or sql.connectionName is required",
+			"sql.connectionName is required",
 			nil,
 		)
-	}
-
-	// If connectionName is provided, validate it exists in workflow SQL connections
-	if config.ConnectionName != "" && workflow != nil {
-		if workflow.Settings.SQLConnections == nil {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"sql connection '%s' not found: workflow has no sqlConnections defined",
-					config.ConnectionName,
-				),
-				nil,
-			)
-		}
-
-		if _, exists := workflow.Settings.SQLConnections[config.ConnectionName]; !exists {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"sql connection '%s' not found in workflow sqlConnections",
-					config.ConnectionName,
-				),
-				nil,
-			)
-		}
 	}
 
 	// Validate format if provided

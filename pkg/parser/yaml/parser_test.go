@@ -324,7 +324,7 @@ httpClient:
 actionID: sql-action
 name: SQL Resource
 sql:
-  connection: postgresql://localhost:5432/db
+  connectionName: primary
   query: SELECT * FROM users
   params:
     - 123
@@ -493,7 +493,7 @@ func validateHTTPResource(t *testing.T, resource *domain.Resource) {
 func validateSQLResource(t *testing.T, resource *domain.Resource) {
 	t.Helper()
 	require.NotNil(t, resource.SQL)
-	assert.Equal(t, "postgresql://localhost:5432/db", resource.SQL.Connection)
+	assert.Equal(t, "primary", resource.SQL.ConnectionName)
 	assert.Equal(t, "SELECT * FROM users", resource.SQL.Query)
 }
 

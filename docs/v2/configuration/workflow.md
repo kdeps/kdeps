@@ -97,8 +97,7 @@ settings:
     cors:
       allowOrigins:
         - http://localhost:16395
-    auth:
-      token: "${API_TOKEN}"    # require Bearer or X-Api-Key header; omit to disable
+    # auth token: set KDEPS_API_AUTH_TOKEN env var or api_auth_token in ~/.kdeps/config.yaml
     rateLimit:
       requestsPerMinute: 60    # sustained per-IP rate
       burst: 10                # burst allowance above the sustained rate
@@ -153,20 +152,33 @@ Model selection goes in `chat.model` inside each resource file. Backend and API 
 
 ## SQL Connections
 
-Named connections are declared here and referenced by name in `sql:` resources. The name `analytics` below becomes `connectionName: analytics` in any SQL resource.
+Named SQL connections are split across two files: the connection string (DSN) lives in `~/.kdeps/config.yaml` (machine-local, never committed), and pool config lives in `workflow.yaml`.
+
+`~/.kdeps/config.yaml` - DSN (credentials stay here):
 
 ```yaml
-# workflow.yaml
+sql_connections:
+  analytics:
+    connection: "postgres://user:pass@localhost:5432/analytics"
+  cache:
+    connection: "sqlite:///path/to/cache.db"
+```
+
+`workflow.yaml` - pool config (no credentials here):
+
+```yaml
 settings:
   sqlConnections:
     analytics:
-      connection: "postgres://user:pass@localhost:5432/analytics"
       pool:
         maxConnections: 10    # max open connections in the pool
         minConnections: 2     # min idle connections kept alive
     cache:
-      connection: "sqlite:///path/to/cache.db"
+      pool:
+        maxConnections: 5
 ```
+
+Resources reference a connection by name: `connectionName: analytics`. The name must match the key in `sql_connections` in `~/.kdeps/config.yaml`.
 
 Supported: Postgres, MySQL, SQLite, Oracle, SQL Server, and any `database/sql` driver.
 

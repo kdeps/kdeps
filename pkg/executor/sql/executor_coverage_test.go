@@ -29,13 +29,14 @@ import (
 
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/executor/sql"
 )
 
-// TestExecutor_GetConnectionString_NoConnection tests error when no connection specified.
-func TestExecutor_GetConnectionString_NoConnection(t *testing.T) {
+// TestExecutor_GetConnectionString_NoConnectionName tests error when connectionName is empty.
+func TestExecutor_GetConnectionString_NoConnectionName(t *testing.T) {
 	e := sql.NewExecutor()
 	ctx, err := executor.NewExecutionContext(
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
@@ -43,26 +44,26 @@ func TestExecutor_GetConnectionString_NoConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	config := &domain.SQLConfig{
-		// No connection string or connection name
+		// No connectionName
 	}
 
 	_, err = e.GetConnectionString(ctx, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no connection string")
+	assert.Contains(t, err.Error(), "sql.connectionName is required")
 }
 
-// TestExecutor_GetConnectionString_NamedConnectionNotFound tests error when named connection doesn't exist.
+// TestExecutor_GetConnectionString_NamedConnectionNotFound tests error when named connection doesn't exist in config.
 func TestExecutor_GetConnectionString_NamedConnectionNotFound(t *testing.T) {
 	e := sql.NewExecutor()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			SQLConnections: map[string]domain.SQLConnection{
-				"existing": {Connection: "sqlite://:memory:"},
-			},
-		},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"existing": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
 		ConnectionName: "nonexistent",
@@ -70,7 +71,7 @@ func TestExecutor_GetConnectionString_NamedConnectionNotFound(t *testing.T) {
 
 	_, err = e.GetConnectionString(ctx, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "named connection 'nonexistent' not found")
+	assert.Contains(t, err.Error(), "sql connection")
 }
 
 // TestExecutor_GetConnectionString_NamedConnectionFound tests successful named connection lookup.
@@ -78,13 +79,13 @@ func TestExecutor_GetConnectionString_NamedConnectionFound(t *testing.T) {
 	e := sql.NewExecutor()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			SQLConnections: map[string]domain.SQLConnection{
-				"myconn": {Connection: "sqlite://:memory:"},
-			},
-		},
 	})
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"myconn": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
 		ConnectionName: "myconn",
@@ -95,23 +96,6 @@ func TestExecutor_GetConnectionString_NamedConnectionFound(t *testing.T) {
 	assert.Equal(t, "sqlite://:memory:", connStr)
 }
 
-// TestExecutor_GetConnectionString_ExpressionEvaluationError tests error evaluating connection string expression.
-func TestExecutor_GetConnectionString_ExpressionEvaluationError(t *testing.T) {
-	e := sql.NewExecutor()
-	ctx, err := executor.NewExecutionContext(
-		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
-	)
-	require.NoError(t, err)
-
-	config := &domain.SQLConfig{
-		Connection: "{{invalid(}}", // Invalid expression
-	}
-
-	_, err = e.GetConnectionString(ctx, config)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to evaluate connection string")
-}
-
 // TestExecutor_Execute_ConnectionError tests that connection errors are returned as result data.
 func TestExecutor_Execute_ConnectionError(t *testing.T) {
 	e := sql.NewExecutor()
@@ -119,10 +103,15 @@ func TestExecutor_Execute_ConnectionError(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"badconn": {Connection: "invalid://invalid-connection"},
+		},
+	}
 
 	config := &domain.SQLConfig{
-		Connection: "invalid://invalid-connection",
-		Query:      "SELECT 1",
+		ConnectionName: "badconn",
+		Query:          "SELECT 1",
 	}
 
 	result, err := e.Execute(ctx, config)
@@ -151,10 +140,15 @@ func TestExecutor_Execute_QueryStringEvaluationError(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "{{invalid(}}", // Invalid expression
+		ConnectionName: "mem",
+		Query:          "{{invalid(}}", // Invalid expression
 	}
 
 	_, err = e.Execute(ctx, config)
@@ -178,11 +172,16 @@ func TestExecutor_Execute_TimeoutParsing(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
-		Connection: "sqlite://:memory:",
-		Query:      "SELECT 1",
-		Timeout:    "invalid-duration", // Invalid duration
+		ConnectionName: "mem",
+		Query:          "SELECT 1",
+		Timeout:        "invalid-duration", // Invalid duration
 	}
 
 	// Should use default timeout instead of failing
@@ -371,9 +370,14 @@ func TestExecutor_ExecuteTransaction_QueryEvaluationError(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 	config := &domain.SQLConfig{
-		Connection:  "sqlite://:memory:",
-		Transaction: true,
+		ConnectionName: "mem",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query: "{{invalid(}}", // Invalid expression
@@ -402,10 +406,15 @@ func TestExecutor_ExecuteTransaction_BeginError(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
-		Connection:  "sqlite://:memory:",
-		Transaction: true,
+		ConnectionName: "mem",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query: "SELECT 1",
@@ -437,10 +446,15 @@ func TestExecutor_ExecuteTransaction_RollbackOnError(t *testing.T) {
 		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
 	)
 	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 
 	config := &domain.SQLConfig{
-		Connection:  "sqlite://:memory:",
-		Transaction: true,
+		ConnectionName: "mem",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query: "SELECT * FROM nonexistent_table", // Will fail
@@ -619,9 +633,14 @@ func TestExecutor_ExecuteTransaction_BatchOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test batch insert using transaction with ParamsBatch
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
 	config := &domain.SQLConfig{
-		Connection:  "sqlite://:memory:",
-		Transaction: true,
+		ConnectionName: "mem",
+		Transaction:    true,
 		Queries: []domain.QueryItem{
 			{
 				Query:       "INSERT INTO users (name) VALUES (?)",
@@ -657,6 +676,14 @@ func openSQLiteMemory(t *testing.T) *dbsql.DB {
 	return db
 }
 
+func sqlMemConfig() *kdepsconfig.Config {
+	return &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
+}
+
 func TestExecutor_Execute_EnvVarSQLTimeout(t *testing.T) {
 	t.Setenv("KDEPS_SQL_TIMEOUT", "45s")
 	db := openSQLiteMemory(t)
@@ -665,7 +692,8 @@ func TestExecutor_Execute_EnvVarSQLTimeout(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	ctx.Config = sqlMemConfig()
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})
 	require.NoError(t, execErr)
 	_ = result
 }
@@ -678,8 +706,9 @@ func TestExecutor_Execute_EnvVarSQLTimeoutOverriddenByResource(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
+	ctx.Config = sqlMemConfig()
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{
-		Connection: "sqlite://:memory:", Query: "SELECT 1", Timeout: "10s",
+		ConnectionName: "mem", Query: "SELECT 1", Timeout: "10s",
 	})
 	require.NoError(t, execErr)
 	_ = result
@@ -693,7 +722,8 @@ func TestExecutor_Execute_InvalidEnvVarSQLTimeoutFallsToDefault(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	ctx.Config = sqlMemConfig()
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})
 	require.NoError(t, execErr)
 	_ = result
 }
@@ -706,8 +736,9 @@ func TestExecutor_Execute_EnvVarSQLMaxRows(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
+	ctx.Config = sqlMemConfig()
 	// MaxRows=0 so env var should be applied
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 0})
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1", MaxRows: 0})
 	require.NoError(t, execErr)
 	_ = result
 }
@@ -720,9 +751,10 @@ func TestExecutor_Execute_EnvVarSQLMaxRows_ResourceWins(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
+	ctx.Config = sqlMemConfig()
 	// MaxRows=100 explicitly set — env var ignored
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{
-		Connection: "sqlite://:memory:", Query: "SELECT 1", MaxRows: 100,
+		ConnectionName: "mem", Query: "SELECT 1", MaxRows: 100,
 	})
 	require.NoError(t, execErr)
 	_ = result
@@ -736,7 +768,8 @@ func TestExecutor_Execute_InvalidEnvVarSQLMaxRows(t *testing.T) {
 	e.Pools["sqlite://:memory:"] = db
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{Connection: "sqlite://:memory:", Query: "SELECT 1"})
+	ctx.Config = sqlMemConfig()
+	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})
 	require.NoError(t, execErr)
 	_ = result
 }

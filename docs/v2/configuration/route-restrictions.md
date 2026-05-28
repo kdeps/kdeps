@@ -13,7 +13,7 @@ validations:
   methods: [POST]
 
 sql:
-  connection: primary
+  connectionName: primary
   queries:
     - query: "INSERT INTO users (name, email) VALUES (?, ?)"
       params:
@@ -203,8 +203,7 @@ settings:
       - path: /api/users/:id
         methods: [GET, PUT, DELETE]
   sqlConnections:
-    db:
-      connection: "sqlite://./users.db"
+    db: {}  # pool config here; DSN goes in ~/.kdeps/config.yaml sql_connections.db.connection
 ```
 
 **resources/list-users.yaml:**
@@ -215,7 +214,7 @@ validations:
   methods: [GET]
   routes: [/api/users]
 sql:
-  connection: db
+  connectionName: db
   queries:
     - query: "SELECT * FROM users LIMIT 100"
 ```
@@ -229,7 +228,7 @@ validations:
   routes: [/api/users]
   required: [name, email]
 sql:
-  connection: db
+  connectionName: db
   queries:
     - query: "INSERT INTO users (name, email) VALUES (?, ?)"
       params:
@@ -245,7 +244,7 @@ validations:
   methods: [GET]
   routes: [/api/users/*]
 sql:
-  connection: db
+  connectionName: db
   queries:
     - query: "SELECT * FROM users WHERE id = ?"
       params: ["{{ get('id') }}"]
@@ -259,7 +258,7 @@ validations:
   methods: [PUT]
   routes: [/api/users/*]
 sql:
-  connection: db
+  connectionName: db
   queries:
     - query: "UPDATE users SET name = ?, email = ? WHERE id = ?"
       params:
@@ -276,7 +275,7 @@ validations:
   methods: [DELETE]
   routes: [/api/users/*]
 sql:
-  connection: db
+  connectionName: db
   queries:
     - query: "DELETE FROM users WHERE id = ?"
       params: ["{{ get('id') }}"]

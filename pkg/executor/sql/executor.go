@@ -177,32 +177,21 @@ func (e *Executor) resolvePoolConfig(
 	return &poolConfig, nil
 }
 
-// GetConnectionString gets the connection string from config or named connection (exported for testing).
+// GetConnectionString gets the connection string from ~/.kdeps/config.yaml sql_connections.
 func (e *Executor) GetConnectionString(
 	ctx *executor.ExecutionContext,
 	config *domain.SQLConfig,
 ) (string, error) {
 	kdeps_debug.Log("enter: GetConnectionString")
-	// If connection name specified, use named connection
-	if config.ConnectionName != "" {
-		if conn, ok := ctx.Workflow.Settings.SQLConnections[config.ConnectionName]; ok {
+	if config.ConnectionName == "" {
+		return "", errors.New("sql.connectionName is required")
+	}
+	if ctx.Config != nil {
+		if conn, ok := ctx.Config.SQLConnections[config.ConnectionName]; ok {
 			return conn.Connection, nil
 		}
-		return "", fmt.Errorf("named connection '%s' not found", config.ConnectionName)
 	}
-
-	// Evaluate connection string (only if it contains expression syntax)
-	if config.Connection != "" {
-		evaluator := expression.NewEvaluator(ctx.API)
-		connStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Connection)
-		if err != nil {
-			return "", fmt.Errorf("failed to evaluate connection string: %w", err)
-		}
-
-		return connStr, nil
-	}
-
-	return "", errors.New("no connection string or connection name specified")
+	return "", fmt.Errorf("sql connection %q not found in config.yaml sql_connections", config.ConnectionName)
 }
 
 // getConnection gets or creates a database connection with pooling.

@@ -184,7 +184,7 @@ timeout: 30s
 
 func TestSQLConfigYAML(t *testing.T) {
 	yamlData := `
-connection: postgresql://user:pass@localhost:5432/db
+connectionName: primary
 query: SELECT * FROM users WHERE id = $1
 params:
   - 123
@@ -199,11 +199,11 @@ maxRows: 100
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
 
-	if config.Connection != "postgresql://user:pass@localhost:5432/db" {
+	if config.ConnectionName != "primary" {
 		t.Errorf(
-			"Connection = %v, want %v",
-			config.Connection,
-			"postgresql://user:pass@localhost:5432/db",
+			"ConnectionName = %v, want %v",
+			config.ConnectionName,
+			"primary",
 		)
 	}
 

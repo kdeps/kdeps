@@ -117,9 +117,7 @@ func TestBuilder_GenerateDockerfile_WithDatabase(t *testing.T) {
 				PythonVersion: "3.12",
 			},
 			SQLConnections: map[string]domain.SQLConnection{
-				"primary": {
-					Connection: "postgres://user:pass@localhost/db",
-				},
+				"primary": {},
 			},
 		},
 	}
@@ -645,9 +643,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 			},
 			APIServer: &domain.APIServerConfig{PortNum: 9000},
 			SQLConnections: map[string]domain.SQLConnection{
-				"main": {
-					Connection: "postgresql://user:pass@db:5432/app",
-				},
+				"main": {},
 			},
 		},
 		Resources: []*domain.Resource{

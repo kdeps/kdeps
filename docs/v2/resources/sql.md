@@ -37,24 +37,30 @@ sql:
 
 ## Connection Configuration
 
-### Named Connections (Recommended)
+Connection strings (DSNs) live in `~/.kdeps/config.yaml` - never in `workflow.yaml`, which is version-controlled. Pool configuration lives in `workflow.yaml`.
 
-Define connections in your workflow:
+`~/.kdeps/config.yaml` - credentials:
 
 ```yaml
-# workflow.yaml
+sql_connections:
+  main:
+    connection: "postgres://user:pass@localhost:5432/myapp"
+  analytics:
+    connection: "postgres://user:pass@analytics-db:5432/analytics"
+```
+
+`workflow.yaml` - pool config:
+
+```yaml
 settings:
   sqlConnections:
     main:
-      connection: "postgres://user:pass@localhost:5432/myapp"
       pool:
         maxConnections: 10
         minConnections: 2
         maxIdleTime: "30s"
         connectionTimeout: "5s"
-
     analytics:
-      connection: "postgres://user:pass@analytics-db:5432/analytics"
       pool:
         maxConnections: 5
         minConnections: 1
@@ -65,16 +71,7 @@ Use in resources:
 ```yaml
 # resources/example.yaml
 sql:
-  connectionName: main  # Reference the named connection
-  query: "SELECT * FROM users"
-```
-
-### Inline Connection
-
-```yaml
-# resources/example.yaml
-sql:
-  connection: "postgres://user:pass@localhost:5432/myapp"
+  connectionName: main  # must match key in sql_connections in ~/.kdeps/config.yaml
   query: "SELECT * FROM users"
 ```
 

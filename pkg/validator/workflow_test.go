@@ -384,8 +384,8 @@ func TestWorkflowValidator_ValidateResource(t *testing.T) {
 				Name:     "SQL Resource",
 
 				SQL: &domain.SQLConfig{
-					Connection: "postgresql://localhost:5432/db",
-					Query:      "SELECT * FROM users",
+					ConnectionName: "primary",
+					Query:          "SELECT * FROM users",
 				},
 			},
 			wantErr: false,
@@ -579,26 +579,26 @@ func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "valid config",
+			name: "valid config with connectionName",
 			config: &domain.SQLConfig{
-				Connection: "postgresql://localhost:5432/db",
-				Query:      "SELECT * FROM users",
+				ConnectionName: "test",
+				Query:          "SELECT * FROM users",
 			},
 			workflow: &domain.Workflow{},
 			wantErr:  false,
 		},
 		{
-			name: "valid config with format",
+			name: "valid config with connectionName and format",
 			config: &domain.SQLConfig{
-				Connection: "postgresql://localhost:5432/db",
-				Query:      "SELECT * FROM users",
-				Format:     "json",
+				ConnectionName: "test",
+				Query:          "SELECT * FROM users",
+				Format:         "json",
 			},
 			workflow: &domain.Workflow{},
 			wantErr:  false,
 		},
 		{
-			name: "missing connection and connectionName",
+			name: "missing connectionName",
 			config: &domain.SQLConfig{
 				Query: "SELECT * FROM users",
 			},
@@ -606,43 +606,9 @@ func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name: "valid config with connectionName",
-			config: &domain.SQLConfig{
-				ConnectionName: "test",
-				Query:          "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					SQLConnections: map[string]domain.SQLConnection{
-						"test": {
-							Connection: "postgresql://localhost:5432/test",
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "invalid connectionName - not found in workflow",
-			config: &domain.SQLConfig{
-				ConnectionName: "nonexistent",
-				Query:          "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					SQLConnections: map[string]domain.SQLConnection{
-						"test": {
-							Connection: "postgresql://localhost:5432/test",
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "missing query",
 			config: &domain.SQLConfig{
-				Connection: "postgresql://localhost:5432/db",
+				ConnectionName: "test",
 			},
 			workflow: &domain.Workflow{},
 			wantErr:  true,
@@ -650,7 +616,7 @@ func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
 		{
 			name: "valid config with queries array",
 			config: &domain.SQLConfig{
-				Connection: "postgresql://localhost:5432/db",
+				ConnectionName: "test",
 				Queries: []domain.QueryItem{
 					{Query: "SELECT * FROM users"},
 					{Query: "SELECT * FROM products"},
@@ -660,24 +626,11 @@ func TestWorkflowValidator_ValidateSQLConfig(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "connectionName not found - no sqlConnections defined",
+			name: "invalid format",
 			config: &domain.SQLConfig{
 				ConnectionName: "test",
 				Query:          "SELECT * FROM users",
-			},
-			workflow: &domain.Workflow{
-				Settings: domain.WorkflowSettings{
-					SQLConnections: nil, // No SQL connections defined
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid format",
-			config: &domain.SQLConfig{
-				Connection: "postgresql://localhost:5432/db",
-				Query:      "SELECT * FROM users",
-				Format:     "invalid",
+				Format:         "invalid",
 			},
 			workflow: &domain.Workflow{},
 			wantErr:  true,
