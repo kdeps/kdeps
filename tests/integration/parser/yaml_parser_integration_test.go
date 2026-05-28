@@ -141,9 +141,11 @@ settings:
     requirementsFile: requirements.txt
   sqlConnections:
     primary:
-      connection: "postgres://user:pass@localhost/db"
+      pool:
+        maxConnections: 10
     secondary:
-      connection: "mysql://user:pass@localhost/db2"
+      pool:
+        maxConnections: 5
 `
 
 	err = os.WriteFile(workflowPath, []byte(workflowYAML), 0644)
@@ -171,11 +173,11 @@ settings:
 	assert.Contains(t, workflow.Settings.AgentSettings.PythonPackages, "numpy")
 	assert.Equal(t, "requirements.txt", workflow.Settings.AgentSettings.RequirementsFile)
 
-	// Verify SQL connections
+	// Verify SQL connections (DSNs live in ~/.kdeps/config.yaml, not here)
 	assert.Contains(t, workflow.Settings.SQLConnections, "primary")
 	assert.Contains(t, workflow.Settings.SQLConnections, "secondary")
-	assert.Contains(t, workflow.Settings.SQLConnections["primary"].Connection, "postgres://")
-	assert.Contains(t, workflow.Settings.SQLConnections["secondary"].Connection, "mysql://")
+	assert.Equal(t, 10, workflow.Settings.SQLConnections["primary"].Pool.MaxConnections)
+	assert.Equal(t, 5, workflow.Settings.SQLConnections["secondary"].Pool.MaxConnections)
 }
 
 func TestYAMLParser_ParseMultipleResourceTypes(t *testing.T) {
@@ -218,7 +220,7 @@ httpClient:
 			resourceYAML: `actionId: db-query
 name: Database Query
 sql:
-  connection: "primary"
+  connectionName: "primary"
   query: "SELECT id, name FROM users WHERE active = ?"
   params:
     - true
@@ -228,7 +230,7 @@ sql:
 				resource := res.(*domain.Resource)
 				assert.Equal(t, "db-query", resource.ActionID)
 				assert.NotNil(t, resource.SQL)
-				assert.Equal(t, "primary", resource.SQL.Connection)
+				assert.Equal(t, "primary", resource.SQL.ConnectionName)
 				assert.Contains(t, resource.SQL.Query, "SELECT")
 				assert.Equal(t, "json", resource.SQL.Format)
 			},
