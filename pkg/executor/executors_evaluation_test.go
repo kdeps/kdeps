@@ -103,8 +103,8 @@ func TestSQLExecutor_AllFieldsEvaluation(t *testing.T) {
 	config := &domain.SQLConfig{
 		ConnectionName: "mem",
 		Query:          "SELECT 1",
-		Format:     "{{get('format')}}",
-		Timeout:    "{{get('timeout')}}",
+		Format:         "{{get('format')}}",
+		Timeout:        "{{get('timeout')}}",
 		Pool: &domain.PoolConfig{
 			MaxIdleTime: "{{get('idle')}}",
 		},
