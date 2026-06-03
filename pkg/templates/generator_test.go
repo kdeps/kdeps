@@ -255,19 +255,23 @@ func TestGenerator_GenerateProject_WithSubdirectories(t *testing.T) {
 	err = generator.GenerateProject("api-service", outputDir, data)
 	require.NoError(t, err)
 
-	// Check that workflow.yaml was created and contains the expected resources
+	// Check that workflow.yaml was created with the correct format
 	workflowPath := filepath.Join(outputDir, "workflow.yaml")
 	workflowContent, err := os.ReadFile(workflowPath)
 	require.NoError(t, err)
 
 	workflowStr := string(workflowContent)
-	assert.Contains(t, workflowStr, "fetchData", "workflow should contain http-client resource")
-	assert.Contains(
-		t,
-		workflowStr,
-		"httpClient",
-		"workflow should contain httpClient configuration",
-	)
+	assert.Contains(t, workflowStr, "apiVersion: kdeps.io/v1", "workflow should use kdeps.io/v1 schema")
+	assert.Contains(t, workflowStr, "targetActionId: response", "workflow should target response action")
+
+	// Resources are in separate files, not inline
+	llmResPath := filepath.Join(outputDir, "resources", "llm.yaml")
+	_, err = os.Stat(llmResPath)
+	assert.NoError(t, err, "resources/llm.yaml should be created")
+
+	responseResPath := filepath.Join(outputDir, "resources", "response.yaml")
+	_, err = os.Stat(responseResPath)
+	assert.NoError(t, err, "resources/response.yaml should be created")
 }
 
 func TestGenerator_GenerateFile_ErrorHandling(t *testing.T) {

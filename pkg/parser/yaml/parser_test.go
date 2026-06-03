@@ -270,6 +270,7 @@ settings:
 
 	if workflow == nil {
 		t.Fatal("ParseWorkflow returned nil workflow")
+		return
 	}
 
 	if workflow.Metadata.Name != "Test" {
@@ -449,6 +450,7 @@ chat:
 
 	if resource == nil {
 		t.Fatal("ParseResource returned nil resource")
+		return
 	}
 
 	if resource.ActionID != "test" {
