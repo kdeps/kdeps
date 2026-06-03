@@ -1,0 +1,12 @@
+actionId: response
+requires:
+  - llm
+
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
+
+apiResponse:
+  success: true
+  response:
+    answer: get('llm')

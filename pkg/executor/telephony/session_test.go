@@ -24,6 +24,7 @@ func TestNewSession(t *testing.T) {
 	s := telephony.NewSession()
 	if s == nil {
 		t.Fatal("NewSession returned nil")
+		return
 	}
 	if s.Response == nil {
 		t.Error("NewSession: Response should not be nil")
@@ -81,6 +82,7 @@ func TestNewSessionFromBodyNil(t *testing.T) {
 	s := telephony.NewSessionFromBody(nil)
 	if s == nil {
 		t.Fatal("NewSessionFromBody(nil) returned nil")
+		return
 	}
 	if s.SID != "" {
 		t.Errorf("expected empty CallID for nil body")

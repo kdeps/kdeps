@@ -1,0 +1,16 @@
+actionId: llm
+
+validations:
+  methods: [POST]
+  routes: [/api/v1/chat]
+  check:
+    - get('q') != ''
+  error:
+    code: 400
+    message: "'q' is required"
+
+chat:
+  model: llama3.2:1b
+  role: user
+  prompt: "{% raw %}{{ get('q') }}{% endraw %}"
+  timeout: 60s

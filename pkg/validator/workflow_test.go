@@ -32,6 +32,7 @@ func TestNewWorkflowValidator(t *testing.T) {
 
 	if v == nil {
 		t.Fatal("validator.NewWorkflowValidator returned nil")
+		return
 	}
 
 	if v.SchemaValidator != sv {

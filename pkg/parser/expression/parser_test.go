@@ -177,6 +177,7 @@ func TestParser_Parse(t *testing.T) {
 
 			if expr == nil {
 				t.Fatal("Parse returned nil expression")
+				return
 			}
 
 			if expr.Raw != tt.input {
@@ -245,6 +246,7 @@ func TestParser_ParseValue(t *testing.T) {
 
 			if expr == nil {
 				t.Fatal("ParseValue returned nil expression")
+				return
 			}
 
 			if expr.Raw != tt.wantRaw {

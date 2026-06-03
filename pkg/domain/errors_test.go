@@ -59,6 +59,7 @@ func TestNewError(t *testing.T) {
 
 			if err == nil {
 				t.Fatal("NewError returned nil")
+				return
 			}
 
 			if err.Code != tt.code {
