@@ -29,6 +29,7 @@ import HomeCapabilities from './HomeCapabilities.vue'
 import HomeComparison from './HomeComparison.vue'
 import HomeRegistry from './HomeRegistry.vue'
 import HomeUseCases from './HomeUseCases.vue'
+import HomeBook from './HomeBook.vue'
 import FooterCTAs from './FooterCTAs.vue'
 import './custom.css'
 
@@ -45,6 +46,7 @@ export default {
         h(HomeComparison),
         h(HomeRegistry),
         h(HomeUseCases),
+        h(HomeBook),
       ],
       'layout-bottom': () => h(FooterCTAs),
     })
