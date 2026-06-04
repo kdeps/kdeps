@@ -1,6 +1,7 @@
 package fformat
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -569,5 +570,80 @@ func TestFormatXML_Invalid(t *testing.T) {
 	r := formatXML("<open>")
 	if r.Valid {
 		t.Error("expected invalid XML format")
+	}
+}
+
+func TestValidateString_Default(t *testing.T) {
+	r := ValidateString("anything", Format("unknown"))
+	if !r.Valid {
+		t.Error("expected valid for unknown format")
+	}
+}
+
+func TestXMLToJSON_FlatWithAttrs(t *testing.T) {
+	// Flat XML (not nested) so attrs and CharData aren't consumed as inner tokens
+	r := xmlToJSON(`<elem key1="val1" key2="val2">text</elem>`)
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestXMLToJSON_FlatNoAttrs(t *testing.T) {
+	r := xmlToJSON("<elem>text</elem>")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestXMLToJSON_FlatEmptyElement(t *testing.T) {
+	r := xmlToJSON("<elem/>")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestValidateTOML_InvalidLine(t *testing.T) {
+	r := validateTOML("this is not toml")
+	if r.Valid {
+		t.Error("expected invalid for non-TOML line")
+	}
+}
+
+func TestTomlToJSON_NoEquals(t *testing.T) {
+	r := tomlToJSON("justkey")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestTomlToJSON_UnquotedValue(t *testing.T) {
+	r := tomlToJSON("port = 8080\nactive = true")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestValidateHTML_ParseError(t *testing.T) {
+	// Deep nesting triggers html.Parse to exceed its element stack limit (512)
+	var b strings.Builder
+	b.WriteString("<p>")
+	for range 600 {
+		b.WriteString("<span>")
+	}
+	r := validateHTML(b.String())
+	if r.Valid {
+		t.Error("expected invalid for deeply nested HTML exceeding stack limit")
+	}
+}
+
+func TestFormatHTML_ParseError(t *testing.T) {
+	var b strings.Builder
+	b.WriteString("<p>")
+	for range 600 {
+		b.WriteString("<span>")
+	}
+	r := formatHTML(b.String())
+	if r.Valid {
+		t.Error("expected invalid for deeply nested HTML exceeding stack limit")
 	}
 }

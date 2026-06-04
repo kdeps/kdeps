@@ -39,12 +39,17 @@ var githubArchiveBaseURL = "https://codeload.github.com"
 
 // cloneTypeNames maps detected manifest filenames to a human label.
 var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-level const map
-	"agency.yml":     "agency",
-	"agency.yaml":    "agency",
-	"workflow.yaml":  "agent",
-	"workflow.yml":   "agent",
-	"component.yaml": "component",
-	"component.yml":  "component",
+	"agency.yml":        "agency",
+	"agency.yaml":       "agency",
+	"agency.yml.j2":     "agency",
+	"agency.yaml.j2":    "agency",
+	"workflow.yaml":     "agent",
+	"workflow.yml":      "agent",
+	"workflow.yaml.j2":  "agent",
+	"workflow.yml.j2":   "agent",
+	"component.yaml":    "component",
+	"component.yml":     "component",
+	"component.yaml.j2": "component",
 }
 
 // cloneFromRemote resolves owner/repo[:subdir] and clones it locally.
