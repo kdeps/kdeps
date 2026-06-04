@@ -732,3 +732,143 @@ func TestGenerateOpenAPI_UniqueOperationIDs(t *testing.T) {
 		assert.Equal(t, 1, count, "operationId %q used more than once", id)
 	}
 }
+
+// -------------------------------------------------------------------------
+// Additional tests for uncovered branches (100% coverage)
+// -------------------------------------------------------------------------
+
+func TestGenerateJSONSchema_UnknownFieldType(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "unknown-type", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{Field: "f", Type: domain.FieldType("unknown")},
+					},
+				},
+			},
+		},
+	}
+	s := schema.GenerateJSONSchema(wf)
+	prop := s.Properties["f"]
+	require.NotNil(t, prop)
+	assert.Equal(t, "string", prop.Type)
+	assert.Empty(t, prop.Format)
+}
+
+func TestGenerateJSONSchema_EmptyFieldNameSkipped(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "empty-field", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Validations: &domain.ValidationsConfig{
+					Rules: []domain.FieldRule{
+						{Field: "", Type: domain.FieldTypeString},
+						{Field: "name", Type: domain.FieldTypeString},
+					},
+				},
+			},
+		},
+	}
+	s := schema.GenerateJSONSchema(wf)
+	assert.NotContains(t, s.Properties, "")
+	assert.Contains(t, s.Properties, "name")
+}
+
+func TestGenerateOpenAPI_NilValidationsResourceSkipped(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "skip-nil", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{ActionID: "skip", Name: "SkipMe"},
+			{
+				ActionID: "keep",
+				Name:     "KeepMe",
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/keep"},
+				},
+			},
+		},
+	}
+	spec := schema.GenerateOpenAPI(wf)
+	require.NotNil(t, spec)
+	assert.Contains(t, spec.Paths, "/keep")
+	assert.Len(t, spec.Paths, 1)
+}
+
+func TestGenerateOpenAPI_DefaultMethods(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "default-methods", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "handler",
+				Name:     "Handler",
+				Validations: &domain.ValidationsConfig{
+					Routes: []string{"/resource"},
+				},
+			},
+		},
+	}
+	spec := schema.GenerateOpenAPI(wf)
+	item, ok := spec.Paths["/resource"]
+	require.True(t, ok)
+	assert.Contains(t, item, "get")
+	assert.Contains(t, item, "post")
+	assert.Contains(t, item, "put")
+	assert.Contains(t, item, "patch")
+	assert.Contains(t, item, "delete")
+	assert.Len(t, item, 5)
+}
+
+func TestGenerateOpenAPI_PathParamWithMatchingResource(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "path-resource", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "getUser",
+				Name:     "Get User",
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/api/users/:userId"},
+					Params:  []string{"fields"},
+					Headers: []string{"X-Trace"},
+				},
+			},
+		},
+	}
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/api/users/{userId}"]["get"]
+	require.NotNil(t, op)
+
+	paramCount := map[string]int{}
+	for _, p := range op.Parameters {
+		key := p.In + ":" + p.Name
+		paramCount[key]++
+		if p.In == "path" {
+			assert.True(t, p.Required, "path param %s should be required", p.Name)
+		}
+	}
+	assert.Equal(t, 1, paramCount["path:userId"], "path userId should appear once")
+	assert.Equal(t, 1, paramCount["query:fields"], "query fields should appear once")
+	assert.Equal(t, 1, paramCount["header:X-Trace"], "header X-Trace should appear once")
+}
+
+func TestGenerateOpenAPI_OperationIDFallback(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "no-actionid", Version: "1.0.0"},
+		Resources: []*domain.Resource{
+			{
+				Name: "Handler",
+				Validations: &domain.ValidationsConfig{
+					Methods: []string{"GET"},
+					Routes:  []string{"/ping"},
+				},
+			},
+		},
+	}
+	spec := schema.GenerateOpenAPI(wf)
+	op := spec.Paths["/ping"]["get"]
+	require.NotNil(t, op)
+	assert.Equal(t, "get_ping", op.OperationID)
+}

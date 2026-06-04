@@ -38,6 +38,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// execCommandContext is a replaceable shim for exec.CommandContext, used in tests to inject errors.
+//
+//nolint:gochecknoglobals // test-replaceable shim for exec.CommandContext
+var execCommandContext = exec.CommandContext
+
 const (
 	protocolVersion = "2024-11-05"
 	clientName      = "kdeps"
@@ -94,8 +99,7 @@ func NewStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*Client, error)
 		return nil, errors.New("MCP server command is required")
 	}
 
-	//nolint:gosec // user-configured MCP server command
-	cmd := exec.CommandContext(ctx, cfg.Server, cfg.Args...)
+	cmd := execCommandContext(ctx, cfg.Server, cfg.Args...)
 
 	if len(cfg.Env) > 0 {
 		env := os.Environ()

@@ -171,3 +171,22 @@ func TestIOToolBin_Exists(t *testing.T) {
 	got := python.IOToolBin(toolName, binName)
 	assert.Equal(t, binPath, got)
 }
+
+// TestIOToolsBaseDir_UserCacheDirFallback verifies the fallback path in
+// IOToolsBaseDir when os.UserCacheDir() returns an error.
+func TestIOToolsBaseDir_UserCacheDirFallback(t *testing.T) {
+	home := os.Getenv("HOME")
+	xdgCache := os.Getenv("XDG_CACHE_HOME")
+	os.Unsetenv("HOME")
+	os.Unsetenv("XDG_CACHE_HOME")
+	t.Cleanup(func() {
+		os.Setenv("HOME", home)
+		if xdgCache != "" {
+			os.Setenv("XDG_CACHE_HOME", xdgCache)
+		}
+	})
+
+	dir := python.IOToolsBaseDir()
+	assert.NotEmpty(t, dir)
+	assert.Contains(t, dir, "kdeps-io-venvs")
+}

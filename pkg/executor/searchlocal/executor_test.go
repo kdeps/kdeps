@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -212,6 +213,51 @@ func TestExecute_FileMetadata(t *testing.T) {
 	assert.Contains(t, entry, "size")
 	assert.Contains(t, entry, "isDir")
 	assert.Equal(t, false, entry["isDir"])
+}
+
+func TestExecute_UnreadableFile(t *testing.T) {
+	dir := t.TempDir()
+	readable := filepath.Join(dir, "readable.txt")
+	require.NoError(t, os.WriteFile(readable, []byte("hello world"), 0o600))
+	unreadable := filepath.Join(dir, "unreadable.txt")
+	require.NoError(t, os.WriteFile(unreadable, []byte("secret data"), 0o600))
+	require.NoError(t, os.Chmod(unreadable, 0000))
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o600) })
+
+	e := searchlocalexec.NewExecutor()
+	res, err := e.Execute(newSearchLocalCtx(t), &domain.SearchLocalConfig{Path: dir, Query: "hello"})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Equal(t, 1, m["count"]) // only readable.txt matched
+}
+
+func TestExecute_InfoErrorDuringWalk(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create enough files so the walk takes measurable time,
+	// giving a race window for directory permission removal.
+	const numFiles = 5000
+	for i := range numFiles {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%d.txt", i)), []byte("data"), 0o600))
+	}
+
+	// Restore permissions after the test so t.TempDir() cleanup can remove the tree.
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	e := searchlocalexec.NewExecutor()
+
+	// Remove execute permission from the directory concurrently with the walk.
+	// After ReadDir lists entries but before the callback processes all of them,
+	// os.Lstat inside d.Info() will fail (EACCES) because the directory lacks
+	// the 'x' bit required for path traversal.
+	go func() {
+		time.Sleep(200 * time.Microsecond)
+		_ = os.Chmod(dir, 0000)
+	}()
+
+	res, err := e.Execute(newSearchLocalCtx(t), &domain.SearchLocalConfig{Path: dir})
+	require.NoError(t, err)
+	_ = res
 }
 
 func TestExecute_Subdirectory(t *testing.T) {

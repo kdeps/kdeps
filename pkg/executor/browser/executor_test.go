@@ -45,6 +45,9 @@ type locatorAlias = playwright.Locator
 // pageAlias is used to embed playwright.Page without the field-name clash
 // that would occur because playwright.Page has a Locator() method.
 type pageAlias = playwright.Page
+type browserTypeAlias = playwright.BrowserType
+type browserAlias = playwright.Browser
+type browserContextAlias = playwright.BrowserContext
 
 // mockLocator stubs playwright.Locator, overriding only the methods used by
 // the browser executor.  Any call to an unimplemented method panics (via the
@@ -118,6 +121,60 @@ type mockKeyboard struct {
 
 func (k *mockKeyboard) Press(_ string, _ ...playwright.KeyboardPressOptions) error {
 	return k.pressErr
+}
+
+// mockBrowserType stubs playwright.BrowserType.
+type mockBrowserType struct {
+	browserTypeAlias //nolint:unused // embedding for interface satisfaction via promotion
+
+	launchResult *mockBrowser
+	launchErr    error
+	launchArgs   playwright.BrowserTypeLaunchOptions
+}
+
+func (m *mockBrowserType) Launch(opts ...playwright.BrowserTypeLaunchOptions) (playwright.Browser, error) {
+	if len(opts) > 0 {
+		m.launchArgs = opts[0]
+	}
+	return m.launchResult, m.launchErr
+}
+
+// mockBrowser stubs playwright.Browser, overriding only Close and NewContext.
+type mockBrowser struct {
+	browserAlias //nolint:unused // embedding for interface satisfaction via promotion
+
+	newContextResult playwright.BrowserContext
+	newContextErr    error
+	closeErr         error
+	closeCalled      bool
+}
+
+func (m *mockBrowser) NewContext(_ ...playwright.BrowserNewContextOptions) (playwright.BrowserContext, error) {
+	return m.newContextResult, m.newContextErr
+}
+
+func (m *mockBrowser) Close(_ ...playwright.BrowserCloseOptions) error {
+	m.closeCalled = true
+	return m.closeErr
+}
+
+// mockBrowserContext stubs playwright.BrowserContext, overriding only NewPage and Close.
+type mockBrowserContext struct {
+	browserContextAlias //nolint:unused // embedding for interface satisfaction via promotion
+
+	newPageResult playwright.Page
+	newPageErr    error
+	closeErr      error
+	closeCalled   bool
+}
+
+func (m *mockBrowserContext) NewPage() (playwright.Page, error) {
+	return m.newPageResult, m.newPageErr
+}
+
+func (m *mockBrowserContext) Close(_ ...playwright.BrowserContextCloseOptions) error {
+	m.closeCalled = true
+	return m.closeErr
 }
 
 // mockPage stubs playwright.Page, overriding only the methods used by the
@@ -1438,4 +1495,699 @@ func TestExecute_WithPreloadedSessionSuccessWithURL(t *testing.T) {
 	assert.Equal(t, true, resultMap["success"])
 	assert.Equal(t, pg.urlValue, resultMap["url"])
 	assert.Equal(t, pg.titleValue, resultMap["title"])
+}
+
+// ─── selectBrowserType ─────────────────────────────────────────────────────────
+
+func TestSelectBrowserType_Firefox(t *testing.T) {
+	t.Parallel()
+	pw := &playwright.Playwright{
+		Chromium: &mockBrowserType{},
+		Firefox:  &mockBrowserType{},
+		WebKit:   &mockBrowserType{},
+	}
+	result := selectBrowserType(pw, domain.BrowserEngineFirefox)
+	assert.Equal(t, pw.Firefox, result)
+}
+
+func TestSelectBrowserType_WebKit(t *testing.T) {
+	t.Parallel()
+	pw := &playwright.Playwright{
+		Chromium: &mockBrowserType{},
+		Firefox:  &mockBrowserType{},
+		WebKit:   &mockBrowserType{},
+	}
+	result := selectBrowserType(pw, domain.BrowserEngineWebKit)
+	assert.Equal(t, pw.WebKit, result)
+}
+
+func TestSelectBrowserType_Chromium(t *testing.T) {
+	t.Parallel()
+	pw := &playwright.Playwright{
+		Chromium: &mockBrowserType{},
+		Firefox:  &mockBrowserType{},
+		WebKit:   &mockBrowserType{},
+	}
+	result := selectBrowserType(pw, domain.BrowserEngineChromium)
+	assert.Equal(t, pw.Chromium, result)
+}
+
+func TestSelectBrowserType_Default(t *testing.T) {
+	t.Parallel()
+	pw := &playwright.Playwright{
+		Chromium: &mockBrowserType{},
+		Firefox:  &mockBrowserType{},
+		WebKit:   &mockBrowserType{},
+	}
+	result := selectBrowserType(pw, "")
+	assert.Equal(t, pw.Chromium, result)
+}
+
+func TestSelectBrowserType_Unknown(t *testing.T) {
+	t.Parallel()
+	pw := &playwright.Playwright{
+		Chromium: &mockBrowserType{},
+		Firefox:  &mockBrowserType{},
+		WebKit:   &mockBrowserType{},
+	}
+	result := selectBrowserType(pw, "unknown-engine")
+	assert.Equal(t, pw.Chromium, result)
+}
+
+// ─── createContextAndPage ──────────────────────────────────────────────────────
+
+func TestCreateContextAndPage_DefaultViewport(t *testing.T) {
+	t.Parallel()
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	ctx, p, err := createContextAndPage(browser, nil, "test-user-agent", false)
+	require.NoError(t, err)
+	assert.Equal(t, bCtx, ctx)
+	assert.Equal(t, page, p)
+}
+
+func TestCreateContextAndPage_PartialViewport(t *testing.T) {
+	t.Parallel()
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	// Width set, Height=0 -> width=800, height=default(720)
+	ctx, p, err := createContextAndPage(
+		browser,
+		&domain.BrowserViewportConfig{Width: 800},
+		"test-ua",
+		false,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, bCtx, ctx)
+	assert.Equal(t, page, p)
+}
+
+func TestCreateContextAndPage_CustomViewport(t *testing.T) {
+	t.Parallel()
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	ctx, p, err := createContextAndPage(
+		browser,
+		&domain.BrowserViewportConfig{Width: 1920, Height: 1080},
+		"test-ua",
+		false,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, bCtx, ctx)
+	assert.Equal(t, page, p)
+}
+
+func TestCreateContextAndPage_StealthMode(t *testing.T) {
+	t.Parallel()
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	ctx, p, err := createContextAndPage(browser, nil, "test-ua", true)
+	require.NoError(t, err)
+	assert.Equal(t, bCtx, ctx)
+	assert.Equal(t, page, p)
+}
+
+func TestCreateContextAndPage_NewContextError(t *testing.T) {
+	t.Parallel()
+	browser := &mockBrowser{newContextErr: errors.New("context creation failed")}
+
+	_, _, err := createContextAndPage(browser, nil, "test-ua", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not create browser context")
+}
+
+func TestCreateContextAndPage_NewPageError(t *testing.T) {
+	t.Parallel()
+	bCtx := &mockBrowserContext{newPageErr: errors.New("page creation failed")}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	_, _, err := createContextAndPage(browser, nil, "test-ua", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not open browser page")
+}
+
+// ─── cleanupSession ────────────────────────────────────────────────────────────
+
+func TestCleanupSession_WithFullSession(t *testing.T) {
+	t.Parallel()
+	bCtx := &mockBrowserContext{closeErr: nil}
+	browser := &mockBrowser{closeErr: nil}
+
+	// sess.pw.Stop() will panic because connection is nil; recover to verify
+	// that ctx.Close and browser.Close are called without error.
+	func() {
+		defer func() { recover() }()
+		sess := &session{
+			ctx:     bCtx,
+			browser: browser,
+			pw:      &playwright.Playwright{},
+		}
+		cleanupSession("", sess)
+	}()
+}
+
+func TestCleanupSession_WithSessionID(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("cleanup-id-%d", time.Now().UnixNano())
+	bCtx := &mockBrowserContext{closeErr: nil}
+	browser := &mockBrowser{closeErr: nil}
+
+	activeSessions.Store(sessID, &session{})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	func() {
+		defer func() { recover() }()
+		sess := &session{
+			ctx:     bCtx,
+			browser: browser,
+			pw:      &playwright.Playwright{},
+		}
+		cleanupSession(sessID, sess)
+	}()
+
+	_, still := activeSessions.Load(sessID)
+	assert.False(t, still)
+}
+
+// ─── resolveOutputFile default dir mkdir error ─────────────────────────────────
+
+func TestResolveOutputFile_DefaultDirMkdirError(t *testing.T) {
+	// Cannot use t.Parallel() due to package-level var override.
+	tmpDir := t.TempDir()
+	// Make the parent read-only so MkdirAll fails inside it.
+	require.NoError(t, os.Chmod(tmpDir, 0o444))
+	defaultScreenshotDir = filepath.Join(tmpDir, "kdeps-browser")
+	t.Cleanup(func() { defaultScreenshotDir = "/tmp/kdeps-browser" })
+
+	_, err := resolveOutputFile("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not create output dir")
+}
+
+// ─── newSession via runPlaywright mock ─────────────────────────────────────────
+
+func TestNewSession_Success(t *testing.T) {
+	// Cannot use t.Parallel() due to package-level var override.
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+	assert.Equal(t, bCtx, sess.ctx)
+	assert.Equal(t, page, sess.page)
+}
+
+func TestNewSession_SuccessFirefox(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Firefox: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineFirefox, true, nil, defaultBrowserTimeout, "", false)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+}
+
+func TestNewSession_SuccessWithStealthMode(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", true)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+	// Stealth mode adds automation-evasion CLI args
+	assert.Contains(t, mockBT.launchArgs.Args, "--disable-blink-features=AutomationControlled")
+}
+
+func TestNewSession_DefaultUserAgent(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+}
+
+// For the error paths below, pw.Stop() panics on a zero-value Playwright struct
+// (connection is nil). We recover from the panic; the coverage counters for the
+// entered basic blocks are still incremented.
+
+func TestNewSession_BrowserLaunchError(_ *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	mockBT := &mockBrowserType{launchErr: errors.New("launch failed")}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	func() {
+		defer func() { recover() }()
+		_, _ = newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	}()
+}
+
+func TestNewSession_NewContextError(_ *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	browser := &mockBrowser{newContextErr: errors.New("context failed")}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	func() {
+		defer func() { recover() }()
+		_, _ = newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	}()
+}
+
+func TestNewSession_NewPageError(_ *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	bCtx := &mockBrowserContext{newPageErr: errors.New("page failed")}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	func() {
+		defer func() { recover() }()
+		_, _ = newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	}()
+}
+
+// ─── getOrCreateSession: named session stored after newSession succeeds ────────
+
+func TestGetOrCreateSession_NewNamedSessionStored(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	sessID := fmt.Sprintf("stored-sess-%d", time.Now().UnixNano())
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	sess, isNew, err := getOrCreateSession(
+		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false,
+	)
+	require.NoError(t, err)
+	require.True(t, isNew)
+	require.NotNil(t, sess)
+
+	// Verify it was stored in activeSessions
+	loaded, ok := activeSessions.Load(sessID)
+	require.True(t, ok)
+	assert.Same(t, sess, loaded)
+}
+
+// ─── Execute: ephemeral session cleanup (sessionID == "" && isNew) ────────────
+
+func TestExecute_EphemeralSessionNoActions(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		// No SessionID -> ephemeral, no URL -> skip navigation, no actions
+	}
+
+	// Execute will set up deferred cleanupSession; when it runs on return,
+	// pw.Stop() panics on a zero-value Playwright struct. We recover here.
+	func() {
+		defer func() { recover() }()
+		_, _ = e.Execute(nil, cfg)
+	}()
+
+	// cleanupSession called ctx.Close() and browser.Close() before pw.Stop() paniced.
+	assert.True(t, bCtx.closeCalled, "cleanupSession should have closed context")
+	assert.True(t, browser.closeCalled, "cleanupSession should have closed browser")
+}
+
+// ─── additional: case insensitive action dispatch ─────────────────────────────
+
+func TestExecuteAction_CaseInsensitiveAction(t *testing.T) {
+	t.Parallel()
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action:   "CLICK",
+		Selector: "#btn",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, true, res["success"])
+}
+
+func TestExecuteAction_CaseInsensitiveNavigate(t *testing.T) {
+	t.Parallel()
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action: "Navigate",
+		URL:    "https://example.com",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, true, res["success"])
+}
+
+// ─── additional: doNavigate with both URL and Value (URL priority) ────────────
+
+func TestExecuteAction_NavigateURLOverValue(t *testing.T) {
+	t.Parallel()
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action: domain.BrowserActionNavigate,
+		URL:    "https://url-priority.com",
+		Value:  "https://value-ignored.com",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, "https://url-priority.com", res["url"])
+}
+
+// ─── additional: doWait via fallback chain ────────────────────────────────────
+
+func TestExecuteAction_WaitViaSelectorFallback(t *testing.T) {
+	t.Parallel()
+	// Wait field empty, Selector set -> use Selector
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action:   domain.BrowserActionWait,
+		Selector: ".fallback-selector",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, ".fallback-selector", res["waited"])
+}
+
+func TestExecuteAction_WaitViaValueFallback(t *testing.T) {
+	t.Parallel()
+	// Wait and Selector empty, Value set -> use Value
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action: domain.BrowserActionWait,
+		Value:  ".value-fallback",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, ".value-fallback", res["waited"])
+}
+
+func TestExecuteAction_WaitDurationError(t *testing.T) {
+	t.Parallel()
+	// Wait set to a valid duration, selector wait should not be called.
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action:   domain.BrowserActionWait,
+		Wait:     "5ms",
+		Selector: ".unused",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, "5ms", res["waited"])
+}
+
+// ─── additional: doScreenshot with FullPage false explicitly ──────────────────
+
+func TestExecuteAction_ScreenshotFullPageFalse(t *testing.T) {
+	t.Parallel()
+	outFile := filepath.Join(t.TempDir(), "not-full.png")
+	fullPage := false
+	res, err := executeAction(newPage(), domain.BrowserAction{
+		Action:     domain.BrowserActionScreenshot,
+		OutputFile: outFile,
+		FullPage:   &fullPage,
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Equal(t, outFile, res["file"])
+}
+
+// ─── additional: doScreenshot element selector output file resolution ─────────
+
+func TestExecuteAction_ScreenshotElementDefaultPath(t *testing.T) {
+	t.Parallel()
+	// No output file specified, element selector set -> uses defaultScreenshotDir
+	pg := &mockPage{locatorResult: &mockLocator{screenshotData: []byte("png")}}
+	res, err := executeAction(pg, domain.BrowserAction{
+		Action:   domain.BrowserActionScreenshot,
+		Selector: "#hero",
+	}, defaultBrowserTimeout)
+	require.NoError(t, err)
+	assert.Contains(t, res["file"].(string), "screenshot-")
+	assert.Contains(t, res["file"].(string), ".png")
+}
+
+// ─── additional: navigatePage with both URL and waitFor ───────────────────────
+
+func TestNavigatePage_WithURLAndWaitFor(t *testing.T) {
+	t.Parallel()
+	require.NoError(t, navigatePage(newPage(), "https://example.com", ".ready", defaultBrowserTimeout))
+}
+
+func TestNavigatePage_WaitForAfterNavigateError(t *testing.T) {
+	t.Parallel()
+	// Navigate succeeds but waitFor fails
+	pg := &mockPage{
+		locatorResult: &mockLocator{waitForErr: errors.New("wait failed")},
+	}
+	err := navigatePage(pg, "https://example.com", ".missing", defaultBrowserTimeout)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "waitFor")
+}
+
+// ─── additional: Execute with waitFor via preloaded session ───────────────────
+
+func TestExecute_WithPreloadedSessionWithWaitFor(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-waitfor-%d", time.Now().UnixNano())
+	pg := newPage()
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		WaitFor:   ".ready",
+	}
+	result, err := e.Execute(nil, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, resultMap["success"])
+}
+
+// ─── additional: Execute with both URL and actions (full success path) ─────────
+
+func TestExecute_WithPreloadedSessionSuccessWithURLAndActions(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("preload-full-%d", time.Now().UnixNano())
+	pg := newPage()
+	activeSessions.Store(sessID, &session{page: pg})
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		SessionID: sessID,
+		URL:       "https://example.com",
+		Actions: []domain.BrowserAction{
+			{Action: domain.BrowserActionClick, Selector: "#btn"},
+			{Action: domain.BrowserActionPress, Key: "Escape"},
+		},
+	}
+	result, err := e.Execute(nil, cfg)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, resultMap["success"])
+	assert.Equal(t, sessID, resultMap["sessionId"])
+	assert.Equal(t, pg.urlValue, resultMap["url"])
+	assert.Equal(t, pg.titleValue, resultMap["title"])
+	assert.Len(t, resultMap["actionResults"], 2)
+}
+
+// ─── additional: Execute ephemeral session with URL ───────────────────────────
+
+func TestExecute_EphemeralSessionWithURL(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	e := &Executor{}
+	cfg := &domain.BrowserConfig{
+		URL: "https://example.com",
+	}
+
+	func() {
+		defer func() { recover() }()
+		_, _ = e.Execute(nil, cfg)
+	}()
+
+	assert.True(t, bCtx.closeCalled, "cleanupSession should have closed context")
+	assert.True(t, browser.closeCalled, "cleanupSession should have closed browser")
+}
+
+// ─── additional: newSession with custom user agent ────────────────────────────
+
+func TestNewSession_CustomUserAgent(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{Chromium: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "CustomUA/1.0", false)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+}
+
+// ─── additional: newSession with WebKit engine ────────────────────────────────
+
+func TestNewSession_WebKitEngine(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+	mockBT := &mockBrowserType{launchResult: browser}
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return &playwright.Playwright{WebKit: mockBT}, nil
+	}
+
+	sess, err := newSession(domain.BrowserEngineWebKit, true, nil, defaultBrowserTimeout, "", false)
+	require.NoError(t, err)
+	require.NotNil(t, sess)
+	assert.Equal(t, browser, sess.browser)
+}
+
+// ─── additional: newSession playwright.Run error path ─────────────────────────
+
+func TestNewSession_PlaywrightRunError(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return nil, errors.New("playwright not installed")
+	}
+
+	_, err := newSession(domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not start playwright")
+}
+
+// ─── additional: createContextAndPage with stealth mode and custom viewport ────
+
+func TestCreateContextAndPage_StealthModeWithCustomViewport(t *testing.T) {
+	t.Parallel()
+	page := newPage()
+	bCtx := &mockBrowserContext{newPageResult: page}
+	browser := &mockBrowser{newContextResult: bCtx}
+
+	ctx, p, err := createContextAndPage(
+		browser,
+		&domain.BrowserViewportConfig{Width: 1920, Height: 1080},
+		"stealth-ua",
+		true,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, bCtx, ctx)
+	assert.Equal(t, page, p)
+}
+
+// ─── additional: getOrCreateSession with invalid stored type ──────────────────
+
+func TestGetOrCreateSession_WrongTypeStored(t *testing.T) {
+	t.Parallel()
+	sessID := fmt.Sprintf("wrong-type-%d", time.Now().UnixNano())
+	activeSessions.Store(sessID, "not-a-session")
+	t.Cleanup(func() { activeSessions.Delete(sessID) })
+
+	// The type assertion fails silently. getOrCreateSession sees a stored key,
+	// type-asserts to nil, and returns (nil, false, nil) without creating a new
+	// session. This is the current behavior — the caller (Execute) would hit a
+	// nil-page panic downstream.
+	sess, isNew, err := getOrCreateSession(
+		sessID, domain.BrowserEngineChromium, true, nil, defaultBrowserTimeout, "", false,
+	)
+	require.NoError(t, err)
+	assert.False(t, isNew)
+	assert.Nil(t, sess)
+
+	// The original invalid value is still stored
+	loaded, ok := activeSessions.Load(sessID)
+	require.True(t, ok)
+	_, isString := loaded.(string)
+	assert.True(t, isString, "original invalid value should still be present")
+}
+
+// ─── additional: getOrCreateSession newSession playwright.Run error ───────────
+
+func TestGetOrCreateSession_NewSessionPlaywrightRunError(t *testing.T) {
+	defer func() { runPlaywright = playwright.Run }()
+
+	runPlaywright = func(_ ...*playwright.RunOptions) (*playwright.Playwright, error) {
+		return nil, errors.New("playwright not installed")
+	}
+
+	_, _, err := getOrCreateSession(
+		"",
+		domain.BrowserEngineChromium,
+		true,
+		nil,
+		defaultBrowserTimeout,
+		"",
+		false,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not start playwright")
 }

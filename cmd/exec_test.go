@@ -71,6 +71,52 @@ func TestRunInstalledAgent_NotInstalled(t *testing.T) {
 	assert.Contains(t, err.Error(), "not installed")
 }
 
+func TestRunInstalledAgent_Success(t *testing.T) {
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
+
+	agentName := "test-agent"
+	agentDir := filepath.Join(agentsDir, agentName)
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+
+	wfContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test-agent
+  version: "1.0.0"
+  targetActionId: test-action
+settings:
+  agentSettings:
+    timezone: "UTC"
+resources:
+  - actionId: test-action
+    name: Test Action
+    apiResponse:
+      success: true
+`
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "workflow.yaml"), []byte(wfContent), 0600))
+
+	cmd := newExecCmd()
+	err := runInstalledAgent(cmd, agentName, &RunFlags{})
+	// The simple workflow should execute successfully since it is a basic
+	// apiResponse workflow with no external dependencies.
+	require.NoError(t, err)
+}
+
+func TestRunInstalledAgent_DirNoWorkflow(t *testing.T) {
+	agentsDir := t.TempDir()
+	t.Setenv("KDEPS_AGENTS_DIR", agentsDir)
+
+	agentName := "empty-agent"
+	agentDir := filepath.Join(agentsDir, agentName)
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+
+	cmd := newExecCmd()
+	err := runInstalledAgent(cmd, agentName, &RunFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no workflow or agency manifest found")
+}
+
 func TestExecCmd_NoArgs(t *testing.T) {
 	rootCmd := createRootCommand()
 	rootCmd.SetArgs([]string{"exec"})

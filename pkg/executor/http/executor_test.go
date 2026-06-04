@@ -73,7 +73,10 @@ func TestNewExecutorWithFactory(t *testing.T) {
 	assert.NotNil(t, exec)
 }
 
-func newHTTPCtxWithConnection(t *testing.T, conn kdepsconfig.HTTPConnectionConfig) *executor.ExecutionContext {
+func newHTTPCtxWithConnection(
+	t *testing.T,
+	conn kdepsconfig.HTTPConnectionConfig,
+) *executor.ExecutionContext {
 	t.Helper()
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
@@ -197,6 +200,36 @@ func TestDefaultHTTPClientFactory_CreateClient(t *testing.T) {
 		_, err := factory.CreateClient(config, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to load client certificate")
+	})
+
+	t.Run("env var proxy used when connection proxy is empty", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_PROXY", "http://proxy-from-env:3128")
+		factory2 := &httpexecutor.DefaultClientFactory{}
+		config := &domain.HTTPClientConfig{}
+		client, err := factory2.CreateClient(config, "")
+		require.NoError(t, err)
+		require.NotNil(t, client.Transport)
+		transport, ok := client.Transport.(*http.Transport)
+		require.True(t, ok)
+		require.NotNil(t, transport.Proxy)
+	})
+
+	t.Run("env var KDEPS_HTTP_FOLLOW_REDIRECTS disables redirects", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_FOLLOW_REDIRECTS", "false")
+		factory3 := &httpexecutor.DefaultClientFactory{}
+		config := &domain.HTTPClientConfig{}
+		client, err := factory3.CreateClient(config, "")
+		require.NoError(t, err)
+		require.NotNil(t, client.CheckRedirect)
+	})
+
+	t.Run("env var KDEPS_HTTP_FOLLOW_REDIRECTS true leaves CheckRedirect nil", func(t *testing.T) {
+		t.Setenv("KDEPS_HTTP_FOLLOW_REDIRECTS", "true")
+		factory4 := &httpexecutor.DefaultClientFactory{}
+		config := &domain.HTTPClientConfig{}
+		client, err := factory4.CreateClient(config, "")
+		require.NoError(t, err)
+		require.Nil(t, client.CheckRedirect)
 	})
 }
 
@@ -413,7 +446,11 @@ func TestExecutor_Execute_BasicAuth(t *testing.T) {
 
 	exec := httpexecutor.NewExecutor()
 	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
-		Auth: &kdepsconfig.HTTPAuthConfig{Type: "basic", Username: "admin", Password: "password123"},
+		Auth: &kdepsconfig.HTTPAuthConfig{
+			Type:     "basic",
+			Username: "admin",
+			Password: "password123",
+		},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -442,7 +479,11 @@ func TestExecutor_Execute_APIKeyAuth(t *testing.T) {
 
 	exec := httpexecutor.NewExecutor()
 	ctx := newHTTPCtxWithConnection(t, kdepsconfig.HTTPConnectionConfig{
-		Auth: &kdepsconfig.HTTPAuthConfig{Type: "api_key", Key: "X-API-Key", Value: "my-secret-key"},
+		Auth: &kdepsconfig.HTTPAuthConfig{
+			Type:  "api_key",
+			Key:   "X-API-Key",
+			Value: "my-secret-key",
+		},
 	})
 
 	config := &domain.HTTPClientConfig{
@@ -1571,6 +1612,12 @@ func TestExecutor_evaluateExpression(t *testing.T) {
 		assert.Equal(t, 13, result)
 	})
 
+	t.Run("expression parse failure", func(t *testing.T) {
+		_, exprErr := exec.EvaluateExpressionForTesting(evaluator, ctx, "{{{")
+		require.Error(t, exprErr)
+		assert.Contains(t, exprErr.Error(), "failed to parse expression")
+	})
+
 	t.Run("expression with context data", func(t *testing.T) {
 		ctx.API.Set("number", 42.0) // Use float64 to match JSON deserialization
 		result, exprErr := exec.EvaluateExpressionForTesting(evaluator, ctx, `get("number") * 2`)
@@ -1661,11 +1708,10 @@ func TestExecutor_evaluateData(t *testing.T) {
 		assert.Equal(t, "literal string", result)
 	})
 
-	t.Run("expression evaluation error", func(_ *testing.T) {
-		_, dataErr := exec.EvaluateDataForTesting(evaluator, ctx, "invalid syntax +++")
-		// Note: The expression parser may not return an error for all invalid syntax
-		// This test case might need adjustment based on actual parser behavior
-		_ = dataErr // Just ensure it doesn't panic
+	t.Run("expression parse failure", func(t *testing.T) {
+		_, dataErr := exec.EvaluateDataForTesting(evaluator, ctx, "{{{")
+		require.Error(t, dataErr)
+		assert.Contains(t, dataErr.Error(), "failed to parse data expression")
 	})
 }
 
@@ -2006,6 +2052,41 @@ func TestExecutor_Execute_JSONMarshal_Error(t *testing.T) {
 		URL:    server.URL + "/api/test",
 		Data: map[string]interface{}{
 			"invalid": make(chan int), // Channels cannot be marshaled to JSON
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to marshal JSON")
+}
+
+// TestExecutor_Execute_JSONMarshal_ExplicitContentType tests JSON marshaling errors
+// when the Content-Type is explicitly set to application/json (the ContentTypeJSON
+// branch in prepareRequestBody).
+func TestExecutor_Execute_JSONMarshal_ExplicitContentType(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"received": true}`))
+		}
+	}))
+	defer server.Close()
+
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Explicit Content-Type: application/json with data that fails marshaling.
+	config := &domain.HTTPClientConfig{
+		Method: "POST",
+		URL:    server.URL + "/api/test",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Data: map[string]interface{}{
+			"invalid": make(chan int),
 		},
 	}
 
@@ -2450,6 +2531,65 @@ func TestExecutor_HandleAuthForTesting(t *testing.T) {
 		require.NoError(t, err11)
 		assert.Equal(t, "expr-key", req.Header.Get("X-Api-Key"))
 	})
+
+	t.Run("basic auth username expression error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		auth := &kdepsconfig.HTTPAuthConfig{
+			Type:     "basic",
+			Username: "{{invalid_expr(",
+			Password: "pass",
+		}
+		err12 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
+		require.Error(t, err12)
+		assert.Contains(t, err12.Error(), "failed to evaluate username")
+	})
+
+	t.Run("basic auth password expression error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		auth := &kdepsconfig.HTTPAuthConfig{
+			Type:     "basic",
+			Username: "user",
+			Password: "{{invalid_expr(",
+		}
+		err13 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
+		require.Error(t, err13)
+		assert.Contains(t, err13.Error(), "failed to evaluate password")
+	})
+
+	t.Run("api_key auth key expression error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		auth := &kdepsconfig.HTTPAuthConfig{
+			Type:  "api_key",
+			Key:   "{{invalid_expr(",
+			Value: "some-value",
+		}
+		err14 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
+		require.Error(t, err14)
+		assert.Contains(t, err14.Error(), "failed to evaluate API key name")
+	})
+
+	t.Run("api_key auth value expression error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		auth := &kdepsconfig.HTTPAuthConfig{
+			Type:  "api_key",
+			Key:   "X-API-Key",
+			Value: "{{invalid_expr(",
+		}
+		err15 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
+		require.Error(t, err15)
+		assert.Contains(t, err15.Error(), "failed to evaluate API key value")
+	})
+
+	t.Run("oauth2 auth expression error", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
+		auth := &kdepsconfig.HTTPAuthConfig{
+			Type:  "oauth2",
+			Token: "{{invalid_expr(",
+		}
+		err16 := exec.HandleAuthForTesting(evaluator, ctx, req, auth)
+		require.Error(t, err16)
+		assert.Contains(t, err16.Error(), "failed to evaluate OAuth2 token")
+	})
 }
 
 // TestExecutor_BuildCacheKeyForTesting tests the buildCacheKey function directly.
@@ -2560,4 +2700,316 @@ func TestExecutor_Execute_TLS_CAFile_Expression(t *testing.T) {
 
 	_, err = exec.Execute(ctx, config)
 	require.Error(t, err)
+}
+
+// TestExecutor_Execute_MaxResponseBytes exercises processResponse's
+// KDEPS_HTTP_MAX_RESPONSE_BYTES env-var branch: LimitReader and
+// size-exceeded error.
+func TestExecutor_Execute_MaxResponseBytes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`this response is longer than 5 bytes`))
+	}))
+	defer server.Close()
+
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	t.Setenv("KDEPS_HTTP_MAX_RESPONSE_BYTES", "5")
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    server.URL + "/api/data",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "max_response_bytes limit")
+}
+
+// TestExecutor_Execute_ResolveRetryConfig_BackoffExpressionError tests that
+// resolveRetryConfig returns an error when Backoff contains an invalid expression.
+func TestExecutor_Execute_ResolveRetryConfig_BackoffExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		Retry: &domain.RetryConfig{
+			MaxAttempts: 3,
+			Backoff:     "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate retry backoff")
+}
+
+// TestExecutor_Execute_ResolveRetryConfig_MaxBackoffExpressionError tests that
+// resolveRetryConfig returns an error when MaxBackoff contains an invalid expression.
+func TestExecutor_Execute_ResolveRetryConfig_MaxBackoffExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		Retry: &domain.RetryConfig{
+			MaxAttempts: 3,
+			Backoff:     "10ms",
+			MaxBackoff:  "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate retry max backoff")
+}
+
+// TestExecutor_Execute_ResolveCacheConfig_TTLExpressionError tests that
+// resolveCacheConfig returns an error when TTL contains an invalid expression.
+func TestExecutor_Execute_ResolveCacheConfig_TTLExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		Cache: &domain.HTTPCacheConfig{
+			TTL: "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate cache TTL")
+}
+
+// TestExecutor_Execute_ResolveCacheConfig_KeyExpressionError tests that
+// resolveCacheConfig returns an error when Key contains an invalid expression.
+func TestExecutor_Execute_ResolveCacheConfig_KeyExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		Cache: &domain.HTTPCacheConfig{
+			Key: "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate cache key")
+}
+
+// TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError tests that
+// resolveResolvedConfig returns an error when Timeout contains an invalid expression.
+func TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method:  "GET",
+		URL:     "http://example.com/api/test",
+		Timeout: "{{invalid_expr(",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate timeout duration")
+}
+
+// TestExecutor_Execute_TLS_CertFileExpressionError tests that
+// resolveTLSConfig returns an error when CertFile contains an invalid expression.
+func TestExecutor_Execute_TLS_CertFileExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		TLS: &domain.HTTPTLSConfig{
+			CertFile: "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate TLS cert file path")
+}
+
+// TestExecutor_Execute_TLS_KeyFileExpressionError tests that
+// resolveTLSConfig returns an error when KeyFile contains an invalid expression.
+func TestExecutor_Execute_TLS_KeyFileExpressionError(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    "http://example.com/api/test",
+		TLS: &domain.HTTPTLSConfig{
+			KeyFile: "{{invalid_expr(",
+		},
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate TLS key file path")
+}
+
+// TestExecutor_Execute_NonexistentConnection tests resolveHTTPConnection when
+// the connection name does not exist in the config. The request should succeed
+// without auth or proxy.
+func TestExecutor_Execute_NonexistentConnection(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"success": true}`))
+	}))
+	defer server.Close()
+
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method:         "GET",
+		URL:            server.URL + "/api/test",
+		ConnectionName: "nonexistent",
+	}
+
+	result, err := exec.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 200, resultMap["statusCode"])
+}
+
+// TestExecutor_Execute_Cache_AuthorizationInDefaultKey tests buildCacheKey when the
+// default cache key is used and the request includes an Authorization header.
+// The Authorization header value should be incorporated into the cache key.
+func TestExecutor_Execute_Cache_AuthorizationInDefaultKey(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		callCount++
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"authcached": true}`))
+	}))
+	defer server.Close()
+
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET",
+		URL:    server.URL + "/api/auth-cache",
+		Headers: map[string]string{
+			"Authorization": "Bearer test-token-for-cache-key",
+		},
+		Cache: &domain.HTTPCacheConfig{
+			// No custom key -- uses default key generation.
+		},
+	}
+
+	// First request
+	result1, err := exec.Execute(ctx, config)
+	require.NoError(t, err)
+
+	// Second request -- should hit cache
+	result2, err := exec.Execute(ctx, config)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, callCount, "expected only one HTTP call; second should hit cache")
+
+	resultMap1, ok := result1.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 200, resultMap1["statusCode"])
+
+	resultMap2, ok := result2.(map[string]interface{})
+	require.True(t, ok)
+	assert.InDelta(t, float64(200), resultMap2["statusCode"], 0.001)
+}
+
+// TestExecutor_Execute_FormURLEncoded_NonMapData tests prepareRequestBody when
+// the Content-Type is form-urlencoded but bodyData is a string (not a map).
+func TestExecutor_Execute_FormURLEncoded_NonMapData(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"received": true}`))
+	}))
+	defer server.Close()
+
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "POST",
+		URL:    server.URL + "/api/form",
+		Headers: map[string]string{
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		Data: "raw_string_not_a_map",
+	}
+
+	result, err := exec.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 200, resultMap["statusCode"])
+}
+
+// TestExecutor_Execute_NewRequestFail tests createRequest when
+// http.NewRequestWithContext fails due to an invalid method.
+func TestExecutor_Execute_NewRequestFail(t *testing.T) {
+	exec := httpexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.HTTPClientConfig{
+		Method: "GET POST", // space character makes this an invalid HTTP method
+		URL:    "http://example.com/api/test",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create request")
 }

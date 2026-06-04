@@ -41,6 +41,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
+// RuntimeOS is the OS platform string, defaulting to runtime.GOOS.
+// Exported so tests can override it without platform dependency.
+//
+//nolint:gochecknoglobals // test-overridable platform variable
+var RuntimeOS = runtime.GOOS
+
 // CommandRunner interface for executing commands (allows mocking for tests).
 type CommandRunner interface {
 	Run(cmd *exec.Cmd) error
@@ -142,7 +148,7 @@ func (e *Executor) Execute(
 		cmd = exec.CommandContext(context.Background(), commandStr, args...)
 	} else {
 		// No args provided, wrap in sh -c (or cmd /C on Windows)
-		if runtime.GOOS == "windows" {
+		if RuntimeOS == "windows" {
 			cmd = exec.CommandContext(context.Background(), "cmd", "/C", commandStr)
 		} else {
 			cmd = exec.CommandContext(context.Background(), "sh", "-c", commandStr)

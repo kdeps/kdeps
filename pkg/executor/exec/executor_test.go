@@ -1322,3 +1322,69 @@ func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, resultMap["success"].(bool))
 }
+
+// TestExecutor_Execute_CommandWithExpressionSuccess tests that a Command containing
+// {{ }} expression syntax that evaluates successfully hits line 110 (expression eval success).
+// TestExecutor_Execute_WindowsCmdPath forces the Windows code path (cmd /C)
+// by overriding RuntimeOS. A mock runner avoids needing cmd.exe on non-Windows hosts.
+func TestExecutor_Execute_WindowsCmdPath(t *testing.T) {
+	original := execexecutor.RuntimeOS
+	execexecutor.RuntimeOS = "windows"
+	defer func() { execexecutor.RuntimeOS = original }()
+
+	var capturedCmd *exec.Cmd
+	mockRunner := &MockCommandRunner{
+		RunFunc: func(cmd *exec.Cmd) error {
+			capturedCmd = cmd
+			return nil
+		},
+	}
+
+	execInstance := execexecutor.NewExecutorWithRunner(mockRunner)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	config := &domain.ExecConfig{
+		Command: "echo hello",
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+
+	require.NotNil(t, capturedCmd)
+	assert.Equal(t, "cmd", capturedCmd.Args[0])
+	assert.Equal(t, []string{"/C", "echo hello"}, capturedCmd.Args[1:])
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+	assert.False(t, resultMap["timedOut"].(bool))
+}
+
+func TestExecutor_Execute_CommandWithExpressionSuccess(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Set output value that the expression will resolve via get()
+	ctx.Outputs["name"] = "world"
+
+	// Command contains expression syntax {{ }} that evaluates successfully
+	config := &domain.ExecConfig{
+		Command: "echo {{get('name')}}",
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+	assert.Equal(t, 0, resultMap["exitCode"])
+	assert.Contains(t, resultMap["stdout"].(string), "world")
+	assert.False(t, resultMap["timedOut"].(bool))
+}

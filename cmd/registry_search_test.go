@@ -79,6 +79,35 @@ func TestRegistrySearch_NoResults(t *testing.T) {
 	assert.Contains(t, out.String(), "No packages found")
 }
 
+func TestNewRegistrySearchCmd_WithTypeLimit(t *testing.T) {
+	// Test that the cobra command is properly wired with --type and --limit flags
+	cmd := newRegistrySearchCmd()
+	require.NotNil(t, cmd)
+
+	// Verify flags exist
+	assert.NotNil(t, cmd.Flags().Lookup("type"))
+	assert.NotNil(t, cmd.Flags().Lookup("limit"))
+
+	// Verify the RunE closure exists and works by calling doRegistrySearch directly
+	// (matching the pattern of existing tests)
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	// Set an invalid base URL so the HTTP request fails immediately
+	origBaseURL := registryBaseURL
+	registryBaseURL = "http://127.0.0.1:1"
+	t.Cleanup(func() { registryBaseURL = origBaseURL })
+
+	// Execute with flags
+	cmd.SetArgs([]string{"test-query", "--type", "workflow", "--limit", "5"})
+	err := cmd.Execute()
+	// Should fail quickly because the registry is unreachable
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "unknown flag")
+	assert.NotContains(t, err.Error(), "flag needs an argument")
+}
+
 func TestRegistrySearch_ServerError(t *testing.T) {
 	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusInternalServerError)

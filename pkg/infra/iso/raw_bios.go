@@ -30,7 +30,7 @@ func buildRawBIOSWithImage(
 	ctx context.Context,
 	runner LinuxKitRunner,
 	assembler RawBIOSAssembleFunc,
-	configPath, arch, buildDir, imageName, bootScript string,
+	configPath, arch, buildDir, imageName string,
 ) (string, error) {
 	kdeps_debug.Log("enter: buildRawBIOSWithImage")
 	// Step 1: Build kernel+initrd with linuxkit
@@ -54,7 +54,7 @@ func buildRawBIOSWithImage(
 		cmdlinePath,
 		outputFile,
 		imageName,
-		bootScript,
+		"",
 	); assembleErr != nil {
 		return "", assembleErr
 	}

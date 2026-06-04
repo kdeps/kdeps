@@ -40,6 +40,19 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// testMultipartBodyWriter, if non-nil, replaces the bytes.Buffer used as the
+// underlying writer for multipart form construction in Publish. Used in tests
+// to trigger error branches in CreateFormFile, io.Copy, and writer.Close.
+//
+//nolint:gochecknoglobals // test-injectable hook for error branches
+var testMultipartBodyWriter io.Writer
+
+// testFileClose, if non-nil, is called instead of *os.File.Close in Download.
+// Used in tests to trigger the close error branch.
+//
+//nolint:gochecknoglobals // test-injectable hook for error branches
+var testFileClose func(*os.File) error
+
 const (
 	queryTimeout    = 30 * time.Second
 	transferTimeout = 10 * time.Minute
@@ -182,7 +195,11 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	}
 
 	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
+	bodyWriter := io.Writer(&body)
+	if testMultipartBodyWriter != nil {
+		bodyWriter = testMultipartBodyWriter
+	}
+	writer := multipart.NewWriter(bodyWriter)
 	_ = writer.WriteField("manifest", string(manifestJSON))
 	part, err := writer.CreateFormFile("package", filepath.Base(archivePath))
 	if err != nil {
@@ -256,7 +273,11 @@ func (c *Client) Download(ctx context.Context, name, version, destDir string) (s
 		_ = f.Close()
 		return "", fmt.Errorf("failed to write file: %w", copyErr)
 	}
-	if closeErr := f.Close(); closeErr != nil {
+	doClose := f.Close
+	if testFileClose != nil {
+		doClose = func() error { return testFileClose(f) }
+	}
+	if closeErr := doClose(); closeErr != nil {
 		return "", fmt.Errorf("failed to close file: %w", closeErr)
 	}
 	return destPath, nil

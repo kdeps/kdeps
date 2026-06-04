@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -231,6 +232,86 @@ func TestBuildAgentNameMap_MissingTargetAgent(t *testing.T) {
 	require.NoError(t, os.WriteFile(wfPath, []byte(validWorkflowForAgent), 0o600))
 
 	_, _, err := cmd.BuildAgentNameMap([]string{wfPath}, "nonexistent-agent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent-agent")
+}
+
+// apiResponseAwareWorkflow is the same as validWorkflowForAgent but uses
+// apiResponse: (instead of bare response:) so the engine can execute it.
+const apiResponseAwareWorkflow = `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: bot-a
+  version: "1.0.0"
+  targetActionId: action
+settings:
+  agentSettings:
+    timezone: "UTC"
+resources:
+  - actionId: action
+    name: Action
+    apiResponse:
+      response: "ok"
+`
+
+// TestExecuteAgencyStepsWithFlags_Success verifies the full agency execution path.
+func TestExecuteAgencyStepsWithFlags_Success(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(apiResponseAwareWorkflow), 0o600),
+	)
+
+	agencyPath := filepath.Join(dir, "agency.yml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(validAgencyYAML), 0o600))
+
+	cobraCmd := &cobra.Command{}
+	err := cmd.ExecuteAgencyStepsWithFlags(cobraCmd, agencyPath, &cmd.RunFlags{})
+	require.NoError(t, err)
+}
+
+// TestExecuteAgencyStepsWithFlags_ParseError verifies that an invalid agency YAML
+// returns an error.
+func TestExecuteAgencyStepsWithFlags_ParseError(t *testing.T) {
+	dir := t.TempDir()
+	agencyPath := filepath.Join(dir, "agency.yaml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte("invalid: ["), 0o600))
+
+	cobraCmd := &cobra.Command{}
+	err := cmd.ExecuteAgencyStepsWithFlags(cobraCmd, agencyPath, &cmd.RunFlags{})
+	require.Error(t, err)
+}
+
+// TestExecuteAgencyStepsWithFlags_InvalidTarget verifies that a targetAgentId
+// referencing a nonexistent agent returns an error.
+func TestExecuteAgencyStepsWithFlags_InvalidTarget(t *testing.T) {
+	dir := t.TempDir()
+
+	agentDir := filepath.Join(dir, "agents", "bot-a")
+	require.NoError(t, os.MkdirAll(agentDir, 0o750))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(agentDir, "workflow.yml"), []byte(validWorkflowForAgent), 0o600),
+	)
+
+	const invalidTargetAgencyYAML = `apiVersion: kdeps.io/v1
+kind: Agency
+metadata:
+  name: invalid-target-agency
+  version: "1.0.0"
+  targetAgentId: nonexistent-agent
+agents:
+  - agents/bot-a
+`
+
+	agencyPath := filepath.Join(dir, "agency.yaml")
+	require.NoError(t, os.WriteFile(agencyPath, []byte(invalidTargetAgencyYAML), 0o600))
+
+	cobraCmd := &cobra.Command{}
+	err := cmd.ExecuteAgencyStepsWithFlags(cobraCmd, agencyPath, &cmd.RunFlags{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent-agent")
 }

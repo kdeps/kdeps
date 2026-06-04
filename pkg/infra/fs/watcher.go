@@ -34,6 +34,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// Overridable for testing.
+//
+//nolint:gochecknoglobals // overridable mock for testing
+var fsnotifyNewWatcher = fsnotify.NewWatcher
+
+//nolint:gochecknoglobals // overridable mock for testing
+var filepathAbs = filepath.Abs
+
 // Watcher watches files for changes.
 type Watcher struct {
 	watcher   *fsnotify.Watcher
@@ -56,7 +64,7 @@ func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
 	}
 
-	fsWatcher, err := fsnotify.NewWatcher()
+	fsWatcher, err := fsnotifyNewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}
@@ -84,7 +92,7 @@ func (w *Watcher) Watch(path string, callback func()) error {
 	}
 
 	// Resolve absolute path
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepathAbs(path)
 	if err != nil {
 		return fmt.Errorf("failed to resolve path: %w", err)
 	}

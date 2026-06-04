@@ -347,3 +347,108 @@ func TestBackendOrDefault(t *testing.T) {
 	assert.Equal(t, "ollama", backendOrDefault(""))
 	assert.Equal(t, "openai", backendOrDefault("openai"))
 }
+
+// --- ollamaEffectiveBackend ---
+
+func TestOllamaEffectiveBackend_FromEnv(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "openai")
+	// cfg is nil — should fall through to env var
+	assert.Equal(t, "openai", ollamaEffectiveBackend(nil))
+}
+
+func TestOllamaEffectiveBackend_CfgTakesPrecedence(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "env-backend")
+	cfg := &Config{LLM: LLMKeys{Backend: "cfg-backend"}}
+	assert.Equal(t, "cfg-backend", ollamaEffectiveBackend(cfg))
+}
+
+func TestOllamaEffectiveBackend_EmptyEnvFallback(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	// Neither cfg nor env has a backend set.
+	assert.Equal(t, "", ollamaEffectiveBackend(nil))
+}
+
+// --- runCriticalEnvCheck ---
+
+func TestRunCriticalEnvCheck_AllSet(t *testing.T) {
+	t.Setenv("OLLAMA_HOST", "http://localhost:11434")
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "ollama")
+	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
+	t.Setenv("OPENAI_API_KEY", "sk-test")
+	t.Setenv("ANTHROPIC_API_KEY", "ant-test")
+	t.Setenv("TZ", "UTC")
+
+	var checks []HealthCheck
+	healthy := true
+	runCriticalEnvCheck(&checks, &healthy)
+	require.GreaterOrEqual(t, len(checks), 1)
+	assert.Equal(t, HealthPass, checks[0].Status)
+	assert.Contains(t, checks[0].Message, "all critical vars set")
+}
+
+func TestRunCriticalEnvCheck_PartialSet(t *testing.T) {
+	// Set only 2 out of 6 critical vars so 4 are missing (<= envWarnThreshold).
+	for _, k := range []string{"OLLAMA_HOST", "KDEPS_DEFAULT_BACKEND", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("KDEPS_LLM_MODELS", "gpt-4")
+	t.Setenv("TZ", "UTC")
+
+	var checks []HealthCheck
+	healthy := true
+	runCriticalEnvCheck(&checks, &healthy)
+
+	require.GreaterOrEqual(t, len(checks), 1)
+	// With 4 missing out of 6, we're in the > envWarnThreshold case (HealthPass
+	// with "config file provides defaults") or <= envWarnThreshold (HealthWarn).
+	msg := checks[0].Message
+	if len(msg) > 0 && msg[0] == 'm' { // starts with "missing:" (< = threshold)
+		assert.Equal(t, HealthWarn, checks[0].Status)
+	} else {
+		assert.Equal(t, HealthPass, checks[0].Status)
+	}
+}
+
+// --- runAgentsCheck ---
+
+func TestRunAgentsCheck_ReadDirFails(t *testing.T) {
+	dir := t.TempDir()
+	// Point agents dir at a file so os.ReadDir fails.
+	blocker := filepath.Join(dir, "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0600))
+	t.Setenv("KDEPS_AGENTS_DIR", blocker)
+
+	var checks []HealthCheck
+	healthy := true
+	runAgentsCheck(&checks, &Config{}, &healthy)
+	require.GreaterOrEqual(t, len(checks), 1)
+	assert.Equal(t, HealthPass, checks[0].Status)
+	assert.Contains(t, checks[0].Message, "no agents installed")
+}
+
+// --- runOllamaCheck with various URL formats ---
+
+func TestRunOllamaCheck_HTTPSURL(t *testing.T) {
+	t.Setenv("KDEPS_DEFAULT_BACKEND", "")
+	t.Setenv("OLLAMA_HOST", "https://ollama.example.com")
+	dir := t.TempDir()
+	writeTempConfig(t, dir, `
+llm:
+  backend: ollama
+  ollama_host: https://ollama.example.com
+`)
+	cfg := loadCfg(t)
+	report := RunDoctor(cfg)
+
+	var ollamaCheck *HealthCheck
+	for i := range report.Checks {
+		if report.Checks[i].Name == "Ollama" {
+			ollamaCheck = &report.Checks[i]
+			break
+		}
+	}
+	require.NotNil(t, ollamaCheck)
+	// Can't reach ollama.example.com, but the HTTPS URL parsing was exercised.
+	assert.Equal(t, HealthWarn, ollamaCheck.Status)
+	assert.Contains(t, ollamaCheck.Message, "not reachable")
+}

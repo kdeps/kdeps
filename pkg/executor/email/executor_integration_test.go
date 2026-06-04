@@ -655,6 +655,22 @@ func TestIntegration_Modify_ConnectionRefused(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestIntegration_IMAP_LoginFailure(t *testing.T) {
+	fi := startFakeIMAP(t, nil) // server uses testuser/testpass
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{
+		Host:     fi.host(),
+		Port:     fi.port(),
+		Username: "baduser",
+		Password: "badpass",
+	}), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "login")
+}
+
 // --- In-process IMAP server infrastructure ---
 
 type fakeIMAPMsg struct {
@@ -993,6 +1009,36 @@ func TestIntegration_IMAP_Modify_MoveTo(t *testing.T) {
 	assert.Equal(t, true, m["success"])
 }
 
+func TestIntegration_IMAP_Modify_NonexistentMailbox(t *testing.T) {
+	fi := startFakeIMAP(t, nil)
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "test",
+		Mailbox:        "NONEXISTENT",
+		UIDs:           []string{"1"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select")
+}
+
+func TestIntegration_IMAP_Modify_MoveTo_Nonexistent(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "MoveMe", from: "alice@example.com", to: "bob@example.com", body: "move"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		UIDs:           []string{"1"},
+		Modify:         domain.EmailModifyConfig{MoveTo: "NonexistentFolder"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "move to")
+}
+
 // --- Real IMAP tests (env var gated) ---
 
 func TestIntegration_Real_IMAP(t *testing.T) {
@@ -1053,4 +1099,367 @@ func TestIntegration_Real_SMTP(t *testing.T) {
 		})
 	require.NoError(t, err)
 	assert.Equal(t, true, result.(map[string]interface{})["success"])
+}
+
+// --- Search with MarkRead ---
+
+func TestIntegration_IMAP_Search_MarkRead(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Unread", from: "alice@example.com", to: "bob@example.com", body: "mark me read", seen: false},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		MarkRead:       true,
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 1, m["count"])
+
+	// Verify the message was marked read by doing another search.
+	result2, err2 := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		Search:         domain.EmailSearchConfig{Unseen: true},
+	})
+	require.NoError(t, err2)
+	m2, ok2 := result2.(map[string]interface{})
+	require.True(t, ok2)
+	assert.Equal(t, 0, m2["count"], "expected 0 unread messages after MarkRead")
+}
+
+// --- Search limit truncation ---
+
+func TestIntegration_IMAP_Search_LimitTruncation(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "A", from: "a@example.com", to: "b@example.com", body: "one"},
+		{subject: "B", from: "a@example.com", to: "b@example.com", body: "two"},
+		{subject: "C", from: "a@example.com", to: "b@example.com", body: "three"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		Limit:          2,
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	// Should be limited to 2, not 3.
+	assert.Equal(t, 2, m["count"])
+}
+
+// --- Read with MarkRead ---
+
+func TestIntegration_IMAP_Read_MarkRead(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Unread1", from: "alice@example.com", to: "bob@example.com", body: "first", seen: false},
+		{subject: "Unread2", from: "charlie@example.com", to: "bob@example.com", body: "second", seen: false},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		MarkRead:       true,
+		Limit:          10,
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 2, m["count"])
+
+	// Re-read — messages should now be seen.
+	result2, err2 := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		Limit:          10,
+	})
+	require.NoError(t, err2)
+	m2, ok2 := result2.(map[string]interface{})
+	require.True(t, ok2)
+	fetched, ok3 := m2["messages"].([]executorEmail.EmailMessage)
+	require.True(t, ok3)
+	for _, msg := range fetched {
+		assert.True(t, msg.Seen, "expected message %d to be marked read", msg.UID)
+	}
+}
+
+// --- Modify flag removal (applyFlagStore with false) ---
+
+func TestIntegration_IMAP_Modify_RemoveFlag(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Flagged", from: "alice@example.com", to: "bob@example.com", body: "remove flag", seen: true},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	boolFalse := false
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		UIDs:           []string{"1"},
+		Modify:         domain.EmailModifyConfig{MarkFlagged: &boolFalse},
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 1, m["count"])
+}
+
+// --- Config nil / wrong connection name integration tests ---
+
+func TestIntegration_Send_ConfigNil(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	ctx.Config = nil
+
+	_, err = newAdapter().Execute(ctx, &domain.EmailConfig{
+		Action:         domain.EmailActionSend,
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		To:             []string{"to@example.com"},
+		Subject:        "Test",
+		Body:           "Body",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no global config loaded")
+}
+
+func TestIntegration_IMAP_Search_ConfigNil(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	ctx.Config = nil
+
+	_, err = newAdapter().Execute(ctx, &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no global config loaded")
+}
+
+func TestIntegration_IMAP_Modify_WrongConnectionName(t *testing.T) {
+	imapSrv := startFakeIMAP(t, nil)
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, imapSrv.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "nonexistent",
+		Mailbox:        "INBOX",
+		UIDs:           []string{"1"},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// --- Default mailbox (empty Mailbox → "INBOX") ---
+
+func TestIntegration_IMAP_Read_DefaultMailbox(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Default", from: "alice@example.com", to: "bob@example.com", body: "hello"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+		// Mailbox empty → defaults to "INBOX"
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 1, m["count"])
+}
+
+func TestIntegration_IMAP_Search_DefaultMailbox(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Default", from: "alice@example.com", to: "bob@example.com", body: "hello"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		// Mailbox empty → defaults to "INBOX"
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 1, m["count"])
+}
+
+func TestIntegration_IMAP_Modify_DefaultMailbox(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "Default", from: "alice@example.com", to: "bob@example.com", body: "hello"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	boolPtr := func(b bool) *bool { return &b }
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "test",
+		// Mailbox empty → defaults to "INBOX"
+		UIDs:   []string{"1"},
+		Modify: domain.EmailModifyConfig{MarkSeen: boolPtr(true)},
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 1, m["count"])
+}
+
+// --- Modify search returning no results ---
+
+func TestIntegration_IMAP_Modify_Search_NoResults(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "First", from: "alice@example.com", to: "bob@example.com", body: "hello"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionModify,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		Search:         domain.EmailSearchConfig{From: "nonexistent@example.com"},
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 0, m["count"])
+}
+
+// --- Default limit (0 → 10) ---
+
+func TestIntegration_IMAP_Read_DefaultLimit(t *testing.T) {
+	msgs := make([]fakeIMAPMsg, 15)
+	for i := range 15 {
+		msgs[i] = fakeIMAPMsg{
+			subject: fmt.Sprintf("Msg%d", i+1),
+			from:    "alice@example.com",
+			to:      "bob@example.com",
+			body:    fmt.Sprintf("body%d", i+1),
+		}
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		// Limit unset (0) → defaults to 10
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 10, m["count"])
+}
+
+// --- dialIMAP port=0 default assignment ---
+
+func TestIntegration_IMAP_Dial_PortZero(t *testing.T) {
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{
+		Host: "127.0.0.1",
+		// Port unset (0) → defaults to 143; TLS false → STARTTLS
+	}), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+	})
+	require.Error(t, err)
+	// Should fail with connection refused (nothing on :143).
+	assert.Error(t, err)
+}
+
+func TestIntegration_IMAP_Dial_PortZeroTLS(t *testing.T) {
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{
+		Host: "127.0.0.1",
+		// Port unset (0) → defaults to 993; TLS true → implicit TLS dial
+		TLS: true,
+	}), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+	})
+	require.Error(t, err)
+	// Should fail with connection refused or TLS error (nothing on :993).
+	assert.Error(t, err)
+}
+
+// --- Nonexistent mailbox (select error) ---
+
+func TestIntegration_IMAP_Read_NonexistentMailbox(t *testing.T) {
+	fi := startFakeIMAP(t, nil)
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+		Mailbox:        "NONEXISTENT",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select")
+}
+
+func TestIntegration_IMAP_Search_NonexistentMailbox(t *testing.T) {
+	fi := startFakeIMAP(t, nil)
+
+	_, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "NONEXISTENT",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select")
+}
+
+// --- Search with non-matching criteria on non-empty mailbox ---
+
+func TestIntegration_IMAP_Search_NoMatch(t *testing.T) {
+	msgs := []fakeIMAPMsg{
+		{subject: "First", from: "alice@example.com", to: "bob@example.com", body: "hello"},
+		{subject: "Second", from: "charlie@example.com", to: "bob@example.com", body: "world"},
+	}
+	fi := startFakeIMAP(t, msgs)
+
+	result, err := newAdapter().Execute(newExecCtxWithIMAP(t, fi.imapConfig()), &domain.EmailConfig{
+		Action:         domain.EmailActionSearch,
+		IMAPConnection: "test",
+		Mailbox:        "INBOX",
+		Search:         domain.EmailSearchConfig{From: "nobody@example.com"},
+	})
+	require.NoError(t, err)
+	m, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, true, m["success"])
+	assert.Equal(t, 0, m["count"])
 }

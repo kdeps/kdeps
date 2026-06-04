@@ -122,3 +122,123 @@ func TestAgentToolDef_Execute_Error(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 }
+
+// ---- marshalResult branches via AgentToolDef ----
+
+func TestAgentToolDef_Execute_NilResult(t *testing.T) {
+	wf := testAgentWorkflow("bot", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return nil, nil //nolint:nilnil
+	})
+
+	tool := tools.AgentToolDef(wf, eng)
+	result, err := tool.Execute(map[string]interface{}{"input": "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "" {
+		t.Errorf("expected empty string for nil result, got %q", result)
+	}
+}
+
+func TestAgentToolDef_Execute_StructResult(t *testing.T) {
+	wf := testAgentWorkflow("bot", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return struct{ Key string }{"value"}, nil
+	})
+
+	tool := tools.AgentToolDef(wf, eng)
+	result, err := tool.Execute(map[string]interface{}{"input": "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := `{"Key":"value"}`
+	if result != expected {
+		t.Errorf("expected JSON %q, got %q", expected, result)
+	}
+}
+
+func TestAgentToolDef_Execute_UnmarshalableResult(t *testing.T) {
+	wf := testAgentWorkflow("bot", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return make(chan int), nil
+	})
+
+	tool := tools.AgentToolDef(wf, eng)
+	result, err := tool.Execute(map[string]interface{}{"input": "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == "" {
+		t.Error("expected non-empty fallback string for unmarshalable result")
+	}
+}
+
+// ---- AgentToolDefWithName ----
+
+func TestAgentToolDefWithName_CustomNameAndDesc(t *testing.T) {
+	wf := testAgentWorkflow("inner", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+
+	tool := tools.AgentToolDefWithName("agency_name", "Custom description", wf, eng)
+	if tool.Name != "agency_name" {
+		t.Errorf("expected name 'agency_name', got %q", tool.Name)
+	}
+	if tool.Description != "Custom description" {
+		t.Errorf("expected 'Custom description', got %q", tool.Description)
+	}
+}
+
+func TestAgentToolDefWithName_InputParam(t *testing.T) {
+	wf := testAgentWorkflow("inner", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+
+	tool := tools.AgentToolDefWithName("agency", "", wf, eng)
+	p, ok := tool.Parameters["input"]
+	if !ok {
+		t.Fatal("expected 'input' parameter")
+	}
+	if !p.Required {
+		t.Error("expected input param to be required")
+	}
+}
+
+func TestAgentToolDefWithName_Execute_Success(t *testing.T) {
+	wf := testAgentWorkflow("inner", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return "agency response", nil
+	})
+
+	tool := tools.AgentToolDefWithName("agency", "desc", wf, eng)
+	result, err := tool.Execute(map[string]interface{}{"input": "hello"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "agency response" {
+		t.Errorf("expected 'agency response', got %q", result)
+	}
+}
+
+func TestAgentToolDefWithName_Execute_Error(t *testing.T) {
+	wf := testAgentWorkflow("inner", "", "1.0.0")
+	eng := executor.NewEngine(nil)
+	eng.SetExecuteFunc(func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
+		return nil, errors.New("agency failure")
+	})
+
+	tool := tools.AgentToolDefWithName("agency", "desc", wf, eng)
+	_, err := tool.Execute(map[string]interface{}{"input": "fail"})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}

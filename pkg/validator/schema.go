@@ -22,6 +22,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"regexp"
 	"strings"
 
@@ -58,10 +59,15 @@ type SchemaValidator struct {
 // NewSchemaValidator creates a new schema validator.
 func NewSchemaValidator() (*SchemaValidator, error) {
 	kdeps_debug.Log("enter: NewSchemaValidator")
+	return newSchemaValidatorFromFS(schemas)
+}
+
+// newSchemaValidatorFromFS creates a schema validator reading schema files from fsys.
+func newSchemaValidatorFromFS(fsys fs.FS) (*SchemaValidator, error) {
 	sv := &SchemaValidator{}
 
 	// Load workflow schema.
-	workflowSchemaData, err := schemas.ReadFile("schemas/workflow.json")
+	workflowSchemaData, err := fs.ReadFile(fsys, "schemas/workflow.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read workflow schema: %w", err)
 	}
@@ -73,7 +79,7 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 	}
 
 	// Load resource schema.
-	resourceSchemaData, err := schemas.ReadFile("schemas/resource.json")
+	resourceSchemaData, err := fs.ReadFile(fsys, "schemas/resource.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read resource schema: %w", err)
 	}
@@ -85,7 +91,7 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 	}
 
 	// Load agency schema.
-	agencySchemaData, err := schemas.ReadFile("schemas/agency.json")
+	agencySchemaData, err := fs.ReadFile(fsys, "schemas/agency.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read agency schema: %w", err)
 	}
@@ -97,7 +103,7 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 	}
 
 	// Load component schema.
-	componentSchemaData, err := schemas.ReadFile("schemas/component.json")
+	componentSchemaData, err := fs.ReadFile(fsys, "schemas/component.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read component schema: %w", err)
 	}
@@ -412,18 +418,12 @@ func (sv *SchemaValidator) getTypeSuggestion(field string, descStr string) strin
 			return fmt.Sprintf("Expected type: %s. Example: %s", expectedType, example)
 		}
 
-		// Type-based defaults for examples
-		switch expectedType {
-		case schemaTypeString:
+		// Type-based defaults for examples.
+		// NOTE: integer/boolean/object/array branches here are unreachable because
+		// getFieldExamples always returns a non-default example for those types,
+		// causing an early return above. Only schemaTypeString can reach this point.
+		if expectedType == schemaTypeString {
 			return fmt.Sprintf("Expected type: %s. Example: \"example\"", expectedType)
-		case schemaTypeInteger:
-			return fmt.Sprintf("Expected type: %s. Example: 123", expectedType)
-		case schemaTypeBoolean:
-			return fmt.Sprintf("Expected type: %s. Example: true or false", expectedType)
-		case schemaTypeObject:
-			return fmt.Sprintf("Expected type: %s. Example: {\"key\": \"value\"}", expectedType)
-		case schemaTypeArray:
-			return fmt.Sprintf("Expected type: %s. Example: [\"item1\", \"item2\"]", expectedType)
 		}
 	}
 

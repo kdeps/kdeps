@@ -150,6 +150,17 @@ func TestValidate_ResourceMissingRunSection(t *testing.T) {
 	assert.True(t, containsErr(errs, "no recognized action"))
 }
 
+func TestValidate_ResourceUnrecognizedActionWithKind(t *testing.T) {
+	wf := validWorkflow()
+	wf.Files["resources/main.yaml"] = `actionId: main
+kind: Something
+customField: value
+`
+	errs := Validate(wf)
+	assert.True(t, containsErr(errs, "no recognized action"))
+	assert.True(t, containsErr(errs, "customField"))
+}
+
 func TestValidate_ResourceUnrecognizedAction(t *testing.T) {
 	wf := validWorkflow()
 	wf.Files["resources/main.yaml"] = `actionId: main

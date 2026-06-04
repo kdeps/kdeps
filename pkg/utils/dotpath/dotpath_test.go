@@ -459,3 +459,39 @@ func TestConvertValue_PointerInnerFail(t *testing.T) {
 	err := dotpath.Set(&s, "n", "notanint")
 	assert.Error(t, err)
 }
+
+// --- setInStruct CanAddr branch (line 162) ---
+// Struct obtained from a map value is non-addressable; setInStruct detects this
+// via CanAddr when rest != "" and the field is not a pointer.
+
+type _deepInner struct {
+	Value string `yaml:"value"`
+}
+
+type _midStruct struct {
+	Inner _deepInner `yaml:"inner"`
+}
+
+type _mapMidHolder struct {
+	Items map[string]_midStruct `yaml:"items"`
+}
+
+func TestSetInStruct_NonAddressableField(t *testing.T) {
+	s := _mapMidHolder{Items: map[string]_midStruct{"key": {Inner: _deepInner{Value: "old"}}}}
+	err := dotpath.Set(&s, "items.key.inner.value", "new")
+	assert.Error(t, err)
+}
+
+// --- assignValue CanSet branch (line 246) ---
+// Non-addressable struct from a map value with a terminating path triggers
+// assignValue, which checks CanSet.
+
+type _mapFlatHolder struct {
+	Items map[string]_deepInner `yaml:"items"`
+}
+
+func TestAssignValue_NonSettableField(t *testing.T) {
+	s := _mapFlatHolder{Items: map[string]_deepInner{"key": {Value: "old"}}}
+	err := dotpath.Set(&s, "items.key.value", "new")
+	assert.Error(t, err)
+}

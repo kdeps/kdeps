@@ -20,6 +20,16 @@
 package email
 
 import (
+	"bufio"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"log/slog"
+	"math/big"
 	"net"
 	"net/smtp"
 	"os"
@@ -66,7 +76,10 @@ func TestExecute_NilConfig(t *testing.T) {
 
 // --- Execute — required field validation ---
 
-func newExecCtxWithSMTP(t *testing.T, smtpCfg kdepsconfig.SMTPConnectionConfig) *executor.ExecutionContext {
+func newExecCtxWithSMTP(
+	t *testing.T,
+	smtpCfg kdepsconfig.SMTPConnectionConfig,
+) *executor.ExecutionContext {
 	t.Helper()
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
@@ -79,6 +92,27 @@ func newExecCtxWithSMTP(t *testing.T, smtpCfg kdepsconfig.SMTPConnectionConfig) 
 	ctx.Config = &kdepsconfig.Config{
 		SMTPConnections: map[string]kdepsconfig.SMTPConnectionConfig{
 			"test": smtpCfg,
+		},
+	}
+	return ctx
+}
+
+func newExecCtxWithIMAP(
+	t *testing.T,
+	imapCfg kdepsconfig.IMAPConnectionConfig,
+) *executor.ExecutionContext {
+	t.Helper()
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	ctx.Config = &kdepsconfig.Config{
+		IMAPConnections: map[string]kdepsconfig.IMAPConnectionConfig{
+			"test": imapCfg,
 		},
 	}
 	return ctx
@@ -133,6 +167,38 @@ func TestExecute_MissingSubject(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "subject")
+}
+
+// --- executeSend — port=0 default assignment ---
+
+func TestExecuteSend_PortZero_Default(t *testing.T) {
+	ex := NewAdapter(nil)
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "127.0.0.1"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		To:             []string{"to@example.com"},
+		Subject:        "Test",
+		Body:           "Hello",
+	})
+	require.Error(t, err)
+	// Port 0 defaults to 587 when TLS is false.
+	assert.Contains(t, err.Error(), ":587")
+}
+
+func TestExecuteSend_PortZero_DefaultTLS(t *testing.T) {
+	ex := NewAdapter(nil)
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "127.0.0.1", TLS: true})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		To:             []string{"to@example.com"},
+		Subject:        "Test",
+		Body:           "Hello",
+	})
+	require.Error(t, err)
+	// Port 0 defaults to 465 when TLS is true.
+	assert.Contains(t, err.Error(), ":465")
 }
 
 // --- buildMessage — plain text ---
@@ -578,6 +644,20 @@ func TestBuildSearchCriteria_InvalidSince_Ignored(t *testing.T) {
 	assert.True(t, criteria.Since.IsZero())
 }
 
+func TestBuildSearchCriteria_BeforeDate(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Before: "2024-06-15"}, identity)
+	assert.Equal(t, 2024, criteria.Before.Year())
+	assert.Equal(t, time.June, criteria.Before.Month())
+	assert.Equal(t, 15, criteria.Before.Day())
+}
+
+func TestBuildSearchCriteria_InvalidBefore_Ignored(t *testing.T) {
+	identity := func(s string) string { return s }
+	criteria := buildSearchCriteria(domain.EmailSearchConfig{Before: "bad"}, identity)
+	assert.True(t, criteria.Before.IsZero())
+}
+
 func TestBuildSearchCriteria_BodyFilter(t *testing.T) {
 	identity := func(s string) string { return s }
 	criteria := buildSearchCriteria(domain.EmailSearchConfig{Body: "urgent"}, identity)
@@ -671,6 +751,19 @@ func TestExecute_Modify_MissingIMAPHost(t *testing.T) {
 	assert.Contains(t, err.Error(), "imapConnection")
 }
 
+// --- dialIMAP — empty host after expression evaluation ---
+
+func TestDialIMAP_EmptyHost(t *testing.T) {
+	ex := &Executor{}
+	ctx := newExecCtxWithIMAP(t, kdepsconfig.IMAPConnectionConfig{Host: "{{ nonexistent }}"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		Action:         domain.EmailActionRead,
+		IMAPConnection: "test",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "imap host is required")
+}
+
 // --- markMessagesRead ---
 
 func TestMarkMessagesRead_Empty(_ *testing.T) {
@@ -683,4 +776,1152 @@ func TestMarkMessagesRead_AllAlreadySeen(_ *testing.T) {
 		{UID: 2, Seen: true},
 	}
 	markMessagesRead(nil, msgs)
+}
+
+// --- resolveSMTPConfig ---
+
+func TestResolveSMTPConfig_EmptyConnection(t *testing.T) {
+	ex := &Executor{}
+	_, err := ex.resolveSMTPConfig(&executor.ExecutionContext{}, &domain.EmailConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "smtpConnection is required")
+}
+
+func TestResolveSMTPConfig_ConfigNil(t *testing.T) {
+	ex := &Executor{}
+	_, err := ex.resolveSMTPConfig(&executor.ExecutionContext{}, &domain.EmailConfig{
+		SMTPConnection: "test",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no global config loaded")
+}
+
+func TestResolveSMTPConfig_ConnNotFound(t *testing.T) {
+	ex := &Executor{}
+	ctx := &executor.ExecutionContext{
+		Config: &kdepsconfig.Config{SMTPConnections: map[string]kdepsconfig.SMTPConnectionConfig{}},
+	}
+	_, err := ex.resolveSMTPConfig(ctx, &domain.EmailConfig{
+		SMTPConnection: "nonexistent",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// --- resolveIMAPConfig ---
+
+func TestResolveIMAPConfig_EmptyConnection(t *testing.T) {
+	ex := &Executor{}
+	_, err := ex.resolveIMAPConfig(&executor.ExecutionContext{}, &domain.EmailConfig{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "imapConnection is required")
+}
+
+func TestResolveIMAPConfig_ConfigNil(t *testing.T) {
+	ex := &Executor{}
+	_, err := ex.resolveIMAPConfig(&executor.ExecutionContext{}, &domain.EmailConfig{
+		IMAPConnection: "test",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no global config loaded")
+}
+
+func TestResolveIMAPConfig_ConnNotFound(t *testing.T) {
+	ex := &Executor{}
+	ctx := &executor.ExecutionContext{
+		Config: &kdepsconfig.Config{IMAPConnections: map[string]kdepsconfig.IMAPConnectionConfig{}},
+	}
+	_, err := ex.resolveIMAPConfig(ctx, &domain.EmailConfig{
+		IMAPConnection: "nonexistent",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// --- resolveAttachmentPaths ---
+
+func TestResolveAttachmentPaths_NilFSRoot(t *testing.T) {
+	result := resolveAttachmentPaths("", []string{"a.txt", "b.txt"})
+	assert.Equal(t, []string{"a.txt", "b.txt"}, result)
+}
+
+func TestResolveAttachmentPaths_WithFSRoot(t *testing.T) {
+	result := resolveAttachmentPaths("/root", []string{"a.txt", "sub/b.txt"})
+	assert.Equal(t, []string{"/root/a.txt", "/root/sub/b.txt"}, result)
+}
+
+func TestResolveAttachmentPaths_AbsolutePaths(t *testing.T) {
+	result := resolveAttachmentPaths("/root", []string{"/etc/a.txt", "/tmp/b.txt"})
+	assert.Equal(t, []string{"/etc/a.txt", "/tmp/b.txt"}, result)
+}
+
+func TestResolveAttachmentPaths_MixedPaths(t *testing.T) {
+	result := resolveAttachmentPaths(
+		"/root",
+		[]string{"relative.txt", "/absolute.txt", "", "another/rel.txt"},
+	)
+	assert.Equal(
+		t,
+		[]string{"/root/relative.txt", "/absolute.txt", "", "/root/another/rel.txt"},
+		result,
+	)
+}
+
+// --- sanitizeHeader ---
+
+func TestSanitizeHeader_OK(t *testing.T) {
+	assert.NoError(t, sanitizeHeader("From", "user@example.com"))
+	assert.NoError(t, sanitizeHeader("Subject", "Hello World"))
+	assert.NoError(t, sanitizeHeader("To", "recipient@example.com"))
+}
+
+func TestSanitizeHeader_CRLF(t *testing.T) {
+	err := sanitizeHeader("From", "user@example.com\r\nBcc: spam@spam.com")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+	assert.Contains(t, err.Error(), "From")
+}
+
+// --- buildMessage — header injection ---
+
+func TestBuildMessage_CRLFInFrom(t *testing.T) {
+	_, err := buildMessage(
+		"user@example.com\r\nBcc: victim@example.com",
+		[]string{"to@example.com"}, nil, nil,
+		"Subject", "Body", false, nil,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+}
+
+func TestBuildMessage_CRLFInSubject(t *testing.T) {
+	_, err := buildMessage(
+		"from@example.com",
+		[]string{"to@example.com"}, nil, nil,
+		"Subject\r\nInjected", "Body", false, nil,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+}
+
+func TestBuildMessage_CRLFInTo(t *testing.T) {
+	_, err := buildMessage(
+		"from@example.com",
+		[]string{"to@example.com\r\nInjected: yes"}, nil, nil,
+		"Subject", "Body", false, nil,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+}
+
+func TestBuildMessage_CRLFInCC(t *testing.T) {
+	_, err := buildMessage(
+		"from@example.com",
+		[]string{"to@example.com"},
+		[]string{"cc@example.com\r\nEvil: header"}, nil,
+		"Subject", "Body", false, nil,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+}
+
+func TestBuildMessage_CRLFInBCC(t *testing.T) {
+	_, err := buildMessage(
+		"from@example.com",
+		[]string{"to@example.com"},
+		nil, []string{"bcc@example.com\r\nEvil: header"},
+		"Subject", "Body", false, nil,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "header injection")
+}
+
+// --- makeEvaluator with API ---
+
+func TestMakeEvaluator_WithAPI_PlainText(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	require.NotNil(t, ctx.API)
+
+	ex := &Executor{}
+	ev := ex.makeEvaluator(ctx)
+
+	// Plain text without braces should pass through unchanged.
+	assert.Equal(t, "hello world", ev("hello world"))
+	assert.Equal(t, "no-expression", ev("no-expression"))
+	assert.Equal(t, "", ev(""))
+}
+
+func TestMakeEvaluator_WithAPI_Expression(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	require.NotNil(t, ctx.API)
+
+	ex := &Executor{}
+	ev := ex.makeEvaluator(ctx)
+
+	// Expression with braces should be evaluated.
+	// {{ info('name') }} returns the workflow metadata name.
+	assert.Equal(t, "test-wf", ev("{{ info('name') }}"))
+
+	// Nonexistent expression returns empty string (Jinja2-like).
+	// This exercises the nil-result-to-empty-string branch.
+	assert.Equal(t, "", ev("{{ nonexistent }}"))
+}
+
+// --- doSend — error paths ---
+
+func withSMTPServer(
+	handler func(conn net.Conn, br *bufio.Reader),
+) (net.Conn, <-chan struct{}, chan error) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	done := make(chan error, 1)
+	ready := make(chan struct{})
+	conn, _ := net.Dial("tcp", ln.Addr().String())
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			done <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); done <- nil }()
+		_, _ = srvConn.Write([]byte("220 test ESMTP\r\n"))
+		br := bufio.NewReader(srvConn)
+		close(ready)
+		handler(srvConn, br)
+	}()
+	return conn, ready, done
+}
+
+func TestDoSend_MailFromError(t *testing.T) {
+	conn, ready, done := withSMTPServer(func(srvConn net.Conn, br *bufio.Reader) {
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("550 Mail rejected\r\n"))
+	})
+	defer conn.Close()
+	<-ready
+
+	client, smtpErr := smtp.NewClient(conn, "localhost")
+	require.NoError(t, smtpErr)
+
+	err := doSend(client, "from@x.com", []string{"to@x.com"}, []byte("test"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "MAIL FROM")
+	_ = client.Close()
+	<-done
+}
+
+func TestDoSend_RcptToError(t *testing.T) {
+	conn, ready, done := withSMTPServer(func(srvConn net.Conn, br *bufio.Reader) {
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("550 Recipient rejected\r\n"))
+	})
+	defer conn.Close()
+	<-ready
+
+	client, smtpErr := smtp.NewClient(conn, "localhost")
+	require.NoError(t, smtpErr)
+
+	err := doSend(client, "from@x.com", []string{"to@x.com"}, []byte("test"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RCPT TO")
+	_ = client.Close()
+	<-done
+}
+
+func TestDoSend_DataError(t *testing.T) {
+	conn, ready, done := withSMTPServer(func(srvConn net.Conn, br *bufio.Reader) {
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("250 OK\r\n"))
+		_, _ = br.ReadString('\n')
+		_, _ = srvConn.Write([]byte("554 Transaction failed\r\n"))
+	})
+	defer conn.Close()
+	<-ready
+
+	client, smtpErr := smtp.NewClient(conn, "localhost")
+	require.NoError(t, smtpErr)
+
+	err := doSend(client, "from@x.com", []string{"to@x.com"}, []byte("test"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "DATA")
+	_ = client.Close()
+	<-done
+}
+
+// --- sendSTARTTLS — with auth (exercises auth path) ---
+
+func TestSendSTARTTLS_WithAuth_Fails(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+		_, _ = conn.Write([]byte("220 test ESMTP\r\n"))
+		br := bufio.NewReader(conn)
+		// EHLO
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("250 OK\r\n"))
+		// AUTH
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("504 Unrecognized authentication type\r\n"))
+	}()
+
+	err = sendSTARTTLS(
+		"127.0.0.1:"+portStr, "localhost", "user", "pass",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), false, defaultTimeout,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "auth")
+	<-serverDone
+}
+
+// --- sendImplicitTLS — via local TLS server (exercises TLS code path) ---
+
+func TestSendImplicitTLS_ViaLocalTLSServer(t *testing.T) {
+	priv, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, keyErr)
+
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+	}
+	certDER, createErr := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	require.NoError(t, createErr)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyBytes, marshalErr := x509.MarshalECPrivateKey(priv)
+	require.NoError(t, marshalErr)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	cert, pairErr := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, pairErr)
+
+	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, listenErr := tls.Listen("tcp", "127.0.0.1:0", tlsCfg)
+	require.NoError(t, listenErr)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+
+		// Write SMTP greeting — triggers the server-side TLS handshake.
+		_, _ = conn.Write([]byte("220 test TLS ESMTP\r\n"))
+
+		br := bufio.NewReader(conn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			switch {
+			case strings.HasPrefix(line, "EHLO"), strings.HasPrefix(line, "HELO"):
+				_, _ = conn.Write([]byte("250 OK\r\n"))
+			case strings.HasPrefix(line, "MAIL"):
+				_, _ = conn.Write([]byte("250 OK\r\n"))
+			case strings.HasPrefix(line, "RCPT"):
+				_, _ = conn.Write([]byte("250 OK\r\n"))
+			case strings.HasPrefix(line, "DATA"):
+				_, _ = conn.Write([]byte("354 Start\r\n"))
+			case line == ".":
+				_, _ = conn.Write([]byte("250 OK\r\n"))
+			case strings.HasPrefix(line, "QUIT"):
+				_, _ = conn.Write([]byte("221 Bye\r\n"))
+				serverDone <- nil
+				return
+			}
+		}
+	}()
+
+	sendErr := sendImplicitTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), true, defaultTimeout,
+	)
+	require.NoError(t, sendErr)
+	<-serverDone
+}
+
+// --- resolveExplicitUIDs ---
+
+func TestResolveExplicitUIDs_EmptyStringSkipped(t *testing.T) {
+	identity := func(s string) string { return s }
+	uidSet, found, err := resolveExplicitUIDs([]string{"1", "", "2"}, identity)
+	require.NoError(t, err)
+	require.True(t, found)
+	// UIDSet may merge consecutive UIDs into one range; use collectAffectedUIDs
+	// for the actual count of individual UIDs.
+	uids := collectAffectedUIDs(uidSet)
+	assert.Equal(t, []uint32{1, 2}, uids)
+}
+
+func TestResolveExplicitUIDs_AllEmptyError(t *testing.T) {
+	identity := func(s string) string { return s }
+	_, _, err := resolveExplicitUIDs([]string{"", "  "}, identity)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no valid UIDs")
+}
+
+// --- executeSend — empty SMTP host via expression ---
+
+func TestExecuteSend_EmptySMTPHost(t *testing.T) {
+	ex := NewAdapter(nil)
+	ctx := newExecCtxWithSMTP(t, kdepsconfig.SMTPConnectionConfig{Host: "{{ nonexistent }}"})
+	_, err := ex.Execute(ctx, &domain.EmailConfig{
+		SMTPConnection: "test",
+		From:           "from@example.com",
+		To:             []string{"to@example.com"},
+		Subject:        "Test",
+		Body:           "Hello",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "smtp host is required")
+}
+
+// --- makeEvaluator — expression error, nil, and non-string paths ---
+
+func TestMakeEvaluator_MalformedExpression(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	require.NotNil(t, ctx.API)
+
+	ex := &Executor{}
+	ev := ex.makeEvaluator(ctx)
+
+	// A malformed expression causes the evaluator to return an error,
+	// and makeEvaluator returns the original string unchanged.
+	assert.Equal(t, "{{ !@#$% }}", ev("{{ !@#$% }}"))
+}
+
+func TestMakeEvaluator_NilResult(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	require.NotNil(t, ctx.API)
+
+	ex := &Executor{}
+	ev := ex.makeEvaluator(ctx)
+
+	// info('nonexistent_field') calls ctx.Info() which returns error for unknown
+	// fields. The info() wrapper converts the error to nil, so the evaluator
+	// returns (nil, nil), exercising the result==nil branch.
+	assert.Equal(t, "", ev("{{ info('nonexistent_field') }}"))
+}
+
+func TestMakeEvaluator_NonStringResult(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-wf", TargetActionID: "r"},
+		Resources: []*domain.Resource{
+			{ActionID: "r", Name: "R", Email: &domain.EmailConfig{}},
+		},
+	}
+	ctx, err := executor.NewExecutionContext(wf)
+	require.NoError(t, err)
+	require.NotNil(t, ctx.API)
+
+	ex := &Executor{}
+	ev := ex.makeEvaluator(ctx)
+
+	// Arithmetic expression returns an int (non-string, non-nil), exercising
+	// the fmt.Sprintf branch.
+	assert.Equal(t, "2", ev("{{ 1 + 1 }}"))
+}
+
+// --- sendSTARTTLS — smtp.NewClient failure ---
+
+func TestSendSTARTTLS_NewClientFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+		// Send invalid SMTP greeting — smtp.NewClient expects 220.
+		_, _ = conn.Write([]byte("Invalid greeting\r\n"))
+		serverDone <- nil
+	}()
+
+	err = sendSTARTTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), false, defaultTimeout,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "smtp client")
+	<-serverDone
+}
+
+// --- sendSTARTTLS — STARTTLS advertised but handshake fails ---
+
+func TestSendSTARTTLS_StartTLSFailure(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+
+		_, _ = conn.Write([]byte("220 test ESMTP\r\n"))
+		br := bufio.NewReader(conn)
+		// EHLO
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("250-localhost\r\n250-STARTTLS\r\n250 OK\r\n"))
+		// STARTTLS
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("454 TLS not available\r\n"))
+	}()
+
+	err = sendSTARTTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), false, defaultTimeout,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "starttls")
+	<-serverDone
+}
+
+// --- sendImplicitTLS — auth failure ---
+
+func TestSendImplicitTLS_AuthFailure(t *testing.T) {
+	priv, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, keyErr)
+
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+	}
+	certDER, createErr := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	require.NoError(t, createErr)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyBytes, marshalErr := x509.MarshalECPrivateKey(priv)
+	require.NoError(t, marshalErr)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	cert, pairErr := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, pairErr)
+
+	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, listenErr := tls.Listen("tcp", "127.0.0.1:0", tlsCfg)
+	require.NoError(t, listenErr)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+
+		_, _ = conn.Write([]byte("220 test TLS ESMTP\r\n"))
+		br := bufio.NewReader(conn)
+		// EHLO
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("250 OK\r\n"))
+		// AUTH
+		_, _ = br.ReadString('\n')
+		_, _ = conn.Write([]byte("504 Unrecognized authentication type\r\n"))
+	}()
+
+	err := sendImplicitTLS(
+		"127.0.0.1:"+portStr, "localhost", "user", "pass",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), true, defaultTimeout,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "auth")
+	<-serverDone
+}
+
+// --- fetchRecent error paths ---
+
+func TestFetchRecent_SelectError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := strings.ToUpper(parts[1])
+			switch cmd {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprintf(srvConn, "%s NO [NONEXISTENT] Mailbox not found\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	_, err = fetchRecent(c, "NONEXISTENT", 10, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select")
+	conn.Close()
+	<-serverDone
+}
+
+func TestFetchRecent_FetchError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := strings.ToUpper(parts[1])
+			switch cmd {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprint(srvConn, "* 1 EXISTS\r\n")
+				_, _ = fmt.Fprint(srvConn, "* 1 RECENT\r\n")
+				_, _ = fmt.Fprintf(srvConn, "%s OK [READ-WRITE] SELECT completed\r\n", tag)
+			case "FETCH":
+				_, _ = fmt.Fprintf(srvConn, "%s NO FETCH failed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	_, err = fetchRecent(c, "INBOX", 10, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch")
+	conn.Close()
+	<-serverDone
+}
+
+// --- fetchBySearch error paths ---
+
+func TestFetchBySearch_SelectError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := strings.ToUpper(parts[1])
+			switch cmd {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprintf(srvConn, "%s NO [NONEXISTENT] Mailbox not found\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	var criteria imap.SearchCriteria
+	_, err = fetchBySearch(c, "NONEXISTENT", 10, false, criteria)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "select")
+	conn.Close()
+	<-serverDone
+}
+
+func TestFetchBySearch_UIDSearchError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := parts[1]
+			// Handle UID-prefixed commands (UID SEARCH)
+			if strings.EqualFold(cmd, "UID") && len(parts) > 2 {
+				subParts := strings.SplitN(parts[2], " ", 2)
+				cmd = "UID " + strings.ToUpper(subParts[0])
+			}
+			switch strings.ToUpper(cmd) {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprint(srvConn, "* 2 EXISTS\r\n")
+				_, _ = fmt.Fprint(srvConn, "* 2 RECENT\r\n")
+				_, _ = fmt.Fprintf(srvConn, "%s OK [READ-WRITE] SELECT completed\r\n", tag)
+			case "UID SEARCH":
+				_, _ = fmt.Fprintf(srvConn, "%s NO SEARCH failed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	var criteria imap.SearchCriteria
+	_, err = fetchBySearch(c, "INBOX", 10, true, criteria)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uid search")
+	conn.Close()
+	<-serverDone
+}
+
+func TestFetchBySearch_FetchError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := parts[1]
+			// Handle UID-prefixed commands (UID SEARCH, UID FETCH)
+			if strings.EqualFold(cmd, "UID") && len(parts) > 2 {
+				subParts := strings.SplitN(parts[2], " ", 2)
+				cmd = "UID " + strings.ToUpper(subParts[0])
+			}
+			switch strings.ToUpper(cmd) {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprint(srvConn, "* 2 EXISTS\r\n")
+				_, _ = fmt.Fprint(srvConn, "* 2 RECENT\r\n")
+				_, _ = fmt.Fprintf(srvConn, "%s OK [READ-WRITE] SELECT completed\r\n", tag)
+			case "UID SEARCH":
+				_, _ = fmt.Fprint(srvConn, "* SEARCH 1 2\r\n")
+				_, _ = fmt.Fprintf(srvConn, "%s OK SEARCH completed\r\n", tag)
+			case "UID FETCH":
+				_, _ = fmt.Fprintf(srvConn, "%s NO FETCH failed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	var criteria imap.SearchCriteria
+	_, err = fetchBySearch(c, "INBOX", 10, true, criteria)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "fetch")
+	conn.Close()
+	<-serverDone
+}
+
+func TestResolveSearchUIDs_SearchError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := parts[1]
+			if strings.EqualFold(cmd, "UID") && len(parts) > 2 {
+				subParts := strings.SplitN(parts[2], " ", 2)
+				cmd = "UID " + strings.ToUpper(subParts[0])
+			}
+			switch strings.ToUpper(cmd) {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "UID SEARCH":
+				_, _ = fmt.Fprintf(srvConn, "%s NO SEARCH failed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	identity := func(s string) string { return s }
+	cfg := &domain.EmailConfig{
+		Search: domain.EmailSearchConfig{From: "test@example.com"},
+	}
+	_, _, err = resolveSearchUIDs(cfg, c, identity)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uid search")
+	conn.Close()
+	<-serverDone
+}
+
+// --- applyFlagStore error paths ---
+
+func TestApplyFlagStore_StoreError(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ready := make(chan struct{})
+	serverDone := make(chan error, 1)
+
+	conn, dialErr := net.Dial("tcp", ln.Addr().String())
+	require.NoError(t, dialErr)
+
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = srvConn.Close(); serverDone <- nil }()
+		_, _ = fmt.Fprint(srvConn, "* OK [CAPABILITY IMAP4REV1] ready\r\n")
+		close(ready)
+		br := bufio.NewReader(srvConn)
+		for {
+			line, readErr := br.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			line = strings.TrimRight(line, "\r\n")
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) < 2 {
+				continue
+			}
+			tag := parts[0]
+			cmd := parts[1]
+			// Handle UID-prefixed commands (UID STORE)
+			if strings.EqualFold(cmd, "UID") && len(parts) > 2 {
+				subParts := strings.SplitN(parts[2], " ", 2)
+				cmd = "UID " + strings.ToUpper(subParts[0])
+			}
+			switch strings.ToUpper(cmd) {
+			case "LOGIN", "CAPABILITY":
+				_, _ = fmt.Fprintf(srvConn, "%s OK %s completed\r\n", tag, cmd)
+			case "SELECT", "EXAMINE":
+				_, _ = fmt.Fprint(srvConn, "* 1 EXISTS\r\n")
+				_, _ = fmt.Fprint(srvConn, "* 1 RECENT\r\n")
+				_, _ = fmt.Fprintf(srvConn, "%s OK [READ-WRITE] SELECT completed\r\n", tag)
+			case "UID STORE":
+				_, _ = fmt.Fprintf(srvConn, "%s NO STORE failed\r\n", tag)
+				return
+			default:
+				_, _ = fmt.Fprintf(srvConn, "%s BAD unknown\r\n", tag)
+			}
+		}
+	}()
+
+	<-ready
+
+	c := imapclient.New(conn, nil)
+	require.NoError(t, c.Login("user", "pass").Wait())
+
+	// Select mailbox first (as executeModify does).
+	_, selErr := c.Select("INBOX", &imap.SelectOptions{ReadOnly: false}).Wait()
+	require.NoError(t, selErr)
+
+	// applyFlagStore should not panic or return an error — it only logs.
+	set := true
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	applyFlagStore(c, imap.UIDSetNum(1), imap.FlagSeen, &set, logger)
+	conn.Close()
+	<-serverDone
+}
+
+// --- sendImplicitTLS — smtp.NewClient failure ---
+
+func TestSendImplicitTLS_NewClientFailure(t *testing.T) {
+	priv, keyErr := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, keyErr)
+
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(10 * time.Minute),
+	}
+	certDER, createErr := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	require.NoError(t, createErr)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyBytes, marshalErr := x509.MarshalECPrivateKey(priv)
+	require.NoError(t, marshalErr)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	cert, pairErr := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, pairErr)
+
+	tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	ln, listenErr := tls.Listen("tcp", "127.0.0.1:0", tlsCfg)
+	require.NoError(t, listenErr)
+	defer ln.Close()
+
+	_, portStr, splitErr := net.SplitHostPort(ln.Addr().String())
+	require.NoError(t, splitErr)
+
+	serverDone := make(chan error, 1)
+	go func() {
+		conn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			serverDone <- acceptErr
+			return
+		}
+		defer func() { _ = conn.Close(); serverDone <- nil }()
+		// Send invalid SMTP greeting — not starting with "220".
+		_, _ = conn.Write([]byte("Invalid greeting\r\n"))
+	}()
+
+	err := sendImplicitTLS(
+		"127.0.0.1:"+portStr, "localhost", "", "",
+		"from@x.com", []string{"to@x.com"},
+		[]byte("test"), true, defaultTimeout,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "smtp client")
+	<-serverDone
 }

@@ -161,6 +161,25 @@ func TestNewAdapterWithModelService(t *testing.T) {
 	}
 }
 
+func TestNewAdapterWithModelService_ConcreteService(t *testing.T) {
+	// Pass a concrete *ModelService (not *MockModelService) to exercise the
+	// *ModelService type-assertion branch in NewAdapterWithModelService.
+	concreteService := llm.NewModelService(nil)
+	adapter := llm.NewAdapterWithModelService("http://localhost:11434", concreteService)
+	require.NotNil(t, adapter)
+	exec := adapter.GetExecutorForTesting()
+	require.NotNil(t, exec)
+}
+
+func TestAdapter_SetModelService_MockService(t *testing.T) {
+	adapter := llm.NewAdapter("http://localhost:11434")
+	// Pass *MockModelService to exercise the *MockModelService type-assertion branch
+	// in SetModelService, which is the mock service path (line 107-109).
+	mockService := llm.NewMockModelService()
+	adapter.SetModelService(mockService)
+	assert.NotNil(t, adapter)
+}
+
 func TestNewAdapterWithMockClient(t *testing.T) {
 	mockClient := &MockHTTPClient{}
 	adapter := llm.NewAdapterWithMockClient("http://localhost:11434", mockClient)

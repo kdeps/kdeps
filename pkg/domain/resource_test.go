@@ -560,3 +560,13 @@ func TestChatConfig_ComponentTools_YAML(t *testing.T) {
 		})
 	}
 }
+
+// TestActionConfig_UnmarshalYAML_Error covers the struct unmarshal error path
+// in ActionConfig.UnmarshalYAML when the value is neither a scalar nor a valid mapping.
+func TestActionConfig_UnmarshalYAML_Error(t *testing.T) {
+	var cfg domain.ActionConfig
+	err := yaml.Unmarshal([]byte("- one\n- two"), &cfg)
+	if err == nil {
+		t.Error("expected error when decoding sequence into ActionConfig")
+	}
+}

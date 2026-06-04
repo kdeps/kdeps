@@ -22,6 +22,7 @@ package python_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -97,4 +98,17 @@ func TestManager_GetVenvName_WithRequirementsFile(t *testing.T) {
 	name := m.GetVenvName("3.11", nil, "/path/to/requirements.txt")
 	assert.Contains(t, name, "3.11")
 	assert.Contains(t, name, "requirements.txt")
+}
+
+// TestManager_InstallTool_Success exercises the path where uv tool install
+// completes successfully (binary not on PATH, uv installs it, returns nil).
+func TestManager_InstallTool_Success(t *testing.T) {
+	m := python.NewManager(t.TempDir())
+
+	err := m.InstallTool("pycowsay", "pycowsay")
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = exec.Command("uv", "tool", "uninstall", "pycowsay").Run()
+	})
 }

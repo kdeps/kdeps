@@ -11,6 +11,7 @@ package docker_test
 import (
 	"archive/tar"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -281,6 +282,74 @@ func TestBuilder_CreateBuildContext_SupervisordContent(t *testing.T) {
 	}
 }
 
+// TestBuilder_CreateBuildContext_ResourcesWithFile verifies that addDirectoryToTar
+// (builder.go:629) correctly walks regular files inside resources/ and data/
+// directories and adds them to the build context tar.
+func TestBuilder_CreateBuildContext_ResourcesWithFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create workflow.yaml (required by CreateBuildContext)
+	workflowYAML := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowYAML, []byte("name: resources-test\n"), 0644))
+
+	// Create resources/ directory with a regular file
+	resourcesDir := filepath.Join(tmpDir, "resources")
+	require.NoError(t, os.MkdirAll(resourcesDir, 0755))
+	resFile := filepath.Join(resourcesDir, "test.txt")
+	require.NoError(t, os.WriteFile(resFile, []byte("resources content"), 0644))
+
+	// Create data/ directory with a regular file
+	dataDir := filepath.Join(tmpDir, "data")
+	require.NoError(t, os.MkdirAll(dataDir, 0755))
+	dataFile := filepath.Join(dataDir, "config.json")
+	require.NoError(t, os.WriteFile(dataFile, []byte(`{"key": "value"}`), 0644))
+
+	t.Chdir(tmpDir)
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "resources-test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+	}
+
+	dockerfile := "FROM alpine:latest\n"
+	reader, err := builder.CreateBuildContext(workflow, dockerfile)
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+
+	// Read tar and collect entries
+	tr := tar.NewReader(reader)
+	entries := make(map[string]string)
+	for {
+		hdr, tarErr := tr.Next()
+		if tarErr == io.EOF {
+			break
+		}
+		require.NoError(t, tarErr)
+		raw, readErr := io.ReadAll(tr)
+		require.NoError(t, readErr)
+		entries[hdr.Name] = string(raw)
+	}
+
+	// Standard build context files must be present
+	assert.Contains(t, entries, "Dockerfile")
+	assert.Contains(t, entries, "entrypoint.sh")
+	assert.Contains(t, entries, "supervisord.conf")
+
+	// resources/test.txt must be present with correct content
+	assert.Equal(t, "resources content", entries["resources/test.txt"],
+		"resources/test.txt should be in tar with correct content")
+
+	// data/config.json must be present with correct content
+	assert.Equal(t, `{"key": "value"}`, entries["data/config.json"],
+		"data/config.json should be in tar with correct content")
+}
+
 // ---- Build with nil/empty workflow ----
 
 func TestBuilder_Build_NilWorkflow(t *testing.T) {
@@ -307,4 +376,215 @@ func TestBuilder_Build_EmptyName(_ *testing.T) {
 	_, err := builder.Build(workflow, "output.tar", false)
 	// Just ensure it doesn't panic
 	_ = err
+}
+
+// ---------------------------------------------------------------------------
+// Build prune output paths (builder.go lines 259-264) and workflow BaseOS
+// override (builder.go line 230)
+// ---------------------------------------------------------------------------
+
+func TestBuilder_Build_WorkflowBaseOSOverride(t *testing.T) {
+	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/build") {
+			return bytesResponse("application/x-ndjson",
+				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+		}
+		if strings.Contains(r.URL.Path, "/images/prune") {
+			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(0)}), nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: override-test\n  version: 1.0.0\n"),
+		0644,
+	))
+	t.Chdir(tmpDir)
+
+	builder := &docker.Builder{Client: mockClient}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "override-test",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+				BaseOS:        "ubuntu",
+			},
+		},
+	}
+
+	_, err := builder.Build(workflow, "output.tar", false)
+	require.NoError(t, err)
+	assert.Equal(t, "ubuntu", builder.BaseOS,
+		"Build should apply workflow BaseOS when builder BaseOS is empty")
+}
+
+func TestBuilder_Build_PruneSuccessWithSpace(t *testing.T) {
+	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/build") {
+			return bytesResponse("application/x-ndjson",
+				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+		}
+		if strings.Contains(r.URL.Path, "/images/prune") {
+			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(5242880)}), nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: prune-space-test\n  version: 1.0.0\n"),
+		0644,
+	))
+	t.Chdir(tmpDir)
+
+	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "prune-space-test",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+	}
+
+	imageName, err := builder.Build(workflow, "output.tar", false)
+	require.NoError(t, err)
+	assert.Contains(t, imageName, "prune-space-test")
+}
+
+func TestBuilder_Build_PruneError(t *testing.T) {
+	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/build") {
+			return bytesResponse("application/x-ndjson",
+				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+		}
+		if strings.Contains(r.URL.Path, "/images/prune") {
+			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "prune failed"}), nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: prune-error-test\n  version: 1.0.0\n"),
+		0644,
+	))
+	t.Chdir(tmpDir)
+
+	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "prune-error-test",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+	}
+
+	imageName, err := builder.Build(workflow, "output.tar", false)
+	require.NoError(t, err)
+	assert.Contains(t, imageName, "prune-error-test")
+}
+
+func TestBuilder_Build_PruneZeroSpace(t *testing.T) {
+	mockClient := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/build") {
+			return bytesResponse("application/x-ndjson",
+				[]byte(`{"stream":"Successfully built"}`+"\n")), nil
+		}
+		if strings.Contains(r.URL.Path, "/images/prune") {
+			return jsonResponse(http.StatusOK, map[string]any{"SpaceReclaimed": uint64(0)}), nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("metadata:\n  name: prune-zero-test\n  version: 1.0.0\n"),
+		0644,
+	))
+	t.Chdir(tmpDir)
+
+	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "prune-zero-test",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.12",
+			},
+		},
+	}
+
+	imageName, err := builder.Build(workflow, "output.tar", false)
+	require.NoError(t, err)
+	assert.Contains(t, imageName, "prune-zero-test")
+}
+
+// ---------------------------------------------------------------------------
+// RunContainer mock tests (client.go lines 172-176)
+// ---------------------------------------------------------------------------
+
+func TestClient_RunContainer_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/containers/create") {
+			return jsonResponse(http.StatusCreated, map[string]any{"Id": "container-123"}), nil
+		}
+		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/start") {
+			return &http.Response{
+				StatusCode: http.StatusNoContent,
+				Proto:      "HTTP/1.1",
+				ProtoMajor: 1,
+				ProtoMinor: 1,
+				Body:       http.NoBody,
+			}, nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	ctx := t.Context()
+	config := &docker.ContainerConfig{
+		PortBindings: map[string]string{"8080": "8080"},
+	}
+
+	id, err := c.RunContainer(ctx, "test-image:latest", config)
+	require.NoError(t, err)
+	assert.Equal(t, "container-123", id)
+}
+
+func TestClient_RunContainer_Mock_StartError(t *testing.T) {
+	c := newMockDockerClient(t, func(r *http.Request) (*http.Response, error) {
+		if strings.Contains(r.URL.Path, "/containers/create") {
+			return jsonResponse(http.StatusCreated, map[string]any{"Id": "container-456"}), nil
+		}
+		if strings.Contains(r.URL.Path, "/containers/") && strings.Contains(r.URL.Path, "/start") {
+			return jsonResponse(http.StatusInternalServerError, map[string]string{"message": "start failed"}), nil
+		}
+		return jsonResponse(http.StatusNotFound, map[string]string{"message": "unexpected"}), nil
+	})
+
+	ctx := t.Context()
+	config := &docker.ContainerConfig{
+		PortBindings: map[string]string{"8080": "8080"},
+	}
+
+	_, err := c.RunContainer(ctx, "test-image:latest", config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "start container")
 }

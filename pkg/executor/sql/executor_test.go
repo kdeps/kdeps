@@ -19,6 +19,7 @@
 package sql_test
 
 import (
+	dbsql "database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,8 @@ import (
 	// "github.com/DATA-DOG/go-sqlmock" // Commented out - tests skipped require integration testing.
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	_ "github.com/mattn/go-sqlite3" // SQLite driver for in-memory testing
 
 	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -580,6 +583,189 @@ func TestExecutor_Execute_ExpressionParameters(t *testing.T) {
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok)
 	assert.Contains(t, resultMap, "error")
+}
+
+// TestExecutor_Execute_FormatEvalError tests that a malformed expression in Format
+// returns an error from the evaluateStringOrLiteral call on lines 97-99.
+func TestExecutor_Execute_FormatEvalError(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+	ctx.Config = sqlConfig("sqlite://:memory:")
+
+	config := &domain.SQLConfig{
+		ConnectionName: "test",
+		Query:          "SELECT 1",
+		Format:         "{{ invalid( }}", // malformed expression that fails eval
+	}
+
+	result, err := exec.Execute(ctx, config)
+	if err != nil {
+		assert.Contains(t, err.Error(), "failed to evaluate format")
+	} else {
+		// If the error is caught and turned into a result map instead
+		resultMap, ok := result.(map[string]interface{})
+		require.True(t, ok)
+		assert.Contains(t, resultMap, "error")
+	}
+}
+
+// TestExecutor_GetConnectionString_NotFound tests that Execute returns an error
+// when ConnectionName does not exist in the config's SQLConnections (lines 105-107).
+func TestExecutor_GetConnectionString_NotFound(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+	ctx.Config = sqlConfig("sqlite://:memory:")
+
+	// Use a ConnectionName that is not in the config
+	config := &domain.SQLConfig{
+		ConnectionName: "nonexistent",
+		Query:          "SELECT 1",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get connection string")
+}
+
+// TestExecutor_Execute_DMLQueryError tests that a DML query targeting a nonexistent table
+// returns an error through the executeQuery path (lines 308-310).
+func TestExecutor_Execute_DMLQueryError(t *testing.T) {
+	db, err := dbsql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Skipf("SQLite driver not available: %v", err)
+		return
+	}
+	defer db.Close()
+
+	exec := sqlexecutor.NewExecutor()
+	exec.Pools["sqlite://:memory:"] = db
+
+	ctx, execErr := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, execErr)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
+
+	config := &domain.SQLConfig{
+		ConnectionName: "mem",
+		Query:          "INSERT INTO nonexistent_table (id) VALUES (1)",
+	}
+
+	_, execErr = exec.Execute(ctx, config)
+	require.Error(t, execErr)
+	assert.Contains(t, execErr.Error(), "query execution failed")
+}
+
+// TestExecutor_Execute_FormatExpression tests the evaluateStringOrLiteral success path
+// through the Format field (line 671). Using "{{ outputs }}" exercises expression
+// evaluation and returns a non-error result with a working pool.
+func TestExecutor_Execute_FormatExpression(t *testing.T) {
+	db, err := dbsql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Skipf("SQLite driver not available: %v", err)
+		return
+	}
+	defer db.Close()
+
+	exec := sqlexecutor.NewExecutor()
+	exec.Pools["sqlite://:memory:"] = db
+
+	ctx, execErr := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, execErr)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
+
+	// Format with expression syntax that evaluates successfully
+	config := &domain.SQLConfig{
+		ConnectionName: "mem",
+		Query:          "SELECT 1 as value",
+		Format:         "{{ outputs }}",
+	}
+
+	result, execErr := exec.Execute(ctx, config)
+	require.NoError(t, execErr)
+
+	// Format expression evaluates to "" (outputs is nil), which falls to default format
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, resultMap, "value")
+}
+
+// TestExecutor_GetColumnNames_EmptyResults tests the getColumnNames function when passed
+// an empty result set (lines 622-624). Exercises the len(results) == 0 branch.
+func TestExecutor_GetColumnNames_EmptyResults(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	// FormatSelectResults with empty results and default format calls getColumnNames internally
+	result, err := exec.FormatSelectResults([]map[string]interface{}{}, "table")
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, int64(0), resultMap["rowsAffected"])
+
+	data, ok := resultMap["data"].([]map[string]interface{})
+	require.True(t, ok)
+	assert.Empty(t, data)
+
+	columns, ok := resultMap["columns"].([]string)
+	require.True(t, ok)
+	assert.Empty(t, columns)
+}
+
+// TestExecutor_Execute_TransactionParamsError tests that a transaction query with a
+// malformed parameter returns an error through evaluateTransactionParams (lines 823-825, 847-849).
+func TestExecutor_Execute_TransactionParamsError(t *testing.T) {
+	db, err := dbsql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Skipf("SQLite driver not available: %v", err)
+		return
+	}
+	defer db.Close()
+
+	exec := sqlexecutor.NewExecutor()
+	exec.Pools["sqlite://:memory:"] = db
+
+	ctx, execErr := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, execErr)
+	ctx.Config = &kdepsconfig.Config{
+		SQLConnections: map[string]kdepsconfig.SQLConnectionConfig{
+			"mem": {Connection: "sqlite://:memory:"},
+		},
+	}
+
+	// Transaction query with a malformed function call parameter
+	config := &domain.SQLConfig{
+		ConnectionName: "mem",
+		Transaction:    true,
+		Queries: []domain.QueryItem{
+			{
+				Query:  "SELECT ? as value",
+				Params: []interface{}{"get("}, // malformed function call
+			},
+		},
+	}
+
+	_, execErr = exec.Execute(ctx, config)
+	require.Error(t, execErr)
+	assert.Contains(t, execErr.Error(), "failed to evaluate parameter")
 }
 
 // TestExecutor_Execute_InvalidExpressionParameters tests error handling in parameter evaluation.

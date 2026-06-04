@@ -239,6 +239,230 @@ func TestDeepSeekBackend_GetAPIKeyHeader_WithEnv(t *testing.T) {
 	assert.Contains(t, val, "env-deepseek")
 }
 
+// ── ParseResponse — invalid JSON on 200 OK ─────────────────────────────────────
+
+func TestOllamaBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.OllamaBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestAnthropicBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.AnthropicBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestGoogleBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.GoogleBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestCohereBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.CohereBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestMistralBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.MistralBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestTogetherBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.TogetherBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestPerplexityBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.PerplexityBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestGroqBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.GroqBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestDeepSeekBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.DeepSeekBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestOpenRouterBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	b := &llm.OpenRouterBackend{}
+	resp := makeResp(stdhttp.StatusOK, "not-json")
+	_, err := b.ParseResponse(resp)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+// ── Together/Perplexity/Groq/DeepSeek BuildRequest branches ─────────────────
+
+func TestTogetherBackend_BuildRequest_Extended(t *testing.T) {
+	b := &llm.TogetherBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 2048})
+		require.NoError(t, err)
+		assert.Equal(t, 2048, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestPerplexityBackend_BuildRequest_Extended(t *testing.T) {
+	b := &llm.PerplexityBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 1024})
+		require.NoError(t, err)
+		assert.Equal(t, 1024, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestGroqBackend_BuildRequest_Extended(t *testing.T) {
+	b := &llm.GroqBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 4096})
+		require.NoError(t, err)
+		assert.Equal(t, 4096, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+func TestDeepSeekBackend_BuildRequest_Extended(t *testing.T) {
+	b := &llm.DeepSeekBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+
+	t.Run("context length", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{ContextLength: 8192})
+		require.NoError(t, err)
+		assert.Equal(t, 8192, req["max_tokens"])
+	})
+
+	t.Run("json response", func(t *testing.T) {
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{JSONResponse: true})
+		require.NoError(t, err)
+		rf, ok := req["response_format"].(map[string]interface{})
+		require.True(t, ok)
+		assert.Equal(t, "json_object", rf["type"])
+	})
+
+	t.Run("tools", func(t *testing.T) {
+		tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+		req, err := b.BuildRequest("model", msgs, llm.ChatRequestConfig{Tools: tools})
+		require.NoError(t, err)
+		assert.Equal(t, tools, req["tools"])
+	})
+}
+
+// ── Google BuildRequest JSONResponse branch ──────────────────────────────────
+
+func TestGoogleBackend_BuildRequest_JSONResponse(t *testing.T) {
+	b := &llm.GoogleBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+	req, err := b.BuildRequest("gemini-pro", msgs, llm.ChatRequestConfig{JSONResponse: true})
+	require.NoError(t, err)
+	rf, ok := req["response_format"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "json_object", rf["type"])
+}
+
+// ── Google ChatEndpointWithKey empty key with env fallback ──────────────────
+
+func TestGoogleBackend_ChatEndpointWithKey_FromEnv(t *testing.T) {
+	t.Setenv("GOOGLE_API_KEY", "env-google-key")
+	b := &llm.GoogleBackend{}
+	endpoint := b.ChatEndpointWithKey(
+		"https://generativelanguage.googleapis.com/v1beta",
+		"",
+	)
+	assert.Contains(t, endpoint, "env-google-key")
+	assert.Contains(t, endpoint, "key=")
+}
+
+// ── Mistral BuildRequest tools branch ────────────────────────────────────────
+
+func TestMistralBackend_BuildRequest_Tools(t *testing.T) {
+	b := &llm.MistralBackend{}
+	msgs := []map[string]interface{}{{"role": "user", "content": "test"}}
+	tools := []map[string]interface{}{{"type": "function", "name": "my_tool"}}
+	req, err := b.BuildRequest("mistral-model", msgs, llm.ChatRequestConfig{Tools: tools})
+	require.NoError(t, err)
+	assert.Equal(t, tools, req["tools"])
+}
+
 func TestAnthropicBackend_GetAPIKeyHeader_Empty(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "")
 	b := &llm.AnthropicBackend{}

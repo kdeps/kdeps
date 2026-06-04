@@ -148,3 +148,122 @@ func TestSession_Cleanup(t *testing.T) {
 	s.Cleanup()
 	assert.NoDirExists(t, inner)
 }
+
+func TestSession_WriteWorkflow_WriteError(t *testing.T) {
+	dir := t.TempDir()
+	// Make session dir read-only so WriteFile fails
+	require.NoError(t, os.Chmod(dir, 0o555))
+
+	s := &Session{
+		Dir: dir,
+		Workflow: &GeneratedWorkflow{
+			Files: map[string]string{
+				"workflow.yaml": "name: test\n",
+			},
+		},
+	}
+
+	err := s.WriteWorkflow()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not write")
+}
+
+func TestSession_SaveTo_MkdirAllError(t *testing.T) {
+	tmp := t.TempDir()
+	readonlyParent := filepath.Join(tmp, "readonly")
+	require.NoError(t, os.MkdirAll(readonlyParent, 0o555))
+
+	dest := filepath.Join(readonlyParent, "subdir")
+
+	s := &Session{
+		Dir: t.TempDir(),
+		Workflow: &GeneratedWorkflow{
+			Files: map[string]string{
+				"workflow.yaml": "name: test\n",
+			},
+		},
+	}
+
+	err := s.SaveTo(dest)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not create destination directory")
+}
+
+func TestSession_SaveTo_WriteError(t *testing.T) {
+	dest := t.TempDir()
+	require.NoError(t, os.Chmod(dest, 0o555))
+
+	s := &Session{
+		Dir: t.TempDir(),
+		Workflow: &GeneratedWorkflow{
+			Files: map[string]string{
+				"workflow.yaml": "name: test\n",
+			},
+		},
+	}
+
+	err := s.SaveTo(dest)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not write")
+}
+
+func TestLoadSession_CorruptHistory(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	sessionID := "test-corrupt-history"
+	sessionDir := filepath.Join(tmp, ".kdeps", "chat-sessions", sessionID)
+	require.NoError(t, os.MkdirAll(sessionDir, 0o700))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(sessionDir, "history.json"), []byte("{bad json"), 0o600),
+	)
+
+	_, err := LoadSession(sessionID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not load history")
+}
+
+func TestSession_Reset_KeepsHistoryJSON(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte("x"), 0o600))
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(dir, "history.json"),
+			[]byte(`[{"role":"user","content":"hi"}]`),
+			0o600,
+		),
+	)
+
+	s := &Session{
+		Dir:     dir,
+		History: []Turn{{Role: "user", Content: "hi"}},
+		Workflow: &GeneratedWorkflow{
+			Files: map[string]string{"workflow.yaml": "x"},
+		},
+	}
+
+	s.Reset()
+
+	assert.Empty(t, s.History)
+	assert.Nil(t, s.Workflow)
+	assert.NoFileExists(t, filepath.Join(dir, "workflow.yaml"))
+	assert.FileExists(t, filepath.Join(dir, "history.json"))
+
+	data, err := os.ReadFile(filepath.Join(dir, "history.json"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "hi")
+}
+
+func TestNewSession_MkdirAllError(t *testing.T) {
+	tmp := t.TempDir()
+	readonly := filepath.Join(tmp, "readonly")
+	require.NoError(t, os.MkdirAll(readonly, 0o555))
+	t.Setenv("HOME", readonly)
+
+	_, err := NewSession()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not create")
+}

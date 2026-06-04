@@ -92,3 +92,70 @@ func TestList_Empty(t *testing.T) {
 		t.Errorf("expected 2, got %d", len(r.List()))
 	}
 }
+
+func TestToLLMTools_WithExecute(t *testing.T) {
+	r := NewRegistry()
+	r.Register(&Tool{
+		Name:        "exec_tool",
+		Description: "A tool with an Execute function",
+		Parameters: map[string]domain.ToolParam{
+			"arg": {Type: "string", Description: "An argument"},
+		},
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "executed", nil
+		},
+	})
+
+	llmTools := r.ToLLMTools()
+	if len(llmTools) != 1 {
+		t.Fatalf("expected 1 tool, got %d", len(llmTools))
+	}
+	dt := llmTools[0]
+	if dt.Execute == nil {
+		t.Fatal("expected Execute to be non-nil when source tool has Execute")
+	}
+	result, err := dt.Execute(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "executed" {
+		t.Errorf("expected 'executed', got %q", result)
+	}
+}
+
+func TestToLLMTools_Mixed(t *testing.T) {
+	r := NewRegistry()
+	r.Register(&Tool{Name: "no_exec", Description: "no execute"})
+	r.Register(&Tool{
+		Name:        "with_exec",
+		Description: "has execute",
+		Execute: func(_ map[string]interface{}) (string, error) {
+			return "from_exec", nil
+		},
+	})
+
+	llmTools := r.ToLLMTools()
+	if len(llmTools) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(llmTools))
+	}
+
+	for _, dt := range llmTools {
+		if dt.Name == "no_exec" {
+			if dt.Execute != nil {
+				t.Error("expected nil Execute for tool without Execute")
+			}
+		}
+		if dt.Name == "with_exec" {
+			if dt.Execute == nil {
+				t.Fatal("expected non-nil Execute for tool with Execute")
+			}
+			result, err := dt.Execute(nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if result != "from_exec" {
+				t.Errorf("expected 'from_exec', got %q", result)
+			}
+		}
+	}
+}

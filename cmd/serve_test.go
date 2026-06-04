@@ -3,7 +3,12 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewServeCmd_Flags(t *testing.T) {
@@ -35,4 +40,54 @@ func TestNewServeCmd_RequiresOneArg(t *testing.T) {
 	if err := cmd.Args(cmd, []string{"workflow.yaml"}); err != nil {
 		t.Errorf("unexpected error for one arg: %v", err)
 	}
+}
+
+func TestRunServeCmd_NonExistentPath(t *testing.T) {
+	err := runServeCmd("/nonexistent/path", &serveFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "serve: path not found")
+}
+
+func TestRunServeCmd_EmptyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	err := runServeCmd(tmpDir, &serveFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no workflow or agency files found")
+}
+
+func TestRunServeCmd_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a minimal valid workflow.yaml that passes schema validation.
+	workflowContent := `apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test-serve
+  targetActionId: action
+settings: {}
+resources:
+  - actionId: action
+    name: Test Action
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(workflowPath, []byte(workflowContent), 0644))
+
+	// Redirect stdin to a pipe.  Write one input line then close the writer so
+	// the REPL scanner hits EOF after a single iteration.
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	oldStdin := os.Stdin
+	t.Cleanup(func() { os.Stdin = oldStdin })
+	os.Stdin = r
+
+	_, err = w.WriteString("hello\n")
+	require.NoError(t, err)
+	w.Close()
+
+	err = runServeCmd(tmpDir, &serveFlags{Debug: true})
+	// The REPL runs one loop iteration.  The engine execution will fail because
+	// no LLM backend is available -- the REPL prints the error to stderr and
+	// continues.  The next scanner.Scan() returns false (EOF) so it exits
+	// cleanly with nil error.
+	assert.NoError(t, err)
 }

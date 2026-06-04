@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -205,6 +206,31 @@ func TestReadSecret_EmptyLine(t *testing.T) {
 	val, err := readSecret(r)
 	require.NoError(t, err)
 	assert.Equal(t, "", val)
+}
+
+// --- readSecret (terminal path) ---
+
+func TestReadSecret_Terminal(t *testing.T) {
+	master, slave, err := pty.Open()
+	if err != nil {
+		t.Skipf("pty not available: %v", err)
+	}
+	defer master.Close()
+	defer slave.Close()
+
+	origStdin := os.Stdin
+	os.Stdin = slave
+	t.Cleanup(func() { os.Stdin = origStdin })
+
+	// Pre-load the secret into the PTY buffer so ReadPassword reads it.
+	_, err = master.WriteString("mysecret\n")
+	require.NoError(t, err)
+
+	// fallback is not used in this path.
+	fallback := bufio.NewReader(strings.NewReader(""))
+	val, err := readSecret(fallback)
+	require.NoError(t, err)
+	assert.Equal(t, "mysecret", val)
 }
 
 // --- providerMetaMap ollama setter ---
@@ -397,4 +423,18 @@ func TestPath_Default(t *testing.T) {
 	require.NoError(t, err)
 	home, _ := os.UserHomeDir()
 	assert.Equal(t, filepath.Join(home, ".kdeps", "config.yaml"), p)
+}
+
+// --- Bootstrap ---
+
+func TestBootstrap_SkipBootstrap(t *testing.T) {
+	t.Setenv("KDEPS_SKIP_BOOTSTRAP", "1")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+
+	// Should return nil without creating a file.
+	require.NoError(t, Bootstrap(os.Stdout))
+	_, err := os.Stat(path)
+	assert.True(t, os.IsNotExist(err))
 }

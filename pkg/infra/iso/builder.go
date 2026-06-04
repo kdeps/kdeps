@@ -227,7 +227,6 @@ func (b *Builder) buildRawImage(
 		arch,
 		buildDir,
 		kdepsImageName,
-		"",
 	)
 }
 

@@ -259,43 +259,45 @@ func (s *WebServer) HandleAppRequest(
 	}
 
 	// Create reverse proxy
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	proxy.Transport = &stdhttp.Transport{
-		ResponseHeaderTimeout: 30 * time.Second,
-	}
+	// Note: must use literal ReverseProxy struct (not NewSingleHostReverseProxy)
+	// because we set Rewrite, and Go 1.24+ enforces that Director and Rewrite
+	// are mutually exclusive.
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(targetURL)
 
-	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
-		pr.SetURL(targetURL)
-
-		// Handle path forwarding
-		trimmedPath := strings.TrimPrefix(r.URL.Path, route.Path)
-		if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
-			trimmedPath = "/" + trimmedPath
-		}
-		pr.Out.URL.Path = trimmedPath
-		pr.Out.URL.RawQuery = r.URL.RawQuery
-		pr.Out.Host = targetURL.Host
-
-		// Forward headers
-		for key, values := range r.Header {
-			for _, value := range values {
-				pr.Out.Header.Add(key, value)
+			// Handle path forwarding
+			trimmedPath := strings.TrimPrefix(r.URL.Path, route.Path)
+			if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
+				trimmedPath = "/" + trimmedPath
 			}
-		}
+			pr.Out.URL.Path = trimmedPath
+			pr.Out.URL.RawQuery = r.URL.RawQuery
+			pr.Out.Host = targetURL.Host
 
-		s.logger.Debug("proxying request", "url", pr.Out.URL.String())
-	}
+			// Forward headers
+			for key, values := range r.Header {
+				for _, value := range values {
+					pr.Out.Header.Add(key, value)
+				}
+			}
 
-	proxy.ErrorHandler = func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
-		s.logger.ErrorContext(
-			context.Background(),
-			"proxy request failed",
-			"url",
-			r.URL.String(),
-			"error",
-			err,
-		)
-		stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
+			s.logger.Debug("proxying request", "url", pr.Out.URL.String())
+		},
+		Transport: &stdhttp.Transport{
+			ResponseHeaderTimeout: 30 * time.Second,
+		},
+		ErrorHandler: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+			s.logger.ErrorContext(
+				context.Background(),
+				"proxy request failed",
+				"url",
+				r.URL.String(),
+				"error",
+				err,
+			)
+			stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
+		},
 	}
 
 	proxy.ServeHTTP(w, r)

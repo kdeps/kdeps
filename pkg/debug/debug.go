@@ -67,7 +67,7 @@ func rle(items []string) string {
 	i := 0
 	for i < len(items) {
 		j := i + 1
-		for j < len(items) && items[j] == items[i] {
+		for j < len(items) && items[j] == items[i] { //nolint:gosec // false positive: short-circuit AND guards items[j]
 			j++
 		}
 		if count := j - i; count > 1 {

@@ -185,7 +185,6 @@ func TestBuildRawBIOSWithImage_Success(t *testing.T) {
 		"amd64",
 		tmpDir,
 		"test-image",
-		"",
 	)
 
 	if err != nil {
@@ -204,6 +203,69 @@ func TestBuildRawBIOSWithImage_Success(t *testing.T) {
 }
 
 // Test buildRawBIOSWithImage with linuxkit build failure.
+// mockNoOutputKitRunner succeeds but produces no output files.
+type mockNoOutputKitRunner struct{}
+
+func (m *mockNoOutputKitRunner) Build(_ context.Context, _, _, _, _, _ string) error {
+	return nil
+}
+
+func (m *mockNoOutputKitRunner) CacheImport(_ context.Context, _ string) error {
+	return nil
+}
+
+func TestBuildRawBIOSWithImage_FindKernelInitrdFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	if err := os.WriteFile(configPath, []byte("fake config"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	runner := &mockNoOutputKitRunner{}
+	_, err := buildRawBIOSWithImage(
+		t.Context(),
+		runner,
+		mockAssembleFunc,
+		configPath,
+		"amd64",
+		tmpDir,
+		"test-image",
+	)
+
+	if err == nil {
+		t.Error("Expected error from missing kernel/initrd files, got nil")
+	}
+}
+
+func TestBuildRawBIOSWithImage_AssemblerError(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	if err := os.WriteFile(configPath, []byte("fake config"), 0644); err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+
+	runner := &mockLinuxKitRunner{}
+	errAssembler := func(_ context.Context, _, _, _, _, _, _ string) error {
+		return os.ErrPermission
+	}
+
+	_, err := buildRawBIOSWithImage(
+		t.Context(),
+		runner,
+		errAssembler,
+		configPath,
+		"amd64",
+		tmpDir,
+		"test-image",
+	)
+
+	if err == nil {
+		t.Error("Expected error from assembler, got nil")
+	}
+}
+
 func TestBuildRawBIOSWithImage_LinuxKitBuildFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
@@ -224,7 +286,6 @@ func TestBuildRawBIOSWithImage_LinuxKitBuildFailure(t *testing.T) {
 		"amd64",
 		tmpDir,
 		"test-image",
-		"",
 	)
 
 	if err == nil {

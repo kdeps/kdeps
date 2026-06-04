@@ -31,6 +31,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/pkg/infra/registry"
 )
 
 // TestDoRegistryInfo_GithubRef tests the GitHub owner/repo path that calls fetchRemoteReadme.
@@ -185,4 +187,66 @@ func TestNewRegistryInfoCmd_Structure(t *testing.T) {
 	assert.Contains(t, c.Use, "info")
 	assert.NoError(t, c.Args(c, []string{"x"}))
 	assert.Error(t, c.Args(c, []string{}))
+}
+
+// TestReadmeFromRegistryArchive_EmptySearch verifies that empty search results return "".
+func TestReadmeFromRegistryArchive_EmptySearch(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		resp := map[string]interface{}{"packages": []interface{}{}}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(stdhttp.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	client := registry.NewClient("", srv.URL)
+	result := readmeFromRegistryArchive(t.Context(), client, "unknown-pkg")
+	assert.Empty(t, result)
+}
+
+// TestReadmeFromRegistryArchive_NoMatch tests when search returns packages but none
+// match the requested name.
+func TestReadmeFromRegistryArchive_NoMatch(t *testing.T) {
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		resp := map[string]interface{}{
+			"packages": []map[string]interface{}{
+				{"name": "other-pkg", "latestVersion": "1.0.0"},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(stdhttp.StatusOK)
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	client := registry.NewClient("", srv.URL)
+	result := readmeFromRegistryArchive(t.Context(), client, "test-pkg")
+	assert.Empty(t, result)
+}
+
+// TestReadmeFromRegistryArchive_DownloadError tests that a download failure returns "".
+func TestReadmeFromRegistryArchive_DownloadError(t *testing.T) {
+	var callCount int
+	srv := httptest.NewServer(stdhttp.HandlerFunc(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		callCount++
+		if callCount == 1 {
+			// First call: Search - return matching entry
+			resp := map[string]interface{}{
+				"packages": []map[string]interface{}{
+					{"name": "test-pkg", "latestVersion": "1.0.0"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(stdhttp.StatusOK)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		// Second call: Download - return error
+		w.WriteHeader(stdhttp.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	client := registry.NewClient("", srv.URL)
+	result := readmeFromRegistryArchive(t.Context(), client, "test-pkg")
+	assert.Empty(t, result)
 }
