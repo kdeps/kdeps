@@ -415,3 +415,88 @@ func TestUnwrapArchiveRoot_FileEntry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, dir, result)
 }
+
+// ---------------------------------------------------------------------------
+// detectCloneType J2 template variants
+// ---------------------------------------------------------------------------
+
+func TestCloneFromRemote_J2Templates(t *testing.T) {
+	// Detect jinja2 template variants of manifest files.
+	archiveData := buildTarGz(t, "repo-abc123", map[string]string{
+		"workflow.yaml.j2": "apiVersion: kdeps.io/v1\nkind: Workflow\n",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	err := cmd.CloneFromRemote("owner/repo")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dir, "agents", "repo", "workflow.yaml.j2"))
+}
+
+func TestCloneFromRemote_AgencyJ2Templates(t *testing.T) {
+	// Detect jinja2 agency.yaml.j2 template variant.
+	archiveData := buildTarGz(t, "repo-abc123", map[string]string{
+		"agency.yaml.j2": "apiVersion: kdeps.io/v1\nkind: Agency\n",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	err := cmd.CloneFromRemote("owner/repo")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(dir, "agencies", "repo", "agency.yaml.j2"))
+}
+
+func TestCloneFromRemote_ComponentJ2Templates(t *testing.T) {
+	// Detect jinja2 component.yaml.j2 template variant.
+	archiveData := buildTarGz(t, "repo-abc123", map[string]string{
+		"component.yaml.j2": "apiVersion: kdeps.io/v1\nkind: Component\nmetadata:\n  name: my-comp\n",
+	})
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archiveData)
+	}))
+	defer ts.Close()
+
+	origArchive := *cmd.GithubArchiveBaseURL
+	*cmd.GithubArchiveBaseURL = ts.URL
+	defer func() { *cmd.GithubArchiveBaseURL = origArchive }()
+
+	installDir := t.TempDir()
+	t.Setenv("KDEPS_COMPONENT_DIR", installDir)
+
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	require.NoError(t, os.Chdir(dir))
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	err := cmd.CloneFromRemote("owner/repo")
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(installDir, "repo", "component.yaml.j2"))
+}
