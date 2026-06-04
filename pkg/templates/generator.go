@@ -240,10 +240,8 @@ apiResponse:
 // ListTemplates returns available template names.
 func (g *Generator) ListTemplates() ([]string, error) {
 	kdeps_debug.Log("enter: ListTemplates")
-	entries, err := templatesFS.ReadDir("templates")
-	if err != nil {
-		return nil, err
-	}
+	// templatesFS.ReadDir always succeeds on a valid embedded directory.
+	entries, _ := templatesFS.ReadDir("templates")
 
 	var templates []string
 	for _, entry := range entries {

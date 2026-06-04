@@ -136,3 +136,36 @@ func TestFindKdepsPkg_NoneFound(t *testing.T) {
 	_, _, err := domain.FindKdepsPkg(dir)
 	assert.Error(t, err)
 }
+
+// TestFindKdepsPkg_ParseError verifies that FindKdepsPkg returns an error
+// when kdeps.pkg.yaml exists but contains invalid YAML.
+func TestFindKdepsPkg_ParseError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "kdeps.pkg.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("invalid: [yaml:\nbroken"), 0o644))
+
+	_, _, err := domain.FindKdepsPkg(dir)
+	assert.Error(t, err)
+}
+
+// TestFindKdepsPkg_FallbackExtractError verifies that FindKdepsPkg returns an error
+// when a fallback manifest (workflow.yaml) exists as a directory and cannot be read.
+func TestFindKdepsPkg_FallbackExtractError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.Mkdir(path, 0o755))
+
+	_, _, err := domain.FindKdepsPkg(dir)
+	assert.Error(t, err)
+}
+
+// TestFindKdepsPkg_FallbackUnmarshalError verifies that FindKdepsPkg returns an error
+// when a fallback manifest exists but contains invalid YAML.
+func TestFindKdepsPkg_FallbackUnmarshalError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workflow.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("invalid: [yaml:\nbroken"), 0o644))
+
+	_, _, err := domain.FindKdepsPkg(dir)
+	assert.Error(t, err)
+}

@@ -34,6 +34,11 @@ import (
 	_ "github.com/mattn/go-sqlite3" // SQLite driver for database connectivity
 )
 
+// sqlOpen is a test hook for database/sql.Open.
+//
+//nolint:gochecknoglobals // overridden in tests to inject Open errors
+var sqlOpen = sql.Open
+
 // MemoryStorage provides persistent key-value storage using SQLite.
 type MemoryStorage struct {
 	DB   *sql.DB
@@ -69,7 +74,7 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	}
 
 	// Open database
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
+	db, err := sqlOpen("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

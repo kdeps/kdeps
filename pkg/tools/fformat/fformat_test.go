@@ -236,6 +236,103 @@ func TestConvertToJSON_XML(t *testing.T) {
 	}
 }
 
+func TestFormatString_XML(t *testing.T) {
+	// Happy path
+	r := FormatString("<root><a>text</a></root>", XML)
+	if !r.Valid {
+		t.Fatalf("expected valid XML, got: %s", r.Error)
+	}
+	if r.Output == "" {
+		t.Error("expected formatted XML output")
+	}
+	// Parse error (malformed XML)
+	r = FormatString("<root><", XML)
+	if r.Valid {
+		t.Error("expected invalid for malformed XML")
+	}
+}
+
+func TestFormatString_CSV(t *testing.T) {
+	r := FormatString("a,b\n1,2", CSV)
+	if r.Output != "a,b\n1,2" {
+		t.Errorf("expected identity passthrough, got: %s", r.Output)
+	}
+}
+
+func TestFormatString_Markdown(t *testing.T) {
+	r := FormatString("# Title\n\nbody", Markdown)
+	if r.Output != "# Title\n\nbody" {
+		t.Errorf("expected identity passthrough, got: %s", r.Output)
+	}
+}
+
+func TestFormatString_Default(t *testing.T) {
+	r := FormatString("anything", Format("unknown"))
+	if r.Output != "anything" {
+		t.Errorf("expected identity passthrough, got: %s", r.Output)
+	}
+}
+
+func TestFormatString_HTML_Invalid(t *testing.T) {
+	r := FormatString("", HTML)
+	if r.Valid {
+		t.Error("expected invalid for empty HTML")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for empty HTML")
+	}
+}
+
+func TestFormatString_YAML_Invalid(t *testing.T) {
+	r := FormatString(": bad yaml", YAML)
+	if r.Valid {
+		t.Error("expected invalid YAML")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for bad YAML")
+	}
+}
+
+func TestFormatString_SQL_Invalid(t *testing.T) {
+	r := FormatString("not sql at all", SQL)
+	if r.Valid {
+		t.Error("expected invalid SQL")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for non-SQL input")
+	}
+}
+
+func TestConvertFromJSON_YAML_Invalid(t *testing.T) {
+	r := ConvertFromJSON(YAML, "{bad")
+	if r.Valid {
+		t.Error("expected invalid JSON input")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for bad JSON")
+	}
+}
+
+func TestConvertToJSON_CSV_Invalid(t *testing.T) {
+	r := ConvertToJSON(CSV, "a,\"unclosed")
+	if r.Valid {
+		t.Error("expected invalid CSV")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for bad CSV")
+	}
+}
+
+func TestConvertFromJSON_CSV_Invalid(t *testing.T) {
+	r := ConvertFromJSON(CSV, "{bad")
+	if r.Valid {
+		t.Error("expected invalid JSON input")
+	}
+	if r.Error == "" {
+		t.Error("expected error message for bad JSON")
+	}
+}
+
 func TestNormalizeForJSON(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -253,5 +350,224 @@ func TestNormalizeForJSON(t *testing.T) {
 				t.Error("normalizeForJSON returned nil")
 			}
 		})
+	}
+}
+
+func TestConvertToJSON_Markdown_Unsupported(t *testing.T) {
+	r := ConvertToJSON(Markdown, "# Title")
+	if r.Valid {
+		t.Error("expected unsupported Markdown->JSON")
+	}
+}
+
+func TestConvertToJSON_SQL_Unsupported(t *testing.T) {
+	r := ConvertToJSON(SQL, "SELECT 1")
+	if r.Valid {
+		t.Error("expected unsupported SQL->JSON")
+	}
+}
+
+func TestConvertToJSON_HTML_Unsupported(t *testing.T) {
+	r := ConvertToJSON(HTML, "<p>text</p>")
+	if r.Valid {
+		t.Error("expected unsupported HTML->JSON")
+	}
+}
+
+func TestConvertToJSON_Unknown(t *testing.T) {
+	r := ConvertToJSON(Format("unknown"), "data")
+	if r.Valid {
+		t.Error("expected error for unknown format")
+	}
+}
+
+func TestConvertToJSON_JSON(t *testing.T) {
+	r := ConvertToJSON(JSON, `{"key": "value"}`)
+	// JSON->JSON passthrough returns Output without setting Valid
+	if r.Output == "" {
+		t.Error("expected passthrough output for JSON->JSON")
+	}
+}
+
+func TestConvertFromJSON_XML_Unsupported(t *testing.T) {
+	r := ConvertFromJSON(XML, `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected unsupported JSON->XML")
+	}
+}
+
+func TestConvertFromJSON_TOML_Unsupported(t *testing.T) {
+	r := ConvertFromJSON(TOML, `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected unsupported JSON->TOML")
+	}
+}
+
+func TestConvertFromJSON_Markdown_Unsupported(t *testing.T) {
+	r := ConvertFromJSON(Markdown, `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected unsupported JSON->Markdown")
+	}
+}
+
+func TestConvertFromJSON_SQL_Unsupported(t *testing.T) {
+	r := ConvertFromJSON(SQL, `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected unsupported JSON->SQL")
+	}
+}
+
+func TestConvertFromJSON_HTML_Unsupported(t *testing.T) {
+	r := ConvertFromJSON(HTML, `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected unsupported JSON->HTML")
+	}
+}
+
+func TestConvertFromJSON_Unknown(t *testing.T) {
+	r := ConvertFromJSON(Format("unknown"), `{"key": "value"}`)
+	if r.Valid {
+		t.Error("expected error for unknown format")
+	}
+}
+
+func TestConvertFromJSON_JSON(t *testing.T) {
+	r := ConvertFromJSON(JSON, `{"key": "value"}`)
+	// JSON->JSON passthrough returns Output without setting Valid
+	if r.Output != `{"key": "value"}` {
+		t.Errorf("expected passthrough, got: %s", r.Output)
+	}
+}
+
+func TestFormatString_TOML_EmptyEntry(t *testing.T) {
+	r := FormatString("key = \"value\"\n\n\n[section]\nport = \"8080\"", TOML)
+	if !r.Valid {
+		t.Fatalf("expected valid TOML format, got: %s", r.Error)
+	}
+}
+
+func TestValidate_TOML_SectionHeader(t *testing.T) {
+	r := validateTOML("[section]\nkey = \"value\"")
+	if !r.Valid {
+		t.Errorf("expected valid TOML with section, got: %s", r.Error)
+	}
+}
+
+func TestValidate_TOML_Comment(t *testing.T) {
+	r := validateTOML("# comment\nkey = \"value\"")
+	if !r.Valid {
+		t.Errorf("expected valid TOML with comment, got: %s", r.Error)
+	}
+}
+
+func TestValidate_TOML_Empty(t *testing.T) {
+	r := validateTOML("")
+	if r.Valid {
+		t.Error("expected invalid for empty TOML")
+	}
+}
+
+func TestValidateHTML_Valid(t *testing.T) {
+	r := validateHTML("<p>hello</p>")
+	if !r.Valid {
+		t.Errorf("expected valid HTML, got: %s", r.Error)
+	}
+}
+
+func TestValidateSQL_NonKeyword(t *testing.T) {
+	r := validateSQL("not a sql statement")
+	if r.Valid {
+		t.Error("expected invalid SQL for non-keyword start")
+	}
+}
+
+func TestTomlToJSON_WithQuotedKeys(t *testing.T) {
+	r := tomlToJSON("\"key\" = \"value\"\n'key2' = 'val2'")
+	if !r.Valid {
+		t.Fatalf("expected valid, got: %s", r.Error)
+	}
+}
+
+func TestTomlToJSON_WithSection(t *testing.T) {
+	r := tomlToJSON("[section]\nkey = \"value\"")
+	if !r.Valid {
+		t.Fatalf("expected valid TOML with section, got: %s", r.Error)
+	}
+}
+
+func TestTomlToJSON_WithComment(t *testing.T) {
+	r := tomlToJSON("# comment\nkey = \"value\"")
+	if !r.Valid {
+		t.Fatalf("expected valid TOML with comment, got: %s", r.Error)
+	}
+}
+
+func TestXMLToJSON_Invalid(t *testing.T) {
+	r := xmlToJSON("<open>")
+	if r.Valid {
+		t.Error("expected invalid XML->JSON for malformed XML")
+	}
+}
+
+func TestYAMLToJSON_Invalid(t *testing.T) {
+	r := yamlToJSON(": bad")
+	if r.Valid {
+		t.Error("expected invalid YAML->JSON")
+	}
+}
+
+func TestJSONToYAML_Invalid(t *testing.T) {
+	r := jsonToYAML("{bad")
+	if r.Valid {
+		t.Error("expected invalid JSON->YAML")
+	}
+}
+
+func TestCSVToJSON_Invalid(t *testing.T) {
+	r := csvToJSON("a,\"unclosed")
+	if r.Valid {
+		t.Error("expected invalid CSV->JSON")
+	}
+}
+
+func TestJSONToCSV_Invalid(t *testing.T) {
+	r := jsonToCSV("{bad")
+	if r.Valid {
+		t.Error("expected invalid JSON->CSV")
+	}
+}
+
+func TestFormatHTML_Valid(t *testing.T) {
+	r := formatHTML("<p>hello</p>")
+	if !r.Valid {
+		t.Fatalf("expected valid HTML format, got: %s", r.Error)
+	}
+}
+
+func TestFormatHTML_Invalid(t *testing.T) {
+	r := formatHTML("")
+	if r.Valid {
+		t.Error("expected invalid for empty HTML")
+	}
+}
+
+func TestFormatJSON_Invalid(t *testing.T) {
+	r := formatJSON("{bad")
+	if r.Valid {
+		t.Error("expected invalid JSON format")
+	}
+}
+
+func TestFormatYAML_Invalid(t *testing.T) {
+	r := formatYAML(": bad")
+	if r.Valid {
+		t.Error("expected invalid YAML format")
+	}
+}
+
+func TestFormatXML_Invalid(t *testing.T) {
+	r := formatXML("<open>")
+	if r.Valid {
+		t.Error("expected invalid XML format")
 	}
 }

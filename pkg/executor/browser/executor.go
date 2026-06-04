@@ -41,8 +41,10 @@ const (
 	defaultBrowserTimeout = 30 * time.Second
 	defaultViewportWidth  = 1280
 	defaultViewportHeight = 720
-	defaultScreenshotDir  = "/tmp/kdeps-browser"
 )
+
+//nolint:gochecknoglobals // overridden in tests
+var defaultScreenshotDir = "/tmp/kdeps-browser"
 
 type session struct {
 	pw      *playwright.Playwright
@@ -53,6 +55,9 @@ type session struct {
 
 //nolint:gochecknoglobals // sessions persist across resource executions
 var activeSessions sync.Map
+
+//nolint:gochecknoglobals // overridden in tests to mock playwright startup
+var runPlaywright = playwright.Run
 
 // Executor implements executor.ResourceExecutor for browser resources.
 type Executor struct{}
@@ -242,7 +247,7 @@ func newSession(
 	stealthMode bool,
 ) (*session, error) {
 	kdeps_debug.Log("enter: newSession")
-	pw, err := playwright.Run()
+	pw, err := runPlaywright()
 	if err != nil {
 		return nil, fmt.Errorf("could not start playwright: %w", err)
 	}

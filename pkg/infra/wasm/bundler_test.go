@@ -21,6 +21,7 @@ package wasm_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -72,7 +73,7 @@ func TestBundle_WithCustomHTML(t *testing.T) {
 	require.NoError(t, os.WriteFile(wasmExecFile, []byte("fake js"), 0644))
 
 	customHTML := `<!DOCTYPE html>
-<html>
+	<html>
 <head><title>Custom</title></head>
 <body><h1>Custom Page</h1></body>
 </html>`
@@ -326,4 +327,225 @@ func TestBundle_EmptyAPIRoutes(t *testing.T) {
 	content, err := os.ReadFile(bootstrapPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "[]") // Empty array
+}
+
+func TestBundle_CustomHTMLNoClosingBodyTag(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	customHTML := `<html><head></head><body><p>no closing body tag</p>`
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{
+			"data/public/index.html": customHTML,
+		},
+		APIRoutes: []string{},
+		OutputDir: outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.NoError(t, err)
+
+	indexPath := filepath.Join(outputDir, "dist", "index.html")
+	content, err := os.ReadFile(indexPath)
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "<p>no closing body tag</p>")
+	// Scripts should be appended at the end because no </body> was found
+	assert.Contains(t, contentStr, "wasm_exec.js")
+	assert.Contains(t, contentStr, "kdeps-bootstrap.js")
+	// Verify scripts are the last content (no closing body tag after them)
+	lastScriptIdx := strings.LastIndex(contentStr, "kdeps-bootstrap.js")
+	assert.Greater(t, lastScriptIdx, strings.Index(contentStr, "no closing body tag"))
+}
+
+func TestBundle_WebServerFilesPathCollision(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// A web server file path that, after prefix stripping, collides with the
+	// already-copied wasm_exec.js. The subdirectory "wasm_exec.js/" cannot be
+	// created because wasm_exec.js is a regular file.
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{
+			"data/public/wasm_exec.js/something.txt": "content",
+		},
+		APIRoutes: []string{},
+		OutputDir: outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to copy web server files")
+}
+
+func TestBundle_NginxConfCollision(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Block nginx.conf path with a directory so os.WriteFile fails
+	nginxDir := filepath.Join(outputDir, "nginx.conf")
+	require.NoError(t, os.MkdirAll(nginxDir, 0750))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to copy nginx.conf")
+}
+
+func TestBundle_RenderBootstrapError(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Pre-create dist/kdeps-bootstrap.js as a directory to block os.Create in renderBootstrap.
+	// All prior steps (dist dir creation, wasm copy, wasm_exec.js copy) write to different paths
+	// so they succeed. Bundle returns error containing "failed to render bootstrap script".
+	distDir := filepath.Join(outputDir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+	bootstrapPath := filepath.Join(distDir, "kdeps-bootstrap.js")
+	require.NoError(t, os.Mkdir(bootstrapPath, 0750))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to render bootstrap script")
+}
+
+func TestBundle_GenerateDefaultIndexError(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Pre-create dist/index.html as a directory to block generateDefaultIndex.
+	// Empty WebServerFiles means hasIndexHTML returns false, so generateDefaultIndex is called.
+	// os.WriteFile in generateDefaultIndex fails because the path is a directory.
+	// All prior steps succeed. Bundle returns error containing "failed to generate default index.html".
+	distDir := filepath.Join(outputDir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+	indexPath := filepath.Join(distDir, "index.html")
+	require.NoError(t, os.Mkdir(indexPath, 0750))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to generate default index.html")
+}
+
+func TestBundle_InjectBootstrapError(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Pre-create dist/index.html with write-only permissions (0222).
+	// Provide an index.html in WebServerFiles so hasIndexHTML returns true -> injectBootstrap called.
+	// copyWebServerFiles opens with O_WRONLY|O_CREATE|O_TRUNC -- succeeds because write
+	// permission is granted and the mode argument is ignored for existing files.
+	// injectBootstrap's os.ReadFile opens O_RDONLY and fails with EACCES.
+	distDir := filepath.Join(outputDir, "dist")
+	require.NoError(t, os.MkdirAll(distDir, 0750))
+	indexPath := filepath.Join(distDir, "index.html")
+	require.NoError(t, os.WriteFile(indexPath, []byte("<html><body></body></html>"), 0644))
+	require.NoError(t, os.Chmod(indexPath, 0222))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{
+			"index.html": "<html><body><p>Hi</p></body></html>",
+		},
+		APIRoutes: []string{},
+		OutputDir: outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to inject bootstrap into index.html")
+}
+
+func TestBundle_DockerfileCollision(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Block Dockerfile path with a directory so os.WriteFile fails.
+	// nginx.conf is not blocked so it should succeed before hitting Dockerfile.
+	dockerfileDir := filepath.Join(outputDir, "Dockerfile")
+	require.NoError(t, os.MkdirAll(dockerfileDir, 0750))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to copy Dockerfile")
 }

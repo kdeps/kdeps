@@ -358,3 +358,67 @@ settings:
 	assert.Len(t, server.Workflow.Settings.APIServer.Routes, 1)
 	assert.Equal(t, "/api/new", server.Workflow.Settings.APIServer.Routes[0].Path)
 }
+
+// TestServer_ReloadWorkflow_J2PreprocessError tests reloadWorkflow when
+// PreprocessJ2Files fails due to a .j2 file with invalid Jinja2 syntax,
+// covering the error branch at lines 875-877.
+func TestServer_ReloadWorkflow_J2PreprocessError(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				Routes: []domain.Route{},
+			},
+			AgentSettings: domain.AgentSettings{Timezone: "UTC"},
+		},
+	}
+
+	server, err := httppkg.NewServer(workflow, nil, slog.Default())
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	server.SetWorkflowPath(workflowPath)
+
+	// Create a valid workflow file
+	workflowContent := `
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test
+  version: 1.0.0
+  targetActionId: main
+settings:
+  apiServer:
+    routes: []
+  agentSettings:
+    timezone: UTC
+`
+	err = os.WriteFile(workflowPath, []byte(workflowContent), 0644)
+	require.NoError(t, err)
+
+	// Create a .j2 file with invalid Jinja2 syntax to trigger PreprocessJ2Files error
+	invalidJ2 := `{% invalid_syntax_tag_name_xyz %}`
+	err = os.WriteFile(filepath.Join(tmpDir, "template.yaml.j2"), []byte(invalidJ2), 0644)
+	require.NoError(t, err)
+
+	// Set parser
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+	exprParser := expression.NewParser()
+	parser := yaml.NewParser(schemaValidator, exprParser)
+	server.SetParser(parser)
+
+	// Setup hot reload and trigger callback
+	mockWatcher := NewMockFileWatcherWithCallback()
+	server.SetWatcher(mockWatcher)
+	err = server.SetupHotReload()
+	require.NoError(t, err)
+
+	// Trigger callback - PreprocessJ2Files should fail
+	require.Len(t, mockWatcher.callbacks, 2)
+	mockWatcher.callbacks[0]() // Trigger workflow file callback - error is logged
+
+	// Workflow should remain unchanged (reload failed)
+	assert.Equal(t, "test", server.Workflow.Metadata.Name)
+}

@@ -47,6 +47,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
+// bundleFunc is the WASM bundler entry point, overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable global
+var bundleFunc = wasmPkg.Bundle
+
 // BuildFlags holds the flags for the build command.
 type BuildFlags struct {
 	Tag            string
@@ -776,10 +781,20 @@ func bundleWASMApp(
 	}
 
 	fmt.Fprintln(os.Stdout, "✓ Bundling WASM app...")
-	if err := wasmPkg.Bundle(bundleConfig); err != nil {
+	if err := bundleFunc(bundleConfig); err != nil {
 		return fmt.Errorf("WASM bundling failed: %w", err)
 	}
 	return nil
+}
+
+// buildDockerImage is a variable so tests can replace it without running Docker.
+
+//nolint:gochecknoglobals // overridable in tests
+var buildDockerImage = func(ctx context.Context, dockerArgs []string) error {
+	dockerCmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+	dockerCmd.Stdout = os.Stdout
+	dockerCmd.Stderr = os.Stderr
+	return dockerCmd.Run()
 }
 
 func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCache bool) error {
@@ -792,11 +807,7 @@ func buildWASMDockerImage(ctx context.Context, outputDir, imageTag string, noCac
 	}
 	dockerArgs = append(dockerArgs, outputDir)
 
-	dockerCmd := exec.CommandContext(ctx, "docker", dockerArgs...)
-	dockerCmd.Stdout = os.Stdout
-	dockerCmd.Stderr = os.Stderr
-
-	if err := dockerCmd.Run(); err != nil {
+	if err := buildDockerImage(ctx, dockerArgs); err != nil {
 		return fmt.Errorf("docker build failed: %w", err)
 	}
 	return nil

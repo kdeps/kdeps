@@ -270,6 +270,23 @@ func TestDefaultModelsDir_EnvOverride_MkdirFails(t *testing.T) {
 	}
 }
 
+func TestDefaultModelsDir_FallbackMkdirFails(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root bypasses file permissions")
+	}
+	base := t.TempDir()
+	if err := os.Chmod(base, 0500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(base, 0750) })
+	t.Setenv("HOME", base)
+	t.Setenv("KDEPS_MODELS_DIR", "")
+	_, err := llm.DefaultModelsDir()
+	if err == nil {
+		t.Error("expected error when MkdirAll fails on fallback path")
+	}
+}
+
 // --- FileBackend via HTTP test server ----------------------------------------
 
 func TestFileBackend_RoundTrip(t *testing.T) {

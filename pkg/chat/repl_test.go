@@ -164,6 +164,110 @@ func TestSortedNames(t *testing.T) {
 	assert.Equal(t, []string{"resources/a.yaml", "resources/b.yaml", "workflow.yaml"}, names)
 }
 
+func TestREPL_RunWithWorkflow(t *testing.T) {
+	sessionDir := t.TempDir()
+	scriptDir := t.TempDir()
+	script := writeTestScript(t, scriptDir, "kdeps-ok", "exit 0")
+
+	session := &Session{ID: "test", Dir: sessionDir}
+	client := &mockLLMClient{reply: validReply}
+	gen := NewGenerator(client, "llama3", "", "", nil)
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+	exec.KDepsBin = script
+
+	repl := NewREPL(session, gen, exec,
+		strings.NewReader("do something\n/run\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+
+	output := out.String()
+	assert.Contains(t, output, "Running workflow...")
+	assert.Contains(t, output, "Workflow finished.")
+}
+
+func TestREPL_RunWithError(t *testing.T) {
+	sessionDir := t.TempDir()
+	scriptDir := t.TempDir()
+	script := writeTestScript(t, scriptDir, "kdeps-fail", "exit 1")
+
+	session := &Session{ID: "test", Dir: sessionDir}
+	client := &mockLLMClient{reply: validReply}
+	gen := NewGenerator(client, "llama3", "", "", nil)
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+	exec.KDepsBin = script
+
+	repl := NewREPL(session, gen, exec,
+		strings.NewReader("do something\n/run\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+
+	assert.Contains(t, out.String(), "Run failed:")
+}
+
+func TestREPL_ExportWithWorkflow(t *testing.T) {
+	sessionDir := t.TempDir()
+	scriptDir := t.TempDir()
+	script := writeTestScript(t, scriptDir, "kdeps-ok", "exit 0")
+
+	session := &Session{ID: "test", Dir: sessionDir}
+	client := &mockLLMClient{reply: validReply}
+	gen := NewGenerator(client, "llama3", "", "", nil)
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+	exec.KDepsBin = script
+
+	repl := NewREPL(session, gen, exec,
+		strings.NewReader("do something\n/export\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+
+	// On success ExportK8s returns silently (no success printed).
+	// Assert that no failure message appears.
+	assert.NotContains(t, out.String(), "Export failed:")
+}
+
+func TestREPL_ExportFailure(t *testing.T) {
+	sessionDir := t.TempDir()
+	scriptDir := t.TempDir()
+	script := writeTestScript(t, scriptDir, "kdeps-fail", "exit 1")
+
+	session := &Session{ID: "test", Dir: sessionDir}
+	client := &mockLLMClient{reply: validReply}
+	gen := NewGenerator(client, "llama3", "", "", nil)
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+	exec.KDepsBin = script
+
+	repl := NewREPL(session, gen, exec,
+		strings.NewReader("do something\n/export\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+
+	assert.Contains(t, out.String(), "Export failed:")
+}
+
+func TestPrintEnvVars(t *testing.T) {
+	out := &strings.Builder{}
+	wf := &GeneratedWorkflow{
+		Files: map[string]string{
+			"workflow.yaml": "connection: postgres://localhost:5432/mydb",
+		},
+	}
+	printEnvVars(out, wf)
+	output := out.String()
+	assert.Contains(t, output, "Required environment variables (.env):")
+	assert.Contains(t, output, "DATABASE_URL=")
+}
+
+func TestPrintEnvVars_Empty(t *testing.T) {
+	out := &strings.Builder{}
+	wf := &GeneratedWorkflow{
+		Files: map[string]string{
+			"workflow.yaml": "echo hello",
+		},
+	}
+	printEnvVars(out, wf)
+	assert.Empty(t, out.String())
+}
+
 func TestREPL_SaveDefaultDest(t *testing.T) {
 	// /save with no argument uses "kdeps-workflow"
 	sessionDir := t.TempDir()
@@ -187,4 +291,41 @@ func TestREPL_SaveDefaultDest(t *testing.T) {
 	require.NoError(t, repl.Run(context.Background()))
 
 	assert.FileExists(t, filepath.Join(saveBase, "kdeps-workflow", "workflow.yaml"))
+}
+
+func TestREPL_NoGenerator(t *testing.T) {
+	sessionDir := t.TempDir()
+	session := &Session{ID: "test", Dir: sessionDir}
+
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+
+	repl := NewREPL(session, nil, exec, strings.NewReader("do something\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+	assert.Contains(t, out.String(), "No LLM configured")
+}
+
+func TestREPL_SaveWithError(t *testing.T) {
+	sessionDir := t.TempDir()
+
+	session := &Session{
+		ID:  "test",
+		Dir: sessionDir,
+		Workflow: &GeneratedWorkflow{
+			Files: map[string]string{"workflow.yaml": "name: x\n"},
+		},
+	}
+
+	saveDir := t.TempDir()
+	readonlyParent := filepath.Join(saveDir, "readonly")
+	require.NoError(t, os.MkdirAll(readonlyParent, 0o555))
+	dest := filepath.Join(readonlyParent, "subdir")
+
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+
+	repl := NewREPL(session, nil, exec,
+		strings.NewReader("/save "+dest+"\n/quit\n"), out)
+	require.NoError(t, repl.Run(context.Background()))
+	assert.Contains(t, out.String(), "Save failed")
 }

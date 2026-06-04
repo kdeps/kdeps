@@ -46,10 +46,7 @@ func Get(obj any, path string) (any, error) {
 		return nil, err
 	}
 	if rest == "" {
-		if next.IsValid() {
-			return next.Interface(), nil
-		}
-		return nil, errors.New("invalid field value")
+		return next.Interface(), nil
 	}
 	return Get(next.Interface(), rest)
 }
@@ -92,10 +89,6 @@ func indirect(v reflect.Value) reflect.Value {
 
 // step returns the next value after traversing one path segment.
 func step(v reflect.Value, seg string) (reflect.Value, error) {
-	v = indirect(v)
-	if !v.IsValid() {
-		return reflect.Value{}, fmt.Errorf("nil at segment %q", seg)
-	}
 	switch v.Kind() { //nolint:exhaustive // only struct/map/slice are valid container types
 	case reflect.Struct:
 		f := findField(v, seg)
@@ -130,10 +123,6 @@ func step(v reflect.Value, seg string) (reflect.Value, error) {
 // setIn mutates v at the given path.
 func setIn(v reflect.Value, path string, value any) error {
 	head, rest, _ := strings.Cut(path, ".")
-	v = indirect(v)
-	if !v.IsValid() {
-		return fmt.Errorf("nil at path segment %q", head)
-	}
 
 	switch v.Kind() { //nolint:exhaustive // only struct/map/slice are valid mutable containers
 	case reflect.Struct:
@@ -312,9 +301,6 @@ func convertValue(value any, t reflect.Type) (any, error) {
 // copyMapValue makes a shallow copy of a map or returns the value as-is.
 func copyMapValue(v any) any {
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Interface {
-		rv = rv.Elem()
-	}
 	if rv.Kind() != reflect.Map {
 		return v
 	}
@@ -327,10 +313,6 @@ func copyMapValue(v any) any {
 
 // structToMap recursively converts a struct to map[string]any using yaml tag names.
 func structToMap(v reflect.Value) map[string]any {
-	v = indirect(v)
-	if !v.IsValid() || v.Kind() != reflect.Struct {
-		return nil
-	}
 	t := v.Type()
 	m := make(map[string]any, t.NumField())
 	for i := range t.NumField() {

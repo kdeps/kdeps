@@ -218,3 +218,14 @@ func TestColorize_Disabled_DumbTerm(t *testing.T) {
 		t.Errorf("colorize with TERM=dumb = %q, want plain", got)
 	}
 }
+
+func TestFlushGroup_Empty(t *testing.T) {
+	// flushGroup with empty/nil slice should be a no-op.
+	got := captureStderr(t, func() {
+		flushGroup(nil)
+		flushGroup([]string{})
+	})
+	if got != "" {
+		t.Errorf("flushGroup(empty) wrote %q, want empty", got)
+	}
+}

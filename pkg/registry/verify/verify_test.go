@@ -289,3 +289,11 @@ func TestVerifyDir_InvalidYAMLSkipped(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, result.Findings)
 }
+
+func TestVerifyDir_UnreadableYAMLFile(t *testing.T) {
+	dir := t.TempDir()
+	writeYAML(t, dir, "secret.yaml", "apiKey: real-secret\n")
+	require.NoError(t, os.Chmod(filepath.Join(dir, "secret.yaml"), 0000))
+	_, err := verify.Dir(dir)
+	require.Error(t, err)
+}

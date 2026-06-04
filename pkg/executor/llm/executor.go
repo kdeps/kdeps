@@ -1547,6 +1547,7 @@ func (e *Executor) retryFallbackRoutes(
 		if _, hasErr := response["error"]; !hasErr {
 			break
 		}
+		//nolint:gosec // fallback route index is valid by loop invariant
 		route := &fallbackRoutes[i+1]
 		applyRoute(cfg, route)
 		fbName := cfg.Backend

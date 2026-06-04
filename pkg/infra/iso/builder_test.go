@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -85,6 +86,18 @@ func (m *mockRunner) Build(
 // mockAssembleRawBIOS simulates the raw-bios disk assembly (no Docker needed).
 func mockAssembleRawBIOS(_ context.Context, _, _, _, outputPath, _, _ string) error {
 	return os.WriteFile(outputPath, []byte("fake-raw-bios-disk"), 0644)
+}
+
+// mockNoOutputRunner succeeds without producing output files.
+// Used to test the findLinuxKitOutput error path in iso-efi builds.
+type mockNoOutputRunner struct{}
+
+func (m *mockNoOutputRunner) Build(_ context.Context, _, _, _, _, _ string) error {
+	return nil
+}
+
+func (m *mockNoOutputRunner) CacheImport(_ context.Context, _ string) error {
+	return nil
 }
 
 // ========================
@@ -347,6 +360,70 @@ func TestBuilder_Build_RunnerError(t *testing.T) {
 	err := builder.Build(t.Context(), "app:1.0.0", workflow, outputPath, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "linuxkit failed")
+}
+
+func TestBuilder_Build_CreateTempError(t *testing.T) {
+	tmpDir := t.TempDir()
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	require.NoError(t, os.Mkdir(readOnlyDir, 0555))
+	t.Setenv("TMPDIR", readOnlyDir)
+
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "create-temp-test",
+		},
+	}
+
+	outputPath := filepath.Join(tmpDir, "output.iso")
+	err := builder.Build(t.Context(), "create-temp-test:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create temp config file")
+}
+
+func TestBuilder_Build_MkdirAllOutputDirError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	blockFile := filepath.Join(tmpDir, "block")
+	require.NoError(t, os.WriteFile(blockFile, []byte("block"), 0644))
+
+	outputPath := filepath.Join(blockFile, "output.iso")
+
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "mkdir-test",
+		},
+	}
+
+	err := builder.Build(t.Context(), "mkdir-test:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create output directory")
+}
+
+func TestBuilder_Build_RenameError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	outputDir := filepath.Join(tmpDir, "readonly-output")
+	require.NoError(t, os.Mkdir(outputDir, 0555))
+	outputPath := filepath.Join(outputDir, "output.iso")
+
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "rename-test",
+		},
+	}
+
+	err := builder.Build(t.Context(), "rename-test:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to move output")
 }
 
 func TestBuilder_DefaultFormat(t *testing.T) {
@@ -630,6 +707,48 @@ func TestDefaultLinuxKitRunner_CacheImport_ErrorPath(t *testing.T) {
 	assert.Contains(t, err.Error(), "linuxkit cache import failed")
 }
 
+func TestDefaultLinuxKitRunner_Build_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires a fake linuxkit binary")
+	}
+
+	tmpDir := t.TempDir()
+	fakeLinuxKit := filepath.Join(tmpDir, "linuxkit")
+	linuxKitScript := "#!/bin/sh\nexit 0\n"
+	require.NoError(t, os.WriteFile(fakeLinuxKit, []byte(linuxKitScript), 0755))
+
+	runner := &iso.DefaultLinuxKitRunner{
+		BinaryPath: fakeLinuxKit,
+	}
+
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("kernel: {}"), 0644))
+
+	err := runner.Build(t.Context(), configPath, "iso-efi", "amd64", tmpDir, "")
+	require.NoError(t, err)
+}
+
+func TestDefaultLinuxKitRunner_CacheImport_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires a fake linuxkit binary")
+	}
+
+	tmpDir := t.TempDir()
+	fakeLinuxKit := filepath.Join(tmpDir, "linuxkit")
+	linuxKitScript := "#!/bin/sh\nexit 0\n"
+	require.NoError(t, os.WriteFile(fakeLinuxKit, []byte(linuxKitScript), 0755))
+
+	runner := &iso.DefaultLinuxKitRunner{
+		BinaryPath: fakeLinuxKit,
+	}
+
+	tarPath := filepath.Join(tmpDir, "image.tar")
+	require.NoError(t, os.WriteFile(tarPath, []byte("fake-tar"), 0644))
+
+	err := runner.CacheImport(t.Context(), tarPath)
+	require.NoError(t, err)
+}
+
 // ========================
 // EnsureLinuxKit Tests
 // ========================
@@ -672,6 +791,24 @@ func TestNewBuilder_Integration(t *testing.T) {
 	assert.Equal(t, "iso-efi", builder.Format)
 }
 
+func TestNewBuilder_EnsureLinuxKitError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that manipulates HOME/PATH")
+	}
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("PATH", "")
+
+	cacheParent := filepath.Join(tmpDir, ".cache", "kdeps")
+	require.NoError(t, os.MkdirAll(cacheParent, 0750))
+	cacheDirPath := filepath.Join(cacheParent, "linuxkit")
+	require.NoError(t, os.WriteFile(cacheDirPath, []byte("block"), 0644))
+
+	_, err := iso.NewBuilder()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit not available")
+}
+
 func TestBuilder_CacheImportImage_Success(t *testing.T) {
 	mockRunner := &mockRunner{}
 	builder := iso.NewBuilderWithRunner(mockRunner)
@@ -697,4 +834,225 @@ func TestBuilder_CacheImportImage_RunnerError(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cache import failed")
+}
+
+func TestBuilder_CacheImportImage_NilRunner(t *testing.T) {
+	builder := &iso.Builder{} // Runner is nil
+	err := builder.CacheImportImage(t.Context(), "test.tar")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "runner is nil")
+}
+
+func TestBuilder_Build_EmptyFormatDefaultsToISOEFI(t *testing.T) {
+	runner := &mockRunner{}
+	builder := &iso.Builder{
+		Runner: runner,
+		Arch:   runtime.GOARCH,
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "empty-format-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+	err := builder.Build(t.Context(), "empty-format-app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "iso-efi", runner.buildCalls[0].Format)
+}
+
+func TestBuilder_Build_EmptyArchDefaultsToRuntimeGOARCH(t *testing.T) {
+	runner := &mockRunner{}
+	builder := &iso.Builder{
+		Runner: runner,
+		Format: "iso-efi",
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "empty-arch-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+	err := builder.Build(t.Context(), "empty-arch-app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, runtime.GOARCH, runner.buildCalls[0].Arch)
+}
+
+func TestBuilder_Build_RawBIOS_FallbackAssembler(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires a fake docker binary")
+	}
+
+	// Set up a fake docker on PATH that produces the expected outputs.
+	tmpDir := t.TempDir()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+	dockerScript := `#!/bin/sh
+set -e
+if [ "$1" = "save" ]; then
+    touch "$3"
+    exit 0
+fi
+if [ "$1" = "run" ]; then
+    WORK_DIR=""
+    for arg in "$@"; do
+        if echo "$arg" | grep -q ":/work"; then
+            WORK_DIR=$(echo "$arg" | cut -d: -f1)
+        fi
+    done
+    if [ -n "$WORK_DIR" ]; then
+        echo "fake disk image" > "$WORK_DIR/disk.img"
+    fi
+    exit 0
+fi
+exit 0
+`
+	if err := os.WriteFile(fakeDocker, []byte(dockerScript), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	// Builder with nil RawBIOSAssembleFunc — exercises the fallback to assembleRawBIOS.
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+	builder.Format = "raw-bios"
+	// RawBIOSAssembleFunc is nil by default, triggering the fallback path.
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "fallback-test",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.raw")
+	err := builder.Build(t.Context(), "fallback-test:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "kernel+initrd", runner.buildCalls[0].Format)
+	assert.FileExists(t, outputPath)
+}
+
+func TestBuilder_Build_RawBIOSError(t *testing.T) {
+	runner := &mockRunner{
+		buildErr: errors.New("linuxkit kernel+initrd failed"),
+	}
+	builder := iso.NewBuilderWithRunner(runner)
+	builder.Format = "raw-bios"
+	builder.RawBIOSAssembleFunc = mockAssembleRawBIOS
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "raw-bios-error-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.raw")
+	err := builder.Build(t.Context(), "raw-bios-error-app:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit kernel+initrd failed")
+}
+
+// ========================
+// GetFormatExtension unknown format
+// ========================
+
+func TestGetFormatExtension_Unknown(t *testing.T) {
+	assert.Equal(t, "", iso.GetFormatExtension("unknown-format"))
+	assert.Equal(t, "", iso.GetFormatExtension("vdi"))
+	assert.Equal(t, "", iso.GetFormatExtension(""))
+}
+
+// ========================
+// Builder iso-efi findLinuxKitOutput failure
+// ========================
+
+func TestBuilder_Build_ISOEFINoOutput(t *testing.T) {
+	runner := &mockNoOutputRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "no-output-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+	err := builder.Build(t.Context(), "no-output-app:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no output file found")
+}
+
+// ========================
+// Ollama detection via KDEPS_LLM_ROUTER env var
+// ========================
+
+func TestOllamaDetection_RouterConfig(t *testing.T) {
+	t.Setenv("KDEPS_LLM_ROUTER", `{"backend":"ollama","models":["llama2:7b"]}`)
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "router-app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("router-app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+
+	kdepsService := config.Services[2]
+	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
+	assert.Contains(t, kdepsService.Env, "OLLAMA_HOST=127.0.0.1")
+	assert.Contains(t, kdepsService.Env, "OLLAMA_MODELS=/root/.ollama/models")
+}
+
+// ========================
+// GenerateConfigYAMLExtended with empty image name
+// ========================
+
+func TestBuilder_GenerateConfigYAMLExtended_EmptyImageName(t *testing.T) {
+	builder := iso.NewBuilderWithRunner(nil)
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
+		},
+	}
+
+	_, err := builder.GenerateConfigYAMLExtended("", workflow, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+// TestBuilder_Build_WriteStringError covers the tmpFile.WriteString error path
+// (builder.go:151-153). We set RLIMIT_FSIZE to 1 byte so CreateTemp succeeds
+// (empty file) but WriteString fails (EFBIG).
+func TestBuilder_Build_WriteStringError(t *testing.T) {
+	var rlim syscall.Rlimit
+	require.NoError(t, syscall.Getrlimit(syscall.RLIMIT_FSIZE, &rlim))
+
+	// Set file size limit to 1 byte. CreateTemp creates a 0-byte file (OK),
+	// but WriteString tries to write >1 byte and fails with EFBIG.
+	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: 1, Max: rlim.Max}))
+	defer func() {
+		_ = syscall.Setrlimit(syscall.RLIMIT_FSIZE, &rlim)
+	}()
+
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "write-error-test",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+	err := builder.Build(t.Context(), "write-error-test:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to write LinuxKit config")
 }

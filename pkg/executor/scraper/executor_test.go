@@ -170,3 +170,96 @@ func TestExecute_ContentType_JSON(t *testing.T) {
 	m := res.(map[string]interface{})
 	assert.True(t, strings.Contains(m["content"].(string), "key"))
 }
+
+// TestExecute_CustomTimeout covers the timeout-parsing path when a valid
+// duration string is provided (lines 61-63).
+func TestExecute_CustomTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("timed out content"))
+	}))
+	defer srv.Close()
+
+	e := scraperexec.NewExecutor()
+	res, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{
+		URL:     srv.URL,
+		Timeout: "5s",
+	})
+	require.NoError(t, err)
+	m := res.(map[string]interface{})
+	assert.Contains(t, m["content"], "timed out content")
+}
+
+// TestExecute_InvalidTimeout covers the timeout-parsing failure path where
+// parseErr != nil, causing the default timeout to be used (lines 61-62).
+func TestExecute_InvalidTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte("ok"))
+	}))
+	defer srv.Close()
+
+	e := scraperexec.NewExecutor()
+	res, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{
+		URL:     srv.URL,
+		Timeout: "not-a-duration",
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, res)
+}
+
+// TestExecute_RequestCreationError covers http.NewRequestWithContext failure
+// using a URL containing a control character (lines 73-74).
+func TestExecute_RequestCreationError(t *testing.T) {
+	e := scraperexec.NewExecutor()
+	_, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{
+		URL: string([]byte{0x7f}),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestExecute_BodyReadError covers io.ReadAll failure by having the server
+// declare a Content-Length larger than the actual body and close prematurely
+// (lines 98-99).
+func TestExecute_BodyReadError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, _, _ := hijacker.Hijack()
+		conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"))
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	e := scraperexec.NewExecutor()
+	_, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{
+		URL: srv.URL,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read response body")
+}
+
+// TestExecute_HTMLParseError covers goquery.NewDocumentFromReader failure by
+// having the server close prematurely while a CSS selector is configured
+// (lines 87-88).
+func TestExecute_HTMLParseError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, _, _ := hijacker.Hijack()
+		conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"))
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	e := scraperexec.NewExecutor()
+	_, err := e.Execute(newScraperCtx(t), &domain.ScraperConfig{
+		URL:      srv.URL,
+		Selector: "p",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse HTML")
+}

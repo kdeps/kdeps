@@ -379,3 +379,61 @@ func TestPrintBotRequirements_NoBotSource(t *testing.T) {
 	})
 	assert.Empty(t, out)
 }
+
+// ---------------------------------------------------------------------------
+// StartFileRunner
+// ---------------------------------------------------------------------------
+
+func TestStartFileRunner_NoEvents(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "input.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello"), 0644))
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-file-runner",
+			Version:        "1.0.0",
+			TargetActionID: "action",
+		},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "action",
+				Name:     "Action",
+				APIResponse: &domain.APIResponseConfig{
+					Response: "processed",
+				},
+			},
+		},
+	}
+
+	err := cmd.StartFileRunner(workflow, false, tmpFile, false)
+	require.NoError(t, err)
+}
+
+func TestStartFileRunner_WithEvents(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "input.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello"), 0644))
+
+	workflow := &domain.Workflow{
+		APIVersion: "kdeps.io/v1",
+		Kind:       "Workflow",
+		Metadata: domain.WorkflowMetadata{
+			Name:           "test-file-runner",
+			Version:        "1.0.0",
+			TargetActionID: "action",
+		},
+		Resources: []*domain.Resource{
+			{
+				ActionID: "action",
+				Name:     "Action",
+				APIResponse: &domain.APIResponseConfig{
+					Response: "processed",
+				},
+			},
+		},
+	}
+
+	err := cmd.StartFileRunner(workflow, false, tmpFile, true)
+	require.NoError(t, err)
+}

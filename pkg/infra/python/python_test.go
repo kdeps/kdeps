@@ -644,3 +644,15 @@ func TestManager_InstallRequirements(t *testing.T) {
 		t.Logf("Installation failed (expected in some environments): %v", err)
 	}
 }
+
+// TestManager_EnsureVenv_InvalidPythonVersion verifies that EnsureVenv
+// returns an error when uv cannot find the requested Python version.
+func TestManager_EnsureVenv_InvalidPythonVersion(t *testing.T) {
+	manager := python.NewManager(t.TempDir())
+
+	// Python 99.99 does not exist, so uv venv will fail.
+	_, err := manager.EnsureVenv("99.99", nil, "", "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create venv")
+}

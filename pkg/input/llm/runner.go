@@ -124,10 +124,16 @@ func Run(
 	}
 }
 
+// readlineReader is satisfied by *readline.Instance and allows white-box tests
+// to inject controlled return values for Readline() without requiring a real pty.
+type readlineReader interface {
+	Readline() (string, error)
+}
+
 // readlineStep reads one line via readline and dispatches it.
 // Returns (true, nil) when the loop should stop cleanly, (false, err) on error.
 func readlineStep(
-	rl *readline.Instance,
+	rl readlineReader,
 	workflow *domain.Workflow,
 	engine *executor.Engine,
 	sessionID string,

@@ -21,6 +21,7 @@ package templates
 import (
 	"embed"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -350,4 +351,167 @@ func TestPreprocessJ2Files_SkipsHiddenDirs(t *testing.T) {
 	// The hidden dir file should NOT have been processed
 	_, statErr := os.Stat(hiddenDir + "/test.txt")
 	assert.True(t, os.IsNotExist(statErr), "file in hidden dir should not be rendered")
+}
+
+// TestRender_ExecuteError tests that Render returns an error when template
+// execution fails (e.g. calling a non-existent filter).
+func TestRender_ExecuteError(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
+
+	// A template that parses OK but fails at execution: non-existent filter.
+	_, err := renderer.Render(`{{ "hello" | nonexistent_filter }}`, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to render Jinja2 template")
+}
+
+// TestGenerateBasicResource_MkdirAllError tests generateBasicResource when
+// the parent directory cannot be created.
+func TestGenerateBasicResource_MkdirAllError(t *testing.T) {
+	g := &Generator{}
+
+	// Use a path where the parent directory is a non-directory, causing MkdirAll to fail.
+	err := g.generateBasicResource("http-client", "/dev/null/invalid/resource.yaml")
+	require.Error(t, err)
+}
+
+// TestWalkJinja2Template_ProcessDirectoryError tests walkJinja2Template when
+// processJinja2Directory fails due to an unwritable output directory.
+func TestWalkJinja2Template_ProcessDirectoryError(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
+	generator := &Generator{}
+
+	tmpDir := t.TempDir()
+	readOnlyParent := filepath.Join(tmpDir, "readonly")
+	require.NoError(t, os.MkdirAll(readOnlyParent, 0500))
+
+	// Read entries and filter to only directories so the directory error path
+	// is reached (files would fail first in alphabetical order).
+	allEntries, err := templatesFS.ReadDir("templates/api-service")
+	require.NoError(t, err)
+	var dirEntries []os.DirEntry
+	for _, e := range allEntries {
+		if e.IsDir() {
+			dirEntries = append(dirEntries, e)
+		}
+	}
+	require.NotEmpty(t, dirEntries, "api-service should have at least one subdirectory")
+
+	data := TemplateData{Name: "test"}
+
+	err = generator.walkJinja2Template(renderer, "templates/api-service", readOnlyParent, data, dirEntries)
+	require.Error(t, err)
+}
+
+// TestProcessJinja2Directory_MkdirAllError tests processJinja2Directory when
+// the output subdirectory cannot be created.
+func TestProcessJinja2Directory_MkdirAllError(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
+	generator := &Generator{}
+
+	// Use a non-directory parent path so MkdirAll fails.
+	err := generator.processJinja2Directory(renderer, "testdata/subdir", "/dev/null/invalid", TemplateData{}, "subdir")
+	require.Error(t, err)
+}
+
+// TestProcessJinja2Directory_ReadDirError tests processJinja2Directory when
+// the embedded FS ReadDir fails (non-existent source path).
+func TestProcessJinja2Directory_ReadDirError(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
+	generator := &Generator{}
+
+	tmpDir := t.TempDir()
+
+	// Use a non-existent embed source path to trigger ReadDir failure.
+	err := generator.processJinja2Directory(renderer, "testdata/nonexistent", tmpDir, TemplateData{}, "outdir")
+	require.Error(t, err)
+}
+
+// TestGenerateJinja2File_RenderFileError tests generateJinja2File when
+// the template file cannot be read from the embed.FS.
+func TestGenerateJinja2File_RenderFileError(t *testing.T) {
+	renderer := NewJinja2Renderer(internalTestFS)
+	generator := &Generator{}
+	tmpDir := t.TempDir()
+
+	err := generator.generateJinja2File(
+		renderer,
+		"testdata/nonexistent.j2",
+		filepath.Join(tmpDir, "output"),
+		TemplateData{Name: "test"},
+	)
+	require.Error(t, err)
+}
+
+// TestProcessJ2File_ReadFileError tests processJ2File when the file cannot be
+// read from the root filesystem.
+func TestProcessJ2File_ReadFileError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	root, err := os.OpenRoot(tmpDir)
+	require.NoError(t, err)
+	defer root.Close()
+
+	// Call with a non-existent relative path to trigger ReadFile failure.
+	err = processJ2File(root, tmpDir, filepath.Join(tmpDir, "nonexistent.j2"), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "preprocess j2: read")
+}
+
+// TestProcessJ2File_RenderError tests processJ2File when the template content
+// parses correctly but fails at execution.
+func TestProcessJ2File_RenderError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a .j2 file with content that parses OK but fails at execution.
+	j2Path := filepath.Join(tmpDir, "test.txt.j2")
+	require.NoError(t, os.WriteFile(j2Path, []byte(`{{ "hello" | nonexistent_filter }}`), 0600))
+
+	root, err := os.OpenRoot(tmpDir)
+	require.NoError(t, err)
+	defer root.Close()
+
+	err = processJ2File(root, tmpDir, j2Path, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "preprocess j2: render")
+}
+
+// TestProcessJ2File_WriteFileError tests processJ2File when writing the output
+// file fails (read-only output directory).
+func TestProcessJ2File_WriteFileError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a .j2 file with valid template content.
+	j2Path := filepath.Join(tmpDir, "test.txt.j2")
+	require.NoError(t, os.WriteFile(j2Path, []byte("hello {{ name }}"), 0600))
+
+	root, err := os.OpenRoot(tmpDir)
+	require.NoError(t, err)
+	defer root.Close()
+
+	// Make the directory read-only before writing the output.
+	err = os.Chmod(tmpDir, 0500)
+	require.NoError(t, err)
+	defer os.Chmod(tmpDir, 0750)
+
+	err = processJ2File(root, tmpDir, j2Path, map[string]interface{}{"name": "world"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "preprocess j2: write")
+}
+
+// TestPreprocessJ2Files_WalkError tests PreprocessJ2Files when filepath.WalkDir
+// encounters a directory that cannot be read.
+func TestPreprocessJ2Files_WalkError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a subdirectory with a .j2 file inside.
+	nestedDir := filepath.Join(tmpDir, "nested")
+	require.NoError(t, os.MkdirAll(nestedDir, 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(nestedDir, "test.txt.j2"), []byte("hello"), 0600))
+
+	// Make the subdirectory unreadable so WalkDir fails when trying to read it.
+	require.NoError(t, os.Chmod(nestedDir, 0000))
+	defer os.Chmod(nestedDir, 0750)
+
+	err := PreprocessJ2Files(tmpDir)
+	require.Error(t, err)
 }

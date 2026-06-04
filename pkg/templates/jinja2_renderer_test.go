@@ -179,6 +179,27 @@ func TestTemplateData_ToJinja2Data(t *testing.T) {
 	assert.Equal(t, []string{"http-client", "llm", "response"}, result["resources"])
 }
 
+func TestTemplateData_ToJinja2Data_WithFeatures(t *testing.T) {
+	data := templates.TemplateData{
+		Name:        "test-api",
+		Description: "Test API Service",
+		Version:     "1.0.0",
+		Port:        8080,
+		Resources:   []string{"http-client"},
+		Features:    map[string]bool{"enableSSL": true, "useCache": false},
+	}
+
+	result := data.ToJinja2Data()
+
+	assert.Equal(t, "test-api", result["name"])
+	assert.Equal(t, "Test API Service", result["description"])
+	assert.Equal(t, "1.0.0", result["version"])
+	assert.Equal(t, 8080, result["port"])
+	assert.Equal(t, []string{"http-client"}, result["resources"])
+	assert.Equal(t, true, result["enableSSL"])
+	assert.Equal(t, false, result["useCache"])
+}
+
 func TestGenerator_Jinja2TemplateGeneration(t *testing.T) {
 	gen, err := templates.NewGenerator()
 	require.NoError(t, err)

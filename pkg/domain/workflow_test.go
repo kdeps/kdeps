@@ -372,6 +372,15 @@ func TestGetCORSConfig(t *testing.T) {
 			},
 			wantOrigins: []string{"https://custom.com"},
 		},
+		{
+			name: "cors block with empty origins - uses defaults",
+			settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					CORS: &domain.CORS{},
+				},
+			},
+			wantOrigins: []string{"*"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -514,5 +523,45 @@ func TestIsFileSource(t *testing.T) {
 	}
 	if domain.IsFileSource("other") {
 		t.Error("IsFileSource(other) should be false")
+	}
+}
+
+// TestSessionConfig_GetType verifies the GetType method on SessionConfig.
+func TestSessionConfig_GetType(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  domain.SessionConfig
+		want string
+	}{
+		{name: "default type", cfg: domain.SessionConfig{}, want: "sqlite"},
+		{name: "memory type", cfg: domain.SessionConfig{Type: "memory"}, want: "memory"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.GetType()
+			if got != tt.want {
+				t.Errorf("GetType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSessionConfig_GetPath verifies the GetPath method on SessionConfig.
+func TestSessionConfig_GetPath(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  domain.SessionConfig
+		want string
+	}{
+		{name: "empty path", cfg: domain.SessionConfig{}, want: ""},
+		{name: "set path", cfg: domain.SessionConfig{Path: "/tmp/sessions.db"}, want: "/tmp/sessions.db"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.GetPath()
+			if got != tt.want {
+				t.Errorf("GetPath() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

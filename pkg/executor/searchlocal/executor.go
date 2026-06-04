@@ -74,33 +74,7 @@ func (e *Executor) walk(config *domain.SearchLocalConfig) ([]map[string]interfac
 	limitHit := false
 
 	walkErr := filepath.WalkDir(config.Path, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil //nolint:nilerr // intentionally skip unreadable entries and directories
-		}
-
-		if ok, filterErr := e.matchesFilters(path, d, config); filterErr != nil {
-			return filterErr
-		} else if !ok {
-			return nil
-		}
-
-		info, statErr := d.Info()
-		if statErr != nil {
-			return nil //nolint:nilerr // skip files whose stat fails
-		}
-
-		results = append(results, map[string]interface{}{
-			"path":  path,
-			"name":  d.Name(),
-			"size":  info.Size(),
-			"isDir": false,
-		})
-
-		if config.Limit > 0 && len(results) >= config.Limit {
-			limitHit = true
-			return fs.SkipAll
-		}
-		return nil
+		return e.walkEntry(path, d, err, config, &results, &limitHit)
 	})
 
 	if walkErr != nil && !limitHit {
@@ -111,6 +85,45 @@ func (e *Executor) walk(config *domain.SearchLocalConfig) ([]map[string]interfac
 		results = []map[string]interface{}{}
 	}
 	return results, nil
+}
+
+// walkEntry is the per-entry callback extracted from the WalkDir closure
+// so that Go's coverage tool can track its basic blocks correctly.
+func (e *Executor) walkEntry(
+	path string,
+	d fs.DirEntry,
+	err error,
+	config *domain.SearchLocalConfig,
+	results *[]map[string]interface{},
+	limitHit *bool,
+) error {
+	if err != nil || d.IsDir() {
+		return nil //nolint:nilerr // intentionally skip unreadable entries and directories
+	}
+
+	if ok, filterErr := e.matchesFilters(path, d, config); filterErr != nil {
+		return filterErr
+	} else if !ok {
+		return nil
+	}
+
+	info, statErr := d.Info()
+	if statErr != nil {
+		return nil //nolint:nilerr // skip files whose stat fails
+	}
+
+	*results = append(*results, map[string]interface{}{
+		"path":  path,
+		"name":  d.Name(),
+		"size":  info.Size(),
+		"isDir": false,
+	})
+
+	if config.Limit > 0 && len(*results) >= config.Limit {
+		*limitHit = true
+		return fs.SkipAll
+	}
+	return nil
 }
 
 // matchesFilters returns true when the file passes all configured filters.

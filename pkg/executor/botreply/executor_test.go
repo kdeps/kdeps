@@ -143,3 +143,18 @@ func TestEvaluateText_WithValidCtx(t *testing.T) {
 	result := evaluateText("{{ 'hello' }}", ctx)
 	assert.NotEmpty(t, result)
 }
+
+func TestEvaluateText_InvalidExpr(t *testing.T) {
+	ctx := makeCtxWithSend(t, func(_ context.Context, _ string) error { return nil })
+	// Expression with syntax error falls back to original text.
+	result := evaluateText("{{ !!! }}", ctx)
+	assert.Equal(t, "{{ !!! }}", result)
+}
+
+func TestEvaluateText_NonStringResult_Formatted(t *testing.T) {
+	ctx := makeCtxWithSend(t, func(_ context.Context, _ string) error { return nil })
+	// "{{ 1 + 1 }}" evaluates to the integer 2, not a string,
+	// exercising the fmt.Sprintf fallback in evaluateText.
+	result := evaluateText("{{ 1 + 1 }}", ctx)
+	assert.Equal(t, "2", result)
+}

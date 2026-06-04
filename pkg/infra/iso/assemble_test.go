@@ -12,10 +12,13 @@ package iso
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -51,7 +54,15 @@ exit 1
 	}
 
 	// Test with imageName to trigger 'docker save'
-	err := assembleRawBIOS(t.Context(), kernelFile, initrdFile, cmdlineFile, outputFile, "fake-image", "")
+	err := assembleRawBIOS(
+		t.Context(),
+		kernelFile,
+		initrdFile,
+		cmdlineFile,
+		outputFile,
+		"fake-image",
+		"",
+	)
 	if err == nil {
 		t.Error("expected error from docker save failure, got nil")
 	}
@@ -91,7 +102,15 @@ exit 1
 		}
 	}
 
-	err := assembleRawBIOS(t.Context(), kernelFile, initrdFile, cmdlineFile, outputFile, "fake-image", "")
+	err := assembleRawBIOS(
+		t.Context(),
+		kernelFile,
+		initrdFile,
+		cmdlineFile,
+		outputFile,
+		"fake-image",
+		"",
+	)
 	if err == nil {
 		t.Error("expected error from docker run failure, got nil")
 	}
@@ -149,7 +168,15 @@ exit 0
 		}
 	}
 
-	err := assembleRawBIOS(t.Context(), kernelFile, initrdFile, cmdlineFile, outputFile, "fake-image", "echo boot")
+	err := assembleRawBIOS(
+		t.Context(),
+		kernelFile,
+		initrdFile,
+		cmdlineFile,
+		outputFile,
+		"fake-image",
+		"echo boot",
+	)
 	if err != nil {
 		t.Fatalf("assembleRawBIOS failed: %v", err)
 	}
@@ -211,22 +238,107 @@ func TestEnsureLinuxKit_InCache(t *testing.T) {
 }
 
 func TestDownloadFile_RenameError(t *testing.T) {
-	// To trigger rename error, we can make the destination directory a file
+	// Create a test HTTP server that serves binary content.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("binary content"))
+	}))
+	defer ts.Close()
+
 	tmpDir := t.TempDir()
+
+	// Make the destination path an existing directory so os.Rename fails.
 	dest := filepath.Join(tmpDir, "dest")
-	// Make dest.tmp a directory so renaming to dest (file) might fail or something?
-	// Actually, easier to make 'dest' a directory and try to rename a file to it.
 	if err := os.Mkdir(dest, 0755); err != nil {
-		t.Fatalf("failed to create dir: %v", err)
+		t.Fatalf("failed to create dest dir: %v", err)
 	}
 
-	// This might not work as expected on all OSs.
-	// Let's try to mock the rename by making the target unwritable.
+	// downloadFile writes to dest.tmp, then tries to rename to dest.
+	// Since dest is a directory, the rename on Unix returns EISDIR.
+	err := downloadFile(t.Context(), ts.URL, dest)
+	if err == nil {
+		t.Fatal("expected error when dest is a directory, got nil")
+	}
+	if !strings.Contains(err.Error(), "rename") {
+		t.Errorf("expected rename error, got: %v", err)
+	}
 }
 
-func TestMarshalConfig_Error(_ *testing.T) {
-	// MarshalConfig uses yaml.Marshal which rarely fails for our struct
-	// unless there are cycles or unsupported types, but our struct is simple.
+// makeWorkDirReadOnly spawns a goroutine that watches for a rawbios-* workDir
+// inside HOME/.cache/kdeps, then chmods it to 0555 when the docker-save tar
+// file appears. Returns a channel that receives the workDir path (for cleanup).
+//
+//nolint:unused
+func makeWorkDirReadOnly(tmpDir string) chan string {
+	ch := make(chan string, 1)
+	cacheDir := filepath.Join(tmpDir, ".cache", "kdeps")
+	go func() {
+		for range 200 {
+			entries, err := os.ReadDir(cacheDir)
+			if err != nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			for _, e := range entries {
+				if !strings.HasPrefix(e.Name(), "rawbios-") || !e.IsDir() {
+					continue
+				}
+				wd := filepath.Join(cacheDir, e.Name())
+				if _, err = os.Stat(filepath.Join(wd, "image.tar")); err == nil {
+					_ = os.Chmod(wd, 0555)
+					ch <- wd
+					return
+				}
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		close(ch)
+	}()
+	return ch
+}
+
+// setupFakeDocker writes a fake docker script to tmpDir/docker and prepends
+// tmpDir to PATH. The fake docker succeeds for "save" (with a 300ms delay)
+// and fails for any other command.
+//
+//nolint:unused
+func setupFakeDocker(t *testing.T, tmpDir string) {
+	t.Helper()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+	script := `#!/bin/sh
+if [ "$1" = "save" ]; then
+    touch "$3"
+    sleep 0.3
+    exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(fakeDocker, []byte(script), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+}
+
+// createAssembleTestInputs writes kernel, initrd, and cmdline files to tmpDir.
+//
+//nolint:unused
+func createAssembleTestInputs(
+	t *testing.T,
+	tmpDir string,
+) (string, string, string, string) {
+	t.Helper()
+	kernel := filepath.Join(tmpDir, "kernel")
+	initrd := filepath.Join(tmpDir, "initrd.img")
+	cmdline := filepath.Join(tmpDir, "cmdline")
+	output := filepath.Join(tmpDir, "disk.img")
+	for _, f := range []string{kernel, initrd, cmdline} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create input file %s: %v", f, err)
+		}
+	}
+	return kernel, initrd, cmdline, output
 }
 
 func TestBuilder_Build_NilWorkflow_Error(t *testing.T) {
@@ -242,5 +354,198 @@ func TestBuilder_Build_EmptyImage_Error(t *testing.T) {
 	err := b.Build(context.Background(), "", &domain.Workflow{}, "out", false)
 	if err == nil {
 		t.Error("expected error for empty image name, got nil")
+	}
+}
+
+func TestAssembleRawBIOS_CopyFileError(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+	dockerScript := `#!/bin/sh
+exit 0
+`
+	if err := os.WriteFile(fakeDocker, []byte(dockerScript), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	kernelFile := filepath.Join(tmpDir, "kernel")
+	initrdFile := filepath.Join(tmpDir, "initrd.img")
+	cmdlineFile := filepath.Join(tmpDir, "cmdline")
+
+	for _, f := range []string{kernelFile, initrdFile, cmdlineFile} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create fake input file: %v", err)
+		}
+	}
+
+	// Make kernel file unreadable so copyFile fails
+	if err := os.Chmod(kernelFile, 0000); err != nil {
+		t.Fatalf("failed to chmod kernel file: %v", err)
+	}
+
+	outputFile := filepath.Join(tmpDir, "disk.img")
+	err := assembleRawBIOS(t.Context(), kernelFile, initrdFile, cmdlineFile, outputFile, "", "")
+	if err == nil {
+		t.Error("expected error from copyFile failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to copy kernel") {
+		t.Errorf("expected 'failed to copy kernel' error, got: %v", err)
+	}
+}
+
+func TestAssembleRawBIOS_CopyDiskImageError(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+
+	// fake docker: creates disk.img then makes it unreadable so copyFile fails
+	dockerScript := `#!/bin/sh
+if [ "$1" = "save" ]; then
+    touch "$3"
+    exit 0
+fi
+if [ "$1" = "run" ]; then
+    WORK_DIR=""
+    for arg in "$@"; do
+        if echo "$arg" | grep -q ":/work"; then
+            WORK_DIR=$(echo "$arg" | cut -d: -f1)
+        fi
+    done
+    if [ -n "$WORK_DIR" ]; then
+        touch "$WORK_DIR/disk.img"
+        chmod 0000 "$WORK_DIR/disk.img"
+    fi
+    exit 0
+fi
+exit 0
+`
+	if err := os.WriteFile(fakeDocker, []byte(dockerScript), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	kernelFile := filepath.Join(tmpDir, "kernel")
+	initrdFile := filepath.Join(tmpDir, "initrd.img")
+	cmdlineFile := filepath.Join(tmpDir, "cmdline")
+	outputFile := filepath.Join(tmpDir, "disk.img")
+
+	for _, f := range []string{kernelFile, initrdFile, cmdlineFile} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create fake input file: %v", err)
+		}
+	}
+
+	err := assembleRawBIOS(t.Context(), kernelFile, initrdFile, cmdlineFile, outputFile, "", "")
+	if err == nil {
+		t.Error("expected error from copyFile disk image failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to copy disk image") {
+		t.Errorf("expected 'failed to copy disk image' error, got: %v", err)
+	}
+}
+
+func TestAssembleRawBIOS_BootScriptWriteError(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+
+	// Fake docker: creates image.tar then makes workDir read-only so boot.sh write fails
+	dockerScript := `#!/bin/sh
+if [ "$1" = "save" ]; then
+    touch "$3"
+    WORK_DIR=$(dirname "$3")
+    chmod 0555 "$WORK_DIR"
+    exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(fakeDocker, []byte(dockerScript), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	kernelFile := filepath.Join(tmpDir, "kernel")
+	initrdFile := filepath.Join(tmpDir, "initrd.img")
+	cmdlineFile := filepath.Join(tmpDir, "cmdline")
+	outputFile := filepath.Join(tmpDir, "disk.img")
+
+	for _, f := range []string{kernelFile, initrdFile, cmdlineFile} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create fake input file: %v", err)
+		}
+	}
+
+	err := assembleRawBIOS(
+		t.Context(),
+		kernelFile,
+		initrdFile,
+		cmdlineFile,
+		outputFile,
+		"fake-image",
+		"dummy-boot-script",
+	)
+	if err == nil {
+		t.Error("expected error from boot script write failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to write boot script") {
+		t.Errorf("expected 'failed to write boot script' error, got: %v", err)
+	}
+}
+
+func TestAssembleRawBIOS_WriteAssembleScriptError(t *testing.T) {
+	tmpDir := t.TempDir()
+	fakeDocker := filepath.Join(tmpDir, "docker")
+
+	// Same fake docker: creates image.tar then makes workDir read-only so assemble script write fails
+	dockerScript := `#!/bin/sh
+if [ "$1" = "save" ]; then
+    touch "$3"
+    WORK_DIR=$(dirname "$3")
+    chmod 0555 "$WORK_DIR"
+    exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(fakeDocker, []byte(dockerScript), 0755); err != nil {
+		t.Fatalf("failed to create fake docker: %v", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir+":"+oldPath)
+	defer os.Setenv("PATH", oldPath)
+
+	kernelFile := filepath.Join(tmpDir, "kernel")
+	initrdFile := filepath.Join(tmpDir, "initrd.img")
+	cmdlineFile := filepath.Join(tmpDir, "cmdline")
+	outputFile := filepath.Join(tmpDir, "disk.img")
+
+	for _, f := range []string{kernelFile, initrdFile, cmdlineFile} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create fake input file: %v", err)
+		}
+	}
+
+	// bootScript is empty so boot.sh write is skipped, then writeAssembleScript fails
+	err := assembleRawBIOS(
+		t.Context(),
+		kernelFile,
+		initrdFile,
+		cmdlineFile,
+		outputFile,
+		"fake-image",
+		"",
+	)
+	if err == nil {
+		t.Error("expected error from writeAssembleScript failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to write assembly script") {
+		t.Errorf("expected 'failed to write assembly script' error, got: %v", err)
 	}
 }

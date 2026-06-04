@@ -121,6 +121,47 @@ func TestDoRegistrySubmit_OutputsFormula(t *testing.T) {
 	assert.Equal(t, "testowner/testrepo", repo)
 }
 
+func TestDoRegistrySubmit_MissingManifest(t *testing.T) {
+	dir := t.TempDir()
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := doRegistrySubmit(cmd, dir, "v1.0.0")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps.pkg.yaml")
+}
+
+func TestDoRegistrySubmit_InvalidManifest(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte("invalid: yaml: ["), 0600))
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := doRegistrySubmit(cmd, dir, "v1.0.0")
+	require.Error(t, err)
+}
+
+func TestDoRegistrySubmit_NoGitRemote(t *testing.T) {
+	dir := t.TempDir()
+	mf := "name: test-agent\nversion: 1.0.0\ntype: workflow\ndescription: A test\nlicense: Apache-2.0\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600))
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := doRegistrySubmit(cmd, dir, "v1.0.0")
+	require.Error(t, err)
+	// Without a git remote, the function should fail with a git-related error
+	assert.Contains(t, err.Error(), "git")
+}
+
 func TestRegistrySubmit_MissingTag(t *testing.T) {
 	cmd := newRegistrySubmitCmd()
 	var out bytes.Buffer
@@ -129,4 +170,20 @@ func TestRegistrySubmit_MissingTag(t *testing.T) {
 	cmd.SetArgs([]string{"."})
 	err := cmd.Execute()
 	require.Error(t, err)
+}
+
+func TestDoRegistrySubmit_InvalidManifestContent(t *testing.T) {
+	dir := t.TempDir()
+	// YAML that parses but fails Validate (missing required fields)
+	mf := "version: 1.0.0\ntype: workflow\ndescription: missing name\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "kdeps.pkg.yaml"), []byte(mf), 0600))
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	err := doRegistrySubmit(cmd, dir, "v1.0.0")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name is required")
 }

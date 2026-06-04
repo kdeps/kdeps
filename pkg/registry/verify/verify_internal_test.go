@@ -16,9 +16,12 @@
 package verify
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- looksLikeSecret ---
@@ -120,4 +123,22 @@ func TestCredentialFields_CaseSensitivity(t *testing.T) {
 
 func TestModelFields_HasModel(t *testing.T) {
 	assert.True(t, modelFields["model"])
+}
+
+// --- verifyFile ---
+
+func TestVerifyFile_NonExistentPath(t *testing.T) {
+	_, err := verifyFile("/nonexistent-file-xyz.yaml", "nonexistent-file-xyz.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "open")
+}
+
+func TestVerifyFile_DirectoryReadError(t *testing.T) {
+	// Opening a directory succeeds on macOS, but io.ReadAll returns EISDIR.
+	dir := t.TempDir()
+	dirPath := filepath.Join(dir, "dir.yaml")
+	require.NoError(t, os.Mkdir(dirPath, 0750))
+	_, err := verifyFile(dirPath, "dir.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read")
 }

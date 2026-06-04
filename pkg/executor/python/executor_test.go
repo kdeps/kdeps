@@ -1559,6 +1559,53 @@ func TestExecutor_Execute_OutputCapExceeded(t *testing.T) {
 	assert.Contains(t, err.Error(), "exceeds output limit")
 }
 
+// TestExecutor_ResolveConfig_VenvName_ExpressionSuccess exercises the successful
+// VenvName expression evaluation path in resolveConfig (line 163).
+func TestExecutor_ResolveConfig_VenvName_ExpressionSuccess(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Set up context so the expression can resolve
+	ctx.Outputs["env_suffix"] = "dev"
+
+	config := &domain.PythonConfig{
+		VenvName: "my-{{outputs.env_suffix}}-venv", // valid expression that evaluates successfully
+		Script:   "print('test')",
+	}
+
+	_, err = exec.Execute(ctx, config)
+	// VenvName evaluation succeeds (line 163 hit), but python execution fails
+	// because the mock venv path does not exist.
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "failed to evaluate venv name")
+}
+
+// TestExecutor_EvaluateInterpolatedString_ParseError_UnevenBraces exercises the
+// parse error branch in evaluateInterpolatedString (lines 399-401) using a script
+// with unequal {{ and }} counts.
+func TestExecutor_EvaluateInterpolatedString_ParseError_UnevenBraces(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	require.NoError(t, err)
+
+	// Script has both {{ and }} (enters interpolation branch) but
+	// mismatched counts (2 {{, 1 }}) so ParseValue returns an error.
+	config := &domain.PythonConfig{
+		Script: "test {{hello}} {{ ", // 2 x '{{', 1 x '}}'
+	}
+
+	_, err = exec.Execute(ctx, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate script")
+}
+
 func TestExecutor_Execute_OutputCapNotExceeded(t *testing.T) {
 	t.Setenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES", "10000")
 	pyExec := pythonexecutor.NewExecutor(&MockUVManager{})

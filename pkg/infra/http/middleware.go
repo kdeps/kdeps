@@ -285,13 +285,18 @@ func (s *ipLimiterStore) get(ip string) *rate.Limiter {
 
 func (s *ipLimiterStore) cleanup() {
 	for range time.Tick(limiterCleanupInterval) { //nolint:nolintlint // infinite ticker; goroutine exits with process
-		s.mu.Lock()
-		for ip, l := range s.limiters {
-			if time.Since(l.lastSeen) > limiterIdleExpiry {
-				delete(s.limiters, ip)
-			}
+		s.cleanupOnce()
+	}
+}
+
+// cleanupOnce performs a single cleanup cycle — testable directly.
+func (s *ipLimiterStore) cleanupOnce() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for ip, l := range s.limiters {
+		if time.Since(l.lastSeen) > limiterIdleExpiry {
+			delete(s.limiters, ip)
 		}
-		s.mu.Unlock()
 	}
 }
 

@@ -11,6 +11,7 @@
 package iso
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
@@ -354,5 +356,216 @@ func TestDownloadFile_InvalidURL(t *testing.T) {
 	err := downloadFile(t.Context(), "://invalid-url", dest)
 	if err == nil {
 		t.Fatal("expected error for invalid URL, got nil")
+	}
+}
+
+func TestDownloadFile_HTTPDoError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that connects to an invalid address")
+	}
+
+	// Use a short timeout so the test doesn't hang for 30s waiting on the dial timeout.
+	ctx, cancel := context.WithTimeout(t.Context(), 200*time.Millisecond)
+	defer cancel()
+
+	dest := filepath.Join(t.TempDir(), "out")
+	err := downloadFile(ctx, "http://127.0.0.1:1/download", dest)
+	if err == nil {
+		t.Error("expected error for connection refused or timeout, got nil")
+	}
+}
+
+func TestDownloadFile_CreateError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("content"))
+	}))
+	defer ts.Close()
+
+	tmpDir := t.TempDir()
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	if err := os.Mkdir(readOnlyDir, 0555); err != nil {
+		t.Fatalf("failed to create read-only dir: %v", err)
+	}
+
+	// dest inside read-only directory — os.Create on tmpFile (dest+".tmp") will fail.
+	dest := filepath.Join(readOnlyDir, "output")
+	err := downloadFile(t.Context(), ts.URL, dest)
+	if err == nil {
+		t.Error("expected error for read-only directory, got nil")
+	}
+}
+
+func TestDownloadFile_CopyError(t *testing.T) {
+	// Create a server that writes partial content then hijacks and closes the connection.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			return
+		}
+		_, _ = w.Write([]byte("partial"))
+		flusher.Flush()
+
+		hijacker, ok := w.(http.Hijacker)
+		if !ok {
+			return
+		}
+		conn, _, _ := hijacker.Hijack()
+		_ = conn.Close()
+	}))
+	defer ts.Close()
+
+	dest := filepath.Join(t.TempDir(), "output")
+	err := downloadFile(t.Context(), ts.URL, dest)
+	if err == nil {
+		t.Error("expected error for incomplete response / connection reset, got nil")
+	}
+}
+
+func TestEnsureLinuxKit_DownloadErrorWithCancelledContext(t *testing.T) {
+	// Use a cancelled context so downloadFile returns immediately without network access.
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", oldHome)
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", "")
+	defer os.Setenv("PATH", oldPath)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel() // context already cancelled — downloadFile fails immediately
+
+	_, err := EnsureLinuxKit(ctx)
+	if err == nil {
+		t.Fatal("expected download error with cancelled context, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to download linuxkit") {
+		t.Fatalf("expected 'failed to download linuxkit' error, got: %v", err)
+	}
+}
+
+func TestEnsureLinuxKit_MkdirAllError(t *testing.T) {
+	// Create a file at the cache directory path so MkdirAll fails with ENOTDIR.
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", oldHome)
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", "")
+	defer os.Setenv("PATH", oldPath)
+
+	// Create parent directory for cache
+	cacheParent := filepath.Join(tmpDir, ".cache", "kdeps")
+	if err := os.MkdirAll(cacheParent, 0750); err != nil {
+		t.Fatalf("failed to create cache parent: %v", err)
+	}
+
+	// Place a FILE where cacheDir (a subdirectory of cacheParent) would be created.
+	// linuxkitCacheDir returns filepath.Join(home, ".cache", "kdeps", "linuxkit"),
+	// so creating a file at that path tricks MkdirAll into failing.
+	cacheDirPath := filepath.Join(cacheParent, "linuxkit")
+	if err := os.WriteFile(cacheDirPath, []byte("not-a-directory"), 0644); err != nil {
+		t.Fatalf("failed to create file at cacheDir path: %v", err)
+	}
+
+	_, err := EnsureLinuxKit(t.Context())
+	if err == nil {
+		t.Fatal("expected error from MkdirAll failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to create cache directory") {
+		t.Fatalf("expected 'failed to create cache directory' error, got: %v", err)
+	}
+}
+
+func TestEnsureLinuxKit_DownloadError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that may attempt network access")
+	}
+
+	// Ensure linuxkit is not on PATH, and no cached binary exists.
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", oldHome)
+
+	oldPath := os.Getenv("PATH")
+	os.Setenv("PATH", "")
+	defer os.Setenv("PATH", oldPath)
+
+	// Use a short timeout so the test doesn't hang if GitHub is unreachable.
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	path, err := EnsureLinuxKit(ctx)
+	if err != nil {
+		// Expected: download fails because GitHub is unreachable or context times out.
+		if !strings.Contains(err.Error(), "failed to download linuxkit") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	} else {
+		// Rare case: network available and download succeeded.
+		if path == "" {
+			t.Error("expected non-empty path on success")
+		}
+	}
+}
+
+func TestAssembleRawBIOS_MkdirTempError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires filesystem permission manipulation")
+	}
+
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", oldHome)
+
+	// Create the cache directory chain with write permission, then make the
+	// leaf directory read-only so os.MkdirTemp inside it fails with EACCES.
+	cacheDir := filepath.Join(tmpDir, ".cache", "kdeps")
+	if err := os.MkdirAll(cacheDir, 0750); err != nil {
+		t.Fatalf("failed to create cache dir: %v", err)
+	}
+	if err := os.Chmod(cacheDir, 0555); err != nil {
+		t.Fatalf("failed to chmod cache dir to 0555: %v", err)
+	}
+
+	err := assembleRawBIOS(t.Context(), "/fake/kernel", "/fake/initrd", "/fake/cmdline", "/fake/output", "", "")
+	if err == nil {
+		t.Error("expected error from MkdirTemp failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to create work directory") {
+		t.Fatalf("expected 'failed to create work directory' error, got: %v", err)
+	}
+}
+
+func TestAssembleRawBIOS_MkdirAllError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires filesystem manipulation")
+	}
+
+	tmpDir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", oldHome)
+
+	cacheParent := filepath.Join(tmpDir, ".cache")
+	if err := os.MkdirAll(cacheParent, 0750); err != nil {
+		t.Fatalf("failed to create cache parent: %v", err)
+	}
+	cachePath := filepath.Join(cacheParent, "kdeps")
+	if err := os.WriteFile(cachePath, []byte("block"), 0644); err != nil {
+		t.Fatalf("failed to create blocking file: %v", err)
+	}
+
+	err := assembleRawBIOS(t.Context(), "/fake/kernel", "/fake/initrd", "/fake/cmdline", "/fake/output", "", "")
+	if err == nil {
+		t.Error("expected error from MkdirAll failure, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to create cache directory") {
+		t.Fatalf("expected 'failed to create cache directory' error, got: %v", err)
 	}
 }

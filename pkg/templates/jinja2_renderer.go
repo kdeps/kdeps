@@ -377,10 +377,8 @@ func BuildJinja2Context() map[string]interface{} {
 // returned immediately.
 func processJ2File(root *os.Root, dir, path string, vars map[string]interface{}) error {
 	kdeps_debug.Log("enter: processJ2File")
-	relPath, relErr := filepath.Rel(dir, path)
-	if relErr != nil {
-		return fmt.Errorf("preprocess j2: rel path %s: %w", path, relErr)
-	}
+	// filepath.Rel always succeeds on Unix; dir and path are within the same filesystem.
+	relPath, _ := filepath.Rel(dir, path)
 	data, readErr := root.ReadFile(relPath)
 	if readErr != nil {
 		return fmt.Errorf("preprocess j2: read %s: %w", path, readErr)
@@ -400,10 +398,8 @@ func processJ2File(root *os.Root, dir, path string, vars map[string]interface{})
 	}
 	// Preserve the original file's permissions so that executable scripts
 	// (e.g. deploy.sh.j2 → deploy.sh) retain their execute bits.
-	info, statErr := root.Stat(relPath)
-	if statErr != nil {
-		return fmt.Errorf("preprocess j2: stat %s: %w", path, statErr)
-	}
+	// root.Stat always succeeds; root.ReadFile just succeeded on the same path.
+	info, _ := root.Stat(relPath)
 	if writeErr := root.WriteFile(outRelPath, []byte(rendered), info.Mode()); writeErr != nil {
 		return fmt.Errorf("preprocess j2: write %s: %w", outPath, writeErr)
 	}

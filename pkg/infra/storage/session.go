@@ -38,13 +38,20 @@ import (
 
 const sqliteMemoryDSN = ":memory:"
 
+// defaultCleanupInterval is the default ticker interval for expired session cleanup.
+//
+//nolint:gochecknoglobals // overridden in tests for fast cleanup
+var defaultCleanupInterval = 5 * time.Minute
+
 // SessionStorage provides per-session key-value storage using SQLite.
 type SessionStorage struct {
-	DB         *sql.DB
-	mu         sync.RWMutex
-	path       string
-	SessionID  string
-	DefaultTTL time.Duration // Default TTL for sessions (0 = no expiration)
+	DB              *sql.DB
+	mu              sync.RWMutex
+	path            string
+	SessionID       string
+	DefaultTTL      time.Duration // Default TTL for sessions (0 = no expiration)
+	cleanupInterval time.Duration // cleanup ticker interval (5 min default)
+	ctx             context.Context
 }
 
 // NewSessionStorage creates a new session storage.
@@ -82,16 +89,18 @@ func NewSessionStorageWithTTL(
 	if dbPath != sqliteMemoryDSN {
 		dsn = dbPath + "?_journal_mode=WAL"
 	}
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sqlOpen("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	storage := &SessionStorage{
-		DB:         db,
-		path:       dbPath,
-		SessionID:  sessionID,
-		DefaultTTL: defaultTTL,
+		DB:              db,
+		path:            dbPath,
+		SessionID:       sessionID,
+		DefaultTTL:      defaultTTL,
+		cleanupInterval: defaultCleanupInterval,
+		ctx:             context.Background(),
 	}
 
 	// Initialize schema
@@ -175,10 +184,11 @@ func (s *SessionStorage) initSchema() error {
 // cleanup removes expired sessions.
 func (s *SessionStorage) cleanup() {
 	kdeps_debug.Log("enter: cleanup")
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(s.cleanupInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
+		s.mu.Lock()
 		now := time.Now().UnixMilli()
 		// Delete sessions that have expired (expires_at < now) or are NULL and older than 24h
 		_, _ = s.DB.ExecContext(
@@ -189,6 +199,7 @@ func (s *SessionStorage) cleanup() {
 			now,
 			time.Now().Add(-24*time.Hour).UnixMilli(),
 		)
+		s.mu.Unlock()
 	}
 }
 
@@ -377,7 +388,7 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 
 	now := time.Now().UnixMilli()
 	rows, err := s.DB.QueryContext(
-		context.Background(),
+		s.ctx,
 		`SELECT key, value FROM sessions
 		 WHERE session_id = ?
 		   AND (expires_at IS NULL OR expires_at > ?)`,
