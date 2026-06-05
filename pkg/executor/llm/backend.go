@@ -158,7 +158,7 @@ func (b *OllamaBackend) Name() string {
 // DefaultURL returns the default URL for this backend.
 func (b *OllamaBackend) DefaultURL() string {
 	kdeps_debug.Log("enter: DefaultURL")
-	return "http://localhost:11434"
+	return defaultOllamaURL
 }
 
 // ChatEndpoint returns the API endpoint for chat requests.
@@ -684,7 +684,7 @@ func (b *CohereBackend) buildCohereMessages(
 		content := b.extractContent(contentRaw)
 
 		switch role {
-		case "user":
+		case roleUser:
 			chatHistory, userMessage, lastUserMessage, userMessageCount = b.handleUserMessage(
 				chatHistory, userMessage, lastUserMessage, content, userMessageCount,
 			)
