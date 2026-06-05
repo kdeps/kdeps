@@ -34,6 +34,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+// jsonMarshal is json.Marshal, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
 
 const ()
 
@@ -120,7 +124,7 @@ func (e *Executor) index(db *sql.DB, collection, text string) (interface{}, erro
 		"text":       text,
 		"success":    true,
 	}
-	jsonBytes, _ := json.Marshal(result)
+	jsonBytes, _ := jsonMarshal(result)
 	result["json"] = string(jsonBytes)
 	return result, nil
 }
@@ -140,7 +144,7 @@ func (e *Executor) upsert(db *sql.DB, collection, text string) (interface{}, err
 		"text":       text,
 		"success":    true,
 	}
-	jsonBytes, _ := json.Marshal(result)
+	jsonBytes, _ := jsonMarshal(result)
 	result["json"] = string(jsonBytes)
 	return result, nil
 }
@@ -181,7 +185,7 @@ func (e *Executor) search(db *sql.DB, collection, query string, limit int) (inte
 		"results":    matches,
 		"count":      len(matches),
 	}
-	jsonBytes, _ := json.Marshal(result)
+	jsonBytes, _ := jsonMarshal(result)
 	result["json"] = string(jsonBytes)
 	return result, nil
 }
@@ -207,7 +211,7 @@ func (e *Executor) delete(db *sql.DB, collection, text string) (interface{}, err
 		"affected":   affected,
 		"success":    true,
 	}
-	jsonBytes, _ := json.Marshal(result)
+	jsonBytes, _ := jsonMarshal(result)
 	result["json"] = string(jsonBytes)
 	return result, nil
 }
