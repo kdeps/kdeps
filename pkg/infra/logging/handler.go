@@ -34,6 +34,9 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshalIndent = json.MarshalIndent
+
 const (
 	// ANSI color codes.
 	colorReset   = "\033[0m"
@@ -308,7 +311,7 @@ func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent st
 		h.formatSlice(buf, val, indent)
 	default:
 		// Try JSON marshaling for complex types
-		if jsonBytes, err := json.MarshalIndent(val, indent, "  "); err == nil {
+		if jsonBytes, err := jsonMarshalIndent(val, indent, "  "); err == nil {
 			buf.Write(jsonBytes)
 		} else {
 			buf.WriteString(h.colorize(colorGray, fmt.Sprintf("%v", val)))
