@@ -35,6 +35,23 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var yamlMarshal = yaml.Marshal
+
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshalIndent = json.MarshalIndent
+
+//nolint:gochecknoglobals // test-replaceable
+var jsonNewEncoder = json.NewEncoder
+
+//nolint:gochecknoglobals // test-replaceable
+var xmlNewEncoder = xml.NewEncoder
+
+//nolint:gochecknoglobals // test-replaceable
+var htmlRender = html.Render
+
 // Format represents a supported data format.
 type Format string
 
@@ -189,7 +206,7 @@ func formatJSON(input string) Result {
 		return Result{Valid: false, Error: err.Error()}
 	}
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
+	enc := jsonNewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(&v); err != nil {
 		return Result{Error: err.Error()}
@@ -202,7 +219,7 @@ func formatYAML(input string) Result {
 	if err := yaml.Unmarshal([]byte(input), &v); err != nil {
 		return Result{Valid: false, Error: err.Error()}
 	}
-	out, err := yaml.Marshal(&v)
+	out, err := yamlMarshal(&v)
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -212,7 +229,7 @@ func formatYAML(input string) Result {
 func formatXML(input string) Result {
 	decoder := xml.NewDecoder(strings.NewReader(input))
 	var buf bytes.Buffer
-	enc := xml.NewEncoder(&buf)
+	enc := xmlNewEncoder(&buf)
 	enc.Indent("", "  ")
 	for {
 		tok, err := decoder.Token()
@@ -239,7 +256,7 @@ func yamlToJSON(input string) Result {
 	}
 	// Normalize map keys from interface{} to string for JSON
 	v = normalizeForJSON(v)
-	out, err := json.MarshalIndent(v, "", "  ")
+	out, err := jsonMarshalIndent(v, "", "  ")
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -251,7 +268,7 @@ func jsonToYAML(input string) Result {
 	if err := json.Unmarshal([]byte(input), &v); err != nil {
 		return Result{Valid: false, Error: err.Error()}
 	}
-	out, err := yaml.Marshal(&v)
+	out, err := yamlMarshal(&v)
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -278,7 +295,7 @@ func csvToJSON(input string) Result {
 		}
 		result = append(result, entry)
 	}
-	out, err := json.MarshalIndent(result, "", "  ")
+	out, err := jsonMarshalIndent(result, "", "  ")
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -353,7 +370,7 @@ func xmlToJSON(input string) Result {
 			result = append(result, entry)
 		}
 	}
-	out, err := json.MarshalIndent(result, "", "  ")
+	out, err := jsonMarshalIndent(result, "", "  ")
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -430,7 +447,7 @@ func tomlToJSON(input string) Result {
 			current[key] = val
 		}
 	}
-	out, err := json.MarshalIndent(result, "", "  ")
+	out, err := jsonMarshalIndent(result, "", "  ")
 	if err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -504,7 +521,7 @@ func formatHTML(input string) Result {
 		return Result{Valid: false, Error: err.Error()}
 	}
 	var buf bytes.Buffer
-	if renderErr := html.Render(&buf, doc); renderErr != nil {
+	if renderErr := htmlRender(&buf, doc); renderErr != nil {
 		return Result{Error: renderErr.Error()}
 	}
 	return Result{Valid: true, Output: buf.String()}
