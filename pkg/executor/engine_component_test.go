@@ -21,6 +21,7 @@ package executor_test
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -391,4 +392,89 @@ func TestExecuteComponentCall_VersionNotPinned(t *testing.T) {
 	eng := executor.NewEngine(slog.Default())
 	_, err := eng.Execute(wf, nil)
 	require.NoError(t, err)
+}
+
+// TestExecuteComponentCall_VersionPinnedNoComponentVersion covers the branch where a
+// caller pins a version but the loaded component has no Version metadata (warn-only).
+func TestExecuteComponentCall_VersionPinnedNoComponentVersion(t *testing.T) {
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "mycomp"}, // Version is empty
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{},
+	}
+	callerRes := &domain.Resource{
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name:    "mycomp",
+			Version: "1.0.0", // pinned but component has no version
+		},
+	}
+	wf := makeComponentTestWorkflow("mycomp", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	_, err := eng.Execute(wf, nil)
+	require.NoError(t, err)
+}
+
+// TestExecuteComponentCall_DotEnvMissingAndResourceFailure covers the dot env errNoDotEnv
+// path and the component resource execution failure path.
+func TestExecuteComponentCall_DotEnvMissingAndResourceFailure(t *testing.T) {
+	compDir := t.TempDir()
+	// No .env file in compDir so loadComponentDotEnv returns errNoDotEnv.
+
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "missingfail"},
+		Dir:       compDir,
+		Interface: &domain.ComponentInterface{},
+		Resources: []*domain.Resource{
+			{
+				APIVersion: "kdeps.io/v1",
+				Kind:       "Resource",
+				ActionID:   "fail-action",
+				Exec:       &domain.ExecConfig{Command: "exit 1"},
+			},
+		},
+	}
+	callerRes := &domain.Resource{
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "missingfail",
+			With: map[string]interface{}{},
+		},
+	}
+	wf := makeComponentTestWorkflow("missingfail", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	exec := executorExec.NewAdapter()
+	eng.GetRegistryForTesting().SetExecExecutor(exec)
+	_, err := eng.Execute(wf, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missingfail")
+	assert.Contains(t, err.Error(), "fail-action")
+}
+
+// TestExecuteComponentCall_DotEnvSuccessAndSetupFailure covers the dot env success path
+// (valid .env file loaded) and the component setup failure path (setup command fails).
+func TestExecuteComponentCall_DotEnvSuccessAndSetupFailure(t *testing.T) {
+	compDir := t.TempDir()
+	err := os.WriteFile(filepath.Join(compDir, ".env"), []byte("MY_VAR=hello\n"), 0o644)
+	require.NoError(t, err)
+
+	comp := &domain.Component{
+		Metadata:  domain.ComponentMetadata{Name: "setuperr"},
+		Dir:       compDir,
+		Interface: &domain.ComponentInterface{},
+		Setup:     &domain.ComponentSetup{Commands: []string{"exit 1"}},
+	}
+	callerRes := &domain.Resource{
+		ActionID: "caller",
+		Component: &domain.ComponentCallConfig{
+			Name: "setuperr",
+			With: map[string]interface{}{},
+		},
+	}
+	wf := makeComponentTestWorkflow("setuperr", comp, callerRes)
+	eng := executor.NewEngine(slog.Default())
+	_, err = eng.Execute(wf, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "setuperr")
+	assert.Contains(t, err.Error(), "setup failed")
 }

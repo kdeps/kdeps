@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -355,4 +356,248 @@ func TestClient_ImageSize_Mock_Success(t *testing.T) {
 	size, err := c.ImageSize(ctx, "test-img")
 	require.NoError(t, err)
 	assert.Equal(t, int64(12345), size)
+}
+
+var errMockNotReached = errors.New("mock should not be reached")
+
+func TestBuildImage_Mock_NilContext(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errMockNotReached
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", nil, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reader cannot be nil")
+}
+
+func TestBuildImage_Mock_EmptyImageName(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errMockNotReached
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "", strings.NewReader("FROM alpine"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+func TestBuildImage_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"stream":"built\n"}`)),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", strings.NewReader("FROM alpine"), false)
+	require.NoError(t, err)
+}
+
+func TestBuildImage_Mock_DaemonError(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("connection refused")
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", strings.NewReader("FROM alpine"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to build image")
+}
+
+func TestBuildImage_Mock_BuildError(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"error":"manifest not found"}`)),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", strings.NewReader("FROM alpine"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "docker build failed")
+}
+
+func TestBuildImage_Mock_ErrorDetail(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"errorDetail":{"message":"build context error"}}`)),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", strings.NewReader("FROM alpine"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "build context error")
+}
+
+func TestBuildImage_Mock_NonJSON_Line(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("not json\n{\"stream\":\"ok\\n\"}")),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.BuildImage(t.Context(), "Dockerfile", "test:latest", strings.NewReader("FROM alpine"), false)
+	require.NoError(t, err)
+}
+
+func TestTagImage_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.TagImage(t.Context(), "test:latest", "test:v1")
+	require.NoError(t, err)
+}
+
+func TestTagImage_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("not found")
+	})
+	err := c.TagImage(t.Context(), "test:latest", "test:v1")
+	require.Error(t, err)
+}
+
+func TestSaveImage_Mock_Success(t *testing.T) {
+	destPath := filepath.Join(t.TempDir(), "image.tar")
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("tar-data")),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+	err := c.SaveImage(t.Context(), "test:latest", destPath)
+	require.NoError(t, err)
+}
+
+func TestSaveImage_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("not found")
+	})
+	err := c.SaveImage(t.Context(), "test:latest", filepath.Join(t.TempDir(), "out.tar"))
+	require.Error(t, err)
+}
+
+func TestRemoveImage_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, []map[string]interface{}{
+			{"Deleted": "sha256:abc"},
+		}), nil
+	})
+	err := c.RemoveImage(t.Context(), "test:latest")
+	require.NoError(t, err)
+}
+
+func TestRemoveImage_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("image in use")
+	})
+	err := c.RemoveImage(t.Context(), "test:latest")
+	require.Error(t, err)
+}
+
+func TestImageSize_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, map[string]interface{}{
+			"Size": float64(123456789),
+		}), nil
+	})
+	size, err := c.ImageSize(t.Context(), "test:latest")
+	require.NoError(t, err)
+	assert.Equal(t, int64(123456789), size)
+}
+
+func TestImageSize_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("not found")
+	})
+	_, err := c.ImageSize(t.Context(), "test:latest")
+	require.Error(t, err)
+}
+
+func TestPruneDanglingImages_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusOK, map[string]interface{}{
+			"ImagesDeleted":  []map[string]interface{}{},
+			"SpaceReclaimed": float64(0),
+		}), nil
+	})
+	reclaimed, err := c.PruneDanglingImages(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), reclaimed)
+}
+
+func TestPruneDanglingImages_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("daemon error")
+	})
+	_, err := c.PruneDanglingImages(t.Context())
+	require.Error(t, err)
+}
+
+func TestCopyFromContainer_Mock_Success(t *testing.T) {
+	destDir := t.TempDir()
+
+	// Create a minimal valid tar with one file
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	_ = tw.WriteHeader(&tar.Header{Name: "data.txt", Size: 5, Mode: 0644})
+	_, _ = tw.Write([]byte("hello"))
+	_ = tw.Close()
+
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		h := make(http.Header)
+		h.Set("Content-Type", "application/x-tar")
+		h.Set("X-Docker-Container-Path-Stat", pathStatHeader("data.txt", 5))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(&buf),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header:     h,
+		}, nil
+	})
+	err := c.CopyFromContainer(t.Context(), "c1", "/app", filepath.Join(destDir, "output.tar"))
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(destDir, "output.tar"))
+}
+
+func TestCopyFromContainer_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("container gone")
+	})
+	err := c.CopyFromContainer(t.Context(), "bad-container", "/app", filepath.Join(t.TempDir(), "out.tar"))
+	require.Error(t, err)
+}
+
+func TestCreateContainerNoStart_Mock_Success(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return jsonResponse(http.StatusCreated, map[string]interface{}{
+			"Id": "new-cid",
+		}), nil
+	})
+	cid, err := c.CreateContainerNoStart(t.Context(), "img")
+	require.NoError(t, err)
+	assert.Equal(t, "new-cid", cid)
+}
+
+func TestCreateContainerNoStart_Mock_Error(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("no image")
+	})
+	_, err := c.CreateContainerNoStart(t.Context(), "img")
+	require.Error(t, err)
 }
