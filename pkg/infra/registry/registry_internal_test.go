@@ -25,7 +25,7 @@ func TestPublish_MarshalError(t *testing.T) {
 	archivePath := filepath.Join(tmpDir, "test.kdeps")
 	require.NoError(t, os.WriteFile(archivePath, []byte("fake archive"), 0644))
 
-	client := NewClient("http://localhost:9999")
+	client := NewClient("", "http://localhost:9999")
 	_, err := client.Publish(context.Background(), archivePath, &domain.KdepsPkg{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to marshal manifest")

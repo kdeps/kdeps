@@ -20,7 +20,7 @@ func TestExecute_DBOpenError(t *testing.T) {
 	}
 	_, err := e.Execute(nil, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to open database")
+	assert.Contains(t, err.Error(), "failed to ensure schema")
 }
 
 func TestExecute_UnknownOperation(t *testing.T) {
