@@ -39,6 +39,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var httpClientFactory = func(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
+
 // jsonMarshal is json.Marshal, overridable for testing.
 //
 //nolint:gochecknoglobals // test-replaceable
@@ -115,7 +120,7 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	client := httpClientFactory(time.Duration(timeout) * time.Second)
 
 	var results []map[string]interface{}
 
