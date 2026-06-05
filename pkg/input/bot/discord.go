@@ -34,6 +34,11 @@ import (
 
 const discordPlatform = "discord"
 
+// discordNewSession is discordgo.New, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var discordNewSession = discordgo.New
+
 type discordRunner struct {
 	botToken string
 	guildID  string
@@ -62,7 +67,7 @@ func newDiscordRunner(
 // It blocks until ctx is cancelled.
 func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
-	s, err := discordgo.New("Bot " + r.botToken)
+	s, err := discordNewSession("Bot " + r.botToken)
 	if err != nil {
 		return fmt.Errorf("discord: create session: %w", err)
 	}

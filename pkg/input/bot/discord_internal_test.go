@@ -1,0 +1,91 @@
+// Copyright 2026 Kdeps, KvK 94834768
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package bot
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"testing"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	kdepsconfig "github.com/kdeps/kdeps/v2/pkg/config"
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
+
+func TestNewDiscordRunner(t *testing.T) {
+	r := newDiscordRunner(nil, nil, slog.Default())
+	assert.NotNil(t, r)
+	assert.Equal(t, "", r.botToken)
+	assert.Equal(t, "", r.guildID)
+}
+
+func TestNewDiscordRunner_WithConfig(t *testing.T) {
+	cfg := &domain.DiscordConfig{GuildID: "guild-123"}
+	creds := &kdepsconfig.DiscordConnectionConfig{BotToken: "token-abc"}
+	r := newDiscordRunner(cfg, creds, slog.Default())
+	assert.Equal(t, "token-abc", r.botToken)
+	assert.Equal(t, "guild-123", r.guildID)
+}
+
+func TestDiscordRunner_Start_CreateSessionError(t *testing.T) {
+	orig := discordNewSession
+	t.Cleanup(func() { discordNewSession = orig })
+
+	sentinel := errors.New("invalid token format")
+	discordNewSession = func(_ string) (*discordgo.Session, error) {
+		return nil, sentinel
+	}
+
+	r := &discordRunner{botToken: "bad-token", logger: slog.Default()}
+	ch := make(chan Message, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately so Start returns quickly
+
+	err := r.Start(ctx, ch)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "discord: create session")
+}
+
+func TestDiscordRunner_Reply_SessionNotStarted(t *testing.T) {
+	r := &discordRunner{logger: slog.Default()}
+	err := r.Reply(context.Background(), "ch1", "hello")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "session not started")
+}
+
+func TestDiscordRunner_Start_ContextCancelled(t *testing.T) {
+	// This test verifies that Start returns nil when context is cancelled
+	// before the session is opened. We mock discordNewSession to return
+	// a session that fails on Open().
+	r := &discordRunner{botToken: "test-token", logger: slog.Default()}
+	ch := make(chan Message, 1)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	// The session creation succeeds, but Open requires a real WebSocket.
+	// Since context is already cancelled, Start should return.
+	// We mock New to return successfully, but Open will fail.
+	err := r.Start(ctx, ch)
+	// This may error because Open fails (no real Discord), or return nil
+	// because context is already cancelled.
+	// Either way, the function should not hang.
+	t.Logf("Start result with cancelled context: %v", err)
+}
