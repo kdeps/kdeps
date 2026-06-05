@@ -36,6 +36,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+// jsonMarshal is json.Marshal, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
 
 // Executor executes web scraper resources.
 type Executor struct{}
@@ -107,7 +111,7 @@ func (e *Executor) Execute(
 		"status":  statusCode,
 	}
 
-	jsonBytes, marshalErr := json.Marshal(result)
+	jsonBytes, marshalErr := jsonMarshal(result)
 	if marshalErr != nil {
 		return nil, fmt.Errorf("scraper: failed to marshal result: %w", marshalErr)
 	}

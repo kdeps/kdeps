@@ -39,6 +39,10 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+// jsonMarshal is json.Marshal, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
 
 // testMultipartBodyWriter, if non-nil, replaces the bytes.Buffer used as the
 // underlying writer for multipart form construction in Publish. Used in tests
@@ -189,7 +193,7 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	}
 	defer f.Close()
 
-	manifestJSON, err := json.Marshal(manifest)
+	manifestJSON, err := jsonMarshal(manifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
 	}

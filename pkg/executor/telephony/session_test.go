@@ -15,7 +15,10 @@
 package telephony_test
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/telephony"
 )
@@ -218,4 +221,16 @@ func TestSessionToEnvMap(t *testing.T) {
 	} else if matchFn() {
 		t.Error("match should be false initially")
 	}
+}
+
+func TestSessionTwiML_MarshalError(t *testing.T) {
+	orig := telephony.XMLMarshalIndent
+	t.Cleanup(func() { telephony.XMLMarshalIndent = orig })
+	telephony.XMLMarshalIndent = func(_ any, _ string, _ string) ([]byte, error) {
+		return nil, errors.New("injected marshal error")
+	}
+	s := telephony.NewSession()
+	s.Response.AddSay("hello", "")
+	twiml := s.TwiML()
+	assert.Equal(t, "", twiml)
 }

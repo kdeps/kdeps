@@ -38,6 +38,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
+// jsonMarshal is json.Marshal, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
 
 const (
 	defaultMaxResults    = 5
@@ -157,7 +161,7 @@ func (e *Executor) Execute(
 		"provider": provider,
 	}
 
-	jsonBytes, marshalErr := json.Marshal(result)
+	jsonBytes, marshalErr := jsonMarshal(result)
 	if marshalErr != nil {
 		return nil, fmt.Errorf("searchWeb: failed to marshal result: %w", marshalErr)
 	}
