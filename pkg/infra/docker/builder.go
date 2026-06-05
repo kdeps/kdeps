@@ -71,6 +71,24 @@ var entrypointTemplate string
 //go:embed templates/supervisord.conf.tmpl
 var supervisordTemplate string
 
+// ReadContextFile is overridable in tests to inject read failures for the
+// build context file reading operations. Defaults to os.ReadFile.
+
+//nolint:gochecknoglobals // test-replaceable global
+var ReadContextFile = os.ReadFile
+
+// Test hooks — these are set only in tests to exercise error paths in
+// CreateBuildContext and its callees. Each hook, when non-nil, is called
+// at the corresponding operation; returning an error simulates a failure.
+
+//nolint:gochecknoglobals // test hooks
+var (
+	AddFileToTarHook        func(name string) error
+	GenerateEntrypointHook  func() error
+	GenerateSupervisordHook func() error
+	CloseTarWriterHook      func() error
+)
+
 // Compiler handles cross-compilation operations for testing.
 type Compiler interface {
 	CreateTempDir() (string, error)
@@ -548,7 +566,11 @@ func (b *Builder) CreateBuildContext(
 		}
 	}
 
-	if closeErr := tw.Close(); closeErr != nil {
+	closeErr := tw.Close()
+	if CloseTarWriterHook != nil {
+		closeErr = CloseTarWriterHook()
+	}
+	if closeErr != nil {
 		return nil, fmt.Errorf("failed to close tar writer: %w", closeErr)
 	}
 
@@ -562,7 +584,7 @@ func (b *Builder) addPrepackagedBinariesToContext(tw *tar.Writer) error {
 	kdeps_debug.Log("enter: addPrepackagedBinariesToContext")
 	for arch, binPath := range b.PrepackagedBinaries {
 		entryName := fmt.Sprintf("kdeps-linux-%s", arch)
-		content, readErr := os.ReadFile(binPath)
+		content, readErr := ReadContextFile(binPath)
 		if readErr != nil {
 			return fmt.Errorf("failed to read prepackaged binary for %s: %w", arch, readErr)
 		}
@@ -589,6 +611,11 @@ func (b *Builder) addWorkflowFilesToContext(tw *tar.Writer) error {
 // addFileToTar adds a file to tar archive.
 func (b *Builder) addFileToTar(tw *tar.Writer, name string, content []byte) error {
 	kdeps_debug.Log("enter: addFileToTar")
+	if AddFileToTarHook != nil {
+		if err := AddFileToTarHook(name); err != nil {
+			return err
+		}
+	}
 	header := &tar.Header{
 		Name: name,
 		Size: int64(len(content)),
@@ -606,7 +633,7 @@ func (b *Builder) addFileToTar(tw *tar.Writer, name string, content []byte) erro
 // addFileFromPath adds a file from filesystem to tar archive.
 func (b *Builder) addFileFromPath(tw *tar.Writer, path string) error {
 	kdeps_debug.Log("enter: addFileFromPath")
-	content, err := os.ReadFile(path)
+	content, err := ReadContextFile(path)
 	if err != nil {
 		return err
 	}

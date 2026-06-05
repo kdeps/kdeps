@@ -2150,3 +2150,89 @@ func TestBuilder_buildTemplateData_resourcesDataDir(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
 }
+
+// ---------------------------------------------------------------------------
+// CreateBuildContext branch coverage tests
+// ---------------------------------------------------------------------------
+
+// TestBuilder_CreateBuildContext_PrepackagedBinariesSet exercises the
+// "len(b.PrepackagedBinaries) > 0" branch of CreateBuildContext.
+func TestBuilder_CreateBuildContext_PrepackagedBinariesSet(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	binPath := filepath.Join(tmpDir, "kdeps-amd64")
+	require.NoError(t, os.WriteFile(binPath, []byte("FAKE"), 0755))
+
+	builder := &docker.Builder{
+		BaseOS: "alpine",
+		PrepackagedBinaries: map[string]string{
+			"amd64": binPath,
+		},
+	}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	contextReader, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(contextReader)
+	require.NoError(t, err)
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	var entries []string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		entries = append(entries, hdr.Name)
+	}
+
+	assert.Contains(t, entries, "kdeps-linux-amd64")
+	// Workflow files must NOT appear when prepackaged binaries are used.
+	for _, e := range entries {
+		assert.False(t, strings.HasPrefix(e, "workflow.yaml"),
+			"workflow.yaml must not be in context when prepackaged binaries are set")
+	}
+}
+
+// TestBuilder_CreateBuildContext_EmptyPrepackagedBinaries exercises the else
+// branch (len == 0) that falls through to addWorkflowFilesToContext.
+func TestBuilder_CreateBuildContext_EmptyPrepackagedBinaries(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("name: test"),
+		0644,
+	))
+
+	// No PrepackagedBinaries set -- nil map, len == 0.
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	contextReader, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(contextReader)
+	require.NoError(t, err)
+
+	tr := tar.NewReader(bytes.NewReader(data))
+	var entries []string
+	for {
+		hdr, nextErr := tr.Next()
+		if nextErr != nil {
+			break
+		}
+		entries = append(entries, hdr.Name)
+	}
+
+	assert.Contains(t, entries, "workflow.yaml")
+}

@@ -27,6 +27,9 @@ import (
 	"os/exec"
 )
 
+//nolint:gochecknoglobals // overridable in tests
+var osExecutable = os.Executable
+
 // Executor runs kdeps subcommands in the session directory.
 type Executor struct {
 	// KDepsBin is the path to the kdeps binary. Defaults to os.Executable().
@@ -37,7 +40,7 @@ type Executor struct {
 
 // NewExecutor creates an executor that writes output to the given writers.
 func NewExecutor(stdout, stderr io.Writer) *Executor {
-	bin, _ := os.Executable()
+	bin, _ := osExecutable()
 	if bin == "" {
 		bin = "kdeps"
 	}

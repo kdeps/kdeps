@@ -116,3 +116,120 @@ func TestCopyEmbeddedFile_ReadError(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, fs.ErrNotExist))
 }
+
+func TestRenderBootstrap_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &BundleConfig{
+		WorkflowYAML: "apiVersion: kdeps.io/v1\nkind: Workflow",
+		APIRoutes:    []string{},
+	}
+
+	err := renderBootstrap(config, tmpDir)
+	require.NoError(t, err)
+
+	outputPath := filepath.Join(tmpDir, "kdeps-bootstrap.js")
+	assert.FileExists(t, outputPath)
+
+	content, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "apiVersion: kdeps.io/v1")
+	assert.Contains(t, contentStr, "__kdepsAPIRoutes = []")
+	assert.Contains(t, contentStr, "kdeps.wasm")
+	assert.Contains(t, contentStr, "new Go()")
+}
+
+func TestRenderBootstrap_WithSpecialCharacters(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &BundleConfig{
+		WorkflowYAML: "name: `test`\nvalue: ${VAR}\n",
+		APIRoutes:    []string{},
+	}
+
+	err := renderBootstrap(config, tmpDir)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"))
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "\\`")       // backtick escaped
+	assert.Contains(t, contentStr, "\\${")      // template literal escaped
+	assert.NotContains(t, contentStr, "`test`") // raw backticks must not appear
+}
+
+func TestRenderBootstrap_WithAPIRoutes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &BundleConfig{
+		WorkflowYAML: "workflow: test",
+		APIRoutes:    []string{"/api/v1/users", "/api/v1/products"},
+	}
+
+	err := renderBootstrap(config, tmpDir)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"))
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "/api/v1/users")
+	assert.Contains(t, contentStr, "/api/v1/products")
+	// Routes JSON should appear in the APIRoutes assignment
+	assert.Contains(t, contentStr, `__kdepsAPIRoutes = ["/api/v1/users","/api/v1/products"]`)
+}
+
+func TestRenderBootstrap_NilAPIRoutes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &BundleConfig{
+		WorkflowYAML: "workflow: test",
+		APIRoutes:    nil,
+	}
+
+	err := renderBootstrap(config, tmpDir)
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "kdeps-bootstrap.js"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "__kdepsAPIRoutes = []")
+}
+
+func TestGenerateDefaultIndex_Success(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	err := generateDefaultIndex(tmpDir)
+	require.NoError(t, err)
+
+	indexPath := filepath.Join(tmpDir, "index.html")
+	assert.FileExists(t, indexPath)
+
+	content, err := os.ReadFile(indexPath)
+	require.NoError(t, err)
+	contentStr := string(content)
+
+	assert.Contains(t, contentStr, "<!DOCTYPE html>")
+	assert.Contains(t, contentStr, "KDeps App")
+	assert.Contains(t, contentStr, "wasm_exec.js")
+	assert.Contains(t, contentStr, "kdeps-bootstrap.js")
+	assert.Contains(t, contentStr, "<title>KDeps App</title>")
+}
+
+func TestGenerateDefaultIndex_DistDirNotExist(t *testing.T) {
+	err := generateDefaultIndex("/nonexistent/path/for/index")
+	require.Error(t, err)
+}
+
+func TestGenerateDefaultIndex_MkdirAllError(t *testing.T) {
+	// DistDir exists but index.html is blocked by a directory.
+	// This requires the parent to exist but the file to be unwriteable.
+	tmpDir := t.TempDir()
+	indexPath := filepath.Join(tmpDir, "index.html")
+	require.NoError(t, os.Mkdir(indexPath, 0750))
+
+	err := generateDefaultIndex(tmpDir)
+	require.Error(t, err)
+}

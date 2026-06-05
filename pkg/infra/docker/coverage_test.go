@@ -21,6 +21,7 @@ package docker_test
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -184,4 +185,163 @@ func TestBuilder_CreateBuildContext_MissingWorkflowYAML(t *testing.T) {
 	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow.yaml")
+}
+
+// ---------------------------------------------------------------------------
+// CreateBuildContext error-path injection tests
+// ---------------------------------------------------------------------------
+
+// TestBuilder_CreateBuildContext_GenerateEntrypointError covers the error
+// return when generateEntrypoint fails.
+func TestBuilder_CreateBuildContext_GenerateEntrypointError(t *testing.T) {
+	defer func() { docker.GenerateEntrypointHook = nil }()
+	docker.GenerateEntrypointHook = func() error {
+		return errors.New("injected template error")
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to generate entrypoint")
+}
+
+// TestBuilder_CreateBuildContext_AddFileToTarEntrypointError covers the error
+// return when addFileToTar fails for "entrypoint.sh".
+func TestBuilder_CreateBuildContext_AddFileToTarEntrypointError(t *testing.T) {
+	defer func() { docker.AddFileToTarHook = nil }()
+	docker.AddFileToTarHook = func(name string) error {
+		if name == "entrypoint.sh" {
+			return errors.New("injected tar write error")
+		}
+		return nil
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to add entrypoint.sh")
+}
+
+// TestBuilder_CreateBuildContext_AddFileToTarSupervisordError covers the error
+// return when addFileToTar fails for "supervisord.conf".
+func TestBuilder_CreateBuildContext_AddFileToTarSupervisordError(t *testing.T) {
+	defer func() { docker.AddFileToTarHook = nil }()
+	docker.AddFileToTarHook = func(name string) error {
+		if name == "supervisord.conf" {
+			return errors.New("injected tar write error")
+		}
+		return nil
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to add supervisord.conf")
+}
+
+// TestBuilder_CreateBuildContext_GenerateSupervisordError covers the error
+// return when generateSupervisord fails.
+func TestBuilder_CreateBuildContext_GenerateSupervisordError(t *testing.T) {
+	defer func() { docker.GenerateSupervisordHook = nil }()
+	docker.GenerateSupervisordHook = func() error {
+		return errors.New("injected template error")
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "supervisord config")
+}
+
+// TestBuilder_CreateBuildContext_CloseTarWriterError covers the error return
+// when tw.Close fails.
+func TestBuilder_CreateBuildContext_CloseTarWriterError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte("name: test"),
+		0644,
+	))
+
+	defer func() { docker.CloseTarWriterHook = nil }()
+	docker.CloseTarWriterHook = func() error {
+		return errors.New("injected close error")
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to close tar writer")
+}
+
+// TestBuilder_CreateBuildContext_PrepackagedAddFileError covers the error return
+// when addFileToTar fails inside addPrepackagedBinariesToContext.
+func TestBuilder_CreateBuildContext_PrepackagedAddFileError(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "kdeps-amd64")
+	require.NoError(t, os.WriteFile(binPath, []byte("FAKE"), 0755))
+
+	defer func() { docker.AddFileToTarHook = nil }()
+	docker.AddFileToTarHook = func(name string) error {
+		if name == "kdeps-linux-amd64" {
+			return errors.New("injected tar write error")
+		}
+		return nil
+	}
+
+	builder := &docker.Builder{
+		BaseOS: "alpine",
+		PrepackagedBinaries: map[string]string{
+			"amd64": binPath,
+		},
+	}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "prepackaged binary")
+}
+
+// TestBuilder_CreateBuildContext_AddFileToTarDockerfileError covers the error
+// return when addFileToTar fails for "Dockerfile".
+func TestBuilder_CreateBuildContext_AddFileToTarDockerfileError(t *testing.T) {
+	defer func() { docker.AddFileToTarHook = nil }()
+	docker.AddFileToTarHook = func(name string) error {
+		if name == "Dockerfile" {
+			return errors.New("injected tar write error")
+		}
+		return nil
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+
+	_, err := builder.CreateBuildContext(workflow, "FROM alpine\n")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to add Dockerfile")
 }

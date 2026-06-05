@@ -69,6 +69,11 @@ func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) 
 // generateEntrypoint generates the entrypoint script.
 func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateEntrypoint")
+	if GenerateEntrypointHook != nil {
+		if err := GenerateEntrypointHook(); err != nil {
+			return "", err
+		}
+	}
 	data, err := b.buildTemplateData(workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to build template data: %w", err)
@@ -90,6 +95,11 @@ func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) 
 // generateSupervisord generates the supervisord config.
 func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateSupervisord")
+	if GenerateSupervisordHook != nil {
+		if err := GenerateSupervisordHook(); err != nil {
+			return "", err
+		}
+	}
 	data, err := b.buildTemplateData(workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to build template data: %w", err)

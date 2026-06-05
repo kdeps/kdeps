@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/creack/pty"
@@ -437,4 +438,74 @@ func TestBootstrap_SkipBootstrap(t *testing.T) {
 	require.NoError(t, Bootstrap(os.Stdout))
 	_, err := os.Stat(path)
 	assert.True(t, os.IsNotExist(err))
+}
+
+// --- Bootstrap Path error ---
+
+func TestBootstrap_PathError(t *testing.T) {
+	t.Setenv("KDEPS_SKIP_BOOTSTRAP", "")
+	// Make Path() return an error by emptying HOME so os.UserHomeDir() fails.
+	t.Setenv("KDEPS_CONFIG_PATH", "")
+	t.Setenv("HOME", "")
+
+	// Path() error branch returns nil (non-fatal).
+	err := Bootstrap(os.Stdout)
+	assert.NoError(t, err)
+}
+
+// --- Bootstrap interactive terminal path ---
+
+func TestBootstrap_InteractivePath(t *testing.T) {
+	master, slave, err := pty.Open()
+	if err != nil {
+		t.Skipf("pty not available: %v", err)
+	}
+	defer master.Close()
+	defer slave.Close()
+
+	origStdin := os.Stdin
+	os.Stdin = slave
+	t.Cleanup(func() { os.Stdin = origStdin })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	t.Setenv("KDEPS_CONFIG_PATH", path)
+	t.Setenv("KDEPS_SKIP_BOOTSTRAP", "")
+
+	// Pre-fill PTY: choose ollama (1), accept default host (empty gives default).
+	_, err = master.WriteString("1\n\n")
+	require.NoError(t, err)
+
+	outFile, err := os.CreateTemp(dir, "bootstrap-out-*.txt")
+	require.NoError(t, err)
+	defer outFile.Close()
+
+	require.NoError(t, Bootstrap(outFile))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "ollama_host")
+}
+
+// --- GetDefaults YAML parse error ---
+
+func TestGetDefaults_ParseError(t *testing.T) {
+	origYAML := make([]byte, len(defaultsYAML))
+	copy(origYAML, defaultsYAML)
+
+	defaultsYAML = []byte("invalid: {{")
+	parseDefaultsOnce = sync.Once{}
+	parsedDefaults = nil
+	errDefaultsParse = nil
+
+	t.Cleanup(func() {
+		defaultsYAML = origYAML
+		parseDefaultsOnce = sync.Once{}
+		parsedDefaults = nil
+		errDefaultsParse = nil
+	})
+
+	_, err := GetDefaults()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse embedded defaults.yml")
 }

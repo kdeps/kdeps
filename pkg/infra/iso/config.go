@@ -268,10 +268,13 @@ func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *doma
 	})
 }
 
+//nolint:gochecknoglobals // test-replaceable global
+var yamlMarshal = yaml.Marshal
+
 // MarshalConfig marshals a LinuxKitConfig to YAML.
 func MarshalConfig(config *LinuxKitConfig) ([]byte, error) {
 	kdeps_debug.Log("enter: MarshalConfig")
-	data, err := yaml.Marshal(config)
+	data, err := yamlMarshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal LinuxKit config: %w", err)
 	}

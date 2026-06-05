@@ -18,6 +18,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -260,4 +261,216 @@ func TestInstallComponentPythonPackages_WithRequirements(t *testing.T) {
 		},
 	}
 	_ = e.installComponentPythonPackages([]string{"requests"}, ctx)
+}
+
+// ---------------------------------------------------------------------------
+// scaffoldComponentFilesIfNeeded error path
+// ---------------------------------------------------------------------------
+
+func TestScaffoldComponentFilesIfNeeded_ReadOnlyDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	roDir := filepath.Join(tmpDir, "readonly")
+	require.NoError(t, os.MkdirAll(roDir, 0755))
+	require.NoError(t, os.Chmod(roDir, 0o000))
+	t.Cleanup(func() { _ = os.Chmod(roDir, 0755) })
+
+	e := &Engine{logger: slog.Default()}
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-scaffold-ro"},
+		Dir:      roDir,
+	}
+	// Should log a warning but not panic.
+	e.scaffoldComponentFilesIfNeeded(comp)
+}
+
+// ---------------------------------------------------------------------------
+// installComponentPackages paths
+// ---------------------------------------------------------------------------
+
+func TestInstallComponentPackages_PythonPackages(t *testing.T) {
+	orig := pythonManagerFactory
+	t.Cleanup(func() { pythonManagerFactory = orig })
+	pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {
+		return &pythonpkg.Manager{BaseDir: baseDir}
+	}
+	t.Setenv("HOME", t.TempDir())
+
+	e := &Engine{logger: slog.Default()}
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-comp-py"},
+	}
+	setup := &domain.ComponentSetup{
+		PythonPackages: []string{"some-pkg"},
+	}
+	ctx := &ExecutionContext{
+		Workflow: &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				AgentSettings: domain.AgentSettings{
+					PythonVersion: pythonpkg.IOToolsPythonVersion,
+				},
+			},
+		},
+	}
+	// Errors are logged as warnings, does not panic.
+	e.installComponentPackages(comp, setup, ctx)
+}
+
+func TestInstallComponentPackages_OSPackages(t *testing.T) {
+	tmpDir := t.TempDir()
+	apkBin := filepath.Join(tmpDir, "apk")
+	require.NoError(t, os.WriteFile(apkBin, []byte("#!/bin/sh\n"+
+		"if [ \"$1\" = \"info\" ]; then exit 1; fi\n"+
+		"exit 0\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	e := &Engine{logger: slog.Default()}
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-comp-os"},
+	}
+	setup := &domain.ComponentSetup{
+		OsPackages: []string{"some-os-pkg"},
+	}
+	ctx := &ExecutionContext{
+		Workflow: &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				AgentSettings: domain.AgentSettings{
+					PythonVersion: pythonpkg.IOToolsPythonVersion,
+				},
+			},
+		},
+	}
+	e.installComponentPackages(comp, setup, ctx)
+}
+
+func TestInstallComponentPackages_OSPackagesNoPkgManager(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	e := &Engine{logger: slog.Default()}
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test-comp-os-nopm"},
+	}
+	setup := &domain.ComponentSetup{
+		OsPackages: []string{"some-os-pkg"},
+	}
+	ctx := &ExecutionContext{
+		Workflow: &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				AgentSettings: domain.AgentSettings{
+					PythonVersion: pythonpkg.IOToolsPythonVersion,
+				},
+			},
+		},
+	}
+	e.installComponentPackages(comp, setup, ctx)
+}
+
+// ---------------------------------------------------------------------------
+// installOSPackages success paths
+// ---------------------------------------------------------------------------
+
+func TestInstallOSPackages_AllInstalled(t *testing.T) {
+	tmpDir := t.TempDir()
+	apkBin := filepath.Join(tmpDir, "apk")
+	// apk info -e exits 0 => package is already installed.
+	require.NoError(t, os.WriteFile(apkBin, []byte("#!/bin/sh\n"+
+		"if [ \"$1\" = \"info\" ] && [ \"$2\" = \"-e\" ]; then exit 0; fi\n"+
+		"exit 1\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+}
+
+func TestInstallOSPackages_WithAPK(t *testing.T) {
+	tmpDir := t.TempDir()
+	apkBin := filepath.Join(tmpDir, "apk")
+	content := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"info\" ] && [ \"$2\" = \"-e\" ]; then exit 1; fi\n" +
+		"if [ \"$1\" = \"add\" ] && [ \"$2\" = \"--no-cache\" ]; then exit 0; fi\n" +
+		"exit 1\n"
+	require.NoError(t, os.WriteFile(apkBin, []byte(content), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+}
+
+func TestInstallOSPackages_WithAptGet(t *testing.T) {
+	tmpDir := t.TempDir()
+	// dpkg -s exits 1 => not installed
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "dpkg"),
+		[]byte("#!/bin/sh\nexit 1\n"), 0755))
+	// apt-get update + install succeed
+	aptGetContent := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"update\" ]; then exit 0; fi\n" +
+		"if [ \"$1\" = \"install\" ]; then exit 0; fi\n" +
+		"exit 1\n"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "apt-get"),
+		[]byte(aptGetContent), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+}
+
+func TestInstallOSPackages_WithBrew(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("brew test only runs on darwin")
+	}
+	tmpDir := t.TempDir()
+	brewContent := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"list\" ] && [ \"$2\" = \"--formula\" ]; then exit 1; fi\n" +
+		"if [ \"$1\" = \"install\" ]; then exit 0; fi\n" +
+		"exit 1\n"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "brew"),
+		[]byte(brewContent), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	require.NoError(t, installOSPackages([]string{"some-pkg"}))
+}
+
+// ---------------------------------------------------------------------------
+// detectPackageManager per-manager paths
+// ---------------------------------------------------------------------------
+
+func TestDetectPackageManager_APK(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "apk"),
+		[]byte("#!/bin/sh\nexit 0\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	name, checkFn, installFn := detectPackageManager()
+	assert.Equal(t, "apk", name)
+	assert.NotNil(t, checkFn)
+	assert.NotNil(t, installFn)
+}
+
+func TestDetectPackageManager_AptGet(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "apt-get"),
+		[]byte("#!/bin/sh\nexit 0\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	name, checkFn, installFn := detectPackageManager()
+	assert.Equal(t, "apt-get", name)
+	assert.NotNil(t, checkFn)
+	assert.NotNil(t, installFn)
+}
+
+func TestDetectPackageManager_Brew(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("brew test only runs on darwin")
+	}
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "brew"),
+		[]byte("#!/bin/sh\nexit 0\n"), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	name, checkFn, installFn := detectPackageManager()
+	assert.Equal(t, "brew", name)
+	assert.NotNil(t, checkFn)
+	assert.NotNil(t, installFn)
 }

@@ -267,3 +267,27 @@ func TestNewSession_MkdirAllError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "could not create")
 }
+
+func TestNewSession_MkdirSessionError(t *testing.T) {
+	tmp := t.TempDir()
+	kdepsDir := filepath.Join(tmp, ".kdeps")
+	sessionsRoot := filepath.Join(kdepsDir, "chat-sessions")
+	require.NoError(t, os.MkdirAll(kdepsDir, 0o700))
+	// sessionsRoot exists but is not writable — first MkdirAll passes (exists),
+	// second MkdirAll (creating the session subdirectory) fails.
+	require.NoError(t, os.Mkdir(sessionsRoot, 0o555))
+	t.Setenv("HOME", tmp)
+
+	_, err := NewSession()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not create session directory")
+}
+
+func TestSession_SaveHistory_WriteError(t *testing.T) {
+	s := &Session{
+		Dir:     filepath.Join(t.TempDir(), "nonexistent"),
+		History: []Turn{{Role: "user", Content: "hello"}},
+	}
+	err := s.SaveHistory()
+	require.Error(t, err)
+}

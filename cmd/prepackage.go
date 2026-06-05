@@ -253,15 +253,15 @@ func printPrepackageSummary(produced, skipped []string) error {
 	return nil
 }
 
-// resolveBaseBinary returns the path of the kdeps base binary to use for target.
+// resolveBaseBinaryImpl returns the path of the kdeps base binary to use for target.
 // tempCreated is true when the caller must delete the returned path after use.
-func resolveBaseBinary(
+func resolveBaseBinaryImpl(
 	ctx context.Context,
 	ver string,
 	target archTarget,
 	currentExec string,
 ) (string, bool, error) {
-	kdeps_debug.Log("enter: resolveBaseBinary")
+	kdeps_debug.Log("enter: resolveBaseBinaryImpl")
 	isHostArch := runtime.GOOS == target.GOOS && runtime.GOARCH == target.GOARCH
 
 	if isHostArch && currentExec != "" {
