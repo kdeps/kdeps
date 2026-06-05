@@ -27,6 +27,9 @@ import (
 	"time"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshalIndent = json.MarshalIndent
+
 // Turn represents one exchange in the conversation history.
 type Turn struct {
 	Role    string `json:"role"`
@@ -116,7 +119,7 @@ func (s *Session) SaveTo(dest string) error {
 
 // SaveHistory writes conversation history to disk for later resumption.
 func (s *Session) SaveHistory() error {
-	data, err := json.MarshalIndent(s.History, "", "  ")
+	data, err := jsonMarshalIndent(s.History, "", "  ")
 	if err != nil {
 		return err
 	}
