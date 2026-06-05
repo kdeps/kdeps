@@ -155,7 +155,8 @@ test: fmt lint build
 # Run unit tests only (no e2e)
 test-unit:
 	@echo "Running unit tests with coverage..."
-	@go test -short -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	@mkdir -p "$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" 2>/dev/null || true; \
+	GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \
