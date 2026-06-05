@@ -42,6 +42,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var execCommandContext = exec.CommandContext
+
 const (
 	serverTypeApp    = "app"
 	serverTypeStatic = "static"
@@ -487,8 +490,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 	)
 
 	// Create command
-	//nolint:gosec // G204: route.Command comes from user configuration, which is expected behavior
-	cmd := exec.CommandContext(ctx, "sh", "-c", route.Command)
+	cmd := execCommandContext(ctx, "sh", "-c", route.Command)
 	cmd.Dir = workDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

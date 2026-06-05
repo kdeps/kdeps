@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -135,7 +134,7 @@ func assembleRawBIOS(
 	if imageName != "" {
 		fmt.Fprintf(os.Stdout, "Exporting app image %s to data partition...\n", imageName)
 		imageTar := filepath.Join(workDir, "image.tar")
-		saveCmd := exec.CommandContext(ctx, "docker", "save", "-o", imageTar, imageName)
+		saveCmd := execCommandContext(ctx, "docker", "save", "-o", imageTar, imageName)
 		if saveErr := saveCmd.Run(); saveErr != nil {
 			return fmt.Errorf("failed to export docker image: %w", saveErr)
 		}
@@ -162,7 +161,7 @@ func assembleRawBIOS(
 		"/work/assemble.sh",
 	}
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := execCommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

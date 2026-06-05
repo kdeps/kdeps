@@ -26,6 +26,12 @@ import (
 //nolint:gochecknoglobals // test-replaceable
 var httpClientDo = http.DefaultClient.Do
 
+//nolint:gochecknoglobals // test-replaceable
+var execCommandContext = exec.CommandContext
+
+//nolint:gochecknoglobals // test-replaceable
+var execLookPath = exec.LookPath
+
 const (
 	linuxkitVersion = "v1.8.2"
 	linuxkitBaseURL = "https://github.com/linuxkit/linuxkit/releases/download"
@@ -57,8 +63,7 @@ func (r *DefaultLinuxKitRunner) Build(
 	}
 	args = append(args, configPath)
 
-	//nolint:gosec // binary path and args are internal
-	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
+	cmd := execCommandContext(ctx, r.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -76,8 +81,7 @@ func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string)
 	kdeps_debug.Log("enter: CacheImport")
 	args := []string{"cache", "import", tarPath}
 
-	//nolint:gosec // binary path and args are internal
-	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
+	cmd := execCommandContext(ctx, r.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -95,7 +99,7 @@ func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string)
 func EnsureLinuxKit(ctx context.Context) (string, error) {
 	kdeps_debug.Log("enter: EnsureLinuxKit")
 	// 1. Check PATH
-	if path, err := exec.LookPath("linuxkit"); err == nil {
+	if path, err := execLookPath("linuxkit"); err == nil {
 		return path, nil
 	}
 
