@@ -43,6 +43,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var httpClientFactory = func(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
+
 // ClientFactory creates HTTP clients with custom configuration.
 type ClientFactory interface {
 	CreateClient(config *domain.HTTPClientConfig, proxy string) (*http.Client, error)
@@ -984,7 +989,7 @@ func (e *Executor) ExecuteRequestWithRetryForTesting(
 	retryConfig *domain.RetryConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ExecuteRequestWithRetryForTesting")
-	client := &http.Client{Timeout: timeout}
+	client := httpClientFactory(timeout)
 	resp, err := e.executeRequestWithRetry(client, req, retryConfig)
 	if err != nil {
 		// Return timeout errors as part of the result map instead of as an error
