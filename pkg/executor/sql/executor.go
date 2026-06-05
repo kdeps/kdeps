@@ -41,6 +41,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
+
 // Executor executes SQL resources.
 type Executor struct {
 	// Pools is the connection pool map (exported for testing).
@@ -380,7 +383,7 @@ func (e *Executor) FormatSelectResults(
 	kdeps_debug.Log("enter: FormatSelectResults")
 	switch strings.ToLower(format) {
 	case "json":
-		jsonData, marshalErr := json.Marshal(results)
+		jsonData, marshalErr := jsonMarshal(results)
 		if marshalErr != nil {
 			return nil, fmt.Errorf("failed to marshal results: %w", marshalErr)
 		}

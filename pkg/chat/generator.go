@@ -31,6 +31,9 @@ import (
 	"time"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
+
 const (
 	defaultGeneratorTimeout = 120 * time.Second
 
@@ -388,7 +391,7 @@ func (c *HTTPLLMClient) doRequest(
 	endpoint, apiKey string,
 	body map[string]interface{},
 ) (string, error) {
-	data, err := json.Marshal(body)
+	data, err := jsonMarshal(body)
 	if err != nil {
 		return "", err
 	}
