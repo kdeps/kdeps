@@ -23,6 +23,9 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var httpClientDo = http.DefaultClient.Do
+
 const (
 	linuxkitVersion = "v1.8.2"
 	linuxkitBaseURL = "https://github.com/linuxkit/linuxkit/releases/download"
@@ -159,7 +162,7 @@ func downloadFile(ctx context.Context, url, dest string) error {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClientDo(req)
 	if err != nil {
 		return err
 	}
