@@ -191,3 +191,9 @@ var WorkflowPorts = workflowPorts //nolint:gochecknoglobals // test-only export
 
 // JoinStrings exposes the unexported joinStrings helper for unit testing.
 var JoinStrings = joinStrings //nolint:gochecknoglobals // test-only export
+
+// CmdExtractTarEntry exposes the unexported cmdExtractTarEntry helper for unit testing.
+var CmdExtractTarEntry = cmdExtractTarEntry //nolint:gochecknoglobals // test-only export
+
+// CmdExtractTarGz exposes the unexported cmdExtractTarGz helper for unit testing.
+var CmdExtractTarGz = cmdExtractTarGz //nolint:gochecknoglobals // test-only export
