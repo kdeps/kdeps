@@ -40,6 +40,11 @@ const telegramPlatform = "telegram"
 
 const defaultTelegramPollTimeout = 30 * time.Second
 
+// telegramNewBot is telegrambot.New, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var telegramNewBot = telegrambot.New
+
 type telegramRunner struct {
 	botToken            string
 	pollIntervalSeconds int
@@ -91,7 +96,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 		}
 	}
 
-	b, err := telegrambot.New(r.botToken,
+	b, err := telegramNewBot(r.botToken,
 		telegrambot.WithDefaultHandler(handler),
 		telegrambot.WithHTTPClient(pollTimeout, &http.Client{}),
 	)
