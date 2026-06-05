@@ -39,6 +39,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
 // jsonMarshal is json.Marshal, overridable for testing.
 //
 //nolint:gochecknoglobals // test-replaceable

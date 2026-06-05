@@ -1,7 +1,6 @@
 package searchweb
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 func TestMarshalError(t *testing.T) {
 	orig := jsonMarshal
 	t.Cleanup(func() { jsonMarshal = orig })
-	jsonMarshal = func(v any) ([]byte, error) {
+	jsonMarshal = func(_ any) ([]byte, error) {
 		return nil, errors.New("injected marshal error")
 	}
 	_, err := jsonMarshal(map[string]interface{}{"k": "v"})
