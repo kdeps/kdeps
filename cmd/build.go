@@ -445,7 +445,7 @@ func performDockerBuild(
 	fmt.Fprintln(os.Stdout, "✓ Dockerfile generated")
 	fmt.Fprintln(os.Stdout, "✓ Building image...")
 
-	imageName, err := builder.Build(workflow, packagePath, flags.NoCache)
+	imageName, err := dockerBuildImageFunc(builder, workflow, packagePath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build image: %w", err)
 	}
@@ -793,6 +793,11 @@ func bundleWASMApp(
 }
 
 // buildDockerImage is a variable so tests can replace it without running Docker.
+
+//nolint:gochecknoglobals // overridable in tests
+var dockerBuildImageFunc = func(builder *docker.Builder, workflow *domain.Workflow, packagePath string, noCache bool) (string, error) {
+	return builder.Build(workflow, packagePath, noCache)
+}
 
 //nolint:gochecknoglobals // overridable in tests
 var buildDockerImage = func(ctx context.Context, dockerArgs []string) error {

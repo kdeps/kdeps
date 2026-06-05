@@ -21,13 +21,19 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	dockclient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+	docker "github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 )
 
@@ -554,4 +560,99 @@ func TestFindWASMExecJS_OsExecutableSuccess_FilePresent(t *testing.T) {
 	path, err := findWASMExecJS(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, wasmExecJSPath, path)
+}
+
+// ---------------------------------------------------------------------------
+// performDockerBuild tests (mock builder.Build via dockerBuildImageFunc)
+// ---------------------------------------------------------------------------
+
+func newMockDockerClientForBuild(t *testing.T, handler func(*http.Request) (*http.Response, error)) *docker.Client {
+	t.Helper()
+	cli, err := dockclient.NewClientWithOpts(
+		dockclient.WithHost("tcp://127.0.0.1:2375"),
+		dockclient.WithHTTPClient(&http.Client{Transport: roundTripFuncMock(handler)}),
+		dockclient.WithVersion("1.41"),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = cli.Close() })
+	return &docker.Client{Cli: cli}
+}
+
+type roundTripFuncMock func(*http.Request) (*http.Response, error)
+
+func (f roundTripFuncMock) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestPerformDockerBuild_BuildError(t *testing.T) {
+	orig := dockerBuildImageFunc
+	t.Cleanup(func() { dockerBuildImageFunc = orig })
+	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+		return "", errors.New("build failed: no space left")
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
+	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to build image")
+}
+
+func TestPerformDockerBuild_BuildSuccess_NoTag(t *testing.T) {
+	orig := dockerBuildImageFunc
+	t.Cleanup(func() { dockerBuildImageFunc = orig })
+	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+		return "kdeps-test:latest", nil
+	}
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+		},
+	}
+	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{})
+	require.NoError(t, err)
+}
+
+func TestPerformDockerBuild_BuildSuccess_WithTag(t *testing.T) {
+	orig := dockerBuildImageFunc
+	t.Cleanup(func() { dockerBuildImageFunc = orig })
+	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+		return "kdeps-test:latest", nil
+	}
+
+	mockClient := newMockDockerClientForBuild(t, func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Proto:      "HTTP/1.1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+		}, nil
+	})
+
+	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+	}
+	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{Tag: "myrepo/test:v1"})
+	require.NoError(t, err)
+}
+
+func TestPerformDockerBuild_BuildSuccess_TagError(t *testing.T) {
+	orig := dockerBuildImageFunc
+	t.Cleanup(func() { dockerBuildImageFunc = orig })
+	dockerBuildImageFunc = func(_ *docker.Builder, _ *domain.Workflow, _ string, _ bool) (string, error) {
+		return "kdeps-test:latest", nil
+	}
+
+	mockClient := newMockDockerClientForBuild(t, func(_ *http.Request) (*http.Response, error) {
+		return nil, errors.New("tag failed: permission denied")
+	})
+
+	builder := &docker.Builder{BaseOS: "alpine", Client: mockClient}
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
+	err := performDockerBuild(builder, wf, "/tmp/pkg", &BuildFlags{Tag: "bad/tag"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to tag image")
 }
