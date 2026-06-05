@@ -168,6 +168,12 @@ var KdepsAgentsDir = kdepsAgentsDir //nolint:gochecknoglobals // test-only expor
 // IsLocalFilePath exposes the unexported isLocalFilePath helper for unit testing.
 var IsLocalFilePath = isLocalFilePath //nolint:gochecknoglobals // test-only export
 
+// CopyFile exposes the unexported copyFile helper for unit testing.
+var CopyFile = copyFile //nolint:gochecknoglobals // test-only export
+
+// CopyDir exposes the unexported copyDir helper for unit testing.
+var CopyDir = copyDir //nolint:gochecknoglobals // test-only export
+
 // InstallLocalFile exposes the unexported installLocalFile helper for unit testing.
 var InstallLocalFile = installLocalFile //nolint:gochecknoglobals // test-only export
 

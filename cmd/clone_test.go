@@ -472,6 +472,21 @@ func TestCloneFromRemote_AgencyJ2Templates(t *testing.T) {
 	assert.FileExists(t, filepath.Join(dir, "agencies", "repo", "agency.yaml.j2"))
 }
 
+// ---------------------------------------------------------------------------
+// copyFile / copyDir error paths
+// ---------------------------------------------------------------------------
+
+func TestCopyFile_NonExistentSource(t *testing.T) {
+	err := cmd.CopyFile("/nonexistent/src.txt", filepath.Join(t.TempDir(), "dst.txt"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "open src")
+}
+
+func TestCopyDir_NonExistentSource(t *testing.T) {
+	err := cmd.CopyDir("/nonexistent/srcdir", filepath.Join(t.TempDir(), "dstdir"))
+	require.Error(t, err)
+}
+
 func TestCloneFromRemote_ComponentJ2Templates(t *testing.T) {
 	// Detect jinja2 component.yaml.j2 template variant.
 	archiveData := buildTarGz(t, "repo-abc123", map[string]string{
