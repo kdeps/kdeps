@@ -18,7 +18,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
@@ -68,6 +70,33 @@ func TestDiscordRunner_Reply_SessionNotStarted(t *testing.T) {
 	err := r.Reply(context.Background(), "ch1", "hello")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session not started")
+}
+
+func TestDiscordRunner_Start_OpenErrorViaMockedSession(t *testing.T) {
+	orig := discordNewSession
+	t.Cleanup(func() { discordNewSession = orig })
+
+	discordNewSession = func(token string) (*discordgo.Session, error) {
+		s, err := discordgo.New(token)
+		if err != nil {
+			return nil, err
+		}
+		// Replace the HTTP client so Open() fails immediately.
+		s.Client = &http.Client{
+			Transport: roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+				return nil, errors.New("simulated open failure")
+			}),
+		}
+		return s, nil
+	}
+
+	r := &discordRunner{botToken: "test-token", logger: slog.Default()}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	err := r.Start(ctx, make(chan Message, 1))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "discord: open session")
 }
 
 func TestDiscordRunner_Start_ContextCancelled(t *testing.T) {

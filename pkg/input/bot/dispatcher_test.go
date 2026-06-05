@@ -130,3 +130,9 @@ func TestDispatcher_Run_CancelContext(t *testing.T) {
 	err = d.Run(ctx)
 	assert.NoError(t, err)
 }
+
+func TestNewDispatcher_NilWorkflow_Panics(t *testing.T) {
+	assert.Panics(t, func() {
+		NewDispatcher(nil, nil, nil, nil)
+	})
+}

@@ -168,3 +168,120 @@ func TestNewLogger_DebugEnvVar(t *testing.T) {
 	}
 	logger.Debug("debug message via DEBUG env var")
 }
+
+// TestFormatValue_KindFloat64 tests formatValue with slog.KindFloat64 (line 247-248).
+func TestFormatValue_KindFloat64(t *testing.T) {
+	var buf bytes.Buffer
+	handler := NewPrettyHandler(&buf, &PrettyHandlerOptions{
+		Level:         slog.LevelDebug,
+		DisableColors: true,
+	})
+
+	ctx := t.Context()
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "float64 test", 0)
+	record.Add(slog.Float64("pi", 3.14159))
+
+	err := handler.Handle(ctx, record)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := buf.String()
+	assert.Contains(t, output, "pi")
+	assert.Contains(t, output, "3.14")
+}
+
+// TestFormatValue_KindUint64 tests formatValue with slog.KindUint64 (line 245-246).
+func TestFormatValue_KindUint64(t *testing.T) {
+	var buf bytes.Buffer
+	handler := NewPrettyHandler(&buf, &PrettyHandlerOptions{
+		Level:         slog.LevelDebug,
+		DisableColors: true,
+	})
+
+	ctx := t.Context()
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "uint64 test", 0)
+	record.Add(slog.Uint64("count", 42))
+
+	err := handler.Handle(ctx, record)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := buf.String()
+	assert.Contains(t, output, "count")
+	assert.Contains(t, output, "42")
+}
+
+// TestFormatValue_KindDuration tests formatValue with slog.KindDuration (line 255-256).
+func TestFormatValue_KindDuration(t *testing.T) {
+	var buf bytes.Buffer
+	handler := NewPrettyHandler(&buf, &PrettyHandlerOptions{
+		Level:         slog.LevelDebug,
+		DisableColors: true,
+	})
+
+	ctx := t.Context()
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "duration test", 0)
+	record.Add(slog.Duration("latency", 1500*time.Millisecond))
+
+	err := handler.Handle(ctx, record)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := buf.String()
+	assert.Contains(t, output, "latency")
+	assert.Contains(t, output, "1.5s")
+}
+
+// TestFormatValue_KindTime tests formatValue with slog.KindTime (line 257-258).
+func TestFormatValue_KindTime(t *testing.T) {
+	var buf bytes.Buffer
+	handler := NewPrettyHandler(&buf, &PrettyHandlerOptions{
+		Level:         slog.LevelDebug,
+		DisableColors: true,
+	})
+
+	ctx := t.Context()
+	now := time.Date(2026, 6, 5, 10, 30, 0, 0, time.UTC)
+	record := slog.NewRecord(now, slog.LevelInfo, "time test", 0)
+	record.Add(slog.Time("timestamp", now))
+
+	err := handler.Handle(ctx, record)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := buf.String()
+	assert.Contains(t, output, "timestamp")
+	assert.Contains(t, output, "2026-06-05")
+}
+
+// TestFormatValue_KindGroup tests formatValue with slog.KindGroup (line 262-273).
+func TestFormatValue_KindGroup(t *testing.T) {
+	var buf bytes.Buffer
+	handler := NewPrettyHandler(&buf, &PrettyHandlerOptions{
+		Level:         slog.LevelDebug,
+		DisableColors: true,
+	})
+
+	ctx := t.Context()
+	record := slog.NewRecord(time.Now(), slog.LevelInfo, "group test", 0)
+	record.Add(slog.Group("request",
+		slog.String("method", "GET"),
+		slog.Int("status", 200),
+	))
+
+	err := handler.Handle(ctx, record)
+	if err != nil {
+		t.Fatalf("Handle returned error: %v", err)
+	}
+
+	output := buf.String()
+	assert.Contains(t, output, "request")
+	assert.Contains(t, output, "method")
+	assert.Contains(t, output, "GET")
+	assert.Contains(t, output, "status")
+	assert.Contains(t, output, "200")
+}
