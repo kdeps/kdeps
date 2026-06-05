@@ -19,6 +19,17 @@ const (
 	HealthFail HealthStatus = "FAIL"
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var osStat = os.Stat
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadDir = os.ReadDir
+
+//nolint:gochecknoglobals // test-replaceable
+var osGetenv = os.Getenv
+
 const (
 	ollamaDialTimeout = 2 * time.Second
 	defaultOllamaPort = "11434"
@@ -87,7 +98,7 @@ func runConfigFileCheck(checks *[]HealthCheck, healthy *bool) {
 		addCheck(checks, "Config file", HealthFail, "cannot determine config path", healthy)
 		return
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := osStat(path); os.IsNotExist(err) {
 		addCheck(checks, "Config file", HealthWarn,
 			fmt.Sprintf("%s not found — run 'kdeps edit' to create", path), healthy)
 		return
@@ -117,7 +128,7 @@ func runOllamaCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 		return
 	}
 
-	host := os.Getenv("OLLAMA_HOST")
+	host := osGetenv("OLLAMA_HOST")
 	if host == "" && cfg != nil {
 		host = cfg.LLM.OllamaHost
 	}
@@ -163,7 +174,7 @@ func runBackendKeyCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 	}
 	backend := cfg.LLM.Backend
 	if backend == "" {
-		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
+		backend = osGetenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if backend == "" || backend == ollamaBackendStr {
 		addCheck(checks, "Backend/API key", HealthPass,
@@ -173,7 +184,7 @@ func runBackendKeyCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 
 	key := getLLMAPIKey(cfg.LLM, backend)
 	if key == "" {
-		key = os.Getenv(backendToEnvVar(backend))
+		key = osGetenv(backendToEnvVar(backend))
 	}
 
 	if key != "" {
@@ -196,7 +207,7 @@ func runAgentsCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 		addCheck(checks, "Agents", HealthWarn, fmt.Sprintf("cannot resolve agents dir: %v", err), healthy)
 		return
 	}
-	entries, readErr := os.ReadDir(agentsDir)
+	entries, readErr := osReadDir(agentsDir)
 	if readErr != nil {
 		addCheck(checks, "Agents", HealthPass,
 			fmt.Sprintf("no agents installed (%s)", agentsDir), healthy)
@@ -224,7 +235,7 @@ func runCriticalEnvCheck(checks *[]HealthCheck, healthy *bool) {
 	}
 	missing := make([]string, 0)
 	for _, v := range critical {
-		if os.Getenv(v) == "" {
+		if osGetenv(v) == "" {
 			missing = append(missing, v)
 		}
 	}
@@ -245,7 +256,7 @@ func ollamaEffectiveBackend(cfg *Config) string {
 	if cfg != nil && cfg.LLM.Backend != "" {
 		return cfg.LLM.Backend
 	}
-	if b := os.Getenv("KDEPS_DEFAULT_BACKEND"); b != "" {
+	if b := osGetenv("KDEPS_DEFAULT_BACKEND"); b != "" {
 		return b
 	}
 	return "" // effectively ollama

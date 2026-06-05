@@ -18,7 +18,7 @@
 
 // Package config loads the user-level global configuration from
 // ~/.kdeps/config.yaml and exposes it as environment variables so that
-// the rest of the codebase can continue reading os.Getenv() without change.
+// the rest of the codebase can continue reading osGetenv() without change.
 package config
 
 import (
@@ -43,6 +43,20 @@ const (
 	configFilePerm   = 0600
 	ollamaBackendStr = "ollama"
 )
+
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var osMkdirAll = os.MkdirAll
+
+//nolint:gochecknoglobals // test-replaceable
+var osWriteFile = os.WriteFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadFile = os.ReadFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osUserHomeDir = os.UserHomeDir
 
 // Defaults holds global defaults for workflow agent settings.
 // These apply when a workflow's agentSettings does not specify a value.
@@ -306,10 +320,10 @@ type Config struct {
 // Path returns the absolute path to ~/.kdeps/config.yaml.
 // Override with $KDEPS_CONFIG_PATH for testing or custom locations.
 func Path() (string, error) {
-	if p := os.Getenv("KDEPS_CONFIG_PATH"); p != "" {
+	if p := osGetenv("KDEPS_CONFIG_PATH"); p != "" {
 		return p, nil
 	}
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("home directory: %w", err)
 	}
@@ -363,13 +377,13 @@ func Scaffold() error {
 	if err != nil {
 		return nil //nolint:nilerr // non-fatal
 	}
-	if _, statErr := os.Stat(path); statErr == nil {
+	if _, statErr := osStat(path); statErr == nil {
 		return nil // already exists
 	}
-	if mkdirErr := os.MkdirAll(filepath.Dir(path), configDirPerm); mkdirErr != nil {
+	if mkdirErr := osMkdirAll(filepath.Dir(path), configDirPerm); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
-	return os.WriteFile(path, []byte(defaultConfigTemplate), configFilePerm)
+	return osWriteFile(path, []byte(defaultConfigTemplate), configFilePerm)
 }
 
 // GetField retrieves a config value by dot-path (e.g. "llm.openai_api_key").
@@ -448,10 +462,10 @@ func configEnvVar(path string) (string, bool) {
 // AgentsDir returns the directory where installed agents are stored.
 // Env var KDEPS_AGENTS_DIR takes precedence, then the default ~/.kdeps/agents/.
 func AgentsDir(_ *Config) (string, error) {
-	if d := os.Getenv("KDEPS_AGENTS_DIR"); d != "" {
+	if d := osGetenv("KDEPS_AGENTS_DIR"); d != "" {
 		return d, nil
 	}
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("home directory: %w", err)
 	}
@@ -818,7 +832,7 @@ func load() (*Config, error) {
 	if err != nil {
 		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal
 	}
-	data, err := os.ReadFile(path)
+	data, err := osReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return &Config{}, nil
 	}

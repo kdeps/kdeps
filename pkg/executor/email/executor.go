@@ -54,6 +54,11 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadFile = os.ReadFile
+
 const (
 	defaultTimeout = 30 * time.Second
 	defaultMailbox = "INBOX"
@@ -925,7 +930,7 @@ func sanitizeAddressSlice(addrs []string) error {
 
 func writeAttachmentPart(mw *multipart.Writer, path string) error {
 	kdeps_debug.Log("enter: writeAttachmentPart")
-	data, err := os.ReadFile(path)
+	data, err := osReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read attachment %q: %w", path, err)
 	}

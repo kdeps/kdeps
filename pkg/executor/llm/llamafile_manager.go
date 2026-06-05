@@ -52,6 +52,21 @@ var httpGet = stdhttp.Get
 //nolint:gochecknoglobals // test-replaceable
 var httpDefaultClientDo = stdhttp.DefaultClient.Do
 
+//nolint:gochecknoglobals // test-replaceable
+var osStat = os.Stat
+
+//nolint:gochecknoglobals // test-replaceable
+var osOpenFile = os.OpenFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osRemove = os.Remove
+
+//nolint:gochecknoglobals // test-replaceable
+var osRename = os.Rename
+
+//nolint:gochecknoglobals // test-replaceable
+var osChmod = os.Chmod
+
 // LlamafileManager handles downloading, caching, and serving llamafile binaries.
 type LlamafileManager struct {
 	logger    *slog.Logger
@@ -97,7 +112,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 
 	// Absolute path - use directly.
 	if filepath.IsAbs(model) {
-		if _, err := os.Stat(model); err != nil {
+		if _, err := osStat(model); err != nil {
 			return "", fmt.Errorf("llamafile not found at %s: %w", model, err)
 		}
 		return model, nil
@@ -109,7 +124,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("cannot resolve relative path %s: %w", model, err)
 		}
-		if _, statErr := os.Stat(abs); statErr != nil {
+		if _, statErr := osStat(abs); statErr != nil {
 			return "", fmt.Errorf("llamafile not found at %s: %w", abs, statErr)
 		}
 		return abs, nil
@@ -117,7 +132,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 
 	// Bare filename - look in models cache dir.
 	cached := filepath.Join(m.modelsDir, model)
-	if _, err := os.Stat(cached); err != nil {
+	if _, err := osStat(cached); err != nil {
 		return "", fmt.Errorf(
 			"llamafile %q not found in cache (%s); set model to a URL or full path",
 			model, m.modelsDir,
@@ -137,7 +152,7 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 	}
 	dest := filepath.Join(m.modelsDir, basename)
 
-	if _, err := os.Stat(dest); err == nil {
+	if _, err := osStat(dest); err == nil {
 		m.logger.Info("llamafile already cached", "path", dest)
 		return dest, nil
 	}
@@ -155,23 +170,23 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 	}
 
 	tmp := dest + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
+	f, err := osOpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
 	if err != nil {
 		return "", fmt.Errorf("cannot create temp file %s: %w", tmp, err)
 	}
 
 	if _, copyErr := io.Copy(f, resp.Body); copyErr != nil {
 		_ = f.Close()
-		_ = os.Remove(tmp)
+		_ = osRemove(tmp)
 		return "", fmt.Errorf("download write failed: %w", copyErr)
 	}
 	if closeErr := f.Close(); closeErr != nil {
-		_ = os.Remove(tmp)
+		_ = osRemove(tmp)
 		return "", fmt.Errorf("failed to close downloaded file: %w", closeErr)
 	}
 
-	if renameErr := os.Rename(tmp, dest); renameErr != nil {
-		_ = os.Remove(tmp)
+	if renameErr := osRename(tmp, dest); renameErr != nil {
+		_ = osRemove(tmp)
 		return "", fmt.Errorf("failed to move downloaded file: %w", renameErr)
 	}
 
@@ -182,14 +197,14 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 // MakeExecutable ensures path has execute permission.
 func (m *LlamafileManager) MakeExecutable(path string) error {
 	kdeps_debug.Log("enter: LlamafileManager.MakeExecutable")
-	info, err := os.Stat(path)
+	info, err := osStat(path)
 	if err != nil {
 		return fmt.Errorf("cannot stat llamafile %s: %w", path, err)
 	}
 	if info.Mode()&0111 != 0 {
 		return nil // already executable
 	}
-	return os.Chmod(path, llamafileExecutablePerm)
+	return osChmod(path, llamafileExecutablePerm)
 }
 
 // FindFreePort returns an available TCP port on localhost.
