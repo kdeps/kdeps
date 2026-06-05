@@ -289,7 +289,6 @@ func (e *Executor) callBackendWithEndpoint(
 	apiKey string,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: callBackendWithEndpoint")
-	client := &stdhttp.Client{Timeout: timeout}
 
 	// Marshal request body
 	jsonBody, err := json.Marshal(requestBody)
@@ -297,9 +296,11 @@ func (e *Executor) callBackendWithEndpoint(
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Make request
+	// Make request with timeout context, using the injectable HTTP client.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	req, err := stdhttp.NewRequestWithContext(
-		context.Background(),
+		ctx,
 		stdhttp.MethodPost,
 		endpointURL,
 		bytes.NewBuffer(jsonBody),
@@ -321,7 +322,7 @@ func (e *Executor) callBackendWithEndpoint(
 		req.Header.Set("Anthropic-Version", "2023-06-01")
 	}
 
-	resp, err := client.Do(req)
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

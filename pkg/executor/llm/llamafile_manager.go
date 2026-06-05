@@ -44,6 +44,14 @@ const (
 	llamafileExecutablePerm = 0750
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var httpGet = stdhttp.Get
+
+//nolint:gochecknoglobals // test-replaceable
+var httpDefaultClientDo = stdhttp.DefaultClient.Do
+
 // LlamafileManager handles downloading, caching, and serving llamafile binaries.
 type LlamafileManager struct {
 	logger    *slog.Logger
@@ -136,7 +144,7 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 
 	m.logger.Info("downloading llamafile", "url", rawURL, "dest", dest)
 
-	resp, err := stdhttp.Get(rawURL) //nolint:gosec,noctx // URL comes from trusted workflow config
+	resp, err := httpGet(rawURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to download llamafile from %s: %w", rawURL, err)
 	}
@@ -266,7 +274,7 @@ func isHealthy(baseURL string) bool {
 	if err != nil {
 		return false
 	}
-	resp, err := stdhttp.DefaultClient.Do(req)
+	resp, err := httpDefaultClientDo(req)
 	if err != nil {
 		return false
 	}
