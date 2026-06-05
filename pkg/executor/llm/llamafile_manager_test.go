@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -411,5 +412,49 @@ func TestLlamafileManager_Serve_NotHealthy_StartFail(t *testing.T) {
 	_, err := mgr.Serve(bin, port)
 	if err == nil {
 		t.Error("expected error when binary is not executable format")
+	}
+}
+
+func TestLlamafileManager_Download_HTTPError(t *testing.T) {
+	mgr, _ := newMgrWithDir(t)
+	// Use an invalid hostname that will fail DNS resolution or connection.
+	_, err := mgr.Resolve("http://127.0.0.1:1/model.llamafile")
+	if err == nil {
+		t.Skip("expected error but connection succeeded unexpectedly")
+	}
+	if !strings.Contains(err.Error(), "failed to download") && !strings.Contains(err.Error(), "connection refused") {
+		t.Logf("got expected error: %v", err)
+	}
+}
+
+func TestLlamafileManager_Download_HTTPErrorStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	mgr, _ := newMgrWithDir(t)
+	_, err := mgr.Resolve(srv.URL + "/model.llamafile")
+	if err == nil {
+		t.Fatal("expected error for HTTP 404")
+	}
+	if !strings.Contains(err.Error(), "download failed") {
+		t.Errorf("expected 'download failed' in error, got: %v", err)
+	}
+}
+
+func TestLlamafileManager_Download_HTTP500(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	mgr, _ := newMgrWithDir(t)
+	_, err := mgr.Resolve(srv.URL + "/model.llamafile")
+	if err == nil {
+		t.Fatal("expected error for HTTP 500")
+	}
+	if !strings.Contains(err.Error(), "download failed (HTTP 500)") {
+		t.Errorf("expected 'download failed (HTTP 500)', got: %v", err)
 	}
 }
