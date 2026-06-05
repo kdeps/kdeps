@@ -30,6 +30,9 @@ var osReadDir = os.ReadDir
 //nolint:gochecknoglobals // test-replaceable
 var osGetenv = os.Getenv
 
+//nolint:gochecknoglobals // test-replaceable
+var execLookPath = exec.LookPath
+
 const (
 	ollamaDialTimeout = 2 * time.Second
 	defaultOllamaPort = "11434"
@@ -158,9 +161,9 @@ func runOllamaCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 }
 
 func runPythonCheck(checks *[]HealthCheck, healthy *bool) {
-	if _, python3Err := exec.LookPath("python3"); python3Err == nil {
+	if _, python3Err := execLookPath("python3"); python3Err == nil {
 		addCheck(checks, "Python", HealthPass, "python3 available", healthy)
-	} else if _, pythonErr := exec.LookPath("python"); pythonErr == nil {
+	} else if _, pythonErr := execLookPath("python"); pythonErr == nil {
 		addCheck(checks, "Python", HealthPass, "python available", healthy)
 	} else {
 		addCheck(checks, "Python", HealthWarn,

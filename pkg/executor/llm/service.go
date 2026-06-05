@@ -33,6 +33,11 @@ import (
 	"log/slog"
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var execCommandContext = exec.CommandContext
+
 // ModelServiceInterface defines the interface for model management services.
 type ModelServiceInterface interface {
 	DownloadModel(backend, model string) error
@@ -121,7 +126,7 @@ func (s *ModelService) downloadOllamaModel(model string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "ollama", "pull", model)
+	cmd := execCommandContext(ctx, "ollama", "pull", model)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -142,7 +147,7 @@ func (s *ModelService) serveOllamaModel(model string, host string, port int) err
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	testCmd := exec.CommandContext(ctx, "ollama", "list")
+	testCmd := execCommandContext(ctx, "ollama", "list")
 	if err := testCmd.Run(); err == nil {
 		// Ollama is already running
 		s.logger.Info("Ollama server already running")
@@ -157,7 +162,7 @@ func (s *ModelService) serveOllamaModel(model string, host string, port int) err
 	}
 
 	// Start Ollama serve
-	cmd := exec.CommandContext(context.Background(), "ollama", "serve")
+	cmd := execCommandContext(context.Background(), "ollama", "serve")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
