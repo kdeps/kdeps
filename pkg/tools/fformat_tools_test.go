@@ -19,6 +19,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/tools/fformat"
 )
 
@@ -209,4 +212,15 @@ func TestFFormatConvertFromJSONTool_Success(t *testing.T) {
 	if !res.Valid {
 		t.Error("expected valid=true for valid JSON input")
 	}
+}
+
+func TestMarshalFFormatResult_MarshalError(t *testing.T) {
+	orig := jsonMarshal
+	t.Cleanup(func() { jsonMarshal = orig })
+	jsonMarshal = func(_ any) ([]byte, error) {
+		return nil, errors.New("injected marshal error")
+	}
+	_, err := marshalFFormatResult(fformat.Result{Valid: true, Output: "test"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "injected marshal error")
 }
