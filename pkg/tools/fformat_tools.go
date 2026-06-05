@@ -33,8 +33,13 @@ func allFormats() []string {
 	return []string{"json", "yaml", "csv", "xml", "toml", "markdown", "sql", "html"}
 }
 
+// jsonMarshalIndent is json.Marshal, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var jsonMarshal = json.Marshal
+
 func marshalFFormatResult(result fformat.Result) (string, error) {
-	out, err := json.Marshal(result)
+	out, err := jsonMarshal(result)
 	if err != nil {
 		return "", err
 	}

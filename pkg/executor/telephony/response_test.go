@@ -15,8 +15,12 @@
 package telephony_test
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/telephony"
 )
@@ -276,4 +280,17 @@ func TestResponseBuilderNodeCount(t *testing.T) {
 	if rb.NodeCount() != 2 {
 		t.Errorf("expected 2 nodes, got %d", rb.NodeCount())
 	}
+}
+
+func TestToTwiML_MarshalError(t *testing.T) {
+	orig := telephony.XMLMarshalIndent
+	t.Cleanup(func() { telephony.XMLMarshalIndent = orig })
+	telephony.XMLMarshalIndent = func(_ any, _ string, _ string) ([]byte, error) {
+		return nil, errors.New("injected marshal error")
+	}
+	rb := telephony.NewResponseBuilder()
+	rb.AddSay("hello", "")
+	_, err := rb.ToTwiML()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal twiml")
 }

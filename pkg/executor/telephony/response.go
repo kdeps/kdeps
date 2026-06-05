@@ -23,6 +23,11 @@ import (
 	"fmt"
 )
 
+// XMLMarshalIndent is xml.MarshalIndent, overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var XMLMarshalIndent = xml.MarshalIndent
+
 // ResponseBuilder accumulates TwiML response nodes.
 // Each telephony action appends one or more nodes; the final XML is produced
 // by ToTwiML() and made available to apiResponse via telephony.twiml().
@@ -244,7 +249,7 @@ func (rb *ResponseBuilder) NodeCount() int {
 // ToTwiML serialises all accumulated nodes to TwiML XML.
 func (rb *ResponseBuilder) ToTwiML() (string, error) {
 	resp := twiMLResponse{Nodes: rb.nodes}
-	out, err := xml.MarshalIndent(resp, "", "  ")
+	out, err := XMLMarshalIndent(resp, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("telephony: marshal twiml: %w", err)
 	}
