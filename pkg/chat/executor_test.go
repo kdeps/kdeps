@@ -75,6 +75,16 @@ func TestNewExecutor_DefaultBin(t *testing.T) {
 	assert.NotEmpty(t, exec.KDepsBin)
 }
 
+func TestNewExecutor_FallbackBin(t *testing.T) {
+	old := osExecutable
+	osExecutable = func() (string, error) { return "", nil }
+	defer func() { osExecutable = old }()
+
+	out := &strings.Builder{}
+	exec := NewExecutor(out, out)
+	assert.Equal(t, "kdeps", exec.KDepsBin)
+}
+
 func TestExecutor_ExportK8s_BinaryNotFound(t *testing.T) {
 	out := &strings.Builder{}
 	exec := NewExecutor(out, out)

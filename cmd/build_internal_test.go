@@ -656,3 +656,78 @@ func TestPerformDockerBuild_BuildSuccess_TagError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to tag image")
 }
+
+// ---------------------------------------------------------------------------
+// createPrepackagedBinariesForDocker tests
+// ---------------------------------------------------------------------------
+
+func TestCreatePrepackagedBinariesForDocker_OsExecutableError(t *testing.T) {
+	origOsExec := osExecutable
+	origResolve := resolveBaseBinary
+	t.Cleanup(func() {
+		osExecutable = origOsExec
+		resolveBaseBinary = origResolve
+	})
+
+	osExecutable = func() (string, error) {
+		return "", errors.New("executable not found")
+	}
+	resolveBaseBinary = func(_ context.Context, _ string, _ archTarget, _ string) (string, bool, error) {
+		return "", false, errors.New("resolve failed")
+	}
+
+	binaries, cleanup := createPrepackagedBinariesForDocker(
+		context.Background(),
+		"/nonexistent/kdepsfile",
+	)
+	defer cleanup()
+	assert.Empty(t, binaries)
+}
+
+func TestCreatePrepackagedBinariesForDocker_ResolveError(t *testing.T) {
+	origResolve := resolveBaseBinary
+	t.Cleanup(func() { resolveBaseBinary = origResolve })
+
+	var callCount int
+	resolveBaseBinary = func(_ context.Context, _ string, _ archTarget, _ string) (string, bool, error) {
+		callCount++
+		return "", false, errors.New("resolve error")
+	}
+
+	binaries, cleanup := createPrepackagedBinariesForDocker(
+		context.Background(),
+		"/nonexistent/kdepsfile",
+	)
+	defer cleanup()
+	assert.Empty(t, binaries)
+	assert.Equal(t, 2, callCount, "both targets should be attempted")
+}
+
+func TestCreatePrepackagedBinariesForDocker_CreateTempError(t *testing.T) {
+	origResolve := resolveBaseBinary
+	t.Cleanup(func() { resolveBaseBinary = origResolve })
+
+	// Create base binary stubs before changing TMPDIR.
+	tmpDir := t.TempDir()
+	baseAmd64 := filepath.Join(tmpDir, "base-kdeps-amd64")
+	baseArm64 := filepath.Join(tmpDir, "base-kdeps-arm64")
+	require.NoError(t, os.WriteFile(baseAmd64, []byte("mock binary"), 0644))
+	require.NoError(t, os.WriteFile(baseArm64, []byte("mock binary"), 0644))
+
+	resolveBaseBinary = func(_ context.Context, _ string, target archTarget, _ string) (string, bool, error) {
+		if target.GOARCH == "amd64" {
+			return baseAmd64, true, nil
+		}
+		return baseArm64, true, nil
+	}
+
+	// Point TMPDIR to a non-existent directory so os.CreateTemp fails.
+	t.Setenv("TMPDIR", "/nonexistent-path-for-test")
+
+	binaries, cleanup := createPrepackagedBinariesForDocker(
+		context.Background(),
+		"/nonexistent/kdepsfile",
+	)
+	defer cleanup()
+	assert.Empty(t, binaries)
+}

@@ -57,6 +57,12 @@ var bundleFunc = wasmPkg.Bundle
 //nolint:gochecknoglobals // test-replaceable global
 var osExecutable = os.Executable
 
+// resolveBaseBinary resolves the kdeps base binary to use for a target.
+// It is overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable global
+var resolveBaseBinary = resolveBaseBinaryImpl
+
 // BuildFlags holds the flags for the build command.
 type BuildFlags struct {
 	Tag            string

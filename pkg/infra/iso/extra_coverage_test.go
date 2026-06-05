@@ -12,6 +12,7 @@ package iso
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -567,5 +568,27 @@ func TestAssembleRawBIOS_MkdirAllError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to create cache directory") {
 		t.Fatalf("expected 'failed to create cache directory' error, got: %v", err)
+	}
+}
+
+// ---- MarshalConfig error path ----
+
+func TestMarshalConfig_MarshalError(t *testing.T) {
+	origMarshal := yamlMarshal
+	yamlMarshal = func(_ interface{}) ([]byte, error) {
+		return nil, errors.New("simulated marshal failure")
+	}
+	defer func() { yamlMarshal = origMarshal }()
+
+	config := &LinuxKitConfig{}
+	_, err := MarshalConfig(config)
+	if err == nil {
+		t.Fatal("expected error from MarshalConfig, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to marshal LinuxKit config") {
+		t.Fatalf("expected 'failed to marshal LinuxKit config' error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "simulated marshal failure") {
+		t.Fatalf("expected wrapped 'simulated marshal failure' error, got: %v", err)
 	}
 }
