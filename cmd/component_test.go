@@ -21,8 +21,12 @@
 package cmd_test
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -264,4 +268,89 @@ func TestRegistryList_ReadDirError(t *testing.T) {
 	c := cmd.NewRegistryListCmd()
 	c.SetArgs([]string{})
 	require.NoError(t, c.Execute())
+}
+
+func TestCmdExtractTarEntry_SkipsDot(t *testing.T) {
+	tr := tar.NewReader(strings.NewReader(""))
+	err := cmd.CmdExtractTarEntry(tr, &tar.Header{
+		Name:     ".",
+		Typeflag: tar.TypeDir,
+	}, t.TempDir())
+	require.NoError(t, err)
+}
+
+func TestCmdExtractTarEntry_SkipsDotDot(t *testing.T) {
+	tr := tar.NewReader(strings.NewReader(""))
+	err := cmd.CmdExtractTarEntry(tr, &tar.Header{
+		Name:     "../etc/passwd",
+		Typeflag: tar.TypeReg,
+	}, t.TempDir())
+	require.NoError(t, err)
+}
+
+func TestCmdExtractTarEntry_DirCreateError(t *testing.T) {
+	destDir := t.TempDir()
+	// Create a file where the directory should be created
+	targetName := "conflict"
+	require.NoError(t, os.WriteFile(filepath.Join(destDir, targetName), []byte("block"), 0644))
+
+	header := &tar.Header{
+		Name:     targetName,
+		Typeflag: tar.TypeDir,
+	}
+	tr := tar.NewReader(strings.NewReader(""))
+	err := cmd.CmdExtractTarEntry(tr, header, destDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "mkdir")
+}
+
+func TestCmdExtractTarEntry_FileCreateError(t *testing.T) {
+	destDir := t.TempDir()
+	// Create a directory where the file should be created
+	targetName := "myfile"
+	require.NoError(t, os.MkdirAll(filepath.Join(destDir, targetName), 0755))
+
+	header := &tar.Header{
+		Name:     targetName,
+		Typeflag: tar.TypeReg,
+		Size:     5,
+	}
+	tr := tar.NewReader(strings.NewReader("hello"))
+	err := cmd.CmdExtractTarEntry(tr, header, destDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create")
+}
+
+func TestCmdExtractTarGz_DirAndFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Create a valid tar.gz with a dir and a file
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	_ = tw.WriteHeader(&tar.Header{Name: "subdir", Typeflag: tar.TypeDir, Mode: 0755})
+	_ = tw.WriteHeader(&tar.Header{Name: "subdir/readme.txt", Typeflag: tar.TypeReg, Size: 5, Mode: 0644})
+	_, _ = tw.Write([]byte("hello"))
+	_ = tw.Close()
+	_ = gw.Close()
+
+	err := cmd.CmdExtractTarGz(&buf, tmpDir)
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(tmpDir, "subdir", "readme.txt"))
+}
+
+func TestCmdExtractTarGz_InvalidGzip(t *testing.T) {
+	err := cmd.CmdExtractTarGz(strings.NewReader("not gzip"), t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "gzip")
+}
+
+func TestCmdExtractTarGz_InvalidTar(t *testing.T) {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, _ = gw.Write([]byte("not a valid tar"))
+	_ = gw.Close()
+
+	err := cmd.CmdExtractTarGz(&buf, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tar next")
 }
