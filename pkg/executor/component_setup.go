@@ -39,6 +39,13 @@ const (
 	pkgCheckTimeout     = 10 * time.Second
 )
 
+// pythonManagerFactory creates a Python package manager. Overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {
+	return &pythonpkg.Manager{BaseDir: baseDir}
+}
+
 // runComponentSetup runs a component's setup block (once per component per engine lifetime).
 // It installs Python packages into the workflow venv, installs OS packages via the
 // detected package manager, and runs any setup commands. It also auto-scaffolds a
@@ -184,7 +191,7 @@ func (e *Engine) installComponentPythonPackages(packages []string, ctx *Executio
 		allPkgs = append(allPkgs, p)
 	}
 
-	m := &pythonpkg.Manager{BaseDir: pythonpkg.IOToolsBaseDir()}
+	m := pythonManagerFactory(pythonpkg.IOToolsBaseDir())
 	requirementsFile := ctx.Workflow.Settings.AgentSettings.RequirementsFile
 	_, err := m.EnsureVenv(pythonVersion, allPkgs, requirementsFile, "")
 	return err
