@@ -34,7 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -67,41 +66,6 @@ func TestNormaliseVersion_Empty(t *testing.T) {
 
 	got := normaliseVersion()
 	assert.Equal(t, "", got)
-}
-
-// ---------------------------------------------------------------------------
-// getWorkflowPorts (build.go)
-// ---------------------------------------------------------------------------
-
-func TestGetWorkflowPorts_NilWorkflow(t *testing.T) {
-	ports := getWorkflowPorts(nil)
-	assert.Equal(t, []int{16395}, ports)
-}
-
-func TestGetWorkflowPorts_WithOllama(t *testing.T) {
-	// A workflow with Ollama installed adds the Ollama port.
-	wf := &domain.Workflow{
-		Settings: domain.WorkflowSettings{},
-	}
-	// We need ShouldInstallOllama to return true.
-	// That function checks for workflow settings or resources.
-	// Since it's in the ISO package, let's just test the default path.
-	ports := getWorkflowPorts(wf)
-	assert.NotEmpty(t, ports)
-	// Default port is always present
-	assert.Contains(t, ports, 16395)
-}
-
-func TestGetWorkflowPorts_WithExplicitPort(t *testing.T) {
-	wf := &domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				PortNum: 18080,
-			},
-		},
-	}
-	ports := getWorkflowPorts(wf)
-	assert.Contains(t, ports, 18080)
 }
 
 // ---------------------------------------------------------------------------
@@ -419,21 +383,6 @@ func TestUpdateComponentDir_BadYAML(t *testing.T) {
 	err := updateComponentDir(tmp)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parse")
-}
-
-// ---------------------------------------------------------------------------
-// ensureKdepsFile (build.go) — path checks
-// ---------------------------------------------------------------------------
-
-func TestEnsureKdepsFile_AlreadyKdepsExists(t *testing.T) {
-	tmp := t.TempDir()
-	kdepsPath := filepath.Join(tmp, "test.kdeps")
-	require.NoError(t, os.WriteFile(kdepsPath, []byte("archive"), 0o644))
-
-	path, created, err := ensureKdepsFile(kdepsPath, tmp, &domain.Workflow{})
-	require.NoError(t, err)
-	assert.Equal(t, kdepsPath, path)
-	assert.False(t, created)
 }
 
 // ---------------------------------------------------------------------------

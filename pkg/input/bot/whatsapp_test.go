@@ -25,6 +25,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -309,4 +310,46 @@ func TestNewSlackRunner(t *testing.T) {
 	creds := &kdepsconfig.SlackConnectionConfig{BotToken: "xoxb-test", AppToken: "xapp-test"}
 	r := newSlackRunner(&domain.SlackConfig{}, creds, nil)
 	require.NotNil(t, r)
+}
+
+// ─── Reply: empty chatID ────────────────────────────────────────────────────
+
+func TestWhatsAppReply_EmptyChatID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var payload map[string]interface{}
+		require.NoError(t, json.Unmarshal(body, &payload))
+		assert.Equal(t, "", payload["to"])
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	r := &whatsAppRunner{
+		accessToken:   "test-token",
+		phoneNumberID: "123",
+		client:        &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}},
+	}
+
+	err := r.Reply(context.Background(), "", "hello")
+	require.NoError(t, err)
+}
+
+// ─── Reply: nil service (empty credentials + nil client) ────────────────────
+
+func TestWhatsAppReply_NilService(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.Header.Get("Authorization"), "Bearer")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	r := &whatsAppRunner{
+		accessToken:   "",
+		phoneNumberID: "",
+		client:        &http.Client{Transport: &rewriteHostTransport{host: srv.Listener.Addr().String()}},
+	}
+
+	// Empty credentials and empty chatID — request still builds successfully.
+	err := r.Reply(context.Background(), "", "hello")
+	require.NoError(t, err)
 }

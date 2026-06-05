@@ -255,3 +255,4 @@ codeql-results.sarif
 tests/integration/mcp/testserver/testserver
 tests/integration/mcp/testserver/testserver.exe
 book
+.claude_tmp/

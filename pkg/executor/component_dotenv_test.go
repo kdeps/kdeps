@@ -380,3 +380,258 @@ func TestScanResourceEnvVars_PythonScript(t *testing.T) {
 	})
 	assert.Contains(t, vars, "PY_SECRET")
 }
+
+// --- ScaffoldComponentFiles error paths ---
+
+func TestScaffoldComponentFiles_ScaffoldDotEnvWriteError(t *testing.T) {
+	// compDir is a file, not a directory -- os.WriteFile inside scaffoldDotEnv fails.
+	dir := t.TempDir()
+	compDir := filepath.Join(dir, "block")
+	require.NoError(t, os.WriteFile(compDir, []byte("not a dir"), 0o644))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+		Resources: []*domain.Resource{
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
+			},
+		},
+	}
+
+	_, err := executor.ScaffoldComponentFiles(comp, compDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "scaffold .env")
+}
+
+func TestScaffoldComponentFiles_ScaffoldReadmeWriteError(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "compdir")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+
+	// Pre-create .env so scaffoldDotEnv is skipped.
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, ".env"), []byte("EXISTING=1\n"), 0o600))
+
+	// Remove write permission from the directory to make scaffoldReadme fail.
+	require.NoError(t, os.Chmod(subDir, 0o555))
+	defer func() {
+		_ = os.Chmod(subDir, 0o755) // restore for t.TempDir cleanup
+	}()
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+	}
+
+	_, err := executor.ScaffoldComponentFiles(comp, subDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "scaffold README.md")
+}
+
+// --- ParseComponentForUpdate error paths ---
+
+func TestParseComponentForUpdate_InvalidYAML(t *testing.T) {
+	data := []byte("]]] invalid yaml {{{")
+	_, err := executor.ParseComponentForUpdate(data, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse component.yaml")
+}
+
+func TestParseComponentForUpdate_ResourcesDirAsFile(t *testing.T) {
+	dir := t.TempDir()
+	// Create resources as a file so os.ReadDir returns a non-IsNotExist error.
+	resourcesPath := filepath.Join(dir, "resources")
+	require.NoError(t, os.WriteFile(resourcesPath, []byte("not a dir"), 0o644))
+
+	data := []byte(`
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: test
+`)
+	_, err := executor.ParseComponentForUpdate(data, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read resources dir")
+}
+
+func TestParseComponentForUpdate_SkipUnreadableAndInvalidResources(t *testing.T) {
+	dir := t.TempDir()
+	resDir := filepath.Join(dir, "resources")
+	require.NoError(t, os.MkdirAll(resDir, 0o755))
+
+	// Valid resource -- should be parsed.
+	require.NoError(t, os.WriteFile(filepath.Join(resDir, "valid.yaml"), []byte(`
+actionId: doThing
+exec:
+  command: "echo hello"
+`), 0o644))
+
+	// Unreadable resource file -- os.ReadFile fails, should be skipped.
+	unreadablePath := filepath.Join(resDir, "secret.yaml")
+	require.NoError(t, os.WriteFile(unreadablePath, []byte("content"), 0o600))
+	require.NoError(t, os.Chmod(unreadablePath, 0o000))
+	defer func() {
+		_ = os.Chmod(unreadablePath, 0o600) // restore for t.TempDir cleanup
+	}()
+
+	// Invalid YAML resource -- yaml.Unmarshal fails, should be skipped.
+	require.NoError(t, os.WriteFile(filepath.Join(resDir, "bad.yaml"), []byte("[[[invalid yaml"), 0o644))
+
+	// Directory entry inside resources/ -- e.IsDir() continue.
+	require.NoError(t, os.MkdirAll(filepath.Join(resDir, "subdir"), 0o755))
+
+	// Non-YAML file -- !strings.HasSuffix continue.
+	require.NoError(t, os.WriteFile(filepath.Join(resDir, "notes.txt"), []byte("not yaml"), 0o644))
+
+	compYAML := []byte(`
+apiVersion: kdeps.io/v1
+kind: Component
+metadata:
+  name: test
+`)
+	comp, err := executor.ParseComponentForUpdate(compYAML, dir)
+	require.NoError(t, err)
+	require.Len(t, comp.Resources, 1, "should only parse the valid resource")
+	assert.Equal(t, "doThing", comp.Resources[0].ActionID)
+}
+
+// --- UpdateComponentFiles / mergeDotEnv error paths ---
+
+func TestUpdateComponentFiles_MergeDotEnv_LoadError(t *testing.T) {
+	dir := t.TempDir()
+	dotEnvPath := filepath.Join(dir, ".env")
+	require.NoError(t, os.WriteFile(dotEnvPath, []byte("EXISTING=1\n"), 0o600))
+	// Remove read permission so loadComponentDotEnv returns a non-errNoDotEnv error.
+	require.NoError(t, os.Chmod(dotEnvPath, 0o000))
+	defer func() {
+		_ = os.Chmod(dotEnvPath, 0o600) // restore for t.TempDir cleanup
+	}()
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+		Resources: []*domain.Resource{
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
+			},
+		},
+	}
+
+	_, err := executor.UpdateComponentFiles(comp, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read existing .env")
+}
+
+func TestUpdateComponentFiles_MergeDotEnv_AppendOpenError(t *testing.T) {
+	dir := t.TempDir()
+	dotEnvPath := filepath.Join(dir, ".env")
+	// Read-only file: loadComponentDotEnv succeeds, but os.OpenFile(O_WRONLY) fails.
+	require.NoError(t, os.WriteFile(dotEnvPath, []byte("EXISTING=1\n"), 0o444))
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+		Resources: []*domain.Resource{
+			{
+				Exec: &domain.ExecConfig{Command: `echo "{{ env('MY_VAR') }}"`},
+			},
+		},
+	}
+
+	_, err := executor.UpdateComponentFiles(comp, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "open .env for append")
+}
+
+// --- loadComponentDotEnv uncovered branch: line without '=' ---
+
+func TestEnv_DotEnvFile_LineWithoutEquals(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	dir := t.TempDir()
+	content := "LINE_NO_EQUALS\nKEY=value\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0o600))
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	require.NoError(t, executor.LoadComponentDotEnvForTest(ctx, "comp", dir))
+	ctx.CurrentComponent = "comp"
+
+	val, envErr := ctx.Env("LINE_NO_EQUALS")
+	require.NoError(t, envErr)
+	assert.Equal(t, "", val, "line without '=' should not set a variable")
+
+	val, envErr = ctx.Env("KEY")
+	require.NoError(t, envErr)
+	assert.Equal(t, "value", val)
+}
+
+// --- scanComponentEnvVars uncovered branch: nil resource ---
+
+func TestScanComponentEnvVars_NilResource(t *testing.T) {
+	vars := executor.ScanComponentEnvVars(&domain.Component{
+		Resources: []*domain.Resource{
+			nil,
+			{Exec: &domain.ExecConfig{Command: `{{ env('MY_VAR') }}`}},
+		},
+	})
+	assert.Contains(t, vars, "MY_VAR")
+}
+
+// --- scanResourceEnvVars uncovered branch: Exec.Env entries ---
+
+func TestScanResourceEnvVars_ExecEnvMap(t *testing.T) {
+	vars := executor.ScanComponentEnvVars(&domain.Component{
+		Resources: []*domain.Resource{
+			{
+				Exec: &domain.ExecConfig{
+					Command: `echo hello`,
+					Env: map[string]string{
+						"PATH": `{{ env('PATH_VAR') }}`,
+					},
+				},
+			},
+		},
+	})
+	assert.Contains(t, vars, "PATH_VAR")
+}
+
+// --- UpdateComponentFiles error paths (scaffoldReadme / scaffoldDotEnv) ---
+
+func TestUpdateComponentFiles_ScaffoldReadmeError(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "compdir")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+
+	// Remove write permission so scaffoldReadme fails.
+	require.NoError(t, os.Chmod(subDir, 0o555))
+	defer func() {
+		_ = os.Chmod(subDir, 0o755) // restore for t.TempDir cleanup
+	}()
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+	}
+
+	_, err := executor.UpdateComponentFiles(comp, subDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "scaffold README.md")
+}
+
+func TestUpdateComponentFiles_ScaffoldDotEnvError(t *testing.T) {
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "compdir")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+
+	// Pre-create README.md so scaffoldReadme is skipped.
+	require.NoError(t, os.WriteFile(filepath.Join(subDir, "README.md"), []byte("# Custom\n"), 0o644))
+
+	// Remove write permission so scaffoldDotEnv fails.
+	require.NoError(t, os.Chmod(subDir, 0o555))
+	defer func() {
+		_ = os.Chmod(subDir, 0o755) // restore for t.TempDir cleanup
+	}()
+
+	comp := &domain.Component{
+		Metadata: domain.ComponentMetadata{Name: "test"},
+	}
+
+	_, err := executor.UpdateComponentFiles(comp, subDir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "scaffold .env")
+}

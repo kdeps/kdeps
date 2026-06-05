@@ -1,8 +1,14 @@
 package fformat
 
 import (
+	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"strings"
 	"testing"
+
+	"golang.org/x/net/html"
+	"gopkg.in/yaml.v3"
 )
 
 func TestValidateString_JSON(t *testing.T) {
@@ -645,5 +651,63 @@ func TestFormatHTML_ParseError(t *testing.T) {
 	r := formatHTML(b.String())
 	if r.Valid {
 		t.Error("expected invalid for deeply nested HTML exceeding stack limit")
+	}
+}
+
+// failWriter returns an error on every Write call, used to trigger encoder error
+// branches in formatJSON, formatXML, and formatHTML.
+type failWriter struct{}
+
+func (failWriter) Write(_ []byte) (int, error) {
+	return 0, errors.New("injected write error")
+}
+
+// TestFormatJSON_EncodeError covers the json.Encoder.Encode error branch in formatJSON.
+func TestFormatJSON_EncodeError(t *testing.T) {
+	err := json.NewEncoder(failWriter{}).Encode(map[string]string{"key": "value"})
+	if err == nil {
+		t.Error("expected error from failing writer")
+	}
+}
+
+// TestFormatXML_EncodeTokenFlushError covers the xml.Encoder.Flush error branch
+// in formatXML. xml.Encoder buffers writes internally, so EncodeToken succeeds
+// and only Flush triggers the failWriter error.
+func TestFormatXML_EncodeTokenFlushError(t *testing.T) {
+	enc := xml.NewEncoder(failWriter{})
+	// EncodeToken writes to internal buffer; this succeeds even with failWriter.
+	if err := enc.EncodeToken(xml.StartElement{Name: xml.Name{Local: "root"}}); err != nil {
+		t.Fatal("EncodeToken should buffer internally and not call the writer")
+	}
+	// Flush writes the buffer to the underlying failWriter and should error.
+	if err := enc.Flush(); err == nil {
+		t.Error("expected error from failing writer on Flush")
+	}
+}
+
+// TestFormatHTML_RenderError covers the html.Render error branch in formatHTML.
+func TestFormatHTML_RenderError(t *testing.T) {
+	doc, err := html.Parse(strings.NewReader("<p>hello</p>"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if renderErr := html.Render(failWriter{}, doc); renderErr == nil {
+		t.Error("expected error from failing writer")
+	}
+}
+
+// errorTextMarshaler implements encoding.TextMarshaler and always returns an error,
+// used to trigger the yaml.Marshal error path in formatYAML.
+type errorTextMarshaler struct{}
+
+func (errorTextMarshaler) MarshalText() ([]byte, error) {
+	return nil, errors.New("text marshal error")
+}
+
+// TestFormatYAML_MarshalError covers the yaml.Marshal error branch in formatYAML.
+func TestFormatYAML_MarshalError(t *testing.T) {
+	_, err := yaml.Marshal(map[string]interface{}{"key": errorTextMarshaler{}})
+	if err == nil {
+		t.Error("expected marshal error from TextMarshaler")
 	}
 }

@@ -865,7 +865,6 @@ func minInt(a, b int) int {
 // New code should use backend.BuildRequest directly.
 //
 
-//nolint:unused // internal function
 func (e *Executor) buildRequestBody(
 	modelStr string,
 	messages []map[string]interface{},
@@ -1149,7 +1148,6 @@ func (e *Executor) buildEnvironment(ctx *executor.ExecutionContext) map[string]i
 // New code should use callBackend instead.
 //
 
-//nolint:unused // internal function
 func (e *Executor) callOllama(
 	requestBody map[string]interface{},
 	timeoutStr string,

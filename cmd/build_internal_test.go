@@ -684,6 +684,252 @@ func TestCreatePrepackagedBinariesForDocker_OsExecutableError(t *testing.T) {
 	assert.Empty(t, binaries)
 }
 
+// ---------------------------------------------------------------------------
+// ensureKdepsFile tests
+// ---------------------------------------------------------------------------
+
+func TestEnsureKdepsFile_AlreadyKdepsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	kdepsPath := filepath.Join(tmpDir, "test.kdeps")
+	require.NoError(t, os.WriteFile(kdepsPath, []byte(""), 0644))
+
+	path, created, err := ensureKdepsFile(kdepsPath, "", &domain.Workflow{})
+	require.NoError(t, err)
+	assert.Equal(t, kdepsPath, path)
+	assert.False(t, created)
+}
+
+func TestEnsureKdepsFile_NonKdepsSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		[]byte(
+			"apiVersion: kdeps.io/v1\n"+
+				"kind: Workflow\n"+
+				"metadata:\n"+
+				"  name: test\n"+
+				"  targetActionId: test-action\n"+
+				"settings: {}\n",
+		),
+		0644,
+	))
+
+	path, created, err := ensureKdepsFile(filepath.Join(tmpDir, "workflow.yaml"), tmpDir, &domain.Workflow{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, path)
+	assert.True(t, created)
+	assert.FileExists(t, path)
+	os.Remove(path)
+}
+
+func TestEnsureKdepsFile_CreatePackageArchiveError(t *testing.T) {
+	tmpDir := t.TempDir()
+	path, created, err := ensureKdepsFile(
+		filepath.Join(tmpDir, "workflow.yaml"),
+		"/nonexistent-pkg-dir-for-test",
+		&domain.Workflow{},
+	)
+	require.Error(t, err)
+	assert.Empty(t, path)
+	assert.False(t, created)
+	assert.Contains(t, err.Error(), "failed to create .kdeps archive")
+}
+
+func TestEnsureKdepsFile_CreateTempError(t *testing.T) {
+	t.Setenv("TMPDIR", "/nonexistent-tmpdir-for-ensure-test")
+	path, created, err := ensureKdepsFile("/some/path/workflow.yaml", "/some/pkgdir", &domain.Workflow{})
+	require.Error(t, err)
+	assert.Empty(t, path)
+	assert.False(t, created)
+	assert.Contains(t, err.Error(), "failed to create temp .kdeps file")
+}
+
+// ---------------------------------------------------------------------------
+// getWorkflowPorts tests
+// ---------------------------------------------------------------------------
+
+func TestGetWorkflowPorts_NilWorkflow(t *testing.T) {
+	ports := getWorkflowPorts(nil)
+	assert.Equal(t, []int{16395}, ports)
+}
+
+func TestGetWorkflowPorts_DefaultPort(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{},
+	}
+	ports := getWorkflowPorts(wf)
+	assert.Equal(t, []int{16395}, ports)
+}
+
+func TestGetWorkflowPorts_APIServerPort(t *testing.T) {
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+		},
+	}
+	ports := getWorkflowPorts(wf)
+	assert.Equal(t, []int{8080}, ports)
+}
+
+func TestGetWorkflowPorts_OllamaEnabled(t *testing.T) {
+	installOllama := true
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				InstallOllama: &installOllama,
+			},
+		},
+	}
+	ports := getWorkflowPorts(wf)
+	assert.Equal(t, []int{16395, 11434}, ports)
+}
+
+func TestGetWorkflowPorts_CustomPortAndOllama(t *testing.T) {
+	installOllama := true
+	wf := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 9090},
+			AgentSettings: domain.AgentSettings{
+				InstallOllama: &installOllama,
+			},
+		},
+	}
+	ports := getWorkflowPorts(wf)
+	assert.Equal(t, []int{9090, 11434}, ports)
+}
+
+// ---------------------------------------------------------------------------
+// handleDockerfileShow tests
+// ---------------------------------------------------------------------------
+
+func TestHandleDockerfileShow_Success(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
+	err := handleDockerfileShow(builder, wf)
+	require.NoError(t, err)
+}
+
+func TestHandleDockerfileShow_Error(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "unsupported-os"}
+	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
+	err := handleDockerfileShow(builder, wf)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to generate Dockerfile")
+	assert.Contains(t, err.Error(), "unsupported base OS")
+}
+
+// ---------------------------------------------------------------------------
+// buildWASMImage with WASM env set but wasm_exec.js missing
+// ---------------------------------------------------------------------------
+
+func TestBuildWASMImage_MissingWASMExecJS(t *testing.T) {
+	origOsExecutable := osExecutable
+	t.Cleanup(func() { osExecutable = origOsExecutable })
+
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+
+	// Set KDEPS_WASM_BINARY to a valid file (WASM env already set)
+	wasmBin := filepath.Join(tmpDir, "kdeps_test.wasm")
+	require.NoError(t, os.WriteFile(wasmBin, []byte("mock wasm binary"), 0644))
+	t.Setenv("KDEPS_WASM_BINARY", wasmBin)
+
+	// osExecutable returns a valid path in tmpDir, but wasm_exec.js does not
+	// exist there. Setting GOROOT to a non-existent path prevents
+	// findWASMExecJS from finding the file via Go SDK.
+	osExecutable = func() (string, error) {
+		return filepath.Join(tmpDir, "kdeps"), nil
+	}
+	t.Setenv("GOROOT", "/nonexistent-goroot")
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "wasm_exec.js not found")
+}
+
+func TestBuildWASMImage_CollectWebServerFilesError(t *testing.T) {
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+	setupWASMEnv(t, tmpDir)
+
+	// Create a data/ directory and remove permissions so Walk fails.
+	dataDir := filepath.Join(tmpDir, "data")
+	require.NoError(t, os.MkdirAll(dataDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dataDir, "test.txt"), []byte("content"), 0644))
+	require.NoError(t, os.Chmod(dataDir, 0000))
+	t.Cleanup(func() { _ = os.Chmod(dataDir, 0755) })
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to collect web server files")
+}
+
+func TestBuildWASMImage_MkdirTempError(t *testing.T) {
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	tmpDir := t.TempDir()
+	createMinimalWASMWorkflow(t, tmpDir)
+	setupWASMEnv(t, tmpDir)
+
+	// Point TMPDIR at a non-existent directory so os.MkdirTemp fails.
+	t.Setenv("TMPDIR", "/nonexistent-mkdir-tmp")
+
+	err := buildWASMImage(context.Background(), tmpDir, &BuildFlags{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create output directory")
+}
+
+// TestBuildWASMImage_WithKdepsPackage exercises the cleanupFunc non-nil path,
+// covering the defer cleanupFunc() branch in buildWASMImage.
+func TestBuildWASMImage_WithKdepsPackage(t *testing.T) {
+	origBundle := bundleFunc
+	t.Cleanup(func() { bundleFunc = origBundle })
+	bundleFunc = func(_ *wasmPkg.BundleConfig) error { return nil }
+
+	origBuildDockerImage := buildDockerImage
+	t.Cleanup(func() { buildDockerImage = origBuildDockerImage })
+	buildDockerImage = func(_ context.Context, _ []string) error { return nil }
+
+	// Create source dir with workflow and package it.
+	srcDir := t.TempDir()
+	createMinimalWASMWorkflow(t, srcDir)
+	setupWASMEnv(t, srcDir)
+
+	pkgPath := filepath.Join(t.TempDir(), "test.kdeps")
+	require.NoError(t, CreatePackageArchive(srcDir, pkgPath, &domain.Workflow{}))
+
+	// Calling buildWASMImage with a .kdeps file triggers the cleanup
+	// function returned by resolveBuildWorkflowPaths.
+	err := buildWASMImage(context.Background(), pkgPath, &BuildFlags{})
+	require.NoError(t, err)
+}
+
 func TestCreatePrepackagedBinariesForDocker_ResolveError(t *testing.T) {
 	origResolve := resolveBaseBinary
 	t.Cleanup(func() { resolveBaseBinary = origResolve })

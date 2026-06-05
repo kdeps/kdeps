@@ -81,24 +81,77 @@ func TestExecutor_DetectDriver(t *testing.T) {
 	}
 }
 
-func TestExecutor_FormatAsCSV(_ *testing.T) {
-	// Test removed - formatAsCSV is an unexported method
-	// This functionality is tested indirectly through Execute tests with CSV format
+func TestExecutor_FormatAsCSV(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	results := []map[string]interface{}{
+		{"id": 1, "name": "Alice", "active": true},
+		{"id": 2, "name": "Bob", "active": false},
+	}
+
+	result, err := exec.FormatAsCSV(results)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(result), "\n")
+	assert.Len(t, lines, 3)
+
+	assert.Equal(t, "active,id,name", lines[0])
+	assert.Contains(t, result, "Alice")
+	assert.Contains(t, result, "Bob")
+	assert.Contains(t, result, "true")
+	assert.Contains(t, result, "1")
+	assert.Contains(t, result, "2")
 }
 
-func TestExecutor_FormatAsCSV_Empty(_ *testing.T) {
-	// Test removed - formatAsCSV is an unexported method
-	// This functionality is tested indirectly through Execute tests with CSV format
+func TestExecutor_FormatAsCSV_Empty(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	result, err := exec.FormatAsCSV([]map[string]interface{}{})
+	require.NoError(t, err)
+	assert.Empty(t, result)
 }
 
-func TestExecutor_FormatAsCSV_SingleRow(_ *testing.T) {
-	// Test removed - formatAsCSV is an unexported method
-	// This functionality is tested indirectly through Execute tests with CSV format
+func TestExecutor_FormatAsCSV_SingleRow(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	results := []map[string]interface{}{
+		{"id": 42, "name": "Single", "score": 98.5},
+	}
+
+	result, err := exec.FormatAsCSV(results)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(result), "\n")
+	assert.Len(t, lines, 2)
+	assert.Equal(t, "id,name,score", lines[0])
+	assert.Contains(t, lines[1], "42")
+	assert.Contains(t, lines[1], "Single")
+	assert.Contains(t, lines[1], "98.5")
 }
 
-func TestExecutor_FormatAsCSV_SpecialCharacters(_ *testing.T) {
-	// Test removed - formatAsCSV is an unexported method
-	// This functionality is tested indirectly through Execute tests with CSV format
+func TestExecutor_FormatAsCSV_SpecialCharacters(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	results := []map[string]interface{}{
+		{"id": 1, "name": "Alice, \"The Great\"", "note": "line1\nline2"},
+		{"id": 2, "name": "Bob \"Builder\"", "note": "comma, here"},
+	}
+
+	result, err := exec.FormatAsCSV(results)
+	require.NoError(t, err)
+	require.NotEmpty(t, result)
+
+	// Do not split by newline - CSV fields with newlines make line count unreliable.
+	// Instead, verify header prefix and content presence.
+	assert.True(t, strings.HasPrefix(result, "id,name,note\n"), "CSV should start with sorted header")
+
+	// Verify special characters are present (CSV writer quotes them as needed)
+	assert.Contains(t, result, "Alice")
+	assert.Contains(t, result, "The Great")
+	assert.Contains(t, result, "Bob")
+	assert.Contains(t, result, "Builder")
+	assert.Contains(t, result, "line1")
+	assert.Contains(t, result, "comma")
 }
 
 func TestExecutor_FormatAsJSON_Simulation(t *testing.T) {
@@ -1222,4 +1275,88 @@ func TestExecutor_ExecuteQuery_ParamsError(t *testing.T) {
 		require.True(t, ok)
 		assert.Contains(t, resultMap, "error")
 	}
+}
+
+// TestExecutor_FormatAsCSV_NilValues tests CSV formatting with nil field values.
+func TestExecutor_FormatAsCSV_NilValues(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	results := []map[string]interface{}{
+		{"id": 1, "name": "Alice", "email": nil},
+		{"id": 2, "name": nil, "email": "bob@test.com"},
+	}
+
+	result, err := exec.FormatAsCSV(results)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(result), "\n")
+	assert.Len(t, lines, 3)
+	assert.Equal(t, "email,id,name", lines[0])
+	// First row: email is nil -> empty field
+	assert.Contains(t, lines[1], ",1,Alice")
+	// Second row: name is nil -> empty field
+	assert.Contains(t, lines[2], "bob@test.com,2,")
+}
+
+// TestExecutor_FormatSelectResults_Nil tests FormatSelectResults with nil results slice.
+func TestExecutor_FormatSelectResults_Nil(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	// Nil results with JSON format
+	result, err := exec.FormatSelectResults(nil, "json")
+	require.NoError(t, err)
+	assert.Equal(t, "null", result)
+
+	// Nil results with CSV format
+	result, err = exec.FormatSelectResults(nil, "csv")
+	require.NoError(t, err)
+	assert.Empty(t, result)
+
+	// Nil results with default format
+	result, err = exec.FormatSelectResults(nil, "")
+	require.NoError(t, err)
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, int64(0), resultMap["rowsAffected"])
+	assert.Nil(t, resultMap["data"])
+	columns, ok := resultMap["columns"].([]string)
+	require.True(t, ok)
+	assert.Empty(t, columns)
+}
+
+// TestExecutor_FormatSelectResults_EmptyDefault tests FormatSelectResults with
+// empty results and the default format (not json/csv/table).
+func TestExecutor_FormatSelectResults_EmptyDefault(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	result, err := exec.FormatSelectResults([]map[string]interface{}{}, "default")
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, int64(0), resultMap["rowsAffected"])
+
+	data, ok := resultMap["data"].([]map[string]interface{})
+	require.True(t, ok)
+	assert.Empty(t, data)
+
+	columns, ok := resultMap["columns"].([]string)
+	require.True(t, ok)
+	assert.Empty(t, columns)
+}
+
+// TestExecutor_FormatSelectResults_JSONMarshalError tests that FormatSelectResults
+// propagates json.Marshal failures for unserializable values.
+func TestExecutor_FormatSelectResults_JSONMarshalError(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+
+	// A map containing a channel makes json.Marshal return an error
+	ch := make(chan int)
+	results := []map[string]interface{}{
+		{"id": 1, "data": ch},
+	}
+
+	_, err := exec.FormatSelectResults(results, "json")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to marshal results")
 }
