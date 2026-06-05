@@ -64,13 +64,16 @@ type Executor struct {
 	logger          *slog.Logger
 }
 
-const ()
+const (
+	defaultOllamaURL = "http://localhost:11434"
+	roleUser         = "user"
+)
 
 // NewExecutor creates a new LLM executor.
 func NewExecutor(ollamaURL string) *Executor {
 	kdeps_debug.Log("enter: NewExecutor")
 	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
+		ollamaURL = defaultOllamaURL
 	}
 
 	return &Executor{
@@ -288,7 +291,7 @@ func (e *Executor) Execute(
 		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
 	}
 	if backendName == "" {
-		backendName = "ollama"
+		backendName = backendOllama
 	}
 
 	backend := e.backendRegistry.Get(backendName)
@@ -547,7 +550,7 @@ func (e *Executor) buildMessages(
 	// Default role to "user" if empty
 	role := config.Role
 	if role == "" {
-		role = "user"
+		role = roleUser
 	}
 
 	messages := []map[string]interface{}{
