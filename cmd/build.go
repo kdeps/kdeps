@@ -52,6 +52,11 @@ import (
 //nolint:gochecknoglobals // test-replaceable global
 var bundleFunc = wasmPkg.Bundle
 
+// osExecutable is os.Executable, overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable global
+var osExecutable = os.Executable
+
 // BuildFlags holds the flags for the build command.
 type BuildFlags struct {
 	Tag            string
@@ -607,7 +612,7 @@ func createPrepackagedBinariesForDocker(
 		{GOOS: goosLinux, GOARCH: "arm64"},
 	}
 
-	currentExec, _ := os.Executable()
+	currentExec, _ := osExecutable()
 
 	binaries := make(map[string]string, len(targets))
 
@@ -871,7 +876,7 @@ func findWASMBinary() (string, error) {
 		}
 	}
 
-	if exePath, err := os.Executable(); err == nil {
+	if exePath, err := osExecutable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(exePath), "kdeps.wasm")
 		if _, statErr := os.Stat(candidate); statErr == nil {
 			return candidate, nil
@@ -898,7 +903,7 @@ func findWASMExecJS(ctx context.Context) (string, error) {
 		}
 	}
 
-	if exePath, err := os.Executable(); err == nil {
+	if exePath, err := osExecutable(); err == nil {
 		candidate := filepath.Join(filepath.Dir(exePath), "wasm_exec.js")
 		if _, statErr := os.Stat(candidate); statErr == nil {
 			return candidate, nil

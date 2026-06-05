@@ -490,3 +490,68 @@ func TestBuildWASMImage_WithAPIRoutes(t *testing.T) {
 	assert.Contains(t, capturedConfig.WorkflowYAML, "/api/v1/chat")
 	assert.Contains(t, capturedConfig.WorkflowYAML, "/api/v1/status")
 }
+
+// ---------------------------------------------------------------------------
+// findWASMBinary / findWASMExecJS with osExecutable error
+// ---------------------------------------------------------------------------
+
+func TestFindWASMBinary_OsExecutableError(t *testing.T) {
+	orig := osExecutable
+	t.Cleanup(func() { osExecutable = orig })
+	osExecutable = func() (string, error) {
+		return "", errors.New("executable not found")
+	}
+
+	// With osExecutable failing and no env var, should fall through to CWD check.
+	// CWD won't have kdeps.wasm, so it returns an error.
+	_, err := findWASMBinary()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps.wasm not found")
+}
+
+func TestFindWASMExecJS_OsExecutableError(t *testing.T) {
+	orig := osExecutable
+	t.Cleanup(func() { osExecutable = orig })
+	osExecutable = func() (string, error) {
+		return "", errors.New("executable not found")
+	}
+
+	// With osExecutable failing and no env var, should fall through to CWD and Go SDK.
+	// CWD won't have wasm_exec.js, and "go env GOROOT" may or may not work.
+	_, err := findWASMExecJS(context.Background())
+	// Should either find it via Go SDK or return an error — both paths are valid.
+	// We just want to exercise the osExecutable error branch.
+	t.Logf("findWASMExecJS with osExecutable error: %v", err)
+}
+
+func TestFindWASMBinary_OsExecutableSuccess_FileMissing(t *testing.T) {
+	orig := osExecutable
+	t.Cleanup(func() { osExecutable = orig })
+
+	tmpDir := t.TempDir()
+	osExecutable = func() (string, error) {
+		return filepath.Join(tmpDir, "kdeps"), nil
+	}
+
+	// osExecutable succeeds but kdeps.wasm doesn't exist next to it.
+	_, err := findWASMBinary()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kdeps.wasm not found")
+}
+
+func TestFindWASMExecJS_OsExecutableSuccess_FilePresent(t *testing.T) {
+	orig := osExecutable
+	t.Cleanup(func() { osExecutable = orig })
+
+	tmpDir := t.TempDir()
+	wasmExecJSPath := filepath.Join(tmpDir, "wasm_exec.js")
+	require.NoError(t, os.WriteFile(wasmExecJSPath, []byte("// mock"), 0644))
+
+	osExecutable = func() (string, error) {
+		return filepath.Join(tmpDir, "kdeps"), nil
+	}
+
+	path, err := findWASMExecJS(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, wasmExecJSPath, path)
+}
