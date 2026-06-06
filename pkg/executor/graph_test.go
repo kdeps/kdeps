@@ -232,6 +232,23 @@ func TestGraph_TopologicalSort(t *testing.T) {
 	}
 }
 
+func TestGraph_TopologicalSort_Cycle(t *testing.T) {
+	resources := []*domain.Resource{
+		{ActionID: "a", Requires: []string{"b"}},
+		{ActionID: "b", Requires: []string{"a"}},
+	}
+
+	graph := executor.NewGraph()
+	for _, r := range resources {
+		_ = graph.AddResource(r)
+	}
+
+	_, err := graph.TopologicalSort()
+	if err == nil {
+		t.Error("expected cycle error from TopologicalSort")
+	}
+}
+
 func TestGraph_GetExecutionOrder(t *testing.T) {
 	resources := []*domain.Resource{
 		{ActionID: "a"},

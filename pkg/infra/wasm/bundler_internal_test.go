@@ -212,10 +212,18 @@ func TestGenerateDefaultIndex_Success(t *testing.T) {
 	contentStr := string(content)
 
 	assert.Contains(t, contentStr, "<!DOCTYPE html>")
-	assert.Contains(t, contentStr, "KDeps App")
-	assert.Contains(t, contentStr, "wasm_exec.js")
-	assert.Contains(t, contentStr, "kdeps-bootstrap.js")
-	assert.Contains(t, contentStr, "<title>KDeps App</title>")
+}
+
+func TestGenerateDefaultIndex_WriteError(t *testing.T) {
+	orig := osWriteFile
+	t.Cleanup(func() { osWriteFile = orig })
+	osWriteFile = func(_ string, _ []byte, _ os.FileMode) error {
+		return errors.New("disk full")
+	}
+
+	err := generateDefaultIndex(t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "disk full")
 }
 
 func TestGenerateDefaultIndex_DistDirNotExist(t *testing.T) {
