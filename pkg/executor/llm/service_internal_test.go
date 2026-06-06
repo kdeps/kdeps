@@ -19,17 +19,54 @@
 package llm
 
 import (
+	"context"
+	"log/slog"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestExecCommandContext_DIVarIsSettable(t *testing.T) {
+func TestServeOllamaModel_AlreadyRunning(t *testing.T) {
 	orig := execCommandContext
 	t.Cleanup(func() { execCommandContext = orig })
+	// Mock execCommandContext to return a command that succeeds (simulating ollama running)
+	execCommandContext = func(ctx context.Context, _ string, args ...string) *exec.Cmd {
+		if len(args) > 0 && args[0] == "list" {
+			return exec.CommandContext(ctx, "echo", "ollama is running")
+		}
+		return exec.CommandContext(ctx, "echo", "mock")
+	}
 
-	called := false
-	// Verify the DI var can be overridden for testability.
-	assert.NotNil(t, execCommandContext)
-	assert.False(t, called)
+	s := NewModelService(slog.Default())
+	err := s.serveOllamaModel("test-model", "", 0)
+	assert.NoError(t, err)
+}
+
+func TestServeOllamaModel_StartFailed(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+	execCommandContext = func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+		// ollama list fails (not running), ollama serve also fails
+		return exec.CommandContext(ctx, "false") // false always exits 1
+	}
+
+	s := NewModelService(slog.Default())
+	err := s.serveOllamaModel("test-model", "", 0)
+	assert.NoError(t, err) // returns nil even when ollama start fails
+}
+
+func TestServeOllamaModel_WithHost(t *testing.T) {
+	orig := execCommandContext
+	t.Cleanup(func() { execCommandContext = orig })
+	execCommandContext = func(ctx context.Context, _ string, args ...string) *exec.Cmd {
+		if len(args) > 0 && args[0] == "list" {
+			return exec.CommandContext(ctx, "echo", "running")
+		}
+		return exec.CommandContext(ctx, "echo", "mock")
+	}
+
+	s := NewModelService(slog.Default())
+	err := s.serveOllamaModel("test-model", "0.0.0.0", 11434)
+	assert.NoError(t, err)
 }

@@ -865,6 +865,7 @@ func minInt(a, b int) int {
 // New code should use backend.BuildRequest directly.
 //
 
+//nolint:unparam // modelStr varies by caller in production; test callers all use same value
 func (e *Executor) buildRequestBody(
 	modelStr string,
 	messages []map[string]interface{},

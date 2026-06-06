@@ -39,6 +39,12 @@ const discordPlatform = "discord"
 //nolint:gochecknoglobals // test-replaceable
 var discordNewSession = discordgo.New
 
+//nolint:gochecknoglobals // test-replaceable
+var discordSessionOpen = func(s *discordgo.Session) error { return s.Open() }
+
+//nolint:gochecknoglobals // test-replaceable
+var discordSessionClose = func(s *discordgo.Session) error { return s.Close() }
+
 type discordRunner struct {
 	botToken string
 	guildID  string
@@ -96,12 +102,12 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 
 	s.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 
-	if openErr := s.Open(); openErr != nil {
+	if openErr := discordSessionOpen(s); openErr != nil {
 		return fmt.Errorf("discord: open session: %w", openErr)
 	}
 	r.logger.InfoContext(ctx, "discord: connected")
 	defer func() {
-		if closeErr := s.Close(); closeErr != nil {
+		if closeErr := discordSessionClose(s); closeErr != nil {
 			r.logger.Warn("discord: close session error", "err", closeErr)
 		}
 	}()
