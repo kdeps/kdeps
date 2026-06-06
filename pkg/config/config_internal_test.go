@@ -16,6 +16,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -801,4 +802,44 @@ func TestApplyEnv_ModelsList(t *testing.T) {
 	applyEnv(cfg)
 
 	assert.Equal(t, "gpt-4,claude-sonnet,llama3.2", os.Getenv("KDEPS_LLM_MODELS"))
+}
+
+func TestScaffold_StatError(t *testing.T) {
+	origStat := osStat
+	t.Cleanup(func() { osStat = origStat })
+	osStat = func(_ string) (os.FileInfo, error) {
+		return nil, errors.New("permission denied")
+	}
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(key string) string {
+		if key == "KDEPS_CONFIG_PATH" {
+			return t.TempDir() + "/.kdeps/config.yaml"
+		}
+		return ""
+	}
+
+	err := Scaffold()
+	assert.NoError(t, err)
+}
+
+func TestAgentsDir_EnvVar(t *testing.T) {
+	tmpDir := t.TempDir()
+	agentsDir := filepath.Join(tmpDir, "agents")
+	osMkdirAll(agentsDir, 0750)
+
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(key string) string {
+		if key == "KDEPS_AGENTS_DIR" {
+			return agentsDir
+		}
+		return ""
+	}
+	origStat := osStat
+	t.Cleanup(func() { osStat = origStat })
+
+	dir, err := AgentsDir(&Config{})
+	require.NoError(t, err)
+	assert.Equal(t, agentsDir, dir)
 }
