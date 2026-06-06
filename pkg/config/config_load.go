@@ -26,6 +26,8 @@ import (
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
 // Path returns the absolute path to ~/.kdeps/config.yaml.
