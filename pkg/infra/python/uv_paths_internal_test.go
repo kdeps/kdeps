@@ -17,6 +17,7 @@
 package python
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,4 +63,89 @@ func TestUvVenvEnv_IncludesPythonDir(t *testing.T) {
 		}
 	}
 	assert.True(t, found)
+}
+
+func withIOToolsBaseDir(t *testing.T, base string) {
+	t.Helper()
+	orig := userCacheDirFunc
+	t.Cleanup(func() { userCacheDirFunc = orig })
+	userCacheDirFunc = func() (string, error) { return base, nil }
+}
+
+func TestIOToolPythonBin_ExistsInTempBase(t *testing.T) {
+	withIOToolsBaseDir(t, t.TempDir())
+	toolName := "whisper-test"
+	binPath := filepath.Join(IOToolVenvPath(toolName), "bin", "python")
+	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0755))
+	require.NoError(t, os.WriteFile(binPath, []byte("x"), 0755))
+	assert.Equal(t, binPath, IOToolPythonBin(toolName))
+}
+
+func TestIOToolBin_ExistsInTempBase(t *testing.T) {
+	withIOToolsBaseDir(t, t.TempDir())
+	toolName := "whisper-test"
+	binName := "whisper-cli"
+	binPath := filepath.Join(IOToolVenvPath(toolName), "bin", binName)
+	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0755))
+	require.NoError(t, os.WriteFile(binPath, []byte("x"), 0755))
+	assert.Equal(t, binPath, IOToolBin(toolName, binName))
+}
+
+func TestRunUVFunc_NilEnv(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, env []string) error {
+		assert.Nil(t, env)
+		assert.Equal(t, []string{"venv", "--python", "3.12", "/tmp/venv"}, args)
+		return nil
+	}
+	require.NoError(t, runUVFunc(context.Background(), []string{"venv", "--python", "3.12", "/tmp/venv"}, nil))
+}
+
+func TestEnsureVenv_InstallsPackagesWithMockedUV(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			venvPath := args[len(args)-1]
+			bin := filepath.Join(venvPath, "bin")
+			if err := os.MkdirAll(bin, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(bin, "python"), []byte("x"), 0755)
+		}
+		return nil
+	}
+	m := NewManager(t.TempDir())
+	venvPath, err := m.EnsureVenv("3.12", []string{"pkg-a"}, "", "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, venvPath)
+}
+
+func TestEnsureVenv_InstallsRequirementsWithMockedUV(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			venvPath := args[len(args)-1]
+			bin := filepath.Join(venvPath, "bin")
+			if err := os.MkdirAll(bin, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(bin, "python"), []byte("x"), 0755)
+		}
+		return nil
+	}
+	m := NewManager(t.TempDir())
+	req := filepath.Join(t.TempDir(), "requirements.txt")
+	require.NoError(t, os.WriteFile(req, []byte("pkg-a\n"), 0644))
+	venvPath, err := m.EnsureVenv("3.12", nil, req, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, venvPath)
+}
+
+func TestInstallTool_WithExtraArgs(t *testing.T) {
+	m := NewManager(t.TempDir())
+	err := m.InstallTool("__kdeps_missing_bin_xyz__", "nonexistent-pkg", "--no-build-isolation")
+	require.Error(t, err)
 }
