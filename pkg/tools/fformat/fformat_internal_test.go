@@ -66,7 +66,7 @@ func TestJSONToYAML_DIMarshalError(t *testing.T) {
 func TestFormatHTML_DIRenderError(t *testing.T) {
 	orig := htmlRender
 	t.Cleanup(func() { htmlRender = orig })
-	htmlRender = func(w io.Writer, _ *html.Node) error {
+	htmlRender = func(_ io.Writer, _ *html.Node) error {
 		return errors.New("injected render error")
 	}
 
