@@ -329,8 +329,18 @@ linters:
         - flag.Uint.*
         - os.Chmod
         - os.Mkdir.*
+        - osMkdirAll
         - os.OpenFile
+        - osOpenFile
         - os.WriteFile
+        - osWriteFile
+        - osReadFile
+        - osCreate
+        - osRename
+        - osRemove
+        - osStat
+        - osUserHomeDir
+        - osChmod
         - prometheus.ExponentialBuckets.*
         - prometheus.LinearBuckets
 

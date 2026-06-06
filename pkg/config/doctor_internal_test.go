@@ -22,9 +22,19 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
+
+type fakeFileInfo struct{}
+
+func (fakeFileInfo) Name() string       { return "config.yaml" }
+func (fakeFileInfo) Size() int64        { return 100 }
+func (fakeFileInfo) Mode() os.FileMode  { return 0644 }
+func (fakeFileInfo) ModTime() time.Time { return time.Now() }
+func (fakeFileInfo) IsDir() bool        { return false }
+func (fakeFileInfo) Sys() interface{}   { return nil }
 
 func TestRunConfigFileCheck_StatError(t *testing.T) {
 	orig := osStat
@@ -38,6 +48,37 @@ func TestRunConfigFileCheck_StatError(t *testing.T) {
 	runConfigFileCheck(&checks, &healthy)
 
 	assert.NotEmpty(t, checks)
+}
+
+func TestRunConfigFileCheck_Success(t *testing.T) {
+	origStat := osStat
+	t.Cleanup(func() { osStat = origStat })
+	osStat = func(_ string) (os.FileInfo, error) {
+		return fakeFileInfo{}, nil
+	}
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(key string) string {
+		if key == "KDEPS_CONFIG_PATH" {
+			return "/fake/config.yaml"
+		}
+		return ""
+	}
+
+	var checks []HealthCheck
+	healthy := true
+	runConfigFileCheck(&checks, &healthy)
+
+	assert.NotEmpty(t, checks)
+	// Should have a PASS check
+	found := false
+	for _, c := range checks {
+		if c.Status == HealthPass {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected a PASS health check")
 }
 
 func TestRunAgentsCheck_ReadDirError(t *testing.T) {
