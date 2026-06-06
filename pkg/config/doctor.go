@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
 )
 
 // HealthStatus represents the result of a health check.
@@ -19,10 +21,8 @@ const (
 	HealthFail HealthStatus = "FAIL"
 )
 
-// DI variables — overridable for testing.
-
-//nolint:gochecknoglobals // test-replaceable
-var osReadDir = os.ReadDir
+// DI variables — overridable for testing. osGetenv/osUserHomeDir kept
+// (no afero equivalent for home dir / env vars). AppFS defined in config.go.
 
 //nolint:gochecknoglobals // test-replaceable
 var osGetenv = os.Getenv
@@ -207,7 +207,7 @@ func runAgentsCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 		addCheck(checks, "Agents", HealthWarn, fmt.Sprintf("cannot resolve agents dir: %v", err), healthy)
 		return
 	}
-	entries, readErr := osReadDir(agentsDir)
+	entries, readErr := afero.ReadDir(AppFS, agentsDir)
 	if readErr != nil {
 		addCheck(checks, "Agents", HealthPass,
 			fmt.Sprintf("no agents installed (%s)", agentsDir), healthy)
