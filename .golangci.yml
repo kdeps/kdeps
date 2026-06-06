@@ -340,6 +340,7 @@ linters:
         - osRemove
         - osRemoveAll
         - osStat
+        - osGetwd
         - osUserHomeDir
         - osChmod
         - prometheus.ExponentialBuckets.*

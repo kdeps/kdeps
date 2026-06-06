@@ -27,6 +27,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var osGetwd = os.Getwd
+
 // ComponentEntry holds the minimal metadata extracted from a component for the catalog.
 type ComponentEntry struct {
 	Name        string
@@ -62,7 +65,7 @@ func ScanCatalog() []ComponentEntry {
 	var entries []ComponentEntry
 
 	for _, dir := range dirs {
-		infos, readErr := os.ReadDir(dir)
+		infos, readErr := osReadDir(dir)
 		if readErr != nil {
 			continue
 		}
@@ -91,16 +94,16 @@ func collectComponentDirs() []string {
 
 	if d := os.Getenv("KDEPS_COMPONENT_DIR"); d != "" {
 		dirs = append(dirs, d)
-	} else if home, homeErr := os.UserHomeDir(); homeErr == nil {
+	} else if home, homeErr := osUserHomeDir(); homeErr == nil {
 		dirs = append(dirs, filepath.Join(home, ".kdeps", "components"))
 	}
 
-	cwd, cwdErr := os.Getwd()
+	cwd, cwdErr := osGetwd()
 	if cwdErr != nil {
 		return dirs
 	}
 	contrib := filepath.Join(cwd, "contrib", "components")
-	if info, statErr := os.Stat(contrib); statErr == nil && info.IsDir() {
+	if info, statErr := osStat(contrib); statErr == nil && info.IsDir() {
 		dirs = append(dirs, contrib)
 	}
 
@@ -111,7 +114,7 @@ func scanComponentDir(dir string) *ComponentEntry {
 	var meta componentMeta
 	found := false
 	for _, name := range []string{"component.yaml", "workflow.yaml"} {
-		data, readErr := os.ReadFile(filepath.Join(dir, name))
+		data, readErr := osReadFile(filepath.Join(dir, name))
 		if readErr != nil {
 			continue
 		}
