@@ -27,6 +27,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	stdhttp "net/http"
 	"os"
@@ -1264,8 +1265,14 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 	logger := logging.NewLogger(debugMode)
 	engine := executor.NewEngine(logger)
 	engine.SetDebugMode(debugMode)
+	engine.SetRegistry(newExecutorRegistry(logger))
+	return engine
+}
 
-	// Initialize executor registry (done here to avoid import cycles)
+// newExecutorRegistry creates an executor registry with all adapters wired up.
+// Lives here (not in pkg/executor) to avoid import cycles with sub-packages.
+func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
+	kdeps_debug.Log("enter: newExecutorRegistry")
 	registry := executor.NewRegistry()
 	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
 	registry.SetSQLExecutor(executorSQL.NewAdapter())
@@ -1285,9 +1292,7 @@ func setupEngine(_ *domain.Workflow, debugMode bool) *executor.Engine {
 		ollamaURL = v
 	}
 	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-
-	engine.SetRegistry(registry)
-	return engine
+	return registry
 }
 
 // setupEngineWithAgentPaths is like setupEngine but also injects the agentNameMap
