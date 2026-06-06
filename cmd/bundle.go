@@ -41,10 +41,15 @@ Commands:
   export      Export workflow to different formats (e.g. bootable ISO)`,
 	}
 
-	bundleCmd.AddCommand(newBuildCmd())
-	bundleCmd.AddCommand(newPackageCmd())
-	bundleCmd.AddCommand(newPrePackageCmd())
-	bundleCmd.AddCommand(newExportCmd())
-
+	attachBundleSubcommands(bundleCmd)
 	return bundleCmd
+}
+
+// attachBundleSubcommands registers all bundle subcommands on cmd.
+func attachBundleSubcommands(cmd *cobra.Command) {
+	kdeps_debug.Log("enter: attachBundleSubcommands")
+	cmd.AddCommand(newBuildCmd())
+	cmd.AddCommand(newPackageCmd())
+	cmd.AddCommand(newPrePackageCmd())
+	cmd.AddCommand(newExportCmd())
 }

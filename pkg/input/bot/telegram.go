@@ -63,26 +63,32 @@ func newTelegramRunner(
 	logger *slog.Logger,
 ) *telegramRunner {
 	kdeps_debug.Log("enter: newTelegramRunner")
-	var botToken string
-	var pollInterval int
-	if creds != nil {
-		botToken = creds.BotToken
+	return &telegramRunner{
+		botToken:            resolveTelegramBotToken(creds),
+		pollIntervalSeconds: resolveTelegramPollInterval(cfg),
+		logger:              logger,
 	}
-	if cfg != nil {
-		pollInterval = cfg.PollIntervalSeconds
+}
+
+func resolveTelegramBotToken(creds *kdepsconfig.TelegramConnectionConfig) string {
+	if creds == nil {
+		return ""
 	}
-	return &telegramRunner{botToken: botToken, pollIntervalSeconds: pollInterval, logger: logger}
+	return creds.BotToken
+}
+
+func resolveTelegramPollInterval(cfg *domain.TelegramConfig) int {
+	if cfg == nil {
+		return 0
+	}
+	return cfg.PollIntervalSeconds
 }
 
 // Start connects to Telegram via long-polling and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
-	pollTimeout := defaultTelegramPollTimeout
-	if r.pollIntervalSeconds > 0 {
-		pollTimeout = time.Duration(r.pollIntervalSeconds) * time.Second
-	}
-
+	pollTimeout := resolveTelegramPollTimeout(r.pollIntervalSeconds)
 	handler := r.createTelegramHandler(ctx, ch)
 
 	b, err := telegramNewBot(r.botToken,
@@ -99,6 +105,13 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 	return nil
 }
 
+func resolveTelegramPollTimeout(pollIntervalSeconds int) time.Duration {
+	if pollIntervalSeconds <= 0 {
+		return defaultTelegramPollTimeout
+	}
+	return time.Duration(pollIntervalSeconds) * time.Second
+}
+
 // createTelegramHandler returns a handler function for Telegram updates.
 func (r *telegramRunner) createTelegramHandler(
 	ctx context.Context, ch chan<- Message,
@@ -110,21 +123,26 @@ func (r *telegramRunner) createTelegramHandler(
 
 // handleTelegramUpdate processes a single Telegram update, filtering and forwarding.
 func (r *telegramRunner) handleTelegramUpdate(ctx context.Context, update *models.Update, ch chan<- Message) {
-	if update.Message == nil || update.Message.Text == "" {
+	msg, ok := buildTelegramMessage(update)
+	if !ok {
 		return
+	}
+	forwardMessage(ctx, ch, msg)
+}
+
+func buildTelegramMessage(update *models.Update) (Message, bool) {
+	if update.Message == nil || update.Message.Text == "" {
+		return Message{}, false
 	}
 	chatID := strconv.FormatInt(update.Message.Chat.ID, 10)
 	userID := strconv.FormatInt(update.Message.From.ID, 10)
-	select {
-	case ch <- Message{
+	return Message{
 		Platform: telegramPlatform,
 		ChatID:   chatID,
 		UserID:   userID,
 		Text:     update.Message.Text,
 		Raw:      update,
-	}:
-	case <-ctx.Done():
-	}
+	}, true
 }
 
 // Reply sends text to the given Telegram chat ID.

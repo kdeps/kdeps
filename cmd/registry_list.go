@@ -52,14 +52,18 @@ func registryListRunE() error {
 
 	printSection("Global components:", listLocalComponents(globalDir))
 	printSection("Local components (./components/):", listLocalComponents("components"))
+	printInstalledAgentSections()
 
-	agentsDir, agentsDirErr := kdepsAgentsDir()
-	if agentsDirErr == nil {
+	return nil
+}
+
+// printInstalledAgentSections prints global and local installed agent sections.
+func printInstalledAgentSections() {
+	agentsDir, err := kdepsAgentsDir()
+	if err == nil {
 		printSection("Installed agents (~/.kdeps/agents/):", listInstalledAgents(agentsDir))
 	}
 	printSection("Local agents (./agents/):", listInstalledAgents("agents"))
-
-	return nil
 }
 
 // printSection prints a labelled section of names when the slice is non-empty.
@@ -83,23 +87,25 @@ func listInstalledAgents(dir string) []string {
 	if err != nil {
 		return nil
 	}
+
 	var names []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		sub := filepath.Join(dir, e.Name())
-		// Flat layout: workflow.yaml directly in sub.
-		if FindWorkflowFile(sub) != "" || FindAgencyFile(sub) != "" {
-			names = append(names, e.Name())
-			continue
-		}
-		// Versioned layout: sub contains one or more version subdirs.
-		if isVersionedAgentDir(sub) {
+		if isInstalledAgentDir(filepath.Join(dir, e.Name())) {
 			names = append(names, e.Name())
 		}
 	}
 	return names
+}
+
+// isInstalledAgentDir reports whether dir contains a flat or versioned agent install.
+func isInstalledAgentDir(dir string) bool {
+	if FindWorkflowFile(dir) != "" || FindAgencyFile(dir) != "" {
+		return true
+	}
+	return isVersionedAgentDir(dir)
 }
 
 // isVersionedAgentDir returns true when dir contains at least one subdirectory

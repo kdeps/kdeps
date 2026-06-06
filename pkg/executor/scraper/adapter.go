@@ -41,9 +41,18 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	cfg, err := parseScraperConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, cfg)
+}
+
+func parseScraperConfig(config interface{}) (*domain.ScraperConfig, error) {
+	kdeps_debug.Log("enter: parseScraperConfig")
 	cfg, ok := config.(*domain.ScraperConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for scraper executor")
 	}
-	return a.executor.Execute(ctx, cfg)
+	return cfg, nil
 }

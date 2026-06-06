@@ -21,12 +21,15 @@ import (
 	"fmt"
 	"os"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 func newDoctorCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newDoctorCmd")
 	return &cobra.Command{
 		Use:   "doctor",
 		Short: "Run system health checks (config, Ollama, Python, agents)",
@@ -46,16 +49,23 @@ Exits with code 1 if any check fails.`,
 }
 
 func runDoctor(_ *cobra.Command, _ []string) error {
-	cfg, err := config.LoadStruct()
-	if err != nil {
-		cfg = &config.Config{}
-	}
+	kdeps_debug.Log("enter: runDoctor")
 
+	cfg := loadDoctorConfig()
 	report := config.RunDoctor(cfg)
 	fmt.Fprint(os.Stdout, report.FormatReport())
 
-	if !report.Healthy {
-		return errors.New("health check failed — review warnings above")
+	if report.Healthy {
+		return nil
 	}
-	return nil
+	return errors.New("health check failed — review warnings above")
+}
+
+// loadDoctorConfig loads config for doctor, falling back to an empty config on error.
+func loadDoctorConfig() *config.Config {
+	cfg, err := config.LoadStruct()
+	if err != nil {
+		return &config.Config{}
+	}
+	return cfg
 }

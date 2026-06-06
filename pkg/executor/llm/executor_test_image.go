@@ -73,37 +73,64 @@ func createTempPNG(t *testing.T, dir string) (string, []byte) {
 func imageTestHandler(t *testing.T, expectedBase64 string) http.HandlerFunc {
 	kdeps_debug.Log("enter: imageTestHandler")
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req map[string]interface{}
-		err := json.NewDecoder(r.Body).Decode(&req)
-		assert.NoError(t, err, "error decoding request body")
+		assertImageRequest(t, r, expectedBase64)
+		writeImageTestResponse(t, w)
+	}
+}
 
-		messages, ok := req["messages"].([]interface{})
-		assert.True(t, ok, "messages field is not an array")
-		assert.Len(t, messages, 1, "unexpected number of messages")
+func assertImageRequest(t *testing.T, r *http.Request, expectedBase64 string) {
+	kdeps_debug.Log("enter: assertImageRequest")
+	var req map[string]interface{}
+	require.NoError(t, json.NewDecoder(r.Body).Decode(&req), "error decoding request body")
 
-		msg, ok := messages[0].(map[string]interface{})
-		assert.True(t, ok, "message is not a map")
+	messages, ok := req["messages"].([]interface{})
+	assert.True(t, ok, "messages field is not an array")
+	assert.Len(t, messages, 1, "unexpected number of messages")
 
-		content, ok := msg["content"].([]interface{})
-		assert.True(t, ok, "content is not an array")
-		assert.Len(t, content, 2, "unexpected number of content parts")
+	msg, ok := messages[0].(map[string]interface{})
+	assert.True(t, ok, "message is not a map")
 
-		if len(content) < 2 {
-			return
-		}
+	content, ok := msg["content"].([]interface{})
+	assert.True(t, ok, "content is not an array")
+	assert.Len(t, content, 2, "unexpected number of content parts")
+	if len(content) < 2 {
+		return
+	}
 
-		imagePart, ok := content[1].(map[string]interface{})
-		assert.True(t, ok, "image part is not a map")
+	imagePart, ok := content[1].(map[string]interface{})
+	assert.True(t, ok, "image part is not a map")
 
-		imageURL, ok := imagePart["image_url"].(map[string]interface{})
-		assert.True(t, ok, "image_url is not a map")
+	imageURL, ok := imagePart["image_url"].(map[string]interface{})
+	assert.True(t, ok, "image_url is not a map")
 
-		expectedURL := "data:image/png;base64," + expectedBase64
-		assert.Equal(t, expectedURL, imageURL["url"])
+	expectedURL := "data:image/png;base64," + expectedBase64
+	assert.Equal(t, expectedURL, imageURL["url"])
+}
 
-		w.WriteHeader(http.StatusOK)
-		err = json.NewEncoder(w).Encode(map[string]interface{}{"done": true})
-		assert.NoError(t, err, "error encoding response")
+func writeImageTestResponse(t *testing.T, w http.ResponseWriter) {
+	kdeps_debug.Log("enter: writeImageTestResponse")
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(map[string]interface{}{"done": true})
+	assert.NoError(t, err, "error encoding response")
+}
+
+func newImageTestContext(t *testing.T, tempDir string) *executor.ExecutionContext {
+	kdeps_debug.Log("enter: newImageTestContext")
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test-workflow"},
+	})
+	require.NoError(t, err)
+	ctx.FSRoot = tempDir
+	return ctx
+}
+
+func buildImageTestConfig(serverURL, imageName string) *domain.ChatConfig {
+	kdeps_debug.Log("enter: buildImageTestConfig")
+	return &domain.ChatConfig{
+		Model:   "test-model",
+		BaseURL: serverURL,
+		Files:   []string{imageName},
+		Prompt:  "Describe this image:",
 	}
 }
 
@@ -117,20 +144,10 @@ func TestBuildContentWithLocalImage(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test-workflow"},
-	})
-	require.NoError(t, err)
-	ctx.FSRoot = tempDir
+	ctx := newImageTestContext(t, tempDir)
+	config := buildImageTestConfig(server.URL, filepath.Base(imagePath))
 
-	config := &domain.ChatConfig{
-		Model:   "test-model",
-		BaseURL: server.URL,
-		Files:   []string{filepath.Base(imagePath)},
-		Prompt:  "Describe this image:",
-	}
-
-	_, err = llmExecutor.Execute(ctx, config)
+	_, err := llmExecutor.Execute(ctx, config)
 	require.NoError(t, err)
 }
 
@@ -144,13 +161,7 @@ func TestBuildContentWithUploadedImage(t *testing.T) {
 	defer server.Close()
 
 	llmExecutor := NewExecutor(server.URL)
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test-workflow"},
-	})
-	require.NoError(t, err)
-	ctx.FSRoot = tempDir
-
-	// Simulate file upload
+	ctx := newImageTestContext(t, tempDir)
 	ctx.Request = &executor.RequestContext{
 		Files: []executor.FileUpload{
 			{
@@ -162,13 +173,8 @@ func TestBuildContentWithUploadedImage(t *testing.T) {
 		},
 	}
 
-	config := &domain.ChatConfig{
-		Model:   "test-model",
-		BaseURL: server.URL,
-		Files:   []string{filepath.Base(imagePath)},
-		Prompt:  "Describe this image:",
-	}
+	config := buildImageTestConfig(server.URL, filepath.Base(imagePath))
 
-	_, err = llmExecutor.Execute(ctx, config)
+	_, err := llmExecutor.Execute(ctx, config)
 	require.NoError(t, err)
 }

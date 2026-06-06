@@ -30,53 +30,51 @@ import (
 // it sets the log level to Debug and enables source location.
 func NewLogger(debug bool) *slog.Logger {
 	kdeps_debug.Log("enter: NewLogger")
-	if !debug {
-		// Check environment variables
-		if os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true" {
-			debug = true
-		}
-	}
-
-	opts := &PrettyHandlerOptions{
-		Level:      slog.LevelInfo,
-		AddSource:  debug,
-		TimeFormat: "15:04:05.000",
-		Indent:     "  ",
-	}
-
+	debug = resolveDebugEnabled(debug)
+	opts := buildPrettyHandlerOptions(slog.LevelInfo, debug)
 	if debug {
 		opts.Level = slog.LevelDebug
 	}
-
-	handler := NewPrettyHandler(os.Stderr, opts)
-	return slog.New(handler)
+	return newPrettyLogger(opts)
 }
 
 // NewLoggerWithLevel creates a new logger with a specific log level.
 func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
 	kdeps_debug.Log("enter: NewLoggerWithLevel")
-	opts := &PrettyHandlerOptions{
-		Level:      level,
-		AddSource:  addSource,
-		TimeFormat: "15:04:05.000",
-		Indent:     "  ",
-	}
-
-	handler := NewPrettyHandler(os.Stderr, opts)
-	return slog.New(handler)
+	opts := buildPrettyHandlerOptions(level, addSource)
+	return newPrettyLogger(opts)
 }
 
 // NewLoggerForFile creates a new logger that writes to a file (no colors).
 func NewLoggerForFile(file *os.File, level slog.Level) *slog.Logger {
 	kdeps_debug.Log("enter: NewLoggerForFile")
-	opts := &PrettyHandlerOptions{
-		Level:         level,
-		AddSource:     true,
-		DisableColors: true,
-		TimeFormat:    "2006-01-02 15:04:05.000",
-		Indent:        "  ",
-	}
+	opts := buildPrettyHandlerOptions(level, true)
+	opts.DisableColors = true
+	opts.TimeFormat = "2006-01-02 15:04:05.000"
+	return newPrettyLoggerTo(file, opts)
+}
 
-	handler := NewPrettyHandler(file, opts)
+func resolveDebugEnabled(debug bool) bool {
+	if debug {
+		return true
+	}
+	return os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true"
+}
+
+func buildPrettyHandlerOptions(level slog.Level, addSource bool) *PrettyHandlerOptions {
+	return &PrettyHandlerOptions{
+		Level:      level,
+		AddSource:  addSource,
+		TimeFormat: "15:04:05.000",
+		Indent:     "  ",
+	}
+}
+
+func newPrettyLogger(opts *PrettyHandlerOptions) *slog.Logger {
+	return newPrettyLoggerTo(os.Stderr, opts)
+}
+
+func newPrettyLoggerTo(w *os.File, opts *PrettyHandlerOptions) *slog.Logger {
+	handler := NewPrettyHandler(w, opts)
 	return slog.New(handler)
 }

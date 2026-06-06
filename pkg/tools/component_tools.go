@@ -31,30 +31,39 @@ func ComponentToolDefs(
 		if comp == nil {
 			continue
 		}
-		params := map[string]domain.ToolParam{}
-		if comp.Interface != nil {
-			for _, input := range comp.Interface.Inputs {
-				params[input.Name] = domain.ToolParam{
-					Type:        input.Type,
-					Description: input.Description,
-					Required:    input.Required,
-				}
-			}
-		}
-		c := comp
-		t := &Tool{
-			Name:        c.Metadata.Name,
-			Description: c.Metadata.Description,
-			Parameters:  params,
-		}
-		if eng != nil && workflow != nil {
-			t.Execute = func(args map[string]interface{}) (string, error) {
-				return executeComponentTool(eng, workflow, c, args)
-			}
-		}
-		tools = append(tools, t)
+		tools = append(tools, buildComponentTool(comp, workflow, eng))
 	}
 	return tools
+}
+
+func buildComponentTool(comp *domain.Component, workflow *domain.Workflow, eng *executor.Engine) *Tool {
+	c := comp
+	t := &Tool{
+		Name:        c.Metadata.Name,
+		Description: c.Metadata.Description,
+		Parameters:  buildComponentToolParams(c),
+	}
+	if eng != nil && workflow != nil {
+		t.Execute = func(args map[string]interface{}) (string, error) {
+			return executeComponentTool(eng, workflow, c, args)
+		}
+	}
+	return t
+}
+
+func buildComponentToolParams(comp *domain.Component) map[string]domain.ToolParam {
+	params := map[string]domain.ToolParam{}
+	if comp.Interface == nil {
+		return params
+	}
+	for _, input := range comp.Interface.Inputs {
+		params[input.Name] = domain.ToolParam{
+			Type:        input.Type,
+			Description: input.Description,
+			Required:    input.Required,
+		}
+	}
+	return params
 }
 
 // executeComponentTool runs a component via a synthetic component resource.
@@ -64,6 +73,19 @@ func executeComponentTool(
 	comp *domain.Component,
 	args map[string]interface{},
 ) (string, error) {
+	single := buildSyntheticComponentWorkflow(workflow, comp, args)
+	result, err := eng.Execute(single, nil)
+	if err != nil {
+		return "", err
+	}
+	return marshalResult(result), nil
+}
+
+func buildSyntheticComponentWorkflow(
+	workflow *domain.Workflow,
+	comp *domain.Component,
+	args map[string]interface{},
+) *domain.Workflow {
 	with := make(map[string]interface{}, len(args))
 	for k, v := range args {
 		with[k] = v
@@ -77,7 +99,7 @@ func executeComponentTool(
 			With: with,
 		},
 	}
-	single := &domain.Workflow{
+	return &domain.Workflow{
 		APIVersion: workflow.APIVersion,
 		Kind:       workflow.Kind,
 		Metadata: domain.WorkflowMetadata{
@@ -89,9 +111,4 @@ func executeComponentTool(
 		Components: workflow.Components,
 		Resources:  []*domain.Resource{syntheticResource},
 	}
-	result, err := eng.Execute(single, nil)
-	if err != nil {
-		return "", err
-	}
-	return marshalResult(result), nil
 }

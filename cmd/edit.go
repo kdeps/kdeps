@@ -22,12 +22,15 @@ import (
 	"os"
 	"os/exec"
 
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/config"
 )
 
 func newEditCmd() *cobra.Command {
+	kdeps_debug.Log("enter: newEditCmd")
 	return &cobra.Command{
 		Use:   "edit",
 		Short: "Edit the global kdeps configuration file (~/.kdeps/config.yaml)",
@@ -43,16 +46,29 @@ The editor is chosen from, in order:
 }
 
 func runEdit(_ *cobra.Command, _ []string) error {
-	// Ensure the config file exists before opening it.
-	if err := config.Scaffold(); err != nil {
-		return fmt.Errorf("create config: %w", err)
-	}
+	kdeps_debug.Log("enter: runEdit")
 
+	path, err := prepareConfigForEdit()
+	if err != nil {
+		return err
+	}
+	return launchEditor(path)
+}
+
+// prepareConfigForEdit ensures the config file exists and returns its path.
+func prepareConfigForEdit() (string, error) {
+	if err := config.Scaffold(); err != nil {
+		return "", fmt.Errorf("create config: %w", err)
+	}
 	path, err := config.Path()
 	if err != nil {
-		return fmt.Errorf("locate config: %w", err)
+		return "", fmt.Errorf("locate config: %w", err)
 	}
+	return path, nil
+}
 
+// launchEditor opens path in the user's preferred editor.
+func launchEditor(path string) error {
 	editor := resolveEditor()
 	cmd := exec.CommandContext(context.Background(), editor, path)
 	cmd.Stdin = os.Stdin

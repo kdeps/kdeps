@@ -44,9 +44,18 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	sqlConfig, err := parseSQLConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, sqlConfig)
+}
+
+func parseSQLConfig(config interface{}) (*domain.SQLConfig, error) {
+	kdeps_debug.Log("enter: parseSQLConfig")
 	sqlConfig, ok := config.(*domain.SQLConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for SQL executor")
 	}
-	return a.executor.Execute(ctx, sqlConfig)
+	return sqlConfig, nil
 }

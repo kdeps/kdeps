@@ -34,16 +34,25 @@ type Adapter struct {
 
 // NewAdapter returns a new telephony Adapter.
 func NewAdapter() *Adapter {
-	kdeps_debug.Log("enter: telephony.NewAdapter")
+	kdeps_debug.Log("enter: NewAdapter")
 	return &Adapter{executor: NewExecutor()}
 }
 
 // Execute implements executor.ResourceExecutor.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	kdeps_debug.Log("enter: telephony.Adapter.Execute")
+	kdeps_debug.Log("enter: Execute")
+	cfg, err := parseTelephonyConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, cfg)
+}
+
+func parseTelephonyConfig(config interface{}) (*domain.TelephonyActionConfig, error) {
+	kdeps_debug.Log("enter: parseTelephonyConfig")
 	cfg, ok := config.(*domain.TelephonyActionConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for telephony executor")
 	}
-	return a.executor.Execute(ctx, cfg)
+	return cfg, nil
 }

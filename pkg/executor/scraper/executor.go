@@ -62,6 +62,23 @@ func (e *Executor) Execute(
 		return nil, errors.New("scraper: url is required")
 	}
 
+	timeout := resolveScraperTimeout(config)
+	resp, err := fetchScraperURL(config.URL, timeout)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	content, err := extractScraperContent(resp, config.Selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildScraperResult(content, config.URL, resp.StatusCode)
+}
+
+func resolveScraperTimeout(config *domain.ScraperConfig) time.Duration {
+	kdeps_debug.Log("enter: resolveScraperTimeout")
 	var timeoutDuration time.Duration
 	if config.Timeout != "" {
 		if d, parseErr := time.ParseDuration(config.Timeout); parseErr == nil {
@@ -72,43 +89,59 @@ func (e *Executor) Execute(
 		defaults, _ := kdepsconfig.GetDefaults()
 		timeoutDuration = time.Duration(defaults.Scraper.Timeout) * time.Second
 	}
+	return timeoutDuration
+}
 
-	client := &http.Client{Timeout: timeoutDuration}
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, config.URL, nil)
+func fetchScraperURL(url string, timeout time.Duration) (*http.Response, error) {
+	kdeps_debug.Log("enter: fetchScraperURL")
+	client := &http.Client{Timeout: timeout}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("scraper: failed to create request for %s: %w", config.URL, err)
+		return nil, fmt.Errorf("scraper: failed to create request for %s: %w", url, err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("scraper: failed to fetch %s: %w", config.URL, err)
+		return nil, fmt.Errorf("scraper: failed to fetch %s: %w", url, err)
 	}
-	defer resp.Body.Close()
+	return resp, nil
+}
 
-	statusCode := resp.StatusCode
-
-	var content string
-	if config.Selector != "" {
-		doc, parseErr := goquery.NewDocumentFromReader(resp.Body)
-		if parseErr != nil {
-			return nil, fmt.Errorf("scraper: failed to parse HTML: %w", parseErr)
-		}
-		var sb strings.Builder
-		doc.Find(config.Selector).Each(func(_ int, s *goquery.Selection) {
-			sb.WriteString(s.Text())
-			sb.WriteString("\n")
-		})
-		content = strings.TrimSpace(sb.String())
-	} else {
-		bodyBytes, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			return nil, fmt.Errorf("scraper: failed to read response body: %w", readErr)
-		}
-		content = string(bodyBytes)
+func extractScraperContent(resp *http.Response, selector string) (string, error) {
+	kdeps_debug.Log("enter: extractScraperContent")
+	if selector != "" {
+		return extractSelectorContent(resp.Body, selector)
 	}
+	return readResponseBody(resp.Body)
+}
 
+func extractSelectorContent(body io.Reader, selector string) (string, error) {
+	kdeps_debug.Log("enter: extractSelectorContent")
+	doc, parseErr := goquery.NewDocumentFromReader(body)
+	if parseErr != nil {
+		return "", fmt.Errorf("scraper: failed to parse HTML: %w", parseErr)
+	}
+	var sb strings.Builder
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		sb.WriteString(s.Text())
+		sb.WriteString("\n")
+	})
+	return strings.TrimSpace(sb.String()), nil
+}
+
+func readResponseBody(body io.Reader) (string, error) {
+	kdeps_debug.Log("enter: readResponseBody")
+	bodyBytes, readErr := io.ReadAll(body)
+	if readErr != nil {
+		return "", fmt.Errorf("scraper: failed to read response body: %w", readErr)
+	}
+	return string(bodyBytes), nil
+}
+
+func buildScraperResult(content, url string, statusCode int) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: buildScraperResult")
 	result := map[string]interface{}{
 		"content": content,
-		"url":     config.URL,
+		"url":     url,
 		"status":  statusCode,
 	}
 

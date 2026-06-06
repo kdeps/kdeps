@@ -60,6 +60,10 @@ func Load(dir string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read manifest %s: %w", path, err)
 	}
+	return parseManifest(path, data)
+}
+
+func parseManifest(path string, data []byte) (*Manifest, error) {
 	var m Manifest
 	parseErr := goyaml.Unmarshal(data, &m)
 	if parseErr != nil {
@@ -71,6 +75,13 @@ func Load(dir string) (*Manifest, error) {
 // Validate checks that the manifest has all required fields and valid values.
 func Validate(m *Manifest) error {
 	kdeps_debug.Log("enter: Validate")
+	if err := validateRequiredManifestFields(m); err != nil {
+		return err
+	}
+	return validateManifestType(m.Type)
+}
+
+func validateRequiredManifestFields(m *Manifest) error {
 	if m.Name == "" {
 		return errors.New("manifest: name is required")
 	}
@@ -80,8 +91,12 @@ func Validate(m *Manifest) error {
 	if m.Type == "" {
 		return errors.New("manifest: type is required")
 	}
-	if _, ok := validTypes[m.Type]; !ok {
-		return fmt.Errorf("manifest: type %q must be one of: component, workflow, agency", m.Type)
+	return nil
+}
+
+func validateManifestType(pkgType string) error {
+	if _, ok := validTypes[pkgType]; !ok {
+		return fmt.Errorf("manifest: type %q must be one of: component, workflow, agency", pkgType)
 	}
 	return nil
 }

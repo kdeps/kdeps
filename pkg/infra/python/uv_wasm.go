@@ -23,8 +23,9 @@ package python
 
 import (
 	"errors"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"time"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Constants mirrored from uv.go for WASM compatibility.
@@ -69,10 +70,14 @@ func NewManager(_ string) *Manager {
 	return &Manager{}
 }
 
+func wasmUnsupported(operation string) error {
+	return errors.New("python: " + operation + " not supported in WASM")
+}
+
 // EnsureVenv is unsupported in WASM.
 func (m *Manager) EnsureVenv(_ string, _ []string, _ string, _ string) (string, error) {
 	kdeps_debug.Log("enter: EnsureVenv")
-	return "", errors.New("python: EnsureVenv not supported in WASM")
+	return "", wasmUnsupported("EnsureVenv")
 }
 
 // GetVenvName returns an empty string in WASM.
@@ -84,23 +89,23 @@ func (m *Manager) GetVenvName(_ string, _ []string, _ string) string {
 // InstallPackages is unsupported in WASM.
 func (m *Manager) InstallPackages(_ string, _ []string, _ ...string) error {
 	kdeps_debug.Log("enter: InstallPackages")
-	return errors.New("python: InstallPackages not supported in WASM")
+	return wasmUnsupported("InstallPackages")
 }
 
 // InstallRequirements is unsupported in WASM.
 func (m *Manager) InstallRequirements(_, _ string) error {
 	kdeps_debug.Log("enter: InstallRequirements")
-	return errors.New("python: InstallRequirements not supported in WASM")
+	return wasmUnsupported("InstallRequirements")
 }
 
 // InstallTool is unsupported in WASM.
 func (m *Manager) InstallTool(_, _ string, _ ...string) error {
 	kdeps_debug.Log("enter: InstallTool")
-	return errors.New("python: InstallTool not supported in WASM")
+	return wasmUnsupported("InstallTool")
 }
 
 // GetPythonPath is unsupported in WASM.
 func (m *Manager) GetPythonPath(_ string) (string, error) {
 	kdeps_debug.Log("enter: GetPythonPath")
-	return "", errors.New("python: GetPythonPath not supported in WASM")
+	return "", wasmUnsupported("GetPythonPath")
 }

@@ -44,20 +44,28 @@ func NewMockModelService() *MockModelService {
 // DownloadModel mocks the download model operation.
 func (m *MockModelService) DownloadModel(backend, model string) error {
 	kdeps_debug.Log("enter: DownloadModel")
+	return invokeDownloadModel(m, backend, model)
+}
+
+func invokeDownloadModel(m *MockModelService, backend, model string) error {
+	kdeps_debug.Log("enter: invokeDownloadModel")
 	if m.DownloadModelFunc != nil {
 		return m.DownloadModelFunc(backend, model)
 	}
-	// Default behavior: do nothing (success)
 	return nil
 }
 
 // ServeModel mocks the serve model operation.
 func (m *MockModelService) ServeModel(backend, model string, host string, port int) error {
 	kdeps_debug.Log("enter: ServeModel")
+	return invokeServeModel(m, backend, model, host, port)
+}
+
+func invokeServeModel(m *MockModelService, backend, model, host string, port int) error {
+	kdeps_debug.Log("enter: invokeServeModel")
 	if m.ServeModelFunc != nil {
 		return m.ServeModelFunc(backend, model, host, port)
 	}
-	// Default behavior: do nothing (success)
 	return nil
 }
 

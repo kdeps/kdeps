@@ -53,13 +53,15 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	// Try to unmarshal as JSON
+	return decodeStoredValue(valueStr), true
+}
+
+func decodeStoredValue(valueStr string) interface{} {
 	var value interface{}
 	if err := json.Unmarshal([]byte(valueStr), &value); err != nil {
-		return valueStr, true
+		return valueStr
 	}
-
-	return value, true
+	return value
 }
 
 // Set stores a value in memory.

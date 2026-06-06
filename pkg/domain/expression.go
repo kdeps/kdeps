@@ -30,14 +30,22 @@ type Expression struct {
 // UnmarshalYAML implements yaml.Unmarshaler for Expression.
 func (e *Expression) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	kdeps_debug.Log("enter: UnmarshalYAML")
-	var raw string
-	if err := unmarshal(&raw); err != nil {
+	raw, err := unmarshalExpressionString(unmarshal)
+	if err != nil {
 		return err
 	}
-
 	e.Raw = raw
 	// Note: Type and Parsed will be set later during parsing phase
 	return nil
+}
+
+// unmarshalExpressionString decodes the YAML scalar into a raw expression string.
+func unmarshalExpressionString(unmarshal func(interface{}) error) (string, error) {
+	var raw string
+	if err := unmarshal(&raw); err != nil {
+		return "", err
+	}
+	return raw, nil
 }
 
 // MarshalYAML implements yaml.Marshaler for Expression.

@@ -76,9 +76,25 @@ func newRegistrySearchCmd() *cobra.Command {
 
 func doRegistrySearch(cmd *cobra.Command, query, pkgType string, limit int, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistrySearch")
+
+	searchURL, err := buildRegistrySearchURL(baseURL, query, pkgType, limit)
+	if err != nil {
+		return err
+	}
+
+	pkgs, err := fetchSearchResults(searchURL)
+	if err != nil {
+		return err
+	}
+	printRegistrySearchResults(cmd, pkgs, query)
+	return nil
+}
+
+// buildRegistrySearchURL constructs the registry search endpoint URL.
+func buildRegistrySearchURL(baseURL, query, pkgType string, limit int) (string, error) {
 	u, err := url.Parse(baseURL + "/api/v1/registry/packages")
 	if err != nil {
-		return fmt.Errorf("parse URL: %w", err)
+		return "", fmt.Errorf("parse URL: %w", err)
 	}
 	q := u.Query()
 	q.Set("q", query)
@@ -87,13 +103,7 @@ func doRegistrySearch(cmd *cobra.Command, query, pkgType string, limit int, base
 	}
 	q.Set("limit", strconv.Itoa(limit))
 	u.RawQuery = q.Encode()
-
-	pkgs, err := fetchSearchResults(u.String())
-	if err != nil {
-		return err
-	}
-	printRegistrySearchResults(cmd, pkgs, query)
-	return nil
+	return u.String(), nil
 }
 
 func fetchSearchResults(rawURL string) ([]registryPackage, error) {
@@ -124,18 +134,23 @@ func fetchSearchResults(rawURL string) ([]registryPackage, error) {
 
 func printRegistrySearchResults(cmd *cobra.Command, pkgs []registryPackage, query string) {
 	kdeps_debug.Log("enter: printSearchResults")
+	w := cmd.OutOrStdout()
 	if len(pkgs) == 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "No packages found for query: %s\n", query)
+		fmt.Fprintf(w, "No packages found for query: %s\n", query)
 		return
 	}
-	fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %s\n",
+	fmt.Fprintf(w, "%-30s %-12s %-40s %-15s %s\n",
 		"Name", "Type", "Description", "Author", "Version")
 	for _, p := range pkgs {
-		desc := p.Description
-		if len(desc) > registrySearchDescMaxLen {
-			desc = desc[:registrySearchDescTruncLen] + "..."
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%-30s %-12s %-40s %-15s %s\n",
-			p.Name, p.Type, desc, p.Author, p.LatestVersion)
+		fmt.Fprintf(w, "%-30s %-12s %-40s %-15s %s\n",
+			p.Name, p.Type, truncatePackageDescription(p.Description), p.Author, p.LatestVersion)
 	}
+}
+
+// truncatePackageDescription shortens long descriptions for tabular display.
+func truncatePackageDescription(desc string) string {
+	if len(desc) <= registrySearchDescMaxLen {
+		return desc
+	}
+	return desc[:registrySearchDescTruncLen] + "..."
 }

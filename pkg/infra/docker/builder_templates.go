@@ -33,87 +33,105 @@ import (
 // generateDockerfile generates a Dockerfile using templates.
 func (b *Builder) generateDockerfile(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateDockerfile")
-	data, err := b.buildTemplateData(workflow)
+	templateStr, err := resolveDockerfileTemplate(b.BaseOS)
 	if err != nil {
-		return "", fmt.Errorf("failed to build template data: %w", err)
+		return "", err
 	}
+	return b.renderWorkflowTemplate("dockerfile", templateStr, workflow)
+}
 
-	var templateStr string
-	switch b.BaseOS {
+func resolveDockerfileTemplate(baseOS string) (string, error) {
+	switch baseOS {
 	case baseOSAlpine:
-		templateStr = alpineTemplate
+		return alpineTemplate, nil
 	case baseOSUbuntu:
-		templateStr = ubuntuTemplate
+		return ubuntuTemplate, nil
 	case baseOSDebian:
-		templateStr = debianTemplate
+		return debianTemplate, nil
 	default:
 		return "", fmt.Errorf(
 			"unsupported base OS: %s (supported: alpine, ubuntu, debian)",
-			b.BaseOS,
+			baseOS,
 		)
 	}
-
-	tmpl, err := template.New("dockerfile").Parse(templateStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse Dockerfile template: %w", err)
-	}
-
-	var buf bytes.Buffer
-	if execErr := tmpl.Execute(&buf, data); execErr != nil {
-		return "", fmt.Errorf("failed to render Dockerfile: %w", execErr)
-	}
-
-	return buf.String(), nil
 }
 
 // generateEntrypoint generates the entrypoint script.
 func (b *Builder) generateEntrypoint(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateEntrypoint")
-	if GenerateEntrypointHook != nil {
-		if err := GenerateEntrypointHook(); err != nil {
-			return "", err
-		}
+	if err := runEntrypointHook(); err != nil {
+		return "", err
 	}
-	data, err := b.buildTemplateData(workflow)
-	if err != nil {
-		return "", fmt.Errorf("failed to build template data: %w", err)
-	}
+	return b.renderWorkflowTemplate("entrypoint", entrypointTemplate, workflow)
+}
 
-	tmpl, err := template.New("entrypoint").Parse(entrypointTemplate)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse entrypoint template: %w", err)
+func runEntrypointHook() error {
+	if GenerateEntrypointHook == nil {
+		return nil
 	}
-
-	var buf bytes.Buffer
-	if execErr := tmpl.Execute(&buf, data); execErr != nil {
-		return "", fmt.Errorf("failed to render entrypoint: %w", execErr)
-	}
-
-	return buf.String(), nil
+	return GenerateEntrypointHook()
 }
 
 // generateSupervisord generates the supervisord config.
 func (b *Builder) generateSupervisord(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: generateSupervisord")
-	if GenerateSupervisordHook != nil {
-		if err := GenerateSupervisordHook(); err != nil {
-			return "", err
-		}
+	if err := runSupervisordHook(); err != nil {
+		return "", err
 	}
+	return b.renderWorkflowTemplate("supervisord", supervisordTemplate, workflow)
+}
+
+func runSupervisordHook() error {
+	if GenerateSupervisordHook == nil {
+		return nil
+	}
+	return GenerateSupervisordHook()
+}
+
+func (b *Builder) renderWorkflowTemplate(name, templateStr string, workflow *domain.Workflow) (string, error) {
 	data, err := b.buildTemplateData(workflow)
 	if err != nil {
 		return "", fmt.Errorf("failed to build template data: %w", err)
 	}
+	return renderTemplate(name, templateStr, data)
+}
 
-	tmpl, err := template.New("supervisord").Parse(supervisordTemplate)
+func renderTemplate(name, templateStr string, data any) (string, error) {
+	tmpl, err := template.New(name).Parse(templateStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse supervisord template: %w", err)
+		return "", parseTemplateError(name, err)
 	}
 
 	var buf bytes.Buffer
 	if execErr := tmpl.Execute(&buf, data); execErr != nil {
-		return "", fmt.Errorf("failed to render supervisord config: %w", execErr)
+		return "", renderTemplateError(name, execErr)
 	}
 
 	return buf.String(), nil
+}
+
+func parseTemplateError(name string, err error) error {
+	switch name {
+	case "dockerfile":
+		return fmt.Errorf("failed to parse Dockerfile template: %w", err)
+	case "entrypoint":
+		return fmt.Errorf("failed to parse entrypoint template: %w", err)
+	case "supervisord":
+		return fmt.Errorf("failed to parse supervisord template: %w", err)
+	default:
+		return fmt.Errorf("failed to parse %s template: %w", name, err)
+	}
+}
+
+func renderTemplateError(name string, err error) error {
+	switch name {
+	case "dockerfile":
+		return fmt.Errorf("failed to render Dockerfile: %w", err)
+	case "entrypoint":
+		return fmt.Errorf("failed to render entrypoint: %w", err)
+	case "supervisord":
+		return fmt.Errorf("failed to render supervisord config: %w", err)
+	default:
+		return fmt.Errorf("failed to render %s: %w", name, err)
+	}
 }

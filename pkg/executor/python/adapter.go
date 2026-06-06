@@ -48,9 +48,18 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	pythonConfig, err := parsePythonConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, pythonConfig)
+}
+
+func parsePythonConfig(config interface{}) (*domain.PythonConfig, error) {
+	kdeps_debug.Log("enter: parsePythonConfig")
 	pythonConfig, ok := config.(*domain.PythonConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for Python executor")
 	}
-	return a.executor.Execute(ctx, pythonConfig)
+	return pythonConfig, nil
 }

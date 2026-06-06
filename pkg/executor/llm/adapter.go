@@ -41,11 +41,9 @@ func NewAdapter(ollamaURL string) *Adapter {
 	adapter := &Adapter{
 		executor: NewExecutor(ollamaURL),
 	}
-	// Automatically create and wire model service for automatic model management
-	modelService := NewModelService(nil) // Will use default logger
+	modelService := NewModelService(nil)
 	adapter.modelService = modelService
-	modelManager := NewModelManagerFromService(modelService)
-	adapter.executor.SetModelManager(modelManager)
+	wireModelManager(adapter, modelService)
 	return adapter
 }
 
@@ -57,15 +55,7 @@ func NewAdapterWithModelService(ollamaURL string, modelService ModelServiceInter
 		executor:     NewExecutor(ollamaURL),
 		modelService: modelService,
 	}
-	// Wire model manager to executor
-	if concreteService, concreteOk := modelService.(*ModelService); concreteOk {
-		modelManager := NewModelManagerFromService(concreteService)
-		adapter.executor.SetModelManager(modelManager)
-	} else if mockService, mockOk := modelService.(*MockModelService); mockOk {
-		// For mock services, create a manager that uses the mock
-		modelManager := NewModelManagerFromServiceInterface(mockService)
-		adapter.executor.SetModelManager(modelManager)
-	}
+	wireModelManager(adapter, modelService)
 	return adapter
 }
 
@@ -73,25 +63,22 @@ func NewAdapterWithModelService(ollamaURL string, modelService ModelServiceInter
 // This is used for fast unit testing to avoid real HTTP calls.
 func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter {
 	kdeps_debug.Log("enter: NewAdapterWithMockClient")
-	// Create executor with mock client directly
-	executor := &Executor{
-		ollamaURL:       ollamaURL,
-		client:          mockClient, // Use the provided mock client
-		backendRegistry: NewBackendRegistry(),
-	}
-
+	executor := newMockClientExecutor(ollamaURL, mockClient)
 	adapter := &Adapter{
 		executor:     executor,
-		modelService: &MockModelService{}, // Use mock service to avoid downloads
+		modelService: &MockModelService{},
 	}
-
-	// Wire model manager to executor
-	if mockService, ok := adapter.modelService.(*MockModelService); ok {
-		modelManager := NewModelManagerFromServiceInterface(mockService)
-		adapter.executor.SetModelManager(modelManager)
-	}
-
+	wireModelManager(adapter, adapter.modelService)
 	return adapter
+}
+
+func newMockClientExecutor(ollamaURL string, mockClient HTTPClient) *Executor {
+	kdeps_debug.Log("enter: newMockClientExecutor")
+	return &Executor{
+		ollamaURL:       ollamaURL,
+		client:          mockClient,
+		backendRegistry: NewBackendRegistry(),
+	}
 }
 
 // SetModelService sets the model service for downloading and serving models.
@@ -100,14 +87,7 @@ func (a *Adapter) SetModelService(service interface{}) {
 	kdeps_debug.Log("enter: SetModelService")
 	if modelService, ok := service.(ModelServiceInterface); ok {
 		a.modelService = modelService
-		// Wire model manager to executor
-		if concreteService, concreteOk := modelService.(*ModelService); concreteOk {
-			modelManager := NewModelManagerFromService(concreteService)
-			a.executor.SetModelManager(modelManager)
-		} else if mockService, mockOk := modelService.(*MockModelService); mockOk {
-			modelManager := NewModelManagerFromServiceInterface(mockService)
-			a.executor.SetModelManager(modelManager)
-		}
+		wireModelManager(a, modelService)
 	}
 }
 
@@ -137,9 +117,31 @@ func (a *Adapter) GetExecutorForTesting() *Executor {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	chatConfig, err := parseChatConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, chatConfig)
+}
+
+func parseChatConfig(config interface{}) (*domain.ChatConfig, error) {
+	kdeps_debug.Log("enter: parseChatConfig")
 	chatConfig, ok := config.(*domain.ChatConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for LLM executor")
 	}
-	return a.executor.Execute(ctx, chatConfig)
+	return chatConfig, nil
+}
+
+func wireModelManager(adapter *Adapter, modelService ModelServiceInterface) {
+	kdeps_debug.Log("enter: wireModelManager")
+	if concreteService, concreteOk := modelService.(*ModelService); concreteOk {
+		modelManager := NewModelManagerFromService(concreteService)
+		adapter.executor.SetModelManager(modelManager)
+		return
+	}
+	if mockService, mockOk := modelService.(*MockModelService); mockOk {
+		modelManager := NewModelManagerFromServiceInterface(mockService)
+		adapter.executor.SetModelManager(modelManager)
+	}
 }

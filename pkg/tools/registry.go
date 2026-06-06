@@ -81,18 +81,22 @@ func (r *Registry) ToLLMTools() []domain.Tool {
 	kdeps_debug.Log("enter: ToLLMTools")
 	result := make([]domain.Tool, 0, len(r.tools))
 	for _, t := range r.List() {
-		dt := domain.Tool{
-			Name:        t.Name,
-			Description: t.Description,
-			Parameters:  t.Parameters,
-		}
-		if t.Execute != nil {
-			execute := t.Execute
-			dt.Execute = func(args map[string]interface{}) (string, error) {
-				return execute(args)
-			}
-		}
-		result = append(result, dt)
+		result = append(result, convertToDomainTool(t))
 	}
 	return result
+}
+
+func convertToDomainTool(t *Tool) domain.Tool {
+	dt := domain.Tool{
+		Name:        t.Name,
+		Description: t.Description,
+		Parameters:  t.Parameters,
+	}
+	if t.Execute != nil {
+		execute := t.Execute
+		dt.Execute = func(args map[string]interface{}) (string, error) {
+			return execute(args)
+		}
+	}
+	return dt
 }

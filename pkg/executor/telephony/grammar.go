@@ -21,6 +21,8 @@ package telephony
 import (
 	"fmt"
 	"strings"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // Grammar represents a telephony input grammar.
@@ -37,6 +39,7 @@ const grxmlContentType = "application/srgs+xml"
 
 // BuildDigitGrammar returns a DTMF GRXML grammar that accepts 1..limit digits.
 func BuildDigitGrammar(limit int) string {
+	kdeps_debug.Log("enter: BuildDigitGrammar")
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <grammar xmlns="http://www.w3.org/2001/06/grammar"
          version="1.0" xml:lang="en-US" mode="dtmf" root="digits">
@@ -56,10 +59,7 @@ func BuildDigitGrammar(limit int) string {
 // Each key maps to its zero-based index tag so the executor can identify
 // which match branch was selected.
 func BuildMenuGrammar(keys []string) string {
-	var items strings.Builder
-	for i, key := range keys {
-		fmt.Fprintf(&items, "\n        <item><tag>%d</tag>%s</item>", i, key)
-	}
+	kdeps_debug.Log("enter: BuildMenuGrammar")
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <grammar xmlns="http://www.w3.org/2001/06/grammar"
          version="1.0" xml:lang="en-US" mode="dtmf"
@@ -68,7 +68,16 @@ func BuildMenuGrammar(keys []string) string {
     <one-of>%s
     </one-of>
   </rule>
-</grammar>`, items.String())
+</grammar>`, buildMenuGrammarItems(keys))
+}
+
+func buildMenuGrammarItems(keys []string) string {
+	kdeps_debug.Log("enter: buildMenuGrammarItems")
+	var items strings.Builder
+	for i, key := range keys {
+		fmt.Fprintf(&items, "\n        <item><tag>%d</tag>%s</item>", i, key)
+	}
+	return items.String()
 }
 
 // BuildGrammars constructs Grammar slices from the telephony action config fields.
@@ -76,25 +85,38 @@ func BuildMenuGrammar(keys []string) string {
 // Returns at least one grammar; panics if limit <= 0 and no grammar is specified
 // (callers must validate the config before calling).
 func BuildGrammars(grammar, grammarURL string, limit int) []Grammar {
-	var grammars []Grammar
+	kdeps_debug.Log("enter: BuildGrammars")
+	grammars := appendInlineGrammar(nil, grammar)
+	grammars = appendURLGrammar(grammars, grammarURL)
+	return appendDigitGrammar(grammars, limit)
+}
 
-	if grammar != "" {
-		grammars = append(grammars, Grammar{
-			Value:       grammar,
-			ContentType: grxmlContentType,
-		})
+func appendInlineGrammar(grammars []Grammar, grammar string) []Grammar {
+	kdeps_debug.Log("enter: appendInlineGrammar")
+	if grammar == "" {
+		return grammars
 	}
+	return append(grammars, Grammar{
+		Value:       grammar,
+		ContentType: grxmlContentType,
+	})
+}
 
-	if grammarURL != "" {
-		grammars = append(grammars, Grammar{URL: grammarURL})
+func appendURLGrammar(grammars []Grammar, grammarURL string) []Grammar {
+	kdeps_debug.Log("enter: appendURLGrammar")
+	if grammarURL == "" {
+		return grammars
 	}
+	return append(grammars, Grammar{URL: grammarURL})
+}
 
-	if len(grammars) == 0 && limit > 0 {
-		grammars = append(grammars, Grammar{
-			Value:       BuildDigitGrammar(limit),
-			ContentType: grxmlContentType,
-		})
+func appendDigitGrammar(grammars []Grammar, limit int) []Grammar {
+	kdeps_debug.Log("enter: appendDigitGrammar")
+	if len(grammars) > 0 || limit <= 0 {
+		return grammars
 	}
-
-	return grammars
+	return append(grammars, Grammar{
+		Value:       BuildDigitGrammar(limit),
+		ContentType: grxmlContentType,
+	})
 }

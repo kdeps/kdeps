@@ -64,28 +64,46 @@ func (v *ExpressionValidator) ValidateCustomRules(
 		return errors.New("evaluator is required for custom rule validation")
 	}
 
-	var errors []*domain.ValidationError
+	errs := collectExpressionValidationErrors(exprs, evaluator, env)
+	if len(errs) > 0 {
+		return &MultipleValidationError{Errors: errs}
+	}
 
+	return nil
+}
+
+func collectExpressionValidationErrors(
+	exprs []domain.Expression,
+	evaluator *expression.Evaluator,
+	env map[string]interface{},
+) []*domain.ValidationError {
+	var errs []*domain.ValidationError
 	for _, expr := range exprs {
-		boolResult, err := evaluator.EvaluateCondition(expr.Raw, env)
-		if err != nil {
-			errors = append(errors, &domain.ValidationError{
-				Type:    "expression",
-				Message: fmt.Sprintf("expression evaluation failed: %v", err),
-			})
-			continue
+		if validationErr := validateSingleExpression(expr, evaluator, env); validationErr != nil {
+			errs = append(errs, validationErr)
 		}
+	}
+	return errs
+}
 
-		if !boolResult {
-			errors = append(errors, &domain.ValidationError{
-				Type:    "custom",
-				Message: fmt.Sprintf("expression failed: %s", expr.Raw),
-			})
+func validateSingleExpression(
+	expr domain.Expression,
+	evaluator *expression.Evaluator,
+	env map[string]interface{},
+) *domain.ValidationError {
+	boolResult, err := evaluator.EvaluateCondition(expr.Raw, env)
+	if err != nil {
+		return &domain.ValidationError{
+			Type:    "expression",
+			Message: fmt.Sprintf("expression evaluation failed: %v", err),
 		}
 	}
 
-	if len(errors) > 0 {
-		return &MultipleValidationError{Errors: errors}
+	if !boolResult {
+		return &domain.ValidationError{
+			Type:    "custom",
+			Message: fmt.Sprintf("expression failed: %s", expr.Raw),
+		}
 	}
 
 	return nil

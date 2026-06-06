@@ -66,7 +66,15 @@ func RunStateless(
 		return fmt.Errorf("bot stateless: read input: %w", err)
 	}
 
-	req := &executor.RequestContext{
+	req := buildStatelessRequestContext(msg)
+	if _, err = engine.Execute(workflow, req); err != nil {
+		return fmt.Errorf("bot stateless: workflow execution failed: %w", err)
+	}
+	return nil
+}
+
+func buildStatelessRequestContext(msg statelessInput) *executor.RequestContext {
+	return &executor.RequestContext{
 		Method: "POST",
 		Path:   "/bot/" + msg.Platform,
 		Body: map[string]interface{}{
@@ -82,11 +90,6 @@ func RunStateless(
 			return nil
 		},
 	}
-
-	if _, err = engine.Execute(workflow, req); err != nil {
-		return fmt.Errorf("bot stateless: workflow execution failed: %w", err)
-	}
-	return nil
 }
 
 // readStatelessInput reads the stateless message from r (typically os.Stdin).
@@ -106,7 +109,15 @@ func readStatelessInput(r io.Reader) (statelessInput, error) {
 		}
 	}
 
-	// Fall back to environment variables for any missing fields.
+	applyStatelessEnvFallbacks(&msg)
+	if msg.Message == "" {
+		return msg, errors.New("no message provided (set via stdin JSON or KDEPS_BOT_MESSAGE)")
+	}
+
+	return msg, nil
+}
+
+func applyStatelessEnvFallbacks(msg *statelessInput) {
 	if msg.Message == "" {
 		msg.Message = os.Getenv("KDEPS_BOT_MESSAGE")
 	}
@@ -119,10 +130,4 @@ func readStatelessInput(r io.Reader) (statelessInput, error) {
 	if msg.Platform == "" {
 		msg.Platform = os.Getenv("KDEPS_BOT_PLATFORM")
 	}
-
-	if msg.Message == "" {
-		return msg, errors.New("no message provided (set via stdin JSON or KDEPS_BOT_MESSAGE)")
-	}
-
-	return msg, nil
 }

@@ -45,10 +45,19 @@ func NewAdapter() *Adapter {
 // Execute executes a resource using the exec executor.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	execConfig, err := parseExecConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.executor.Execute(ctx, execConfig)
+}
+
+func parseExecConfig(config interface{}) (*domain.ExecConfig, error) {
+	kdeps_debug.Log("enter: parseExecConfig")
 	execConfig, ok := config.(*domain.ExecConfig)
 	if !ok {
 		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
 	}
-
-	return a.executor.Execute(ctx, execConfig)
+	return execConfig, nil
 }

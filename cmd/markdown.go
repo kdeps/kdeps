@@ -27,26 +27,36 @@ import (
 	"golang.org/x/term"
 )
 
+const defaultMarkdownWidth = 80
+
 // renderMarkdown renders markdown content for terminal display using glamour.
 // Falls back to the raw string if rendering fails.
 func renderMarkdown(content string) string {
-	// Detect terminal width; fall back to 80 columns.
-	width := 80
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
-		width = w
-	}
-
-	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(width),
-	)
+	renderer, err := newMarkdownRenderer()
 	if err != nil {
 		return content
 	}
 
-	rendered, err := r.Render(content)
+	rendered, err := renderer.Render(content)
 	if err != nil {
 		return content
 	}
 	return rendered
+}
+
+// newMarkdownRenderer builds a glamour renderer sized for the current terminal.
+func newMarkdownRenderer() (*glamour.TermRenderer, error) {
+	return glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(terminalMarkdownWidth()),
+	)
+}
+
+// terminalMarkdownWidth returns the terminal width or a sensible default.
+func terminalMarkdownWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || width <= 0 {
+		return defaultMarkdownWidth
+	}
+	return width
 }

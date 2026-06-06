@@ -41,6 +41,13 @@ func newRegistryCmd() *cobra.Command {
 		Long:  `Search, install, and publish AI agent packages on the kdeps registry.`,
 	}
 	cmd.PersistentFlags().String("registry", "", "Registry base URL (overrides KDEPS_REGISTRY_URL)")
+	attachRegistrySubcommands(cmd)
+	return cmd
+}
+
+// attachRegistrySubcommands registers all registry subcommands on cmd.
+func attachRegistrySubcommands(cmd *cobra.Command) {
+	kdeps_debug.Log("enter: attachRegistrySubcommands")
 	cmd.AddCommand(newRegistrySearchCmd())
 	cmd.AddCommand(newRegistryInfoCmd())
 	cmd.AddCommand(newRegistryInstallCmd())
@@ -49,17 +56,34 @@ func newRegistryCmd() *cobra.Command {
 	cmd.AddCommand(newRegistrySubmitCmd())
 	cmd.AddCommand(newRegistryListCmd())
 	cmd.AddCommand(newRegistryVerifyCmd())
-	return cmd
 }
 
 // registryURL returns the effective registry base URL for the command.
 func registryURL(cmd *cobra.Command) string {
 	kdeps_debug.Log("enter: registryURL")
-	if u, _ := cmd.Flags().GetString("registry"); u != "" {
-		return strings.TrimRight(u, "/")
+	if u := resolveRegistryFlagURL(cmd); u != "" {
+		return u
 	}
-	if u := strings.TrimSpace(os.Getenv("KDEPS_REGISTRY_URL")); u != "" {
-		return strings.TrimRight(u, "/")
+	if u := resolveRegistryEnvURL(); u != "" {
+		return u
 	}
 	return registryBaseURL
+}
+
+// resolveRegistryFlagURL reads the --registry flag when set.
+func resolveRegistryFlagURL(cmd *cobra.Command) string {
+	u, _ := cmd.Flags().GetString("registry")
+	if u == "" {
+		return ""
+	}
+	return strings.TrimRight(u, "/")
+}
+
+// resolveRegistryEnvURL reads KDEPS_REGISTRY_URL when set.
+func resolveRegistryEnvURL() string {
+	u := strings.TrimSpace(os.Getenv("KDEPS_REGISTRY_URL"))
+	if u == "" {
+		return ""
+	}
+	return strings.TrimRight(u, "/")
 }

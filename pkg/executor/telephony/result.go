@@ -38,6 +38,10 @@
 //	telephony.match()         - true when last ask/menu returned status "match"
 package telephony
 
+import (
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
+)
+
 // ResultStatus is the outcome of a telephony input action.
 type ResultStatus string
 
@@ -80,16 +84,24 @@ type Result struct {
 
 // Match returns true when Status is StatusMatch.
 func (r *Result) Match() bool {
+	kdeps_debug.Log("enter: Match")
 	return r.Status == StatusMatch
 }
 
 // String returns the utterance, satisfying fmt.Stringer.
 func (r *Result) String() string {
+	kdeps_debug.Log("enter: String")
 	return r.Utterance
 }
 
 // ToMap serialises the result to a plain map for use in expression contexts.
 func (r *Result) ToMap() map[string]any {
+	kdeps_debug.Log("enter: ToMap")
+	return buildResultMap(r)
+}
+
+func buildResultMap(r *Result) map[string]any {
+	kdeps_debug.Log("enter: buildResultMap")
 	return map[string]any{
 		"status":         string(r.Status),
 		"mode":           string(r.Mode),

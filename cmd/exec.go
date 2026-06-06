@@ -69,25 +69,28 @@ Examples:
 func runInstalledAgent(cmd *cobra.Command, name string, flags *RunFlags) error {
 	kdeps_debug.Log("enter: runInstalledAgent")
 
-	agentsDir, err := kdepsAgentsDir()
+	workflowPath, err := resolveInstalledAgentWorkflow(name)
 	if err != nil {
 		return err
+	}
+	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
+}
+
+// resolveInstalledAgentWorkflow finds the workflow manifest for an installed agent.
+func resolveInstalledAgentWorkflow(name string) (string, error) {
+	agentsDir, err := kdepsAgentsDir()
+	if err != nil {
+		return "", err
 	}
 
 	agentDir := filepath.Join(agentsDir, name)
 	if _, statErr := os.Stat(agentDir); os.IsNotExist(statErr) {
-		return fmt.Errorf(
+		return "", fmt.Errorf(
 			"agent %q is not installed (looked in %s)\n\nInstall it with: kdeps install %s",
 			name, agentDir, name,
 		)
 	}
-
-	workflowPath, err := resolveWorkflowInDir(agentDir)
-	if err != nil {
-		return err
-	}
-
-	return ExecuteWorkflowStepsWithFlags(cmd, workflowPath, flags)
+	return resolveWorkflowInDir(agentDir)
 }
 
 // resolveWorkflowInDir searches dir for a workflow or agency manifest.

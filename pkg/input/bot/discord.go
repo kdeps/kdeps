@@ -64,42 +64,61 @@ func newDiscordRunner(
 	logger *slog.Logger,
 ) *discordRunner {
 	kdeps_debug.Log("enter: newDiscordRunner")
-	var botToken, guildID string
-	if creds != nil {
-		botToken = creds.BotToken
+	return &discordRunner{
+		botToken: resolveDiscordBotToken(creds),
+		guildID:  resolveDiscordGuildID(cfg),
+		logger:   logger,
 	}
-	if cfg != nil {
-		guildID = cfg.GuildID
+}
+
+func resolveDiscordBotToken(creds *kdepsconfig.DiscordConnectionConfig) string {
+	if creds == nil {
+		return ""
 	}
-	return &discordRunner{botToken: botToken, guildID: guildID, logger: logger}
+	return creds.BotToken
+}
+
+func resolveDiscordGuildID(cfg *domain.DiscordConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.GuildID
 }
 
 // Start connects to Discord Gateway and forwards messages to ch.
 // It blocks until ctx is cancelled.
 func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 	kdeps_debug.Log("enter: Start")
+	s, err := r.setupDiscordSession(ctx, ch)
+	if err != nil {
+		return err
+	}
+	r.logger.InfoContext(ctx, "discord: connected")
+	defer r.closeDiscordSession(s)
+	<-ctx.Done()
+	return nil
+}
+
+func (r *discordRunner) setupDiscordSession(ctx context.Context, ch chan<- Message) (*discordgo.Session, error) {
 	s, err := discordNewSession("Bot " + r.botToken)
 	if err != nil {
-		return fmt.Errorf("discord: create session: %w", err)
+		return nil, fmt.Errorf("discord: create session: %w", err)
 	}
 	r.session = s
 
 	discordAddHandler(s, r.createMessageHandler(ctx, s, ch))
-
 	s.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 
 	if openErr := discordSessionOpen(s); openErr != nil {
-		return fmt.Errorf("discord: open session: %w", openErr)
+		return nil, fmt.Errorf("discord: open session: %w", openErr)
 	}
-	r.logger.InfoContext(ctx, "discord: connected")
-	defer func() {
-		if closeErr := discordSessionClose(s); closeErr != nil {
-			r.logger.Warn("discord: close session error", "err", closeErr)
-		}
-	}()
+	return s, nil
+}
 
-	<-ctx.Done()
-	return nil
+func (r *discordRunner) closeDiscordSession(s *discordgo.Session) {
+	if closeErr := discordSessionClose(s); closeErr != nil {
+		r.logger.Warn("discord: close session error", "err", closeErr)
+	}
 }
 
 // createMessageHandler returns a MessageCreate handler function for testing.
@@ -115,20 +134,35 @@ func (r *discordRunner) createMessageHandler(
 func (r *discordRunner) handleDiscordMessage(
 	ctx context.Context, s *discordgo.Session, m *discordgo.MessageCreate, ch chan<- Message,
 ) {
+	if !shouldForwardDiscordMessage(s, m, r.guildID) {
+		return
+	}
+	forwardMessage(ctx, ch, buildDiscordMessage(m))
+}
+
+func shouldForwardDiscordMessage(s *discordgo.Session, m *discordgo.MessageCreate, guildID string) bool {
 	if m.Author.ID == s.State.User.ID {
-		return
+		return false
 	}
-	if r.guildID != "" && m.GuildID != r.guildID {
-		return
+	if guildID != "" && m.GuildID != guildID {
+		return false
 	}
-	select {
-	case ch <- Message{
+	return true
+}
+
+func buildDiscordMessage(m *discordgo.MessageCreate) Message {
+	return Message{
 		Platform: discordPlatform,
 		ChatID:   m.ChannelID,
 		UserID:   m.Author.ID,
 		Text:     m.Content,
 		Raw:      m,
-	}:
+	}
+}
+
+func forwardMessage(ctx context.Context, ch chan<- Message, msg Message) {
+	select {
+	case ch <- msg:
 	case <-ctx.Done():
 	}
 }

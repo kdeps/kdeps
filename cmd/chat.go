@@ -32,6 +32,8 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/chat"
 )
 
+const defaultChatModel = "llama3.2:3b"
+
 // ChatFlags holds flags for the chat command.
 type ChatFlags struct {
 	Model     string
@@ -93,53 +95,65 @@ Examples:
 func runChat(_ *cobra.Command, flags *ChatFlags) error {
 	kdeps_debug.Log("enter: runChat")
 
-	// Resolve model and base URL from flags then environment.
-	model := flags.Model
-	if model == "" {
-		model = "llama3.2:3b"
+	model := resolveChatModel(flags.Model)
+	baseURL := resolveChatBaseURL(flags.BaseURL)
+
+	session, err := loadOrCreateChatSession(flags.SessionID)
+	if err != nil {
+		return err
 	}
 
-	baseURL := flags.BaseURL
-	if baseURL == "" {
-		baseURL = os.Getenv("OLLAMA_HOST")
-	}
-	if baseURL == "" {
-		baseURL = "http://localhost:11434"
-	}
-
-	// Set up or resume session.
-	var session *chat.Session
-	var err error
-	if flags.SessionID != "" {
-		session, err = chat.LoadSession(flags.SessionID)
-		if err != nil {
-			return fmt.Errorf("could not load session %s: %w", flags.SessionID, err)
-		}
-		fmt.Fprintf(os.Stdout, "Resumed session: %s\n", session.ID)
-	} else {
-		session, err = chat.NewSession()
-		if err != nil {
-			return fmt.Errorf("could not create session: %w", err)
-		}
-	}
-
-	// Scan components and build catalog.
 	catalog := chat.ScanCatalog()
-
-	// Build generator.
 	llmClient := chat.NewHTTPLLMClient()
 	generator := chat.NewGenerator(llmClient, model, baseURL, "", catalog)
+	executor := buildChatExecutor(flags.NoExecute)
 
-	// Build executor.
-	var executor *chat.Executor
-	if flags.NoExecute {
-		executor = chat.NewExecutor(os.Stdout, os.Stderr)
-		executor.KDepsBin = "" // disables execution
-	} else {
-		executor = chat.NewExecutor(os.Stdout, os.Stderr)
-	}
-
-	// Start REPL.
 	repl := chat.NewREPL(session, generator, executor, os.Stdin, os.Stdout)
 	return repl.Run(context.Background())
+}
+
+// resolveChatModel returns the effective LLM model for chat.
+func resolveChatModel(model string) string {
+	if model != "" {
+		return model
+	}
+	return defaultChatModel
+}
+
+// resolveChatBaseURL returns the effective LLM backend URL for chat.
+func resolveChatBaseURL(baseURL string) string {
+	if baseURL != "" {
+		return baseURL
+	}
+	if host := os.Getenv("OLLAMA_HOST"); host != "" {
+		return host
+	}
+	return "http://localhost:11434"
+}
+
+// loadOrCreateChatSession resumes an existing session or creates a new one.
+func loadOrCreateChatSession(sessionID string) (*chat.Session, error) {
+	if sessionID != "" {
+		session, err := chat.LoadSession(sessionID)
+		if err != nil {
+			return nil, fmt.Errorf("could not load session %s: %w", sessionID, err)
+		}
+		fmt.Fprintf(os.Stdout, "Resumed session: %s\n", session.ID)
+		return session, nil
+	}
+
+	session, err := chat.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("could not create session: %w", err)
+	}
+	return session, nil
+}
+
+// buildChatExecutor constructs the workflow executor, optionally disabling /run.
+func buildChatExecutor(noExecute bool) *chat.Executor {
+	executor := chat.NewExecutor(os.Stdout, os.Stderr)
+	if noExecute {
+		executor.KDepsBin = "" // disables execution
+	}
+	return executor
 }

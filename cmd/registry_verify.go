@@ -41,9 +41,12 @@ Examples:
   kdeps registry verify ./my-agent
   kdeps registry verify .`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			kdeps_debug.Log("enter: registryVerifyCmd.RunE")
-			return doRegistryVerify(cmd, args[0])
-		},
+		RunE: runRegistryVerify,
 	}
+}
+
+// runRegistryVerify executes registry verify for the given directory path.
+func runRegistryVerify(cmd *cobra.Command, args []string) error {
+	kdeps_debug.Log("enter: registryVerifyCmd.RunE")
+	return doRegistryVerify(cmd, args[0])
 }

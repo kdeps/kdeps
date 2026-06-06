@@ -44,9 +44,18 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	httpConfig, err := parseHTTPConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, httpConfig)
+}
+
+func parseHTTPConfig(config interface{}) (*domain.HTTPClientConfig, error) {
+	kdeps_debug.Log("enter: parseHTTPConfig")
 	httpConfig, ok := config.(*domain.HTTPClientConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for HTTP executor")
 	}
-	return a.executor.Execute(ctx, httpConfig)
+	return httpConfig, nil
 }
