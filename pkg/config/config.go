@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
@@ -44,16 +45,8 @@ const (
 	ollamaBackendStr = "ollama"
 )
 
-// DI variables — overridable for testing.
-
 //nolint:gochecknoglobals // test-replaceable
-var osMkdirAll = os.MkdirAll
-
-//nolint:gochecknoglobals // test-replaceable
-var osWriteFile = os.WriteFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osReadFile = os.ReadFile
+var AppFS = afero.NewOsFs()
 
 //nolint:gochecknoglobals // test-replaceable
 var osUserHomeDir = os.UserHomeDir
@@ -377,13 +370,13 @@ func Scaffold() error {
 	if err != nil {
 		return nil //nolint:nilerr // non-fatal
 	}
-	if _, statErr := osStat(path); statErr == nil {
+	if _, statErr := AppFS.Stat(path); statErr == nil {
 		return nil // already exists
 	}
-	if mkdirErr := osMkdirAll(filepath.Dir(path), configDirPerm); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(filepath.Dir(path), configDirPerm); mkdirErr != nil {
 		return fmt.Errorf("create config dir: %w", mkdirErr)
 	}
-	return osWriteFile(path, []byte(defaultConfigTemplate), configFilePerm)
+	return afero.WriteFile(AppFS, path, []byte(defaultConfigTemplate), configFilePerm)
 }
 
 // GetField retrieves a config value by dot-path (e.g. "llm.openai_api_key").
@@ -832,7 +825,7 @@ func load() (*Config, error) {
 	if err != nil {
 		return &Config{}, nil //nolint:nilerr // home dir failure is non-fatal
 	}
-	data, err := osReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if errors.Is(err, os.ErrNotExist) {
 		return &Config{}, nil
 	}

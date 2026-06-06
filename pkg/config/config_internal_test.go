@@ -16,13 +16,13 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -805,11 +805,10 @@ func TestApplyEnv_ModelsList(t *testing.T) {
 }
 
 func TestScaffold_StatError(t *testing.T) {
-	origStat := osStat
-	t.Cleanup(func() { osStat = origStat })
-	osStat = func(_ string) (os.FileInfo, error) {
-		return nil, errors.New("permission denied")
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+
 	origGetenv := osGetenv
 	t.Cleanup(func() { osGetenv = origGetenv })
 	osGetenv = func(key string) string {
@@ -824,9 +823,14 @@ func TestScaffold_StatError(t *testing.T) {
 }
 
 func TestAgentsDir_EnvVar(t *testing.T) {
-	tmpDir := t.TempDir()
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	memFS := afero.NewMemMapFs()
+	AppFS = memFS
+
+	tmpDir := "/tmp/agents-test"
 	agentsDir := filepath.Join(tmpDir, "agents")
-	osMkdirAll(agentsDir, 0750)
+	_ = memFS.MkdirAll(agentsDir, 0750)
 
 	origGetenv := osGetenv
 	t.Cleanup(func() { osGetenv = origGetenv })
@@ -836,8 +840,6 @@ func TestAgentsDir_EnvVar(t *testing.T) {
 		}
 		return ""
 	}
-	origStat := osStat
-	t.Cleanup(func() { osStat = origStat })
 
 	dir, err := AgentsDir(&Config{})
 	require.NoError(t, err)

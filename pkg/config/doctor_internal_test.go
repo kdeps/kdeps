@@ -19,29 +19,16 @@
 package config
 
 import (
-	"errors"
-	"os"
 	"testing"
-	"time"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
 
-type fakeFileInfo struct{}
-
-func (fakeFileInfo) Name() string       { return "config.yaml" }
-func (fakeFileInfo) Size() int64        { return 100 }
-func (fakeFileInfo) Mode() os.FileMode  { return 0644 }
-func (fakeFileInfo) ModTime() time.Time { return time.Now() }
-func (fakeFileInfo) IsDir() bool        { return false }
-func (fakeFileInfo) Sys() interface{}   { return nil }
-
 func TestRunConfigFileCheck_StatError(t *testing.T) {
-	orig := osStat
-	t.Cleanup(func() { osStat = orig })
-	osStat = func(_ string) (os.FileInfo, error) {
-		return nil, errors.New("permission denied")
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
 
 	var checks []HealthCheck
 	healthy := true
@@ -51,16 +38,21 @@ func TestRunConfigFileCheck_StatError(t *testing.T) {
 }
 
 func TestRunConfigFileCheck_Success(t *testing.T) {
-	origStat := osStat
-	t.Cleanup(func() { osStat = origStat })
-	osStat = func(_ string) (os.FileInfo, error) {
-		return fakeFileInfo{}, nil
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	memFS := afero.NewMemMapFs()
+	AppFS = memFS
+
+	// Create the config file in mem FS
+	configPath := "/fake/.kdeps/config.yaml"
+	_ = memFS.MkdirAll("/fake/.kdeps", 0750)
+	_ = afero.WriteFile(memFS, configPath, []byte("llm: {}"), 0600)
+
 	origGetenv := osGetenv
 	t.Cleanup(func() { osGetenv = origGetenv })
 	osGetenv = func(key string) string {
 		if key == "KDEPS_CONFIG_PATH" {
-			return "/fake/config.yaml"
+			return configPath
 		}
 		return ""
 	}
@@ -70,7 +62,6 @@ func TestRunConfigFileCheck_Success(t *testing.T) {
 	runConfigFileCheck(&checks, &healthy)
 
 	assert.NotEmpty(t, checks)
-	// Should have a PASS check
 	found := false
 	for _, c := range checks {
 		if c.Status == HealthPass {
@@ -82,11 +73,9 @@ func TestRunConfigFileCheck_Success(t *testing.T) {
 }
 
 func TestRunAgentsCheck_ReadDirError(t *testing.T) {
-	orig := osReadDir
-	t.Cleanup(func() { osReadDir = orig })
-	osReadDir = func(_ string) ([]os.DirEntry, error) {
-		return nil, errors.New("permission denied")
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
 
 	var checks []HealthCheck
 	healthy := true

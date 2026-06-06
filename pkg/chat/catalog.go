@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 )
 
@@ -65,7 +66,7 @@ func ScanCatalog() []ComponentEntry {
 	var entries []ComponentEntry
 
 	for _, dir := range dirs {
-		infos, readErr := osReadDir(dir)
+		infos, readErr := afero.ReadDir(AppFS, dir)
 		if readErr != nil {
 			continue
 		}
@@ -103,7 +104,7 @@ func collectComponentDirs() []string {
 		return dirs
 	}
 	contrib := filepath.Join(cwd, "contrib", "components")
-	if info, statErr := osStat(contrib); statErr == nil && info.IsDir() {
+	if info, statErr := AppFS.Stat(contrib); statErr == nil && info.IsDir() {
 		dirs = append(dirs, contrib)
 	}
 
@@ -114,7 +115,7 @@ func scanComponentDir(dir string) *ComponentEntry {
 	var meta componentMeta
 	found := false
 	for _, name := range []string{"component.yaml", "workflow.yaml"} {
-		data, readErr := osReadFile(filepath.Join(dir, name))
+		data, readErr := afero.ReadFile(AppFS, filepath.Join(dir, name))
 		if readErr != nil {
 			continue
 		}

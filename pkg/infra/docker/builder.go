@@ -35,6 +35,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -77,6 +79,9 @@ var supervisordTemplate string
 //nolint:gochecknoglobals // test-replaceable global
 var ReadContextFile = os.ReadFile
 
+//nolint:gochecknoglobals // test-replaceable
+var AppFS = afero.NewOsFs()
+
 // Test hooks — these are set only in tests to exercise error paths in
 // CreateBuildContext and its callees. Each hook, when non-nil, is called
 // at the corresponding operation; returning an error simulates a failure.
@@ -115,7 +120,7 @@ func (c *DefaultCompiler) CreateTempDir() (string, error) {
 
 func (c *DefaultCompiler) RemoveAll(path string) error {
 	kdeps_debug.Log("enter: RemoveAll")
-	return os.RemoveAll(path)
+	return AppFS.RemoveAll(path)
 }
 
 func (c *DefaultCompiler) ExecuteCommand(

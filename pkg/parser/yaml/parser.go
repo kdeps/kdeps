@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -100,7 +101,7 @@ func (p *Parser) GetExpressionParserForTesting() ExpressionParser {
 func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 	kdeps_debug.Log("enter: ParseWorkflow")
 	// Read YAML file.
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read workflow file", err)
 	}
@@ -173,7 +174,7 @@ func (p *Parser) readPreprocessAndValidateYAML(
 	validate func(map[string]interface{}) error,
 ) ([]byte, error) {
 	kdeps_debug.Log("enter: readPreprocessAndValidateYAML")
-	data, err := os.ReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read file", err)
 	}
@@ -262,7 +263,7 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 	}
 
 	// Find all .yaml and .yml files in resources directory
-	entries, err := os.ReadDir(resourcesDir)
+	entries, err := afero.ReadDir(AppFS, resourcesDir)
 	if err != nil {
 		return domain.NewError(domain.ErrCodeParseError, "failed to read resources directory", err)
 	}
@@ -480,7 +481,7 @@ func (p *Parser) autoDiscoverAgents(agencyDir string) ([]string, error) {
 	}
 
 	// 2. Discover packed agents (agents/*.kdeps) in the immediate agents/ dir.
-	entries, readErr := os.ReadDir(agentsDir)
+	entries, readErr := afero.ReadDir(AppFS, agentsDir)
 	if readErr != nil {
 		return nil, domain.NewError(
 			domain.ErrCodeParseError,
