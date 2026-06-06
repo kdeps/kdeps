@@ -338,6 +338,7 @@ linters:
         - osCreate
         - osRename
         - osRemove
+        - osRemoveAll
         - osStat
         - osUserHomeDir
         - osChmod
