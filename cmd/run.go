@@ -1195,6 +1195,29 @@ type signalServeConfig struct {
 	logShutdownErrors  bool
 }
 
+func printGracefulShutdownMessage(sig os.Signal, stoppedLabel string) {
+	fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+	fmt.Fprintf(os.Stdout, "✓ %s stopped\n", stoppedLabel)
+}
+
+func httpServerSignalServeConfig(
+	start func() error,
+	shutdown func(context.Context) error,
+	stoppedLabel string,
+	afterShutdown func(),
+) signalServeConfig {
+	return signalServeConfig{
+		start:    start,
+		shutdown: shutdown,
+		onSignal: func(sig os.Signal) {
+			printGracefulShutdownMessage(sig, stoppedLabel)
+		},
+		afterShutdown:      afterShutdown,
+		ignoreServerClosed: true,
+		logShutdownErrors:  true,
+	}
+}
+
 func runUntilSignalOrError(cfg signalServeConfig) error {
 	sigChan := make(chan os.Signal, 1)
 	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -1692,20 +1715,16 @@ func startHTTPServerWithEngine(
 		return err
 	}
 
-	return runUntilSignalOrError(signalServeConfig{
-		start: func() error {
+	return runUntilSignalOrError(httpServerSignalServeConfig(
+		func() error {
 			return httpServerStartFunc(httpServer, addr, devMode)
 		},
-		shutdown: func(ctx context.Context) error {
+		func(ctx context.Context) error {
 			return httpServerShutdownFunc(httpServer, ctx)
 		},
-		onSignal: func(sig os.Signal) {
-			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-			fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		},
-		ignoreServerClosed: true,
-		logShutdownErrors:  true,
-	})
+		"Server",
+		nil,
+	))
 }
 
 // startBothServersWithEngine starts both the API and web server using a pre-built engine.
@@ -1742,24 +1761,19 @@ func startBothServersWithEngine(
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
-	return runUntilSignalOrError(signalServeConfig{
-		start: func() error {
+	return runUntilSignalOrError(httpServerSignalServeConfig(
+		func() error {
 			if startErr := httpServerStartFunc(httpServer, addr, devMode); startErr != nil {
 				return fmt.Errorf("server error: %w", startErr)
 			}
 			return nil
 		},
-		shutdown: func(ctx context.Context) error {
+		func(ctx context.Context) error {
 			return httpServerShutdownFunc(httpServer, ctx)
 		},
-		onSignal: func(sig os.Signal) {
-			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-			fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		},
-		afterShutdown:      webServer.Stop,
-		ignoreServerClosed: true,
-		logShutdownErrors:  true,
-	})
+		"Server",
+		webServer.Stop,
+	))
 }
 
 // botPlatformsFromInput returns the configured bot platform names for status output.
@@ -1907,20 +1921,16 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	webServer.SetWorkflowDir(workflowPath)
 
 	ctx := context.Background()
-	return runUntilSignalOrError(signalServeConfig{
-		start: func() error {
+	return runUntilSignalOrError(httpServerSignalServeConfig(
+		func() error {
 			return webServerStartFunc(webServer, ctx)
 		},
-		shutdown: func(stopCtx context.Context) error {
+		func(stopCtx context.Context) error {
 			return webServerShutdownFunc(webServer, stopCtx)
 		},
-		onSignal: func(sig os.Signal) {
-			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-			fmt.Fprintln(os.Stdout, "✓ Web server stopped")
-		},
-		ignoreServerClosed: true,
-		logShutdownErrors:  true,
-	})
+		"Web server",
+		nil,
+	))
 }
 
 // ExtractPackage extracts a .kdeps package to a temporary directory.
