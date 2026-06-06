@@ -24,6 +24,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -694,6 +695,27 @@ func TestRunUntilSignalOrError_SignalShutdownError(t *testing.T) {
 		logShutdownErrors: true,
 	})
 	require.NoError(t, err)
+}
+
+func TestStartBothServersWithEngine_WebServerCreateError(t *testing.T) {
+	orig := httpNewWebServerFunc
+	t.Cleanup(func() { httpNewWebServerFunc = orig })
+	httpNewWebServerFunc = func(_ *domain.Workflow, _ *slog.Logger) (*kdepshttp.WebServer, error) {
+		return nil, errors.New("web server create failed")
+	}
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
+			WebServer: &domain.WebServerConfig{
+				PortNum: mustFreePort(t),
+				Routes:  []domain.WebRoute{},
+			},
+		},
+	}
+	err := startBothServersWithEngine(eng, wf, t.TempDir(), false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create web server")
 }
 
 func TestStartBothServersWithEngine_StartReturnsError(t *testing.T) {

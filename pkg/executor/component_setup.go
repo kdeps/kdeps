@@ -41,6 +41,11 @@ const (
 
 // pythonManagerFactory creates a Python package manager. Overridable for testing.
 //
+// componentGOOS is the OS platform string used for package-manager detection.
+//
+//nolint:gochecknoglobals // test-replaceable
+var componentGOOS = runtime.GOOS
+
 //nolint:gochecknoglobals // test-replaceable
 var pythonManagerFactory = func(baseDir string) *pythonpkg.Manager {
 	return &pythonpkg.Manager{BaseDir: baseDir}
@@ -259,7 +264,7 @@ func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
 				args := append([]string{"install", "-y", "-q"}, pkgs...)
 				return runCommand("apt-get", args)
 			}
-	case commandExists("brew") && runtime.GOOS == "darwin":
+	case commandExists("brew") && componentGOOS == "darwin":
 		return "brew",
 			func(pkg string) bool {
 				return pkgInstalled("brew", []string{"list", "--formula", pkg})

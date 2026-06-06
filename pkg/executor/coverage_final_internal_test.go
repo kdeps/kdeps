@@ -479,3 +479,14 @@ func TestIsFilePattern_UnknownExtension(t *testing.T) {
 	ctx := &ExecutionContext{}
 	assert.False(t, ctx.IsFilePattern("data.zzzunknown"))
 }
+
+func TestIsFilePattern_CoverageBranches(t *testing.T) {
+	ctx := &ExecutionContext{}
+	assert.True(t, ctx.IsFilePattern("*.png"))
+	assert.True(t, ctx.IsFilePattern("dir/file.txt"))
+	assert.True(t, ctx.IsFilePattern(`dir\file.txt`))
+	assert.True(t, ctx.IsFilePattern("config.yaml"))
+	assert.False(t, ctx.IsFilePattern("workflow.name"))
+	assert.False(t, ctx.IsFilePattern("plain-name"))
+	assert.False(t, ctx.IsFilePattern("file"))
+}
