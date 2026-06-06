@@ -45,6 +45,9 @@ var discordSessionOpen = func(s *discordgo.Session) error { return s.Open() }
 //nolint:gochecknoglobals // test-replaceable
 var discordSessionClose = func(s *discordgo.Session) error { return s.Close() }
 
+//nolint:gochecknoglobals // test-replaceable
+var discordAddHandler = func(s *discordgo.Session, handler interface{}) { s.AddHandler(handler) }
+
 type discordRunner struct {
 	botToken string
 	guildID  string
@@ -79,26 +82,7 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 	}
 	r.session = s
 
-	s.AddHandler(func(_ *discordgo.Session, m *discordgo.MessageCreate) {
-		// Ignore messages from the bot itself.
-		if m.Author.ID == s.State.User.ID {
-			return
-		}
-		// If GuildID is configured, only handle messages from that guild.
-		if r.guildID != "" && m.GuildID != r.guildID {
-			return
-		}
-		select {
-		case ch <- Message{
-			Platform: discordPlatform,
-			ChatID:   m.ChannelID,
-			UserID:   m.Author.ID,
-			Text:     m.Content,
-			Raw:      m,
-		}:
-		case <-ctx.Done():
-		}
-	})
+	discordAddHandler(s, r.createMessageHandler(ctx, s, ch))
 
 	s.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 
@@ -114,6 +98,35 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 
 	<-ctx.Done()
 	return nil
+}
+
+// createMessageHandler returns a MessageCreate handler function for testing.
+func (r *discordRunner) createMessageHandler(ctx context.Context, s *discordgo.Session, ch chan<- Message) interface{} {
+	return func(_ *discordgo.Session, m *discordgo.MessageCreate) {
+		r.handleDiscordMessage(ctx, s, m, ch)
+	}
+}
+
+// handleDiscordMessage processes a single Discord message, filtering and forwarding.
+func (r *discordRunner) handleDiscordMessage(
+	ctx context.Context, s *discordgo.Session, m *discordgo.MessageCreate, ch chan<- Message,
+) {
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+	if r.guildID != "" && m.GuildID != r.guildID {
+		return
+	}
+	select {
+	case ch <- Message{
+		Platform: discordPlatform,
+		ChatID:   m.ChannelID,
+		UserID:   m.Author.ID,
+		Text:     m.Content,
+		Raw:      m,
+	}:
+	case <-ctx.Done():
+	}
 }
 
 // Reply sends text to the given Discord channel.

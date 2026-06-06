@@ -22,6 +22,7 @@ import (
 	"time"
 
 	telegrambot "github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -104,4 +105,72 @@ func TestTelegramRunner_Start_DefaultPollTimeout(t *testing.T) {
 
 	err := r.Start(ctx, ch)
 	t.Logf("Start result (default timeout): %v", err)
+}
+
+func TestHandleTelegramUpdate_Success(t *testing.T) {
+	r := &telegramRunner{logger: slog.Default()}
+	update := &models.Update{
+		Message: &models.Message{
+			Chat: models.Chat{ID: 123456},
+			From: &models.User{ID: 789},
+			Text: "hello telegram",
+		},
+	}
+	ch := make(chan Message, 1)
+	r.handleTelegramUpdate(context.Background(), update, ch)
+	msg := <-ch
+	assert.Equal(t, telegramPlatform, msg.Platform)
+	assert.Equal(t, "123456", msg.ChatID)
+	assert.Equal(t, "789", msg.UserID)
+	assert.Equal(t, "hello telegram", msg.Text)
+}
+
+func TestHandleTelegramUpdate_NilMessage(t *testing.T) {
+	r := &telegramRunner{logger: slog.Default()}
+	update := &models.Update{Message: nil}
+	ch := make(chan Message, 1)
+	r.handleTelegramUpdate(context.Background(), update, ch)
+	select {
+	case <-ch:
+		t.Error("expected nil message to be filtered")
+	default:
+	}
+}
+
+func TestHandleTelegramUpdate_EmptyText(t *testing.T) {
+	r := &telegramRunner{logger: slog.Default()}
+	update := &models.Update{
+		Message: &models.Message{Chat: models.Chat{ID: 123}, From: &models.User{ID: 456}, Text: ""},
+	}
+	ch := make(chan Message, 1)
+	r.handleTelegramUpdate(context.Background(), update, ch)
+	select {
+	case <-ch:
+		t.Error("expected empty text to be filtered")
+	default:
+	}
+}
+
+func TestHandleTelegramUpdate_CancelledContext(_ *testing.T) {
+	r := &telegramRunner{logger: slog.Default()}
+	update := &models.Update{
+		Message: &models.Message{Chat: models.Chat{ID: 123}, From: &models.User{ID: 456}, Text: "msg"},
+	}
+	ch := make(chan Message)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r.handleTelegramUpdate(ctx, update, ch)
+}
+
+func TestCreateTelegramHandler(t *testing.T) {
+	r := &telegramRunner{logger: slog.Default()}
+	ch := make(chan Message, 1)
+	ctx := context.Background()
+
+	handler := r.createTelegramHandler(ctx, ch)
+	handler(context.Background(), nil, &models.Update{
+		Message: &models.Message{Chat: models.Chat{ID: 123}, From: &models.User{ID: 456}, Text: "test"},
+	})
+	msg := <-ch
+	assert.Equal(t, "test", msg.Text)
 }

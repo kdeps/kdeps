@@ -118,3 +118,78 @@ func TestDiscordRunner_Start_ContextCancelled(t *testing.T) {
 	// Either way, the function should not hang.
 	t.Logf("Start result with cancelled context: %v", err)
 }
+
+func TestHandleDiscordMessage_SelfMessage(t *testing.T) {
+	r := &discordRunner{logger: slog.Default()}
+	s, _ := discordgo.New("Bot dummy")
+	s.State.User = &discordgo.User{ID: "bot-123"}
+	m := &discordgo.MessageCreate{Message: &discordgo.Message{Author: &discordgo.User{ID: "bot-123"}, Content: "hello"}}
+	ch := make(chan Message, 1)
+	r.handleDiscordMessage(context.Background(), s, m, ch)
+	select {
+	case <-ch:
+		t.Error("expected self message to be filtered")
+	default:
+	}
+}
+
+func TestHandleDiscordMessage_GuildFilter(t *testing.T) {
+	r := &discordRunner{guildID: "guild-1", logger: slog.Default()}
+	s, _ := discordgo.New("Bot dummy")
+	s.State.User = &discordgo.User{ID: "bot-123"}
+	m := &discordgo.MessageCreate{Message: &discordgo.Message{
+		Author: &discordgo.User{ID: "user-456"}, GuildID: "guild-2", Content: "hello",
+	}}
+	ch := make(chan Message, 1)
+	r.handleDiscordMessage(context.Background(), s, m, ch)
+	select {
+	case <-ch:
+		t.Error("expected guild message to be filtered")
+	default:
+	}
+}
+
+func TestHandleDiscordMessage_Success(t *testing.T) {
+	r := &discordRunner{logger: slog.Default()}
+	s, _ := discordgo.New("Bot dummy")
+	s.State.User = &discordgo.User{ID: "bot-123"}
+	m := &discordgo.MessageCreate{Message: &discordgo.Message{
+		Author: &discordgo.User{ID: "user-456"}, ChannelID: "ch-1", Content: "hello world",
+	}}
+	ch := make(chan Message, 1)
+	r.handleDiscordMessage(context.Background(), s, m, ch)
+	msg := <-ch
+	assert.Equal(t, discordPlatform, msg.Platform)
+	assert.Equal(t, "ch-1", msg.ChatID)
+	assert.Equal(t, "user-456", msg.UserID)
+	assert.Equal(t, "hello world", msg.Text)
+}
+
+func TestHandleDiscordMessage_CancelledContext(_ *testing.T) {
+	r := &discordRunner{logger: slog.Default()}
+	s, _ := discordgo.New("Bot dummy")
+	s.State.User = &discordgo.User{ID: "bot-123"}
+	m := &discordgo.MessageCreate{Message: &discordgo.Message{
+		Author: &discordgo.User{ID: "user-456"}, ChannelID: "ch-1", Content: "hello",
+	}}
+	ch := make(chan Message)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	r.handleDiscordMessage(ctx, s, m, ch)
+}
+
+func TestCreateMessageHandler(t *testing.T) {
+	r := &discordRunner{logger: slog.Default()}
+	s, _ := discordgo.New("Bot dummy")
+	s.State.User = &discordgo.User{ID: "bot-123"}
+	ch := make(chan Message, 1)
+	ctx := context.Background()
+
+	handler := r.createMessageHandler(ctx, s, ch)
+	h := handler.(func(*discordgo.Session, *discordgo.MessageCreate))
+	h(s, &discordgo.MessageCreate{Message: &discordgo.Message{
+		Author: &discordgo.User{ID: "user-456"}, ChannelID: "ch-1", Content: "test",
+	}})
+	msg := <-ch
+	assert.Equal(t, "test", msg.Text)
+}
