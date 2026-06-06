@@ -275,6 +275,22 @@ func TestSessionStorage_GetAll_ScanError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to scan row")
 }
 
+func TestSessionStorage_GetAll_QueryError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	s, err := NewSessionStorage(sqliteMemoryDSN, "test-session")
+	require.NoError(t, err)
+	defer func() {
+		_ = s.Close()
+	}()
+
+	s.ctx = ctx
+	_, err = s.GetAll()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to query sessions")
+}
+
 // TestSessionStorage_GetAll_RowsErr verifies error handling when rows.Err()
 // returns an error after iteration completes, using context cancellation
 // to interrupt iteration mid-flight.

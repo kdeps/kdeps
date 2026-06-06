@@ -18,7 +18,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -412,23 +411,6 @@ func TestInstallOSPackages_WithAptGet(t *testing.T) {
 	require.NoError(t, installOSPackages([]string{"some-pkg"}))
 }
 
-func TestInstallOSPackages_WithBrew(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("brew test only runs on darwin")
-	}
-	tmpDir := t.TempDir()
-	brewContent := "#!/bin/sh\n" +
-		"if [ \"$1\" = \"list\" ] && [ \"$2\" = \"--formula\" ]; then exit 1; fi\n" +
-		"if [ \"$1\" = \"install\" ]; then exit 0; fi\n" +
-		"exit 1\n"
-	require.NoError(t, os.WriteFile(
-		filepath.Join(tmpDir, "brew"),
-		[]byte(brewContent), 0755))
-	t.Setenv("PATH", tmpDir)
-
-	require.NoError(t, installOSPackages([]string{"some-pkg"}))
-}
-
 // ---------------------------------------------------------------------------
 // detectPackageManager per-manager paths
 // ---------------------------------------------------------------------------
@@ -460,9 +442,10 @@ func TestDetectPackageManager_AptGet(t *testing.T) {
 }
 
 func TestDetectPackageManager_Brew(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("brew test only runs on darwin")
-	}
+	origGOOS := componentGOOS
+	t.Cleanup(func() { componentGOOS = origGOOS })
+	componentGOOS = "darwin"
+
 	tmpDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(tmpDir, "brew"),
@@ -473,4 +456,22 @@ func TestDetectPackageManager_Brew(t *testing.T) {
 	assert.Equal(t, "brew", name)
 	assert.NotNil(t, checkFn)
 	assert.NotNil(t, installFn)
+}
+
+func TestInstallOSPackages_WithBrewOverride(t *testing.T) {
+	origGOOS := componentGOOS
+	t.Cleanup(func() { componentGOOS = origGOOS })
+	componentGOOS = "darwin"
+
+	tmpDir := t.TempDir()
+	brewContent := "#!/bin/sh\n" +
+		"if [ \"$1\" = \"list\" ] && [ \"$2\" = \"--formula\" ]; then exit 1; fi\n" +
+		"if [ \"$1\" = \"install\" ]; then exit 0; fi\n" +
+		"exit 1\n"
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmpDir, "brew"),
+		[]byte(brewContent), 0755))
+	t.Setenv("PATH", tmpDir)
+
+	require.NoError(t, installOSPackages([]string{"some-pkg"}))
 }
