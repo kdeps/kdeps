@@ -30,6 +30,27 @@ import (
 //nolint:gochecknoglobals // test-replaceable
 var jsonMarshalIndent = json.MarshalIndent
 
+//nolint:gochecknoglobals // test-replaceable
+var osUserHomeDir = os.UserHomeDir
+
+//nolint:gochecknoglobals // test-replaceable
+var osMkdirAll = os.MkdirAll
+
+//nolint:gochecknoglobals // test-replaceable
+var osWriteFile = os.WriteFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osStat = os.Stat
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadFile = os.ReadFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osRemoveAll = os.RemoveAll
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadDir = os.ReadDir
+
 // Turn represents one exchange in the conversation history.
 type Turn struct {
 	Role    string `json:"role"`
@@ -52,19 +73,19 @@ type Session struct {
 
 // NewSession creates a new session with a unique temp directory.
 func NewSession() (*Session, error) {
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("could not determine home directory: %w", err)
 	}
 
 	sessionsRoot := filepath.Join(home, ".kdeps", "chat-sessions")
-	if mkErr := os.MkdirAll(sessionsRoot, 0o700); mkErr != nil {
+	if mkErr := osMkdirAll(sessionsRoot, 0o700); mkErr != nil {
 		return nil, fmt.Errorf("could not create sessions directory: %w", mkErr)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	dir := filepath.Join(sessionsRoot, id)
-	if mkErr := os.MkdirAll(dir, 0o700); mkErr != nil {
+	if mkErr := osMkdirAll(dir, 0o700); mkErr != nil {
 		return nil, fmt.Errorf("could not create session directory: %w", mkErr)
 	}
 
@@ -87,10 +108,10 @@ func (s *Session) WriteWorkflow() error {
 	}
 	for path, content := range s.Workflow.Files {
 		full := filepath.Join(s.Dir, path)
-		if mkErr := os.MkdirAll(filepath.Dir(full), 0o700); mkErr != nil {
+		if mkErr := osMkdirAll(filepath.Dir(full), 0o700); mkErr != nil {
 			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
 		}
-		if writeErr := os.WriteFile(full, []byte(content), 0o600); writeErr != nil {
+		if writeErr := osWriteFile(full, []byte(content), 0o600); writeErr != nil {
 			return fmt.Errorf("could not write %s: %w", path, writeErr)
 		}
 	}
@@ -102,15 +123,15 @@ func (s *Session) SaveTo(dest string) error {
 	if s.Workflow == nil {
 		return errors.New("no workflow to save")
 	}
-	if mkErr := os.MkdirAll(dest, 0o750); mkErr != nil {
+	if mkErr := osMkdirAll(dest, 0o750); mkErr != nil {
 		return fmt.Errorf("could not create destination directory: %w", mkErr)
 	}
 	for path, content := range s.Workflow.Files {
 		full := filepath.Join(dest, path)
-		if mkErr := os.MkdirAll(filepath.Dir(full), 0o750); mkErr != nil {
+		if mkErr := osMkdirAll(filepath.Dir(full), 0o750); mkErr != nil {
 			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
 		}
-		if writeErr := os.WriteFile(full, []byte(content), 0o600); writeErr != nil {
+		if writeErr := osWriteFile(full, []byte(content), 0o600); writeErr != nil {
 			return fmt.Errorf("could not write %s: %w", path, writeErr)
 		}
 	}
@@ -123,25 +144,25 @@ func (s *Session) SaveHistory() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.Dir, "history.json"), data, 0o600)
+	return osWriteFile(filepath.Join(s.Dir, "history.json"), data, 0o600)
 }
 
 // LoadSession loads a previously saved session by ID.
 func LoadSession(id string) (*Session, error) {
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("could not determine home directory: %w", err)
 	}
 
 	dir := filepath.Join(home, ".kdeps", "chat-sessions", id)
-	if _, statErr := os.Stat(dir); statErr != nil {
+	if _, statErr := osStat(dir); statErr != nil {
 		return nil, fmt.Errorf("session not found: %s", id)
 	}
 
 	s := &Session{ID: id, Dir: dir}
 
 	histFile := filepath.Join(dir, "history.json")
-	data, readErr := os.ReadFile(histFile)
+	data, readErr := osReadFile(histFile)
 	if readErr == nil {
 		if jsonErr := json.Unmarshal(data, &s.History); jsonErr != nil {
 			return nil, fmt.Errorf("could not load history: %w", jsonErr)
@@ -153,7 +174,7 @@ func LoadSession(id string) (*Session, error) {
 
 // Cleanup removes the session directory.
 func (s *Session) Cleanup() {
-	_ = os.RemoveAll(s.Dir)
+	_ = osRemoveAll(s.Dir)
 }
 
 // Reset clears history and workflow, keeping the directory.
@@ -161,11 +182,11 @@ func (s *Session) Reset() {
 	s.History = []Turn{}
 	s.Workflow = nil
 	// Clear files in dir except history.json
-	entries, _ := os.ReadDir(s.Dir)
+	entries, _ := osReadDir(s.Dir)
 	for _, e := range entries {
 		if e.Name() == "history.json" {
 			continue
 		}
-		_ = os.RemoveAll(filepath.Join(s.Dir, e.Name()))
+		_ = osRemoveAll(filepath.Join(s.Dir, e.Name()))
 	}
 }
