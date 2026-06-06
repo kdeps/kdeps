@@ -31,6 +31,20 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+// DI variables — overridable for testing.
+
+//nolint:gochecknoglobals // test-replaceable
+var osCreate = os.Create
+
+//nolint:gochecknoglobals // test-replaceable
+var osWriteFile = os.WriteFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osReadFile = os.ReadFile
+
+//nolint:gochecknoglobals // test-replaceable
+var osMkdirAll = os.MkdirAll
+
 //go:embed templates/*
 var templateFS embed.FS
 
@@ -65,7 +79,7 @@ type bootstrapData struct {
 func Bundle(config *BundleConfig) error {
 	kdeps_debug.Log("enter: Bundle")
 	distDir := filepath.Join(config.OutputDir, "dist")
-	if err := os.MkdirAll(distDir, 0750); err != nil {
+	if err := osMkdirAll(distDir, 0750); err != nil {
 		return fmt.Errorf("failed to create dist directory: %w", err)
 	}
 
@@ -139,7 +153,7 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 		}
 	}
 
-	outFile, err := os.Create(filepath.Join(distDir, "kdeps-bootstrap.js"))
+	outFile, err := osCreate(filepath.Join(distDir, "kdeps-bootstrap.js"))
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap.js: %w", err)
 	}
@@ -162,10 +176,10 @@ func copyWebServerFiles(files map[string]string, distDir string) error {
 		servePath = strings.TrimPrefix(servePath, "data/")
 
 		dst := filepath.Join(distDir, servePath)
-		if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
+		if err := osMkdirAll(filepath.Dir(dst), 0750); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", servePath, err)
 		}
-		if err := os.WriteFile(dst, []byte(content), 0644); err != nil { //nolint:gosec // static web assets
+		if err := osWriteFile(dst, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", servePath, err)
 		}
 	}
@@ -189,7 +203,7 @@ func hasIndexHTML(files map[string]string) bool {
 func injectBootstrap(distDir string) error {
 	kdeps_debug.Log("enter: injectBootstrap")
 	indexPath := filepath.Join(distDir, "index.html")
-	data, err := os.ReadFile(indexPath)
+	data, err := osReadFile(indexPath)
 	if err != nil {
 		return err
 	}
@@ -205,7 +219,7 @@ func injectBootstrap(distDir string) error {
 		content += "\n" + scripts
 	}
 
-	return os.WriteFile(indexPath, []byte(content), 0644) //nolint:gosec // static web asset
+	return osWriteFile(indexPath, []byte(content), 0644)
 }
 
 // generateDefaultIndex creates a minimal index.html that loads the WASM bootstrap.
@@ -215,8 +229,8 @@ func generateDefaultIndex(distDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read default HTML template: %w", err)
 	}
-	//nolint:gosec // static web asset
-	return os.WriteFile(
+
+	return osWriteFile(
 		filepath.Join(distDir, "index.html"),
 		tmplContent,
 		0644,
@@ -226,11 +240,11 @@ func generateDefaultIndex(distDir string) error {
 // copyFile copies a file from src to dst.
 func copyFile(src, dst string) error {
 	kdeps_debug.Log("enter: copyFile")
-	data, err := os.ReadFile(src)
+	data, err := osReadFile(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0644) //nolint:gosec // static web assets are world-readable
+	return osWriteFile(dst, data, 0644)
 }
 
 // copyEmbeddedFile copies an embedded file to the destination path.
@@ -240,5 +254,5 @@ func copyEmbeddedFile(embeddedPath, dst string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(dst, data, 0644) //nolint:gosec // static web assets are world-readable
+	return osWriteFile(dst, data, 0644)
 }
