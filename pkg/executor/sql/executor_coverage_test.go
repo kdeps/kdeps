@@ -690,7 +690,9 @@ func TestExecutor_Execute_EnvVarSQLTimeout(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})
@@ -704,7 +706,9 @@ func TestExecutor_Execute_EnvVarSQLTimeoutOverriddenByResource(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{
@@ -720,7 +724,9 @@ func TestExecutor_Execute_InvalidEnvVarSQLTimeoutFallsToDefault(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})
@@ -734,11 +740,16 @@ func TestExecutor_Execute_EnvVarSQLMaxRows(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	// MaxRows=0 so env var should be applied
-	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1", MaxRows: 0})
+	result, execErr := e.Execute(
+		ctx,
+		&domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1", MaxRows: 0},
+	)
 	require.NoError(t, execErr)
 	_ = result
 }
@@ -749,7 +760,9 @@ func TestExecutor_Execute_EnvVarSQLMaxRows_ResourceWins(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	// MaxRows=100 explicitly set — env var ignored
@@ -766,7 +779,9 @@ func TestExecutor_Execute_InvalidEnvVarSQLMaxRows(t *testing.T) {
 	defer db.Close()
 	e := sql.NewExecutor()
 	e.Pools["sqlite://:memory:"] = db
-	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	ctx, err := executor.NewExecutionContext(
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
 	require.NoError(t, err)
 	ctx.Config = sqlMemConfig()
 	result, execErr := e.Execute(ctx, &domain.SQLConfig{ConnectionName: "mem", Query: "SELECT 1"})

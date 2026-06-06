@@ -143,7 +143,11 @@ func TestExecutor_FormatAsCSV_SpecialCharacters(t *testing.T) {
 
 	// Do not split by newline - CSV fields with newlines make line count unreliable.
 	// Instead, verify header prefix and content presence.
-	assert.True(t, strings.HasPrefix(result, "id,name,note\n"), "CSV should start with sorted header")
+	assert.True(
+		t,
+		strings.HasPrefix(result, "id,name,note\n"),
+		"CSV should start with sorted header",
+	)
 
 	// Verify special characters are present (CSV writer quotes them as needed)
 	assert.Contains(t, result, "Alice")
