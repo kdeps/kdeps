@@ -31,7 +31,7 @@ import (
 )
 
 type dispatchMockExecutor struct {
-	execute func(ctx *ExecutionContext, config interface{}) (interface{}, error)
+	execute func(_ *ExecutionContext, config interface{}) (interface{}, error)
 }
 
 func (m *dispatchMockExecutor) Execute(ctx *ExecutionContext, config interface{}) (interface{}, error) {
@@ -51,7 +51,7 @@ func TestExecuteEmail_Success(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	mock := &dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
 			cfg, ok := config.(*domain.EmailConfig)
 			assert.True(t, ok)
 			assert.NotNil(t, cfg)
@@ -72,7 +72,7 @@ func TestExecuteEmail_NilConfig(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	reg.SetEmailExecutor(&dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
 			return nil, nil
 		},
 	})
@@ -100,7 +100,7 @@ func TestExecuteEmail_ExecutorError(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	mock := &dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
 			return nil, errors.New("SMTP connection refused")
 		},
 	}
@@ -118,7 +118,7 @@ func TestExecuteBotReply_Success(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	mock := &dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
 			cfg, ok := config.(*domain.BotReplyConfig)
 			assert.True(t, ok)
 			assert.NotNil(t, cfg)
@@ -139,7 +139,7 @@ func TestExecuteBotReply_NilConfig(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	reg.SetBotReplyExecutor(&dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
 			return nil, nil
 		},
 	})
@@ -167,7 +167,7 @@ func TestExecuteBrowser_Success(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	mock := &dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
 			cfg, ok := config.(*domain.BrowserConfig)
 			assert.True(t, ok)
 			assert.NotNil(t, cfg)
@@ -188,7 +188,7 @@ func TestExecuteBrowser_NilConfig(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	reg.SetBrowserExecutor(&dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, _ interface{}) (interface{}, error) {
 			return nil, nil
 		},
 	})
@@ -216,7 +216,7 @@ func TestExecuteInlineBrowser_Success(t *testing.T) {
 	e := newTestEngine()
 	reg := NewRegistry()
 	mock := &dispatchMockExecutor{
-		execute: func(ctx *ExecutionContext, config interface{}) (interface{}, error) {
+		execute: func(_ *ExecutionContext, config interface{}) (interface{}, error) {
 			cfg, ok := config.(*domain.BrowserConfig)
 			assert.True(t, ok)
 			assert.NotNil(t, cfg)

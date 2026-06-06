@@ -447,6 +447,7 @@ linters:
           - goconst
           - gosec
           - noctx
+          - nilnil
           - nolintlint
           - reassign
           - testifylint
