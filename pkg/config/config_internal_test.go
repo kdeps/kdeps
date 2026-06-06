@@ -895,3 +895,46 @@ func TestAgentsDir_HomeError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "home directory")
 }
+
+type errorFS struct{ afero.Fs }
+
+func (e errorFS) Open(_ string) (afero.File, error) { return nil, errors.New("permission denied") }
+
+func TestLoad_ReadError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = errorFS{afero.NewMemMapFs()}
+
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return "/fakehome", nil }
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(_ string) string { return "" }
+
+	_, err := load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "read")
+}
+
+func TestLoad_ParseError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	memFS := afero.NewMemMapFs()
+	AppFS = memFS
+
+	configPath := "/fakehome/.kdeps/config.yaml"
+	_ = memFS.MkdirAll("/fakehome/.kdeps", 0750)
+	_ = afero.WriteFile(memFS, configPath, []byte("invalid: {{{yaml"), 0600)
+
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return "/fakehome", nil }
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(_ string) string { return "" }
+
+	_, err := load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse")
+}
