@@ -40,143 +40,133 @@ import (
 var wasmRuntime *Runtime
 
 func main() {
-	// Register JS-callable functions on the global object.
-	js.Global().Set("kdepsInit", js.FuncOf(jsKdepsInit))
-	js.Global().Set("kdepsExecute", js.FuncOf(jsKdepsExecute))
-	js.Global().Set("kdepsValidate", js.FuncOf(jsKdepsValidate))
-
-	// Signal that kdeps is ready.
-	if readyCb := js.Global().Get("__kdepsReady"); !readyCb.IsUndefined() && !readyCb.IsNull() {
-		readyCb.Invoke()
-	}
-
+	registerJSAPI()
+	invokeReadyCallback()
 	consoleLog("kdeps WASM runtime initialized")
 
 	// Keep the Go runtime alive.
 	select {}
 }
 
+func registerJSAPI() {
+	js.Global().Set("kdepsInit", js.FuncOf(jsKdepsInit))
+	js.Global().Set("kdepsExecute", js.FuncOf(jsKdepsExecute))
+	js.Global().Set("kdepsValidate", js.FuncOf(jsKdepsValidate))
+}
+
+func invokeReadyCallback() {
+	readyCb := js.Global().Get("__kdepsReady")
+	if readyCb.IsUndefined() || readyCb.IsNull() {
+		return
+	}
+	readyCb.Invoke()
+}
+
+type promiseHandler func(resolve, reject js.Value)
+
+func runAsyncPromise(body promiseHandler) js.Value {
+	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
+		resolve := promiseArgs[0]
+		reject := promiseArgs[1]
+		go body(resolve, reject)
+		return nil
+	})
+	return newPromise(handler)
+}
+
 // jsKdepsInit initializes the kdeps runtime with a workflow YAML string.
 // JS signature: kdepsInit(workflowYAML: string, envVars?: object) -> Promise<void>
 func jsKdepsInit(_ js.Value, args []js.Value) interface{} {
 	kdeps_debug.Log("enter: jsKdepsInit")
-	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
-		resolve := promiseArgs[0]
-		reject := promiseArgs[1]
+	return runAsyncPromise(func(resolve, reject js.Value) {
+		workflowYAML, envVars, errMsg := parseInitArgs(args)
+		if errMsg != "" {
+			reject.Invoke(jsError(errMsg))
+			return
+		}
 
-		go func() {
-			if len(args) < 1 {
-				reject.Invoke(jsError("kdepsInit requires at least 1 argument: workflowYAML"))
-				return
-			}
+		registry := createWASMRegistry("")
+		runtime, err := NewRuntime(workflowYAML, envVars, registry)
+		if err != nil {
+			reject.Invoke(jsError(fmt.Sprintf("failed to initialize: %v", err)))
+			return
+		}
 
-			workflowYAML := args[0].String()
-
-			// Parse optional env vars.
-			var envVars map[string]string
-			if len(args) > 1 && !args[1].IsUndefined() && !args[1].IsNull() {
-				envVars = jsObjectToStringMap(args[1])
-			}
-
-			// Create the WASM-compatible executor registry.
-			registry := createWASMRegistry("")
-
-			// Parse and initialize the runtime.
-			runtime, err := NewRuntime(workflowYAML, envVars, registry)
-			if err != nil {
-				reject.Invoke(jsError(fmt.Sprintf("failed to initialize: %v", err)))
-				return
-			}
-
-			wasmRuntime = runtime
-			resolve.Invoke(js.Undefined())
-		}()
-
-		return nil
+		wasmRuntime = runtime
+		resolve.Invoke(js.Undefined())
 	})
+}
 
-	return newPromise(handler)
+func parseInitArgs(args []js.Value) (workflowYAML string, envVars map[string]string, errMsg string) {
+	if len(args) < 1 {
+		return "", nil, "kdepsInit requires at least 1 argument: workflowYAML"
+	}
+
+	workflowYAML = args[0].String()
+	if len(args) > 1 && !args[1].IsUndefined() && !args[1].IsNull() {
+		envVars = jsObjectToStringMap(args[1])
+	}
+	return workflowYAML, envVars, ""
 }
 
 // jsKdepsExecute executes the workflow with the given input.
 // JS signature: kdepsExecute(inputJSON: string, callbackFn?: function) -> Promise<object>
 func jsKdepsExecute(_ js.Value, args []js.Value) interface{} {
 	kdeps_debug.Log("enter: jsKdepsExecute")
-	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
-		resolve := promiseArgs[0]
-		reject := promiseArgs[1]
+	return runAsyncPromise(func(resolve, reject js.Value) {
+		if wasmRuntime == nil {
+			reject.Invoke(jsError("kdeps not initialized; call kdepsInit() first"))
+			return
+		}
 
-		go func() {
-			if wasmRuntime == nil {
-				reject.Invoke(jsError("kdeps not initialized; call kdepsInit() first"))
-				return
-			}
+		inputJSON, callback := parseExecuteArgs(args)
+		result, err := wasmRuntime.Execute(inputJSON, callback)
+		if err != nil {
+			reject.Invoke(jsError(fmt.Sprintf("execution failed: %v", err)))
+			return
+		}
 
-			// Parse input JSON.
-			var inputJSON string
-			if len(args) > 0 && !args[0].IsUndefined() && !args[0].IsNull() {
-				inputJSON = args[0].String()
-			}
-
-			// Optional streaming callback.
-			var callback *js.Value
-			if len(args) > 1 && !args[1].IsUndefined() && !args[1].IsNull() {
-				cb := args[1]
-				callback = &cb
-			}
-
-			// Execute the workflow.
-			result, err := wasmRuntime.Execute(inputJSON, callback)
-			if err != nil {
-				reject.Invoke(jsError(fmt.Sprintf("execution failed: %v", err)))
-				return
-			}
-
-			// Convert result to JS value.
-			jsResult := goToJS(result)
-			resolve.Invoke(jsResult)
-		}()
-
-		return nil
+		resolve.Invoke(goToJS(result))
 	})
+}
 
-	return newPromise(handler)
+func parseExecuteArgs(args []js.Value) (inputJSON string, callback *js.Value) {
+	if len(args) > 0 && !args[0].IsUndefined() && !args[0].IsNull() {
+		inputJSON = args[0].String()
+	}
+	if len(args) > 1 && !args[1].IsUndefined() && !args[1].IsNull() {
+		cb := args[1]
+		callback = &cb
+	}
+	return inputJSON, callback
 }
 
 // jsKdepsValidate validates a workflow YAML string.
 // JS signature: kdepsValidate(workflowYAML: string) -> Promise<object>
 func jsKdepsValidate(_ js.Value, args []js.Value) interface{} {
 	kdeps_debug.Log("enter: jsKdepsValidate")
-	handler := js.FuncOf(func(_ js.Value, promiseArgs []js.Value) interface{} {
-		resolve := promiseArgs[0]
-		reject := promiseArgs[1]
+	return runAsyncPromise(func(resolve, reject js.Value) {
+		if len(args) < 1 {
+			reject.Invoke(jsError("kdepsValidate requires 1 argument: workflowYAML"))
+			return
+		}
 
-		go func() {
-			if len(args) < 1 {
-				reject.Invoke(jsError("kdepsValidate requires 1 argument: workflowYAML"))
-				return
-			}
-
-			workflowYAML := args[0].String()
-
-			errors := ValidateWorkflow(workflowYAML)
-
-			result := js.Global().Get("Object").New()
-			result.Set("valid", len(errors) == 0)
-
-			jsErrors := js.Global().Get("Array").New(len(errors))
-			for i, e := range errors {
-				jsErrors.SetIndex(i, js.ValueOf(e))
-			}
-			result.Set("errors", jsErrors)
-
-			resolve.Invoke(result)
-		}()
-
-		return nil
+		workflowYAML := args[0].String()
+		errors := ValidateWorkflow(workflowYAML)
+		resolve.Invoke(buildValidationResult(errors))
 	})
+}
 
-	return newPromise(handler)
+func buildValidationResult(errors []string) js.Value {
+	result := js.Global().Get("Object").New()
+	result.Set("valid", len(errors) == 0)
+
+	jsErrors := js.Global().Get("Array").New(len(errors))
+	for i, e := range errors {
+		jsErrors.SetIndex(i, js.ValueOf(e))
+	}
+	result.Set("errors", jsErrors)
+	return result
 }
 
 // createWASMRegistry creates an executor registry with only WASM-compatible executors.

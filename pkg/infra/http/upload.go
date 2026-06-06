@@ -35,6 +35,10 @@ const (
 
 	// MaxMemory is the maximum memory for parsing multipart form (32MB).
 	MaxMemory = 32 << 20
+
+	uploadFieldFile  = "file"
+	uploadFieldFiles = "files"
+	uploadFieldArray = "file[]"
 )
 
 // UploadHandler handles file uploads.
@@ -57,86 +61,96 @@ func NewUploadHandler(store domain.FileStore, maxFileSize int64) *UploadHandler 
 }
 
 // HandleUpload processes file uploads from multipart form.
-//
-//nolint:gocognit,nestif // upload handling has explicit validation branches
 func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile, error) {
 	kdeps_debug.Log("enter: HandleUpload")
-	// Parse multipart form
 	if err := r.ParseMultipartForm(MaxMemory); err != nil {
 		return nil, fmt.Errorf("failed to parse multipart form: %w", err)
 	}
 
-	var uploadedFiles []*domain.UploadedFile
-
-	// Handle multiple files with field name "file[]" or "files"
-	if form := r.MultipartForm; form != nil && form.File != nil {
-		// Try file[] first (multiple files)
-		if files, ok := form.File["file[]"]; ok {
-			for _, fileHeader := range files {
-				file, err := h.processFileHeader(fileHeader, "file[]")
-				if err != nil {
-					return nil, fmt.Errorf(
-						"failed to process file %s: %w",
-						fileHeader.Filename,
-						err,
-					)
-				}
-				uploadedFiles = append(uploadedFiles, file)
-			}
-			return uploadedFiles, nil
-		}
-
-		// Try files (alternative field name for multiple files)
-		if files, ok := form.File["files"]; ok {
-			for _, fileHeader := range files {
-				file, err := h.processFileHeader(fileHeader, "files")
-				if err != nil {
-					return nil, fmt.Errorf(
-						"failed to process file %s: %w",
-						fileHeader.Filename,
-						err,
-					)
-				}
-				uploadedFiles = append(uploadedFiles, file)
-			}
-			return uploadedFiles, nil
-		}
-
-		// Handle single file with field name "file"
-		if files, ok := form.File["file"]; ok && len(files) > 0 {
-			file, err := h.processFileHeader(files[0], "file")
-			if err != nil {
-				return nil, fmt.Errorf("failed to process file: %w", err)
-			}
-			return []*domain.UploadedFile{file}, nil
-		}
-
-		// If no specific field names matched, collect all uploaded files preserving field names
-		for fieldName, files := range form.File {
-			if len(files) > 0 {
-				for _, fileHeader := range files {
-					file, err := h.processFileHeader(fileHeader, fieldName)
-					if err != nil {
-						return nil, fmt.Errorf(
-							"failed to process file %s from field %s: %w",
-							fileHeader.Filename,
-							fieldName,
-							err,
-						)
-					}
-					uploadedFiles = append(uploadedFiles, file)
-				}
-			}
-		}
-
-		if len(uploadedFiles) > 0 {
-			return uploadedFiles, nil
-		}
+	form := r.MultipartForm
+	if form == nil || form.File == nil {
+		return []*domain.UploadedFile{}, nil
 	}
 
-	// Return empty list instead of error if no files found (files are optional)
-	// This allows workflows to handle both file upload and non-file requests
+	if files, err := h.collectPreferredUploadFiles(form.File); err != nil {
+		return nil, err
+	} else if len(files) > 0 {
+		return files, nil
+	}
+
+	files, err := h.collectAllUploadFiles(form.File)
+	if err != nil {
+		return nil, err
+	}
+	if len(files) > 0 {
+		return files, nil
+	}
+
 	return []*domain.UploadedFile{}, nil
+}
+
+func (h *UploadHandler) collectPreferredUploadFiles(
+	formFiles map[string][]*multipart.FileHeader,
+) ([]*domain.UploadedFile, error) {
+	for _, fieldName := range []string{uploadFieldArray, uploadFieldFiles, uploadFieldFile} {
+		files, ok := formFiles[fieldName]
+		if !ok || len(files) == 0 {
+			continue
+		}
+
+		if fieldName == uploadFieldFile {
+			return h.processFileHeaders(fieldName, files[:1])
+		}
+		return h.processFileHeaders(fieldName, files)
+	}
+	return nil, nil
+}
+
+func (h *UploadHandler) collectAllUploadFiles(
+	formFiles map[string][]*multipart.FileHeader,
+) ([]*domain.UploadedFile, error) {
+	var uploadedFiles []*domain.UploadedFile
+	for fieldName, files := range formFiles {
+		if len(files) == 0 {
+			continue
+		}
+		uploaded, err := h.processFileHeaders(fieldName, files)
+		if err != nil {
+			return nil, err
+		}
+		uploadedFiles = append(uploadedFiles, uploaded...)
+	}
+	return uploadedFiles, nil
+}
+
+func (h *UploadHandler) processFileHeaders(
+	fieldName string,
+	files []*multipart.FileHeader,
+) ([]*domain.UploadedFile, error) {
+	uploadedFiles := make([]*domain.UploadedFile, 0, len(files))
+	for _, fileHeader := range files {
+		file, err := h.processFileHeader(fileHeader, fieldName)
+		if err != nil {
+			if fieldName == uploadFieldFile && len(files) == 1 {
+				return nil, fmt.Errorf("failed to process file: %w", err)
+			}
+			return nil, fmt.Errorf(
+				"failed to process file %s%s: %w",
+				fileHeader.Filename,
+				uploadFieldSuffix(fieldName),
+				err,
+			)
+		}
+		uploadedFiles = append(uploadedFiles, file)
+	}
+	return uploadedFiles, nil
+}
+
+func uploadFieldSuffix(fieldName string) string {
+	if fieldName == uploadFieldFile || fieldName == uploadFieldArray || fieldName == uploadFieldFiles {
+		return ""
+	}
+	return fmt.Sprintf(" from field %s", fieldName)
 }
 
 // processFileHeader processes a single file header.

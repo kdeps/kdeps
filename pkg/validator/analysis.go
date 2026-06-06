@@ -47,36 +47,30 @@ type WorkflowAnalysis struct {
 	Issues []AnalysisIssue
 }
 
-// HasErrors returns true if any issue has severity "error".
-func (wa *WorkflowAnalysis) HasErrors() bool {
-	for _, i := range wa.Issues {
-		if i.Severity == "error" {
-			return true
+// filterIssuesBySeverity returns issues matching the given severity.
+func filterIssuesBySeverity(issues []AnalysisIssue, severity string) []AnalysisIssue {
+	var out []AnalysisIssue
+	for _, i := range issues {
+		if i.Severity == severity {
+			out = append(out, i)
 		}
 	}
-	return false
+	return out
+}
+
+// HasErrors returns true if any issue has severity "error".
+func (wa *WorkflowAnalysis) HasErrors() bool {
+	return len(filterIssuesBySeverity(wa.Issues, "error")) > 0
 }
 
 // Errors returns all error-severity issues.
 func (wa *WorkflowAnalysis) Errors() []AnalysisIssue {
-	var out []AnalysisIssue
-	for _, i := range wa.Issues {
-		if i.Severity == "error" {
-			out = append(out, i)
-		}
-	}
-	return out
+	return filterIssuesBySeverity(wa.Issues, "error")
 }
 
 // Warnings returns all warning-severity issues.
 func (wa *WorkflowAnalysis) Warnings() []AnalysisIssue {
-	var out []AnalysisIssue
-	for _, i := range wa.Issues {
-		if i.Severity == "warning" {
-			out = append(out, i)
-		}
-	}
-	return out
+	return filterIssuesBySeverity(wa.Issues, "warning")
 }
 
 // reOutput matches output('id') and output('id.field') - always an actionId reference.
@@ -189,6 +183,34 @@ func detectUnreachable(workflow *domain.Workflow) []AnalysisIssue {
 	return issues
 }
 
+// isKnownActionOrComponent reports whether ref exists as an actionId or component name.
+func isKnownActionOrComponent(ref string, actionIDs, componentNames map[string]bool) bool {
+	return actionIDs[ref] || componentNames[ref]
+}
+
+// scanResourceExpressionRefs finds unknown actionId references in a single resource.
+func scanResourceExpressionRefs(
+	r *domain.Resource,
+	actionIDs, componentNames map[string]bool,
+) []AnalysisIssue {
+	var issues []AnalysisIssue
+	seen := make(map[string]bool)
+	for _, s := range collectResourceStrings(r) {
+		for _, ref := range extractActionIDRefs(s) {
+			if seen[ref] || isKnownActionOrComponent(ref, actionIDs, componentNames) {
+				continue
+			}
+			seen[ref] = true
+			issues = append(issues, AnalysisIssue{
+				ActionID: r.ActionID,
+				Severity: "error",
+				Message:  fmt.Sprintf("expression references unknown actionId %q", ref),
+			})
+		}
+	}
+	return issues
+}
+
 // detectBadExpressionRefs scans all string fields in each resource for
 // get('id') / output('id') / template {{ id.field }} patterns and reports
 // any actionId that does not exist in the workflow.
@@ -196,23 +218,7 @@ func detectBadExpressionRefs(workflow *domain.Workflow, actionIDs, componentName
 	kdeps_debug.Log("enter: detectBadExpressionRefs")
 	var issues []AnalysisIssue
 	for _, r := range workflow.Resources {
-		strs := collectResourceStrings(r)
-		seen := make(map[string]bool)
-		for _, s := range strs {
-			for _, ref := range extractActionIDRefs(s) {
-				if seen[ref] {
-					continue
-				}
-				seen[ref] = true
-				if !actionIDs[ref] && !componentNames[ref] {
-					issues = append(issues, AnalysisIssue{
-						ActionID: r.ActionID,
-						Severity: "error",
-						Message:  fmt.Sprintf("expression references unknown actionId %q", ref),
-					})
-				}
-			}
-		}
+		issues = append(issues, scanResourceExpressionRefs(r, actionIDs, componentNames)...)
 	}
 	return issues
 }

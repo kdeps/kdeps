@@ -92,19 +92,58 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
+// contentTypeBase returns the media type without parameters (e.g. "; charset=utf-8").
+func contentTypeBase(ct string) string {
+	ct = strings.TrimSpace(strings.ToLower(ct))
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		return strings.TrimSpace(ct[:i])
+	}
+	return ct
+}
+
+// isMultipartContentType reports whether ct is a multipart form upload.
+func isMultipartContentType(ct string) bool {
+	return strings.HasPrefix(ct, "multipart/form-data")
+}
+
+// extractAuthToken reads bearer or API-key credentials from the request.
+func extractAuthToken(r *stdhttp.Request) string {
+	if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
+		return apiKey
+	}
+	return ""
+}
+
+// clientIPFromAddr strips the port suffix from a RemoteAddr value.
+func clientIPFromAddr(addr string) string {
+	if i := strings.LastIndex(addr, ":"); i >= 0 {
+		return addr[:i]
+	}
+	return addr
+}
+
+// respondMiddlewareError sends a standardized middleware error response.
+func respondMiddlewareError(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	code domain.AppErrorCode,
+	message string,
+) {
+	RespondWithError(w, r, domain.NewAppError(code, message), GetDebugMode(r.Context()))
+}
+
 // browserRenderedContentType reports whether ct is a content type that
 // browsers render as markup and therefore requires HTML escaping
 // to prevent reflected XSS.
 func browserRenderedContentType(ct string) bool {
-	ct = strings.TrimSpace(strings.ToLower(ct))
+	ct = contentTypeBase(ct)
 	if ct == "" {
 		return true
 	}
 
-	// Strip parameters (e.g. "; charset=utf-8") before matching.
-	if i := strings.IndexByte(ct, ';'); i >= 0 {
-		ct = strings.TrimSpace(ct[:i])
-	}
 	switch ct {
 	case "text/html",
 		"application/xhtml+xml",
@@ -116,27 +155,36 @@ func browserRenderedContentType(ct string) bool {
 	return false
 }
 
-func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
-	kdeps_debug.Log("enter: Write")
+func (w *ResponseWriterWrapper) markHeadersWritten() {
 	if !w.headersWritten {
 		w.headersWritten = true
 	}
+}
+
+func (w *ResponseWriterWrapper) resolvedContentType(body []byte) string {
+	ct := w.ResponseWriter.Header().Get("Content-Type")
+	if strings.TrimSpace(ct) == "" {
+		return stdhttp.DetectContentType(body)
+	}
+	return ct
+}
+
+func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
+	kdeps_debug.Log("enter: Write")
+	w.markHeadersWritten()
 
 	// Perform contextual output encoding for browser-rendered content types
 	// to prevent reflected XSS regardless of where the taint originates.
 	// JSON and binary responses are intentionally excluded.
-	ct := w.ResponseWriter.Header().Get("Content-Type")
-	if strings.TrimSpace(ct) == "" {
-		ct = stdhttp.DetectContentType(b)
+	ct := w.resolvedContentType(b)
+	if !browserRenderedContentType(ct) {
+		return w.ResponseWriter.Write(b)
 	}
 
-	if browserRenderedContentType(ct) {
-		if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
-			w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
-		}
-		return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
+	if strings.TrimSpace(w.ResponseWriter.Header().Get("Content-Type")) == "" {
+		w.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
 	}
-	return w.ResponseWriter.Write(b)
+	return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 }
 
 // HeadersWritten returns whether headers have been written.
@@ -222,18 +270,12 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 				next(w, r)
 				return
 			}
-			got := ""
-			if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-				got = strings.TrimPrefix(authHeader, "Bearer ")
-			} else if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
-				got = apiKey
-			}
-			if got != token {
-				debugMode := GetDebugMode(r.Context())
-				RespondWithError(w, r, domain.NewAppError(
+			if extractAuthToken(r) != token {
+				respondMiddlewareError(
+					w, r,
 					domain.ErrCodeUnauthorized,
 					"authentication required",
-				), debugMode)
+				)
 				return
 			}
 			next(w, r)
@@ -307,17 +349,13 @@ func RateLimitMiddleware(requestsPerMinute, burst int) func(stdhttp.HandlerFunc)
 	store := newIPLimiterStore(requestsPerMinute, burst)
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			ip := r.RemoteAddr
-			if i := strings.LastIndex(ip, ":"); i >= 0 {
-				ip = ip[:i]
-			}
-			if !store.get(ip).Allow() {
-				debugMode := GetDebugMode(r.Context())
+			if !store.get(clientIPFromAddr(r.RemoteAddr)).Allow() {
 				w.Header().Set("Retry-After", "60")
-				RespondWithError(w, r, domain.NewAppError(
+				respondMiddlewareError(
+					w, r,
 					domain.ErrCodeRateLimited,
 					"rate limit exceeded — retry after 60 seconds",
-				), debugMode)
+				)
 				return
 			}
 			next(w, r)
@@ -331,20 +369,21 @@ func BodyLimitMiddleware(maxBytes int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	kdeps_debug.Log("enter: BodyLimitMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			ct := r.Header.Get("Content-Type")
-			if strings.HasPrefix(ct, "multipart/form-data") {
+			if isMultipartContentType(r.Header.Get("Content-Type")) {
 				next(w, r)
 				return
 			}
+
 			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxBytes)
 			next(w, r)
+
 			// Surface MaxBytesReader errors after the handler reads the body.
 			if _, err := io.ReadAll(r.Body); err != nil {
-				debugMode := GetDebugMode(r.Context())
-				RespondWithError(w, r, domain.NewAppError(
+				respondMiddlewareError(
+					w, r,
 					domain.ErrCodeRequestTooLarge,
 					fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes),
-				), debugMode)
+				)
 			}
 		}
 	}
@@ -363,11 +402,11 @@ func ConcurrentLimitMiddleware(limit int) func(stdhttp.HandlerFunc) stdhttp.Hand
 				defer func() { <-sem }()
 				next(w, r)
 			default:
-				debugMode := GetDebugMode(r.Context())
-				RespondWithError(w, r, domain.NewAppError(
+				respondMiddlewareError(
+					w, r,
 					domain.ErrCodeServiceUnavail,
 					"server is at capacity - retry shortly",
-				), debugMode)
+				)
 			}
 		}
 	}
@@ -378,28 +417,25 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 	kdeps_debug.Log("enter: UploadMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			// Check if this is a multipart form request
-			contentType := r.Header.Get("Content-Type")
-			if !strings.HasPrefix(contentType, "multipart/form-data") {
+			if !isMultipartContentType(r.Header.Get("Content-Type")) {
 				next(w, r)
 				return
 			}
 
-			// Check content length
-			if r.ContentLength > maxFileSize {
-				debugMode := GetDebugMode(r.Context())
-				RespondWithError(w, r, domain.NewAppError(
-					domain.ErrCodeRequestTooLarge,
-					fmt.Sprintf(
-						"Request body too large: %d bytes (max: %d)",
-						r.ContentLength,
-						maxFileSize,
-					),
-				), debugMode)
+			if r.ContentLength <= maxFileSize {
+				next(w, r)
 				return
 			}
 
-			next(w, r)
+			respondMiddlewareError(
+				w, r,
+				domain.ErrCodeRequestTooLarge,
+				fmt.Sprintf(
+					"Request body too large: %d bytes (max: %d)",
+					r.ContentLength,
+					maxFileSize,
+				),
+			)
 		}
 	}
 }

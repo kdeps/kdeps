@@ -61,12 +61,11 @@ func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext
 		e.scaffoldComponentFilesIfNeeded(comp)
 	}
 
-	if comp.Setup == nil && len(comp.PythonPackages) == 0 { //nolint:staticcheck // backward compat read
+	if !componentNeedsSetup(comp) {
 		return nil
 	}
 
-	// Cache check — heavy setup runs at most once per component per engine lifetime.
-	if _, done := e.componentSetupCache.Load(comp.Metadata.Name); done {
+	if e.componentSetupAlreadyDone(comp.Metadata.Name) {
 		return nil
 	}
 	defer e.componentSetupCache.Store(comp.Metadata.Name, struct{}{})
@@ -84,6 +83,17 @@ func (e *Engine) runComponentSetup(comp *domain.Component, ctx *ExecutionContext
 		}
 	}
 	return nil
+}
+
+// componentNeedsSetup reports whether a component declares setup work beyond scaffolding.
+func componentNeedsSetup(comp *domain.Component) bool {
+	return comp.Setup != nil || len(comp.PythonPackages) > 0 //nolint:staticcheck // backward compat read
+}
+
+// componentSetupAlreadyDone reports whether setup has already run for componentName.
+func (e *Engine) componentSetupAlreadyDone(componentName string) bool {
+	_, done := e.componentSetupCache.Load(componentName)
+	return done
 }
 
 // installComponentPackages installs Python and OS packages declared by a component.
@@ -117,21 +127,21 @@ func (e *Engine) installComponentPackages(
 // collectPythonPackages merges legacy top-level and setup.pythonPackages into a deduped list.
 func collectPythonPackages(comp *domain.Component, setup *domain.ComponentSetup) []string {
 	legacyPkgs := comp.PythonPackages //nolint:staticcheck // backward compat read
-	pythonPkgs := make([]string, 0, len(legacyPkgs)+len(setup.PythonPackages))
-	seen := make(map[string]struct{}, len(legacyPkgs)+len(setup.PythonPackages))
-	for _, p := range legacyPkgs {
-		if _, ok := seen[p]; !ok {
-			seen[p] = struct{}{}
-			pythonPkgs = append(pythonPkgs, p)
+	return dedupeStrings(append(legacyPkgs, setup.PythonPackages...))
+}
+
+// dedupeStrings returns vals with duplicates removed, preserving first-seen order.
+func dedupeStrings(vals []string) []string {
+	out := make([]string, 0, len(vals))
+	seen := make(map[string]struct{}, len(vals))
+	for _, v := range vals {
+		if _, ok := seen[v]; ok {
+			continue
 		}
+		seen[v] = struct{}{}
+		out = append(out, v)
 	}
-	for _, p := range setup.PythonPackages {
-		if _, ok := seen[p]; !ok {
-			seen[p] = struct{}{}
-			pythonPkgs = append(pythonPkgs, p)
-		}
-	}
-	return pythonPkgs
+	return out
 }
 
 // scaffoldComponentFilesIfNeeded creates .env and README.md in the component
@@ -176,20 +186,10 @@ func (e *Engine) installComponentPythonPackages(packages []string, ctx *Executio
 		pythonVersion = pythonpkg.IOToolsPythonVersion
 	}
 
-	// Merge component packages into the full workflow package list so EnsureVenv
-	// creates a venv that has everything (component pkgs + workflow pkgs).
-	existingPkgs := ctx.Workflow.Settings.AgentSettings.PythonPackages
-	merged := make(map[string]struct{}, len(existingPkgs)+len(packages))
-	for _, p := range existingPkgs {
-		merged[p] = struct{}{}
-	}
-	for _, p := range packages {
-		merged[p] = struct{}{}
-	}
-	allPkgs := make([]string, 0, len(merged))
-	for p := range merged {
-		allPkgs = append(allPkgs, p)
-	}
+	allPkgs := dedupeStrings(append(
+		ctx.Workflow.Settings.AgentSettings.PythonPackages,
+		packages...,
+	))
 
 	m := pythonManagerFactory(pythonpkg.IOToolsBaseDir())
 	requirementsFile := ctx.Workflow.Settings.AgentSettings.RequirementsFile
@@ -211,16 +211,10 @@ func installOSPackages(packages []string) error {
 		return errors.New("no supported package manager found (tried apk, apt-get, brew)")
 	}
 
-	var missing []string
-	for _, pkg := range packages {
-		if !checkFn(pkg) {
-			missing = append(missing, pkg)
-		}
-	}
+	missing := filterUninstalledPackages(packages, checkFn)
 	if len(missing) == 0 {
 		return nil
 	}
-
 	return installFn(missing)
 }
 
@@ -228,6 +222,17 @@ type (
 	pkgCheckFn   func(string) bool
 	pkgInstallFn func([]string) error
 )
+
+// filterUninstalledPackages returns packages for which checkFn reports not installed.
+func filterUninstalledPackages(packages []string, checkFn pkgCheckFn) []string {
+	var missing []string
+	for _, pkg := range packages {
+		if !checkFn(pkg) {
+			missing = append(missing, pkg)
+		}
+	}
+	return missing
+}
 
 // detectPackageManager returns the package manager name, a function to check if a
 // package is installed, and a function to install a list of packages.
@@ -237,9 +242,7 @@ func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
 	case commandExists("apk"):
 		return "apk",
 			func(pkg string) bool {
-				ctx, cancel := context.WithTimeout(context.Background(), pkgCheckTimeout)
-				defer cancel()
-				return exec.CommandContext(ctx, "apk", "info", "-e", pkg).Run() == nil
+				return pkgInstalled("apk", []string{"info", "-e", pkg})
 			},
 			func(pkgs []string) error {
 				args := append([]string{"add", "--no-cache"}, pkgs...)
@@ -248,9 +251,7 @@ func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
 	case commandExists("apt-get"):
 		return "apt-get",
 			func(pkg string) bool {
-				ctx, cancel := context.WithTimeout(context.Background(), pkgCheckTimeout)
-				defer cancel()
-				return exec.CommandContext(ctx, "dpkg", "-s", pkg).Run() == nil
+				return pkgInstalled("dpkg", []string{"-s", pkg})
 			},
 			func(pkgs []string) error {
 				// Update index first, then install.
@@ -261,9 +262,7 @@ func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
 	case commandExists("brew") && runtime.GOOS == "darwin":
 		return "brew",
 			func(pkg string) bool {
-				ctx, cancel := context.WithTimeout(context.Background(), pkgCheckTimeout)
-				defer cancel()
-				return exec.CommandContext(ctx, "brew", "list", "--formula", pkg).Run() == nil
+				return pkgInstalled("brew", []string{"list", "--formula", pkg})
 			},
 			func(pkgs []string) error {
 				args := append([]string{"install"}, pkgs...)
@@ -280,30 +279,39 @@ func commandExists(name string) bool {
 	return err == nil
 }
 
-// runShellCommand runs a shell command string via sh -c with a timeout.
-func runShellCommand(cmdStr string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), setupCommandTimeout)
+// pkgInstalled runs a package-manager check command and reports whether it succeeded.
+func pkgInstalled(name string, args []string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), pkgCheckTimeout)
 	defer cancel()
-	shell := "sh"
-	if s := os.Getenv("SHELL"); s != "" && strings.Contains(s, "bash") {
-		shell = "bash"
-	}
-	cmd := exec.CommandContext(ctx, shell, "-c", cmdStr)
-	cmd.Env = os.Environ()
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("command failed: %w; output: %s", err, strings.TrimSpace(string(output)))
-	}
-	return nil
+	return exec.CommandContext(ctx, name, args...).Run() == nil
 }
 
-// runCommand runs a command with arguments and a fixed timeout, returning any error.
-func runCommand(name string, args []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), osPackageTimeout)
+// setupShell returns the shell binary used for setup command strings.
+func setupShell() string {
+	if s := os.Getenv("SHELL"); s != "" && strings.Contains(s, "bash") {
+		return "bash"
+	}
+	return "sh"
+}
+
+// runTimedCommand runs a command with a timeout and returns trimmed combined output on error.
+func runTimedCommand(timeout time.Duration, name string, args []string, errPrefix string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = os.Environ()
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("%s failed: %w; output: %s", name, err, strings.TrimSpace(string(output)))
+		return fmt.Errorf("%s: %w; output: %s", errPrefix, err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+// runShellCommand runs a shell command string via sh -c with a timeout.
+func runShellCommand(cmdStr string) error {
+	return runTimedCommand(setupCommandTimeout, setupShell(), []string{"-c", cmdStr}, "command failed")
+}
+
+// runCommand runs a command with arguments and a fixed timeout, returning any error.
+func runCommand(name string, args []string) error {
+	return runTimedCommand(osPackageTimeout, name, args, name+" failed")
 }

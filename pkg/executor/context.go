@@ -211,11 +211,69 @@ type FileUpload struct {
 	Size      int64
 }
 
+func providedSessionIDFromArgs(sessionID ...string) string {
+	if len(sessionID) > 0 && sessionID[0] != "" {
+		return sessionID[0]
+	}
+	return ""
+}
+
+func resolveSessionID(provided string) string {
+	if provided != "" {
+		return provided
+	}
+	return fmt.Sprintf("session-%d", time.Now().UnixNano())
+}
+
+func parseSessionTTL(ttlStr string) time.Duration {
+	defaultTTL := defaultSessionTTLMinutes * time.Minute
+	if ttlStr == "" {
+		return defaultTTL
+	}
+	if parsedTTL, err := time.ParseDuration(ttlStr); err == nil {
+		return parsedTTL
+	}
+	return defaultTTL
+}
+
+func defaultSessionDBPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(homeDir, ".kdeps", "sessions.db")
+}
+
+func createSessionStorage(
+	workflow *domain.Workflow,
+	providedSessionID string,
+) (*storage.SessionStorage, error) {
+	useSessionID := resolveSessionID(providedSessionID)
+
+	ttl := defaultSessionTTLMinutes * time.Minute
+	dbPath := ""
+
+	if sessionCfg := workflow.Settings.Session; sessionCfg != nil {
+		ttl = parseSessionTTL(sessionCfg.TTL)
+		dbPath = sessionCfg.GetPath()
+		if dbPath == "" {
+			dbPath = defaultSessionDBPath()
+		}
+		if sessionCfg.GetType() == storageTypeMemory {
+			dbPath = ""
+		}
+	}
+
+	sessionStorage, err := storage.NewSessionStorageWithTTL(dbPath, useSessionID, ttl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session storage: %w", err)
+	}
+	return sessionStorage, nil
+}
+
 // NewExecutionContext creates a new execution context.
 // sessionID is optional - if provided, it will be used for session storage.
 // If not provided, a new session ID will be generated.
-//
-//nolint:gocognit,nestif // session setup requires explicit branching; config load is intentional
 func NewExecutionContext(
 	workflow *domain.Workflow,
 	sessionID ...string,
@@ -226,60 +284,9 @@ func NewExecutionContext(
 		return nil, fmt.Errorf("failed to create memory storage: %w", err)
 	}
 
-	// Use provided session ID or generate a new one
-	var providedSessionID string
-	if len(sessionID) > 0 && sessionID[0] != "" {
-		providedSessionID = sessionID[0]
-	}
-
-	// Configure session storage from workflow settings.
-	// Presence of session: block implies enabled; omit it entirely to disable.
-	var sessionStorage *storage.SessionStorage
-	if workflow.Settings.Session != nil {
-		// Parse TTL
-		defaultTTL := defaultSessionTTLMinutes * time.Minute
-		if workflow.Settings.Session.TTL != "" {
-			if parsedTTL, parseErr := time.ParseDuration(workflow.Settings.Session.TTL); parseErr == nil {
-				defaultTTL = parsedTTL
-			}
-		}
-
-		// Get database path (check both direct field and nested Storage)
-		dbPath := workflow.Settings.Session.GetPath()
-		if dbPath == "" {
-			homeDir, homeErr := os.UserHomeDir()
-			if homeErr == nil {
-				dbPath = filepath.Join(homeDir, ".kdeps", "sessions.db")
-			}
-		}
-
-		// Use provided session ID or generate a new one
-		useSessionID := providedSessionID
-		if useSessionID == "" {
-			useSessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
-		}
-
-		// Get storage type (check both direct field and nested Storage)
-		storageType := workflow.Settings.Session.GetType()
-		if storageType == "memory" {
-			dbPath = ""
-		}
-
-		sessionStorage, err = storage.NewSessionStorageWithTTL(dbPath, useSessionID, defaultTTL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create session storage: %w", err)
-		}
-	} else {
-		// Default: use default TTL of 30 minutes
-		// Use provided session ID or generate a new one
-		useSessionID := providedSessionID
-		if useSessionID == "" {
-			useSessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
-		}
-		sessionStorage, err = storage.NewSessionStorageWithTTL("", useSessionID, defaultSessionTTLMinutes*time.Minute)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create session storage: %w", err)
-		}
+	sessionStorage, err := createSessionStorage(workflow, providedSessionIDFromArgs(sessionID...))
+	if err != nil {
+		return nil, err
 	}
 
 	// Load config struct with agent profile overlay (if available).
@@ -392,9 +399,39 @@ func (ctx *ExecutionContext) Get(name string, typeHint ...string) (interface{}, 
 	return ctx.getWithAutoDetection(name)
 }
 
+func (ctx *ExecutionContext) getInputProcessorValue(name string) (interface{}, bool) {
+	switch name {
+	case keyInputTranscript:
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, true
+		}
+	case keyInputMedia:
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, true
+		}
+	case keyInputFileContent:
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, true
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, true
+		}
+	}
+	return nil, false
+}
+
+func isParamFilteringBlocked(err error, allowedParams []string) bool {
+	return len(allowedParams) > 0 &&
+		err != nil &&
+		strings.Contains(err.Error(), "not in allowedParams list")
+}
+
+func isBodyFilteringUnavailable(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not available for filtering")
+}
+
 // getWithAutoDetection performs auto-detection lookup in priority order.
-//
-//nolint:gocognit // intentional wide auto-detection fan-out
 func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, error) {
 	kdeps_debug.Log("enter: getWithAutoDetection")
 	// 1. Items (iteration context)
@@ -418,29 +455,14 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	}
 
 	// 4.5. Input processor results — accessible as get("inputTranscript") / get("inputMedia")
-	switch name {
-	case keyInputTranscript:
-		if ctx.InputTranscript != "" {
-			return ctx.InputTranscript, nil
-		}
-	case keyInputMedia:
-		if ctx.InputMediaFile != "" {
-			return ctx.InputMediaFile, nil
-		}
-	case keyInputFileContent:
-		if ctx.InputFileContent != "" {
-			return ctx.InputFileContent, nil
-		}
-	case keyInputFilePath:
-		if ctx.InputFilePath != "" {
-			return ctx.InputFilePath, nil
-		}
+	if val, ok := ctx.getInputProcessorValue(name); ok {
+		return val, nil
 	}
 
 	// 5. Query parameters (with filtering)
 	if val, err := ctx.getFromQuery(name); err == nil {
 		return val, nil
-	} else if len(ctx.allowedParams) > 0 && strings.Contains(err.Error(), "not in allowedParams list") {
+	} else if isParamFilteringBlocked(err, ctx.allowedParams) {
 		// If parameter filtering is enabled and parameter is not allowed, return the error
 		// (this prevents falling back to body when query access is blocked)
 		return nil, err
@@ -449,7 +471,7 @@ func (ctx *ExecutionContext) getWithAutoDetection(name string) (interface{}, err
 	// 6. Request body data (with filtering)
 	if val, err := ctx.getFromBody(name); err == nil {
 		return val, nil
-	} else if strings.Contains(err.Error(), "not available for filtering") {
+	} else if isBodyFilteringUnavailable(err) {
 		// If parameter filtering is enabled and body is not available, this is an error
 		return nil, err
 	}
@@ -852,10 +874,53 @@ func (ctx *ExecutionContext) getBody(name string) (interface{}, error) {
 	return nil, fmt.Errorf("request body field '%s' not found", name)
 }
 
+func mergeFilteredInterfaceMap(
+	dest, source map[string]interface{},
+	allowed []string,
+) {
+	if source == nil {
+		return
+	}
+	if len(allowed) > 0 {
+		for _, key := range allowed {
+			if val, ok := source[key]; ok {
+				dest[key] = val
+			}
+		}
+		return
+	}
+	for k, v := range source {
+		dest[k] = v
+	}
+}
+
+func mergeFilteredStringMap(
+	dest map[string]interface{},
+	source map[string]string,
+	allowed []string,
+) {
+	if source == nil {
+		return
+	}
+	if len(allowed) > 0 {
+		allowedMap := make(map[string]bool, len(allowed))
+		for _, allowedKey := range allowed {
+			allowedMap[strings.ToLower(allowedKey)] = true
+		}
+		for k, v := range source {
+			if allowedMap[strings.ToLower(k)] {
+				dest[k] = v
+			}
+		}
+		return
+	}
+	for k, v := range source {
+		dest[k] = v
+	}
+}
+
 // GetRequestData returns all request data (body, query, headers) as a map for validation.
 // Respects allowedHeaders and allowedParams filtering if set.
-//
-//nolint:gocognit // request data parsing supports legacy formats
 func (ctx *ExecutionContext) GetRequestData() map[string]interface{} {
 	kdeps_debug.Log("enter: GetRequestData")
 	data := make(map[string]interface{})
@@ -864,60 +929,9 @@ func (ctx *ExecutionContext) GetRequestData() map[string]interface{} {
 		return data
 	}
 
-	// Add body data (filtered by allowedParams if set)
-	if ctx.Request.Body != nil {
-		if len(ctx.allowedParams) > 0 {
-			// Only include allowed params
-			for _, allowedParam := range ctx.allowedParams {
-				if val, ok := ctx.Request.Body[allowedParam]; ok {
-					data[allowedParam] = val
-				}
-			}
-		} else {
-			// No filtering, include all
-			for k, v := range ctx.Request.Body {
-				data[k] = v
-			}
-		}
-	}
-
-	// Add query parameters (filtered by allowedParams if set)
-	if ctx.Request.Query != nil {
-		if len(ctx.allowedParams) > 0 {
-			// Only include allowed params
-			for _, allowedParam := range ctx.allowedParams {
-				if val, ok := ctx.Request.Query[allowedParam]; ok {
-					data[allowedParam] = val
-				}
-			}
-		} else {
-			// No filtering, include all
-			for k, v := range ctx.Request.Query {
-				data[k] = v
-			}
-		}
-	}
-
-	// Add headers (filtered by allowedHeaders if set)
-	if ctx.Request.Headers != nil {
-		if len(ctx.allowedHeaders) > 0 {
-			// Only include allowed headers (case-insensitive matching)
-			allowedMap := make(map[string]bool)
-			for _, allowedHeader := range ctx.allowedHeaders {
-				allowedMap[strings.ToLower(allowedHeader)] = true
-			}
-			for k, v := range ctx.Request.Headers {
-				if allowedMap[strings.ToLower(k)] {
-					data[k] = v
-				}
-			}
-		} else {
-			// No filtering, include all
-			for k, v := range ctx.Request.Headers {
-				data[k] = v
-			}
-		}
-	}
+	mergeFilteredInterfaceMap(data, ctx.Request.Body, ctx.allowedParams)
+	mergeFilteredStringMap(data, ctx.Request.Query, ctx.allowedParams)
+	mergeFilteredStringMap(data, ctx.Request.Headers, ctx.allowedHeaders)
 
 	return data
 }
@@ -1540,6 +1554,21 @@ func (ctx *ExecutionContext) GetRequestFilesByType(mimeType string) (interface{}
 	return ctx.GetFilesByType(mimeType)
 }
 
+func extractLLMResponseFromMap(outputMap map[string]interface{}) interface{} {
+	if response, ok := outputMap["response"].(string); ok {
+		return response
+	}
+	if message, ok := outputMap["message"].(map[string]interface{}); ok {
+		if content, hasContent := message["content"].(string); hasContent {
+			return content
+		}
+	}
+	if data, ok := outputMap["data"]; ok {
+		return data
+	}
+	return outputMap
+}
+
 // GetLLMResponse retrieves LLM response text from resource output.
 func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetLLMResponse")
@@ -1554,22 +1583,8 @@ func (ctx *ExecutionContext) GetLLMResponse(actionID string) (interface{}, error
 	}
 
 	// If it's a map (e.g., JSON response), try to extract response or data field
-	if outputMap, okMap := output.(map[string]interface{}); okMap { //nolint:nestif // sequential map key checks are clearest inline
-		// OpenAI-style "response" key
-		if response, okResp := outputMap["response"].(string); okResp {
-			return response, nil
-		}
-		// Ollama-style "message": {"content": "..."}
-		if message, okMsg := outputMap["message"].(map[string]interface{}); okMsg {
-			if content, okContent := message["content"].(string); okContent {
-				return content, nil
-			}
-		}
-		if data, okData := outputMap["data"]; okData {
-			return data, nil
-		}
-		// If map itself is the response (parsed JSON), return it
-		return outputMap, nil
+	if outputMap, okMap := output.(map[string]interface{}); okMap {
+		return extractLLMResponseFromMap(outputMap), nil
 	}
 
 	return output, nil
@@ -1719,9 +1734,21 @@ func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, 
 	return "", nil
 }
 
+func headerValueFromOutput(outputMap map[string]interface{}, headerName string) (string, bool) {
+	if headers, ok := outputMap["headers"].(map[string]interface{}); ok {
+		if headerValue, found := headers[headerName].(string); found {
+			return headerValue, true
+		}
+	}
+	if headers, ok := outputMap["headers"].(map[string]string); ok {
+		if headerValue, found := headers[headerName]; found {
+			return headerValue, true
+		}
+	}
+	return "", false
+}
+
 // GetHTTPResponseHeader retrieves HTTP response header from resource output.
-//
-//nolint:nestif // nested map checks are explicit
 func (ctx *ExecutionContext) GetHTTPResponseHeader(
 	actionID, headerName string,
 ) (interface{}, error) {
@@ -1732,16 +1759,8 @@ func (ctx *ExecutionContext) GetHTTPResponseHeader(
 	}
 
 	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if headers, okHeaders := outputMap["headers"].(map[string]interface{}); okHeaders {
-			if headerValue, okValue := headers[headerName].(string); okValue {
-				return headerValue, nil
-			}
-		}
-		// Also try map[string]string
-		if headers, okHeadersStr := outputMap["headers"].(map[string]string); okHeadersStr {
-			if headerValue, okValue := headers[headerName]; okValue {
-				return headerValue, nil
-			}
+		if headerValue, found := headerValueFromOutput(outputMap, headerName); found {
+			return headerValue, nil
 		}
 	}
 
@@ -1914,95 +1933,96 @@ func (ctx *ExecutionContext) WalkFiles(
 	})
 }
 
+func (ctx *ExecutionContext) inputWithTypeHint(name, hint string) (interface{}, error) {
+	switch hint {
+	case "param", "query":
+		return ctx.GetParam(name)
+	case "header":
+		return ctx.GetHeader(name)
+	case "body", "data":
+		return ctx.getBody(name)
+	case "transcript":
+		if ctx.InputTranscript == "" {
+			return nil, errors.New("no input transcript available")
+		}
+		return ctx.InputTranscript, nil
+	case "media":
+		if ctx.InputMediaFile == "" {
+			return nil, errors.New("no input media file available")
+		}
+		return ctx.InputMediaFile, nil
+	case inputTypeFile, keyInputFileContent:
+		if ctx.InputFileContent == "" {
+			return nil, errors.New("no file input content available")
+		}
+		return ctx.InputFileContent, nil
+	case keyInputFilePath:
+		if ctx.InputFilePath == "" {
+			return nil, errors.New("no file input path available")
+		}
+		return ctx.InputFilePath, nil
+	default:
+		return nil, fmt.Errorf("unknown input type: %s", hint)
+	}
+}
+
+func (ctx *ExecutionContext) getInputByName(name string) (interface{}, bool) {
+	switch name {
+	case keyInputTranscript, "transcript":
+		if ctx.InputTranscript != "" {
+			return ctx.InputTranscript, true
+		}
+	case keyInputMedia, "media":
+		if ctx.InputMediaFile != "" {
+			return ctx.InputMediaFile, true
+		}
+	case keyInputFileContent, inputTypeFile:
+		if ctx.InputFileContent != "" {
+			return ctx.InputFileContent, true
+		}
+	case keyInputFilePath:
+		if ctx.InputFilePath != "" {
+			return ctx.InputFilePath, true
+		}
+	}
+	return nil, false
+}
+
+func (ctx *ExecutionContext) inputAutoDetect(name string) (interface{}, error) {
+	if ctx.Request == nil {
+		return nil, fmt.Errorf("input '%s' not found in query parameters, headers, or body", name)
+	}
+	if val, ok := ctx.Request.Query[name]; ok {
+		return val, nil
+	}
+	if val, ok := ctx.Request.Headers[name]; ok {
+		return val, nil
+	}
+	if ctx.Request.Body != nil {
+		if val, ok := ctx.Request.Body[name]; ok {
+			return val, nil
+		}
+	}
+	return nil, fmt.Errorf("input '%s' not found in query parameters, headers, or body", name)
+}
+
 // Input retrieves input values with unified access.
 // Priority: Input-processor results → Query Parameter → Header → Request Body
 // Syntax: Input(name) or Input(name, "param"|"header"|"body"|"transcript"|"media").
-//
-//nolint:gocognit,funlen // intentional unified access point covering all input types
 func (ctx *ExecutionContext) Input(name string, inputType ...string) (interface{}, error) {
 	kdeps_debug.Log("enter: Input")
 	ctx.mu.RLock()
 	defer ctx.mu.RUnlock()
 
-	// If type hint is provided, use it directly
 	if len(inputType) > 0 {
-		switch inputType[0] {
-		case "param", "query":
-			return ctx.GetParam(name)
-		case "header":
-			return ctx.GetHeader(name)
-		case "body", "data":
-			return ctx.getBody(name)
-		case "transcript":
-			if ctx.InputTranscript == "" {
-				return nil, errors.New("no input transcript available")
-			}
-			return ctx.InputTranscript, nil
-		case "media":
-			if ctx.InputMediaFile == "" {
-				return nil, errors.New("no input media file available")
-			}
-			return ctx.InputMediaFile, nil
-		case inputTypeFile, keyInputFileContent:
-			if ctx.InputFileContent == "" {
-				return nil, errors.New("no file input content available")
-			}
-			return ctx.InputFileContent, nil
-		case keyInputFilePath:
-			if ctx.InputFilePath == "" {
-				return nil, errors.New("no file input path available")
-			}
-			return ctx.InputFilePath, nil
-		default:
-			return nil, fmt.Errorf("unknown input type: %s", inputType[0])
-		}
+		return ctx.inputWithTypeHint(name, inputType[0])
 	}
 
-	// Input processor results — accessible as input("inputTranscript") / input("inputMedia")
-	// or the short forms input("transcript") / input("media").
-	// File input — accessible as input("inputFileContent") / input("file") / input("inputFilePath").
-	switch name {
-	case keyInputTranscript, "transcript":
-		if ctx.InputTranscript != "" {
-			return ctx.InputTranscript, nil
-		}
-	case keyInputMedia, "media":
-		if ctx.InputMediaFile != "" {
-			return ctx.InputMediaFile, nil
-		}
-	case keyInputFileContent, inputTypeFile:
-		if ctx.InputFileContent != "" {
-			return ctx.InputFileContent, nil
-		}
-	case keyInputFilePath:
-		if ctx.InputFilePath != "" {
-			return ctx.InputFilePath, nil
-		}
+	if val, ok := ctx.getInputByName(name); ok {
+		return val, nil
 	}
 
-	// Auto-detection priority: Query Parameter → Header → Request Body
-	// 1. Query parameters
-	if ctx.Request != nil {
-		if val, ok := ctx.Request.Query[name]; ok {
-			return val, nil
-		}
-	}
-
-	// 2. Headers
-	if ctx.Request != nil {
-		if val, ok := ctx.Request.Headers[name]; ok {
-			return val, nil
-		}
-	}
-
-	// 3. Request body data
-	if ctx.Request != nil && ctx.Request.Body != nil {
-		if val, ok := ctx.Request.Body[name]; ok {
-			return val, nil
-		}
-	}
-
-	return nil, fmt.Errorf("input '%s' not found in query parameters, headers, or body", name)
+	return ctx.inputAutoDetect(name)
 }
 
 // Output retrieves resource outputs.

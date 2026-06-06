@@ -111,9 +111,25 @@ func collectComponentDirs() []string {
 	return dirs
 }
 
-func scanComponentDir(dir string) *ComponentEntry {
+func formatInputSummary(inp struct {
+	Name        string `yaml:"name"`
+	Type        string `yaml:"type"`
+	Required    bool   `yaml:"required"`
+	Description string `yaml:"description"`
+}) string {
+	req := ""
+	if inp.Required {
+		req = " [required]"
+	}
+	desc := ""
+	if inp.Description != "" {
+		desc = " - " + inp.Description
+	}
+	return fmt.Sprintf("%s (%s)%s%s", inp.Name, inp.Type, req, desc)
+}
+
+func loadComponentMeta(dir string) (*componentMeta, bool) {
 	var meta componentMeta
-	found := false
 	for _, name := range []string{"component.yaml", "workflow.yaml"} {
 		data, readErr := afero.ReadFile(AppFS, filepath.Join(dir, name))
 		if readErr != nil {
@@ -123,10 +139,14 @@ func scanComponentDir(dir string) *ComponentEntry {
 			continue
 		}
 		if meta.Metadata.Name != "" {
-			found = true
-			break
+			return &meta, true
 		}
 	}
+	return nil, false
+}
+
+func scanComponentDir(dir string) *ComponentEntry {
+	meta, found := loadComponentMeta(dir)
 	if !found {
 		return nil
 	}
@@ -142,15 +162,7 @@ func scanComponentDir(dir string) *ComponentEntry {
 
 	if meta.Interface != nil {
 		for _, inp := range meta.Interface.Inputs {
-			req := ""
-			if inp.Required {
-				req = " [required]"
-			}
-			desc := ""
-			if inp.Description != "" {
-				desc = " - " + inp.Description
-			}
-			entry.Inputs = append(entry.Inputs, fmt.Sprintf("%s (%s)%s%s", inp.Name, inp.Type, req, desc))
+			entry.Inputs = append(entry.Inputs, formatInputSummary(inp))
 		}
 	}
 

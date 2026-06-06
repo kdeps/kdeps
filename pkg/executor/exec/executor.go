@@ -86,45 +86,62 @@ func NewExecutorWithRunner(runner CommandRunner) *Executor {
 }
 
 // Execute executes a shell command resource.
-//
-//nolint:gocognit // exec execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ExecConfig,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	// Validate command is not empty
 	if strings.TrimSpace(config.Command) == "" {
 		return nil, errors.New("command cannot be empty")
 	}
 
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	// Resolve configuration with evaluated expressions
 	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	// Evaluate command - check for {{ }} syntax as well
-	var commandStr string
-	if e.containsExpressionSyntax(resolvedConfig.Command) {
-		cmdVal, cmdErr := e.EvaluateExpression(evaluator, ctx, resolvedConfig.Command)
-		if cmdErr != nil {
-			return nil, fmt.Errorf("failed to evaluate command: %w", cmdErr)
-		}
-		commandStr = fmt.Sprintf("%v", cmdVal)
-	} else {
-		commandStr = resolvedConfig.Command
+	commandStr, err := e.resolveCommand(evaluator, ctx, resolvedConfig)
+	if err != nil {
+		return nil, err
 	}
 
-	// Evaluate args if provided
 	args := e.evaluateArgs(resolvedConfig, evaluator, ctx, commandStr)
+	timeout, maxOutputBytes := e.resolveExecutionLimits(resolvedConfig)
 
-	// Parse timeout and output cap: resource > env > defaults
+	cmd, stdout, stderr := e.buildCommand(ctx, resolvedConfig, commandStr, args)
+	fullCommand := e.formatFullCommand(commandStr, args)
+
+	return e.runCommandWithTimeout(cmd, timeout, maxOutputBytes, fullCommand, stdout, stderr)
+}
+
+// resolveCommand evaluates the command string when it contains expression syntax.
+func (e *Executor) resolveCommand(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.ExecConfig,
+) (string, error) {
+	kdeps_debug.Log("enter: resolveCommand")
+	if !e.containsExpressionSyntax(config.Command) {
+		return config.Command, nil
+	}
+
+	cmdVal, cmdErr := e.EvaluateExpression(evaluator, ctx, config.Command)
+	if cmdErr != nil {
+		return "", fmt.Errorf("failed to evaluate command: %w", cmdErr)
+	}
+	return fmt.Sprintf("%v", cmdVal), nil
+}
+
+// resolveExecutionLimits returns timeout and stdout cap with cascading resolution:
+// resource config > env > embedded defaults.
+func (e *Executor) resolveExecutionLimits(config *domain.ExecConfig) (time.Duration, int64) {
+	kdeps_debug.Log("enter: resolveExecutionLimits")
 	defaults, _ := kdepsconfig.GetDefaults()
 	timeout := defaults.Exec.TimeoutDuration()
 	var maxOutputBytes int64
+
 	if v := os.Getenv("KDEPS_EXEC_MAX_OUTPUT_BYTES"); v != "" {
 		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
 			maxOutputBytes = n
@@ -135,54 +152,60 @@ func (e *Executor) Execute(
 			timeout = parsedTimeout
 		}
 	}
-	if resolvedConfig.Timeout != "" {
-		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.Timeout); parseErr == nil {
+	if config.Timeout != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(config.Timeout); parseErr == nil {
 			timeout = parsedTimeout
 		}
 	}
 
-	// Prepare command execution
+	return timeout, maxOutputBytes
+}
+
+// buildCommand constructs the exec.Cmd with stdout/stderr buffers, working directory, and env.
+func (e *Executor) buildCommand(
+	ctx *executor.ExecutionContext,
+	config *domain.ExecConfig,
+	commandStr string,
+	args []string,
+) (*exec.Cmd, *bytes.Buffer, *bytes.Buffer) {
+	kdeps_debug.Log("enter: buildCommand")
 	var cmd *exec.Cmd
-	if len(args) > 0 {
-		// Use provided command and args
+	switch {
+	case len(args) > 0:
 		cmd = exec.CommandContext(context.Background(), commandStr, args...)
-	} else {
-		// No args provided, wrap in sh -c (or cmd /C on Windows)
-		if RuntimeOS == "windows" {
-			cmd = exec.CommandContext(context.Background(), "cmd", "/C", commandStr)
-		} else {
-			cmd = exec.CommandContext(context.Background(), "sh", "-c", commandStr)
-		}
+	case RuntimeOS == "windows":
+		cmd = exec.CommandContext(context.Background(), "cmd", "/C", commandStr)
+	default:
+		cmd = exec.CommandContext(context.Background(), "sh", "-c", commandStr)
 	}
 
-	// Set up buffers for stdout and stderr
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Set working directory
-	if resolvedConfig.WorkingDir != "" {
-		cmd.Dir = resolvedConfig.WorkingDir
+	if config.WorkingDir != "" {
+		cmd.Dir = config.WorkingDir
 	} else if ctx.FSRoot != "" {
 		cmd.Dir = ctx.FSRoot
 	}
 
-	// Set environment variables — inherit parent environment and add/override custom vars.
-	if len(resolvedConfig.Env) > 0 {
+	if len(config.Env) > 0 {
 		cmd.Env = os.Environ()
-		for k, v := range resolvedConfig.Env {
+		for k, v := range config.Env {
 			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 		}
 	}
 
-	// Build full command string for logging
-	fullCommand := commandStr
-	if len(args) > 0 {
-		fullCommand = commandStr + " " + strings.Join(args, " ")
-	}
+	return cmd, &stdout, &stderr
+}
 
-	// Execute command with timeout
-	return e.runCommandWithTimeout(cmd, timeout, maxOutputBytes, fullCommand, &stdout, &stderr)
+// formatFullCommand builds the command string used in execution results and logs.
+func (e *Executor) formatFullCommand(commandStr string, args []string) string {
+	kdeps_debug.Log("enter: formatFullCommand")
+	if len(args) == 0 {
+		return commandStr
+	}
+	return commandStr + " " + strings.Join(args, " ")
 }
 
 // resolveConfig evaluates dynamic fields in shell execution configuration.

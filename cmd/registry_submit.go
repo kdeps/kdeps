@@ -26,6 +26,18 @@ const (
 	githubSSHRepoParts    = 2
 )
 
+type registryFormula struct {
+	Name        string   `yaml:"name"`
+	Version     string   `yaml:"version"`
+	Type        string   `yaml:"type"`
+	GitHub      string   `yaml:"github"`
+	Tarball     string   `yaml:"tarball"`
+	SHA256      string   `yaml:"sha256"`
+	Description string   `yaml:"description,omitempty"`
+	Tags        []string `yaml:"tags,omitempty"`
+	License     string   `yaml:"license,omitempty"`
+}
+
 func newRegistrySubmitCmd() *cobra.Command {
 	kdeps_debug.Log("enter: newRegistrySubmitCmd")
 	cmd := &cobra.Command{
@@ -41,10 +53,7 @@ To publish a package:
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kdeps_debug.Log("enter: registrySubmitCmd.RunE")
-			dir := "."
-			if len(args) > 0 {
-				dir = args[0]
-			}
+			dir := submitDirFromArgs(args)
 			tag, _ := cmd.Flags().GetString("tag")
 			if tag == "" {
 				return errors.New("--tag is required (e.g. --tag v1.2.0)")
@@ -56,15 +65,19 @@ To publish a package:
 	return cmd
 }
 
+func submitDirFromArgs(args []string) string {
+	if len(args) == 0 {
+		return "."
+	}
+	return args[0]
+}
+
 func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 	kdeps_debug.Log("enter: doRegistrySubmit")
 
-	m, err := manifest.Load(dir)
+	m, err := loadValidatedManifest(dir)
 	if err != nil {
 		return err
-	}
-	if validateErr := manifest.Validate(m); validateErr != nil {
-		return validateErr
 	}
 
 	githubRepo, err := detectGitHubRepo(dir)
@@ -75,49 +88,65 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 		)
 	}
 
-	tarbullURL := fmt.Sprintf("https://github.com/%s/archive/refs/tags/%s.tar.gz", githubRepo, tag)
-
+	tarbullURL := githubTarballURL(githubRepo, tag)
 	hash, err := computeRemoteSHA256(tarbullURL)
 	if err != nil {
 		return fmt.Errorf("compute sha256 for %s: %w", tarbullURL, err)
 	}
 
-	type formula struct {
-		Name        string   `yaml:"name"`
-		Version     string   `yaml:"version"`
-		Type        string   `yaml:"type"`
-		GitHub      string   `yaml:"github"`
-		Tarball     string   `yaml:"tarball"`
-		SHA256      string   `yaml:"sha256"`
-		Description string   `yaml:"description,omitempty"`
-		Tags        []string `yaml:"tags,omitempty"`
-		License     string   `yaml:"license,omitempty"`
+	formulaYAML, err := encodeRegistryFormula(buildRegistryFormula(m, githubRepo, tarbullURL, hash))
+	if err != nil {
+		return err
 	}
 
-	f := formula{
+	printRegistryFormula(cmd, m.Name, formulaYAML)
+	return nil
+}
+
+func loadValidatedManifest(dir string) (*manifest.Manifest, error) {
+	m, err := manifest.Load(dir)
+	if err != nil {
+		return nil, err
+	}
+	if validateErr := manifest.Validate(m); validateErr != nil {
+		return nil, validateErr
+	}
+	return m, nil
+}
+
+func githubTarballURL(githubRepo, tag string) string {
+	return fmt.Sprintf("https://github.com/%s/archive/refs/tags/%s.tar.gz", githubRepo, tag)
+}
+
+func buildRegistryFormula(m *manifest.Manifest, githubRepo, tarballURL, hash string) registryFormula {
+	return registryFormula{
 		Name:        m.Name,
 		Version:     m.Version,
 		Type:        m.Type,
 		GitHub:      githubRepo,
-		Tarball:     tarbullURL,
+		Tarball:     tarballURL,
 		SHA256:      hash,
 		Description: m.Description,
 		Tags:        m.Tags,
 		License:     m.License,
 	}
+}
 
+func encodeRegistryFormula(f registryFormula) (string, error) {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(githubURLSplitParts)
 	if encErr := enc.Encode(f); encErr != nil {
-		return fmt.Errorf("encode formula: %w", encErr)
+		return "", fmt.Errorf("encode formula: %w", encErr)
 	}
+	return buf.String(), nil
+}
 
+func printRegistryFormula(cmd *cobra.Command, packageName, formulaYAML string) {
 	w := cmd.OutOrStdout()
-	fmt.Fprintln(w, "# Save this as formulas/"+m.Name+".yaml in a PR to https://github.com/kdeps/registry")
+	fmt.Fprintln(w, "# Save this as formulas/"+packageName+".yaml in a PR to https://github.com/kdeps/registry")
 	fmt.Fprintln(w)
-	fmt.Fprint(w, buf.String())
-	return nil
+	fmt.Fprint(w, formulaYAML)
 }
 
 func detectGitHubRepo(dir string) (string, error) {
@@ -131,22 +160,35 @@ func detectGitHubRepo(dir string) (string, error) {
 }
 
 func parseGitHubRepo(remote string) (string, error) {
-	// SSH: git@github.com:owner/repo.git
-	if strings.HasPrefix(remote, "git@github.com:") {
-		repo := strings.TrimPrefix(remote, "git@github.com:")
-		repo = strings.TrimSuffix(repo, ".git")
+	if repo, ok := parseGitHubSSHRemote(remote); ok {
 		return repo, nil
 	}
-	// HTTPS: https://github.com/owner/repo.git or https://github.com/owner/repo
-	if strings.Contains(remote, "github.com/") {
-		parts := strings.SplitN(remote, "github.com/", githubURLSplitParts)
-		if len(parts) == githubSSHRepoParts {
-			repo := strings.TrimSuffix(parts[1], ".git")
-			repo = strings.TrimRight(repo, "/")
-			return repo, nil
-		}
+	if repo, ok := parseGitHubHTTPSRemote(remote); ok {
+		return repo, nil
 	}
 	return "", fmt.Errorf("unrecognized GitHub remote URL: %s", remote)
+}
+
+func parseGitHubSSHRemote(remote string) (string, bool) {
+	if !strings.HasPrefix(remote, "git@github.com:") {
+		return "", false
+	}
+	repo := strings.TrimPrefix(remote, "git@github.com:")
+	repo = strings.TrimSuffix(repo, ".git")
+	return repo, true
+}
+
+func parseGitHubHTTPSRemote(remote string) (string, bool) {
+	if !strings.Contains(remote, "github.com/") {
+		return "", false
+	}
+	parts := strings.SplitN(remote, "github.com/", githubURLSplitParts)
+	if len(parts) != githubSSHRepoParts {
+		return "", false
+	}
+	repo := strings.TrimSuffix(parts[1], ".git")
+	repo = strings.TrimRight(repo, "/")
+	return repo, true
 }
 
 func computeRemoteSHA256(url string) (string, error) {

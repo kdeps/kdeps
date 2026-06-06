@@ -199,59 +199,76 @@ func ExportISOWithFlags(cmd *cobra.Command, args []string, flags *ExportFlags) e
 
 const bytesPerMB = 1024 * 1024
 
+// prepareISOExportWorkflow parses the workflow and switches to the package directory.
+// The returned originalDir is the working directory before chdir (for relative output paths).
+func prepareISOExportWorkflow(packagePath string) (
+	*domain.Workflow, string, func(), error,
+) {
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return nil, "", nil, err
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		if cleanupFunc != nil {
+			cleanupFunc()
+		}
+		return nil, "", nil, err
+	}
+
+	absPackageDir, err := filepath.Abs(packageDir)
+	if err != nil {
+		if cleanupFunc != nil {
+			cleanupFunc()
+		}
+		return nil, "", nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	restoreDir, err := chdirToPackageDir(absPackageDir)
+	if err != nil {
+		if cleanupFunc != nil {
+			cleanupFunc()
+		}
+		return nil, "", nil, err
+	}
+
+	combinedCleanup := func() {
+		restoreDir()
+		if cleanupFunc != nil {
+			cleanupFunc()
+		}
+	}
+	return workflow, originalDir, combinedCleanup, nil
+}
+
+// enableISOOfflineMode forces offline mode when models are configured for ISO export.
+func enableISOOfflineMode() {
+	if os.Getenv("KDEPS_LLM_MODELS") != "" {
+		_ = os.Setenv("KDEPS_OFFLINE_MODE", "true")
+	}
+}
+
 // exportISOInternal executes the export iso command.
 func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) error {
 	kdeps_debug.Log("enter: exportISOInternal")
 	packagePath := args[0]
-
 	fmt.Fprintf(os.Stdout, "Exporting workflow from: %s\n\n", packagePath)
 
-	// Resolve workflow paths (reuse from build command)
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	workflow, originalDir, cleanup, err := prepareISOExportWorkflow(packagePath)
 	if err != nil {
 		return err
 	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
+	defer cleanup()
 
-	// Parse workflow
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		return err
-	}
-
-	// Change to package directory
-	absPackageDir, err := filepath.Abs(packageDir)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	originalDir, _ := os.Getwd()
-	if chdirErr := os.Chdir(absPackageDir); chdirErr != nil {
-		return fmt.Errorf("failed to change to package directory: %w", chdirErr)
-	}
-	defer func() {
-		if originalDir != "" {
-			_ = os.Chdir(originalDir)
-		}
-	}()
-
-	// Show LinuxKit config if requested (no Docker needed)
 	if flags.ShowConfig {
 		return showLinuxKitConfig(workflow, flags)
 	}
 
-	// Force offline mode for ISO exports — models must be baked into the image
-	// since the VM may not have internet access at runtime.
-	if os.Getenv("KDEPS_LLM_MODELS") != "" {
-		_ = os.Setenv("KDEPS_OFFLINE_MODE", "true")
-	}
-
-	// Inject KDEPS_LLM_ROUTER (and any future config env vars) into the artifact.
+	enableISOOfflineMode()
 	injectConfigEnv(workflow)
 
-	// Create Docker builder for building the app image
 	buildFlags := &BuildFlags{GPU: flags.GPU, NoCache: flags.NoCache}
 	builder, err := setupDockerBuilder(buildFlags)
 	if err != nil {
@@ -285,6 +302,40 @@ func showLinuxKitConfig(workflow *domain.Workflow, flags *ExportFlags) error {
 	return nil
 }
 
+// resolveLinuxKitFormat maps a user format flag to a LinuxKit format string.
+func resolveLinuxKitFormat(format string) (string, error) {
+	linuxkitFormat, ok := getFormatMap()[format]
+	if !ok {
+		return "", fmt.Errorf("unsupported format: %s (supported: iso, raw, qcow2)", format)
+	}
+	return linuxkitFormat, nil
+}
+
+// configureISOBuilderSize sets the disk image size on the ISO builder.
+func configureISOBuilderSize(
+	isoBuilder *iso.Builder,
+	builder *docker.Builder,
+	imageName string,
+	explicitSize string,
+) {
+	if explicitSize != "" {
+		isoBuilder.Size = explicitSize
+		return
+	}
+
+	ctx := context.Background()
+	imgBytes, sizeErr := builder.Client.ImageSize(ctx, imageName)
+	if sizeErr != nil || imgBytes <= 0 {
+		return
+	}
+
+	const overheadMB = 512
+	const sizeMultiplier = 2
+	sizeMB := int(imgBytes/int64(bytesPerMB))*sizeMultiplier + overheadMB
+	isoBuilder.Size = fmt.Sprintf("%dM", sizeMB)
+	fmt.Fprintf(os.Stdout, "Auto-computed disk image size: %s\n", isoBuilder.Size)
+}
+
 // performISOBuild builds the Docker image and then the bootable image via LinuxKit.
 func performISOBuild(
 	builder *docker.Builder,
@@ -303,10 +354,9 @@ func performISOBuild(
 
 	fmt.Fprintf(os.Stdout, "\nDocker image built: %s\n\n", imageName)
 
-	// Resolve LinuxKit format
-	linuxkitFormat, ok := getFormatMap()[flags.Format]
-	if !ok {
-		return fmt.Errorf("unsupported format: %s (supported: iso, raw, qcow2)", flags.Format)
+	linuxkitFormat, err := resolveLinuxKitFormat(flags.Format)
+	if err != nil {
+		return err
 	}
 
 	outputPath := resolveOutputPath(flags.Output, flags.Format, workflow, originalDir)
@@ -322,36 +372,16 @@ func performISOBuild(
 		isoBuilder.Arch = flags.Arch
 	}
 
-	// Compute disk image size: use explicit --size if given, otherwise auto-compute
-	// from the Docker image size (image * 2 + 512 MB overhead for kernel, init, fs).
-	if flags.Size != "" {
-		isoBuilder.Size = flags.Size
-	} else {
-		ctx := context.Background()
-		imgBytes, sizeErr := builder.Client.ImageSize(ctx, imageName)
-		if sizeErr == nil && imgBytes > 0 {
-			const overheadMB = 512
-			const sizeMultiplier = 2
-			sizeMB := int(imgBytes/int64(bytesPerMB))*sizeMultiplier + overheadMB
-			isoBuilder.Size = fmt.Sprintf("%dM", sizeMB)
-			fmt.Fprintf(os.Stdout, "Auto-computed disk image size: %s\n", isoBuilder.Size)
-		}
-	}
+	configureISOBuilderSize(isoBuilder, builder, imageName, flags.Size)
 
 	ctx := context.Background()
-
-	// LinuxKit build uses --docker to pull the local image directly from
-	// the Docker daemon, avoiding the docker-save/cache-import pipeline
-	// (which corrupts layers due to gzip format mismatch).
 	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
 
-	err = isoBuilder.Build(ctx, imageName, workflow, outputPath, flags.NoCache)
-	if err != nil {
-		return fmt.Errorf("failed to build image: %w", err)
+	if buildErr := isoBuilder.Build(ctx, imageName, workflow, outputPath, flags.NoCache); buildErr != nil {
+		return fmt.Errorf("failed to build image: %w", buildErr)
 	}
 
 	printBuildResult(outputPath, linuxkitFormat, isoBuilder.Arch, workflow)
-
 	return nil
 }
 
@@ -409,16 +439,14 @@ func workflowPorts(workflow *domain.Workflow) (string, string) {
 // joinStrings joins string slices efficiently using strings.Builder.
 func joinStrings(parts []string, sep string) string {
 	kdeps_debug.Log("enter: joinStrings")
-	result := ""
-	var resultSb546 strings.Builder
+	var b strings.Builder
 	for i, p := range parts {
 		if i > 0 {
-			resultSb546.WriteString(sep)
+			b.WriteString(sep)
 		}
-		resultSb546.WriteString(p)
+		b.WriteString(p)
 	}
-	result += resultSb546.String()
-	return result
+	return b.String()
 }
 
 // printBuildResult prints the build result with deployment instructions.
@@ -712,11 +740,35 @@ func RunExportK8sCmd(cmd *cobra.Command, args []string) error {
 	return exportK8sInternal(cmd, args, flags)
 }
 
+// resolveK8sImageName returns the image name for k8s export.
+func resolveK8sImageName(flags *K8sFlags, workflow *domain.Workflow) string {
+	if flags.Image != "" {
+		return flags.Image
+	}
+	return fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
+}
+
+// writeK8sManifests writes generated manifests to a file or stdout.
+func writeK8sManifests(cmd *cobra.Command, flags *K8sFlags, manifests string) error {
+	out := io.Writer(os.Stdout)
+	if cmd != nil {
+		out = cmd.OutOrStdout()
+	}
+	if flags.Output == "" {
+		fmt.Fprint(out, manifests)
+		return nil
+	}
+	if writeErr := os.WriteFile(flags.Output, []byte(manifests), 0600); writeErr != nil {
+		return fmt.Errorf("failed to write manifest to file: %w", writeErr)
+	}
+	fmt.Fprintf(out, "Kubernetes manifests written to %s\n", flags.Output)
+	return nil
+}
+
 func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error {
 	kdeps_debug.Log("enter: exportK8sInternal")
 	packagePath := args[0]
 
-	// Resolve workflow path
 	workflowPath, _, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
 	if err != nil {
 		return err
@@ -725,46 +777,22 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 		defer cleanupFunc()
 	}
 
-	// Parse workflow
 	workflow, err := parseWorkflow(workflowPath)
 	if err != nil {
 		return err
 	}
 
-	// Determine image name
-	imageName := flags.Image
-	if imageName == "" {
-		imageName = fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
-	}
-
-	// Override replicas if provided
 	if flags.Replica > 0 {
 		workflow.Settings.AgentSettings.Replicas = flags.Replica
 	}
 
-	// Inject KDEPS_LLM_ROUTER (and any future config env vars) into the artifact.
 	injectConfigEnv(workflow)
 
-	// Generate manifests
-	generator := k8s.NewGenerator(imageName)
-	manifests, err := generator.GenerateManifests(workflow)
+	imageName := resolveK8sImageName(flags, workflow)
+	manifests, err := k8s.NewGenerator(imageName).GenerateManifests(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate Kubernetes manifests: %w", err)
 	}
 
-	// Output results
-	var out io.Writer = os.Stdout
-	if cmd != nil {
-		out = cmd.OutOrStdout()
-	}
-	if flags.Output != "" {
-		if writeErr := os.WriteFile(flags.Output, []byte(manifests), 0600); writeErr != nil {
-			return fmt.Errorf("failed to write manifest to file: %w", writeErr)
-		}
-		fmt.Fprintf(out, "Kubernetes manifests written to %s\n", flags.Output)
-	} else {
-		fmt.Fprint(out, manifests)
-	}
-
-	return nil
+	return writeK8sManifests(cmd, flags, manifests)
 }

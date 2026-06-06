@@ -108,14 +108,7 @@ func bootstrapInteractive(out io.StringWriter, reader *bufio.Reader, path string
 	choice := promptLine(out, reader, "  Enter number [1]: ", "1")
 
 	var cfg Config
-	var chosenProvider string
-
-	if choice != "0" {
-		idx := 0
-		if _, scanErr := fmt.Sscanf(choice, "%d", &idx); scanErr == nil && idx >= 1 && idx <= len(providerNames()) {
-			chosenProvider = providerNames()[idx-1]
-		}
-	}
+	chosenProvider := resolveProviderChoice(choice)
 
 	if chosenProvider != "" {
 		if err := configureProvider(out, reader, w, &cfg, chosenProvider); err != nil {
@@ -229,6 +222,19 @@ func dirOf(path string) string {
 		}
 	}
 	return "."
+}
+
+// resolveProviderChoice maps a numeric menu selection to a provider name.
+// Returns "" when the user skips (choice "0") or enters an invalid number.
+func resolveProviderChoice(choice string) string {
+	if choice == "0" {
+		return ""
+	}
+	idx := 0
+	if _, scanErr := fmt.Sscanf(choice, "%d", &idx); scanErr != nil || idx < 1 || idx > len(providerNames()) {
+		return ""
+	}
+	return providerNames()[idx-1]
 }
 
 // configureProvider handles interactive setup for one provider (ollama or online).

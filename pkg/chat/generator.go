@@ -202,8 +202,24 @@ const maxValidationRetries = 3
 // On parse or validation failure it feeds errors back to the LLM and retries up to
 // maxValidationRetries times before returning an error.
 func (g *Generator) Generate(ctx context.Context, history []Turn) (*GeneratedWorkflow, error) {
-	systemPrompt := fmt.Sprintf(systemPromptTemplate, g.catalog)
+	messages := g.buildMessages(history)
 
+	for attempt := range maxValidationRetries {
+		wf, correction, err := g.generateAttempt(ctx, messages, attempt)
+		if err != nil {
+			return nil, err
+		}
+		if wf != nil {
+			return wf, nil
+		}
+		messages = correction
+	}
+
+	return nil, errors.New("generate: retry loop exhausted")
+}
+
+func (g *Generator) buildMessages(history []Turn) []map[string]interface{} {
+	systemPrompt := fmt.Sprintf(systemPromptTemplate, g.catalog)
 	messages := []map[string]interface{}{
 		{"role": "system", "content": systemPrompt},
 	}
@@ -213,43 +229,64 @@ func (g *Generator) Generate(ctx context.Context, history []Turn) (*GeneratedWor
 			"content": t.Content,
 		})
 	}
+	return messages
+}
 
-	for attempt := range maxValidationRetries {
-		reply, err := g.client.Chat(ctx, g.model, g.baseURL, g.apiKey, messages)
-		if err != nil {
-			return nil, fmt.Errorf("LLM call failed: %w", err)
-		}
-
-		wf, parseErr := parseWorkflowBlocks(reply)
-		if parseErr != nil {
-			if attempt == maxValidationRetries-1 {
-				return nil, fmt.Errorf(
-					"could not parse workflow after %d attempts: %w\n\nLast response:\n%s",
-					maxValidationRetries, parseErr, reply,
-				)
-			}
-			messages = appendCorrection(messages, reply, parseFailureCorrection(parseErr.Error()))
-			continue
-		}
-
-		valErrs := Validate(wf)
-		if len(valErrs) == 0 {
-			return wf, nil
-		}
-
-		if attempt == maxValidationRetries-1 {
-			return nil, fmt.Errorf(
-				"workflow failed validation after %d attempts:\n- %s",
-				maxValidationRetries, strings.Join(valErrs, "\n- "),
-			)
-		}
-
-		correction := "The workflow has validation errors. Fix ALL of them and regenerate:\n- " +
-			strings.Join(valErrs, "\n- ") + "\n"
-		messages = appendCorrection(messages, reply, correction)
+// generateAttempt performs one LLM call and returns a workflow on success,
+// updated messages for retry on recoverable failure, or a terminal error.
+func (g *Generator) generateAttempt(
+	ctx context.Context,
+	messages []map[string]interface{},
+	attempt int,
+) (*GeneratedWorkflow, []map[string]interface{}, error) {
+	reply, err := g.client.Chat(ctx, g.model, g.baseURL, g.apiKey, messages)
+	if err != nil {
+		return nil, nil, fmt.Errorf("LLM call failed: %w", err)
 	}
 
-	return nil, errors.New("generate: retry loop exhausted")
+	wf, parseErr := parseWorkflowBlocks(reply)
+	if parseErr != nil {
+		return g.handleParseFailure(messages, reply, parseErr, attempt)
+	}
+
+	valErrs := Validate(wf)
+	if len(valErrs) == 0 {
+		return wf, nil, nil
+	}
+
+	return g.handleValidationFailure(messages, reply, valErrs, attempt)
+}
+
+func (g *Generator) handleParseFailure(
+	messages []map[string]interface{},
+	reply string,
+	parseErr error,
+	attempt int,
+) (*GeneratedWorkflow, []map[string]interface{}, error) {
+	if attempt == maxValidationRetries-1 {
+		return nil, nil, fmt.Errorf(
+			"could not parse workflow after %d attempts: %w\n\nLast response:\n%s",
+			maxValidationRetries, parseErr, reply,
+		)
+	}
+	return nil, appendCorrection(messages, reply, parseFailureCorrection(parseErr.Error())), nil
+}
+
+func (g *Generator) handleValidationFailure(
+	messages []map[string]interface{},
+	reply string,
+	valErrs []string,
+	attempt int,
+) (*GeneratedWorkflow, []map[string]interface{}, error) {
+	if attempt == maxValidationRetries-1 {
+		return nil, nil, fmt.Errorf(
+			"workflow failed validation after %d attempts:\n- %s",
+			maxValidationRetries, strings.Join(valErrs, "\n- "),
+		)
+	}
+	correction := "The workflow has validation errors. Fix ALL of them and regenerate:\n- " +
+		strings.Join(valErrs, "\n- ") + "\n"
+	return nil, appendCorrection(messages, reply, correction), nil
 }
 
 func appendCorrection(messages []map[string]interface{}, reply, correction string) []map[string]interface{} {
@@ -293,15 +330,7 @@ Rules:
 // parseWorkflowBlocks extracts <file name="...">...</file> blocks from the LLM response.
 // The outer <kdeps-workflow> tag is optional and may carry XML attributes — both are stripped.
 func parseWorkflowBlocks(reply string) (*GeneratedWorkflow, error) {
-	inner := reply
-	if m := kdepsWorkflowOpen.FindStringIndex(reply); m != nil {
-		contentStart := m[1] // character after the closing '>' of the opening tag
-		end := strings.Index(reply, "</kdeps-workflow>")
-		if end == -1 {
-			end = len(reply)
-		}
-		inner = reply[contentStart:end]
-	}
+	inner := extractKdepsWorkflowInner(reply)
 
 	matches := fileBlockRE.FindAllStringSubmatch(inner, -1)
 	if len(matches) == 0 {
@@ -320,6 +349,19 @@ func parseWorkflowBlocks(reply string) (*GeneratedWorkflow, error) {
 	}
 
 	return wf, nil
+}
+
+func extractKdepsWorkflowInner(reply string) string {
+	m := kdepsWorkflowOpen.FindStringIndex(reply)
+	if m == nil {
+		return reply
+	}
+	contentStart := m[1]
+	end := strings.Index(reply, "</kdeps-workflow>")
+	if end == -1 {
+		end = len(reply)
+	}
+	return reply[contentStart:end]
 }
 
 // HTTPLLMClient implements LLMClient using direct HTTP calls to the backend API.
@@ -344,15 +386,16 @@ func (c *HTTPLLMClient) Chat(
 	if baseURL == "" {
 		baseURL = "http://localhost:11434"
 	}
-
-	// Use Ollama format for localhost, OpenAI format otherwise.
-	isLocal := strings.Contains(baseURL, "localhost") ||
-		strings.Contains(baseURL, "127.0.0.1") ||
-		strings.Contains(baseURL, "ollama")
-	if isLocal {
+	if isOllamaBackend(baseURL) {
 		return c.chatOllama(ctx, model, baseURL, messages)
 	}
 	return c.chatOpenAI(ctx, model, baseURL, apiKey, messages)
+}
+
+func isOllamaBackend(baseURL string) bool {
+	return strings.Contains(baseURL, "localhost") ||
+		strings.Contains(baseURL, "127.0.0.1") ||
+		strings.Contains(baseURL, "ollama")
 }
 
 func (c *HTTPLLMClient) chatOllama(

@@ -46,34 +46,48 @@ type MemoryStorage struct {
 	path string
 }
 
+func resolveMemoryDBPath(dbPath string) string {
+	if dbPath != "" {
+		return dbPath
+	}
+	if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
+		return envPath
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		homeDir = "."
+	}
+	return filepath.Join(homeDir, ".kdeps", "memory.db")
+}
+
+func ensureMemoryDBDirectory(dbPath string) error {
+	if dbPath == ":memory:" {
+		return nil
+	}
+	dir := filepath.Dir(dbPath)
+	if dir == "." || dir == "/" {
+		return nil
+	}
+	return os.MkdirAll(dir, 0750)
+}
+
+func decodeMemoryValue(valueStr string) interface{} {
+	var value interface{}
+	if unmarshalErr := json.Unmarshal([]byte(valueStr), &value); unmarshalErr != nil {
+		return valueStr
+	}
+	return value
+}
+
 // NewMemoryStorage creates a new memory storage.
 func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	kdeps_debug.Log("enter: NewMemoryStorage")
-	if dbPath == "" {
-		// Check for environment variable override (useful for tests)
-		if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
-			dbPath = envPath
-		} else {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				// Fallback to current directory if home directory is not available
-				homeDir = "."
-			}
-			dbPath = filepath.Join(homeDir, ".kdeps", "memory.db")
-		}
+	dbPath = resolveMemoryDBPath(dbPath)
+
+	if err := ensureMemoryDBDirectory(dbPath); err != nil {
+		return nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Create directory if needed and not using in-memory DB
-	if dbPath != ":memory:" {
-		dir := filepath.Dir(dbPath)
-		if dir != "." && dir != "/" {
-			if err := os.MkdirAll(dir, 0750); err != nil {
-				return nil, fmt.Errorf("failed to create directory: %w", err)
-			}
-		}
-	}
-
-	// Open database
 	db, err := sqlOpen("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -84,7 +98,6 @@ func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 		path: dbPath,
 	}
 
-	// Initialize schema
 	if initErr := storage.initSchema(); initErr != nil {
 		return nil, fmt.Errorf("failed to initialize schema: %w", initErr)
 	}
@@ -125,14 +138,7 @@ func (m *MemoryStorage) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	// Try to unmarshal as JSON
-	var value interface{}
-	if unmarshalErr := json.Unmarshal([]byte(valueStr), &value); unmarshalErr != nil {
-		// If not JSON, return as string
-		return valueStr, true
-	}
-
-	return value, true
+	return decodeMemoryValue(valueStr), true
 }
 
 // Set stores a value in memory.
@@ -141,13 +147,11 @@ func (m *MemoryStorage) Set(key string, value interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Marshal value to JSON
 	valueBytes, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	// Insert or update
 	query := `
 	INSERT INTO memory (key, value, updated_at)
 	VALUES (?, ?, CURRENT_TIMESTAMP)

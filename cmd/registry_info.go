@@ -66,44 +66,59 @@ const (
 func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
 
-	// Remote GitHub ref: contains "/" — show README only.
 	if strings.Contains(ref, "/") {
-		readme, err := fetchRemoteReadme(ref)
-		if err != nil {
-			return fmt.Errorf("info: %w", err)
-		}
-		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
+		return printRemoteReadme(cmd, ref)
+	}
+
+	if tryPrintLocalReadme(cmd, ref) {
 		return nil
 	}
 
-	// Check local first (component dir, agents/, agencies/) — fast, no network.
-	if localReadme, localErr := resolveLocalReadme(ref); localErr == nil && !isMinimalFallback(localReadme, ref) {
-		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(localReadme))
-		return nil
-	}
+	return printRegistryPackageInfo(cmd, ref, baseURL)
+}
 
-	// Registry package: show metadata from API, then README.
+func printRemoteReadme(cmd *cobra.Command, ref string) error {
+	readme, err := fetchRemoteReadme(ref)
+	if err != nil {
+		return fmt.Errorf("info: %w", err)
+	}
+	fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
+	return nil
+}
+
+func tryPrintLocalReadme(cmd *cobra.Command, ref string) bool {
+	localReadme, localErr := resolveLocalReadme(ref)
+	if localErr != nil || isMinimalFallback(localReadme, ref) {
+		return false
+	}
+	fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(localReadme))
+	return true
+}
+
+func printRegistryPackageInfo(cmd *cobra.Command, ref, baseURL string) error {
 	client := registry.NewClient("", baseURL)
 	ctx, cancel := context.WithTimeout(context.Background(), registryInfoTimeout)
 	defer cancel()
 
 	pkg, err := client.GetPackage(ctx, ref)
 	if err != nil {
-		// GetPackage failed — fall back to searching for the package, downloading
-		// its archive, and extracting the README. Use a fresh context so a slow
-		// GetPackage call doesn't starve the download.
-		archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
-		defer archCancel()
-		if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
-			fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
-			return nil
-		}
-		readme, _ := resolveLocalReadme(ref)
+		return printRegistryReadmeFallback(cmd, ref, client)
+	}
+
+	printPackageDetail(cmd, ref, pkg)
+	return nil
+}
+
+func printRegistryReadmeFallback(cmd *cobra.Command, ref string, client *registry.Client) error {
+	archCtx, archCancel := context.WithTimeout(context.Background(), registryInfoTimeout)
+	defer archCancel()
+	if readme := readmeFromRegistryArchive(archCtx, client, ref); readme != "" {
 		fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
 		return nil
 	}
 
-	printPackageDetail(cmd, ref, pkg)
+	readme, _ := resolveLocalReadme(ref)
+	fmt.Fprint(cmd.OutOrStdout(), renderMarkdown(readme))
 	return nil
 }
 
@@ -158,23 +173,16 @@ func printPackageReadme(w interface{ Write([]byte) (int, error) }, ref string, p
 func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, name string) string {
 	kdeps_debug.Log("enter: readmeFromRegistryArchive")
 
-	// Search to resolve the latest version.
 	entries, err := client.Search(ctx, name, "", registrySearchLimit)
 	if err != nil {
 		return ""
 	}
-	var version string
-	for _, e := range entries {
-		if e.Name == name {
-			version = e.Version
-			break
-		}
-	}
+
+	version := findPackageVersion(entries, name)
 	if version == "" {
 		return ""
 	}
 
-	// Download archive to a temp dir.
 	tmpDir, err := os.MkdirTemp("", "kdeps-info-*")
 	if err != nil {
 		return ""
@@ -186,7 +194,15 @@ func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, nam
 		return ""
 	}
 
-	// Extract README from the archive (same tar.gz format as .komponent).
 	readme, _ := readReadmeFromKomponent(archivePath)
 	return readme
+}
+
+func findPackageVersion(entries []registry.PackageEntry, name string) string {
+	for _, e := range entries {
+		if e.Name == name {
+			return e.Version
+		}
+	}
+	return ""
 }

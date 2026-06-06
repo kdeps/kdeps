@@ -205,8 +205,6 @@ func extractHostPortFromParsedURL(
 }
 
 // Execute executes an LLM chat resource.
-//
-//nolint:gocognit,funlen,gocyclo,cyclop // LLM execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ChatConfig,
@@ -220,63 +218,9 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	// Evaluate model (only if it contains expression syntax)
-	modelStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Model)
+	modelStr, promptStr, fallbackRoutes, err := e.resolveModelForExecution(evaluator, ctx, resolvedConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate model: %w", err)
-	}
-
-	// Model is required in resource YAML.
-	if modelStr == "" {
-		return nil, domain.NewError(domain.ErrCodeInvalidResource,
-			"model is required in resource chat config — set model: <name> or model: router in run.chat", nil)
-	}
-
-	// Evaluate prompt early so the router can count tokens.
-	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate prompt: %w", err)
-	}
-
-	// When model is "router", delegate to the LLM router in config.yaml.
-	// fallbackRoutes holds remaining routes for the fallback retry loop.
-	var fallbackRoutes []kdepsconfig.ModelEntry
-	if modelStr == "router" {
-		fallbackRoutes = e.applyLLMRouter(resolvedConfig, promptStr)
-		modelStr = resolvedConfig.Model
-		if modelStr == "" || modelStr == "router" {
-			return nil, domain.NewError(domain.ErrCodeInvalidResource,
-				"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
-		}
-	}
-
-	// Enforce model allowlist from KDEPS_LLM_MODELS env var.
-	if allowed := allowedModelsFromEnv(); len(allowed) > 0 {
-		resolved := resolveAllowedModel(modelStr, allowed)
-		if resolved != modelStr {
-			e.logger.Error(
-				"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
-				"requested", modelStr,
-				"using", resolved,
-				"fix", fmt.Sprintf(
-					"add %s to llm.models in config.yaml, "+
-						"or this resource will always run with %s instead",
-					modelStr, resolved,
-				),
-			)
-		}
-		modelStr = resolved
-	}
-
-	// Ensure model is downloaded and served if model manager is available
-	if e.modelManager != nil {
-		// Use a temporary copy of config with evaluated model for model manager
-		configCopy := *resolvedConfig
-		configCopy.Model = modelStr
-		if ensureErr := e.modelManager.EnsureModel(&configCopy); ensureErr != nil {
-			// Log warning but continue - model might already be available
-			_ = ensureErr
-		}
+		return nil, err
 	}
 
 	// Build messages
@@ -285,100 +229,23 @@ func (e *Executor) Execute(
 		return nil, msgErr
 	}
 
-	// Determine backend: router-selected > KDEPS_DEFAULT_BACKEND > ollama
-	backendName := resolvedConfig.Backend
-	if backendName == "" {
-		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	backend, baseURL, backendErr := e.resolveBackendAndBaseURL(resolvedConfig)
+	if backendErr != nil {
+		return nil, backendErr
 	}
-	if backendName == "" {
-		backendName = backendOllama
-	}
-
-	backend := e.backendRegistry.Get(backendName)
-	if backend == nil {
-		return nil, fmt.Errorf("unknown backend: %s", backendName)
-	}
-
-	// Determine base URL: router-selected > KDEPS_LLM_BASE_URL > backend default
-	baseURL := resolvedConfig.BaseURL
-	if baseURL == "" {
-		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
-	}
-	if baseURL == "" {
-		baseURL = backend.DefaultURL()
-	}
-
-	// Set default context length: resource > KDEPS_CHAT_CONTEXT_LENGTH > 4096
-	contextLength := resolvedConfig.ContextLength
-	if contextLength == 0 {
-		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
-			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
-				contextLength = n
-			}
-		}
-	}
-	if contextLength == 0 {
-		contextLength = 4096
-	}
-
-	// Merge allowlisted component tools (opt-in, default-disabled).
 	allTools := mergeComponentTools(resolvedConfig.Tools, resolvedConfig.ComponentTools, ctx.Workflow)
-
-	// Streaming: resource > KDEPS_CHAT_STREAMING > false
-	streaming := resolvedConfig.Streaming
-	if !streaming {
-		streaming = os.Getenv("KDEPS_CHAT_STREAMING") == "true"
-	}
-
-	// Prepare request using backend-specific builder
-	requestConfig := ChatRequestConfig{
-		ContextLength: contextLength,
-		JSONResponse:  resolvedConfig.JSONResponse,
-		Streaming:     streaming,
-		Tools:         e.buildTools(allTools),
-	}
+	requestConfig := e.resolveChatRequestConfig(resolvedConfig, allTools)
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
+	timeout := e.resolveTimeout(resolvedConfig)
+	maxOutputBytes := e.resolveMaxOutputBytes()
 
-	// Parse timeout: resource > KDEPS_CHAT_TIMEOUT > embedded default
-	defaults, _ := kdepsconfig.GetDefaults()
-	timeout := defaults.Chat.TimeoutDuration()
-	if v := os.Getenv("KDEPS_CHAT_TIMEOUT"); v != "" {
-		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
-			timeout = parsedTimeout
-		}
-	}
-	if resolvedConfig.Timeout != "" {
-		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.Timeout); parseErr == nil {
-			timeout = parsedTimeout
-		}
-	}
-
-	// Output cap: KDEPS_CHAT_MAX_OUTPUT_BYTES
-	var maxOutputBytes int64
-	if v := os.Getenv("KDEPS_CHAT_MAX_OUTPUT_BYTES"); v != "" {
-		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
-			maxOutputBytes = n
-		}
-	}
-
-	// Call backend API (may be called multiple times for tool execution)
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
-	if err != nil {
-		response = map[string]interface{}{"error": err.Error()}
-	}
-
-	// Fallback retry: try remaining routes when the response carries an error.
-	response, err = e.retryFallbackRoutes(
-		fallbackRoutes, resolvedConfig, messages, requestConfig, response, timeout,
+	response := e.callBackendWithFallback(
+		backend, baseURL, requestBody, timeout,
+		fallbackRoutes, resolvedConfig, messages, requestConfig,
 	)
-
-	// Propagate a persistent error as result data (existing behaviour).
-	if _, hasErr := response["error"]; hasErr && err != nil {
-		return response, nil //nolint:nilerr // intentionally return error as data
-	}
 
 	// Check for tool calls and execute them if tools are configured and executor is available
 	if len(allTools) > 0 && e.toolExecutor != nil {
@@ -400,36 +267,212 @@ func (e *Executor) Execute(
 		}
 	}
 
-	// Apply output cap to response content before returning.
+	return e.formatExecuteResult(response, resolvedConfig, maxOutputBytes)
+}
+
+// resolveModelForExecution evaluates model and prompt, applies router/allowlist, and ensures model availability.
+func (e *Executor) resolveModelForExecution(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	resolvedConfig *domain.ChatConfig,
+) (string, string, []kdepsconfig.ModelEntry, error) {
+	modelStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Model)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to evaluate model: %w", err)
+	}
+	if modelStr == "" {
+		return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
+			"model is required in resource chat config — set model: <name> or model: router in run.chat", nil)
+	}
+
+	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to evaluate prompt: %w", err)
+	}
+
+	var fallbackRoutes []kdepsconfig.ModelEntry
+	if modelStr == "router" {
+		fallbackRoutes = applyLLMRouter(e.logger, resolvedConfig, promptStr)
+		modelStr = resolvedConfig.Model
+		if modelStr == "" || modelStr == "router" {
+			return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
+				"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
+		}
+	}
+
+	if allowed := allowedModelsFromEnv(); len(allowed) > 0 {
+		resolved := resolveAllowedModel(modelStr, allowed)
+		if resolved != modelStr {
+			e.logger.Error(
+				"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
+				"requested", modelStr,
+				"using", resolved,
+				"fix", fmt.Sprintf(
+					"add %s to llm.models in config.yaml, "+
+						"or this resource will always run with %s instead",
+					modelStr, resolved,
+				),
+			)
+		}
+		modelStr = resolved
+	}
+
+	if e.modelManager != nil {
+		configCopy := *resolvedConfig
+		configCopy.Model = modelStr
+		if ensureErr := e.modelManager.EnsureModel(&configCopy); ensureErr != nil {
+			_ = ensureErr
+		}
+	}
+
+	return modelStr, promptStr, fallbackRoutes, nil
+}
+
+// callBackendWithFallback calls the backend and retries remaining router fallback routes on error.
+func (e *Executor) callBackendWithFallback(
+	backend Backend,
+	baseURL string,
+	requestBody map[string]interface{},
+	timeout time.Duration,
+	fallbackRoutes []kdepsconfig.ModelEntry,
+	cfg *domain.ChatConfig,
+	messages []map[string]interface{},
+	requestConfig ChatRequestConfig,
+) map[string]interface{} {
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
+	if err != nil {
+		response = map[string]interface{}{"error": err.Error()}
+	}
+
+	response, err = e.retryFallbackRoutes(
+		fallbackRoutes, cfg, messages, requestConfig, response, timeout,
+	)
+	if _, hasErr := response["error"]; hasErr && err != nil {
+		return response
+	}
+	return response
+}
+
+// formatExecuteResult applies output caps and optional JSON response parsing.
+func (e *Executor) formatExecuteResult(
+	response map[string]interface{},
+	config *domain.ChatConfig,
+	maxOutputBytes int64,
+) (interface{}, error) {
 	if maxOutputBytes > 0 {
 		if capErr := capLLMResponseContent(response, maxOutputBytes); capErr != nil {
 			return nil, capErr
 		}
 	}
 
-	// Parse response
-	if resolvedConfig.JSONResponse { //nolint:nestif // JSON response handling is explicit
-		parsed, parseErr := e.parseJSONResponse(response, resolvedConfig.JSONResponseKeys)
-		if parseErr != nil {
-			// If JSON parsing fails, fall back to raw content for better debugging
-			if message, okMessage := response["message"].(map[string]interface{}); okMessage {
-				if content, okContent := message["content"].(string); okContent {
-					return map[string]interface{}{
-						"error":   "Failed to parse JSON response: " + parseErr.Error(),
-						"content": content,
-						"raw":     response,
-					}, nil
-				}
-			}
-			return nil, fmt.Errorf(
-				"failed to parse JSON response and cannot extract raw content: %w",
-				parseErr,
-			)
-		}
-		return parsed, nil
+	if !config.JSONResponse {
+		return response, nil
 	}
 
-	return response, nil
+	parsed, parseErr := e.parseJSONResponse(response, config.JSONResponseKeys)
+	if parseErr != nil {
+		if message, okMessage := response["message"].(map[string]interface{}); okMessage {
+			if content, okContent := message["content"].(string); okContent {
+				return map[string]interface{}{
+					"error":   "Failed to parse JSON response: " + parseErr.Error(),
+					"content": content,
+					"raw":     response,
+				}, nil
+			}
+		}
+		return nil, fmt.Errorf(
+			"failed to parse JSON response and cannot extract raw content: %w",
+			parseErr,
+		)
+	}
+	return parsed, nil
+}
+
+// resolveBackendAndBaseURL returns the backend instance and resolved base URL.
+// Resolution order: resource config > KDEPS_DEFAULT_BACKEND / KDEPS_LLM_BASE_URL > backend default.
+func (e *Executor) resolveBackendAndBaseURL(config *domain.ChatConfig) (Backend, string, error) {
+	return e.resolveBackend(config, true)
+}
+
+// resolveBackend resolves backend name and base URL from config.
+// When useEnvDefaults is true, KDEPS_DEFAULT_BACKEND and KDEPS_LLM_BASE_URL are consulted.
+func (e *Executor) resolveBackend(config *domain.ChatConfig, useEnvDefaults bool) (Backend, string, error) {
+	backendName := config.Backend
+	if backendName == "" && useEnvDefaults {
+		backendName = os.Getenv("KDEPS_DEFAULT_BACKEND")
+	}
+	if backendName == "" {
+		backendName = backendOllama
+	}
+	backend := e.backendRegistry.Get(backendName)
+	if backend == nil {
+		return nil, "", fmt.Errorf("unknown backend: %s", backendName)
+	}
+
+	baseURL := config.BaseURL
+	if baseURL == "" && useEnvDefaults {
+		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
+	}
+	if baseURL == "" {
+		baseURL = backend.DefaultURL()
+	}
+	return backend, baseURL, nil
+}
+
+// resolveChatRequestConfig builds a ChatRequestConfig with resolved defaults
+// for context length, streaming, and pre-merged tools converted to API format.
+func (e *Executor) resolveChatRequestConfig(config *domain.ChatConfig, allTools []domain.Tool) ChatRequestConfig {
+	contextLength := config.ContextLength
+	if contextLength == 0 {
+		if v := os.Getenv("KDEPS_CHAT_CONTEXT_LENGTH"); v != "" {
+			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
+				contextLength = n
+			}
+		}
+	}
+	if contextLength == 0 {
+		contextLength = 4096
+	}
+
+	streaming := config.Streaming
+	if !streaming {
+		streaming = os.Getenv("KDEPS_CHAT_STREAMING") == "true"
+	}
+
+	return ChatRequestConfig{
+		ContextLength: contextLength,
+		JSONResponse:  config.JSONResponse,
+		Streaming:     streaming,
+		Tools:         e.buildTools(allTools),
+	}
+}
+
+// resolveTimeout returns the chat timeout with cascading resolution:
+// resource config > KDEPS_CHAT_TIMEOUT env > embedded default.
+func (e *Executor) resolveTimeout(config *domain.ChatConfig) time.Duration {
+	defaults, _ := kdepsconfig.GetDefaults()
+	timeout := defaults.Chat.TimeoutDuration()
+	if v := os.Getenv("KDEPS_CHAT_TIMEOUT"); v != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(v); parseErr == nil {
+			timeout = parsedTimeout
+		}
+	}
+	if config.Timeout != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(config.Timeout); parseErr == nil {
+			timeout = parsedTimeout
+		}
+	}
+	return timeout
+}
+
+// resolveMaxOutputBytes returns the output cap from KDEPS_CHAT_MAX_OUTPUT_BYTES.
+func (e *Executor) resolveMaxOutputBytes() int64 {
+	if v := os.Getenv("KDEPS_CHAT_MAX_OUTPUT_BYTES"); v != "" {
+		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
+			return n
+		}
+	}
+	return 0
 }
 
 // capLLMResponseContent checks the content field in a backend response map against
@@ -516,21 +559,34 @@ func (e *Executor) handleToolCalls(
 		// Add tool results to message history and call LLM again
 		currentMessages = e.addToolResultsToMessages(currentMessages, toolCalls, toolResults)
 
-		// Rebuild request with updated messages
-		requestBody, err := backend.BuildRequest(modelStr, currentMessages, requestConfig)
+		nextResponse, err := e.chatFollowUp(backend, baseURL, modelStr, currentMessages, requestConfig, timeout)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build follow-up request: %w", err)
-		}
-
-		// Call backend again
-		nextResponse, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
-		if err != nil {
-			return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
+			return nil, err
 		}
 		currentResponse = nextResponse
 	}
 
 	return currentResponse, nil
+}
+
+// chatFollowUp rebuilds and sends a follow-up chat request after tool results are appended.
+func (e *Executor) chatFollowUp(
+	backend Backend,
+	baseURL string,
+	modelStr string,
+	messages []map[string]interface{},
+	requestConfig ChatRequestConfig,
+	timeout time.Duration,
+) (map[string]interface{}, error) {
+	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build follow-up request: %w", err)
+	}
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout, "")
+	if err != nil {
+		return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
+	}
+	return response, nil
 }
 
 // buildMessages builds the messages array for the LLM request.
@@ -571,27 +627,40 @@ func (e *Executor) buildMessages(
 		}, messages...)
 	}
 
-	// Insert scenario items: system-role items go before the user message,
-	// all others go after (conversation history / few-shot examples).
+	beforeUser, afterUser, scenarioErr := e.buildScenarioMessages(evaluator, ctx, config.Scenario)
+	if scenarioErr != nil {
+		return nil, scenarioErr
+	}
+
+	if len(beforeUser) > 0 {
+		messages = append(beforeUser, messages...)
+	}
+	messages = append(messages, afterUser...)
+
+	return messages, nil
+}
+
+// buildScenarioMessages evaluates scenario items and splits them around the user message.
+func (e *Executor) buildScenarioMessages(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	scenario []domain.ScenarioItem,
+) ([]map[string]interface{}, []map[string]interface{}, error) {
 	var beforeUser, afterUser []map[string]interface{}
-	for _, scenarioItem := range config.Scenario {
-		scenarioPrompt, scenarioErr := e.evaluateStringOrLiteral(
-			evaluator,
-			ctx,
-			scenarioItem.Prompt,
-		)
-		if scenarioErr != nil {
-			return nil, fmt.Errorf("failed to evaluate scenario prompt: %w", scenarioErr)
+	for _, scenarioItem := range scenario {
+		scenarioPrompt, promptErr := e.evaluateStringOrLiteral(evaluator, ctx, scenarioItem.Prompt)
+		if promptErr != nil {
+			return nil, nil, fmt.Errorf("failed to evaluate scenario prompt: %w", promptErr)
 		}
 
 		scenarioRole, roleErr := e.evaluateStringOrLiteral(evaluator, ctx, scenarioItem.Role)
 		if roleErr != nil {
-			return nil, fmt.Errorf("failed to evaluate scenario role: %w", roleErr)
+			return nil, nil, fmt.Errorf("failed to evaluate scenario role: %w", roleErr)
 		}
 
 		scenarioName, nameErr := e.evaluateStringOrLiteral(evaluator, ctx, scenarioItem.Name)
 		if nameErr != nil {
-			return nil, fmt.Errorf("failed to evaluate scenario name: %w", nameErr)
+			return nil, nil, fmt.Errorf("failed to evaluate scenario name: %w", nameErr)
 		}
 
 		msg := map[string]interface{}{
@@ -607,32 +676,32 @@ func (e *Executor) buildMessages(
 			afterUser = append(afterUser, msg)
 		}
 	}
-
-	if len(beforeUser) > 0 {
-		messages = append(beforeUser, messages...)
-	}
-	messages = append(messages, afterUser...)
-
-	return messages, nil
+	return beforeUser, afterUser, nil
 }
 
 // buildSystemPrompt builds the system prompt with JSON response instructions (v1 compatibility).
 func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
 	kdeps_debug.Log("enter: buildSystemPrompt")
 	var sb strings.Builder
+	appendJSONResponseInstructions(&sb, config)
+	appendToolInstructions(&sb, config)
+	return sb.String()
+}
 
-	// Add JSON response instructions if enabled (v1 style)
-	if config.JSONResponse {
-		sb.WriteString("You are a helpful assistant. ")
-		if len(config.JSONResponseKeys) > 0 {
-			keys := strings.Join(config.JSONResponseKeys, "`, `")
-			sb.WriteString("Respond in JSON format, include `" + keys + "` in response keys. ")
-		} else {
-			sb.WriteString("Respond in JSON format. ")
-		}
+func appendJSONResponseInstructions(sb *strings.Builder, config *domain.ChatConfig) {
+	if !config.JSONResponse {
+		return
 	}
+	sb.WriteString("You are a helpful assistant. ")
+	if len(config.JSONResponseKeys) > 0 {
+		keys := strings.Join(config.JSONResponseKeys, "`, `")
+		sb.WriteString("Respond in JSON format, include `" + keys + "` in response keys. ")
+		return
+	}
+	sb.WriteString("Respond in JSON format. ")
+}
 
-	// Add tool instructions if tools are available
+func appendToolInstructions(sb *strings.Builder, config *domain.ChatConfig) {
 	if len(config.Tools) > 0 {
 		sb.WriteString(
 			"\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. Consider all previous tool outputs when deciding which tools to use next. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool with identical parameters unless explicitly required by new user input. Once all necessary tools are executed, return the final result as a string (e.g., '12345', 'joel').\n\n",
@@ -656,7 +725,6 @@ func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
 		sb.WriteString("\nAvailable tools:\n")
 		for _, tool := range config.Tools {
 			sb.WriteString("- " + tool.Name + ": " + tool.Description + "\n")
-			// Add parameter descriptions if available
 			if len(tool.Parameters) > 0 {
 				for paramName, param := range tool.Parameters {
 					sb.WriteString(
@@ -665,12 +733,11 @@ func (e *Executor) buildSystemPrompt(config *domain.ChatConfig) string {
 				}
 			}
 		}
-	} else if config.JSONResponse {
-		// If no tools but JSON response is enabled, add instruction to respond with final result
+		return
+	}
+	if config.JSONResponse {
 		sb.WriteString("No tools are available. Respond with the final result as a string.\n")
 	}
-
-	return sb.String()
 }
 
 // buildContent builds message content with optional images for vision models.
@@ -1274,47 +1341,29 @@ func (e *Executor) executeToolCalls(
 	}
 
 	for _, toolCall := range toolCalls {
-		function, okFunc := toolCall["function"].(map[string]interface{})
-		if !okFunc {
+		toolName, arguments, toolCallID, ok := parseToolCallFunction(toolCall)
+		if !ok {
 			continue
 		}
 
-		toolName, okName := function["name"].(string)
-		if !okName {
-			continue
-		}
-
-		arguments, okArgs := function["arguments"].(string)
-		if !okArgs {
-			continue
-		}
-
-		// Find tool definition
 		toolDef, exists := toolMap[toolName]
 		if !exists {
 			results = append(results, map[string]interface{}{
-				"tool_call_id": toolCall["id"],
+				"tool_call_id": toolCallID,
 				"name":         toolName,
 				"error":        fmt.Sprintf("tool '%s' not found", toolName),
 			})
 			continue
 		}
 
-		// Execute tool
 		result, execErr := e.executeTool(toolDef, arguments, ctx)
 		if execErr != nil {
 			results = append(results, map[string]interface{}{
-				"tool_call_id": toolCall["id"],
+				"tool_call_id": toolCallID,
 				"name":         toolName,
 				"error":        execErr.Error(),
 			})
 			continue
-		}
-
-		// Format result
-		var toolCallID interface{}
-		if id, okID := toolCall["id"]; okID {
-			toolCallID = id
 		}
 
 		results = append(results, map[string]interface{}{
@@ -1325,6 +1374,26 @@ func (e *Executor) executeToolCalls(
 	}
 
 	return results, nil
+}
+
+func parseToolCallFunction(toolCall map[string]interface{}) (string, string, interface{}, bool) {
+	function, okFunc := toolCall["function"].(map[string]interface{})
+	if !okFunc {
+		return "", "", nil, false
+	}
+	toolName, okName := function["name"].(string)
+	if !okName {
+		return "", "", nil, false
+	}
+	toolArgs, okArgs := function["arguments"].(string)
+	if !okArgs {
+		return "", "", nil, false
+	}
+	var toolCallID interface{}
+	if id, hasID := toolCall["id"]; hasID {
+		toolCallID = id
+	}
+	return toolName, toolArgs, toolCallID, true
 }
 
 // executeTool executes a single tool — either via an MCP server or a kdeps resource.
@@ -1474,36 +1543,32 @@ func (e *Executor) addToolResultsToMessages(
 
 	// Add tool response messages
 	for _, result := range toolResults {
-		content := ""
-
-		// Handle errors first
-		//nolint:nestif // nested content handling is clearer inline
-		if errorMsg, okError := result["error"].(string); okError {
-			content = fmt.Sprintf("Error: %s", errorMsg)
-		} else if resultContent, okContent := result["content"]; okContent {
-			// Convert content to string for tool response
-			// If it's already a string, use it directly
-			if strContent, okStr := resultContent.(string); okStr {
-				content = strContent
-			} else {
-				// For structured data, serialize as JSON
-				if contentBytes, err := json.Marshal(resultContent); err == nil {
-					content = string(contentBytes)
-				} else {
-					content = fmt.Sprintf("%v", resultContent)
-				}
-			}
-		}
-
 		toolMessage := map[string]interface{}{
 			"role":         "tool",
-			"content":      content,
+			"content":      formatToolResultContent(result),
 			"tool_call_id": result["tool_call_id"],
 		}
 		messages = append(messages, toolMessage)
 	}
 
 	return messages
+}
+
+func formatToolResultContent(result map[string]interface{}) string {
+	if errorMsg, okError := result["error"].(string); okError {
+		return fmt.Sprintf("Error: %s", errorMsg)
+	}
+	resultContent, okContent := result["content"]
+	if !okContent {
+		return ""
+	}
+	if strContent, okStr := resultContent.(string); okStr {
+		return strContent
+	}
+	if contentBytes, err := json.Marshal(resultContent); err == nil {
+		return string(contentBytes)
+	}
+	return fmt.Sprintf("%v", resultContent)
 }
 
 // MockHTTPClient is a mock implementation of HTTPClient for testing.
@@ -1530,7 +1595,6 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 	return response, nil
 }
 
-// resolveAllowedModel enforces the workflow model allowlist.
 // retryFallbackRoutes iterates remaining fallback routes when the current response has an error.
 // Returns the final response and last callBackend error encountered.
 func (e *Executor) retryFallbackRoutes(
@@ -1552,17 +1616,9 @@ func (e *Executor) retryFallbackRoutes(
 		//nolint:gosec // fallback route index is valid by loop invariant
 		route := &fallbackRoutes[i+1]
 		applyRoute(cfg, route)
-		fbName := cfg.Backend
-		if fbName == "" {
-			fbName = "ollama"
-		}
-		fb := e.backendRegistry.Get(fbName)
-		if fb == nil {
+		fb, fbURL, fbErr := e.resolveBackend(cfg, false)
+		if fbErr != nil {
 			continue
-		}
-		fbURL := cfg.BaseURL
-		if fbURL == "" {
-			fbURL = fb.DefaultURL()
 		}
 		rb, rbErr := fb.BuildRequest(cfg.Model, messages, requestConfig)
 		if rbErr != nil {
@@ -1574,69 +1630,4 @@ func (e *Executor) retryFallbackRoutes(
 		}
 	}
 	return response, lastErr
-}
-
-// applyLLMRouter reads KDEPS_LLM_ROUTER, selects the appropriate route, and mutates cfg.
-// Returns sorted fallback entries (only populated for the "fallback" strategy).
-func (e *Executor) applyLLMRouter(cfg *domain.ChatConfig, promptStr string) []kdepsconfig.ModelEntry {
-	routerJSON := os.Getenv("KDEPS_LLM_ROUTER")
-	if routerJSON == "" {
-		return nil
-	}
-	var uc kdepsconfig.UnifiedModelsConfig
-	if err := json.Unmarshal([]byte(routerJSON), &uc); err != nil {
-		return nil
-	}
-	if uc.Strategy == "" || len(uc.Models) == 0 {
-		return nil
-	}
-	if uc.Strategy == "fallback" {
-		entries := SortedFallbackRoutes(uc.Models)
-		if len(entries) > 0 {
-			applyRoute(cfg, &entries[0])
-		}
-		return entries
-	}
-	if entry, err := NewRouter(uc.Strategy, uc.Models, e.logger).Select("", promptStr); err == nil && entry != nil {
-		applyRoute(cfg, entry)
-	}
-	return nil
-}
-
-// applyRoute copies non-empty fields from a ModelEntry onto the ChatConfig.
-func applyRoute(cfg *domain.ChatConfig, r *kdepsconfig.ModelEntry) {
-	if r.Model != "" {
-		cfg.Model = r.Model
-	}
-	if r.Backend != "" {
-		cfg.Backend = r.Backend
-	}
-	if r.BaseURL != "" {
-		cfg.BaseURL = r.BaseURL
-	}
-}
-
-// allowedModelsFromEnv parses KDEPS_LLM_MODELS into a string slice.
-// Returns nil when the env var is unset or empty.
-func allowedModelsFromEnv() []string {
-	v := os.Getenv("KDEPS_LLM_MODELS")
-	if v == "" {
-		return nil
-	}
-	return strings.Split(v, ",")
-}
-
-// resolveAllowedModel enforces the model allowlist.
-// If allowed is empty, model is returned unchanged.
-// If model is empty or not in allowed, the first element of allowed is returned.
-func resolveAllowedModel(model string, allowed []string) string {
-	if len(allowed) == 0 {
-		return model
-	}
-	for _, m := range allowed {
-		if m == model {
-			return model
-		}
-	}
-	return allowed[0]
 }

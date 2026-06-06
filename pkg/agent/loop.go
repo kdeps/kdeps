@@ -53,19 +53,20 @@ type Loop struct {
 // New creates a new Loop. cfg fields with zero values fall back to env vars and
 // then to sensible defaults (model: "llama3.2", backend: "ollama", role: "user").
 func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, cfg Config) *Loop {
+	return &Loop{
+		engine:   eng,
+		registry: reg,
+		workflow: workflow,
+		config:   applyConfigDefaults(cfg),
+	}
+}
+
+func applyConfigDefaults(cfg Config) Config {
 	if cfg.Model == "" {
-		if v := os.Getenv("KDEPS_AGENT_MODEL"); v != "" {
-			cfg.Model = v
-		} else {
-			cfg.Model = "llama3.2"
-		}
+		cfg.Model = envOrDefault("KDEPS_AGENT_MODEL", "llama3.2")
 	}
 	if cfg.Backend == "" {
-		if v := os.Getenv("KDEPS_AGENT_BACKEND"); v != "" {
-			cfg.Backend = v
-		} else {
-			cfg.Backend = "ollama"
-		}
+		cfg.Backend = envOrDefault("KDEPS_AGENT_BACKEND", "ollama")
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = os.Getenv("KDEPS_AGENT_BASE_URL")
@@ -73,19 +74,31 @@ func New(eng *executor.Engine, workflow *domain.Workflow, reg *tools.Registry, c
 	if cfg.Role == "" {
 		cfg.Role = "user"
 	}
-	return &Loop{
-		engine:   eng,
-		registry: reg,
-		workflow: workflow,
-		config:   cfg,
+	return cfg
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
+	return fallback
 }
 
 // Run executes one agent turn: the input is sent as the user prompt to a synthetic
 // single-chat-resource workflow. All registry tools are attached so the engine's
 // existing tool-call loop can dispatch them. Returns the final LLM text response.
 func (l *Loop) Run(_ context.Context, input string) (string, error) {
-	actionID := "agent_loop_chat"
+	const actionID = "agent_loop_chat"
+	single := l.buildSyntheticWorkflow(actionID, l.buildChatConfig(input))
+
+	result, err := l.engine.Execute(single, nil)
+	if err != nil {
+		return "", fmt.Errorf("agent loop: %w", err)
+	}
+	return formatLoopResult(result), nil
+}
+
+func (l *Loop) buildChatConfig(input string) *domain.ChatConfig {
 	chatCfg := &domain.ChatConfig{
 		Model:   l.config.Model,
 		Backend: l.config.Backend,
@@ -94,18 +107,17 @@ func (l *Loop) Run(_ context.Context, input string) (string, error) {
 		Prompt:  input,
 		Tools:   l.registry.ToLLMTools(),
 	}
-	if l.config.SystemPrompt != "" {
-		chatCfg.Scenario = []domain.ScenarioItem{
-			{Role: "system", Prompt: l.config.SystemPrompt},
-		}
+	if l.config.SystemPrompt == "" {
+		return chatCfg
 	}
+	chatCfg.Scenario = []domain.ScenarioItem{
+		{Role: "system", Prompt: l.config.SystemPrompt},
+	}
+	return chatCfg
+}
 
-	syntheticResource := &domain.Resource{
-		ActionID: actionID,
-		Name:     "agent_loop",
-		Chat:     chatCfg,
-	}
-	single := &domain.Workflow{
+func (l *Loop) buildSyntheticWorkflow(actionID string, chatCfg *domain.ChatConfig) *domain.Workflow {
+	return &domain.Workflow{
 		APIVersion: l.workflow.APIVersion,
 		Kind:       l.workflow.Kind,
 		Metadata: domain.WorkflowMetadata{
@@ -115,18 +127,20 @@ func (l *Loop) Run(_ context.Context, input string) (string, error) {
 		},
 		Settings:   l.workflow.Settings,
 		Components: l.workflow.Components,
-		Resources:  []*domain.Resource{syntheticResource},
+		Resources: []*domain.Resource{{
+			ActionID: actionID,
+			Name:     "agent_loop",
+			Chat:     chatCfg,
+		}},
 	}
+}
 
-	result, err := l.engine.Execute(single, nil)
-	if err != nil {
-		return "", fmt.Errorf("agent loop: %w", err)
-	}
+func formatLoopResult(result interface{}) string {
 	if result == nil {
-		return "", nil
+		return ""
 	}
 	if s, ok := result.(string); ok {
-		return s, nil
+		return s
 	}
-	return fmt.Sprintf("%v", result), nil
+	return fmt.Sprintf("%v", result)
 }

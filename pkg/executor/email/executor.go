@@ -143,6 +143,18 @@ func (e *Executor) resolveSMTPConfig(
 	return smtpConn, nil
 }
 
+// sendRequest holds evaluated SMTP send parameters.
+type sendRequest struct {
+	from, subject, body          string
+	to, cc, bcc, attachments     []string
+	smtpHost, smtpUser, smtpPass string
+	addr                         string
+	useTLS                       bool
+	insecureSkipVerify           bool
+	timeout                      time.Duration
+	html                         bool
+}
+
 func (e *Executor) executeSend(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
@@ -153,37 +165,74 @@ func (e *Executor) executeSend(
 		return nil, smtpErr
 	}
 
+	req, err := e.resolveSendRequest(ctx, cfg, smtpCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := buildMessage(
+		req.from, req.to, req.cc, req.bcc, req.subject, req.body, req.html, req.attachments,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("email executor: build message: %w", err)
+	}
+
+	if sendErr := e.deliverSMTPMessage(req, msg); sendErr != nil {
+		return nil, fmt.Errorf("email executor: send: %w", sendErr)
+	}
+
+	e.logger.Info(
+		"email sent",
+		"from", req.from,
+		"to", req.to,
+		"subject", req.subject,
+		"attachments", len(req.attachments),
+	)
+	return formatSendResult(req), nil
+}
+
+// resolveSendRequest evaluates and validates SMTP send parameters.
+func (e *Executor) resolveSendRequest(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+	smtpCfg kdepsconfig.SMTPConnectionConfig,
+) (*sendRequest, error) {
+	kdeps_debug.Log("enter: resolveSendRequest")
 	ev := e.makeEvaluator(ctx)
-	from := ev(cfg.From)
-	subject := ev(cfg.Subject)
-	body := ev(cfg.Body)
-	to := evalSlice(cfg.To, ev)
-	cc := evalSlice(cfg.CC, ev)
-	bcc := evalSlice(cfg.BCC, ev)
-	attachments := evalSlice(cfg.Attachments, ev)
+	req := &sendRequest{
+		from:               ev(cfg.From),
+		subject:            ev(cfg.Subject),
+		body:               ev(cfg.Body),
+		to:                 evalSlice(cfg.To, ev),
+		cc:                 evalSlice(cfg.CC, ev),
+		bcc:                evalSlice(cfg.BCC, ev),
+		attachments:        evalSlice(cfg.Attachments, ev),
+		smtpHost:           ev(smtpCfg.Host),
+		smtpUser:           ev(smtpCfg.Username),
+		smtpPass:           ev(smtpCfg.Password),
+		useTLS:             smtpCfg.TLS,
+		insecureSkipVerify: smtpCfg.InsecureSkipVerify,
+		timeout:            resolveTimeout(cfg),
+		html:               cfg.HTML,
+	}
 
-	smtpHost := ev(smtpCfg.Host)
-	smtpUser := ev(smtpCfg.Username)
-	smtpPass := ev(smtpCfg.Password)
-
-	if smtpHost == "" {
+	if req.smtpHost == "" {
 		return nil, errors.New("email executor: smtp host is required for send")
 	}
-	if from == "" {
+	if req.from == "" {
 		return nil, errors.New("email executor: from is required for send")
 	}
-	if len(to) == 0 {
+	if len(req.to) == 0 {
 		return nil, errors.New("email executor: at least one recipient in 'to' is required")
 	}
-	if subject == "" {
+	if req.subject == "" {
 		return nil, errors.New("email executor: subject is required for send")
 	}
 
 	if ctx != nil {
-		attachments = resolveAttachmentPaths(ctx.FSRoot, attachments)
+		req.attachments = resolveAttachmentPaths(ctx.FSRoot, req.attachments)
 	}
 
-	timeout := resolveTimeout(cfg)
 	port := smtpCfg.Port
 	if port == 0 {
 		if smtpCfg.TLS {
@@ -192,42 +241,38 @@ func (e *Executor) executeSend(
 			port = 587
 		}
 	}
+	req.addr = fmt.Sprintf("%s:%d", req.smtpHost, port)
+	return req, nil
+}
 
-	addr := fmt.Sprintf("%s:%d", smtpHost, port)
-	msg, err := buildMessage(from, to, cc, bcc, subject, body, cfg.HTML, attachments)
-	if err != nil {
-		return nil, fmt.Errorf("email executor: build message: %w", err)
+// deliverSMTPMessage sends a message via implicit TLS or STARTTLS.
+func (e *Executor) deliverSMTPMessage(req *sendRequest, msg []byte) error {
+	kdeps_debug.Log("enter: deliverSMTPMessage")
+	allRecipients := append(append(req.to, req.cc...), req.bcc...)
+	if req.useTLS {
+		return sendImplicitTLS(
+			req.addr, req.smtpHost, req.smtpUser, req.smtpPass,
+			req.from, allRecipients, msg, req.insecureSkipVerify, req.timeout,
+		)
 	}
-
-	allRecipients := append(append(to, cc...), bcc...)
-	var sendErr error
-	if smtpCfg.TLS {
-		sendErr = sendImplicitTLS(addr, smtpHost, smtpUser, smtpPass,
-			from, allRecipients, msg, smtpCfg.InsecureSkipVerify, timeout)
-	} else {
-		sendErr = sendSTARTTLS(addr, smtpHost, smtpUser, smtpPass,
-			from, allRecipients, msg, smtpCfg.InsecureSkipVerify, timeout)
-	}
-	if sendErr != nil {
-		return nil, fmt.Errorf("email executor: send: %w", sendErr)
-	}
-
-	e.logger.Info(
-		"email sent",
-		"from", from,
-		"to", to,
-		"subject", subject,
-		"attachments", len(attachments),
+	return sendSTARTTLS(
+		req.addr, req.smtpHost, req.smtpUser, req.smtpPass,
+		req.from, allRecipients, msg, req.insecureSkipVerify, req.timeout,
 	)
+}
+
+// formatSendResult builds the send action result map.
+func formatSendResult(req *sendRequest) map[string]interface{} {
+	kdeps_debug.Log("enter: formatSendResult")
 	return map[string]interface{}{
 		"success":     true,
 		"action":      "send",
-		"from":        from,
-		"to":          to,
-		"cc":          cc,
-		"subject":     subject,
-		"attachments": len(attachments),
-	}, nil
+		"from":        req.from,
+		"to":          req.to,
+		"cc":          req.cc,
+		"subject":     req.subject,
+		"attachments": len(req.attachments),
+	}
 }
 
 // --- Read ---
@@ -243,14 +288,7 @@ func (e *Executor) executeRead(
 	}
 	defer func() { _ = c.Logout().Wait() }()
 
-	mailbox := cfg.Mailbox
-	if mailbox == "" {
-		mailbox = defaultMailbox
-	}
-	limit := cfg.Limit
-	if limit <= 0 {
-		limit = defaultLimit
-	}
+	mailbox, limit := resolveMailboxSettings(cfg)
 
 	msgs, err := fetchRecent(c, mailbox, limit, cfg.MarkRead)
 	if err != nil {
@@ -258,13 +296,7 @@ func (e *Executor) executeRead(
 	}
 
 	e.logger.Info("email read", "mailbox", mailbox, "count", len(msgs))
-	return map[string]interface{}{
-		"success":  true,
-		"action":   "read",
-		"mailbox":  mailbox,
-		"count":    len(msgs),
-		"messages": msgs,
-	}, nil
+	return formatFetchResult("read", mailbox, msgs), nil
 }
 
 // --- Search ---
@@ -282,15 +314,7 @@ func (e *Executor) executeSearch(
 	}
 	defer func() { _ = c.Logout().Wait() }()
 
-	mailbox := cfg.Mailbox
-	if mailbox == "" {
-		mailbox = defaultMailbox
-	}
-	limit := cfg.Limit
-	if limit <= 0 {
-		limit = defaultLimit
-	}
-
+	mailbox, limit := resolveMailboxSettings(cfg)
 	criteria := buildSearchCriteria(cfg.Search, ev)
 
 	msgs, err := fetchBySearch(c, mailbox, limit, cfg.MarkRead, criteria)
@@ -299,13 +323,7 @@ func (e *Executor) executeSearch(
 	}
 
 	e.logger.Info("email search", "mailbox", mailbox, "count", len(msgs))
-	return map[string]interface{}{
-		"success":  true,
-		"action":   "search",
-		"mailbox":  mailbox,
-		"count":    len(msgs),
-		"messages": msgs,
-	}, nil
+	return formatFetchResult("search", mailbox, msgs), nil
 }
 
 // --- Modify ---
@@ -323,10 +341,7 @@ func (e *Executor) executeModify(
 	}
 	defer func() { _ = c.Logout().Wait() }()
 
-	mailbox := cfg.Mailbox
-	if mailbox == "" {
-		mailbox = defaultMailbox
-	}
+	mailbox := resolveMailbox(cfg)
 
 	if _, selErr := c.Select(mailbox, &imap.SelectOptions{ReadOnly: false}).Wait(); selErr != nil {
 		return nil, fmt.Errorf("email executor: modify: select %q: %w", mailbox, selErr)
@@ -337,42 +352,90 @@ func (e *Executor) executeModify(
 		return nil, err
 	}
 	if !found {
-		return map[string]interface{}{
-			"success": true,
-			"action":  "modify",
-			"mailbox": mailbox,
-			"count":   0,
-			"uids":    []uint32{},
-		}, nil
+		return formatModifyResult(mailbox, nil), nil
 	}
 
-	mod := cfg.Modify
-	applyFlagStore(c, uidSet, imap.FlagSeen, mod.MarkSeen, e.logger)
-	applyFlagStore(c, uidSet, imap.FlagFlagged, mod.MarkFlagged, e.logger)
-	applyFlagStore(c, uidSet, imap.FlagDeleted, mod.MarkDeleted, e.logger)
+	if modErr := applyModifyOperations(c, cfg.Modify, uidSet, e.logger); modErr != nil {
+		return nil, modErr
+	}
+
+	affectedUIDs := collectAffectedUIDs(uidSet)
+	e.logger.Info("email modify", "mailbox", mailbox, "count", len(affectedUIDs))
+	return formatModifyResult(mailbox, affectedUIDs), nil
+}
+
+// resolveMailbox returns the mailbox name with default fallback.
+func resolveMailbox(cfg *domain.EmailConfig) string {
+	kdeps_debug.Log("enter: resolveMailbox")
+	if cfg.Mailbox != "" {
+		return cfg.Mailbox
+	}
+	return defaultMailbox
+}
+
+// resolveMailboxSettings returns mailbox name and fetch limit with defaults.
+func resolveMailboxSettings(cfg *domain.EmailConfig) (string, int) {
+	kdeps_debug.Log("enter: resolveMailboxSettings")
+	mailbox := resolveMailbox(cfg)
+	limit := cfg.Limit
+	if limit <= 0 {
+		limit = defaultLimit
+	}
+	return mailbox, limit
+}
+
+// formatFetchResult builds the read/search action result map.
+func formatFetchResult(action, mailbox string, msgs []EmailMessage) map[string]interface{} {
+	kdeps_debug.Log("enter: formatFetchResult")
+	return map[string]interface{}{
+		"success":  true,
+		"action":   action,
+		"mailbox":  mailbox,
+		"count":    len(msgs),
+		"messages": msgs,
+	}
+}
+
+// formatModifyResult builds the modify action result map.
+func formatModifyResult(mailbox string, uids []uint32) map[string]interface{} {
+	kdeps_debug.Log("enter: formatModifyResult")
+	if uids == nil {
+		uids = []uint32{}
+	}
+	return map[string]interface{}{
+		"success": true,
+		"action":  "modify",
+		"mailbox": mailbox,
+		"count":   len(uids),
+		"uids":    uids,
+	}
+}
+
+// applyModifyOperations applies flag changes, move, and expunge for modify.
+func applyModifyOperations(
+	c *imapclient.Client,
+	mod domain.EmailModifyConfig,
+	uidSet imap.UIDSet,
+	logger *slog.Logger,
+) error {
+	kdeps_debug.Log("enter: applyModifyOperations")
+	applyFlagStore(c, uidSet, imap.FlagSeen, mod.MarkSeen, logger)
+	applyFlagStore(c, uidSet, imap.FlagFlagged, mod.MarkFlagged, logger)
+	applyFlagStore(c, uidSet, imap.FlagDeleted, mod.MarkDeleted, logger)
 
 	if mod.MoveTo != "" {
 		if _, moveErr := c.Move(uidSet, mod.MoveTo).Wait(); moveErr != nil {
-			return nil, fmt.Errorf("email executor: modify: move to %q: %w", mod.MoveTo, moveErr)
+			return fmt.Errorf("email executor: modify: move to %q: %w", mod.MoveTo, moveErr)
 		}
 	}
 
 	// Expunge only when MoveTo is not set — Move already expunges implicitly.
 	if mod.Expunge && mod.MoveTo == "" {
 		if expErr := c.Expunge().Close(); expErr != nil {
-			return nil, fmt.Errorf("email executor: modify: expunge: %w", expErr)
+			return fmt.Errorf("email executor: modify: expunge: %w", expErr)
 		}
 	}
-
-	affectedUIDs := collectAffectedUIDs(uidSet)
-	e.logger.Info("email modify", "mailbox", mailbox, "count", len(affectedUIDs))
-	return map[string]interface{}{
-		"success": true,
-		"action":  "modify",
-		"mailbox": mailbox,
-		"count":   len(affectedUIDs),
-		"uids":    affectedUIDs,
-	}, nil
+	return nil
 }
 
 // resolveModifyUIDs returns the target UID set for a modify operation.
@@ -493,20 +556,50 @@ func (e *Executor) resolveIMAPConfig(
 	return imapConn, nil
 }
 
+// imapDialParams holds evaluated IMAP connection parameters.
+type imapDialParams struct {
+	addr, host, user, pass string
+	useTLS                 bool
+	insecureSkipVerify     bool
+	timeout                time.Duration
+}
+
 func (e *Executor) dialIMAP(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (*imapclient.Client, error) {
 	kdeps_debug.Log("enter: dialIMAP")
+	params, err := e.resolveIMAPDialParams(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := openIMAPClient(params)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.user != "" {
+		if loginErr := loginIMAPClient(c, params.user, params.pass); loginErr != nil {
+			return nil, loginErr
+		}
+	}
+
+	return c, nil
+}
+
+// resolveIMAPDialParams evaluates and validates IMAP connection parameters.
+func (e *Executor) resolveIMAPDialParams(
+	ctx *executor.ExecutionContext,
+	cfg *domain.EmailConfig,
+) (*imapDialParams, error) {
+	kdeps_debug.Log("enter: resolveIMAPDialParams")
 	imapCfg, imapErr := e.resolveIMAPConfig(ctx, cfg)
 	if imapErr != nil {
 		return nil, imapErr
 	}
 	ev := e.makeEvaluator(ctx)
 	host := ev(imapCfg.Host)
-	user := ev(imapCfg.Username)
-	pass := ev(imapCfg.Password)
-
 	if host == "" {
 		return nil, errors.New("email executor: imap host is required for read/search")
 	}
@@ -521,37 +614,51 @@ func (e *Executor) dialIMAP(
 		}
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	return &imapDialParams{
+		addr:               fmt.Sprintf("%s:%d", host, port),
+		host:               host,
+		user:               ev(imapCfg.Username),
+		pass:               ev(imapCfg.Password),
+		useTLS:             useTLS,
+		insecureSkipVerify: imapCfg.InsecureSkipVerify,
+		timeout:            resolveTimeout(cfg),
+	}, nil
+}
+
+// openIMAPClient establishes a TLS or plain TCP IMAP connection.
+func openIMAPClient(params *imapDialParams) (*imapclient.Client, error) {
+	kdeps_debug.Log("enter: openIMAPClient")
 	tlsCfg := &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: imapCfg.InsecureSkipVerify, //nolint:gosec // user-controlled opt-in
+		ServerName:         params.host,
+		InsecureSkipVerify: params.insecureSkipVerify, //nolint:gosec // user-controlled opt-in
 	}
-	timeout := resolveTimeout(cfg)
 	opts := &imapclient.Options{TLSConfig: tlsCfg}
 
-	var c *imapclient.Client
-	var err error
-	if useTLS {
-		c, err = imapclient.DialTLS(addr, opts)
-	} else {
-		conn, dialErr := (&net.Dialer{Timeout: timeout}).DialContext(context.Background(), "tcp", addr)
-		if dialErr != nil {
-			return nil, fmt.Errorf("email executor: imap dial %s: %w", addr, dialErr)
+	if params.useTLS {
+		c, err := imapclient.DialTLS(params.addr, opts)
+		if err != nil {
+			return nil, fmt.Errorf("email executor: imap connect %s: %w", params.addr, err)
 		}
-		c = imapclient.New(conn, opts)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("email executor: imap connect %s: %w", addr, err)
+		return c, nil
 	}
 
-	if user != "" {
-		if loginErr := c.Login(user, pass).Wait(); loginErr != nil {
-			_ = c.Logout().Wait()
-			return nil, fmt.Errorf("email executor: imap login: %w", loginErr)
-		}
+	conn, dialErr := (&net.Dialer{Timeout: params.timeout}).DialContext(
+		context.Background(), "tcp", params.addr,
+	)
+	if dialErr != nil {
+		return nil, fmt.Errorf("email executor: imap dial %s: %w", params.addr, dialErr)
 	}
+	return imapclient.New(conn, opts), nil
+}
 
-	return c, nil
+// loginIMAPClient authenticates to an IMAP server.
+func loginIMAPClient(c *imapclient.Client, user, pass string) error {
+	kdeps_debug.Log("enter: loginIMAPClient")
+	if loginErr := c.Login(user, pass).Wait(); loginErr != nil {
+		_ = c.Logout().Wait()
+		return fmt.Errorf("email executor: imap login: %w", loginErr)
+	}
+	return nil
 }
 
 // EmailMessage is a serialisable representation of a fetched IMAP message.
@@ -955,43 +1062,66 @@ func writeAttachmentPart(mw *multipart.Writer, path string) error {
 func buildMessage(from string, to, cc, bcc []string, subject, body string,
 	isHTML bool, attachments []string) ([]byte, error) {
 	kdeps_debug.Log("enter: buildMessage")
-	if err := sanitizeHeader("From", from); err != nil {
-		return nil, err
-	}
-	if err := sanitizeHeader("Subject", subject); err != nil {
-		return nil, err
-	}
-	if err := sanitizeAddressSlice(to); err != nil {
-		return nil, err
-	}
-	if err := sanitizeAddressSlice(cc); err != nil {
-		return nil, err
-	}
-	if err := sanitizeAddressSlice(bcc); err != nil {
+	if err := validateMessageHeaders(from, subject, to, cc, bcc); err != nil {
 		return nil, err
 	}
 
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "From: %s\r\n", from)
-	fmt.Fprintf(&buf, "To: %s\r\n", strings.Join(to, ", "))
-	if len(cc) > 0 {
-		fmt.Fprintf(&buf, "Cc: %s\r\n", strings.Join(cc, ", "))
-	}
-	fmt.Fprintf(&buf, "Subject: %s\r\n", subject)
-	fmt.Fprintf(&buf, "MIME-Version: 1.0\r\n")
+	writeMessageHeaders(&buf, from, to, cc, subject)
 
 	if len(attachments) == 0 {
-		if isHTML {
-			fmt.Fprintf(&buf, "Content-Type: text/html; charset=UTF-8\r\n")
-		} else {
-			fmt.Fprintf(&buf, "Content-Type: text/plain; charset=UTF-8\r\n")
-		}
-		fmt.Fprintf(&buf, "\r\n%s", body)
+		writeSimpleBody(&buf, body, isHTML)
 		return buf.Bytes(), nil
 	}
 
-	mw := multipart.NewWriter(&buf)
-	fmt.Fprintf(&buf, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", mw.Boundary())
+	if err := writeMultipartBody(&buf, body, isHTML, attachments); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func validateMessageHeaders(from, subject string, to, cc, bcc []string) error {
+	kdeps_debug.Log("enter: validateMessageHeaders")
+	if err := sanitizeHeader("From", from); err != nil {
+		return err
+	}
+	if err := sanitizeHeader("Subject", subject); err != nil {
+		return err
+	}
+	if err := sanitizeAddressSlice(to); err != nil {
+		return err
+	}
+	if err := sanitizeAddressSlice(cc); err != nil {
+		return err
+	}
+	return sanitizeAddressSlice(bcc)
+}
+
+func writeMessageHeaders(buf *bytes.Buffer, from string, to, cc []string, subject string) {
+	kdeps_debug.Log("enter: writeMessageHeaders")
+	fmt.Fprintf(buf, "From: %s\r\n", from)
+	fmt.Fprintf(buf, "To: %s\r\n", strings.Join(to, ", "))
+	if len(cc) > 0 {
+		fmt.Fprintf(buf, "Cc: %s\r\n", strings.Join(cc, ", "))
+	}
+	fmt.Fprintf(buf, "Subject: %s\r\n", subject)
+	fmt.Fprintf(buf, "MIME-Version: 1.0\r\n")
+}
+
+func writeSimpleBody(buf *bytes.Buffer, body string, isHTML bool) {
+	kdeps_debug.Log("enter: writeSimpleBody")
+	if isHTML {
+		fmt.Fprintf(buf, "Content-Type: text/html; charset=UTF-8\r\n")
+	} else {
+		fmt.Fprintf(buf, "Content-Type: text/plain; charset=UTF-8\r\n")
+	}
+	fmt.Fprintf(buf, "\r\n%s", body)
+}
+
+func writeMultipartBody(buf *bytes.Buffer, body string, isHTML bool, attachments []string) error {
+	kdeps_debug.Log("enter: writeMultipartBody")
+	mw := multipart.NewWriter(buf)
+	fmt.Fprintf(buf, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", mw.Boundary())
 
 	bodyHeaders := textproto.MIMEHeader{}
 	if isHTML {
@@ -1001,10 +1131,10 @@ func buildMessage(from string, to, cc, bcc []string, subject, body string,
 	}
 	bodyPart, err := mw.CreatePart(bodyHeaders)
 	if err != nil {
-		return nil, fmt.Errorf("create body part: %w", err)
+		return fmt.Errorf("create body part: %w", err)
 	}
 	if _, err = bodyPart.Write([]byte(body)); err != nil {
-		return nil, fmt.Errorf("write body part: %w", err)
+		return fmt.Errorf("write body part: %w", err)
 	}
 
 	for _, path := range attachments {
@@ -1012,14 +1142,14 @@ func buildMessage(from string, to, cc, bcc []string, subject, body string,
 			continue
 		}
 		if err = writeAttachmentPart(mw, path); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	if err = mw.Close(); err != nil {
-		return nil, fmt.Errorf("close multipart writer: %w", err)
+		return fmt.Errorf("close multipart writer: %w", err)
 	}
-	return buf.Bytes(), nil
+	return nil
 }
 
 // --- Expression evaluation helpers ---

@@ -102,8 +102,10 @@ func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
 	if handler, found := methodRoutes[path]; found {
 		return handler
 	}
-	// Prefer the most specific (longest) matching pattern so that
-	// "/files/*" beats "/*" for a request to "/files/foo.pdf".
+	return r.findPatternHandler(methodRoutes, path)
+}
+
+func (r *Router) findPatternHandler(methodRoutes map[string]stdhttp.HandlerFunc, path string) stdhttp.HandlerFunc {
 	var bestPattern string
 	var bestHandler stdhttp.HandlerFunc
 	for pattern, h := range methodRoutes {
@@ -115,26 +117,41 @@ func (r *Router) findHandler(method, path string) stdhttp.HandlerFunc {
 	return bestHandler
 }
 
+func (r *Router) dispatch(w stdhttp.ResponseWriter, req *stdhttp.Request) {
+	if handler := r.findHandler(req.Method, req.URL.Path); handler != nil {
+		handler(w, req)
+		return
+	}
+
+	if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
+		w.Header().Set("Allow", strings.Join(allowed, ", "))
+		stdhttp.Error(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
+		return
+	}
+
+	stdhttp.NotFound(w, req)
+}
+
 // ServeHTTP implements stdhttp.Handler.
 func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 	kdeps_debug.Log("enter: ServeHTTP")
-	routeHandler := func(w stdhttp.ResponseWriter, req *stdhttp.Request) {
-		if handler := r.findHandler(req.Method, req.URL.Path); handler != nil {
-			handler(w, req)
-			return
-		}
-		// No handler found for this method — check if the path is registered
-		// under any other method and return 405 instead of 404.
-		if allowed := r.allowedMethods(req.URL.Path); len(allowed) > 0 {
-			w.Header().Set("Allow", strings.Join(allowed, ", "))
-			stdhttp.Error(w, "Method Not Allowed", stdhttp.StatusMethodNotAllowed)
-			return
-		}
-		stdhttp.NotFound(w, req)
-	}
+	r.ApplyMiddleware(r.dispatch)(w, req)
+}
 
-	// Apply middleware to ALL requests (including OPTIONS for CORS)
-	r.ApplyMiddleware(routeHandler)(w, req)
+func (r *Router) pathRegisteredForMethod(method, path string) bool {
+	routes, ok := r.Routes[method]
+	if !ok {
+		return false
+	}
+	if _, found := routes[path]; found {
+		return true
+	}
+	for pattern := range routes {
+		if r.MatchPattern(pattern, path) {
+			return true
+		}
+	}
+	return false
 }
 
 // allowedMethods returns all HTTP methods registered for the given path.
@@ -142,51 +159,42 @@ func (r *Router) ServeHTTP(w stdhttp.ResponseWriter, req *stdhttp.Request) {
 func (r *Router) allowedMethods(path string) []string {
 	kdeps_debug.Log("enter: allowedMethods")
 	var allowed []string
-	for method, routes := range r.Routes {
-		if _, ok := routes[path]; ok {
+	for method := range r.Routes {
+		if r.pathRegisteredForMethod(method, path) {
 			allowed = append(allowed, method)
-			continue
-		}
-		for pattern := range routes {
-			if r.MatchPattern(pattern, path) {
-				allowed = append(allowed, method)
-				break
-			}
 		}
 	}
 	return allowed
 }
 
+func patternPartMatches(patternPart, pathPart string) bool {
+	if strings.HasPrefix(patternPart, ":") {
+		return true
+	}
+	if patternPart == "*" {
+		return true
+	}
+	return patternPart == pathPart
+}
+
 // MatchPattern matches a route pattern against a path.
 func (r *Router) MatchPattern(pattern, path string) bool {
 	kdeps_debug.Log("enter: MatchPattern")
-	// Simple pattern matching - supports :param and * wildcard (prefix match)
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
 
-	// Check if pattern ends with wildcard (*), which matches any number of segments
 	if len(patternParts) > 0 && patternParts[len(patternParts)-1] == "*" {
-		// Remove wildcard for comparison
 		patternParts = patternParts[:len(patternParts)-1]
-		// Path must have at least as many parts as pattern (excluding wildcard)
 		if len(pathParts) < len(patternParts) {
 			return false
 		}
-		// Only compare the non-wildcard parts
 		pathParts = pathParts[:len(patternParts)]
 	} else if len(patternParts) != len(pathParts) {
-		// Exact length match required if no wildcard
 		return false
 	}
 
 	for i, part := range patternParts {
-		if strings.HasPrefix(part, ":") {
-			continue // Parameter match
-		}
-		if part == "*" {
-			continue // Wildcard in middle matches any single segment
-		}
-		if part != pathParts[i] {
+		if !patternPartMatches(part, pathParts[i]) {
 			return false
 		}
 	}

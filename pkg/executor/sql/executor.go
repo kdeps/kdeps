@@ -64,8 +64,6 @@ func NewExecutor() *Executor {
 }
 
 // Execute executes a SQL resource.
-//
-//nolint:gocognit // SQL execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.SQLConfig,
@@ -73,10 +71,35 @@ func (e *Executor) Execute(
 	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	// Create a copy of config to store evaluated values
+	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
+	db, connErrResult, err := e.prepareDatabase(ctx, resolvedConfig)
+	if err != nil {
+		return nil, err
+	}
+	if connErrResult != nil {
+		return connErrResult, nil
+	}
+
+	if resolvedConfig.Transaction {
+		return e.executeTransaction(ctx, evaluator, db, resolvedConfig)
+	}
+
+	return e.executeQuery(ctx, evaluator, db, resolvedConfig)
+}
+
+// resolveConfig evaluates dynamic fields in SQL configuration.
+func (e *Executor) resolveConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.SQLConfig,
+) (*domain.SQLConfig, error) {
+	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
-	// Evaluate TimeoutDuration if it contains expression syntax
 	if config.Timeout != "" {
 		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Timeout)
 		if err != nil {
@@ -85,7 +108,6 @@ func (e *Executor) Execute(
 		resolvedConfig.Timeout = timeoutStr
 	}
 
-	// Evaluate pool settings if present
 	if config.Pool != nil {
 		poolConfig, err := e.resolvePoolConfig(evaluator, ctx, config.Pool)
 		if err != nil {
@@ -94,7 +116,6 @@ func (e *Executor) Execute(
 		resolvedConfig.Pool = poolConfig
 	}
 
-	// Evaluate Format if it contains expression syntax
 	if config.Format != "" {
 		format, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Format)
 		if err != nil {
@@ -103,22 +124,15 @@ func (e *Executor) Execute(
 		resolvedConfig.Format = format
 	}
 
-	// Get connection string
-	connectionStr, err := e.GetConnectionString(ctx, &resolvedConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection string: %w", err)
-	}
+	e.applyMaxRowsDefault(&resolvedConfig)
 
-	// Get or create database connection
-	db, err := e.getConnection(connectionStr, resolvedConfig.Pool)
-	if err != nil {
-		// Return connection error as result data instead of Go error
-		return map[string]interface{}{
-			"error": fmt.Sprintf("failed to get database connection: %v", err),
-		}, nil
-	}
+	return &resolvedConfig, nil
+}
 
-	// Parse timeout: resource > KDEPS_SQL_TIMEOUT > DefaultSQLTimeout
+// resolveTimeout returns the SQL timeout with cascading resolution:
+// resource config > KDEPS_SQL_TIMEOUT env > embedded default.
+func (e *Executor) resolveTimeout(config *domain.SQLConfig) time.Duration {
+	kdeps_debug.Log("enter: resolveTimeout")
 	defaults, _ := kdepsconfig.GetDefaults()
 	timeout := defaults.SQL.TimeoutDuration()
 	if v := os.Getenv("KDEPS_SQL_TIMEOUT"); v != "" {
@@ -126,30 +140,49 @@ func (e *Executor) Execute(
 			timeout = parsedTimeout
 		}
 	}
-	if resolvedConfig.Timeout != "" {
-		if parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.Timeout); timeoutErr == nil {
+	if config.Timeout != "" {
+		if parsedTimeout, timeoutErr := time.ParseDuration(config.Timeout); timeoutErr == nil {
 			timeout = parsedTimeout
 		}
 	}
+	return timeout
+}
 
-	// Apply KDEPS_SQL_MAX_ROWS global default if not set on the resource
-	if resolvedConfig.MaxRows == 0 {
-		if v := os.Getenv("KDEPS_SQL_MAX_ROWS"); v != "" {
-			if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
-				resolvedConfig.MaxRows = n
-			}
+// applyMaxRowsDefault applies KDEPS_SQL_MAX_ROWS when the resource does not set MaxRows.
+func (e *Executor) applyMaxRowsDefault(config *domain.SQLConfig) {
+	kdeps_debug.Log("enter: applyMaxRowsDefault")
+	if config.MaxRows != 0 {
+		return
+	}
+	if v := os.Getenv("KDEPS_SQL_MAX_ROWS"); v != "" {
+		if n, parseErr := strconv.Atoi(v); parseErr == nil && n > 0 {
+			config.MaxRows = n
 		}
 	}
+}
 
-	// Set connection timeout
-	db.SetConnMaxLifetime(timeout)
-
-	// Execute queries
-	if resolvedConfig.Transaction {
-		return e.executeTransaction(ctx, evaluator, db, &resolvedConfig)
+// prepareDatabase resolves the connection string, opens the pool, and applies timeout settings.
+// Connection failures are returned as result data (second return) with a nil Go error.
+func (e *Executor) prepareDatabase(
+	ctx *executor.ExecutionContext,
+	config *domain.SQLConfig,
+) (*sql.DB, interface{}, error) {
+	kdeps_debug.Log("enter: prepareDatabase")
+	connectionStr, err := e.GetConnectionString(ctx, config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get connection string: %w", err)
 	}
 
-	return e.executeQuery(ctx, evaluator, db, &resolvedConfig)
+	db, err := e.getConnection(connectionStr, config.Pool)
+	if err != nil {
+		return nil, map[string]interface{}{
+			"error": fmt.Sprintf("failed to get database connection: %v", err),
+		}, nil
+	}
+
+	db.SetConnMaxLifetime(e.resolveTimeout(config))
+
+	return db, nil, nil
 }
 
 // resolvePoolConfig evaluates dynamic fields in SQL pool configuration.

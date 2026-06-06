@@ -83,18 +83,10 @@ func Run(
 		return RunWithIO(ctx, workflow, engine, logger, os.Stdin, os.Stdout)
 	}
 
-	cfg := llmConfig(workflow)
-	prompt := cfg.Prompt
-	if prompt == "" {
-		prompt = defaultPrompt
-	}
-	sessionID := cfg.SessionID
-	if sessionID == "" {
-		sessionID = defaultSessionID
-	}
+	settings := resolveREPLSettings(workflow)
 
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          prompt,
+		Prompt:          settings.prompt,
 		HistoryLimit:    replHistoryLimit,
 		InterruptPrompt: "^C",
 		EOFPrompt:       "exit",
@@ -114,7 +106,7 @@ func Run(
 		default:
 		}
 
-		done, stepErr = readlineStep(rl, workflow, engine, sessionID)
+		done, stepErr = readlineStep(rl, workflow, engine, settings.sessionID)
 		if stepErr != nil {
 			return stepErr
 		}
@@ -154,21 +146,64 @@ func readlineStep(
 		return false, fmt.Errorf("llm repl: read: %w", rlErr)
 	}
 
+	return processREPLLine(os.Stdout, workflow, engine, sessionID, line)
+}
+
+type replSettings struct {
+	prompt    string
+	sessionID string
+}
+
+func resolveREPLSettings(workflow *domain.Workflow) replSettings {
+	cfg := llmConfig(workflow)
+	prompt := cfg.Prompt
+	if prompt == "" {
+		prompt = defaultPrompt
+	}
+	sessionID := cfg.SessionID
+	if sessionID == "" {
+		sessionID = defaultSessionID
+	}
+	return replSettings{prompt: prompt, sessionID: sessionID}
+}
+
+func isQuitCommand(line string) bool {
+	return line == "/quit" || line == "/exit"
+}
+
+func processREPLLine(
+	w io.Writer,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	sessionID string,
+	line string,
+) (bool, error) {
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return false, nil
 	}
-	if line == "/quit" || line == "/exit" {
-		fmt.Fprintln(os.Stdout, "Goodbye!")
+	if isQuitCommand(line) {
+		fmt.Fprintln(w, "Goodbye!")
 		return true, nil
 	}
 
 	if strings.HasPrefix(line, "/") {
-		if handled := dispatchCommand(os.Stdout, workflow, engine, sessionID, line); handled {
+		if handled := dispatchCommand(w, workflow, engine, sessionID, line); handled {
 			return false, nil
 		}
 	}
 
+	executeLLMMessage(w, workflow, engine, sessionID, line)
+	return false, nil
+}
+
+func executeLLMMessage(
+	w io.Writer,
+	workflow *domain.Workflow,
+	engine *executor.Engine,
+	sessionID string,
+	line string,
+) {
 	req := &executor.RequestContext{
 		Method:    "POST",
 		Path:      "/llm",
@@ -180,12 +215,10 @@ func readlineStep(
 
 	result, execErr := engine.Execute(workflow, req)
 	if execErr != nil {
-		fmt.Fprintf(os.Stdout, "Error: %v\n", execErr)
-		return false, nil
+		fmt.Fprintf(w, "Error: %v\n", execErr)
+		return
 	}
-
-	fmt.Fprintln(os.Stdout, formatResult(result))
-	return false, nil
+	fmt.Fprintln(w, formatResult(result))
 }
 
 // RunWithIO is the testable core: it reads from r and writes to w instead of
@@ -200,19 +233,11 @@ func RunWithIO(
 ) error {
 	kdeps_debug.Log("enter: llm.RunWithIO")
 
-	cfg := llmConfig(workflow)
-	prompt := cfg.Prompt
-	if prompt == "" {
-		prompt = defaultPrompt
-	}
-	sessionID := cfg.SessionID
-	if sessionID == "" {
-		sessionID = defaultSessionID
-	}
+	settings := resolveREPLSettings(workflow)
 
 	scanner := bufio.NewScanner(r)
 	for {
-		fmt.Fprint(w, prompt)
+		fmt.Fprint(w, settings.prompt)
 
 		if !scanner.Scan() {
 			// EOF or read error.
@@ -224,39 +249,13 @@ func RunWithIO(
 			return nil
 		}
 
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
+		done, err := processREPLLine(w, workflow, engine, settings.sessionID, scanner.Text())
+		if err != nil {
+			return err
 		}
-		if line == "/quit" || line == "/exit" {
-			fmt.Fprintln(w, "Goodbye!")
+		if done {
 			return nil
 		}
-
-		// Slash commands bypass the LLM and invoke resources/tools/components directly.
-		if strings.HasPrefix(line, "/") {
-			if handled := dispatchCommand(w, workflow, engine, sessionID, line); handled {
-				continue
-			}
-			// Unknown command — fall through to the LLM so the model can interpret it.
-		}
-
-		req := &executor.RequestContext{
-			Method:    "POST",
-			Path:      "/llm",
-			SessionID: sessionID,
-			Body: map[string]interface{}{
-				"message": line,
-			},
-		}
-
-		result, err := engine.Execute(workflow, req)
-		if err != nil {
-			fmt.Fprintf(w, "Error: %v\n", err)
-			continue
-		}
-
-		fmt.Fprintln(w, formatResult(result))
 	}
 }
 

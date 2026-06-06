@@ -66,6 +66,25 @@ func NewSessionStorageWithTTL(
 	}, nil
 }
 
+func expiresAtMillis(ttl time.Duration) int64 {
+	if ttl <= 0 {
+		return 0
+	}
+	return time.Now().Add(ttl).UnixMilli()
+}
+
+func isEntryExpired(entry sessionEntry, nowMillis int64) bool {
+	return entry.expiresAt > 0 && nowMillis > entry.expiresAt
+}
+
+func decodeStoredValue(raw string) (interface{}, bool) {
+	var value interface{}
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return raw, true
+	}
+	return value, true
+}
+
 // Get retrieves a value from session storage.
 func (s *SessionStorage) Get(key string) (interface{}, bool) {
 	kdeps_debug.Log("enter: Get")
@@ -77,27 +96,18 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 		return nil, false
 	}
 
-	// Check expiration
-	if entry.expiresAt > 0 && time.Now().UnixMilli() > entry.expiresAt {
-		// Expired - clean up
+	if isEntryExpired(entry, time.Now().UnixMilli()) {
 		s.mu.Lock()
 		delete(s.data, key)
 		s.mu.Unlock()
 		return nil, false
 	}
 
-	// Extend TTL on access
 	if s.DefaultTTL > 0 {
 		_ = s.Touch(key)
 	}
 
-	// Try to unmarshal as JSON
-	var value interface{}
-	if err := json.Unmarshal([]byte(entry.value), &value); err != nil {
-		return entry.value, true
-	}
-
-	return value, true
+	return decodeStoredValue(entry.value)
 }
 
 // Set stores a value in session storage.
@@ -117,14 +127,9 @@ func (s *SessionStorage) SetWithTTL(key string, value interface{}, ttl time.Dura
 		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	var expiresAt int64
-	if ttl > 0 {
-		expiresAt = time.Now().Add(ttl).UnixMilli()
-	}
-
 	s.data[key] = sessionEntry{
 		value:     string(valueBytes),
-		expiresAt: expiresAt,
+		expiresAt: expiresAtMillis(ttl),
 	}
 	return nil
 }
@@ -147,7 +152,7 @@ func (s *SessionStorage) TouchWithTTL(key string, ttl time.Duration) error {
 	}
 
 	if ttl > 0 {
-		entry.expiresAt = time.Now().Add(ttl).UnixMilli()
+		entry.expiresAt = expiresAtMillis(ttl)
 	}
 	s.data[key] = entry
 	return nil
@@ -201,17 +206,11 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 
 	for key, entry := range s.data {
-		// Skip expired entries
-		if entry.expiresAt > 0 && now > entry.expiresAt {
+		if isEntryExpired(entry, now) {
 			continue
 		}
-
-		var value interface{}
-		if err := json.Unmarshal([]byte(entry.value), &value); err != nil {
-			result[key] = entry.value
-		} else {
-			result[key] = value
-		}
+		value, _ := decodeStoredValue(entry.value)
+		result[key] = value
 	}
 
 	return result, nil

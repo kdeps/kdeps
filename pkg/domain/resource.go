@@ -142,13 +142,12 @@ type actionConfigAlias ActionConfig
 // UnmarshalYAML implements yaml.Unmarshaler for ActionConfig.
 // Scalars are treated as expression steps; mappings are parsed as action configs.
 func (a *ActionConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	// Try scalar first (expression step).
 	var raw string
 	if err := unmarshal(&raw); err == nil {
 		a.Expr = raw
 		return nil
 	}
-	// Fall back to normal struct unmarshaling.
+
 	var alias actionConfigAlias
 	if err := unmarshal(&alias); err != nil {
 		return err

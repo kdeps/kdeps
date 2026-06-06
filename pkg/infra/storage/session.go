@@ -60,31 +60,27 @@ func NewSessionStorage(dbPath string, sessionID string) (*SessionStorage, error)
 	return NewSessionStorageWithTTL(dbPath, sessionID, 30*time.Minute)
 }
 
-// NewSessionStorageWithTTL creates a new session storage with TTL.
-func NewSessionStorageWithTTL(
-	dbPath string,
-	sessionID string,
-	defaultTTL time.Duration,
-) (*SessionStorage, error) {
-	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
+func normalizeSessionDBPath(dbPath string) string {
 	if dbPath == "" {
-		// Empty path means in-memory SQLite (unique per connection, safe for tests
-		// and memory-only session config).
-		dbPath = sqliteMemoryDSN
+		return sqliteMemoryDSN
 	}
+	return dbPath
+}
 
+func normalizeSessionID(sessionID string) string {
 	if sessionID == "" {
-		sessionID = fmt.Sprintf("session-%d", time.Now().UnixNano())
+		return fmt.Sprintf("session-%d", time.Now().UnixNano())
 	}
+	return sessionID
+}
 
-	// Create directory if needed
+func openSessionDatabase(dbPath string) (*sql.DB, error) {
 	if dbPath != sqliteMemoryDSN {
 		if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
 			return nil, fmt.Errorf("failed to create directory: %w", err)
 		}
 	}
 
-	// Open database. In-memory SQLite does not support WAL mode.
 	dsn := dbPath
 	if dbPath != sqliteMemoryDSN {
 		dsn = dbPath + "?_journal_mode=WAL"
@@ -92,6 +88,70 @@ func NewSessionStorageWithTTL(
 	db, err := sqlOpen("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+	return db, nil
+}
+
+func migrateSessionsSchema(db *sql.DB) error {
+	var expiresAtCount int
+	err := db.QueryRowContext(
+		context.Background(),
+		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='expires_at'`,
+	).Scan(&expiresAtCount)
+	if err == nil && expiresAtCount == 0 {
+		_, _ = db.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN expires_at INTEGER`)
+	}
+
+	var accessedAtCount int
+	err = db.QueryRowContext(
+		context.Background(),
+		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='accessed_at'`,
+	).Scan(&accessedAtCount)
+	if err == nil && accessedAtCount == 0 {
+		_, _ = db.ExecContext(context.Background(), `ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`)
+		_, _ = db.ExecContext(
+			context.Background(),
+			`UPDATE sessions SET accessed_at = created_at WHERE accessed_at IS NULL`,
+		)
+	}
+	return nil
+}
+
+func createSessionsIndexes(db *sql.DB) error {
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at);`,
+	}
+	for _, idx := range indexes {
+		if _, execErr := db.ExecContext(context.Background(), idx); execErr != nil {
+			return fmt.Errorf("failed to create index: %w", execErr)
+		}
+	}
+	return nil
+}
+
+func decodeStoredValue(valueStr string) interface{} {
+	var value interface{}
+	if err := json.Unmarshal([]byte(valueStr), &value); err != nil {
+		return valueStr
+	}
+	return value
+}
+
+// NewSessionStorageWithTTL creates a new session storage with TTL.
+func NewSessionStorageWithTTL(
+	dbPath string,
+	sessionID string,
+	defaultTTL time.Duration,
+) (*SessionStorage, error) {
+	kdeps_debug.Log("enter: NewSessionStorageWithTTL")
+	dbPath = normalizeSessionDBPath(dbPath)
+	sessionID = normalizeSessionID(sessionID)
+
+	db, err := openSessionDatabase(dbPath)
+	if err != nil {
+		return nil, err
 	}
 
 	storage := &SessionStorage{
@@ -103,12 +163,10 @@ func NewSessionStorageWithTTL(
 		ctx:             context.Background(),
 	}
 
-	// Initialize schema
 	if initErr := storage.initSchema(); initErr != nil {
 		return nil, fmt.Errorf("failed to initialize schema: %w", initErr)
 	}
 
-	// Cleanup old sessions
 	go storage.cleanup()
 
 	return storage, nil
@@ -117,7 +175,6 @@ func NewSessionStorageWithTTL(
 // initSchema initializes the database schema.
 func (s *SessionStorage) initSchema() error {
 	kdeps_debug.Log("enter: initSchema")
-	// Create sessions table with all columns
 	createTable := `
 	CREATE TABLE IF NOT EXISTS sessions (
 		session_id TEXT NOT NULL,
@@ -133,52 +190,11 @@ func (s *SessionStorage) initSchema() error {
 		return fmt.Errorf("failed to create sessions table: %w", err)
 	}
 
-	// Migrate existing tables: Add expires_at and accessed_at if they don't exist
-	// This must happen BEFORE creating indexes
-	// Check if expires_at column exists
-	var expiresAtCount int
-	err := s.DB.QueryRowContext(
-		context.Background(),
-		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='expires_at'`,
-	).Scan(&expiresAtCount)
-	if err == nil && expiresAtCount == 0 {
-		_, _ = s.DB.ExecContext(
-			context.Background(),
-			`ALTER TABLE sessions ADD COLUMN expires_at INTEGER`,
-		)
+	if err := migrateSessionsSchema(s.DB); err != nil {
+		return err
 	}
 
-	// Check if accessed_at column exists
-	var accessedAtCount int
-	err = s.DB.QueryRowContext(
-		context.Background(),
-		`SELECT COUNT(*) FROM pragma_table_info('sessions') WHERE name='accessed_at'`,
-	).Scan(&accessedAtCount)
-	if err == nil && accessedAtCount == 0 {
-		_, _ = s.DB.ExecContext(
-			context.Background(),
-			`ALTER TABLE sessions ADD COLUMN accessed_at INTEGER`,
-		)
-		// Update existing rows
-		_, _ = s.DB.ExecContext(
-			context.Background(),
-			`UPDATE sessions SET accessed_at = created_at WHERE accessed_at IS NULL`,
-		)
-	}
-
-	// Add indexes (after migrations to ensure columns exist)
-	indexes := []string{
-		`CREATE INDEX IF NOT EXISTS idx_sessions_session_id ON sessions(session_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);`,
-		`CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at);`,
-	}
-	for _, idx := range indexes {
-		if _, execErr := s.DB.ExecContext(context.Background(), idx); execErr != nil {
-			return fmt.Errorf("failed to create index: %w", execErr)
-		}
-	}
-
-	return nil
+	return createSessionsIndexes(s.DB)
 }
 
 // cleanup removes expired sessions.
@@ -234,14 +250,7 @@ func (s *SessionStorage) Get(key string) (interface{}, bool) {
 		_ = s.Touch(key) // Touch synchronously to extend TTL
 	}
 
-	// Try to unmarshal as JSON
-	var value interface{}
-	if unmarshalErr := json.Unmarshal([]byte(valueStr), &value); unmarshalErr != nil {
-		// If not JSON, return as string
-		return valueStr, true
-	}
-
-	return value, true
+	return decodeStoredValue(valueStr), true
 }
 
 // Set stores a value in session storage.
@@ -406,14 +415,7 @@ func (s *SessionStorage) GetAll() (map[string]interface{}, error) {
 			return nil, fmt.Errorf("failed to scan row: %w", scanErr)
 		}
 
-		// Try to unmarshal as JSON
-		var value interface{}
-		if unmarshalErr := json.Unmarshal([]byte(valueStr), &value); unmarshalErr != nil {
-			// If not JSON, store as string
-			result[key] = valueStr
-		} else {
-			result[key] = value
-		}
+		result[key] = decodeStoredValue(valueStr)
 	}
 
 	if rowsErr := rows.Err(); rowsErr != nil {

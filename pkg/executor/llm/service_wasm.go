@@ -40,6 +40,11 @@ type ModelServiceInterface interface {
 	ServeModel(backend, model string, host string, port int) error
 }
 
+func ollamaUnsupported(op string) error {
+	kdeps_debug.Log("enter: " + op)
+	return ErrOllamaNotSupported
+}
+
 // ModelService is a no-op stub for WASM builds.
 type ModelService struct{}
 
@@ -51,14 +56,12 @@ func NewModelService(_ *slog.Logger) *ModelService {
 
 // DownloadModel returns an error since Ollama is not available in WASM.
 func (s *ModelService) DownloadModel(_, _ string) error {
-	kdeps_debug.Log("enter: DownloadModel")
-	return ErrOllamaNotSupported
+	return ollamaUnsupported("DownloadModel")
 }
 
 // ServeModel returns an error since Ollama is not available in WASM.
 func (s *ModelService) ServeModel(_, _ string, _ string, _ int) error {
-	kdeps_debug.Log("enter: ServeModel")
-	return ErrOllamaNotSupported
+	return ollamaUnsupported("ServeModel")
 }
 
 // MockModelService is a no-op mock for WASM builds.
@@ -66,14 +69,12 @@ type MockModelService struct{}
 
 // DownloadModel is a no-op for WASM.
 func (m *MockModelService) DownloadModel(_, _ string) error {
-	kdeps_debug.Log("enter: DownloadModel")
-	return ErrOllamaNotSupported
+	return ollamaUnsupported("DownloadModel")
 }
 
 // ServeModel is a no-op for WASM.
 func (m *MockModelService) ServeModel(_, _ string, _ string, _ int) error {
-	kdeps_debug.Log("enter: ServeModel")
-	return ErrOllamaNotSupported
+	return ollamaUnsupported("ServeModel")
 }
 
 // ModelManager is a no-op stub for WASM builds.
@@ -113,12 +114,14 @@ type Adapter struct {
 	executor *Executor
 }
 
+func newWasmAdapter(executor *Executor) *Adapter {
+	return &Adapter{executor: executor}
+}
+
 // NewAdapter creates a new LLM executor adapter for WASM (online backends only).
 func NewAdapter(ollamaURL string) *Adapter {
 	kdeps_debug.Log("enter: NewAdapter")
-	return &Adapter{
-		executor: NewExecutor(ollamaURL),
-	}
+	return newWasmAdapter(NewExecutor(ollamaURL))
 }
 
 // NewAdapterWithModelService creates a new LLM executor adapter for WASM.
@@ -135,7 +138,7 @@ func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter 
 		client:          mockClient,
 		backendRegistry: NewBackendRegistry(),
 	}
-	return &Adapter{executor: e}
+	return newWasmAdapter(e)
 }
 
 // SetModelService is a no-op for WASM.

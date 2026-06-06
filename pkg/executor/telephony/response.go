@@ -167,12 +167,18 @@ func (rb *ResponseBuilder) AddGather(opts GatherOptions) {
 		FinishOnKey:   opts.FinishOnKey,
 		Action:        opts.Action,
 	}
+	attachGatherPrompt(&g, opts)
+	rb.nodes = append(rb.nodes, g)
+}
+
+func attachGatherPrompt(g *twiMLGather, opts GatherOptions) {
 	if opts.Say != "" {
 		g.Say = &twiMLGatherSay{Text: opts.Say, Voice: opts.Voice}
-	} else if opts.Audio != "" {
+		return
+	}
+	if opts.Audio != "" {
 		g.Play = &twiMLGatherPlay{URL: opts.Audio}
 	}
-	rb.nodes = append(rb.nodes, g)
 }
 
 // DialOptions configures a <Dial> node.
@@ -191,11 +197,7 @@ func (rb *ResponseBuilder) AddDial(opts DialOptions) {
 		Timeout:  opts.Timeout,
 	}
 	for _, target := range opts.To {
-		if len(target) >= 4 && target[:4] == "sip:" {
-			d.Targets = append(d.Targets, twiMLDialSIP{URI: target})
-		} else {
-			d.Targets = append(d.Targets, twiMLDialNumber{Number: target})
-		}
+		d.Targets = append(d.Targets, dialTargetNode(target))
 	}
 	rb.nodes = append(rb.nodes, d)
 }
@@ -214,6 +216,17 @@ func (rb *ResponseBuilder) AddRecord(opts RecordOptions) {
 		PlayBeep:    opts.PlayBeep,
 		FinishOnKey: opts.FinishOnKey,
 	})
+}
+
+func isSIPTarget(target string) bool {
+	return len(target) >= 4 && target[:4] == "sip:"
+}
+
+func dialTargetNode(target string) any {
+	if isSIPTarget(target) {
+		return twiMLDialSIP{URI: target}
+	}
+	return twiMLDialNumber{Number: target}
 }
 
 // AddHangup appends a <Hangup> node.

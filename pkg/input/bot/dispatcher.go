@@ -42,6 +42,52 @@ type Dispatcher struct {
 	logger   *slog.Logger
 }
 
+func validateBotConfig(workflow *domain.Workflow) (*domain.BotConfig, error) {
+	cfg := workflow.Settings.Input
+	if cfg == nil {
+		return nil, errors.New("bot dispatcher: workflow has no input config")
+	}
+	if cfg.Bot == nil {
+		return nil, errors.New("bot dispatcher: workflow has no bot config")
+	}
+	return cfg.Bot, nil
+}
+
+func buildBotRunners(
+	botCfg *domain.BotConfig,
+	creds *kdepsconfig.BotConnectionConfig,
+	logger *slog.Logger,
+) (map[string]Runner, error) {
+	runners := make(map[string]Runner)
+	platforms := []struct {
+		name   string
+		nonNil bool
+	}{
+		{"discord", botCfg.Discord != nil},
+		{"slack", botCfg.Slack != nil},
+		{"telegram", botCfg.Telegram != nil},
+		{"whatsapp", botCfg.WhatsApp != nil},
+	}
+
+	for _, p := range platforms {
+		if !p.nonNil {
+			continue
+		}
+		r, err := New(p.name, botCfg, creds, logger)
+		if err != nil {
+			return nil, fmt.Errorf("bot dispatcher: create runner for %s: %w", p.name, err)
+		}
+		runners[p.name] = r
+	}
+
+	if len(runners) == 0 {
+		return nil, errors.New(
+			"bot dispatcher: no bot platforms configured (discord, slack, telegram, or whatsapp sub-config required)",
+		)
+	}
+	return runners, nil
+}
+
 // NewDispatcher creates a Dispatcher for the bot platforms configured in workflow.Settings.Input.Bot.
 // creds provides bot credentials from ~/.kdeps/config.yaml bot_connections.
 func NewDispatcher(
@@ -55,44 +101,14 @@ func NewDispatcher(
 		logger = slog.Default()
 	}
 
-	cfg := workflow.Settings.Input
-	if cfg == nil {
-		return nil, errors.New("bot dispatcher: workflow has no input config")
-	}
-	if cfg.Bot == nil {
-		return nil, errors.New("bot dispatcher: workflow has no bot config")
+	botCfg, err := validateBotConfig(workflow)
+	if err != nil {
+		return nil, err
 	}
 
-	botCfg := cfg.Bot
-	runners := make(map[string]Runner)
-
-	// Build a runner for each non-nil platform sub-config.
-	type platformEntry struct {
-		name   string
-		nonNil bool
-	}
-	platforms := []platformEntry{
-		{"discord", botCfg.Discord != nil},
-		{"slack", botCfg.Slack != nil},
-		{"telegram", botCfg.Telegram != nil},
-		{"whatsapp", botCfg.WhatsApp != nil},
-	}
-
-	for _, p := range platforms {
-		if !p.nonNil {
-			continue
-		}
-		r, err := New(p.name, cfg.Bot, creds, logger)
-		if err != nil {
-			return nil, fmt.Errorf("bot dispatcher: create runner for %s: %w", p.name, err)
-		}
-		runners[p.name] = r
-	}
-
-	if len(runners) == 0 {
-		return nil, errors.New(
-			"bot dispatcher: no bot platforms configured (discord, slack, telegram, or whatsapp sub-config required)",
-		)
+	runners, err := buildBotRunners(botCfg, creds, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Dispatcher{
@@ -128,6 +144,22 @@ func (d *Dispatcher) Run(ctx context.Context) error {
 	}
 }
 
+func (d *Dispatcher) buildRequestContext(msg Message, runner Runner) *executor.RequestContext {
+	return &executor.RequestContext{
+		Method: "POST",
+		Path:   "/bot/" + msg.Platform,
+		Body: map[string]interface{}{
+			"message":  msg.Text,
+			"chatId":   msg.ChatID,
+			"userId":   msg.UserID,
+			"platform": msg.Platform,
+		},
+		BotSend: func(sendCtx context.Context, text string) error {
+			return runner.Reply(sendCtx, msg.ChatID, text)
+		},
+	}
+}
+
 // handleMessage executes the workflow for one inbound message.
 // The botReply resource within the workflow is responsible for sending the
 // reply back to the platform via req.BotSend. After this function returns
@@ -140,22 +172,7 @@ func (d *Dispatcher) handleMessage(ctx context.Context, msg Message) {
 		return
 	}
 
-	req := &executor.RequestContext{
-		Method: "POST",
-		Path:   "/bot/" + msg.Platform,
-		Body: map[string]interface{}{
-			"message":  msg.Text,
-			"chatId":   msg.ChatID,
-			"userId":   msg.UserID,
-			"platform": msg.Platform,
-		},
-		// BotSend is a closure bound to this specific message so the botReply
-		// resource can reply to the correct chat ID on the correct platform.
-		BotSend: func(sendCtx context.Context, text string) error {
-			return runner.Reply(sendCtx, msg.ChatID, text)
-		},
-	}
-
+	req := d.buildRequestContext(msg, runner)
 	if _, err := d.engine.Execute(d.workflow, req); err != nil {
 		d.logger.ErrorContext(
 			ctx,

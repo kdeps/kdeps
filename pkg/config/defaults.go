@@ -94,6 +94,14 @@ var (
 	errDefaultsParse  error
 )
 
+func parseDurationOrDefault(raw string, fallback time.Duration) time.Duration {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return fallback
+	}
+	return d
+}
+
 // GetDefaults returns the parsed embedded executor defaults.
 func GetDefaults() (*ExecutorDefaults, error) {
 	parseDefaultsOnce.Do(func() {
@@ -109,54 +117,30 @@ func GetDefaults() (*ExecutorDefaults, error) {
 
 // TimeoutDuration parses the chat timeout string into a time.Duration.
 func (c *ChatExecutorDefaults) TimeoutDuration() time.Duration {
-	d, err := time.ParseDuration(c.Timeout)
-	if err != nil {
-		return 60 * time.Second //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(c.Timeout, 60*time.Second) //nolint:mnd // fallback
 }
 
 // TimeoutDuration parses the HTTP timeout string into a time.Duration.
 func (h *HTTPExecutorDefaults) TimeoutDuration() time.Duration {
-	d, err := time.ParseDuration(h.Timeout)
-	if err != nil {
-		return 30 * time.Second //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(h.Timeout, 30*time.Second) //nolint:mnd // fallback
 }
 
 // TimeoutDuration parses the Python timeout string into a time.Duration.
 func (p *PythonExecutorDefaults) TimeoutDuration() time.Duration {
-	d, err := time.ParseDuration(p.Timeout)
-	if err != nil {
-		return 60 * time.Second //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(p.Timeout, 60*time.Second) //nolint:mnd // fallback
 }
 
 // TimeoutDuration parses the Exec timeout string into a time.Duration.
 func (e *ExecExecutorDefaults) TimeoutDuration() time.Duration {
-	d, err := time.ParseDuration(e.Timeout)
-	if err != nil {
-		return 30 * time.Second //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(e.Timeout, 30*time.Second) //nolint:mnd // fallback
 }
 
 // TimeoutDuration parses the SQL timeout string into a time.Duration.
 func (s *SQLExecutorDefaults) TimeoutDuration() time.Duration {
-	d, err := time.ParseDuration(s.Timeout)
-	if err != nil {
-		return 30 * time.Second //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(s.Timeout, 30*time.Second) //nolint:mnd // fallback
 }
 
 // ConnMaxIdleTimeDuration parses the SQL connection max idle time.
 func (s *SQLExecutorDefaults) ConnMaxIdleTimeDuration() time.Duration {
-	d, err := time.ParseDuration(s.ConnMaxIdleTime)
-	if err != nil {
-		return 5 * time.Minute //nolint:mnd // fallback if embedded YAML is unparseable
-	}
-	return d
+	return parseDurationOrDefault(s.ConnMaxIdleTime, 5*time.Minute) //nolint:mnd // fallback
 }

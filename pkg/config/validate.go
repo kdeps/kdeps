@@ -290,51 +290,72 @@ func (c *Config) validateAgentProfiles(agentsDir string) []string {
 	return warnings
 }
 
+// isLLMKeysEmpty reports whether all LLM key fields are unset.
+func isLLMKeysEmpty(llm LLMKeys) bool {
+	return llm.OllamaHost == "" &&
+		llm.Backend == "" &&
+		llm.BaseURL == "" &&
+		llm.Strategy == "" &&
+		len(llm.Models) == 0 &&
+		llm.ModelsDir == "" &&
+		llm.OpenAI == "" &&
+		llm.Anthropic == "" &&
+		llm.Google == "" &&
+		llm.Cohere == "" &&
+		llm.Mistral == "" &&
+		llm.Together == "" &&
+		llm.Perplexity == "" &&
+		llm.Groq == "" &&
+		llm.DeepSeek == "" &&
+		llm.OpenRouter == ""
+}
+
+// isDefaultsEmpty reports whether all global defaults are unset.
+func isDefaultsEmpty(d Defaults) bool {
+	return d.Timezone == "" && d.PythonVersion == "" && !d.OfflineMode
+}
+
+// isChatDefaultsEmpty reports whether all chat resource defaults are unset.
+func isChatDefaultsEmpty(c ChatDefaults) bool {
+	return c.Timeout == "" &&
+		c.ContextLength == 0 &&
+		!c.Streaming &&
+		c.Temperature == nil &&
+		c.MaxTokens == nil &&
+		c.TopP == nil &&
+		c.FrequencyPenalty == nil &&
+		c.PresencePenalty == nil
+}
+
+// isHTTPDefaultsEmpty reports whether all HTTP resource defaults are unset.
+func isHTTPDefaultsEmpty(h HTTPDefaults) bool {
+	return h.Timeout == "" &&
+		!h.FollowRedirects &&
+		h.Proxy == "" &&
+		h.RetryMaxAttempts == 0 &&
+		h.RetryBackoff == "" &&
+		h.RetryMaxBackoff == "" &&
+		h.RetryOn == ""
+}
+
+// isResourceDefaultsEmpty reports whether all per-resource defaults are unset.
+func isResourceDefaultsEmpty(rd ResourceDefaults) bool {
+	return isChatDefaultsEmpty(rd.Chat) &&
+		isHTTPDefaultsEmpty(rd.HTTP) &&
+		rd.Python.Timeout == "" &&
+		rd.Exec.Timeout == "" &&
+		rd.SQL.Timeout == "" &&
+		rd.SQL.MaxRows == 0 &&
+		rd.OnError.Action == "" &&
+		rd.OnError.MaxRetries == 0 &&
+		rd.OnError.RetryDelay == ""
+}
+
 // isEmptyAgentProfile returns true when all fields in the profile are zero.
-//
-//nolint:gocyclo,cyclop // field-by-field zero check on a large config struct
 func isEmptyAgentProfile(cfg Config) bool {
-	return cfg.LLM.OllamaHost == "" &&
-		cfg.LLM.Backend == "" &&
-		cfg.LLM.BaseURL == "" &&
-		cfg.LLM.Strategy == "" &&
-		len(cfg.LLM.Models) == 0 &&
-		cfg.LLM.ModelsDir == "" &&
-		cfg.LLM.OpenAI == "" &&
-		cfg.LLM.Anthropic == "" &&
-		cfg.LLM.Google == "" &&
-		cfg.LLM.Cohere == "" &&
-		cfg.LLM.Mistral == "" &&
-		cfg.LLM.Together == "" &&
-		cfg.LLM.Perplexity == "" &&
-		cfg.LLM.Groq == "" &&
-		cfg.LLM.DeepSeek == "" &&
-		cfg.LLM.OpenRouter == "" &&
-		cfg.Defaults.Timezone == "" &&
-		cfg.Defaults.PythonVersion == "" &&
-		!cfg.Defaults.OfflineMode &&
-		cfg.ResourceDefaults.Chat.Timeout == "" &&
-		cfg.ResourceDefaults.Chat.ContextLength == 0 &&
-		!cfg.ResourceDefaults.Chat.Streaming &&
-		cfg.ResourceDefaults.Chat.Temperature == nil &&
-		cfg.ResourceDefaults.Chat.MaxTokens == nil &&
-		cfg.ResourceDefaults.Chat.TopP == nil &&
-		cfg.ResourceDefaults.Chat.FrequencyPenalty == nil &&
-		cfg.ResourceDefaults.Chat.PresencePenalty == nil &&
-		cfg.ResourceDefaults.HTTP.Timeout == "" &&
-		!cfg.ResourceDefaults.HTTP.FollowRedirects &&
-		cfg.ResourceDefaults.HTTP.Proxy == "" &&
-		cfg.ResourceDefaults.HTTP.RetryMaxAttempts == 0 &&
-		cfg.ResourceDefaults.HTTP.RetryBackoff == "" &&
-		cfg.ResourceDefaults.HTTP.RetryMaxBackoff == "" &&
-		cfg.ResourceDefaults.HTTP.RetryOn == "" &&
-		cfg.ResourceDefaults.Python.Timeout == "" &&
-		cfg.ResourceDefaults.Exec.Timeout == "" &&
-		cfg.ResourceDefaults.SQL.Timeout == "" &&
-		cfg.ResourceDefaults.SQL.MaxRows == 0 &&
-		cfg.ResourceDefaults.OnError.Action == "" &&
-		cfg.ResourceDefaults.OnError.MaxRetries == 0 &&
-		cfg.ResourceDefaults.OnError.RetryDelay == ""
+	return isLLMKeysEmpty(cfg.LLM) &&
+		isDefaultsEmpty(cfg.Defaults) &&
+		isResourceDefaultsEmpty(cfg.ResourceDefaults)
 }
 
 // collectWorkflowNames scans agentsDir for workflow.yaml files and returns

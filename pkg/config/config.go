@@ -555,52 +555,47 @@ func applyResourceDefaults(rd ResourceDefaults) {
 	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
 }
 
-// applyEnv maps config fields to environment variables.
-func applyEnv(cfg Config) {
-	// Global agent defaults.
-	setIfUnset("TZ", cfg.Defaults.Timezone)
-	setIfUnset("KDEPS_PYTHON_VERSION", cfg.Defaults.PythonVersion)
-	if cfg.Defaults.OfflineMode {
-		setIfUnset("KDEPS_OFFLINE_MODE", "true")
-	}
-
-	// Ollama — local inference.
-	setIfUnset("OLLAMA_HOST", cfg.LLM.OllamaHost)
-	// Default backend (ollama, openai, anthropic, etc.).
-	setIfUnset("KDEPS_DEFAULT_BACKEND", cfg.LLM.Backend)
-	// Base URL for the backend.
-	setIfUnset("KDEPS_LLM_BASE_URL", cfg.LLM.BaseURL)
-	// Unified models list — model names go to KDEPS_LLM_MODELS.
-	if len(cfg.LLM.Models) > 0 {
-		names := make([]string, len(cfg.LLM.Models))
-		for i, m := range cfg.LLM.Models {
+// applyLLMEnv maps LLM config fields to their corresponding environment variables.
+func applyLLMEnv(keys LLMKeys) {
+	setIfUnset("OLLAMA_HOST", keys.OllamaHost)
+	setIfUnset("KDEPS_DEFAULT_BACKEND", keys.Backend)
+	setIfUnset("KDEPS_LLM_BASE_URL", keys.BaseURL)
+	if len(keys.Models) > 0 {
+		names := make([]string, len(keys.Models))
+		for i, m := range keys.Models {
 			names[i] = m.Model
 		}
 		setIfUnset("KDEPS_LLM_MODELS", strings.Join(names, ","))
 	}
-	// Llamafile (file backend) — cache directory for downloaded model binaries.
-	setIfUnset("KDEPS_MODELS_DIR", cfg.LLM.ModelsDir)
+	setIfUnset("KDEPS_MODELS_DIR", keys.ModelsDir)
+	setIfUnset("OPENAI_API_KEY", keys.OpenAI)
+	setIfUnset("ANTHROPIC_API_KEY", keys.Anthropic)
+	setIfUnset("GOOGLE_API_KEY", keys.Google)
+	setIfUnset("COHERE_API_KEY", keys.Cohere)
+	setIfUnset("MISTRAL_API_KEY", keys.Mistral)
+	setIfUnset("TOGETHER_API_KEY", keys.Together)
+	setIfUnset("PERPLEXITY_API_KEY", keys.Perplexity)
+	setIfUnset("GROQ_API_KEY", keys.Groq)
+	setIfUnset("DEEPSEEK_API_KEY", keys.DeepSeek)
+	setIfUnset("OPENROUTER_API_KEY", keys.OpenRouter)
+	applyRouterEnv(keys)
+}
 
-	// LLM API keys — map to the standard env vars that pkg/executor/llm/backend.go reads.
-	setIfUnset("OPENAI_API_KEY", cfg.LLM.OpenAI)
-	setIfUnset("ANTHROPIC_API_KEY", cfg.LLM.Anthropic)
-	setIfUnset("GOOGLE_API_KEY", cfg.LLM.Google)
-	setIfUnset("COHERE_API_KEY", cfg.LLM.Cohere)
-	setIfUnset("MISTRAL_API_KEY", cfg.LLM.Mistral)
-	setIfUnset("TOGETHER_API_KEY", cfg.LLM.Together)
-	setIfUnset("PERPLEXITY_API_KEY", cfg.LLM.Perplexity)
-	setIfUnset("GROQ_API_KEY", cfg.LLM.Groq)
-	setIfUnset("DEEPSEEK_API_KEY", cfg.LLM.DeepSeek)
-	setIfUnset("OPENROUTER_API_KEY", cfg.LLM.OpenRouter)
+// applyDefaultsEnv maps global agent defaults to environment variables.
+func applyDefaultsEnv(d Defaults) {
+	setIfUnset("TZ", d.Timezone)
+	setIfUnset("KDEPS_PYTHON_VERSION", d.PythonVersion)
+	if d.OfflineMode {
+		setIfUnset("KDEPS_OFFLINE_MODE", "true")
+	}
+}
 
-	// Per-resource defaults.
+// applyEnv maps config fields to environment variables.
+func applyEnv(cfg Config) {
+	applyDefaultsEnv(cfg.Defaults)
+	applyLLMEnv(cfg.LLM)
 	applyResourceDefaults(cfg.ResourceDefaults)
-
-	// API server auth token.
 	setIfUnset("KDEPS_API_AUTH_TOKEN", cfg.APIAuthToken)
-
-	// Router env: serialize unified config to JSON when strategy is set or models have routing metadata.
-	applyRouterEnv(cfg.LLM)
 }
 
 // mergeConfig overlays non-empty fields from src onto dst.

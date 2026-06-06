@@ -235,84 +235,120 @@ func (e *Engine) ExecuteInlineLLMForTesting(
 
 // Execute executes a workflow.
 // req can be *RequestContext or nil.
-//
-//nolint:gocognit,gocyclo,cyclop,nestif,funlen // execution flow needs explicit branching
 func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	// Delegate to stub when injected by tests.
 	if e.executeFunc != nil {
 		return e.executeFunc(workflow, req)
 	}
-	// Recover from panics and convert to errors
 	defer func() {
 		if r := recover(); r != nil {
 			panic(fmt.Errorf("panic during workflow execution: %v", r))
 		}
 	}()
 
-	var reqCtx *RequestContext
-	var sessionID string
-	if req != nil {
-		var ok bool
-		reqCtx, ok = req.(*RequestContext)
-		if !ok {
-			return nil, errors.New("invalid request context type")
-		}
-		// Extract session ID from request context if available
-		if reqCtx.SessionID != "" {
-			sessionID = reqCtx.SessionID
-		}
-	}
-	// Create execution context with session ID from cookie (if available)
-	if e.newExecutionContext == nil {
-		e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
-			if sessionID != "" {
-				return NewExecutionContext(workflow, sessionID)
-			}
-			return NewExecutionContext(workflow)
-		}
+	reqCtx, sessionID, err := e.resolveExecuteRequest(req)
+	if err != nil {
+		return nil, err
 	}
 
+	e.ensureNewExecutionContextFactory()
 	ctx, err := e.newExecutionContext(workflow, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution context: %w", err)
 	}
-	ctx.Request = reqCtx
+	e.setupExecutionContext(ctx, workflow, reqCtx)
 
-	// Propagate bot send function from request context so the botReply executor
-	// can deliver the reply to the originating platform.
-	if reqCtx != nil && reqCtx.BotSend != nil {
-		ctx.BotSend = reqCtx.BotSend
+	if initErr := e.initWorkflowEvaluator(ctx); initErr != nil {
+		return nil, initErr
 	}
 
-	// Update request context with session ID from execution context
-	// This ensures new sessions have their ID propagated back to HTTP layer for cookie setting
-	if reqCtx != nil && ctx.Session != nil {
-		reqCtx.SessionID = ctx.Session.SessionID
+	resources, targetActionID, err := e.prepareWorkflowExecution(workflow)
+	if err != nil {
+		return nil, err
 	}
 
-	// Load resources into context map for tool execution
-	for _, resource := range workflow.Resources {
-		ctx.Resources[resource.ActionID] = resource
-	}
-
-	// Propagate file input from the request context body to dedicated context fields so
-	// resources can access the file content via input("fileContent") / input("file") and
-	// the file path via input("filePath") / get("inputFilePath").
-	if reqCtx != nil && workflow.Settings.Input != nil && workflow.Settings.Input.HasFileSource() {
-		if body := reqCtx.Body; body != nil {
-			if content, ok := body["content"].(string); ok {
-				ctx.InputFileContent = content
-			}
-			if path, ok := body["path"].(string); ok {
-				ctx.InputFilePath = path
-			}
+	for _, resource := range resources {
+		if runErr := e.runWorkflowResource(workflow, resource, ctx, reqCtx); runErr != nil {
+			return nil, runErr
 		}
 	}
 
-	// Initialize evaluator with unified API.
+	return e.finalizeWorkflowOutput(workflow, ctx, targetActionID)
+}
+
+// resolveExecuteRequest extracts the request context and session ID from the Execute argument.
+func (e *Engine) resolveExecuteRequest(req interface{}) (*RequestContext, string, error) {
+	if req == nil {
+		return nil, "", nil
+	}
+	reqCtx, ok := req.(*RequestContext)
+	if !ok {
+		return nil, "", errors.New("invalid request context type")
+	}
+	sessionID := ""
+	if reqCtx.SessionID != "" {
+		sessionID = reqCtx.SessionID
+	}
+	return reqCtx, sessionID, nil
+}
+
+// ensureNewExecutionContextFactory installs the default context factory when unset.
+func (e *Engine) ensureNewExecutionContextFactory() {
+	if e.newExecutionContext != nil {
+		return
+	}
+	e.newExecutionContext = func(workflow *domain.Workflow, sessionID string) (*ExecutionContext, error) {
+		if sessionID != "" {
+			return NewExecutionContext(workflow, sessionID)
+		}
+		return NewExecutionContext(workflow)
+	}
+}
+
+// setupExecutionContext wires request data, resources, and file input into the execution context.
+func (e *Engine) setupExecutionContext(
+	ctx *ExecutionContext,
+	workflow *domain.Workflow,
+	reqCtx *RequestContext,
+) {
+	ctx.Request = reqCtx
+	if reqCtx != nil && reqCtx.BotSend != nil {
+		ctx.BotSend = reqCtx.BotSend
+	}
+	if reqCtx != nil && ctx.Session != nil {
+		reqCtx.SessionID = ctx.Session.SessionID
+	}
+	for _, resource := range workflow.Resources {
+		ctx.Resources[resource.ActionID] = resource
+	}
+	e.propagateFileInput(ctx, workflow, reqCtx)
+}
+
+// propagateFileInput copies file content and path from the request body into context fields.
+func (e *Engine) propagateFileInput(
+	ctx *ExecutionContext,
+	workflow *domain.Workflow,
+	reqCtx *RequestContext,
+) {
+	if reqCtx == nil || workflow.Settings.Input == nil || !workflow.Settings.Input.HasFileSource() {
+		return
+	}
+	body := reqCtx.Body
+	if body == nil {
+		return
+	}
+	if content, ok := body["content"].(string); ok {
+		ctx.InputFileContent = content
+	}
+	if path, ok := body["path"].(string); ok {
+		ctx.InputFilePath = path
+	}
+}
+
+// initWorkflowEvaluator creates the expression evaluator for the workflow run.
+func (e *Engine) initWorkflowEvaluator(ctx *ExecutionContext) error {
 	if ctx.API == nil {
-		return nil, errors.New("execution context API is nil")
+		return errors.New("execution context API is nil")
 	}
 	e.evaluator = expression.NewEvaluator(ctx.API)
 	if e.afterEvaluatorInit != nil {
@@ -321,25 +357,24 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	if e.evaluator != nil {
 		e.evaluator.SetDebugMode(e.debugMode)
 	}
+	return nil
+}
 
-	// Executors are initialized externally to avoid import cycles
-
-	// Build dependency graph.
+// prepareWorkflowExecution builds the graph, emits workflow.started, and resolves execution order.
+func (e *Engine) prepareWorkflowExecution(
+	workflow *domain.Workflow,
+) ([]*domain.Resource, string, error) {
 	if buildErr := e.BuildGraph(workflow); buildErr != nil {
-		return nil, domain.NewError(
+		return nil, "", domain.NewError(
 			domain.ErrCodeExecutionFailed,
 			"failed to build dependency graph",
 			buildErr,
 		)
 	}
 
-	// Emit workflow.started after the graph is built and ready to execute.
 	e.emitter.Emit(events.WorkflowStarted(workflow.Metadata.Name))
-
-	// Get execution order.
 	targetActionID := workflow.Metadata.TargetActionID
 
-	// Log available resources for debugging
 	e.logger.Info("Building execution graph",
 		"total_resources", len(workflow.Resources),
 		"target_action_id", targetActionID)
@@ -354,7 +389,7 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		e.logger.Error("Failed to get execution order",
 			"target_action_id", targetActionID,
 			"error", err)
-		return nil, domain.NewError(
+		return nil, "", domain.NewError(
 			domain.ErrCodeExecutionFailed,
 			"failed to determine execution order",
 			err,
@@ -363,198 +398,200 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 
 	e.logger.Info("Execution order determined",
 		"resources_to_execute", len(resources))
+	return resources, targetActionID, nil
+}
 
-	// Execute resources in order.
-	for _, resource := range resources {
-		e.logger.Info("Executing resource",
-			"name", resource.Name,
-			"actionID", resource.ActionID)
-		e.emitter.Emit(events.ResourceStarted(
-			workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
-		))
-
-		// Apply headers/params filters first so get() uses correct allowlists
-		// when skip expressions and other validations are evaluated.
-		if resource.Validations != nil && len(resource.Validations.Headers) > 0 {
-			ctx.SetAllowedHeaders(resource.Validations.Headers)
-			e.logger.Debug("Applied headers filter",
-				"actionID", resource.ActionID,
-				"headers", resource.Validations.Headers)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedHeaders(nil)
-		}
-
-		if resource.Validations != nil && len(resource.Validations.Params) > 0 {
-			ctx.SetAllowedParams(resource.Validations.Params)
-			e.logger.Debug("Applied params filter",
-				"actionID", resource.ActionID,
-				"params", resource.Validations.Params)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedParams(nil)
-		}
-
-		// Check skip conditions.
-		skip, skipErr := e.ShouldSkipResource(resource, ctx)
-		if skipErr != nil {
-			return nil, fmt.Errorf(
-				"skip condition evaluation failed for %s: %w",
-				resource.ActionID,
-				skipErr,
-			)
-		}
-		if skip {
-			e.logger.Info("Skipping resource (skip condition met)",
-				"actionID", resource.ActionID)
-			e.emitter.Emit(events.ResourceSkipped(
-				workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
-			))
-			continue
-		}
-
-		// Check route/method restrictions.
-		if reqCtx != nil && !e.MatchesRestrictions(resource, reqCtx) {
-			e.logger.Info("Skipping resource (route/method restriction)",
-				"actionID", resource.ActionID)
-			e.emitter.Emit(events.ResourceSkipped(
-				workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
-			))
-			continue
-		}
-
-		// Run preflight checks before input validation so authentication/authorization
-		// errors surface before potentially leaking info about invalid input.
-		if preflightErr := e.RunPreflightCheck(resource, ctx); preflightErr != nil {
-			return nil, fmt.Errorf(
-				"preflight check failed for %s: %w",
-				resource.ActionID,
-				preflightErr,
-			)
-		}
-
-		// Set allowedHeaders and allowedParams filters for this resource
-		if resource.Validations != nil && len(resource.Validations.Headers) > 0 {
-			ctx.SetAllowedHeaders(resource.Validations.Headers)
-			e.logger.Debug("Applied headers filter",
-				"actionID", resource.ActionID,
-				"headers", resource.Validations.Headers)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedHeaders(nil)
-		}
-
-		if resource.Validations != nil && len(resource.Validations.Params) > 0 {
-			ctx.SetAllowedParams(resource.Validations.Params)
-			e.logger.Debug("Applied params filter",
-				"actionID", resource.ActionID,
-				"params", resource.Validations.Params)
-		} else {
-			// Clear filter if not set
-			ctx.SetAllowedParams(nil)
-		}
-
-		// Run input validation.
-		if resource.Validations != nil {
-			requestData := ctx.GetRequestData()
-			if validateErr := e.inputValidator.Validate(requestData, resource.Validations); validateErr != nil {
-				// Convert validation errors to AppError
-				var validationErrors *validator.MultipleValidationError
-				if errors.As(validateErr, &validationErrors) {
-					appErr := domain.NewAppError(
-						domain.ErrCodeValidation,
-						"Input validation failed",
-					).WithResource(resource.ActionID)
-
-					// Add validation errors as details
-					details := make([]map[string]interface{}, len(validationErrors.Errors))
-					for i, ve := range validationErrors.Errors {
-						details[i] = map[string]interface{}{
-							"field":   ve.Field,
-							"type":    ve.Type,
-							"message": ve.Message,
-						}
-						if ve.Value != nil {
-							details[i]["value"] = ve.Value
-						}
-					}
-					appErr = appErr.WithDetails("errors", details)
-					return nil, appErr
-				}
-				return nil, domain.NewAppError(
-					domain.ErrCodeValidation,
-					fmt.Sprintf("Input validation failed: %v", validateErr),
-				).WithResource(resource.ActionID)
-			}
-
-			// Validate custom expression rules
-			if len(resource.Validations.Expr) > 0 {
-				// Initialize evaluator if needed
-				if e.evaluator == nil {
-					e.evaluator = expression.NewEvaluator(ctx.API)
-				}
-
-				// Build evaluation environment
-				env := e.buildEvaluationEnvironment(ctx)
-
-				if validateErr := e.exprValidator.ValidateCustomRules(
-					resource.Validations.Expr,
-					e.evaluator,
-					env,
-				); validateErr != nil {
-					var validationErrors *validator.MultipleValidationError
-					if errors.As(validateErr, &validationErrors) {
-						appErr := domain.NewAppError(
-							domain.ErrCodeValidation,
-							"Custom validation failed",
-						).WithResource(resource.ActionID)
-
-						details := make([]map[string]interface{}, len(validationErrors.Errors))
-						for i, ve := range validationErrors.Errors {
-							details[i] = map[string]interface{}{
-								"type":    ve.Type,
-								"message": ve.Message,
-							}
-						}
-						appErr = appErr.WithDetails("errors", details)
-						return nil, appErr
-					}
-					return nil, domain.NewAppError(
-						domain.ErrCodeValidation,
-						fmt.Sprintf("Custom validation failed: %v", validateErr),
-					).WithResource(resource.ActionID)
-				}
-			}
-		}
-
-		// Execute resource with error handling.
-		output, execErr := e.executeResourceWithErrorHandling(resource, ctx)
-		if execErr != nil {
-			e.emitter.Emit(events.ResourceFailed(
-				workflow.Metadata.Name,
-				resource.ActionID,
-				resourceTypeName(resource),
-				execErr,
-			))
-			e.emitter.Emit(events.WorkflowFailed(workflow.Metadata.Name, execErr))
-			return nil, fmt.Errorf(
-				"resource execution failed for %s: %w",
-				resource.ActionID,
-				execErr,
-			)
-		}
-
-		// Store output.
-		ctx.SetOutput(resource.ActionID, output)
-		e.logger.Info("Resource completed",
+// applyResourceValidationFilters sets or clears header/param allowlists for a resource.
+func (e *Engine) applyResourceValidationFilters(resource *domain.Resource, ctx *ExecutionContext) {
+	if resource.Validations != nil && len(resource.Validations.Headers) > 0 {
+		ctx.SetAllowedHeaders(resource.Validations.Headers)
+		e.logger.Debug("Applied headers filter",
 			"actionID", resource.ActionID,
-			"output", output)
-		e.emitter.Emit(events.ResourceCompleted(
-			workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
-		))
+			"headers", resource.Validations.Headers)
+	} else {
+		ctx.SetAllowedHeaders(nil)
 	}
 
-	// Return target resource output.
+	if resource.Validations != nil && len(resource.Validations.Params) > 0 {
+		ctx.SetAllowedParams(resource.Validations.Params)
+		e.logger.Debug("Applied params filter",
+			"actionID", resource.ActionID,
+			"params", resource.Validations.Params)
+	} else {
+		ctx.SetAllowedParams(nil)
+	}
+}
+
+// validateResourceInput runs schema and custom expression validations for a resource.
+func (e *Engine) validateResourceInput(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) error {
+	if resource.Validations == nil {
+		return nil
+	}
+
+	requestData := ctx.GetRequestData()
+	if validateErr := e.inputValidator.Validate(requestData, resource.Validations); validateErr != nil {
+		return e.formatInputValidationError(resource.ActionID, validateErr)
+	}
+
+	if len(resource.Validations.Expr) == 0 {
+		return nil
+	}
+
+	if e.evaluator == nil {
+		e.evaluator = expression.NewEvaluator(ctx.API)
+	}
+	env := e.buildEvaluationEnvironment(ctx)
+	if validateErr := e.exprValidator.ValidateCustomRules(
+		resource.Validations.Expr,
+		e.evaluator,
+		env,
+	); validateErr != nil {
+		return e.formatCustomValidationError(resource.ActionID, validateErr)
+	}
+	return nil
+}
+
+// formatInputValidationError converts input validation failures into AppError values.
+func (e *Engine) formatInputValidationError(resourceID string, validateErr error) error {
+	var validationErrors *validator.MultipleValidationError
+	if errors.As(validateErr, &validationErrors) {
+		appErr := domain.NewAppError(
+			domain.ErrCodeValidation,
+			"Input validation failed",
+		).WithResource(resourceID)
+		details := make([]map[string]interface{}, len(validationErrors.Errors))
+		for i, ve := range validationErrors.Errors {
+			details[i] = map[string]interface{}{
+				"field":   ve.Field,
+				"type":    ve.Type,
+				"message": ve.Message,
+			}
+			if ve.Value != nil {
+				details[i]["value"] = ve.Value
+			}
+		}
+		return appErr.WithDetails("errors", details)
+	}
+	return domain.NewAppError(
+		domain.ErrCodeValidation,
+		fmt.Sprintf("Input validation failed: %v", validateErr),
+	).WithResource(resourceID)
+}
+
+// formatCustomValidationError converts custom expression validation failures into AppError values.
+func (e *Engine) formatCustomValidationError(resourceID string, validateErr error) error {
+	var validationErrors *validator.MultipleValidationError
+	if errors.As(validateErr, &validationErrors) {
+		appErr := domain.NewAppError(
+			domain.ErrCodeValidation,
+			"Custom validation failed",
+		).WithResource(resourceID)
+		details := make([]map[string]interface{}, len(validationErrors.Errors))
+		for i, ve := range validationErrors.Errors {
+			details[i] = map[string]interface{}{
+				"type":    ve.Type,
+				"message": ve.Message,
+			}
+		}
+		return appErr.WithDetails("errors", details)
+	}
+	return domain.NewAppError(
+		domain.ErrCodeValidation,
+		fmt.Sprintf("Custom validation failed: %v", validateErr),
+	).WithResource(resourceID)
+}
+
+// runWorkflowResource executes a single resource in the workflow pipeline.
+func (e *Engine) runWorkflowResource(
+	workflow *domain.Workflow,
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+	reqCtx *RequestContext,
+) error {
+	e.logger.Info("Executing resource",
+		"name", resource.Name,
+		"actionID", resource.ActionID)
+	e.emitter.Emit(events.ResourceStarted(
+		workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
+	))
+
+	e.applyResourceValidationFilters(resource, ctx)
+
+	skip, skipErr := e.ShouldSkipResource(resource, ctx)
+	if skipErr != nil {
+		return fmt.Errorf(
+			"skip condition evaluation failed for %s: %w",
+			resource.ActionID,
+			skipErr,
+		)
+	}
+	if skip {
+		e.logger.Info("Skipping resource (skip condition met)",
+			"actionID", resource.ActionID)
+		e.emitter.Emit(events.ResourceSkipped(
+			workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
+		))
+		return nil
+	}
+
+	if reqCtx != nil && !e.MatchesRestrictions(resource, reqCtx) {
+		e.logger.Info("Skipping resource (route/method restriction)",
+			"actionID", resource.ActionID)
+		e.emitter.Emit(events.ResourceSkipped(
+			workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
+		))
+		return nil
+	}
+
+	if preflightErr := e.RunPreflightCheck(resource, ctx); preflightErr != nil {
+		return fmt.Errorf(
+			"preflight check failed for %s: %w",
+			resource.ActionID,
+			preflightErr,
+		)
+	}
+
+	e.applyResourceValidationFilters(resource, ctx)
+
+	if validateErr := e.validateResourceInput(resource, ctx); validateErr != nil {
+		return validateErr
+	}
+
+	output, execErr := e.executeResourceWithErrorHandling(resource, ctx)
+	if execErr != nil {
+		e.emitter.Emit(events.ResourceFailed(
+			workflow.Metadata.Name,
+			resource.ActionID,
+			resourceTypeName(resource),
+			execErr,
+		))
+		e.emitter.Emit(events.WorkflowFailed(workflow.Metadata.Name, execErr))
+		return fmt.Errorf(
+			"resource execution failed for %s: %w",
+			resource.ActionID,
+			execErr,
+		)
+	}
+
+	ctx.SetOutput(resource.ActionID, output)
+	e.logger.Info("Resource completed",
+		"actionID", resource.ActionID,
+		"output", output)
+	e.emitter.Emit(events.ResourceCompleted(
+		workflow.Metadata.Name, resource.ActionID, resourceTypeName(resource),
+	))
+	return nil
+}
+
+// finalizeWorkflowOutput returns the target resource output, unwrapping API response envelopes.
+func (e *Engine) finalizeWorkflowOutput(
+	workflow *domain.Workflow,
+	ctx *ExecutionContext,
+	targetActionID string,
+) (interface{}, error) {
 	output, ok := ctx.GetOutput(targetActionID)
 	if !ok || output == nil {
 		noOutputErr := fmt.Errorf("target resource '%s' produced no output", targetActionID)
@@ -562,13 +599,8 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 		return nil, noOutputErr
 	}
 
-	// If output is an API response format (has "success" and "data" keys),
-	// unwrap it for local execution (HTTP server will handle wrapping)
 	if resultMap, okMap := output.(map[string]interface{}); okMap {
 		if _, hasSuccess := resultMap["success"]; hasSuccess {
-			// This is an API response resource result
-			// For local execution, return just the data part
-			// HTTP server will handle the full wrapped format
 			if data, hasData := resultMap["data"]; hasData {
 				e.emitter.Emit(events.WorkflowCompleted(workflow.Metadata.Name))
 				return data, nil

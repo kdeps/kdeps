@@ -79,38 +79,11 @@ func NewRuntime(
 // request context from the fetch interceptor (with _kdeps_request, method, path, etc.).
 func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
-	// Parse input into request context.
-	var req interface{}
-	if inputJSON != "" {
-		var inputData map[string]interface{}
-		if err := json.Unmarshal([]byte(inputJSON), &inputData); err != nil {
-			return nil, fmt.Errorf("failed to parse input JSON: %w", err)
-		}
-
-		// Check if this is a full request context from the fetch interceptor.
-		if _, ok := inputData["_kdeps_request"]; ok {
-			rc := &executor.RequestContext{
-				Method:  stringFromMap(inputData, "method", "POST"),
-				Path:    stringFromMap(inputData, "path", "/"),
-				Headers: stringMapFromMap(inputData, "headers"),
-				Query:   stringMapFromMap(inputData, "query"),
-			}
-			if body, ok := inputData["body"].(map[string]interface{}); ok {
-				rc.Body = body
-			}
-			req = rc
-		} else {
-			req = &executor.RequestContext{
-				Method:  "POST",
-				Path:    "/",
-				Headers: make(map[string]string),
-				Query:   make(map[string]string),
-				Body:    inputData,
-			}
-		}
+	req, err := parseExecuteInput(inputJSON)
+	if err != nil {
+		return nil, err
 	}
 
-	// Execute the workflow.
 	result, err := r.engine.Execute(r.workflow, req)
 	if err != nil {
 		return nil, fmt.Errorf("workflow execution failed: %w", err)
@@ -125,6 +98,43 @@ func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, er
 	}
 
 	return result, nil
+}
+
+// parseExecuteInput unmarshals inputJSON into a request context when non-empty.
+func parseExecuteInput(inputJSON string) (interface{}, error) {
+	if inputJSON == "" {
+		return nil, nil
+	}
+
+	var inputData map[string]interface{}
+	if err := json.Unmarshal([]byte(inputJSON), &inputData); err != nil {
+		return nil, fmt.Errorf("failed to parse input JSON: %w", err)
+	}
+	return buildRequestContext(inputData), nil
+}
+
+// buildRequestContext converts parsed input into an executor.RequestContext.
+func buildRequestContext(inputData map[string]interface{}) *executor.RequestContext {
+	if _, ok := inputData["_kdeps_request"]; ok {
+		rc := &executor.RequestContext{
+			Method:  stringFromMap(inputData, "method", "POST"),
+			Path:    stringFromMap(inputData, "path", "/"),
+			Headers: stringMapFromMap(inputData, "headers"),
+			Query:   stringMapFromMap(inputData, "query"),
+		}
+		if body, ok := inputData["body"].(map[string]interface{}); ok {
+			rc.Body = body
+		}
+		return rc
+	}
+
+	return &executor.RequestContext{
+		Method:  "POST",
+		Path:    "/",
+		Headers: make(map[string]string),
+		Query:   make(map[string]string),
+		Body:    inputData,
+	}
 }
 
 // parseWorkflowFromString parses a workflow from a YAML string.

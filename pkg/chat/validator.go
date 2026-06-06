@@ -26,6 +26,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func resourceMetaKeys() map[string]bool {
+	return map[string]bool{
+		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
+		"category": true, "requires": true, "items": true,
+		"tool": true, "validations": true, "loop": true,
+		"before": true, "after": true, "onError": true,
+	}
+}
+
 func isValidRunAction(action string) bool {
 	switch action {
 	case "chat", "httpClient", "exec", "python", "sql",
@@ -55,21 +64,16 @@ type resourceDoc struct {
 	// Other action-type fields are checked via rawDoc below.
 }
 
-// Validate checks a GeneratedWorkflow for structural correctness.
-// Returns a slice of human-readable error strings; empty means valid.
-func Validate(wf *GeneratedWorkflow) []string {
-	var errs []string
-
-	raw, ok := wf.Files["workflow.yaml"]
-	if !ok {
-		return []string{"missing workflow.yaml"}
-	}
-
+func parseWorkflowDoc(raw string) (wfDoc, error) {
 	var doc wfDoc
 	if err := yaml.Unmarshal([]byte(raw), &doc); err != nil {
-		return []string{fmt.Sprintf("workflow.yaml: invalid YAML: %v", err)}
+		return wfDoc{}, err
 	}
+	return doc, nil
+}
 
+func validateWorkflowMetadata(doc wfDoc) []string {
+	var errs []string
 	if doc.APIVersion == "" {
 		errs = append(errs, "workflow.yaml: missing apiVersion (must be kdeps.io/v1)")
 	}
@@ -82,18 +86,38 @@ func Validate(wf *GeneratedWorkflow) []string {
 	if doc.Metadata.TargetActionID == "" {
 		errs = append(errs, "workflow.yaml: missing metadata.targetActionId")
 	}
+	return errs
+}
 
-	resourceIDs := collectResourceIDs(wf, &errs)
-
-	if doc.Metadata.TargetActionID != "" && len(resourceIDs) > 0 {
-		if !resourceIDs[doc.Metadata.TargetActionID] {
-			sorted := sortedKeys(resourceIDs)
-			errs = append(errs, fmt.Sprintf(
-				"workflow.yaml: targetActionId=%q not found in resources (have: %s)",
-				doc.Metadata.TargetActionID, strings.Join(sorted, ", "),
-			))
-		}
+func validateTargetAction(doc wfDoc, resourceIDs map[string]bool) []string {
+	if doc.Metadata.TargetActionID == "" || len(resourceIDs) == 0 {
+		return nil
 	}
+	if resourceIDs[doc.Metadata.TargetActionID] {
+		return nil
+	}
+	return []string{fmt.Sprintf(
+		"workflow.yaml: targetActionId=%q not found in resources (have: %s)",
+		doc.Metadata.TargetActionID, strings.Join(sortedKeys(resourceIDs), ", "),
+	)}
+}
+
+// Validate checks a GeneratedWorkflow for structural correctness.
+// Returns a slice of human-readable error strings; empty means valid.
+func Validate(wf *GeneratedWorkflow) []string {
+	raw, ok := wf.Files["workflow.yaml"]
+	if !ok {
+		return []string{"missing workflow.yaml"}
+	}
+
+	doc, err := parseWorkflowDoc(raw)
+	if err != nil {
+		return []string{fmt.Sprintf("workflow.yaml: invalid YAML: %v", err)}
+	}
+
+	errs := validateWorkflowMetadata(doc)
+	resourceIDs := collectResourceIDs(wf, &errs)
+	errs = append(errs, validateTargetAction(doc, resourceIDs)...)
 
 	if len(resourceIDs) == 0 && len(errs) == 0 {
 		errs = append(errs, "no resource files found under resources/")
@@ -114,6 +138,35 @@ func collectResourceIDs(wf *GeneratedWorkflow, errs *[]string) map[string]bool {
 	return ids
 }
 
+func resourceHasValidAction(rawDoc map[string]interface{}) bool {
+	for key := range rawDoc {
+		if resourceMetaKeys()[key] {
+			continue
+		}
+		if isValidRunAction(key) {
+			return true
+		}
+	}
+	return false
+}
+
+func unrecognizedActionMessage(name, actionID string, rawDoc map[string]interface{}) string {
+	var actions []string
+	for key := range rawDoc {
+		if key == "apiVersion" || key == "kind" || key == "metadata" || key == "items" {
+			continue
+		}
+		actions = append(actions, key)
+	}
+	sort.Strings(actions)
+	msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, actionID)
+	if len(actions) > 0 {
+		msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
+			strings.Join(actions, ", "))
+	}
+	return msg
+}
+
 func validateResourceFile(name, content string, ids map[string]bool, errs *[]string) {
 	var res resourceDoc
 	if err := yaml.Unmarshal([]byte(content), &res); err != nil {
@@ -126,45 +179,15 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 	}
 	ids[res.ActionID] = true
 
-	// Parse as raw map to check for action types at the top level (flattened schema).
 	var rawDoc map[string]interface{}
 	if err := yaml.Unmarshal([]byte(content), &rawDoc); err != nil {
 		return
 	}
 
-	metaKeys := map[string]bool{
-		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
-		"category": true, "requires": true, "items": true,
-		"tool": true, "validations": true, "loop": true,
-		"before": true, "after": true, "onError": true,
+	if resourceHasValidAction(rawDoc) {
+		return
 	}
-
-	hasValid := false
-	for key := range rawDoc {
-		if metaKeys[key] {
-			continue
-		}
-		if isValidRunAction(key) {
-			hasValid = true
-			break
-		}
-	}
-	if !hasValid {
-		var actions []string
-		for key := range rawDoc {
-			if key == "apiVersion" || key == "kind" || key == "metadata" || key == "items" {
-				continue
-			}
-			actions = append(actions, key)
-		}
-		sort.Strings(actions)
-		msg := fmt.Sprintf("%s (actionId=%s): no recognized action type", name, res.ActionID)
-		if len(actions) > 0 {
-			msg += fmt.Sprintf(" (got: %s; valid: chat, httpClient, exec, python, sql, apiResponse, component, ...)",
-				strings.Join(actions, ", "))
-		}
-		*errs = append(*errs, msg)
-	}
+	*errs = append(*errs, unrecognizedActionMessage(name, res.ActionID, rawDoc))
 }
 
 func sortedKeys(m map[string]bool) []string {

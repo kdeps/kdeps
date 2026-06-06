@@ -121,6 +121,46 @@ func runWithReader(
 	return nil
 }
 
+func resolveFilePath(argPath string, cfg *domain.InputConfig) string {
+	if argPath != "" {
+		return argPath
+	}
+	if envPath := os.Getenv("KDEPS_FILE_PATH"); envPath != "" {
+		return envPath
+	}
+	if cfg != nil && cfg.File != nil {
+		return cfg.File.Path
+	}
+	return ""
+}
+
+func readStdinAsFileInput(r io.Reader) (fileInput, error) {
+	var inp fileInput
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return inp, fmt.Errorf("read stdin: %w", err)
+	}
+	if len(data) == 0 {
+		return inp, nil
+	}
+	if jsonErr := json.Unmarshal(data, &inp); jsonErr != nil {
+		inp.Content = string(data)
+	}
+	return inp, nil
+}
+
+func loadContentFromPath(inp fileInput) (fileInput, error) {
+	if inp.Content != "" || inp.Path == "" {
+		return inp, nil
+	}
+	fileData, readErr := os.ReadFile(inp.Path)
+	if readErr != nil {
+		return inp, fmt.Errorf("read file %s: %w", inp.Path, readErr)
+	}
+	inp.Content = string(fileData)
+	return inp, nil
+}
+
 // readFileInput reads the file input from r (typically os.Stdin).
 // Resolution order:
 //  1. argPath (CLI --file argument) — highest priority; overrides all other sources.
@@ -133,45 +173,19 @@ func runWithReader(
 // terminal blocking when --file, KDEPS_FILE_PATH, or file.path are in use.
 func readFileInput(r io.Reader, cfg *domain.InputConfig, argPath string) (fileInput, error) {
 	kdeps_debug.Log("enter: readFileInput")
-	var inp fileInput
+	inp := fileInput{Path: resolveFilePath(argPath, cfg)}
 
-	// CLI --file argument takes highest priority.
-	if argPath != "" {
-		inp.Path = argPath
-	}
-
-	// Resolve path from env var or config before touching stdin, so that
-	// non-interactive invocations (--file, KDEPS_FILE_PATH, file.path) never
-	// block waiting for terminal input.
 	if inp.Path == "" {
-		inp.Path = os.Getenv("KDEPS_FILE_PATH")
-	}
-	if inp.Path == "" && cfg != nil && cfg.File != nil {
-		inp.Path = cfg.File.Path
-	}
-
-	// Only read stdin when no path has been resolved yet (piped content).
-	if inp.Path == "" {
-		data, err := io.ReadAll(r)
+		stdinInp, err := readStdinAsFileInput(r)
 		if err != nil {
-			return inp, fmt.Errorf("read stdin: %w", err)
+			return inp, err
 		}
-		if len(data) > 0 {
-			// Try JSON first: {"path":"...","content":"..."}
-			if jsonErr := json.Unmarshal(data, &inp); jsonErr != nil {
-				// Not valid JSON — treat the entire input as raw file content.
-				inp.Content = string(data)
-			}
-		}
+		inp = stdinInp
 	}
 
-	// If content is still empty but a path is known, read the file.
-	if inp.Content == "" && inp.Path != "" {
-		fileData, readErr := os.ReadFile(inp.Path)
-		if readErr != nil {
-			return inp, fmt.Errorf("read file %s: %w", inp.Path, readErr)
-		}
-		inp.Content = string(fileData)
+	inp, err := loadContentFromPath(inp)
+	if err != nil {
+		return inp, err
 	}
 
 	if inp.Content == "" && inp.Path == "" {

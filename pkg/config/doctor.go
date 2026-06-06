@@ -128,23 +128,7 @@ func runOllamaCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 		return
 	}
 
-	host := osGetenv("OLLAMA_HOST")
-	if host == "" && cfg != nil {
-		host = cfg.LLM.OllamaHost
-	}
-	if host == "" {
-		host = "http://localhost:11434"
-	}
-
-	addr := host
-	if len(addr) > 7 && addr[:7] == "http://" {
-		addr = addr[7:]
-	} else if len(addr) > 8 && addr[:8] == "https://" {
-		addr = addr[8:]
-	}
-	if _, _, splitErr := net.SplitHostPort(addr); splitErr != nil {
-		addr = net.JoinHostPort(addr, defaultOllamaPort)
-	}
+	addr := ollamaDialAddr(cfg)
 
 	dialer := &net.Dialer{Timeout: ollamaDialTimeout}
 	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
@@ -188,12 +172,8 @@ func runBackendKeyCheck(checks *[]HealthCheck, cfg *Config, healthy *bool) {
 	}
 
 	if key != "" {
-		masked := key[:4] + "..." + key[len(key)-4:]
-		if len(key) <= minKeyMaskLen {
-			masked = "****"
-		}
 		addCheck(checks, "Backend/API key", HealthPass,
-			fmt.Sprintf("backend=%s, key=%s", backend, masked), healthy)
+			fmt.Sprintf("backend=%s, key=%s", backend, maskAPIKey(key)), healthy)
 	} else {
 		addCheck(checks, "Backend/API key", HealthWarn,
 			fmt.Sprintf("backend=%s but no API key set for %s",
@@ -250,6 +230,36 @@ func runCriticalEnvCheck(checks *[]HealthCheck, healthy *bool) {
 			fmt.Sprintf("%d critical vars not set (config file provides defaults)",
 				len(missing)), healthy)
 	}
+}
+
+// ollamaDialAddr resolves the TCP address used to probe Ollama reachability.
+func ollamaDialAddr(cfg *Config) string {
+	host := osGetenv("OLLAMA_HOST")
+	if host == "" && cfg != nil {
+		host = cfg.LLM.OllamaHost
+	}
+	if host == "" {
+		host = "http://localhost:11434"
+	}
+
+	addr := host
+	if len(addr) > 7 && addr[:7] == "http://" {
+		addr = addr[7:]
+	} else if len(addr) > 8 && addr[:8] == "https://" {
+		addr = addr[8:]
+	}
+	if _, _, splitErr := net.SplitHostPort(addr); splitErr != nil {
+		addr = net.JoinHostPort(addr, defaultOllamaPort)
+	}
+	return addr
+}
+
+// maskAPIKey returns a partially redacted API key for display.
+func maskAPIKey(key string) string {
+	if len(key) <= minKeyMaskLen {
+		return "****"
+	}
+	return key[:4] + "..." + key[len(key)-4:]
 }
 
 func ollamaEffectiveBackend(cfg *Config) string {

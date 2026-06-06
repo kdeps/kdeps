@@ -267,8 +267,13 @@ llm:
 
 `
 
+// composeConfigTemplate joins the scaffold header with the shared options reference.
+func composeConfigTemplate(header, reference string) string {
+	return header + reference
+}
+
 // defaultConfigTemplate is the full scaffold template composed from the header
 // and the shared configOptionsReference.
 //
 //nolint:gochecknoglobals // composed at init from two consts (Go cannot concat consts)
-var defaultConfigTemplate = configTemplateHeader + configOptionsReference
+var defaultConfigTemplate = composeConfigTemplate(configTemplateHeader, configOptionsReference)

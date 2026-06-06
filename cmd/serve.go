@@ -186,9 +186,8 @@ func registerAgencyTool(p string, registry *tools.Registry, debug bool) (*domain
 	return targetWF, nil
 }
 
-// agencyToolDef wraps a whole agency as a single callable tool.
-// The tool name is the agency's metadata.name. Execute runs the entry-point workflow.
-func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *executor.Engine) *tools.Tool {
+// agencyToolNameAndDesc returns the display name and description for an agency tool.
+func agencyToolNameAndDesc(agency *domain.Agency) (string, string) {
 	name := agency.Metadata.Name
 	if name == "" {
 		name = "agency"
@@ -197,6 +196,13 @@ func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *e
 	if desc == "" {
 		desc = fmt.Sprintf("Agency: %s v%s", name, agency.Metadata.Version)
 	}
+	return name, desc
+}
+
+// agencyToolDef wraps a whole agency as a single callable tool.
+// The tool name is the agency's metadata.name. Execute runs the entry-point workflow.
+func agencyToolDef(agency *domain.Agency, entryWorkflow *domain.Workflow, eng *executor.Engine) *tools.Tool {
+	name, desc := agencyToolNameAndDesc(agency)
 	return tools.AgentToolDefWithName(name, desc, entryWorkflow, eng)
 }
 

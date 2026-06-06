@@ -88,17 +88,18 @@ func (e *Executor) resolveAPIKey(
 	return conn.APIKey, nil
 }
 
-// Execute performs a web search and returns structured results.
-func (e *Executor) Execute(
+type executeParams struct {
+	maxResults int
+	timeout    int
+	provider   string
+	apiKey     string
+	client     *http.Client
+}
+
+func (e *Executor) prepareExecuteParams(
 	ctx *executor.ExecutionContext,
 	config *domain.SearchWebConfig,
-) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-
-	if config.Query == "" {
-		return nil, errors.New("searchWeb: query is required")
-	}
-
+) (*executeParams, error) {
 	maxResults := config.MaxResults
 	if maxResults <= 0 {
 		maxResults = defaultMaxResults
@@ -120,53 +121,88 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	client := httpClientFactory(time.Duration(timeout) * time.Second)
+	return &executeParams{
+		maxResults: maxResults,
+		timeout:    timeout,
+		provider:   provider,
+		apiKey:     apiKey,
+		client:     httpClientFactory(time.Duration(timeout) * time.Second),
+	}, nil
+}
 
-	var results []map[string]interface{}
+// Execute performs a web search and returns structured results.
+func (e *Executor) Execute(
+	ctx *executor.ExecutionContext,
+	config *domain.SearchWebConfig,
+) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
 
-	switch provider {
-	case "ddg":
-		results, err = e.searchDDG(client, config.Query, maxResults)
-	case "brave":
-		if apiKey == "" {
-			return nil, errors.New(
-				"searchWeb: connectionName required for brave provider — define a named connection in settings.searchConnections",
-			)
-		}
-		results, err = e.searchBrave(client, config.Query, apiKey, maxResults)
-	case "bing":
-		if apiKey == "" {
-			return nil, errors.New(
-				"searchWeb: connectionName required for bing provider — define a named connection in settings.searchConnections",
-			)
-		}
-		results, err = e.searchBing(client, config.Query, apiKey, maxResults)
-	case "tavily":
-		if apiKey == "" {
-			return nil, errors.New(
-				"searchWeb: connectionName required for tavily provider — define a named connection in settings.searchConnections",
-			)
-		}
-		results, err = e.searchTavily(client, config.Query, apiKey, maxResults)
-	default:
-		return nil, fmt.Errorf("searchWeb: unknown provider %q", provider)
+	if config.Query == "" {
+		return nil, errors.New("searchWeb: query is required")
 	}
 
+	params, err := e.prepareExecuteParams(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
+	results, err := e.searchByProvider(params, config.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildSearchResult(results, config.Query, params.provider)
+}
+
+func providerRequiresAPIKey(provider string) error {
+	return errors.New(
+		"searchWeb: connectionName required for " + provider +
+			" provider — define a named connection in settings.searchConnections",
+	)
+}
+
+func (e *Executor) searchByProvider(params *executeParams, query string) ([]map[string]interface{}, error) {
+	var (
+		results []map[string]interface{}
+		err     error
+	)
+	switch params.provider {
+	case "ddg":
+		results, err = e.searchDDG(params.client, query, params.maxResults)
+	case "brave":
+		if params.apiKey == "" {
+			return nil, providerRequiresAPIKey("brave")
+		}
+		results, err = e.searchBrave(params.client, query, params.apiKey, params.maxResults)
+	case "bing":
+		if params.apiKey == "" {
+			return nil, providerRequiresAPIKey("bing")
+		}
+		results, err = e.searchBing(params.client, query, params.apiKey, params.maxResults)
+	case "tavily":
+		if params.apiKey == "" {
+			return nil, providerRequiresAPIKey("tavily")
+		}
+		results, err = e.searchTavily(params.client, query, params.apiKey, params.maxResults)
+	default:
+		return nil, fmt.Errorf("searchWeb: unknown provider %q", params.provider)
+	}
+	if err != nil {
+		return nil, err
+	}
 	if results == nil {
 		results = []map[string]interface{}{}
 	}
+	return results, nil
+}
 
+func buildSearchResult(results []map[string]interface{}, query, provider string) (map[string]interface{}, error) {
 	result := map[string]interface{}{
 		"results":  results,
 		"count":    len(results),
-		"query":    config.Query,
+		"query":    query,
 		"provider": provider,
 	}
-
 	jsonBytes, marshalErr := jsonMarshal(result)
 	if marshalErr != nil {
 		return nil, fmt.Errorf("searchWeb: failed to marshal result: %w", marshalErr)
@@ -175,32 +211,26 @@ func (e *Executor) Execute(
 	return result, nil
 }
 
-func ddgBaseURL() string {
-	if v := os.Getenv("KDEPS_DDG_URL"); v != "" {
-		return v
+func searchResultItem(title, url, snippet string) map[string]interface{} {
+	return map[string]interface{}{
+		"title":   title,
+		"url":     url,
+		"snippet": snippet,
 	}
-	return defaultDDGBaseURL
 }
 
-func braveBaseURL() string {
-	if v := os.Getenv("KDEPS_BRAVE_URL"); v != "" {
+func envOrDefault(envKey, defaultVal string) string {
+	if v := os.Getenv(envKey); v != "" {
 		return v
 	}
-	return defaultBraveBaseURL
+	return defaultVal
 }
 
-func bingBaseURL() string {
-	if v := os.Getenv("KDEPS_BING_URL"); v != "" {
-		return v
-	}
-	return defaultBingBaseURL
-}
-
+func ddgBaseURL() string   { return envOrDefault("KDEPS_DDG_URL", defaultDDGBaseURL) }
+func braveBaseURL() string { return envOrDefault("KDEPS_BRAVE_URL", defaultBraveBaseURL) }
+func bingBaseURL() string  { return envOrDefault("KDEPS_BING_URL", defaultBingBaseURL) }
 func tavilyBaseURL() string {
-	if v := os.Getenv("KDEPS_TAVILY_URL"); v != "" {
-		return v
-	}
-	return defaultTavilyBaseURL
+	return envOrDefault("KDEPS_TAVILY_URL", defaultTavilyBaseURL)
 }
 
 func (e *Executor) searchDDG(client *http.Client, query string, maxResults int) ([]map[string]interface{}, error) {
@@ -240,11 +270,7 @@ func (e *Executor) searchDDG(client *http.Client, query string, maxResults int) 
 		if title == "" && href == "" {
 			return
 		}
-		results = append(results, map[string]interface{}{
-			"title":   title,
-			"url":     href,
-			"snippet": "",
-		})
+		results = append(results, searchResultItem(title, href, ""))
 	})
 
 	return results, nil
@@ -286,11 +312,7 @@ func (e *Executor) searchBrave(
 		if len(results) >= maxResults {
 			break
 		}
-		results = append(results, map[string]interface{}{
-			"title":   r.Title,
-			"url":     r.URL,
-			"snippet": r.Description,
-		})
+		results = append(results, searchResultItem(r.Title, r.URL, r.Description))
 	}
 	return results, nil
 }
@@ -330,11 +352,7 @@ func (e *Executor) searchBing(
 		if len(results) >= maxResults {
 			break
 		}
-		results = append(results, map[string]interface{}{
-			"title":   r.Name,
-			"url":     r.URL,
-			"snippet": r.Snippet,
-		})
+		results = append(results, searchResultItem(r.Name, r.URL, r.Snippet))
 	}
 	return results, nil
 }
@@ -376,11 +394,7 @@ func (e *Executor) searchTavily(
 		if len(results) >= maxResults {
 			break
 		}
-		results = append(results, map[string]interface{}{
-			"title":   r.Title,
-			"url":     r.URL,
-			"snippet": r.Content,
-		})
+		results = append(results, searchResultItem(r.Title, r.URL, r.Content))
 	}
 	return results, nil
 }

@@ -100,45 +100,32 @@ func (p *Parser) GetExpressionParserForTesting() ExpressionParser {
 // ParseWorkflow parses a workflow YAML file.
 func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 	kdeps_debug.Log("enter: ParseWorkflow")
-	// Read YAML file.
-	data, err := afero.ReadFile(AppFS, path)
-	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read workflow file", err)
-	}
-
-	// Apply Jinja2 preprocessing only when the file contains Jinja2 control or
-	// comment tags ({%, {#).  Files that only contain runtime {{ }} expressions
-	// are returned as-is; the kdeps expression evaluator handles those later.
-	preprocessed, preprocessErr := templates.PreprocessYAML(string(data), buildJinja2Context())
-	if preprocessErr != nil {
-		return nil, domain.NewError(
-			domain.ErrCodeParseError,
-			"failed to preprocess workflow Jinja2 template",
-			preprocessErr,
-		)
-	}
-	data = []byte(preprocessed)
-
-	// Parse YAML into generic map first for schema validation.
-	var rawData map[string]interface{}
-	if parseErr := yaml.Unmarshal(data, &rawData); parseErr != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to parse YAML", parseErr)
-	}
-
-	// Validate against schema if validator is available.
+	var validate func(map[string]interface{}) error
 	if p.schemaValidator != nil {
-		if schemaErr := p.schemaValidator.ValidateWorkflow(rawData); schemaErr != nil {
-			return nil, domain.NewError(
-				domain.ErrCodeValidationFailed,
-				"workflow schema validation failed",
-				schemaErr,
-			)
+		sv := p.schemaValidator
+		validate = func(rawData map[string]interface{}) error {
+			if schemaErr := sv.ValidateWorkflow(rawData); schemaErr != nil {
+				return domain.NewError(
+					domain.ErrCodeValidationFailed,
+					"workflow schema validation failed",
+					schemaErr,
+				)
+			}
+			return nil
 		}
 	}
 
-	// Parse into workflow struct.
-	var workflow domain.Workflow
+	data, err := p.readPreprocessAndValidateYAML(
+		path,
+		"failed to read workflow file",
+		"failed to preprocess workflow Jinja2 template",
+		validate,
+	)
+	if err != nil {
+		return nil, err
+	}
 
+	var workflow domain.Workflow
 	if workflowErr := yaml.Unmarshal(data, &workflow); workflowErr != nil {
 		return nil, domain.NewError(
 			domain.ErrCodeParseError,
@@ -147,18 +134,14 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 		)
 	}
 
-	// Initialize Resources if nil (for appending)
 	if workflow.Resources == nil {
 		workflow.Resources = make([]*domain.Resource, 0)
 	}
 
-	// Load and parse resource files from resources/ directory (if it exists).
-	// This is in addition to any inline resources in the YAML.
 	if loadErr := p.loadResources(&workflow, path); loadErr != nil {
 		return nil, loadErr
 	}
 
-	// Auto-discover and load component resources from ./components/<name>/ sibling dirs.
 	if compErr := p.loadComponents(&workflow, path); compErr != nil {
 		return nil, compErr
 	}
@@ -170,13 +153,14 @@ func (p *Parser) ParseWorkflow(path string) (*domain.Workflow, error) {
 // preprocessing, unmarshals into a raw map, and optionally calls validate.
 func (p *Parser) readPreprocessAndValidateYAML(
 	path string,
+	readErrMsg string,
 	preprocessErrMsg string,
 	validate func(map[string]interface{}) error,
 ) ([]byte, error) {
 	kdeps_debug.Log("enter: readPreprocessAndValidateYAML")
 	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
-		return nil, domain.NewError(domain.ErrCodeParseError, "failed to read file", err)
+		return nil, domain.NewError(domain.ErrCodeParseError, readErrMsg, err)
 	}
 
 	// Apply Jinja2 preprocessing.
@@ -223,6 +207,7 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 
 	data, err := p.readPreprocessAndValidateYAML(
 		path,
+		"failed to read file",
 		"failed to preprocess resource Jinja2 template",
 		validate,
 	)
@@ -275,25 +260,9 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 
 	// Parse each resource file
 	for _, entry := range entries {
-		if entry.IsDir() {
+		name, ok := p.resourceFileToLoad(resourcesDir, entry)
+		if !ok {
 			continue
-		}
-
-		// Only process .yaml, .yml, .yaml.j2, .yml.j2, and plain .j2 files
-		name := entry.Name()
-		if !isYAMLFile(name) {
-			continue
-		}
-
-		// Skip a .j2 template when the rendered output already exists alongside
-		// it in the same directory.  For example, if both response.yaml and
-		// response.yaml.j2 are present, response.yaml takes priority and
-		// response.yaml.j2 is skipped to avoid duplicate-actionID errors.
-		if strings.HasSuffix(name, ".j2") {
-			renderedName := strings.TrimSuffix(name, ".j2")
-			if _, statErr := os.Stat(filepath.Join(resourcesDir, renderedName)); statErr == nil {
-				continue
-			}
 		}
 
 		resourcePath := filepath.Join(resourcesDir, name)
@@ -313,6 +282,32 @@ func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) e
 	}
 
 	return nil
+}
+
+func (p *Parser) resourceFileToLoad(resourcesDir string, entry os.FileInfo) (string, bool) {
+	if entry.IsDir() {
+		return "", false
+	}
+
+	name := entry.Name()
+	if !isYAMLFile(name) {
+		return "", false
+	}
+
+	if shouldSkipJinja2Template(resourcesDir, name) {
+		return "", false
+	}
+
+	return name, true
+}
+
+func shouldSkipJinja2Template(resourcesDir, name string) bool {
+	if !strings.HasSuffix(name, ".j2") {
+		return false
+	}
+	renderedName := strings.TrimSuffix(name, ".j2")
+	_, statErr := os.Stat(filepath.Join(resourcesDir, renderedName))
+	return statErr == nil
 }
 
 // isYAMLFile reports whether name is a YAML or Jinja2-YAML file that should be
@@ -360,6 +355,7 @@ func (p *Parser) ParseAgency(path string) (*domain.Agency, error) {
 
 	data, err := p.readPreprocessAndValidateYAML(
 		path,
+		"failed to read file",
 		"failed to preprocess agency Jinja2 template",
 		validate,
 	)

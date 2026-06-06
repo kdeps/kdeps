@@ -160,6 +160,49 @@ func saasHints() []envHint {
 	}
 }
 
+func appendUniqueEnvVars(result *[]EnvVar, seen map[string]bool, vars []EnvVar) {
+	for _, v := range vars {
+		if seen[v.Name] {
+			continue
+		}
+		seen[v.Name] = true
+		*result = append(*result, v)
+	}
+}
+
+func collectHintEnvVars(lowerContent string, seen map[string]bool) []EnvVar {
+	var result []EnvVar
+	for _, hint := range envHints() {
+		if !hintMatchesContent(lowerContent, hint.keywords) {
+			continue
+		}
+		appendUniqueEnvVars(&result, seen, hint.vars)
+	}
+	return result
+}
+
+func hintMatchesContent(lowerContent string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(lowerContent, strings.ToLower(kw)) {
+			return true
+		}
+	}
+	return false
+}
+
+func collectTemplateEnvVars(content string, seen map[string]bool) []EnvVar {
+	var result []EnvVar
+	for _, m := range templateEnvRE.FindAllStringSubmatch(content, -1) {
+		name := m[1]
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		result = append(result, EnvVar{name, "referenced in workflow template"})
+	}
+	return result
+}
+
 // ScanEnvVars inspects all files in a GeneratedWorkflow and returns the set of
 // environment variables the agent will require at runtime.
 func ScanEnvVars(wf *GeneratedWorkflow) []EnvVar {
@@ -167,30 +210,8 @@ func ScanEnvVars(wf *GeneratedWorkflow) []EnvVar {
 	lower := strings.ToLower(combined)
 
 	seen := map[string]bool{}
-	var result []EnvVar
-
-	for _, hint := range envHints() {
-		for _, kw := range hint.keywords {
-			if strings.Contains(lower, strings.ToLower(kw)) {
-				for _, v := range hint.vars {
-					if !seen[v.Name] {
-						seen[v.Name] = true
-						result = append(result, v)
-					}
-				}
-				break
-			}
-		}
-	}
-
-	// Pick up any explicit {{ env('VAR') }} template expressions.
-	for _, m := range templateEnvRE.FindAllStringSubmatch(combined, -1) {
-		name := m[1]
-		if !seen[name] {
-			seen[name] = true
-			result = append(result, EnvVar{name, "referenced in workflow template"})
-		}
-	}
+	result := collectHintEnvVars(lower, seen)
+	result = append(result, collectTemplateEnvVars(combined, seen)...)
 
 	return result
 }

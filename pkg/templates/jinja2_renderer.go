@@ -268,17 +268,7 @@ var rawBlockRe = regexp.MustCompile(`(?s)\{%[ \t]*raw[ \t]*%\}.*?\{%[ \t]*endraw
 // same file without needing manual {% raw %} annotations.
 func autoProtectKdepsExpressions(content string) string {
 	kdeps_debug.Log("enter: autoProtectKdepsExpressions")
-	// Record all byte ranges that are already inside {% raw %}...{% endraw %} blocks.
 	rawRanges := rawBlockRe.FindAllStringIndex(content, -1)
-
-	isInRawBlock := func(start, end int) bool {
-		for _, r := range rawRanges {
-			if r[0] <= start && end <= r[1] {
-				return true
-			}
-		}
-		return false
-	}
 
 	matches := kdepsAPIRe.FindAllStringIndex(content, -1)
 	if len(matches) == 0 {
@@ -289,7 +279,7 @@ func autoProtectKdepsExpressions(content string) string {
 	pos := 0
 	for _, m := range matches {
 		sb.WriteString(content[pos:m[0]])
-		if isInRawBlock(m[0], m[1]) {
+		if isInRawBlock(rawRanges, m[0], m[1]) {
 			// Already protected — copy verbatim.
 			sb.WriteString(content[m[0]:m[1]])
 		} else {
@@ -301,6 +291,21 @@ func autoProtectKdepsExpressions(content string) string {
 	}
 	sb.WriteString(content[pos:])
 	return sb.String()
+}
+
+// isInRawBlock reports whether the byte range [start,end) lies inside a {% raw %} block.
+func isInRawBlock(rawRanges [][]int, start, end int) bool {
+	for _, r := range rawRanges {
+		if r[0] <= start && end <= r[1] {
+			return true
+		}
+	}
+	return false
+}
+
+// needsJinja2Preprocess reports whether content contains Jinja2 control or comment tags.
+func needsJinja2Preprocess(content string) bool {
+	return strings.Contains(content, "{%") || strings.Contains(content, "{#")
 }
 
 // AutoProtectKdepsExpressions is the exported form of autoProtectKdepsExpressions,
@@ -337,7 +342,7 @@ func PreprocessYAML(content string, vars map[string]interface{}) (string, error)
 	// control or comment tags ({%, {#).  Files that use only runtime {{ }}
 	// expressions (kdeps API calls or other dynamic values) are passed through
 	// unchanged — the kdeps expression evaluator handles those at request time.
-	if !strings.Contains(content, "{%") && !strings.Contains(content, "{#") {
+	if !needsJinja2Preprocess(content) {
 		return content, nil
 	}
 	protected := autoProtectKdepsExpressions(content)

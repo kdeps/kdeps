@@ -276,325 +276,346 @@ func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 }
 
 // HandleRequest handles API requests.
-//
-//nolint:gocognit,nestif,funlen,gocyclo,cyclop // request handling intentionally explicit
 func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleRequest")
-	// Check for file uploads and process them
-	var uploadedFiles []*domain.UploadedFile
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" && strings.HasPrefix(contentType, "multipart/form-data") {
-		files, err := s.uploadHandler.HandleUpload(r)
-		if err != nil {
-			debugMode := GetDebugMode(r.Context())
-			RespondWithError(w, r, domain.NewAppError(
-				domain.ErrCodeBadRequest,
-				fmt.Sprintf("File upload failed: %v", err),
-			), debugMode)
-			return
-		}
-		uploadedFiles = files
-	}
 
-	// Parse request
-	reqCtx := s.ParseRequest(r, uploadedFiles)
-
-	// Extract session ID from HTTP request context (set by SessionMiddleware)
-	sessionID := GetSessionID(r.Context())
-	if sessionID != "" {
-		reqCtx.SessionID = sessionID
-	}
-
-	// Execute workflow (pass RequestContext as interface to match executor signature)
-	var reqInterface interface{} = reqCtx
-	result, err := s.Executor.Execute(s.Workflow, reqInterface)
-
-	// After execution, ensure session ID is in HTTP context for cookie setting
-	// The executor updates reqCtx.SessionID with the session ID from the execution context
-	// This ensures both new sessions and existing sessions have their ID available for cookies
-	if reqCtx.SessionID != "" {
-		// Add session ID to HTTP context if not already present, or update if it changed
-		currentSessionID := GetSessionID(r.Context())
-		if currentSessionID != reqCtx.SessionID {
-			ctx := context.WithValue(r.Context(), SessionIDKey, reqCtx.SessionID)
-			r = r.WithContext(ctx)
-		}
-	}
-
-	// Cleanup uploaded files after execution
-	// Note: This runs after response is written, so any errors here won't affect the response
-	defer func() {
-		for _, file := range uploadedFiles {
-			if delErr := s.fileStore.Delete(file.ID); delErr != nil {
-				s.logger.Warn("failed to cleanup uploaded file", "file", file.ID, "error", delErr)
-			}
-		}
-	}()
-
-	if err != nil {
-		// Log error for debugging
-		s.logger.Error(
-			"workflow execution failed",
-			"error",
-			err,
-			"path",
-			r.URL.Path,
-			"method",
-			r.Method,
-		)
-		// Use new error response formatter
-		debugMode := GetDebugMode(r.Context())
-		RespondWithError(w, r, err, debugMode)
+	uploadedFiles, ok := s.processRequestUploads(w, r)
+	if !ok {
 		return
 	}
 
-	// Check if result is from an API response resource (has success and data fields)
-	// API response resources return: {"success": bool, "data": {...}, "_meta": {...}}
-	if resultMap, ok := result.(map[string]interface{}); ok {
-		if successRaw, hasSuccess := resultMap["success"]; hasSuccess {
-			success, validBool := domain.ParseBool(successRaw)
-			if !validBool {
-				success = false // treat unparseable as failure
+	reqCtx := s.ParseRequest(r, uploadedFiles)
+	if sessionID := GetSessionID(r.Context()); sessionID != "" {
+		reqCtx.SessionID = sessionID
+	}
+
+	result, err := s.Executor.Execute(s.Workflow, reqCtx)
+	r = s.applySessionFromRequestContext(r, reqCtx)
+	defer s.cleanupUploadedFiles(uploadedFiles)
+
+	if err != nil {
+		s.respondWorkflowError(w, r, err)
+		return
+	}
+
+	if s.tryRespondAPIResult(w, r, result) {
+		return
+	}
+
+	s.respondRegularResult(w, r, result)
+}
+
+func isMultipartRequest(r *stdhttp.Request) bool {
+	contentType := r.Header.Get("Content-Type")
+	return contentType != "" && strings.HasPrefix(contentType, "multipart/form-data")
+}
+
+func (s *Server) processRequestUploads(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+) ([]*domain.UploadedFile, bool) {
+	if !isMultipartRequest(r) {
+		return nil, true
+	}
+
+	files, err := s.uploadHandler.HandleUpload(r)
+	if err != nil {
+		RespondWithError(w, r, domain.NewAppError(
+			domain.ErrCodeBadRequest,
+			fmt.Sprintf("File upload failed: %v", err),
+		), GetDebugMode(r.Context()))
+		return nil, false
+	}
+
+	return files, true
+}
+
+func (s *Server) applySessionFromRequestContext(
+	r *stdhttp.Request,
+	reqCtx *RequestContext,
+) *stdhttp.Request {
+	if reqCtx.SessionID == "" {
+		return r
+	}
+	if GetSessionID(r.Context()) == reqCtx.SessionID {
+		return r
+	}
+	ctx := context.WithValue(r.Context(), SessionIDKey, reqCtx.SessionID)
+	return r.WithContext(ctx)
+}
+
+func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {
+	for _, file := range uploadedFiles {
+		if delErr := s.fileStore.Delete(file.ID); delErr != nil {
+			s.logger.Warn("failed to cleanup uploaded file", "file", file.ID, "error", delErr)
+		}
+	}
+}
+
+func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+	s.logger.Error(
+		"workflow execution failed",
+		"error",
+		err,
+		"path",
+		r.URL.Path,
+		"method",
+		r.Method,
+	)
+	RespondWithError(w, r, err, GetDebugMode(r.Context()))
+}
+
+func (s *Server) tryRespondAPIResult(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	result interface{},
+) bool {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	successRaw, hasSuccess := resultMap["success"]
+	if !hasSuccess {
+		return false
+	}
+
+	success, validBool := domain.ParseBool(successRaw)
+	if !validBool {
+		success = false
+	}
+
+	s.logger.Debug(
+		"detected API response resource result",
+		"path",
+		r.URL.Path,
+		"success",
+		success,
+	)
+
+	meta := extractAPIMeta(w, resultMap["_meta"])
+	data := resultMap["data"]
+
+	if success {
+		s.writeAPISuccessResponse(w, r, data, meta)
+		return true
+	}
+
+	s.logger.Debug("API response indicated failure", "path", r.URL.Path)
+	RespondWithError(w, r, domain.NewAppError(
+		domain.ErrCodeResourceFailed,
+		"API response indicated failure",
+	), GetDebugMode(r.Context()))
+	return true
+}
+
+func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]any {
+	meta := make(map[string]any)
+	if metaRaw == nil {
+		return meta
+	}
+
+	metaMap, okMeta := metaRaw.(map[string]interface{})
+	if okMeta {
+		for key, value := range metaMap {
+			if key == "headers" {
+				applyMetaHeaders(w, value)
+				continue
 			}
-			s.logger.Debug(
-				"detected API response resource result",
-				"path",
-				r.URL.Path,
-				"success",
-				success,
-			)
+			meta[key] = value
+		}
+		return meta
+	}
 
-			// This is an API response resource result
-			// Extract meta information if present
-			// Handle both map[string]string and map[string]interface{} types
-			meta := make(map[string]any)
-			if metaRaw, hasMeta := resultMap["_meta"]; hasMeta {
-				if metaMap, okMeta := metaRaw.(map[string]interface{}); okMeta {
-					// Handle map[string]interface{} case (from YAML parsing)
-					for key, value := range metaMap {
-						if key == "headers" {
-							// Extract and set HTTP headers
-							if headers, okHeaders := value.(map[string]interface{}); okHeaders {
-								for hKey, hValue := range headers {
-									if strValue, okStr := hValue.(string); okStr {
-										w.Header().Set(hKey, strValue)
-									}
-								}
-							} else if headers, okHeadersStr := value.(map[string]string); okHeadersStr {
-								for hKey, hValue := range headers {
-									w.Header().Set(hKey, hValue)
-								}
-							}
-						} else {
-							// Add other meta fields (model, backend, etc.) to response meta
-							meta[key] = value
-						}
-					}
-				} else if metaHeaders, okMetaHeaders := metaRaw.(map[string]string); okMetaHeaders {
-					// Legacy: Handle direct map[string]string (headers only)
-					for key, value := range metaHeaders {
-						w.Header().Set(key, value)
-					}
-				}
-			}
-
-			// Extract the data from the API response
-			data := resultMap["data"]
-
-			// Use RespondWithSuccess which handles the standard response format
-			// It will wrap data in {"success": true, "data": {...}, "meta": {...}}
-			if success {
-				s.logger.Debug(
-					"sending API response",
-					"path",
-					r.URL.Path,
-					"data_type",
-					fmt.Sprintf("%T", data),
-				)
-
-				// Set session cookie if session ID is present in context
-				// This ensures cookies are set even when using API response resources
-				ctxSessionID := GetSessionID(r.Context())
-				if ctxSessionID != "" {
-					SetSessionCookie(w, r, ctxSessionID)
-				}
-
-				// Determine Content-Type (may have been set from _meta headers above).
-				// Default to application/json when none was specified.
-				respContentType := w.Header().Get("Content-Type")
-				if respContentType == "" {
-					respContentType = "application/json"
-					w.Header().Set("Content-Type", respContentType)
-				}
-
-				// For non-JSON content types (e.g. text/html), only pass through explicit
-				// string/[]byte payloads. For other payload types, force JSON serialization
-				// and JSON content type to avoid reflecting arbitrary structured data into
-				// browser-rendered responses.
-				if !strings.HasPrefix(respContentType, "application/json") {
-					var rawBytes []byte
-					switch v := data.(type) {
-					case string:
-						rawBytes = []byte(v)
-					case []byte:
-						rawBytes = v
-					default:
-						var marshalErr error
-						rawBytes, marshalErr = json.Marshal(data)
-						if marshalErr != nil {
-							s.logger.Error(
-								"failed to marshal API response",
-								"error",
-								marshalErr,
-								"path",
-								r.URL.Path,
-							)
-							debugMode := GetDebugMode(r.Context())
-							RespondWithError(w, r, domain.NewAppError(
-								domain.ErrCodeInternal,
-								fmt.Sprintf("failed to marshal API response: %v", marshalErr),
-							), debugMode)
-							return
-						}
-						respContentType = "application/json; charset=utf-8"
-						w.Header().Set("Content-Type", respContentType)
-					}
-
-					w.WriteHeader(stdhttp.StatusOK)
-					s.logger.Debug(
-						"writing raw API response",
-						"path",
-						r.URL.Path,
-						"size",
-						len(rawBytes),
-						"content_type",
-						respContentType,
-					)
-					if _, writeErr := w.Write(rawBytes); writeErr != nil {
-						s.logger.Error(
-							"failed to write raw API response",
-							"error",
-							writeErr,
-							"path",
-							r.URL.Path,
-						)
-					}
-					if flusher, canFlush := w.(stdhttp.Flusher); canFlush {
-						flusher.Flush()
-					}
-					return
-				}
-
-				// JSON response: wrap in the standard envelope.
-				requestID := GetRequestID(r.Context())
-				meta["requestID"] = requestID
-				meta["timestamp"] = time.Now()
-
-				// If data is a JSON string (from an evaluated template), parse it
-				// so it is not double-encoded in the response envelope.
-				if dataStr, isStr := data.(string); isStr && strings.TrimSpace(dataStr) != "" {
-					var parsed interface{}
-					if jsonErr := json.Unmarshal([]byte(dataStr), &parsed); jsonErr == nil {
-						data = parsed
-					}
-				}
-
-				response := map[string]interface{}{
-					"success": true,
-					"data":    data,
-					"meta":    meta,
-				}
-
-				// Encode response to bytes first to check for marshal errors before writing headers
-				responseBytes, marshalErr := json.Marshal(response)
-				if marshalErr != nil {
-					s.logger.Error(
-						"failed to marshal API response",
-						"error",
-						marshalErr,
-						"path",
-						r.URL.Path,
-					)
-					debugMode := GetDebugMode(r.Context())
-					RespondWithError(w, r, domain.NewAppError(
-						domain.ErrCodeInternal,
-						fmt.Sprintf("failed to marshal API response: %v", marshalErr),
-					), debugMode)
-					return
-				}
-
-				w.WriteHeader(stdhttp.StatusOK)
-				s.logger.Debug(
-					"writing API response",
-					"path",
-					r.URL.Path,
-					"size",
-					len(responseBytes),
-				)
-
-				if _, writeErr := w.Write(responseBytes); writeErr != nil {
-					s.logger.Error(
-						"failed to write API response",
-						"error",
-						writeErr,
-						"path",
-						r.URL.Path,
-					)
-					return
-				}
-
-				if flusher, okFlusher := w.(stdhttp.Flusher); okFlusher {
-					flusher.Flush()
-					s.logger.Debug("response flushed", "path", r.URL.Path)
-				} else {
-					s.logger.Debug("response writer does not support flushing", "path", r.URL.Path)
-				}
-
-				s.logger.Debug(
-					"API response written and flushed successfully",
-					"path",
-					r.URL.Path,
-					"bytes_written",
-					len(responseBytes),
-				)
-				return // Explicit return to ensure handler completes
-			}
-
-			// API response indicated failure
-			debugMode := GetDebugMode(r.Context())
-			s.logger.Debug("API response indicated failure", "path", r.URL.Path)
-			RespondWithError(w, r, domain.NewAppError(
-				domain.ErrCodeResourceFailed,
-				"API response indicated failure",
-			), debugMode)
-			return
+	metaHeaders, okMetaHeaders := metaRaw.(map[string]string)
+	if okMetaHeaders {
+		for key, value := range metaHeaders {
+			w.Header().Set(key, value)
 		}
 	}
 
+	return meta
+}
+
+func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
+	headers, okHeaders := headersRaw.(map[string]interface{})
+	if okHeaders {
+		for hKey, hValue := range headers {
+			if strValue, okStr := hValue.(string); okStr {
+				w.Header().Set(hKey, strValue)
+			}
+		}
+		return
+	}
+
+	headersStr, okHeadersStr := headersRaw.(map[string]string)
+	if okHeadersStr {
+		for hKey, hValue := range headersStr {
+			w.Header().Set(hKey, hValue)
+		}
+	}
+}
+
+func (s *Server) writeAPISuccessResponse(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	data interface{},
+	meta map[string]any,
+) {
+	s.logger.Debug(
+		"sending API response",
+		"path",
+		r.URL.Path,
+		"data_type",
+		fmt.Sprintf("%T", data),
+	)
+
+	if ctxSessionID := GetSessionID(r.Context()); ctxSessionID != "" {
+		SetSessionCookie(w, r, ctxSessionID)
+	}
+
+	respContentType := w.Header().Get("Content-Type")
+	if respContentType == "" {
+		respContentType = "application/json"
+		w.Header().Set("Content-Type", respContentType)
+	}
+
+	if !strings.HasPrefix(respContentType, "application/json") {
+		s.writeRawAPIResponse(w, r, data, respContentType)
+		return
+	}
+
+	s.writeJSONAPIResponse(w, r, data, meta)
+}
+
+func (s *Server) writeRawAPIResponse(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	data interface{},
+	respContentType string,
+) {
+	rawBytes, contentType, marshalErr := marshalAPIRawPayload(data, respContentType)
+	if marshalErr != nil {
+		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
+		RespondWithError(w, r, domain.NewAppError(
+			domain.ErrCodeInternal,
+			fmt.Sprintf("failed to marshal API response: %v", marshalErr),
+		), GetDebugMode(r.Context()))
+		return
+	}
+	if contentType != respContentType {
+		w.Header().Set("Content-Type", contentType)
+		respContentType = contentType
+	}
+
+	w.WriteHeader(stdhttp.StatusOK)
+	s.logger.Debug(
+		"writing raw API response",
+		"path",
+		r.URL.Path,
+		"size",
+		len(rawBytes),
+		"content_type",
+		respContentType,
+	)
+	if _, writeErr := w.Write(rawBytes); writeErr != nil {
+		s.logger.Error("failed to write raw API response", "error", writeErr, "path", r.URL.Path)
+	}
+	flushResponse(w, r.URL.Path, s.logger)
+}
+
+func marshalAPIRawPayload(data interface{}, respContentType string) ([]byte, string, error) {
+	switch v := data.(type) {
+	case string:
+		return []byte(v), respContentType, nil
+	case []byte:
+		return v, respContentType, nil
+	default:
+		rawBytes, marshalErr := json.Marshal(data)
+		if marshalErr != nil {
+			return nil, respContentType, marshalErr
+		}
+		return rawBytes, "application/json; charset=utf-8", nil
+	}
+}
+
+func (s *Server) writeJSONAPIResponse(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	data interface{},
+	meta map[string]any,
+) {
+	meta["requestID"] = GetRequestID(r.Context())
+	meta["timestamp"] = time.Now()
+	data = parseJSONStringPayload(data)
+
+	responseBytes, marshalErr := json.Marshal(map[string]interface{}{
+		"success": true,
+		"data":    data,
+		"meta":    meta,
+	})
+	if marshalErr != nil {
+		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
+		RespondWithError(w, r, domain.NewAppError(
+			domain.ErrCodeInternal,
+			fmt.Sprintf("failed to marshal API response: %v", marshalErr),
+		), GetDebugMode(r.Context()))
+		return
+	}
+
+	w.WriteHeader(stdhttp.StatusOK)
+	s.logger.Debug("writing API response", "path", r.URL.Path, "size", len(responseBytes))
+
+	if _, writeErr := w.Write(responseBytes); writeErr != nil {
+		s.logger.Error("failed to write API response", "error", writeErr, "path", r.URL.Path)
+		return
+	}
+
+	flushResponse(w, r.URL.Path, s.logger)
+	s.logger.Debug(
+		"API response written and flushed successfully",
+		"path",
+		r.URL.Path,
+		"bytes_written",
+		len(responseBytes),
+	)
+}
+
+func parseJSONStringPayload(data interface{}) interface{} {
+	dataStr, isStr := data.(string)
+	if !isStr || strings.TrimSpace(dataStr) == "" {
+		return data
+	}
+
+	var parsed interface{}
+	if jsonErr := json.Unmarshal([]byte(dataStr), &parsed); jsonErr == nil {
+		return parsed
+	}
+	return data
+}
+
+func flushResponse(w stdhttp.ResponseWriter, path string, logger *slog.Logger) {
+	flusher, canFlush := w.(stdhttp.Flusher)
+	if !canFlush {
+		logger.Debug("response writer does not support flushing", "path", path)
+		return
+	}
+	flusher.Flush()
+	logger.Debug("response flushed", "path", path)
+}
+
+func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Request, result interface{}) {
 	s.logger.Debug("sending regular resource result", "path", r.URL.Path)
 
-	// If the result is a JSON string (e.g. from an unwrapped apiResponse resource),
-	// parse it so it is not double-encoded in the success envelope.
-	if resultStr, isStr := result.(string); isStr && strings.TrimSpace(resultStr) != "" {
-		var parsed interface{}
-		if jsonErr := json.Unmarshal([]byte(resultStr), &parsed); jsonErr == nil {
-			result = parsed
-		}
-	}
-
-	// Build and marshal response before writing headers, so any marshal error
-	// can be reported before committing the status code.
-	requestID := GetRequestID(r.Context())
-	regularMeta := map[string]interface{}{
-		"requestID": requestID,
-		"timestamp": time.Now(),
-	}
-	regularResp := map[string]interface{}{
+	result = parseJSONStringPayload(result)
+	regularBytes, marshalErr := json.Marshal(map[string]interface{}{
 		"success": true,
 		"data":    result,
-		"meta":    regularMeta,
-	}
-	regularBytes, marshalErr := json.Marshal(regularResp)
+		"meta": map[string]interface{}{
+			"requestID": GetRequestID(r.Context()),
+			"timestamp": time.Now(),
+		},
+	})
 	if marshalErr != nil {
 		s.logger.Error(
 			"failed to marshal regular resource result",
@@ -603,11 +624,10 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			"path",
 			r.URL.Path,
 		)
-		debugMode := GetDebugMode(r.Context())
 		RespondWithError(w, r, domain.NewAppError(
 			domain.ErrCodeInternal,
 			fmt.Sprintf("failed to marshal response: %v", marshalErr),
-		), debugMode)
+		), GetDebugMode(r.Context()))
 		return
 	}
 
@@ -788,14 +808,12 @@ func (s *Server) SetupHotReload() error {
 		absWorkflowPath = watchWorkflowPath
 	}
 
-	// Initialize parser if not set
 	if s.parser == nil {
-		schemaValidator, schemaErr := validator.NewSchemaValidator()
-		if schemaErr != nil {
-			return fmt.Errorf("failed to create schema validator: %w", schemaErr)
+		parser, parserErr := newWorkflowParser()
+		if parserErr != nil {
+			return parserErr
 		}
-		exprParser := expression.NewParser()
-		s.parser = yaml.NewParser(schemaValidator, exprParser)
+		s.parser = parser
 	}
 
 	// Watch workflow file
@@ -840,59 +858,21 @@ func (s *Server) reloadWorkflow() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	//nolint:nestif // initialization logic is explicit
-	if s.parser == nil || s.workflowPath == "" {
-		workflowPath := s.workflowPath
-		if workflowPath == "" {
-			// Try to find a workflow file in the current directory.
-			if p := findWorkflowFile("."); p != "" {
-				workflowPath = p
-			} else {
-				workflowPath = defaultWorkflowFile
-			}
-		}
-
-		// Initialize parser if needed
-		if s.parser == nil {
-			schemaValidator, schemaErr := validator.NewSchemaValidator()
-			if schemaErr != nil {
-				return fmt.Errorf("failed to create schema validator: %w", schemaErr)
-			}
-			exprParser := expression.NewParser()
-			s.parser = yaml.NewParser(schemaValidator, exprParser)
-		}
-
-		// Ensure absolute path
-		absPath, absErr := filepath.Abs(workflowPath)
-		if absErr != nil {
-			return fmt.Errorf("failed to resolve workflow path: %w", absErr)
-		}
-		s.workflowPath = absPath
+	if err := s.ensureReloadReady(); err != nil {
+		return err
 	}
 
-	// Parse workflow (this also reloads resources)
-	// First preprocess any .j2 files in the workflow directory.
 	if prepErr := templates.PreprocessJ2Files(filepath.Dir(s.workflowPath)); prepErr != nil {
 		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
 	}
+
 	newWorkflow, err := s.parser.ParseWorkflow(s.workflowPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse workflow: %w", err)
 	}
 
-	// Update workflow
 	s.Workflow = newWorkflow
-
-	// Reload routes (workflow changes might affect routes).
-	// Preserve the middleware stack that was installed by Server.Start so that
-	// request-ID injection, session handling, upload limits, and CORS continue
-	// to work correctly after a management-API reload.
-	oldMiddleware := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(s.Router.Middleware))
-	copy(oldMiddleware, s.Router.Middleware)
-	s.Router = NewRouter()
-	s.Router.Middleware = oldMiddleware
-	s.SetupRoutes()
-
+	s.rebuildRouterPreservingMiddleware()
 	s.logger.Info(
 		"workflow reloaded",
 		"name",
@@ -904,6 +884,48 @@ func (s *Server) reloadWorkflow() error {
 	)
 
 	return nil
+}
+
+func (s *Server) ensureReloadReady() error {
+	if s.parser == nil {
+		parser, err := newWorkflowParser()
+		if err != nil {
+			return err
+		}
+		s.parser = parser
+	}
+
+	if s.workflowPath != "" {
+		return nil
+	}
+
+	workflowPath := defaultWorkflowFile
+	if p := findWorkflowFile("."); p != "" {
+		workflowPath = p
+	}
+
+	absPath, absErr := filepath.Abs(workflowPath)
+	if absErr != nil {
+		return fmt.Errorf("failed to resolve workflow path: %w", absErr)
+	}
+	s.workflowPath = absPath
+	return nil
+}
+
+func newWorkflowParser() (*yaml.Parser, error) {
+	schemaValidator, schemaErr := validator.NewSchemaValidator()
+	if schemaErr != nil {
+		return nil, fmt.Errorf("failed to create schema validator: %w", schemaErr)
+	}
+	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
+}
+
+func (s *Server) rebuildRouterPreservingMiddleware() {
+	oldMiddleware := make([]func(stdhttp.HandlerFunc) stdhttp.HandlerFunc, len(s.Router.Middleware))
+	copy(oldMiddleware, s.Router.Middleware)
+	s.Router = NewRouter()
+	s.Router.Middleware = oldMiddleware
+	s.SetupRoutes()
 }
 
 func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {

@@ -85,6 +85,37 @@ func (e *Executor) newExecCommand(ctx context.Context, name string, arg ...strin
 	return exec.CommandContext(ctx, name, arg...)
 }
 
+func (e *Executor) ensurePythonRuntime(
+	ctx *executor.ExecutionContext,
+	venvName string,
+) (string, string, error) {
+	pythonVersion := e.getPythonVersion(ctx)
+	packages, requirementsFile := e.getPythonDependencies(ctx)
+
+	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to ensure venv: %w", err)
+	}
+
+	pythonPath, err := e.uvManager.GetPythonPath(venvPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get python path: %w", err)
+	}
+	return pythonPath, venvPath, nil
+}
+
+func maxOutputBytesFromEnv() int64 {
+	v := os.Getenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES")
+	if v == "" {
+		return 0
+	}
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
+}
+
 // Execute executes a Python resource.
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
@@ -93,46 +124,21 @@ func (e *Executor) Execute(
 	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	// Resolve configuration with evaluated expressions
 	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	pythonVersion := e.getPythonVersion(ctx)
-	packages, requirementsFile := e.getPythonDependencies(ctx)
-	venvName := resolvedConfig.VenvName
-
-	// Ensure virtual environment exists
-	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
+	pythonPath, venvPath, err := e.ensurePythonRuntime(ctx, resolvedConfig.VenvName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to ensure venv: %w", err)
+		return nil, err
 	}
 
-	// Get Python executable path
-	pythonPath, err := e.uvManager.GetPythonPath(venvPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get python path: %w", err)
-	}
-
-	// Prepare script execution
 	scriptContent, scriptFile, err := e.prepareScript(ctx, resolvedConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse timeout
-	timeout := e.parseTimeout(resolvedConfig)
-
-	// Output cap: KDEPS_PYTHON_MAX_OUTPUT_BYTES
-	var maxOutputBytes int64
-	if v := os.Getenv("KDEPS_PYTHON_MAX_OUTPUT_BYTES"); v != "" {
-		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
-			maxOutputBytes = n
-		}
-	}
-
-	// Execute the script
 	return e.executeScript(
 		pythonPath,
 		venvPath,
@@ -140,8 +146,8 @@ func (e *Executor) Execute(
 		scriptContent,
 		scriptFile,
 		resolvedConfig.Args,
-		timeout,
-		maxOutputBytes,
+		e.parseTimeout(resolvedConfig),
+		maxOutputBytesFromEnv(),
 	)
 }
 
@@ -275,6 +281,45 @@ func (e *Executor) parseTimeout(config *domain.PythonConfig) time.Duration {
 	return timeout
 }
 
+func (e *Executor) buildPythonCommand(
+	pythonPath, scriptContent, scriptFile string,
+	args []string,
+) *exec.Cmd {
+	if scriptFile != "" {
+		cmdArgs := append([]string{scriptFile}, args...)
+		return e.newExecCommand(context.Background(), pythonPath, cmdArgs...)
+	}
+	cmd := e.newExecCommand(context.Background(), pythonPath, "-c", scriptContent)
+	cmd.Args = append(cmd.Args, args...)
+	return cmd
+}
+
+func parsePythonStdout(stdout string) interface{} {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(stdout), &parsed); err == nil {
+		return parsed
+	}
+	return stdout
+}
+
+func (e *Executor) buildExecutionResult(
+	stdout, stderr string,
+	err error,
+	cmd *exec.Cmd,
+) (interface{}, error) {
+	result := map[string]interface{}{
+		"stdout": stdout,
+		"stderr": stderr,
+	}
+	if err != nil {
+		result["error"] = err.Error()
+		result["exitCode"] = cmd.ProcessState.ExitCode()
+		return result, fmt.Errorf("python execution failed: %w, stderr: %s", err, stderr)
+	}
+	result["exitCode"] = 0
+	return parsePythonStdout(stdout), nil
+}
+
 // executeScript runs the Python script and returns the result.
 func (e *Executor) executeScript(
 	pythonPath, venvPath, workDir, scriptContent, scriptFile string,
@@ -282,34 +327,19 @@ func (e *Executor) executeScript(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeScript")
 	var stdout, stderr bytes.Buffer
-	var cmd *exec.Cmd
-
-	if scriptFile != "" {
-		// Execute script file
-		cmdArgs := []string{scriptFile}
-		cmdArgs = append(cmdArgs, args...)
-		cmd = e.newExecCommand(context.Background(), pythonPath, cmdArgs...)
-	} else {
-		// Execute inline script
-		cmd = e.newExecCommand(context.Background(), pythonPath, "-c", scriptContent)
-		cmd.Args = append(cmd.Args, args...)
-	}
-
-	// Set environment
+	cmd := e.buildPythonCommand(pythonPath, scriptContent, scriptFile, args)
 	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
 	cmd.Dir = workDir
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Set timeout
 	cmdTimeout := time.AfterFunc(timeout, func() {
 		if cmd.Process != nil {
-			_ = cmd.Process.Kill() // Ignore kill errors
+			_ = cmd.Process.Kill()
 		}
 	})
 	defer cmdTimeout.Stop()
 
-	// Execute
 	err := cmd.Run()
 	cmdTimeout.Stop()
 
@@ -317,28 +347,7 @@ func (e *Executor) executeScript(
 		return nil, fmt.Errorf("python stdout exceeds output limit of %d bytes", maxOutputBytes)
 	}
 
-	// Build result
-	result := map[string]interface{}{
-		"stdout": stdout.String(),
-		"stderr": stderr.String(),
-	}
-
-	if err != nil {
-		result["error"] = err.Error()
-		result["exitCode"] = cmd.ProcessState.ExitCode()
-		return result, fmt.Errorf("python execution failed: %w, stderr: %s", err, stderr.String())
-	}
-
-	result["exitCode"] = 0
-
-	// Return stdout as primary result. If stdout is valid JSON, return the
-	// parsed value so that output().field access works in expressions.
-	out := stdout.String()
-	var parsed map[string]interface{}
-	if err2 := json.Unmarshal([]byte(out), &parsed); err2 == nil {
-		return parsed, nil
-	}
-	return out, nil
+	return e.buildExecutionResult(stdout.String(), stderr.String(), err, cmd)
 }
 
 // EvaluateExpression evaluates an expression string.

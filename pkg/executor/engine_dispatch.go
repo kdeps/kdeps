@@ -30,39 +30,76 @@ import (
 )
 
 // ExecuteResource executes a single resource.
-//
-//nolint:gocognit,gocyclo,cyclop,funlen // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: ExecuteResource")
-	// Handle Loop (while-loop) iteration – takes priority over Items.
-	// Only enter loop mode when not already inside a loop to prevent recursion.
-	if resource.Loop != nil {
-		if _, inLoopContext := ctx.Items[loopKeyIndex]; !inLoopContext {
-			return e.ExecuteWithLoop(resource, ctx)
-		}
+	if result, handled, err := e.handleLoopDispatch(resource, ctx); handled {
+		return result, err
+	}
+	if result, handled, err := e.handleItemsDispatch(resource, ctx); handled {
+		return result, err
 	}
 
-	// Handle Items iteration (only if not already in items context to prevent recursion).
-	if len(resource.Items) > 0 {
-		// Check if we're already processing items to prevent infinite recursion.
-		if _, inItemsContext := ctx.Items["item"]; !inItemsContext {
-			return e.ExecuteWithItems(resource, ctx)
-		}
-		// If already in items context, continue with normal execution
-	}
-
-	// Execute inline "before" entries (expression steps and inline resources).
 	if len(resource.Before) > 0 {
 		if err := e.executeInlineResources(resource.Before, ctx); err != nil {
 			return nil, fmt.Errorf("inline before resource failed: %w", err)
 		}
 	}
 
-	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec, agent, component, botReply)
-	hasPrimaryType := resource.Chat != nil ||
+	hasPrimaryType := hasPrimaryResourceType(resource)
+	var primaryResult interface{}
+	if hasPrimaryType {
+		var execErr error
+		primaryResult, execErr = e.dispatchPrimaryResource(resource, ctx)
+		if execErr != nil {
+			return nil, execErr
+		}
+	}
+
+	if len(resource.After) > 0 {
+		if afterErr := e.executeInlineResources(resource.After, ctx); afterErr != nil {
+			return nil, fmt.Errorf("after resource failed: %w", afterErr)
+		}
+	}
+
+	return e.finalizeResourceResult(resource, ctx, hasPrimaryType, primaryResult)
+}
+
+// handleLoopDispatch enters loop mode when configured and not already inside a loop.
+func (e *Engine) handleLoopDispatch(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, bool, error) {
+	if resource.Loop == nil {
+		return nil, false, nil
+	}
+	if _, inLoopContext := ctx.Items[loopKeyIndex]; inLoopContext {
+		return nil, false, nil
+	}
+	result, err := e.ExecuteWithLoop(resource, ctx)
+	return result, true, err
+}
+
+// handleItemsDispatch enters items mode when configured and not already inside items context.
+func (e *Engine) handleItemsDispatch(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, bool, error) {
+	if len(resource.Items) == 0 {
+		return nil, false, nil
+	}
+	if _, inItemsContext := ctx.Items["item"]; inItemsContext {
+		return nil, false, nil
+	}
+	result, err := e.ExecuteWithItems(resource, ctx)
+	return result, true, err
+}
+
+// hasPrimaryResourceType reports whether the resource defines a primary execution block.
+func hasPrimaryResourceType(resource *domain.Resource) bool {
+	return resource.Chat != nil ||
 		resource.HTTPClient != nil ||
 		resource.SQL != nil ||
 		resource.Python != nil ||
@@ -77,133 +114,142 @@ func (e *Engine) ExecuteResource(
 		resource.Browser != nil ||
 		resource.BotReply != nil ||
 		resource.Email != nil
+}
 
-	var primaryResult interface{}
-	var err error
-
-	// Execute primary resource type if present.
-	if hasPrimaryType {
-		switch {
-		case resource.Chat != nil:
-			primaryResult, err = e.executeLLM(resource, ctx)
-		case resource.HTTPClient != nil:
-			primaryResult, err = e.executeHTTP(resource, ctx)
-		case resource.SQL != nil:
-			primaryResult, err = e.executeSQL(resource, ctx)
-		case resource.Python != nil:
-			primaryResult, err = e.executePython(resource, ctx)
-		case resource.Exec != nil:
-			primaryResult, err = e.executeExec(resource, ctx)
-		case resource.Agent != nil:
-			primaryResult, err = e.executeAgent(resource, ctx)
-		case resource.Component != nil:
-			primaryResult, err = e.executeComponentCall(resource, ctx)
-		case resource.Scraper != nil:
-			primaryResult, err = e.executeScraper(resource, ctx)
-		case resource.Embedding != nil:
-			primaryResult, err = e.executeEmbedding(resource, ctx)
-		case resource.SearchLocal != nil:
-			primaryResult, err = e.executeSearchLocal(resource, ctx)
-		case resource.SearchWeb != nil:
-			primaryResult, err = e.executeSearchWeb(resource, ctx)
-		case resource.Telephony != nil:
-			primaryResult, err = e.executeTelephony(resource, ctx)
-		case resource.Browser != nil:
-			primaryResult, err = e.executeBrowser(resource, ctx)
-		case resource.BotReply != nil:
-			primaryResult, err = e.executeBotReply(resource, ctx)
-		case resource.Email != nil:
-			primaryResult, err = e.executeEmail(resource, ctx)
-		}
-
-		if err != nil {
-			return nil, err
-		}
+// dispatchPrimaryResource runs the primary execution block for a resource.
+func (e *Engine) dispatchPrimaryResource(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	switch {
+	case resource.Chat != nil:
+		return e.executeLLM(resource, ctx)
+	case resource.HTTPClient != nil:
+		return e.executeHTTP(resource, ctx)
+	case resource.SQL != nil:
+		return e.executeSQL(resource, ctx)
+	case resource.Python != nil:
+		return e.executePython(resource, ctx)
+	case resource.Exec != nil:
+		return e.executeExec(resource, ctx)
+	case resource.Agent != nil:
+		return e.executeAgent(resource, ctx)
+	case resource.Component != nil:
+		return e.executeComponentCall(resource, ctx)
+	case resource.Scraper != nil:
+		return e.executeScraper(resource, ctx)
+	case resource.Embedding != nil:
+		return e.executeEmbedding(resource, ctx)
+	case resource.SearchLocal != nil:
+		return e.executeSearchLocal(resource, ctx)
+	case resource.SearchWeb != nil:
+		return e.executeSearchWeb(resource, ctx)
+	case resource.Telephony != nil:
+		return e.executeTelephony(resource, ctx)
+	case resource.Browser != nil:
+		return e.executeBrowser(resource, ctx)
+	case resource.BotReply != nil:
+		return e.executeBotReply(resource, ctx)
+	case resource.Email != nil:
+		return e.executeEmail(resource, ctx)
+	default:
+		return nil, fmt.Errorf("unknown primary resource type for %s", resource.ActionID)
 	}
+}
 
-	// Execute after entries (expression steps and inline resources after primary).
-	if len(resource.After) > 0 {
-		if err = e.executeInlineResources(resource.After, ctx); err != nil {
-			return nil, fmt.Errorf("after resource failed: %w", err)
-		}
-	}
-
-	// Handle apiResponse - can be standalone or combined with primary type.
-	// apiResponse runs on every loop iteration (per-iteration = streaming response),
-	// consistent with how it runs per-item in ExecuteWithItems.
+// finalizeResourceResult returns apiResponse, primary output, or expression-only status.
+func (e *Engine) finalizeResourceResult(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+	hasPrimaryType bool,
+	primaryResult interface{},
+) (interface{}, error) {
 	if resource.APIResponse != nil {
-		// Make the primary result accessible via output('actionId') within the
-		// resource's own apiResponse (e.g. embedding/http/python results).
 		if hasPrimaryType && primaryResult != nil {
 			ctx.SetOutput(resource.ActionID, primaryResult)
 		}
 		return e.executeAPIResponse(resource, ctx)
 	}
-
-	// Return primary result if we have one
 	if hasPrimaryType {
 		return primaryResult, nil
 	}
-
-	// If only before/after entries (expressions or inline resources), return status
 	if len(resource.Before) > 0 || len(resource.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
-
 	return nil, fmt.Errorf("unknown resource type for %s", resource.ActionID)
 }
 
 // executeResourceWithErrorHandling wraps ExecuteResource with onError handling.
-//
-//nolint:gocognit,funlen // error handling is explicitly branched
 func (e *Engine) executeResourceWithErrorHandling(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeResourceWithErrorHandling")
 	onError := resource.OnError
-
-	// If no onError config, execute normally
 	if onError == nil {
 		return e.ExecuteResource(resource, ctx)
 	}
 
-	// Determine max retries
+	maxRetries, retryDelay := e.resolveOnErrorRetryConfig(onError, ctx)
+	output, lastErr := e.runResourceWithRetries(resource, ctx, onError, maxRetries, retryDelay)
+	if lastErr == nil {
+		return output, nil
+	}
+
+	if len(onError.Expr) > 0 {
+		if exprErr := e.executeOnErrorExpressions(resource, ctx, lastErr); exprErr != nil {
+			e.logger.Error("Failed to execute onError expressions",
+				"actionID", resource.ActionID,
+				"error", exprErr.Error())
+		}
+	}
+
+	return e.handleOnErrorAction(resource, onError, ctx, maxRetries, lastErr)
+}
+
+// resolveOnErrorRetryConfig returns max retries and delay from onError configuration.
+func (e *Engine) resolveOnErrorRetryConfig(
+	onError *domain.OnErrorConfig,
+	ctx *ExecutionContext,
+) (int, time.Duration) {
 	maxRetries := 1
 	if onError.Action == onErrorActionRetry && onError.MaxRetries > 0 {
 		maxRetries = onError.MaxRetries
 	}
 
-	// Parse retry delay
 	retryDelay := time.Duration(0)
-	if onError.RetryDelay != "" {
-		// Evaluate retry delay if it's an expression
-		evaluatedDelay, evalErr := e.evaluateFallback(onError.RetryDelay, ctx)
-		delayStr := onError.RetryDelay
-		if evalErr == nil {
-			delayStr = fmt.Sprintf("%v", evaluatedDelay)
-		}
-
-		if parsed, parseErr := time.ParseDuration(delayStr); parseErr == nil {
-			retryDelay = parsed
-		}
+	if onError.RetryDelay == "" {
+		return maxRetries, retryDelay
 	}
 
+	evaluatedDelay, evalErr := e.evaluateFallback(onError.RetryDelay, ctx)
+	delayStr := onError.RetryDelay
+	if evalErr == nil {
+		delayStr = fmt.Sprintf("%v", evaluatedDelay)
+	}
+	if parsed, parseErr := time.ParseDuration(delayStr); parseErr == nil {
+		retryDelay = parsed
+	}
+	return maxRetries, retryDelay
+}
+
+// runResourceWithRetries executes a resource with configured retry behavior.
+func (e *Engine) runResourceWithRetries(
+	resource *domain.Resource,
+	ctx *ExecutionContext,
+	onError *domain.OnErrorConfig,
+	maxRetries int,
+	retryDelay time.Duration,
+) (interface{}, error) {
 	var lastErr error
 	var output interface{}
 
-	// Execute with retries
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		output, lastErr = e.ExecuteResource(resource, ctx)
-
 		if lastErr == nil {
-			// Success - no error
 			return output, nil
 		}
-
-		// Check if error matches "when" conditions
 		if !e.shouldHandleError(onError, lastErr, ctx) {
-			// Error doesn't match conditions, return it immediately
 			return nil, lastErr
 		}
 
@@ -213,71 +259,65 @@ func (e *Engine) executeResourceWithErrorHandling(
 			"maxRetries", maxRetries,
 			"error", lastErr.Error())
 
-		// If this is the last attempt, break out of retry loop
-		if attempt >= maxRetries {
+		if attempt >= maxRetries || onError.Action != onErrorActionRetry {
 			break
 		}
-
-		// Only retry if action is "retry"
-		if onError.Action != onErrorActionRetry {
-			break
-		}
-
-		// Wait before retrying
 		if retryDelay > 0 {
 			time.Sleep(retryDelay)
 		}
 	}
 
-	// At this point, we have an error that was handled
-	// Execute onError expressions if present
-	if len(onError.Expr) > 0 {
-		if exprErr := e.executeOnErrorExpressions(resource, ctx, lastErr); exprErr != nil {
-			e.logger.Error("Failed to execute onError expressions",
-				"actionID", resource.ActionID,
-				"error", exprErr.Error())
-		}
-	}
+	return output, lastErr
+}
 
-	// Handle based on action type
+// handleOnErrorAction applies the configured onError action after retries are exhausted.
+func (e *Engine) handleOnErrorAction(
+	resource *domain.Resource,
+	onError *domain.OnErrorConfig,
+	ctx *ExecutionContext,
+	maxRetries int,
+	lastErr error,
+) (interface{}, error) {
 	switch onError.Action {
 	case "continue":
-		// Continue execution with fallback or error output
-		if onError.Fallback != nil {
-			// Evaluate fallback if it's an expression
-			fallbackOutput, err := e.evaluateFallback(onError.Fallback, ctx)
-			if err != nil {
-				e.logger.Warn("Failed to evaluate fallback, using raw value",
-					"actionID", resource.ActionID,
-					"error", err.Error())
-				fallbackOutput = onError.Fallback
-			}
-			e.logger.Info("Using fallback value",
-				"actionID", resource.ActionID)
-			return fallbackOutput, nil
-		}
-		// Return error info as output so downstream resources can access it
-		e.logger.Info("Continuing after error",
-			"actionID", resource.ActionID)
-		return map[string]interface{}{
-			"_error": map[string]interface{}{
-				"message": lastErr.Error(),
-				"handled": true,
-			},
-		}, nil
-
+		return e.handleOnErrorContinue(resource, onError, ctx, lastErr)
 	case onErrorActionRetry:
-		// All retries exhausted, return the error
 		return nil, fmt.Errorf("all %d retry attempts failed: %w", maxRetries, lastErr)
-
 	case "fail":
-		// Explicit fail action
 		return nil, lastErr
-
 	default:
-		// Default behavior is to fail
 		return nil, lastErr
 	}
+}
+
+// handleOnErrorContinue returns fallback output or a handled error map for continue actions.
+func (e *Engine) handleOnErrorContinue(
+	resource *domain.Resource,
+	onError *domain.OnErrorConfig,
+	ctx *ExecutionContext,
+	lastErr error,
+) (interface{}, error) {
+	if onError.Fallback != nil {
+		fallbackOutput, err := e.evaluateFallback(onError.Fallback, ctx)
+		if err != nil {
+			e.logger.Warn("Failed to evaluate fallback, using raw value",
+				"actionID", resource.ActionID,
+				"error", err.Error())
+			fallbackOutput = onError.Fallback
+		}
+		e.logger.Info("Using fallback value",
+			"actionID", resource.ActionID)
+		return fallbackOutput, nil
+	}
+
+	e.logger.Info("Continuing after error",
+		"actionID", resource.ActionID)
+	return map[string]interface{}{
+		"_error": map[string]interface{}{
+			"message": lastErr.Error(),
+			"handled": true,
+		},
+	}, nil
 }
 
 // shouldHandleError checks if the error matches the onError "when" conditions.
@@ -287,31 +327,12 @@ func (e *Engine) shouldHandleError(
 	ctx *ExecutionContext,
 ) bool {
 	kdeps_debug.Log("enter: shouldHandleError")
-	// If no "when" conditions, handle all errors
 	if len(onError.When) == 0 {
 		return true
 	}
 
-	// Build error object for expression evaluation
-	errorObj := map[string]interface{}{
-		"message": err.Error(),
-		"type":    "execution_error",
-	}
-
-	// Check if it's an AppError with more details
-	var appErr *domain.AppError
-	if errors.As(err, &appErr) {
-		errorObj["code"] = string(appErr.Code)
-		errorObj["type"] = string(appErr.Code)
-		errorObj["statusCode"] = appErr.StatusCode
-		if appErr.Details != nil {
-			errorObj["details"] = appErr.Details
-		}
-	}
-
-	// Build environment with error object
 	env := e.buildEvaluationEnvironment(ctx)
-	env["error"] = errorObj
+	env["error"] = buildErrorObject(err)
 
 	// Check each "when" condition - if ANY matches, handle the error
 	for _, condition := range onError.When {
@@ -337,6 +358,24 @@ func (e *Engine) shouldHandleError(
 	return false
 }
 
+// buildErrorObject constructs the error map exposed to onError expressions.
+func buildErrorObject(err error) map[string]interface{} {
+	errorObj := map[string]interface{}{
+		"message": err.Error(),
+		"type":    "execution_error",
+	}
+	var appErr *domain.AppError
+	if errors.As(err, &appErr) {
+		errorObj["code"] = string(appErr.Code)
+		errorObj["type"] = string(appErr.Code)
+		errorObj["statusCode"] = appErr.StatusCode
+		if appErr.Details != nil {
+			errorObj["details"] = appErr.Details
+		}
+	}
+	return errorObj
+}
+
 // executeOnErrorExpressions executes the onError expression block.
 func (e *Engine) executeOnErrorExpressions(
 	resource *domain.Resource,
@@ -349,26 +388,8 @@ func (e *Engine) executeOnErrorExpressions(
 		return nil
 	}
 
-	// Build error object for expression evaluation
-	errorObj := map[string]interface{}{
-		"message": err.Error(),
-		"type":    "execution_error",
-	}
-
-	// Check if it's an AppError with more details
-	var appErr *domain.AppError
-	if errors.As(err, &appErr) {
-		errorObj["code"] = string(appErr.Code)
-		errorObj["type"] = string(appErr.Code)
-		errorObj["statusCode"] = appErr.StatusCode
-		if appErr.Details != nil {
-			errorObj["details"] = appErr.Details
-		}
-	}
-
-	// Build environment with error object
 	env := e.buildEvaluationEnvironment(ctx)
-	env["error"] = errorObj
+	env["error"] = buildErrorObject(err)
 
 	// Execute each expression
 	for _, expr := range onError.Expr {
@@ -476,64 +497,71 @@ func (e *Engine) executeInlineResources(
 			"hasAgent", inline.Agent != nil,
 			"hasComponent", inline.Component != nil)
 
-		var result interface{}
-		var err error
-
-		// Execute the inline resource based on its type
-		switch {
-		case inline.Expr != "":
-			expr := domain.Expression{}
-			expr.Raw = inline.Expr
+		if inline.Expr != "" {
+			expr := domain.Expression{Raw: inline.Expr}
 			if exprErr := e.executeExpressions([]domain.Expression{expr}, ctx); exprErr != nil {
 				return fmt.Errorf("expression at index %d failed: %w", i, exprErr)
 			}
 			continue
-		case inline.Chat != nil:
-			result, err = e.executeInlineLLM(inline.Chat, ctx)
-		case inline.HTTPClient != nil:
-			result, err = e.executeInlineHTTP(inline.HTTPClient, ctx)
-		case inline.SQL != nil:
-			result, err = e.executeInlineSQL(inline.SQL, ctx)
-		case inline.Python != nil:
-			result, err = e.executeInlinePython(inline.Python, ctx)
-		case inline.Exec != nil:
-			result, err = e.executeInlineExec(inline.Exec, ctx)
-		case inline.Agent != nil:
-			result, err = e.executeInlineAgent(inline.Agent, ctx)
-		case inline.Component != nil:
-			// Inline component call uses a synthetic resource for scoping.
-			synthetic := &domain.Resource{
-				ActionID:  fmt.Sprintf("_inline_%d", i),
-				Component: inline.Component,
-			}
-			result, err = e.executeComponentCall(synthetic, ctx)
-		case inline.Scraper != nil:
-			result, err = e.executeInlineScraper(inline.Scraper, ctx)
-		case inline.Embedding != nil:
-			result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
-		case inline.SearchLocal != nil:
-			result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
-		case inline.SearchWeb != nil:
-			result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
-		case inline.Telephony != nil:
-			result, err = e.executeInlineTelephony(inline.Telephony, ctx)
-		case inline.Browser != nil:
-			result, err = e.executeInlineBrowser(inline.Browser, ctx)
-		default:
-			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
 		}
 
+		result, err := e.executeSingleInlineResource(inline, i, ctx)
 		if err != nil {
-			return fmt.Errorf("inline resource at index %d failed: %w", i, err)
+			return err
 		}
-
-		// Store the result in the context (can be accessed by expressions)
 		if result != nil {
 			e.logger.Debug("Inline resource executed successfully",
 				"index", i,
 				"result", result)
 		}
 	}
-
 	return nil
+}
+
+// executeSingleInlineResource runs one inline resource entry.
+func (e *Engine) executeSingleInlineResource(
+	inline domain.InlineResource,
+	index int,
+	ctx *ExecutionContext,
+) (interface{}, error) {
+	var result interface{}
+	var err error
+	switch {
+	case inline.Chat != nil:
+		result, err = e.executeInlineLLM(inline.Chat, ctx)
+	case inline.HTTPClient != nil:
+		result, err = e.executeInlineHTTP(inline.HTTPClient, ctx)
+	case inline.SQL != nil:
+		result, err = e.executeInlineSQL(inline.SQL, ctx)
+	case inline.Python != nil:
+		result, err = e.executeInlinePython(inline.Python, ctx)
+	case inline.Exec != nil:
+		result, err = e.executeInlineExec(inline.Exec, ctx)
+	case inline.Agent != nil:
+		result, err = e.executeInlineAgent(inline.Agent, ctx)
+	case inline.Component != nil:
+		synthetic := &domain.Resource{
+			ActionID:  fmt.Sprintf("_inline_%d", index),
+			Component: inline.Component,
+		}
+		result, err = e.executeComponentCall(synthetic, ctx)
+	case inline.Scraper != nil:
+		result, err = e.executeInlineScraper(inline.Scraper, ctx)
+	case inline.Embedding != nil:
+		result, err = e.executeInlineEmbedding(inline.Embedding, ctx)
+	case inline.SearchLocal != nil:
+		result, err = e.executeInlineSearchLocal(inline.SearchLocal, ctx)
+	case inline.SearchWeb != nil:
+		result, err = e.executeInlineSearchWeb(inline.SearchWeb, ctx)
+	case inline.Telephony != nil:
+		result, err = e.executeInlineTelephony(inline.Telephony, ctx)
+	case inline.Browser != nil:
+		result, err = e.executeInlineBrowser(inline.Browser, ctx)
+	default:
+		return nil, fmt.Errorf("inline resource at index %d has no valid resource type", index)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("inline resource at index %d failed: %w", index, err)
+	}
+	return result, nil
 }

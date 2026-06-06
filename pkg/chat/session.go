@@ -38,6 +38,11 @@ var AppFS = afero.NewOsFs()
 //nolint:gochecknoglobals // test-replaceable
 var osUserHomeDir = os.UserHomeDir
 
+const (
+	sessionDirPerm     = 0o700
+	sessionSaveDirPerm = 0o750
+)
+
 // Turn represents one exchange in the conversation history.
 type Turn struct {
 	Role    string `json:"role"`
@@ -93,16 +98,7 @@ func (s *Session) WriteWorkflow() error {
 	if s.Workflow == nil {
 		return errors.New("no workflow to write")
 	}
-	for path, content := range s.Workflow.Files {
-		full := filepath.Join(s.Dir, path)
-		if mkErr := AppFS.MkdirAll(filepath.Dir(full), 0o700); mkErr != nil {
-			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
-		}
-		if writeErr := afero.WriteFile(AppFS, full, []byte(content), 0o600); writeErr != nil {
-			return fmt.Errorf("could not write %s: %w", path, writeErr)
-		}
-	}
-	return nil
+	return s.writeWorkflowFiles(s.Dir, sessionDirPerm)
 }
 
 // SaveTo copies the current workflow to the given destination directory.
@@ -110,12 +106,16 @@ func (s *Session) SaveTo(dest string) error {
 	if s.Workflow == nil {
 		return errors.New("no workflow to save")
 	}
-	if mkErr := AppFS.MkdirAll(dest, 0o750); mkErr != nil {
+	if mkErr := AppFS.MkdirAll(dest, sessionSaveDirPerm); mkErr != nil {
 		return fmt.Errorf("could not create destination directory: %w", mkErr)
 	}
+	return s.writeWorkflowFiles(dest, sessionSaveDirPerm)
+}
+
+func (s *Session) writeWorkflowFiles(dest string, dirPerm os.FileMode) error {
 	for path, content := range s.Workflow.Files {
 		full := filepath.Join(dest, path)
-		if mkErr := AppFS.MkdirAll(filepath.Dir(full), 0o750); mkErr != nil {
+		if mkErr := AppFS.MkdirAll(filepath.Dir(full), dirPerm); mkErr != nil {
 			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
 		}
 		if writeErr := afero.WriteFile(AppFS, full, []byte(content), 0o600); writeErr != nil {

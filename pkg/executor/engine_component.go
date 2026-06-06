@@ -40,39 +40,20 @@ func (e *Engine) executeComponentCall(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeComponentCall")
 
-	cfg := resource.Component
-	if cfg == nil {
-		return nil, errors.New("component call configuration is nil")
-	}
-	if cfg.Name == "" {
-		return nil, errors.New("component call requires a non-empty name")
+	cfg, err := validateComponentCallConfig(resource)
+	if err != nil {
+		return nil, err
 	}
 
-	comp, ok := ctx.Workflow.Components[cfg.Name]
-	if !ok {
-		return nil, fmt.Errorf(
-			"component %q not found; install it with 'kdeps component install %s'",
-			cfg.Name,
-			cfg.Name,
-		)
-	}
-
-	// Validate pinned version against the loaded component.
-	if cfg.Version != "" && comp.Metadata.Version != "" && cfg.Version != comp.Metadata.Version {
-		return nil, fmt.Errorf(
-			"component %q version mismatch: pinned %q, loaded %q",
-			cfg.Name, cfg.Version, comp.Metadata.Version,
-		)
-	}
-	if cfg.Version != "" && comp.Metadata.Version == "" {
-		e.logger.Warn("component version pinned but loaded component has no version",
-			"component", cfg.Name, "pinned", cfg.Version)
+	comp, err := e.resolveComponent(cfg, ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	callerID := resource.ActionID
 
-	if err := e.validateComponentInputs(cfg, comp); err != nil {
-		return nil, err
+	if validationErr := e.validateComponentInputs(cfg, comp); validationErr != nil {
+		return nil, validationErr
 	}
 
 	injected := e.buildInjectedInputs(cfg, comp)
@@ -84,34 +65,74 @@ func (e *Engine) executeComponentCall(
 		"inputs", len(injected),
 	)
 
-	// Set the active component name on the context so that env() lookups
-	// automatically check {COMPONENT_PREFIX}_{VAR} before the plain {VAR}.
 	prev := ctx.CurrentComponent
 	ctx.CurrentComponent = cfg.Name
 	defer func() { ctx.CurrentComponent = prev }()
 
-	// Lazily load the component's .env file the first time this component runs.
-	if _, loaded := ctx.componentDotEnv[cfg.Name]; !loaded && comp.Dir != "" {
-		dotEnv, dotErr := loadComponentDotEnv(comp.Dir)
-		switch {
-		case dotErr == nil:
-			ctx.componentDotEnv[cfg.Name] = dotEnv
-		case errors.Is(dotErr, errNoDotEnv):
-			// No .env file - mark as loaded so we don't retry.
-			ctx.componentDotEnv[cfg.Name] = map[string]string{}
-		default:
-			e.logger.Warn("failed to load component .env file",
-				"component", cfg.Name, "dir", comp.Dir, "error", dotErr)
-			ctx.componentDotEnv[cfg.Name] = map[string]string{}
-		}
-	}
+	e.ensureComponentDotEnv(cfg.Name, comp, ctx)
 
-	if err := e.runComponentSetup(comp, ctx); err != nil {
-		return nil, fmt.Errorf("component %q setup failed: %w", cfg.Name, err)
+	if setupErr := e.runComponentSetup(comp, ctx); setupErr != nil {
+		return nil, fmt.Errorf("component %q setup failed: %w", cfg.Name, setupErr)
 	}
 	defer e.runComponentTeardown(comp)
 
 	return e.runComponentResources(comp, cfg.Name, callerID, ctx)
+}
+
+func validateComponentCallConfig(resource *domain.Resource) (*domain.ComponentCallConfig, error) {
+	cfg := resource.Component
+	if cfg == nil {
+		return nil, errors.New("component call configuration is nil")
+	}
+	if cfg.Name == "" {
+		return nil, errors.New("component call requires a non-empty name")
+	}
+	return cfg, nil
+}
+
+func (e *Engine) resolveComponent(
+	cfg *domain.ComponentCallConfig,
+	ctx *ExecutionContext,
+) (*domain.Component, error) {
+	comp, ok := ctx.Workflow.Components[cfg.Name]
+	if !ok {
+		return nil, fmt.Errorf(
+			"component %q not found; install it with 'kdeps component install %s'",
+			cfg.Name,
+			cfg.Name,
+		)
+	}
+
+	if cfg.Version != "" && comp.Metadata.Version != "" && cfg.Version != comp.Metadata.Version {
+		return nil, fmt.Errorf(
+			"component %q version mismatch: pinned %q, loaded %q",
+			cfg.Name, cfg.Version, comp.Metadata.Version,
+		)
+	}
+	if cfg.Version != "" && comp.Metadata.Version == "" {
+		e.logger.Warn("component version pinned but loaded component has no version",
+			"component", cfg.Name, "pinned", cfg.Version)
+	}
+
+	return comp, nil
+}
+
+func (e *Engine) ensureComponentDotEnv(componentName string, comp *domain.Component, ctx *ExecutionContext) {
+	if _, loaded := ctx.componentDotEnv[componentName]; loaded || comp.Dir == "" {
+		return
+	}
+
+	dotEnv, dotErr := loadComponentDotEnv(comp.Dir)
+	switch {
+	case dotErr == nil:
+		ctx.componentDotEnv[componentName] = dotEnv
+	case errors.Is(dotErr, errNoDotEnv):
+		ctx.componentDotEnv[componentName] = map[string]string{}
+	default:
+		e.logger.Warn("failed to load component .env file",
+			"component", componentName, "dir", comp.Dir, "error", dotErr)
+		ctx.componentDotEnv[componentName] = map[string]string{}
+	}
 }
 
 // validateComponentInputs checks required inputs and warns on unknown keys.

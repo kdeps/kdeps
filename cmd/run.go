@@ -253,25 +253,32 @@ func ResolveRegularPath(inputPath string) (string, func(), error) {
 	return absPath, nil, nil
 }
 
+// findFirstExistingFile returns the first path in dir/name that exists on disk.
+func findFirstExistingFile(dir string, names ...string) string {
+	kdeps_debug.Log("enter: findFirstExistingFile")
+	for _, name := range names {
+		p := filepath.Join(dir, name)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
 // FindWorkflowFile returns the path to the workflow file inside dir.
 // It tries workflow.yaml first, then workflow.yaml.j2, then workflow.yml,
 // workflow.yml.j2, and finally workflow.j2 (a pure Jinja2 template with no
 // YAML extension prefix).  Returns an empty string if none of those files exist.
 func FindWorkflowFile(dir string) string {
 	kdeps_debug.Log("enter: FindWorkflowFile")
-	candidates := []string{
-		filepath.Join(dir, "workflow.yaml"),
-		filepath.Join(dir, "workflow.yaml.j2"),
-		filepath.Join(dir, "workflow.yml"),
-		filepath.Join(dir, "workflow.yml.j2"),
-		filepath.Join(dir, "workflow.j2"),
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
+	return findFirstExistingFile(
+		dir,
+		"workflow.yaml",
+		"workflow.yaml.j2",
+		"workflow.yml",
+		"workflow.yml.j2",
+		"workflow.j2",
+	)
 }
 
 // FindComponentFile returns the path to the component manifest inside dir.
@@ -279,19 +286,14 @@ func FindWorkflowFile(dir string) string {
 // Returns an empty string if none exist.
 func FindComponentFile(dir string) string {
 	kdeps_debug.Log("enter: FindComponentFile")
-	candidates := []string{
-		filepath.Join(dir, "component.yaml"),
-		filepath.Join(dir, "component.yaml.j2"),
-		filepath.Join(dir, "component.yml"),
-		filepath.Join(dir, "component.yml.j2"),
-		filepath.Join(dir, "component.j2"),
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
+	return findFirstExistingFile(
+		dir,
+		"component.yaml",
+		"component.yaml.j2",
+		"component.yml",
+		"component.yml.j2",
+		"component.j2",
+	)
 }
 
 // FindAgencyFile returns the path to the agency file inside dir.
@@ -299,19 +301,14 @@ func FindComponentFile(dir string) string {
 // agency.yml.j2, and finally agency.j2.  Returns an empty string if none exist.
 func FindAgencyFile(dir string) string {
 	kdeps_debug.Log("enter: FindAgencyFile")
-	candidates := []string{
-		filepath.Join(dir, agencyFile),
-		filepath.Join(dir, agencyYAMLJ2File),
-		filepath.Join(dir, agencyYMLFile),
-		filepath.Join(dir, agencyYMLJ2File),
-		filepath.Join(dir, agencyJ2File),
-	}
-	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
+	return findFirstExistingFile(
+		dir,
+		agencyFile,
+		agencyYAMLJ2File,
+		agencyYMLFile,
+		agencyYMLJ2File,
+		agencyJ2File,
+	)
 }
 
 // ResolveDirectoryPath resolves workflow path for directory inputs.
@@ -391,28 +388,33 @@ func isAgencyFile(path string) bool {
 		base == agencyJ2File
 }
 
-// ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
-func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
-	kdeps_debug.Log("enter: ExecuteWorkflowStepsWithFlags")
-	// Route to agency execution when an agency file was resolved.
-	if isAgencyFile(workflowPath) {
-		return ExecuteAgencyStepsWithFlags(cmd, workflowPath, flags)
-	}
-
-	// Check if debug flag is set
-	debugMode, _ := cmd.Flags().GetBool("debug")
-
-	// 0. Preprocess all .j2 files in the project directory.
-	workflowDir := filepath.Dir(workflowPath)
-	if prepErr := templates.PreprocessJ2Files(workflowDir); prepErr != nil {
+// preprocessProjectDir renders all .j2 templates in a project directory.
+func preprocessProjectDir(dir string) error {
+	kdeps_debug.Log("enter: preprocessProjectDir")
+	if prepErr := templates.PreprocessJ2Files(dir); prepErr != nil {
 		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
 	}
+	return nil
+}
 
-	// 1. Parse YAML
+// loadAgentProfile applies the per-agent config profile from config.yaml when named.
+func loadAgentProfile(agentName string) {
+	kdeps_debug.Log("enter: loadAgentProfile")
+	if agentName == "" {
+		return
+	}
+	if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
+		kdepslog.Warn("could not load agent profile", "error", loadErr)
+	}
+}
+
+// parseWorkflowStep parses the workflow file and prints step [1/5] progress.
+func parseWorkflowStep(workflowPath string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: parseWorkflowStep")
 	fmt.Fprintln(os.Stdout, "\n[1/5] Parsing workflow...")
 	workflow, err := ParseWorkflowFile(workflowPath)
 	if err != nil {
-		return fmt.Errorf("failed to parse workflow: %w", err)
+		return nil, fmt.Errorf("failed to parse workflow: %w", err)
 	}
 	fmt.Fprintf(
 		os.Stdout,
@@ -421,15 +423,12 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 		workflow.Metadata.Version,
 	)
 	fmt.Fprintf(os.Stdout, "  ✓ Resources: %d\n", len(workflow.Resources))
+	return workflow, nil
+}
 
-	// Apply per-agent config profile from config.yaml
-	if agentName := workflow.Metadata.Name; agentName != "" {
-		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
-			kdepslog.Warn("could not load agent profile", "error", loadErr)
-		}
-	}
-
-	// 2. Validate workflow
+// validateWorkflowStep validates the workflow and prints step [2/5] progress.
+func validateWorkflowStep(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: validateWorkflowStep")
 	fmt.Fprintln(os.Stdout, "\n[2/5] Validating workflow...")
 	if validateErr := ValidateWorkflow(workflow); validateErr != nil {
 		return fmt.Errorf("workflow validation failed: %w", validateErr)
@@ -437,8 +436,12 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	fmt.Fprintln(os.Stdout, "  ✓ Schema valid")
 	fmt.Fprintln(os.Stdout, "  ✓ Dependencies resolved")
 	fmt.Fprintf(os.Stdout, "  ✓ Target: %s\n", workflow.Metadata.TargetActionID)
+	return nil
+}
 
-	// 3. Setup Python environment (if needed)
+// setupEnvironmentStep sets up the execution environment and prints step [3/5] progress.
+func setupEnvironmentStep(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: setupEnvironmentStep")
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
 	printIORequirements(workflow)
 	if setupErr := SetupEnvironment(workflow); setupErr != nil {
@@ -457,27 +460,55 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 				len(workflow.Settings.AgentSettings.PythonPackages),
 			)
 		}
-	} else {
-		fmt.Fprintln(os.Stdout, "  ✓ No Python packages required")
+		return nil
 	}
+	fmt.Fprintln(os.Stdout, "  ✓ No Python packages required")
+	return nil
+}
 
-	// 4. Setup LLM backend (if needed)
+// ensureLLMBackendStep ensures Ollama is running when required and prints step [4/5] progress.
+func ensureLLMBackendStep(workflow *domain.Workflow) error {
+	kdeps_debug.Log("enter: ensureLLMBackendStep")
 	fmt.Fprintln(os.Stdout, "\n[4/5] Checking LLM backend...")
-	if workflowNeedsOllama(workflow) {
-		// Get Ollama URL from OLLAMA_HOST env var or use default.
-		ollamaURL := ollamaDefaultURL
-		if v := os.Getenv("OLLAMA_HOST"); v != "" {
-			ollamaURL = v
-		}
-
-		if ollamaErr := ensureOllamaRunning(ollamaURL); ollamaErr != nil {
-			return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
-		}
-	} else {
+	if !workflowNeedsOllama(workflow) {
 		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
+		return nil
+	}
+	if ollamaErr := ensureOllamaRunning(getOllamaURL()); ollamaErr != nil {
+		return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
+	}
+	return nil
+}
+
+// ExecuteWorkflowStepsWithFlags executes the main workflow steps after path resolution with flags.
+func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flags *RunFlags) error {
+	kdeps_debug.Log("enter: ExecuteWorkflowStepsWithFlags")
+	if isAgencyFile(workflowPath) {
+		return ExecuteAgencyStepsWithFlags(cmd, workflowPath, flags)
 	}
 
-	// 5. Execute workflow or start HTTP server
+	debugMode, _ := cmd.Flags().GetBool("debug")
+
+	if prepErr := preprocessProjectDir(filepath.Dir(workflowPath)); prepErr != nil {
+		return prepErr
+	}
+
+	workflow, err := parseWorkflowStep(workflowPath)
+	if err != nil {
+		return err
+	}
+	loadAgentProfile(workflow.Metadata.Name)
+
+	if validateErr := validateWorkflowStep(workflow); validateErr != nil {
+		return validateErr
+	}
+	if setupErr := setupEnvironmentStep(workflow); setupErr != nil {
+		return setupErr
+	}
+	if llmErr := ensureLLMBackendStep(workflow); llmErr != nil {
+		return llmErr
+	}
+
 	fmt.Fprintln(os.Stdout, "\n[5/5] Starting execution...")
 	if flags.Interactive {
 		eng := setupEngine(workflow, debugMode)
@@ -490,38 +521,23 @@ func ExecuteWorkflowStepsWithFlags(cmd *cobra.Command, workflowPath string, flag
 	)
 }
 
-// ExecuteAgencyStepsWithFlags parses an agency file, discovers all agents, and
-// executes the agency entry point (targetAgentId) with the full agent map
-// available for inter-agent calls via the `agent` resource type.
-func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *RunFlags) error {
-	kdeps_debug.Log("enter: ExecuteAgencyStepsWithFlags")
-	agencyDir := filepath.Dir(agencyPath)
-
-	// 0. Preprocess all .j2 files in the agency directory.
-	if prepErr := templates.PreprocessJ2Files(agencyDir); prepErr != nil {
-		return fmt.Errorf("failed to preprocess .j2 files: %w", prepErr)
-	}
-
-	// 1. Parse agency file and discover agent workflow paths.
+// parseAgencyStep parses the agency file and prints step [1/3] progress.
+func parseAgencyStep(agencyPath string) (*domain.Agency, []string, *yaml.Parser, error) {
+	kdeps_debug.Log("enter: parseAgencyStep")
 	fmt.Fprintln(os.Stdout, "\n[1/3] Parsing agency...")
 	agency, agentPaths, yamlParser, err := ParseAgencyFileWithParser(agencyPath)
 	if err != nil {
-		return fmt.Errorf("failed to parse agency: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to parse agency: %w", err)
 	}
-	// Clean up any temp dirs created for .kdeps packages after execution.
-	defer yamlParser.Cleanup()
 	fmt.Fprintf(os.Stdout, "  ✓ Loaded: %s v%s\n", agency.Metadata.Name, agency.Metadata.Version)
 	fmt.Fprintf(os.Stdout, "  ✓ Agents: %d\n", len(agentPaths))
+	return agency, agentPaths, yamlParser, nil
+}
 
-	// 2. Build the agent name → workflow-path map by parsing each agent's metadata.name.
+// printAgencyAgentIndex prints the agent name → path index for step [2/3].
+func printAgencyAgentIndex(agencyDir string, agency *domain.Agency, agentNameMap map[string]string) {
+	kdeps_debug.Log("enter: printAgencyAgentIndex")
 	fmt.Fprintln(os.Stdout, "\n[2/3] Indexing agents...")
-	agentNameMap, targetWorkflowPath, err := buildAgentNameMap(
-		agentPaths,
-		agency.Metadata.TargetAgentID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to index agents: %w", err)
-	}
 	for name, path := range agentNameMap {
 		rel, relErr := filepath.Rel(agencyDir, path)
 		if relErr != nil {
@@ -533,8 +549,34 @@ func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *R
 		}
 		fmt.Fprintf(os.Stdout, "  ✓ %s → %s%s\n", name, rel, marker)
 	}
+}
 
-	// 3. Execute the target agent (entry point).
+// ExecuteAgencyStepsWithFlags parses an agency file, discovers all agents, and
+// executes the agency entry point (targetAgentId) with the full agent map
+// available for inter-agent calls via the `agent` resource type.
+func ExecuteAgencyStepsWithFlags(cmd *cobra.Command, agencyPath string, flags *RunFlags) error {
+	kdeps_debug.Log("enter: ExecuteAgencyStepsWithFlags")
+	agencyDir := filepath.Dir(agencyPath)
+
+	if prepErr := preprocessProjectDir(agencyDir); prepErr != nil {
+		return prepErr
+	}
+
+	agency, agentPaths, yamlParser, err := parseAgencyStep(agencyPath)
+	if err != nil {
+		return err
+	}
+	defer yamlParser.Cleanup()
+
+	agentNameMap, targetWorkflowPath, err := buildAgentNameMap(
+		agentPaths,
+		agency.Metadata.TargetAgentID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to index agents: %w", err)
+	}
+	printAgencyAgentIndex(agencyDir, agency, agentNameMap)
+
 	fmt.Fprintln(os.Stdout, "\n[3/3] Executing entry point agent...")
 	return executeAgencyEntryPoint(cmd, targetWorkflowPath, agentNameMap, flags)
 }
@@ -600,13 +642,7 @@ func executeAgencyEntryPoint(
 		return fmt.Errorf("failed to parse entry-point workflow: %w", err)
 	}
 	fmt.Fprintf(os.Stdout, "  ✓ Agent: %s v%s\n", workflow.Metadata.Name, workflow.Metadata.Version)
-
-	// Apply per-agent config profile for this agent
-	if agentName := workflow.Metadata.Name; agentName != "" {
-		if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
-			kdepslog.Warn("could not load agent profile", "error", loadErr)
-		}
-	}
+	loadAgentProfile(workflow.Metadata.Name)
 
 	// Set up the engine with the full agent map so agent resource calls work.
 	eng := setupEngineWithAgentPaths(workflow, agentNameMap, debugMode)
@@ -617,20 +653,23 @@ func executeAgencyEntryPoint(
 	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, false)
 }
 
-// ParseWorkflowFile parses a workflow YAML file.
-func ParseWorkflowFile(path string) (*domain.Workflow, error) {
-	kdeps_debug.Log("enter: ParseWorkflowFile")
-	// Create schema validator.
+// newYAMLParser creates a YAML parser with schema validation and expression support.
+func newYAMLParser() (*yaml.Parser, error) {
+	kdeps_debug.Log("enter: newYAMLParser")
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
+	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
+}
 
-	// Create expression parser.
-	exprParser := expression.NewParser()
-
-	// Create YAML parser.
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
+// ParseWorkflowFile parses a workflow YAML file.
+func ParseWorkflowFile(path string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: ParseWorkflowFile")
+	yamlParser, err := newYAMLParser()
+	if err != nil {
+		return nil, err
+	}
 
 	// Parse workflow (this also loads resources via ParseWorkflow's internal loadResources call).
 	workflow, err := yamlParser.ParseWorkflow(path)
@@ -655,17 +694,10 @@ func ParseAgencyFile(path string) (*domain.Agency, []string, error) {
 // returned paths (important when .kdeps agents were extracted to temp dirs).
 func ParseAgencyFileWithParser(path string) (*domain.Agency, []string, *yaml.Parser, error) {
 	kdeps_debug.Log("enter: ParseAgencyFileWithParser")
-	// Create schema validator.
-	schemaValidator, err := validator.NewSchemaValidator()
+	yamlParser, err := newYAMLParser()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create schema validator: %w", err)
+		return nil, nil, nil, err
 	}
-
-	// Create expression parser.
-	exprParser := expression.NewParser()
-
-	// Create YAML parser.
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
 
 	// Parse agency.
 	agency, err := yamlParser.ParseAgency(path)
@@ -861,24 +893,9 @@ type RequestContextAdapter struct {
 	Engine *executor.Engine
 }
 
-// Execute implements http.WorkflowExecutor interface and converts request context types.
-func (a *RequestContextAdapter) Execute(
-	workflow *domain.Workflow,
-	req interface{},
-) (interface{}, error) {
-	kdeps_debug.Log("enter: Execute")
-	// If req is nil, pass it through
-	if req == nil {
-		return a.Engine.Execute(workflow, nil)
-	}
-
-	// Convert http.RequestContext to executor.RequestContext
-	httpReq, ok := req.(*http.RequestContext)
-	if !ok {
-		return nil, fmt.Errorf("unexpected request context type: %T", req)
-	}
-
-	// Convert file uploads
+// toExecutorRequestContext converts an HTTP request context to an executor request context.
+func toExecutorRequestContext(httpReq *http.RequestContext) *executor.RequestContext {
+	kdeps_debug.Log("enter: toExecutorRequestContext")
 	executorFiles := make([]executor.FileUpload, len(httpReq.Files))
 	for i, f := range httpReq.Files {
 		executorFiles[i] = executor.FileUpload{
@@ -889,9 +906,7 @@ func (a *RequestContextAdapter) Execute(
 			Size:      f.Size,
 		}
 	}
-
-	// Create executor.RequestContext
-	executorReq := &executor.RequestContext{
+	return &executor.RequestContext{
 		Method:    httpReq.Method,
 		Path:      httpReq.Path,
 		Headers:   httpReq.Headers,
@@ -902,7 +917,24 @@ func (a *RequestContextAdapter) Execute(
 		ID:        httpReq.ID,
 		SessionID: httpReq.SessionID,
 	}
+}
 
+// Execute implements http.WorkflowExecutor interface and converts request context types.
+func (a *RequestContextAdapter) Execute(
+	workflow *domain.Workflow,
+	req interface{},
+) (interface{}, error) {
+	kdeps_debug.Log("enter: Execute")
+	if req == nil {
+		return a.Engine.Execute(workflow, nil)
+	}
+
+	httpReq, ok := req.(*http.RequestContext)
+	if !ok {
+		return nil, fmt.Errorf("unexpected request context type: %T", req)
+	}
+
+	executorReq := toExecutorRequestContext(httpReq)
 	result, err := a.Engine.Execute(workflow, executorReq)
 
 	// Propagate session ID back from executor to HTTP request context
@@ -970,6 +1002,15 @@ const (
 	ollamaStartupTimeout = 60 * time.Second
 	ollamaCheckInterval  = time.Second
 )
+
+// getOllamaURL returns the configured Ollama base URL from OLLAMA_HOST or the default.
+func getOllamaURL() string {
+	kdeps_debug.Log("enter: getOllamaURL")
+	if v := os.Getenv("OLLAMA_HOST"); v != "" {
+		return v
+	}
+	return ollamaDefaultURL
+}
 
 // IsOllamaRunning checks if Ollama is already running by attempting a TCP connection.
 func IsOllamaRunning(host string, port int) bool {
@@ -1115,6 +1156,39 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
 const gracefulShutdownTimeout = 10 * time.Second
 
+type executionMode int
+
+const (
+	execModeBothServers executionMode = iota
+	execModeWebServer
+	execModeAPIServer
+	execModeBot
+	execModeFile
+	execModeSingleRun
+)
+
+// executionModeFor selects the execution mode implied by workflow settings.
+func executionModeFor(workflow *domain.Workflow) executionMode {
+	kdeps_debug.Log("enter: executionModeFor")
+	s := workflow.Settings
+	if s.WebServer != nil && s.APIServer != nil {
+		return execModeBothServers
+	}
+	if s.WebServer != nil {
+		return execModeWebServer
+	}
+	if s.APIServer != nil {
+		return execModeAPIServer
+	}
+	if s.Input != nil && s.Input.HasBotSource() {
+		return execModeBot
+	}
+	if s.Input != nil && s.Input.HasFileSource() {
+		return execModeFile
+	}
+	return execModeSingleRun
+}
+
 // dispatchExecution selects and starts the correct execution mode for the workflow:
 // server (API/Web/both), bot (polling or stateless), file input, media polling, or single-run stateless.
 func dispatchExecution(
@@ -1125,24 +1199,21 @@ func dispatchExecution(
 	eventsEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
-	s := workflow.Settings
-
-	if s.WebServer != nil && s.APIServer != nil {
+	switch executionModeFor(workflow) {
+	case execModeBothServers:
 		return StartBothServers(workflow, workflowPath, devMode, debugMode)
-	}
-	if s.WebServer != nil {
+	case execModeWebServer:
 		return StartWebServer(workflow, workflowPath, devMode)
-	}
-	if s.APIServer != nil {
+	case execModeAPIServer:
 		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
-	}
-	if s.Input != nil && s.Input.HasBotSource() {
+	case execModeBot:
 		return StartBotRunners(workflow, debugMode)
-	}
-	if s.Input != nil && s.Input.HasFileSource() {
+	case execModeFile:
 		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
+	case execModeSingleRun:
+		return ExecuteSingleRun(workflow)
 	}
-	return ExecuteSingleRun(workflow)
+	return nil
 }
 
 // StartBotRunners starts bot execution in either polling or stateless mode.
@@ -1286,12 +1357,7 @@ func newExecutorRegistry(logger *slog.Logger) *executor.Registry {
 	registry.SetBrowserExecutor(executorBrowser.NewAdapter())
 	registry.SetBotReplyExecutor(executorBotReply.NewAdapter())
 	registry.SetEmailExecutor(executorEmail.NewAdapter(logger))
-
-	ollamaURL := ollamaDefaultURL
-	if v := os.Getenv("OLLAMA_HOST"); v != "" {
-		ollamaURL = v
-	}
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
+	registry.SetLLMExecutor(executorLLM.NewAdapter(getOllamaURL()))
 	return registry
 }
 
@@ -1319,26 +1385,65 @@ func dispatchExecutionWithEngine(
 	_ bool, // was skipLLMRepl
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
-	s := workflow.Settings
-
-	// For server and bot modes, the pre-built engine is used where possible.
-	// HTTP/Web/BotReply server paths create their own long-running executor loop.
-	if s.WebServer != nil && s.APIServer != nil {
+	switch executionModeFor(workflow) {
+	case execModeBothServers:
 		return startBothServersWithEngine(eng, workflow, workflowPath, devMode, debugMode)
-	}
-	if s.WebServer != nil {
+	case execModeWebServer:
 		return StartWebServer(workflow, workflowPath, devMode)
-	}
-	if s.APIServer != nil {
+	case execModeAPIServer:
 		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
-	}
-	if s.Input != nil && s.Input.HasBotSource() {
+	case execModeBot:
 		return StartBotRunnersWithEngine(eng, workflow, debugMode)
-	}
-	if s.Input != nil && s.Input.HasFileSource() {
+	case execModeFile:
 		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
+	case execModeSingleRun:
+		return executeSingleRunWithEngine(eng, workflow)
 	}
-	return executeSingleRunWithEngine(eng, workflow)
+	return nil
+}
+
+// printSingleRunOutput prints the result of a single-run workflow execution.
+func printSingleRunOutput(output interface{}) {
+	kdeps_debug.Log("enter: printSingleRunOutput")
+	fmt.Fprintln(os.Stdout, "\n✓ Execution complete!")
+	fmt.Fprintln(os.Stdout, "\nOutput:")
+	fmt.Fprintf(os.Stdout, "%v\n", output)
+}
+
+// resolveServerBindAddress resolves host/port and finds an available listen address.
+func resolveServerBindAddress(workflow *domain.Workflow) (string, error) {
+	kdeps_debug.Log("enter: resolveServerBindAddress")
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	}
+	availablePort, findErr := FindAvailablePort(hostIP, portNum)
+	if findErr != nil {
+		return "", findErr
+	}
+	return fmt.Sprintf("%s:%d", hostIP, availablePort), nil
+}
+
+// createHTTPServerWithEngine builds an HTTP API server wired to the supplied engine.
+func createHTTPServerWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	workflowPath string,
+	devMode, debugMode bool,
+) (*http.Server, error) {
+	kdeps_debug.Log("enter: createHTTPServerWithEngine")
+	logger := logging.NewLogger(debugMode)
+	executorAdapter := &RequestContextAdapter{Engine: eng}
+	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP server: %w", err)
+	}
+	httpServer.SetWorkflowPath(workflowPath)
+	if devMode {
+		setupDevMode(httpServer, workflowPath)
+	}
+	return httpServer, nil
 }
 
 // executeSingleRunWithEngine runs a workflow once using the supplied engine.
@@ -1348,10 +1453,7 @@ func executeSingleRunWithEngine(eng *executor.Engine, workflow *domain.Workflow)
 	if err != nil {
 		return err
 	}
-
-	fmt.Fprintln(os.Stdout, "\n✓ Execution complete!")
-	fmt.Fprintln(os.Stdout, "\nOutput:")
-	fmt.Fprintf(os.Stdout, "%v\n", output)
+	printSingleRunOutput(output)
 	return nil
 }
 
@@ -1363,38 +1465,21 @@ func startHTTPServerWithEngine(
 	devMode, debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: startHTTPServerWithEngine")
-	hostIP := workflow.Settings.GetHostIP()
-	portNum := workflow.Settings.GetPortNum()
-
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-
-	availablePort, err := FindAvailablePort(hostIP, portNum)
+	addr, err := resolveServerBindAddress(workflow)
 	if err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
-	portNum = availablePort
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	printRoutes(workflow.Settings.APIServer)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
-
 	if devMode {
 		fmt.Fprintln(os.Stdout, "  Dev mode: File watching enabled")
 	}
 
-	logger := logging.NewLogger(debugMode)
-	executorAdapter := &RequestContextAdapter{Engine: eng}
-	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	httpServer, err := createHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	if err != nil {
-		return fmt.Errorf("failed to create HTTP server: %w", err)
-	}
-
-	httpServer.SetWorkflowPath(workflowPath)
-	if devMode {
-		setupDevMode(httpServer, workflowPath)
+		return err
 	}
 
 	sigChan := make(chan os.Signal, 1)
@@ -1430,38 +1515,23 @@ func startBothServersWithEngine(
 	devMode, debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: startBothServersWithEngine")
-	logger := logging.NewLogger(debugMode)
-	executorAdapter := &RequestContextAdapter{Engine: eng}
-	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	httpServer, err := createHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
 	if err != nil {
-		return fmt.Errorf("failed to create HTTP server: %w", err)
-	}
-	httpServer.SetWorkflowPath(workflowPath)
-	if devMode {
-		setupDevMode(httpServer, workflowPath)
+		return err
 	}
 
+	logger := logging.NewLogger(debugMode)
 	webServer, err := http.NewWebServer(workflow, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create web server: %w", err)
 	}
 	webServer.SetWorkflowDir(workflowPath)
-
-	// Merge web routes onto API router.
 	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
-	hostIP := workflow.Settings.GetHostIP()
-	portNum := workflow.Settings.GetPortNum()
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-
-	availablePort, err := FindAvailablePort(hostIP, portNum)
+	addr, err := resolveServerBindAddress(workflow)
 	if err != nil {
 		return fmt.Errorf("server cannot start: %w", err)
 	}
-	portNum = availablePort
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
@@ -1497,6 +1567,39 @@ func startBothServersWithEngine(
 	}
 }
 
+// botPlatformsFromInput returns the configured bot platform names for status output.
+func botPlatformsFromInput(input *domain.InputConfig) []string {
+	kdeps_debug.Log("enter: botPlatformsFromInput")
+	if input == nil || input.Bot == nil {
+		return nil
+	}
+	var platforms []string
+	b := input.Bot
+	if b.Discord != nil {
+		platforms = append(platforms, "discord")
+	}
+	if b.Slack != nil {
+		platforms = append(platforms, "slack")
+	}
+	if b.Telegram != nil {
+		platforms = append(platforms, "telegram")
+	}
+	if b.WhatsApp != nil {
+		platforms = append(platforms, "whatsapp")
+	}
+	return platforms
+}
+
+// loadBotCredentials loads bot connection credentials for the named agent.
+func loadBotCredentials(agentName string) *config.BotConnectionConfig {
+	kdeps_debug.Log("enter: loadBotCredentials")
+	globalCfg, cfgErr := config.LoadStructWithAgent(agentName)
+	if cfgErr != nil || globalCfg == nil {
+		return nil
+	}
+	return globalCfg.BotConnections
+}
+
 // StartBotRunnersWithEngine starts bot runners using a pre-built engine.
 func StartBotRunnersWithEngine(
 	eng *executor.Engine,
@@ -1517,27 +1620,8 @@ func StartBotRunnersWithEngine(
 		return bot.RunStateless(ctx, workflow, eng, logger)
 	}
 
-	// Load bot credentials from ~/.kdeps/config.yaml.
-	var botCreds *config.BotConnectionConfig
-	if globalCfg, cfgErr := config.LoadStructWithAgent(workflow.Metadata.Name); cfgErr == nil && globalCfg != nil {
-		botCreds = globalCfg.BotConnections
-	}
-
-	var platforms []string
-	if input.Bot != nil {
-		if input.Bot.Discord != nil {
-			platforms = append(platforms, "discord")
-		}
-		if input.Bot.Slack != nil {
-			platforms = append(platforms, "slack")
-		}
-		if input.Bot.Telegram != nil {
-			platforms = append(platforms, "telegram")
-		}
-		if input.Bot.WhatsApp != nil {
-			platforms = append(platforms, "whatsapp")
-		}
-	}
+	botCreds := loadBotCredentials(workflow.Metadata.Name)
+	platforms := botPlatformsFromInput(input)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
 	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
 
@@ -1576,14 +1660,10 @@ func startFileRunnerWithEngine(eng *executor.Engine, workflow *domain.Workflow, 
 
 func setupDevMode(httpServer *http.Server, workflowPath string) {
 	kdeps_debug.Log("enter: setupDevMode")
-	// Set workflow path on server for hot reload
 	httpServer.SetWorkflowPath(workflowPath)
 
-	// Create and set parser for hot reload
-	schemaValidator, schemaErr := validator.NewSchemaValidator()
-	if schemaErr == nil {
-		exprParser := expression.NewParser()
-		yamlParser := yaml.NewParser(schemaValidator, exprParser)
+	yamlParser, parserErr := newYAMLParser()
+	if parserErr == nil {
 		httpServer.SetParser(yamlParser)
 	}
 
@@ -1601,19 +1681,10 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	}
 
 	serverConfig := workflow.Settings.WebServer
-	hostIP := workflow.Settings.GetHostIP()
-	portNum := workflow.Settings.GetPortNum()
-
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-
-	availablePort, err := FindAvailablePort(hostIP, portNum)
+	addr, err := resolveServerBindAddress(workflow)
 	if err != nil {
 		return fmt.Errorf("web server cannot start: %w", err)
 	}
-	portNum = availablePort
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting web server on %s\n", addr)
 	fmt.Fprintln(os.Stdout, "\nRoutes:")
@@ -1787,17 +1858,11 @@ func ExecuteSingleRun(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ExecuteSingleRun")
 	engine := setupEngine(workflow, false)
 
-	// Execute with no request context (single run mode).
 	output, err := engine.Execute(workflow, nil)
 	if err != nil {
 		return err
 	}
-
-	// Print output.
-	fmt.Fprintln(os.Stdout, "\n✓ Execution complete!")
-	fmt.Fprintln(os.Stdout, "\nOutput:")
-	fmt.Fprintf(os.Stdout, "%v\n", output)
-
+	printSingleRunOutput(output)
 	return nil
 }
 

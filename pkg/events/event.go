@@ -76,89 +76,76 @@ type Event struct {
 	Data         any          `json:"data,omitempty"`
 }
 
-// WorkflowStarted returns a workflow.started event.
-func WorkflowStarted(workflowID string) Event {
+func workflowEvent(name EventName, workflowID string) Event {
 	return Event{
-		Event:      EventWorkflowStarted,
+		Event:      name,
 		WorkflowID: workflowID,
 		EmittedAt:  time.Now().UTC(),
 	}
+}
+
+func resourceEvent(name EventName, workflowID, actionID, resourceType string) Event {
+	return Event{
+		Event:        name,
+		WorkflowID:   workflowID,
+		ActionID:     actionID,
+		ResourceType: resourceType,
+		EmittedAt:    time.Now().UTC(),
+	}
+}
+
+func failedEvent(
+	name EventName,
+	workflowID, actionID, resourceType string,
+	err error,
+) Event {
+	ev := resourceEvent(name, workflowID, actionID, resourceType)
+	if actionID == "" && resourceType == "" {
+		ev = workflowEvent(name, workflowID)
+	}
+	ev.FailureClass = ClassifyError(err)
+	ev.Detail = err.Error()
+	return ev
+}
+
+// WorkflowStarted returns a workflow.started event.
+func WorkflowStarted(workflowID string) Event {
+	return workflowEvent(EventWorkflowStarted, workflowID)
 }
 
 // WorkflowCompleted returns a workflow.completed event.
 func WorkflowCompleted(workflowID string) Event {
-	return Event{
-		Event:      EventWorkflowCompleted,
-		WorkflowID: workflowID,
-		EmittedAt:  time.Now().UTC(),
-	}
+	return workflowEvent(EventWorkflowCompleted, workflowID)
 }
 
 // WorkflowFailed returns a workflow.failed event with classified failure.
 func WorkflowFailed(workflowID string, err error) Event {
-	return Event{
-		Event:        EventWorkflowFailed,
-		WorkflowID:   workflowID,
-		EmittedAt:    time.Now().UTC(),
-		FailureClass: ClassifyError(err),
-		Detail:       err.Error(),
-	}
+	return failedEvent(EventWorkflowFailed, workflowID, "", "", err)
 }
 
 // ResourceStarted returns a resource.started event.
 func ResourceStarted(workflowID, actionID, resourceType string) Event {
-	return Event{
-		Event:        EventResourceStarted,
-		WorkflowID:   workflowID,
-		ActionID:     actionID,
-		ResourceType: resourceType,
-		EmittedAt:    time.Now().UTC(),
-	}
+	return resourceEvent(EventResourceStarted, workflowID, actionID, resourceType)
 }
 
 // ResourceSkipped returns a resource.skipped event.
 func ResourceSkipped(workflowID, actionID, resourceType string) Event {
-	return Event{
-		Event:        EventResourceSkipped,
-		WorkflowID:   workflowID,
-		ActionID:     actionID,
-		ResourceType: resourceType,
-		EmittedAt:    time.Now().UTC(),
-	}
+	return resourceEvent(EventResourceSkipped, workflowID, actionID, resourceType)
 }
 
 // ResourceCompleted returns a resource.completed event.
 func ResourceCompleted(workflowID, actionID, resourceType string) Event {
-	return Event{
-		Event:        EventResourceCompleted,
-		WorkflowID:   workflowID,
-		ActionID:     actionID,
-		ResourceType: resourceType,
-		EmittedAt:    time.Now().UTC(),
-	}
+	return resourceEvent(EventResourceCompleted, workflowID, actionID, resourceType)
 }
 
 // ResourceFailed returns a resource.failed event with classified failure.
 func ResourceFailed(workflowID, actionID, resourceType string, err error) Event {
-	return Event{
-		Event:        EventResourceFailed,
-		WorkflowID:   workflowID,
-		ActionID:     actionID,
-		ResourceType: resourceType,
-		EmittedAt:    time.Now().UTC(),
-		FailureClass: ClassifyError(err),
-		Detail:       err.Error(),
-	}
+	return failedEvent(EventResourceFailed, workflowID, actionID, resourceType, err)
 }
 
 // ResourceRetrying returns a resource.retrying event.
 func ResourceRetrying(workflowID, actionID, resourceType string, attempt int) Event {
-	return Event{
-		Event:        EventResourceRetrying,
-		WorkflowID:   workflowID,
-		ActionID:     actionID,
-		ResourceType: resourceType,
-		EmittedAt:    time.Now().UTC(),
-		Data:         map[string]int{"attempt": attempt},
-	}
+	ev := resourceEvent(EventResourceRetrying, workflowID, actionID, resourceType)
+	ev.Data = map[string]int{"attempt": attempt}
+	return ev
 }

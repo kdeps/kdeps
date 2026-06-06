@@ -51,6 +51,19 @@ type DefaultLinuxKitRunner struct {
 	BinaryPath string
 }
 
+func (r *DefaultLinuxKitRunner) runCommand(ctx context.Context, op string, args ...string) error {
+	cmd := execCommandContext(ctx, r.BinaryPath, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	fmt.Fprintf(os.Stdout, "Running: linuxkit %v\n", args)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("linuxkit %s failed: %w", op, err)
+	}
+	return nil
+}
+
 // Build runs "linuxkit build" with the given config, format, architecture, and output directory.
 // Images must be pre-imported into linuxkit's cache via CacheImport before building.
 // Standard LinuxKit images (kernel, init, etc.) are pulled from Docker Hub automatically.
@@ -65,48 +78,23 @@ func (r *DefaultLinuxKitRunner) Build(
 		args = append(args, "--size", size)
 	}
 	args = append(args, configPath)
-
-	cmd := execCommandContext(ctx, r.BinaryPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	fmt.Fprintf(os.Stdout, "Running: linuxkit %v\n", args)
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("linuxkit build failed: %w", err)
-	}
-
-	return nil
+	return r.runCommand(ctx, "build", args...)
 }
 
 // CacheImport imports a Docker image tar into linuxkit's local cache.
 func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string) error {
 	kdeps_debug.Log("enter: CacheImport")
-	args := []string{"cache", "import", tarPath}
-
-	cmd := execCommandContext(ctx, r.BinaryPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	fmt.Fprintf(os.Stdout, "Running: linuxkit %v\n", args)
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("linuxkit cache import failed: %w", err)
-	}
-
-	return nil
+	return r.runCommand(ctx, "cache import", "cache", "import", tarPath)
 }
 
 // EnsureLinuxKit locates or downloads the linuxkit binary.
 // Search order: PATH → cache dir → download from GitHub releases.
 func EnsureLinuxKit(ctx context.Context) (string, error) {
 	kdeps_debug.Log("enter: EnsureLinuxKit")
-	// 1. Check PATH
 	if path, err := execLookPath("linuxkit"); err == nil {
 		return path, nil
 	}
 
-	// 2. Check cache
 	cacheDir, err := linuxkitCacheDir()
 	if err != nil {
 		return "", err
@@ -117,7 +105,10 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 		return cachedBinary, nil
 	}
 
-	// 3. Download
+	return downloadLinuxKit(ctx, cacheDir, cachedBinary)
+}
+
+func downloadLinuxKit(ctx context.Context, cacheDir, cachedBinary string) (string, error) {
 	fmt.Fprintf(os.Stdout, "Downloading linuxkit %s...\n", linuxkitVersion)
 
 	downloadURL := LinuxKitDownloadURL()
@@ -139,7 +130,6 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 	}
 
 	fmt.Fprintf(os.Stdout, "LinuxKit %s installed to %s\n", linuxkitVersion, cachedBinary)
-
 	return cachedBinary, nil
 }
 

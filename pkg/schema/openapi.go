@@ -239,10 +239,21 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 	spec.Info.Description = workflow.Metadata.Description
 	spec.Info.Version = workflow.Metadata.Version
 
-	// Build a lookup: routePath → method → []resource
-	// Keys use the raw kdeps router path format, not the OpenAPI template format.
-	resourcesByRoute := make(map[routeKey][]*domain.Resource)
+	resourcesByRoute := indexResourcesByRoute(workflow)
+	allPaths := collectAllPaths(workflow, resourcesByRoute)
+	usedOpIDs := map[string]struct{}{}
 
+	for path := range allPaths {
+		spec.Paths[toOpenAPIPath(path)] = buildPathItem(
+			path, workflow, resourcesByRoute, usedOpIDs,
+		)
+	}
+
+	return spec
+}
+
+func indexResourcesByRoute(workflow *domain.Workflow) map[routeKey][]*domain.Resource {
+	resourcesByRoute := make(map[routeKey][]*domain.Resource)
 	for _, res := range workflow.Resources {
 		if res.Validations == nil {
 			continue
@@ -259,44 +270,44 @@ func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 			}
 		}
 	}
+	return resourcesByRoute
+}
 
-	// Collect all paths from the workflow-level route config first.
+func collectAllPaths(
+	workflow *domain.Workflow,
+	resourcesByRoute map[routeKey][]*domain.Resource,
+) map[string]struct{} {
 	allPaths := map[string]struct{}{}
 	if workflow.Settings.APIServer != nil {
 		for _, r := range workflow.Settings.APIServer.Routes {
 			allPaths[r.Path] = struct{}{}
 		}
 	}
-	// Also include paths found in resource validations.
 	for k := range resourcesByRoute {
 		allPaths[k.path] = struct{}{}
 	}
+	return allPaths
+}
 
-	// Track which operation IDs have been used so we can ensure uniqueness.
-	usedOpIDs := map[string]struct{}{}
+func buildPathItem(
+	path string,
+	workflow *domain.Workflow,
+	resourcesByRoute map[routeKey][]*domain.Resource,
+	usedOpIDs map[string]struct{},
+) OpenAPIPathItem {
+	item := make(OpenAPIPathItem)
+	implicitPathParams := pathParamNames(path)
+	methods := collectMethodsForPath(path, workflow, resourcesByRoute)
 
-	for path := range allPaths {
-		item := make(OpenAPIPathItem)
-		openAPIPath := toOpenAPIPath(path)
-		implicitPathParams := pathParamNames(path)
-
-		// Determine methods for this path.
-		methods := collectMethodsForPath(path, workflow, resourcesByRoute)
-
-		for _, method := range methods {
-			k := routeKey{path: path, method: strings.ToLower(method)}
-			resources := resourcesByRoute[k]
-
-			op := buildOperation(method, path, resources, implicitPathParams, usedOpIDs)
-			op.Responses["200"] = successResponse()
-			op.Responses["400"] = errorResponse()
-			item[strings.ToLower(method)] = op
-		}
-
-		spec.Paths[openAPIPath] = item
+	for _, method := range methods {
+		k := routeKey{path: path, method: strings.ToLower(method)}
+		op := buildOperation(method, path, resourcesByRoute[k], implicitPathParams, usedOpIDs)
+		op.Responses["200"] = successResponse()
+		op.Responses["400"] = errorResponse()
+		item[strings.ToLower(method)] = op
 	}
 
-	return spec
+	return item
 }
 
 // collectMethodsForPath returns the HTTP methods that are configured for the

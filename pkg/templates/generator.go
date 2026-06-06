@@ -114,21 +114,27 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 	return g.generateJinja2File(renderer, templatePath, targetPath, data)
 }
 
-// generateBasicResource generates a basic resource file without template.
-//
-//nolint:funlen // template generation is intentionally verbose
-func (g *Generator) generateBasicResource(resourceName, targetPath string) error {
-	kdeps_debug.Log("enter: generateBasicResource")
-	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0750); err != nil {
-		return err
-	}
-
-	// Generate basic resource based on type
-	var content string
+func basicResourceContent(resourceName string) (string, error) {
 	switch resourceName {
 	case "http-client":
-		content = `actionId: httpClient
+		return basicHTTPClientResource(), nil
+	case "llm":
+		return basicLLMResource(), nil
+	case "sql":
+		return basicSQLResource(), nil
+	case "python":
+		return basicPythonResource(), nil
+	case "exec":
+		return basicExecResource(), nil
+	case "response":
+		return basicResponseResource(), nil
+	default:
+		return "", fmt.Errorf("unknown resource type: %s", resourceName)
+	}
+}
+
+func basicHTTPClientResource() string {
+	return `actionId: httpClient
 name: HTTP Client
 description: HTTP client for making API calls
 httpClient:
@@ -146,8 +152,10 @@ validations:
       type: url
       message: "URL must be a valid HTTP/HTTPS URL"
 `
-	case "llm":
-		content = `actionId: llm
+}
+
+func basicLLMResource() string {
+	return `actionId: llm
 name: LLM Processing
 description: Large Language Model interaction
 chat:
@@ -168,8 +176,10 @@ validations:
       minLength: 1
       message: "Input is required"
 `
-	case "sql":
-		content = `actionId: sql
+}
+
+func basicSQLResource() string {
+	return `actionId: sql
 name: SQL Query
 description: Execute SQL database queries
 sql:
@@ -188,8 +198,10 @@ validations:
       type: integer
       message: "ID must be a valid integer"
 `
-	case "python":
-		content = `actionId: python
+}
+
+func basicPythonResource() string {
+	return `actionId: python
 name: Python Script
 description: Execute Python code
 python:
@@ -208,16 +220,20 @@ python:
     print(json.dumps(result))
   timeout: "60s"
 `
-	case "exec":
-		content = `actionId: exec
+}
+
+func basicExecResource() string {
+	return `actionId: exec
 name: Shell Command
 description: Execute shell commands
 exec:
   command: "echo '{{ get('message', 'Hello World') }}'"
   timeout: "30s"
 `
-	case "response":
-		content = `actionId: response
+}
+
+func basicResponseResource() string {
+	return `actionId: response
 name: API Response
 description: Format API response
 apiResponse:
@@ -229,8 +245,18 @@ apiResponse:
       timestamp: "{{ info('current_time') }}"
       requestId: "{{ info('request.ID') }}"
 `
-	default:
-		return fmt.Errorf("unknown resource type: %s", resourceName)
+}
+
+// generateBasicResource generates a basic resource file without template.
+func (g *Generator) generateBasicResource(resourceName, targetPath string) error {
+	kdeps_debug.Log("enter: generateBasicResource")
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0750); err != nil {
+		return err
+	}
+
+	content, err := basicResourceContent(resourceName)
+	if err != nil {
+		return err
 	}
 
 	//nolint:gosec // G306: 0644 permissions needed for generated files to be readable by other processes

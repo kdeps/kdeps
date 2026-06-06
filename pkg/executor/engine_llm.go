@@ -31,53 +31,21 @@ import (
 )
 
 // executeLLM executes an LLM chat resource.
-//
-//nolint:gocognit // LLM execution has multiple configuration paths
-func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) { //nolint:funlen
+func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (interface{}, error) {
 	kdeps_debug.Log("enter: executeLLM")
 	if resource.Chat == nil {
 		return nil, fmt.Errorf("resource %s has no chat configuration", resource.ActionID)
 	}
 
-	executor := e.registry.GetLLMExecutor()
-	if executor == nil {
+	llmExecutor := e.registry.GetLLMExecutor()
+	if llmExecutor == nil {
 		return nil, errors.New("LLM executor not available")
 	}
 
-	timeoutDurationStr := resource.Chat.Timeout
-	if timeoutDurationStr == "" {
-		timeoutDurationStr = "60s" // Default
-	}
+	timeoutDuration, timeoutDurationStr := e.resolveLLMTimeout(resource.Chat)
+	backendName := e.resolveLLMBackend(resource.Chat)
+	modelStr := e.evaluateLLMModel(resource.Chat.Model, ctx)
 
-	// Parse timeout duration
-	timeoutDuration, err := time.ParseDuration(timeoutDurationStr)
-	if err != nil {
-		// If parsing fails, use embedded default
-		defaults, _ := kdepsconfig.GetDefaults()
-		timeoutDuration = defaults.Chat.TimeoutDuration()
-		timeoutDurationStr = "60s"
-	}
-
-	backendName := resource.Chat.Backend
-	if backendName == "" {
-		backendName = "ollama" // Default
-	}
-
-	// Evaluate model (only if it contains expression syntax)
-	modelStr := resource.Chat.Model
-	if modelExpr, parseErr := expression.NewParser().ParseValue(modelStr); parseErr == nil {
-		if e.evaluator == nil {
-			e.evaluator = expression.NewEvaluator(ctx.API)
-		}
-		env := e.buildEvaluationEnvironment(ctx)
-		if modelValue, evalErr := e.evaluator.Evaluate(modelExpr, env); evalErr == nil {
-			if ms, ok := modelValue.(string); ok {
-				modelStr = ms
-			}
-		}
-	}
-
-	// Use Info level to match v1's logging behavior - log before execution
 	e.logger.Info("LLM resource configuration",
 		"actionID", resource.ActionID,
 		"model", modelStr,
@@ -85,24 +53,70 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		"jsonResponse", resource.Chat.JSONResponse,
 		"backend", backendName)
 
-	// Store LLM metadata in context (for API response meta)
 	e.updateLLMMetadata(ctx, modelStr, backendName)
+	e.configureLLMExecutor(llmExecutor, ctx)
 
-	// Set tool executor interface for tool execution (via adapter pattern to avoid import cycle)
-	// The adapter wraps the LLM executor and implements SetToolExecutor
-	// We use interface{} and type assertion to avoid import cycle
-	if adapter, ok := executor.(interface {
+	done := e.startLLMTimeoutCountdown(resource.ActionID, timeoutDuration)
+	result, execErr := llmExecutor.Execute(ctx, resource.Chat)
+	if done != nil {
+		close(done)
+	}
+	return result, execErr
+}
+
+// resolveLLMTimeout parses the chat timeout string with embedded defaults as fallback.
+func (e *Engine) resolveLLMTimeout(chat *domain.ChatConfig) (time.Duration, string) {
+	timeoutDurationStr := chat.Timeout
+	if timeoutDurationStr == "" {
+		timeoutDurationStr = "60s"
+	}
+	timeoutDuration, err := time.ParseDuration(timeoutDurationStr)
+	if err != nil {
+		defaults, _ := kdepsconfig.GetDefaults()
+		timeoutDuration = defaults.Chat.TimeoutDuration()
+		timeoutDurationStr = "60s"
+	}
+	return timeoutDuration, timeoutDurationStr
+}
+
+// resolveLLMBackend returns the configured backend name with ollama as default.
+func (e *Engine) resolveLLMBackend(chat *domain.ChatConfig) string {
+	if chat.Backend != "" {
+		return chat.Backend
+	}
+	return "ollama"
+}
+
+// evaluateLLMModel evaluates the model field when it contains expression syntax.
+func (e *Engine) evaluateLLMModel(modelStr string, ctx *ExecutionContext) string {
+	modelExpr, parseErr := expression.NewParser().ParseValue(modelStr)
+	if parseErr != nil {
+		return modelStr
+	}
+	if e.evaluator == nil {
+		e.evaluator = expression.NewEvaluator(ctx.API)
+	}
+	env := e.buildEvaluationEnvironment(ctx)
+	modelValue, evalErr := e.evaluator.Evaluate(modelExpr, env)
+	if evalErr != nil {
+		return modelStr
+	}
+	if ms, ok := modelValue.(string); ok {
+		return ms
+	}
+	return modelStr
+}
+
+// configureLLMExecutor wires tool execution and offline mode into the LLM executor adapter.
+func (e *Engine) configureLLMExecutor(llmExecutor interface{}, ctx *ExecutionContext) {
+	if adapter, ok := llmExecutor.(interface {
 		SetToolExecutor(interface {
 			ExecuteResource(*domain.Resource, *ExecutionContext) (interface{}, error)
 		})
 	}); ok {
-		// Pass engine as ToolExecutor (engine implements ExecuteResource)
 		adapter.SetToolExecutor(e)
 	}
-
-	// Configure offline mode from workflow settings if adapter supports it.
-	// Falls back to KDEPS_OFFLINE_MODE env var set by global config defaults.
-	if adapter, ok := executor.(interface {
+	if adapter, ok := llmExecutor.(interface {
 		SetOfflineMode(bool)
 	}); ok {
 		offlineMode := ctx.Workflow.Settings.AgentSettings.OfflineMode
@@ -111,51 +125,34 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		}
 		adapter.SetOfflineMode(offlineMode)
 	}
+}
 
-	// Start countdown logging goroutine (v1 compatibility)
-	// Skip countdown in debug mode for faster testing
-	var done chan struct{}
-	if !e.debugMode {
-		startTime := time.Now()
-		done = make(chan struct{}) // Use closed channel pattern for better cleanup
-		actionID := resource.ActionID
-
-		go func() {
-			ticker := time.NewTicker(1 * time.Second) // Log every second
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-done:
+// startLLMTimeoutCountdown logs remaining timeout every second until done is closed.
+func (e *Engine) startLLMTimeoutCountdown(actionID string, timeoutDuration time.Duration) chan struct{} {
+	if e.debugMode {
+		return nil
+	}
+	done := make(chan struct{})
+	startTime := time.Now()
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				remaining := timeoutDuration - time.Since(startTime)
+				if remaining <= 0 {
 					return
-				case <-ticker.C:
-					elapsed := time.Since(startTime)
-					remaining := timeoutDuration - elapsed
-
-					if remaining <= 0 {
-						// Timeout reached, stop logging
-						return
-					}
-
-					// Format remaining time like v1
-					formatted := e.FormatDuration(remaining)
-					e.logger.Info("action will timeout",
-						"actionID", actionID,
-						"remaining", formatted)
 				}
+				e.logger.Info("action will timeout",
+					"actionID", actionID,
+					"remaining", e.FormatDuration(remaining))
 			}
-		}()
-	}
-
-	// Execute LLM resource
-	result, execErr := executor.Execute(ctx, resource.Chat)
-
-	// Signal countdown goroutine to stop (close channel to signal completion)
-	if done != nil {
-		close(done)
-	}
-
-	return result, execErr
+		}
+	}()
+	return done
 }
 
 // updateLLMMetadata evaluates the model string and updates the LLM metadata in the context.

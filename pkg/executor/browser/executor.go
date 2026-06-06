@@ -376,7 +376,13 @@ func CloseSession(sessionID string) {
 
 // ─── action dispatch ──────────────────────────────────────────────────────────
 
-//nolint:gocognit,funlen // switch over 15 well-defined action types; helper calls keep each case minimal
+type browserActionHandler func(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error
+
 func executeAction(
 	page playwright.Page,
 	action domain.BrowserAction,
@@ -386,101 +392,206 @@ func executeAction(
 	tms := playwright.Float(float64(timeout.Milliseconds()))
 	base := buildBase(action)
 
-	var err error
-
-	switch strings.ToLower(action.Action) {
-	case domain.BrowserActionNavigate:
-		err = doNavigate(page, action, base, tms)
-
-	case domain.BrowserActionClick:
-		err = reqSel(action, "click")
-		if err == nil {
-			err = page.Locator(action.Selector).Click(playwright.LocatorClickOptions{Timeout: tms})
-		}
-
-	case domain.BrowserActionFill:
-		err = reqSel(action, "fill")
-		if err == nil {
-			if ferr := page.Locator(action.Selector).Fill(action.Value,
-				playwright.LocatorFillOptions{Timeout: tms}); ferr == nil {
-				base["value"] = action.Value
-			} else {
-				err = ferr
-			}
-		}
-
-	case domain.BrowserActionType:
-		err = reqSel(action, "type")
-		if err == nil {
-			if terr := page.Locator(action.Selector).PressSequentially(action.Value,
-				playwright.LocatorPressSequentiallyOptions{}); terr == nil {
-				base["value"] = action.Value
-			} else {
-				err = terr
-			}
-		}
-
-	case domain.BrowserActionUpload:
-		err = doUpload(page, action, base)
-
-	case domain.BrowserActionSelect:
-		err = reqSel(action, "select")
-		if err == nil {
-			err = doSelect(page, action, base, tms)
-		}
-
-	case domain.BrowserActionCheck:
-		err = reqSel(action, "check")
-		if err == nil {
-			err = page.Locator(action.Selector).Check(playwright.LocatorCheckOptions{Timeout: tms})
-		}
-
-	case domain.BrowserActionUncheck:
-		err = reqSel(action, "uncheck")
-		if err == nil {
-			err = page.Locator(action.Selector).
-				Uncheck(playwright.LocatorUncheckOptions{Timeout: tms})
-		}
-
-	case domain.BrowserActionHover:
-		err = reqSel(action, "hover")
-		if err == nil {
-			err = page.Locator(action.Selector).Hover(playwright.LocatorHoverOptions{Timeout: tms})
-		}
-
-	case domain.BrowserActionScroll:
-		err = doScroll(page, action, tms)
-
-	case domain.BrowserActionPress:
-		err = doPress(page, action, base, tms)
-
-	case domain.BrowserActionClear:
-		err = reqSel(action, "clear")
-		if err == nil {
-			err = page.Locator(action.Selector).Clear(playwright.LocatorClearOptions{Timeout: tms})
-		}
-
-	case domain.BrowserActionEvaluate:
-		err = doEvaluate(page, action, base)
-
-	case domain.BrowserActionScreenshot:
-		err = doScreenshot(page, action, base)
-
-	case domain.BrowserActionWait:
-		err = doWait(page, action, base, tms)
-
-	default:
+	handler, ok := browserActionHandlers[strings.ToLower(action.Action)]
+	if !ok {
 		return failAction(base, "unknown action type: "+action.Action),
 			fmt.Errorf("unknown browser action: %q", action.Action)
 	}
 
-	if err != nil {
+	if err := handler(page, action, base, tms); err != nil {
 		return failAction(base, err.Error()), err
 	}
 
 	base["success"] = true
-
 	return base, nil
+}
+
+//nolint:gochecknoglobals // static dispatch table for browser action types
+var browserActionHandlers = map[string]browserActionHandler{
+	domain.BrowserActionNavigate:   handleNavigateAction,
+	domain.BrowserActionClick:      handleClickAction,
+	domain.BrowserActionFill:       handleFillAction,
+	domain.BrowserActionType:       handleTypeAction,
+	domain.BrowserActionUpload:     handleUploadAction,
+	domain.BrowserActionSelect:     handleSelectAction,
+	domain.BrowserActionCheck:      handleCheckAction,
+	domain.BrowserActionUncheck:    handleUncheckAction,
+	domain.BrowserActionHover:      handleHoverAction,
+	domain.BrowserActionScroll:     handleScrollAction,
+	domain.BrowserActionPress:      handlePressAction,
+	domain.BrowserActionClear:      handleClearAction,
+	domain.BrowserActionEvaluate:   handleEvaluateAction,
+	domain.BrowserActionScreenshot: handleScreenshotAction,
+	domain.BrowserActionWait:       handleWaitAction,
+}
+
+func handleNavigateAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error {
+	return doNavigate(page, action, base, tms)
+}
+
+func handleClickAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "click"); err != nil {
+		return err
+	}
+	return page.Locator(action.Selector).Click(playwright.LocatorClickOptions{Timeout: tms})
+}
+
+func handleFillAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "fill"); err != nil {
+		return err
+	}
+	if err := page.Locator(action.Selector).Fill(action.Value,
+		playwright.LocatorFillOptions{Timeout: tms}); err != nil {
+		return err
+	}
+	base["value"] = action.Value
+	return nil
+}
+
+func handleTypeAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	_ *float64,
+) error {
+	if err := reqSel(action, "type"); err != nil {
+		return err
+	}
+	if err := page.Locator(action.Selector).PressSequentially(action.Value,
+		playwright.LocatorPressSequentiallyOptions{}); err != nil {
+		return err
+	}
+	base["value"] = action.Value
+	return nil
+}
+
+func handleUploadAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	_ *float64,
+) error {
+	return doUpload(page, action, base)
+}
+
+func handleSelectAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "select"); err != nil {
+		return err
+	}
+	return doSelect(page, action, base, tms)
+}
+
+func handleCheckAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "check"); err != nil {
+		return err
+	}
+	return page.Locator(action.Selector).Check(playwright.LocatorCheckOptions{Timeout: tms})
+}
+
+func handleUncheckAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "uncheck"); err != nil {
+		return err
+	}
+	return page.Locator(action.Selector).Uncheck(playwright.LocatorUncheckOptions{Timeout: tms})
+}
+
+func handleHoverAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "hover"); err != nil {
+		return err
+	}
+	return page.Locator(action.Selector).Hover(playwright.LocatorHoverOptions{Timeout: tms})
+}
+
+func handleScrollAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	return doScroll(page, action, tms)
+}
+
+func handlePressAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error {
+	return doPress(page, action, base, tms)
+}
+
+func handleClearAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	_ map[string]interface{},
+	tms *float64,
+) error {
+	if err := reqSel(action, "clear"); err != nil {
+		return err
+	}
+	return page.Locator(action.Selector).Clear(playwright.LocatorClearOptions{Timeout: tms})
+}
+
+func handleEvaluateAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	_ *float64,
+) error {
+	return doEvaluate(page, action, base)
+}
+
+func handleScreenshotAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	_ *float64,
+) error {
+	return doScreenshot(page, action, base)
+}
+
+func handleWaitAction(
+	page playwright.Page,
+	action domain.BrowserAction,
+	base map[string]interface{},
+	tms *float64,
+) error {
+	return doWait(page, action, base, tms)
 }
 
 // ─── per-action helpers ───────────────────────────────────────────────────────

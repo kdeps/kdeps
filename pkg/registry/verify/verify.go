@@ -89,6 +89,20 @@ func (r Result) Error() error {
 	return errors.New(sb.String())
 }
 
+// allowedSecretPatterns match values that are not considered hardcoded secrets.
+var allowedSecretPatterns = []*regexp.Regexp{ //nolint:gochecknoglobals // compiled once at init
+	regexp.MustCompile(`(?i)env\s*\(`),
+	regexp.MustCompile(`\$\{`),
+	regexp.MustCompile(`^\{\{`),
+	regexp.MustCompile(`(?i)^\s*<[^>]+>\s*$`),
+	regexp.MustCompile(`(?i)^\s*your[_-]`),
+	regexp.MustCompile(`(?i)^\s*xxx+`),
+	regexp.MustCompile(`(?i)^\s*change[_-]me`),
+	regexp.MustCompile(`(?i)^\s*placeholder`),
+	regexp.MustCompile(`(?i)^\s*todo`),
+	regexp.MustCompile(`(?i)^\s*\.\.\.\s*$`),
+}
+
 // looksLikeSecret returns true if value appears to be a real secret
 // (non-empty, not an env() expression, not a template placeholder).
 func looksLikeSecret(value string) bool {
@@ -96,25 +110,18 @@ func looksLikeSecret(value string) bool {
 	if v == "" {
 		return false
 	}
-	// Allowed patterns: env expressions, template variables, example placeholders.
-	allowed := []*regexp.Regexp{
-		regexp.MustCompile(`(?i)env\s*\(`),         // env("VAR") or env('VAR')
-		regexp.MustCompile(`\$\{`),                 // ${VAR}
-		regexp.MustCompile(`^\{\{`),                // {{ expression }}
-		regexp.MustCompile(`(?i)^\s*<[^>]+>\s*$`),  // <YOUR_KEY_HERE>
-		regexp.MustCompile(`(?i)^\s*your[_-]`),     // your_api_key
-		regexp.MustCompile(`(?i)^\s*xxx+`),         // xxxx placeholder
-		regexp.MustCompile(`(?i)^\s*change[_-]me`), // change-me placeholder
-		regexp.MustCompile(`(?i)^\s*placeholder`),  // placeholder
-		regexp.MustCompile(`(?i)^\s*todo`),         // TODO
-		regexp.MustCompile(`(?i)^\s*\.\.\.\s*$`),   // ...
-	}
-	for _, re := range allowed {
+	for _, re := range allowedSecretPatterns {
 		if re.MatchString(v) {
 			return false
 		}
 	}
 	return true
+}
+
+// isYAMLFile reports whether name has a .yaml or .yml extension.
+func isYAMLFile(name string) bool {
+	name = strings.ToLower(name)
+	return strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")
 }
 
 // credentialFields maps YAML key names (case-insensitive) that must never
@@ -144,14 +151,12 @@ func Dir(dir string) (Result, error) {
 			return err
 		}
 		if d.IsDir() {
-			// Skip hidden dirs.
 			if strings.HasPrefix(d.Name(), ".") && path != dir {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		name := strings.ToLower(d.Name())
-		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+		if !isYAMLFile(d.Name()) {
 			return nil
 		}
 		rel, _ := filepath.Rel(dir, path)

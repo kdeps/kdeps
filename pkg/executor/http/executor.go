@@ -80,7 +80,29 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig, pro
 		Timeout: resolveHTTPTimeout(config),
 	}
 
-	// Configure redirect policy: resource > KDEPS_HTTP_FOLLOW_REDIRECTS > true
+	configureRedirectPolicy(client, config)
+
+	proxyURL := resolveProxyURL(proxy)
+	if proxyURL != "" {
+		if err := configureProxyTransport(client, proxyURL); err != nil {
+			return nil, err
+		}
+	}
+
+	if config.TLS != nil {
+		transport, err := buildTLSTransport(config.TLS)
+		if err != nil {
+			return nil, err
+		}
+		client.Transport = transport
+	}
+
+	return client, nil
+}
+
+// configureRedirectPolicy sets redirect following on the HTTP client.
+func configureRedirectPolicy(client *http.Client, config *domain.HTTPClientConfig) {
+	kdeps_debug.Log("enter: configureRedirectPolicy")
 	followRedirects := true
 	if config.FollowRedirects != nil {
 		followRedirects = *config.FollowRedirects
@@ -88,51 +110,54 @@ func (f *DefaultClientFactory) CreateClient(config *domain.HTTPClientConfig, pro
 		followRedirects = v == "true"
 	}
 	if !followRedirects {
-		// Explicitly disabled - don't follow redirects
 		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
-	} else {
-		// Default behavior: follow redirects (up to 10 redirects, which is Go's default)
-		client.CheckRedirect = nil
+		return
+	}
+	client.CheckRedirect = nil
+}
+
+// resolveProxyURL returns the proxy URL from connection config or environment.
+func resolveProxyURL(proxy string) string {
+	kdeps_debug.Log("enter: resolveProxyURL")
+	if proxy != "" {
+		return proxy
+	}
+	return os.Getenv("KDEPS_HTTP_PROXY")
+}
+
+// configureProxyTransport sets up proxy transport on the HTTP client.
+func configureProxyTransport(client *http.Client, proxyURL string) error {
+	kdeps_debug.Log("enter: configureProxyTransport")
+	parsedURL, err := url.Parse(proxyURL)
+	if err != nil {
+		return fmt.Errorf("invalid proxy URL: %w", err)
+	}
+	client.Transport = &http.Transport{
+		Proxy: http.ProxyURL(parsedURL),
+	}
+	return nil
+}
+
+// buildTLSTransport creates an HTTP transport with TLS configuration.
+func buildTLSTransport(tlsConfig *domain.HTTPTLSConfig) (*http.Transport, error) {
+	kdeps_debug.Log("enter: buildTLSTransport")
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: tlsConfig.InsecureSkipVerify, // #nosec G402
+		},
 	}
 
-	// Configure proxy: connection > KDEPS_HTTP_PROXY > empty (no proxy)
-	proxyURL := proxy
-	if proxyURL == "" {
-		proxyURL = os.Getenv("KDEPS_HTTP_PROXY")
-	}
-	if proxyURL != "" {
-		parsedURL, err := url.Parse(proxyURL)
+	if tlsConfig.CertFile != "" && tlsConfig.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(tlsConfig.CertFile, tlsConfig.KeyFile)
 		if err != nil {
-			return nil, fmt.Errorf("invalid proxy URL: %w", err)
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
 		}
-		client.Transport = &http.Transport{
-			Proxy: http.ProxyURL(parsedURL),
-		}
+		transport.TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
-	// Configure TLS
-	if config.TLS != nil {
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: config.TLS.InsecureSkipVerify, // #nosec G402
-			},
-		}
-
-		// Load custom certificates if specified
-		if config.TLS.CertFile != "" && config.TLS.KeyFile != "" {
-			cert, err := tls.LoadX509KeyPair(config.TLS.CertFile, config.TLS.KeyFile)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load client certificate: %w", err)
-			}
-			transport.TLSClientConfig.Certificates = []tls.Certificate{cert}
-		}
-
-		client.Transport = transport
-	}
-
-	return client, nil
+	return transport, nil
 }
 
 // Executor executes HTTP client resources.
@@ -183,17 +208,9 @@ func (e *Executor) Execute(
 	kdeps_debug.Log("enter: Execute")
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	// Resolve named HTTP connection (auth, proxy).
-	conn := e.resolveHTTPConnection(ctx, config)
-	proxy := ""
-	var auth *kdepsconfig.HTTPAuthConfig
-	if conn != nil {
-		proxy = conn.Proxy
-		auth = conn.Auth
-	}
+	proxy, auth := e.resolveConnectionAuth(ctx, config)
 
-	// Resolve configuration with evaluated expressions
-	resolvedConfig, err := e.resolveResolvedConfig(evaluator, ctx, config)
+	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +220,6 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	// Check cache first
 	if resolvedConfig.Cache != nil {
 		if cached, found := e.checkCache(ctx, resolvedConfig.Cache, urlStr, method, headers); found {
 			return cached, nil
@@ -223,7 +239,6 @@ func (e *Executor) Execute(
 
 	resp, err := e.executeRequestWithRetry(client, req, resolvedConfig.Retry)
 	if err != nil {
-		// Return network error as result data instead of Go error
 		return map[string]interface{}{
 			"error": err.Error(),
 		}, nil
@@ -235,13 +250,26 @@ func (e *Executor) Execute(
 	return e.processResponse(resp, resolvedConfig, ctx, urlStr, method, headers)
 }
 
-// resolveResolvedConfig evaluates dynamic fields in HTTP client configuration.
-func (e *Executor) resolveResolvedConfig(
+// resolveConnectionAuth returns proxy and auth from a named HTTP connection.
+func (e *Executor) resolveConnectionAuth(
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPClientConfig,
+) (string, *kdepsconfig.HTTPAuthConfig) {
+	kdeps_debug.Log("enter: resolveConnectionAuth")
+	conn := e.resolveHTTPConnection(ctx, config)
+	if conn == nil {
+		return "", nil
+	}
+	return conn.Proxy, conn.Auth
+}
+
+// resolveConfig evaluates dynamic fields in HTTP client configuration.
+func (e *Executor) resolveConfig(
 	evaluator *expression.Evaluator,
 	ctx *executor.ExecutionContext,
 	config *domain.HTTPClientConfig,
 ) (*domain.HTTPClientConfig, error) {
-	kdeps_debug.Log("enter: resolveResolvedConfig")
+	kdeps_debug.Log("enter: resolveConfig")
 	resolvedConfig := *config
 
 	// Evaluate TimeoutDuration if it contains expression syntax
@@ -660,41 +688,54 @@ func (e *Executor) prepareRequestBody(
 		return nil, nil, fmt.Errorf("failed to evaluate request body: %w", err)
 	}
 
-	// Handle different content types
-	contentType := headers["Content-Type"]
+	body, updatedHeaders, err := encodeRequestBody(headers["Content-Type"], bodyData, headers)
+	if err != nil {
+		return nil, nil, err
+	}
+	return body, updatedHeaders, nil
+}
 
-	var body io.Reader
-
+// encodeRequestBody serializes request data according to Content-Type.
+func encodeRequestBody(
+	contentType string,
+	bodyData interface{},
+	headers map[string]string,
+) (io.Reader, map[string]string, error) {
+	kdeps_debug.Log("enter: encodeRequestBody")
 	switch contentType {
 	case ContentTypeJSON:
-		jsonData, jsonErr := json.Marshal(bodyData)
-		if jsonErr != nil {
-			return nil, nil, fmt.Errorf("failed to marshal JSON: %w", jsonErr)
-		}
-		body = bytes.NewReader(jsonData)
-		headers["Content-Type"] = ContentTypeJSON
-
+		return encodeJSONBody(bodyData, headers)
 	case "application/x-www-form-urlencoded":
-		formData := url.Values{}
-		if dataMap, ok := bodyData.(map[string]interface{}); ok {
-			for k, v := range dataMap {
-				formData.Set(k, fmt.Sprintf("%v", v))
-			}
-		}
-		body = strings.NewReader(formData.Encode())
-		headers["Content-Type"] = "application/x-www-form-urlencoded"
-
+		return encodeFormBody(bodyData, headers)
 	default:
-		// Default to JSON
-		jsonData, jsonErr := json.Marshal(bodyData)
-		if jsonErr != nil {
-			return nil, nil, fmt.Errorf("failed to marshal JSON: %w", jsonErr)
-		}
-		body = bytes.NewReader(jsonData)
-		headers["Content-Type"] = ContentTypeJSON
+		return encodeJSONBody(bodyData, headers)
 	}
+}
 
-	return body, headers, nil
+func encodeJSONBody(
+	bodyData interface{},
+	headers map[string]string,
+) (io.Reader, map[string]string, error) {
+	jsonData, err := json.Marshal(bodyData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	headers["Content-Type"] = ContentTypeJSON
+	return bytes.NewReader(jsonData), headers, nil
+}
+
+func encodeFormBody(
+	bodyData interface{},
+	headers map[string]string,
+) (io.Reader, map[string]string, error) {
+	formData := url.Values{}
+	if dataMap, ok := bodyData.(map[string]interface{}); ok {
+		for k, v := range dataMap {
+			formData.Set(k, fmt.Sprintf("%v", v))
+		}
+	}
+	headers["Content-Type"] = "application/x-www-form-urlencoded"
+	return strings.NewReader(formData.Encode()), headers, nil
 }
 
 // createRequest creates an HTTP request and client.
@@ -778,26 +819,51 @@ func (e *Executor) processResponse(
 	headers map[string]string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: processResponse")
-	// Read response body, enforcing max_response_bytes when configured.
-	var maxRespBytes int64
+	respBody, err := readLimitedResponseBody(resp, resolveMaxResponseBytes())
+	if err != nil {
+		return nil, err
+	}
+
+	response := e.formatHTTPResponse(resp, respBody)
+
+	if config.Cache != nil {
+		e.cacheResponse(ctx, config.Cache, urlStr, method, headers, response)
+	}
+
+	return response, nil
+}
+
+// resolveMaxResponseBytes returns the output cap from KDEPS_HTTP_MAX_RESPONSE_BYTES.
+func resolveMaxResponseBytes() int64 {
+	kdeps_debug.Log("enter: resolveMaxResponseBytes")
 	if v := os.Getenv("KDEPS_HTTP_MAX_RESPONSE_BYTES"); v != "" {
 		if n, parseErr := strconv.ParseInt(v, 10, 64); parseErr == nil && n > 0 {
-			maxRespBytes = n
+			return n
 		}
 	}
-	var bodyReader io.Reader = resp.Body
-	if maxRespBytes > 0 {
-		bodyReader = io.LimitReader(resp.Body, maxRespBytes+1)
+	return 0
+}
+
+// readLimitedResponseBody reads the response body with optional size limit.
+func readLimitedResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
+	kdeps_debug.Log("enter: readLimitedResponseBody")
+	bodyReader := io.Reader(resp.Body)
+	if maxBytes > 0 {
+		bodyReader = io.LimitReader(resp.Body, maxBytes+1)
 	}
 	respBody, err := io.ReadAll(bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
-	if maxRespBytes > 0 && int64(len(respBody)) > maxRespBytes {
-		return nil, fmt.Errorf("HTTP response exceeds max_response_bytes limit of %d bytes", maxRespBytes)
+	if maxBytes > 0 && int64(len(respBody)) > maxBytes {
+		return nil, fmt.Errorf("HTTP response exceeds max_response_bytes limit of %d bytes", maxBytes)
 	}
+	return respBody, nil
+}
 
-	// Build response
+// formatHTTPResponse builds the structured HTTP response map.
+func (e *Executor) formatHTTPResponse(resp *http.Response, respBody []byte) map[string]interface{} {
+	kdeps_debug.Log("enter: formatHTTPResponse")
 	response := map[string]interface{}{
 		"statusCode": resp.StatusCode,
 		"status":     resp.Status,
@@ -805,18 +871,12 @@ func (e *Executor) processResponse(
 		"body":       string(respBody),
 	}
 
-	// Try to parse JSON body
 	var jsonBody interface{}
 	if unmarshalErr := json.Unmarshal(respBody, &jsonBody); unmarshalErr == nil {
 		response["data"] = jsonBody
 	}
 
-	// Cache the response if caching is enabled
-	if config.Cache != nil {
-		e.cacheResponse(ctx, config.Cache, urlStr, method, headers, response)
-	}
-
-	return response, nil
+	return response
 }
 
 // checkCache checks for cached response.

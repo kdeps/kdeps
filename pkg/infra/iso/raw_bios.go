@@ -24,6 +24,140 @@ import (
 // mkimageRawBIOSImage is the Docker image used for assembling raw disk images.
 const mkimageRawBIOSImage = "alpine:3.19"
 
+const assembleScriptHeader = `#!/bin/sh
+set -ex
+
+# Install necessary tools
+apk add --no-cache ncurses syslinux mtools dosfstools e2fsprogs util-linux e2tools
+
+KERNEL="/work/kernel"
+INITRD="/work/initrd.img"
+CMDLINE_FILE="/work/cmdline"
+IMAGE_TAR="/work/image.tar"
+BOOT_SH="/work/boot.sh"
+
+# Read cmdline content robustly
+CMDLINE=$(cat "$CMDLINE_FILE" | tr -d '\n\r' | sed 's/^ *//;s/ *$//')
+
+mkdir -p /scratch/bios
+cd /scratch/bios
+
+# Write syslinux config
+cat > syslinux.cfg <<EOF
+SERIAL 0 115200
+PROMPT 0
+TIMEOUT 0
+DEFAULT linux
+
+LABEL linux
+    LINUX /kernel
+    APPEND initrd=/initrd.img ${CMDLINE}
+EOF
+
+KERNEL_FILE_SIZE=$(stat -c %s "$KERNEL")
+INITRD_FILE_SIZE=$(stat -c %s "$INITRD")
+
+# 5% of content + 20 MB headroom
+CONTENT_SIZE=$(( KERNEL_FILE_SIZE + INITRD_FILE_SIZE ))
+ESP_HEADROOM=$(( CONTENT_SIZE / 20 + 20 * 1024 * 1024 ))
+ESP_FILE_SIZE=$(( CONTENT_SIZE + ESP_HEADROOM ))
+ESP_FILE_SIZE_KB=$(( (ESP_FILE_SIZE + 1023) / 1024 ))
+ESP_FILE_SIZE_SECTORS=$(( ESP_FILE_SIZE_KB * 2 ))
+`
+
+const assembleScriptDataPart = `
+# Data partition size logic
+DATA_PART_SIZE_SECTORS=0
+if [ -f "$IMAGE_TAR" ]; then
+    IMAGE_SIZE=$(stat -c %s "$IMAGE_TAR")
+    DATA_SIZE=$(( IMAGE_SIZE * 3 / 2 + 512 * 1024 * 1024 ))
+    MIN_DATA=$(( 2048 * 1024 * 1024 ))
+    if [ "$DATA_SIZE" -lt "$MIN_DATA" ]; then
+        DATA_SIZE=$MIN_DATA
+    fi
+    DATA_PART_SIZE_SECTORS=$(( DATA_SIZE / 512 ))
+fi
+
+IMGFILE=/work/disk.img
+# Create an empty sparse file for the disk image to save memory in tmpfs
+TOTAL_SECTORS=$(( 2048 + ESP_FILE_SIZE_SECTORS + DATA_PART_SIZE_SECTORS + 20480 ))
+truncate -s $(( TOTAL_SECTORS * 512 )) "$IMGFILE"
+
+# Create GPT partition table using sfdisk (available in util-linux)
+if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
+    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n%s,%s,0FC63DAF-8483-4772-8E79-3D69D8477DE4,\n" \
+        "$ESP_FILE_SIZE_SECTORS" "$((2048 + ESP_FILE_SIZE_SECTORS))" "$DATA_PART_SIZE_SECTORS" | sfdisk "$IMGFILE"
+else
+    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n" \
+        "$ESP_FILE_SIZE_SECTORS" | sfdisk "$IMGFILE"
+fi
+`
+
+const assembleScriptESP = `
+# Create FAT filesystem directly into the partition using mtools (memory efficient)
+ESP_TMP=/scratch/esp.img
+truncate -s $(( ESP_FILE_SIZE_SECTORS * 512 )) "$ESP_TMP"
+mkfs.vfat -F 32 "$ESP_TMP"
+
+export MTOOLSRC=/scratch/mtoolsrc
+echo "mtools_skip_check=1" > "$MTOOLSRC"
+
+# UEFI structure
+mmd -i "$ESP_TMP" ::/EFI
+mmd -i "$ESP_TMP" ::/EFI/BOOT
+
+mcopy -i "$ESP_TMP" syslinux.cfg ::/EFI/BOOT/syslinux.cfg
+mcopy -i "$ESP_TMP" syslinux.cfg ::/syslinux.cfg
+mcopy -i "$ESP_TMP" "$KERNEL" ::/kernel
+mcopy -i "$ESP_TMP" "$INITRD" ::/initrd.img
+
+# Copy SYSLINUX modules
+if [ -d /usr/share/syslinux ]; then
+    for f in ldlinux.c32 libcom32.c32 libutil.c32 mboot.c32 linux.c32 menu.c32; do
+        if [ -f "/usr/share/syslinux/$f" ]; then
+            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/EFI/BOOT/$f || true
+            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/$f || true
+        fi
+    done
+fi
+
+# Copy EFI loader from main syslinux package
+if [ -f /usr/share/syslinux/efi64/syslinux.efi ]; then
+    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
+    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
+elif [ -f /usr/lib/syslinux/efi64/syslinux.efi ]; then
+    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
+    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
+fi
+
+# Write the ESP partition back to the disk image
+dd if="$ESP_TMP" of="$IMGFILE" bs=512 seek=2048 count="$ESP_FILE_SIZE_SECTORS" conv=notrunc
+rm "$ESP_TMP"
+`
+
+const assembleScriptFooter = `
+# Handle data partition
+if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
+    DATA_TMP=/scratch/data.img
+    truncate -s $(( DATA_PART_SIZE_SECTORS * 512 )) "$DATA_TMP"
+    mkfs.ext4 -F "$DATA_TMP"
+    e2cp "$IMAGE_TAR" "$DATA_TMP:/image.tar"
+    if [ -f "$BOOT_SH" ]; then
+        e2cp "$BOOT_SH" "$DATA_TMP:/boot.sh"
+    fi
+    dd if="$DATA_TMP" of="$IMGFILE" bs=512 seek=$((2048 + ESP_FILE_SIZE_SECTORS)) count="$DATA_PART_SIZE_SECTORS" conv=notrunc
+    rm "$DATA_TMP"
+fi
+
+# Make it bootable on BIOS too
+if [ -f /usr/share/syslinux/gptmbr.bin ]; then
+    dd if=/usr/share/syslinux/gptmbr.bin of="$IMGFILE" bs=440 count=1 conv=notrunc
+fi
+
+sync
+echo "Disk image assembled successfully"
+`
+
 // buildRawBIOSWithImage is the internal implementation that supports thin builds.
 func buildRawBIOSWithImage(
 	ctx context.Context,
@@ -97,29 +231,25 @@ func findKernelInitrd(dir string) (string, string, string, error) {
 	return kernel, initrd, cmdline, nil
 }
 
-// assembleRawBIOS creates a raw disk image (BIOS or EFI) from kernel+initrd files.
-func assembleRawBIOS(
-	ctx context.Context,
-	kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string,
-) error {
-	kdeps_debug.Log("enter: assembleRawBIOS")
+func createRawBIOSWorkDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	cacheDir := filepath.Join(home, ".cache", "kdeps")
 	if mkdirErr := os.MkdirAll(cacheDir, 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create cache directory: %w", mkdirErr)
+		return "", fmt.Errorf("failed to create cache directory: %w", mkdirErr)
 	}
 
 	workDir, err := os.MkdirTemp(cacheDir, "rawbios-*")
 	if err != nil {
-		return fmt.Errorf("failed to create work directory: %w", err)
+		return "", fmt.Errorf("failed to create work directory: %w", err)
 	}
-	defer os.RemoveAll(workDir)
+	return workDir, nil
+}
 
-	// Copy kernel, initrd, cmdline to the work directory
+func copyKernelArtifacts(workDir, kernelPath, initrdPath, cmdlinePath string) error {
 	for _, src := range []struct{ from, to string }{
 		{kernelPath, filepath.Join(workDir, "kernel")},
 		{initrdPath, filepath.Join(workDir, "initrd.img")},
@@ -129,29 +259,31 @@ func assembleRawBIOS(
 			return fmt.Errorf("failed to copy %s: %w", filepath.Base(src.from), copyErr)
 		}
 	}
+	return nil
+}
 
-	// For thin builds, export the Docker image to a tarball
-	if imageName != "" {
-		fmt.Fprintf(os.Stdout, "Exporting app image %s to data partition...\n", imageName)
-		imageTar := filepath.Join(workDir, "image.tar")
-		saveCmd := execCommandContext(ctx, "docker", "save", "-o", imageTar, imageName)
-		if saveErr := saveCmd.Run(); saveErr != nil {
-			return fmt.Errorf("failed to export docker image: %w", saveErr)
-		}
-
-		if bootScript != "" {
-			bootPath := filepath.Join(workDir, "boot.sh")
-			if writeErr := os.WriteFile(bootPath, []byte(bootScript), 0600); writeErr != nil {
-				return fmt.Errorf("failed to write boot script: %w", writeErr)
-			}
-		}
+func exportDockerImageToWorkDir(
+	ctx context.Context,
+	workDir, imageName, bootScript string,
+) error {
+	fmt.Fprintf(os.Stdout, "Exporting app image %s to data partition...\n", imageName)
+	imageTar := filepath.Join(workDir, "image.tar")
+	saveCmd := execCommandContext(ctx, "docker", "save", "-o", imageTar, imageName)
+	if saveErr := saveCmd.Run(); saveErr != nil {
+		return fmt.Errorf("failed to export docker image: %w", saveErr)
 	}
 
-	scriptPath := filepath.Join(workDir, "assemble.sh")
-	if writeScriptErr := writeAssembleScript(scriptPath, workDir, imageName != ""); writeScriptErr != nil {
-		return fmt.Errorf("failed to write assembly script: %w", writeScriptErr)
+	if bootScript == "" {
+		return nil
 	}
+	bootPath := filepath.Join(workDir, "boot.sh")
+	if writeErr := os.WriteFile(bootPath, []byte(bootScript), 0600); writeErr != nil {
+		return fmt.Errorf("failed to write boot script: %w", writeErr)
+	}
+	return nil
+}
 
+func runDockerAssembleScript(ctx context.Context, workDir string) error {
 	args := []string{
 		"run", "--rm",
 		"-v", workDir + ":/work",
@@ -166,9 +298,41 @@ func assembleRawBIOS(
 	cmd.Stderr = os.Stderr
 
 	fmt.Fprintln(os.Stdout, "Assembling raw disk image...")
-
 	if runErr := cmd.Run(); runErr != nil {
 		return fmt.Errorf("raw disk assembly failed: %w", runErr)
+	}
+	return nil
+}
+
+// assembleRawBIOS creates a raw disk image (BIOS or EFI) from kernel+initrd files.
+func assembleRawBIOS(
+	ctx context.Context,
+	kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string,
+) error {
+	kdeps_debug.Log("enter: assembleRawBIOS")
+	workDir, err := createRawBIOSWorkDir()
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(workDir)
+
+	if copyErr := copyKernelArtifacts(workDir, kernelPath, initrdPath, cmdlinePath); copyErr != nil {
+		return copyErr
+	}
+
+	if imageName != "" {
+		if exportErr := exportDockerImageToWorkDir(ctx, workDir, imageName, bootScript); exportErr != nil {
+			return exportErr
+		}
+	}
+
+	scriptPath := filepath.Join(workDir, "assemble.sh")
+	if writeScriptErr := writeAssembleScript(scriptPath, workDir, imageName != ""); writeScriptErr != nil {
+		return fmt.Errorf("failed to write assembly script: %w", writeScriptErr)
+	}
+
+	if runErr := runDockerAssembleScript(ctx, workDir); runErr != nil {
+		return runErr
 	}
 
 	produced := filepath.Join(workDir, "disk.img")
@@ -179,145 +343,13 @@ func assembleRawBIOS(
 	return nil
 }
 
-//nolint:funlen // generating a large shell script
+func assembleScriptContent() string {
+	return assembleScriptHeader + assembleScriptDataPart + assembleScriptESP + assembleScriptFooter
+}
+
 func writeAssembleScript(path, _ string, _ bool) error {
 	kdeps_debug.Log("enter: writeAssembleScript")
-	const scriptHeader = `#!/bin/sh
-set -ex
-
-# Install necessary tools
-apk add --no-cache ncurses syslinux mtools dosfstools e2fsprogs util-linux e2tools
-
-KERNEL="/work/kernel"
-INITRD="/work/initrd.img"
-CMDLINE_FILE="/work/cmdline"
-IMAGE_TAR="/work/image.tar"
-BOOT_SH="/work/boot.sh"
-
-# Read cmdline content robustly
-CMDLINE=$(cat "$CMDLINE_FILE" | tr -d '\n\r' | sed 's/^ *//;s/ *$//')
-
-mkdir -p /scratch/bios
-cd /scratch/bios
-
-# Write syslinux config
-cat > syslinux.cfg <<EOF
-SERIAL 0 115200
-PROMPT 0
-TIMEOUT 0
-DEFAULT linux
-
-LABEL linux
-    LINUX /kernel
-    APPEND initrd=/initrd.img ${CMDLINE}
-EOF
-
-KERNEL_FILE_SIZE=$(stat -c %s "$KERNEL")
-INITRD_FILE_SIZE=$(stat -c %s "$INITRD")
-
-# 5% of content + 20 MB headroom
-CONTENT_SIZE=$(( KERNEL_FILE_SIZE + INITRD_FILE_SIZE ))
-ESP_HEADROOM=$(( CONTENT_SIZE / 20 + 20 * 1024 * 1024 ))
-ESP_FILE_SIZE=$(( CONTENT_SIZE + ESP_HEADROOM ))
-ESP_FILE_SIZE_KB=$(( (ESP_FILE_SIZE + 1023) / 1024 ))
-ESP_FILE_SIZE_SECTORS=$(( ESP_FILE_SIZE_KB * 2 ))
-`
-
-	const scriptDataPart = `
-# Data partition size logic
-DATA_PART_SIZE_SECTORS=0
-if [ -f "$IMAGE_TAR" ]; then
-    IMAGE_SIZE=$(stat -c %s "$IMAGE_TAR")
-    DATA_SIZE=$(( IMAGE_SIZE * 3 / 2 + 512 * 1024 * 1024 ))
-    MIN_DATA=$(( 2048 * 1024 * 1024 ))
-    if [ "$DATA_SIZE" -lt "$MIN_DATA" ]; then
-        DATA_SIZE=$MIN_DATA
-    fi
-    DATA_PART_SIZE_SECTORS=$(( DATA_SIZE / 512 ))
-fi
-
-IMGFILE=/work/disk.img
-# Create an empty sparse file for the disk image to save memory in tmpfs
-TOTAL_SECTORS=$(( 2048 + ESP_FILE_SIZE_SECTORS + DATA_PART_SIZE_SECTORS + 20480 ))
-truncate -s $(( TOTAL_SECTORS * 512 )) "$IMGFILE"
-
-# Create GPT partition table using sfdisk (available in util-linux)
-if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
-    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n%s,%s,0FC63DAF-8483-4772-8E79-3D69D8477DE4,\n" \
-        "$ESP_FILE_SIZE_SECTORS" "$((2048 + ESP_FILE_SIZE_SECTORS))" "$DATA_PART_SIZE_SECTORS" | sfdisk "$IMGFILE"
-else
-    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n" \
-        "$ESP_FILE_SIZE_SECTORS" | sfdisk "$IMGFILE"
-fi
-`
-
-	const scriptESP = `
-# Create FAT filesystem directly into the partition using mtools (memory efficient)
-ESP_TMP=/scratch/esp.img
-truncate -s $(( ESP_FILE_SIZE_SECTORS * 512 )) "$ESP_TMP"
-mkfs.vfat -F 32 "$ESP_TMP"
-
-export MTOOLSRC=/scratch/mtoolsrc
-echo "mtools_skip_check=1" > "$MTOOLSRC"
-
-# UEFI structure
-mmd -i "$ESP_TMP" ::/EFI
-mmd -i "$ESP_TMP" ::/EFI/BOOT
-
-mcopy -i "$ESP_TMP" syslinux.cfg ::/EFI/BOOT/syslinux.cfg
-mcopy -i "$ESP_TMP" syslinux.cfg ::/syslinux.cfg
-mcopy -i "$ESP_TMP" "$KERNEL" ::/kernel
-mcopy -i "$ESP_TMP" "$INITRD" ::/initrd.img
-
-# Copy SYSLINUX modules
-if [ -d /usr/share/syslinux ]; then
-    for f in ldlinux.c32 libcom32.c32 libutil.c32 mboot.c32 linux.c32 menu.c32; do
-        if [ -f "/usr/share/syslinux/$f" ]; then
-            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/EFI/BOOT/$f || true
-            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/$f || true
-        fi
-    done
-fi
-
-# Copy EFI loader from main syslinux package
-if [ -f /usr/share/syslinux/efi64/syslinux.efi ]; then
-    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
-    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
-elif [ -f /usr/lib/syslinux/efi64/syslinux.efi ]; then
-    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
-    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
-fi
-
-# Write the ESP partition back to the disk image
-dd if="$ESP_TMP" of="$IMGFILE" bs=512 seek=2048 count="$ESP_FILE_SIZE_SECTORS" conv=notrunc
-rm "$ESP_TMP"
-`
-
-	const scriptFooter = `
-# Handle data partition
-if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
-    DATA_TMP=/scratch/data.img
-    truncate -s $(( DATA_PART_SIZE_SECTORS * 512 )) "$DATA_TMP"
-    mkfs.ext4 -F "$DATA_TMP"
-    e2cp "$IMAGE_TAR" "$DATA_TMP:/image.tar"
-    if [ -f "$BOOT_SH" ]; then
-        e2cp "$BOOT_SH" "$DATA_TMP:/boot.sh"
-    fi
-    dd if="$DATA_TMP" of="$IMGFILE" bs=512 seek=$((2048 + ESP_FILE_SIZE_SECTORS)) count="$DATA_PART_SIZE_SECTORS" conv=notrunc
-    rm "$DATA_TMP"
-fi
-
-# Make it bootable on BIOS too
-if [ -f /usr/share/syslinux/gptmbr.bin ]; then
-    dd if=/usr/share/syslinux/gptmbr.bin of="$IMGFILE" bs=440 count=1 conv=notrunc
-fi
-
-sync
-echo "Disk image assembled successfully"
-`
-
-	script := scriptHeader + scriptDataPart + scriptESP + scriptFooter
-	return os.WriteFile(path, []byte(script), 0600)
+	return os.WriteFile(path, []byte(assembleScriptContent()), 0600)
 }
 
 func copyFile(src, dst string) error {

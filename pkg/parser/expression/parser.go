@@ -167,81 +167,73 @@ func (p *Parser) isExpression(value string) bool {
 		return false
 	}
 
-	// Check for function calls - these are definitely expressions
-	functionPatterns := []string{
-		`get\(`,
-		`set\(`,
-		`file\(`,
-		`info\(`,
-		`len\(`,
-		`env\(`,
+	if hasBuiltinFunctionCall(value) {
+		return true
 	}
+	if hasExpressionOperators(value) {
+		return true
+	}
+	return hasPropertyAccessPattern(value)
+}
 
-	for _, pattern := range functionPatterns {
+var expressionFunctionPatterns = []string{ //nolint:gochecknoglobals // compiled pattern list reused across calls
+	`get\(`,
+	`set\(`,
+	`file\(`,
+	`info\(`,
+	`len\(`,
+	`env\(`,
+}
+
+var expressionArithmeticPatterns = []string{ //nolint:gochecknoglobals // compiled pattern list reused across calls
+	`[0-9a-zA-Z_]\s*[+*/]\s*[0-9a-zA-Z_]`,
+	`[0-9a-zA-Z_]\s+-\s+[0-9a-zA-Z_]`,
+	`\s+[+\-*/]\s+`,
+	`\s+[><]\s+`,
+}
+
+// hasBuiltinFunctionCall reports whether value contains a kdeps builtin call.
+func hasBuiltinFunctionCall(value string) bool {
+	for _, pattern := range expressionFunctionPatterns {
 		if matched, _ := regexp.MatchString(pattern, value); matched {
 			return true
 		}
 	}
+	return false
+}
 
-	// Check for more specific expression patterns
-	// Only consider it an expression if it has clear expression syntax
-	// We check for operators that are clearly part of expressions (not just characters in words)
-	hasExpressionPattern := false
-
-	// Check for comparison/logical operators (these are unambiguous)
+// hasExpressionOperators reports comparison, logical, arithmetic, or array-access syntax.
+func hasExpressionOperators(value string) bool {
 	if matched, _ := regexp.MatchString(`(!=|==|>=|<=|&&|\|\|)`, value); matched {
-		hasExpressionPattern = true
-	}
-
-	// Check for arithmetic operators with proper context (numbers or variables on both sides)
-	// This avoids matching hyphens in words like "Multi-resource" or "data-9"
-	if !hasExpressionPattern {
-		// Match operators with spaces or adjacent to numbers/variables
-		// e.g., "2 + 3", "x-y", "count > 0", but not "Multi-resource" or "data-9"
-		// For subtraction, require it to be between two operands (not just a hyphen in a word)
-		arithmeticPatterns := []string{
-			`[0-9a-zA-Z_]\s*[+*/]\s*[0-9a-zA-Z_]`, // +, *, / between operands
-			`[0-9a-zA-Z_]\s+-\s+[0-9a-zA-Z_]`,     // - with spaces (subtraction)
-			`\s+[+\-*/]\s+`,                       // operator with spaces
-			`\s+[><]\s+`,                          // comparison with spaces
-		}
-		for _, pattern := range arithmeticPatterns {
-			if matched, _ := regexp.MatchString(pattern, value); matched {
-				hasExpressionPattern = true
-				break
-			}
-		}
-	}
-
-	// Check for array access
-	if !hasExpressionPattern {
-		if matched, _ := regexp.MatchString(`\[.*\]`, value); matched {
-			hasExpressionPattern = true
-		}
-	}
-
-	// Check for property access patterns (dots with following letters, but not in common domains or followed by parentheses)
-	// This helps distinguish "user.name" from "sys.exit(1)" or "john@example.com"
-	// Property access: identifier.identifier (e.g., "user.name", "data.items[0].name")
-	// Pattern: starts with identifier, has dot, then another identifier (may have array access)
-	hasPropertyAccess := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*|\[[^\]]+\])+`).
-		MatchString(value) &&
-		!regexp.MustCompile(`\.[a-zA-Z_][a-zA-Z0-9_]*\(`).MatchString(value) &&
-		// Only exclude if it's a domain name pattern (e.g., "example.com", "sub.example.com")
-		// Domain names typically have at least 2 parts before the TLD and end with a known TLD
-		!regexp.MustCompile(
-			`^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z0-9][a-zA-Z0-9.-]*\.(com|org|net|edu|gov|mil|biz|info|pro)$`,
-		).MatchString(value) &&
-		!regexp.MustCompile(
-			`^[a-zA-Z0-9][a-zA-Z0-9-]{2,}\.(com|org|net|edu|gov|mil|biz|info|pro)$`,
-		).MatchString(value)
-
-	// Only treat as expression if it has clear expression syntax OR property access
-	if hasExpressionPattern || hasPropertyAccess {
 		return true
 	}
+	for _, pattern := range expressionArithmeticPatterns {
+		if matched, _ := regexp.MatchString(pattern, value); matched {
+			return true
+		}
+	}
+	matched, _ := regexp.MatchString(`\[.*\]`, value)
+	return matched
+}
 
-	return false
+// hasPropertyAccessPattern reports identifier.property or identifier[index] chains.
+func hasPropertyAccessPattern(value string) bool {
+	hasChain := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*|\[[^\]]+\])+`).
+		MatchString(value)
+	if !hasChain {
+		return false
+	}
+	if regexp.MustCompile(`\.[a-zA-Z_][a-zA-Z0-9_]*\(`).MatchString(value) {
+		return false
+	}
+	if regexp.MustCompile(
+		`^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z0-9][a-zA-Z0-9.-]*\.(com|org|net|edu|gov|mil|biz|info|pro)$`,
+	).MatchString(value) {
+		return false
+	}
+	return !regexp.MustCompile(
+		`^[a-zA-Z0-9][a-zA-Z0-9-]{2,}\.(com|org|net|edu|gov|mil|biz|info|pro)$`,
+	).MatchString(value)
 }
 
 // looksLikeURL checks if a string resembles a URL.
