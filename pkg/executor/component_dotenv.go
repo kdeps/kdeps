@@ -433,9 +433,20 @@ func findMissingEnvVars(allVars []string, existing map[string]string) []string {
 	return missing
 }
 
+// dotEnvAppendFile is the minimal file interface used when appending to .env files.
+type dotEnvAppendFile interface {
+	WriteString(s string) (int, error)
+	Close() error
+}
+
+//nolint:gochecknoglobals // test-replaceable
+var openDotEnvForAppend = func(path string) (dotEnvAppendFile, error) {
+	return os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+}
+
 // appendMissingDotEnvVars appends missing env var entries to dotEnvPath.
 func appendMissingDotEnvVars(dotEnvPath string, missing []string) error {
-	f, openErr := os.OpenFile(dotEnvPath, os.O_APPEND|os.O_WRONLY, 0o600)
+	f, openErr := openDotEnvForAppend(dotEnvPath)
 	if openErr != nil {
 		return fmt.Errorf("open .env for append: %w", openErr)
 	}

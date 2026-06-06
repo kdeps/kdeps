@@ -796,7 +796,7 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	// Ensure workflow path is absolute for watching
-	absWorkflowPath, err := filepath.Abs(watchWorkflowPath)
+	absWorkflowPath, err := filepathAbs(watchWorkflowPath)
 	if err != nil {
 		s.logger.Warn(
 			"failed to resolve absolute workflow path, using relative",
@@ -809,7 +809,7 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	if s.parser == nil {
-		parser, parserErr := newWorkflowParser()
+		parser, parserErr := workflowParserFactory()
 		if parserErr != nil {
 			return parserErr
 		}
@@ -888,7 +888,7 @@ func (s *Server) reloadWorkflow() error {
 
 func (s *Server) ensureReloadReady() error {
 	if s.parser == nil {
-		parser, err := newWorkflowParser()
+		parser, err := workflowParserFactory()
 		if err != nil {
 			return err
 		}
@@ -904,7 +904,7 @@ func (s *Server) ensureReloadReady() error {
 		workflowPath = p
 	}
 
-	absPath, absErr := filepath.Abs(workflowPath)
+	absPath, absErr := filepathAbs(workflowPath)
 	if absErr != nil {
 		return fmt.Errorf("failed to resolve workflow path: %w", absErr)
 	}
@@ -912,8 +912,14 @@ func (s *Server) ensureReloadReady() error {
 	return nil
 }
 
+//nolint:gochecknoglobals // test-replaceable
+var (
+	workflowParserFactory  = newWorkflowParser
+	schemaValidatorFactory = validator.NewSchemaValidator
+)
+
 func newWorkflowParser() (*yaml.Parser, error) {
-	schemaValidator, schemaErr := validator.NewSchemaValidator()
+	schemaValidator, schemaErr := schemaValidatorFactory()
 	if schemaErr != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", schemaErr)
 	}

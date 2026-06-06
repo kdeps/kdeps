@@ -143,7 +143,7 @@ Examples:
 	}
 
 	runCmd.Flags().
-		IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port for kdeps server
+		IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default kdeps server port
 	runCmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev mode (hot reload)")
 	runCmd.Flags().StringVar(
 		&flags.FileArg, "file", "",
@@ -234,7 +234,7 @@ func resolveKdepsPackage(inputPath string) (string, func(), error) {
 func ResolveRegularPath(inputPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: ResolveRegularPath")
 	// Convert to absolute path
-	absPath, err := filepath.Abs(inputPath)
+	absPath, err := filepathAbsFunc(inputPath)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to resolve path: %w", err)
 	}
@@ -403,7 +403,7 @@ func loadAgentProfile(agentName string) {
 	if agentName == "" {
 		return
 	}
-	if _, loadErr := config.LoadWithAgent(agentName); loadErr != nil {
+	if _, loadErr := loadWithAgentFunc(agentName); loadErr != nil {
 		kdepslog.Warn("could not load agent profile", "error", loadErr)
 	}
 }
@@ -444,7 +444,7 @@ func setupEnvironmentStep(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: setupEnvironmentStep")
 	fmt.Fprintln(os.Stdout, "\n[3/5] Setting up environment...")
 	printIORequirements(workflow)
-	if setupErr := SetupEnvironment(workflow); setupErr != nil {
+	if setupErr := setupEnvironmentFunc(workflow); setupErr != nil {
 		return fmt.Errorf("environment setup failed: %w", setupErr)
 	}
 	if workflow.Settings.AgentSettings.PythonVersion != "" {
@@ -474,7 +474,7 @@ func ensureLLMBackendStep(workflow *domain.Workflow) error {
 		fmt.Fprintln(os.Stdout, "  ✓ No local LLM backend required")
 		return nil
 	}
-	if ollamaErr := ensureOllamaRunning(getOllamaURL()); ollamaErr != nil {
+	if ollamaErr := ensureOllamaRunningFunc(getOllamaURL()); ollamaErr != nil {
 		return fmt.Errorf("LLM backend setup failed: %w", ollamaErr)
 	}
 	return nil
@@ -535,7 +535,11 @@ func parseAgencyStep(agencyPath string) (*domain.Agency, []string, *yaml.Parser,
 }
 
 // printAgencyAgentIndex prints the agent name → path index for step [2/3].
-func printAgencyAgentIndex(agencyDir string, agency *domain.Agency, agentNameMap map[string]string) {
+func printAgencyAgentIndex(
+	agencyDir string,
+	agency *domain.Agency,
+	agentNameMap map[string]string,
+) {
 	kdeps_debug.Log("enter: printAgencyAgentIndex")
 	fmt.Fprintln(os.Stdout, "\n[2/3] Indexing agents...")
 	for name, path := range agentNameMap {
@@ -593,7 +597,7 @@ func buildAgentNameMap(
 	nameMap := make(map[string]string, len(agentPaths))
 
 	for _, p := range agentPaths {
-		wf, parseErr := ParseWorkflowFile(p)
+		wf, parseErr := parseWorkflowFileAgentMapFunc(p)
 		if parseErr != nil {
 			return nil, "", fmt.Errorf("failed to parse agent workflow %s: %w", p, parseErr)
 		}
@@ -650,13 +654,21 @@ func executeAgencyEntryPoint(
 	if flags.Interactive {
 		return startInteractiveMode(eng, workflow, workflowPath, flags, debugMode)
 	}
-	return dispatchExecutionWithEngine(eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, false)
+	return dispatchExecutionWithEngine(
+		eng,
+		workflow,
+		workflowPath,
+		flags.DevMode,
+		debugMode,
+		flags.FileArg,
+		false,
+	)
 }
 
 // newYAMLParser creates a YAML parser with schema validation and expression support.
 func newYAMLParser() (*yaml.Parser, error) {
 	kdeps_debug.Log("enter: newYAMLParser")
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
@@ -759,7 +771,7 @@ func LoadResourceFiles(
 func ValidateWorkflow(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ValidateWorkflow")
 	// Create schema validator.
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return fmt.Errorf("failed to create schema validator: %w", err)
 	}
@@ -830,8 +842,7 @@ func printBotRequirements(input *domain.InputConfig) {
 // isBinaryAvailable returns true when name is found on PATH.
 func isBinaryAvailable(name string) bool {
 	kdeps_debug.Log("enter: isBinaryAvailable")
-	_, err := exec.LookPath(name)
-	return err == nil
+	return isBinaryAvailableFunc(name)
 }
 
 // isPythonModuleAvailable returns true when `python3 -c "import <module>"` exits 0.
@@ -952,6 +963,21 @@ func (a *RequestContextAdapter) Execute(
 // (e.g. "0.0.0.0:port") creates an IPv4-only socket, which does not conflict with
 // an IPv6 dual-stack socket that may already hold the port. Probing both families
 // ensures the check mirrors the dual-stack socket the actual server will create.
+// checkPortListenFunc listens on a network address (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var checkPortListenFunc = func(ctx context.Context, network, addr string) (net.Listener, error) {
+	return (&net.ListenConfig{}).Listen(ctx, network, addr)
+}
+
+// isOllamaDialFunc dials Ollama for readiness checks (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isOllamaDialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: time.Second}
+	return dialer.DialContext(ctx, network, addr)
+}
+
 func CheckPortAvailable(host string, port int) error {
 	kdeps_debug.Log("enter: CheckPortAvailable")
 	addrs := []struct {
@@ -962,7 +988,7 @@ func CheckPortAvailable(host string, port int) error {
 		{"tcp6", fmt.Sprintf("[::]:%d", port)},
 	}
 	for _, a := range addrs {
-		ln, err := (&net.ListenConfig{}).Listen(context.Background(), a.network, a.addr)
+		ln, err := checkPortListenFunc(context.Background(), a.network, a.addr)
 		if err != nil {
 			return fmt.Errorf("port %d is not available on %s: %w", port, host, err)
 		}
@@ -986,12 +1012,22 @@ func FindAvailablePort(host string, port int) (int, error) {
 		checkErr := CheckPortAvailable(host, candidate)
 		if checkErr == nil {
 			if offset > 0 {
-				fmt.Fprintf(os.Stdout, "  ⚠ Port %d in use, using port %d instead\n", port, candidate)
+				fmt.Fprintf(
+					os.Stdout,
+					"  ⚠ Port %d in use, using port %d instead\n",
+					port,
+					candidate,
+				)
 			}
 			return candidate, nil
 		}
 	}
-	return 0, fmt.Errorf("no available port found in range %d-%d on %s", port, port+maxPortScanRange-1, host)
+	return 0, fmt.Errorf(
+		"no available port found in range %d-%d on %s",
+		port,
+		port+maxPortScanRange-1,
+		host,
+	)
 }
 
 // Ollama management constants.
@@ -1001,6 +1037,7 @@ const (
 	ollamaDefaultURL     = "http://localhost:11434"
 	ollamaStartupTimeout = 60 * time.Second
 	ollamaCheckInterval  = time.Second
+	backendOllama        = "ollama"
 )
 
 // getOllamaURL returns the configured Ollama base URL from OLLAMA_HOST or the default.
@@ -1016,17 +1053,7 @@ func getOllamaURL() string {
 func IsOllamaRunning(host string, port int) bool {
 	kdeps_debug.Log("enter: IsOllamaRunning")
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	dialer := &net.Dialer{
-		Timeout:       time.Second,
-		Deadline:      time.Time{},
-		LocalAddr:     nil,
-		DualStack:     false,
-		FallbackDelay: 0,
-		KeepAlive:     0,
-		Resolver:      nil,
-		Cancel:        nil,
-	}
-	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
+	conn, err := isOllamaDialFunc(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}
@@ -1041,7 +1068,7 @@ func IsOllamaRunning(host string, port int) bool {
 func startOllamaServer() error {
 	kdeps_debug.Log("enter: startOllamaServer")
 	// Check if ollama command exists
-	_, lookErr := exec.LookPath("ollama")
+	_, lookErr := execLookPathFunc("ollama")
 	if lookErr != nil {
 		return fmt.Errorf("ollama not found in PATH: %w", lookErr)
 	}
@@ -1051,7 +1078,7 @@ func startOllamaServer() error {
 	cmd.Stdout = nil // Discard output
 	cmd.Stderr = nil // Discard errors
 
-	if startErr := cmd.Start(); startErr != nil {
+	if startErr := ollamaServeStartFunc(cmd); startErr != nil {
 		return fmt.Errorf("failed to start ollama: %w", startErr)
 	}
 
@@ -1114,19 +1141,19 @@ func ensureOllamaRunning(ollamaURL string) error {
 	host, port := ParseOllamaURL(ollamaURL)
 
 	// Check if already running
-	if IsOllamaRunning(host, port) {
+	if isOllamaRunningFunc(host, port) {
 		fmt.Fprintf(os.Stdout, "  ✓ Ollama already running on %s:%d\n", host, port)
 		return nil
 	}
 
 	// Start Ollama
 	fmt.Fprintf(os.Stdout, "  ⏳ Starting Ollama server...\n")
-	if err := startOllamaServer(); err != nil {
+	if err := startOllamaServerFunc(); err != nil {
 		return fmt.Errorf("failed to start ollama: %w", err)
 	}
 
 	// Wait for it to be ready
-	if err := waitForOllamaReady(host, port, ollamaStartupTimeout); err != nil {
+	if err := waitForOllamaReadyFunc(host, port, ollamaStartupTimeout); err != nil {
 		return err
 	}
 
@@ -1150,7 +1177,7 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 		return false
 	}
 	backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
-	return backend == "" || backend == "ollama"
+	return backend == "" || backend == backendOllama
 }
 
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
@@ -1166,6 +1193,121 @@ const (
 	execModeFile
 	execModeSingleRun
 )
+
+// executionModeForFunc is overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var executionModeForFunc = executionModeFor
+
+// Dispatch hooks — overridable in tests to avoid starting real servers.
+//
+//nolint:gochecknoglobals // test-replaceable hooks
+var (
+	execBothServersFn                          = StartBothServers
+	execWebServerFn                            = StartWebServer
+	execHTTPServerFn                           = StartHTTPServer
+	execBotRunnersFn                           = StartBotRunners
+	execFileRunnerFn                           = StartFileRunner
+	execSingleRunFn                            = ExecuteSingleRun
+	execBothServersWithEngineFn                = startBothServersWithEngine
+	execHTTPServerWithEngineFn                 = startHTTPServerWithEngine
+	execWebServerWithEngineFn                  = StartWebServer
+	execBotRunnersWithEngineFn                 = StartBotRunnersWithEngine
+	execFileRunnerWithEngineFn                 = startFileRunnerWithEngine
+	execSingleRunWithEngineFn                  = executeSingleRunWithEngine
+	createHTTPServerWithEngineFunc             = createHTTPServerWithEngine
+	httpServerStartFunc                        = defaultHTTPServerStart
+	httpServerShutdownFunc                     = defaultHTTPServerShutdown
+	webServerStartFunc                         = defaultWebServerStart
+	webServerShutdownFunc                      = defaultWebServerShutdown
+	isBinaryAvailableFunc                      = defaultIsBinaryAvailable
+	botDispatcherRunFunc                       = defaultBotDispatcherRun
+	httpNewServerFunc                          = http.NewServer
+	httpNewWebServerFunc                       = http.NewWebServer
+	notifySignalsFunc                          = signal.Notify
+	setupEnvironmentFunc                       = SetupEnvironment
+	extractFileCopyNFunc                       = io.CopyN
+	parseWorkflowFileAgentMapFunc              = ParseWorkflowFile
+	dispatchExecutionWithEngineInteractiveFunc = dispatchExecutionWithEngine
+)
+
+func defaultIsBinaryAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func defaultHTTPServerStart(srv *http.Server, addr string, devMode bool) error {
+	return srv.Start(addr, devMode)
+}
+
+//nolint:revive // signature matches (*http.Server).Shutdown(ctx)
+func defaultHTTPServerShutdown(srv *http.Server, ctx context.Context) error {
+	return srv.Shutdown(ctx)
+}
+
+func defaultBotDispatcherRun(ctx context.Context, d *bot.Dispatcher) error {
+	return d.Run(ctx)
+}
+
+//nolint:revive // signature matches (*http.WebServer).Start(ctx)
+func defaultWebServerStart(srv *http.WebServer, ctx context.Context) error {
+	return srv.Start(ctx)
+}
+
+//nolint:revive // signature matches (*http.WebServer).Shutdown(ctx)
+func defaultWebServerShutdown(srv *http.WebServer, ctx context.Context) error {
+	return srv.Shutdown(ctx)
+}
+
+// loadWithAgentFunc loads per-agent config profiles (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var loadWithAgentFunc = config.LoadWithAgent
+
+// loadStructWithAgentFunc loads bot credentials (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var loadStructWithAgentFunc = config.LoadStructWithAgent
+
+// ensureOllamaRunningFunc ensures Ollama is running (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var ensureOllamaRunningFunc = ensureOllamaRunning
+
+// osMkdirTempExtractFunc creates temp dirs for package extraction (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osMkdirTempExtractFunc = os.MkdirTemp
+
+// findAvailablePortFunc finds a free TCP port (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var findAvailablePortFunc = FindAvailablePort
+
+// execLookPathFunc looks up executables on PATH (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var execLookPathFunc = exec.LookPath
+
+// startOllamaServerFunc starts the Ollama server (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var startOllamaServerFunc = startOllamaServer
+
+// ollamaServeStartFunc starts the ollama serve command (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var ollamaServeStartFunc = func(cmd *exec.Cmd) error { return cmd.Start() }
+
+// waitForOllamaReadyFunc waits for Ollama readiness (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var waitForOllamaReadyFunc = waitForOllamaReady
+
+// isOllamaRunningFunc checks if Ollama is running (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isOllamaRunningFunc = IsOllamaRunning
 
 // executionModeFor selects the execution mode implied by workflow settings.
 func executionModeFor(workflow *domain.Workflow) executionMode {
@@ -1199,19 +1341,19 @@ func dispatchExecution(
 	eventsEnabled bool,
 ) error {
 	kdeps_debug.Log("enter: dispatchExecution")
-	switch executionModeFor(workflow) {
+	switch executionModeForFunc(workflow) {
 	case execModeBothServers:
-		return StartBothServers(workflow, workflowPath, devMode, debugMode)
+		return execBothServersFn(workflow, workflowPath, devMode, debugMode)
 	case execModeWebServer:
-		return StartWebServer(workflow, workflowPath, devMode)
+		return execWebServerFn(workflow, workflowPath, devMode)
 	case execModeAPIServer:
-		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
+		return execHTTPServerFn(workflow, workflowPath, devMode, debugMode)
 	case execModeBot:
-		return StartBotRunners(workflow, debugMode)
+		return execBotRunnersFn(workflow, debugMode)
 	case execModeFile:
-		return StartFileRunner(workflow, debugMode, fileArg, eventsEnabled)
+		return execFileRunnerFn(workflow, debugMode, fileArg, eventsEnabled)
 	case execModeSingleRun:
-		return ExecuteSingleRun(workflow)
+		return execSingleRunFn(workflow)
 	}
 	return nil
 }
@@ -1230,7 +1372,12 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 // (or KDEPS_FILE_PATH / configured path), executes the workflow once, and returns.
 // File content and path are available to workflow resources via
 // input("fileContent") / input("filePath").
-func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, eventsEnabled bool) error {
+func StartFileRunner(
+	workflow *domain.Workflow,
+	debugMode bool,
+	fileArg string,
+	eventsEnabled bool,
+) error {
 	kdeps_debug.Log("enter: StartFileRunner")
 	engine := setupEngine(workflow, debugMode)
 	if eventsEnabled {
@@ -1254,12 +1401,15 @@ func StartLLMRunner(
 		llmCfg = workflow.Settings.LLM
 	}
 	if llmCfg != nil && llmCfg.ExecutionType == domain.LLMExecutionTypeAPIServer {
-		return StartHTTPServer(workflow, workflowPath, devMode, debugMode)
+		return execHTTPServerFn(workflow, workflowPath, devMode, debugMode)
 	}
 
 	engine := setupEngine(workflow, debugMode)
 	logger := logging.NewLogger(debugMode)
-	fmt.Fprintln(os.Stdout, "  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)")
+	fmt.Fprintln(
+		os.Stdout,
+		"  ✓ Starting LLM interactive REPL (type /quit or /exit to stop, Ctrl+D for EOF)",
+	)
 	fmt.Fprintln(os.Stdout, "")
 
 	ctx := context.Background()
@@ -1285,7 +1435,7 @@ func startInteractiveMode(
 	// Pass skipLLMRepl=true so the background goroutine does not start a second
 	// stdin REPL (the foreground already owns stdin via llminput.Run below).
 	go func() {
-		dispErr := dispatchExecutionWithEngine(
+		dispErr := dispatchExecutionWithEngineInteractiveFunc(
 			eng, workflow, workflowPath, flags.DevMode, debugMode, flags.FileArg, true,
 		)
 		if dispErr != nil {
@@ -1294,7 +1444,10 @@ func startInteractiveMode(
 	}()
 
 	fmt.Fprintf(os.Stdout, "  ✓ Workflow '%s' running in background\n", workflow.Metadata.Name)
-	fmt.Fprintln(os.Stdout, "  ✓ Interactive prompt active — invoke workflows, tools, and components")
+	fmt.Fprintln(
+		os.Stdout,
+		"  ✓ Interactive prompt active — invoke workflows, tools, and components",
+	)
 	fmt.Fprintln(os.Stdout, "  ✓ Type /quit or /exit to stop, Ctrl+D for EOF")
 	fmt.Fprintln(os.Stdout, "")
 
@@ -1385,19 +1538,19 @@ func dispatchExecutionWithEngine(
 	_ bool, // was skipLLMRepl
 ) error {
 	kdeps_debug.Log("enter: dispatchExecutionWithEngine")
-	switch executionModeFor(workflow) {
+	switch executionModeForFunc(workflow) {
 	case execModeBothServers:
-		return startBothServersWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+		return execBothServersWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeWebServer:
-		return StartWebServer(workflow, workflowPath, devMode)
+		return execWebServerWithEngineFn(workflow, workflowPath, devMode)
 	case execModeAPIServer:
-		return startHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+		return execHTTPServerWithEngineFn(eng, workflow, workflowPath, devMode, debugMode)
 	case execModeBot:
-		return StartBotRunnersWithEngine(eng, workflow, debugMode)
+		return execBotRunnersWithEngineFn(eng, workflow, debugMode)
 	case execModeFile:
-		return startFileRunnerWithEngine(eng, workflow, debugMode, fileArg)
+		return execFileRunnerWithEngineFn(eng, workflow, debugMode, fileArg)
 	case execModeSingleRun:
-		return executeSingleRunWithEngine(eng, workflow)
+		return execSingleRunWithEngineFn(eng, workflow)
 	}
 	return nil
 }
@@ -1418,7 +1571,7 @@ func resolveServerBindAddress(workflow *domain.Workflow) (string, error) {
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	availablePort, findErr := FindAvailablePort(hostIP, portNum)
+	availablePort, findErr := findAvailablePortFunc(hostIP, portNum)
 	if findErr != nil {
 		return "", findErr
 	}
@@ -1435,7 +1588,7 @@ func createHTTPServerWithEngine(
 	kdeps_debug.Log("enter: createHTTPServerWithEngine")
 	logger := logging.NewLogger(debugMode)
 	executorAdapter := &RequestContextAdapter{Engine: eng}
-	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
+	httpServer, err := httpNewServerFunc(workflow, executorAdapter, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP server: %w", err)
 	}
@@ -1477,16 +1630,22 @@ func startHTTPServerWithEngine(
 		fmt.Fprintln(os.Stdout, "  Dev mode: File watching enabled")
 	}
 
-	httpServer, err := createHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+	httpServer, err := createHTTPServerWithEngineFunc(
+		eng,
+		workflow,
+		workflowPath,
+		devMode,
+		debugMode,
+	)
 	if err != nil {
 		return err
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- httpServer.Start(addr, devMode)
+		errChan <- httpServerStartFunc(httpServer, addr, devMode)
 	}()
 
 	select {
@@ -1494,12 +1653,15 @@ func startHTTPServerWithEngine(
 		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
 		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
-		if shutdownErr := httpServer.Shutdown(stopCtx); shutdownErr != nil {
+		if shutdownErr := httpServerShutdownFunc(httpServer, stopCtx); shutdownErr != nil {
 			kdepslog.Error("error during shutdown", "error", shutdownErr)
 		}
 		fmt.Fprintln(os.Stdout, "✓ Server stopped")
 		return nil
 	case chanErr := <-errChan:
+		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		defer cancel()
+		_ = httpServerShutdownFunc(httpServer, stopCtx)
 		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
 			return chanErr
 		}
@@ -1515,13 +1677,19 @@ func startBothServersWithEngine(
 	devMode, debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: startBothServersWithEngine")
-	httpServer, err := createHTTPServerWithEngine(eng, workflow, workflowPath, devMode, debugMode)
+	httpServer, err := createHTTPServerWithEngineFunc(
+		eng,
+		workflow,
+		workflowPath,
+		devMode,
+		debugMode,
+	)
 	if err != nil {
 		return err
 	}
 
 	logger := logging.NewLogger(debugMode)
-	webServer, err := http.NewWebServer(workflow, logger)
+	webServer, err := httpNewWebServerFunc(workflow, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create web server: %w", err)
 	}
@@ -1536,10 +1704,10 @@ func startBothServersWithEngine(
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	errChan := make(chan error, 1)
 	go func() {
-		if startErr := httpServer.Start(addr, devMode); startErr != nil {
+		if startErr := httpServerStartFunc(httpServer, addr, devMode); startErr != nil {
 			errChan <- fmt.Errorf("server error: %w", startErr)
 		}
 	}()
@@ -1549,7 +1717,7 @@ func startBothServersWithEngine(
 		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
-		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
+		if shutdownErr := httpServerShutdownFunc(httpServer, shutdownCtx); shutdownErr != nil {
 			kdepslog.Error("error shutting down server", "error", shutdownErr)
 		}
 		webServer.Stop()
@@ -1558,7 +1726,7 @@ func startBothServersWithEngine(
 	case chanErr := <-errChan:
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
-		_ = httpServer.Shutdown(shutdownCtx)
+		_ = httpServerShutdownFunc(httpServer, shutdownCtx)
 		webServer.Stop()
 		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
 			return chanErr
@@ -1593,7 +1761,7 @@ func botPlatformsFromInput(input *domain.InputConfig) []string {
 // loadBotCredentials loads bot connection credentials for the named agent.
 func loadBotCredentials(agentName string) *config.BotConnectionConfig {
 	kdeps_debug.Log("enter: loadBotCredentials")
-	globalCfg, cfgErr := config.LoadStructWithAgent(agentName)
+	globalCfg, cfgErr := loadStructWithAgentFunc(agentName)
 	if cfgErr != nil || globalCfg == nil {
 		return nil
 	}
@@ -1631,10 +1799,10 @@ func StartBotRunnersWithEngine(
 	}
 
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- dispatcher.Run(context.Background())
+		errChan <- botDispatcherRunFunc(context.Background(), dispatcher)
 	}()
 
 	select {
@@ -1647,7 +1815,12 @@ func StartBotRunnersWithEngine(
 }
 
 // startFileRunnerWithEngine runs the file input runner using a pre-built engine.
-func startFileRunnerWithEngine(eng *executor.Engine, workflow *domain.Workflow, debugMode bool, fileArg string) error {
+func startFileRunnerWithEngine(
+	eng *executor.Engine,
+	workflow *domain.Workflow,
+	debugMode bool,
+	fileArg string,
+) error {
 	kdeps_debug.Log("enter: startFileRunnerWithEngine")
 	logger := logging.NewLogger(debugMode)
 
@@ -1698,7 +1871,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 
 	// Create web server with pretty logging
 	logger := logging.NewLogger(false)
-	webServer, err := http.NewWebServer(workflow, logger)
+	webServer, err := httpNewWebServerFunc(workflow, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create web server: %w", err)
 	}
@@ -1708,13 +1881,13 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Start server in goroutine
 	errChan := make(chan error, 1)
 	ctx := context.Background()
 	go func() {
-		errChan <- webServer.Start(ctx)
+		errChan <- webServerStartFunc(webServer, ctx)
 	}()
 
 	// Wait for signal or error
@@ -1723,7 +1896,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
-		if shutdownErr := webServer.Shutdown(shutdownCtx); shutdownErr != nil {
+		if shutdownErr := webServerShutdownFunc(webServer, shutdownCtx); shutdownErr != nil {
 			kdepslog.Error("error during shutdown", "error", shutdownErr)
 		}
 		fmt.Fprintln(os.Stdout, "✓ Web server stopped")
@@ -1745,7 +1918,7 @@ func ExtractPackage(packagePath string) (string, error) {
 	}
 
 	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", "kdeps-run-*")
+	tempDir, err := osMkdirTempExtractFunc("", "kdeps-run-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -1846,7 +2019,7 @@ func ExtractFile(tarReader *tar.Reader, header *tar.Header, targetPath string) e
 	}
 	defer outFile.Close()
 
-	if _, copyErr := io.CopyN(outFile, tarReader, maxExtractFileSize); copyErr != nil &&
+	if _, copyErr := extractFileCopyNFunc(outFile, tarReader, maxExtractFileSize); copyErr != nil &&
 		!errors.Is(copyErr, io.EOF) {
 		return fmt.Errorf("failed to extract file: %w", copyErr)
 	}

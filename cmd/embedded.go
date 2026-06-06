@@ -33,6 +33,86 @@ import (
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
+// osCreateTempFunc is overridable in tests for temp-file error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osCreateTempFunc = os.CreateTemp
+
+// appendEmbeddedOpenOutputFunc creates embedded output files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var appendEmbeddedOpenOutputFunc = os.OpenFile
+
+// appendEmbeddedOutCloseFunc closes embedded output files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var appendEmbeddedOutCloseFunc = func(f *os.File) error { return f.Close() }
+
+// appendEmbeddedIOCopyFunc copies embedded package streams (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var appendEmbeddedIOCopyFunc = io.Copy
+
+// appendEmbeddedOpenKdepsFunc opens .kdeps files for embedding (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var appendEmbeddedOpenKdepsFunc = os.Open
+
+// embeddedTrailerWriteFunc writes embedded trailer bytes (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var embeddedTrailerWriteFunc = func(out *os.File, b []byte) (int, error) { return out.Write(b) }
+
+// embeddedTrailerWriteStringFunc writes embedded magic trailer (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var embeddedTrailerWriteStringFunc = func(out *os.File, s string) (int, error) { return out.WriteString(s) }
+
+// writeCleanBinaryCloseFunc closes clean binary temp files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var writeCleanBinaryCloseFunc = func(f *os.File) error { return f.Close() }
+
+// runEmbeddedIOCopyFunc copies embedded payloads (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var runEmbeddedIOCopyFunc = io.Copy
+
+// runEmbeddedTempCloseFunc closes embedded temp files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var runEmbeddedTempCloseFunc = func(f *os.File) error { return f.Close() }
+
+// detectEmbeddedReadAtFunc reads embedded payload bytes (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var detectEmbeddedReadAtFunc = func(f *os.File, b []byte, off int64) (int, error) { return f.ReadAt(b, off) }
+
+// osChmodFunc is overridable in tests for chmod error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osChmodFunc = os.Chmod
+
+// osOpenFunc is overridable in tests for open error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osOpenFunc = os.Open
+
+// osStatFunc is overridable in tests for stat error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osStatFunc = os.Stat
+
+// fileStatFunc stats an open file handle (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var fileStatFunc = func(f *os.File) (os.FileInfo, error) { return f.Stat() }
+
+// executeEmbeddedFunc runs the CLI after extracting an embedded package (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var executeEmbeddedFunc = Execute
+
 const (
 	// EmbeddedMagic is the 16-byte magic marker used to identify prepackaged kdeps binaries.
 	// Trailer layout (appended after .kdeps content): [8 bytes: uint64 size][16 bytes: magic].
@@ -89,11 +169,11 @@ func detectPayloadRange(f *os.File, fileSize int64) (int64, int64, bool) {
 // openExecutableWithError opens execPath and returns the file handle and stat info.
 // The caller must close the returned file.
 func openExecutableWithError(execPath string) (*os.File, os.FileInfo, error) {
-	f, err := os.Open(execPath)
+	f, err := osOpenFunc(execPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	info, err := f.Stat()
+	info, err := fileStatFunc(f)
 	if err != nil {
 		_ = f.Close()
 		return nil, nil, err
@@ -141,7 +221,7 @@ func DetectEmbeddedPackage(execPath string) ([]byte, bool) {
 	}
 
 	pkgData := make([]byte, size)
-	if _, readErr := f.ReadAt(pkgData, offset); readErr != nil {
+	if _, readErr := detectEmbeddedReadAtFunc(f, pkgData, offset); readErr != nil {
 		return nil, false
 	}
 
@@ -163,7 +243,7 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 
 	// Stat the .kdeps file to learn its size (required for the trailer) before
 	// any output is written.
-	kdepsInfo, err := os.Stat(kdepsPath)
+	kdepsInfo, err := osStatFunc(kdepsPath)
 	if err != nil {
 		return fmt.Errorf("failed to read .kdeps file %s: %w", kdepsPath, err)
 	}
@@ -179,29 +259,29 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
 	}
 
-	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	out, err := appendEmbeddedOpenOutputFunc(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return fmt.Errorf("failed to create output file %s: %w", outputPath, err)
 	}
 	defer func() {
-		if closeErr := out.Close(); closeErr != nil {
+		if closeErr := appendEmbeddedOutCloseFunc(out); closeErr != nil {
 			kdeps_debug.Log(fmt.Sprintf("warning: failed to close output file %s: %v", outputPath, closeErr))
 		}
 	}()
 
 	// 1. Stream the original binary without buffering the whole file.
-	if _, copyErr := io.Copy(out, binFile); copyErr != nil {
+	if _, copyErr := appendEmbeddedIOCopyFunc(out, binFile); copyErr != nil {
 		return fmt.Errorf("failed to write binary content: %w", copyErr)
 	}
 
 	// 2. Stream the .kdeps archive.
-	kdepsFile, err := os.Open(kdepsPath)
+	kdepsFile, err := appendEmbeddedOpenKdepsFunc(kdepsPath)
 	if err != nil {
 		return fmt.Errorf("failed to read .kdeps file %s: %w", kdepsPath, err)
 	}
 	defer kdepsFile.Close()
 
-	if _, copyErr := io.Copy(out, kdepsFile); copyErr != nil {
+	if _, copyErr := appendEmbeddedIOCopyFunc(out, kdepsFile); copyErr != nil {
 		return fmt.Errorf("failed to write .kdeps content: %w", copyErr)
 	}
 
@@ -213,14 +293,19 @@ func AppendEmbeddedPackage(binaryPath, kdepsPath, outputPath string) error {
 func writeEmbeddedTrailer(out *os.File, kdepsSize int64) error {
 	sizeBuf := make([]byte, EmbeddedSizeFieldLen)
 	binary.BigEndian.PutUint64(sizeBuf, uint64(kdepsSize))
-	if _, writeErr := out.Write(sizeBuf); writeErr != nil {
+	if _, writeErr := embeddedTrailerWriteFunc(out, sizeBuf); writeErr != nil {
 		return fmt.Errorf("failed to write size trailer: %w", writeErr)
 	}
-	if _, writeErr := out.WriteString(EmbeddedMagic); writeErr != nil {
+	if _, writeErr := embeddedTrailerWriteStringFunc(out, EmbeddedMagic); writeErr != nil {
 		return fmt.Errorf("failed to write magic trailer: %w", writeErr)
 	}
 	return nil
 }
+
+// cleanBinaryPathFunc strips embedded payloads from executables (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var cleanBinaryPathFunc = cleanBinaryPath
 
 // cleanBinaryPath returns a path to a "clean" (unembedded) copy of execPath.
 // If execPath already carries embedded .kdeps content the function creates a
@@ -249,7 +334,7 @@ func writeCleanBinaryTemp(f *os.File, cleanSize int64) (string, bool, error) {
 		return "", false, fmt.Errorf("failed to read clean binary portion: %w", readErr)
 	}
 
-	tmpFile, err := os.CreateTemp("", "kdeps-clean-*")
+	tmpFile, err := osCreateTempFunc("", "kdeps-clean-*")
 	if err != nil {
 		return "", false, fmt.Errorf("failed to create temp file for clean binary: %w", err)
 	}
@@ -258,7 +343,7 @@ func writeCleanBinaryTemp(f *os.File, cleanSize int64) (string, bool, error) {
 		_ = os.Remove(tmpFile.Name())
 		return "", false, fmt.Errorf("failed to write clean binary: %w", writeErr)
 	}
-	if closeErr := tmpFile.Close(); closeErr != nil {
+	if closeErr := writeCleanBinaryCloseFunc(tmpFile); closeErr != nil {
 		_ = os.Remove(tmpFile.Name())
 		return "", false, fmt.Errorf("failed to close clean binary temp file: %w", closeErr)
 	}
@@ -288,7 +373,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	// regular .kdeps workflow package by peeking at the first entry in the tar.
 	ext := detectEmbeddedArchiveType(f, offset)
 
-	tmpFile, err := os.CreateTemp("", "kdeps-embedded-*"+ext)
+	tmpFile, err := osCreateTempFunc("", "kdeps-embedded-*"+ext)
 	if err != nil {
 		kdepslog.Error("failed to create temp file for embedded package", "error", err)
 		return 1
@@ -297,12 +382,12 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	defer os.Remove(tmpPath)
 
 	// Stream from the known offset/size without buffering the whole payload.
-	if _, copyErr := io.Copy(tmpFile, io.NewSectionReader(f, offset, size)); copyErr != nil {
+	if _, copyErr := runEmbeddedIOCopyFunc(tmpFile, io.NewSectionReader(f, offset, size)); copyErr != nil {
 		_ = tmpFile.Close()
 		kdepslog.Error("failed to extract embedded package data", "error", copyErr)
 		return 1
 	}
-	if closeErr := tmpFile.Close(); closeErr != nil {
+	if closeErr := runEmbeddedTempCloseFunc(tmpFile); closeErr != nil {
 		kdepslog.Error("failed to close embedded package temp file", "error", closeErr)
 		return 1
 	}
@@ -316,7 +401,7 @@ func RunEmbeddedPackage(ver, commit, execPath string) int {
 	} // inject args for embedded package dispatch
 	defer func() { os.Args = origArgs }() //nolint:reassign // restore original args on exit; intentional restore
 
-	if execErr := Execute(ver, commit); execErr != nil {
+	if execErr := executeEmbeddedFunc(ver, commit); execErr != nil {
 		kdepslog.Error("embedded execution failed", "error", execErr)
 		return 1
 	}

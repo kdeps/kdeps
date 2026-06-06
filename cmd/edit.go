@@ -52,20 +52,35 @@ func runEdit(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	return launchEditor(path)
+	return launchEditorFunc(path)
 }
+
+// configScaffoldFunc is overridable in tests for prepareConfigForEdit error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var configScaffoldFunc = config.Scaffold
+
+// configPathFunc is overridable in tests for prepareConfigForEdit error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var configPathFunc = config.Path
 
 // prepareConfigForEdit ensures the config file exists and returns its path.
 func prepareConfigForEdit() (string, error) {
-	if err := config.Scaffold(); err != nil {
+	if err := configScaffoldFunc(); err != nil {
 		return "", fmt.Errorf("create config: %w", err)
 	}
-	path, err := config.Path()
+	path, err := configPathFunc()
 	if err != nil {
 		return "", fmt.Errorf("locate config: %w", err)
 	}
 	return path, nil
 }
+
+// launchEditorFunc opens path in the user's preferred editor (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var launchEditorFunc = launchEditor
 
 // launchEditor opens path in the user's preferred editor.
 func launchEditor(path string) error {

@@ -36,6 +36,11 @@ import (
 
 const slackPlatform = "slack"
 
+//nolint:gochecknoglobals // test-replaceable
+var slackClientAck = func(c *socketmode.Client, req socketmode.Request) error {
+	return c.Ack(req)
+}
+
 type slackRunner struct {
 	botToken string
 	appToken string
@@ -142,7 +147,7 @@ func (r *slackRunner) handleSocketEvent(
 	if !ok {
 		return
 	}
-	if err := client.Ack(*evt.Request); err != nil {
+	if err := slackClientAck(client, *evt.Request); err != nil {
 		return
 	}
 

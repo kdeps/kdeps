@@ -51,8 +51,8 @@ Exits with code 1 if any check fails.`,
 func runDoctor(_ *cobra.Command, _ []string) error {
 	kdeps_debug.Log("enter: runDoctor")
 
-	cfg := loadDoctorConfig()
-	report := config.RunDoctor(cfg)
+	cfg := loadDoctorConfigFunc()
+	report := runDoctorCheckFunc(cfg)
 	fmt.Fprint(os.Stdout, report.FormatReport())
 
 	if report.Healthy {
@@ -61,9 +61,24 @@ func runDoctor(_ *cobra.Command, _ []string) error {
 	return errors.New("health check failed — review warnings above")
 }
 
+// runDoctorCheckFunc runs health checks (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var runDoctorCheckFunc = config.RunDoctor
+
+// loadDoctorConfigFunc loads config for doctor (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var loadDoctorConfigFunc = loadDoctorConfig
+
+// configLoadStructFunc loads structured config (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var configLoadStructFunc = config.LoadStruct
+
 // loadDoctorConfig loads config for doctor, falling back to an empty config on error.
 func loadDoctorConfig() *config.Config {
-	cfg, err := config.LoadStruct()
+	cfg, err := configLoadStructFunc()
 	if err != nil {
 		return &config.Config{}
 	}

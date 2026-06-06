@@ -58,7 +58,13 @@ const (
 )
 
 //nolint:gochecknoglobals // test-replaceable
-var AppFS = afero.NewOsFs()
+var (
+	AppFS                = afero.NewOsFs()
+	filepathAbs          = filepath.Abs
+	osStat               = os.Stat
+	closeExtractedFile   = func(f *os.File) error { return f.Close() }
+	findWorkflowFileHook = findWorkflowFile
+)
 
 // requireManagementAuth enforces bearer-token based authorization for write
 // management endpoints.  The expected token is read from the environment
@@ -294,7 +300,7 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	if relPath == "." || filepath.IsAbs(relPath) {
 		return "", fmt.Errorf("invalid path in package: %s", entryName)
 	}
-	absTargetPath, err := filepath.Abs(filepath.Join(absDestDir, relPath))
+	absTargetPath, err := filepathAbs(filepath.Join(absDestDir, relPath))
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve target path %s: %w", relPath, err)
 	}
@@ -334,7 +340,7 @@ func extractPackageEntry(hdr *tar.Header, baseDirAbs, absTargetPath string, tr *
 
 func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
-	baseDirAbs, baseErr := filepath.Abs(destDir)
+	baseDirAbs, baseErr := filepathAbs(destDir)
 	if baseErr != nil {
 		return fmt.Errorf("failed to resolve destination directory: %w", baseErr)
 	}
@@ -389,7 +395,7 @@ func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader) error {
 		return copyErr
 	}
 
-	if closeErr := f.Close(); closeErr != nil {
+	if closeErr := closeExtractedFile(f); closeErr != nil {
 		return closeErr
 	}
 
@@ -483,8 +489,8 @@ func (s *Server) getManagementWorkflowPath() string {
 	}
 
 	// Prefer /app/workflow.yaml (or /app/workflow.yaml.j2) when running inside Docker
-	if _, err := os.Stat("/app"); err == nil {
-		if p := findWorkflowFile("/app"); p != "" {
+	if _, err := osStat("/app"); err == nil {
+		if p := findWorkflowFileHook("/app"); p != "" {
 			return p
 		}
 		return "/app/workflow.yaml"

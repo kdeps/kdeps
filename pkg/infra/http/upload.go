@@ -41,6 +41,16 @@ const (
 	uploadFieldArray = "file[]"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var (
+	openMultipartFile = func(h *multipart.FileHeader) (multipart.File, error) {
+		return h.Open()
+	}
+	readMultipartFile = func(file multipart.File) ([]byte, error) {
+		return io.ReadAll(file)
+	}
+)
+
 // UploadHandler handles file uploads.
 type UploadHandler struct {
 	store       domain.FileStore
@@ -170,7 +180,7 @@ func (h *UploadHandler) processFileHeader(
 	}
 
 	// Open uploaded file
-	src, err := fileHeader.Open()
+	src, err := openMultipartFile(fileHeader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open uploaded file: %w", err)
 	}
@@ -179,7 +189,7 @@ func (h *UploadHandler) processFileHeader(
 	}()
 
 	// Read file content
-	content, err := io.ReadAll(src)
+	content, err := readMultipartFile(src)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}

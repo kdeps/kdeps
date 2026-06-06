@@ -33,6 +33,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+//nolint:gochecknoglobals // overridden in tests for fast cleanup ticks
+var cleanupLoopInterval = 5 * time.Minute
+
 // TemporaryFileStore implements FileStore for temporary uploads.
 type TemporaryFileStore struct {
 	baseDir string
@@ -196,7 +199,7 @@ func (s *TemporaryFileStore) Close() error {
 // cleanupLoop runs periodic cleanup.
 func (s *TemporaryFileStore) cleanupLoop(ttl time.Duration) {
 	kdeps_debug.Log("enter: cleanupLoop")
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(cleanupLoopInterval)
 	defer ticker.Stop()
 
 	for {

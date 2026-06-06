@@ -38,6 +38,9 @@ import (
 //nolint:gochecknoglobals // test-replaceable
 var execCommandContext = exec.CommandContext
 
+//nolint:gochecknoglobals // test-replaceable
+var osSetenv = os.Setenv
+
 // ModelServiceInterface defines the interface for model management services.
 type ModelServiceInterface interface {
 	DownloadModel(backend, model string) error
@@ -158,7 +161,7 @@ func (s *ModelService) serveOllamaModel(model string, host string, port int) err
 
 	// Set Ollama host
 	if host != "" {
-		if err := os.Setenv("OLLAMA_HOST", fmt.Sprintf("%s:%d", host, port)); err != nil {
+		if err := osSetenv("OLLAMA_HOST", fmt.Sprintf("%s:%d", host, port)); err != nil {
 			s.logger.Warn("failed to set OLLAMA_HOST environment variable", "error", err)
 		}
 	}

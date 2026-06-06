@@ -150,6 +150,11 @@ func promptLine(out io.StringWriter, r *bufio.Reader, prompt, def string) string
 	return line
 }
 
+// readSecretFunc reads a secret from stdin; overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var readSecretFunc = readSecret
+
 // readSecret reads a line from stdin with echo disabled when possible.
 func readSecret(fallback *bufio.Reader) (string, error) {
 	if term.IsTerminal(int(os.Stdin.Fd())) {
@@ -250,9 +255,12 @@ func configureProvider(
 		return nil
 	}
 	w.printf("\n  Enter your %s API key (input hidden): ", chosenProvider)
-	apiKey, readErr := readSecret(reader)
+	apiKey, readErr := readSecretFunc(reader)
 	w.println("")
-	if readErr == nil && strings.TrimSpace(apiKey) != "" {
+	if readErr != nil {
+		return readErr
+	}
+	if strings.TrimSpace(apiKey) != "" {
 		meta.setter(cfg, strings.TrimSpace(apiKey))
 	}
 	return nil

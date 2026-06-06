@@ -102,7 +102,7 @@ func expandHomePath(path string) (string, error) {
 	if !strings.HasPrefix(path, "~/") {
 		return path, nil
 	}
-	home, err := os.UserHomeDir()
+	home, err := userHomeDirFunc()
 	if err != nil {
 		return "", fmt.Errorf("expand home dir: %w", err)
 	}
@@ -170,9 +170,69 @@ func parseRegistryPackageRef(pkg string) (string, string) {
 	return name, version
 }
 
+// downloadArchiveFunc is overridable in tests for downloadRegistryArchive error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var downloadArchiveFunc = downloadArchive
+
+// userHomeDirFunc resolves the user home directory (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var userHomeDirFunc = os.UserHomeDir
+
+// osMkdirTempInstallFunc creates temp dirs for registry installs (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osMkdirTempInstallFunc = os.MkdirTemp
+
+// peekManifestReadAllFunc reads manifest bytes from archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var peekManifestReadAllFunc = io.ReadAll
+
+// extractFileCloseFunc closes registry extract files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var extractFileCloseFunc = func(f *os.File) error { return f.Close() }
+
+// downloadArchiveCloseFunc closes downloaded archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var downloadArchiveCloseFunc = func(f *os.File) error { return f.Close() }
+
+// verifySHA256IOCopyFunc hashes archive files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var verifySHA256IOCopyFunc = io.Copy
+
+// downloadArchiveIOCopyFunc writes downloaded archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var downloadArchiveIOCopyFunc = io.Copy
+
+// safeArchiveTargetAbsFunc resolves archive target paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var safeArchiveTargetAbsFunc = filepath.Abs
+
+// extractArchiveAbsDestFunc resolves extract destinations (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var extractArchiveAbsDestFunc = filepath.Abs
+
+// extractFileIOCopyFunc writes extracted archive files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var extractFileIOCopyFunc = io.Copy
+
+// registryHTTPClient is the HTTP client for registry API calls (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var registryHTTPClient = &stdhttp.Client{Timeout: registryInstallInfoTimeout}
+
 // downloadRegistryArchive downloads and optionally verifies a registry package archive.
 func downloadRegistryArchive(info *packageInfo, name, version string) (string, func(), error) {
-	tmpDir, err := os.MkdirTemp("", "kdeps-install-*")
+	tmpDir, err := osMkdirTempInstallFunc("", "kdeps-install-*")
 	if err != nil {
 		return "", nil, fmt.Errorf("create temp dir: %w", err)
 	}
@@ -184,7 +244,7 @@ func downloadRegistryArchive(info *packageInfo, name, version string) (string, f
 		return "", nil, fmt.Errorf("package %q has no download URL; it may not be in the registry yet", name)
 	}
 
-	if downloadErr := downloadArchive(info.TarballURL, archivePath); downloadErr != nil {
+	if downloadErr := downloadArchiveFunc(info.TarballURL, archivePath); downloadErr != nil {
 		cleanup()
 		return "", nil, downloadErr
 	}
@@ -286,7 +346,7 @@ func kdepsAgentsDir() (string, error) {
 	if d := os.Getenv("KDEPS_AGENTS_DIR"); d != "" {
 		return d, nil
 	}
-	home, err := os.UserHomeDir()
+	home, err := userHomeDirFunc()
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
@@ -368,7 +428,7 @@ func peekManifest(archivePath string) (*domain.KdepsPkg, error) {
 		}
 		base := filepath.Base(hdr.Name)
 		if base == "kdeps.pkg.yaml" || base == "kdeps.pkg.yml" {
-			data, readErr := io.ReadAll(io.LimitReader(tr, registryInstallManifestMaxSize))
+			data, readErr := peekManifestReadAllFunc(io.LimitReader(tr, registryInstallManifestMaxSize))
 			if readErr != nil {
 				return nil, fmt.Errorf("read manifest: %w", readErr)
 			}
@@ -389,7 +449,7 @@ type packageInfo struct {
 
 func resolvePackageInfo(name, baseURL string) (*packageInfo, error) {
 	kdeps_debug.Log("enter: resolvePackageInfo")
-	client := &stdhttp.Client{Timeout: registryInstallInfoTimeout}
+	client := registryHTTPClient
 	rawURL := baseURL + "/api/v1/registry/packages/" + name
 	req, err := stdhttp.NewRequestWithContext(context.Background(), stdhttp.MethodGet, rawURL, nil)
 	if err != nil {
@@ -431,7 +491,7 @@ func verifySHA256(filePath, expected string) error {
 	}
 	defer f.Close()
 	h := sha256.New()
-	if _, copyErr := io.Copy(h, f); copyErr != nil {
+	if _, copyErr := verifySHA256IOCopyFunc(h, f); copyErr != nil {
 		return fmt.Errorf("hash file: %w", copyErr)
 	}
 	got := hex.EncodeToString(h.Sum(nil))
@@ -466,11 +526,14 @@ func downloadArchive(rawURL, destPath string) (err error) {
 		return fmt.Errorf("create archive file: %w", err)
 	}
 	defer func() {
-		if closeErr := out.Close(); closeErr != nil && err == nil {
+		if closeErr := downloadArchiveCloseFunc(out); closeErr != nil && err == nil {
 			err = fmt.Errorf("close archive file: %w", closeErr)
 		}
 	}()
-	if _, copyErr := io.Copy(out, io.LimitReader(resp.Body, registryInstallMaxResponseSize)); copyErr != nil {
+	if _, copyErr := downloadArchiveIOCopyFunc(
+		out,
+		io.LimitReader(resp.Body, registryInstallMaxResponseSize),
+	); copyErr != nil {
 		return fmt.Errorf("write archive: %w", copyErr)
 	}
 	return nil
@@ -485,7 +548,7 @@ func safeArchiveTarget(absDest, entryName string) (string, bool, error) {
 		return "", false, nil
 	}
 	target := filepath.Join(absDest, cleanName)
-	absTarget, err := filepath.Abs(target)
+	absTarget, err := safeArchiveTargetAbsFunc(target)
 	if err != nil {
 		return "", false, fmt.Errorf("abs target %s: %w", target, err)
 	}
@@ -511,7 +574,7 @@ func extractArchive(archivePath, destDir string) error {
 		return fmt.Errorf("gzip reader: %w", err)
 	}
 	defer gz.Close()
-	absDest, err := filepath.Abs(destDir)
+	absDest, err := extractArchiveAbsDestFunc(destDir)
 	if err != nil {
 		return fmt.Errorf("abs dest dir: %w", err)
 	}
@@ -556,11 +619,11 @@ func extractFile(target string, r io.Reader) (retErr error) {
 		return fmt.Errorf("create file %s: %w", target, err)
 	}
 	defer func() {
-		if closeErr := out.Close(); closeErr != nil && retErr == nil {
+		if closeErr := extractFileCloseFunc(out); closeErr != nil && retErr == nil {
 			retErr = fmt.Errorf("close file %s: %w", target, closeErr)
 		}
 	}()
-	if _, copyErr := io.Copy(out, r); copyErr != nil {
+	if _, copyErr := extractFileIOCopyFunc(out, r); copyErr != nil {
 		return fmt.Errorf("write file %s: %w", target, copyErr)
 	}
 	return nil

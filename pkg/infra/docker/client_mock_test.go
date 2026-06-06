@@ -178,6 +178,40 @@ func TestClient_BuildImage_Mock_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestClient_BuildImage_Mock_ScannerError(t *testing.T) {
+	c := newMockDockerClient(t, func(_ *http.Request) (*http.Response, error) {
+		body := &failAfterRead{
+			data: []byte(`{"stream":"partial"}` + "\n"),
+			err:  errors.New("stream read failed"),
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(body),
+			Header:     make(http.Header),
+		}, nil
+	})
+
+	ctx := t.Context()
+	err := c.BuildImage(ctx, "Dockerfile", "test-img", strings.NewReader("FROM alpine\n"), false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read build output")
+}
+
+type failAfterRead struct {
+	data []byte
+	read bool
+	err  error
+}
+
+func (f *failAfterRead) Read(p []byte) (int, error) {
+	if !f.read {
+		f.read = true
+		n := copy(p, f.data)
+		return n, nil
+	}
+	return 0, f.err
+}
+
 // ---- CreateContainerNoStart ----
 
 func TestClient_CreateContainerNoStart_Mock_APIError(t *testing.T) {

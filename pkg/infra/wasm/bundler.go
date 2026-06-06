@@ -33,7 +33,11 @@ import (
 )
 
 //nolint:gochecknoglobals // test-replaceable
-var AppFS = afero.NewOsFs()
+var (
+	AppFS             = afero.NewOsFs()
+	readTemplateFile  = templateFS.ReadFile
+	jsonMarshalRoutes = json.Marshal
+)
 
 //go:embed templates/*
 var templateFS embed.FS
@@ -72,7 +76,7 @@ func marshalAPIRoutesJSON(routes []string) string {
 	if len(routes) == 0 {
 		return "[]"
 	}
-	if b, err := json.Marshal(routes); err == nil {
+	if b, err := jsonMarshalRoutes(routes); err == nil {
 		return string(b)
 	}
 	return "[]"
@@ -150,7 +154,7 @@ func Bundle(config *BundleConfig) error {
 // renderBootstrap renders the kdeps-bootstrap.js script with the embedded workflow YAML.
 func renderBootstrap(config *BundleConfig, distDir string) error {
 	kdeps_debug.Log("enter: renderBootstrap")
-	tmplContent, err := templateFS.ReadFile("templates/bootstrap.js.tmpl")
+	tmplContent, err := readTemplateFile("templates/bootstrap.js.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to read bootstrap template: %w", err)
 	}
@@ -231,7 +235,7 @@ func injectBootstrap(distDir string) error {
 // generateDefaultIndex creates a minimal index.html that loads the WASM bootstrap.
 func generateDefaultIndex(distDir string) error {
 	kdeps_debug.Log("enter: generateDefaultIndex")
-	tmplContent, err := templateFS.ReadFile("templates/index.html.tmpl")
+	tmplContent, err := readTemplateFile("templates/index.html.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to read default HTML template: %w", err)
 	}

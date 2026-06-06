@@ -131,7 +131,7 @@ func validateDirectory(inputPath string) error {
 
 // newYamlParser builds a schema-validated YAML parser for resource/component validation.
 func newYamlParser() (*yaml.Parser, error) {
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return nil, err
 	}

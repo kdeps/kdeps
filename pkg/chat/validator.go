@@ -26,6 +26,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var yamlUnmarshalToMap = func(in []byte, out *map[string]interface{}) error {
+	return yaml.Unmarshal(in, out)
+}
+
 func resourceMetaKeys() map[string]bool {
 	return map[string]bool{
 		"apiVersion": true, "kind": true, "actionId": true, "name": true, "description": true,
@@ -180,7 +185,7 @@ func validateResourceFile(name, content string, ids map[string]bool, errs *[]str
 	ids[res.ActionID] = true
 
 	var rawDoc map[string]interface{}
-	if err := yaml.Unmarshal([]byte(content), &rawDoc); err != nil {
+	if err := yamlUnmarshalToMap([]byte(content), &rawDoc); err != nil {
 		return
 	}
 

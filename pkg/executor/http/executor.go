@@ -43,6 +43,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
+// forceRetryLoopExit, when true, breaks out of executeRequestWithRetry instead of
+// returning the response — used to exercise the post-loop error return in tests.
+//
+//nolint:gochecknoglobals // test-replaceable
+var forceRetryLoopExit bool
+
 //nolint:gochecknoglobals // test-replaceable
 var httpClientFactory = func(timeout time.Duration) *http.Client {
 	return &http.Client{Timeout: timeout}
@@ -804,6 +810,9 @@ func (e *Executor) executeRequestWithRetry(
 			continue
 		}
 
+		if forceRetryLoopExit {
+			break
+		}
 		return resp, nil
 	}
 

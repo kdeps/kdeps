@@ -1,6 +1,8 @@
 package embedding
 
 import (
+	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,17 +12,22 @@ import (
 )
 
 func TestExecute_DBOpenError(t *testing.T) {
+	orig := sqlOpen
+	t.Cleanup(func() { sqlOpen = orig })
+	sqlOpen = func(_, _ string) (*sql.DB, error) {
+		return nil, errors.New("open failed")
+	}
+
 	e := NewExecutor()
-	// Use an invalid path that can't be opened
 	config := &domain.EmbeddingConfig{
 		Operation:  "index",
 		Text:       "test",
-		DBPath:     "/root/.nonexistent/noperms/test.db",
+		DBPath:     ":memory:",
 		Collection: "test",
 	}
 	_, err := e.Execute(nil, config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to ensure schema")
+	assert.Contains(t, err.Error(), "failed to open database")
 }
 
 func TestExecute_UnknownOperation(t *testing.T) {

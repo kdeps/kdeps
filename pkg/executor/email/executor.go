@@ -33,6 +33,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"mime/multipart"
 	"net"
@@ -60,6 +61,31 @@ import (
 
 //nolint:gochecknoglobals // test-replaceable
 var AppFS = afero.NewOsFs()
+
+//nolint:gochecknoglobals // test-replaceable
+var connSetDeadline = func(c net.Conn, t time.Time) error { return c.SetDeadline(t) }
+
+//nolint:gochecknoglobals // test-replaceable
+var imapDialTLS = imapclient.DialTLS
+
+//nolint:gochecknoglobals // test-replaceable
+var multipartCreatePart = func(mw *multipart.Writer, h textproto.MIMEHeader) (io.Writer, error) {
+	return mw.CreatePart(h)
+}
+
+//nolint:gochecknoglobals // test-replaceable
+var imapExpungeClose = func(c *imapclient.Client) error { return c.Expunge().Close() }
+
+//nolint:gochecknoglobals // test-replaceable
+var smtpDataWrite = func(w io.Writer, msg []byte) (int, error) { return w.Write(msg) }
+
+//nolint:gochecknoglobals // test-replaceable
+var multipartWriterClose = func(mw *multipart.Writer) error { return mw.Close() }
+
+//nolint:gochecknoglobals // test-replaceable
+var implicitTLSDial = func(addr string, cfg *tls.Config) (net.Conn, error) {
+	return tls.Dial("tcp", addr, cfg)
+}
 
 const (
 	defaultTimeout = 30 * time.Second
@@ -431,7 +457,7 @@ func applyModifyOperations(
 
 	// Expunge only when MoveTo is not set — Move already expunges implicitly.
 	if mod.Expunge && mod.MoveTo == "" {
-		if expErr := c.Expunge().Close(); expErr != nil {
+		if expErr := imapExpungeClose(c); expErr != nil {
 			return fmt.Errorf("email executor: modify: expunge: %w", expErr)
 		}
 	}
@@ -635,7 +661,7 @@ func openIMAPClient(params *imapDialParams) (*imapclient.Client, error) {
 	opts := &imapclient.Options{TLSConfig: tlsCfg}
 
 	if params.useTLS {
-		c, err := imapclient.DialTLS(params.addr, opts)
+		c, err := imapDialTLS(params.addr, opts)
 		if err != nil {
 			return nil, fmt.Errorf("email executor: imap connect %s: %w", params.addr, err)
 		}
@@ -933,7 +959,7 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 		return fmt.Errorf("dial %s: %w", addr, err)
 	}
 	if timeout > 0 {
-		if dlErr := conn.SetDeadline(time.Now().Add(timeout)); dlErr != nil {
+		if dlErr := connSetDeadline(conn, time.Now().Add(timeout)); dlErr != nil {
 			_ = conn.Close()
 			return fmt.Errorf("set deadline: %w", dlErr)
 		}
@@ -970,13 +996,12 @@ func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 		ServerName:         host,
 		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in
 	}
-	dialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: timeout}, Config: tlsCfg}
-	conn, err := dialer.Dial("tcp", addr)
+	conn, err := implicitTLSDial(addr, tlsCfg)
 	if err != nil {
 		return fmt.Errorf("tls dial %s: %w", addr, err)
 	}
 	if timeout > 0 {
-		if dlErr := conn.SetDeadline(time.Now().Add(timeout)); dlErr != nil {
+		if dlErr := connSetDeadline(conn, time.Now().Add(timeout)); dlErr != nil {
 			_ = conn.Close()
 			return fmt.Errorf("set deadline: %w", dlErr)
 		}
@@ -1011,7 +1036,7 @@ func doSend(client *smtp.Client, from string, to []string, msg []byte) error {
 	if err != nil {
 		return fmt.Errorf("DATA: %w", err)
 	}
-	if _, err = w.Write(msg); err != nil {
+	if _, err = smtpDataWrite(w, msg); err != nil {
 		return fmt.Errorf("write body: %w", err)
 	}
 	return w.Close()
@@ -1048,7 +1073,7 @@ func writeAttachmentPart(mw *multipart.Writer, path string) error {
 	attHeaders.Set("Content-Type", "application/octet-stream")
 	attHeaders.Set("Content-Transfer-Encoding", "base64")
 	attHeaders.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	attPart, err := mw.CreatePart(attHeaders)
+	attPart, err := multipartCreatePart(mw, attHeaders)
 	if err != nil {
 		return fmt.Errorf("create attachment part for %q: %w", filename, err)
 	}
@@ -1129,7 +1154,7 @@ func writeMultipartBody(buf *bytes.Buffer, body string, isHTML bool, attachments
 	} else {
 		bodyHeaders.Set("Content-Type", "text/plain; charset=UTF-8")
 	}
-	bodyPart, err := mw.CreatePart(bodyHeaders)
+	bodyPart, err := multipartCreatePart(mw, bodyHeaders)
 	if err != nil {
 		return fmt.Errorf("create body part: %w", err)
 	}
@@ -1146,7 +1171,7 @@ func writeMultipartBody(buf *bytes.Buffer, body string, isHTML bool, attachments
 		}
 	}
 
-	if err = mw.Close(); err != nil {
+	if err = multipartWriterClose(mw); err != nil {
 		return fmt.Errorf("close multipart writer: %w", err)
 	}
 	return nil

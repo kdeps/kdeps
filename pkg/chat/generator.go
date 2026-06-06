@@ -196,7 +196,8 @@ func backendName(baseURL string) string {
 	}
 }
 
-const maxValidationRetries = 3
+//nolint:gochecknoglobals // test-replaceable
+var maxValidationRetries = 3
 
 // Generate calls the LLM with the full conversation history and parses the workflow.
 // On parse or validation failure it feeds errors back to the LLM and retries up to

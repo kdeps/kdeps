@@ -116,11 +116,21 @@ func initRootLogging(cmd *cobra.Command) {
 	kdepslog.Init(debugFlag, verboseFlag)
 }
 
+// bootstrapConfigFunc is overridable in tests for bootstrapRootConfig error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var bootstrapConfigFunc = config.Bootstrap
+
+// loadConfigFunc is overridable in tests for bootstrapRootConfig error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var loadConfigFunc = config.Load
+
 func bootstrapRootConfig() {
-	if bootErr := config.Bootstrap(os.Stdout); bootErr != nil {
+	if bootErr := bootstrapConfigFunc(os.Stdout); bootErr != nil {
 		kdepslog.Warn("bootstrap failed", "error", bootErr)
 	}
-	if _, loadErr := config.Load(); loadErr != nil {
+	if _, loadErr := loadConfigFunc(); loadErr != nil {
 		kdepslog.Warn("could not load config", "error", loadErr)
 	}
 }

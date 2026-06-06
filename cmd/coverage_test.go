@@ -699,14 +699,3 @@ func TestReadmeFromRegistryArchive_SearchError(t *testing.T) {
 	result := readmeFromRegistryArchive(context.Background(), client, "test-pkg")
 	assert.Empty(t, result)
 }
-
-// ---------------------------------------------------------------------------
-// performISOBuild -- only the format error path (no builder needed to reach it)
-// ---------------------------------------------------------------------------
-
-func TestPerformISOBuild_UnsupportedFormat(t *testing.T) {
-	// performISOBuild calls builder.Build first, which needs a real builder.
-	// So we can only test the format error path if we have a mock builder.
-	// Skip this test since it requires Docker infrastructure.
-	t.Skip("requires Docker builder mock")
-}

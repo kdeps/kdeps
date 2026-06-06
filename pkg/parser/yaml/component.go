@@ -113,7 +113,7 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 // available to every workflow without needing a local copy.
 func (p *Parser) loadComponents(workflow *domain.Workflow, workflowPath string) error {
 	kdeps_debug.Log("enter: loadComponents")
-	absWorkflowPath, err := filepath.Abs(workflowPath)
+	absWorkflowPath, err := filepathAbs(workflowPath)
 	if err != nil {
 		absWorkflowPath = workflowPath
 	}
@@ -340,7 +340,7 @@ func (p *Parser) loadComponentResources(
 	componentPath string,
 ) ([]*domain.Resource, error) {
 	kdeps_debug.Log("enter: loadComponentResources")
-	absPath, err := filepath.Abs(componentPath)
+	absPath, err := filepathAbs(componentPath)
 	if err != nil {
 		absPath = componentPath
 	}

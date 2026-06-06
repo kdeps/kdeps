@@ -131,6 +131,11 @@ func resolveChatBaseURL(baseURL string) string {
 	return "http://localhost:11434"
 }
 
+// chatNewSessionFunc creates a new chat session (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var chatNewSessionFunc = chat.NewSession
+
 // loadOrCreateChatSession resumes an existing session or creates a new one.
 func loadOrCreateChatSession(sessionID string) (*chat.Session, error) {
 	if sessionID != "" {
@@ -142,7 +147,7 @@ func loadOrCreateChatSession(sessionID string) (*chat.Session, error) {
 		return session, nil
 	}
 
-	session, err := chat.NewSession()
+	session, err := chatNewSessionFunc()
 	if err != nil {
 		return nil, fmt.Errorf("could not create session: %w", err)
 	}

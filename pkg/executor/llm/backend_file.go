@@ -112,6 +112,9 @@ func IsRemoteModel(model string) bool {
 	return len(model) > 7 && (model[:7] == "http://" || (len(model) > 8 && model[:8] == "https://"))
 }
 
+//nolint:gochecknoglobals // test-replaceable
+var userHomeDirFunc = os.UserHomeDir
+
 // DefaultModelsDir returns the llamafile cache directory, creating it if necessary.
 // Respects $KDEPS_MODELS_DIR (set via ~/.kdeps/config.yaml models_dir:); falls back to ~/.kdeps/models.
 func DefaultModelsDir() (string, error) {
@@ -121,7 +124,7 @@ func DefaultModelsDir() (string, error) {
 		}
 		return d, nil
 	}
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := userHomeDirFunc()
 	if err != nil {
 		return "", fmt.Errorf("cannot determine home directory: %w", err)
 	}

@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 
@@ -46,11 +47,28 @@ var jsonMarshalIndent = json.MarshalIndent
 //nolint:gochecknoglobals // test-replaceable
 var jsonNewEncoder = json.NewEncoder
 
+type xmlEnc interface {
+	EncodeToken(xml.Token) error
+	Flush() error
+	Indent(prefix, indent string)
+}
+
 //nolint:gochecknoglobals // test-replaceable
-var xmlNewEncoder = xml.NewEncoder
+var xmlNewEncoder = func(w io.Writer) xmlEnc { return xml.NewEncoder(w) }
 
 //nolint:gochecknoglobals // test-replaceable
 var htmlRender = html.Render
+
+//nolint:gochecknoglobals // test-replaceable
+var htmlParse = html.Parse
+
+type csvWriter interface {
+	Write(record []string) error
+	Flush()
+}
+
+//nolint:gochecknoglobals // test-replaceable
+var csvNewWriter = func(w io.Writer) csvWriter { return csv.NewWriter(w) }
 
 // Format represents a supported data format.
 type Format string
@@ -344,7 +362,7 @@ func jsonToCSV(input string) Result {
 	}
 	headers := collectCSVHeaders(data)
 	var buf bytes.Buffer
-	w := csv.NewWriter(&buf)
+	w := csvNewWriter(&buf)
 	if err := w.Write(headers); err != nil {
 		return Result{Error: err.Error()}
 	}
@@ -534,7 +552,7 @@ func formatHTML(input string) Result {
 	if v := validateHTML(input); !v.Valid {
 		return v
 	}
-	doc, err := html.Parse(strings.NewReader(input))
+	doc, err := htmlParse(strings.NewReader(input))
 	if err != nil {
 		return Result{Valid: false, Error: err.Error()}
 	}

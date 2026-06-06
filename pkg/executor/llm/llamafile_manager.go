@@ -61,6 +61,20 @@ var httpDefaultClientDo = stdhttp.DefaultClient.Do
 //nolint:gochecknoglobals // test-replaceable
 var netListenConfigListen = (&net.ListenConfig{}).Listen
 
+//nolint:gochecknoglobals // test-replaceable
+var fileflowMoveFunc = fileflow.Move
+
+//nolint:gochecknoglobals // test-replaceable
+var closeDownloadFile = func(f interface{ Close() error }) error { return f.Close() }
+
+//nolint:gochecknoglobals // test-replaceable
+var filepathAbsFunc = filepath.Abs
+
+//nolint:gochecknoglobals // test-replaceable
+var chmodLlamafile = func(path string, mode os.FileMode) error {
+	return AppFS.Chmod(path, mode)
+}
+
 // LlamafileManager handles downloading, caching, and serving llamafile binaries.
 type LlamafileManager struct {
 	logger    *slog.Logger
@@ -117,7 +131,7 @@ func (m *LlamafileManager) resolveLocalModel(model string) (string, error) {
 }
 
 func (m *LlamafileManager) resolveRelativeModel(model string) (string, error) {
-	abs, err := filepath.Abs(model)
+	abs, err := filepathAbsFunc(model)
 	if err != nil {
 		return "", fmt.Errorf("cannot resolve relative path %s: %w", model, err)
 	}
@@ -147,9 +161,11 @@ func (m *LlamafileManager) resolveExistingPath(path, notFoundFmt string) (string
 // simplicity - delete the cached file to force a re-download).
 func (m *LlamafileManager) download(rawURL string) (string, error) {
 	kdeps_debug.Log("enter: LlamafileManager.download")
-	basename := pathologize.Clean(filepath.Base(rawURL))
+	basename := filepath.Base(rawURL)
 	if basename == "" || basename == "." || basename == "/" {
 		basename = "model.llamafile"
+	} else {
+		basename = pathologize.Clean(basename)
 	}
 	dest := filepath.Join(m.modelsDir, basename)
 
@@ -190,12 +206,12 @@ func writeDownloadToFile(dest string, body io.Reader) error {
 		_ = AppFS.Remove(tmp)
 		return fmt.Errorf("download write failed: %w", copyErr)
 	}
-	if closeErr := f.Close(); closeErr != nil {
+	if closeErr := closeDownloadFile(f); closeErr != nil {
 		_ = AppFS.Remove(tmp)
 		return fmt.Errorf("failed to close downloaded file: %w", closeErr)
 	}
 
-	if _, renameErr := fileflow.Move(tmp, dest); renameErr != nil {
+	if _, renameErr := fileflowMoveFunc(tmp, dest); renameErr != nil {
 		_ = AppFS.Remove(tmp)
 		return fmt.Errorf("failed to move downloaded file: %w", renameErr)
 	}
@@ -212,7 +228,7 @@ func (m *LlamafileManager) MakeExecutable(path string) error {
 	if info.Mode()&0111 != 0 {
 		return nil // already executable
 	}
-	return AppFS.Chmod(path, llamafileExecutablePerm)
+	return chmodLlamafile(path, llamafileExecutablePerm)
 }
 
 // FindFreePort returns an available TCP port on localhost.

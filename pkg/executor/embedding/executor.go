@@ -40,6 +40,9 @@ import (
 //nolint:gochecknoglobals // test-replaceable
 var jsonMarshal = json.Marshal
 
+//nolint:gochecknoglobals // test-replaceable
+var sqlOpen = sql.Open
+
 const ()
 
 type resolvedEmbeddingConfig struct {
@@ -99,7 +102,7 @@ func (e *Executor) Execute(
 
 	resolved := resolveEmbeddingConfig(config)
 
-	db, openErr := sql.Open("sqlite3", resolved.dbPath)
+	db, openErr := sqlOpen("sqlite3", resolved.dbPath)
 	if openErr != nil {
 		return nil, fmt.Errorf("embedding: failed to open database: %w", openErr)
 	}

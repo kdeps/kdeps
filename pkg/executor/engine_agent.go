@@ -29,6 +29,12 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var newSchemaValidatorFunc = validator.NewSchemaValidator
+
+//nolint:gochecknoglobals // test-replaceable
+var agentParamsEvaluateFunc func(*Engine, interface{}, *ExecutionContext) (interface{}, error)
+
 // executeAgent invokes a sibling agent by name within the same agency.
 // It resolves the agent's workflow path from ctx.AgentPaths, parses the workflow,
 // and executes it in a sub-engine that shares the current registry.
@@ -93,7 +99,7 @@ func resolveAgentPath(cfg *domain.AgentCallConfig, ctx *ExecutionContext) (strin
 
 func parseAgentWorkflow(agentPath, agentName string) (*domain.Workflow, error) {
 	kdeps_debug.Log("enter: parseAgentWorkflow")
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", agentName, err)
 	}
@@ -117,7 +123,13 @@ func evaluateAgentParams(
 	if rawParams == nil {
 		rawParams = make(map[string]interface{})
 	}
-	evaluatedParams, evalErr := e.evaluateFallback(rawParams, ctx)
+	var evaluatedParams interface{}
+	var evalErr error
+	if agentParamsEvaluateFunc != nil {
+		evaluatedParams, evalErr = agentParamsEvaluateFunc(e, rawParams, ctx)
+	} else {
+		evaluatedParams, evalErr = e.evaluateFallback(rawParams, ctx)
+	}
 	if evalErr != nil {
 		return nil, fmt.Errorf("failed to evaluate params for agent %q: %w", cfg.Name, evalErr)
 	}

@@ -43,7 +43,14 @@ import (
 )
 
 //nolint:gochecknoglobals // test-replaceable
-var execCommandContext = exec.CommandContext
+var (
+	execCommandContext        = exec.CommandContext
+	parseProxyURL             = url.Parse
+	dialTargetWebSocketHook   = dialTargetWebSocket
+	writeWebSocketMessageHook = func(c *websocket.Conn, messageType int, data []byte) error {
+		return c.WriteMessage(messageType, data)
+	}
+)
 
 const (
 	serverTypeApp    = "app"
@@ -237,7 +244,7 @@ func (s *WebServer) HandleAppRequest(
 	// Build target URL
 	// The proxy target should always be 127.0.0.1 (connect to the local app process)
 	hostIP := "127.0.0.1"
-	targetURL, err := url.Parse(
+	targetURL, err := parseProxyURL(
 		fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))),
 	)
 	if err != nil {
@@ -313,7 +320,7 @@ func (s *WebServer) HandleWebSocketProxy(
 	targetWSURL := buildWebSocketTargetURL(targetURL, route, r)
 	s.logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
 
-	targetConn, resp, err := dialTargetWebSocket(targetWSURL, r.Header)
+	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
@@ -460,7 +467,7 @@ func relayWebSocketMessages(
 			return
 		}
 
-		if writeErr := dst.WriteMessage(messageType, message); writeErr != nil {
+		if writeErr := writeWebSocketMessageHook(dst, messageType, message); writeErr != nil {
 			logger.Debug(dstLabel+" WebSocket write error", "error", writeErr)
 			errChan <- writeErr
 			return

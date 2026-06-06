@@ -22,6 +22,8 @@
 // This file is only compiled during testing (the _test.go suffix ensures that).
 package cmd
 
+import kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
+
 // ExtractFromTarGz is an alias for the unexported extractFromTarGz helper,
 // exposed for unit testing only.
 var ExtractFromTarGz = extractFromTarGz //nolint:gochecknoglobals // test-only export
@@ -197,3 +199,43 @@ var CmdExtractTarEntry = cmdExtractTarEntry //nolint:gochecknoglobals // test-on
 
 // CmdExtractTarGz exposes the unexported cmdExtractTarGz helper for unit testing.
 var CmdExtractTarGz = cmdExtractTarGz //nolint:gochecknoglobals // test-only export
+
+// BootstrapConfigFunc exposes bootstrapConfigFunc for unit testing.
+var BootstrapConfigFunc = &bootstrapConfigFunc //nolint:gochecknoglobals // test-only export
+
+// LoadConfigFunc exposes loadConfigFunc for unit testing.
+var LoadConfigFunc = &loadConfigFunc //nolint:gochecknoglobals // test-only export
+
+// DetectGitHubRepoFunc exposes detectGitHubRepoFunc for unit testing.
+var DetectGitHubRepoFunc = &detectGitHubRepoFunc //nolint:gochecknoglobals // test-only export
+
+// ComputeRemoteSHA256Func exposes computeRemoteSHA256Func for unit testing.
+var ComputeRemoteSHA256Func = &computeRemoteSHA256Func //nolint:gochecknoglobals // test-only export
+
+// ConfigScaffoldFunc exposes configScaffoldFunc for unit testing.
+var ConfigScaffoldFunc = &configScaffoldFunc //nolint:gochecknoglobals // test-only export
+
+// ConfigPathFunc exposes configPathFunc for unit testing.
+var ConfigPathFunc = &configPathFunc //nolint:gochecknoglobals // test-only export
+
+// NewMarkdownRendererFunc exposes newMarkdownRendererFunc for unit testing.
+var NewMarkdownRendererFunc = &newMarkdownRendererFunc //nolint:gochecknoglobals // test-only export
+
+// TermGetSizeFunc exposes termGetSizeFunc for unit testing.
+var TermGetSizeFunc = &termGetSizeFunc //nolint:gochecknoglobals // test-only export
+
+// OsCreateTempFunc exposes osCreateTempFunc for unit testing.
+var OsCreateTempFunc = &osCreateTempFunc //nolint:gochecknoglobals // test-only export
+
+// DownloadArchiveFunc exposes downloadArchiveFunc for unit testing.
+var DownloadArchiveFunc = &downloadArchiveFunc //nolint:gochecknoglobals // test-only export
+
+// HTTPServerStartHook is the type of httpServerStartFunc for test overrides.
+type HTTPServerStartHook func(srv *kdepshttp.Server, addr string, devMode bool) error
+
+// SetHTTPServerStartFuncForTest overrides httpServerStartFunc and returns the previous hook.
+func SetHTTPServerStartFuncForTest(fn HTTPServerStartHook) HTTPServerStartHook {
+	orig := httpServerStartFunc
+	httpServerStartFunc = fn
+	return orig
+}

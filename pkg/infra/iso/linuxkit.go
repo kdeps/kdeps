@@ -23,6 +23,8 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+const linuxkitExecutableMode = 0o700
+
 //nolint:gochecknoglobals // test-replaceable
 var httpClientDo = http.DefaultClient.Do
 
@@ -33,7 +35,10 @@ var execCommandContext = exec.CommandContext
 var execLookPath = exec.LookPath
 
 //nolint:gochecknoglobals // test-replaceable
-var osUserHomeDir = os.UserHomeDir
+var (
+	osUserHomeDir = os.UserHomeDir
+	osChmod       = os.Chmod
+)
 
 const (
 	linuxkitVersion = "v1.8.2"
@@ -124,8 +129,7 @@ func downloadLinuxKit(ctx context.Context, cacheDir, cachedBinary string) (strin
 		)
 	}
 
-	//nolint:gosec // binary needs to be executable by user
-	if chmodErr := os.Chmod(cachedBinary, 0700); chmodErr != nil {
+	if chmodErr := osChmod(cachedBinary, linuxkitExecutableMode); chmodErr != nil {
 		return "", fmt.Errorf("failed to make linuxkit executable: %w", chmodErr)
 	}
 

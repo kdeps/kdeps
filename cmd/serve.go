@@ -16,6 +16,16 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/tools"
 )
 
+// filepathAbsServeFunc resolves serve paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathAbsServeFunc = filepath.Abs
+
+// registerAgencyTargetParseFunc parses agency target workflows (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var registerAgencyTargetParseFunc = ParseWorkflowFile
+
 type serveFlags struct {
 	Model        string
 	Backend      string
@@ -83,7 +93,7 @@ Environment variables (override defaults):
 }
 
 func runServeCmd(path string, flags *serveFlags) error {
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepathAbsServeFunc(path)
 	if err != nil {
 		return fmt.Errorf("serve: invalid path %q: %w", path, err)
 	}
@@ -171,7 +181,7 @@ func registerAgencyTool(p string, registry *tools.Registry, debug bool) (*domain
 	if err != nil {
 		return nil, fmt.Errorf("serve: agency %s: %w", p, err)
 	}
-	targetWF, err := ParseWorkflowFile(targetPath)
+	targetWF, err := registerAgencyTargetParseFunc(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("serve: agency %s target: %w", p, err)
 	}
