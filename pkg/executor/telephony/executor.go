@@ -144,6 +144,75 @@ func resultFromSession(s *Session) *Result {
 	return r
 }
 
+const defaultGatherTimeoutSeconds = 5
+
+func gatherTimeoutSeconds(timeout string) int {
+	if seconds := parseDurationSeconds(timeout); seconds > 0 {
+		return seconds
+	}
+	return defaultGatherTimeoutSeconds
+}
+
+func buildSpeechGatherOptions(g *GatherOptions, cfg *domain.TelephonyActionConfig, inputAttr string) {
+	if !strings.Contains(inputAttr, "speech") {
+		return
+	}
+	if cfg.Timeout != "" {
+		g.SpeechTimeout = cfg.Timeout
+	} else {
+		g.SpeechTimeout = "auto"
+	}
+}
+
+func buildGatherOptions(cfg *domain.TelephonyActionConfig, numDigits int, finishOnKey string) GatherOptions {
+	inputAttr := inputAttrFromMode(cfg.Mode)
+	g := GatherOptions{
+		Input:       inputAttr,
+		NumDigits:   numDigits,
+		Timeout:     gatherTimeoutSeconds(cfg.Timeout),
+		FinishOnKey: finishOnKey,
+		Say:         cfg.Say,
+		Voice:       cfg.Voice,
+		Audio:       cfg.Audio,
+	}
+	buildSpeechGatherOptions(&g, cfg, inputAttr)
+	return g
+}
+
+func collectMenuKeys(matches []domain.TelephonyMatch) []string {
+	var keys []string
+	for _, m := range matches {
+		keys = append(keys, m.Keys...)
+	}
+	return keys
+}
+
+func menuNumDigits(cfg *domain.TelephonyActionConfig, allKeys []string) int {
+	if cfg.Limit > 0 {
+		return cfg.Limit
+	}
+	if len(allKeys) > 0 {
+		return 1
+	}
+	return 0
+}
+
+func applyMenuMatch(cfg *domain.TelephonyActionConfig, r *Result) *Result {
+	if r.Status != StatusMatch {
+		return r
+	}
+	for _, m := range cfg.Matches {
+		for _, key := range m.Keys {
+			if strings.EqualFold(r.Utterance, key) {
+				r.Interpretation = key
+				return r
+			}
+		}
+	}
+	r.Status = StatusNoMatch
+	return r
+}
+
 // parseDurationSeconds parses a duration string like "5s", "30s", "2m" into
 // whole seconds. Returns 0 on empty input or parse error.
 func parseDurationSeconds(s string) int {
@@ -218,36 +287,7 @@ func (e *Executor) execSay(s *Session, cfg *domain.TelephonyActionConfig) (any, 
 // (from a previous round-trip) and stores them as LastResult.
 func (e *Executor) execAsk(s *Session, cfg *domain.TelephonyActionConfig) (any, error) {
 	kdeps_debug.Log("enter: telephony.execAsk")
-
-	timeout := parseDurationSeconds(cfg.Timeout)
-	if timeout == 0 {
-		timeout = 5 // Twilio default
-	}
-
-	inputAttr := inputAttrFromMode(cfg.Mode)
-
-	g := GatherOptions{
-		Input:       inputAttr,
-		NumDigits:   cfg.Limit,
-		Timeout:     timeout,
-		FinishOnKey: cfg.Terminator,
-		Say:         cfg.Say,
-		Voice:       cfg.Voice,
-		Audio:       cfg.Audio,
-	}
-	// For speech mode, set speechTimeout to "auto" (end-of-speech detection)
-	// or the explicit timeout if one was given.
-	if strings.Contains(inputAttr, "speech") {
-		if cfg.Timeout != "" {
-			g.SpeechTimeout = cfg.Timeout
-		} else {
-			g.SpeechTimeout = "auto"
-		}
-	}
-	s.Response.AddGather(g)
-
-	// If the session already has input from a previous webhook round-trip,
-	// evaluate it now so downstream resources see the result immediately.
+	s.Response.AddGather(buildGatherOptions(cfg, cfg.Limit, cfg.Terminator))
 	s.LastResult = resultFromSession(s)
 	return buildResult(s), nil
 }
@@ -262,51 +302,11 @@ func (e *Executor) execMenu(s *Session, cfg *domain.TelephonyActionConfig) (any,
 		tries = 1
 	}
 
-	// Collect all top-level keys for grammar building.
-	var allKeys []string
-	for _, m := range cfg.Matches {
-		allKeys = append(allKeys, m.Keys...)
-	}
+	allKeys := collectMenuKeys(cfg.Matches)
+	s.Response.AddGather(buildGatherOptions(cfg, menuNumDigits(cfg, allKeys), ""))
 
-	timeout := parseDurationSeconds(cfg.Timeout)
-	if timeout == 0 {
-		timeout = 5
-	}
-
-	// Build a single <Gather> for the menu prompt.
-	g := GatherOptions{
-		Input:   inputAttrFromMode(cfg.Mode),
-		Timeout: timeout,
-		Say:     cfg.Say,
-		Voice:   cfg.Voice,
-		Audio:   cfg.Audio,
-	}
-	if cfg.Limit > 0 {
-		g.NumDigits = cfg.Limit
-	} else if len(allKeys) > 0 {
-		g.NumDigits = 1 // typical single-digit menu
-	}
-	s.Response.AddGather(g)
-
-	// Evaluate whether the current session already has input.
-	r := resultFromSession(s)
+	r := applyMenuMatch(cfg, resultFromSession(s))
 	s.LastResult = r
-
-	if r.Status == StatusMatch {
-		// Find the matching branch.
-		for _, m := range cfg.Matches {
-			for _, key := range m.Keys {
-				if strings.EqualFold(r.Utterance, key) {
-					r.Interpretation = key
-					s.LastResult = r
-					return buildResult(s), nil
-				}
-			}
-		}
-		// Input received but no branch matched.
-		r.Status = StatusNoMatch
-		s.LastResult = r
-	}
 
 	_ = tries // retry logic is handled by the workflow's loop.while construct
 	return buildResult(s), nil

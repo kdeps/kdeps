@@ -90,27 +90,30 @@ func resolveInfoReadme(ref string) (string, error) {
 	return resolveLocalReadme(ref)
 }
 
+// localReadmeSearchDirs returns candidate directories to probe for a local README.
+func localReadmeSearchDirs(name string) []string {
+	const maxLocalDirs = 3 // global agents + agents/ + agencies/
+	dirs := make([]string, 0, maxLocalDirs)
+	if agentsDir, err := kdepsAgentsDir(); err == nil {
+		dirs = append(dirs, filepath.Join(agentsDir, name))
+	}
+	for _, base := range []string{"agents", "agencies"} {
+		dirs = append(dirs, fmt.Sprintf("%s/%s", base, name))
+	}
+	return dirs
+}
+
 // resolveLocalReadme searches for a README for a locally-named item.
 // It probes: global component dir, ./components/, ~/.kdeps/agents/, ./agents/, ./agencies/.
 func resolveLocalReadme(name string) (string, error) {
 	kdeps_debug.Log("enter: resolveLocalReadme")
 
-	// 1. Try as a component (reuses component show logic)
 	readme, err := readReadmeForComponent(name)
 	if err == nil && !isMinimalFallback(readme, name) {
 		return readme, nil
 	}
 
-	// 2. Global agents dir (~/.kdeps/agents/<name>/)
-	if agentsDir, agentsDirErr := kdepsAgentsDir(); agentsDirErr == nil {
-		if content := findReadmeInDir(filepath.Join(agentsDir, name)); content != "" {
-			return content, nil
-		}
-	}
-
-	// 3. Local agents/<name>/ or agencies/<name>/
-	for _, base := range []string{"agents", "agencies"} {
-		dir := fmt.Sprintf("%s/%s", base, name)
+	for _, dir := range localReadmeSearchDirs(name) {
 		if content := findReadmeInDir(dir); content != "" {
 			return content, nil
 		}
@@ -126,6 +129,30 @@ func isMinimalFallback(readme, name string) bool {
 	return strings.Contains(readme, fmt.Sprintf("No README.md found for component %q", name))
 }
 
+// githubReadmeCandidates returns branch and README filename combinations to try.
+func githubReadmeCandidates() ([]string, []string) {
+	return []string{"main", "master"},
+		[]string{"README.md", "readme.md", "Readme.md", "README.MD"}
+}
+
+// buildRawGitHubURL constructs a raw.githubusercontent.com URL for a README file.
+func buildRawGitHubURL(owner, repo, branch, subdir, readmeName string) string {
+	if subdir != "" {
+		return fmt.Sprintf("%s/%s/%s/%s/%s/%s",
+			githubRawBaseURL, owner, repo, branch, subdir, readmeName)
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%s",
+		githubRawBaseURL, owner, repo, branch, readmeName)
+}
+
+// formatRemoteRef returns a human-readable owner/repo[:subdir] label for errors.
+func formatRemoteRef(owner, repo, subdir string) string {
+	if subdir != "" {
+		return fmt.Sprintf("%s/%s/%s", owner, repo, subdir)
+	}
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
+
 // fetchRemoteReadme downloads a README from GitHub for owner/repo[:subdir].
 func fetchRemoteReadme(ref string) (string, error) {
 	kdeps_debug.Log("enter: fetchRemoteReadme")
@@ -135,21 +162,10 @@ func fetchRemoteReadme(ref string) (string, error) {
 		return "", parseErr
 	}
 
-	// Try multiple default branches and README filename variants.
-	branches := []string{"main", "master"}
-	readmeNames := []string{"README.md", "readme.md", "Readme.md", "README.MD"}
-
+	branches, readmeNames := githubReadmeCandidates()
 	for _, branch := range branches {
 		for _, readmeName := range readmeNames {
-			var rawURL string
-			if subdir != "" {
-				rawURL = fmt.Sprintf("%s/%s/%s/%s/%s/%s",
-					githubRawBaseURL, owner, repo, branch, subdir, readmeName)
-			} else {
-				rawURL = fmt.Sprintf("%s/%s/%s/%s/%s",
-					githubRawBaseURL, owner, repo, branch, readmeName)
-			}
-
+			rawURL := buildRawGitHubURL(owner, repo, branch, subdir, readmeName)
 			content, err := fetchReadmeURL(rawURL)
 			if err == nil {
 				return content, nil
@@ -157,11 +173,10 @@ func fetchRemoteReadme(ref string) (string, error) {
 		}
 	}
 
-	ref = fmt.Sprintf("%s/%s", owner, repo)
-	if subdir != "" {
-		ref = fmt.Sprintf("%s/%s/%s", owner, repo, subdir)
-	}
-	return "", fmt.Errorf("no README found for %s (tried main/master branches)", ref)
+	return "", fmt.Errorf(
+		"no README found for %s (tried main/master branches)",
+		formatRemoteRef(owner, repo, subdir),
+	)
 }
 
 // parseRemoteRef splits "owner/repo[:subdir]" into its components.

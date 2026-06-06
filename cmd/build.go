@@ -251,6 +251,51 @@ func resolveBuildAgencyFile(agencyFilePath string) (string, string, func(), erro
 	return resolveBuildAgencyManifest(agencyFilePath, agencyDir, nil)
 }
 
+// combineAgencyCleanup merges agency parser cleanup with an optional outer cleanup.
+func combineAgencyCleanup(agencyParser *yaml.Parser, cleanup func()) func() {
+	return func() {
+		agencyParser.Cleanup()
+		if cleanup != nil {
+			cleanup()
+		}
+	}
+}
+
+// resolveAgencyEntryPath returns the workflow path for the agency entry-point agent.
+func resolveAgencyEntryPath(
+	agency *domain.Agency,
+	agentPaths []string,
+	agencyFilePath string,
+) (string, error) {
+	if len(agentPaths) == 0 {
+		return "", fmt.Errorf("agency %s has no agents", agencyFilePath)
+	}
+
+	targetID := agency.Metadata.TargetAgentID
+	if targetID == "" {
+		return agentPaths[0], nil
+	}
+
+	for _, p := range agentPaths {
+		wf, parseErr := ParseWorkflowFile(p)
+		if parseErr != nil {
+			// A parse failure on any agent is fatal when a specific target
+			// is required: we cannot silently skip the file that may be the
+			// target agent and fall back to agentPaths[0].
+			return "", fmt.Errorf("failed to parse agent workflow %s: %w", p, parseErr)
+		}
+		if wf.Metadata.Name == targetID {
+			return p, nil
+		}
+	}
+
+	return "", fmt.Errorf(
+		"target agent %q not found in agency %s",
+		targetID,
+		agencyFilePath,
+	)
+}
+
 // resolveBuildAgencyManifest parses the agency file and returns the path to
 // the entry-point agent's workflow file so that Docker/ISO builds can proceed
 // exactly as they would for a standalone workflow.
@@ -267,49 +312,12 @@ func resolveBuildAgencyManifest(
 		return "", "", nil, fmt.Errorf("failed to parse agency %s: %w", agencyFilePath, err)
 	}
 
-	// Combine the incoming cleanup with the agency parser cleanup so that any
-	// temp dirs created when extracting .kdeps agents are not removed before
-	// the build pipeline has finished using the extracted files.
-	combinedCleanup := func() {
-		agencyParser.Cleanup()
-		if cleanup != nil {
-			cleanup()
-		}
-	}
+	combinedCleanup := combineAgencyCleanup(agencyParser, cleanup)
 
-	if len(agentPaths) == 0 {
+	entryPath, entryErr := resolveAgencyEntryPath(agency, agentPaths, agencyFilePath)
+	if entryErr != nil {
 		combinedCleanup()
-		return "", "", nil, fmt.Errorf("agency %s has no agents", agencyFilePath)
-	}
-
-	// Find the entry-point agent workflow.
-	entryPath := agentPaths[0]
-	targetID := agency.Metadata.TargetAgentID
-	if targetID != "" {
-		found := false
-		for _, p := range agentPaths {
-			wf, parseErr := ParseWorkflowFile(p)
-			if parseErr != nil {
-				// A parse failure on any agent is fatal when a specific target
-				// is required: we cannot silently skip the file that may be the
-				// target agent and fall back to agentPaths[0].
-				combinedCleanup()
-				return "", "", nil, fmt.Errorf("failed to parse agent workflow %s: %w", p, parseErr)
-			}
-			if wf.Metadata.Name == targetID {
-				entryPath = p
-				found = true
-				break
-			}
-		}
-		if !found {
-			combinedCleanup()
-			return "", "", nil, fmt.Errorf(
-				"target agent %q not found in agency %s",
-				targetID,
-				agencyFilePath,
-			)
-		}
+		return "", "", nil, entryErr
 	}
 
 	fmt.Fprintf(os.Stdout, "Agency: %s v%s (entry-point: %s)\n\n",
@@ -483,6 +491,44 @@ func performDockerBuild(
 	return nil
 }
 
+// chdirToPackageDir changes to absPackageDir and returns a restore function.
+func chdirToPackageDir(absPackageDir string) (func(), error) {
+	originalDir, _ := os.Getwd()
+	if chdirErr := os.Chdir(absPackageDir); chdirErr != nil {
+		return nil, fmt.Errorf("failed to change to package directory: %w", chdirErr)
+	}
+
+	return func() {
+		if originalDir != "" {
+			_ = os.Chdir(originalDir)
+		}
+	}, nil
+}
+
+// attachPrepackagedBinaries prepares embedded kdeps binaries for the Docker builder.
+func attachPrepackagedBinaries(
+	ctx context.Context,
+	builder *docker.Builder,
+	absPackagePath, absPackageDir string,
+	workflow *domain.Workflow,
+) {
+	kdepsFile, createdKdeps, kdepsErr := ensureKdepsFile(absPackagePath, absPackageDir, workflow)
+	if kdepsErr != nil {
+		kdepslog.Warn("could not prepare .kdeps file for prepackaging", "error", kdepsErr)
+		kdepslog.Info("falling back to kdeps install.sh in the Docker image")
+		return
+	}
+
+	if createdKdeps {
+		defer os.Remove(kdepsFile)
+	}
+	prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(ctx, kdepsFile)
+	defer cleanupBinaries()
+	if len(prepackagedBinaries) > 0 {
+		builder.PrepackagedBinaries = prepackagedBinaries
+	}
+}
+
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) error {
 	kdeps_debug.Log("enter: buildImageInternal")
@@ -491,21 +537,16 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	}
 
 	packagePath := args[0]
-
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
 
-	// Determine workflow path and package directory
 	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
 	if err != nil {
 		return err
 	}
-
-	// Defer cleanup if needed
 	if cleanupFunc != nil {
 		defer cleanupFunc()
 	}
 
-	// Parse workflow
 	workflow, err := parseWorkflow(workflowPath)
 	if err != nil {
 		return err
@@ -521,54 +562,23 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 		return fmt.Errorf("failed to get absolute package path: %w", err)
 	}
 
-	// Try to get current directory for restoring later
-	// If this fails (e.g. directory deleted), we just won't restore it
-	originalDir, _ := os.Getwd()
-
-	if chdirErr := os.Chdir(absPackageDir); chdirErr != nil {
-		return fmt.Errorf("failed to change to package directory: %w", chdirErr)
+	restoreDir, err := chdirToPackageDir(absPackageDir)
+	if err != nil {
+		return err
 	}
-	defer func() {
-		if originalDir != "" {
-			_ = os.Chdir(originalDir)
-		}
-	}()
+	defer restoreDir()
 
-	// Create Docker builder
 	builder, err := setupDockerBuilder(flags)
 	if err != nil {
 		return err
 	}
 	defer builder.Client.Close()
 
-	// Show Dockerfile if requested (skip prepackaging — it's expensive and
-	// the shown Dockerfile would be the fallback unless binaries are already
-	// prepared; the caller can see the prepackaged variant by actually building)
 	if flags.ShowDockerfile {
 		return handleDockerfileShow(builder, workflow)
 	}
 
-	// Produce prepackaged binaries (per target arch) so the Docker image carries
-	// a self-contained executable rather than downloading kdeps at build time.
-	kdepsFile, createdKdeps, kdepsErr := ensureKdepsFile(absPackagePath, absPackageDir, workflow)
-	if kdepsErr == nil {
-		if createdKdeps {
-			defer os.Remove(kdepsFile)
-		}
-		prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(
-			cmd.Context(),
-			kdepsFile,
-		)
-		defer cleanupBinaries()
-		if len(prepackagedBinaries) > 0 {
-			builder.PrepackagedBinaries = prepackagedBinaries
-		}
-	} else {
-		kdepslog.Warn("could not prepare .kdeps file for prepackaging", "error", kdepsErr)
-		kdepslog.Info("falling back to kdeps install.sh in the Docker image")
-	}
-
-	// Build image
+	attachPrepackagedBinaries(cmd.Context(), builder, absPackagePath, absPackageDir, workflow)
 	return performDockerBuild(builder, workflow, packagePath, flags)
 }
 
@@ -608,6 +618,44 @@ func ensureKdepsFile(
 // for linux/amd64 and linux/arm64 by appending kdepsFile to each base binary.
 // It returns a map of goarch → temp-file-path and a cleanup function that the
 // caller must defer.
+func createPrepackagedBinaryForTarget(
+	ctx context.Context,
+	kdepsFile, currentExec string,
+	target archTarget,
+) (string, error) {
+	basePath, baseIsTemporary, resolveErr := resolveBaseBinary(
+		ctx,
+		normaliseVersion(),
+		target,
+		currentExec,
+	)
+	if resolveErr != nil {
+		return "", resolveErr
+	}
+	defer func() {
+		if baseIsTemporary {
+			_ = os.Remove(basePath)
+		}
+	}()
+
+	outFile, tmpErr := os.CreateTemp(
+		"",
+		fmt.Sprintf("kdeps-prepackaged-%s-%s-*", target.GOOS, target.GOARCH),
+	)
+	if tmpErr != nil {
+		return "", tmpErr
+	}
+	outPath := outFile.Name()
+	_ = outFile.Close()
+	// AppendEmbeddedPackage writes to the path; remove placeholder.
+	_ = os.Remove(outPath)
+
+	if embedErr := AppendEmbeddedPackage(basePath, kdepsFile, outPath); embedErr != nil {
+		return "", embedErr
+	}
+	return outPath, nil
+}
+
 func createPrepackagedBinariesForDocker(
 	ctx context.Context,
 	kdepsFile string,
@@ -619,47 +667,15 @@ func createPrepackagedBinariesForDocker(
 	}
 
 	currentExec, _ := osExecutable()
-
 	binaries := make(map[string]string, len(targets))
 
 	for _, target := range targets {
-		basePath, baseIsTemporary, resolveErr := resolveBaseBinary(
-			ctx,
-			normaliseVersion(),
-			target,
-			currentExec,
-		)
-		if resolveErr != nil {
-			kdepslog.Warn("could not resolve base binary",
-				"os", target.GOOS, "arch", target.GOARCH, "error", resolveErr)
-			continue
-		}
-
-		outFile, tmpErr := os.CreateTemp(
-			"",
-			fmt.Sprintf("kdeps-prepackaged-%s-%s-*", target.GOOS, target.GOARCH),
-		)
-		if tmpErr != nil {
-			if baseIsTemporary {
-				_ = os.Remove(basePath)
-			}
-			continue
-		}
-		outPath := outFile.Name()
-		_ = outFile.Close()
-		// AppendEmbeddedPackage writes to the path; remove placeholder.
-		_ = os.Remove(outPath)
-
-		embedErr := AppendEmbeddedPackage(basePath, kdepsFile, outPath)
-		if baseIsTemporary {
-			_ = os.Remove(basePath)
-		}
-		if embedErr != nil {
+		outPath, buildErr := createPrepackagedBinaryForTarget(ctx, kdepsFile, currentExec, target)
+		if buildErr != nil {
 			kdepslog.Warn("could not create prepackaged binary",
-				"os", target.GOOS, "arch", target.GOARCH, "error", embedErr)
+				"os", target.GOOS, "arch", target.GOARCH, "error", buildErr)
 			continue
 		}
-
 		binaries[target.GOARCH] = outPath
 	}
 
@@ -678,6 +694,37 @@ func normaliseVersion() string {
 	return strings.TrimPrefix(version.Version, "v")
 }
 
+// extractWorkflowAPIRoutes returns non-empty API route paths from a workflow.
+func extractWorkflowAPIRoutes(workflow *domain.Workflow) []string {
+	if workflow.Settings.APIServer == nil {
+		return nil
+	}
+	var routes []string
+	for _, route := range workflow.Settings.APIServer.Routes {
+		if route.Path != "" {
+			routes = append(routes, route.Path)
+		}
+	}
+	return routes
+}
+
+// resolveWASMImageTag returns the Docker image tag for a WASM build.
+func resolveWASMImageTag(tag string) string {
+	if tag != "" {
+		return tag
+	}
+	return "kdeps-wasm:latest"
+}
+
+// printWASMSuccess prints the post-build instructions for a WASM image.
+func printWASMSuccess(imageTag string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "✅ WASM web app built successfully!")
+	fmt.Fprintf(os.Stdout, "  Image: %s\n\n", imageTag)
+	fmt.Fprintln(os.Stdout, "Run with:")
+	fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
+}
+
 // buildWASMImage builds a WASM static web app from a workflow package.
 // It bundles the pre-compiled WASM binary with the workflow YAML and web server files
 // into a lightweight nginx Docker image.
@@ -685,7 +732,6 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	kdeps_debug.Log("enter: buildWASMImage")
 	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
 
-	// Resolve workflow path and package directory.
 	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
 	if err != nil {
 		return err
@@ -694,26 +740,21 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		defer cleanupFunc()
 	}
 
-	// Parse workflow — this validates the YAML and loads resources from resources/ dir.
 	workflow, err := parseWorkflow(workflowPath)
 	if err != nil {
 		return err
 	}
 
-	// Marshal the combined workflow (with inline resources) to a single YAML string
-	// for embedding in the JavaScript bootstrap.
 	combinedYAML, err := goyaml.Marshal(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
 	}
 
-	// Collect web server files from the data/ directory.
 	webServerFiles, err := collectWebServerFiles(packageDir)
 	if err != nil {
 		return fmt.Errorf("failed to collect web server files: %w", err)
 	}
 
-	// Locate pre-compiled WASM assets.
 	wasmBinary, err := findWASMBinary()
 	if err != nil {
 		return err
@@ -727,50 +768,29 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	fmt.Fprintf(os.Stdout, "wasm_exec.js: %s\n", wasmExecJS)
 	fmt.Fprintf(os.Stdout, "Web server files: %d\n\n", len(webServerFiles))
 
-	// Create temporary output directory for the bundle.
 	outputDir, err := os.MkdirTemp("", "kdeps-wasm-bundle-*")
 	if err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 	defer os.RemoveAll(outputDir)
 
-	// Extract API routes from the workflow for the fetch interceptor.
-	var apiRoutes []string
-	if workflow.Settings.APIServer != nil {
-		for _, route := range workflow.Settings.APIServer.Routes {
-			if route.Path != "" {
-				apiRoutes = append(apiRoutes, route.Path)
-			}
-		}
-	}
-
 	if err = bundleWASMApp(
 		wasmBinary,
 		wasmExecJS,
 		string(combinedYAML),
 		webServerFiles,
-		apiRoutes,
+		extractWorkflowAPIRoutes(workflow),
 		outputDir,
 	); err != nil {
 		return err
 	}
 
-	// Build Docker image (nginx serving the static bundle).
-	imageTag := flags.Tag
-	if imageTag == "" {
-		imageTag = "kdeps-wasm:latest"
-	}
-
+	imageTag := resolveWASMImageTag(flags.Tag)
 	if err = buildWASMDockerImage(ctx, outputDir, imageTag, flags.NoCache); err != nil {
 		return err
 	}
 
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintln(os.Stdout, "✅ WASM web app built successfully!")
-	fmt.Fprintf(os.Stdout, "  Image: %s\n\n", imageTag)
-	fmt.Fprintln(os.Stdout, "Run with:")
-	fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
-
+	printWASMSuccess(imageTag)
 	return nil
 }
 
@@ -877,26 +897,33 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 	return files, err
 }
 
+// findExistingPath returns the first path in candidates that exists on disk.
+func findExistingPath(candidates ...string) (string, bool) {
+	for _, p := range candidates {
+		if p == "" {
+			continue
+		}
+		if _, err := os.Stat(p); err == nil {
+			return p, true
+		}
+	}
+	return "", false
+}
+
 // findWASMBinary locates the pre-compiled kdeps.wasm binary.
 // Search order: KDEPS_WASM_BINARY env var, next to kdeps binary, current directory.
 func findWASMBinary() (string, error) {
 	kdeps_debug.Log("enter: findWASMBinary")
-	if p := os.Getenv("KDEPS_WASM_BINARY"); p != "" {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-
+	candidates := []string{os.Getenv("KDEPS_WASM_BINARY")}
 	if exePath, err := osExecutable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exePath), "kdeps.wasm")
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			return candidate, nil
-		}
+		candidates = append(candidates, filepath.Join(filepath.Dir(exePath), "kdeps.wasm"))
+	}
+	if abs, absErr := filepath.Abs("kdeps.wasm"); absErr == nil {
+		candidates = append(candidates, abs)
 	}
 
-	if _, err := os.Stat("kdeps.wasm"); err == nil {
-		abs, _ := filepath.Abs("kdeps.wasm")
-		return abs, nil
+	if path, ok := findExistingPath(candidates...); ok {
+		return path, nil
 	}
 
 	return "", errors.New(
@@ -904,42 +931,37 @@ func findWASMBinary() (string, error) {
 	)
 }
 
+// gorootWASMExecCandidates returns wasm_exec.js paths under GOROOT.
+func gorootWASMExecCandidates(ctx context.Context) []string {
+	gorootBytes, goErr := exec.CommandContext(ctx, "go", "env", "GOROOT").Output()
+	if goErr != nil {
+		return nil
+	}
+	goroot := strings.TrimSpace(string(gorootBytes))
+	if goroot == "" {
+		return nil
+	}
+	return []string{
+		filepath.Join(goroot, "misc", "wasm", "wasm_exec.js"),
+		filepath.Join(goroot, "lib", "wasm", "wasm_exec.js"),
+	}
+}
+
 // findWASMExecJS locates the wasm_exec.js file from the Go SDK.
 // Search order: KDEPS_WASM_EXEC_JS env var, next to kdeps binary, current directory, Go SDK.
 func findWASMExecJS(ctx context.Context) (string, error) {
 	kdeps_debug.Log("enter: findWASMExecJS")
-	if p := os.Getenv("KDEPS_WASM_EXEC_JS"); p != "" {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-
+	candidates := []string{os.Getenv("KDEPS_WASM_EXEC_JS")}
 	if exePath, err := osExecutable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exePath), "wasm_exec.js")
-		if _, statErr := os.Stat(candidate); statErr == nil {
-			return candidate, nil
-		}
+		candidates = append(candidates, filepath.Join(filepath.Dir(exePath), "wasm_exec.js"))
 	}
-
-	if _, err := os.Stat("wasm_exec.js"); err == nil {
-		abs, _ := filepath.Abs("wasm_exec.js")
-		return abs, nil
+	if abs, absErr := filepath.Abs("wasm_exec.js"); absErr == nil {
+		candidates = append(candidates, abs)
 	}
+	candidates = append(candidates, gorootWASMExecCandidates(ctx)...)
 
-	// Check Go SDK locations via "go env GOROOT".
-	if gorootBytes, goErr := exec.CommandContext(ctx, "go", "env", "GOROOT").Output(); goErr == nil {
-		goroot := strings.TrimSpace(string(gorootBytes))
-		if goroot != "" {
-			candidates := []string{
-				filepath.Join(goroot, "misc", "wasm", "wasm_exec.js"),
-				filepath.Join(goroot, "lib", "wasm", "wasm_exec.js"),
-			}
-			for _, c := range candidates {
-				if _, err := os.Stat(c); err == nil {
-					return c, nil
-				}
-			}
-		}
+	if path, ok := findExistingPath(candidates...); ok {
+		return path, nil
 	}
 
 	return "", errors.New(

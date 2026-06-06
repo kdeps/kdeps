@@ -93,20 +93,24 @@ func (v *WorkflowValidator) Validate(workflow *domain.Workflow) error {
 	}
 
 	// 9. Static analysis (unreachable resources, bad expression refs, missing component inputs)
-	if analysis := AnalyzeWorkflow(workflow); analysis.HasErrors() {
-		errs := analysis.Errors()
-		msgs := make([]string, len(errs))
-		for i, e := range errs {
-			msgs[i] = e.String()
-		}
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			strings.Join(msgs, "; "),
-			nil,
-		)
-	}
+	return workflowAnalysisError(AnalyzeWorkflow(workflow))
+}
 
-	return nil
+// workflowAnalysisError converts static analysis errors into a domain error.
+func workflowAnalysisError(analysis *WorkflowAnalysis) error {
+	if analysis == nil || !analysis.HasErrors() {
+		return nil
+	}
+	errs := analysis.Errors()
+	msgs := make([]string, len(errs))
+	for i, e := range errs {
+		msgs[i] = e.String()
+	}
+	return domain.NewError(
+		domain.ErrCodeInvalidWorkflow,
+		strings.Join(msgs, "; "),
+		nil,
+	)
 }
 
 // ValidateMetadata validates workflow metadata.
@@ -128,45 +132,58 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 	return nil
 }
 
+// validateServerPort returns an error when port is set but outside the valid range.
+func validateServerPort(port int) error {
+	if port != 0 && (port < 1 || port > 65535) {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"server port must be between 1 and 65535",
+			nil,
+		)
+	}
+	return nil
+}
+
 // ValidateSettings validates workflow settings.
 func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
 	kdeps_debug.Log("enter: ValidateSettings")
-	// Validate port if specified
-	validatePort := func(port int) error {
-		if port != 0 && (port < 1 || port > 65535) {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				"server port must be between 1 and 65535",
-				nil,
-			)
-		}
-		return nil
-	}
 	if workflow.Settings.APIServer != nil {
-		if err := validatePort(workflow.Settings.APIServer.PortNum); err != nil {
+		if err := validateServerPort(workflow.Settings.APIServer.PortNum); err != nil {
 			return err
 		}
-	}
-	if workflow.Settings.WebServer != nil {
-		if err := validatePort(workflow.Settings.WebServer.PortNum); err != nil {
-			return err
-		}
-	}
-
-	// Validate API server settings
-	if workflow.Settings.APIServer != nil {
 		if err := v.ValidateAPIServerSettings(workflow.Settings.APIServer); err != nil {
 			return err
 		}
 	}
-
-	// Validate input config if specified
+	if workflow.Settings.WebServer != nil {
+		if err := validateServerPort(workflow.Settings.WebServer.PortNum); err != nil {
+			return err
+		}
+	}
 	if workflow.Settings.Input != nil {
 		if err := v.ValidateInputConfig(workflow.Settings.Input); err != nil {
 			return err
 		}
 	}
+	return nil
+}
 
+// validateRoutePath checks a single API route path for presence and leading slash.
+func validateRoutePath(i int, path string) error {
+	if path == "" {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf("route %d: path is required", i),
+			nil,
+		)
+	}
+	if path[0] != '/' {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			fmt.Sprintf("route %d: path must start with /", i),
+			nil,
+		)
+	}
 	return nil
 }
 
@@ -180,8 +197,6 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 			nil,
 		)
 	}
-
-	// Validate routes.
 	if len(apiServer.Routes) == 0 {
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
@@ -189,24 +204,11 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 			nil,
 		)
 	}
-
 	for i, route := range apiServer.Routes {
-		if route.Path == "" {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("route %d: path is required", i),
-				nil,
-			)
-		}
-		if route.Path[0] != '/' {
-			return domain.NewError(
-				domain.ErrCodeInvalidWorkflow,
-				fmt.Sprintf("route %d: path must start with /", i),
-				nil,
-			)
+		if err := validateRoutePath(i, route.Path); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 
@@ -282,38 +284,22 @@ func (v *WorkflowValidator) ValidateDependencies(workflow *domain.Workflow) erro
 func countPrimaryExecutionTypes(run *domain.RunConfig) int {
 	kdeps_debug.Log("enter: countPrimaryExecutionTypes")
 	n := 0
-	if run.Chat != nil {
-		n++
-	}
-	if run.HTTPClient != nil {
-		n++
-	}
-	if run.SQL != nil {
-		n++
-	}
-	if run.Python != nil {
-		n++
-	}
-	if run.Exec != nil {
-		n++
-	}
-	if run.Agent != nil {
-		n++
-	}
-	if run.Component != nil {
-		n++
-	}
-	if run.Telephony != nil {
-		n++
-	}
-	if run.Browser != nil {
-		n++
-	}
-	if run.BotReply != nil {
-		n++
-	}
-	if run.Email != nil {
-		n++
+	for _, set := range []bool{
+		run.Chat != nil,
+		run.HTTPClient != nil,
+		run.SQL != nil,
+		run.Python != nil,
+		run.Exec != nil,
+		run.Agent != nil,
+		run.Component != nil,
+		run.Telephony != nil,
+		run.Browser != nil,
+		run.BotReply != nil,
+		run.Email != nil,
+	} {
+		if set {
+			n++
+		}
 	}
 	return n
 }
@@ -715,18 +701,8 @@ func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.Telepho
 			nil,
 		)
 	}
-	// ask and menu require at least one input specification.
-	if config.Action == "ask" || config.Action == "menu" {
-		if config.Grammar == "" && config.GrammarURL == "" && config.Limit == 0 && len(config.Matches) == 0 {
-			return domain.NewError(
-				domain.ErrCodeInvalidResource,
-				fmt.Sprintf(
-					"telephony action %q requires at least one of: grammar, grammarUrl, limit, matches",
-					config.Action,
-				),
-				nil,
-			)
-		}
+	if err := validateTelephonyActionInputs(config); err != nil {
+		return err
 	}
 	// dial requires at least one target.
 	if config.Action == "dial" && len(config.To) == 0 {
@@ -737,4 +713,22 @@ func (v *WorkflowValidator) ValidateTelephonyActionConfig(config *domain.Telepho
 		)
 	}
 	return nil
+}
+
+// validateTelephonyActionInputs checks input requirements for ask/menu telephony actions.
+func validateTelephonyActionInputs(config *domain.TelephonyActionConfig) error {
+	if config.Action != "ask" && config.Action != "menu" {
+		return nil
+	}
+	if config.Grammar != "" || config.GrammarURL != "" || config.Limit != 0 || len(config.Matches) > 0 {
+		return nil
+	}
+	return domain.NewError(
+		domain.ErrCodeInvalidResource,
+		fmt.Sprintf(
+			"telephony action %q requires at least one of: grammar, grammarUrl, limit, matches",
+			config.Action,
+		),
+		nil,
+	)
 }

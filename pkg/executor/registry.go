@@ -94,6 +94,11 @@ func (r *Registry) GetByName(name string) (ResourceExecutor, bool) {
 	return exec, ok
 }
 
+func (r *Registry) getExecutor(name string) ResourceExecutor {
+	exec, _ := r.GetByName(name)
+	return exec
+}
+
 // Registered returns the names of all currently registered executors.
 func (r *Registry) Registered() []string {
 	r.mu.RLock()
@@ -131,14 +136,11 @@ func (r *Registry) SetSQLExecutor(exec ResourceExecutor)    { r.Register(Executo
 func (r *Registry) SetPythonExecutor(exec ResourceExecutor) { r.Register(ExecutorPython, exec) }
 func (r *Registry) SetExecExecutor(exec ResourceExecutor)   { r.Register(ExecutorExec, exec) }
 
-func (r *Registry) GetLLMExecutor() ResourceExecutor  { e, _ := r.GetByName(ExecutorLLM); return e }
-func (r *Registry) GetHTTPExecutor() ResourceExecutor { e, _ := r.GetByName(ExecutorHTTP); return e }
-func (r *Registry) GetSQLExecutor() ResourceExecutor  { e, _ := r.GetByName(ExecutorSQL); return e }
-func (r *Registry) GetPythonExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorPython)
-	return e
-}
-func (r *Registry) GetExecExecutor() ResourceExecutor { e, _ := r.GetByName(ExecutorExec); return e }
+func (r *Registry) GetLLMExecutor() ResourceExecutor    { return r.getExecutor(ExecutorLLM) }
+func (r *Registry) GetHTTPExecutor() ResourceExecutor   { return r.getExecutor(ExecutorHTTP) }
+func (r *Registry) GetSQLExecutor() ResourceExecutor    { return r.getExecutor(ExecutorSQL) }
+func (r *Registry) GetPythonExecutor() ResourceExecutor { return r.getExecutor(ExecutorPython) }
+func (r *Registry) GetExecExecutor() ResourceExecutor   { return r.getExecutor(ExecutorExec) }
 
 func (r *Registry) SetScraperExecutor(exec ResourceExecutor)   { r.Register(ExecutorScraper, exec) }
 func (r *Registry) SetEmbeddingExecutor(exec ResourceExecutor) { r.Register(ExecutorEmbedding, exec) }
@@ -146,47 +148,25 @@ func (r *Registry) SetSearchLocalExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorSearchLocal, exec)
 }
 
-func (r *Registry) GetScraperExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorScraper)
-	return e
-}
-func (r *Registry) GetEmbeddingExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorEmbedding)
-	return e
-}
+func (r *Registry) GetScraperExecutor() ResourceExecutor   { return r.getExecutor(ExecutorScraper) }
+func (r *Registry) GetEmbeddingExecutor() ResourceExecutor { return r.getExecutor(ExecutorEmbedding) }
 func (r *Registry) GetSearchLocalExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorSearchLocal)
-	return e
+	return r.getExecutor(ExecutorSearchLocal)
 }
 
 func (r *Registry) SetSearchWebExecutor(exec ResourceExecutor) { r.Register(ExecutorSearchWeb, exec) }
-func (r *Registry) GetSearchWebExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorSearchWeb)
-	return e
-}
+func (r *Registry) GetSearchWebExecutor() ResourceExecutor     { return r.getExecutor(ExecutorSearchWeb) }
 
 func (r *Registry) SetTelephonyExecutor(exec ResourceExecutor) {
 	r.Register(ExecutorTelephony, exec)
 }
-func (r *Registry) GetTelephonyExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorTelephony)
-	return e
-}
+func (r *Registry) GetTelephonyExecutor() ResourceExecutor { return r.getExecutor(ExecutorTelephony) }
 
 func (r *Registry) SetBrowserExecutor(exec ResourceExecutor) { r.Register(ExecutorBrowser, exec) }
-func (r *Registry) GetBrowserExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorBrowser)
-	return e
-}
+func (r *Registry) GetBrowserExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBrowser) }
 
 func (r *Registry) SetBotReplyExecutor(exec ResourceExecutor) { r.Register(ExecutorBotReply, exec) }
-func (r *Registry) GetBotReplyExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorBotReply)
-	return e
-}
+func (r *Registry) GetBotReplyExecutor() ResourceExecutor     { return r.getExecutor(ExecutorBotReply) }
 
 func (r *Registry) SetEmailExecutor(exec ResourceExecutor) { r.Register(ExecutorEmail, exec) }
-func (r *Registry) GetEmailExecutor() ResourceExecutor {
-	e, _ := r.GetByName(ExecutorEmail)
-	return e
-}
+func (r *Registry) GetEmailExecutor() ResourceExecutor     { return r.getExecutor(ExecutorEmail) }

@@ -141,19 +141,24 @@ func setInStruct(v reflect.Value, head, rest string, value any) error {
 	if !fv.IsValid() {
 		return fmt.Errorf("field %q not found", head)
 	}
-	if rest != "" {
-		if fv.Kind() == reflect.Pointer {
-			if fv.IsNil() {
-				fv.Set(reflect.New(fv.Type().Elem()))
-			}
-			return setIn(fv.Elem(), rest, value)
-		}
-		if !fv.CanAddr() {
-			return fmt.Errorf("field %q is not addressable", head)
-		}
-		return setIn(fv, rest, value)
+	if rest == "" {
+		return assignValue(fv, value)
 	}
-	return assignValue(fv, value)
+	return setInNestedField(fv, head, rest, value)
+}
+
+// setInNestedField continues path traversal through a struct field.
+func setInNestedField(fv reflect.Value, head, rest string, value any) error {
+	if fv.Kind() == reflect.Pointer {
+		if fv.IsNil() {
+			fv.Set(reflect.New(fv.Type().Elem()))
+		}
+		return setIn(fv.Elem(), rest, value)
+	}
+	if !fv.CanAddr() {
+		return fmt.Errorf("field %q is not addressable", head)
+	}
+	return setIn(fv, rest, value)
 }
 
 func setInMap(v reflect.Value, head, rest string, value any) error {

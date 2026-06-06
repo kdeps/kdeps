@@ -42,10 +42,21 @@ type TemporaryFileStore struct {
 	stopped bool
 }
 
+func generateUploadID(content []byte) string {
+	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
+	return hex.EncodeToString(hash[:])[:16]
+}
+
+func removeUploadedFile(file *domain.UploadedFile) error {
+	if err := os.Remove(file.Path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to delete file: %w", err)
+	}
+	return nil
+}
+
 // NewTemporaryFileStore creates a new temporary file store.
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 	kdeps_debug.Log("enter: NewTemporaryFileStore")
-	// Create base directory if it doesn't exist
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
@@ -57,7 +68,6 @@ func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {
 		stopped: false,
 	}
 
-	// Start background cleanup
 	go store.cleanupLoop(30 * time.Minute)
 
 	return store, nil
@@ -70,22 +80,14 @@ func (s *TemporaryFileStore) Store(
 	contentType string,
 ) (*domain.UploadedFile, error) {
 	kdeps_debug.Log("enter: Store")
-	// Generate unique ID using hash of content + timestamp
-	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
-	id := hex.EncodeToString(hash[:])[:16]
-
-	// Sanitize filename
+	id := generateUploadID(content)
 	safeFilename := filepath.Base(filename)
-
-	// Create file path
 	filePath := filepath.Join(s.baseDir, id+"_"+safeFilename)
 
-	// Write file to disk
 	if err := os.WriteFile(filePath, content, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	// Create metadata
 	file := &domain.UploadedFile{
 		ID:          id,
 		Filename:    safeFilename,
@@ -96,7 +98,6 @@ func (s *TemporaryFileStore) Store(
 		Metadata:    make(map[string]string),
 	}
 
-	// Store in memory index
 	s.mu.Lock()
 	s.files[id] = file
 	s.mu.Unlock()
@@ -139,14 +140,11 @@ func (s *TemporaryFileStore) Delete(id string) error {
 		return fmt.Errorf("file not found: %s", id)
 	}
 
-	// Remove from disk
-	if err := os.Remove(file.Path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to delete file: %w", err)
+	if err := removeUploadedFile(file); err != nil {
+		return err
 	}
 
-	// Remove from memory
 	delete(s.files, id)
-
 	return nil
 }
 
@@ -187,7 +185,6 @@ func (s *TemporaryFileStore) Close() error {
 	close(s.stopCh)
 	s.stopped = true
 
-	// Clean up all remaining files
 	for id, file := range s.files {
 		_ = os.Remove(file.Path) // Ignore errors
 		delete(s.files, id)

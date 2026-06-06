@@ -103,28 +103,28 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 	if IsRemoteModel(model) {
 		return m.download(model)
 	}
+	return m.resolveLocalModel(model)
+}
 
-	// Absolute path - use directly.
+func (m *LlamafileManager) resolveLocalModel(model string) (string, error) {
 	if filepath.IsAbs(model) {
-		if _, err := AppFS.Stat(model); err != nil {
-			return "", fmt.Errorf("llamafile not found at %s: %w", model, err)
-		}
-		return model, nil
+		return m.resolveExistingPath(model, "llamafile not found at %s: %w")
 	}
-
-	// Relative path (starts with . or ..).
 	if strings.HasPrefix(model, "./") || strings.HasPrefix(model, "../") {
-		abs, err := filepath.Abs(model)
-		if err != nil {
-			return "", fmt.Errorf("cannot resolve relative path %s: %w", model, err)
-		}
-		if _, statErr := AppFS.Stat(abs); statErr != nil {
-			return "", fmt.Errorf("llamafile not found at %s: %w", abs, statErr)
-		}
-		return abs, nil
+		return m.resolveRelativeModel(model)
 	}
+	return m.resolveCachedModel(model)
+}
 
-	// Bare filename - look in models cache dir.
+func (m *LlamafileManager) resolveRelativeModel(model string) (string, error) {
+	abs, err := filepath.Abs(model)
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve relative path %s: %w", model, err)
+	}
+	return m.resolveExistingPath(abs, "llamafile not found at %s: %w")
+}
+
+func (m *LlamafileManager) resolveCachedModel(model string) (string, error) {
 	cached := filepath.Join(m.modelsDir, model)
 	if _, err := AppFS.Stat(cached); err != nil {
 		return "", fmt.Errorf(
@@ -133,6 +133,13 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 		)
 	}
 	return cached, nil
+}
+
+func (m *LlamafileManager) resolveExistingPath(path, notFoundFmt string) (string, error) {
+	if _, err := AppFS.Stat(path); err != nil {
+		return "", fmt.Errorf(notFoundFmt, path, err)
+	}
+	return path, nil
 }
 
 // download fetches a remote llamafile URL into the models cache directory.
@@ -163,29 +170,36 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 		return "", fmt.Errorf("download failed (HTTP %d) for %s", resp.StatusCode, rawURL)
 	}
 
-	tmp := dest + ".tmp"
-	f, err := AppFS.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
-	if err != nil {
-		return "", fmt.Errorf("cannot create temp file %s: %w", tmp, err)
-	}
-
-	if _, copyErr := io.Copy(f, resp.Body); copyErr != nil {
-		_ = f.Close()
-		_ = AppFS.Remove(tmp)
-		return "", fmt.Errorf("download write failed: %w", copyErr)
-	}
-	if closeErr := f.Close(); closeErr != nil {
-		_ = AppFS.Remove(tmp)
-		return "", fmt.Errorf("failed to close downloaded file: %w", closeErr)
-	}
-
-	if _, renameErr := fileflow.Move(tmp, dest); renameErr != nil {
-		_ = AppFS.Remove(tmp)
-		return "", fmt.Errorf("failed to move downloaded file: %w", renameErr)
+	if writeErr := writeDownloadToFile(dest, resp.Body); writeErr != nil {
+		return "", writeErr
 	}
 
 	m.logger.Info("llamafile downloaded", "path", dest)
 	return dest, nil
+}
+
+func writeDownloadToFile(dest string, body io.Reader) error {
+	tmp := dest + ".tmp"
+	f, err := AppFS.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
+	if err != nil {
+		return fmt.Errorf("cannot create temp file %s: %w", tmp, err)
+	}
+
+	if _, copyErr := io.Copy(f, body); copyErr != nil {
+		_ = f.Close()
+		_ = AppFS.Remove(tmp)
+		return fmt.Errorf("download write failed: %w", copyErr)
+	}
+	if closeErr := f.Close(); closeErr != nil {
+		_ = AppFS.Remove(tmp)
+		return fmt.Errorf("failed to close downloaded file: %w", closeErr)
+	}
+
+	if _, renameErr := fileflow.Move(tmp, dest); renameErr != nil {
+		_ = AppFS.Remove(tmp)
+		return fmt.Errorf("failed to move downloaded file: %w", renameErr)
+	}
+	return nil
 }
 
 // MakeExecutable ensures path has execute permission.
@@ -234,16 +248,28 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 		}
 	}
 
-	serverURL := fmt.Sprintf("http://127.0.0.1:%d", port)
-
-	// Check if already serving on this port.
+	serverURL := llamafileServerURL(port)
 	if isHealthy(serverURL) {
 		m.logger.Info("llamafile server already running", "url", serverURL)
 		return port, nil
 	}
 
 	m.logger.Info("starting llamafile server", "path", path, "port", port)
+	if startErr := startLlamafileServer(path, port); startErr != nil {
+		return 0, startErr
+	}
+	if healthErr := waitForHealthy(serverURL, port, llamafileStartTimeout); healthErr != nil {
+		return 0, healthErr
+	}
+	m.logger.Info("llamafile server ready", "url", serverURL)
+	return port, nil
+}
 
+func llamafileServerURL(port int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d", port)
+}
+
+func startLlamafileServer(path string, port int) error {
 	ctx := context.Background()
 	cmd := exec.CommandContext(ctx, path, //nolint:gosec // path is validated by Resolve()
 		"--server",
@@ -253,25 +279,22 @@ func (m *LlamafileManager) Serve(path string, port int) (int, error) {
 	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
 	if startErr := cmd.Start(); startErr != nil {
-		return 0, fmt.Errorf("failed to start llamafile server: %w", startErr)
+		return fmt.Errorf("failed to start llamafile server: %w", startErr)
 	}
-
-	// Release process - it runs independently.
 	_ = cmd.Process.Release()
+	return nil
+}
 
-	// Wait for health check.
-	deadline := time.Now().Add(llamafileStartTimeout)
+func waitForHealthy(serverURL string, port int, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if isHealthy(serverURL) {
-			m.logger.Info("llamafile server ready", "url", serverURL)
-			return port, nil
+			return nil
 		}
 		time.Sleep(llamafileHealthPoll)
 	}
-
-	return 0, fmt.Errorf("llamafile server did not become healthy within %s on port %d", llamafileStartTimeout, port)
+	return fmt.Errorf("llamafile server did not become healthy within %s on port %d", timeout, port)
 }
 
 // isHealthy returns true if the llamafile server responds to /health.

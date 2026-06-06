@@ -51,6 +51,33 @@ func NewSession() *Session {
 	return &Session{Response: NewResponseBuilder()}
 }
 
+func applyStringField(body map[string]any, key string, dst *string) {
+	if v, ok := body[key].(string); ok {
+		*dst = v
+	}
+}
+
+func applyConfidenceField(body map[string]any, dst *float64) {
+	if v, ok := body["Confidence"].(string); ok {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			*dst = f
+		}
+	}
+	if v, ok := body["Confidence"].(float64); ok {
+		*dst = v
+	}
+}
+
+func populateSessionFromBody(s *Session, body map[string]any) {
+	applyStringField(body, "CallSid", &s.SID)
+	applyStringField(body, "From", &s.From)
+	applyStringField(body, "To", &s.To)
+	applyStringField(body, "CallStatus", &s.Status)
+	applyStringField(body, "Digits", &s.Digits)
+	applyStringField(body, "SpeechResult", &s.SpeechResult)
+	applyConfidenceField(body, &s.Confidence)
+}
+
 // NewSessionFromBody creates a Session pre-populated from a Twilio-format
 // webhook POST body map (e.g. from RequestContext.Body).
 // Unknown fields are silently ignored.
@@ -59,33 +86,7 @@ func NewSessionFromBody(body map[string]any) *Session {
 	if body == nil {
 		return s
 	}
-
-	if v, ok := body["CallSid"].(string); ok {
-		s.SID = v
-	}
-	if v, ok := body["From"].(string); ok {
-		s.From = v
-	}
-	if v, ok := body["To"].(string); ok {
-		s.To = v
-	}
-	if v, ok := body["CallStatus"].(string); ok {
-		s.Status = v
-	}
-	if v, ok := body["Digits"].(string); ok {
-		s.Digits = v
-	}
-	if v, ok := body["SpeechResult"].(string); ok {
-		s.SpeechResult = v
-	}
-	if v, ok := body["Confidence"].(string); ok {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			s.Confidence = f
-		}
-	}
-	if v, ok := body["Confidence"].(float64); ok {
-		s.Confidence = v
-	}
+	populateSessionFromBody(s, body)
 	return s
 }
 

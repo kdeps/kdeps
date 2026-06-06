@@ -46,6 +46,14 @@ func marshalFFormatResult(result fformat.Result) (string, error) {
 	return string(out), nil
 }
 
+func requireStringArg(args map[string]interface{}, key string, typeErr error) (string, error) {
+	val, ok := args[key].(string)
+	if !ok {
+		return "", typeErr
+	}
+	return val, nil
+}
+
 // RegisterFFormatTools registers format validation, formatting, and conversion tools.
 func RegisterFFormatTools(r *Registry) {
 	r.Register(fformatValidateTool())
@@ -72,13 +80,13 @@ func fformatValidateTool() *Tool {
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
-			input, ok := args["input"].(string)
-			if !ok {
-				return "", errInputNotString
+			input, err := requireStringArg(args, "input", errInputNotString)
+			if err != nil {
+				return "", err
 			}
-			fmtStr, ok := args["format"].(string)
-			if !ok {
-				return "", errFormatNotString
+			fmtStr, err := requireStringArg(args, "format", errFormatNotString)
+			if err != nil {
+				return "", err
 			}
 			return marshalFFormatResult(fformat.ValidateString(input, fformat.Format(fmtStr)))
 		},
@@ -103,13 +111,13 @@ func fformatFormatTool() *Tool {
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
-			input, ok := args["input"].(string)
-			if !ok {
-				return "", errInputNotString
+			input, err := requireStringArg(args, "input", errInputNotString)
+			if err != nil {
+				return "", err
 			}
-			fmtStr, ok := args["format"].(string)
-			if !ok {
-				return "", errFormatNotString
+			fmtStr, err := requireStringArg(args, "format", errFormatNotString)
+			if err != nil {
+				return "", err
 			}
 			return marshalFFormatResult(fformat.FormatString(input, fformat.Format(fmtStr)))
 		},
@@ -134,13 +142,13 @@ func fformatConvertToJSONTool() *Tool {
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
-			input, ok := args["input"].(string)
-			if !ok {
-				return "", errInputNotString
+			input, err := requireStringArg(args, "input", errInputNotString)
+			if err != nil {
+				return "", err
 			}
-			fromStr, ok := args["from"].(string)
-			if !ok {
-				return "", errFromNotString
+			fromStr, err := requireStringArg(args, "from", errFromNotString)
+			if err != nil {
+				return "", err
 			}
 			return marshalFFormatResult(fformat.ConvertToJSON(fformat.Format(fromStr), input))
 		},
@@ -165,13 +173,13 @@ func fformatConvertFromJSONTool() *Tool {
 			},
 		},
 		Execute: func(args map[string]interface{}) (string, error) {
-			input, ok := args["input"].(string)
-			if !ok {
-				return "", errInputNotString
+			input, err := requireStringArg(args, "input", errInputNotString)
+			if err != nil {
+				return "", err
 			}
-			toStr, ok := args["to"].(string)
-			if !ok {
-				return "", errToNotString
+			toStr, err := requireStringArg(args, "to", errToNotString)
+			if err != nil {
+				return "", err
 			}
 			return marshalFFormatResult(fformat.ConvertFromJSON(fformat.Format(toStr), input))
 		},

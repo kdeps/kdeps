@@ -141,37 +141,79 @@ Examples:
 	return cmd
 }
 
-// PrePackageWithFlags implements the core logic of the prepackage command.
-func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
-	kdeps_debug.Log("enter: PrePackageWithFlags")
-	kdepsFile := args[0]
-
+// validateKdepsInput ensures the prepackage input is an accessible .kdeps file.
+func validateKdepsInput(kdepsFile string) error {
 	if !strings.HasSuffix(kdepsFile, ".kdeps") {
 		return fmt.Errorf("input must be a .kdeps file: %s", kdepsFile)
 	}
 	if _, err := os.Stat(kdepsFile); err != nil {
 		return fmt.Errorf("cannot access .kdeps file: %w", err)
 	}
+	return nil
+}
 
-	// Resolve the kdeps runtime version to download.
-	ver := flags.KdepsVersion
+// resolvePrepackageVersion returns the normalised kdeps runtime version for prepackaging.
+func resolvePrepackageVersion(versionFlag string) string {
+	ver := versionFlag
 	if ver == "" {
 		ver = version.Version
 	}
-	ver = strings.TrimPrefix(
-		ver,
-		"v",
-	) // normalise — goreleaser tags use "v2.x.y" but assets omit "v"
+	return strings.TrimPrefix(ver, "v")
+}
 
-	// Determine the output package name from the workflow inside the .kdeps file.
+// resolvePrepackageName determines the output package name from workflow metadata.
+func resolvePrepackageName(kdepsFile string) string {
 	pkgName, err := getPackageName(kdepsFile)
-	if err != nil {
-		base := filepath.Base(kdepsFile)
-		pkgName = strings.TrimSuffix(base, ".kdeps")
-		fmt.Fprintf(os.Stderr,
-			"Warning: could not parse workflow metadata (%v); using filename %q as package name\n",
-			err, pkgName)
+	if err == nil {
+		return pkgName
 	}
+	base := filepath.Base(kdepsFile)
+	pkgName = strings.TrimSuffix(base, ".kdeps")
+	fmt.Fprintf(os.Stderr,
+		"Warning: could not parse workflow metadata (%v); using filename %q as package name\n",
+		err, pkgName)
+	return pkgName
+}
+
+// buildPrepackageTarget produces a single prepackaged binary for one arch target.
+func buildPrepackageTarget(
+	ctx context.Context,
+	kdepsFile, ver, currentExec, outputDir, pkgName string,
+	target archTarget,
+) (string, error) {
+	outName := prepackageOutputName(pkgName, target)
+	outPath := filepath.Join(outputDir, outName)
+	fmt.Fprintf(os.Stdout, "  [%s/%s] → %s\n", target.GOOS, target.GOARCH, outName)
+
+	basePath, tempCreated, buildErr := resolveBaseBinary(ctx, ver, target, currentExec)
+	if buildErr != nil {
+		kdepslog.Warn("build skipped", "error", buildErr)
+		return "", buildErr
+	}
+	if tempCreated {
+		defer os.Remove(basePath)
+	}
+
+	if embedErr := AppendEmbeddedPackage(basePath, kdepsFile, outPath); embedErr != nil {
+		kdepslog.Error("build failed", "error", embedErr)
+		return "", embedErr
+	}
+
+	fmt.Fprintf(os.Stdout, "    ✓ Created: %s\n", outPath)
+	return outPath, nil
+}
+
+// PrePackageWithFlags implements the core logic of the prepackage command.
+func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFlags) error {
+	kdeps_debug.Log("enter: PrePackageWithFlags")
+	kdepsFile := args[0]
+
+	if err := validateKdepsInput(kdepsFile); err != nil {
+		return err
+	}
+
+	ver := resolvePrepackageVersion(flags.KdepsVersion)
+	pkgName := resolvePrepackageName(kdepsFile)
 
 	targets, err := resolvePrepackageTargets(flags.Arch)
 	if err != nil {
@@ -186,39 +228,20 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	fmt.Fprintf(os.Stdout, "Package name: %s\n", pkgName)
 	fmt.Fprintf(os.Stdout, "Runtime version: %s\n\n", ver)
 
-	// Locate the running executable so we can reuse it for the host architecture.
 	currentExec, execErr := os.Executable()
 	if execErr != nil {
 		currentExec = ""
 	}
 
 	var produced, skipped []string
-
 	for _, target := range targets {
-		outName := prepackageOutputName(pkgName, target)
-		outPath := filepath.Join(flags.Output, outName)
-
-		fmt.Fprintf(os.Stdout, "  [%s/%s] → %s\n", target.GOOS, target.GOARCH, outName)
-
-		basePath, tempCreated, buildErr := resolveBaseBinary(ctx, ver, target, currentExec)
+		outPath, buildErr := buildPrepackageTarget(
+			ctx, kdepsFile, ver, currentExec, flags.Output, pkgName, target,
+		)
 		if buildErr != nil {
-			kdepslog.Warn("build skipped", "error", buildErr)
 			skipped = append(skipped, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
 			continue
 		}
-
-		embedErr := AppendEmbeddedPackage(basePath, kdepsFile, outPath)
-		// Clean up any downloaded temp binary immediately after use.
-		if tempCreated {
-			_ = os.Remove(basePath)
-		}
-		if embedErr != nil {
-			kdepslog.Error("build failed", "error", embedErr)
-			skipped = append(skipped, fmt.Sprintf("%s/%s", target.GOOS, target.GOARCH))
-			continue
-		}
-
-		fmt.Fprintf(os.Stdout, "    ✓ Created: %s\n", outPath)
 		produced = append(produced, outPath)
 	}
 
@@ -382,50 +405,34 @@ func goarchToReleaseArch(goarch string) string {
 //nolint:gochecknoglobals // test-overridable URL pattern
 var githubReleasesBaseURL = "https://github.com/kdeps/kdeps/releases/download"
 
-func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (string, error) {
-	kdeps_debug.Log("enter: downloadKdepsBinaryToTemp")
-	// Dev builds don't have downloadable release artifacts.
-	if strings.HasSuffix(ver, "-dev") || ver == "dev" {
-		return "", fmt.Errorf(
-			"cannot download release binary for dev version %q — use --kdeps-version to specify a published release",
-			ver,
-		)
-	}
-
+// releaseDownloadURL builds the GitHub release URL for a kdeps binary archive.
+func releaseDownloadURL(ver, goos, goarch string) string {
 	releaseOS := goosToReleaseOS(goos)
 	releaseArch := goarchToReleaseArch(goarch)
 	ext := "tar.gz"
 	if goos == goosWindows {
 		ext = "zip"
 	}
-
-	url := fmt.Sprintf(
+	return fmt.Sprintf(
 		"%s/v%s/kdeps_%s_%s.%s",
 		githubReleasesBaseURL, ver, releaseOS, releaseArch, ext,
 	)
+}
 
-	fmt.Fprintf(os.Stdout, "    Downloading %s\n", url)
-
-	archiveData, err := fetchURL(ctx, url)
-	if err != nil {
-		return "", fmt.Errorf("download of %s/%s base binary failed: %w", goos, goarch, err)
-	}
-
+// extractReleaseBinary pulls the kdeps binary from a release archive.
+func extractReleaseBinary(archiveData []byte, goos string) ([]byte, error) {
 	binaryName := "kdeps"
 	if goos == goosWindows {
 		binaryName = "kdeps.exe"
 	}
-
-	var binaryData []byte
 	if goos == goosWindows {
-		binaryData, err = extractFromZip(archiveData, binaryName)
-	} else {
-		binaryData, err = extractFromTarGz(archiveData, binaryName)
+		return extractFromZip(archiveData, binaryName)
 	}
-	if err != nil {
-		return "", fmt.Errorf("failed to extract %q from archive: %w", binaryName, err)
-	}
+	return extractFromTarGz(archiveData, binaryName)
+}
 
+// writeTempBinary writes binary data to a temporary executable file.
+func writeTempBinary(binaryData []byte, goos, goarch string) (string, error) {
 	mode := os.FileMode(0755) //nolint:mnd // executable requires world-execute bit
 	if goos == goosWindows {
 		mode = 0644
@@ -448,8 +455,36 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to set permissions on base binary: %w", chmodErr)
 	}
-
 	return tmpFile.Name(), nil
+}
+
+func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (string, error) {
+	kdeps_debug.Log("enter: downloadKdepsBinaryToTemp")
+	if strings.HasSuffix(ver, "-dev") || ver == "dev" {
+		return "", fmt.Errorf(
+			"cannot download release binary for dev version %q — use --kdeps-version to specify a published release",
+			ver,
+		)
+	}
+
+	url := releaseDownloadURL(ver, goos, goarch)
+	fmt.Fprintf(os.Stdout, "    Downloading %s\n", url)
+
+	archiveData, err := fetchURL(ctx, url)
+	if err != nil {
+		return "", fmt.Errorf("download of %s/%s base binary failed: %w", goos, goarch, err)
+	}
+
+	binaryData, err := extractReleaseBinary(archiveData, goos)
+	if err != nil {
+		binaryName := "kdeps"
+		if goos == goosWindows {
+			binaryName = "kdeps.exe"
+		}
+		return "", fmt.Errorf("failed to extract %q from archive: %w", binaryName, err)
+	}
+
+	return writeTempBinary(binaryData, goos, goarch)
 }
 
 // fetchURL performs an HTTP GET and returns the response body.

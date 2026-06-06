@@ -16,6 +16,44 @@ package tools
 
 import "github.com/kdeps/kdeps/v2/pkg/domain"
 
+func requiredStringParam(description string) domain.ToolParam {
+	return domain.ToolParam{
+		Type:        "string",
+		Description: description,
+		Required:    true,
+	}
+}
+
+func optionalStringParam(description string) domain.ToolParam {
+	return domain.ToolParam{
+		Type:        "string",
+		Description: description,
+		Required:    false,
+	}
+}
+
+func requiredStringEnumParam(description string, enum []string) domain.ToolParam {
+	return domain.ToolParam{
+		Type:        "string",
+		Description: description,
+		Required:    true,
+		Enum:        enum,
+	}
+}
+
+func optionalStringEnumParam(description string, enum []string) domain.ToolParam {
+	return domain.ToolParam{
+		Type:        "string",
+		Description: description,
+		Required:    false,
+		Enum:        enum,
+	}
+}
+
+func optionalTimeoutParam() domain.ToolParam {
+	return optionalStringParam("Execution timeout (e.g. '30s'). Optional.")
+}
+
 // NativeToolDefs returns the tool metadata (name, description, parameters) for
 // all built-in kdeps resource types. Execute functions are not set here; callers
 // (e.g. the MCP server command) inject them after creating executor adapters.
@@ -32,48 +70,26 @@ func nativeComputeToolDefs() []*Tool {
 			Name:        "kdeps_python",
 			Description: "Execute a Python script and return its stdout.",
 			Parameters: map[string]domain.ToolParam{
-				"script": {
-					Type:        "string",
-					Description: "The Python script source to execute.",
-					Required:    true,
-				},
-				"timeout": {
-					Type:        "string",
-					Description: "Execution timeout (e.g. '30s'). Optional.",
-					Required:    false,
-				},
+				"script":  requiredStringParam("The Python script source to execute."),
+				"timeout": optionalTimeoutParam(),
 			},
 		},
 		{
 			Name:        "kdeps_exec",
 			Description: "Execute a shell command and return its output.",
 			Parameters: map[string]domain.ToolParam{
-				"command": {
-					Type:        "string",
-					Description: "The shell command to run.",
-					Required:    true,
-				},
-				"timeout": {
-					Type:        "string",
-					Description: "Execution timeout (e.g. '30s'). Optional.",
-					Required:    false,
-				},
+				"command": requiredStringParam("The shell command to run."),
+				"timeout": optionalTimeoutParam(),
 			},
 		},
 		{
 			Name:        "kdeps_sql",
 			Description: "Execute a SQL query against a database connection and return results as JSON.",
 			Parameters: map[string]domain.ToolParam{
-				"query": {
-					Type:        "string",
-					Description: "The SQL query to execute.",
-					Required:    true,
-				},
-				"connection": {
-					Type:        "string",
-					Description: "Database connection string (DSN). Optional if a default connection is configured.",
-					Required:    false,
-				},
+				"query": requiredStringParam("The SQL query to execute."),
+				"connection": optionalStringParam(
+					"Database connection string (DSN). Optional if a default connection is configured.",
+				),
 			},
 		},
 	}
@@ -85,43 +101,21 @@ func nativeDataToolDefs() []*Tool {
 			Name:        "kdeps_embedding",
 			Description: "Perform an embedding operation (index, search, upsert, delete) on a vector store.",
 			Parameters: map[string]domain.ToolParam{
-				"operation": {
-					Type:        "string",
-					Description: "The operation to perform.",
-					Required:    true,
-					Enum:        []string{"index", "search", "upsert", "delete"},
-				},
-				"text": {
-					Type:        "string",
-					Description: "The text to embed or search for.",
-					Required:    false,
-				},
-				"collection": {
-					Type:        "string",
-					Description: "Vector store collection name.",
-					Required:    false,
-				},
+				"operation": requiredStringEnumParam(
+					"The operation to perform.",
+					[]string{"index", "search", "upsert", "delete"},
+				),
+				"text":       optionalStringParam("The text to embed or search for."),
+				"collection": optionalStringParam("Vector store collection name."),
 			},
 		},
 		{
 			Name:        "kdeps_search_local",
 			Description: "Search the local filesystem for files matching a query or glob pattern.",
 			Parameters: map[string]domain.ToolParam{
-				"path": {
-					Type:        "string",
-					Description: "Root directory to search from.",
-					Required:    true,
-				},
-				"query": {
-					Type:        "string",
-					Description: "Text query to match against file contents.",
-					Required:    false,
-				},
-				"glob": {
-					Type:        "string",
-					Description: "Glob pattern to match filenames (e.g. '**/*.go').",
-					Required:    false,
-				},
+				"path":  requiredStringParam("Root directory to search from."),
+				"query": optionalStringParam("Text query to match against file contents."),
+				"glob":  optionalStringParam("Glob pattern to match filenames (e.g. '**/*.go')."),
 			},
 		},
 	}
@@ -133,55 +127,31 @@ func nativeWebToolDefs() []*Tool {
 			Name:        "kdeps_http",
 			Description: "Make an HTTP request and return the response body.",
 			Parameters: map[string]domain.ToolParam{
-				"url": {
-					Type:        "string",
-					Description: "The request URL.",
-					Required:    true,
-				},
-				"method": {
-					Type:        "string",
-					Description: "HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to GET.",
-					Required:    false,
-					Enum:        []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"},
-				},
-				"body": {
-					Type:        "string",
-					Description: "Request body (for POST/PUT/PATCH). Optional.",
-					Required:    false,
-				},
+				"url": requiredStringParam("The request URL."),
+				"method": optionalStringEnumParam(
+					"HTTP method (GET, POST, PUT, DELETE, PATCH). Defaults to GET.",
+					[]string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"},
+				),
+				"body": optionalStringParam("Request body (for POST/PUT/PATCH). Optional."),
 			},
 		},
 		{
 			Name:        "kdeps_scraper",
 			Description: "Scrape a web page and return its text content.",
 			Parameters: map[string]domain.ToolParam{
-				"url": {
-					Type:        "string",
-					Description: "The URL to scrape.",
-					Required:    true,
-				},
-				"selector": {
-					Type:        "string",
-					Description: "Optional CSS selector to extract a specific element.",
-					Required:    false,
-				},
+				"url":      requiredStringParam("The URL to scrape."),
+				"selector": optionalStringParam("Optional CSS selector to extract a specific element."),
 			},
 		},
 		{
 			Name:        "kdeps_search_web",
 			Description: "Search the web using a configurable search provider and return results.",
 			Parameters: map[string]domain.ToolParam{
-				"query": {
-					Type:        "string",
-					Description: "The search query.",
-					Required:    true,
-				},
-				"provider": {
-					Type:        "string",
-					Description: "Search provider: ddg (default), brave, bing, tavily.",
-					Required:    false,
-					Enum:        []string{"ddg", "brave", "bing", "tavily"},
-				},
+				"query": requiredStringParam("The search query."),
+				"provider": optionalStringEnumParam(
+					"Search provider: ddg (default), brave, bing, tavily.",
+					[]string{"ddg", "brave", "bing", "tavily"},
+				),
 				"max_results": {
 					Type:        "integer",
 					Description: "Maximum number of results to return. Default 5.",
@@ -193,22 +163,12 @@ func nativeWebToolDefs() []*Tool {
 			Name:        "kdeps_browser",
 			Description: "Control a headless browser to interact with web pages.",
 			Parameters: map[string]domain.ToolParam{
-				"url": {
-					Type:        "string",
-					Description: "The URL to navigate to.",
-					Required:    true,
-				},
-				"action": {
-					Type:        "string",
-					Description: "Browser action to perform (navigate, click, screenshot, extract). Default: navigate.",
-					Required:    false,
-					Enum:        []string{"navigate", "click", "screenshot", "extract"},
-				},
-				"selector": {
-					Type:        "string",
-					Description: "CSS selector for click/extract actions.",
-					Required:    false,
-				},
+				"url": requiredStringParam("The URL to navigate to."),
+				"action": optionalStringEnumParam(
+					"Browser action to perform (navigate, click, screenshot, extract). Default: navigate.",
+					[]string{"navigate", "click", "screenshot", "extract"},
+				),
+				"selector": optionalStringParam("CSS selector for click/extract actions."),
 			},
 		},
 	}

@@ -2822,7 +2822,7 @@ func TestExecutor_Execute_ResolveCacheConfig_KeyExpressionError(t *testing.T) {
 }
 
 // TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError tests that
-// resolveResolvedConfig returns an error when Timeout contains an invalid expression.
+// resolveConfig returns an error when Timeout contains an invalid expression.
 func TestExecutor_Execute_ResolveResolvedConfig_TimeoutExpressionError(t *testing.T) {
 	exec := httpexecutor.NewExecutor()
 	ctx, err := executor.NewExecutionContext(

@@ -185,18 +185,14 @@ func (c *Client) GetPackage(ctx context.Context, name string) (*PackageDetail, e
 	return &result, nil
 }
 
-// Publish uploads a package archive to the registry.
-func (c *Client) Publish(ctx context.Context, archivePath string, manifest *domain.KdepsPkg) (*PublishResponse, error) {
-	kdeps_debug.Log("enter: Publish")
-	f, err := os.Open(archivePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open archive: %w", err)
-	}
-	defer f.Close()
-
+func buildPublishMultipartBody(
+	archivePath string,
+	manifest *domain.KdepsPkg,
+	archive io.Reader,
+) (*bytes.Buffer, string, error) {
 	manifestJSON, err := jsonMarshal(manifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal manifest: %w", err)
+		return nil, "", fmt.Errorf("failed to marshal manifest: %w", err)
 	}
 
 	var body bytes.Buffer
@@ -208,22 +204,38 @@ func (c *Client) Publish(ctx context.Context, archivePath string, manifest *doma
 	_ = writer.WriteField("manifest", string(manifestJSON))
 	part, err := writer.CreateFormFile("package", filepath.Base(archivePath))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create form file: %w", err)
+		return nil, "", fmt.Errorf("failed to create form file: %w", err)
 	}
-	if _, copyErr := io.Copy(part, f); copyErr != nil {
-		return nil, fmt.Errorf("failed to write package data: %w", copyErr)
+	if _, copyErr := io.Copy(part, archive); copyErr != nil {
+		return nil, "", fmt.Errorf("failed to write package data: %w", copyErr)
 	}
 	if closeErr := writer.Close(); closeErr != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", closeErr)
+		return nil, "", fmt.Errorf("failed to close multipart writer: %w", closeErr)
+	}
+	return &body, writer.FormDataContentType(), nil
+}
+
+// Publish uploads a package archive to the registry.
+func (c *Client) Publish(ctx context.Context, archivePath string, manifest *domain.KdepsPkg) (*PublishResponse, error) {
+	kdeps_debug.Log("enter: Publish")
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open archive: %w", err)
+	}
+	defer f.Close()
+
+	body, contentType, err := buildPublishMultipartBody(archivePath, manifest, f)
+	if err != nil {
+		return nil, err
 	}
 
 	reqURL := c.APIURL + "/api/v1/registry/packages/publish"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, &body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 
 	uploadClient := &http.Client{Timeout: transferTimeout}
 	resp, err := uploadClient.Do(req)

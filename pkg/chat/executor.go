@@ -20,7 +20,6 @@ package chat
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -53,24 +52,28 @@ func NewExecutor(stdout, stderr io.Writer) *Executor {
 
 // Run writes the workflow to the session directory and invokes `kdeps run`.
 func (e *Executor) Run(ctx context.Context, session *Session) error {
-	if session.Workflow == nil {
-		return errors.New("no workflow to run — generate one first")
-	}
-	if err := session.WriteWorkflow(); err != nil {
-		return fmt.Errorf("could not write workflow: %w", err)
+	if err := e.prepareSession(session, "run"); err != nil {
+		return err
 	}
 	return e.runArgs(ctx, "run", session.Dir)
 }
 
 // ExportK8s invokes `kdeps export k8s` on the session directory.
 func (e *Executor) ExportK8s(ctx context.Context, session *Session) error {
+	if err := e.prepareSession(session, "export"); err != nil {
+		return err
+	}
+	return e.runArgs(ctx, "export", "k8s", session.Dir)
+}
+
+func (e *Executor) prepareSession(session *Session, action string) error {
 	if session.Workflow == nil {
-		return errors.New("no workflow to export — generate one first")
+		return fmt.Errorf("no workflow to %s — generate one first", action)
 	}
 	if err := session.WriteWorkflow(); err != nil {
 		return fmt.Errorf("could not write workflow: %w", err)
 	}
-	return e.runArgs(ctx, "export", "k8s", session.Dir)
+	return nil
 }
 
 // runArgs invokes the kdeps binary with the given arguments.

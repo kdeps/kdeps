@@ -92,7 +92,20 @@ func (m *ModelManager) SetOfflineMode(offline bool) {
 // This method is called automatically before LLM execution if model manager is configured.
 func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	kdeps_debug.Log("enter: EnsureModel")
-	// Determine backend: router-set on config > KDEPS_DEFAULT_BACKEND > ollama
+	backend := resolveBackend(config)
+	host, port := resolveModelHostPort(config, backend)
+
+	m.downloadModelIfOnline(backend, config.Model)
+
+	if backend == backendFile {
+		m.serveFileModelIfNeeded(config, port)
+		return nil
+	}
+	m.serveBackendModel(backend, config.Model, host, port)
+	return nil
+}
+
+func resolveBackend(config *domain.ChatConfig) string {
 	backend := config.Backend
 	if backend == "" {
 		backend = os.Getenv("KDEPS_DEFAULT_BACKEND")
@@ -100,80 +113,76 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	if backend == "" {
 		backend = backendOllama
 	}
+	return backend
+}
 
-	// Determine host and port from baseURL if provided, otherwise use backend-specific defaults
-	defaultPort := 16395
-
-	// Set backend-specific default port
+func defaultPortForBackend(backend string) int {
+	//nolint:mnd // backend default ports are documented in EnsureModel
 	switch backend {
 	case backendOllama:
-		defaultPort = 11434
+		return 11434
 	case backendFile:
-		defaultPort = backendFilePort
-	case "llamacpp":
-		defaultPort = 16395
+		return backendFilePort
 	case "vllm":
-		defaultPort = 8000
-	case "tgi":
-		defaultPort = 16395
-	case "localai":
-		defaultPort = 16395
+		return 8000
+	case "llamacpp", "tgi", "localai":
+		return 16395
+	default:
+		return 16395
 	}
+}
 
-	// Parse host and port from BaseURL: router-set on config > KDEPS_LLM_BASE_URL
+func resolveModelHostPort(config *domain.ChatConfig, backend string) (string, int) {
 	baseURL := config.BaseURL
 	if baseURL == "" {
 		baseURL = os.Getenv("KDEPS_LLM_BASE_URL")
 	}
-	host, port := parseHostPortFromURL(baseURL, "", defaultPort)
-
-	// For the file backend with no explicit port, use 0 so the manager
-	// picks a free port and writes it back to config.BaseURL below.
+	host, port := parseHostPortFromURL(baseURL, "", defaultPortForBackend(backend))
 	if backend == backendFile && baseURL == "" {
 		port = 0
 	}
+	return host, port
+}
 
-	// Download model if needed (skip in offline mode)
+func (m *ModelManager) downloadModelIfOnline(backend, model string) {
 	if m.offlineMode {
 		m.logger.Info(
 			"offline mode enabled, skipping model download",
 			"backend",
 			backend,
 			"model",
-			config.Model,
+			model,
 		)
-	} else {
-		if err := m.service.DownloadModel(backend, config.Model); err != nil {
-			m.logger.Warn("model download failed or skipped", "backend", backend, "model", config.Model, "error", err)
-			// Continue anyway - model might already be available or download can happen separately
-		}
+		return
 	}
-
-	// Serve model (non-blocking - starts in background)
-	// This will check if server is already running and skip if so
-	if backend == backendFile {
-		// For llamafile, capture the actual port so the executor can route correctly.
-		if actualPort, err := m.serveFileModel(config.Model, port); err != nil {
-			m.logger.Warn("llamafile serve failed", "model", config.Model, "error", err)
-		} else if config.BaseURL == "" {
-			config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
-		}
-	} else {
-		if err := m.service.ServeModel(backend, config.Model, host, port); err != nil {
-			m.logger.Warn(
-				"model serving failed or skipped",
-				"backend",
-				backend,
-				"model",
-				config.Model,
-				"error",
-				err,
-			)
-			// Continue anyway - server might already be running
-		}
+	if err := m.service.DownloadModel(backend, model); err != nil {
+		m.logger.Warn("model download failed or skipped", "backend", backend, "model", model, "error", err)
 	}
+}
 
-	return nil
+func (m *ModelManager) serveFileModelIfNeeded(config *domain.ChatConfig, port int) {
+	actualPort, err := m.serveFileModel(config.Model, port)
+	if err != nil {
+		m.logger.Warn("llamafile serve failed", "model", config.Model, "error", err)
+		return
+	}
+	if config.BaseURL == "" {
+		config.BaseURL = fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+	}
+}
+
+func (m *ModelManager) serveBackendModel(backend, model, host string, port int) {
+	if err := m.service.ServeModel(backend, model, host, port); err != nil {
+		m.logger.Warn(
+			"model serving failed or skipped",
+			"backend",
+			backend,
+			"model",
+			model,
+			"error",
+			err,
+		)
+	}
 }
 
 // serveFileModel resolves, chmod+x, and serves a llamafile, returning the actual port.

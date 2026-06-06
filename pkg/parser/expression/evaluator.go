@@ -389,371 +389,325 @@ func (e *Evaluator) lookupSimpleValue(path string, data map[string]interface{}) 
 	return current
 }
 
+// apiItemAccessor returns a closure that reads one item() field, with a fallback on error.
+func (e *Evaluator) apiItemAccessor(field string, fallback interface{}) func() interface{} {
+	return func() interface{} {
+		val, err := e.api.Item(field)
+		if err != nil {
+			return fallback
+		}
+		return val
+	}
+}
+
+// buildItemObject creates the item accessor object for loop iteration context.
+func (e *Evaluator) buildItemObject() map[string]interface{} {
+	return map[string]interface{}{
+		"current": e.apiItemAccessor("current", nil),
+		"prev":    e.apiItemAccessor("prev", nil),
+		"next":    e.apiItemAccessor("next", nil),
+		"index":   e.apiItemAccessor("index", 0),
+		"count":   e.apiItemAccessor("count", 0),
+		"values":  e.apiItemAccessor("all", []interface{}{}),
+	}
+}
+
+// apiLoopAccessor returns a closure that reads one loop() field, with a fallback on error.
+func (e *Evaluator) apiLoopAccessor(field string, fallback interface{}) func() interface{} {
+	return func() interface{} {
+		val, err := e.api.Loop(field)
+		if err != nil {
+			return fallback
+		}
+		return val
+	}
+}
+
+// buildLoopObject creates the loop accessor object for loop iteration context.
+func (e *Evaluator) buildLoopObject() map[string]interface{} {
+	return map[string]interface{}{
+		"index":   e.apiLoopAccessor("index", 0),
+		"count":   e.apiLoopAccessor("count", 0),
+		"results": e.apiLoopAccessor("results", []interface{}{}),
+	}
+}
+
+// evalGet resolves a get() call with namespace routing, type hints, and default values.
+func (e *Evaluator) evalGet(name string, args ...string) interface{} {
+	if isNamespacedPath(name) && e.api.GetConfigField != nil {
+		val, err := e.api.GetConfigField(name)
+		if err != nil {
+			if len(args) > 0 {
+				return args[0]
+			}
+			return nil
+		}
+		return val
+	}
+	if len(args) > 0 && !isValidTypeHint(args[0]) {
+		val, err := e.api.Get(name)
+		if err != nil {
+			return args[0]
+		}
+		return val
+	}
+	val, err := e.api.Get(name, args...)
+	if err != nil {
+		return nil
+	}
+	return val
+}
+
+// addGetSetWrappers registers get/set/file wrappers with namespace and default-value support.
+func (e *Evaluator) addGetSetWrappers(evalEnv map[string]interface{}) {
+	evalEnv["get"] = e.evalGet
+	evalEnv["set"] = func(key string, value interface{}, storageType ...string) interface{} {
+		if isNamespacedPath(key) && len(storageType) == 0 && e.api.SetConfigField != nil {
+			return e.api.SetConfigField(key, value) == nil
+		}
+		return e.api.Set(key, value, storageType...) == nil
+	}
+	evalEnv["file"] = e.api.File
+}
+
+// addContextAPIWrappers registers info/input/output/session wrappers.
+func (e *Evaluator) addContextAPIWrappers(evalEnv map[string]interface{}) {
+	evalEnv["info"] = func(field string) interface{} {
+		val, err := e.api.Info(field)
+		if err != nil {
+			return nil
+		}
+		return val
+	}
+	if e.api.Input != nil {
+		if _, isObject := evalEnv["input"].(map[string]interface{}); !isObject {
+			evalEnv["input"] = func(name string, inputType ...string) interface{} {
+				val, err := e.api.Input(name, inputType...)
+				if err != nil {
+					return nil
+				}
+				return val
+			}
+		}
+	}
+	if e.api.Output != nil {
+		evalEnv["output"] = func(resourceID string) interface{} {
+			val, err := e.api.Output(resourceID)
+			if err != nil {
+				return nil
+			}
+			return val
+		}
+	}
+	if e.api.Session != nil {
+		evalEnv["session"] = func() interface{} {
+			val, err := e.api.Session()
+			if err != nil {
+				return make(map[string]interface{})
+			}
+			return val
+		}
+	}
+}
+
+// addIterationAPIWrappers registers item/loop/env/config-namespace accessors.
+func (e *Evaluator) addIterationAPIWrappers(evalEnv map[string]interface{}) {
+	if e.api.Item != nil {
+		evalEnv["item"] = e.buildItemObject()
+	}
+	if e.api.Loop != nil {
+		evalEnv["loop"] = e.buildLoopObject()
+	}
+	evalEnv["env"] = func(name string) interface{} {
+		if e.api.Env != nil {
+			val, err := e.api.Env(name)
+			if err != nil {
+				return ""
+			}
+			return val
+		}
+		return os.Getenv(name)
+	}
+	if e.api.ConfigNamespace != nil {
+		for _, ns := range []string{"config", "workflow", "resource", "component", "agency"} {
+			if m := e.api.ConfigNamespace(ns); m != nil {
+				evalEnv[ns] = m
+			}
+		}
+	}
+}
+
+// parseWhereThreshold converts minVal to a float64 threshold for the where() helper.
+func parseWhereThreshold(minVal interface{}) (float64, bool) {
+	switch v := minVal.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case string:
+		parsed, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, false
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
+}
+
+// scoreFromMapValue extracts a numeric score from a map value for where() filtering.
+func scoreFromMapValue(val interface{}) (float64, bool) {
+	switch v := val.(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	default:
+		return 0, false
+	}
+}
+
+// filterWhereItems keeps map items where element[key] >= threshold.
+func filterWhereItems(items []interface{}, key string, threshold float64) []interface{} {
+	out := make([]interface{}, 0, len(items))
+	for _, item := range items {
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		val, exists := m[key]
+		if !exists {
+			continue
+		}
+		score, ok := scoreFromMapValue(val)
+		if !ok || score < threshold {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+// addSerializationHelpers registers json/safe/debug/urlencode/fromJSON helpers.
+func (e *Evaluator) addSerializationHelpers(evalEnv map[string]interface{}) {
+	evalEnv["json"] = func(data interface{}) interface{} {
+		cleaned := stripFuncs(data)
+		jsonBytes, err := json.Marshal(cleaned)
+		if err != nil {
+			return fmt.Sprintf("%v", data)
+		}
+		return string(jsonBytes)
+	}
+	evalEnv["safe"] = func(obj interface{}, path string) interface{} {
+		if obj == nil || path == "" {
+			return nil
+		}
+		current := obj
+		for _, key := range strings.Split(path, ".") {
+			if current == nil {
+				return nil
+			}
+			m, ok := current.(map[string]interface{})
+			if !ok {
+				return nil
+			}
+			val, exists := m[key]
+			if !exists {
+				return nil
+			}
+			current = val
+		}
+		return current
+	}
+	evalEnv["debug"] = func(obj interface{}) interface{} {
+		jsonBytes, err := json.MarshalIndent(obj, "", "  ")
+		if err != nil {
+			return fmt.Sprintf("(error marshaling: %v)", err)
+		}
+		return string(jsonBytes)
+	}
+	evalEnv["urlencode"] = func(s interface{}) interface{} {
+		return url.QueryEscape(fmt.Sprintf("%v", s))
+	}
+	evalEnv["toJSON"] = evalEnv["json"]
+	evalEnv["fromJSON"] = func(s interface{}) interface{} {
+		str := fmt.Sprintf("%v", s)
+		var out interface{}
+		if err := json.Unmarshal([]byte(str), &out); err != nil {
+			return nil
+		}
+		return out
+	}
+}
+
+// addUtilityHelpers registers where/ternary/default expression helpers.
+func (e *Evaluator) addUtilityHelpers(evalEnv map[string]interface{}) {
+	evalEnv["where"] = func(arr interface{}, key string, minVal interface{}) interface{} {
+		items, ok := arr.([]interface{})
+		if !ok {
+			return arr
+		}
+		threshold, ok := parseWhereThreshold(minVal)
+		if !ok {
+			return arr
+		}
+		return filterWhereItems(items, key, threshold)
+	}
+	evalEnv["ternary"] = func(cond interface{}, trueVal, falseVal interface{}) interface{} {
+		if b, ok := cond.(bool); ok && b {
+			return trueVal
+		}
+		return falseVal
+	}
+	evalEnv["default"] = func(value interface{}, fallback interface{}) interface{} {
+		if value == nil {
+			return fallback
+		}
+		if str, ok := value.(string); ok && str == "" {
+			return fallback
+		}
+		return value
+	}
+}
+
+// mergeEnvObject merges key from src into evalEnv, combining map values when both exist.
+func mergeEnvObject(evalEnv, src map[string]interface{}, key string) {
+	obj, ok := src[key].(map[string]interface{})
+	if !ok {
+		return
+	}
+	if existing, okExisting := evalEnv[key].(map[string]interface{}); okExisting {
+		for k, v := range obj {
+			existing[k] = v
+		}
+		return
+	}
+	evalEnv[key] = obj
+}
+
 // buildEnvironment creates the evaluation environment with unified API functions.
-//
-//nolint:gocognit,gocyclo,cyclop,nestif,funlen // environment assembly is intentionally explicit
 func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEnvironment")
-	evalEnv := make(map[string]interface{})
-
-	// Copy provided environment.
+	evalEnv := make(map[string]interface{}, len(env))
 	for k, v := range env {
 		evalEnv[k] = v
 	}
-
-	// Add unified API functions.
 	if e.api != nil {
-		// Wrap get() to support both type hints and default values.
-		// If the second arg is a recognized storage type hint (e.g. "param", "memory"),
-		// it is forwarded to the API. Otherwise it is treated as a default value:
-		// auto-detection is used and the second arg is returned when the key is not found.
-		evalEnv["get"] = func(name string, args ...string) interface{} {
-			// Namespace-prefixed paths (config.*, workflow.*, resource.*, component.*, agency.*)
-			// are routed to GetConfigField, bypassing the normal storage lookup.
-			if isNamespacedPath(name) && e.api.GetConfigField != nil {
-				val, err := e.api.GetConfigField(name)
-				if err != nil {
-					if len(args) > 0 {
-						return args[0]
-					}
-					return nil
-				}
-				return val
-			}
-			if len(args) > 0 && !isValidTypeHint(args[0]) {
-				// Second arg is a default value, not a type hint.
-				val, err := e.api.Get(name)
-				if err != nil {
-					return args[0]
-				}
-				return val
-			}
-			val, err := e.api.Get(name, args...)
-			if err != nil {
-				return nil
-			}
-			return val
-		}
-		// Wrap set() to return true on success, false on error (expr-lang expects return values, not errors)
-		evalEnv["set"] = func(key string, value interface{}, storageType ...string) interface{} {
-			// Namespace-prefixed keys are routed to SetConfigField.
-			if isNamespacedPath(key) && len(storageType) == 0 && e.api.SetConfigField != nil {
-				return e.api.SetConfigField(key, value) == nil
-			}
-			err := e.api.Set(key, value, storageType...)
-			return err == nil
-		}
-		evalEnv["file"] = e.api.File
-		// Wrap info() to return nil on error instead of throwing (for graceful template handling)
-		evalEnv["info"] = func(field string) interface{} {
-			val, err := e.api.Info(field)
-			if err != nil {
-				return nil
-			}
-			return val
-		}
-		// Wrap input() to return nil on error instead of throwing
-		// Only add input() function if input is not already an object (for property access like input.items)
-		if e.api.Input != nil {
-			// Check if input is already set as an object (from engine's buildEvaluationEnvironment)
-			if _, isObject := evalEnv["input"].(map[string]interface{}); !isObject {
-				evalEnv["input"] = func(name string, inputType ...string) interface{} {
-					val, err := e.api.Input(name, inputType...)
-					if err != nil {
-						return nil
-					}
-					return val
-				}
-			}
-			// If input is already an object, preserve it for property access (e.g., input.items)
-			// Users can still use input() function via get('input', 'param') or similar if needed
-		}
-		// Wrap output() to return nil on error instead of throwing
-		if e.api.Output != nil {
-			evalEnv["output"] = func(resourceID string) interface{} {
-				val, err := e.api.Output(resourceID)
-				if err != nil {
-					return nil
-				}
-				return val
-			}
-		}
-		// Wrap session() to return all session data (empty map on error)
-		if e.api.Session != nil {
-			evalEnv["session"] = func() interface{} {
-				val, err := e.api.Session()
-				if err != nil {
-					return make(map[string]interface{})
-				}
-				return val
-			}
-		}
-
-		// Wrap item() to return nil on error instead of throwing
-		if e.api.Item != nil {
-			// Create item object with current/prev/next/index/count functions
-			itemObj := make(map[string]interface{})
-			itemObj["current"] = func() interface{} {
-				val, err := e.api.Item("current")
-				if err != nil {
-					return nil
-				}
-				return val
-			}
-			itemObj["prev"] = func() interface{} {
-				val, err := e.api.Item("prev")
-				if err != nil {
-					return nil
-				}
-				return val
-			}
-			itemObj["next"] = func() interface{} {
-				val, err := e.api.Item("next")
-				if err != nil {
-					return nil
-				}
-				return val
-			}
-			itemObj["index"] = func() interface{} {
-				val, err := e.api.Item("index")
-				if err != nil {
-					return 0
-				}
-				return val
-			}
-			itemObj["count"] = func() interface{} {
-				val, err := e.api.Item("count")
-				if err != nil {
-					return 0
-				}
-				return val
-			}
-			itemObj["values"] = func() interface{} {
-				val, err := e.api.Item("all")
-				if err != nil {
-					return []interface{}{}
-				}
-				return val
-			}
-			evalEnv["item"] = itemObj
-		}
-
-		// Wrap loop() to provide loop iteration context (parallel to item() for loops)
-		if e.api.Loop != nil {
-			loopObj := make(map[string]interface{})
-			loopObj["index"] = func() interface{} {
-				val, err := e.api.Loop("index")
-				if err != nil {
-					return 0
-				}
-				return val
-			}
-			loopObj["count"] = func() interface{} {
-				val, err := e.api.Loop("count")
-				if err != nil {
-					return 0
-				}
-				return val
-			}
-			loopObj["results"] = func() interface{} {
-				val, err := e.api.Loop("results")
-				if err != nil {
-					return []interface{}{}
-				}
-				return val
-			}
-			evalEnv["loop"] = loopObj
-		}
-
-		// Wrap env() to read environment variables, returns empty string if not set
-		evalEnv["env"] = func(name string) interface{} {
-			if e.api.Env != nil {
-				val, err := e.api.Env(name)
-				if err != nil {
-					return ""
-				}
-				return val
-			}
-			return os.Getenv(name)
-		}
-
-		// Register config namespaces as direct-access objects in the evaluator env.
-		// This enables expressions like {{ config.llm.openai_api_key }} or {{ workflow.metadata.name }}.
-		if e.api.ConfigNamespace != nil {
-			for _, ns := range []string{"config", "workflow", "resource", "component", "agency"} {
-				if m := e.api.ConfigNamespace(ns); m != nil {
-					evalEnv[ns] = m
-				}
-			}
-		}
-
-		// Add json() helper function to format data as JSON string.
-		// Strips non-serializable values (functions) from maps before marshaling
-		// so that {{ item | json() }} works correctly when item contains accessor funcs.
-		evalEnv["json"] = func(data interface{}) interface{} {
-			cleaned := stripFuncs(data)
-			jsonBytes, err := json.Marshal(cleaned)
-			if err != nil {
-				return fmt.Sprintf("%v", data)
-			}
-			return string(jsonBytes)
-		}
-
-		// Add safe() helper function to safely access nested properties
-		// Usage: safe(item, "data.name") - returns nil if any part of the path is missing
-		evalEnv["safe"] = func(obj interface{}, path string) interface{} {
-			if obj == nil || path == "" {
-				return nil
-			}
-			keys := strings.Split(path, ".")
-			current := obj
-			for _, key := range keys {
-				if current == nil {
-					return nil
-				}
-				if m, ok := current.(map[string]interface{}); ok {
-					val, exists := m[key]
-					if !exists {
-						return nil
-					}
-					current = val
-				} else {
-					return nil
-				}
-			}
-			return current
-		}
-
-		// Add debug() helper function to inspect data structure (returns JSON string)
-		evalEnv["debug"] = func(obj interface{}) interface{} {
-			jsonBytes, err := json.MarshalIndent(obj, "", "  ")
-			if err != nil {
-				return fmt.Sprintf("(error marshaling: %v)", err)
-			}
-			return string(jsonBytes)
-		}
-
-		// Add urlencode() helper for URL-encoding strings
-		evalEnv["urlencode"] = func(s interface{}) interface{} {
-			return url.QueryEscape(fmt.Sprintf("%v", s))
-		}
-
-		// Add toJSON() as alias for json()
-		evalEnv["toJSON"] = evalEnv["json"]
-
-		// Add fromJSON() to parse a JSON string into a Go value (map, slice, scalar).
-		// Returns nil if the input is not valid JSON.
-		evalEnv["fromJSON"] = func(s interface{}) interface{} {
-			str := fmt.Sprintf("%v", s)
-			var out interface{}
-			if err := json.Unmarshal([]byte(str), &out); err != nil {
-				return nil
-			}
-			return out
-		}
-
-		// Add where(array, key, minValue) helper - filters an array of maps keeping
-		// elements where element[key] (numeric) >= minValue.
-		// Example: where(get('analyze-jobs'), 'match_score', 60)
-		evalEnv["where"] = func(arr interface{}, key string, minVal interface{}) interface{} {
-			items, ok := arr.([]interface{})
-			if !ok {
-				return arr
-			}
-			var threshold float64
-			switch v := minVal.(type) {
-			case float64:
-				threshold = v
-			case int:
-				threshold = float64(v)
-			case int64:
-				threshold = float64(v)
-			case string:
-				parsed, parseErr := strconv.ParseFloat(v, 64)
-				if parseErr != nil {
-					return arr
-				}
-				threshold = parsed
-			default:
-				return arr
-			}
-			out := make([]interface{}, 0, len(items))
-			for _, item := range items {
-				m, okMap := item.(map[string]interface{})
-				if !okMap {
-					continue
-				}
-				val, exists := m[key]
-				if !exists {
-					continue
-				}
-				var score float64
-				switch v := val.(type) {
-				case float64:
-					score = v
-				case int:
-					score = float64(v)
-				case int64:
-					score = float64(v)
-				default:
-					continue
-				}
-				if score >= threshold {
-					out = append(out, item)
-				}
-			}
-			return out
-		}
-
-		// Add ternary(cond, trueVal, falseVal) helper
-		evalEnv["ternary"] = func(cond interface{}, trueVal, falseVal interface{}) interface{} {
-			if b, ok := cond.(bool); ok && b {
-				return trueVal
-			}
-			return falseVal
-		}
-
-		// Add default() helper function for null coalescing: default(value, fallback)
-		evalEnv["default"] = func(value interface{}, fallback interface{}) interface{} {
-			if value == nil {
-				return fallback
-			}
-			// Also handle empty strings as "nil" for convenience
-			if str, ok := value.(string); ok && str == "" {
-				return fallback
-			}
-			return value
-		}
+		e.addGetSetWrappers(evalEnv)
+		e.addContextAPIWrappers(evalEnv)
+		e.addIterationAPIWrappers(evalEnv)
+		e.addSerializationHelpers(evalEnv)
+		e.addUtilityHelpers(evalEnv)
 	}
-
-	// Add request object if available in environment (passed from engine)
 	if requestObj, ok := env["request"].(map[string]interface{}); ok {
 		evalEnv["request"] = requestObj
 	}
-
-	// Merge item object from environment if it exists (from engine - adds values function)
-	if itemObj, okItem := env["item"].(map[string]interface{}); okItem {
-		// Merge with existing item object or create new one
-		if existingItem, okExisting := evalEnv["item"].(map[string]interface{}); okExisting {
-			for k, v := range itemObj {
-				existingItem[k] = v
-			}
-		} else {
-			evalEnv["item"] = itemObj
-		}
-	}
-
-	// Merge loop object from environment if it exists (from engine - adds extra loop context)
-	if loopObj, okLoop := env["loop"].(map[string]interface{}); okLoop {
-		if existingLoop, okExisting := evalEnv["loop"].(map[string]interface{}); okExisting {
-			for k, v := range loopObj {
-				existingLoop[k] = v
-			}
-		} else {
-			evalEnv["loop"] = loopObj
-		}
-	}
-
+	mergeEnvObject(evalEnv, env, "item")
+	mergeEnvObject(evalEnv, env, "loop")
 	return evalEnv
 }
 

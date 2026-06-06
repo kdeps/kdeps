@@ -63,6 +63,71 @@ type bootstrapData struct {
 	APIRoutesJSON string
 }
 
+func escapeWorkflowYAMLForJS(yaml string) string {
+	escaped := strings.ReplaceAll(yaml, "`", "\\`")
+	return strings.ReplaceAll(escaped, "${", "\\${")
+}
+
+func marshalAPIRoutesJSON(routes []string) string {
+	if len(routes) == 0 {
+		return "[]"
+	}
+	if b, err := json.Marshal(routes); err == nil {
+		return string(b)
+	}
+	return "[]"
+}
+
+func normalizeWebServePath(path string) string {
+	path = strings.TrimPrefix(path, "data/public/")
+	return strings.TrimPrefix(path, "data/")
+}
+
+func bootstrapScriptTags() string {
+	return `<script src="wasm_exec.js"></script>
+<script src="kdeps-bootstrap.js"></script>`
+}
+
+func copyBundleAssets(config *BundleConfig, distDir string) error {
+	if err := copyFile(config.WASMBinaryPath, filepath.Join(distDir, "kdeps.wasm")); err != nil {
+		return fmt.Errorf("failed to copy WASM binary: %w", err)
+	}
+	if err := copyFile(config.WASMExecJSPath, filepath.Join(distDir, "wasm_exec.js")); err != nil {
+		return fmt.Errorf("failed to copy wasm_exec.js: %w", err)
+	}
+	if err := renderBootstrap(config, distDir); err != nil {
+		return fmt.Errorf("failed to render bootstrap script: %w", err)
+	}
+	if err := copyWebServerFiles(config.WebServerFiles, distDir); err != nil {
+		return fmt.Errorf("failed to copy web server files: %w", err)
+	}
+	return nil
+}
+
+func finalizeIndexHTML(config *BundleConfig, distDir string) error {
+	if !hasIndexHTML(config.WebServerFiles) {
+		if err := generateDefaultIndex(distDir); err != nil {
+			return fmt.Errorf("failed to generate default index.html: %w", err)
+		}
+		return nil
+	}
+
+	if err := injectBootstrap(distDir); err != nil {
+		return fmt.Errorf("failed to inject bootstrap into index.html: %w", err)
+	}
+	return nil
+}
+
+func copyDeploymentFiles(outputDir string) error {
+	if err := copyEmbeddedFile("templates/nginx.conf", filepath.Join(outputDir, "nginx.conf")); err != nil {
+		return fmt.Errorf("failed to copy nginx.conf: %w", err)
+	}
+	if err := copyEmbeddedFile("templates/Dockerfile.tmpl", filepath.Join(outputDir, "Dockerfile")); err != nil {
+		return fmt.Errorf("failed to copy Dockerfile: %w", err)
+	}
+	return nil
+}
+
 // Bundle creates a static WASM bundle in the output directory.
 // It copies the user's web server files into dist/, adds the WASM binary and
 // bootstrap scripts, and generates nginx + Dockerfile configs.
@@ -73,49 +138,13 @@ func Bundle(config *BundleConfig) error {
 		return fmt.Errorf("failed to create dist directory: %w", err)
 	}
 
-	// Copy WASM binary.
-	if err := copyFile(config.WASMBinaryPath, filepath.Join(distDir, "kdeps.wasm")); err != nil {
-		return fmt.Errorf("failed to copy WASM binary: %w", err)
+	if err := copyBundleAssets(config, distDir); err != nil {
+		return err
 	}
-
-	// Copy wasm_exec.js.
-	if err := copyFile(config.WASMExecJSPath, filepath.Join(distDir, "wasm_exec.js")); err != nil {
-		return fmt.Errorf("failed to copy wasm_exec.js: %w", err)
+	if err := finalizeIndexHTML(config, distDir); err != nil {
+		return err
 	}
-
-	// Render the WASM bootstrap script with the embedded workflow YAML.
-	if err := renderBootstrap(config, distDir); err != nil {
-		return fmt.Errorf("failed to render bootstrap script: %w", err)
-	}
-
-	// Copy user's web server files into dist/.
-	if err := copyWebServerFiles(config.WebServerFiles, distDir); err != nil {
-		return fmt.Errorf("failed to copy web server files: %w", err)
-	}
-
-	// If the user didn't provide an index.html, generate a default one.
-	if !hasIndexHTML(config.WebServerFiles) {
-		if err := generateDefaultIndex(distDir); err != nil {
-			return fmt.Errorf("failed to generate default index.html: %w", err)
-		}
-	} else {
-		// Inject bootstrap scripts into the user's index.html.
-		if err := injectBootstrap(distDir); err != nil {
-			return fmt.Errorf("failed to inject bootstrap into index.html: %w", err)
-		}
-	}
-
-	// Copy nginx.conf.
-	if err := copyEmbeddedFile("templates/nginx.conf", filepath.Join(config.OutputDir, "nginx.conf")); err != nil {
-		return fmt.Errorf("failed to copy nginx.conf: %w", err)
-	}
-
-	// Copy Dockerfile.
-	if err := copyEmbeddedFile("templates/Dockerfile.tmpl", filepath.Join(config.OutputDir, "Dockerfile")); err != nil {
-		return fmt.Errorf("failed to copy Dockerfile: %w", err)
-	}
-
-	return nil
+	return copyDeploymentFiles(config.OutputDir)
 }
 
 // renderBootstrap renders the kdeps-bootstrap.js script with the embedded workflow YAML.
@@ -131,17 +160,8 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 		return fmt.Errorf("failed to parse bootstrap template: %w", err)
 	}
 
-	// Escape backticks and template literals for JS embedding.
-	escapedYAML := strings.ReplaceAll(config.WorkflowYAML, "`", "\\`")
-	escapedYAML = strings.ReplaceAll(escapedYAML, "${", "\\${")
-
-	// Serialize API routes to JSON for the fetch interceptor.
-	routesJSON := "[]"
-	if len(config.APIRoutes) > 0 {
-		if b, apiErr := json.Marshal(config.APIRoutes); apiErr == nil {
-			routesJSON = string(b)
-		}
-	}
+	escapedYAML := escapeWorkflowYAMLForJS(config.WorkflowYAML)
+	routesJSON := marshalAPIRoutesJSON(config.APIRoutes)
 
 	outFile, err := AppFS.Create(filepath.Join(distDir, "kdeps-bootstrap.js"))
 	if err != nil {
@@ -160,10 +180,7 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 func copyWebServerFiles(files map[string]string, distDir string) error {
 	kdeps_debug.Log("enter: copyWebServerFiles")
 	for path, content := range files {
-		// Strip common webServer prefixes to get the serve path.
-		servePath := path
-		servePath = strings.TrimPrefix(servePath, "data/public/")
-		servePath = strings.TrimPrefix(servePath, "data/")
+		servePath := normalizeWebServePath(path)
 
 		dst := filepath.Join(distDir, servePath)
 		if err := AppFS.MkdirAll(filepath.Dir(dst), 0750); err != nil {
@@ -199,8 +216,7 @@ func injectBootstrap(distDir string) error {
 	}
 
 	content := string(data)
-	scripts := `<script src="wasm_exec.js"></script>
-<script src="kdeps-bootstrap.js"></script>`
+	scripts := bootstrapScriptTags()
 
 	// Inject before </body> if present, otherwise append.
 	if idx := strings.LastIndex(strings.ToLower(content), "</body>"); idx != -1 {

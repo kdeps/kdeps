@@ -62,56 +62,35 @@ func NewSchemaValidator() (*SchemaValidator, error) {
 	return newSchemaValidatorFromFS(schemas)
 }
 
+// loadSchemaFromFS reads and compiles a JSON schema from fsys.
+func loadSchemaFromFS(fsys fs.FS, filename, label string) (*gojsonschema.Schema, error) {
+	data, err := fs.ReadFile(fsys, filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s schema: %w", label, err)
+	}
+	schema, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(data))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load %s schema: %w", label, err)
+	}
+	return schema, nil
+}
+
 // newSchemaValidatorFromFS creates a schema validator reading schema files from fsys.
 func newSchemaValidatorFromFS(fsys fs.FS) (*SchemaValidator, error) {
 	sv := &SchemaValidator{}
+	var err error
 
-	// Load workflow schema.
-	workflowSchemaData, err := fs.ReadFile(fsys, "schemas/workflow.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read workflow schema: %w", err)
+	if sv.workflowSchema, err = loadSchemaFromFS(fsys, "schemas/workflow.json", "workflow"); err != nil {
+		return nil, err
 	}
-
-	workflowSchemaLoader := gojsonschema.NewBytesLoader(workflowSchemaData)
-	sv.workflowSchema, err = gojsonschema.NewSchema(workflowSchemaLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load workflow schema: %w", err)
+	if sv.resourceSchema, err = loadSchemaFromFS(fsys, "schemas/resource.json", "resource"); err != nil {
+		return nil, err
 	}
-
-	// Load resource schema.
-	resourceSchemaData, err := fs.ReadFile(fsys, "schemas/resource.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read resource schema: %w", err)
+	if sv.agencySchema, err = loadSchemaFromFS(fsys, "schemas/agency.json", "agency"); err != nil {
+		return nil, err
 	}
-
-	resourceSchemaLoader := gojsonschema.NewBytesLoader(resourceSchemaData)
-	sv.resourceSchema, err = gojsonschema.NewSchema(resourceSchemaLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load resource schema: %w", err)
-	}
-
-	// Load agency schema.
-	agencySchemaData, err := fs.ReadFile(fsys, "schemas/agency.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read agency schema: %w", err)
-	}
-
-	agencySchemaLoader := gojsonschema.NewBytesLoader(agencySchemaData)
-	sv.agencySchema, err = gojsonschema.NewSchema(agencySchemaLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load agency schema: %w", err)
-	}
-
-	// Load component schema.
-	componentSchemaData, err := fs.ReadFile(fsys, "schemas/component.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read component schema: %w", err)
-	}
-
-	componentSchemaLoader := gojsonschema.NewBytesLoader(componentSchemaData)
-	sv.componentSchema, err = gojsonschema.NewSchema(componentSchemaLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load component schema: %w", err)
+	if sv.componentSchema, err = loadSchemaFromFS(fsys, "schemas/component.json", "component"); err != nil {
+		return nil, err
 	}
 
 	return sv, nil
@@ -147,27 +126,33 @@ func (sv *SchemaValidator) GetComponentSchemaForTesting() *gojsonschema.Schema {
 	return sv.componentSchema
 }
 
-// ValidateWorkflow validates workflow data against the workflow schema.
-func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
-	kdeps_debug.Log("enter: ValidateWorkflow")
-	documentLoader := gojsonschema.NewGoLoader(data)
-	result, err := sv.workflowSchema.Validate(documentLoader)
+// validateAgainstSchema runs document validation and formats enhanced error messages.
+func (sv *SchemaValidator) validateAgainstSchema(
+	schema *gojsonschema.Schema,
+	data map[string]interface{},
+	failurePrefix string,
+	schemaType string,
+) error {
+	result, err := schema.Validate(gojsonschema.NewGoLoader(data))
 	if err != nil {
 		return fmt.Errorf("schema validation error: %w", err)
 	}
-
-	if !result.Valid() {
-		errMsg := "workflow validation failed:\n"
-		var errMsgSb110 strings.Builder
-		for _, desc := range result.Errors() {
-			enhancedMsg := sv.enhanceErrorMessage(desc, "workflow")
-			fmt.Fprintf(&errMsgSb110, "  - %s\n", enhancedMsg)
-		}
-		errMsg += errMsgSb110.String()
-		return errors.New(errMsg)
+	if result.Valid() {
+		return nil
 	}
 
-	return nil
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s:\n", failurePrefix)
+	for _, desc := range result.Errors() {
+		fmt.Fprintf(&b, "  - %s\n", sv.enhanceErrorMessage(desc, schemaType))
+	}
+	return errors.New(b.String())
+}
+
+// ValidateWorkflow validates workflow data against the workflow schema.
+func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
+	kdeps_debug.Log("enter: ValidateWorkflow")
+	return sv.validateAgainstSchema(sv.workflowSchema, data, "workflow validation failed", "workflow")
 }
 
 // GetTypeSuggestion exposes the private getTypeSuggestion method for testing.
@@ -209,70 +194,19 @@ func (sv *SchemaValidator) GetEnumValues(field string, schemaType string) []inte
 // ValidateResource validates resource data against the resource schema.
 func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 	kdeps_debug.Log("enter: ValidateResource")
-	documentLoader := gojsonschema.NewGoLoader(data)
-	result, err := sv.resourceSchema.Validate(documentLoader)
-	if err != nil {
-		return fmt.Errorf("schema validation error: %w", err)
-	}
-
-	if !result.Valid() {
-		errMsg := "resource validation failed:\n"
-		var errMsgSb160 strings.Builder
-		for _, desc := range result.Errors() {
-			enhancedMsg := sv.enhanceErrorMessage(desc, "resource")
-			fmt.Fprintf(&errMsgSb160, "  - %s\n", enhancedMsg)
-		}
-		errMsg += errMsgSb160.String()
-		return errors.New(errMsg)
-	}
-
-	return nil
+	return sv.validateAgainstSchema(sv.resourceSchema, data, "resource validation failed", "resource")
 }
 
 // ValidateComponent validates component data against the component schema.
 func (sv *SchemaValidator) ValidateComponent(data map[string]interface{}) error {
 	kdeps_debug.Log("enter: ValidateComponent")
-	documentLoader := gojsonschema.NewGoLoader(data)
-	result, err := sv.componentSchema.Validate(documentLoader)
-	if err != nil {
-		return fmt.Errorf("schema validation error: %w", err)
-	}
-
-	if !result.Valid() {
-		errMsg := "component validation failed:\n"
-		var errMsgBuilder strings.Builder
-		for _, desc := range result.Errors() {
-			enhancedMsg := sv.enhanceErrorMessage(desc, "component")
-			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
-		}
-		errMsg += errMsgBuilder.String()
-		return errors.New(errMsg)
-	}
-
-	return nil
+	return sv.validateAgainstSchema(sv.componentSchema, data, "component validation failed", "component")
 }
 
 // ValidateAgency validates agency data against the agency schema.
 func (sv *SchemaValidator) ValidateAgency(data map[string]interface{}) error {
 	kdeps_debug.Log("enter: ValidateAgency")
-	documentLoader := gojsonschema.NewGoLoader(data)
-	result, err := sv.agencySchema.Validate(documentLoader)
-	if err != nil {
-		return fmt.Errorf("schema validation error: %w", err)
-	}
-
-	if !result.Valid() {
-		errMsg := "agency validation failed:\n"
-		var errMsgBuilder strings.Builder
-		for _, desc := range result.Errors() {
-			enhancedMsg := sv.enhanceErrorMessage(desc, "agency")
-			fmt.Fprintf(&errMsgBuilder, "  - %s\n", enhancedMsg)
-		}
-		errMsg += errMsgBuilder.String()
-		return errors.New(errMsg)
-	}
-
-	return nil
+	return sv.validateAgainstSchema(sv.agencySchema, data, "agency validation failed", "agency")
 }
 
 // isTypeError checks if the error is a type-related error.
@@ -282,24 +216,27 @@ func (sv *SchemaValidator) isTypeError(errorType, descStr string) bool {
 		strings.Contains(descStr, "Expected:")
 }
 
+// resolveRequiredFieldName extracts the field name from root-level required-field errors.
+func resolveRequiredFieldName(field, descStr string) string {
+	if field != "(root)" || !strings.Contains(descStr, "is required") {
+		return field
+	}
+	re := regexp.MustCompile(`\(root\):\s*(\S+)\s+is required`)
+	if m := re.FindStringSubmatch(descStr); len(m) > 1 {
+		return m[1]
+	}
+	return field
+}
+
 // enhanceErrorMessage enhances error messages with available options and suggestions for all fields.
 func (sv *SchemaValidator) enhanceErrorMessage(
 	desc gojsonschema.ResultError,
 	schemaType string,
 ) string {
 	kdeps_debug.Log("enter: enhanceErrorMessage")
-	field := desc.Field()
+	field := resolveRequiredFieldName(desc.Field(), desc.String())
 	errorType := desc.Type()
 	descStr := desc.String()
-
-	// For required-field errors at root, extract the actual field name from the description.
-	// gojsonschema reports these as field="(root)" with descStr="(root): <fieldName> is required".
-	if field == "(root)" && strings.Contains(descStr, "is required") {
-		re := regexp.MustCompile(`\(root\):\s*(\S+)\s+is required`)
-		if m := re.FindStringSubmatch(descStr); len(m) > 1 {
-			field = m[1]
-		}
-	}
 
 	// Try to get enum values for this field
 	enumValues := sv.getEnumValues(field, schemaType)
@@ -459,71 +396,37 @@ func (sv *SchemaValidator) getPatternSuggestion(field string) string {
 	return "Check the format requirements for this field"
 }
 
-// getRangeSuggestion provides range suggestions.
-func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
-	kdeps_debug.Log("enter: getRangeSuggestion")
-	// Known field ranges (for fields where we know both min and max)
-	knownRanges := map[string]struct {
-		min string
-		max string
-	}{
-		"settings.apiServer.portNum": {"1", "65535"},
-		"apiServer.portNum":          {"1", "65535"},
-	}
-
-	// Check if this is a known field with a known range
-	if knownRange, ok := knownRanges[field]; ok {
-		return fmt.Sprintf("Value must be between %s and %s", knownRange.min, knownRange.max)
-	}
-
-	// Extract min/max from description - try multiple formats
+// extractRangeBounds parses min/max numeric bounds from a validation error description.
+func extractRangeBounds(descStr string) (string, string) {
 	var minValue, maxValue string
-
-	// Try "less than or equal to" format
-	if strings.Contains(descStr, "less than or equal to") {
-		re := regexp.MustCompile(`less than or equal to\s+(\d+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			maxValue = matches[1]
+	patterns := []struct {
+		phrase string
+		re     *regexp.Regexp
+		isMin  bool
+	}{
+		{"less than or equal to", regexp.MustCompile(`less than or equal to\s+(\d+)`), false},
+		{"greater than or equal to", regexp.MustCompile(`greater than or equal to\s+(\d+)`), true},
+		{"Must be less", regexp.MustCompile(`Must be less.*?(\d+)`), false},
+		{"minimum", regexp.MustCompile(`minimum.*?(\d+)`), true},
+		{"maximum", regexp.MustCompile(`maximum.*?(\d+)`), false},
+	}
+	for _, p := range patterns {
+		if !strings.Contains(descStr, p.phrase) {
+			continue
+		}
+		if m := p.re.FindStringSubmatch(descStr); len(m) > 1 {
+			if p.isMin {
+				minValue = m[1]
+			} else {
+				maxValue = m[1]
+			}
 		}
 	}
+	return minValue, maxValue
+}
 
-	// Try "greater than or equal to" format
-	if strings.Contains(descStr, "greater than or equal to") {
-		re := regexp.MustCompile(`greater than or equal to\s+(\d+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			minValue = matches[1]
-		}
-	}
-
-	// Try "Must be less" format
-	if strings.Contains(descStr, "Must be less") {
-		re := regexp.MustCompile(`Must be less.*?(\d+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			maxValue = matches[1]
-		}
-	}
-
-	// Try "minimum" format
-	if strings.Contains(descStr, "minimum") {
-		re := regexp.MustCompile(`minimum.*?(\d+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			minValue = matches[1]
-		}
-	}
-
-	// Try "maximum" format
-	if strings.Contains(descStr, "maximum") {
-		re := regexp.MustCompile(`maximum.*?(\d+)`)
-		matches := re.FindStringSubmatch(descStr)
-		if len(matches) > 1 {
-			maxValue = matches[1]
-		}
-	}
-
+// formatRangeSuggestion builds a human-readable range hint from min/max bounds.
+func formatRangeSuggestion(minValue, maxValue string) string {
 	switch {
 	case minValue != "" && maxValue != "":
 		return fmt.Sprintf("Value must be between %s and %s", minValue, maxValue)
@@ -531,9 +434,25 @@ func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
 		return fmt.Sprintf("Value must be at least %s", minValue)
 	case maxValue != "":
 		return fmt.Sprintf("Value must be at most %s", maxValue)
+	default:
+		return ""
 	}
+}
 
-	return ""
+// getRangeSuggestion provides range suggestions.
+func (sv *SchemaValidator) getRangeSuggestion(field, descStr string) string {
+	kdeps_debug.Log("enter: getRangeSuggestion")
+	knownRanges := map[string]struct {
+		min string
+		max string
+	}{
+		"settings.apiServer.portNum": {"1", "65535"},
+		"apiServer.portNum":          {"1", "65535"},
+	}
+	if knownRange, ok := knownRanges[field]; ok {
+		return fmt.Sprintf("Value must be between %s and %s", knownRange.min, knownRange.max)
+	}
+	return formatRangeSuggestion(extractRangeBounds(descStr))
 }
 
 // getFieldExamples provides example values for fields.
@@ -621,127 +540,120 @@ func (sv *SchemaValidator) IsEnumField(field string, schemaType string) bool {
 	return len(enumValues) > 0
 }
 
+// schemaEnumMap returns known enum fields and their allowed values.
+func schemaEnumMap() map[string][]interface{} {
+	return map[string][]interface{}{
+		"run.chat.backend": {
+			"ollama", "openai", "anthropic", "google", "cohere", "mistral",
+			"together", "perplexity", "groq", "deepseek", "openrouter",
+		},
+		"run.httpClient.method": {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"run.chat.contextLength": {
+			4096, 8192, 16384, 32768, 65536, 131072, 262144,
+		},
+		"run.sql.format":                    {"json", "csv", "table"},
+		"run.validations.methods":           {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"settings.apiServer.routes.methods": {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"routes.methods":                    {"GET", "POST", "PUT", "DELETE", "PATCH"},
+		"apiVersion":                        {"kdeps.io/v1"},
+		"kind":                              {"Workflow", "Resource"},
+	}
+}
+
+// lookupEnumByPath checks exact, normalized, and partial path matches against enumMap.
+func lookupEnumByPath(field string, enumMap map[string][]interface{}, normalize func(string) string) []interface{} {
+	if values, ok := enumMap[field]; ok {
+		return values
+	}
+	normalized := normalize(field)
+	if values, ok := enumMap[normalized]; ok {
+		return values
+	}
+	for enumField, values := range enumMap {
+		if strings.HasSuffix(normalized, "."+enumField) || strings.Contains(normalized, enumField) {
+			return values
+		}
+	}
+	return nil
+}
+
+// lookupResourceSchemaEnums resolves short field names in resource schema context.
+func lookupResourceSchemaEnums(field string, enumMap map[string][]interface{}) []interface{} {
+	shortFieldEnums := map[string]string{
+		"backend":       "run.chat.backend",
+		"method":        "run.httpClient.method",
+		"contextLength": "run.chat.contextLength",
+		"format":        "run.sql.format",
+	}
+	if key, ok := shortFieldEnums[field]; ok {
+		return enumMap[key]
+	}
+	return nil
+}
+
+// lookupWorkflowSchemaEnums resolves short field names in workflow schema context.
+func lookupWorkflowSchemaEnums(field string, enumMap map[string][]interface{}) []interface{} {
+	if field == methodsField {
+		return enumMap["settings.apiServer.routes.methods"]
+	}
+	return nil
+}
+
+// lookupNestedFieldEnums resolves enums by the last path segment and parent context.
+func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interface{}) []interface{} {
+	fieldParts := strings.Split(normalizedField, ".")
+	if len(fieldParts) == 0 {
+		return nil
+	}
+	lastPart := fieldParts[len(fieldParts)-1]
+
+	type contextRule struct {
+		part    string
+		context string
+		enumKey string
+	}
+	rules := []contextRule{
+		{"backend", "chat", "run.chat.backend"},
+		{"method", "httpClient", "run.httpClient.method"},
+		{"contextLength", "chat", "run.chat.contextLength"},
+		{"format", "sql", "run.sql.format"},
+	}
+	for _, rule := range rules {
+		if lastPart == rule.part && strings.Contains(normalizedField, rule.context) {
+			return enumMap[rule.enumKey]
+		}
+	}
+	if lastPart == methodsField {
+		if strings.Contains(normalizedField, "routes") || strings.Contains(normalizedField, "apiServer") {
+			return enumMap["settings.apiServer.routes.methods"]
+		}
+		if strings.Contains(normalizedField, "validations") {
+			return enumMap["run.validations.methods"]
+		}
+	}
+	return nil
+}
+
 // getEnumValues extracts enum values for a field from the schema.
-//
-//nolint:gocognit,nestif // schema traversal is intentionally explicit
 func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []interface{} {
 	kdeps_debug.Log("enter: getEnumValues")
-	// Validate schema type
 	if schemaType != "resource" && schemaType != "workflow" {
 		return nil
 	}
 
-	// Known enum fields and their values
-	enumMap := map[string][]interface{}{
-		"run.chat.backend": {
-			"ollama",
-			"openai",
-			"anthropic",
-			"google",
-			"cohere",
-			"mistral",
-			"together",
-			"perplexity",
-			"groq",
-			"deepseek",
-			"openrouter",
-		},
-		"run.httpClient.method": {
-			"GET", "POST", "PUT", "DELETE", "PATCH",
-		},
-		"run.chat.contextLength": {
-			4096, 8192, 16384, 32768, 65536, 131072, 262144,
-		},
-		"run.sql.format": {
-			"json", "csv", "table",
-		},
-		"run.validations.methods": {
-			"GET", "POST", "PUT", "DELETE", "PATCH",
-		},
-		"settings.apiServer.routes.methods": {
-			"GET", "POST", "PUT", "DELETE", "PATCH",
-		},
-		"routes.methods": {
-			"GET", "POST", "PUT", "DELETE", "PATCH",
-		},
-		"apiVersion": {
-			"kdeps.io/v1",
-		},
-		"kind": {
-			"Workflow", "Resource",
-		},
-	}
-
-	// Check exact match first
-	if values, ok := enumMap[field]; ok {
+	enumMap := schemaEnumMap()
+	if values := lookupEnumByPath(field, enumMap, sv.normalizeFieldPath); values != nil {
 		return values
 	}
-
-	// Normalize field path by removing array indices (e.g., "routes.0.methods.0" -> "routes.methods")
-	normalizedField := field
-	// Replace array indices (numeric parts) with placeholders to match patterns
-	normalizedField = strings.ReplaceAll(normalizedField, ".0.", ".")
-	normalizedField = strings.ReplaceAll(normalizedField, ".1.", ".")
-	normalizedField = strings.ReplaceAll(normalizedField, ".2.", ".")
-	// Handle trailing array indices
-	normalizedField = strings.TrimSuffix(normalizedField, ".0")
-
-	// Check normalized field
-	if values, ok := enumMap[normalizedField]; ok {
-		return values
-	}
-
-	// Check if normalized field matches any known enum field (for nested paths)
-	for enumField, values := range enumMap {
-		if strings.HasSuffix(normalizedField, "."+enumField) ||
-			strings.Contains(normalizedField, enumField) {
+	if schemaType == "resource" {
+		if values := lookupResourceSchemaEnums(field, enumMap); values != nil {
 			return values
 		}
 	}
-
-	// Context-aware lookups for resource schema
-	if schemaType == "resource" {
-		switch field {
-		case "backend":
-			return enumMap["run.chat.backend"]
-		case "method":
-			return enumMap["run.httpClient.method"]
-		case "contextLength":
-			return enumMap["run.chat.contextLength"]
-		case "format":
-			return enumMap["run.sql.format"]
+	if schemaType == "workflow" {
+		if values := lookupWorkflowSchemaEnums(field, enumMap); values != nil {
+			return values
 		}
 	}
-
-	// Context-aware lookups for workflow schema
-	if schemaType == "workflow" && field == "methods" {
-		return enumMap["settings.apiServer.routes.methods"]
-	}
-
-	// Also check direct field name matches (for nested paths)
-	fieldParts := strings.Split(normalizedField, ".")
-	if len(fieldParts) > 0 {
-		lastPart := fieldParts[len(fieldParts)-1]
-		if lastPart == "backend" && strings.Contains(normalizedField, "chat") {
-			return enumMap["run.chat.backend"]
-		}
-		if lastPart == "method" && strings.Contains(normalizedField, "httpClient") {
-			return enumMap["run.httpClient.method"]
-		}
-		if lastPart == "contextLength" && strings.Contains(normalizedField, "chat") {
-			return enumMap["run.chat.contextLength"]
-		}
-		if lastPart == "format" && strings.Contains(normalizedField, "sql") {
-			return enumMap["run.sql.format"]
-		}
-		if lastPart == methodsField &&
-			(strings.Contains(normalizedField, "routes") || strings.Contains(normalizedField, "apiServer")) {
-			return enumMap["settings.apiServer.routes.methods"]
-		}
-		if lastPart == methodsField && strings.Contains(normalizedField, "validations") {
-			return enumMap["run.validations.methods"]
-		}
-	}
-
-	return nil
+	return lookupNestedFieldEnums(sv.normalizeFieldPath(field), enumMap)
 }

@@ -80,9 +80,8 @@ type PrettyHandlerOptions struct {
 	Indent string
 }
 
-// NewPrettyHandler creates a new PrettyHandler.
-func NewPrettyHandler(w io.Writer, opts *PrettyHandlerOptions) *PrettyHandler {
-	kdeps_debug.Log("enter: NewPrettyHandler")
+// defaultPrettyHandlerOptions fills in unset option fields.
+func defaultPrettyHandlerOptions(opts *PrettyHandlerOptions) *PrettyHandlerOptions {
 	if opts == nil {
 		opts = &PrettyHandlerOptions{}
 	}
@@ -92,29 +91,43 @@ func NewPrettyHandler(w io.Writer, opts *PrettyHandlerOptions) *PrettyHandler {
 	if opts.Indent == "" {
 		opts.Indent = "  "
 	}
+	return opts
+}
 
-	// Check if output is a terminal
-	// Only auto-detect if DisableColors wasn't explicitly set to false
-	// (If DisableColors is explicitly false, we want to enable colors even for non-terminals)
-	if !opts.DisableColors {
-		// Auto-detect: disable colors if not a terminal (unless explicitly enabled)
-		if file, ok := w.(*os.File); ok {
-			// Only auto-disable if it's a file but not a terminal
-			opts.DisableColors = !isTerminal(file)
-		}
-		// If writer is not *os.File and DisableColors is false, keep it false (respect explicit setting)
-		// This allows tests to enable colors on non-terminal writers
+// detectDisableColors auto-disables colors when writing to a non-terminal file.
+func detectDisableColors(w io.Writer, opts *PrettyHandlerOptions) {
+	if opts.DisableColors {
+		return
 	}
 
+	file, ok := w.(*os.File)
+	if !ok {
+		return
+	}
+
+	// Only auto-disable if it's a file but not a terminal.
+	opts.DisableColors = !isTerminal(file)
+}
+
+// buildEnabledLevelMap returns the set of levels at or above minLevel.
+func buildEnabledLevelMap(minLevel slog.Level) map[slog.Level]bool {
 	enabled := make(map[slog.Level]bool)
 	for level := slog.LevelDebug; level <= slog.LevelError; level++ {
-		enabled[level] = level >= opts.Level
+		enabled[level] = level >= minLevel
 	}
+	return enabled
+}
+
+// NewPrettyHandler creates a new PrettyHandler.
+func NewPrettyHandler(w io.Writer, opts *PrettyHandlerOptions) *PrettyHandler {
+	kdeps_debug.Log("enter: NewPrettyHandler")
+	opts = defaultPrettyHandlerOptions(opts)
+	detectDisableColors(w, opts)
 
 	return &PrettyHandler{
 		writer:  w,
 		opts:    opts,
-		enabled: enabled,
+		enabled: buildEnabledLevelMap(opts.Level),
 	}
 }
 
@@ -143,19 +156,9 @@ func (h *PrettyHandler) Handle(ctx context.Context, r slog.Record) error {
 	buf.WriteString(levelStr)
 	buf.WriteString(" ")
 
-	// Source location (if enabled)
-	if h.opts.AddSource && r.PC != 0 {
-		fs := runtime.CallersFrames([]uintptr{r.PC})
-		f, _ := fs.Next()
-		if f.File != "" {
-			file := f.File
-			if idx := strings.LastIndex(file, "/"); idx >= 0 {
-				file = file[idx+1:]
-			}
-			source := fmt.Sprintf("%s:%d", file, f.Line)
-			buf.WriteString(h.colorize(colorDim, fmt.Sprintf("[%s]", source)))
-			buf.WriteString(" ")
-		}
+	if source := h.formatSourceLocation(r.PC); source != "" {
+		buf.WriteString(h.colorize(colorDim, fmt.Sprintf("[%s]", source)))
+		buf.WriteString(" ")
 	}
 
 	// Message
@@ -189,6 +192,41 @@ func (h *PrettyHandler) WithGroup(_ string) slog.Handler {
 	kdeps_debug.Log("enter: WithGroup")
 	// For simplicity, we'll just return the same handler
 	return h
+}
+
+// formatSourceLocation returns a short file:line source label when enabled.
+func (h *PrettyHandler) formatSourceLocation(pc uintptr) string {
+	if !h.opts.AddSource || pc == 0 {
+		return ""
+	}
+
+	fs := runtime.CallersFrames([]uintptr{pc})
+	f, _ := fs.Next()
+	if f.File == "" {
+		return ""
+	}
+
+	file := f.File
+	if idx := strings.LastIndex(file, "/"); idx >= 0 {
+		file = file[idx+1:]
+	}
+	return fmt.Sprintf("%s:%d", file, f.Line)
+}
+
+// formatColoredBool returns a colorized boolean string.
+func (h *PrettyHandler) formatColoredBool(val bool) string {
+	if val {
+		return h.colorize(colorGreen, "true")
+	}
+	return h.colorize(colorRed, "false")
+}
+
+// parentIndent removes one indent level from the given indent string.
+func parentIndent(indent string) string {
+	if len(indent) < indentBaseLength {
+		return ""
+	}
+	return indent[:len(indent)-indentBaseLength]
 }
 
 // formatLevel formats the log level with color and badge.
@@ -250,11 +288,7 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 	case slog.KindFloat64:
 		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", v.Float64())))
 	case slog.KindBool:
-		if v.Bool() {
-			buf.WriteString(h.colorize(colorGreen, "true"))
-		} else {
-			buf.WriteString(h.colorize(colorRed, "false"))
-		}
+		buf.WriteString(h.formatColoredBool(v.Bool()))
 	case slog.KindDuration:
 		buf.WriteString(h.colorize(colorMagenta, v.Duration().String()))
 	case slog.KindTime:
@@ -271,9 +305,7 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 			h.formatAttr(buf, attr, indent)
 			buf.WriteString("\n")
 		}
-		if len(indent) >= indentBaseLength {
-			buf.WriteString(indent[:len(indent)-indentBaseLength]) // Remove last indent
-		}
+		buf.WriteString(parentIndent(indent))
 	case slog.KindLogValuer:
 		// LogValuer - call LogValue() and format the result
 		logVal := v.LogValuer()
@@ -298,11 +330,7 @@ func (h *PrettyHandler) FormatAny(buf *strings.Builder, v interface{}, indent st
 	case float32, float64:
 		buf.WriteString(h.colorize(colorBlue, fmt.Sprintf("%.2f", val)))
 	case bool:
-		if val {
-			buf.WriteString(h.colorize(colorGreen, "true"))
-		} else {
-			buf.WriteString(h.colorize(colorRed, "false"))
-		}
+		buf.WriteString(h.formatColoredBool(val))
 	case error:
 		buf.WriteString(h.colorize(colorRed, fmt.Sprintf("%q", val.Error())))
 	case map[string]interface{}:
@@ -335,9 +363,7 @@ func (h *PrettyHandler) formatMap(buf *strings.Builder, m map[string]interface{}
 		h.FormatAny(buf, v, indent+"  ")
 	}
 	buf.WriteString("\n")
-	if len(indent) >= indentBaseLength {
-		buf.WriteString(indent[:len(indent)-indentBaseLength]) // Remove last indent
-	}
+	buf.WriteString(parentIndent(indent))
 	buf.WriteString("}")
 }
 
@@ -354,9 +380,7 @@ func (h *PrettyHandler) formatSlice(buf *strings.Builder, s []interface{}, inden
 		h.FormatAny(buf, v, indent+"  ")
 	}
 	buf.WriteString("\n")
-	if len(indent) >= indentBaseLength {
-		buf.WriteString(indent[:len(indent)-indentBaseLength])
-	}
+	buf.WriteString(parentIndent(indent))
 	buf.WriteString("]")
 }
 

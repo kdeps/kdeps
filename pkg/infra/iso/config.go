@@ -216,49 +216,68 @@ func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
 	})
 }
 
-func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
-	kdeps_debug.Log("enter: addFatBuildService")
-	// Build env vars for the service container
+func buildKdepsEnvList(workflow *domain.Workflow) []string {
 	envList := []string{
 		"KDEPS_BIND_HOST=0.0.0.0",
 		"KDEPS_PLATFORM=iso",
 	}
-	if ShouldInstallOllama(workflow) {
-		envList = append(envList,
-			"OLLAMA_HOST=127.0.0.1",
-			"OLLAMA_MODELS=/root/.ollama/models",
+	if !ShouldInstallOllama(workflow) {
+		return appendWorkflowEnv(envList, workflow)
+	}
+
+	envList = append(envList,
+		"OLLAMA_HOST=127.0.0.1",
+		"OLLAMA_MODELS=/root/.ollama/models",
+	)
+	return appendWorkflowEnv(envList, workflow)
+}
+
+func appendWorkflowEnv(envList []string, workflow *domain.Workflow) []string {
+	if workflow.Settings.AgentSettings.Env == nil {
+		return envList
+	}
+
+	keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
+	for k := range workflow.Settings.AgentSettings.Env {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		envList = append(
+			envList,
+			fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]),
 		)
 	}
-	if workflow.Settings.AgentSettings.Env != nil {
-		keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
-		for k := range workflow.Settings.AgentSettings.Env {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+	return envList
+}
 
-		for _, k := range keys {
-			envList = append(
-				envList,
-				fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]),
-			)
-		}
-	}
-
-	// Build service binds
-	binds := []string{
-		"/var/run:/var/run",
-	}
+func buildKdepsBinds(workflow *domain.Workflow) []string {
+	binds := []string{"/var/run:/var/run"}
 	if ShouldInstallOllama(workflow) {
 		binds = append(binds, "/dev:/dev")
 	}
+	return binds
+}
 
+func workflowHasChatResources(workflow *domain.Workflow) bool {
+	for _, resource := range workflow.Resources {
+		if resource.Chat != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
+	kdeps_debug.Log("enter: addFatBuildService")
 	config.Services = append(config.Services, LinuxKitImage{
 		Name:         "kdeps",
 		Image:        imageName,
 		Net:          "host",
 		Capabilities: []string{"all"},
-		Binds:        binds,
-		Env:          envList,
+		Binds:        buildKdepsBinds(workflow),
+		Env:          buildKdepsEnvList(workflow),
 		Command: []string{
 			"/entrypoint.sh",
 			"/usr/bin/supervisord",
@@ -289,26 +308,16 @@ func ShouldInstallOllama(workflow *domain.Workflow) bool {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}
 
-	// Check KDEPS_DEFAULT_BACKEND env var (set by config.yaml llm.backend).
-	hasChatResources := false
-	for _, resource := range workflow.Resources {
-		if resource.Chat != nil {
-			hasChatResources = true
-			break
-		}
-	}
-	if hasChatResources {
+	if workflowHasChatResources(workflow) {
 		backend := os.Getenv("KDEPS_DEFAULT_BACKEND")
 		if backend == "" || backend == backendOllama {
 			return true
 		}
 	}
 
-	// Also check router config for ollama routes.
-	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" {
-		if strings.Contains(routerJSON, `"ollama"`) {
-			return true
-		}
+	if routerJSON := os.Getenv("KDEPS_LLM_ROUTER"); routerJSON != "" &&
+		strings.Contains(routerJSON, `"ollama"`) {
+		return true
 	}
 
 	return os.Getenv("KDEPS_LLM_MODELS") != ""

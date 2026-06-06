@@ -99,6 +99,34 @@ func (r *slackRunner) pumpSocketEvents(
 	}
 }
 
+func isSlackUserMessage(ev *slackevents.MessageEvent) bool {
+	return ev.BotID == "" && ev.SubType == ""
+}
+
+func (r *slackRunner) emitMessage(ctx context.Context, ch chan<- Message, ev *slackevents.MessageEvent) {
+	select {
+	case ch <- Message{
+		Platform: slackPlatform,
+		ChatID:   ev.Channel,
+		UserID:   ev.User,
+		Text:     ev.Text,
+		Raw:      ev,
+	}:
+	case <-ctx.Done():
+	}
+}
+
+func messageFromEventsAPI(eventsAPIEvent slackevents.EventsAPIEvent) (*slackevents.MessageEvent, bool) {
+	if eventsAPIEvent.Type != slackevents.CallbackEvent {
+		return nil, false
+	}
+	ev, ok := eventsAPIEvent.InnerEvent.Data.(*slackevents.MessageEvent)
+	if !ok {
+		return nil, false
+	}
+	return ev, true
+}
+
 // handleSocketEvent processes a single socket-mode event and emits a Message when applicable.
 func (r *slackRunner) handleSocketEvent(
 	ctx context.Context,
@@ -118,27 +146,11 @@ func (r *slackRunner) handleSocketEvent(
 		return
 	}
 
-	if eventsAPIEvent.Type != slackevents.CallbackEvent {
+	ev, ok := messageFromEventsAPI(eventsAPIEvent)
+	if !ok || !isSlackUserMessage(ev) {
 		return
 	}
-	ev, ok := eventsAPIEvent.InnerEvent.Data.(*slackevents.MessageEvent)
-	if !ok {
-		return
-	}
-	// Ignore bot messages and subtypes (edits, deletes, etc.).
-	if ev.BotID != "" || ev.SubType != "" {
-		return
-	}
-	select {
-	case ch <- Message{
-		Platform: slackPlatform,
-		ChatID:   ev.Channel,
-		UserID:   ev.User,
-		Text:     ev.Text,
-		Raw:      ev,
-	}:
-	case <-ctx.Done():
-	}
+	r.emitMessage(ctx, ch, ev)
 }
 
 // Reply sends text to the given Slack channel.

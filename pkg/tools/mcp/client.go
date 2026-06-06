@@ -92,15 +92,8 @@ type Client struct {
 	nextID atomic.Int64
 }
 
-// NewStdioClient starts an MCP server subprocess and performs the initialize handshake.
-func NewStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*Client, error) {
-	kdeps_debug.Log("enter: NewStdioClient")
-	if cfg.Server == "" {
-		return nil, errors.New("MCP server command is required")
-	}
-
+func startStdioMCPServer(ctx context.Context, cfg *domain.MCPConfig) (*Client, error) {
 	cmd := execCommandContext(ctx, cfg.Server, cfg.Args...)
-
 	if len(cfg.Env) > 0 {
 		env := os.Environ()
 		for k, v := range cfg.Env {
@@ -123,10 +116,23 @@ func NewStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*Client, error)
 		return nil, fmt.Errorf("start MCP server %q: %w", cfg.Server, startErr)
 	}
 
-	client := &Client{
+	return &Client{
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: bufio.NewScanner(stdoutPipe),
+	}, nil
+}
+
+// NewStdioClient starts an MCP server subprocess and performs the initialize handshake.
+func NewStdioClient(ctx context.Context, cfg *domain.MCPConfig) (*Client, error) {
+	kdeps_debug.Log("enter: NewStdioClient")
+	if cfg.Server == "" {
+		return nil, errors.New("MCP server command is required")
+	}
+
+	client, err := startStdioMCPServer(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	if initErr := client.initialize(); initErr != nil {
@@ -180,6 +186,37 @@ func (c *Client) initialize() error {
 	return c.send(notification)
 }
 
+func extractTextContent(content []mcpContent) string {
+	var sb strings.Builder
+	for _, item := range content {
+		if item.Type == "text" {
+			sb.WriteString(item.Text)
+		}
+	}
+	return sb.String()
+}
+
+func (c *Client) parseToolCallResponse(resp *jsonRPCResponse) (string, error) {
+	if resp.Error != nil {
+		return "", fmt.Errorf("MCP tool error %d: %s", resp.Error.Code, resp.Error.Message)
+	}
+	if resp.Result == nil {
+		return "", nil
+	}
+
+	var result mcpToolResult
+	if unmarshalErr := json.Unmarshal(*resp.Result, &result); unmarshalErr != nil {
+		//nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
+		return string(*resp.Result), nil
+	}
+
+	text := extractTextContent(result.Content)
+	if result.IsError {
+		return "", fmt.Errorf("MCP tool returned error: %s", text)
+	}
+	return text, nil
+}
+
 // CallTool calls an MCP tool and returns text content from the result.
 func (c *Client) CallTool(name string, arguments map[string]interface{}) (string, error) {
 	kdeps_debug.Log("enter: CallTool")
@@ -203,36 +240,7 @@ func (c *Client) CallTool(name string, arguments map[string]interface{}) (string
 	if err != nil {
 		return "", fmt.Errorf("read tool response: %w", err)
 	}
-	if resp.Error != nil {
-		return "", fmt.Errorf("MCP tool error %d: %s", resp.Error.Code, resp.Error.Message)
-	}
-	if resp.Result == nil {
-		return "", nil
-	}
-
-	var result mcpToolResult
-	if unmarshalErr := json.Unmarshal(*resp.Result, &result); unmarshalErr != nil {
-		//nolint:nilerr // intentional: raw JSON fallback ignores unmarshal error
-		return string(*resp.Result), nil
-	}
-
-	if result.IsError {
-		var sb strings.Builder
-		for _, item := range result.Content {
-			if item.Type == "text" {
-				sb.WriteString(item.Text)
-			}
-		}
-		return "", fmt.Errorf("MCP tool returned error: %s", sb.String())
-	}
-
-	var sb strings.Builder
-	for _, item := range result.Content {
-		if item.Type == "text" {
-			sb.WriteString(item.Text)
-		}
-	}
-	return sb.String(), nil
+	return c.parseToolCallResponse(resp)
 }
 
 func (c *Client) send(req jsonRPCRequest) error {

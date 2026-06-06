@@ -190,20 +190,46 @@ func extractKomponent(pkgPath string) (string, func(), error) {
 	return tempDir, cleanup, nil
 }
 
+// componentReadmeMeta holds minimal metadata for fallback README generation.
+type componentReadmeMeta struct {
+	Metadata struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+		Version     string `yaml:"version"`
+	} `yaml:"metadata"`
+}
+
+// formatComponentReadme builds a README string from component metadata.
+func formatComponentReadme(name string, meta componentReadmeMeta) string {
+	out := fmt.Sprintf("# %s\n\n", meta.Metadata.Name)
+	if meta.Metadata.Description != "" {
+		out += meta.Metadata.Description + "\n\n"
+	}
+	if meta.Metadata.Version != "" {
+		out += fmt.Sprintf("Version: %s\n\n", meta.Metadata.Version)
+	}
+	out += fmt.Sprintf("Install with: kdeps registry install %s\n\n", name)
+	out += fmt.Sprintf(
+		"Usage:\n```yaml\ncomponent:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
+		name,
+	)
+	return out
+}
+
+// componentSearchDirs returns directories to search for component metadata.
+func componentSearchDirs(name string) []string {
+	dirs := []string{filepath.Join("components", name)}
+	if globalDir, err := componentInstallDir(); err == nil {
+		dirs = append(dirs, filepath.Join(globalDir, name))
+	}
+	return dirs
+}
+
 // generateFallbackReadme produces a minimal README from component.yaml metadata.
 func generateFallbackReadme(name string) (string, error) {
 	kdeps_debug.Log("enter: generateFallbackReadme")
 
-	// Search for component.yaml in the usual locations.
-	dirs := []string{
-		filepath.Join("components", name),
-	}
-
-	if globalDir, err := componentInstallDir(); err == nil {
-		dirs = append(dirs, filepath.Join(globalDir, name))
-	}
-
-	for _, dir := range dirs {
+	for _, dir := range componentSearchDirs(name) {
 		compFile := componentYAMLPath(dir)
 		if compFile == "" {
 			continue
@@ -212,29 +238,9 @@ func generateFallbackReadme(name string) (string, error) {
 		if err != nil {
 			continue
 		}
-		// Extract name/description from YAML minimally.
-		type meta struct {
-			Metadata struct {
-				Name        string `yaml:"name"`
-				Description string `yaml:"description"`
-				Version     string `yaml:"version"`
-			} `yaml:"metadata"`
-		}
-		var m meta
+		var m componentReadmeMeta
 		if yamlErr := yaml.Unmarshal(data, &m); yamlErr == nil && m.Metadata.Name != "" {
-			out := fmt.Sprintf("# %s\n\n", m.Metadata.Name)
-			if m.Metadata.Description != "" {
-				out += m.Metadata.Description + "\n\n"
-			}
-			if m.Metadata.Version != "" {
-				out += fmt.Sprintf("Version: %s\n\n", m.Metadata.Version)
-			}
-			out += fmt.Sprintf("Install with: kdeps registry install %s\n\n", name)
-			out += fmt.Sprintf(
-				"Usage:\n```yaml\ncomponent:\n    name: %s\n    with:\n      # see component.yaml for inputs\n```\n",
-				name,
-			)
-			return out, nil
+			return formatComponentReadme(name, m), nil
 		}
 	}
 
@@ -283,34 +289,61 @@ func cmdExtractTarGz(r io.Reader, destDir string) error {
 	return nil
 }
 
-// cmdExtractTarEntry writes a single tar entry to destDir.
-func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) error {
-	kdeps_debug.Log("enter: cmdExtractTarEntry")
-	// Sanitize path to prevent directory traversal.
-	cleanName := filepath.Clean(header.Name)
+// safeKomponentTarget resolves and validates an extraction target under destDir.
+func safeKomponentTarget(destDir, entryName string) (string, bool, error) {
+	cleanName := filepath.Clean(entryName)
 	if cleanName == "." || strings.HasPrefix(cleanName, "..") || filepath.IsAbs(cleanName) {
-		return nil
+		return "", false, nil
 	}
 
 	baseDir, baseErr := filepath.Abs(destDir)
 	if baseErr != nil {
-		return fmt.Errorf("resolve dest dir: %w", baseErr)
+		return "", false, fmt.Errorf("resolve dest dir: %w", baseErr)
 	}
 	baseDir = filepath.Clean(baseDir)
 
 	target := filepath.Join(baseDir, cleanName)
 	absTarget, targetErr := filepath.Abs(target)
 	if targetErr != nil {
-		return fmt.Errorf("resolve target path: %w", targetErr)
+		return "", false, fmt.Errorf("resolve target path: %w", targetErr)
 	}
 	absTarget = filepath.Clean(absTarget)
 
 	rel, relErr := filepath.Rel(baseDir, absTarget)
 	if relErr != nil {
-		return fmt.Errorf("validate target path: %w", relErr)
+		return "", false, fmt.Errorf("validate target path: %w", relErr)
 	}
 	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil
+		return "", false, nil
+	}
+	return absTarget, true, nil
+}
+
+// writeKomponentRegularFile creates a regular file from a tar entry.
+func writeKomponentRegularFile(absTarget string, tr *tar.Reader) error {
+	if mkErr := os.MkdirAll(filepath.Dir(absTarget), 0o750); mkErr != nil {
+		return fmt.Errorf("mkdir parent: %w", mkErr)
+	}
+	f, createErr := os.Create(absTarget)
+	if createErr != nil {
+		return fmt.Errorf("create %s: %w", absTarget, createErr)
+	}
+	_, copyErr := io.Copy(f, tr)
+	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
+		return fmt.Errorf("close %s: %w", absTarget, closeErr)
+	}
+	if copyErr != nil {
+		return fmt.Errorf("copy %s: %w", absTarget, copyErr)
+	}
+	return nil
+}
+
+// cmdExtractTarEntry writes a single tar entry to destDir.
+func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) error {
+	kdeps_debug.Log("enter: cmdExtractTarEntry")
+	absTarget, ok, err := safeKomponentTarget(destDir, header.Name)
+	if err != nil || !ok {
+		return err
 	}
 
 	switch header.Typeflag {
@@ -319,20 +352,7 @@ func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) erro
 			return fmt.Errorf("mkdir %s: %w", absTarget, mkErr)
 		}
 	case tar.TypeReg:
-		if mkErr := os.MkdirAll(filepath.Dir(absTarget), 0o750); mkErr != nil {
-			return fmt.Errorf("mkdir parent: %w", mkErr)
-		}
-		f, createErr := os.Create(absTarget)
-		if createErr != nil {
-			return fmt.Errorf("create %s: %w", absTarget, createErr)
-		}
-		_, copyErr := io.Copy(f, tr)
-		if closeErr := f.Close(); closeErr != nil && copyErr == nil {
-			return fmt.Errorf("close %s: %w", absTarget, closeErr)
-		}
-		if copyErr != nil {
-			return fmt.Errorf("copy %s: %w", absTarget, copyErr)
-		}
+		return writeKomponentRegularFile(absTarget, tr)
 	}
 	return nil
 }

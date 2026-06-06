@@ -27,127 +27,156 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 )
 
-//
-//nolint:gocognit,nestif,funlen // response assembly handles multiple formats
 func (e *Engine) executeAPIResponse(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: executeAPIResponse")
-	// Initialize evaluator if not already initialized
-	if e.evaluator == nil {
-		if ctx == nil {
-			return nil, errors.New("execution context required for API response")
-		}
-		e.evaluator = expression.NewEvaluator(ctx.API)
+	if err := e.ensureResponseEvaluator(ctx); err != nil {
+		return nil, err
 	}
 
-	// Evaluate response expressions recursively.
 	env := e.buildEvaluationEnvironment(ctx)
 	apiResponseConfig := resource.APIResponse
-	response := apiResponseConfig.Response
 
-	evaluatedResponse, err := e.evaluateResponseValue(response, env)
+	evaluatedResponse, err := e.evaluateResponseValue(apiResponseConfig.Response, env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate API response: %w", err)
 	}
 
-	// Evaluate the success field (supports expressions like "{{ get('valid') }}")
-	// Defaults to true when not set in YAML.
-	successBool := true
-	if apiResponseConfig.Success != nil {
-		evaluatedSuccess, successErr := e.evaluateResponseValue(apiResponseConfig.Success, env)
-		if successErr != nil {
-			return nil, fmt.Errorf("failed to evaluate API response success: %w", successErr)
-		}
-		var validBool bool
-		successBool, validBool = domain.ParseBool(evaluatedSuccess)
-		if !validBool {
-			successBool = false
-		}
+	successBool, err := e.resolveAPIResponseSuccess(apiResponseConfig, env)
+	if err != nil {
+		return nil, err
 	}
 
-	// Build the full API response structure
-	// This includes the success flag and meta information
 	apiResponse := map[string]interface{}{
 		"success": successBool,
 		"data":    evaluatedResponse,
 	}
 
-	// Add meta information if any meta fields are set
-	{
-		metaMap := make(map[string]interface{})
-
-		if apiResponseConfig.Headers != nil {
-			evaluatedHeaders, evalErr := e.evaluateResponseValue(
-				apiResponseConfig.Headers,
-				env,
-			)
-			if evalErr == nil {
-				headers := make(map[string]string)
-				if hMap, ok := evaluatedHeaders.(map[string]interface{}); ok {
-					for k, v := range hMap {
-						headers[k] = fmt.Sprintf("%v", v)
-					}
-					metaMap["headers"] = headers
-				} else if sMap, okS := evaluatedHeaders.(map[string]string); okS {
-					for k, v := range sMap {
-						val, _ := e.evaluateResponseValue(v, env)
-						headers[k] = fmt.Sprintf("%v", val)
-					}
-					metaMap["headers"] = headers
-				}
-			}
-		}
-
-		if apiResponseConfig.Model != "" {
-			evaluatedModel, evalErr := e.evaluateResponseValue(apiResponseConfig.Model, env)
-			if evalErr == nil {
-				metaMap["model"] = fmt.Sprintf("%v", evaluatedModel)
-			}
-		}
-		if apiResponseConfig.Backend != "" {
-			evaluatedBackend, evalErr := e.evaluateResponseValue(
-				apiResponseConfig.Backend,
-				env,
-			)
-			if evalErr == nil {
-				metaMap["backend"] = fmt.Sprintf("%v", evaluatedBackend)
-			}
-		}
-
-		if len(metaMap) > 0 {
-			apiResponse["_meta"] = metaMap
-		}
+	if metaMap := e.buildAPIResponseMeta(apiResponseConfig, env); len(metaMap) > 0 {
+		apiResponse["_meta"] = metaMap
 	}
-
-	// Automatically add LLM metadata from execution context (only if LLM resources were used)
-	if ctx != nil && ctx.LLMMetadata != nil &&
-		(ctx.LLMMetadata.Model != "" || ctx.LLMMetadata.Backend != "") {
-		if metaMap, ok := apiResponse["_meta"].(map[string]interface{}); ok {
-			// Add to existing meta (only if not already specified in YAML)
-			if ctx.LLMMetadata.Model != "" && metaMap["model"] == nil {
-				metaMap["model"] = ctx.LLMMetadata.Model
-			}
-			if ctx.LLMMetadata.Backend != "" && metaMap["backend"] == nil {
-				metaMap["backend"] = ctx.LLMMetadata.Backend
-			}
-		} else {
-			// Create new meta if it doesn't exist
-			newMetaMap := make(map[string]interface{})
-			if ctx.LLMMetadata.Model != "" {
-				newMetaMap["model"] = ctx.LLMMetadata.Model
-			}
-			if ctx.LLMMetadata.Backend != "" {
-				newMetaMap["backend"] = ctx.LLMMetadata.Backend
-			}
-			if len(newMetaMap) > 0 {
-				apiResponse["_meta"] = newMetaMap
-			}
-		}
-	}
+	e.applyLLMMetadataToResponse(apiResponse, ctx)
 
 	return apiResponse, nil
+}
+
+// ensureResponseEvaluator initializes the evaluator required for API response evaluation.
+func (e *Engine) ensureResponseEvaluator(ctx *ExecutionContext) error {
+	if e.evaluator != nil {
+		return nil
+	}
+	if ctx == nil {
+		return errors.New("execution context required for API response")
+	}
+	e.evaluator = expression.NewEvaluator(ctx.API)
+	return nil
+}
+
+// resolveAPIResponseSuccess evaluates the success flag, defaulting to true when unset.
+func (e *Engine) resolveAPIResponseSuccess(
+	config *domain.APIResponseConfig,
+	env map[string]interface{},
+) (bool, error) {
+	if config.Success == nil {
+		return true, nil
+	}
+	evaluatedSuccess, successErr := e.evaluateResponseValue(config.Success, env)
+	if successErr != nil {
+		return false, fmt.Errorf("failed to evaluate API response success: %w", successErr)
+	}
+	successBool, validBool := domain.ParseBool(evaluatedSuccess)
+	if !validBool {
+		return false, nil
+	}
+	return successBool, nil
+}
+
+// buildAPIResponseMeta assembles optional _meta fields from the API response config.
+func (e *Engine) buildAPIResponseMeta(
+	config *domain.APIResponseConfig,
+	env map[string]interface{},
+) map[string]interface{} {
+	metaMap := make(map[string]interface{})
+
+	if config.Headers != nil {
+		if headers := e.evaluateResponseHeaders(config.Headers, env); len(headers) > 0 {
+			metaMap["headers"] = headers
+		}
+	}
+	if config.Model != "" {
+		if evaluatedModel, evalErr := e.evaluateResponseValue(config.Model, env); evalErr == nil {
+			metaMap["model"] = fmt.Sprintf("%v", evaluatedModel)
+		}
+	}
+	if config.Backend != "" {
+		if evaluatedBackend, evalErr := e.evaluateResponseValue(config.Backend, env); evalErr == nil {
+			metaMap["backend"] = fmt.Sprintf("%v", evaluatedBackend)
+		}
+	}
+	return metaMap
+}
+
+// evaluateResponseHeaders evaluates configured response headers into string maps.
+func (e *Engine) evaluateResponseHeaders(
+	headersConfig interface{},
+	env map[string]interface{},
+) map[string]string {
+	evaluatedHeaders, evalErr := e.evaluateResponseValue(headersConfig, env)
+	if evalErr != nil {
+		return nil
+	}
+
+	headers := make(map[string]string)
+	if hMap, ok := evaluatedHeaders.(map[string]interface{}); ok {
+		for k, v := range hMap {
+			headers[k] = fmt.Sprintf("%v", v)
+		}
+		return headers
+	}
+	if sMap, okS := evaluatedHeaders.(map[string]string); okS {
+		for k, v := range sMap {
+			val, _ := e.evaluateResponseValue(v, env)
+			headers[k] = fmt.Sprintf("%v", val)
+		}
+	}
+	return headers
+}
+
+// applyLLMMetadataToResponse merges LLM metadata from context into the API response _meta block.
+func (e *Engine) applyLLMMetadataToResponse(
+	apiResponse map[string]interface{},
+	ctx *ExecutionContext,
+) {
+	if ctx == nil || ctx.LLMMetadata == nil {
+		return
+	}
+	if ctx.LLMMetadata.Model == "" && ctx.LLMMetadata.Backend == "" {
+		return
+	}
+
+	metaMap, ok := apiResponse["_meta"].(map[string]interface{})
+	if ok {
+		if ctx.LLMMetadata.Model != "" && metaMap["model"] == nil {
+			metaMap["model"] = ctx.LLMMetadata.Model
+		}
+		if ctx.LLMMetadata.Backend != "" && metaMap["backend"] == nil {
+			metaMap["backend"] = ctx.LLMMetadata.Backend
+		}
+		return
+	}
+
+	newMetaMap := make(map[string]interface{})
+	if ctx.LLMMetadata.Model != "" {
+		newMetaMap["model"] = ctx.LLMMetadata.Model
+	}
+	if ctx.LLMMetadata.Backend != "" {
+		newMetaMap["backend"] = ctx.LLMMetadata.Backend
+	}
+	if len(newMetaMap) > 0 {
+		apiResponse["_meta"] = newMetaMap
+	}
 }
 
 // evaluateResponseValue recursively evaluates expressions in response values.

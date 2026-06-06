@@ -134,62 +134,30 @@ func PackageWorkflow(cmd *cobra.Command, args []string) error {
 	return PackageWorkflowWithFlags(cmd, args, flags)
 }
 
-// PackageWorkflowWithFlags packages a workflow into a .kdeps file with injected flags.
-func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
-	kdeps_debug.Log("enter: PackageWorkflowWithFlags")
-	workflowDir := args[0]
-
-	fmt.Fprintf(os.Stdout, "Packaging: %s\n\n", workflowDir)
-
-	// 1. Validate workflow directory
-	if err := ValidateWorkflowDir(workflowDir); err != nil {
-		return fmt.Errorf("invalid workflow directory: %w", err)
-	}
-
-	// 2. Parse workflow to get metadata
-	workflowPath := FindWorkflowFile(workflowDir)
-	if workflowPath == "" {
-		return fmt.Errorf(
-			"no workflow file found in %s"+
-				" (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
-			workflowDir,
-		)
-	}
-
-	// Create validators (minimal setup for packaging)
+// newPackageYAMLParser creates a YAML parser for packaging commands.
+func newPackageYAMLParser() (*yaml.Parser, error) {
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
-		return fmt.Errorf("failed to create schema validator: %w", err)
+		return nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
-	exprParser := expression.NewParser()
-	parser := yaml.NewParser(schemaValidator, exprParser)
+	return yaml.NewParser(schemaValidator, expression.NewParser()), nil
+}
 
-	workflow, err := parser.ParseWorkflow(workflowPath)
-	if err != nil {
-		return fmt.Errorf("failed to parse workflow: %w", err)
-	}
-
-	// 3. Determine package name and version
+// resolvePackageOutputDir returns the output directory and package name for archives.
+func resolvePackageOutputDir(flags *PackageFlags, defaultName string) (string, string) {
 	pkgName := flags.Name
 	if pkgName == "" {
-		pkgName = fmt.Sprintf("%s-%s", workflow.Metadata.Name, workflow.Metadata.Version)
+		pkgName = defaultName
 	}
-
-	// 4. Create package archive
 	outputDir := flags.Output
 	if outputDir == "" {
 		outputDir = "."
 	}
-	archivePath := filepath.Join(outputDir, pkgName+".kdeps")
-	if archiveErr := CreatePackageArchive(workflowDir, archivePath, workflow); archiveErr != nil {
-		return fmt.Errorf("failed to create package archive: %w", archiveErr)
-	}
+	return outputDir, pkgName
+}
 
-	// 5. Generate docker-compose.yml if needed
-	if composeErr := GenerateDockerCompose(workflowDir, outputDir, pkgName, workflow); composeErr != nil {
-		kdepslog.Warn("failed to generate docker-compose.yml", "error", composeErr)
-	}
-
+// printWorkflowPackageSuccess prints the post-package summary for workflows.
+func printWorkflowPackageSuccess(archivePath string) {
 	fmt.Fprintln(os.Stdout, "✓ Workflow validated")
 	fmt.Fprintln(os.Stdout, "✓ Resources collected")
 	fmt.Fprintln(os.Stdout, "✓ Dependencies resolved")
@@ -199,7 +167,51 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "Next steps:")
 	fmt.Fprintf(os.Stdout, "  kdeps build %s\n", archivePath)
+}
 
+// PackageWorkflowWithFlags packages a workflow into a .kdeps file with injected flags.
+func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageWorkflowWithFlags")
+	workflowDir := args[0]
+	fmt.Fprintf(os.Stdout, "Packaging: %s\n\n", workflowDir)
+
+	if err := ValidateWorkflowDir(workflowDir); err != nil {
+		return fmt.Errorf("invalid workflow directory: %w", err)
+	}
+
+	workflowPath := FindWorkflowFile(workflowDir)
+	if workflowPath == "" {
+		return fmt.Errorf(
+			"no workflow file found in %s"+
+				" (expected one of: workflow.yaml, workflow.yaml.j2, workflow.yml, workflow.yml.j2, workflow.j2)",
+			workflowDir,
+		)
+	}
+
+	parser, err := newPackageYAMLParser()
+	if err != nil {
+		return err
+	}
+
+	workflow, err := parser.ParseWorkflow(workflowPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow: %w", err)
+	}
+
+	outputDir, pkgName := resolvePackageOutputDir(
+		flags,
+		fmt.Sprintf("%s-%s", workflow.Metadata.Name, workflow.Metadata.Version),
+	)
+	archivePath := filepath.Join(outputDir, pkgName+".kdeps")
+	if archiveErr := CreatePackageArchive(workflowDir, archivePath, workflow); archiveErr != nil {
+		return fmt.Errorf("failed to create package archive: %w", archiveErr)
+	}
+
+	if composeErr := GenerateDockerCompose(workflowDir, outputDir, pkgName, workflow); composeErr != nil {
+		kdepslog.Warn("failed to generate docker-compose.yml", "error", composeErr)
+	}
+
+	printWorkflowPackageSuccess(archivePath)
 	return nil
 }
 
@@ -273,6 +285,28 @@ func ParseIgnorePatterns(content string) []string {
 	return patterns
 }
 
+// matchesDirPattern reports whether any path component matches a directory pattern.
+func matchesDirPattern(relPath, dirPattern string) bool {
+	for _, part := range strings.Split(relPath, string(filepath.Separator)) {
+		if matched, _ := filepath.Match(dirPattern, part); matched {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesIgnorePattern reports whether relPath matches a single ignore pattern.
+func matchesIgnorePattern(relPath, baseName, pattern string) bool {
+	if strings.HasSuffix(pattern, "/") {
+		return matchesDirPattern(relPath, strings.TrimSuffix(pattern, "/"))
+	}
+	if matched, _ := filepath.Match(pattern, baseName); matched {
+		return true
+	}
+	matched, _ := filepath.Match(pattern, relPath)
+	return matched
+}
+
 // IsIgnored checks if a relative path matches any .kdepsignore pattern.
 func IsIgnored(relPath string, patterns []string) bool {
 	kdeps_debug.Log("enter: IsIgnored")
@@ -281,23 +315,7 @@ func IsIgnored(relPath string, patterns []string) bool {
 	}
 	baseName := filepath.Base(relPath)
 	for _, pattern := range patterns {
-		// Directory pattern (trailing /)
-		if strings.HasSuffix(pattern, "/") {
-			dirPattern := strings.TrimSuffix(pattern, "/")
-			// Check each path component
-			for _, part := range strings.Split(relPath, string(filepath.Separator)) {
-				if matched, _ := filepath.Match(dirPattern, part); matched {
-					return true
-				}
-			}
-			continue
-		}
-		// Match against basename
-		if matched, _ := filepath.Match(pattern, baseName); matched {
-			return true
-		}
-		// Match against full relative path
-		if matched, _ := filepath.Match(pattern, relPath); matched {
+		if matchesIgnorePattern(relPath, baseName, pattern) {
 			return true
 		}
 	}
@@ -452,49 +470,8 @@ const kagencyExtension = ".kagency"
 // komponentExtension is the file extension for packed component archives.
 const komponentExtension = ".komponent"
 
-// PackageAgencyWithFlags packages an agency directory into a .kagency archive.
-// The archive is a tar.gz containing agency.yaml and the entire agents/ sub-tree.
-func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
-	kdeps_debug.Log("enter: PackageAgencyWithFlags")
-	agencyDir := args[0]
-
-	fmt.Fprintf(os.Stdout, "Packaging agency: %s\n\n", agencyDir)
-
-	// Locate the agency manifest.
-	agencyFile := FindAgencyFile(agencyDir)
-	if agencyFile == "" {
-		return fmt.Errorf("no agency.yaml / agency.yml found in %s", agencyDir)
-	}
-
-	// Parse the agency to get metadata.
-	schemaValidator, err := validator.NewSchemaValidator()
-	if err != nil {
-		return fmt.Errorf("failed to create schema validator: %w", err)
-	}
-	exprParser := expression.NewParser()
-	parser := yaml.NewParser(schemaValidator, exprParser)
-
-	agency, err := parser.ParseAgency(agencyFile)
-	if err != nil {
-		return fmt.Errorf("failed to parse agency: %w", err)
-	}
-
-	// Determine output name.
-	pkgName := flags.Name
-	if pkgName == "" {
-		pkgName = fmt.Sprintf("%s-%s", agency.Metadata.Name, agency.Metadata.Version)
-	}
-
-	outputDir := flags.Output
-	if outputDir == "" {
-		outputDir = "."
-	}
-
-	archivePath := filepath.Join(outputDir, pkgName+kagencyExtension)
-	if archiveErr := CreateAgencyPackageArchive(agencyDir, archivePath); archiveErr != nil {
-		return fmt.Errorf("failed to create agency archive: %w", archiveErr)
-	}
-
+// printAgencyPackageSuccess prints the post-package summary for agencies.
+func printAgencyPackageSuccess(archivePath string) {
 	fmt.Fprintln(os.Stdout, "✓ Agency manifest validated")
 	fmt.Fprintln(os.Stdout, "✓ Agent sub-directories collected")
 	fmt.Fprintln(os.Stdout, "✓ Package created")
@@ -505,7 +482,40 @@ func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags
 	fmt.Fprintf(os.Stdout, "  kdeps run %s\n", archivePath)
 	fmt.Fprintf(os.Stdout, "  kdeps build %s\n", archivePath)
 	fmt.Fprintf(os.Stdout, "  kdeps export iso %s\n", archivePath)
+}
 
+// PackageAgencyWithFlags packages an agency directory into a .kagency archive.
+// The archive is a tar.gz containing agency.yaml and the entire agents/ sub-tree.
+func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
+	kdeps_debug.Log("enter: PackageAgencyWithFlags")
+	agencyDir := args[0]
+	fmt.Fprintf(os.Stdout, "Packaging agency: %s\n\n", agencyDir)
+
+	agencyFile := FindAgencyFile(agencyDir)
+	if agencyFile == "" {
+		return fmt.Errorf("no agency.yaml / agency.yml found in %s", agencyDir)
+	}
+
+	parser, err := newPackageYAMLParser()
+	if err != nil {
+		return err
+	}
+
+	agency, err := parser.ParseAgency(agencyFile)
+	if err != nil {
+		return fmt.Errorf("failed to parse agency: %w", err)
+	}
+
+	outputDir, pkgName := resolvePackageOutputDir(
+		flags,
+		fmt.Sprintf("%s-%s", agency.Metadata.Name, agency.Metadata.Version),
+	)
+	archivePath := filepath.Join(outputDir, pkgName+kagencyExtension)
+	if archiveErr := CreateAgencyPackageArchive(agencyDir, archivePath); archiveErr != nil {
+		return fmt.Errorf("failed to create agency archive: %w", archiveErr)
+	}
+
+	printAgencyPackageSuccess(archivePath)
 	return nil
 }
 
@@ -541,54 +551,46 @@ func isKagencyFile(path string) bool {
 	return strings.HasSuffix(path, kagencyExtension)
 }
 
+// printComponentPackageSuccess prints the post-package summary for components.
+func printComponentPackageSuccess(archivePath string) {
+	fmt.Fprintln(os.Stdout, "✓ Component manifest validated")
+	fmt.Fprintln(os.Stdout, "✓ Resources collected")
+	fmt.Fprintln(os.Stdout, "✓ Package created")
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintf(os.Stdout, "Created: %s\n", archivePath)
+}
+
 // PackageComponentWithFlags packages a component directory into a .komponent archive.
 func PackageComponentWithFlags(_ *cobra.Command, args []string, flags *PackageFlags) error {
 	kdeps_debug.Log("enter: PackageComponentWithFlags")
 	componentDir := args[0]
-
 	fmt.Fprintf(os.Stdout, "Packaging component: %s\n\n", componentDir)
 
-	// Locate the component manifest.
 	componentFile := FindComponentFile(componentDir)
 	if componentFile == "" {
 		return fmt.Errorf("no component.yaml / component.yml found in %s", componentDir)
 	}
 
-	// Parse the component to get metadata.
-	schemaValidator, err := validator.NewSchemaValidator()
+	parser, err := newPackageYAMLParser()
 	if err != nil {
-		return fmt.Errorf("failed to create schema validator: %w", err)
+		return err
 	}
-	exprParser := expression.NewParser()
-	parser := yaml.NewParser(schemaValidator, exprParser)
 
 	component, err := parser.ParseComponent(componentFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse component: %w", err)
 	}
 
-	// Determine output name.
-	pkgName := flags.Name
-	if pkgName == "" {
-		pkgName = fmt.Sprintf("%s-%s", component.Metadata.Name, component.Metadata.Version)
-	}
-
-	outputDir := flags.Output
-	if outputDir == "" {
-		outputDir = "."
-	}
-
+	outputDir, pkgName := resolvePackageOutputDir(
+		flags,
+		fmt.Sprintf("%s-%s", component.Metadata.Name, component.Metadata.Version),
+	)
 	archivePath := filepath.Join(outputDir, pkgName+komponentExtension)
 	if archiveErr := CreateComponentPackageArchive(componentDir, archivePath); archiveErr != nil {
 		return fmt.Errorf("failed to create component archive: %w", archiveErr)
 	}
 
-	fmt.Fprintln(os.Stdout, "✓ Component manifest validated")
-	fmt.Fprintln(os.Stdout, "✓ Resources collected")
-	fmt.Fprintln(os.Stdout, "✓ Package created")
-	fmt.Fprintln(os.Stdout)
-	fmt.Fprintf(os.Stdout, "Created: %s\n", archivePath)
-
+	printComponentPackageSuccess(archivePath)
 	return nil
 }
 

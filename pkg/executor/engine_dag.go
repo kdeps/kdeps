@@ -87,56 +87,45 @@ func (e *Engine) ShouldSkipResource(
 }
 
 // MatchesRestrictions checks if resource matches route/method restrictions.
-//
-//nolint:gocognit // restriction checks are intentionally explicit
 func (e *Engine) MatchesRestrictions(resource *domain.Resource, req *RequestContext) bool {
 	kdeps_debug.Log("enter: MatchesRestrictions")
-	// If no restrictions, always match.
 	if resource.Validations == nil ||
 		(len(resource.Validations.Methods) == 0 && len(resource.Validations.Routes) == 0) {
 		return true
 	}
-
-	// If no request context, can't match restrictions.
 	if req == nil {
 		return false
 	}
+	if !matchesMethodRestriction(resource.Validations.Methods, req.Method) {
+		return false
+	}
+	return e.matchesRouteRestriction(resource.Validations.Routes, req.Path)
+}
 
-	// Check method restriction.
-	if len(resource.Validations.Methods) > 0 {
-		methodMatch := false
-		for _, method := range resource.Validations.Methods {
-			if method == req.Method {
-				methodMatch = true
-				break
-			}
-		}
-		if !methodMatch {
-			return false
+// matchesMethodRestriction returns true when no methods are configured or the request method matches.
+func matchesMethodRestriction(methods []string, requestMethod string) bool {
+	if len(methods) == 0 {
+		return true
+	}
+	for _, method := range methods {
+		if method == requestMethod {
+			return true
 		}
 	}
+	return false
+}
 
-	// Check route restriction with pattern matching support.
-	if len(resource.Validations.Routes) > 0 {
-		routeMatch := false
-		for _, route := range resource.Validations.Routes {
-			// Try exact match first
-			if route == req.Path {
-				routeMatch = true
-				break
-			}
-			// Try pattern matching for wildcards (e.g., /api/*)
-			if e.matchRoutePattern(route, req.Path) {
-				routeMatch = true
-				break
-			}
-		}
-		if !routeMatch {
-			return false
+// matchesRouteRestriction returns true when no routes are configured or the request path matches.
+func (e *Engine) matchesRouteRestriction(routes []string, path string) bool {
+	if len(routes) == 0 {
+		return true
+	}
+	for _, route := range routes {
+		if route == path || e.matchRoutePattern(route, path) {
+			return true
 		}
 	}
-
-	return true
+	return false
 }
 
 // matchRoutePattern matches a route pattern against a path, supporting wildcards.

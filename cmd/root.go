@@ -89,37 +89,48 @@ func createRootCommand() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			// Initialize structured logger.
-			debugFlag, _ := cmd.Flags().GetBool("debug")
-			verboseFlag, _ := cmd.Flags().GetBool("verbose")
-			kdepslog.Init(debugFlag, verboseFlag)
-
-			// On first run (no config file), bootstrap interactively.
-			// In non-interactive environments Bootstrap falls back to Scaffold.
-			if bootErr := config.Bootstrap(os.Stdout); bootErr != nil {
-				kdepslog.Warn("bootstrap failed", "error", bootErr)
-			}
-			if _, loadErr := config.Load(); loadErr != nil {
-				kdepslog.Warn("could not load config", "error", loadErr)
-			}
-			// --instrument enables call-chain instrumentation (pkg/debug).
-			if instrFlag, err := cmd.Flags().GetBool("instrument"); err == nil && instrFlag {
-				_ = os.Setenv("KDEPS_INSTRUMENT", "true")
-			}
-			kdepslog.Warn("HIGHLY EXPERIMENTAL SOFTWARE — under active development, expect breaking changes",
-				"feedback", "https://github.com/kdeps/kdeps/issues")
+			runRootPersistentPreRun(cmd)
 		},
 	}
 
-	// Add global flags
 	rootCmd.PersistentFlags().Bool("verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().Bool("instrument", false, "Enable call-chain instrumentation tracing")
 
-	// Add subcommands
 	addSubcommands(rootCmd)
 
 	return rootCmd
+}
+
+func runRootPersistentPreRun(cmd *cobra.Command) {
+	initRootLogging(cmd)
+	bootstrapRootConfig()
+	maybeEnableInstrumentation(cmd)
+	kdepslog.Warn("HIGHLY EXPERIMENTAL SOFTWARE — under active development, expect breaking changes",
+		"feedback", "https://github.com/kdeps/kdeps/issues")
+}
+
+func initRootLogging(cmd *cobra.Command) {
+	debugFlag, _ := cmd.Flags().GetBool("debug")
+	verboseFlag, _ := cmd.Flags().GetBool("verbose")
+	kdepslog.Init(debugFlag, verboseFlag)
+}
+
+func bootstrapRootConfig() {
+	if bootErr := config.Bootstrap(os.Stdout); bootErr != nil {
+		kdepslog.Warn("bootstrap failed", "error", bootErr)
+	}
+	if _, loadErr := config.Load(); loadErr != nil {
+		kdepslog.Warn("could not load config", "error", loadErr)
+	}
+}
+
+func maybeEnableInstrumentation(cmd *cobra.Command) {
+	instrFlag, err := cmd.Flags().GetBool("instrument")
+	if err != nil || !instrFlag {
+		return
+	}
+	_ = os.Setenv("KDEPS_INSTRUMENT", "true")
 }
 
 // addSubcommands registers all subcommands to the root command.
@@ -133,51 +144,36 @@ func addSubcommands(rootCmd *cobra.Command) {
 		&cobra.Group{ID: groupDeploy, Title: "Deploy:"},
 	)
 
-	// Develop
-	newCmd := newNewCmd()
-	newCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(newCmd)
+	addDevelopCommands(rootCmd)
+	addPackageCommands(rootCmd)
+	addDistributeCommands(rootCmd)
+	addDeployCommands(rootCmd)
+}
 
-	editCmd := newEditCmd()
-	editCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(editCmd)
+func addCommandToGroup(rootCmd *cobra.Command, groupID string, cmd *cobra.Command) {
+	cmd.GroupID = groupID
+	rootCmd.AddCommand(cmd)
+}
 
-	validateCmd := newValidateCmd()
-	validateCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(validateCmd)
+func addDevelopCommands(rootCmd *cobra.Command) {
+	addCommandToGroup(rootCmd, groupDevelop, newNewCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newEditCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newValidateCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newRunCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newChatCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newDoctorCmd())
+	addCommandToGroup(rootCmd, groupDevelop, newServeCmd())
+}
 
-	runCmd := newRunCmd()
-	runCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(runCmd)
+func addPackageCommands(rootCmd *cobra.Command) {
+	addCommandToGroup(rootCmd, groupPackage, newBundleCmd())
+}
 
-	// Package
-	bundleCmd := newBundleCmd()
-	bundleCmd.GroupID = groupPackage
-	rootCmd.AddCommand(bundleCmd)
+func addDistributeCommands(rootCmd *cobra.Command) {
+	addCommandToGroup(rootCmd, groupDistribute, newRegistryCmd())
+}
 
-	// Distribute
-	registryCmd := newRegistryCmd()
-	registryCmd.GroupID = groupDistribute
-	rootCmd.AddCommand(registryCmd)
-
-	// Deploy
-	execCmd := newExecCmd()
-	execCmd.GroupID = groupDeploy
-	rootCmd.AddCommand(execCmd)
-
-	exportCmd := newExportCmd()
-	exportCmd.GroupID = groupDeploy
-	rootCmd.AddCommand(exportCmd)
-
-	chatCmd := newChatCmd()
-	chatCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(chatCmd)
-
-	doctorCmd := newDoctorCmd()
-	doctorCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(doctorCmd)
-
-	serveCmd := newServeCmd()
-	serveCmd.GroupID = groupDevelop
-	rootCmd.AddCommand(serveCmd)
+func addDeployCommands(rootCmd *cobra.Command) {
+	addCommandToGroup(rootCmd, groupDeploy, newExecCmd())
+	addCommandToGroup(rootCmd, groupDeploy, newExportCmd())
 }

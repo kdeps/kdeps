@@ -78,7 +78,15 @@ func (g *Graph) AddResource(resource *domain.Resource) error {
 // Build builds the dependency graph.
 func (g *Graph) Build() error {
 	kdeps_debug.Log("enter: Build")
-	// Validate all dependencies exist.
+	if err := g.validateDependencies(); err != nil {
+		return err
+	}
+	g.buildDependents()
+	return g.DetectCycles()
+}
+
+// validateDependencies ensures every edge references an existing node.
+func (g *Graph) validateDependencies() error {
 	for actionID, deps := range g.Edges {
 		for _, dep := range deps {
 			if _, exists := g.Nodes[dep]; !exists {
@@ -86,21 +94,17 @@ func (g *Graph) Build() error {
 			}
 		}
 	}
+	return nil
+}
 
-	// Build reverse dependencies (dependents).
+// buildDependents populates reverse dependency lists on each node.
+func (g *Graph) buildDependents() {
 	for actionID, deps := range g.Edges {
 		for _, dep := range deps {
 			depNode := g.Nodes[dep]
 			depNode.Dependents = append(depNode.Dependents, actionID)
 		}
 	}
-
-	// Check for cycles.
-	if err := g.DetectCycles(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // DetectCycles detects cycles in the dependency graph.
@@ -110,17 +114,17 @@ func (g *Graph) DetectCycles() error {
 	recursionStack := make(map[string]bool)
 
 	for actionID := range g.Nodes {
-		if !visited[actionID] {
-			if g.hasCycle(actionID, visited, recursionStack) {
-				return domain.NewError(
-					domain.ErrCodeDependencyCycle,
-					"dependency cycle detected",
-					nil,
-				)
-			}
+		if visited[actionID] {
+			continue
+		}
+		if g.hasCycle(actionID, visited, recursionStack) {
+			return domain.NewError(
+				domain.ErrCodeDependencyCycle,
+				"dependency cycle detected",
+				nil,
+			)
 		}
 	}
-
 	return nil
 }
 
@@ -149,23 +153,23 @@ func (g *Graph) hasCycle(actionID string, visited, recursionStack map[string]boo
 // TopologicalSort returns resources in topological order (dependencies first).
 func (g *Graph) TopologicalSort() ([]*domain.Resource, error) {
 	kdeps_debug.Log("enter: TopologicalSort")
-	// Build the graph if not already built.
 	if err := g.Build(); err != nil {
 		return nil, err
 	}
+	return g.topologicalSortAllNodes()
+}
 
+func (g *Graph) topologicalSortAllNodes() ([]*domain.Resource, error) {
 	visited := make(map[string]bool)
 	var result []*domain.Resource
-
-	// Visit all nodes.
 	for actionID := range g.Nodes {
-		if !visited[actionID] {
-			if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
-				return nil, err
-			}
+		if visited[actionID] {
+			continue
+		}
+		if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
+			return nil, err
 		}
 	}
-
 	return result, nil
 }
 
@@ -221,35 +225,32 @@ func (g *Graph) topologicalSortUtilWithStack(
 // GetExecutionOrder returns the execution order for resources based on dependencies.
 func (g *Graph) GetExecutionOrder(targetActionID string) ([]*domain.Resource, error) {
 	kdeps_debug.Log("enter: GetExecutionOrder")
-	// Build the graph.
 	if err := g.Build(); err != nil {
 		return nil, err
 	}
-
-	// Check if target exists.
 	if _, exists := g.Nodes[targetActionID]; !exists {
 		return nil, fmt.Errorf("target resource '%s' not found", targetActionID)
 	}
+	return g.topologicalSortSubset(g.executionSubset(targetActionID))
+}
 
-	// Get all dependencies of target (including transitive).
+func (g *Graph) executionSubset(targetActionID string) map[string]bool {
 	deps := g.GetTransitiveDependencies(targetActionID)
-
-	// Include target itself.
 	deps[targetActionID] = true
+	return deps
+}
 
-	// Filter graph to only include relevant resources.
+func (g *Graph) topologicalSortSubset(actionIDs map[string]bool) ([]*domain.Resource, error) {
 	visited := make(map[string]bool)
 	var result []*domain.Resource
-
-	// Topological sort of relevant resources.
-	for actionID := range deps {
-		if !visited[actionID] {
-			if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
-				return nil, err
-			}
+	for actionID := range actionIDs {
+		if visited[actionID] {
+			continue
+		}
+		if err := g.TopologicalSortUtil(actionID, visited, &result); err != nil {
+			return nil, err
 		}
 	}
-
 	return result, nil
 }
 

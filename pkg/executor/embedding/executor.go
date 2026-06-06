@@ -42,6 +42,12 @@ var jsonMarshal = json.Marshal
 
 const ()
 
+type resolvedEmbeddingConfig struct {
+	dbPath     string
+	collection string
+	limit      int
+}
+
 // Executor executes embedding resources using SQLite for storage.
 type Executor struct{}
 
@@ -51,6 +57,39 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
+func resolveEmbeddingConfig(config *domain.EmbeddingConfig) resolvedEmbeddingConfig {
+	defaults, _ := kdepsconfig.GetDefaults()
+
+	dbPath := config.DBPath
+	if dbPath == "" {
+		dbPath = defaults.Embedding.DBPath
+	}
+	collection := config.Collection
+	if collection == "" {
+		collection = defaults.Embedding.Collection
+	}
+	limit := config.Limit
+	if limit <= 0 {
+		limit = defaults.Embedding.Limit
+	}
+
+	return resolvedEmbeddingConfig{
+		dbPath:     dbPath,
+		collection: collection,
+		limit:      limit,
+	}
+}
+
+func buildEmbeddingResult(fields map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{}, len(fields)+1)
+	for k, v := range fields {
+		result[k] = v
+	}
+	jsonBytes, _ := jsonMarshal(result)
+	result["json"] = string(jsonBytes)
+	return result
+}
+
 // Execute performs the configured embedding operation.
 func (e *Executor) Execute(
 	_ *executor.ExecutionContext,
@@ -58,23 +97,9 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
 
-	dbPath := config.DBPath
-	if dbPath == "" {
-		defaults, _ := kdepsconfig.GetDefaults()
-		dbPath = defaults.Embedding.DBPath
-	}
-	collection := config.Collection
-	if collection == "" {
-		dd, _ := kdepsconfig.GetDefaults()
-		collection = dd.Embedding.Collection
-	}
-	limit := config.Limit
-	if limit <= 0 {
-		dd, _ := kdepsconfig.GetDefaults()
-		limit = dd.Embedding.Limit
-	}
+	resolved := resolveEmbeddingConfig(config)
 
-	db, openErr := sql.Open("sqlite3", dbPath)
+	db, openErr := sql.Open("sqlite3", resolved.dbPath)
 	if openErr != nil {
 		return nil, fmt.Errorf("embedding: failed to open database: %w", openErr)
 	}
@@ -86,13 +111,13 @@ func (e *Executor) Execute(
 
 	switch strings.ToLower(config.Operation) {
 	case "index":
-		return e.index(db, collection, config.Text)
+		return e.index(db, resolved.collection, config.Text)
 	case "upsert":
-		return e.upsert(db, collection, config.Text)
+		return e.upsert(db, resolved.collection, config.Text)
 	case "search":
-		return e.search(db, collection, config.Text, limit)
+		return e.search(db, resolved.collection, config.Text, resolved.limit)
 	case "delete":
-		return e.delete(db, collection, config.Text)
+		return e.delete(db, resolved.collection, config.Text)
 	default:
 		return nil, fmt.Errorf("embedding: unknown operation %q (use index, search, upsert, delete)", config.Operation)
 	}
@@ -119,15 +144,12 @@ func (e *Executor) index(db *sql.DB, collection, text string) (interface{}, erro
 		`INSERT OR IGNORE INTO embeddings (collection, text) VALUES (?, ?)`, collection, text); execErr != nil {
 		return nil, fmt.Errorf("embedding: index failed: %w", execErr)
 	}
-	result := map[string]interface{}{
+	return buildEmbeddingResult(map[string]interface{}{
 		"operation":  "index",
 		"collection": collection,
 		"text":       text,
 		"success":    true,
-	}
-	jsonBytes, _ := jsonMarshal(result)
-	result["json"] = string(jsonBytes)
-	return result, nil
+	}), nil
 }
 
 func (e *Executor) upsert(db *sql.DB, collection, text string) (interface{}, error) {
@@ -139,15 +161,12 @@ func (e *Executor) upsert(db *sql.DB, collection, text string) (interface{}, err
 		`INSERT OR REPLACE INTO embeddings (collection, text) VALUES (?, ?)`, collection, text); execErr != nil {
 		return nil, fmt.Errorf("embedding: upsert failed: %w", execErr)
 	}
-	result := map[string]interface{}{
+	return buildEmbeddingResult(map[string]interface{}{
 		"operation":  "upsert",
 		"collection": collection,
 		"text":       text,
 		"success":    true,
-	}
-	jsonBytes, _ := jsonMarshal(result)
-	result["json"] = string(jsonBytes)
-	return result, nil
+	}), nil
 }
 
 func (e *Executor) search(db *sql.DB, collection, query string, limit int) (interface{}, error) {
@@ -179,16 +198,13 @@ func (e *Executor) search(db *sql.DB, collection, query string, limit int) (inte
 	if rowsErr := rows.Err(); rowsErr != nil {
 		return nil, fmt.Errorf("embedding: rows iteration failed: %w", rowsErr)
 	}
-	result := map[string]interface{}{
+	return buildEmbeddingResult(map[string]interface{}{
 		"operation":  "search",
 		"collection": collection,
 		"query":      query,
 		"results":    matches,
 		"count":      len(matches),
-	}
-	jsonBytes, _ := jsonMarshal(result)
-	result["json"] = string(jsonBytes)
-	return result, nil
+	}), nil
 }
 
 func (e *Executor) delete(db *sql.DB, collection, text string) (interface{}, error) {
@@ -206,13 +222,10 @@ func (e *Executor) delete(db *sql.DB, collection, text string) (interface{}, err
 		return nil, fmt.Errorf("embedding: delete failed: %w", execErr)
 	}
 	affected, _ := res.RowsAffected()
-	result := map[string]interface{}{
+	return buildEmbeddingResult(map[string]interface{}{
 		"operation":  "delete",
 		"collection": collection,
 		"affected":   affected,
 		"success":    true,
-	}
-	jsonBytes, _ := jsonMarshal(result)
-	result["json"] = string(jsonBytes)
-	return result, nil
+	}), nil
 }

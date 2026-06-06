@@ -77,6 +77,114 @@ type ChatRequestConfig struct {
 	Tools         []map[string]interface{}
 }
 
+// buildOpenAICompatRequest builds a standard OpenAI-compatible chat request body.
+func buildOpenAICompatRequest(
+	model string,
+	messages []map[string]interface{},
+	config ChatRequestConfig,
+) map[string]interface{} {
+	req := map[string]interface{}{
+		"model":    model,
+		"messages": messages,
+		"stream":   false,
+	}
+
+	if config.ContextLength > 0 {
+		req["max_tokens"] = config.ContextLength
+	}
+
+	if config.JSONResponse {
+		req["response_format"] = map[string]interface{}{
+			"type": "json_object",
+		}
+	}
+
+	if len(config.Tools) > 0 {
+		req["tools"] = config.Tools
+	}
+
+	return req
+}
+
+// parseBackendJSONResponse decodes a backend JSON response, returning an API error on non-200 status.
+func parseBackendJSONResponse(resp *stdhttp.Response, apiName string) (map[string]interface{}, error) {
+	if resp.StatusCode != stdhttp.StatusOK {
+		var errorBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+		return nil, fmt.Errorf("%s API error (status %d): %v", apiName, resp.StatusCode, errorBody)
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return response, nil
+}
+
+// parseOpenAICompatHTTPResponse parses an OpenAI-compatible HTTP response into the internal format.
+func parseOpenAICompatHTTPResponse(resp *stdhttp.Response, apiName string) (map[string]interface{}, error) {
+	response, err := parseBackendJSONResponse(resp, apiName)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertOpenAICompatResponse(response), nil
+}
+
+// resolveAPIKey returns apiKey or falls back to the named environment variable.
+func resolveAPIKey(apiKey, envVar string) string {
+	if apiKey == "" {
+		return os.Getenv(envVar)
+	}
+	return apiKey
+}
+
+// bearerAuthAPIKeyHeader returns an Authorization Bearer header from apiKey or envVar.
+func bearerAuthAPIKeyHeader(apiKey, envVar string) (string, string) {
+	apiKey = resolveAPIKey(apiKey, envVar)
+	if apiKey == "" {
+		return "", ""
+	}
+	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+}
+
+// rawAPIKeyHeader returns a raw API key header value from apiKey or envVar.
+func rawAPIKeyHeader(apiKey, envVar, headerName string) (string, string) {
+	apiKey = resolveAPIKey(apiKey, envVar)
+	if apiKey == "" {
+		return "", ""
+	}
+	return headerName, apiKey
+}
+
+// assistantMessageResult builds the standard {message: {role, content}} response shape.
+func assistantMessageResult(content string) map[string]interface{} {
+	return map[string]interface{}{
+		"message": map[string]interface{}{
+			"role":    "assistant",
+			"content": content,
+		},
+	}
+}
+
+// convertAnthropicResponse converts an Anthropic API response into the internal format.
+func convertAnthropicResponse(response map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	if content, ok := response["content"].([]interface{}); ok && len(content) > 0 {
+		if firstContent, okContent := content[0].(map[string]interface{}); okContent {
+			if text, okText := firstContent["text"].(string); okText {
+				result["message"] = map[string]interface{}{
+					"role":    "assistant",
+					"content": text,
+				}
+			}
+		}
+	}
+
+	return result
+}
+
 // BackendRegistry manages available backends.
 type BackendRegistry struct {
 	backends map[string]Backend
@@ -194,18 +302,7 @@ func (b *OllamaBackend) BuildRequest(
 // ParseResponse parses the response from the backend into a standard format.
 func (b *OllamaBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("ollama API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return response, nil
+	return parseBackendJSONResponse(resp, "ollama")
 }
 
 // GetAPIKeyHeader returns the API key header name and value for authentication.
@@ -280,25 +377,21 @@ func (e *Executor) callBackend(
 	return e.callBackendWithEndpoint(backend, endpoint, requestBody, timeout, "")
 }
 
-// callBackendWithEndpoint calls the backend API with a specific endpoint URL.
-func (e *Executor) callBackendWithEndpoint(
-	backend Backend,
-	endpointURL string,
-	requestBody map[string]interface{},
-	timeout time.Duration,
-	apiKey string,
-) (map[string]interface{}, error) {
-	kdeps_debug.Log("enter: callBackendWithEndpoint")
-
-	// Marshal request body
+// marshalBackendRequest serializes a backend request body to JSON.
+func marshalBackendRequest(requestBody map[string]interface{}) ([]byte, error) {
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
+	return jsonBody, nil
+}
 
-	// Make request with timeout context, using the injectable HTTP client.
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+// newBackendPostRequest creates a POST request with standard backend headers.
+func newBackendPostRequest(
+	ctx context.Context,
+	endpointURL string,
+	jsonBody []byte,
+) (*stdhttp.Request, error) {
 	req, err := stdhttp.NewRequestWithContext(
 		ctx,
 		stdhttp.MethodPost,
@@ -310,17 +403,60 @@ func (e *Executor) callBackendWithEndpoint(
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "KDeps/"+version.Version)
+	return req, nil
+}
 
-	// Add API key header if backend requires it
+// applyBackendAuthHeaders sets backend-specific authentication headers on the request.
+func applyBackendAuthHeaders(req *stdhttp.Request, backend Backend, apiKey string) {
 	headerName, keyValue := backend.GetAPIKeyHeader(apiKey)
 	if headerName != "" && keyValue != "" {
 		req.Header.Set(headerName, keyValue)
 	}
 
-	// Add Anthropic version header if using Anthropic backend
 	if backend.Name() == "anthropic" {
 		req.Header.Set("Anthropic-Version", "2023-06-01")
 	}
+}
+
+// shouldParseOllamaStreaming reports whether the request should use Ollama streaming parsing.
+func shouldParseOllamaStreaming(requestBody map[string]interface{}, backend Backend) bool {
+	isStreaming, ok := requestBody["stream"].(bool)
+	return ok && isStreaming && backend.Name() == backendOllama
+}
+
+// parseOllamaStreamingHTTPResponse handles a streaming Ollama HTTP response.
+func parseOllamaStreamingHTTPResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
+	if resp.StatusCode != stdhttp.StatusOK {
+		var errorBody map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
+		return nil, fmt.Errorf("ollama API error (status %d): %v", resp.StatusCode, errorBody)
+	}
+	return parseOllamaStreamingResponse(resp.Body)
+}
+
+// callBackendWithEndpoint calls the backend API with a specific endpoint URL.
+func (e *Executor) callBackendWithEndpoint(
+	backend Backend,
+	endpointURL string,
+	requestBody map[string]interface{},
+	timeout time.Duration,
+	apiKey string,
+) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: callBackendWithEndpoint")
+
+	jsonBody, err := marshalBackendRequest(requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	req, err := newBackendPostRequest(ctx, endpointURL, jsonBody)
+	if err != nil {
+		return nil, err
+	}
+	applyBackendAuthHeaders(req, backend, apiKey)
 
 	resp, err := e.client.Do(req)
 	if err != nil {
@@ -330,15 +466,8 @@ func (e *Executor) callBackendWithEndpoint(
 		_ = resp.Body.Close()
 	}()
 
-	// Use streaming response parser when stream: true was requested (Ollama only for now)
-	if isStreaming, ok := requestBody["stream"].(bool); ok && isStreaming &&
-		backend.Name() == backendOllama {
-		if resp.StatusCode != stdhttp.StatusOK {
-			var errorBody map[string]interface{}
-			_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-			return nil, fmt.Errorf("ollama API error (status %d): %v", resp.StatusCode, errorBody)
-		}
-		return parseOllamaStreamingResponse(resp.Body)
+	if shouldParseOllamaStreaming(requestBody, backend) {
+		return parseOllamaStreamingHTTPResponse(resp)
 	}
 
 	return backend.ParseResponse(resp)
@@ -370,71 +499,17 @@ func (b *OpenAIBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *OpenAIBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("OpenAI API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *OpenAIBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "OpenAI")
 }
 
 func (b *OpenAIBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "OPENAI_API_KEY")
 }
 
 // AnthropicBackend implements the Anthropic (Claude) backend.
@@ -484,44 +559,18 @@ func (b *AnthropicBackend) BuildRequest(
 
 func (b *AnthropicBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("anthropic API error (status %d): %v", resp.StatusCode, errorBody)
+	response, err := parseBackendJSONResponse(resp, "anthropic")
+	if err != nil {
+		return nil, err
 	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Convert Anthropic format to Ollama-like format
-	result := make(map[string]interface{})
-	if content, ok := response["content"].([]interface{}); ok && len(content) > 0 {
-		if firstContent, okContent := content[0].(map[string]interface{}); okContent {
-			if text, okText := firstContent["text"].(string); okText {
-				result["message"] = map[string]interface{}{
-					"role":    "assistant",
-					"content": text,
-				}
-			}
-		}
-	}
-
-	return result, nil
+	return convertAnthropicResponse(response), nil
 }
 
 func (b *AnthropicBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	// Anthropic requires x-api-key header and anthropic-version header
-	// We'll return the API key header name, and the executor will add the version header separately
-	return "x-api-key", apiKey
+	// Anthropic requires x-api-key header and anthropic-version header.
+	// The executor adds the version header separately via applyBackendAuthHeaders.
+	return rawAPIKeyHeader(apiKey, "ANTHROPIC_API_KEY", "x-api-key")
 }
 
 // GoogleBackend implements the Google (Gemini) backend.
@@ -546,10 +595,8 @@ func (b *GoogleBackend) ChatEndpoint(baseURL string) string {
 func (b *GoogleBackend) ChatEndpointWithKey(baseURL string, apiKey string) string {
 	kdeps_debug.Log("enter: ChatEndpointWithKey")
 	endpoint := fmt.Sprintf("%s/openai/chat/completions", baseURL)
-	// Google Gemini uses API key as query parameter
-	if apiKey == "" {
-		apiKey = os.Getenv("GOOGLE_API_KEY")
-	}
+	// Google Gemini uses API key as query parameter.
+	apiKey = resolveAPIKey(apiKey, "GOOGLE_API_KEY")
 	if apiKey != "" {
 		parsedURL, err := url.Parse(endpoint)
 		if err == nil {
@@ -568,60 +615,12 @@ func (b *GoogleBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *GoogleBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("google API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *GoogleBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "google")
 }
 
 func (b *GoogleBackend) GetAPIKeyHeader(_ string) (string, string) {
@@ -800,38 +799,21 @@ func (b *CohereBackend) determineFinalMessage(
 
 func (b *CohereBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("cohere API error (status %d): %v", resp.StatusCode, errorBody)
+	response, err := parseBackendJSONResponse(resp, "cohere")
+	if err != nil {
+		return nil, err
 	}
 
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Convert Cohere format to Ollama-like format
-	result := make(map[string]interface{})
 	if text, ok := response["text"].(string); ok {
-		result["message"] = map[string]interface{}{
-			"role":    "assistant",
-			"content": text,
-		}
+		return assistantMessageResult(text), nil
 	}
 
-	return result, nil
+	return make(map[string]interface{}), nil
 }
 
 func (b *CohereBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("COHERE_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return "Authorization", fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "COHERE_API_KEY")
 }
 
 // MistralBackend implements the Mistral AI backend.
@@ -858,71 +840,17 @@ func (b *MistralBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *MistralBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("mistral API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *MistralBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "mistral")
 }
 
 func (b *MistralBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("MISTRAL_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "MISTRAL_API_KEY")
 }
 
 // TogetherBackend implements the Together AI backend.
@@ -949,71 +877,17 @@ func (b *TogetherBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *TogetherBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("together API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *TogetherBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "together")
 }
 
 func (b *TogetherBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("TOGETHER_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "TOGETHER_API_KEY")
 }
 
 // PerplexityBackend implements the Perplexity AI backend.
@@ -1040,71 +914,17 @@ func (b *PerplexityBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *PerplexityBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("perplexity API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *PerplexityBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "perplexity")
 }
 
 func (b *PerplexityBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("PERPLEXITY_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "PERPLEXITY_API_KEY")
 }
 
 // GroqBackend implements the Groq backend.
@@ -1131,71 +951,17 @@ func (b *GroqBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *GroqBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("groq API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *GroqBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "groq")
 }
 
 func (b *GroqBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("GROQ_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "GROQ_API_KEY")
 }
 
 // DeepSeekBackend implements the DeepSeek backend.
@@ -1222,71 +988,17 @@ func (b *DeepSeekBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *DeepSeekBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("DeepSeek API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *DeepSeekBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "DeepSeek")
 }
 
 func (b *DeepSeekBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("DEEPSEEK_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "DEEPSEEK_API_KEY")
 }
 
 // OpenRouterBackend implements the OpenRouter backend.
@@ -1313,69 +1025,15 @@ func (b *OpenRouterBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 func (b *OpenRouterBackend) ParseResponse(resp *stdhttp.Response) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: ParseResponse")
-	if resp.StatusCode != stdhttp.StatusOK {
-		var errorBody map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&errorBody)
-		return nil, fmt.Errorf("OpenRouter API error (status %d): %v", resp.StatusCode, errorBody)
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	return b.convertOpenAIResponse(response), nil
-}
-
-func (b *OpenRouterBackend) convertOpenAIResponse(
-	openAIResp map[string]interface{},
-) map[string]interface{} {
-	kdeps_debug.Log("enter: convertOpenAIResponse")
-	result := make(map[string]interface{})
-
-	if choices, okChoices := openAIResp["choices"].([]interface{}); okChoices && len(choices) > 0 {
-		if choice, okChoice := choices[0].(map[string]interface{}); okChoice {
-			if message, okMessage := choice["message"].(map[string]interface{}); okMessage {
-				result["message"] = message
-			}
-		}
-	}
-
-	return result
+	return parseOpenAICompatHTTPResponse(resp, "OpenRouter")
 }
 
 func (b *OpenRouterBackend) GetAPIKeyHeader(apiKey string) (string, string) {
 	kdeps_debug.Log("enter: GetAPIKeyHeader")
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENROUTER_API_KEY")
-	}
-	if apiKey == "" {
-		return "", ""
-	}
-	return headerAuthorization, fmt.Sprintf("Bearer %s", apiKey)
+	return bearerAuthAPIKeyHeader(apiKey, "OPENROUTER_API_KEY")
 }

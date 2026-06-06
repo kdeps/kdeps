@@ -156,7 +156,10 @@ func (r *REPL) handleRequest(ctx context.Context, request string) {
 	}
 
 	r.session.Workflow = wf
+	r.reportGeneratedWorkflow(wf)
+}
 
+func (r *REPL) reportGeneratedWorkflow(wf *GeneratedWorkflow) {
 	names := sortedNames(wf.Files)
 	r.session.AddTurn("assistant", "Generated workflow with files: "+strings.Join(names, ", "))
 
@@ -164,27 +167,20 @@ func (r *REPL) handleRequest(ctx context.Context, request string) {
 	for _, name := range names {
 		fmt.Fprintf(r.out, "  %s\n", name)
 	}
-
 	printEnvVars(r.out, wf)
-
 	fmt.Fprintln(r.out, "\nUse /show to inspect, /run to execute, /save [path] to save.")
 }
 
 func (r *REPL) cmdShow() {
-	if r.session.Workflow == nil {
-		fmt.Fprintln(r.out, "No workflow yet. Describe a task first.")
+	wf, ok := r.requireWorkflow()
+	if !ok {
 		return
 	}
-	for _, name := range sortedNames(r.session.Workflow.Files) {
-		fmt.Fprintf(r.out, "\n--- %s ---\n", name)
-		fmt.Fprintln(r.out, r.session.Workflow.Files[name])
-	}
-	printEnvVars(r.out, r.session.Workflow)
+	r.printWorkflowFiles(wf)
 }
 
 func (r *REPL) cmdRun(ctx context.Context) {
-	if r.session.Workflow == nil {
-		fmt.Fprintln(r.out, "No workflow yet. Describe a task first.")
+	if _, ok := r.requireWorkflow(); !ok {
 		return
 	}
 	fmt.Fprintln(r.out, "Running workflow...")
@@ -196,8 +192,7 @@ func (r *REPL) cmdRun(ctx context.Context) {
 }
 
 func (r *REPL) cmdSave(dest string) {
-	if r.session.Workflow == nil {
-		fmt.Fprintln(r.out, "No workflow yet. Describe a task first.")
+	if _, ok := r.requireWorkflow(); !ok {
 		return
 	}
 	if err := r.session.SaveTo(dest); err != nil {
@@ -210,13 +205,28 @@ func (r *REPL) cmdSave(dest string) {
 }
 
 func (r *REPL) cmdExport(ctx context.Context) {
-	if r.session.Workflow == nil {
-		fmt.Fprintln(r.out, "No workflow yet. Describe a task first.")
+	if _, ok := r.requireWorkflow(); !ok {
 		return
 	}
 	if err := r.executor.ExportK8s(ctx, r.session); err != nil {
 		fmt.Fprintf(r.out, "Export failed: %v\n", err)
 	}
+}
+
+func (r *REPL) requireWorkflow() (*GeneratedWorkflow, bool) {
+	if r.session.Workflow == nil {
+		fmt.Fprintln(r.out, "No workflow yet. Describe a task first.")
+		return nil, false
+	}
+	return r.session.Workflow, true
+}
+
+func (r *REPL) printWorkflowFiles(wf *GeneratedWorkflow) {
+	for _, name := range sortedNames(wf.Files) {
+		fmt.Fprintf(r.out, "\n--- %s ---\n", name)
+		fmt.Fprintln(r.out, wf.Files[name])
+	}
+	printEnvVars(r.out, wf)
 }
 
 func sortedNames(files map[string]string) []string {

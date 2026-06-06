@@ -164,20 +164,24 @@ func ConvertFromJSON(to Format, input string) Result {
 	}
 }
 
-func validateJSON(input string) Result {
+func validateStructured(unmarshal func([]byte, interface{}) error, input string) Result {
 	var v interface{}
-	if err := json.Unmarshal([]byte(input), &v); err != nil {
+	if err := unmarshal([]byte(input), &v); err != nil {
 		return Result{Valid: false, Error: err.Error()}
 	}
 	return Result{Valid: true}
 }
 
+func validateJSON(input string) Result {
+	return validateStructured(json.Unmarshal, input)
+}
+
 func validateYAML(input string) Result {
-	var v interface{}
-	if err := yaml.Unmarshal([]byte(input), &v); err != nil {
-		return Result{Valid: false, Error: err.Error()}
-	}
-	return Result{Valid: true}
+	return validateStructured(yaml.Unmarshal, input)
+}
+
+func isXMLEOF(err error) bool {
+	return err != nil && err.Error() == eofLiteral
 }
 
 func validateCSV(input string) Result {
@@ -192,7 +196,7 @@ func validateXML(input string) Result {
 	decoder := xml.NewDecoder(strings.NewReader(input))
 	for {
 		if err := decoder.Decode(new(interface{})); err != nil {
-			if err.Error() == eofLiteral {
+			if isXMLEOF(err) {
 				return Result{Valid: true}
 			}
 			return Result{Valid: false, Error: err.Error()}
@@ -200,10 +204,26 @@ func validateXML(input string) Result {
 	}
 }
 
-func formatJSON(input string) Result {
+func unmarshalJSONValue(input string) (interface{}, Result) {
 	var v interface{}
 	if err := json.Unmarshal([]byte(input), &v); err != nil {
-		return Result{Valid: false, Error: err.Error()}
+		return nil, Result{Valid: false, Error: err.Error()}
+	}
+	return v, Result{Valid: true}
+}
+
+func marshalJSONIndentResult(v interface{}) Result {
+	out, err := jsonMarshalIndent(v, "", "  ")
+	if err != nil {
+		return Result{Error: err.Error()}
+	}
+	return Result{Valid: true, Output: string(out)}
+}
+
+func formatJSON(input string) Result {
+	v, result := unmarshalJSONValue(input)
+	if !result.Valid && result.Error != "" {
+		return result
 	}
 	var buf bytes.Buffer
 	enc := jsonNewEncoder(&buf)
@@ -234,7 +254,7 @@ func formatXML(input string) Result {
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
-			if err.Error() == eofLiteral {
+			if isXMLEOF(err) {
 				break
 			}
 			return Result{Valid: false, Error: err.Error()}
@@ -254,19 +274,13 @@ func yamlToJSON(input string) Result {
 	if err := yaml.Unmarshal([]byte(input), &v); err != nil {
 		return Result{Valid: false, Error: err.Error()}
 	}
-	// Normalize map keys from interface{} to string for JSON
-	v = normalizeForJSON(v)
-	out, err := jsonMarshalIndent(v, "", "  ")
-	if err != nil {
-		return Result{Error: err.Error()}
-	}
-	return Result{Valid: true, Output: string(out)}
+	return marshalJSONIndentResult(normalizeForJSON(v))
 }
 
 func jsonToYAML(input string) Result {
-	var v interface{}
-	if err := json.Unmarshal([]byte(input), &v); err != nil {
-		return Result{Valid: false, Error: err.Error()}
+	v, result := unmarshalJSONValue(input)
+	if !result.Valid && result.Error != "" {
+		return result
 	}
 	out, err := yamlMarshal(&v)
 	if err != nil {
@@ -275,17 +289,12 @@ func jsonToYAML(input string) Result {
 	return Result{Valid: true, Output: strings.TrimSpace(string(out))}
 }
 
-func csvToJSON(input string) Result {
-	r := csv.NewReader(strings.NewReader(input))
-	records, err := r.ReadAll()
-	if err != nil {
-		return Result{Valid: false, Error: err.Error()}
-	}
+func csvRecordsToMaps(records [][]string) ([]map[string]string, Result) {
 	if len(records) < minCSVRows {
-		return Result{Error: "CSV must have at least a header row and one data row"}
+		return nil, Result{Error: "CSV must have at least a header row and one data row"}
 	}
 	headers := records[0]
-	var result []map[string]string
+	result := make([]map[string]string, 0, len(records)-1)
 	for _, row := range records[1:] {
 		entry := make(map[string]string)
 		for j, h := range headers {
@@ -295,11 +304,34 @@ func csvToJSON(input string) Result {
 		}
 		result = append(result, entry)
 	}
-	out, err := jsonMarshalIndent(result, "", "  ")
+	return result, Result{Valid: true}
+}
+
+func csvToJSON(input string) Result {
+	r := csv.NewReader(strings.NewReader(input))
+	records, err := r.ReadAll()
 	if err != nil {
-		return Result{Error: err.Error()}
+		return Result{Valid: false, Error: err.Error()}
 	}
-	return Result{Valid: true, Output: string(out)}
+	maps, result := csvRecordsToMaps(records)
+	if result.Error != "" || !result.Valid {
+		return result
+	}
+	return marshalJSONIndentResult(maps)
+}
+
+func collectCSVHeaders(data []map[string]interface{}) []string {
+	headerSet := make(map[string]bool)
+	for _, row := range data {
+		for k := range row {
+			headerSet[k] = true
+		}
+	}
+	headers := make([]string, 0, len(headerSet))
+	for k := range headerSet {
+		headers = append(headers, k)
+	}
+	return headers
 }
 
 func jsonToCSV(input string) Result {
@@ -310,17 +342,7 @@ func jsonToCSV(input string) Result {
 	if len(data) == 0 {
 		return Result{Error: "JSON array must not be empty"}
 	}
-	// Collect headers
-	headerSet := make(map[string]bool)
-	for _, row := range data {
-		for k := range row {
-			headerSet[k] = true
-		}
-	}
-	var headers []string
-	for k := range headerSet {
-		headers = append(headers, k)
-	}
+	headers := collectCSVHeaders(data)
 	var buf bytes.Buffer
 	w := csv.NewWriter(&buf)
 	if err := w.Write(headers); err != nil {
@@ -347,7 +369,7 @@ func xmlToJSON(input string) Result {
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
-			if err.Error() == eofLiteral {
+			if isXMLEOF(err) {
 				break
 			}
 			return Result{Valid: false, Error: err.Error()}
@@ -370,11 +392,7 @@ func xmlToJSON(input string) Result {
 			result = append(result, entry)
 		}
 	}
-	out, err := jsonMarshalIndent(result, "", "  ")
-	if err != nil {
-		return Result{Error: err.Error()}
-	}
-	return Result{Valid: true, Output: string(out)}
+	return marshalJSONIndentResult(result)
 }
 
 // tomlKeyVal matches lines of the form: key = value (bare TOML key=value pairs).
@@ -417,8 +435,15 @@ func formatTOML(input string) Result {
 	return Result{Valid: true, Output: strings.TrimSpace(strings.Join(out, "\n"))}
 }
 
-func tomlToJSON(input string) Result {
-	// Parse TOML manually: key = "value", key = number, [section] headers.
+func parseTOMLValue(val string) interface{} {
+	if (strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)) ||
+		(strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`)) {
+		return val[1 : len(val)-1]
+	}
+	return val
+}
+
+func parseTOMLToMap(input string) map[string]interface{} {
 	result := make(map[string]interface{})
 	current := result
 	for _, line := range strings.Split(input, "\n") {
@@ -438,20 +463,13 @@ func tomlToJSON(input string) Result {
 			continue
 		}
 		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		// Strip quotes
-		if (strings.HasPrefix(val, `"`) && strings.HasSuffix(val, `"`)) ||
-			(strings.HasPrefix(val, `'`) && strings.HasSuffix(val, `'`)) {
-			current[key] = val[1 : len(val)-1]
-		} else {
-			current[key] = val
-		}
+		current[key] = parseTOMLValue(strings.TrimSpace(parts[1]))
 	}
-	out, err := jsonMarshalIndent(result, "", "  ")
-	if err != nil {
-		return Result{Error: err.Error()}
-	}
-	return Result{Valid: true, Output: string(out)}
+	return result
+}
+
+func tomlToJSON(input string) Result {
+	return marshalJSONIndentResult(parseTOMLToMap(input))
 }
 
 func validateMarkdown(input string) Result {

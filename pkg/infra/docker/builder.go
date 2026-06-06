@@ -401,97 +401,23 @@ func (b *Builder) prepackagedFlags() (bool, bool) {
 }
 
 // buildTemplateData builds data for template rendering.
-//
-//nolint:funlen // template data assembly touches many optional fields
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	kdeps_debug.Log("enter: buildTemplateData")
 	installOllama := b.shouldInstallOllama(workflow)
 	installUV := b.shouldInstallUV(workflow)
 
-	// Determine base image
-	var baseImage string
-	if installOllama {
-		if b.BaseOS == baseOSAlpine {
-			baseImage = "alpine/ollama"
-		} else {
-			// For Ubuntu/Debian, use the official Ollama image which is Ubuntu-based
-			baseImage = "ollama/ollama:latest"
-		}
-	} else {
-		switch b.BaseOS {
-		case baseOSUbuntu:
-			baseImage = "ubuntu:latest"
-		case baseOSDebian:
-			baseImage = "debian:latest"
-		default:
-			baseImage = "alpine:latest"
-		}
-	}
-	// Template data for backend sections
-	backendData := struct {
-		InstallOllama bool
-		OS            string
-		GPUType       string
-	}{
-		InstallOllama: installOllama,
-		OS:            b.BaseOS,
-		GPUType:       b.GPUType,
-	}
-
-	// Render backend install section
-	installTmpl, err := template.New("backend-install").Parse(backendInstallTemplate)
+	backendInstall, err := b.renderBackendInstall(installOllama)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse backend install template: %w", err)
+		return nil, err
 	}
 
-	var backendInstallBuf bytes.Buffer
-	if err = installTmpl.Execute(&backendInstallBuf, backendData); err != nil {
-		return nil, fmt.Errorf("failed to render backend install: %w", err)
-	}
-
-	pythonVersion := workflow.Settings.AgentSettings.PythonVersion
-	if pythonVersion == "" {
-		pythonVersion = "3.12"
-	}
-
-	// Check if directories exist
-	hasResources := false
-	if _, statErr := os.Stat("resources"); statErr == nil {
-		hasResources = true
-	}
-
-	hasData := false
-	if _, statErr := os.Stat("data"); statErr == nil {
-		hasData = true
-	}
-
-	// When Ollama is not installed, disable offline mode and clear models
-	// so no Ollama-related prep/copy happens in the Docker build.
-	var models []string
-	if v := os.Getenv("KDEPS_LLM_MODELS"); v != "" {
-		models = strings.Split(v, ",")
-	}
-	offlineMode := os.Getenv("KDEPS_OFFLINE_MODE") == "true"
-	defaultModel := b.getDefaultModel(workflow)
-	if !installOllama {
-		models = nil
-		offlineMode = false
-		defaultModel = ""
-	}
-
-	// Determine whether prepackaged binaries are available in the build context.
+	models, offlineMode, defaultModel := resolveModelSettings(workflow, installOllama, b.getDefaultModel)
 	prepackagedAMD64, prepackagedARM64 := b.prepackagedFlags()
 	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
-
-	// When using prepackaged binaries the workflow files are embedded inside the
-	// binary itself, so HasResources/HasData only matter for the fallback path.
-	if usePrepackagedBinary {
-		hasResources = false
-		hasData = false
-	}
+	hasResources, hasData := resolveBuildContextDirs(usePrepackagedBinary)
 
 	return &DockerfileData{
-		BaseImage:            baseImage,
+		BaseImage:            resolveBaseImage(b.BaseOS, installOllama),
 		OS:                   b.BaseOS,
 		UsePrepackagedBinary: usePrepackagedBinary,
 		PrepackagedAMD64:     prepackagedAMD64,
@@ -500,8 +426,8 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		InstallUV:            installUV,
 		BackendPort:          b.GetBackendPort(""),
 		GPUType:              b.GPUType,
-		BackendInstall:       backendInstallBuf.String(),
-		PythonVersion:        pythonVersion,
+		BackendInstall:       backendInstall,
+		PythonVersion:        resolvePythonVersion(workflow),
 		PythonPackages:       workflow.Settings.AgentSettings.PythonPackages,
 		OSPackages:           workflow.Settings.AgentSettings.OSPackages,
 		RequirementsFile:     workflow.Settings.AgentSettings.RequirementsFile,
@@ -516,6 +442,90 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		HasData:              hasData,
 		Env:                  workflow.Settings.AgentSettings.Env,
 	}, nil
+}
+
+func resolveBaseImage(baseOS string, installOllama bool) string {
+	if installOllama {
+		if baseOS == baseOSAlpine {
+			return "alpine/ollama"
+		}
+		return "ollama/ollama:latest"
+	}
+
+	switch baseOS {
+	case baseOSUbuntu:
+		return "ubuntu:latest"
+	case baseOSDebian:
+		return "debian:latest"
+	default:
+		return "alpine:latest"
+	}
+}
+
+func (b *Builder) renderBackendInstall(installOllama bool) (string, error) {
+	backendData := struct {
+		InstallOllama bool
+		OS            string
+		GPUType       string
+	}{
+		InstallOllama: installOllama,
+		OS:            b.BaseOS,
+		GPUType:       b.GPUType,
+	}
+
+	installTmpl, err := template.New("backend-install").Parse(backendInstallTemplate)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse backend install template: %w", err)
+	}
+
+	var backendInstallBuf bytes.Buffer
+	if execErr := installTmpl.Execute(&backendInstallBuf, backendData); execErr != nil {
+		return "", fmt.Errorf("failed to render backend install: %w", execErr)
+	}
+
+	return backendInstallBuf.String(), nil
+}
+
+func resolvePythonVersion(workflow *domain.Workflow) string {
+	if version := workflow.Settings.AgentSettings.PythonVersion; version != "" {
+		return version
+	}
+	return "3.12"
+}
+
+func resolveBuildContextDirs(usePrepackagedBinary bool) (bool, bool) {
+	if usePrepackagedBinary {
+		return false, false
+	}
+
+	hasResources := false
+	if _, statErr := os.Stat("resources"); statErr == nil {
+		hasResources = true
+	}
+
+	hasData := false
+	if _, statErr := os.Stat("data"); statErr == nil {
+		hasData = true
+	}
+
+	return hasResources, hasData
+}
+
+func resolveModelSettings(
+	workflow *domain.Workflow,
+	installOllama bool,
+	defaultModelFn func(*domain.Workflow) string,
+) ([]string, bool, string) {
+	var models []string
+	if v := os.Getenv("KDEPS_LLM_MODELS"); v != "" {
+		models = strings.Split(v, ",")
+	}
+	offlineMode := os.Getenv("KDEPS_OFFLINE_MODE") == "true"
+	defaultModel := defaultModelFn(workflow)
+	if installOllama {
+		return models, offlineMode, defaultModel
+	}
+	return nil, false, ""
 }
 
 // GenerateDockerfile generates a Dockerfile (public method for --show-dockerfile).

@@ -86,33 +86,35 @@ func (s *ModelService) ServeModel(backend, model string, host string, port int) 
 	}
 }
 
-// downloadLlamafileModel resolves and makes executable a llamafile binary.
-func (s *ModelService) downloadLlamafileModel(model string) error {
-	kdeps_debug.Log("enter: downloadLlamafileModel")
+// prepareLlamafile resolves a llamafile model path and ensures it is executable.
+func (s *ModelService) prepareLlamafile(model string) (*LlamafileManager, string, error) {
 	mgr, err := NewLlamafileManager(s.logger)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
 	path, err := mgr.Resolve(model)
 	if err != nil {
-		return err
+		return nil, "", err
 	}
-	return mgr.MakeExecutable(path)
+	if execErr := mgr.MakeExecutable(path); execErr != nil {
+		return nil, "", execErr
+	}
+	return mgr, path, nil
+}
+
+// downloadLlamafileModel resolves and makes executable a llamafile binary.
+func (s *ModelService) downloadLlamafileModel(model string) error {
+	kdeps_debug.Log("enter: downloadLlamafileModel")
+	_, _, err := s.prepareLlamafile(model)
+	return err
 }
 
 // serveLlamafileModel starts a llamafile binary as an OpenAI-compatible server.
 func (s *ModelService) serveLlamafileModel(model string, port int) error {
 	kdeps_debug.Log("enter: serveLlamafileModel")
-	mgr, err := NewLlamafileManager(s.logger)
+	mgr, path, err := s.prepareLlamafile(model)
 	if err != nil {
 		return err
-	}
-	path, err := mgr.Resolve(model)
-	if err != nil {
-		return err
-	}
-	if execErr := mgr.MakeExecutable(path); execErr != nil {
-		return execErr
 	}
 	_, err = mgr.Serve(path, port)
 	return err

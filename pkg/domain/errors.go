@@ -193,37 +193,32 @@ func (e *AppError) WithStack(stack string) *AppError {
 	return e
 }
 
+// appErrorHTTPStatus maps AppErrorCode values to HTTP status codes.
+var appErrorHTTPStatus = map[AppErrorCode]int{ //nolint:gochecknoglobals // lookup table
+	ErrCodeValidation:       http.StatusBadRequest,
+	ErrCodeBadRequest:       http.StatusBadRequest,
+	ErrCodeNotFound:         http.StatusNotFound,
+	ErrCodeUnauthorized:     http.StatusUnauthorized,
+	ErrCodeForbidden:        http.StatusForbidden,
+	ErrCodeConflict:         http.StatusConflict,
+	ErrCodeRateLimited:      http.StatusTooManyRequests,
+	ErrCodeRequestTooLarge:  http.StatusRequestEntityTooLarge,
+	ErrCodeTimeout:          http.StatusGatewayTimeout,
+	ErrCodeServiceUnavail:   http.StatusServiceUnavailable,
+	ErrCodeInternal:         http.StatusInternalServerError,
+	ErrCodeDependencyFailed: http.StatusInternalServerError,
+	ErrCodeResourceFailed:   http.StatusInternalServerError,
+	ErrCodePreflightFailed:  http.StatusInternalServerError,
+	ErrCodeExpressionErr:    http.StatusInternalServerError,
+}
+
 // GetHTTPStatus maps error code to HTTP status.
 func GetHTTPStatus(code AppErrorCode) int {
 	kdeps_debug.Log("enter: GetHTTPStatus")
-	switch code {
-	case ErrCodeValidation, ErrCodeBadRequest:
-		return http.StatusBadRequest
-	case ErrCodeNotFound:
-		return http.StatusNotFound
-	case ErrCodeUnauthorized:
-		return http.StatusUnauthorized
-	case ErrCodeForbidden:
-		return http.StatusForbidden
-	case ErrCodeConflict:
-		return http.StatusConflict
-	case ErrCodeRateLimited:
-		return http.StatusTooManyRequests
-	case ErrCodeRequestTooLarge:
-		return http.StatusRequestEntityTooLarge
-	case ErrCodeTimeout:
-		return http.StatusGatewayTimeout
-	case ErrCodeServiceUnavail:
-		return http.StatusServiceUnavailable
-	case ErrCodeInternal,
-		ErrCodeDependencyFailed,
-		ErrCodeResourceFailed,
-		ErrCodePreflightFailed,
-		ErrCodeExpressionErr:
-		return http.StatusInternalServerError
-	default:
-		return http.StatusInternalServerError
+	if status, ok := appErrorHTTPStatus[code]; ok {
+		return status
 	}
+	return http.StatusInternalServerError
 }
 
 // ValidationError represents a single validation error.

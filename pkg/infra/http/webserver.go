@@ -269,12 +269,7 @@ func (s *WebServer) HandleAppRequest(
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(targetURL)
 
-			// Handle path forwarding
-			trimmedPath := strings.TrimPrefix(r.URL.Path, route.Path)
-			if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
-				trimmedPath = "/" + trimmedPath
-			}
-			pr.Out.URL.Path = trimmedPath
+			pr.Out.URL.Path = buildProxiedPath(route.Path, r.URL.Path)
 			pr.Out.URL.RawQuery = r.URL.RawQuery
 			pr.Out.Host = targetURL.Host
 
@@ -307,8 +302,6 @@ func (s *WebServer) HandleAppRequest(
 }
 
 // HandleWebSocketProxy handles WebSocket proxying.
-//
-//nolint:funlen,gocognit // websocket proxying has explicit error handling
 func (s *WebServer) HandleWebSocketProxy(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -316,42 +309,11 @@ func (s *WebServer) HandleWebSocketProxy(
 	route *domain.WebRoute,
 ) {
 	kdeps_debug.Log("enter: HandleWebSocketProxy")
-	// Create WebSocket dialer
-	dialer := websocket.Dialer{
-		Proxy:            stdhttp.ProxyFromEnvironment,
-		HandshakeTimeout: 30 * time.Second,
-	}
 
-	// Prepare target WebSocket URL
-	targetWSURL := *targetURL
-	targetWSURL.Scheme = "ws"
-
-	// Handle path forwarding
-	trimmedPath := strings.TrimPrefix(r.URL.Path, route.Path)
-	if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
-		trimmedPath = "/" + trimmedPath
-	}
-	targetWSURL.Path = trimmedPath
-	targetWSURL.RawQuery = r.URL.RawQuery
-
+	targetWSURL := buildWebSocketTargetURL(targetURL, route, r)
 	s.logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
 
-	// Filter WebSocket-specific headers
-	wsHeaders := make(stdhttp.Header)
-	for key, values := range r.Header {
-		lowerKey := strings.ToLower(key)
-		if lowerKey != "upgrade" &&
-			lowerKey != "connection" &&
-			lowerKey != "sec-websocket-key" &&
-			lowerKey != "sec-websocket-version" &&
-			lowerKey != "sec-websocket-protocol" &&
-			lowerKey != "sec-websocket-extensions" {
-			wsHeaders[key] = values
-		}
-	}
-
-	// Connect to target WebSocket server
-	targetConn, resp, err := dialer.Dial(targetWSURL.String(), wsHeaders)
+	targetConn, resp, err := dialTargetWebSocket(targetWSURL, r.Header)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
@@ -368,7 +330,6 @@ func (s *WebServer) HandleWebSocketProxy(
 		_ = targetConn.Close()
 	}()
 
-	// Close response body if handshake failed
 	if resp != nil {
 		defer func() {
 			_ = resp.Body.Close()
@@ -385,13 +346,7 @@ func (s *WebServer) HandleWebSocketProxy(
 		}
 	}
 
-	// Upgrade client connection to WebSocket
-	upgrader := websocket.Upgrader{
-		CheckOrigin: func(_ *stdhttp.Request) bool {
-			return true // Allow all origins for proxy
-		},
-	}
-	clientConn, err := upgrader.Upgrade(w, r, nil)
+	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
@@ -405,66 +360,112 @@ func (s *WebServer) HandleWebSocketProxy(
 		_ = clientConn.Close()
 	}()
 
-	// Start bidirectional data transfer
+	s.proxyWebSocketConnections(clientConn, targetConn)
+}
+
+func buildProxiedPath(routePath, requestPath string) string {
+	trimmedPath := strings.TrimPrefix(requestPath, routePath)
+	if routePath == "/" && !strings.HasPrefix(trimmedPath, "/") {
+		return "/" + trimmedPath
+	}
+	return trimmedPath
+}
+
+func buildWebSocketTargetURL(
+	targetURL *url.URL,
+	route *domain.WebRoute,
+	r *stdhttp.Request,
+) url.URL {
+	targetWSURL := *targetURL
+	targetWSURL.Scheme = "ws"
+	targetWSURL.Path = buildProxiedPath(route.Path, r.URL.Path)
+	targetWSURL.RawQuery = r.URL.RawQuery
+	return targetWSURL
+}
+
+func isWebSocketHopByHopHeader(key string) bool {
+	switch strings.ToLower(key) {
+	case "upgrade", "connection", "sec-websocket-key", "sec-websocket-version",
+		"sec-websocket-protocol", "sec-websocket-extensions":
+		return true
+	default:
+		return false
+	}
+}
+
+func filterWebSocketHeaders(header stdhttp.Header) stdhttp.Header {
+	wsHeaders := make(stdhttp.Header)
+	for key, values := range header {
+		if isWebSocketHopByHopHeader(key) {
+			continue
+		}
+		wsHeaders[key] = values
+	}
+	return wsHeaders
+}
+
+func dialTargetWebSocket(
+	targetWSURL url.URL,
+	requestHeader stdhttp.Header,
+) (*websocket.Conn, *stdhttp.Response, error) {
+	dialer := websocket.Dialer{
+		Proxy:            stdhttp.ProxyFromEnvironment,
+		HandshakeTimeout: 30 * time.Second,
+	}
+	return dialer.Dial(targetWSURL.String(), filterWebSocketHeaders(requestHeader))
+}
+
+func upgradeClientWebSocket(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+) (*websocket.Conn, error) {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(_ *stdhttp.Request) bool {
+			return true
+		},
+	}
+	return upgrader.Upgrade(w, r, nil)
+}
+
+func (s *WebServer) proxyWebSocketConnections(clientConn, targetConn *websocket.Conn) {
 	errChan := make(chan error, 2)
-
-	// Target to client
-	go func() {
-		defer targetConn.Close()
-		defer clientConn.Close()
-
-		for {
-			messageType, message, readErr := targetConn.ReadMessage()
-			if readErr != nil {
-				if websocket.IsUnexpectedCloseError(
-					readErr,
-					websocket.CloseGoingAway,
-					websocket.CloseAbnormalClosure,
-				) {
-					s.logger.Debug("target WebSocket closed unexpectedly", "error", readErr)
-				}
-				errChan <- readErr
-				return
-			}
-
-			if writeErr := clientConn.WriteMessage(messageType, message); writeErr != nil {
-				s.logger.Debug("client WebSocket write error", "error", writeErr)
-				errChan <- writeErr
-				return
-			}
-		}
-	}()
-
-	// Client to target
-	go func() {
-		defer targetConn.Close()
-		defer clientConn.Close()
-
-		for {
-			messageType, message, readErr := clientConn.ReadMessage()
-			if readErr != nil {
-				if websocket.IsUnexpectedCloseError(
-					readErr,
-					websocket.CloseGoingAway,
-					websocket.CloseAbnormalClosure,
-				) {
-					s.logger.Debug("client WebSocket closed unexpectedly", "error", readErr)
-				}
-				errChan <- readErr
-				return
-			}
-
-			if writeErr := targetConn.WriteMessage(messageType, message); writeErr != nil {
-				s.logger.Debug("target WebSocket write error", "error", writeErr)
-				errChan <- writeErr
-				return
-			}
-		}
-	}()
-
-	// Wait for connection close
+	go relayWebSocketMessages(targetConn, clientConn, "target", "client", s.logger, errChan)
+	go relayWebSocketMessages(clientConn, targetConn, "client", "target", s.logger, errChan)
 	<-errChan
 	s.logger.Debug("WebSocket proxy connection closed")
+}
+
+func relayWebSocketMessages(
+	src, dst *websocket.Conn,
+	srcLabel, dstLabel string,
+	logger *slog.Logger,
+	errChan chan<- error,
+) {
+	defer func() {
+		_ = src.Close()
+		_ = dst.Close()
+	}()
+
+	for {
+		messageType, message, readErr := src.ReadMessage()
+		if readErr != nil {
+			if websocket.IsUnexpectedCloseError(
+				readErr,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+			) {
+				logger.Debug(srcLabel+" WebSocket closed unexpectedly", "error", readErr)
+			}
+			errChan <- readErr
+			return
+		}
+
+		if writeErr := dst.WriteMessage(messageType, message); writeErr != nil {
+			logger.Debug(dstLabel+" WebSocket write error", "error", writeErr)
+			errChan <- writeErr
+			return
+		}
+	}
 }
 
 // StartAppCommand starts the app command.

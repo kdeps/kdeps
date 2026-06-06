@@ -62,26 +62,32 @@ func extractKdepsPackage(packagePath string) (string, func(), error) {
 	}
 	cleanup := func() { _ = os.RemoveAll(tempDir) }
 
+	if extractErr := extractKdepsArchive(packagePath, tempDir); extractErr != nil {
+		cleanup()
+		return "", nil, extractErr
+	}
+
+	return tempDir, cleanup, nil
+}
+
+// extractKdepsArchive opens packagePath and extracts its tar.gz contents into destDir.
+func extractKdepsArchive(packagePath, destDir string) error {
 	f, err := os.Open(packagePath)
 	if err != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("failed to open package %s: %w", packagePath, err)
+		return fmt.Errorf("failed to open package %s: %w", packagePath, err)
 	}
 	defer f.Close()
 
 	gz, err := gzip.NewReader(f)
 	if err != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("failed to read gzip header of %s: %w", packagePath, err)
+		return fmt.Errorf("failed to read gzip header of %s: %w", packagePath, err)
 	}
 	defer gz.Close()
 
-	if extractErr := extractTarEntries(tar.NewReader(gz), tempDir); extractErr != nil {
-		cleanup()
-		return "", nil, fmt.Errorf("failed to extract %s: %w", packagePath, extractErr)
+	if extractErr := extractTarEntries(tar.NewReader(gz), destDir); extractErr != nil {
+		return fmt.Errorf("failed to extract %s: %w", packagePath, extractErr)
 	}
-
-	return tempDir, cleanup, nil
+	return nil
 }
 
 // extractTarEntries writes all entries from tr into destDir, guarding against

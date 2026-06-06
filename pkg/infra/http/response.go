@@ -78,44 +78,76 @@ const (
 	SessionCookieName = "kdeps_session_id"
 )
 
+// normalizeToAppError converts arbitrary errors into domain.AppError values.
+func normalizeToAppError(err error, debugMode bool) *domain.AppError {
+	var appErr *domain.AppError
+	if errors.As(err, &appErr) {
+		return appErr
+	}
+
+	errorMsg := "Internal server error"
+	if debugMode && err != nil {
+		errorMsg = fmt.Sprintf("Internal server error: %v", err)
+	}
+
+	appErr = domain.NewAppError(domain.ErrCodeInternal, errorMsg).WithError(err)
+	if !debugMode {
+		return appErr
+	}
+
+	appErr = appErr.WithStack(string(debug.Stack()))
+	if err != nil {
+		appErr = appErr.WithDetails("error", err.Error())
+	}
+	return appErr
+}
+
+// requestMetaFromRequest builds response metadata from the incoming request.
+func requestMetaFromRequest(r *stdhttp.Request) *MetaData {
+	return &MetaData{
+		RequestID: GetRequestID(r.Context()),
+		Timestamp: time.Now(),
+		Path:      r.URL.Path,
+		Method:    r.Method,
+	}
+}
+
+// applySessionCookieIfPresent sets the session cookie when a session ID exists.
+func applySessionCookieIfPresent(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	if sessionID := GetSessionID(r.Context()); sessionID != "" {
+		SetSessionCookie(w, r, sessionID)
+	}
+}
+
+// writeJSONResponse writes a JSON payload with the given status code.
+func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// validationErrorsToDetails converts validation errors to response details.
+func validationErrorsToDetails(validationErrors []*domain.ValidationError) []map[string]any {
+	details := make([]map[string]any, len(validationErrors))
+	for i, err := range validationErrors {
+		details[i] = map[string]any{
+			"field":   err.Field,
+			"type":    err.Type,
+			"message": err.Message,
+		}
+		if err.Value != nil {
+			details[i]["value"] = err.Value
+		}
+	}
+	return details
+}
+
 // RespondWithError sends an error response.
 func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, debugMode bool) {
 	kdeps_debug.Log("enter: RespondWithError")
-	var appErr *domain.AppError
+	appErr := normalizeToAppError(err, debugMode)
+	applySessionCookieIfPresent(w, r)
 
-	// Convert to AppError if not already
-	if !errors.As(err, &appErr) {
-		// Include actual error message in debug mode or when error details available
-		errorMsg := "Internal server error"
-		if debugMode && err != nil {
-			errorMsg = fmt.Sprintf("Internal server error: %v", err)
-		}
-		appErr = domain.NewAppError(
-			domain.ErrCodeInternal,
-			errorMsg,
-		).WithError(err)
-
-		// Add stack trace in debug mode
-		if debugMode {
-			appErr = appErr.WithStack(string(debug.Stack()))
-		}
-
-		// Add error details in debug mode
-		if debugMode && err != nil {
-			appErr = appErr.WithDetails("error", err.Error())
-		}
-	}
-
-	// Get request ID from context
-	requestID := GetRequestID(r.Context())
-
-	// Handle session cookie if session ID is present in context
-	sessionID := GetSessionID(r.Context())
-	if sessionID != "" {
-		SetSessionCookie(w, r, sessionID)
-	}
-
-	// Build error response
 	response := &ErrorResponse{
 		Success: false,
 		Error: &ErrorDetail{
@@ -124,23 +156,14 @@ func RespondWithError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error, d
 			ResourceID: appErr.ResourceID,
 			Details:    appErr.Details,
 		},
-		Meta: &MetaData{
-			RequestID: requestID,
-			Timestamp: time.Now(),
-			Path:      r.URL.Path,
-			Method:    r.Method,
-		},
+		Meta: requestMetaFromRequest(r),
 	}
 
-	// Include stack trace in debug mode
 	if debugMode && appErr.Stack != "" {
 		response.Error.Stack = appErr.Stack
 	}
 
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(appErr.StatusCode)
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, appErr.StatusCode, response)
 }
 
 // RespondWithSuccess sends a success response.
@@ -155,18 +178,9 @@ func RespondWithSuccess(
 		meta = make(map[string]any)
 	}
 
-	// Add request ID to meta
-	requestID := GetRequestID(r.Context())
-	meta["requestID"] = requestID
-
-	// Add timestamp
+	meta["requestID"] = GetRequestID(r.Context())
 	meta["timestamp"] = time.Now()
-
-	// Handle session cookie if session ID is present in context
-	sessionID := GetSessionID(r.Context())
-	if sessionID != "" {
-		SetSessionCookie(w, r, sessionID)
-	}
+	applySessionCookieIfPresent(w, r)
 
 	response := &SuccessResponse{
 		Success: true,
@@ -191,41 +205,19 @@ func RespondWithValidationErrors(
 	validationErrors []*domain.ValidationError,
 ) {
 	kdeps_debug.Log("enter: RespondWithValidationErrors")
-	requestID := GetRequestID(r.Context())
-
-	// Convert validation errors to details
-	details := make([]map[string]any, len(validationErrors))
-	for i, err := range validationErrors {
-		details[i] = map[string]any{
-			"field":   err.Field,
-			"type":    err.Type,
-			"message": err.Message,
-		}
-		if err.Value != nil {
-			details[i]["value"] = err.Value
-		}
-	}
-
 	response := &ErrorResponse{
 		Success: false,
 		Error: &ErrorDetail{
 			Code:    domain.ErrCodeValidation,
 			Message: "Validation failed",
 			Details: map[string]any{
-				"errors": details,
+				"errors": validationErrorsToDetails(validationErrors),
 			},
 		},
-		Meta: &MetaData{
-			RequestID: requestID,
-			Timestamp: time.Now(),
-			Path:      r.URL.Path,
-			Method:    r.Method,
-		},
+		Meta: requestMetaFromRequest(r),
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusBadRequest)
-	_ = json.NewEncoder(w).Encode(response)
+	writeJSONResponse(w, stdhttp.StatusBadRequest, response)
 }
 
 // GetRequestID gets the request ID from context.
@@ -255,22 +247,23 @@ func GetSessionID(ctx context.Context) string {
 	return ""
 }
 
+// isSecureRequest reports whether the request arrived over HTTPS.
+func isSecureRequest(r *stdhttp.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return r.Header.Get("X-Forwarded-Proto") == "https"
+}
+
 // SetSessionCookie sets a secure HTTP cookie for the session ID.
 func SetSessionCookie(w stdhttp.ResponseWriter, r *stdhttp.Request, sessionID string) {
 	kdeps_debug.Log("enter: SetSessionCookie")
-	// Determine if we're in a secure context (HTTPS)
-	// In development, allow HTTP cookies
-	secure := r.TLS != nil
-	if r.Header.Get("X-Forwarded-Proto") == "https" {
-		secure = true
-	}
-
 	cookie := &stdhttp.Cookie{
 		Name:     SessionCookieName,
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,                    // Prevents JavaScript access (XSS protection)
-		Secure:   secure,                  // HTTPS only in production
+		Secure:   isSecureRequest(r),      // HTTPS only in production
 		SameSite: stdhttp.SameSiteLaxMode, // CSRF protection
 		MaxAge:   3600,                    // 1 hour default (TODO: make configurable from workflow settings)
 	}
@@ -283,54 +276,56 @@ type headersWrittenChecker interface {
 	HeadersWritten() bool
 }
 
+// panicToError converts a recovered panic value into a message and error.
+func panicToError(recovered any) (string, error) {
+	switch e := recovered.(type) {
+	case error:
+		return e.Error(), e
+	case string:
+		return e, fmt.Errorf("%s", e)
+	default:
+		msg := fmt.Sprintf("%v", e)
+		return msg, fmt.Errorf("%v", e)
+	}
+}
+
+// headersAlreadyWritten reports whether the response writer has committed headers.
+func headersAlreadyWritten(w stdhttp.ResponseWriter) bool {
+	checker, ok := w.(headersWrittenChecker)
+	if !ok {
+		return false
+	}
+	return checker.HeadersWritten()
+}
+
+// appErrorFromPanic wraps a recovered panic in a domain.AppError.
+func appErrorFromPanic(panicErr error, errorMsg string, debugMode bool) *domain.AppError {
+	msg := "Internal server error"
+	if debugMode && errorMsg != "" {
+		msg = fmt.Sprintf("Internal server error: %s", errorMsg)
+	}
+
+	appErr := domain.NewAppError(domain.ErrCodeInternal, msg).WithError(panicErr)
+	if !debugMode {
+		return appErr
+	}
+
+	return appErr.WithStack(string(debug.Stack())).WithDetails("panic", errorMsg)
+}
+
 // RecoverPanic recovers from panics and converts them to errors.
 func RecoverPanic(w stdhttp.ResponseWriter, r *stdhttp.Request, debugMode bool) {
 	kdeps_debug.Log("enter: RecoverPanic")
-	if err := recover(); err != nil {
-		// Check if headers have already been written
-		// If headers were written, we can't safely write an error response
-		headersWritten := false
-		if checker, ok := w.(headersWrittenChecker); ok {
-			headersWritten = checker.HeadersWritten()
-		}
-
-		// Convert panic to error
-		var panicErr error
-		var errorMsg string
-		switch e := err.(type) {
-		case error:
-			panicErr = e
-			errorMsg = e.Error()
-		case string:
-			panicErr = fmt.Errorf("%s", e)
-			errorMsg = e
-		default:
-			panicErr = fmt.Errorf("%v", e)
-			errorMsg = fmt.Sprintf("%v", e)
-		}
-
-		// Wrap in AppError with actual error message
-		msg := "Internal server error"
-		if debugMode && errorMsg != "" {
-			msg = fmt.Sprintf("Internal server error: %s", errorMsg)
-		}
-		appErr := domain.NewAppError(
-			domain.ErrCodeInternal,
-			msg,
-		).WithError(panicErr)
-
-		if debugMode {
-			appErr = appErr.WithStack(string(debug.Stack()))
-			appErr = appErr.WithDetails("panic", errorMsg)
-		}
-
-		// Try to write error response
-		// If headers were already written, this might fail, but we try anyway
-		// The http package will handle it gracefully
-		if !headersWritten {
-			RespondWithError(w, r, appErr, debugMode)
-		}
-		// If headers were written, we can't send an error response, so we just log it
-		// The connection will be closed by the http package
+	recovered := recover()
+	if recovered == nil {
+		return
 	}
+
+	if headersAlreadyWritten(w) {
+		// Headers were written; the connection will be closed by the http package.
+		return
+	}
+
+	errorMsg, panicErr := panicToError(recovered)
+	RespondWithError(w, r, appErrorFromPanic(panicErr, errorMsg, debugMode), debugMode)
 }

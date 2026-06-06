@@ -96,25 +96,7 @@ func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 	mux.HandleFunc("/webhook", func(w http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:
-			// Meta webhook verification handshake.
-			mode := req.URL.Query().Get("hub.mode")
-			token := req.URL.Query().Get("hub.verify_token")
-			challenge := req.URL.Query().Get("hub.challenge")
-			if mode == "subscribe" && token == r.webhookSecret {
-				// Validate that challenge is numeric to prevent reflected XSS.
-				// Use the parsed integer to write the response, breaking the
-				// taint chain from the user-supplied query parameter.
-				n, err := strconv.Atoi(challenge)
-				if err != nil {
-					http.Error(w, "bad request", http.StatusBadRequest)
-					return
-				}
-				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(strconv.Itoa(n)))
-				return
-			}
-			http.Error(w, "forbidden", http.StatusForbidden)
+			r.handleWebhookVerify(w, req)
 		case http.MethodPost:
 			r.handleWebhookPost(ctx, w, req, ch)
 		default:
@@ -143,6 +125,26 @@ func (r *whatsAppRunner) Start(ctx context.Context, ch chan<- Message) error {
 	return nil
 }
 
+func (r *whatsAppRunner) handleWebhookVerify(w http.ResponseWriter, req *http.Request) {
+	mode := req.URL.Query().Get("hub.mode")
+	token := req.URL.Query().Get("hub.verify_token")
+	challenge := req.URL.Query().Get("hub.challenge")
+	if mode != "subscribe" || token != r.webhookSecret {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Validate that challenge is numeric to prevent reflected XSS.
+	n, err := strconv.Atoi(challenge)
+	if err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(strconv.Itoa(n)))
+}
+
 // handleWebhookPost parses a WhatsApp Cloud API webhook POST and emits messages.
 func (r *whatsAppRunner) handleWebhookPost(
 	ctx context.Context,
@@ -167,21 +169,30 @@ func (r *whatsAppRunner) handleWebhookPost(
 	}
 
 	w.WriteHeader(http.StatusOK) // Acknowledge immediately.
+	r.emitMessagesFromPayload(ctx, body, ch)
+}
 
-	var payload struct {
-		Entry []struct {
-			Changes []struct {
-				Value struct {
-					Messages []struct {
-						From string `json:"from"`
-						Text struct {
-							Body string `json:"body"`
-						} `json:"text"`
-					} `json:"messages"`
-				} `json:"value"`
-			} `json:"changes"`
-		} `json:"entry"`
-	}
+type whatsAppWebhookPayload struct {
+	Entry []struct {
+		Changes []struct {
+			Value struct {
+				Messages []struct {
+					From string `json:"from"`
+					Text struct {
+						Body string `json:"body"`
+					} `json:"text"`
+				} `json:"messages"`
+			} `json:"value"`
+		} `json:"changes"`
+	} `json:"entry"`
+}
+
+func (r *whatsAppRunner) emitMessagesFromPayload(
+	ctx context.Context,
+	body []byte,
+	ch chan<- Message,
+) {
+	var payload whatsAppWebhookPayload
 	if jsonErr := json.Unmarshal(body, &payload); jsonErr != nil {
 		r.logger.WarnContext(ctx, "whatsapp: unmarshal webhook payload", "err", jsonErr)
 		return
@@ -193,19 +204,31 @@ func (r *whatsAppRunner) handleWebhookPost(
 				if msg.Text.Body == "" {
 					continue
 				}
-				select {
-				case ch <- Message{
-					Platform: whatsAppPlatform,
-					ChatID:   msg.From,
-					UserID:   msg.From,
-					Text:     msg.Text.Body,
-					Raw:      msg,
-				}:
-				case <-ctx.Done():
+				if !r.emitMessage(ctx, ch, msg.From, msg.Text.Body, msg) {
 					return
 				}
 			}
 		}
+	}
+}
+
+func (r *whatsAppRunner) emitMessage(
+	ctx context.Context,
+	ch chan<- Message,
+	chatID, text string,
+	raw interface{},
+) bool {
+	select {
+	case ch <- Message{
+		Platform: whatsAppPlatform,
+		ChatID:   chatID,
+		UserID:   chatID,
+		Text:     text,
+		Raw:      raw,
+	}:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }
 

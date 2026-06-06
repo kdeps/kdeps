@@ -85,6 +85,7 @@ func (p *Parser) ParseComponent(path string) (*domain.Component, error) {
 
 	data, err := p.readPreprocessAndValidateYAML(
 		path,
+		"failed to read file",
 		"failed to preprocess component Jinja2 template",
 		validate,
 	)

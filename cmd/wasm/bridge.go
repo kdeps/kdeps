@@ -121,8 +121,6 @@ func jsArrayToSlice(arr js.Value) []interface{} {
 }
 
 // goToJS converts a Go value to a JS value.
-//
-//nolint:gocognit // type switch covers all Go→JS conversions
 func goToJS(val interface{}) js.Value {
 	kdeps_debug.Log("enter: goToJS")
 	if val == nil {
@@ -130,37 +128,46 @@ func goToJS(val interface{}) js.Value {
 	}
 
 	switch v := val.(type) {
-	case bool:
-		return js.ValueOf(v)
-	case int:
+	case bool, int, float64, string:
 		return js.ValueOf(v)
 	case int64:
 		return js.ValueOf(float64(v))
-	case float64:
-		return js.ValueOf(v)
-	case string:
-		return js.ValueOf(v)
 	case []interface{}:
-		arr := js.Global().Get("Array").New(len(v))
-		for i, item := range v {
-			arr.SetIndex(i, goToJS(item))
-		}
-		return arr
+		return goSliceToJS(v)
 	case map[string]interface{}:
-		obj := js.Global().Get("Object").New()
-		for key, item := range v {
-			obj.Set(key, goToJS(item))
-		}
-		return obj
+		return goMapToJS(v)
 	case map[string]string:
-		obj := js.Global().Get("Object").New()
-		for key, item := range v {
-			obj.Set(key, js.ValueOf(item))
-		}
-		return obj
+		return goStringMapToJS(v)
 	default:
 		return js.ValueOf(fmt.Sprintf("%v", v))
 	}
+}
+
+// goSliceToJS converts a Go slice to a JS array.
+func goSliceToJS(items []interface{}) js.Value {
+	arr := js.Global().Get("Array").New(len(items))
+	for i, item := range items {
+		arr.SetIndex(i, goToJS(item))
+	}
+	return arr
+}
+
+// goMapToJS converts a Go map[string]interface{} to a JS object.
+func goMapToJS(items map[string]interface{}) js.Value {
+	obj := js.Global().Get("Object").New()
+	for key, item := range items {
+		obj.Set(key, goToJS(item))
+	}
+	return obj
+}
+
+// goStringMapToJS converts a Go map[string]string to a JS object.
+func goStringMapToJS(items map[string]string) js.Value {
+	obj := js.Global().Get("Object").New()
+	for key, item := range items {
+		obj.Set(key, js.ValueOf(item))
+	}
+	return obj
 }
 
 // invokeCallback safely invokes a JS callback function with the given arguments.

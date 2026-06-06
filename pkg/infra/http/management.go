@@ -148,68 +148,26 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // PUT /_kdeps/workflow.
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementUpdateWorkflow")
-	// Read up to maxWorkflowBodySize + 1 bytes so we can detect oversized payloads.
-	// LimitReader stops at maxWorkflowBodySize bytes; the extra +1 lets us distinguish
-	// "exactly at the limit" from "over the limit".
-	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxWorkflowBodySize+1))
-	if err != nil {
-		s.respondManagementError(
-			w,
-			stdhttp.StatusBadRequest,
-			fmt.Sprintf("failed to read request body: %v", err),
-		)
+	body, statusCode, errMsg := readLimitedManagementBody(r, maxWorkflowBodySize, "workflow YAML")
+	if errMsg != "" {
+		s.respondManagementError(w, statusCode, errMsg)
 		return
 	}
 
-	if len(limitedBody) == 0 {
-		s.respondManagementError(w, stdhttp.StatusBadRequest, "request body is empty")
-		return
-	}
-
-	// Reject payloads that exceed the allowed size without writing anything to disk.
-	if len(limitedBody) > maxWorkflowBodySize {
-		s.respondManagementError(
-			w,
-			stdhttp.StatusRequestEntityTooLarge,
-			fmt.Sprintf(
-				"workflow YAML exceeds maximum allowed size of %d bytes",
-				maxWorkflowBodySize,
-			),
-		)
-		return
-	}
-
-	body := limitedBody
-
-	// Determine the workflow path to write to
 	workflowPath := s.getManagementWorkflowPath()
-
-	// Ensure the parent directory exists
-	if mkdirErr := AppFS.MkdirAll(filepath.Dir(workflowPath), 0750); mkdirErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError,
-			fmt.Sprintf("failed to create workflow directory: %v", mkdirErr))
+	if mkdirErr := ensureManagementDir(workflowPath); mkdirErr != nil {
+		s.respondManagementError(w, stdhttp.StatusInternalServerError, mkdirErr.Error())
 		return
 	}
 
-	// Write the new workflow YAML to disk
 	if writeErr := afero.WriteFile(AppFS, workflowPath, body, 0600); writeErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to write workflow file: %v", writeErr))
 		return
 	}
 
-	// Remove old resource YAML files from the resources/ directory so that on
-	// restart (or the next reload) the parser does not load stale resources
-	// alongside the resources that are now inlined in the pushed workflow YAML.
-	resourcesDir := filepath.Join(filepath.Dir(workflowPath), "resources")
-	clearResourcesDir(resourcesDir)
-
-	// Set the workflow path and reload
-	s.mu.Lock()
-	if s.workflowPath == "" {
-		s.workflowPath = workflowPath
-	}
-	s.mu.Unlock()
+	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
+	s.ensureManagementWorkflowPath(workflowPath)
 
 	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
 		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
@@ -217,25 +175,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-
-	response := map[string]interface{}{
-		"status":  "ok",
-		"message": "workflow updated and reloaded",
-	}
-	if workflow != nil {
-		response["workflow"] = map[string]interface{}{
-			"name":    workflow.Metadata.Name,
-			"version": workflow.Metadata.Version,
-		}
-	}
-
-	_ = json.NewEncoder(w).Encode(response)
+	s.writeManagementSuccess(w, "workflow updated and reloaded")
 }
 
 // HandleManagementReload triggers a workflow reload from disk.
@@ -248,25 +188,7 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 		return
 	}
 
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-
-	response := map[string]interface{}{
-		"status":  "ok",
-		"message": "workflow reloaded",
-	}
-	if workflow != nil {
-		response["workflow"] = map[string]interface{}{
-			"name":    workflow.Metadata.Name,
-			"version": workflow.Metadata.Version,
-		}
-	}
-
-	_ = json.NewEncoder(w).Encode(response)
+	s.writeManagementSuccess(w, "workflow reloaded")
 }
 
 // HandleManagementUpdatePackage accepts a raw .kdeps package archive in the request body,
@@ -274,50 +196,26 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // PUT /_kdeps/package.
 func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementUpdatePackage")
-	// Read up to maxPackageBodySize + 1 bytes to detect oversized payloads.
-	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, maxPackageBodySize+1))
-	if err != nil {
-		s.respondManagementError(w, stdhttp.StatusBadRequest,
-			fmt.Sprintf("failed to read request body: %v", err))
+	body, statusCode, errMsg := readLimitedManagementBody(r, maxPackageBodySize, "package")
+	if errMsg != "" {
+		s.respondManagementError(w, statusCode, errMsg)
 		return
 	}
 
-	if len(limitedBody) == 0 {
-		s.respondManagementError(w, stdhttp.StatusBadRequest, "request body is empty")
-		return
-	}
-
-	if len(limitedBody) > maxPackageBodySize {
-		s.respondManagementError(w, stdhttp.StatusRequestEntityTooLarge,
-			fmt.Sprintf("package exceeds maximum allowed size of %d bytes", maxPackageBodySize))
-		return
-	}
-
-	// Determine the destination directory from the configured workflow path.
 	workflowPath := s.getManagementWorkflowPath()
 	destDir := filepath.Dir(workflowPath)
-
-	// Ensure the destination directory exists.
-	if mkdirErr := AppFS.MkdirAll(destDir, 0750); mkdirErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError,
-			fmt.Sprintf("failed to create workflow directory: %v", mkdirErr))
+	if mkdirErr := ensureManagementDir(workflowPath); mkdirErr != nil {
+		s.respondManagementError(w, stdhttp.StatusInternalServerError, mkdirErr.Error())
 		return
 	}
 
-	// Extract the .kdeps archive (tar.gz) directly into the workflow directory.
-	// This overwrites workflow.yaml, resources/, data/, scripts/ etc. in place.
-	if extractErr := extractKdepsPackage(limitedBody, destDir); extractErr != nil {
+	if extractErr := extractKdepsPackage(body, destDir); extractErr != nil {
 		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
 			fmt.Sprintf("failed to extract package: %v", extractErr))
 		return
 	}
 
-	// Store the resolved workflow path so reload and subsequent requests use it.
-	s.mu.Lock()
-	if s.workflowPath == "" {
-		s.workflowPath = workflowPath
-	}
-	s.mu.Unlock()
+	s.ensureManagementWorkflowPath(workflowPath)
 
 	if reloadErr := s.reloadWorkflow(); reloadErr != nil {
 		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
@@ -325,6 +223,44 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 		return
 	}
 
+	s.writeManagementSuccess(w, "package extracted and workflow reloaded")
+}
+
+func readLimitedManagementBody(
+	r *stdhttp.Request,
+	maxSize int,
+	label string,
+) ([]byte, int, string) {
+	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, int64(maxSize)+1))
+	if err != nil {
+		return nil, stdhttp.StatusBadRequest, fmt.Sprintf("failed to read request body: %v", err)
+	}
+	if len(limitedBody) == 0 {
+		return nil, stdhttp.StatusBadRequest, "request body is empty"
+	}
+	if len(limitedBody) > maxSize {
+		return nil, stdhttp.StatusRequestEntityTooLarge,
+			fmt.Sprintf("%s exceeds maximum allowed size of %d bytes", label, maxSize)
+	}
+	return limitedBody, 0, ""
+}
+
+func ensureManagementDir(workflowPath string) error {
+	if mkdirErr := AppFS.MkdirAll(filepath.Dir(workflowPath), 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create workflow directory: %w", mkdirErr)
+	}
+	return nil
+}
+
+func (s *Server) ensureManagementWorkflowPath(workflowPath string) {
+	s.mu.Lock()
+	if s.workflowPath == "" {
+		s.workflowPath = workflowPath
+	}
+	s.mu.Unlock()
+}
+
+func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
 	s.mu.RLock()
 	workflow := s.Workflow
 	s.mu.RUnlock()
@@ -334,7 +270,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 
 	response := map[string]interface{}{
 		"status":  "ok",
-		"message": "package extracted and workflow reloaded",
+		"message": message,
 	}
 	if workflow != nil {
 		response["workflow"] = map[string]interface{}{

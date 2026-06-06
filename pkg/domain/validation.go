@@ -92,20 +92,20 @@ func (f *FieldRule) UnmarshalYAML(node *yaml.Node) error {
 	f.Enum = raw.Enum
 	f.Message = raw.Message
 
-	// Handle min/max aliases: "minimum" takes precedence over "min", "maximum" takes precedence over "max"
-	if raw.Minimum != nil {
-		f.Min = raw.Minimum
-	} else {
-		f.Min = raw.Min
-	}
-
-	if raw.Maximum != nil {
-		f.Max = raw.Maximum
-	} else {
-		f.Max = raw.Max
-	}
+	f.Min, f.Max = resolveMinMaxAliases(raw.Min, raw.Max, raw.Minimum, raw.Maximum)
 
 	return nil
+}
+
+// resolveMinMaxAliases prefers JSON Schema "minimum"/"maximum" over "min"/"max".
+func resolveMinMaxAliases(minVal, maxVal, minimum, maximum *float64) (*float64, *float64) {
+	if minimum != nil {
+		minVal = minimum
+	}
+	if maximum != nil {
+		maxVal = maximum
+	}
+	return minVal, maxVal
 }
 
 // FieldType represents the type of a field.
@@ -169,36 +169,11 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 	v.Rules = r.Rules
 	v.Expr = r.Expr
 
-	// Extract `fields:` and `properties:` map nodes.
-	extractMapRules := func(key string) ([]FieldRule, error) {
-		for i := 0; i+1 < len(node.Content); i += 2 {
-			if node.Content[i].Value != key {
-				continue
-			}
-			mapNode := node.Content[i+1]
-			if mapNode.Kind != yaml.MappingNode {
-				return nil, fmt.Errorf("%q must be a mapping (field name → rule), not a sequence", key)
-			}
-			var rules []FieldRule
-			for j := 0; j+1 < len(mapNode.Content); j += 2 {
-				fieldName := mapNode.Content[j].Value
-				var rule FieldRule
-				if err := mapNode.Content[j+1].Decode(&rule); err != nil {
-					return nil, err
-				}
-				rule.Field = fieldName
-				rules = append(rules, rule)
-			}
-			return rules, nil
-		}
-		return nil, nil
-	}
-
-	fields, err := extractMapRules("fields")
+	fields, err := extractMapRulesFromNode(node, "fields")
 	if err != nil {
 		return err
 	}
-	properties, err := extractMapRules("properties")
+	properties, err := extractMapRulesFromNode(node, "properties")
 	if err != nil {
 		return err
 	}
@@ -210,6 +185,39 @@ func (v *ValidationsConfig) UnmarshalYAML(node *yaml.Node) error {
 		v.Rules = fields
 	}
 
+	return nil
+}
+
+// extractMapRulesFromNode parses a map-based rules section (fields/properties) from a YAML node.
+func extractMapRulesFromNode(node *yaml.Node, key string) ([]FieldRule, error) {
+	mapNode := findMappingChild(node, key)
+	if mapNode == nil {
+		return nil, nil
+	}
+	if mapNode.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("%q must be a mapping (field name → rule), not a sequence", key)
+	}
+
+	var rules []FieldRule
+	for j := 0; j+1 < len(mapNode.Content); j += 2 {
+		fieldName := mapNode.Content[j].Value
+		var rule FieldRule
+		if err := mapNode.Content[j+1].Decode(&rule); err != nil {
+			return nil, err
+		}
+		rule.Field = fieldName
+		rules = append(rules, rule)
+	}
+	return rules, nil
+}
+
+// findMappingChild returns the value node for key in a YAML mapping, or nil if absent.
+func findMappingChild(node *yaml.Node, key string) *yaml.Node {
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return node.Content[i+1]
+		}
+	}
 	return nil
 }
 

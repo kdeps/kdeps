@@ -49,12 +49,20 @@ func Enabled() bool {
 		os.Getenv("DEBUG") == enabledValue
 }
 
+func colorizeEnabled() bool {
+	return os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"
+}
+
 // colorize wraps s in cyan ANSI codes unless NO_COLOR or TERM=dumb is set.
 func colorize(s string) string {
-	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
+	if !colorizeEnabled() {
 		return s
 	}
 	return ansiCyan + s + ansiReset
+}
+
+func instrumentName(msg string) string {
+	return strings.TrimPrefix(msg, "enter: ")
 }
 
 // rle applies run-length encoding to items, collapsing consecutive duplicates
@@ -67,7 +75,7 @@ func rle(items []string) string {
 	i := 0
 	for i < len(items) {
 		j := i + 1
-		for j < len(items) && items[j] == items[i] { //nolint:gosec // false positive: short-circuit AND guards items[j]
+		for j < len(items) && items[j] == items[i] {
 			j++
 		}
 		if count := j - i; count > 1 {
@@ -80,6 +88,28 @@ func rle(items []string) string {
 	return strings.Join(parts, " -> ")
 }
 
+func groupAllSame(group []string) bool {
+	label := group[0]
+	for _, name := range group[1:] {
+		if name != label {
+			return false
+		}
+	}
+	return true
+}
+
+func formatFlushLine(group []string) string {
+	label := group[0]
+	switch {
+	case len(group) == 1:
+		return fmt.Sprintf("(%s)", label)
+	case groupAllSame(group):
+		return fmt.Sprintf("%s(%dx)", label, len(group))
+	default:
+		return fmt.Sprintf("(%s) %s", label, rle(group[1:]))
+	}
+}
+
 // flushGroup writes a complete or partial group as a single terminated line.
 // Consecutive duplicate names are collapsed with rle. If every item in the
 // group is the same function the parens label is omitted: "name(Nx)".
@@ -88,28 +118,7 @@ func flushGroup(group []string) {
 	if len(group) == 0 {
 		return
 	}
-	label := group[0]
-
-	// Check if the entire group is the same function name.
-	allSame := true
-	for _, name := range group[1:] {
-		if name != label {
-			allSame = false
-			break
-		}
-	}
-
-	var line string
-	switch {
-	case len(group) == 1:
-		line = fmt.Sprintf("(%s)", label)
-	case allSame:
-		line = fmt.Sprintf("%s(%dx)", label, len(group))
-	default:
-		line = fmt.Sprintf("(%s) %s", label, rle(group[1:]))
-	}
-
-	fmt.Fprintf(os.Stderr, "%s\n", colorize(line))
+	fmt.Fprintf(os.Stderr, "%s\n", colorize(formatFlushLine(group)))
 }
 
 // Log appends the function name to the running call chain. Each group of
@@ -127,8 +136,7 @@ func Log(msg string) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	name := strings.TrimPrefix(msg, "enter: ")
-	chain = append(chain, name)
+	chain = append(chain, instrumentName(msg))
 	n := len(chain)
 
 	if n%maxChainLen == 0 {

@@ -42,6 +42,20 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
+func buildSearchResult(path string, results []map[string]interface{}) map[string]interface{} {
+	if results == nil {
+		results = []map[string]interface{}{}
+	}
+	result := map[string]interface{}{
+		"results": results,
+		"count":   len(results),
+		"path":    path,
+	}
+	jsonBytes, _ := json.Marshal(result)
+	result["json"] = string(jsonBytes)
+	return result
+}
+
 // Execute walks a directory and optionally filters by glob and/or content keyword.
 func (e *Executor) Execute(
 	_ *executor.ExecutionContext,
@@ -58,14 +72,7 @@ func (e *Executor) Execute(
 		return nil, err
 	}
 
-	result := map[string]interface{}{
-		"results": results,
-		"count":   len(results),
-		"path":    config.Path,
-	}
-	jsonBytes, _ := json.Marshal(result)
-	result["json"] = string(jsonBytes)
-	return result, nil
+	return buildSearchResult(config.Path, results), nil
 }
 
 // walk traverses the directory tree and collects matching files.
@@ -81,9 +88,6 @@ func (e *Executor) walk(config *domain.SearchLocalConfig) ([]map[string]interfac
 		return nil, fmt.Errorf("searchLocal: walk failed: %w", walkErr)
 	}
 
-	if results == nil {
-		results = []map[string]interface{}{}
-	}
 	return results, nil
 }
 
@@ -101,9 +105,11 @@ func (e *Executor) walkEntry(
 		return nil //nolint:nilerr // intentionally skip unreadable entries and directories
 	}
 
-	if ok, filterErr := e.matchesFilters(path, d, config); filterErr != nil {
+	ok, filterErr := e.matchesFilters(path, d, config)
+	if filterErr != nil {
 		return filterErr
-	} else if !ok {
+	}
+	if !ok {
 		return nil
 	}
 
@@ -126,6 +132,14 @@ func (e *Executor) walkEntry(
 	return nil
 }
 
+func contentMatchesQuery(path, query string) bool {
+	data, readErr := os.ReadFile(path) // path is walk-derived from caller-supplied root
+	if readErr != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(string(data)), strings.ToLower(query))
+}
+
 // matchesFilters returns true when the file passes all configured filters.
 func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.SearchLocalConfig) (bool, error) {
 	if config.Glob != "" {
@@ -138,14 +152,8 @@ func (e *Executor) matchesFilters(path string, d fs.DirEntry, config *domain.Sea
 		}
 	}
 
-	if config.Query != "" {
-		data, readErr := os.ReadFile(path) // path is walk-derived from caller-supplied root
-		if readErr != nil {
-			return false, nil //nolint:nilerr // skip unreadable files intentionally
-		}
-		if !strings.Contains(strings.ToLower(string(data)), strings.ToLower(config.Query)) {
-			return false, nil
-		}
+	if config.Query != "" && !contentMatchesQuery(path, config.Query) {
+		return false, nil
 	}
 
 	_ = d // d used only for IsDir check upstream

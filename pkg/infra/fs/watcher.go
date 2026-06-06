@@ -51,6 +51,10 @@ type Watcher struct {
 	closed    bool
 }
 
+func defaultWatcherLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
+}
+
 // NewWatcher creates a new file watcher.
 func NewWatcher() (*Watcher, error) {
 	kdeps_debug.Log("enter: NewWatcher")
@@ -61,7 +65,7 @@ func NewWatcher() (*Watcher, error) {
 func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
 	kdeps_debug.Log("enter: NewWatcherWithLogger")
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{}))
+		logger = defaultWatcherLogger()
 	}
 
 	fsWatcher, err := fsnotifyNewWatcher()
@@ -75,10 +79,27 @@ func NewWatcherWithLogger(logger *slog.Logger) (*Watcher, error) {
 		logger:    logger,
 	}
 
-	// Start watching
 	go w.watch()
 
 	return w, nil
+}
+
+func (w *Watcher) resolveWatchTarget(path string) (string, error) {
+	absPath, err := filepathAbs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve path: %w", err)
+	}
+
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", fmt.Errorf("path does not exist: %w", err)
+	}
+
+	watchPath := absPath
+	if !info.IsDir() {
+		watchPath = filepath.Dir(absPath)
+	}
+	return watchPath, nil
 }
 
 // Watch watches a path for changes.
@@ -91,28 +112,15 @@ func (w *Watcher) Watch(path string, callback func()) error {
 		return errors.New("watcher is closed")
 	}
 
-	// Resolve absolute path
-	absPath, err := filepathAbs(path)
+	watchPath, err := w.resolveWatchTarget(path)
 	if err != nil {
-		return fmt.Errorf("failed to resolve path: %w", err)
+		return err
 	}
 
-	// Check if path exists
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return fmt.Errorf("path does not exist: %w", err)
-	}
-
-	// Add callback
+	absPath, _ := filepathAbs(path)
 	w.callbacks[absPath] = append(w.callbacks[absPath], callback)
 
-	// Watch directory if it's a file
-	if !info.IsDir() {
-		absPath = filepath.Dir(absPath)
-	}
-
-	// Add to watcher
-	if addErr := w.watcher.Add(absPath); addErr != nil {
+	if addErr := w.watcher.Add(watchPath); addErr != nil {
 		return fmt.Errorf("failed to add path to watcher: %w", addErr)
 	}
 
@@ -139,19 +147,27 @@ func (w *Watcher) watch() {
 	}
 }
 
+func eventMatchesWatchPath(eventName, watchPath string) bool {
+	return eventName == watchPath || filepath.Dir(eventName) == watchPath
+}
+
+func (w *Watcher) invokeCallbacks(callbacks []func()) {
+	for _, callback := range callbacks {
+		go callback()
+	}
+}
+
 // handleEvent handles a file system event.
 func (w *Watcher) handleEvent(event fsnotify.Event) {
 	kdeps_debug.Log("enter: handleEvent")
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	// Find matching callbacks
 	for path, callbacks := range w.callbacks {
-		if event.Name == path || filepath.Dir(event.Name) == path {
-			for _, callback := range callbacks {
-				go callback()
-			}
+		if !eventMatchesWatchPath(event.Name, path) {
+			continue
 		}
+		w.invokeCallbacks(callbacks)
 	}
 }
 

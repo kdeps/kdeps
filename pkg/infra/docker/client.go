@@ -57,6 +57,77 @@ func NewClient() (*Client, error) {
 	return &Client{Cli: cli}, nil
 }
 
+type buildResponseLine struct {
+	Stream      string `json:"stream"`
+	Error       string `json:"error"`
+	ErrorDetail struct {
+		Message string `json:"message"`
+	} `json:"errorDetail"`
+}
+
+// parseBuildResponseLine unmarshals a docker build JSON stream line.
+func parseBuildResponseLine(line []byte) (buildResponseLine, bool) {
+	var buildResp buildResponseLine
+	if err := json.Unmarshal(line, &buildResp); err != nil {
+		return buildResponseLine{}, false
+	}
+	return buildResp, true
+}
+
+// buildErrorFromResponse extracts a build failure message from a response line.
+func buildErrorFromResponse(buildResp buildResponseLine) error {
+	if buildResp.Error != "" {
+		return fmt.Errorf("docker build failed: %s", buildResp.Error)
+	}
+	if buildResp.ErrorDetail.Message != "" {
+		return fmt.Errorf("docker build failed: %s", buildResp.ErrorDetail.Message)
+	}
+	return nil
+}
+
+// makePortBindings converts string port mappings to Docker nat.PortMap values.
+func makePortBindings(bindings map[string]string) nat.PortMap {
+	portBindings := make(nat.PortMap, len(bindings))
+	for port, hostPort := range bindings {
+		portBindings[nat.Port(port)] = []nat.PortBinding{{HostPort: hostPort}}
+	}
+	return portBindings
+}
+
+// writeReaderToFile copies reader contents to dstPath.
+func writeReaderToFile(dstPath string, reader io.Reader) error {
+	outFile, err := os.Create(dstPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer func() {
+		_ = outFile.Close()
+	}()
+
+	_, err = io.Copy(outFile, reader)
+	return err
+}
+
+// extractTarEntryToFile writes the current tar entry from reader to dstPath.
+func extractTarEntryToFile(tarReader *tar.Reader, dstPath string, maxBytes int64) error {
+	if mkdirErr := os.MkdirAll(filepath.Dir(dstPath), 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
+	}
+
+	outFile, err := os.Create(dstPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer func() {
+		_ = outFile.Close()
+	}()
+
+	if _, copyErr := io.Copy(outFile, io.LimitReader(tarReader, maxBytes)); copyErr != nil {
+		return fmt.Errorf("failed to write file: %w", copyErr)
+	}
+	return nil
+}
+
 // BuildImage builds a Docker image from a Dockerfile.
 func (c *Client) BuildImage(
 	ctx context.Context,
@@ -91,34 +162,17 @@ func (c *Client) BuildImage(
 		_ = resp.Body.Close()
 	}()
 
-	// Parse build output and check for errors
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
-		line := scanner.Bytes()
-
-		// Parse JSON response
-		var buildResp struct {
-			Stream      string `json:"stream"`
-			Error       string `json:"error"`
-			ErrorDetail struct {
-				Message string `json:"message"`
-			} `json:"errorDetail"`
-		}
-
-		if unmarshalErr := json.Unmarshal(line, &buildResp); unmarshalErr != nil {
-			// Not JSON, just skip
+		buildResp, ok := parseBuildResponseLine(scanner.Bytes())
+		if !ok {
 			continue
 		}
 
-		// Check for errors
-		if buildResp.Error != "" {
-			return fmt.Errorf("docker build failed: %s", buildResp.Error)
-		}
-		if buildResp.ErrorDetail.Message != "" {
-			return fmt.Errorf("docker build failed: %s", buildResp.ErrorDetail.Message)
+		if buildErr := buildErrorFromResponse(buildResp); buildErr != nil {
+			return buildErr
 		}
 
-		// Print build output
 		if buildResp.Stream != "" {
 			_, _ = fmt.Fprint(os.Stdout, buildResp.Stream)
 		}
@@ -151,16 +205,8 @@ func (c *Client) RunContainer(
 		Image: imageName,
 	}
 
-	// Convert port bindings
-	portBindings := make(nat.PortMap)
-	for port, hostPort := range config.PortBindings {
-		portBindings[nat.Port(port)] = []nat.PortBinding{
-			{HostPort: hostPort},
-		}
-	}
-
 	hostConfig := &container.HostConfig{
-		PortBindings: portBindings,
+		PortBindings: makePortBindings(config.PortBindings),
 	}
 
 	resp, err := c.Cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
@@ -241,34 +287,13 @@ func (c *Client) CopyFromContainer(
 		_ = reader.Close()
 	}()
 
-	// Docker API returns a tar archive; extract the single file
 	tarReader := tar.NewReader(reader)
-
-	_, err = tarReader.Next()
-	if err != nil {
+	if _, err = tarReader.Next(); err != nil {
 		return fmt.Errorf("failed to read tar header: %w", err)
 	}
 
-	// Ensure output directory exists
-	if mkdirErr := os.MkdirAll(filepath.Dir(dstPath), 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
-	}
-
-	outFile, err := os.Create(dstPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
-	}
-	defer func() {
-		_ = outFile.Close()
-	}()
-
-	// Limit copy to 10GB to prevent decompression bombs
 	const maxISOSize = 10 * 1024 * 1024 * 1024 // 10 GB
-	if _, copyErr := io.Copy(outFile, io.LimitReader(tarReader, maxISOSize)); copyErr != nil {
-		return fmt.Errorf("failed to write file: %w", copyErr)
-	}
-
-	return nil
+	return extractTarEntryToFile(tarReader, dstPath, maxISOSize)
 }
 
 // SaveImage exports a Docker image to a tar file on disk.
@@ -286,18 +311,9 @@ func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) erro
 		_ = reader.Close()
 	}()
 
-	outFile, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+	if writeErr := writeReaderToFile(destPath, reader); writeErr != nil {
+		return fmt.Errorf("failed to write image tar: %w", writeErr)
 	}
-	defer func() {
-		_ = outFile.Close()
-	}()
-
-	if _, copyErr := io.Copy(outFile, reader); copyErr != nil {
-		return fmt.Errorf("failed to write image tar: %w", copyErr)
-	}
-
 	return nil
 }
 

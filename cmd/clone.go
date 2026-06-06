@@ -52,9 +52,8 @@ var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-le
 	"component.yaml.j2": "component",
 }
 
-// cloneFromRemote resolves owner/repo[:subdir] and clones it locally.
-func cloneFromRemote(ref string) error {
-	kdeps_debug.Log("enter: cloneFromRemote")
+// parseCloneRef splits "owner/repo[:subdir]" into its components.
+func parseCloneRef(ref string) (string, string, string, string, error) {
 	const maxParts = 2
 
 	colonParts := strings.SplitN(ref, ":", maxParts)
@@ -66,14 +65,23 @@ func cloneFromRemote(ref string) error {
 
 	slashParts := strings.SplitN(repoRef, "/", maxParts)
 	if len(slashParts) != maxParts || slashParts[0] == "" || slashParts[1] == "" {
-		return fmt.Errorf("invalid ref %q: expected owner/repo or owner/repo:subdir", ref)
+		return "", "", "", "", fmt.Errorf("invalid ref %q: expected owner/repo or owner/repo:subdir", ref)
 	}
 	owner, repo := slashParts[0], slashParts[1]
 
-	// Derive destination name from subdir or repo name.
 	name := repo
 	if subdir != "" {
 		name = filepath.Base(subdir)
+	}
+	return owner, repo, subdir, name, nil
+}
+
+// cloneFromRemote resolves owner/repo[:subdir] and clones it locally.
+func cloneFromRemote(ref string) error {
+	kdeps_debug.Log("enter: cloneFromRemote")
+	owner, repo, subdir, name, err := parseCloneRef(ref)
+	if err != nil {
+		return err
 	}
 
 	tempDir, err := os.MkdirTemp("", "kdeps-clone-*")

@@ -108,6 +108,55 @@ func (b *Builder) CacheImportImage(ctx context.Context, tarPath string) error {
 	return b.Runner.CacheImport(ctx, tarPath)
 }
 
+func validateBuildInputs(workflow *domain.Workflow, kdepsImageName string) error {
+	if workflow == nil {
+		return errors.New("workflow cannot be nil")
+	}
+	if kdepsImageName == "" {
+		return errors.New("image name cannot be empty")
+	}
+	return nil
+}
+
+func resolveBuildFormat(format string) string {
+	if format == "" {
+		return defaultFormat
+	}
+	return format
+}
+
+func isThinBuildFormat(format string) bool {
+	return strings.HasPrefix(format, "raw") || strings.HasPrefix(format, "qcow2")
+}
+
+func writeLinuxKitConfigTempFile(configYAML string) (string, error) {
+	tmpFile, err := os.CreateTemp("", "kdeps-linuxkit-*.yml")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp config file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	if _, writeErr := tmpFile.WriteString(configYAML); writeErr != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("failed to write LinuxKit config: %w", writeErr)
+	}
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("failed to close temp config file: %w", closeErr)
+	}
+
+	return tmpPath, nil
+}
+
+func ensureOutputDirectory(outputPath string) error {
+	outputDir := filepath.Dir(outputPath)
+	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
+	}
+	return nil
+}
+
 // Build creates a bootable image from a kdeps Docker image.
 func (b *Builder) Build(
 	ctx context.Context,
@@ -117,49 +166,26 @@ func (b *Builder) Build(
 	_ bool, // noCache: kept for API compatibility
 ) error {
 	kdeps_debug.Log("enter: Build")
-	if workflow == nil {
-		return errors.New("workflow cannot be nil")
+	if err := validateBuildInputs(workflow, kdepsImageName); err != nil {
+		return err
 	}
 
-	if kdepsImageName == "" {
-		return errors.New("image name cannot be empty")
-	}
+	format := resolveBuildFormat(b.Format)
+	isRaw := isThinBuildFormat(format)
 
-	format := b.Format
-	if format == "" {
-		format = defaultFormat
-	}
-
-	// For raw and qcow2 formats, we use a "thin" build strategy to handle large images.
-	// The app image is moved to a separate data partition instead of initrd.
-	isRaw := strings.HasPrefix(format, "raw") || strings.HasPrefix(format, "qcow2")
-
-	// Generate LinuxKit YAML config.
 	configYAML, err := b.GenerateConfigYAMLExtended(kdepsImageName, workflow, isRaw)
 	if err != nil {
 		return fmt.Errorf("failed to generate LinuxKit config: %w", err)
 	}
 
-	// Write config to temp file
-	tmpFile, err := os.CreateTemp("", "kdeps-linuxkit-*.yml")
+	tmpPath, err := writeLinuxKitConfigTempFile(configYAML)
 	if err != nil {
-		return fmt.Errorf("failed to create temp config file: %w", err)
+		return err
 	}
-	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	if _, writeErr := tmpFile.WriteString(configYAML); writeErr != nil {
-		_ = tmpFile.Close()
-		return fmt.Errorf("failed to write LinuxKit config: %w", writeErr)
-	}
-	if closeErr := tmpFile.Close(); closeErr != nil {
-		return fmt.Errorf("failed to close temp config file: %w", closeErr)
-	}
-
-	// Determine output directory and ensure it exists
-	outputDir := filepath.Dir(outputPath)
-	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
-		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
+	if ensureErr := ensureOutputDirectory(outputPath); ensureErr != nil {
+		return ensureErr
 	}
 
 	// Run linuxkit build into a temp output directory

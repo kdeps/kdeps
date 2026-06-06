@@ -70,225 +70,237 @@ func parseAtTime(s string) (time.Time, error) {
 }
 
 // buildEvaluationEnvironment builds the evaluation environment with request object.
-//
-//nolint:gocognit,funlen // environment merges multiple sources
 func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]interface{} {
 	kdeps_debug.Log("enter: buildEvaluationEnvironment")
 	env := make(map[string]interface{})
-
-	// Add resource-specific accessor objects (always available if ctx exists)
-	if ctx != nil { //nolint:nestif // nested accessors are explicit
-		// Add resource-specific accessor objects
-		env["llm"] = map[string]interface{}{
-			"response": func(actionID string) interface{} {
-				val, err := ctx.GetLLMResponse(actionID)
-				if err != nil {
-					return nil
-				}
-				return val
-			},
-			"prompt": func(actionID string) interface{} {
-				val, _ := ctx.GetLLMPrompt(actionID)
-				return val
-			},
-		}
-
-		env["python"] = map[string]interface{}{
-			"stdout": func(actionID string) interface{} {
-				val, err := ctx.GetPythonStdout(actionID)
-				if err != nil {
-					return ""
-				}
-				return val
-			},
-			"stderr": func(actionID string) interface{} {
-				val, err := ctx.GetPythonStderr(actionID)
-				if err != nil {
-					return ""
-				}
-				return val
-			},
-			"exitCode": func(actionID string) interface{} {
-				val, err := ctx.GetPythonExitCode(actionID)
-				if err != nil {
-					return 0
-				}
-				return val
-			},
-		}
-
-		env["exec"] = map[string]interface{}{
-			"stdout": func(actionID string) interface{} {
-				val, err := ctx.GetExecStdout(actionID)
-				if err != nil {
-					return ""
-				}
-				return val
-			},
-			"stderr": func(actionID string) interface{} {
-				val, err := ctx.GetExecStderr(actionID)
-				if err != nil {
-					return ""
-				}
-				return val
-			},
-			"exitCode": func(actionID string) interface{} {
-				val, err := ctx.GetExecExitCode(actionID)
-				if err != nil {
-					return 0
-				}
-				return val
-			},
-		}
-
-		env["http"] = map[string]interface{}{
-			"responseBody": func(actionID string) interface{} {
-				val, err := ctx.GetHTTPResponseBody(actionID)
-				if err != nil {
-					return ""
-				}
-				return val
-			},
-			"responseHeader": func(actionID, headerName string) interface{} {
-				val, err := ctx.GetHTTPResponseHeader(actionID, headerName)
-				if err != nil {
-					return nil
-				}
-				return val
-			},
-		}
-
-		// Expose telephony session accessors when a session exists in context.
-		// The session is stored as a TelephonyEnvAccessor in Items[telephonySessionKey]
-		// to avoid an import cycle between executor and executor/telephony.
-		if s, ok := ctx.Items[telephonySessionKey].(TelephonyEnvAccessor); ok && s != nil {
-			env["telephony"] = s.ToEnvMap()
-		} else {
-			// No active session yet; provide zero-value accessors.
-			env["telephony"] = emptyTelephonyEnv()
-		}
+	if ctx == nil {
+		return env
 	}
 
-	// Add input object for property access (e.g., input.items)
-	// This allows expressions like {{input.items}} to work
-	if ctx != nil && ctx.Request != nil {
-		if ctx.Request.Body != nil {
-			// Use the request body directly as the input object
-			env["input"] = ctx.Request.Body
-		} else {
-			// Even if body is nil, create empty input object for consistency
-			env["input"] = map[string]interface{}{}
-		}
-	}
-
-	// Add request object if available
-	//nolint:nestif // nested request accessors are explicit
-	if ctx != nil && ctx.Request != nil {
-		req := ctx.Request
-		env["request"] = map[string]interface{}{
-			"method":  req.Method,
-			"path":    req.Path,
-			"headers": req.Headers,
-			"query":   req.Query,
-			"body":    req.Body,
-			"IP":      req.IP,
-			"ID":      req.ID,
-			// File functions
-			"file": func(name string) interface{} {
-				val, err := ctx.GetRequestFileContent(name)
-				if err != nil {
-					return nil
-				}
-				return val
-			},
-			"filepath": func(name string) interface{} {
-				val, err := ctx.GetRequestFilePath(name)
-				if err != nil {
-					return nil
-				}
-				return val
-			},
-			"filetype": func(name string) interface{} {
-				val, err := ctx.GetRequestFileType(name)
-				if err != nil {
-					return nil
-				}
-				return val
-			},
-			"filecount": func() interface{} {
-				val, _ := ctx.Info("filecount")
-				return val
-			},
-			"files": func() interface{} {
-				val, _ := ctx.Info("files")
-				return val
-			},
-			"filetypes": func() interface{} {
-				val, _ := ctx.Info("filetypes")
-				return val
-			},
-			"filesByType": func(mimeType string) interface{} {
-				val, _ := ctx.GetRequestFilesByType(mimeType)
-				return val
-			},
-			// Request data accessors (for backward compatibility)
-			"data": func() interface{} {
-				if req.Body != nil {
-					return req.Body
-				}
-				return map[string]interface{}{}
-			},
-			"params": func(name string) interface{} {
-				if val, ok := req.Query[name]; ok {
-					return val
-				}
-				return nil
-			},
-			"header": func(name string) interface{} {
-				if val, ok := req.Headers[name]; ok {
-					return val
-				}
-				return nil
-			},
-		}
-	}
-
-	// Preserve current item context when it's a map.
-	if ctx != nil {
-		if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
-			env["item"] = itemValue
-		}
-	}
-
-	// Add item object with values function (even without request context)
-	if ctx != nil {
-		// Merge with existing item object if it exists, otherwise create new one
-		if existingItem, ok := env["item"].(map[string]interface{}); ok {
-			existingItem["values"] = func(actionID string) interface{} {
-				val, _ := ctx.GetItemValues(actionID)
-				return val
-			}
-		} else {
-			env["item"] = map[string]interface{}{
-				"values": func(actionID string) interface{} {
-					val, _ := ctx.GetItemValues(actionID)
-					return val
-				},
-			}
-		}
-	}
-
-	// Expose input processor results so resources can read the captured
-	// transcript text and media file path via expression variables.
-	if ctx != nil {
-		env["inputTranscript"] = ctx.InputTranscript
-		env["inputMedia"] = ctx.InputMediaFile
-		// Expose file input content and path via expression variables.
-		env["inputFileContent"] = ctx.InputFileContent
-		env["inputFilePath"] = ctx.InputFilePath
-	}
-
+	e.addResourceAccessorEnv(env, ctx)
+	e.addInputEnv(env, ctx)
+	e.addRequestEnv(env, ctx)
+	e.addItemEnv(env, ctx)
+	e.addProcessorInputEnv(env, ctx)
 	return env
+}
+
+// addResourceAccessorEnv exposes llm, python, exec, http, and telephony accessors.
+func (e *Engine) addResourceAccessorEnv(env map[string]interface{}, ctx *ExecutionContext) {
+	env["llm"] = buildLLMAccessorEnv(ctx)
+	env["python"] = buildPythonAccessorEnv(ctx)
+	env["exec"] = buildExecAccessorEnv(ctx)
+	env["http"] = buildHTTPAccessorEnv(ctx)
+	env["telephony"] = buildTelephonyAccessorEnv(ctx)
+}
+
+// buildLLMAccessorEnv returns expression accessors for LLM resource outputs.
+func buildLLMAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return map[string]interface{}{
+		"response": func(actionID string) interface{} {
+			val, err := ctx.GetLLMResponse(actionID)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+		"prompt": func(actionID string) interface{} {
+			val, _ := ctx.GetLLMPrompt(actionID)
+			return val
+		},
+	}
+}
+
+// buildPythonAccessorEnv returns expression accessors for Python resource outputs.
+func buildPythonAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return map[string]interface{}{
+		"stdout": func(actionID string) interface{} {
+			val, err := ctx.GetPythonStdout(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"stderr": func(actionID string) interface{} {
+			val, err := ctx.GetPythonStderr(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"exitCode": func(actionID string) interface{} {
+			val, err := ctx.GetPythonExitCode(actionID)
+			if err != nil {
+				return 0
+			}
+			return val
+		},
+	}
+}
+
+// buildExecAccessorEnv returns expression accessors for exec resource outputs.
+func buildExecAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return map[string]interface{}{
+		"stdout": func(actionID string) interface{} {
+			val, err := ctx.GetExecStdout(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"stderr": func(actionID string) interface{} {
+			val, err := ctx.GetExecStderr(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"exitCode": func(actionID string) interface{} {
+			val, err := ctx.GetExecExitCode(actionID)
+			if err != nil {
+				return 0
+			}
+			return val
+		},
+	}
+}
+
+// buildHTTPAccessorEnv returns expression accessors for HTTP resource outputs.
+func buildHTTPAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	return map[string]interface{}{
+		"responseBody": func(actionID string) interface{} {
+			val, err := ctx.GetHTTPResponseBody(actionID)
+			if err != nil {
+				return ""
+			}
+			return val
+		},
+		"responseHeader": func(actionID, headerName string) interface{} {
+			val, err := ctx.GetHTTPResponseHeader(actionID, headerName)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+	}
+}
+
+// buildTelephonyAccessorEnv returns telephony session accessors from context.
+func buildTelephonyAccessorEnv(ctx *ExecutionContext) map[string]interface{} {
+	if s, ok := ctx.Items[telephonySessionKey].(TelephonyEnvAccessor); ok && s != nil {
+		return s.ToEnvMap()
+	}
+	return emptyTelephonyEnv()
+}
+
+// addInputEnv exposes the request body as the input object for property access.
+func (e *Engine) addInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
+	if ctx.Request == nil {
+		return
+	}
+	if ctx.Request.Body != nil {
+		env["input"] = ctx.Request.Body
+	} else {
+		env["input"] = map[string]interface{}{}
+	}
+}
+
+// addRequestEnv exposes request metadata and file/query/header accessors.
+func (e *Engine) addRequestEnv(env map[string]interface{}, ctx *ExecutionContext) {
+	if ctx.Request == nil {
+		return
+	}
+	req := ctx.Request
+	env["request"] = map[string]interface{}{
+		"method":  req.Method,
+		"path":    req.Path,
+		"headers": req.Headers,
+		"query":   req.Query,
+		"body":    req.Body,
+		"IP":      req.IP,
+		"ID":      req.ID,
+		"file": func(name string) interface{} {
+			val, err := ctx.GetRequestFileContent(name)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+		"filepath": func(name string) interface{} {
+			val, err := ctx.GetRequestFilePath(name)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+		"filetype": func(name string) interface{} {
+			val, err := ctx.GetRequestFileType(name)
+			if err != nil {
+				return nil
+			}
+			return val
+		},
+		"filecount": func() interface{} {
+			val, _ := ctx.Info("filecount")
+			return val
+		},
+		"files": func() interface{} {
+			val, _ := ctx.Info("files")
+			return val
+		},
+		"filetypes": func() interface{} {
+			val, _ := ctx.Info("filetypes")
+			return val
+		},
+		"filesByType": func(mimeType string) interface{} {
+			val, _ := ctx.GetRequestFilesByType(mimeType)
+			return val
+		},
+		"data": func() interface{} {
+			if req.Body != nil {
+				return req.Body
+			}
+			return map[string]interface{}{}
+		},
+		"params": func(name string) interface{} {
+			if val, ok := req.Query[name]; ok {
+				return val
+			}
+			return nil
+		},
+		"header": func(name string) interface{} {
+			if val, ok := req.Headers[name]; ok {
+				return val
+			}
+			return nil
+		},
+	}
+}
+
+// addItemEnv exposes item iteration context and item.values accessors.
+func (e *Engine) addItemEnv(env map[string]interface{}, ctx *ExecutionContext) {
+	if itemValue, ok := ctx.Items["item"].(map[string]interface{}); ok {
+		env["item"] = itemValue
+	}
+	valuesFn := func(actionID string) interface{} {
+		val, _ := ctx.GetItemValues(actionID)
+		return val
+	}
+	if existingItem, ok := env["item"].(map[string]interface{}); ok {
+		existingItem["values"] = valuesFn
+	} else {
+		env["item"] = map[string]interface{}{
+			"values": valuesFn,
+		}
+	}
+}
+
+// addProcessorInputEnv exposes input processor and file input expression variables.
+func (e *Engine) addProcessorInputEnv(env map[string]interface{}, ctx *ExecutionContext) {
+	env["inputTranscript"] = ctx.InputTranscript
+	env["inputMedia"] = ctx.InputMediaFile
+	env["inputFileContent"] = ctx.InputFileContent
+	env["inputFilePath"] = ctx.InputFilePath
 }
 
 // Returns nil if the value is not an array/slice.

@@ -279,7 +279,14 @@ func (w *WorkflowSettings) GetPortNum() int {
 // Presence of a cors: block always enables CORS. To disable, omit the block.
 func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	kdeps_debug.Log("enter: GetCORSConfig")
-	defaults := &CORS{
+	if w.APIServer == nil || w.APIServer.CORS == nil {
+		return defaultCORSConfig()
+	}
+	return mergeCORSWithDefaults(w.APIServer.CORS, defaultCORSConfig())
+}
+
+func defaultCORSConfig() *CORS {
+	return &CORS{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders: []string{
@@ -291,12 +298,9 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 		},
 		AllowCredentials: true,
 	}
+}
 
-	if w.APIServer == nil || w.APIServer.CORS == nil {
-		return defaults
-	}
-
-	config := w.APIServer.CORS
+func mergeCORSWithDefaults(config, defaults *CORS) *CORS {
 	if len(config.AllowOrigins) == 0 {
 		config.AllowOrigins = defaults.AllowOrigins
 	}

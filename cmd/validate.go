@@ -89,24 +89,30 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 		// Not a directory - treat as workflow file path.
 		return validateWorkflowFile(inputPath)
 	}
-
-	if !info.IsDir() {
-		// It's a file - route by filename then by content.
-		base := filepath.Base(inputPath)
-		switch { //nolint:staticcheck // multi-value cases prevent tagged switch
-		case base == agencyFile || base == agencyYMLFile:
-			return validateAgencyFile(inputPath)
-		case base == "component.yaml" || base == "component.yml":
-			return validateComponentFile(inputPath)
-		default:
-			if isResourceFile(inputPath) {
-				return validateResourceFile(inputPath)
-			}
-			return validateWorkflowFile(inputPath)
-		}
+	if info.IsDir() {
+		return validateDirectory(inputPath)
 	}
+	return validateFileByName(inputPath)
+}
 
-	// It's a directory - detect type: agency > component > workflow.
+// validateFileByName routes a single file path to the appropriate validator.
+func validateFileByName(inputPath string) error {
+	base := filepath.Base(inputPath)
+	switch { //nolint:staticcheck // multi-value cases prevent tagged switch
+	case base == agencyFile || base == agencyYMLFile:
+		return validateAgencyFile(inputPath)
+	case base == "component.yaml" || base == "component.yml":
+		return validateComponentFile(inputPath)
+	default:
+		if isResourceFile(inputPath) {
+			return validateResourceFile(inputPath)
+		}
+		return validateWorkflowFile(inputPath)
+	}
+}
+
+// validateDirectory detects manifest type inside a directory and validates it.
+func validateDirectory(inputPath string) error {
 	if agencyPath := FindAgencyFile(inputPath); agencyPath != "" {
 		return validateAgencyFile(agencyPath)
 	}
@@ -121,6 +127,16 @@ func runValidateCmd(_ *cobra.Command, args []string) error {
 		)
 	}
 	return validateWorkflowFile(workflowPath)
+}
+
+// newYamlParser builds a schema-validated YAML parser for resource/component validation.
+func newYamlParser() (*yaml.Parser, error) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	if err != nil {
+		return nil, err
+	}
+	exprParser := expression.NewParser()
+	return yaml.NewParser(schemaValidator, exprParser), nil
 }
 
 // isResourceFile reports whether the YAML file at path has a top-level actionId key,
@@ -142,13 +158,11 @@ func validateResourceFile(resourcePath string) error {
 	kdeps_debug.Log("enter: validateResourceFile")
 	fmt.Fprintf(os.Stdout, "Validating resource: %s\n\n", resourcePath)
 
-	schemaValidator, err := validator.NewSchemaValidator()
+	yamlParser, err := newYamlParser()
 	if err != nil {
 		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
 
 	if _, parseErr := yamlParser.ParseResource(resourcePath); parseErr != nil {
 		kdepslog.Error("validation failed", "error", parseErr)
@@ -200,13 +214,11 @@ func validateComponentFile(componentPath string) error {
 	kdeps_debug.Log("enter: validateComponentFile")
 	fmt.Fprintf(os.Stdout, "Validating component: %s\n\n", componentPath)
 
-	schemaValidator, err := validator.NewSchemaValidator()
+	yamlParser, err := newYamlParser()
 	if err != nil {
 		kdepslog.Error("validation failed", "error", err)
 		return err
 	}
-	exprParser := expression.NewParser()
-	yamlParser := yaml.NewParser(schemaValidator, exprParser)
 
 	if _, parseErr := yamlParser.ParseComponent(componentPath); parseErr != nil {
 		kdepslog.Error("validation failed", "error", parseErr)

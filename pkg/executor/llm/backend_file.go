@@ -68,23 +68,7 @@ func (b *FileBackend) BuildRequest(
 	config ChatRequestConfig,
 ) (map[string]interface{}, error) {
 	kdeps_debug.Log("enter: FileBackend.BuildRequest")
-	req := map[string]interface{}{
-		"model":    model,
-		"messages": messages,
-		"stream":   false,
-	}
-	if config.ContextLength > 0 {
-		req["max_tokens"] = config.ContextLength
-	}
-	if config.JSONResponse {
-		req["response_format"] = map[string]interface{}{
-			"type": "json_object",
-		}
-	}
-	if len(config.Tools) > 0 {
-		req["tools"] = config.Tools
-	}
-	return req, nil
+	return buildOpenAICompatRequest(model, messages, config), nil
 }
 
 // ParseResponse parses the OpenAI-compatible response from the llamafile server.

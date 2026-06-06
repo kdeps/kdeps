@@ -96,6 +96,54 @@ func NewManager(baseDir string) *Manager {
 	}
 }
 
+func resolveVenvName(
+	m *Manager,
+	pythonVersion string,
+	packages []string,
+	requirementsFile string,
+	venvName string,
+) string {
+	if venvName != "" {
+		return venvName
+	}
+	return m.GetVenvName(pythonVersion, packages, requirementsFile)
+}
+
+func pythonExecutableCandidates(venvPath string) []string {
+	return []string{
+		filepath.Join(venvPath, "bin", "python"),
+		filepath.Join(venvPath, "Scripts", "python.exe"),
+	}
+}
+
+func findPythonExecutable(venvPath string) (string, error) {
+	for _, candidate := range pythonExecutableCandidates(venvPath) {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("python executable not found in venv: %s", venvPath)
+}
+
+func uvVenvEnv(venvPath, pythonPath string) []string {
+	env := append(os.Environ(), "VIRTUAL_ENV="+venvPath)
+	return append(
+		env,
+		"PATH="+filepath.Dir(pythonPath)+string(os.PathListSeparator)+os.Getenv("PATH"),
+	)
+}
+
+func runUV(ctx context.Context, args []string, env []string) error {
+	cmd := exec.CommandContext(ctx, "uv", args...)
+	if env != nil {
+		cmd.Env = env
+	}
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%w, output: %s", err, string(output))
+	}
+	return nil
+}
+
 // EnsureVenv ensures a virtual environment exists for the given Python version and packages.
 func (m *Manager) EnsureVenv(
 	pythonVersion string,
@@ -104,14 +152,7 @@ func (m *Manager) EnsureVenv(
 	venvName string,
 ) (string, error) {
 	kdeps_debug.Log("enter: EnsureVenv")
-	// Use custom venv name if provided, otherwise generate one
-	var finalVenvName string
-	if venvName != "" {
-		finalVenvName = venvName
-	} else {
-		// Create venv directory name based on Python version and packages hash
-		finalVenvName = m.GetVenvName(pythonVersion, packages, requirementsFile)
-	}
+	finalVenvName := resolveVenvName(m, pythonVersion, packages, requirementsFile, venvName)
 	venvPath := filepath.Join(m.BaseDir, finalVenvName)
 
 	// Check if venv already exists
@@ -128,16 +169,8 @@ func (m *Manager) EnsureVenv(
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(
-		ctx,
-		"uv",
-		"venv",
-		"--python",
-		pythonVersion,
-		venvPath,
-	)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("failed to create venv: %w, output: %s", err, string(output))
+	if err := runUV(ctx, []string{"venv", "--python", pythonVersion, venvPath}, nil); err != nil {
+		return "", fmt.Errorf("failed to create venv: %w", err)
 	}
 
 	// Install packages if provided
@@ -177,56 +210,42 @@ func (m *Manager) GetVenvName(
 // extraArgs are appended after the package names (e.g. "--no-build-isolation").
 func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs ...string) error {
 	kdeps_debug.Log("enter: InstallPackages")
-	pythonPath := filepath.Join(venvPath, "bin", "python")
-	if _, err := os.Stat(pythonPath); os.IsNotExist(err) {
-		// Windows
-		pythonPath = filepath.Join(venvPath, "Scripts", "python.exe")
+	pythonPath, err := findPythonExecutable(venvPath)
+	if err != nil {
+		// Preserve prior behavior: use the unix path even when the venv is missing.
+		pythonPath = pythonExecutableCandidates(venvPath)[0]
 	}
 
-	args := []string{"pip", "install"}
-	args = append(args, packages...)
+	args := append([]string{"pip", "install"}, packages...)
 	args = append(args, extraArgs...)
 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "uv", args...)
-	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
-	cmd.Env = append(
-		cmd.Env,
-		"PATH="+filepath.Dir(pythonPath)+string(os.PathListSeparator)+os.Getenv("PATH"),
-	)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("package installation failed: %w, output: %s", err, string(output))
+	if runErr := runUV(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
+		return fmt.Errorf("package installation failed: %w", runErr)
 	}
-
 	return nil
 }
 
 // InstallRequirements installs packages from requirements file.
 func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) error {
 	kdeps_debug.Log("enter: InstallRequirements")
-	pythonPath := filepath.Join(venvPath, "bin", "python")
-	if _, err := os.Stat(pythonPath); os.IsNotExist(err) {
-		// Windows
-		pythonPath = filepath.Join(venvPath, "Scripts", "python.exe")
+	pythonPath, err := findPythonExecutable(venvPath)
+	if err != nil {
+		pythonPath = pythonExecutableCandidates(venvPath)[0]
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "uv", "pip", "install", "-r", requirementsFile)
-	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
-	cmd.Env = append(
-		cmd.Env,
-		"PATH="+filepath.Dir(pythonPath)+string(os.PathListSeparator)+os.Getenv("PATH"),
-	)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("requirements installation failed: %w, output: %s", err, string(output))
+	if runErr := runUV(
+		ctx,
+		[]string{"pip", "install", "-r", requirementsFile},
+		uvVenvEnv(venvPath, pythonPath),
+	); runErr != nil {
+		return fmt.Errorf("requirements installation failed: %w", runErr)
 	}
-
 	return nil
 }
 
@@ -253,16 +272,5 @@ func (m *Manager) InstallTool(binaryName, pkg string, extraArgs ...string) error
 // GetPythonPath returns the Python executable path for a venv.
 func (m *Manager) GetPythonPath(venvPath string) (string, error) {
 	kdeps_debug.Log("enter: GetPythonPath")
-	pythonPath := filepath.Join(venvPath, "bin", "python")
-	if _, err := os.Stat(pythonPath); err == nil {
-		return pythonPath, nil
-	}
-
-	// Windows
-	pythonPath = filepath.Join(venvPath, "Scripts", "python.exe")
-	if _, err := os.Stat(pythonPath); err == nil {
-		return pythonPath, nil
-	}
-
-	return "", fmt.Errorf("python executable not found in venv: %s", venvPath)
+	return findPythonExecutable(venvPath)
 }
