@@ -18,6 +18,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,4 +33,40 @@ func TestSaveHistory_MarshalError(t *testing.T) {
 	err := s.SaveHistory()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "injected marshal error")
+}
+
+func TestNewSession_HomeDirError(t *testing.T) {
+	orig := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = orig })
+	osUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+
+	_, err := NewSession()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not determine home directory")
+}
+
+func TestSaveTo_MkdirAllError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewReadOnlyFs(afero.NewMemMapFs())
+
+	s := &Session{Workflow: &GeneratedWorkflow{Files: map[string]string{"test.txt": "content"}}}
+	err := s.SaveTo("/readonly/dir")
+	require.Error(t, err)
+}
+
+func TestLoadSession_DINotFound(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
+
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return "/fakehome", nil }
+
+	_, err := LoadSession("nonexistent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "session not found")
 }
