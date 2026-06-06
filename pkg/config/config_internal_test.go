@@ -16,6 +16,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -844,4 +845,53 @@ func TestAgentsDir_EnvVar(t *testing.T) {
 	dir, err := AgentsDir(&Config{})
 	require.NoError(t, err)
 	assert.Equal(t, agentsDir, dir)
+}
+
+func TestScaffold_PathError(t *testing.T) {
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(_ string) string { return "" }
+
+	err := Scaffold()
+	assert.NoError(t, err) // non-fatal
+}
+
+func TestScaffold_AlreadyExists(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	memFS := afero.NewMemMapFs()
+	AppFS = memFS
+
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return "/fakehome", nil }
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(_ string) string { return "" }
+
+	// Create the config file so it already exists
+	configDir := "/fakehome/.kdeps"
+	_ = memFS.MkdirAll(configDir, 0750)
+	_ = afero.WriteFile(memFS, configDir+"/config.yaml", []byte("llm: {}"), 0600)
+
+	err := Scaffold()
+	assert.NoError(t, err)
+}
+
+func TestAgentsDir_HomeError(t *testing.T) {
+	origHome := osUserHomeDir
+	t.Cleanup(func() { osUserHomeDir = origHome })
+	osUserHomeDir = func() (string, error) { return "", errors.New("no home") }
+	origGetenv := osGetenv
+	t.Cleanup(func() { osGetenv = origGetenv })
+	osGetenv = func(_ string) string { return "" }
+
+	_, err := AgentsDir(&Config{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "home directory")
 }
