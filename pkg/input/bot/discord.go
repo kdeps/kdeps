@@ -45,8 +45,10 @@ var discordSessionOpen = func(s *discordgo.Session) error { return s.Open() }
 //nolint:gochecknoglobals // test-replaceable
 var discordSessionClose = func(s *discordgo.Session) error { return s.Close() }
 
+type discordMessageHandler = func(*discordgo.Session, *discordgo.MessageCreate)
+
 //nolint:gochecknoglobals // test-replaceable
-var discordAddHandler = func(s *discordgo.Session, handler interface{}) { s.AddHandler(handler) }
+var discordAddHandler = func(s *discordgo.Session, h discordMessageHandler) { s.AddHandler(h) }
 
 type discordRunner struct {
 	botToken string
@@ -101,7 +103,9 @@ func (r *discordRunner) Start(ctx context.Context, ch chan<- Message) error {
 }
 
 // createMessageHandler returns a MessageCreate handler function for testing.
-func (r *discordRunner) createMessageHandler(ctx context.Context, s *discordgo.Session, ch chan<- Message) interface{} {
+func (r *discordRunner) createMessageHandler(
+	ctx context.Context, s *discordgo.Session, ch chan<- Message,
+) discordMessageHandler {
 	return func(_ *discordgo.Session, m *discordgo.MessageCreate) {
 		r.handleDiscordMessage(ctx, s, m, ch)
 	}

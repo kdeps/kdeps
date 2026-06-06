@@ -186,8 +186,7 @@ func TestCreateMessageHandler(t *testing.T) {
 	ctx := context.Background()
 
 	handler := r.createMessageHandler(ctx, s, ch)
-	h := handler.(func(*discordgo.Session, *discordgo.MessageCreate))
-	h(s, &discordgo.MessageCreate{Message: &discordgo.Message{
+	handler(s, &discordgo.MessageCreate{Message: &discordgo.Message{
 		Author: &discordgo.User{ID: "user-456"}, ChannelID: "ch-1", Content: "test",
 	}})
 	msg := <-ch
