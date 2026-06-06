@@ -718,6 +718,25 @@ func TestStartBothServersWithEngine_WebServerCreateError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create web server")
 }
 
+func TestStartBothServersWithEngine_StartReturnsNil(t *testing.T) {
+	origStart := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = origStart })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return nil
+	}
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
+			WebServer: &domain.WebServerConfig{
+				PortNum: mustFreePort(t),
+				Routes:  []domain.WebRoute{},
+			},
+		},
+	}
+	require.NoError(t, startBothServersWithEngine(eng, wf, t.TempDir(), false, false))
+}
+
 func TestStartBothServersWithEngine_StartReturnsError(t *testing.T) {
 	origStart := httpServerStartFunc
 	t.Cleanup(func() { httpServerStartFunc = origStart })

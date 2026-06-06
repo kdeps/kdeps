@@ -47,11 +47,16 @@ const (
 	IOToolsPythonVersion = "3.12"
 )
 
+// userCacheDirFunc resolves the OS user cache directory. Overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable
+var userCacheDirFunc = os.UserCacheDir
+
 // IOToolsBaseDir returns the stable cache directory for I/O tool virtual environments.
 // Venvs here persist across runs so packages only install once.
 func IOToolsBaseDir() string {
 	kdeps_debug.Log("enter: IOToolsBaseDir")
-	if cacheDir, err := os.UserCacheDir(); err == nil {
+	if cacheDir, err := userCacheDirFunc(); err == nil {
 		return filepath.Join(cacheDir, "kdeps", "io-venvs")
 	}
 	return filepath.Join(os.TempDir(), "kdeps-io-venvs")
@@ -133,7 +138,10 @@ func uvVenvEnv(venvPath, pythonPath string) []string {
 	)
 }
 
-func runUV(ctx context.Context, args []string, env []string) error {
+// runUVFunc runs uv with the given args and optional environment. Overridable in tests.
+//
+//nolint:gochecknoglobals // test-replaceable
+var runUVFunc = func(ctx context.Context, args []string, env []string) error {
 	cmd := exec.CommandContext(ctx, "uv", args...)
 	if env != nil {
 		cmd.Env = env
@@ -169,7 +177,7 @@ func (m *Manager) EnsureVenv(
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if err := runUV(ctx, []string{"venv", "--python", pythonVersion, venvPath}, nil); err != nil {
+	if err := runUVFunc(ctx, []string{"venv", "--python", pythonVersion, venvPath}, nil); err != nil {
 		return "", fmt.Errorf("failed to create venv: %w", err)
 	}
 
@@ -222,7 +230,7 @@ func (m *Manager) InstallPackages(venvPath string, packages []string, extraArgs 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if runErr := runUV(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
+	if runErr := runUVFunc(ctx, args, uvVenvEnv(venvPath, pythonPath)); runErr != nil {
 		return fmt.Errorf("package installation failed: %w", runErr)
 	}
 	return nil
@@ -239,7 +247,7 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
 	defer cancel()
 
-	if runErr := runUV(
+	if runErr := runUVFunc(
 		ctx,
 		[]string{"pip", "install", "-r", requirementsFile},
 		uvVenvEnv(venvPath, pythonPath),
