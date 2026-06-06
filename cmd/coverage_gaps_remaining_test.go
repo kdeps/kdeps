@@ -121,7 +121,9 @@ func TestBuildImageInternal_ChdirError(t *testing.T) {
 }
 
 func TestBuildDockerImage_DefaultImpl(t *testing.T) {
-	err := buildDockerImage(context.Background(), []string{"version"})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := buildDockerImage(ctx, []string{"version"})
 	require.Error(t, err)
 }
 
