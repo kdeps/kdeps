@@ -25,31 +25,18 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/spf13/afero"
 )
 
 //nolint:gochecknoglobals // test-replaceable
 var jsonMarshalIndent = json.MarshalIndent
 
 //nolint:gochecknoglobals // test-replaceable
+var AppFS = afero.NewOsFs()
+
+//nolint:gochecknoglobals // test-replaceable
 var osUserHomeDir = os.UserHomeDir
-
-//nolint:gochecknoglobals // test-replaceable
-var osMkdirAll = os.MkdirAll
-
-//nolint:gochecknoglobals // test-replaceable
-var osWriteFile = os.WriteFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osStat = os.Stat
-
-//nolint:gochecknoglobals // test-replaceable
-var osReadFile = os.ReadFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osRemoveAll = os.RemoveAll
-
-//nolint:gochecknoglobals // test-replaceable
-var osReadDir = os.ReadDir
 
 // Turn represents one exchange in the conversation history.
 type Turn struct {
@@ -79,13 +66,13 @@ func NewSession() (*Session, error) {
 	}
 
 	sessionsRoot := filepath.Join(home, ".kdeps", "chat-sessions")
-	if mkErr := osMkdirAll(sessionsRoot, 0o700); mkErr != nil {
+	if mkErr := AppFS.MkdirAll(sessionsRoot, 0o700); mkErr != nil {
 		return nil, fmt.Errorf("could not create sessions directory: %w", mkErr)
 	}
 
 	id := fmt.Sprintf("session-%d", time.Now().UnixNano())
 	dir := filepath.Join(sessionsRoot, id)
-	if mkErr := osMkdirAll(dir, 0o700); mkErr != nil {
+	if mkErr := AppFS.MkdirAll(dir, 0o700); mkErr != nil {
 		return nil, fmt.Errorf("could not create session directory: %w", mkErr)
 	}
 
@@ -108,10 +95,10 @@ func (s *Session) WriteWorkflow() error {
 	}
 	for path, content := range s.Workflow.Files {
 		full := filepath.Join(s.Dir, path)
-		if mkErr := osMkdirAll(filepath.Dir(full), 0o700); mkErr != nil {
+		if mkErr := AppFS.MkdirAll(filepath.Dir(full), 0o700); mkErr != nil {
 			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
 		}
-		if writeErr := osWriteFile(full, []byte(content), 0o600); writeErr != nil {
+		if writeErr := afero.WriteFile(AppFS, full, []byte(content), 0o600); writeErr != nil {
 			return fmt.Errorf("could not write %s: %w", path, writeErr)
 		}
 	}
@@ -123,15 +110,15 @@ func (s *Session) SaveTo(dest string) error {
 	if s.Workflow == nil {
 		return errors.New("no workflow to save")
 	}
-	if mkErr := osMkdirAll(dest, 0o750); mkErr != nil {
+	if mkErr := AppFS.MkdirAll(dest, 0o750); mkErr != nil {
 		return fmt.Errorf("could not create destination directory: %w", mkErr)
 	}
 	for path, content := range s.Workflow.Files {
 		full := filepath.Join(dest, path)
-		if mkErr := osMkdirAll(filepath.Dir(full), 0o750); mkErr != nil {
+		if mkErr := AppFS.MkdirAll(filepath.Dir(full), 0o750); mkErr != nil {
 			return fmt.Errorf("could not create directory for %s: %w", path, mkErr)
 		}
-		if writeErr := osWriteFile(full, []byte(content), 0o600); writeErr != nil {
+		if writeErr := afero.WriteFile(AppFS, full, []byte(content), 0o600); writeErr != nil {
 			return fmt.Errorf("could not write %s: %w", path, writeErr)
 		}
 	}
@@ -144,7 +131,7 @@ func (s *Session) SaveHistory() error {
 	if err != nil {
 		return err
 	}
-	return osWriteFile(filepath.Join(s.Dir, "history.json"), data, 0o600)
+	return afero.WriteFile(AppFS, filepath.Join(s.Dir, "history.json"), data, 0o600)
 }
 
 // LoadSession loads a previously saved session by ID.
@@ -155,14 +142,14 @@ func LoadSession(id string) (*Session, error) {
 	}
 
 	dir := filepath.Join(home, ".kdeps", "chat-sessions", id)
-	if _, statErr := osStat(dir); statErr != nil {
+	if _, statErr := AppFS.Stat(dir); statErr != nil {
 		return nil, fmt.Errorf("session not found: %s", id)
 	}
 
 	s := &Session{ID: id, Dir: dir}
 
 	histFile := filepath.Join(dir, "history.json")
-	data, readErr := osReadFile(histFile)
+	data, readErr := afero.ReadFile(AppFS, histFile)
 	if readErr == nil {
 		if jsonErr := json.Unmarshal(data, &s.History); jsonErr != nil {
 			return nil, fmt.Errorf("could not load history: %w", jsonErr)
@@ -174,7 +161,7 @@ func LoadSession(id string) (*Session, error) {
 
 // Cleanup removes the session directory.
 func (s *Session) Cleanup() {
-	_ = osRemoveAll(s.Dir)
+	_ = AppFS.RemoveAll(s.Dir)
 }
 
 // Reset clears history and workflow, keeping the directory.
@@ -182,11 +169,11 @@ func (s *Session) Reset() {
 	s.History = []Turn{}
 	s.Workflow = nil
 	// Clear files in dir except history.json
-	entries, _ := osReadDir(s.Dir)
+	entries, _ := afero.ReadDir(AppFS, s.Dir)
 	for _, e := range entries {
 		if e.Name() == "history.json" {
 			continue
 		}
-		_ = osRemoveAll(filepath.Join(s.Dir, e.Name()))
+		_ = AppFS.RemoveAll(filepath.Join(s.Dir, e.Name()))
 	}
 }

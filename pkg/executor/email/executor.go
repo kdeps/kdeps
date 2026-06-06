@@ -38,10 +38,12 @@ import (
 	"net"
 	"net/smtp"
 	"net/textproto"
-	"os"
 	"path/filepath"
+
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
@@ -57,7 +59,7 @@ import (
 // DI variables — overridable for testing.
 
 //nolint:gochecknoglobals // test-replaceable
-var osReadFile = os.ReadFile
+var AppFS = afero.NewOsFs()
 
 const (
 	defaultTimeout = 30 * time.Second
@@ -930,7 +932,7 @@ func sanitizeAddressSlice(addrs []string) error {
 
 func writeAttachmentPart(mw *multipart.Writer, path string) error {
 	kdeps_debug.Log("enter: writeAttachmentPart")
-	data, err := osReadFile(path)
+	data, err := afero.ReadFile(AppFS, path)
 	if err != nil {
 		return fmt.Errorf("read attachment %q: %w", path, err)
 	}

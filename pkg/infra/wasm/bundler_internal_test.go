@@ -25,6 +25,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/afero"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -215,15 +217,12 @@ func TestGenerateDefaultIndex_Success(t *testing.T) {
 }
 
 func TestGenerateDefaultIndex_WriteError(t *testing.T) {
-	orig := osWriteFile
-	t.Cleanup(func() { osWriteFile = orig })
-	osWriteFile = func(_ string, _ []byte, _ os.FileMode) error {
-		return errors.New("disk full")
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 	err := generateDefaultIndex(t.TempDir())
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "disk full")
 }
 
 func TestGenerateDefaultIndex_DistDirNotExist(t *testing.T) {

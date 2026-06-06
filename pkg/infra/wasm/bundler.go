@@ -23,27 +23,17 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
-// DI variables — overridable for testing.
-
 //nolint:gochecknoglobals // test-replaceable
-var osCreate = os.Create
-
-//nolint:gochecknoglobals // test-replaceable
-var osWriteFile = os.WriteFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osReadFile = os.ReadFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osMkdirAll = os.MkdirAll
+var AppFS = afero.NewOsFs()
 
 //go:embed templates/*
 var templateFS embed.FS
@@ -79,7 +69,7 @@ type bootstrapData struct {
 func Bundle(config *BundleConfig) error {
 	kdeps_debug.Log("enter: Bundle")
 	distDir := filepath.Join(config.OutputDir, "dist")
-	if err := osMkdirAll(distDir, 0750); err != nil {
+	if err := AppFS.MkdirAll(distDir, 0750); err != nil {
 		return fmt.Errorf("failed to create dist directory: %w", err)
 	}
 
@@ -153,7 +143,7 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 		}
 	}
 
-	outFile, err := osCreate(filepath.Join(distDir, "kdeps-bootstrap.js"))
+	outFile, err := AppFS.Create(filepath.Join(distDir, "kdeps-bootstrap.js"))
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap.js: %w", err)
 	}
@@ -176,10 +166,10 @@ func copyWebServerFiles(files map[string]string, distDir string) error {
 		servePath = strings.TrimPrefix(servePath, "data/")
 
 		dst := filepath.Join(distDir, servePath)
-		if err := osMkdirAll(filepath.Dir(dst), 0750); err != nil {
+		if err := AppFS.MkdirAll(filepath.Dir(dst), 0750); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", servePath, err)
 		}
-		if err := osWriteFile(dst, []byte(content), 0644); err != nil {
+		if err := afero.WriteFile(AppFS, dst, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %s: %w", servePath, err)
 		}
 	}
@@ -203,7 +193,7 @@ func hasIndexHTML(files map[string]string) bool {
 func injectBootstrap(distDir string) error {
 	kdeps_debug.Log("enter: injectBootstrap")
 	indexPath := filepath.Join(distDir, "index.html")
-	data, err := osReadFile(indexPath)
+	data, err := afero.ReadFile(AppFS, indexPath)
 	if err != nil {
 		return err
 	}
@@ -219,7 +209,7 @@ func injectBootstrap(distDir string) error {
 		content += "\n" + scripts
 	}
 
-	return osWriteFile(indexPath, []byte(content), 0644)
+	return afero.WriteFile(AppFS, indexPath, []byte(content), 0644)
 }
 
 // generateDefaultIndex creates a minimal index.html that loads the WASM bootstrap.
@@ -230,7 +220,7 @@ func generateDefaultIndex(distDir string) error {
 		return fmt.Errorf("failed to read default HTML template: %w", err)
 	}
 
-	return osWriteFile(
+	return afero.WriteFile(AppFS,
 		filepath.Join(distDir, "index.html"),
 		tmplContent,
 		0644,
@@ -240,11 +230,11 @@ func generateDefaultIndex(distDir string) error {
 // copyFile copies a file from src to dst.
 func copyFile(src, dst string) error {
 	kdeps_debug.Log("enter: copyFile")
-	data, err := osReadFile(src)
+	data, err := afero.ReadFile(AppFS, src)
 	if err != nil {
 		return err
 	}
-	return osWriteFile(dst, data, 0644)
+	return afero.WriteFile(AppFS, dst, data, 0644)
 }
 
 // copyEmbeddedFile copies an embedded file to the destination path.
@@ -254,5 +244,5 @@ func copyEmbeddedFile(embeddedPath, dst string) error {
 	if err != nil {
 		return err
 	}
-	return osWriteFile(dst, data, 0644)
+	return afero.WriteFile(AppFS, dst, data, 0644)
 }

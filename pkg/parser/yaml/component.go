@@ -24,12 +24,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+//nolint:gochecknoglobals // test-replaceable
+var AppFS = afero.NewOsFs()
 
 // FindComponentFile returns the path to the component manifest inside dir.
 // It tries component.yaml first, then Jinja2 variants, then .yml forms.
@@ -44,7 +49,7 @@ func FindComponentFile(dir string) string {
 		filepath.Join(dir, "component.j2"),
 	}
 	for _, p := range candidates {
-		if _, err := os.Stat(p); err == nil {
+		if _, err := AppFS.Stat(p); err == nil {
 			return p
 		}
 	}
@@ -225,7 +230,7 @@ func (p *Parser) scanComponentsDir(
 	existing map[string]struct{},
 ) ([]*domain.Resource, map[string]*domain.Component, error) {
 	kdeps_debug.Log("enter: scanComponentsDir")
-	info, statErr := os.Stat(dir)
+	info, statErr := AppFS.Stat(dir)
 	if os.IsNotExist(statErr) || (statErr == nil && !info.IsDir()) {
 		return nil, nil, nil
 	}
@@ -341,7 +346,7 @@ func (p *Parser) loadComponentResources(
 	compDir := filepath.Dir(absPath)
 	resourcesDir := filepath.Join(compDir, "resources")
 
-	if _, statErr := os.Stat(resourcesDir); os.IsNotExist(statErr) {
+	if _, statErr := AppFS.Stat(resourcesDir); os.IsNotExist(statErr) {
 		// Also return any inline resources declared in component.yaml itself.
 		return component.Resources, nil
 	}
@@ -372,7 +377,7 @@ func (p *Parser) loadComponentResources(
 		// Skip .j2 when the rendered file already exists.
 		if hasJ2Suffix(name) {
 			renderedName := trimJ2Suffix(name)
-			if _, statErr := os.Stat(filepath.Join(resourcesDir, renderedName)); statErr == nil {
+			if _, statErr := AppFS.Stat(filepath.Join(resourcesDir, renderedName)); statErr == nil {
 				continue
 			}
 		}

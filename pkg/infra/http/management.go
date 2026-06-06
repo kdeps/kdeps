@@ -31,6 +31,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/schema"
@@ -54,6 +56,9 @@ const (
 	// If the variable is unset or empty, the write endpoints are disabled.
 	managementAuthEnvVar = "KDEPS_MANAGEMENT_TOKEN"
 )
+
+//nolint:gochecknoglobals // test-replaceable
+var AppFS = afero.NewOsFs()
 
 // requireManagementAuth enforces bearer-token based authorization for write
 // management endpoints.  The expected token is read from the environment
@@ -180,14 +185,14 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 	workflowPath := s.getManagementWorkflowPath()
 
 	// Ensure the parent directory exists
-	if mkdirErr := os.MkdirAll(filepath.Dir(workflowPath), 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(filepath.Dir(workflowPath), 0750); mkdirErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to create workflow directory: %v", mkdirErr))
 		return
 	}
 
 	// Write the new workflow YAML to disk
-	if writeErr := os.WriteFile(workflowPath, body, 0600); writeErr != nil {
+	if writeErr := afero.WriteFile(AppFS, workflowPath, body, 0600); writeErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to write workflow file: %v", writeErr))
 		return
@@ -293,7 +298,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 	destDir := filepath.Dir(workflowPath)
 
 	// Ensure the destination directory exists.
-	if mkdirErr := os.MkdirAll(destDir, 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(destDir, 0750); mkdirErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to create workflow directory: %v", mkdirErr))
 		return
@@ -377,12 +382,12 @@ func extractPackageEntry(hdr *tar.Header, baseDirAbs, absTargetPath string, tr *
 		return fmt.Errorf("invalid path in package: %s", filepath.Clean(hdr.Name))
 	}
 	if hdr.FileInfo().IsDir() {
-		if mkdirErr := os.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
+		if mkdirErr := AppFS.MkdirAll(absTargetPath, 0750); mkdirErr != nil {
 			return fmt.Errorf("failed to create directory %s: %w", filepath.Clean(hdr.Name), mkdirErr)
 		}
 		return nil
 	}
-	if mkdirErr := os.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create parent directory for %s: %w", filepath.Clean(hdr.Name), mkdirErr)
 	}
 	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr); writeErr != nil {

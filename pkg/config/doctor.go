@@ -22,9 +22,6 @@ const (
 // DI variables — overridable for testing.
 
 //nolint:gochecknoglobals // test-replaceable
-var osStat = os.Stat
-
-//nolint:gochecknoglobals // test-replaceable
 var osReadDir = os.ReadDir
 
 //nolint:gochecknoglobals // test-replaceable
@@ -101,7 +98,7 @@ func runConfigFileCheck(checks *[]HealthCheck, healthy *bool) {
 		addCheck(checks, "Config file", HealthFail, "cannot determine config path", healthy)
 		return
 	}
-	if _, err := osStat(path); os.IsNotExist(err) {
+	if _, err := AppFS.Stat(path); os.IsNotExist(err) {
 		addCheck(checks, "Config file", HealthWarn,
 			fmt.Sprintf("%s not found — run 'kdeps edit' to create", path), healthy)
 		return
