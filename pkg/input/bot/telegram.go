@@ -81,23 +81,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 		pollTimeout = time.Duration(r.pollIntervalSeconds) * time.Second
 	}
 
-	handler := func(ctx context.Context, _ *telegrambot.Bot, update *models.Update) {
-		if update.Message == nil || update.Message.Text == "" {
-			return
-		}
-		chatID := strconv.FormatInt(update.Message.Chat.ID, 10)
-		userID := strconv.FormatInt(update.Message.From.ID, 10)
-		select {
-		case ch <- Message{
-			Platform: telegramPlatform,
-			ChatID:   chatID,
-			UserID:   userID,
-			Text:     update.Message.Text,
-			Raw:      update,
-		}:
-		case <-ctx.Done():
-		}
-	}
+	handler := r.createTelegramHandler(ctx, ch)
 
 	b, err := telegramNewBot(r.botToken,
 		telegrambot.WithDefaultHandler(handler),
@@ -111,6 +95,34 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 	r.logger.InfoContext(ctx, "telegram: starting long-poll")
 	telegramBotStart(b, ctx)
 	return nil
+}
+
+// createTelegramHandler returns a handler function for Telegram updates.
+func (r *telegramRunner) createTelegramHandler(
+	ctx context.Context, ch chan<- Message,
+) func(context.Context, *telegrambot.Bot, *models.Update) {
+	return func(_ context.Context, _ *telegrambot.Bot, update *models.Update) {
+		r.handleTelegramUpdate(ctx, update, ch)
+	}
+}
+
+// handleTelegramUpdate processes a single Telegram update, filtering and forwarding.
+func (r *telegramRunner) handleTelegramUpdate(ctx context.Context, update *models.Update, ch chan<- Message) {
+	if update.Message == nil || update.Message.Text == "" {
+		return
+	}
+	chatID := strconv.FormatInt(update.Message.Chat.ID, 10)
+	userID := strconv.FormatInt(update.Message.From.ID, 10)
+	select {
+	case ch <- Message{
+		Platform: telegramPlatform,
+		ChatID:   chatID,
+		UserID:   userID,
+		Text:     update.Message.Text,
+		Raw:      update,
+	}:
+	case <-ctx.Done():
+	}
 }
 
 // Reply sends text to the given Telegram chat ID.
