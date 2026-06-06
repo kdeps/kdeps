@@ -242,7 +242,92 @@ var userHomeDirFunc = os.UserHomeDir
 //nolint:gochecknoglobals // test-replaceable
 var mimeTypeByExtension = mime.TypeByExtension
 
+//nolint:gochecknoglobals // shared MIME fallback table
+var fallbackMimeByExt = map[string]string{
+	".txt":  "text/plain",
+	".pdf":  "application/pdf",
+	".png":  "image/png",
+	".jpg":  "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif":  "image/gif",
+	".json": "application/json",
+	".csv":  "text/csv",
+	".xml":  "application/xml",
+	".html": "text/html",
+	".css":  "text/css",
+	".js":   "application/javascript",
+}
+
+//nolint:gochecknoglobals // shared file extension set
+var knownFileExtensions = map[string]struct{}{
+	".txt": {}, ".json": {}, ".yaml": {}, ".yml": {}, ".xml": {}, ".csv": {},
+	".log": {}, ".md": {}, ".html": {}, ".css": {}, ".js": {}, ".py": {},
+	".go": {}, ".rs": {}, ".cpp": {}, ".c": {}, ".h": {}, ".java": {},
+	".php": {}, ".rb": {}, ".sh": {}, ".bat": {}, ".cmd": {}, ".doc": {},
+	".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".webp": {}, ".svg": {},
+	".bmp": {}, ".ico": {}, ".pdf": {}, ".docx": {}, ".xlsx": {}, ".pptx": {},
+}
+
 var errFilterByMimeType error
+
+func normalizeMimeType(mimeType string) string {
+	normalized := strings.Split(mimeType, ";")[0]
+	return strings.TrimSpace(normalized)
+}
+
+func mimeTypesMatch(actual, target string) bool {
+	normalizedActual := normalizeMimeType(actual)
+	normalizedTarget := normalizeMimeType(target)
+	if normalizedActual == normalizedTarget {
+		return true
+	}
+	if strings.Contains(normalizedTarget, "/*") {
+		typePrefix := strings.TrimSuffix(normalizedTarget, "/*")
+		return strings.HasPrefix(normalizedActual, typePrefix+"/")
+	}
+	return false
+}
+
+func resolveMimeTypeForPath(path string) (string, bool) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "", false
+	}
+	mimeType := mimeTypeByExtension(filepath.Ext(path))
+	if mimeType == "" {
+		ext := strings.ToLower(filepath.Ext(path))
+		mapped, ok := fallbackMimeByExt[ext]
+		if !ok {
+			return "", false
+		}
+		mimeType = mapped
+	}
+	return mimeType, true
+}
+
+func outputMapFieldString(output interface{}, field, defaultVal string) string {
+	outputMap, ok := output.(map[string]interface{})
+	if !ok {
+		return defaultVal
+	}
+	if value, found := outputMap[field].(string); found {
+		return value
+	}
+	return defaultVal
+}
+
+func outputMapFieldExitCode(output interface{}, defaultVal int) int {
+	outputMap, ok := output.(map[string]interface{})
+	if !ok {
+		return defaultVal
+	}
+	if exitCode, okInt := outputMap["exitCode"].(int); okInt {
+		return exitCode
+	}
+	if exitCode, okFloat := outputMap["exitCode"].(float64); okFloat {
+		return int(exitCode)
+	}
+	return defaultVal
+}
 
 func defaultSessionDBPath() string {
 	homeDir, err := userHomeDirFunc()
@@ -335,6 +420,14 @@ func NewExecutionContext(
 	}
 
 	return ctx, nil
+}
+
+func (ctx *ExecutionContext) resourceOutput(actionID string) (interface{}, error) {
+	output, ok := ctx.Outputs[actionID]
+	if !ok {
+		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	}
+	return output, nil
 }
 
 // Env retrieves an environment variable value.
@@ -1145,58 +1238,12 @@ func (ctx *ExecutionContext) FilterByMimeType(
 	filtered := make([]string, 0)
 
 	for _, path := range paths {
-		// Check if file exists first - skip nonexistent files
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		mimeType, ok := resolveMimeTypeForPath(path)
+		if !ok {
 			continue
 		}
-
-		// Get MIME type from file extension
-		mimeType := mimeTypeByExtension(filepath.Ext(path))
-
-		// If MIME type is empty, try to infer from extension
-		// This handles cases where system MIME database doesn't have the extension
-		if mimeType == "" {
-			ext := strings.ToLower(filepath.Ext(path))
-			// Common MIME type mappings (fallback when system doesn't provide)
-			mimeMap := map[string]string{
-				".txt":  "text/plain",
-				".pdf":  "application/pdf",
-				".png":  "image/png",
-				".jpg":  "image/jpeg",
-				".jpeg": "image/jpeg",
-				".gif":  "image/gif",
-				".json": "application/json",
-				".csv":  "text/csv",
-				".xml":  "application/xml",
-				".html": "text/html",
-				".css":  "text/css",
-				".js":   "application/javascript",
-			}
-			if mapped, ok := mimeMap[ext]; ok {
-				mimeType = mapped
-			} else {
-				// If still unknown, skip this file (don't match)
-				continue
-			}
-		}
-
-		// Normalize MIME type (remove charset and other parameters)
-		normalizedMimeType := strings.Split(mimeType, ";")[0]
-		normalizedMimeType = strings.TrimSpace(normalizedMimeType)
-
-		// Normalize target MIME type as well (remove charset)
-		normalizedTargetMimeType := strings.Split(targetMimeType, ";")[0]
-		normalizedTargetMimeType = strings.TrimSpace(normalizedTargetMimeType)
-
-		// Handle both exact match and type/subtype match (e.g., "image/*" matches "image/png")
-		if normalizedMimeType == normalizedTargetMimeType {
+		if mimeTypesMatch(mimeType, targetMimeType) {
 			filtered = append(filtered, path)
-		} else if strings.Contains(normalizedTargetMimeType, "/*") {
-			// Handle wildcard MIME types (e.g., "image/*")
-			typePrefix := strings.TrimSuffix(normalizedTargetMimeType, "/*")
-			if strings.HasPrefix(normalizedMimeType, typePrefix+"/") {
-				filtered = append(filtered, path)
-			}
 		}
 	}
 
@@ -1612,123 +1659,72 @@ func (ctx *ExecutionContext) GetLLMPrompt(_ string) (interface{}, error) {
 // GetPythonStdout retrieves Python stdout from resource output.
 func (ctx *ExecutionContext) GetPythonStdout(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetPythonStdout")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	// Python output is typically stdout string
 	if stdoutStr, okStr := output.(string); okStr {
 		return stdoutStr, nil
 	}
-
-	// If it's a map, extract stdout field
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if stdout, okStdout := outputMap["stdout"].(string); okStdout {
-			return stdout, nil
-		}
-	}
-
-	return "", nil
+	return outputMapFieldString(output, "stdout", ""), nil
 }
 
 // GetPythonStderr retrieves Python stderr from resource output.
 func (ctx *ExecutionContext) GetPythonStderr(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetPythonStderr")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if stderr, okStderr := outputMap["stderr"].(string); okStderr {
-			return stderr, nil
-		}
-	}
-
-	return "", nil
+	return outputMapFieldString(output, "stderr", ""), nil
 }
 
 // GetPythonExitCode retrieves Python exit code from resource output.
 func (ctx *ExecutionContext) GetPythonExitCode(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetPythonExitCode")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if exitCode, okInt := outputMap["exitCode"].(int); okInt {
-			return exitCode, nil
-		}
-		if exitCode, okFloat := outputMap["exitCode"].(float64); okFloat {
-			return int(exitCode), nil
-		}
-	}
-
-	return 0, nil
+	return outputMapFieldExitCode(output, 0), nil
 }
 
 // GetExecStdout retrieves Exec stdout from resource output.
 func (ctx *ExecutionContext) GetExecStdout(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecStdout")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if stdout, okStdout := outputMap["stdout"].(string); okStdout {
-			return stdout, nil
-		}
-	}
-
-	return "", nil
+	return outputMapFieldString(output, "stdout", ""), nil
 }
 
 // GetExecStderr retrieves Exec stderr from resource output.
 func (ctx *ExecutionContext) GetExecStderr(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecStderr")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if stderr, okStderr := outputMap["stderr"].(string); okStderr {
-			return stderr, nil
-		}
-	}
-
-	return "", nil
+	return outputMapFieldString(output, "stderr", ""), nil
 }
 
 // GetExecExitCode retrieves Exec exit code from resource output.
 func (ctx *ExecutionContext) GetExecExitCode(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetExecExitCode")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
-
-	if outputMap, okMap := output.(map[string]interface{}); okMap {
-		if exitCode, okInt := outputMap["exitCode"].(int); okInt {
-			return exitCode, nil
-		}
-		if exitCode, okFloat := outputMap["exitCode"].(float64); okFloat {
-			return int(exitCode), nil
-		}
-	}
-
-	return 0, nil
+	return outputMapFieldExitCode(output, 0), nil
 }
 
 // GetHTTPResponseBody retrieves HTTP response body from resource output.
 func (ctx *ExecutionContext) GetHTTPResponseBody(actionID string) (interface{}, error) {
 	kdeps_debug.Log("enter: GetHTTPResponseBody")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
 
 	if outputMap, okMap := output.(map[string]interface{}); okMap {
@@ -1764,9 +1760,9 @@ func (ctx *ExecutionContext) GetHTTPResponseHeader(
 	actionID, headerName string,
 ) (interface{}, error) {
 	kdeps_debug.Log("enter: GetHTTPResponseHeader")
-	output, ok := ctx.Outputs[actionID]
-	if !ok {
-		return nil, fmt.Errorf("output for resource '%s' not found", actionID)
+	output, err := ctx.resourceOutput(actionID)
+	if err != nil {
+		return nil, err
 	}
 
 	if outputMap, okMap := output.(map[string]interface{}); okMap {
@@ -1815,66 +1811,16 @@ func (ctx *ExecutionContext) IsFilePattern(name string) bool {
 		return true
 	}
 
-	// Check for file extensions - but only if it looks like an actual filename
-	// Avoid false positives for metadata fields like "workflow.name", "request.method"
 	ext := filepath.Ext(name)
-	if ext != "" && len(ext) > 1 {
-		// Only consider it a file pattern if:
-		// 1. The name looks like a filename (contains no dots in the base name except the extension)
-		// 2. Or if it's a common file extension pattern
-		base := strings.TrimSuffix(name, ext)
-		// If the base contains dots, it's likely a metadata field like "workflow.name"
-		if !strings.Contains(base, ".") {
-			// Check for common file extensions
-			commonExts := []string{
-				".txt",
-				".json",
-				".yaml",
-				".yml",
-				".xml",
-				".csv",
-				".log",
-				".md",
-				".html",
-				".css",
-				".js",
-				".py",
-				".go",
-				".rs",
-				".cpp",
-				".c",
-				".h",
-				".java",
-				".php",
-				".rb",
-				".sh",
-				".bat",
-				".cmd",
-				".doc",
-				// Image formats
-				".jpg",
-				".jpeg",
-				".png",
-				".gif",
-				".webp",
-				".svg",
-				".bmp",
-				".ico",
-				// PDF and office formats
-				".pdf",
-				".docx",
-				".xlsx",
-				".pptx",
-			}
-			for _, commonExt := range commonExts {
-				if ext == commonExt {
-					return true
-				}
-			}
-		}
+	if ext == "" || len(ext) <= 1 {
+		return false
 	}
-
-	return false
+	base := strings.TrimSuffix(name, ext)
+	if strings.Contains(base, ".") {
+		return false
+	}
+	_, ok := knownFileExtensions[ext]
+	return ok
 }
 
 // SetOutput stores a resource output.

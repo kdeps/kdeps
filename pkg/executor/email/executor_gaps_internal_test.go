@@ -35,6 +35,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func TestApplySMTPDeadline_NoTimeout(t *testing.T) {
+	server, client := net.Pipe()
+	t.Cleanup(func() {
+		_ = server.Close()
+		_ = client.Close()
+	})
+	require.NoError(t, applySMTPDeadline(client, 0))
+}
+
 func TestSendSTARTTLS_SetDeadlineError(t *testing.T) {
 	orig := connSetDeadline
 	t.Cleanup(func() { connSetDeadline = orig })

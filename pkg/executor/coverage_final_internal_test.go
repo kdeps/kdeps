@@ -467,3 +467,15 @@ func TestGraph_TopologicalSortVisitedAndCycle(t *testing.T) {
 func expressionEvaluator(ctx *ExecutionContext) *expression.Evaluator {
 	return expression.NewEvaluator(ctx.API)
 }
+
+func TestOutputMapHelpers_NonMapDefaults(t *testing.T) {
+	assert.Equal(t, "default", outputMapFieldString("not-map", "stdout", "default"))
+	assert.Equal(t, 2, outputMapFieldExitCode("not-map", 2))
+	assert.Equal(t, "", outputMapFieldString(map[string]interface{}{"stdout": 1}, "stdout", ""))
+	assert.Equal(t, 0, outputMapFieldExitCode(map[string]interface{}{"exitCode": "bad"}, 0))
+}
+
+func TestIsFilePattern_UnknownExtension(t *testing.T) {
+	ctx := &ExecutionContext{}
+	assert.False(t, ctx.IsFilePattern("data.zzzunknown"))
+}
