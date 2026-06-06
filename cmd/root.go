@@ -83,9 +83,11 @@ func NewRootCmd() *cobra.Command {
 func createRootCommand() *cobra.Command {
 	kdeps_debug.Log("enter: createRootCommand")
 	rootCmd := &cobra.Command{
-		Use:   "kdeps",
-		Short: "KDeps - AI Agent Framework",
-		Long:  `Build AI agents with YAML configuration.`,
+		Use:           "kdeps",
+		Short:         "KDeps - AI Agent Framework",
+		Long:          `Build AI agents with YAML configuration.`,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			// Initialize structured logger.
 			debugFlag, _ := cmd.Flags().GetBool("debug")
