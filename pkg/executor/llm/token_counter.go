@@ -20,12 +20,15 @@ import (
 	tiktoken "github.com/pkoukk/tiktoken-go"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var tikTokenGetEncoding = tiktoken.GetEncoding
+
 const approxCharsPerToken = 4 // rough fallback when tiktoken encoding fails
 
 // CountTokens returns the exact token count for text using tiktoken BPE encoding.
 // Falls back to len(text)/4 if the encoding cannot be loaded.
 func CountTokens(model, text string) int {
-	enc, err := tiktoken.GetEncoding(modelEncoding(model))
+	enc, err := tikTokenGetEncoding(modelEncoding(model))
 	if err != nil {
 		return len(text) / approxCharsPerToken
 	}

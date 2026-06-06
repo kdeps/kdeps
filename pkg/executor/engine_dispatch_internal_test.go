@@ -243,3 +243,33 @@ func TestExecuteInlineBrowser_NoExecutor(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "browser executor not available")
 }
+
+func TestExecuteInlineSQL_NoExecutor(t *testing.T) {
+	e := newTestEngine()
+	e.SetRegistry(NewRegistry())
+	config := &domain.SQLConfig{Query: "SELECT 1"}
+	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+	_, err := e.executeInlineSQL(config, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SQL executor not available")
+}
+
+func TestExecuteInlinePython_NoExecutor(t *testing.T) {
+	e := newTestEngine()
+	e.SetRegistry(NewRegistry())
+	config := &domain.PythonConfig{Script: "print('hello')"}
+	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+	_, err := e.executeInlinePython(config, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "python executor not available")
+}
+
+func TestExecuteInlineExec_NoExecutor(t *testing.T) {
+	e := newTestEngine()
+	e.SetRegistry(NewRegistry())
+	config := &domain.ExecConfig{Command: "echo hello"}
+	ctx := &ExecutionContext{Workflow: &domain.Workflow{}}
+	_, err := e.executeInlineExec(config, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exec executor not available")
+}
