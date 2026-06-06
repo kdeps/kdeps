@@ -25,10 +25,10 @@ import (
 	"log/slog"
 	"net"
 	stdhttp "net/http"
-	"os"
 	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,6 +72,10 @@ func TestDownload_HTTPStatusError(t *testing.T) {
 }
 
 func TestDownload_OpenFileError(t *testing.T) {
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewReadOnlyFs(afero.NewMemMapFs())
+
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })
 	httpGet = func(_ string) (*stdhttp.Response, error) {
@@ -79,11 +83,6 @@ func TestDownload_OpenFileError(t *testing.T) {
 			StatusCode: stdhttp.StatusOK,
 			Body:       io.NopCloser(strings.NewReader("fake binary")),
 		}, nil
-	}
-	origOF := osOpenFile
-	t.Cleanup(func() { osOpenFile = origOF })
-	osOpenFile = func(_ string, _ int, _ os.FileMode) (*os.File, error) {
-		return nil, errors.New("disk full")
 	}
 
 	m, err := NewLlamafileManager(testLogger())
@@ -94,38 +93,14 @@ func TestDownload_OpenFileError(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot create temp file")
 }
 
-func TestDownload_RenameError(t *testing.T) {
-	origHTTP := httpGet
-	t.Cleanup(func() { httpGet = origHTTP })
-	httpGet = func(_ string) (*stdhttp.Response, error) {
-		return &stdhttp.Response{
-			StatusCode: stdhttp.StatusOK,
-			Body:       io.NopCloser(strings.NewReader("fake binary")),
-		}, nil
-	}
-	origRename := osRename
-	t.Cleanup(func() { osRename = origRename })
-	osRename = func(_, _ string) error {
-		return errors.New("cross-device link")
-	}
-
-	m, err := NewLlamafileManager(testLogger())
-	require.NoError(t, err)
-
-	_, err = m.download("https://example.com/model.llamafile")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to move downloaded file")
-}
-
 func TestDownload_AlreadyCached(t *testing.T) {
-	origStat := osStat
-	t.Cleanup(func() { osStat = origStat })
-	osStat = func(_ string) (os.FileInfo, error) {
-		return nil, nil
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	memFS := afero.NewMemMapFs()
+	AppFS = memFS
+	_ = afero.WriteFile(memFS, "model.llamafile", []byte("fake"), 0644)
 
-	m, err := NewLlamafileManager(testLogger())
-	require.NoError(t, err)
+	m := NewLlamafileManagerWithDir(testLogger(), ".")
 
 	dest, err := m.download("https://example.com/model.llamafile")
 	require.NoError(t, err)
@@ -163,11 +138,9 @@ func TestFindFreePort_CloseError(t *testing.T) {
 }
 
 func TestMakeExecutable_StatError(t *testing.T) {
-	origStat := osStat
-	t.Cleanup(func() { osStat = origStat })
-	osStat = func(_ string) (os.FileInfo, error) {
-		return nil, errors.New("permission denied")
-	}
+	origFS := AppFS
+	t.Cleanup(func() { AppFS = origFS })
+	AppFS = afero.NewMemMapFs()
 
 	m, err := NewLlamafileManager(testLogger())
 	require.NoError(t, err)

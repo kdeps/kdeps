@@ -22,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"io"
 	"log/slog"
 	"net"
@@ -32,6 +33,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/afero"
+	"github.com/spf13/fileflow"
+	"github.com/spf13/pathologize"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -44,28 +49,14 @@ const (
 	llamafileExecutablePerm = 0750
 )
 
-// DI variables — overridable for testing.
+//nolint:gochecknoglobals // test-replaceable
+var AppFS = afero.NewOsFs()
 
 //nolint:gochecknoglobals // test-replaceable
 var httpGet = stdhttp.Get
 
 //nolint:gochecknoglobals // test-replaceable
 var httpDefaultClientDo = stdhttp.DefaultClient.Do
-
-//nolint:gochecknoglobals // test-replaceable
-var osStat = os.Stat
-
-//nolint:gochecknoglobals // test-replaceable
-var osOpenFile = os.OpenFile
-
-//nolint:gochecknoglobals // test-replaceable
-var osRemove = os.Remove
-
-//nolint:gochecknoglobals // test-replaceable
-var osRename = os.Rename
-
-//nolint:gochecknoglobals // test-replaceable
-var osChmod = os.Chmod
 
 //nolint:gochecknoglobals // test-replaceable
 var netListenConfigListen = (&net.ListenConfig{}).Listen
@@ -115,7 +106,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 
 	// Absolute path - use directly.
 	if filepath.IsAbs(model) {
-		if _, err := osStat(model); err != nil {
+		if _, err := AppFS.Stat(model); err != nil {
 			return "", fmt.Errorf("llamafile not found at %s: %w", model, err)
 		}
 		return model, nil
@@ -127,7 +118,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("cannot resolve relative path %s: %w", model, err)
 		}
-		if _, statErr := osStat(abs); statErr != nil {
+		if _, statErr := AppFS.Stat(abs); statErr != nil {
 			return "", fmt.Errorf("llamafile not found at %s: %w", abs, statErr)
 		}
 		return abs, nil
@@ -135,7 +126,7 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 
 	// Bare filename - look in models cache dir.
 	cached := filepath.Join(m.modelsDir, model)
-	if _, err := osStat(cached); err != nil {
+	if _, err := AppFS.Stat(cached); err != nil {
 		return "", fmt.Errorf(
 			"llamafile %q not found in cache (%s); set model to a URL or full path",
 			model, m.modelsDir,
@@ -149,13 +140,13 @@ func (m *LlamafileManager) Resolve(model string) (string, error) {
 // simplicity - delete the cached file to force a re-download).
 func (m *LlamafileManager) download(rawURL string) (string, error) {
 	kdeps_debug.Log("enter: LlamafileManager.download")
-	basename := filepath.Base(rawURL)
+	basename := pathologize.Clean(filepath.Base(rawURL))
 	if basename == "" || basename == "." || basename == "/" {
 		basename = "model.llamafile"
 	}
 	dest := filepath.Join(m.modelsDir, basename)
 
-	if _, err := osStat(dest); err == nil {
+	if _, err := AppFS.Stat(dest); err == nil {
 		m.logger.Info("llamafile already cached", "path", dest)
 		return dest, nil
 	}
@@ -173,23 +164,23 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 	}
 
 	tmp := dest + ".tmp"
-	f, err := osOpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
+	f, err := AppFS.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, llamafileDownloadPerm)
 	if err != nil {
 		return "", fmt.Errorf("cannot create temp file %s: %w", tmp, err)
 	}
 
 	if _, copyErr := io.Copy(f, resp.Body); copyErr != nil {
 		_ = f.Close()
-		_ = osRemove(tmp)
+		_ = AppFS.Remove(tmp)
 		return "", fmt.Errorf("download write failed: %w", copyErr)
 	}
 	if closeErr := f.Close(); closeErr != nil {
-		_ = osRemove(tmp)
+		_ = AppFS.Remove(tmp)
 		return "", fmt.Errorf("failed to close downloaded file: %w", closeErr)
 	}
 
-	if renameErr := osRename(tmp, dest); renameErr != nil {
-		_ = osRemove(tmp)
+	if _, renameErr := fileflow.Move(tmp, dest); renameErr != nil {
+		_ = AppFS.Remove(tmp)
 		return "", fmt.Errorf("failed to move downloaded file: %w", renameErr)
 	}
 
@@ -200,14 +191,14 @@ func (m *LlamafileManager) download(rawURL string) (string, error) {
 // MakeExecutable ensures path has execute permission.
 func (m *LlamafileManager) MakeExecutable(path string) error {
 	kdeps_debug.Log("enter: LlamafileManager.MakeExecutable")
-	info, err := osStat(path)
+	info, err := AppFS.Stat(path)
 	if err != nil {
 		return fmt.Errorf("cannot stat llamafile %s: %w", path, err)
 	}
 	if info.Mode()&0111 != 0 {
 		return nil // already executable
 	}
-	return osChmod(path, llamafileExecutablePerm)
+	return AppFS.Chmod(path, llamafileExecutablePerm)
 }
 
 // FindFreePort returns an available TCP port on localhost.
