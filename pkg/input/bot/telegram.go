@@ -45,6 +45,8 @@ const defaultTelegramPollTimeout = 30 * time.Second
 //nolint:gochecknoglobals // test-replaceable
 var telegramNewBot = telegrambot.New
 
+type telegramUpdateHandler = func(context.Context, *telegrambot.Bot, *models.Update)
+
 //nolint:gochecknoglobals // test-replaceable
 var telegramBotStart = func(b *telegrambot.Bot, ctx context.Context) { b.Start(ctx) }
 
@@ -100,7 +102,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 // createTelegramHandler returns a handler function for Telegram updates.
 func (r *telegramRunner) createTelegramHandler(
 	ctx context.Context, ch chan<- Message,
-) func(context.Context, *telegrambot.Bot, *models.Update) {
+) telegramUpdateHandler {
 	return func(_ context.Context, _ *telegrambot.Bot, update *models.Update) {
 		r.handleTelegramUpdate(ctx, update, ch)
 	}
