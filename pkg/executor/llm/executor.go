@@ -407,14 +407,8 @@ func (e *Executor) formatExecuteResult(
 
 	parsed, parseErr := e.parseJSONResponse(response, config.JSONResponseKeys)
 	if parseErr != nil {
-		if message, okMessage := response["message"].(map[string]interface{}); okMessage {
-			if content, okContent := message["content"].(string); okContent {
-				return map[string]interface{}{
-					"error":   "Failed to parse JSON response: " + parseErr.Error(),
-					"content": content,
-					"raw":     response,
-				}, nil
-			}
+		if fallback, ok := jsonParseErrorFallback(response, parseErr); ok {
+			return fallback, nil
 		}
 		return nil, fmt.Errorf(
 			"failed to parse JSON response and cannot extract raw content: %w",
@@ -422,6 +416,22 @@ func (e *Executor) formatExecuteResult(
 		)
 	}
 	return parsed, nil
+}
+
+func jsonParseErrorFallback(response map[string]interface{}, parseErr error) (interface{}, bool) {
+	message, okMessage := response["message"].(map[string]interface{})
+	if !okMessage {
+		return nil, false
+	}
+	content, okContent := message["content"].(string)
+	if !okContent {
+		return nil, false
+	}
+	return map[string]interface{}{
+		"error":   "Failed to parse JSON response: " + parseErr.Error(),
+		"content": content,
+		"raw":     response,
+	}, true
 }
 
 // resolveBackendAndBaseURL returns the backend instance and resolved base URL.
