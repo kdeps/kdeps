@@ -498,63 +498,60 @@ func applyRouterEnv(keys LLMKeys) {
 	}
 }
 
+// env helpers — conditionally format and call setIfUnset.
+func setIntIfPos(key string, v int) {
+	if v > 0 {
+		setIfUnset(key, strconv.Itoa(v))
+	}
+}
+func setInt64IfPos(key string, v int64) {
+	if v > 0 {
+		setIfUnset(key, strconv.FormatInt(v, 10))
+	}
+}
+func setFloatIfNonNil(key string, v *float64) {
+	if v != nil {
+		setIfUnset(key, strconv.FormatFloat(*v, 'f', -1, 64))
+	}
+}
+func setBoolIfTrue(key string, v bool) {
+	if v {
+		setIfUnset(key, "true")
+	}
+}
+func setIntPtrIfPos(key string, v *int) {
+	if v != nil && *v > 0 {
+		setIfUnset(key, strconv.Itoa(*v))
+	}
+}
+
 // applyResourceDefaults propagates resource_defaults from config to env vars.
 func applyResourceDefaults(rd ResourceDefaults) {
 	setIfUnset("KDEPS_CHAT_TIMEOUT", rd.Chat.Timeout)
-	if rd.Chat.ContextLength > 0 {
-		setIfUnset("KDEPS_CHAT_CONTEXT_LENGTH", strconv.Itoa(rd.Chat.ContextLength))
-	}
-	if rd.Chat.Streaming {
-		setIfUnset("KDEPS_CHAT_STREAMING", "true")
-	}
-	if rd.Chat.Temperature != nil {
-		setIfUnset("KDEPS_CHAT_TEMPERATURE", strconv.FormatFloat(*rd.Chat.Temperature, 'f', -1, 64))
-	}
-	if rd.Chat.MaxTokens != nil && *rd.Chat.MaxTokens > 0 {
-		setIfUnset("KDEPS_CHAT_MAX_TOKENS", strconv.Itoa(*rd.Chat.MaxTokens))
-	}
-	if rd.Chat.TopP != nil {
-		setIfUnset("KDEPS_CHAT_TOP_P", strconv.FormatFloat(*rd.Chat.TopP, 'f', -1, 64))
-	}
-	if rd.Chat.FrequencyPenalty != nil {
-		setIfUnset("KDEPS_CHAT_FREQUENCY_PENALTY", strconv.FormatFloat(*rd.Chat.FrequencyPenalty, 'f', -1, 64))
-	}
-	if rd.Chat.PresencePenalty != nil {
-		setIfUnset("KDEPS_CHAT_PRESENCE_PENALTY", strconv.FormatFloat(*rd.Chat.PresencePenalty, 'f', -1, 64))
-	}
-	if rd.Chat.MaxOutputBytes > 0 {
-		setIfUnset("KDEPS_CHAT_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Chat.MaxOutputBytes, 10))
-	}
+	setIntIfPos("KDEPS_CHAT_CONTEXT_LENGTH", rd.Chat.ContextLength)
+	setBoolIfTrue("KDEPS_CHAT_STREAMING", rd.Chat.Streaming)
+	setFloatIfNonNil("KDEPS_CHAT_TEMPERATURE", rd.Chat.Temperature)
+	setIntPtrIfPos("KDEPS_CHAT_MAX_TOKENS", rd.Chat.MaxTokens)
+	setFloatIfNonNil("KDEPS_CHAT_TOP_P", rd.Chat.TopP)
+	setFloatIfNonNil("KDEPS_CHAT_FREQUENCY_PENALTY", rd.Chat.FrequencyPenalty)
+	setFloatIfNonNil("KDEPS_CHAT_PRESENCE_PENALTY", rd.Chat.PresencePenalty)
+	setInt64IfPos("KDEPS_CHAT_MAX_OUTPUT_BYTES", rd.Chat.MaxOutputBytes)
 	setIfUnset("KDEPS_HTTP_TIMEOUT", rd.HTTP.Timeout)
-	if rd.HTTP.FollowRedirects {
-		setIfUnset("KDEPS_HTTP_FOLLOW_REDIRECTS", "true")
-	}
+	setBoolIfTrue("KDEPS_HTTP_FOLLOW_REDIRECTS", rd.HTTP.FollowRedirects)
 	setIfUnset("KDEPS_HTTP_PROXY", rd.HTTP.Proxy)
-	if rd.HTTP.RetryMaxAttempts > 0 {
-		setIfUnset("KDEPS_HTTP_RETRY_MAX_ATTEMPTS", strconv.Itoa(rd.HTTP.RetryMaxAttempts))
-	}
+	setIntIfPos("KDEPS_HTTP_RETRY_MAX_ATTEMPTS", rd.HTTP.RetryMaxAttempts)
 	setIfUnset("KDEPS_HTTP_RETRY_BACKOFF", rd.HTTP.RetryBackoff)
 	setIfUnset("KDEPS_HTTP_RETRY_MAX_BACKOFF", rd.HTTP.RetryMaxBackoff)
 	setIfUnset("KDEPS_HTTP_RETRY_ON", rd.HTTP.RetryOn)
-	if rd.HTTP.MaxResponseBytes > 0 {
-		setIfUnset("KDEPS_HTTP_MAX_RESPONSE_BYTES", strconv.FormatInt(rd.HTTP.MaxResponseBytes, 10))
-	}
+	setInt64IfPos("KDEPS_HTTP_MAX_RESPONSE_BYTES", rd.HTTP.MaxResponseBytes)
 	setIfUnset("KDEPS_PYTHON_TIMEOUT", rd.Python.Timeout)
-	if rd.Python.MaxOutputBytes > 0 {
-		setIfUnset("KDEPS_PYTHON_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Python.MaxOutputBytes, 10))
-	}
+	setInt64IfPos("KDEPS_PYTHON_MAX_OUTPUT_BYTES", rd.Python.MaxOutputBytes)
 	setIfUnset("KDEPS_EXEC_TIMEOUT", rd.Exec.Timeout)
-	if rd.Exec.MaxOutputBytes > 0 {
-		setIfUnset("KDEPS_EXEC_MAX_OUTPUT_BYTES", strconv.FormatInt(rd.Exec.MaxOutputBytes, 10))
-	}
+	setInt64IfPos("KDEPS_EXEC_MAX_OUTPUT_BYTES", rd.Exec.MaxOutputBytes)
 	setIfUnset("KDEPS_SQL_TIMEOUT", rd.SQL.Timeout)
-	if rd.SQL.MaxRows > 0 {
-		setIfUnset("KDEPS_SQL_MAX_ROWS", strconv.Itoa(rd.SQL.MaxRows))
-	}
+	setIntIfPos("KDEPS_SQL_MAX_ROWS", rd.SQL.MaxRows)
 	setIfUnset("KDEPS_ON_ERROR_ACTION", rd.OnError.Action)
-	if rd.OnError.MaxRetries > 0 {
-		setIfUnset("KDEPS_ON_ERROR_MAX_RETRIES", strconv.Itoa(rd.OnError.MaxRetries))
-	}
+	setIntIfPos("KDEPS_ON_ERROR_MAX_RETRIES", rd.OnError.MaxRetries)
 	setIfUnset("KDEPS_ON_ERROR_RETRY_DELAY", rd.OnError.RetryDelay)
 }
 
@@ -607,166 +604,159 @@ func applyEnv(cfg Config) {
 }
 
 // mergeConfig overlays non-empty fields from src onto dst.
-func mergeConfig(dst *Config, src *Config) { //nolint:gocognit,gocyclo,cyclop,funlen // field-by-field merge
-	if src.LLM.OllamaHost != "" {
-		dst.LLM.OllamaHost = src.LLM.OllamaHost
-	}
-	if src.LLM.Backend != "" {
-		dst.LLM.Backend = src.LLM.Backend
-	}
-	if src.LLM.BaseURL != "" {
-		dst.LLM.BaseURL = src.LLM.BaseURL
-	}
-	if src.LLM.Strategy != "" {
-		dst.LLM.Strategy = src.LLM.Strategy
-	}
-	if len(src.LLM.Models) > 0 {
-		dst.LLM.Models = src.LLM.Models
-	}
-	if src.LLM.ModelsDir != "" {
-		dst.LLM.ModelsDir = src.LLM.ModelsDir
-	}
-	if src.LLM.OpenAI != "" {
-		dst.LLM.OpenAI = src.LLM.OpenAI
-	}
-	if src.LLM.Anthropic != "" {
-		dst.LLM.Anthropic = src.LLM.Anthropic
-	}
-	if src.LLM.Google != "" {
-		dst.LLM.Google = src.LLM.Google
-	}
-	if src.LLM.Cohere != "" {
-		dst.LLM.Cohere = src.LLM.Cohere
-	}
-	if src.LLM.Mistral != "" {
-		dst.LLM.Mistral = src.LLM.Mistral
-	}
-	if src.LLM.Together != "" {
-		dst.LLM.Together = src.LLM.Together
-	}
-	if src.LLM.Perplexity != "" {
-		dst.LLM.Perplexity = src.LLM.Perplexity
-	}
-	if src.LLM.Groq != "" {
-		dst.LLM.Groq = src.LLM.Groq
-	}
-	if src.LLM.DeepSeek != "" {
-		dst.LLM.DeepSeek = src.LLM.DeepSeek
-	}
-	if src.LLM.OpenRouter != "" {
-		dst.LLM.OpenRouter = src.LLM.OpenRouter
-	}
-	if src.Defaults.Timezone != "" {
-		dst.Defaults.Timezone = src.Defaults.Timezone
-	}
-	if src.Defaults.PythonVersion != "" {
-		dst.Defaults.PythonVersion = src.Defaults.PythonVersion
-	}
-	if src.Defaults.OfflineMode {
-		dst.Defaults.OfflineMode = true
-	}
-	rd := &src.ResourceDefaults
-	if rd.Chat.Timeout != "" {
-		dst.ResourceDefaults.Chat.Timeout = rd.Chat.Timeout
-	}
-	if rd.Chat.ContextLength > 0 {
-		dst.ResourceDefaults.Chat.ContextLength = rd.Chat.ContextLength
-	}
-	if rd.Chat.Streaming {
-		dst.ResourceDefaults.Chat.Streaming = true
-	}
-	if rd.Chat.Temperature != nil {
-		dst.ResourceDefaults.Chat.Temperature = rd.Chat.Temperature
-	}
-	if rd.Chat.MaxTokens != nil && *rd.Chat.MaxTokens > 0 {
-		dst.ResourceDefaults.Chat.MaxTokens = rd.Chat.MaxTokens
-	}
-	if rd.Chat.TopP != nil {
-		dst.ResourceDefaults.Chat.TopP = rd.Chat.TopP
-	}
-	if rd.Chat.FrequencyPenalty != nil {
-		dst.ResourceDefaults.Chat.FrequencyPenalty = rd.Chat.FrequencyPenalty
-	}
-	if rd.Chat.PresencePenalty != nil {
-		dst.ResourceDefaults.Chat.PresencePenalty = rd.Chat.PresencePenalty
-	}
-	if rd.HTTP.Timeout != "" {
-		dst.ResourceDefaults.HTTP.Timeout = rd.HTTP.Timeout
-	}
-	if rd.HTTP.FollowRedirects {
-		dst.ResourceDefaults.HTTP.FollowRedirects = true
-	}
-	if rd.HTTP.Proxy != "" {
-		dst.ResourceDefaults.HTTP.Proxy = rd.HTTP.Proxy
-	}
-	if rd.HTTP.RetryMaxAttempts > 0 {
-		dst.ResourceDefaults.HTTP.RetryMaxAttempts = rd.HTTP.RetryMaxAttempts
-	}
-	if rd.HTTP.RetryBackoff != "" {
-		dst.ResourceDefaults.HTTP.RetryBackoff = rd.HTTP.RetryBackoff
-	}
-	if rd.HTTP.RetryMaxBackoff != "" {
-		dst.ResourceDefaults.HTTP.RetryMaxBackoff = rd.HTTP.RetryMaxBackoff
-	}
-	if rd.HTTP.RetryOn != "" {
-		dst.ResourceDefaults.HTTP.RetryOn = rd.HTTP.RetryOn
-	}
-	if rd.Python.Timeout != "" {
-		dst.ResourceDefaults.Python.Timeout = rd.Python.Timeout
-	}
-	if rd.Exec.Timeout != "" {
-		dst.ResourceDefaults.Exec.Timeout = rd.Exec.Timeout
-	}
-	if rd.SQL.Timeout != "" {
-		dst.ResourceDefaults.SQL.Timeout = rd.SQL.Timeout
-	}
-	if rd.SQL.MaxRows > 0 {
-		dst.ResourceDefaults.SQL.MaxRows = rd.SQL.MaxRows
-	}
-	if rd.OnError.Action != "" {
-		dst.ResourceDefaults.OnError.Action = rd.OnError.Action
-	}
-	if rd.OnError.MaxRetries > 0 {
-		dst.ResourceDefaults.OnError.MaxRetries = rd.OnError.MaxRetries
-	}
-	if rd.OnError.RetryDelay != "" {
-		dst.ResourceDefaults.OnError.RetryDelay = rd.OnError.RetryDelay
-	}
-	for k, v := range src.HTTPConnections {
-		if dst.HTTPConnections == nil {
-			dst.HTTPConnections = make(map[string]HTTPConnectionConfig)
-		}
-		dst.HTTPConnections[k] = v
-	}
-	for k, v := range src.SearchConnections {
-		if dst.SearchConnections == nil {
-			dst.SearchConnections = make(map[string]SearchConnectionConfig)
-		}
-		dst.SearchConnections[k] = v
-	}
-	for k, v := range src.SMTPConnections {
-		if dst.SMTPConnections == nil {
-			dst.SMTPConnections = make(map[string]SMTPConnectionConfig)
-		}
-		dst.SMTPConnections[k] = v
-	}
-	for k, v := range src.IMAPConnections {
-		if dst.IMAPConnections == nil {
-			dst.IMAPConnections = make(map[string]IMAPConnectionConfig)
-		}
-		dst.IMAPConnections[k] = v
-	}
+func mergeConfig(dst *Config, src *Config) {
+	mergeLLMKeys(&dst.LLM, &src.LLM)
+	mergeDefaults(&dst.Defaults, &src.Defaults)
+	mergeResourceDefaultsConfig(&dst.ResourceDefaults, &src.ResourceDefaults)
+	mergeMap(&dst.HTTPConnections, src.HTTPConnections)
+	mergeMap(&dst.SearchConnections, src.SearchConnections)
+	mergeMap(&dst.SMTPConnections, src.SMTPConnections)
+	mergeMap(&dst.IMAPConnections, src.IMAPConnections)
 	if src.BotConnections != nil {
 		dst.BotConnections = src.BotConnections
 	}
-	for k, v := range src.SQLConnections {
-		if dst.SQLConnections == nil {
-			dst.SQLConnections = make(map[string]SQLConnectionConfig)
-		}
-		dst.SQLConnections[k] = v
+	mergeMap(&dst.SQLConnections, src.SQLConnections)
+	setStrIfNotEmpty(&dst.APIAuthToken, src.APIAuthToken)
+}
+
+// setStrIfNotEmpty copies src to *dst when src is non-empty.
+func setStrIfNotEmpty(dst *string, src string) {
+	if src != "" {
+		*dst = src
 	}
-	if src.APIAuthToken != "" {
-		dst.APIAuthToken = src.APIAuthToken
+}
+
+// mergeLLMKeys overlays non-empty fields from src LLMKeys onto dst.
+func mergeLLMKeys(dst, src *LLMKeys) {
+	setStrIfNotEmpty(&dst.OllamaHost, src.OllamaHost)
+	setStrIfNotEmpty(&dst.Backend, src.Backend)
+	setStrIfNotEmpty(&dst.BaseURL, src.BaseURL)
+	setStrIfNotEmpty(&dst.Strategy, src.Strategy)
+	if len(src.Models) > 0 {
+		dst.Models = src.Models
+	}
+	setStrIfNotEmpty(&dst.ModelsDir, src.ModelsDir)
+	setStrIfNotEmpty(&dst.OpenAI, src.OpenAI)
+	setStrIfNotEmpty(&dst.Anthropic, src.Anthropic)
+	setStrIfNotEmpty(&dst.Google, src.Google)
+	setStrIfNotEmpty(&dst.Cohere, src.Cohere)
+	setStrIfNotEmpty(&dst.Mistral, src.Mistral)
+	setStrIfNotEmpty(&dst.Together, src.Together)
+	setStrIfNotEmpty(&dst.Perplexity, src.Perplexity)
+	setStrIfNotEmpty(&dst.Groq, src.Groq)
+	setStrIfNotEmpty(&dst.DeepSeek, src.DeepSeek)
+	setStrIfNotEmpty(&dst.OpenRouter, src.OpenRouter)
+}
+
+// mergeDefaults overlays non-empty fields from src Defaults onto dst.
+func mergeDefaults(dst, src *Defaults) {
+	setStrIfNotEmpty(&dst.Timezone, src.Timezone)
+	setStrIfNotEmpty(&dst.PythonVersion, src.PythonVersion)
+	if src.OfflineMode {
+		dst.OfflineMode = true
+	}
+}
+
+// mergeChatDefaults overlays non-empty fields from src ChatDefaults onto dst.
+func mergeChatDefaults(dst, src *ChatDefaults) {
+	setStrIfNotEmpty(&dst.Timeout, src.Timeout)
+	if src.ContextLength > 0 {
+		dst.ContextLength = src.ContextLength
+	}
+	if src.Streaming {
+		dst.Streaming = true
+	}
+	if src.Temperature != nil {
+		dst.Temperature = src.Temperature
+	}
+	if src.MaxTokens != nil && *src.MaxTokens > 0 {
+		dst.MaxTokens = src.MaxTokens
+	}
+	if src.TopP != nil {
+		dst.TopP = src.TopP
+	}
+	if src.FrequencyPenalty != nil {
+		dst.FrequencyPenalty = src.FrequencyPenalty
+	}
+	if src.PresencePenalty != nil {
+		dst.PresencePenalty = src.PresencePenalty
+	}
+	if src.MaxOutputBytes > 0 {
+		dst.MaxOutputBytes = src.MaxOutputBytes
+	}
+}
+
+// mergeHTTPDefaults overlays non-empty fields from src HTTPDefaults onto dst.
+func mergeHTTPDefaults(dst, src *HTTPDefaults) {
+	setStrIfNotEmpty(&dst.Timeout, src.Timeout)
+	if src.FollowRedirects {
+		dst.FollowRedirects = true
+	}
+	setStrIfNotEmpty(&dst.Proxy, src.Proxy)
+	if src.RetryMaxAttempts > 0 {
+		dst.RetryMaxAttempts = src.RetryMaxAttempts
+	}
+	setStrIfNotEmpty(&dst.RetryBackoff, src.RetryBackoff)
+	setStrIfNotEmpty(&dst.RetryMaxBackoff, src.RetryMaxBackoff)
+	setStrIfNotEmpty(&dst.RetryOn, src.RetryOn)
+	if src.MaxResponseBytes > 0 {
+		dst.MaxResponseBytes = src.MaxResponseBytes
+	}
+}
+
+// mergePythonDefaults overlays non-empty fields from src PythonDefaults onto dst.
+func mergePythonDefaults(dst, src *PythonDefaults) {
+	setStrIfNotEmpty(&dst.Timeout, src.Timeout)
+	if src.MaxOutputBytes > 0 {
+		dst.MaxOutputBytes = src.MaxOutputBytes
+	}
+}
+
+// mergeExecDefaults overlays non-empty fields from src ExecDefaults onto dst.
+func mergeExecDefaults(dst, src *ExecDefaults) {
+	setStrIfNotEmpty(&dst.Timeout, src.Timeout)
+	if src.MaxOutputBytes > 0 {
+		dst.MaxOutputBytes = src.MaxOutputBytes
+	}
+}
+
+// mergeSQLDefaults overlays non-empty fields from src SQLDefaults onto dst.
+func mergeSQLDefaults(dst, src *SQLDefaults) {
+	setStrIfNotEmpty(&dst.Timeout, src.Timeout)
+	if src.MaxRows > 0 {
+		dst.MaxRows = src.MaxRows
+	}
+}
+
+// mergeOnErrorDefaults overlays non-empty fields from src OnErrorDefaults onto dst.
+func mergeOnErrorDefaults(dst, src *OnErrorDefaults) {
+	setStrIfNotEmpty(&dst.Action, src.Action)
+	if src.MaxRetries > 0 {
+		dst.MaxRetries = src.MaxRetries
+	}
+	setStrIfNotEmpty(&dst.RetryDelay, src.RetryDelay)
+}
+
+// mergeResourceDefaultsConfig overlays non-empty fields from src ResourceDefaults onto dst.
+func mergeResourceDefaultsConfig(dst, src *ResourceDefaults) {
+	mergeChatDefaults(&dst.Chat, &src.Chat)
+	mergeHTTPDefaults(&dst.HTTP, &src.HTTP)
+	mergePythonDefaults(&dst.Python, &src.Python)
+	mergeExecDefaults(&dst.Exec, &src.Exec)
+	mergeSQLDefaults(&dst.SQL, &src.SQL)
+	mergeOnErrorDefaults(&dst.OnError, &src.OnError)
+}
+
+// mergeMap overlays entries from src onto *dst, initializing *dst if nil.
+func mergeMap[M ~map[K]V, K comparable, V any](dst *M, src M) {
+	if src == nil {
+		return
+	}
+	if *dst == nil {
+		*dst = make(M)
+	}
+	for k, v := range src {
+		(*dst)[k] = v
 	}
 }
 
