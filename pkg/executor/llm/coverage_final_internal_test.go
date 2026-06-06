@@ -574,6 +574,20 @@ func TestModelService_ServeOllamaModel_SetenvWarn(t *testing.T) {
 	require.NoError(t, s.serveOllamaModel("m", "127.0.0.1", 11434))
 }
 
+func TestApplyRouterModel_Success(t *testing.T) {
+	e := NewExecutor("")
+	cfg := &domain.ChatConfig{Model: "router"}
+	_, routes, err := e.applyRouterModel(cfg, "hello")
+	require.Error(t, err)
+	assert.Nil(t, routes)
+
+	cfg.Model = "gpt-4"
+	model, routes, err := e.applyRouterModel(cfg, "hello")
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-4", model)
+	assert.Nil(t, routes)
+}
+
 func TestDownload_BasenameFallback(t *testing.T) {
 	origHTTP := httpGet
 	t.Cleanup(func() { httpGet = origHTTP })

@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -666,6 +667,52 @@ func TestStartHTTPServerWithEngine_StartReturnsError(t *testing.T) {
 	}
 	err := startHTTPServerWithEngine(eng, wf, t.TempDir(), false, false)
 	require.Error(t, err)
+}
+
+func TestRunUntilSignalOrError_StartError(t *testing.T) {
+	err := runUntilSignalOrError(signalServeConfig{
+		start: func() error { return errors.New("start failed") },
+	})
+	require.Error(t, err)
+}
+
+func TestRunUntilSignalOrError_SignalShutdownError(t *testing.T) {
+	origNotify := notifySignalsFunc
+	t.Cleanup(func() { notifySignalsFunc = origNotify })
+	notifySignalsFunc = func(c chan<- os.Signal, _ ...os.Signal) {
+		go func() { c <- syscall.SIGTERM }()
+	}
+	err := runUntilSignalOrError(signalServeConfig{
+		start: func() error {
+			select {}
+		},
+		shutdown: func(_ context.Context) error {
+			return errors.New("shutdown failed")
+		},
+		logShutdownErrors: true,
+	})
+	require.NoError(t, err)
+}
+
+func TestStartBothServersWithEngine_StartReturnsError(t *testing.T) {
+	origStart := httpServerStartFunc
+	t.Cleanup(func() { httpServerStartFunc = origStart })
+	httpServerStartFunc = func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return errors.New("start failed")
+	}
+	eng := executor.NewEngine(nil)
+	wf := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: mustFreePort(t)},
+			WebServer: &domain.WebServerConfig{
+				PortNum: mustFreePort(t),
+				Routes:  []domain.WebRoute{},
+			},
+		},
+	}
+	err := startBothServersWithEngine(eng, wf, t.TempDir(), false, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "server error")
 }
 
 func TestStartBothServersWithEngine_CreateError(t *testing.T) {

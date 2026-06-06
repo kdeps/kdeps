@@ -801,6 +801,13 @@ func printIORequirements(workflow *domain.Workflow) {
 	printBotRequirements(input)
 }
 
+func printBotPlatform(title string, lines ...string) {
+	fmt.Fprintf(os.Stdout, "    %s\n", title)
+	for _, line := range lines {
+		fmt.Fprintf(os.Stdout, "      %s\n", line)
+	}
+}
+
 // printBotRequirements prints a note for each configured bot platform.
 func printBotRequirements(input *domain.InputConfig) {
 	kdeps_debug.Log("enter: printBotRequirements")
@@ -809,32 +816,28 @@ func printBotRequirements(input *domain.InputConfig) {
 	}
 	b := input.Bot
 	if b.Discord != nil {
-		fmt.Fprintln(os.Stdout, "    Discord bot:")
-		fmt.Fprintln(
-			os.Stdout,
-			"      Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)",
+		printBotPlatform(
+			"Discord bot:",
+			"Requires a Discord bot token (set DISCORD_BOT_TOKEN in your environment)",
 		)
 	}
 	if b.Slack != nil {
-		fmt.Fprintln(os.Stdout, "    Slack bot (Socket Mode):")
-		fmt.Fprintln(
-			os.Stdout,
-			"      Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)",
+		printBotPlatform(
+			"Slack bot (Socket Mode):",
+			"Requires a Slack bot token (xoxb-...) and app-level token (xapp-...)",
 		)
 	}
 	if b.Telegram != nil {
-		fmt.Fprintln(os.Stdout, "    Telegram bot (long-polling):")
-		fmt.Fprintln(os.Stdout, "      Requires a Telegram bot token from @BotFather")
+		printBotPlatform(
+			"Telegram bot (long-polling):",
+			"Requires a Telegram bot token from @BotFather",
+		)
 	}
 	if b.WhatsApp != nil {
-		fmt.Fprintln(os.Stdout, "    WhatsApp Cloud API (embedded webhook server):")
-		fmt.Fprintln(
-			os.Stdout,
-			"      Requires a Phone Number ID and Access Token from Meta for Developers",
-		)
-		fmt.Fprintln(
-			os.Stdout,
-			"      The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
+		printBotPlatform(
+			"WhatsApp Cloud API (embedded webhook server):",
+			"Requires a Phone Number ID and Access Token from Meta for Developers",
+			"The webhook endpoint must be reachable from the internet (use ngrok or a reverse proxy)",
 		)
 	}
 }
@@ -1182,6 +1185,54 @@ func workflowNeedsOllama(workflow *domain.Workflow) bool {
 
 // gracefulShutdownTimeout is the timeout for graceful shutdown.
 const gracefulShutdownTimeout = 10 * time.Second
+
+type signalServeConfig struct {
+	start              func() error
+	shutdown           func(context.Context) error
+	onSignal           func(os.Signal)
+	afterShutdown      func()
+	ignoreServerClosed bool
+	logShutdownErrors  bool
+}
+
+func runUntilSignalOrError(cfg signalServeConfig) error {
+	sigChan := make(chan os.Signal, 1)
+	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	errChan := make(chan error, 1)
+	go func() { errChan <- cfg.start() }()
+
+	shutdownWithTimeout := func(logErrors bool) {
+		if cfg.shutdown == nil {
+			return
+		}
+		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
+		defer cancel()
+		if shutdownErr := cfg.shutdown(stopCtx); shutdownErr != nil && logErrors {
+			kdepslog.Error("error during shutdown", "error", shutdownErr)
+		}
+	}
+
+	select {
+	case sig := <-sigChan:
+		if cfg.onSignal != nil {
+			cfg.onSignal(sig)
+		}
+		shutdownWithTimeout(cfg.logShutdownErrors)
+		if cfg.afterShutdown != nil {
+			cfg.afterShutdown()
+		}
+		return nil
+	case chanErr := <-errChan:
+		shutdownWithTimeout(false)
+		if cfg.afterShutdown != nil {
+			cfg.afterShutdown()
+		}
+		if chanErr != nil && (!cfg.ignoreServerClosed || !errors.Is(chanErr, stdhttp.ErrServerClosed)) {
+			return chanErr
+		}
+		return nil
+	}
+}
 
 type executionMode int
 
@@ -1641,32 +1692,20 @@ func startHTTPServerWithEngine(
 		return err
 	}
 
-	sigChan := make(chan os.Signal, 1)
-	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- httpServerStartFunc(httpServer, addr, devMode)
-	}()
-
-	select {
-	case sig := <-sigChan:
-		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		if shutdownErr := httpServerShutdownFunc(httpServer, stopCtx); shutdownErr != nil {
-			kdepslog.Error("error during shutdown", "error", shutdownErr)
-		}
-		fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		return nil
-	case chanErr := <-errChan:
-		stopCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		_ = httpServerShutdownFunc(httpServer, stopCtx)
-		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
-			return chanErr
-		}
-		return nil
-	}
+	return runUntilSignalOrError(signalServeConfig{
+		start: func() error {
+			return httpServerStartFunc(httpServer, addr, devMode)
+		},
+		shutdown: func(ctx context.Context) error {
+			return httpServerShutdownFunc(httpServer, ctx)
+		},
+		onSignal: func(sig os.Signal) {
+			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+			fmt.Fprintln(os.Stdout, "✓ Server stopped")
+		},
+		ignoreServerClosed: true,
+		logShutdownErrors:  true,
+	})
 }
 
 // startBothServersWithEngine starts both the API and web server using a pre-built engine.
@@ -1703,36 +1742,24 @@ func startBothServersWithEngine(
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
-	sigChan := make(chan os.Signal, 1)
-	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	errChan := make(chan error, 1)
-	go func() {
-		if startErr := httpServerStartFunc(httpServer, addr, devMode); startErr != nil {
-			errChan <- fmt.Errorf("server error: %w", startErr)
-		}
-	}()
-
-	select {
-	case sig := <-sigChan:
-		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		if shutdownErr := httpServerShutdownFunc(httpServer, shutdownCtx); shutdownErr != nil {
-			kdepslog.Error("error shutting down server", "error", shutdownErr)
-		}
-		webServer.Stop()
-		fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		return nil
-	case chanErr := <-errChan:
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		_ = httpServerShutdownFunc(httpServer, shutdownCtx)
-		webServer.Stop()
-		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
-			return chanErr
-		}
-		return nil
-	}
+	return runUntilSignalOrError(signalServeConfig{
+		start: func() error {
+			if startErr := httpServerStartFunc(httpServer, addr, devMode); startErr != nil {
+				return fmt.Errorf("server error: %w", startErr)
+			}
+			return nil
+		},
+		shutdown: func(ctx context.Context) error {
+			return httpServerShutdownFunc(httpServer, ctx)
+		},
+		onSignal: func(sig os.Signal) {
+			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+			fmt.Fprintln(os.Stdout, "✓ Server stopped")
+		},
+		afterShutdown:      webServer.Stop,
+		ignoreServerClosed: true,
+		logShutdownErrors:  true,
+	})
 }
 
 // botPlatformsFromInput returns the configured bot platform names for status output.
@@ -1879,34 +1906,21 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	// Set workflow directory for resolving relative paths
 	webServer.SetWorkflowDir(workflowPath)
 
-	// Setup signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	notifySignalsFunc(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Start server in goroutine
-	errChan := make(chan error, 1)
 	ctx := context.Background()
-	go func() {
-		errChan <- webServerStartFunc(webServer, ctx)
-	}()
-
-	// Wait for signal or error
-	select {
-	case sig := <-sigChan:
-		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		if shutdownErr := webServerShutdownFunc(webServer, shutdownCtx); shutdownErr != nil {
-			kdepslog.Error("error during shutdown", "error", shutdownErr)
-		}
-		fmt.Fprintln(os.Stdout, "✓ Web server stopped")
-		return nil
-	case chanErr := <-errChan:
-		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
-			return chanErr
-		}
-		return nil
-	}
+	return runUntilSignalOrError(signalServeConfig{
+		start: func() error {
+			return webServerStartFunc(webServer, ctx)
+		},
+		shutdown: func(stopCtx context.Context) error {
+			return webServerShutdownFunc(webServer, stopCtx)
+		},
+		onSignal: func(sig os.Signal) {
+			fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
+			fmt.Fprintln(os.Stdout, "✓ Web server stopped")
+		},
+		ignoreServerClosed: true,
+		logShutdownErrors:  true,
+	})
 }
 
 // ExtractPackage extracts a .kdeps package to a temporary directory.

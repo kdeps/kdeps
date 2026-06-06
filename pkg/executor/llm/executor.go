@@ -279,6 +279,57 @@ func (e *Executor) Execute(
 	return e.formatExecuteResult(response, resolvedConfig, maxOutputBytes)
 }
 
+func (e *Executor) applyRouterModel(
+	resolvedConfig *domain.ChatConfig,
+	promptStr string,
+) (string, []kdepsconfig.ModelEntry, error) {
+	fallbackRoutes := applyLLMRouter(e.logger, resolvedConfig, promptStr)
+	modelStr := resolvedConfig.Model
+	if modelStr == "" || modelStr == "router" {
+		return "", nil, domain.NewError(domain.ErrCodeInvalidResource,
+			"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
+	}
+	return modelStr, fallbackRoutes, nil
+}
+
+func (e *Executor) applyModelAllowlist(modelStr string) string {
+	allowed := allowedModelsFromEnv()
+	if len(allowed) == 0 {
+		return modelStr
+	}
+	resolved := resolveAllowedModel(modelStr, allowed)
+	if resolved != modelStr {
+		e.logger.Error(
+			"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
+			"requested", modelStr,
+			"using", resolved,
+			"fix", fmt.Sprintf(
+				"add %s to llm.models in config.yaml, "+
+					"or this resource will always run with %s instead",
+				modelStr, resolved,
+			),
+		)
+	}
+	return resolved
+}
+
+func (e *Executor) ensureModelAvailable(resolvedConfig *domain.ChatConfig, modelStr string) {
+	if e.modelManager == nil {
+		return
+	}
+	configCopy := *resolvedConfig
+	configCopy.Model = modelStr
+	var ensureErr error
+	if ensureModelForTest != nil {
+		ensureErr = ensureModelForTest(e.modelManager, &configCopy)
+	} else {
+		ensureErr = e.modelManager.EnsureModel(&configCopy)
+	}
+	if ensureErr != nil {
+		_ = ensureErr
+	}
+}
+
 // resolveModelForExecution evaluates model and prompt, applies router/allowlist, and ensures model availability.
 func (e *Executor) resolveModelForExecution(
 	evaluator *expression.Evaluator,
@@ -301,44 +352,14 @@ func (e *Executor) resolveModelForExecution(
 
 	var fallbackRoutes []kdepsconfig.ModelEntry
 	if modelStr == "router" {
-		fallbackRoutes = applyLLMRouter(e.logger, resolvedConfig, promptStr)
-		modelStr = resolvedConfig.Model
-		if modelStr == "" || modelStr == "router" {
-			return "", "", nil, domain.NewError(domain.ErrCodeInvalidResource,
-				"model is set to 'router' but no LLM router is configured in ~/.kdeps/config.yaml", nil)
+		modelStr, fallbackRoutes, err = e.applyRouterModel(resolvedConfig, promptStr)
+		if err != nil {
+			return "", "", nil, err
 		}
 	}
 
-	if allowed := allowedModelsFromEnv(); len(allowed) > 0 {
-		resolved := resolveAllowedModel(modelStr, allowed)
-		if resolved != modelStr {
-			e.logger.Error(
-				"model not in KDEPS_LLM_MODELS allowlist — overriding with first allowlisted model",
-				"requested", modelStr,
-				"using", resolved,
-				"fix", fmt.Sprintf(
-					"add %s to llm.models in config.yaml, "+
-						"or this resource will always run with %s instead",
-					modelStr, resolved,
-				),
-			)
-		}
-		modelStr = resolved
-	}
-
-	if e.modelManager != nil {
-		configCopy := *resolvedConfig
-		configCopy.Model = modelStr
-		var ensureErr error
-		if ensureModelForTest != nil {
-			ensureErr = ensureModelForTest(e.modelManager, &configCopy)
-		} else {
-			ensureErr = e.modelManager.EnsureModel(&configCopy)
-		}
-		if ensureErr != nil {
-			_ = ensureErr
-		}
-	}
+	modelStr = e.applyModelAllowlist(modelStr)
+	e.ensureModelAvailable(resolvedConfig, modelStr)
 
 	return modelStr, promptStr, fallbackRoutes, nil
 }

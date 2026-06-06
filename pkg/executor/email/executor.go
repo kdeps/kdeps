@@ -142,31 +142,50 @@ func (e *Executor) Execute(
 
 // --- Send ---
 
+func resolveNamedConnection[T any](
+	ctx *executor.ExecutionContext,
+	connName string,
+	emptyErr error,
+	noConfigFmt, notFoundFmt string,
+	connections map[string]T,
+) (T, error) {
+	var zero T
+	if connName == "" {
+		return zero, emptyErr
+	}
+	if ctx.Config == nil {
+		return zero, fmt.Errorf(noConfigFmt, connName)
+	}
+	conn, ok := connections[connName]
+	if !ok {
+		return zero, fmt.Errorf(notFoundFmt, connName)
+	}
+	return conn, nil
+}
+
+func smtpConnectionsFrom(ctx *executor.ExecutionContext) map[string]kdepsconfig.SMTPConnectionConfig {
+	if ctx == nil || ctx.Config == nil {
+		return nil
+	}
+	return ctx.Config.SMTPConnections
+}
+
 func (e *Executor) resolveSMTPConfig(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (kdepsconfig.SMTPConnectionConfig, error) {
 	kdeps_debug.Log("enter: resolveSMTPConfig")
-	if cfg.SMTPConnection == "" {
-		return kdepsconfig.SMTPConnectionConfig{}, errors.New(
-			"email executor: smtpConnection is required for send" +
+	return resolveNamedConnection(
+		ctx,
+		cfg.SMTPConnection,
+		errors.New(
+			"email executor: smtpConnection is required for send"+
 				" — define a named connection in ~/.kdeps/config.yaml smtp_connections",
-		)
-	}
-	if ctx.Config == nil {
-		return kdepsconfig.SMTPConnectionConfig{}, fmt.Errorf(
-			"email executor: smtpConnection %q set but no global config loaded",
-			cfg.SMTPConnection,
-		)
-	}
-	smtpConn, ok := ctx.Config.SMTPConnections[cfg.SMTPConnection]
-	if !ok {
-		return kdepsconfig.SMTPConnectionConfig{}, fmt.Errorf(
-			"email executor: smtpConnection %q not found in ~/.kdeps/config.yaml smtp_connections",
-			cfg.SMTPConnection,
-		)
-	}
-	return smtpConn, nil
+		),
+		"email executor: smtpConnection %q set but no global config loaded",
+		"email executor: smtpConnection %q not found in ~/.kdeps/config.yaml smtp_connections",
+		smtpConnectionsFrom(ctx),
+	)
 }
 
 // sendRequest holds evaluated SMTP send parameters.
@@ -555,31 +574,29 @@ func collectAffectedUIDs(uidSet imap.UIDSet) []uint32 {
 
 // --- IMAP helpers ---
 
+func imapConnectionsFrom(ctx *executor.ExecutionContext) map[string]kdepsconfig.IMAPConnectionConfig {
+	if ctx == nil || ctx.Config == nil {
+		return nil
+	}
+	return ctx.Config.IMAPConnections
+}
+
 func (e *Executor) resolveIMAPConfig(
 	ctx *executor.ExecutionContext,
 	cfg *domain.EmailConfig,
 ) (kdepsconfig.IMAPConnectionConfig, error) {
 	kdeps_debug.Log("enter: resolveIMAPConfig")
-	if cfg.IMAPConnection == "" {
-		return kdepsconfig.IMAPConnectionConfig{}, errors.New(
-			"email executor: imapConnection is required for read/search/modify" +
+	return resolveNamedConnection(
+		ctx,
+		cfg.IMAPConnection,
+		errors.New(
+			"email executor: imapConnection is required for read/search/modify"+
 				" — define a named connection in ~/.kdeps/config.yaml imap_connections",
-		)
-	}
-	if ctx.Config == nil {
-		return kdepsconfig.IMAPConnectionConfig{}, fmt.Errorf(
-			"email executor: imapConnection %q set but no global config loaded",
-			cfg.IMAPConnection,
-		)
-	}
-	imapConn, ok := ctx.Config.IMAPConnections[cfg.IMAPConnection]
-	if !ok {
-		return kdepsconfig.IMAPConnectionConfig{}, fmt.Errorf(
-			"email executor: imapConnection %q not found in ~/.kdeps/config.yaml imap_connections",
-			cfg.IMAPConnection,
-		)
-	}
-	return imapConn, nil
+		),
+		"email executor: imapConnection %q set but no global config loaded",
+		"email executor: imapConnection %q not found in ~/.kdeps/config.yaml imap_connections",
+		imapConnectionsFrom(ctx),
+	)
 }
 
 // imapDialParams holds evaluated IMAP connection parameters.
@@ -950,20 +967,33 @@ func resolveAttachmentPaths(fsRoot string, paths []string) []string {
 	return out
 }
 
-func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
-	msg []byte, insecure bool, timeout time.Duration) error {
-	kdeps_debug.Log("enter: sendSTARTTLS")
-	dialer := &net.Dialer{Timeout: timeout}
-	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("dial %s: %w", addr, err)
+func smtpTLSConfig(host string, insecure bool) *tls.Config {
+	return &tls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in
 	}
-	if timeout > 0 {
-		if dlErr := connSetDeadline(conn, time.Now().Add(timeout)); dlErr != nil {
-			_ = conn.Close()
-			return fmt.Errorf("set deadline: %w", dlErr)
-		}
+}
+
+func applySMTPDeadline(conn net.Conn, timeout time.Duration) error {
+	if timeout <= 0 {
+		return nil
 	}
+	if dlErr := connSetDeadline(conn, time.Now().Add(timeout)); dlErr != nil {
+		_ = conn.Close()
+		return fmt.Errorf("set deadline: %w", dlErr)
+	}
+	return nil
+}
+
+func deliverViaSMTPClient(
+	conn net.Conn,
+	host, user, pass string,
+	from string,
+	to []string,
+	msg []byte,
+	useSTARTTLS bool,
+	insecure bool,
+) error {
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		_ = conn.Close()
@@ -971,13 +1001,12 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 	}
 	defer func() { _ = client.Quit() }()
 
-	tlsCfg := &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in
-	}
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		if err = client.StartTLS(tlsCfg); err != nil {
-			return fmt.Errorf("starttls: %w", err)
+	if useSTARTTLS {
+		tlsCfg := smtpTLSConfig(host, insecure)
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err = client.StartTLS(tlsCfg); err != nil {
+				return fmt.Errorf("starttls: %w", err)
+			}
 		}
 	}
 	if user != "" {
@@ -989,37 +1018,31 @@ func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
 	return doSend(client, from, to, msg)
 }
 
+func sendSTARTTLS(addr, host, user, pass string, from string, to []string,
+	msg []byte, insecure bool, timeout time.Duration) error {
+	kdeps_debug.Log("enter: sendSTARTTLS")
+	dialer := &net.Dialer{Timeout: timeout}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("dial %s: %w", addr, err)
+	}
+	if err = applySMTPDeadline(conn, timeout); err != nil {
+		return err
+	}
+	return deliverViaSMTPClient(conn, host, user, pass, from, to, msg, true, insecure)
+}
+
 func sendImplicitTLS(addr, host, user, pass string, from string, to []string,
 	msg []byte, insecure bool, timeout time.Duration) error {
 	kdeps_debug.Log("enter: sendImplicitTLS")
-	tlsCfg := &tls.Config{
-		ServerName:         host,
-		InsecureSkipVerify: insecure, //nolint:gosec // G402: user-controlled opt-in
-	}
-	conn, err := implicitTLSDial(addr, tlsCfg)
+	conn, err := implicitTLSDial(addr, smtpTLSConfig(host, insecure))
 	if err != nil {
 		return fmt.Errorf("tls dial %s: %w", addr, err)
 	}
-	if timeout > 0 {
-		if dlErr := connSetDeadline(conn, time.Now().Add(timeout)); dlErr != nil {
-			_ = conn.Close()
-			return fmt.Errorf("set deadline: %w", dlErr)
-		}
+	if err = applySMTPDeadline(conn, timeout); err != nil {
+		return err
 	}
-	client, err := smtp.NewClient(conn, host)
-	if err != nil {
-		_ = conn.Close()
-		return fmt.Errorf("smtp client: %w", err)
-	}
-	defer func() { _ = client.Quit() }()
-
-	if user != "" {
-		auth := smtp.PlainAuth("", user, pass, host)
-		if err = client.Auth(auth); err != nil {
-			return fmt.Errorf("auth: %w", err)
-		}
-	}
-	return doSend(client, from, to, msg)
+	return deliverViaSMTPClient(conn, host, user, pass, from, to, msg, false, insecure)
 }
 
 func doSend(client *smtp.Client, from string, to []string, msg []byte) error {
