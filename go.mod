@@ -22,12 +22,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.12.3
-	github.com/mattn/go-sqlite3 v1.14.44
+	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/nikolalohinski/gonja/v2 v2.8.0
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
-	github.com/slack-go/slack v0.24.0
+	github.com/slack-go/slack v0.25.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
