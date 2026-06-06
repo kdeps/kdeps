@@ -1150,58 +1150,8 @@ func dispatchExecution(
 // reply to stdout, and returns.
 func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 	kdeps_debug.Log("enter: StartBotRunners")
-	input := workflow.Settings.Input
-	logger := logging.NewLogger(debugMode)
 	engine := setupEngine(workflow, debugMode)
-
-	execType := domain.BotExecutionTypePolling
-	if input.Bot != nil && input.Bot.ExecutionType != "" {
-		execType = input.Bot.ExecutionType
-	}
-
-	if execType == domain.BotExecutionTypeStateless {
-		ctx := context.Background()
-		return bot.RunStateless(ctx, workflow, engine, logger)
-	}
-
-	// Load bot credentials from ~/.kdeps/config.yaml.
-	var botCreds *config.BotConnectionConfig
-	if globalCfg, cfgErr := config.LoadStructWithAgent(workflow.Metadata.Name); cfgErr == nil && globalCfg != nil {
-		botCreds = globalCfg.BotConnections
-	}
-
-	// Polling mode.
-	var platforms []string
-	if input.Bot != nil {
-		if input.Bot.Discord != nil {
-			platforms = append(platforms, "discord")
-		}
-		if input.Bot.Slack != nil {
-			platforms = append(platforms, "slack")
-		}
-		if input.Bot.Telegram != nil {
-			platforms = append(platforms, "telegram")
-		}
-		if input.Bot.WhatsApp != nil {
-			platforms = append(platforms, "whatsapp")
-		}
-	}
-	fmt.Fprintf(os.Stdout, "  ✓ Starting bot runners: %s\n", strings.Join(platforms, ", "))
-	fmt.Fprintln(os.Stdout, "\n✓ Bot ready! Waiting for messages...")
-
-	dispatcher, err := bot.NewDispatcher(workflow, engine, botCreds, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create bot dispatcher: %w", err)
-	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	if runErr := dispatcher.Run(ctx); runErr != nil {
-		return runErr
-	}
-	fmt.Fprintln(os.Stdout, "\n✓ Bot stopped")
-	return nil
+	return StartBotRunnersWithEngine(engine, workflow, debugMode)
 }
 
 // StartFileRunner reads file content from fileArg (if non-empty), stdin
@@ -1210,17 +1160,11 @@ func StartBotRunners(workflow *domain.Workflow, debugMode bool) error {
 // input("fileContent") / input("filePath").
 func StartFileRunner(workflow *domain.Workflow, debugMode bool, fileArg string, eventsEnabled bool) error {
 	kdeps_debug.Log("enter: StartFileRunner")
-	logger := logging.NewLogger(debugMode)
 	engine := setupEngine(workflow, debugMode)
 	if eventsEnabled {
 		engine.SetEmitter(events.NewNDJSONEmitter(os.Stderr))
 	}
-
-	fmt.Fprintln(os.Stdout, "  ✓ Starting file input runner (stateless mode)")
-	fmt.Fprintln(os.Stdout, "\n✓ Running workflow with file input...")
-
-	ctx := context.Background()
-	return fileinput.RunWithArg(ctx, workflow, engine, logger, fileArg)
+	return startFileRunnerWithEngine(engine, workflow, debugMode, fileArg)
 }
 
 // StartLLMRunner starts the LLM interactive runner.
@@ -1295,77 +1239,8 @@ func StartHTTPServer(
 	debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: StartHTTPServer")
-	hostIP := workflow.Settings.GetHostIP()
-	portNum := workflow.Settings.GetPortNum()
-
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-
-	availablePort, err := FindAvailablePort(hostIP, portNum)
-	if err != nil {
-		return fmt.Errorf("API server cannot start: %w", err)
-	}
-	portNum = availablePort
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
-
-	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
-	printRoutes(workflow.Settings.APIServer)
-	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
-
-	if devMode {
-		fmt.Fprintln(os.Stdout, "  Dev mode: File watching enabled")
-	}
-
-	// Create executor with beautiful Rails-like logging
-	logger := logging.NewLogger(debugMode)
 	engine := setupEngine(workflow, debugMode)
-
-	// Create executor adapter that converts http.RequestContext to executor.RequestContext
-	executorAdapter := &RequestContextAdapter{Engine: engine}
-
-	// Create HTTP server (executorAdapter implements WorkflowExecutor interface)
-	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP server: %w", err)
-	}
-
-	// Always store the workflow path so the management API writes updates to the
-	// correct location (the same path that kdeps reads on restart).
-	httpServer.SetWorkflowPath(workflowPath)
-
-	// Setup file watcher for hot reload
-	if devMode {
-		setupDevMode(httpServer, workflowPath)
-	}
-
-	// Setup signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Start server in goroutine
-	errChan := make(chan error, 1)
-	go func() {
-		errChan <- httpServer.Start(addr, devMode)
-	}()
-
-	// Wait for signal or error
-	select {
-	case sig := <-sigChan:
-		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-		ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		if shutdownErr := httpServer.Shutdown(ctx); shutdownErr != nil {
-			kdepslog.Error("error during shutdown", "error", shutdownErr)
-		}
-		fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		return nil
-	case chanErr := <-errChan:
-		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
-			return chanErr
-		}
-		return nil
-	}
+	return startHTTPServerWithEngine(engine, workflow, workflowPath, devMode, debugMode)
 }
 
 func printRoutes(serverConfig *domain.APIServerConfig) {
@@ -1931,90 +1806,6 @@ func StartBothServers(
 	debugMode bool,
 ) error {
 	kdeps_debug.Log("enter: StartBothServers")
-	// Create logger
-	logger := logging.NewLogger(debugMode)
-
-	// Create API server engine
 	engine := setupEngine(workflow, debugMode)
-
-	executorAdapter := &RequestContextAdapter{Engine: engine}
-	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create HTTP server: %w", err)
-	}
-
-	// Always store the workflow path so the management API writes updates to the
-	// correct location (the same path that kdeps reads on restart).
-	httpServer.SetWorkflowPath(workflowPath)
-
-	// Setup dev mode for API server
-	if devMode {
-		setupDevMode(httpServer, workflowPath)
-	}
-
-	// Create web server
-	webServer, err := http.NewWebServer(workflow, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create web server: %w", err)
-	}
-	webServer.SetWorkflowDir(workflowPath)
-
-	// Merge web routes onto API router
-	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
-
-	hostIP := workflow.Settings.GetHostIP()
-	portNum := workflow.Settings.GetPortNum()
-
-	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
-		hostIP = override
-	}
-
-	availablePort, err := FindAvailablePort(hostIP, portNum)
-	if err != nil {
-		return fmt.Errorf("server cannot start: %w", err)
-	}
-	portNum = availablePort
-	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
-	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
-	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
-
-	// Setup signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Start server in goroutine
-	errChan := make(chan error, 1)
-	go func() {
-		if startErr := httpServer.Start(addr, devMode); startErr != nil {
-			errChan <- fmt.Errorf("server error: %w", startErr)
-		}
-	}()
-
-	// Wait for signal or error
-	select {
-	case sig := <-sigChan:
-		fmt.Fprintf(os.Stdout, "\n\n🛑 Received signal %v, shutting down gracefully...\n", sig)
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-
-		// Shutdown servers
-		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			kdepslog.Error("error shutting down server", "error", shutdownErr)
-		}
-		webServer.Stop()
-		fmt.Fprintln(os.Stdout, "✓ Server stopped")
-		return nil
-	case chanErr := <-errChan:
-		// Server failed, shutdown gracefully
-		fmt.Fprintf(os.Stdout, "\n🛑 Server error, shutting down...\n")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
-		defer cancel()
-		_ = httpServer.Shutdown(shutdownCtx)
-		webServer.Stop()
-
-		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
-			return chanErr
-		}
-		return nil
-	}
+	return startBothServersWithEngine(engine, workflow, workflowPath, devMode, debugMode)
 }
