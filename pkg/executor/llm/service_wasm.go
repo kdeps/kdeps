@@ -22,8 +22,9 @@ package llm
 
 import (
 	"errors"
-	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"log/slog"
+
+	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
