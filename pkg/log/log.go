@@ -19,21 +19,30 @@ var logger *slog.Logger
 // debug sets level to DEBUG. verbose sets level to INFO.
 // Neither set defaults to WARN (only warnings and errors shown).
 func Init(debug, verbose bool) {
-	level := slog.LevelWarn
-	if verbose {
-		level = slog.LevelInfo
-	}
-	if debug {
-		level = slog.LevelDebug
-	}
-
-	format := os.Getenv("KDEPS_LOG_FORMAT")
-	if format == "json" {
-		opts := &slog.HandlerOptions{Level: level}
-		logger = slog.New(slog.NewJSONHandler(os.Stderr, opts))
+	level := resolveLogLevel(debug, verbose)
+	if os.Getenv("KDEPS_LOG_FORMAT") == "json" {
+		logger = newJSONLogger(level)
 		return
 	}
+	logger = newPrettyPackageLogger(level, debug)
+}
 
+func resolveLogLevel(debug, verbose bool) slog.Level {
+	if debug {
+		return slog.LevelDebug
+	}
+	if verbose {
+		return slog.LevelInfo
+	}
+	return slog.LevelWarn
+}
+
+func newJSONLogger(level slog.Level) *slog.Logger {
+	opts := &slog.HandlerOptions{Level: level}
+	return slog.New(slog.NewJSONHandler(os.Stderr, opts))
+}
+
+func newPrettyPackageLogger(level slog.Level, debug bool) *slog.Logger {
 	opts := &logging.PrettyHandlerOptions{
 		Level:      level,
 		AddSource:  debug,
@@ -41,7 +50,7 @@ func Init(debug, verbose bool) {
 		Indent:     "  ",
 	}
 	handler := logging.NewPrettyHandler(os.Stderr, opts)
-	logger = slog.New(handler)
+	return slog.New(handler)
 }
 
 func ensure() *slog.Logger {

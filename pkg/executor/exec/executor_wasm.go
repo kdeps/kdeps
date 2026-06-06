@@ -47,7 +47,7 @@ func (e *Executor) Execute(
 	_ *domain.ExecConfig,
 ) (any, error) {
 	kdeps_debug.Log("enter: Execute")
-	return nil, ErrNotSupported
+	return unsupportedExecuteResult()
 }
 
 // Adapter is a stub adapter for WASM builds.
@@ -62,5 +62,10 @@ func NewAdapter() *Adapter {
 // Execute returns an error since exec is not supported in WASM.
 func (a *Adapter) Execute(_ *executor.ExecutionContext, _ any) (any, error) {
 	kdeps_debug.Log("enter: Execute")
+	return unsupportedExecuteResult()
+}
+
+func unsupportedExecuteResult() (any, error) {
+	kdeps_debug.Log("enter: unsupportedExecuteResult")
 	return nil, ErrNotSupported
 }

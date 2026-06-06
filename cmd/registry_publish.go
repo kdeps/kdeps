@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -35,28 +36,42 @@ func doRegistryVerify(cmd *cobra.Command, dir string) error {
 	if err != nil {
 		return fmt.Errorf("verify: %w", err)
 	}
+	return handleVerifyResult(cmd.OutOrStdout(), result)
+}
 
-	w := cmd.OutOrStdout()
+// handleVerifyResult prints verification output and returns any blocking error.
+func handleVerifyResult(w io.Writer, result verify.Result) error {
 	if len(result.Findings) == 0 {
 		fmt.Fprintln(w, "✓ Package is LLM-agnostic. Ready to submit.")
 		return nil
 	}
 
-	for _, f := range result.Findings {
-		fmt.Fprintln(w, " ", f.String())
-	}
-
+	printVerifyFindings(w, result.Findings)
 	fmt.Fprintln(w)
+
 	if result.HasErrors() {
-		return fmt.Errorf(
-			"found %d error(s) — fix them before submitting (see 'kdeps registry submit --help')",
-			countBySeverity(result.Findings, verify.SeverityError),
-		)
+		return verifyErrorsResult(result.Findings)
 	}
 
 	warnCount := countBySeverity(result.Findings, verify.SeverityWarn)
 	fmt.Fprintf(w, "%d warning(s) — review before submitting\n", warnCount)
 	return nil
+}
+
+// printVerifyFindings writes each finding to w.
+func printVerifyFindings(w io.Writer, findings []verify.Finding) {
+	for _, f := range findings {
+		fmt.Fprintln(w, " ", f.String())
+	}
+}
+
+// verifyErrorsResult builds the error returned when verification finds blocking issues.
+func verifyErrorsResult(findings []verify.Finding) error {
+	errCount := countBySeverity(findings, verify.SeverityError)
+	return fmt.Errorf(
+		"found %d error(s) — fix them before submitting (see 'kdeps registry submit --help')",
+		errCount,
+	)
 }
 
 func countBySeverity(findings []verify.Finding, sev verify.Severity) int {

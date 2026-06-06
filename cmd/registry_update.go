@@ -56,30 +56,50 @@ Examples:
 func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryUpdate")
 
-	// Local directory path: update component/agent/agency files in-place.
 	if isLocalFilePath(pkg) {
 		return componentUpdateInternal(pkg)
 	}
 
-	parts := strings.SplitN(pkg, "@", registryInstallVersionParts)
-	name := parts[0]
-
-	// Verify the package is actually installed before trying to update.
-	installed, installDir, err := findInstalledPackage(name)
+	name := parseUpdatePackageName(pkg)
+	installDir, err := requireInstalledPackage(name)
 	if err != nil {
 		return err
 	}
-	if !installed {
-		return fmt.Errorf("package %q is not installed; use 'kdeps registry install %s' instead", name, name)
-	}
 
+	if removeErr := removeExistingInstallation(cmd, installDir); removeErr != nil {
+		return removeErr
+	}
+	return doRegistryInstall(cmd, pkg, baseURL)
+}
+
+// parseUpdatePackageName extracts the package name from a ref that may include @version.
+func parseUpdatePackageName(pkg string) string {
+	parts := strings.SplitN(pkg, "@", registryInstallVersionParts)
+	return parts[0]
+}
+
+// requireInstalledPackage verifies the package is installed and returns its directory.
+func requireInstalledPackage(name string) (string, error) {
+	installed, installDir, err := findInstalledPackage(name)
+	if err != nil {
+		return "", err
+	}
+	if installed {
+		return installDir, nil
+	}
+	return "", fmt.Errorf(
+		"package %q is not installed; use 'kdeps registry install %s' instead",
+		name, name,
+	)
+}
+
+// removeExistingInstallation deletes the current install before re-installing.
+func removeExistingInstallation(cmd *cobra.Command, installDir string) error {
 	fmt.Fprintf(cmd.OutOrStdout(), "Removing existing installation at %s...\n", installDir)
 	if removeErr := os.RemoveAll(installDir); removeErr != nil {
 		return fmt.Errorf("remove existing installation: %w", removeErr)
 	}
-
-	// Re-use the install path (version resolution + download + extract).
-	return doRegistryInstall(cmd, pkg, baseURL)
+	return nil
 }
 
 // findInstalledPackage searches for an installed agent or component by name.
@@ -87,7 +107,6 @@ func doRegistryUpdate(cmd *cobra.Command, pkg, baseURL string) error {
 func findInstalledPackage(name string) (bool, string, error) {
 	kdeps_debug.Log("enter: findInstalledPackage")
 
-	// Check agents dir.
 	agentsDir, err := kdepsAgentsDir()
 	if err != nil {
 		return false, "", err
@@ -97,7 +116,6 @@ func findInstalledPackage(name string) (bool, string, error) {
 		return true, agentDir, nil
 	}
 
-	// Check project-local components.
 	if isKdepsProjectDir(".") {
 		localDir := filepath.Join(".", "components", name)
 		if _, statErr := os.Stat(localDir); statErr == nil {
@@ -105,7 +123,6 @@ func findInstalledPackage(name string) (bool, string, error) {
 		}
 	}
 
-	// Check global components.
 	compDir, err := componentInstallDir()
 	if err != nil {
 		return false, "", err

@@ -46,17 +46,14 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 		return nil
 	}
 
-	// Validate context is not nil
 	if ctx == nil {
 		return errors.New("execution context required for preflight check")
 	}
 
-	// Initialize evaluator if not already initialized
 	if e.evaluator == nil {
 		e.evaluator = expression.NewEvaluator(ctx.API)
 	}
 
-	// Evaluate all check expressions (AND logic: all must be true).
 	for _, validation := range resource.Validations.Check {
 		valid, err := e.evaluatePreflightValidation(validation, ctx)
 		if err != nil {
@@ -77,13 +74,7 @@ func (e *Engine) evaluatePreflightValidation(
 	ctx *ExecutionContext,
 ) (bool, error) {
 	kdeps_debug.Log("enter: evaluatePreflightValidation")
-	// Parse expression if needed (handle {{ }} syntax)
-	exprStr := validation.Raw
-	if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
-		exprStr = strings.TrimSpace(exprStr[2 : len(exprStr)-2])
-	}
-
-	// Build environment - evaluator already has API access via its constructor
+	exprStr := stripExpressionDelimiters(validation.Raw)
 	env := e.buildEvaluationEnvironment(ctx)
 
 	valid, err := e.evaluator.EvaluateCondition(exprStr, env)
@@ -91,6 +82,14 @@ func (e *Engine) evaluatePreflightValidation(
 		return false, fmt.Errorf("validation expression error: %w", err)
 	}
 	return valid, nil
+}
+
+func stripExpressionDelimiters(exprStr string) string {
+	kdeps_debug.Log("enter: stripExpressionDelimiters")
+	if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
+		return strings.TrimSpace(exprStr[2 : len(exprStr)-2])
+	}
+	return exprStr
 }
 
 // createPreflightError creates a PreflightError with an evaluated error message.
@@ -101,19 +100,23 @@ func (e *Engine) createPreflightError(
 ) error {
 	kdeps_debug.Log("enter: createPreflightError")
 	if resource.Validations.Error != nil {
-		// Evaluate error message if it's an expression
-		msg := resource.Validations.Error.Message
-		if strings.Contains(msg, "{{") {
-			evaluatedMsg, evalErr := e.evaluateFallback(msg, ctx)
-			if evalErr == nil {
-				msg = fmt.Sprintf("%v", evaluatedMsg)
-			}
-		}
-
+		msg := evaluatePreflightErrorMessage(e, resource.Validations.Error.Message, ctx)
 		return &PreflightError{
 			Code:    resource.Validations.Error.Code,
 			Message: msg,
 		}
 	}
 	return fmt.Errorf("preflight validation failed: %s", validation.Raw)
+}
+
+func evaluatePreflightErrorMessage(e *Engine, msg string, ctx *ExecutionContext) string {
+	kdeps_debug.Log("enter: evaluatePreflightErrorMessage")
+	if !strings.Contains(msg, "{{") {
+		return msg
+	}
+	evaluatedMsg, evalErr := e.evaluateFallback(msg, ctx)
+	if evalErr != nil {
+		return msg
+	}
+	return fmt.Sprintf("%v", evaluatedMsg)
 }

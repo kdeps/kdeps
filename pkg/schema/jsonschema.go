@@ -52,12 +52,7 @@ type JSONSchema struct {
 // It returns a minimal (non-nil) schema when the workflow is nil.
 func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 	kdeps_debug.Log("enter: GenerateJSONSchema")
-	root := &JSONSchema{
-		Schema: "https://json-schema.org/draft/2020-12/schema",
-		Title:  "kdeps agent",
-		Type:   "object",
-	}
-
+	root := newJSONSchemaRoot()
 	if workflow == nil {
 		return root
 	}
@@ -65,7 +60,26 @@ func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 	root.Title = workflow.Metadata.Name
 	root.Description = workflow.Metadata.Description
 
-	// Merge required fields and property schemas across all resources.
+	requiredSet, props := collectValidationSchema(workflow)
+	if len(props) > 0 {
+		root.Properties = props
+	}
+	if required := buildRequiredFieldList(requiredSet); len(required) > 0 {
+		root.Required = required
+	}
+
+	return root
+}
+
+func newJSONSchemaRoot() *JSONSchema {
+	return &JSONSchema{
+		Schema: "https://json-schema.org/draft/2020-12/schema",
+		Title:  "kdeps agent",
+		Type:   "object",
+	}
+}
+
+func collectValidationSchema(workflow *domain.Workflow) (map[string]struct{}, map[string]*JSONSchema) {
 	requiredSet := map[string]struct{}{}
 	props := map[string]*JSONSchema{}
 
@@ -89,20 +103,19 @@ func GenerateJSONSchema(workflow *domain.Workflow) *JSONSchema {
 		}
 	}
 
-	if len(props) > 0 {
-		root.Properties = props
-	}
+	return requiredSet, props
+}
 
-	if len(requiredSet) > 0 {
-		required := make([]string, 0, len(requiredSet))
-		for f := range requiredSet {
-			required = append(required, f)
-		}
-		sort.Strings(required)
-		root.Required = required
+func buildRequiredFieldList(requiredSet map[string]struct{}) []string {
+	if len(requiredSet) == 0 {
+		return nil
 	}
-
-	return root
+	required := make([]string, 0, len(requiredSet))
+	for f := range requiredSet {
+		required = append(required, f)
+	}
+	sort.Strings(required)
+	return required
 }
 
 // fieldRuleToJSONSchema converts a domain.FieldRule into a JSONSchema property.
@@ -112,7 +125,14 @@ func fieldRuleToJSONSchema(rule *domain.FieldRule) *JSONSchema {
 	if rule.Message != "" {
 		s.Description = rule.Message
 	}
-	spec := mapFieldType(rule)
+	applyFieldTypeSpec(s, mapFieldType(rule))
+	if len(rule.Enum) > 0 {
+		s.Enum = rule.Enum
+	}
+	return s
+}
+
+func applyFieldTypeSpec(s *JSONSchema, spec fieldTypeSpec) {
 	s.Type = spec.SchemaType
 	s.Format = spec.Format
 	s.MinLength = spec.MinLength
@@ -122,8 +142,4 @@ func fieldRuleToJSONSchema(rule *domain.FieldRule) *JSONSchema {
 	s.Maximum = spec.Maximum
 	s.MinItems = spec.MinItems
 	s.MaxItems = spec.MaxItems
-	if len(rule.Enum) > 0 {
-		s.Enum = rule.Enum
-	}
-	return s
 }

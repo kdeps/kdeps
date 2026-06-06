@@ -52,21 +52,11 @@ project) or ~/.kdeps/components/<name>/ (global install).`,
 func doRegistryUninstall(cmd *cobra.Command, name string) error {
 	kdeps_debug.Log("enter: doRegistryUninstall")
 
-	// Try agent first, then component.
-	removed, err := uninstallAgent(cmd, name)
-	if err != nil {
+	if removed, err := uninstallAgent(cmd, name); err != nil || removed {
 		return err
 	}
-	if removed {
-		return nil
-	}
-
-	removed, err = uninstallComponent(cmd, name)
-	if err != nil {
+	if removed, err := uninstallComponent(cmd, name); err != nil || removed {
 		return err
-	}
-	if removed {
-		return nil
 	}
 
 	return fmt.Errorf("package %q is not installed", name)
@@ -81,15 +71,7 @@ func uninstallAgent(cmd *cobra.Command, name string) (bool, error) {
 		return false, err
 	}
 	destDir := filepath.Join(agentsDir, name)
-	if _, statErr := os.Stat(destDir); os.IsNotExist(statErr) {
-		return false, nil
-	}
-	if removeErr := os.RemoveAll(destDir); removeErr != nil {
-		// Infrastructure error — content is descriptive enough.
-		return false, fmt.Errorf("remove agent %q: %w", name, removeErr) //nolint:golines // nolint explanation makes line long
-	}
-	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled agent %q from %s\n", name, destDir)
-	return true, nil
+	return removeInstalledPath(cmd, name, destDir, "agent")
 }
 
 // uninstallComponent removes a component from the project or global components dir.
@@ -97,45 +79,59 @@ func uninstallAgent(cmd *cobra.Command, name string) (bool, error) {
 func uninstallComponent(cmd *cobra.Command, name string) (bool, error) {
 	kdeps_debug.Log("enter: uninstallComponent")
 
-	// Check project-local first.
-	if isKdepsProjectDir(".") {
-		localDir := filepath.Join(".", "components", name)
-		if _, statErr := os.Stat(localDir); statErr == nil {
-			if removeErr := os.RemoveAll(localDir); removeErr != nil {
-				return false, fmt.Errorf("remove component %q: %w", name, removeErr)
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, localDir)
-			return true, nil
-		}
+	if removed, err := tryRemoveLocalComponent(cmd, name); err != nil || removed {
+		return removed, err
 	}
+	return tryRemoveGlobalComponent(cmd, name)
+}
 
-	// Fall back to global components dir.
+// tryRemoveLocalComponent removes a project-local component when present.
+func tryRemoveLocalComponent(cmd *cobra.Command, name string) (bool, error) {
+	if !isKdepsProjectDir(".") {
+		return false, nil
+	}
+	localDir := filepath.Join(".", "components", name)
+	return removeInstalledPath(cmd, name, localDir, "component")
+}
+
+// tryRemoveGlobalComponent removes a globally installed component directory or archive.
+func tryRemoveGlobalComponent(cmd *cobra.Command, name string) (bool, error) {
 	globalDir, err := componentInstallDir()
 	if err != nil {
 		return false, err
 	}
 
-	// Try unpacked directory first.
 	destDir := filepath.Join(globalDir, name)
-	if _, statErr := os.Stat(destDir); statErr == nil {
-		if removeErr := os.RemoveAll(destDir); removeErr != nil {
-			return false, fmt.Errorf("remove component %q: %w", name, removeErr)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, destDir)
-		return true, nil
+	if removed, removeErr := removeInstalledPath(cmd, name, destDir, "component"); removed || removeErr != nil {
+		return removed, removeErr
 	}
 
-	// Also check for a bare .komponent archive file.
 	archivePath := filepath.Join(globalDir, name+komponentExtension)
-	if _, statErr := os.Stat(archivePath); statErr == nil {
-		if removeErr := os.Remove(archivePath); removeErr != nil {
-			return false, fmt.Errorf("remove component %q: %w", name, removeErr)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled component %q from %s\n", name, archivePath)
-		return true, nil
-	}
+	return removeInstalledFile(cmd, name, archivePath, "component")
+}
 
-	return false, nil
+// removeInstalledPath removes a directory and reports success to the user.
+func removeInstalledPath(cmd *cobra.Command, name, path, kind string) (bool, error) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		return false, nil
+	}
+	if removeErr := os.RemoveAll(path); removeErr != nil {
+		return false, fmt.Errorf("remove %s %q: %w", kind, name, removeErr)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled %s %q from %s\n", kind, name, path)
+	return true, nil
+}
+
+// removeInstalledFile removes a single file and reports success to the user.
+func removeInstalledFile(cmd *cobra.Command, name, path, kind string) (bool, error) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		return false, nil
+	}
+	if removeErr := os.Remove(path); removeErr != nil {
+		return false, fmt.Errorf("remove %s %q: %w", kind, name, removeErr)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "✓ Uninstalled %s %q from %s\n", kind, name, path)
+	return true, nil
 }
 
 // DoRegistryUninstall is an exported wrapper for doRegistryUninstall, for use in

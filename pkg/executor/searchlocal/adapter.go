@@ -41,9 +41,18 @@ func NewAdapter() *Adapter {
 // Execute implements ResourceExecutor interface.
 func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
 	kdeps_debug.Log("enter: Execute")
+	cfg, err := parseSearchLocalConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return a.executor.Execute(ctx, cfg)
+}
+
+func parseSearchLocalConfig(config interface{}) (*domain.SearchLocalConfig, error) {
+	kdeps_debug.Log("enter: parseSearchLocalConfig")
 	cfg, ok := config.(*domain.SearchLocalConfig)
 	if !ok {
 		return nil, errors.New("invalid config type for searchLocal executor")
 	}
-	return a.executor.Execute(ctx, cfg)
+	return cfg, nil
 }

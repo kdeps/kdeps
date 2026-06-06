@@ -50,8 +50,31 @@ func (e *Engine) executeInlineAgent(
 		return nil, errors.New("agent call configuration is nil")
 	}
 
+	agentPath, err := resolveAgentPath(cfg, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	workflow, err := parseAgentWorkflow(agentPath, cfg.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	params, err := evaluateAgentParams(e, cfg, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	reqCtx := buildAgentRequestContext(params)
+	subEngine := createAgentSubEngine(e, ctx)
+
+	return subEngine.Execute(workflow, reqCtx)
+}
+
+func resolveAgentPath(cfg *domain.AgentCallConfig, ctx *ExecutionContext) (string, error) {
+	kdeps_debug.Log("enter: resolveAgentPath")
 	if ctx.AgentPaths == nil {
-		return nil, fmt.Errorf(
+		return "", fmt.Errorf(
 			"cannot call agent %q: no agency context (AgentPaths not set)",
 			cfg.Name,
 		)
@@ -59,29 +82,37 @@ func (e *Engine) executeInlineAgent(
 
 	agentPath, ok := ctx.AgentPaths[cfg.Name]
 	if !ok {
-		return nil, fmt.Errorf(
+		return "", fmt.Errorf(
 			"agent %q not found in agency (available: %v)",
 			cfg.Name,
 			agentPathKeys(ctx.AgentPaths),
 		)
 	}
+	return agentPath, nil
+}
 
-	// Parse the target agent's workflow.
+func parseAgentWorkflow(agentPath, agentName string) (*domain.Workflow, error) {
+	kdeps_debug.Log("enter: parseAgentWorkflow")
 	schemaValidator, err := validator.NewSchemaValidator()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", cfg.Name, err)
+		return nil, fmt.Errorf("failed to create schema validator for agent %q: %w", agentName, err)
 	}
 	exprParser := expression.NewParser()
 	yamlParser := parseryaml.NewParser(schemaValidator, exprParser)
 
 	workflow, err := yamlParser.ParseWorkflow(agentPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", cfg.Name, err)
+		return nil, fmt.Errorf("failed to parse agent %q workflow: %w", agentName, err)
 	}
+	return workflow, nil
+}
 
-	// Evaluate expressions inside params before forwarding to the sub-agent.
-	// Without this, a param value like "{{ get('name') }}" is passed as a literal
-	// string instead of the resolved value from the current execution context.
+func evaluateAgentParams(
+	e *Engine,
+	cfg *domain.AgentCallConfig,
+	ctx *ExecutionContext,
+) (map[string]interface{}, error) {
+	kdeps_debug.Log("enter: evaluateAgentParams")
 	rawParams := cfg.Params
 	if rawParams == nil {
 		rawParams = make(map[string]interface{})
@@ -94,19 +125,24 @@ func (e *Engine) executeInlineAgent(
 	if params == nil {
 		params = make(map[string]interface{})
 	}
-	reqCtx := &RequestContext{
+	return params, nil
+}
+
+func buildAgentRequestContext(params map[string]interface{}) *RequestContext {
+	kdeps_debug.Log("enter: buildAgentRequestContext")
+	return &RequestContext{
 		Method: "POST",
 		Body:   params,
 	}
+}
 
-	// Create a sub-engine that shares the registry (and thus all executors).
-	// Forward the agency context so nested agent calls also work.
+func createAgentSubEngine(e *Engine, ctx *ExecutionContext) *Engine {
+	kdeps_debug.Log("enter: createAgentSubEngine")
 	subEngine := NewEngine(e.logger)
 	subEngine.SetRegistry(e.registry)
 	subEngine.SetDebugMode(e.debugMode)
 	subEngine.SetNewExecutionContextForAgency(ctx.AgentPaths)
-
-	return subEngine.Execute(workflow, reqCtx)
+	return subEngine
 }
 
 // agentPathKeys returns the map keys as a slice for error messages.

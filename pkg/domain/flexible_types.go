@@ -33,13 +33,7 @@ func ParseBool(v interface{}) (bool, bool) {
 	case bool:
 		return val, true
 	case string:
-		lower := strings.ToLower(strings.TrimSpace(val))
-		switch lower {
-		case "true", "yes", "1", "on":
-			return true, true
-		case "false", "no", "0", "off", "":
-			return false, true
-		}
+		return parseBoolFromString(val)
 	case int:
 		return val != 0, true
 	case int64:
@@ -48,6 +42,19 @@ func ParseBool(v interface{}) (bool, bool) {
 		return val != 0, true
 	}
 	return false, false
+}
+
+// parseBoolFromString parses common boolean string representations.
+func parseBoolFromString(val string) (bool, bool) {
+	lower := strings.ToLower(strings.TrimSpace(val))
+	switch lower {
+	case "true", "yes", "1", "on":
+		return true, true
+	case "false", "no", "0", "off", "":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 // parseInt parses an integer from various types (int, string, float).
@@ -62,15 +69,22 @@ func parseInt(v interface{}) (int, bool) {
 	case float64:
 		return int(val), true
 	case string:
-		trimmed := strings.TrimSpace(val)
-		if trimmed == "" {
-			return 0, true
-		}
-		if i, err := strconv.Atoi(trimmed); err == nil {
-			return i, true
-		}
+		return parseIntFromString(val)
 	}
 	return 0, false
+}
+
+// parseIntFromString parses an integer from a trimmed string.
+func parseIntFromString(val string) (int, bool) {
+	trimmed := strings.TrimSpace(val)
+	if trimmed == "" {
+		return 0, true
+	}
+	i, err := strconv.Atoi(trimmed)
+	if err != nil {
+		return 0, false
+	}
+	return i, true
 }
 
 // parseBoolPtr parses a boolean pointer from various types.

@@ -43,9 +43,13 @@ type NDJSONEmitter struct {
 // NewNDJSONEmitter returns an emitter that writes NDJSON to w.
 // Typically w is os.Stderr so stdout stays clean for workflow output.
 func NewNDJSONEmitter(w io.Writer) *NDJSONEmitter {
+	return &NDJSONEmitter{enc: newNDJSONEncoder(w), w: w}
+}
+
+func newNDJSONEncoder(w io.Writer) *json.Encoder {
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
-	return &NDJSONEmitter{enc: enc, w: w}
+	return enc
 }
 
 func (e *NDJSONEmitter) Emit(ev Event) {
@@ -67,13 +71,21 @@ func NewMultiEmitter(emitters ...Emitter) *MultiEmitter {
 }
 
 func (m *MultiEmitter) Emit(e Event) {
-	for _, em := range m.emitters {
+	fanOutEmit(m.emitters, e)
+}
+
+func (m *MultiEmitter) Close() {
+	closeEmitters(m.emitters)
+}
+
+func fanOutEmit(emitters []Emitter, e Event) {
+	for _, em := range emitters {
 		em.Emit(e)
 	}
 }
 
-func (m *MultiEmitter) Close() {
-	for _, em := range m.emitters {
+func closeEmitters(emitters []Emitter) {
+	for _, em := range emitters {
 		em.Close()
 	}
 }

@@ -268,28 +268,39 @@ func (e *Executor) evaluateArgs(
 		(commandStr == "cmd" && len(config.Args) > 0 && config.Args[0] == "/C")
 
 	for i, arg := range config.Args {
-		var evaluatedArg string
-		if e.containsExpressionSyntax(arg) { //nolint:nestif // expression handling is explicit
-			// For shell scripts with multi-line content, we need to handle expressions specially
-			if isShellScript && i > 0 && strings.Contains(arg, "\n") {
-				// This is a multi-line shell script - evaluate expressions within it
-				evaluatedArg = e.EvaluateExpressionsInShellScript(arg, evaluator, ctx)
-			} else {
-				// Regular expression evaluation
-				argValue, err := e.EvaluateExpression(evaluator, ctx, arg)
-				if err != nil {
-					// If evaluation fails, use raw arg as fallback
-					evaluatedArg = arg
-				} else {
-					evaluatedArg = e.ValueToString(argValue)
-				}
-			}
-		} else {
-			evaluatedArg = arg
-		}
-		args = append(args, evaluatedArg)
+		args = append(args, e.evaluateSingleArg(arg, i, isShellScript, evaluator, ctx))
 	}
 	return args
+}
+
+func (e *Executor) evaluateSingleArg(
+	arg string,
+	index int,
+	isShellScript bool,
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+) string {
+	kdeps_debug.Log("enter: evaluateSingleArg")
+	if !e.containsExpressionSyntax(arg) {
+		return arg
+	}
+	if isShellScript && index > 0 && strings.Contains(arg, "\n") {
+		return e.EvaluateExpressionsInShellScript(arg, evaluator, ctx)
+	}
+	return e.evaluateArgExpression(arg, evaluator, ctx)
+}
+
+func (e *Executor) evaluateArgExpression(
+	arg string,
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+) string {
+	kdeps_debug.Log("enter: evaluateArgExpression")
+	argValue, err := e.EvaluateExpression(evaluator, ctx, arg)
+	if err != nil {
+		return arg
+	}
+	return e.ValueToString(argValue)
 }
 
 // runCommandWithTimeout executes a command with a timeout.

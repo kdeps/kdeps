@@ -16,6 +16,46 @@ package events
 
 import "strings"
 
+type failureClassRule struct {
+	class      FailureClass
+	substrings []string
+}
+
+func failureClassRules() []failureClassRule {
+	return []failureClassRule{
+		{
+			class:      FailureClassTimeout,
+			substrings: []string{"timeout", "deadline exceeded", "context deadline"},
+		},
+		{
+			class: FailureClassProvider,
+			substrings: []string{
+				"provider", "llm", "model", "openai", "anthropic", "ollama", "gemini", "groq",
+			},
+		},
+		{
+			class:      FailureClassValidation,
+			substrings: []string{"validation", "invalid input", "required field", "schema"},
+		},
+		{
+			class: FailureClassPreflight,
+			substrings: []string{
+				"preflight", "unauthorized", "forbidden", "authentication", "authorization",
+			},
+		},
+		{
+			class:      FailureClassCompile,
+			substrings: []string{"compile", "syntax", "parse error", "expression compilation"},
+		},
+		{
+			class: FailureClassInfra,
+			substrings: []string{
+				"connection refused", "no route to host", "dial tcp", "network", "dns",
+			},
+		},
+	}
+}
+
 // ClassifyError maps an error to the closest FailureClass.
 // The matching is intentionally broad — it looks for substrings that
 // commonly appear in kdeps error messages for each failure domain.
@@ -23,24 +63,16 @@ func ClassifyError(err error) FailureClass {
 	if err == nil {
 		return ""
 	}
-	msg := strings.ToLower(err.Error())
+	return classifyErrorMessage(strings.ToLower(err.Error()))
+}
 
-	switch {
-	case containsAny(msg, "timeout", "deadline exceeded", "context deadline"):
-		return FailureClassTimeout
-	case containsAny(msg, "provider", "llm", "model", "openai", "anthropic", "ollama", "gemini", "groq"):
-		return FailureClassProvider
-	case containsAny(msg, "validation", "invalid input", "required field", "schema"):
-		return FailureClassValidation
-	case containsAny(msg, "preflight", "unauthorized", "forbidden", "authentication", "authorization"):
-		return FailureClassPreflight
-	case containsAny(msg, "compile", "syntax", "parse error", "expression compilation"):
-		return FailureClassCompile
-	case containsAny(msg, "connection refused", "no route to host", "dial tcp", "network", "dns"):
-		return FailureClassInfra
-	default:
-		return FailureClassToolRuntime
+func classifyErrorMessage(msg string) FailureClass {
+	for _, rule := range failureClassRules() {
+		if containsAny(msg, rule.substrings...) {
+			return rule.class
+		}
 	}
+	return FailureClassToolRuntime
 }
 
 func containsAny(s string, substrings ...string) bool {

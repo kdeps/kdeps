@@ -31,18 +31,23 @@ import (
 // WrapResourceError wraps an error with resource context.
 func WrapResourceError(resourceID string, err error) error {
 	kdeps_debug.Log("enter: WrapResourceError")
-	var appErr *domain.AppError
-
-	// If already an AppError, just add resource context
-	if errors.As(err, &appErr) {
-		return appErr.WithResource(resourceID)
+	if wrapped := wrapExistingAppError(resourceID, err); wrapped != nil {
+		return wrapped
 	}
 
-	// Create new AppError
 	return domain.NewAppError(
 		domain.ErrCodeResourceFailed,
 		fmt.Sprintf("Resource execution failed: %s", err.Error()),
 	).WithResource(resourceID).WithError(err)
+}
+
+func wrapExistingAppError(resourceID string, err error) error {
+	kdeps_debug.Log("enter: wrapExistingAppError")
+	var appErr *domain.AppError
+	if errors.As(err, &appErr) {
+		return appErr.WithResource(resourceID)
+	}
+	return nil
 }
 
 // WrapValidationError wraps validation errors.
@@ -53,7 +58,13 @@ func WrapValidationError(resourceID string, validationErrors []*domain.Validatio
 		"Input validation failed",
 	).WithResource(resourceID)
 
-	// Add validation errors to details
+	appErr.Details["errors"] = buildValidationErrorDetails(validationErrors)
+
+	return appErr
+}
+
+func buildValidationErrorDetails(validationErrors []*domain.ValidationError) []map[string]any {
+	kdeps_debug.Log("enter: buildValidationErrorDetails")
 	errorDetails := make([]map[string]any, len(validationErrors))
 	for i, err := range validationErrors {
 		errorDetails[i] = map[string]any{
@@ -63,10 +74,7 @@ func WrapValidationError(resourceID string, validationErrors []*domain.Validatio
 			"value":   err.Value,
 		}
 	}
-
-	appErr.Details["errors"] = errorDetails
-
-	return appErr
+	return errorDetails
 }
 
 // WrapPreflightError wraps preflight check failures.

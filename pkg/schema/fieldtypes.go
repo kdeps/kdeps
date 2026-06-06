@@ -18,7 +18,6 @@
 
 package schema
 
-// fieldTypeString is the JSON Schema / OpenAPI type name for string fields.
 import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -47,31 +46,47 @@ func mapFieldType(rule *domain.FieldRule) fieldTypeSpec {
 	kdeps_debug.Log("enter: mapFieldType")
 	switch rule.Type {
 	case domain.FieldTypeString:
-		return fieldTypeSpec{
-			SchemaType: fieldTypeString,
-			MinLength:  rule.MinLength,
-			MaxLength:  rule.MaxLength,
-			Pattern:    rule.Pattern,
-		}
+		return stringFieldSpec(rule)
 	case domain.FieldTypeInteger:
-		return fieldTypeSpec{SchemaType: "integer", Minimum: rule.Min, Maximum: rule.Max}
+		return numericFieldSpec("integer", rule.Min, rule.Max)
 	case domain.FieldTypeNumber:
-		return fieldTypeSpec{SchemaType: "number", Minimum: rule.Min, Maximum: rule.Max}
+		return numericFieldSpec("number", rule.Min, rule.Max)
 	case domain.FieldTypeBoolean:
 		return fieldTypeSpec{SchemaType: "boolean"}
 	case domain.FieldTypeArray:
-		return fieldTypeSpec{SchemaType: "array", MinItems: rule.MinItems, MaxItems: rule.MaxItems}
+		return arrayFieldSpec(rule)
 	case domain.FieldTypeObject:
 		return fieldTypeSpec{SchemaType: "object"}
 	case domain.FieldTypeEmail:
-		return fieldTypeSpec{SchemaType: fieldTypeString, Format: "email"}
+		return formattedStringSpec("email")
 	case domain.FieldTypeURL:
-		return fieldTypeSpec{SchemaType: fieldTypeString, Format: "uri"}
+		return formattedStringSpec("uri")
 	case domain.FieldTypeUUID:
-		return fieldTypeSpec{SchemaType: fieldTypeString, Format: "uuid"}
+		return formattedStringSpec("uuid")
 	case domain.FieldTypeDate:
-		return fieldTypeSpec{SchemaType: fieldTypeString, Format: "date"}
+		return formattedStringSpec("date")
 	default:
 		return fieldTypeSpec{SchemaType: fieldTypeString}
 	}
+}
+
+func stringFieldSpec(rule *domain.FieldRule) fieldTypeSpec {
+	return fieldTypeSpec{
+		SchemaType: fieldTypeString,
+		MinLength:  rule.MinLength,
+		MaxLength:  rule.MaxLength,
+		Pattern:    rule.Pattern,
+	}
+}
+
+func numericFieldSpec(schemaType string, minVal, maxVal *float64) fieldTypeSpec {
+	return fieldTypeSpec{SchemaType: schemaType, Minimum: minVal, Maximum: maxVal}
+}
+
+func arrayFieldSpec(rule *domain.FieldRule) fieldTypeSpec {
+	return fieldTypeSpec{SchemaType: "array", MinItems: rule.MinItems, MaxItems: rule.MaxItems}
+}
+
+func formattedStringSpec(format string) fieldTypeSpec {
+	return fieldTypeSpec{SchemaType: fieldTypeString, Format: format}
 }

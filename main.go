@@ -61,23 +61,22 @@ func NewAppConfigForTesting(executeCmd func(string, string) error) *AppConfig {
 }
 
 func main() {
-	// Before normal CLI processing, check whether this binary carries an
-	// embedded .kdeps package.  Prepackaged binaries produced by
-	// "kdeps prepackage" append their workflow archive after the ELF/Mach-O/PE
-	// bytes, followed by a magic trailer.  When detected, stream the archive
-	// directly from the binary to a temp file and run it — no buffering the
-	// whole payload in memory, and no separate kdeps installation needed.
-	if execPath, err := os.Executable(); err == nil {
-		if cmd.HasEmbeddedPackage(execPath) {
-			exitCode := cmd.RunEmbeddedPackage(version.Version, version.Commit, execPath)
-			if exitCode != 0 {
-				os.Exit(exitCode)
-			}
-			return
+	if exitCode, handled := tryRunEmbeddedPackage(); handled {
+		if exitCode != 0 {
+			os.Exit(exitCode)
 		}
+		return
 	}
-
 	runMain(NewAppConfig())
+}
+
+// tryRunEmbeddedPackage detects a prepackaged workflow appended to this binary and runs it.
+func tryRunEmbeddedPackage() (exitCode int, handled bool) {
+	execPath, err := os.Executable()
+	if err != nil || !cmd.HasEmbeddedPackage(execPath) {
+		return 0, false
+	}
+	return cmd.RunEmbeddedPackage(version.Version, version.Commit, execPath), true
 }
 
 // mainWithoutExit executes the main logic without calling os.Exit.

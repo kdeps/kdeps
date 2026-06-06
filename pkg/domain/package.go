@@ -80,16 +80,7 @@ func FindKdepsPkg(dir string) (*KdepsPkg, string, error) {
 // findKdepsPkgFallback tries to build a KdepsPkg from workflow.yaml or agency.yaml.
 func findKdepsPkgFallback(dir string) (*KdepsPkg, string, error) {
 	kdeps_debug.Log("enter: findKdepsPkgFallback")
-	candidates := []struct {
-		file    string
-		pkgType string
-	}{
-		{"workflow.yaml", "workflow"},
-		{"workflow.yml", "workflow"},
-		{"agency.yaml", "agency"},
-		{"agency.yml", "agency"},
-	}
-	for _, c := range candidates {
+	for _, c := range kdepsPkgFallbackCandidates() {
 		path := filepath.Join(dir, c.file)
 		if _, err := os.Stat(path); err != nil {
 			continue
@@ -103,6 +94,20 @@ func findKdepsPkgFallback(dir string) (*KdepsPkg, string, error) {
 	return nil, "", fmt.Errorf("no kdeps.pkg.yaml or workflow/agency manifest found in %s", dir)
 }
 
+type kdepsPkgFallbackCandidate struct {
+	file    string
+	pkgType string
+}
+
+func kdepsPkgFallbackCandidates() []kdepsPkgFallbackCandidate {
+	return []kdepsPkgFallbackCandidate{
+		{"workflow.yaml", "workflow"},
+		{"workflow.yml", "workflow"},
+		{"agency.yaml", "agency"},
+		{"agency.yml", "agency"},
+	}
+}
+
 // extractPkgFromManifest extracts KdepsPkg fields from a workflow or agency YAML file.
 func extractPkgFromManifest(path, pkgType string) (*KdepsPkg, error) {
 	kdeps_debug.Log("enter: extractPkgFromManifest")
@@ -110,21 +115,35 @@ func extractPkgFromManifest(path, pkgType string) (*KdepsPkg, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
-	var raw struct {
-		Kind     string `yaml:"kind"`
-		Metadata struct {
-			Name        string `yaml:"name"`
-			Version     string `yaml:"version"`
-			Description string `yaml:"description"`
-		} `yaml:"metadata"`
+	raw, err := parseManifestMetadata(data, path)
+	if err != nil {
+		return nil, err
 	}
+	return buildKdepsPkgFromMetadata(raw, pkgType), nil
+}
+
+type manifestMetadata struct {
+	Kind     string `yaml:"kind"`
+	Metadata struct {
+		Name        string `yaml:"name"`
+		Version     string `yaml:"version"`
+		Description string `yaml:"description"`
+	} `yaml:"metadata"`
+}
+
+func parseManifestMetadata(data []byte, path string) (*manifestMetadata, error) {
+	var raw manifestMetadata
 	if unmarshalErr := yaml.Unmarshal(data, &raw); unmarshalErr != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, unmarshalErr)
 	}
+	return &raw, nil
+}
+
+func buildKdepsPkgFromMetadata(raw *manifestMetadata, pkgType string) *KdepsPkg {
 	return &KdepsPkg{
 		Name:        raw.Metadata.Name,
 		Version:     raw.Metadata.Version,
 		Description: raw.Metadata.Description,
 		Type:        pkgType,
-	}, nil
+	}
 }

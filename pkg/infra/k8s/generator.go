@@ -83,48 +83,56 @@ func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error)
 func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	kdeps_debug.Log("enter: buildTemplateData")
 
-	replicas := workflow.Settings.AgentSettings.Replicas
-	if replicas <= 0 {
-		replicas = 1
-	}
-
 	data := &ManifestData{
 		Name:      workflow.Metadata.Name,
 		Version:   workflow.Metadata.Version,
 		Image:     g.ImageName,
-		Replicas:  replicas,
+		Replicas:  resolveReplicas(workflow),
 		Env:       workflow.Settings.AgentSettings.Env,
 		Resources: workflow.Settings.AgentSettings.Resources,
 	}
 
-	// Extract ports: only set when explicitly configured.
-	if workflow.Settings.APIServer != nil || workflow.Settings.WebServer != nil {
-		port := workflow.Settings.GetPortNum()
-		data.APIPort = port
-		if workflow.Settings.WebServer != nil {
-			data.WebServerPort = port
-		}
-	}
-
-	// Backend port (Ollama)
-	installOllama := false
-	if workflow.Settings.AgentSettings.InstallOllama != nil {
-		installOllama = *workflow.Settings.AgentSettings.InstallOllama
-	} else {
-		// Auto-detect if needed (simplified for manifest generation)
-		for _, r := range workflow.Resources {
-			if r.Chat != nil {
-				installOllama = true
-				break
-			}
-		}
-	}
-
-	if installOllama {
+	applyManifestPorts(data, workflow)
+	if resolveInstallOllama(workflow) {
 		data.BackendPort = defaultOllamaPort
 	}
 
 	return data
+}
+
+func resolveReplicas(workflow *domain.Workflow) int {
+	replicas := workflow.Settings.AgentSettings.Replicas
+	if replicas <= 0 {
+		return 1
+	}
+	return replicas
+}
+
+func applyManifestPorts(data *ManifestData, workflow *domain.Workflow) {
+	if workflow.Settings.APIServer == nil && workflow.Settings.WebServer == nil {
+		return
+	}
+	port := workflow.Settings.GetPortNum()
+	data.APIPort = port
+	if workflow.Settings.WebServer != nil {
+		data.WebServerPort = port
+	}
+}
+
+func resolveInstallOllama(workflow *domain.Workflow) bool {
+	if workflow.Settings.AgentSettings.InstallOllama != nil {
+		return *workflow.Settings.AgentSettings.InstallOllama
+	}
+	return workflowNeedsOllama(workflow)
+}
+
+func workflowNeedsOllama(workflow *domain.Workflow) bool {
+	for _, r := range workflow.Resources {
+		if r.Chat != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Generator) renderTemplate(name, tmplStr string, data *ManifestData) (string, error) {
