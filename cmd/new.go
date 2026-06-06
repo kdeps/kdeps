@@ -37,6 +37,16 @@ const (
 	defaultPort     = 16395
 )
 
+// templatesNewGeneratorFunc creates project generators (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var templatesNewGeneratorFunc = templates.NewGenerator
+
+// osRemoveAllNewFunc removes output dirs for new command (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osRemoveAllNewFunc = os.RemoveAll
+
 // NewFlags holds the flags for the new command.
 type NewFlags struct {
 	Template string
@@ -82,7 +92,7 @@ func RunNewWithFlags(_ *cobra.Command, args []string, flags *NewFlags) error {
 		return err
 	}
 
-	generator, err := templates.NewGenerator()
+	generator, err := templatesNewGeneratorFunc()
 	if err != nil {
 		return fmt.Errorf("failed to initialize generator: %w", err)
 	}
@@ -111,7 +121,7 @@ func prepareNewOutputDir(outputDir string, force bool) error {
 	if !force {
 		return fmt.Errorf("directory already exists: %s (use --force to overwrite)", outputDir)
 	}
-	if removeErr := os.RemoveAll(outputDir); removeErr != nil {
+	if removeErr := osRemoveAllNewFunc(outputDir); removeErr != nil {
 		return fmt.Errorf("failed to remove existing directory: %w", removeErr)
 	}
 	return nil

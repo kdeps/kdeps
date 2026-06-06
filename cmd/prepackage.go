@@ -77,10 +77,30 @@ const (
 	goosWindows = "windows"
 	goosDarwin  = "darwin"
 	goosLinux   = "linux"
+	goarchAmd64 = "amd64"
 )
 
+// writeTempBinaryCloseFunc closes temp binaries (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var writeTempBinaryCloseFunc = func(f *os.File) error { return f.Close() }
+
+// fetchURLFunc downloads release archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var fetchURLFunc = fetchURL
+
+// extractFromZipReaderFunc opens zip archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var extractFromZipReaderFunc = zip.NewReader
+
+// extractFromZipEntryOpenFunc opens zip entries (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var extractFromZipEntryOpenFunc = func(f *zip.File) (io.ReadCloser, error) { return f.Open() }
+
 // httpDownloadClient is the HTTP client used for downloading release binaries.
-// It carries an explicit timeout so downloads cannot hang indefinitely.
 //
 //nolint:gochecknoglobals // overridable in tests via HTTPDownloadClient
 var httpDownloadClient = &http.Client{
@@ -228,7 +248,7 @@ func PrePackageWithFlags(ctx context.Context, args []string, flags *PrePackageFl
 	fmt.Fprintf(os.Stdout, "Package name: %s\n", pkgName)
 	fmt.Fprintf(os.Stdout, "Runtime version: %s\n\n", ver)
 
-	currentExec, execErr := os.Executable()
+	currentExec, execErr := osExecutable()
 	if execErr != nil {
 		currentExec = ""
 	}
@@ -289,7 +309,7 @@ func resolveBaseBinaryImpl(
 
 	if isHostArch && currentExec != "" {
 		// Strip any previously embedded .kdeps content from the host binary.
-		clean, created, cleanErr := cleanBinaryPath(currentExec)
+		clean, created, cleanErr := cleanBinaryPathFunc(currentExec)
 		if cleanErr != nil {
 			return "", false, fmt.Errorf("failed to prepare host binary: %w", cleanErr)
 		}
@@ -390,7 +410,7 @@ func goosToReleaseOS(goos string) string {
 // archive filenames (e.g. "amd64" → "x86_64").
 func goarchToReleaseArch(goarch string) string {
 	kdeps_debug.Log("enter: goarchToReleaseArch")
-	if goarch == "amd64" {
+	if goarch == goarchAmd64 {
 		return "x86_64"
 	}
 	return goarch
@@ -438,7 +458,7 @@ func writeTempBinary(binaryData []byte, goos, goarch string) (string, error) {
 		mode = 0644
 	}
 
-	tmpFile, err := os.CreateTemp("", fmt.Sprintf("kdeps-base-%s-%s-*", goos, goarch))
+	tmpFile, err := osCreateTempFunc("", fmt.Sprintf("kdeps-base-%s-%s-*", goos, goarch))
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -447,11 +467,11 @@ func writeTempBinary(binaryData []byte, goos, goarch string) (string, error) {
 		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to write base binary: %w", writeErr)
 	}
-	if closeErr := tmpFile.Close(); closeErr != nil {
+	if closeErr := writeTempBinaryCloseFunc(tmpFile); closeErr != nil {
 		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to close temp file: %w", closeErr)
 	}
-	if chmodErr := os.Chmod(tmpFile.Name(), mode); chmodErr != nil {
+	if chmodErr := osChmodFunc(tmpFile.Name(), mode); chmodErr != nil {
 		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to set permissions on base binary: %w", chmodErr)
 	}
@@ -470,7 +490,7 @@ func downloadKdepsBinaryToTemp(ctx context.Context, ver, goos, goarch string) (s
 	url := releaseDownloadURL(ver, goos, goarch)
 	fmt.Fprintf(os.Stdout, "    Downloading %s\n", url)
 
-	archiveData, err := fetchURL(ctx, url)
+	archiveData, err := fetchURLFunc(ctx, url)
 	if err != nil {
 		return "", fmt.Errorf("download of %s/%s base binary failed: %w", goos, goarch, err)
 	}
@@ -537,13 +557,13 @@ func extractFromTarGz(archiveData []byte, filename string) ([]byte, error) {
 // inside a zip archive.
 func extractFromZip(archiveData []byte, filename string) ([]byte, error) {
 	kdeps_debug.Log("enter: extractFromZip")
-	r, err := zip.NewReader(bytes.NewReader(archiveData), int64(len(archiveData)))
+	r, err := extractFromZipReaderFunc(bytes.NewReader(archiveData), int64(len(archiveData)))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip archive: %w", err)
 	}
 	for _, f := range r.File {
 		if filepath.Base(f.Name) == filename {
-			rc, openErr := f.Open()
+			rc, openErr := extractFromZipEntryOpenFunc(f)
 			if openErr != nil {
 				return nil, fmt.Errorf("failed to open zip entry %q: %w", f.Name, openErr)
 			}

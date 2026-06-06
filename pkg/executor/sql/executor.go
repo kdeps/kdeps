@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"sort"
@@ -43,6 +44,23 @@ import (
 
 //nolint:gochecknoglobals // test-replaceable
 var jsonMarshal = json.Marshal
+
+//nolint:gochecknoglobals // test-replaceable
+var sqlOpen = sql.Open
+
+type csvWriter interface {
+	Write(record []string) error
+	Flush()
+	Error() error
+}
+
+//nolint:gochecknoglobals // test-replaceable
+var csvNewWriter = func(w io.Writer) csvWriter { return csv.NewWriter(w) }
+
+//nolint:gochecknoglobals // test-replaceable
+var rowsScanFunc = func(rows *sql.Rows, dest ...interface{}) error {
+	return rows.Scan(dest...)
+}
 
 // Executor executes SQL resources.
 type Executor struct {
@@ -247,7 +265,7 @@ func (e *Executor) getConnection(
 	driver := e.DetectDriver(connectionStr)
 
 	// Open connection
-	db, err := sql.Open(driver, connectionStr)
+	db, err := sqlOpen(driver, connectionStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -619,7 +637,7 @@ func (e *Executor) scanRow(rows *sql.Rows, columns []string) (map[string]interfa
 		valuePtrs[i] = &values[i]
 	}
 
-	if err := rows.Scan(valuePtrs...); err != nil {
+	if err := rowsScanFunc(rows, valuePtrs...); err != nil {
 		return nil, fmt.Errorf("failed to scan row: %w", err)
 	}
 
@@ -774,7 +792,7 @@ func (e *Executor) FormatAsCSV(results []map[string]interface{}) (string, error)
 	}
 
 	var buf strings.Builder
-	writer := csv.NewWriter(&buf)
+	writer := csvNewWriter(&buf)
 
 	// Get column names from first row - preserve original order by using getColumnNames
 	columns := e.getColumnNames(results)

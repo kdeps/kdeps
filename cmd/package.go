@@ -134,9 +134,39 @@ func PackageWorkflow(cmd *cobra.Command, args []string) error {
 	return PackageWorkflowWithFlags(cmd, args, flags)
 }
 
+// newSchemaValidatorFunc creates the schema validator (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var newSchemaValidatorFunc = validator.NewSchemaValidator
+
+// newPackageYAMLParserFunc creates a YAML parser for packaging (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var newPackageYAMLParserFunc = newPackageYAMLParser
+
+// filepathRelArchiveFunc resolves archive-relative paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathRelArchiveFunc = filepath.Rel
+
+// findWorkflowFilePackageFunc locates workflow files for packaging (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var findWorkflowFilePackageFunc = FindWorkflowFile
+
+// tarFileInfoHeaderFunc builds tar headers for archives (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var tarFileInfoHeaderFunc = tar.FileInfoHeader
+
+// filepathRelIgnoreFunc resolves ignore-file paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathRelIgnoreFunc = filepath.Rel
+
 // newPackageYAMLParser creates a YAML parser for packaging commands.
 func newPackageYAMLParser() (*yaml.Parser, error) {
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
@@ -179,7 +209,7 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 		return fmt.Errorf("invalid workflow directory: %w", err)
 	}
 
-	workflowPath := FindWorkflowFile(workflowDir)
+	workflowPath := findWorkflowFilePackageFunc(workflowDir)
 	if workflowPath == "" {
 		return fmt.Errorf(
 			"no workflow file found in %s"+
@@ -188,7 +218,7 @@ func PackageWorkflowWithFlags(_ *cobra.Command, args []string, flags *PackageFla
 		)
 	}
 
-	parser, err := newPackageYAMLParser()
+	parser, err := newPackageYAMLParserFunc()
 	if err != nil {
 		return err
 	}
@@ -238,7 +268,7 @@ func ValidateWorkflowDir(dir string) error {
 func ParseKdepsIgnore(dir string) []string {
 	kdeps_debug.Log("enter: ParseKdepsIgnore")
 	var patterns []string
-	root, rootErr := os.OpenRoot(dir)
+	root, rootErr := osOpenRootFunc(dir)
 	if rootErr != nil {
 		return patterns
 	}
@@ -253,7 +283,7 @@ func ParseKdepsIgnore(dir string) []string {
 			return filepath.SkipDir
 		}
 		if info.Name() == ".kdepsignore" {
-			relPath, relErr := filepath.Rel(dir, path)
+			relPath, relErr := filepathRelIgnoreFunc(dir, path)
 			if relErr != nil {
 				return nil //nolint:nilerr // walk callback: skip files with unresolvable paths without stopping the walk
 			}
@@ -429,12 +459,12 @@ func AddFileToArchive(
 	tarWriter *tar.Writer,
 ) error {
 	kdeps_debug.Log("enter: AddFileToArchive")
-	relPath, relErr := filepath.Rel(sourceDir, path)
+	relPath, relErr := filepathRelArchiveFunc(sourceDir, path)
 	if relErr != nil {
 		return relErr
 	}
 
-	header, headerErr := tar.FileInfoHeader(info, "")
+	header, headerErr := tarFileInfoHeaderFunc(info, "")
 	if headerErr != nil {
 		return headerErr
 	}
@@ -496,7 +526,7 @@ func PackageAgencyWithFlags(_ *cobra.Command, args []string, flags *PackageFlags
 		return fmt.Errorf("no agency.yaml / agency.yml found in %s", agencyDir)
 	}
 
-	parser, err := newPackageYAMLParser()
+	parser, err := newPackageYAMLParserFunc()
 	if err != nil {
 		return err
 	}
@@ -571,7 +601,7 @@ func PackageComponentWithFlags(_ *cobra.Command, args []string, flags *PackageFl
 		return fmt.Errorf("no component.yaml / component.yml found in %s", componentDir)
 	}
 
-	parser, err := newPackageYAMLParser()
+	parser, err := newPackageYAMLParserFunc()
 	if err != nil {
 		return err
 	}

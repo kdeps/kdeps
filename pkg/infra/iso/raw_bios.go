@@ -232,7 +232,7 @@ func findKernelInitrd(dir string) (string, string, string, error) {
 }
 
 func createRawBIOSWorkDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}

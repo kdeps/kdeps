@@ -69,6 +69,18 @@ const (
 	roleUser         = "user"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var storeToolArgumentSet func(ctx *executor.ExecutionContext, key string, value interface{}, storage string) error
+
+//nolint:gochecknoglobals // test-replaceable
+var executeToolCallsErrInjector func() error
+
+//nolint:gochecknoglobals // test-replaceable
+var mcpExecuteToolFunc = mcpclient.ExecuteTool
+
+//nolint:gochecknoglobals // test-replaceable
+var ensureModelForTest func(*ModelManager, *domain.ChatConfig) error
+
 // NewExecutor creates a new LLM executor.
 func NewExecutor(ollamaURL string) *Executor {
 	kdeps_debug.Log("enter: NewExecutor")
@@ -191,9 +203,6 @@ func extractHostPortFromParsedURL(
 
 	// Try to manually extract host and port
 	parts := strings.SplitN(parsedURL.Host, ":", 2)
-	if len(parts) != 2 {
-		return host, port
-	}
 
 	// Validate that the potential port is numeric
 	if _, portErr := strconv.Atoi(parts[1]); portErr != nil {
@@ -320,7 +329,13 @@ func (e *Executor) resolveModelForExecution(
 	if e.modelManager != nil {
 		configCopy := *resolvedConfig
 		configCopy.Model = modelStr
-		if ensureErr := e.modelManager.EnsureModel(&configCopy); ensureErr != nil {
+		var ensureErr error
+		if ensureModelForTest != nil {
+			ensureErr = ensureModelForTest(e.modelManager, &configCopy)
+		} else {
+			ensureErr = e.modelManager.EnsureModel(&configCopy)
+		}
+		if ensureErr != nil {
 			_ = ensureErr
 		}
 	}
@@ -930,9 +945,6 @@ func minInt(a, b int) int {
 
 // buildRequestBody builds the request body for the LLM API (legacy, kept for compatibility).
 // New code should use backend.BuildRequest directly.
-//
-
-//nolint:unparam // modelStr varies by caller in production; test callers all use same value
 func (e *Executor) buildRequestBody(
 	modelStr string,
 	messages []map[string]interface{},
@@ -1140,13 +1152,6 @@ func (e *Executor) evaluateStringOrLiteral(
 		return value, nil
 	}
 
-	parser := expression.NewParser()
-	exprType := parser.Detect(value)
-
-	if exprType == domain.ExprTypeLiteral {
-		return value, nil
-	}
-
 	// Handle nil evaluator (for testing or when evaluation is not available)
 	if evaluator == nil {
 		return "", fmt.Errorf("expression evaluation not available: cannot evaluate %q", value)
@@ -1324,8 +1329,6 @@ func (e *Executor) extractToolCalls(
 }
 
 // executeToolCalls executes all tool calls and returns results.
-//
-//nolint:unparam // error reserved for future use
 func (e *Executor) executeToolCalls(
 	toolCalls []map[string]interface{},
 	toolDefinitions []domain.Tool,
@@ -1373,6 +1376,11 @@ func (e *Executor) executeToolCalls(
 		})
 	}
 
+	if executeToolCallsErrInjector != nil {
+		if injErr := executeToolCallsErrInjector(); injErr != nil {
+			return nil, injErr
+		}
+	}
 	return results, nil
 }
 
@@ -1419,7 +1427,7 @@ func (e *Executor) executeTool(
 
 	// MCP tool: delegate to MCP server via JSON-RPC 2.0 over stdio
 	if tool.MCP != nil {
-		result, mcpErr := mcpclient.ExecuteTool(tool.MCP, tool.Name, args)
+		result, mcpErr := mcpExecuteToolFunc(tool.MCP, tool.Name, args)
 		if mcpErr != nil {
 			return nil, fmt.Errorf("MCP tool execution failed: %w", mcpErr)
 		}
@@ -1495,14 +1503,18 @@ func (e *Executor) storeToolArguments(
 	ctx *executor.ExecutionContext,
 ) error {
 	kdeps_debug.Log("enter: storeToolArguments")
+	setArg := func(key string, value interface{}) error {
+		if storeToolArgumentSet != nil {
+			return storeToolArgumentSet(ctx, key, value, "memory")
+		}
+		return ctx.Set(key, value, "memory")
+	}
 	for key, value := range args {
-		// Store with prefixed key
 		argKey := fmt.Sprintf("tool_%s_%s", tool.Name, key)
-		if setErr := ctx.Set(argKey, value, "memory"); setErr != nil {
+		if setErr := setArg(argKey, value); setErr != nil {
 			return fmt.Errorf("failed to store tool argument: %w", setErr)
 		}
-		// Also store without prefix for easier access
-		if setErr := ctx.Set(key, value, "memory"); setErr != nil {
+		if setErr := setArg(key, value); setErr != nil {
 			return fmt.Errorf("failed to store tool argument: %w", setErr)
 		}
 	}
@@ -1609,12 +1621,11 @@ func (e *Executor) retryFallbackRoutes(
 	if len(fallbackRoutes) <= 1 {
 		return response, lastErr
 	}
-	for i := range fallbackRoutes[1:] {
+	for i := 1; i < len(fallbackRoutes); i++ {
 		if _, hasErr := response["error"]; !hasErr {
 			break
 		}
-		//nolint:gosec // fallback route index is valid by loop invariant
-		route := &fallbackRoutes[i+1]
+		route := &fallbackRoutes[i]
 		applyRoute(cfg, route)
 		fb, fbURL, fbErr := e.resolveBackend(cfg, false)
 		if fbErr != nil {

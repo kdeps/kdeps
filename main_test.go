@@ -20,9 +20,15 @@ package main
 
 import (
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/v2/cmd"
 )
 
 // This test file uses package main to access internal functions for testing
@@ -763,4 +769,181 @@ func TestMainFunctionExecution(t *testing.T) {
 		runMain(config)
 		assert.True(t, exitCalled, "runMain should call os.Exit on error")
 	})
+}
+
+func TestTryRunEmbeddedPackage_NoEmbedded(t *testing.T) {
+	exitCode, handled := tryRunEmbeddedPackage()
+	assert.False(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestTryRunEmbeddedPackage_WithEmbedded(t *testing.T) {
+	payload := []byte("not-a-valid-package")
+	trailer := make([]byte, cmd.EmbeddedTrailerSize)
+	size := uint64(len(payload))
+	trailer[0] = byte(size >> 56)
+	trailer[1] = byte(size >> 48)
+	trailer[2] = byte(size >> 40)
+	trailer[3] = byte(size >> 32)
+	trailer[4] = byte(size >> 24)
+	trailer[5] = byte(size >> 16)
+	trailer[6] = byte(size >> 8)
+	trailer[7] = byte(size)
+	copy(trailer[8:], cmd.EmbeddedMagic)
+
+	binary := []byte("fake-binary-content")
+	content := append(append(binary, payload...), trailer...)
+	tmp := filepath.Join(t.TempDir(), "embedded-binary")
+	require.NoError(t, os.WriteFile(tmp, content, 0755))
+
+	exitCode, handled := TryRunEmbeddedPackageForTest(tmp)
+	assert.True(t, handled)
+	assert.Equal(t, 1, exitCode)
+}
+
+func TestMainFunction_InProcess(t *testing.T) {
+	origArgs := os.Args
+	t.Cleanup(func() { os.Args = origArgs })
+	os.Args = []string{"kdeps", "--help"}
+	assert.NotPanics(t, func() { main() })
+}
+
+func TestTryRunEmbeddedPackage_DirectNoEmbedded(t *testing.T) {
+	exitCode, handled := tryRunEmbeddedPackage()
+	assert.False(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestMain_EmbeddedHandledSuccess(t *testing.T) {
+	orig := tryRunEmbeddedPackageHook
+	t.Cleanup(func() { tryRunEmbeddedPackageHook = orig })
+	tryRunEmbeddedPackageHook = func() (int, bool) { return 0, true }
+	assert.NotPanics(t, func() { main() })
+}
+
+func TestMain_EmbeddedHandledFailure(t *testing.T) {
+	origHook := tryRunEmbeddedPackageHook
+	origExit := osExitMain
+	t.Cleanup(func() {
+		tryRunEmbeddedPackageHook = origHook
+		osExitMain = origExit
+	})
+	var exitCode int
+	osExitMain = func(code int) { exitCode = code }
+	tryRunEmbeddedPackageHook = func() (int, bool) { return 1, true }
+	main()
+	assert.Equal(t, 1, exitCode)
+}
+
+func TestTryRunEmbeddedPackage_ExecutableError(t *testing.T) {
+	orig := osExecutableMain
+	t.Cleanup(func() { osExecutableMain = orig })
+	osExecutableMain = func() (string, error) { return "", errors.New("executable failed") }
+	exitCode, handled := tryRunEmbeddedPackage()
+	assert.False(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestTryRunEmbeddedPackage_HasEmbeddedSuccess(t *testing.T) {
+	origExec := osExecutableMain
+	origRun := runEmbeddedPackageFunc
+	t.Cleanup(func() {
+		osExecutableMain = origExec
+		runEmbeddedPackageFunc = origRun
+	})
+	tmp := t.TempDir()
+	payload := []byte("x")
+	trailer := make([]byte, cmd.EmbeddedTrailerSize)
+	size := uint64(len(payload))
+	trailer[0] = byte(size >> 56)
+	trailer[1] = byte(size >> 48)
+	trailer[2] = byte(size >> 40)
+	trailer[3] = byte(size >> 32)
+	trailer[4] = byte(size >> 24)
+	trailer[5] = byte(size >> 16)
+	trailer[6] = byte(size >> 8)
+	trailer[7] = byte(size)
+	copy(trailer[8:], cmd.EmbeddedMagic)
+	path := filepath.Join(tmp, "embedded")
+	require.NoError(t, os.WriteFile(path, append(append([]byte("bin"), payload...), trailer...), 0755))
+	osExecutableMain = func() (string, error) { return path, nil }
+	runEmbeddedPackageFunc = func(_, _, _ string) int { return 0 }
+	exitCode, handled := tryRunEmbeddedPackage()
+	assert.True(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestTryRunEmbeddedPackageForTest_HasEmbedded(t *testing.T) {
+	tmp := t.TempDir()
+	// Minimal valid embedded trailer with zero-size payload won't work; use invalid payload.
+	payload := []byte("x")
+	trailer := make([]byte, cmd.EmbeddedTrailerSize)
+	size := uint64(len(payload))
+	trailer[0] = byte(size >> 56)
+	trailer[1] = byte(size >> 48)
+	trailer[2] = byte(size >> 40)
+	trailer[3] = byte(size >> 32)
+	trailer[4] = byte(size >> 24)
+	trailer[5] = byte(size >> 16)
+	trailer[6] = byte(size >> 8)
+	trailer[7] = byte(size)
+	copy(trailer[8:], cmd.EmbeddedMagic)
+	content := append(append([]byte("bin"), payload...), trailer...)
+	path := filepath.Join(tmp, "embedded")
+	require.NoError(t, os.WriteFile(path, content, 0755))
+	origRun := runEmbeddedPackageFunc
+	t.Cleanup(func() { runEmbeddedPackageFunc = origRun })
+	runEmbeddedPackageFunc = func(_, _, _ string) int { return 1 }
+	exitCode, handled := TryRunEmbeddedPackageForTest(path)
+	assert.True(t, handled)
+	assert.Equal(t, 1, exitCode)
+}
+
+func TestTryRunEmbeddedPackageForTest_NoEmbedded(t *testing.T) {
+	exitCode, handled := TryRunEmbeddedPackageForTest("/nonexistent/no-embedded-binary")
+	assert.False(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestTryRunEmbeddedPackageForTest_Success(t *testing.T) {
+	tmp := t.TempDir()
+	payload := []byte("x")
+	trailer := make([]byte, cmd.EmbeddedTrailerSize)
+	size := uint64(len(payload))
+	trailer[0] = byte(size >> 56)
+	trailer[1] = byte(size >> 48)
+	trailer[2] = byte(size >> 40)
+	trailer[3] = byte(size >> 32)
+	trailer[4] = byte(size >> 24)
+	trailer[5] = byte(size >> 16)
+	trailer[6] = byte(size >> 8)
+	trailer[7] = byte(size)
+	copy(trailer[8:], cmd.EmbeddedMagic)
+	path := filepath.Join(tmp, "embedded")
+	require.NoError(t, os.WriteFile(path, append(append([]byte("bin"), payload...), trailer...), 0755))
+	origRun := runEmbeddedPackageFunc
+	t.Cleanup(func() { runEmbeddedPackageFunc = origRun })
+	runEmbeddedPackageFunc = func(_, _, _ string) int { return 0 }
+	exitCode, handled := TryRunEmbeddedPackageForTest(path)
+	assert.True(t, handled)
+	assert.Equal(t, 0, exitCode)
+}
+
+func TestMainEntrypoint_Subprocess(t *testing.T) {
+	if os.Getenv("KDEPS_TEST_MAIN_ENTRY") == "1" {
+		main()
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestMainEntrypoint_Subprocess$", "-test.count=1")
+	cmd.Env = append(os.Environ(), "KDEPS_TEST_MAIN_ENTRY=1")
+	err := cmd.Run()
+	// main() without args typically exits 0 via help/version path or succeeds.
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			assert.Equal(t, 0, exitErr.ExitCode())
+			return
+		}
+	}
+	assert.NoError(t, err)
 }

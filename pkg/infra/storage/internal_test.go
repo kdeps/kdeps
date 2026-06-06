@@ -38,6 +38,25 @@ import (
 
 // TestNewMemoryStorage_EnvDBPath verifies that KDEPS_MEMORY_DB_PATH env var
 // is used when an empty path is passed to NewMemoryStorage.
+func TestEnsureMemoryDBDirectory_RootPaths(t *testing.T) {
+	require.NoError(t, ensureMemoryDBDirectory(":memory:"))
+	require.NoError(t, ensureMemoryDBDirectory("local.db"))
+	require.NoError(t, ensureMemoryDBDirectory("/memory.db"))
+}
+
+func TestSessionStorage_InitSchema_MigrateError(t *testing.T) {
+	orig := sessionsSchemaMigrator
+	t.Cleanup(func() { sessionsSchemaMigrator = orig })
+	sessionsSchemaMigrator = func(_ *sql.DB) error {
+		return errors.New("migration failed")
+	}
+
+	s, err := NewSessionStorage(sqliteMemoryDSN, "test-session")
+	require.Error(t, err)
+	assert.Nil(t, s)
+	assert.Contains(t, err.Error(), "failed to initialize schema")
+}
+
 func TestNewMemoryStorage_EnvDBPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	envPath := filepath.Join(tmpDir, "env_memory.db")

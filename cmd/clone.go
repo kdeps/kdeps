@@ -37,6 +37,31 @@ import (
 //nolint:gochecknoglobals // overridable by tests
 var githubArchiveBaseURL = "https://codeload.github.com"
 
+// unwrapArchiveRootFunc unwraps GitHub archive roots (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var unwrapArchiveRootFunc = unwrapArchiveRoot
+
+// osMkdirTempCloneFunc creates temp dirs for clone (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osMkdirTempCloneFunc = os.MkdirTemp
+
+// copyFileCreateFunc creates destination files for copyFile (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var copyFileCreateFunc = os.Create
+
+// filepathRelCopyDirFunc resolves copyDir relative paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathRelCopyDirFunc = filepath.Rel
+
+// copyFileCloseFunc closes destination files for copyFile (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var copyFileCloseFunc = func(f *os.File) error { return f.Close() }
+
 // cloneTypeNames maps detected manifest filenames to a human label.
 var cloneTypeLabels = map[string]string{ //nolint:gochecknoglobals // package-level const map
 	"agency.yml":        "agency",
@@ -84,7 +109,7 @@ func cloneFromRemote(ref string) error {
 		return err
 	}
 
-	tempDir, err := os.MkdirTemp("", "kdeps-clone-*")
+	tempDir, err := osMkdirTempCloneFunc("", "kdeps-clone-*")
 	if err != nil {
 		return fmt.Errorf("create temp dir: %w", err)
 	}
@@ -96,7 +121,7 @@ func cloneFromRemote(ref string) error {
 	}
 
 	// Unwrap the top-level "<repo>-<branch>/" wrapper GitHub adds to archives.
-	root, err := unwrapArchiveRoot(tempDir)
+	root, err := unwrapArchiveRootFunc(tempDir)
 	if err != nil {
 		return err
 	}
@@ -272,12 +297,12 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	out, err := copyFileCreateFunc(dst)
 	if err != nil {
 		return fmt.Errorf("create dst: %w", err)
 	}
 	_, copyErr := io.Copy(out, in)
-	if closeErr := out.Close(); closeErr != nil && copyErr == nil {
+	if closeErr := copyFileCloseFunc(out); closeErr != nil && copyErr == nil {
 		return fmt.Errorf("close dst: %w", closeErr)
 	}
 	return copyErr
@@ -290,7 +315,7 @@ func copyDir(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		rel, relErr := filepath.Rel(src, path)
+		rel, relErr := filepathRelCopyDirFunc(src, path)
 		if relErr != nil {
 			return relErr
 		}

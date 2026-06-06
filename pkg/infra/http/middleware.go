@@ -298,10 +298,12 @@ type ipLimiterStore struct {
 }
 
 const (
-	secondsPerMinute       = 60.0
-	limiterCleanupInterval = 5 * time.Minute
-	limiterIdleExpiry      = 10 * time.Minute
+	secondsPerMinute  = 60.0
+	limiterIdleExpiry = 10 * time.Minute
 )
+
+//nolint:gochecknoglobals // overridden in tests for fast cleanup ticks
+var limiterCleanupInterval = 5 * time.Minute
 
 func newIPLimiterStore(requestsPerMinute, burst int) *ipLimiterStore {
 	s := &ipLimiterStore{

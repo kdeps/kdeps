@@ -33,6 +33,11 @@ import (
 
 const msgChanBuffer = 64
 
+// newBotRunner creates a platform runner; overridable for testing.
+//
+//nolint:gochecknoglobals // test-replaceable
+var newBotRunner = New
+
 // Dispatcher owns the message channel, starts all platform runners, and for each
 // inbound message calls the workflow engine and dispatches the reply back.
 type Dispatcher struct {
@@ -73,7 +78,7 @@ func buildBotRunners(
 		if !p.nonNil {
 			continue
 		}
-		r, err := New(p.name, botCfg, creds, logger)
+		r, err := newBotRunner(p.name, botCfg, creds, logger)
 		if err != nil {
 			return nil, fmt.Errorf("bot dispatcher: create runner for %s: %w", p.name, err)
 		}

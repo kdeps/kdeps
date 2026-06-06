@@ -33,6 +33,9 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/templates"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var filepathAbs = filepath.Abs
+
 // Parser parses YAML workflows and resources.
 type Parser struct {
 	schemaValidator SchemaValidator
@@ -231,7 +234,7 @@ func (p *Parser) ParseResource(path string) (*domain.Resource, error) {
 func (p *Parser) loadResources(workflow *domain.Workflow, workflowPath string) error {
 	kdeps_debug.Log("enter: loadResources")
 	// Convert to absolute path to ensure correct resource directory resolution
-	absWorkflowPath, err := filepath.Abs(workflowPath)
+	absWorkflowPath, err := filepathAbs(workflowPath)
 	if err != nil {
 		// If absolute path conversion fails, use original path
 		absWorkflowPath = workflowPath

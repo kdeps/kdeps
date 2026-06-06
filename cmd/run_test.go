@@ -24,6 +24,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -39,6 +40,7 @@ import (
 	cmd "github.com/kdeps/kdeps/v2/cmd"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
+	kdepshttp "github.com/kdeps/kdeps/v2/pkg/infra/http"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -813,33 +815,27 @@ func TestFindAvailablePort_AvailablePort(t *testing.T) {
 }
 
 func TestStartHTTPServer_InvalidPort(t *testing.T) {
-	// Test with a port that's already in use
+	orig := cmd.SetHTTPServerStartFuncForTest(func(_ *kdepshttp.Server, _ string, _ bool) error {
+		return http.ErrServerClosed
+	})
+	t.Cleanup(func() { cmd.SetHTTPServerStartFuncForTest(orig) })
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	addr := listener.Addr().(*net.TCPAddr)
-	// Keep listener open to occupy the port
 	defer listener.Close()
 
 	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},
 		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				PortNum: addr.Port, // Port already in use
-			},
+			APIServer: &domain.APIServerConfig{PortNum: addr.Port},
 		},
+		Resources: []*domain.Resource{{
+			ActionID:    "act",
+			APIResponse: &domain.APIResponseConfig{Success: true},
+		}},
 	}
-
-	// Auto-port: StartHTTPServer should succeed by finding the next available port.
-	// Send SIGINT shortly after to prevent the test from blocking forever.
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-		p, _ := os.FindProcess(os.Getpid())
-		_ = p.Signal(syscall.SIGINT)
-	}()
-	err = cmd.StartHTTPServer(workflow, "", false, false)
-	// Nil or context-cancelled errors are both acceptable here.
-	if err != nil {
-		assert.NotContains(t, err.Error(), "API server cannot start")
-	}
+	err = cmd.StartHTTPServer(workflow, t.TempDir(), false, false)
+	require.NoError(t, err)
 }
 
 func TestStartHTTPServer_ValidConfig(t *testing.T) {

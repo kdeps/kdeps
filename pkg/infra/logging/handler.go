@@ -312,7 +312,8 @@ func (h *PrettyHandler) formatValue(buf *strings.Builder, v slog.Value, indent s
 		// LogValuer() always returns a non-nil Value
 		h.formatValue(buf, logVal.LogValue(), indent)
 	default:
-		buf.WriteString(h.colorize(colorGray, fmt.Sprintf("%v", v.Any())))
+		// Unknown kinds are not expected from slog; v.Any() and v.String() panic on invalid kinds.
+		buf.WriteString(h.colorize(colorGray, "<unknown>"))
 	}
 }
 

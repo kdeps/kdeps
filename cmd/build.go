@@ -43,7 +43,7 @@ import (
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
-	"github.com/kdeps/kdeps/v2/pkg/validator"
+
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
@@ -372,7 +372,7 @@ func resolveKdepsFileInDirectory(packagePath string) (string, string, func(), er
 // parseWorkflow parses the workflow file.
 func parseWorkflow(workflowPath string) (*domain.Workflow, error) {
 	kdeps_debug.Log("enter: parseWorkflow")
-	schemaValidator, err := validator.NewSchemaValidator()
+	schemaValidator, err := newSchemaValidatorFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create schema validator: %w", err)
 	}
@@ -388,8 +388,23 @@ func parseWorkflow(workflowPath string) (*domain.Workflow, error) {
 	return workflow, nil
 }
 
+// newDockerBuilderWithOSFunc creates a Docker builder (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var newDockerBuilderWithOSFunc = docker.NewBuilderWithOS
+
+// setupDockerBuilderFunc is overridable in tests for Docker builder setup.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var setupDockerBuilderFunc = setupDockerBuilderImpl
+
 // setupDockerBuilder creates and configures the Docker builder.
 func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
+	return setupDockerBuilderFunc(flags)
+}
+
+// setupDockerBuilderImpl is the default Docker builder setup implementation.
+func setupDockerBuilderImpl(flags *BuildFlags) (*docker.Builder, error) {
 	kdeps_debug.Log("enter: setupDockerBuilder")
 	// Auto-select OS based on GPU type
 	selectedOS := "alpine"
@@ -397,7 +412,7 @@ func setupDockerBuilder(flags *BuildFlags) (*docker.Builder, error) {
 		selectedOS = "ubuntu"
 	}
 
-	builder, err := docker.NewBuilderWithOS(selectedOS)
+	builder, err := newDockerBuilderWithOSFunc(selectedOS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker builder: %w", err)
 	}
@@ -491,8 +506,27 @@ func performDockerBuild(
 	return nil
 }
 
+// chdirToPackageDirFunc changes to absPackageDir (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var chdirToPackageDirFunc = chdirToPackageDirImpl
+
+// filepathAbsFunc resolves absolute paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathAbsFunc = filepath.Abs
+
+// osOpenRootFunc opens a directory root for safe reads (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osOpenRootFunc = os.OpenRoot
+
 // chdirToPackageDir changes to absPackageDir and returns a restore function.
 func chdirToPackageDir(absPackageDir string) (func(), error) {
+	return chdirToPackageDirFunc(absPackageDir)
+}
+
+func chdirToPackageDirImpl(absPackageDir string) (func(), error) {
 	originalDir, _ := os.Getwd()
 	if chdirErr := os.Chdir(absPackageDir); chdirErr != nil {
 		return nil, fmt.Errorf("failed to change to package directory: %w", chdirErr)
@@ -553,11 +587,11 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 	}
 
 	// Resolve absolute paths before chdir so they remain valid afterwards.
-	absPackageDir, err := filepath.Abs(packageDir)
+	absPackageDir, err := filepathAbsFunc(packageDir)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	absPackagePath, err := filepath.Abs(packagePath)
+	absPackagePath, err := filepathAbsFunc(packagePath)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute package path: %w", err)
 	}
@@ -745,7 +779,7 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		return err
 	}
 
-	combinedYAML, err := goyaml.Marshal(workflow)
+	combinedYAML, err := workflowYAMLMarshalFunc(workflow)
 	if err != nil {
 		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
 	}
@@ -860,7 +894,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 		return files, nil
 	}
 
-	root, rootErr := os.OpenRoot(packageDir)
+	root, rootErr := osOpenRootFunc(packageDir)
 	if rootErr != nil {
 		return nil, rootErr
 	}
@@ -874,7 +908,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return nil
 		}
 
-		relPath, relErr := filepath.Rel(packageDir, path)
+		relPath, relErr := collectWebServerRelFunc(packageDir, path)
 		if relErr != nil {
 			return relErr
 		}
@@ -884,7 +918,7 @@ func collectWebServerFiles(packageDir string) (map[string]string, error) {
 			return openErr
 		}
 
-		content, readErr := io.ReadAll(f)
+		content, readErr := collectWebServerReadAllFunc(f)
 		_ = f.Close()
 		if readErr != nil {
 			return readErr
@@ -931,13 +965,38 @@ func findWASMBinary() (string, error) {
 	)
 }
 
+// collectWebServerRelFunc resolves paths for web server files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var collectWebServerRelFunc = filepath.Rel
+
+// collectWebServerReadAllFunc reads web server file content (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var collectWebServerReadAllFunc = io.ReadAll
+
+// workflowYAMLMarshalFunc marshals workflow YAML (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var workflowYAMLMarshalFunc = goyaml.Marshal
+
+// goEnvGOROOTFunc returns GOROOT (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var goEnvGOROOTFunc = func(ctx context.Context) (string, error) {
+	gorootBytes, goErr := exec.CommandContext(ctx, "go", "env", "GOROOT").Output()
+	if goErr != nil {
+		return "", goErr
+	}
+	return strings.TrimSpace(string(gorootBytes)), nil
+}
+
 // gorootWASMExecCandidates returns wasm_exec.js paths under GOROOT.
 func gorootWASMExecCandidates(ctx context.Context) []string {
-	gorootBytes, goErr := exec.CommandContext(ctx, "go", "env", "GOROOT").Output()
+	goroot, goErr := goEnvGOROOTFunc(ctx)
 	if goErr != nil {
 		return nil
 	}
-	goroot := strings.TrimSpace(string(gorootBytes))
 	if goroot == "" {
 		return nil
 	}

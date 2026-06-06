@@ -35,6 +35,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var (
+	osCreateTemp  = os.CreateTemp
+	osMkdirTemp   = os.MkdirTemp
+	closeTempFile = func(f *os.File) error { return f.Close() }
+)
+
 const (
 	defaultHostname = "kdeps"
 	defaultFormat   = "iso-efi"
@@ -130,7 +137,7 @@ func isThinBuildFormat(format string) bool {
 }
 
 func writeLinuxKitConfigTempFile(configYAML string) (string, error) {
-	tmpFile, err := os.CreateTemp("", "kdeps-linuxkit-*.yml")
+	tmpFile, err := osCreateTemp("", "kdeps-linuxkit-*.yml")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp config file: %w", err)
 	}
@@ -141,7 +148,7 @@ func writeLinuxKitConfigTempFile(configYAML string) (string, error) {
 		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("failed to write LinuxKit config: %w", writeErr)
 	}
-	if closeErr := tmpFile.Close(); closeErr != nil {
+	if closeErr := closeTempFile(tmpFile); closeErr != nil {
 		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("failed to close temp config file: %w", closeErr)
 	}
@@ -189,7 +196,7 @@ func (b *Builder) Build(
 	}
 
 	// Run linuxkit build into a temp output directory
-	buildDir, err := os.MkdirTemp("", "kdeps-linuxkit-build-*")
+	buildDir, err := osMkdirTemp("", "kdeps-linuxkit-build-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp build directory: %w", err)
 	}

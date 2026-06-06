@@ -34,6 +34,9 @@ import (
 //go:embed schemas/*.json
 var schemas embed.FS
 
+//nolint:gochecknoglobals // test-replaceable
+var splitFieldParts = func(s string) []string { return strings.Split(s, ".") }
+
 const methodsField = "methods"
 
 // Schema type constants to avoid repeated string literals.
@@ -601,7 +604,7 @@ func lookupWorkflowSchemaEnums(field string, enumMap map[string][]interface{}) [
 
 // lookupNestedFieldEnums resolves enums by the last path segment and parent context.
 func lookupNestedFieldEnums(normalizedField string, enumMap map[string][]interface{}) []interface{} {
-	fieldParts := strings.Split(normalizedField, ".")
+	fieldParts := splitFieldParts(normalizedField)
 	if len(fieldParts) == 0 {
 		return nil
 	}

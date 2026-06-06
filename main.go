@@ -60,10 +60,25 @@ func NewAppConfigForTesting(executeCmd func(string, string) error) *AppConfig {
 	}
 }
 
+// tryRunEmbeddedPackageHook is overridable in tests to exercise main() embedded paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var tryRunEmbeddedPackageHook = tryRunEmbeddedPackage
+
+// osExecutableMain is overridable in tests for tryRunEmbeddedPackage error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osExecutableMain = os.Executable
+
+// osExitMain is overridable in tests to capture main() exit calls.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osExitMain = os.Exit
+
 func main() {
-	if exitCode, handled := tryRunEmbeddedPackage(); handled {
+	if exitCode, handled := tryRunEmbeddedPackageHook(); handled {
 		if exitCode != 0 {
-			os.Exit(exitCode)
+			osExitMain(exitCode)
 		}
 		return
 	}
@@ -72,11 +87,24 @@ func main() {
 
 // tryRunEmbeddedPackage detects a prepackaged workflow appended to this binary and runs it.
 func tryRunEmbeddedPackage() (exitCode int, handled bool) {
-	execPath, err := os.Executable()
+	execPath, err := osExecutableMain()
 	if err != nil || !cmd.HasEmbeddedPackage(execPath) {
 		return 0, false
 	}
-	return cmd.RunEmbeddedPackage(version.Version, version.Commit, execPath), true
+	return runEmbeddedPackageFunc(version.Version, version.Commit, execPath), true
+}
+
+// runEmbeddedPackageFunc is overridable in tests for embedded package execution paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var runEmbeddedPackageFunc = cmd.RunEmbeddedPackage
+
+// TryRunEmbeddedPackageForTest exercises tryRunEmbeddedPackage logic with a custom path.
+func TryRunEmbeddedPackageForTest(execPath string) (int, bool) {
+	if !cmd.HasEmbeddedPackage(execPath) {
+		return 0, false
+	}
+	return runEmbeddedPackageFunc(version.Version, version.Commit, execPath), true
 }
 
 // mainWithoutExit executes the main logic without calling os.Exit.

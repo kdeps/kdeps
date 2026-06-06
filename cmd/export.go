@@ -90,6 +90,39 @@ func injectConfigEnv(workflow *domain.Workflow) {
 	}
 }
 
+// newISOBuilderFunc creates the LinuxKit ISO builder (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var newISOBuilderFunc = iso.NewBuilder
+
+// isoGenerateConfigYAMLFunc generates LinuxKit config YAML (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isoGenerateConfigYAMLFunc = func(b *iso.Builder, imageName string, wf *domain.Workflow) (string, error) {
+	return b.GenerateConfigYAML(imageName, wf)
+}
+
+// isoBuilderBuildFunc builds bootable images via LinuxKit (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var isoBuilderBuildFunc = func(b *iso.Builder, ctx context.Context, imageName string, wf *domain.Workflow, outputPath string, noCache bool) error {
+	return b.Build(ctx, imageName, wf, outputPath, noCache)
+}
+
+// performISOBuildDockerFunc builds Docker images for ISO export (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var performISOBuildDockerFunc = func(b *docker.Builder, wf *domain.Workflow, packagePath string, noCache bool) (string, error) {
+	return b.Build(wf, packagePath, noCache)
+}
+
+// k8sGenerateManifestsFunc generates K8s manifests (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var k8sGenerateManifestsFunc = func(imageName string, wf *domain.Workflow) (string, error) {
+	return k8s.NewGenerator(imageName).GenerateManifests(wf)
+}
+
 // getFormatMap returns a map of user-friendly format names to LinuxKit format strings.
 func getFormatMap() map[string]string {
 	kdeps_debug.Log("enter: getFormatMap")
@@ -217,7 +250,7 @@ func prepareISOExportWorkflow(packagePath string) (
 		return nil, "", nil, err
 	}
 
-	absPackageDir, err := filepath.Abs(packageDir)
+	absPackageDir, err := filepathAbsFunc(packageDir)
 	if err != nil {
 		if cleanupFunc != nil {
 			cleanupFunc()
@@ -289,7 +322,7 @@ func showLinuxKitConfig(workflow *domain.Workflow, flags *ExportFlags) error {
 	}
 	imageName := fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
 
-	configYAML, err := isoBuilder.GenerateConfigYAML(imageName, workflow)
+	configYAML, err := isoGenerateConfigYAMLFunc(isoBuilder, imageName, workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate LinuxKit config: %w", err)
 	}
@@ -347,7 +380,7 @@ func performISOBuild(
 	kdeps_debug.Log("enter: performISOBuild")
 	fmt.Fprintln(os.Stdout, "Step 1: Building Docker image...")
 
-	imageName, err := builder.Build(workflow, packagePath, flags.NoCache)
+	imageName, err := performISOBuildDockerFunc(builder, workflow, packagePath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build Docker image: %w", err)
 	}
@@ -361,7 +394,7 @@ func performISOBuild(
 
 	outputPath := resolveOutputPath(flags.Output, flags.Format, workflow, originalDir)
 
-	isoBuilder, err := iso.NewBuilder()
+	isoBuilder, err := newISOBuilderFunc()
 	if err != nil {
 		return fmt.Errorf("failed to initialize LinuxKit builder: %w", err)
 	}
@@ -377,7 +410,14 @@ func performISOBuild(
 	ctx := context.Background()
 	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
 
-	if buildErr := isoBuilder.Build(ctx, imageName, workflow, outputPath, flags.NoCache); buildErr != nil {
+	if buildErr := isoBuilderBuildFunc(
+		isoBuilder,
+		ctx,
+		imageName,
+		workflow,
+		outputPath,
+		flags.NoCache,
+	); buildErr != nil {
 		return fmt.Errorf("failed to build image: %w", buildErr)
 	}
 
@@ -789,7 +829,7 @@ func exportK8sInternal(cmd *cobra.Command, args []string, flags *K8sFlags) error
 	injectConfigEnv(workflow)
 
 	imageName := resolveK8sImageName(flags, workflow)
-	manifests, err := k8s.NewGenerator(imageName).GenerateManifests(workflow)
+	manifests, err := k8sGenerateManifestsFunc(imageName, workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate Kubernetes manifests: %w", err)
 	}

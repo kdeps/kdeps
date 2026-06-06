@@ -83,6 +83,35 @@ func TestWatcher_Watch_FsnotifyAddError(t *testing.T) {
 	_ = watcher.Close()
 }
 
+func TestWatcher_watch_ErrorChannelClosed(t *testing.T) {
+	errCh := make(chan error)
+	evCh := make(chan fsnotify.Event)
+	fw := &fsnotify.Watcher{
+		Events: evCh,
+		Errors: errCh,
+	}
+
+	watcher := &Watcher{
+		watcher:   fw,
+		callbacks: make(map[string][]func()),
+		logger:    slog.Default(),
+	}
+
+	done := make(chan struct{})
+	go func() {
+		watcher.watch()
+		close(done)
+	}()
+
+	close(errCh)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("watch did not exit after Errors channel closed")
+	}
+}
+
 func TestWatcher_watch_ErrorChannel(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{}))

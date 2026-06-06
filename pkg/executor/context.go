@@ -236,8 +236,16 @@ func parseSessionTTL(ttlStr string) time.Duration {
 	return defaultTTL
 }
 
+//nolint:gochecknoglobals // test-replaceable
+var userHomeDirFunc = os.UserHomeDir
+
+//nolint:gochecknoglobals // test-replaceable
+var mimeTypeByExtension = mime.TypeByExtension
+
+var errFilterByMimeType error
+
 func defaultSessionDBPath() string {
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := userHomeDirFunc()
 	if err != nil {
 		return ""
 	}
@@ -1131,6 +1139,9 @@ func (ctx *ExecutionContext) FilterByMimeType(
 	targetMimeType string,
 ) ([]string, error) {
 	kdeps_debug.Log("enter: FilterByMimeType")
+	if errFilterByMimeType != nil {
+		return nil, errFilterByMimeType
+	}
 	filtered := make([]string, 0)
 
 	for _, path := range paths {
@@ -1140,7 +1151,7 @@ func (ctx *ExecutionContext) FilterByMimeType(
 		}
 
 		// Get MIME type from file extension
-		mimeType := mime.TypeByExtension(filepath.Ext(path))
+		mimeType := mimeTypeByExtension(filepath.Ext(path))
 
 		// If MIME type is empty, try to infer from extension
 		// This handles cases where system MIME database doesn't have the extension

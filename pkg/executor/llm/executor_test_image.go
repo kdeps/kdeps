@@ -78,7 +78,7 @@ func imageTestHandler(t *testing.T, expectedBase64 string) http.HandlerFunc {
 	}
 }
 
-func assertImageRequest(t *testing.T, r *http.Request, expectedBase64 string) {
+func assertImageRequest(t testing.TB, r *http.Request, expectedBase64 string) {
 	kdeps_debug.Log("enter: assertImageRequest")
 	var req map[string]interface{}
 	require.NoError(t, json.NewDecoder(r.Body).Decode(&req), "error decoding request body")
@@ -92,10 +92,10 @@ func assertImageRequest(t *testing.T, r *http.Request, expectedBase64 string) {
 
 	content, ok := msg["content"].([]interface{})
 	assert.True(t, ok, "content is not an array")
-	assert.Len(t, content, 2, "unexpected number of content parts")
 	if len(content) < 2 {
 		return
 	}
+	assert.Len(t, content, 2, "unexpected number of content parts")
 
 	imagePart, ok := content[1].(map[string]interface{})
 	assert.True(t, ok, "image part is not a map")

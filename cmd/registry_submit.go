@@ -72,6 +72,28 @@ func submitDirFromArgs(args []string) string {
 	return args[0]
 }
 
+// detectGitHubRepoFunc is overridable in tests for doRegistrySubmit success paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var detectGitHubRepoFunc = detectGitHubRepo
+
+// computeRemoteSHA256Func is overridable in tests for doRegistrySubmit success paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var computeRemoteSHA256Func = computeRemoteSHA256
+
+// registryFormulaEncodeFunc encodes registry formulas (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var registryFormulaEncodeFunc = func(enc *yaml.Encoder, f registryFormula) error {
+	return enc.Encode(f)
+}
+
+// githubURLSplitNFunc splits GitHub HTTPS remotes (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var githubURLSplitNFunc = strings.SplitN
+
 func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 	kdeps_debug.Log("enter: doRegistrySubmit")
 
@@ -80,7 +102,7 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 		return err
 	}
 
-	githubRepo, err := detectGitHubRepo(dir)
+	githubRepo, err := detectGitHubRepoFunc(dir)
 	if err != nil {
 		return fmt.Errorf(
 			"detect GitHub repo: %w\n\nSet the GitHub remote with: git remote add origin https://github.com/owner/repo",
@@ -89,7 +111,7 @@ func doRegistrySubmit(cmd *cobra.Command, dir, tag string) error {
 	}
 
 	tarbullURL := githubTarballURL(githubRepo, tag)
-	hash, err := computeRemoteSHA256(tarbullURL)
+	hash, err := computeRemoteSHA256Func(tarbullURL)
 	if err != nil {
 		return fmt.Errorf("compute sha256 for %s: %w", tarbullURL, err)
 	}
@@ -136,7 +158,7 @@ func encodeRegistryFormula(f registryFormula) (string, error) {
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(githubURLSplitParts)
-	if encErr := enc.Encode(f); encErr != nil {
+	if encErr := registryFormulaEncodeFunc(enc, f); encErr != nil {
 		return "", fmt.Errorf("encode formula: %w", encErr)
 	}
 	return buf.String(), nil
@@ -182,7 +204,7 @@ func parseGitHubHTTPSRemote(remote string) (string, bool) {
 	if !strings.Contains(remote, "github.com/") {
 		return "", false
 	}
-	parts := strings.SplitN(remote, "github.com/", githubURLSplitParts)
+	parts := githubURLSplitNFunc(remote, "github.com/", githubURLSplitParts)
 	if len(parts) != githubSSHRepoParts {
 		return "", false
 	}

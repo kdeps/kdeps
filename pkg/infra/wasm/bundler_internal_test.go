@@ -230,6 +230,56 @@ func TestGenerateDefaultIndex_DistDirNotExist(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestMarshalAPIRoutesJSON_ErrorFallback(t *testing.T) {
+	orig := jsonMarshalRoutes
+	t.Cleanup(func() { jsonMarshalRoutes = orig })
+	jsonMarshalRoutes = func(_ interface{}) ([]byte, error) {
+		return nil, errors.New("marshal failed")
+	}
+
+	result := marshalAPIRoutesJSON([]string{"/api"})
+	assert.Equal(t, "[]", result)
+}
+
+func TestRenderBootstrap_ReadTemplateError(t *testing.T) {
+	orig := readTemplateFile
+	t.Cleanup(func() { readTemplateFile = orig })
+	readTemplateFile = func(string) ([]byte, error) {
+		return nil, errors.New("read failed")
+	}
+
+	err := renderBootstrap(&BundleConfig{WorkflowYAML: "test"}, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read bootstrap template")
+}
+
+func TestRenderBootstrap_ParseTemplateError(t *testing.T) {
+	orig := readTemplateFile
+	t.Cleanup(func() { readTemplateFile = orig })
+	readTemplateFile = func(string) ([]byte, error) {
+		return []byte("{{.Broken"), nil
+	}
+
+	err := renderBootstrap(&BundleConfig{WorkflowYAML: "test"}, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse bootstrap template")
+}
+
+func TestGenerateDefaultIndex_ReadTemplateError(t *testing.T) {
+	orig := readTemplateFile
+	t.Cleanup(func() { readTemplateFile = orig })
+	readTemplateFile = func(name string) ([]byte, error) {
+		if name == "templates/index.html.tmpl" {
+			return nil, errors.New("read failed")
+		}
+		return templateFS.ReadFile(name)
+	}
+
+	err := generateDefaultIndex(t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read default HTML template")
+}
+
 func TestGenerateDefaultIndex_MkdirAllError(t *testing.T) {
 	// DistDir exists but index.html is blocked by a directory.
 	// This requires the parent to exist but the file to be unwriteable.

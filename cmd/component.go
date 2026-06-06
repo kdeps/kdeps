@@ -36,6 +36,46 @@ import (
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
+// osMkdirTempKomponentFunc creates temp dirs for komponent extraction (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osMkdirTempKomponentFunc = os.MkdirTemp
+
+// filepathAbsSafeFunc resolves absolute paths for komponent extraction (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathAbsSafeFunc = filepath.Abs
+
+// filepathRelSafeFunc validates relative paths for komponent extraction (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathRelSafeFunc = filepath.Rel
+
+// filepathAbsComponentUpdateFunc resolves component update paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathAbsComponentUpdateFunc = filepath.Abs
+
+// updateComponentFilesFunc updates component files (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var updateComponentFilesFunc = executor.UpdateComponentFiles
+
+// filepathAbsTargetFunc resolves komponent target paths (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var filepathAbsTargetFunc = filepath.Abs
+
+// komponentIOCopyFunc copies komponent tar data (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var komponentIOCopyFunc = io.Copy
+
+// komponentFileCloseFunc closes komponent files after extraction (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var komponentFileCloseFunc = func(f *os.File) error { return f.Close() }
+
 // componentInstallDir returns the global component install directory.
 // Override with $KDEPS_COMPONENT_DIR; default is ~/.kdeps/components/.
 func componentInstallDir() (string, error) {
@@ -170,7 +210,7 @@ func readReadmeFromKomponent(pkgPath string) (string, error) {
 // Caller must invoke the returned cleanup func.
 func extractKomponent(pkgPath string) (string, func(), error) {
 	kdeps_debug.Log("enter: extractKomponent")
-	tempDir, err := os.MkdirTemp("", "kdeps-komponent-*")
+	tempDir, err := osMkdirTempKomponentFunc("", "kdeps-komponent-*")
 	if err != nil {
 		return "", func() {}, fmt.Errorf("create temp dir: %w", err)
 	}
@@ -282,7 +322,7 @@ func cmdExtractTarGz(r io.Reader, destDir string) error {
 		if nextErr != nil {
 			return fmt.Errorf("tar next: %w", nextErr)
 		}
-		if err := cmdExtractTarEntry(tr, header, destDir); err != nil {
+		if err := cmdExtractTarEntryFunc(tr, header, destDir); err != nil {
 			return err
 		}
 	}
@@ -296,20 +336,20 @@ func safeKomponentTarget(destDir, entryName string) (string, bool, error) {
 		return "", false, nil
 	}
 
-	baseDir, baseErr := filepath.Abs(destDir)
+	baseDir, baseErr := filepathAbsSafeFunc(destDir)
 	if baseErr != nil {
 		return "", false, fmt.Errorf("resolve dest dir: %w", baseErr)
 	}
 	baseDir = filepath.Clean(baseDir)
 
 	target := filepath.Join(baseDir, cleanName)
-	absTarget, targetErr := filepath.Abs(target)
+	absTarget, targetErr := filepathAbsTargetFunc(target)
 	if targetErr != nil {
 		return "", false, fmt.Errorf("resolve target path: %w", targetErr)
 	}
 	absTarget = filepath.Clean(absTarget)
 
-	rel, relErr := filepath.Rel(baseDir, absTarget)
+	rel, relErr := filepathRelSafeFunc(baseDir, absTarget)
 	if relErr != nil {
 		return "", false, fmt.Errorf("validate target path: %w", relErr)
 	}
@@ -328,8 +368,8 @@ func writeKomponentRegularFile(absTarget string, tr *tar.Reader) error {
 	if createErr != nil {
 		return fmt.Errorf("create %s: %w", absTarget, createErr)
 	}
-	_, copyErr := io.Copy(f, tr)
-	if closeErr := f.Close(); closeErr != nil && copyErr == nil {
+	_, copyErr := komponentIOCopyFunc(f, tr)
+	if closeErr := komponentFileCloseFunc(f); closeErr != nil && copyErr == nil {
 		return fmt.Errorf("close %s: %w", absTarget, closeErr)
 	}
 	if copyErr != nil {
@@ -337,6 +377,11 @@ func writeKomponentRegularFile(absTarget string, tr *tar.Reader) error {
 	}
 	return nil
 }
+
+// cmdExtractTarEntryFunc extracts a single tar entry (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var cmdExtractTarEntryFunc = cmdExtractTarEntry
 
 // cmdExtractTarEntry writes a single tar entry to destDir.
 func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) error {
@@ -360,7 +405,7 @@ func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) erro
 // componentUpdateInternal runs the update logic for a given path.
 func componentUpdateInternal(target string) error {
 	kdeps_debug.Log("enter: componentUpdateInternal")
-	abs, err := filepath.Abs(target)
+	abs, err := filepathAbsComponentUpdateFunc(target)
 	if err != nil {
 		return fmt.Errorf("resolve path: %w", err)
 	}
@@ -450,7 +495,7 @@ func updateComponentDir(compDir string) error {
 		return fmt.Errorf("parse %s: %w", compFile, parseErr)
 	}
 
-	result, updateErr := executor.UpdateComponentFiles(comp, compDir)
+	result, updateErr := updateComponentFilesFunc(comp, compDir)
 	if updateErr != nil {
 		return fmt.Errorf("update %s: %w", comp.Metadata.Name, updateErr)
 	}

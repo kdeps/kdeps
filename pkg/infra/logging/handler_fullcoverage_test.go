@@ -22,8 +22,10 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -256,6 +258,27 @@ func TestFormatValue_KindTime(t *testing.T) {
 	output := buf.String()
 	assert.Contains(t, output, "timestamp")
 	assert.Contains(t, output, "2026-06-05")
+}
+
+// TestFormatValue_DefaultKind tests formatValue default branch for unknown kinds.
+func TestFormatValue_DefaultKind(t *testing.T) {
+	var buf strings.Builder
+	handler := NewPrettyHandler(&bytes.Buffer{}, &PrettyHandlerOptions{DisableColors: true})
+
+	unknown := makeUnknownSlogValue()
+	handler.formatValue(&buf, unknown, "  ")
+
+	assert.Contains(t, buf.String(), "<unknown>")
+}
+
+func makeUnknownSlogValue() slog.Value {
+	type value struct {
+		_   [0]func()
+		num uint64
+		any any
+	}
+	v := value{any: slog.Kind(99)}
+	return *(*slog.Value)(unsafe.Pointer(&v))
 }
 
 // TestFormatValue_KindGroup tests formatValue with slog.KindGroup (line 262-273).

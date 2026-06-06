@@ -60,6 +60,18 @@ const (
 	replHistoryLimit = 500
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var isStdinTerminal = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+//nolint:gochecknoglobals // test-replaceable
+var readlineNewEx = readline.NewEx
+
+//nolint:gochecknoglobals // test-replaceable
+var processREPLLineFunc = processREPLLine
+
+//nolint:gochecknoglobals // test-replaceable
+var readlineStepFunc = readlineStep
+
 // Run starts the LLM interactive REPL on os.Stdin/os.Stdout using the
 // configuration in workflow.Settings.Input.LLM. Each line typed by the
 // user is forwarded to the workflow as input("message"); the target
@@ -79,13 +91,13 @@ func Run(
 ) error {
 	kdeps_debug.Log("enter: llm.Run")
 
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	if !isStdinTerminal() {
 		return RunWithIO(ctx, workflow, engine, logger, os.Stdin, os.Stdout)
 	}
 
 	settings := resolveREPLSettings(workflow)
 
-	rl, err := readline.NewEx(&readline.Config{
+	rl, err := readlineNewEx(&readline.Config{
 		Prompt:          settings.prompt,
 		HistoryLimit:    replHistoryLimit,
 		InterruptPrompt: "^C",
@@ -106,7 +118,7 @@ func Run(
 		default:
 		}
 
-		done, stepErr = readlineStep(rl, workflow, engine, settings.sessionID)
+		done, stepErr = readlineStepFunc(rl, workflow, engine, settings.sessionID)
 		if stepErr != nil {
 			return stepErr
 		}
@@ -249,7 +261,7 @@ func RunWithIO(
 			return nil
 		}
 
-		done, err := processREPLLine(w, workflow, engine, settings.sessionID, scanner.Text())
+		done, err := processREPLLineFunc(w, workflow, engine, settings.sessionID, scanner.Text())
 		if err != nil {
 			return err
 		}

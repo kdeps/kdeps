@@ -47,6 +47,12 @@ const (
 	whatsAppReadHeaderTimeout  = 10 * time.Second
 )
 
+//nolint:gochecknoglobals // test-replaceable
+var whatsAppJSONMarshal = json.Marshal
+
+//nolint:gochecknoglobals // test-replaceable
+var whatsAppNewRequest = http.NewRequestWithContext
+
 type whatsAppRunner struct {
 	phoneNumberID string
 	accessToken   string
@@ -256,12 +262,12 @@ func (r *whatsAppRunner) Reply(ctx context.Context, chatID, text string) error {
 		"text":              map[string]string{"body": text},
 	}
 
-	data, err := json.Marshal(payload)
+	data, err := whatsAppJSONMarshal(payload)
 	if err != nil {
 		return fmt.Errorf("whatsapp: marshal reply: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
+	req, err := whatsAppNewRequest(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("whatsapp: build request: %w", err)
 	}

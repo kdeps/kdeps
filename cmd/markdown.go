@@ -29,15 +29,32 @@ import (
 
 const defaultMarkdownWidth = 80
 
+// markdownRenderFunc renders markdown content (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var markdownRenderFunc = func(r *glamour.TermRenderer, content string) (string, error) {
+	return r.Render(content)
+}
+
+// newMarkdownRendererFunc is overridable in tests for renderMarkdown fallback paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var newMarkdownRendererFunc = newMarkdownRenderer
+
+// termGetSizeFunc is overridable in tests for terminalMarkdownWidth error paths.
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var termGetSizeFunc = term.GetSize
+
 // renderMarkdown renders markdown content for terminal display using glamour.
 // Falls back to the raw string if rendering fails.
 func renderMarkdown(content string) string {
-	renderer, err := newMarkdownRenderer()
+	renderer, err := newMarkdownRendererFunc()
 	if err != nil {
 		return content
 	}
 
-	rendered, err := renderer.Render(content)
+	rendered, err := markdownRenderFunc(renderer, content)
 	if err != nil {
 		return content
 	}
@@ -54,7 +71,7 @@ func newMarkdownRenderer() (*glamour.TermRenderer, error) {
 
 // terminalMarkdownWidth returns the terminal width or a sensible default.
 func terminalMarkdownWidth() int {
-	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	width, _, err := termGetSizeFunc(int(os.Stdout.Fd()))
 	if err != nil || width <= 0 {
 		return defaultMarkdownWidth
 	}

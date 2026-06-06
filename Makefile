@@ -32,11 +32,15 @@ test: fmt lint build
 	echo "=========================================="; \
 	echo "Running Unit Tests with Coverage"; \
 	echo "=========================================="; \
-	go test -v -short -timeout=5m -coverprofile=coverage-unit.out ./pkg/... ./cmd/...; \
+	go test -v -short -timeout=5m -coverprofile=coverage-unit.out ./pkg/... ./cmd/... ./; \
 	UNIT_EXIT=$$?; \
 	UNIT_COVERAGE=""; \
 	if [ -f coverage-unit.out ]; then \
 		UNIT_COVERAGE=$$(go tool cover -func=coverage-unit.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+		if [ "$$UNIT_EXIT" -eq 0 ] && [ "$$UNIT_COVERAGE" != "100.0%" ]; then \
+			echo "Unit coverage $$UNIT_COVERAGE is below required 100.0%"; \
+			UNIT_EXIT=1; \
+		fi; \
 	fi; \
 	echo ""; \
 	echo "=========================================="; \
@@ -161,7 +165,12 @@ test-unit:
 	echo ""; \
 	if [ -f coverage.out ]; then \
 		echo "Coverage Report:"; \
-		go tool cover -func=coverage.out | tail -1; \
+		COV=$$(go tool cover -func=coverage.out | tail -1 | awk '{print $$NF}'); \
+		echo "total: $$COV"; \
+		if [ "$$TEST_EXIT" -eq 0 ] && [ "$$COV" != "100.0%" ]; then \
+			echo "Unit coverage $$COV is below required 100.0%"; \
+			TEST_EXIT=1; \
+		fi; \
 	fi; \
 	exit $$TEST_EXIT
 

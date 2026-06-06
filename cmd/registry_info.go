@@ -63,6 +63,11 @@ const (
 	registrySearchLimit = 20
 )
 
+// osMkdirTempInfoFunc creates temp dirs for registry info (overridable in tests).
+//
+//nolint:gochecknoglobals // test-replaceable hook
+var osMkdirTempInfoFunc = os.MkdirTemp
+
 func doRegistryInfo(cmd *cobra.Command, ref, baseURL string) error {
 	kdeps_debug.Log("enter: doRegistryInfo")
 
@@ -172,6 +177,9 @@ func printPackageReadme(w interface{ Write([]byte) (int, error) }, ref string, p
 // Returns "" on any failure so the caller can fall through gracefully.
 func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, name string) string {
 	kdeps_debug.Log("enter: readmeFromRegistryArchive")
+	if client == nil {
+		return ""
+	}
 
 	entries, err := client.Search(ctx, name, "", registrySearchLimit)
 	if err != nil {
@@ -183,7 +191,7 @@ func readmeFromRegistryArchive(ctx context.Context, client *registry.Client, nam
 		return ""
 	}
 
-	tmpDir, err := os.MkdirTemp("", "kdeps-info-*")
+	tmpDir, err := osMkdirTempInfoFunc("", "kdeps-info-*")
 	if err != nil {
 		return ""
 	}

@@ -41,7 +41,10 @@ const sqliteMemoryDSN = ":memory:"
 // defaultCleanupInterval is the default ticker interval for expired session cleanup.
 //
 //nolint:gochecknoglobals // overridden in tests for fast cleanup
-var defaultCleanupInterval = 5 * time.Minute
+var (
+	defaultCleanupInterval = 5 * time.Minute
+	sessionsSchemaMigrator = migrateSessionsSchema
+)
 
 // SessionStorage provides per-session key-value storage using SQLite.
 type SessionStorage struct {
@@ -190,7 +193,7 @@ func (s *SessionStorage) initSchema() error {
 		return fmt.Errorf("failed to create sessions table: %w", err)
 	}
 
-	if err := migrateSessionsSchema(s.DB); err != nil {
+	if err := sessionsSchemaMigrator(s.DB); err != nil {
 		return err
 	}
 
