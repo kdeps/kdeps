@@ -67,6 +67,9 @@ var osRename = os.Rename
 //nolint:gochecknoglobals // test-replaceable
 var osChmod = os.Chmod
 
+//nolint:gochecknoglobals // test-replaceable
+var netListenConfigListen = (&net.ListenConfig{}).Listen
+
 // LlamafileManager handles downloading, caching, and serving llamafile binaries.
 type LlamafileManager struct {
 	logger    *slog.Logger
@@ -210,8 +213,7 @@ func (m *LlamafileManager) MakeExecutable(path string) error {
 // FindFreePort returns an available TCP port on localhost.
 func FindFreePort() (int, error) {
 	kdeps_debug.Log("enter: FindFreePort")
-	cfg := &net.ListenConfig{}
-	ln, err := cfg.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	ln, err := netListenConfigListen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, fmt.Errorf("cannot find free port: %w", err)
 	}
