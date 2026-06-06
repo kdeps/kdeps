@@ -32,6 +32,9 @@ var execCommandContext = exec.CommandContext
 //nolint:gochecknoglobals // test-replaceable
 var execLookPath = exec.LookPath
 
+//nolint:gochecknoglobals // test-replaceable
+var osUserHomeDir = os.UserHomeDir
+
 const (
 	linuxkitVersion = "v1.8.2"
 	linuxkitBaseURL = "https://github.com/linuxkit/linuxkit/releases/download"
@@ -142,7 +145,7 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 
 func linuxkitCacheDir() (string, error) {
 	kdeps_debug.Log("enter: linuxkitCacheDir")
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
