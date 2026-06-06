@@ -28,7 +28,10 @@ require (
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/sijms/go-ora/v2 v2.9.0
 	github.com/slack-go/slack v0.25.0
+	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/fileflow v0.0.0-20260423171140-86078757609f
+	github.com/spf13/pathologize v0.0.0-20260505185802-eaa16159b601
 	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 	golang.org/x/net v0.55.0
@@ -93,9 +96,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/spf13/afero v1.15.0 // indirect
-	github.com/spf13/fileflow v0.0.0-20260423171140-86078757609f // indirect
-	github.com/spf13/pathologize v0.0.0-20260505185802-eaa16159b601 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
