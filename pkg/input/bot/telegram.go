@@ -45,6 +45,9 @@ const defaultTelegramPollTimeout = 30 * time.Second
 //nolint:gochecknoglobals // test-replaceable
 var telegramNewBot = telegrambot.New
 
+//nolint:gochecknoglobals // test-replaceable
+var telegramBotStart = func(b *telegrambot.Bot, ctx context.Context) { b.Start(ctx) }
+
 type telegramRunner struct {
 	botToken            string
 	pollIntervalSeconds int
@@ -106,7 +109,7 @@ func (r *telegramRunner) Start(ctx context.Context, ch chan<- Message) error {
 	r.bot = b
 
 	r.logger.InfoContext(ctx, "telegram: starting long-poll")
-	b.Start(ctx)
+	telegramBotStart(b, ctx)
 	return nil
 }
 
