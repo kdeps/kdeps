@@ -238,6 +238,9 @@ musl-binaries/
 *.backup
 *.ics
 
+# Local refactor/split tooling scripts (not shipped)
+scripts/refactor-tooling/
+
 # Private/personal files - not for repo
 private/
 kdeps-io*
