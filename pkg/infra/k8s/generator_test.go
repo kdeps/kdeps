@@ -67,6 +67,9 @@ func TestGenerateManifests(t *testing.T) {
 	assert.Contains(t, manifests, "targetPort: api")
 	assert.Contains(t, manifests, "runAsNonRoot: true")
 	assert.Contains(t, manifests, `drop: ["ALL"]`)
+	assert.Contains(t, manifests, "KDEPS_API_AUTH_TOKEN")
+	assert.Contains(t, manifests, "secretKeyRef")
+	assert.Contains(t, manifests, "name: test-app-auth")
 }
 
 func TestGenerateManifests_rejectsBakedAuthToken(t *testing.T) {

@@ -29,7 +29,11 @@ G -> H
 
 `apiServer` and `webServer` share the same port. Path prefix determines which handler fires.
 
-`webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). Bearer auth applies only to `apiServer` routes, not static files or app proxies.
+`webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). CSP is omitted on `webServer` so proxied apps keep working. Bearer auth applies only to `apiServer` routes, not static files or app proxies.
+
+### webServer-only (no apiServer)
+
+If you run with only `webServer` and no `apiServer`, there is no bearer auth, rate limiting, or body size middleware. Anyone who can reach the bind address can read static files and use app proxies. For production, terminate TLS and auth at an ingress or reverse proxy, or always pair `webServer` with `apiServer` on the same port.
 
 ## Basic Configuration
 

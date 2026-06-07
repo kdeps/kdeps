@@ -60,6 +60,12 @@ Both `apiServer` and `webServer` responses include defensive HTTP headers on eve
 - `Permissions-Policy: camera=(), microphone=(), geolocation=()`
 - `Strict-Transport-Security: max-age=31536000; includeSubDomains` (TLS only)
 
+`apiServer` also sets a strict `Content-Security-Policy` (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`) on JSON API responses. `webServer` omits CSP so proxied apps (Streamlit, Gradio, SPAs) are not blocked.
+
+### webServer-only mode
+
+When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth, rate limits, or body size caps. Static files and app proxies are world-readable if bound to `0.0.0.0`. Put an ingress or reverse proxy with auth in front, or bind to `127.0.0.1` for local development.
+
 ## Rate Limiting
 
 Limit requests per client IP using a token-bucket algorithm. `requestsPerMinute` is the sustained rate; `burst` is the number of requests allowed above that rate in a single burst. Clients that exceed the limit receive a `429` response with a `Retry-After: 60` header.

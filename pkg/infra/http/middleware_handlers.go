@@ -74,8 +74,11 @@ func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhtt
 	}
 }
 
+const strictContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+
 // SecurityHeadersMiddleware sets defensive HTTP security headers on every response.
-func SecurityHeadersMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+// When includeCSP is true, adds a strict Content-Security-Policy for JSON API responses.
+func SecurityHeadersMiddleware(includeCSP bool) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: SecurityHeadersMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -83,6 +86,9 @@ func SecurityHeadersMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+			if includeCSP {
+				w.Header().Set("Content-Security-Policy", strictContentSecurityPolicy)
+			}
 			if r.TLS != nil {
 				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 			}

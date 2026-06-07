@@ -40,6 +40,19 @@ spec:
           name: backend
         {{- end }}
         env:
+        {{- if .HasAPIServer }}
+        - name: KDEPS_API_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Name }}-auth
+              key: api-token
+        - name: KDEPS_MANAGEMENT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Name }}-auth
+              key: management-token
+              optional: true
+        {{- end }}
         {{- range $key, $value := .Env }}
         - name: {{ $key }}
           value: "{{ $value }}"
