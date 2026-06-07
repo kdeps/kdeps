@@ -49,9 +49,25 @@ func (w *WorkflowSettings) GetPortNum() int {
 func (w *WorkflowSettings) GetCORSConfig() *CORS {
 	kdeps_debug.Log("enter: GetCORSConfig")
 	if w.APIServer == nil || w.APIServer.CORS == nil {
-		return defaultCORSConfig()
+		return sanitizeCORSConfig(defaultCORSConfig())
 	}
-	return mergeCORSWithDefaults(w.APIServer.CORS, defaultCORSConfig())
+	return sanitizeCORSConfig(mergeCORSWithDefaults(w.APIServer.CORS, defaultCORSConfig()))
+}
+
+func sanitizeCORSConfig(config *CORS) *CORS {
+	if corsAllowsWildcard(config) && config.AllowCredentials {
+		config.AllowCredentials = false
+	}
+	return config
+}
+
+func corsAllowsWildcard(config *CORS) bool {
+	for _, origin := range config.AllowOrigins {
+		if origin == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultCORSConfig() *CORS {
@@ -65,7 +81,7 @@ func defaultCORSConfig() *CORS {
 			"X-Requested-With",
 			"X-Session-Id",
 		},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	}
 }
 

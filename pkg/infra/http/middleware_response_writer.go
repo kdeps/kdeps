@@ -19,6 +19,7 @@
 package http
 
 import (
+	"crypto/subtle"
 	"html"
 	stdhttp "net/http"
 	"strings"
@@ -53,6 +54,15 @@ func contentTypeBase(ct string) string {
 // isMultipartContentType reports whether ct is a multipart form upload.
 func isMultipartContentType(ct string) bool {
 	return strings.HasPrefix(ct, "multipart/form-data")
+}
+
+// constantTimeEqual compares two secret strings without leaking timing via length.
+func constantTimeEqual(a, b string) bool {
+	if len(a) != len(b) {
+		subtle.ConstantTimeCompare([]byte(a), []byte(b))
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 // extractAuthToken reads bearer or API-key credentials from the request.

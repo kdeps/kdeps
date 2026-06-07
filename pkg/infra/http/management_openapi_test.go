@@ -140,10 +140,12 @@ func TestHandleManagementOpenAPI_WithWorkflow(t *testing.T) {
 }
 
 func TestHandleManagementOpenAPI_RouteRegistered(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "mgmt-test-token")
 	server := makeTestServer(t, chatbotTestWorkflow())
 	server.SetupManagementRoutes()
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/openapi", nil)
+	req.Header.Set("Authorization", "Bearer mgmt-test-token")
 	rec := httptest.NewRecorder()
 
 	// Test via router to confirm the route is registered.
@@ -208,10 +210,12 @@ func TestHandleManagementSchema_WithWorkflow(t *testing.T) {
 }
 
 func TestHandleManagementSchema_RouteRegistered(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "mgmt-test-token")
 	server := makeTestServer(t, chatbotTestWorkflow())
 	server.SetupManagementRoutes()
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/schema", nil)
+	req.Header.Set("Authorization", "Bearer mgmt-test-token")
 	rec := httptest.NewRecorder()
 
 	// Test via router to confirm the route is registered.

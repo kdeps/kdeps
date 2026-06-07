@@ -82,7 +82,7 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		}
 
 		provided := strings.TrimSpace(authHeader[len(bearerPrefix):])
-		if provided != token {
+		if !constantTimeEqual(provided, token) {
 			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
 			return
 		}

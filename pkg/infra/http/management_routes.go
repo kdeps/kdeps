@@ -34,10 +34,10 @@ import (
 // container (client).
 func (s *Server) SetupManagementRoutes() {
 	kdeps_debug.Log("enter: SetupManagementRoutes")
-	// Status and schema discovery are read-only and safe to expose without auth.
-	s.Router.GET(managementPathPrefix+"/status", s.HandleManagementStatus)
-	s.Router.GET(managementPathPrefix+"/openapi", s.HandleManagementOpenAPI)
-	s.Router.GET(managementPathPrefix+"/schema", s.HandleManagementSchema)
+	// All management routes require KDEPS_MANAGEMENT_TOKEN.
+	s.Router.GET(managementPathPrefix+"/status", requireManagementAuth(s.HandleManagementStatus))
+	s.Router.GET(managementPathPrefix+"/openapi", requireManagementAuth(s.HandleManagementOpenAPI))
+	s.Router.GET(managementPathPrefix+"/schema", requireManagementAuth(s.HandleManagementSchema))
 	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
 	s.Router.PUT(
 		managementPathPrefix+"/workflow",

@@ -19,6 +19,7 @@
 package http_test
 
 import (
+	"crypto/tls"
 	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
@@ -344,6 +345,20 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	assert.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
 	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
 	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
+	assert.Equal(t, "camera=(), microphone=(), geolocation=()", w.Header().Get("Permissions-Policy"))
+	assert.Empty(t, w.Header().Get("Strict-Transport-Security"))
+}
+
+func TestSecurityHeadersMiddleware_TLS(t *testing.T) {
+	middleware := http.SecurityHeadersMiddleware()
+	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	req.TLS = &tls.ConnectionState{}
+	handler(w, req)
+	assert.Equal(t, "max-age=31536000; includeSubDomains", w.Header().Get("Strict-Transport-Security"))
 }
 
 func TestConcurrentLimitMiddleware(t *testing.T) {
