@@ -307,6 +307,3 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 		)
 	}
 }
-
-// ParseRequest parses HTTP request into RequestContext.
-//

@@ -20,13 +20,76 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	stdhttp "net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func (s *Server) ParseRequest(
+	r *stdhttp.Request,
+	uploadedFiles []*domain.UploadedFile,
+) *RequestContext {
+	kdeps_debug.Log("enter: ParseRequest")
+	query := make(map[string]string)
+	for key, values := range r.URL.Query() {
+		if len(values) > 0 {
+			query[key] = values[0]
+		}
+	}
+
+	headers := make(map[string]string)
+	for key, values := range r.Header {
+		if len(values) > 0 {
+			headers[key] = values[0]
+		}
+	}
+
+	var body map[string]interface{}
+	contentType := r.Header.Get("Content-Type")
+	isFormData := strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
+
+	if r.Body != nil && !isFormData {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			body = make(map[string]interface{})
+		}
+	}
+
+	if isFormData || strings.HasPrefix(contentType, "multipart/form-data") {
+		body = parseFormData(r, body)
+	}
+
+	clientIP := extractClientIP(r)
+	requestID := uuid.New().String()
+
+	files := make([]FileUpload, 0, len(uploadedFiles))
+	for _, file := range uploadedFiles {
+		files = append(files, FileUpload{
+			Name:      file.Filename,
+			FieldName: file.FieldName,
+			Path:      file.Path,
+			MimeType:  file.ContentType,
+			Size:      file.Size,
+		})
+	}
+
+	return &RequestContext{
+		Method:    r.Method,
+		Path:      r.URL.Path,
+		Headers:   headers,
+		Query:     query,
+		Body:      body,
+		Files:     files,
+		IP:        clientIP,
+		ID:        requestID,
+		SessionID: "",
+	}
+}
 
 func isMultipartRequest(r *stdhttp.Request) bool {
 	contentType := r.Header.Get("Content-Type")
