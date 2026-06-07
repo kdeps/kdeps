@@ -6,14 +6,14 @@ The built-in management API lets you update a running kdeps server's workflow wi
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/_kdeps/status` | — | Workflow name, version, description, resource count |
+| `GET` | `/_kdeps/status` | ✓ | Workflow name, version, description, resource count |
 | `PUT` | `/_kdeps/workflow` | ✓ | Write a single workflow YAML, clear stale `resources/`, hot-reload |
 | `PUT` | `/_kdeps/package` | ✓ | Extract a full `.kdeps` tar.gz archive (preserves `data/`, `scripts/`, etc.), hot-reload |
 | `POST` | `/_kdeps/reload` | ✓ | Reload the workflow from the current on-disk file |
 
 ## Authentication
 
-Write endpoints (`PUT` and `POST`) require a **bearer token**. Set the token on the server by exporting `KDEPS_MANAGEMENT_TOKEN`:
+All management endpoints require a **bearer token**. Set the token on the server by exporting `KDEPS_MANAGEMENT_TOKEN`:
 
 ```bash
 export KDEPS_MANAGEMENT_TOKEN=mysecret
@@ -31,8 +31,6 @@ Authorization: Bearer mysecret
 | `KDEPS_MANAGEMENT_TOKEN` unset | `503 Service Unavailable` |
 | Token wrong or header missing | `401 Unauthorized` |
 | Token correct | Handler runs |
-
-`GET /_kdeps/status` is unauthenticated and always returns `200 OK`.
 
 ## Size Limits
 
@@ -63,8 +61,9 @@ The `workflow` field is omitted when no workflow is loaded.
 ## Examples
 
 ```bash
-# Check status (no auth required)
-curl http://localhost:16395/_kdeps/status
+# Check status
+curl -H "Authorization: Bearer $KDEPS_MANAGEMENT_TOKEN" \
+  http://localhost:16395/_kdeps/status
 
 # Push a workflow YAML
 curl -X PUT \
