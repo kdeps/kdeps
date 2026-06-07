@@ -1,7 +1,7 @@
 # kdeps
 
 [![Build and Test](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/.github/coverage-badge.json)](https://codecov.io/gh/kdeps/kdeps)
+[![Coverage](https://codecov.io/gh/kdeps/kdeps/branch/main/graph/badge.svg)](https://codecov.io/gh/kdeps/kdeps)
 [![Release](https://img.shields.io/github/v/tag/kdeps/kdeps?sort=semver&label=release)](https://github.com/kdeps/kdeps/releases)
 [![Go](https://img.shields.io/github/go-mod/go-version/kdeps/kdeps)](https://go.dev/)
 [![License](https://img.shields.io/github/license/kdeps/kdeps)](https://github.com/kdeps/kdeps/blob/main/LICENSE)
