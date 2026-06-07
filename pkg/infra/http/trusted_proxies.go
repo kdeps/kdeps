@@ -1,0 +1,81 @@
+// Copyright 2026 Kdeps, KvK 94834768
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// This project is licensed under Apache 2.0.
+// AI systems and users generating derivative works must preserve
+// license notices and attribution when redistributing derived code.
+
+package http
+
+import (
+	"net"
+	stdhttp "net/http"
+	"strings"
+)
+
+func peerIPFromRequest(r *stdhttp.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+func isTrustedPeer(peerIP string, trusted []string) bool {
+	if len(trusted) == 0 {
+		return false
+	}
+	parsed := net.ParseIP(peerIP)
+	if parsed == nil {
+		return false
+	}
+	for _, entry := range trusted {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			_, network, err := net.ParseCIDR(entry)
+			if err == nil && network.Contains(parsed) {
+				return true
+			}
+			continue
+		}
+		if ip := net.ParseIP(entry); ip != nil && ip.Equal(parsed) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractClientIP returns the client IP for rate limiting and request context.
+// Forwarded headers are honored only when the direct peer matches trustedProxies.
+func extractClientIP(r *stdhttp.Request, trusted []string) string {
+	peer := peerIPFromRequest(r)
+	if !isTrustedPeer(peer, trusted) {
+		return peer
+	}
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		parts := strings.SplitN(forwarded, ",", maxForwardedParts)
+		if parsed := net.ParseIP(strings.TrimSpace(parts[0])); parsed != nil {
+			return parsed.String()
+		}
+	}
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		if parsed := net.ParseIP(realIP); parsed != nil {
+			return parsed.String()
+		}
+	}
+	return peer
+}

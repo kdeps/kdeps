@@ -548,7 +548,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 func TestRateLimitMiddleware(t *testing.T) {
 	t.Run("allows requests within limit", func(t *testing.T) {
-		middleware := http.RateLimitMiddleware(600, 10) // 10 req/s sustained, burst 10
+		middleware := http.RateLimitMiddleware(600, 10, nil) // 10 req/s sustained, burst 10
 		called := 0
 		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 			called++
@@ -567,7 +567,7 @@ func TestRateLimitMiddleware(t *testing.T) {
 
 	t.Run("rate limits after burst exhausted", func(t *testing.T) {
 		// 1 req/min, burst 1 - second request from same IP should be limited
-		middleware := http.RateLimitMiddleware(1, 1)
+		middleware := http.RateLimitMiddleware(1, 1, nil)
 		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 			w.WriteHeader(stdhttp.StatusOK)
 		})

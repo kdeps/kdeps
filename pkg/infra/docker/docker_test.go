@@ -75,6 +75,7 @@ func TestBuilder_GenerateDockerfile_Basic(t *testing.T) {
 	assert.Contains(t, dockerfile, "COPY workflow.yaml")
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "ENTRYPOINT")
+	assert.Contains(t, dockerfile, "USER kdeps")
 }
 func TestBuilder_GenerateDockerfile_WithPackages(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
@@ -584,6 +585,7 @@ func TestBuilder_GenerateDockerfile_WithInstallOllamaFlag(t *testing.T) {
 
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
 	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
+	assert.NotContains(t, dockerfile, "USER kdeps")
 }
 func TestBuilder_GenerateDockerfile_MultiplePythonVersions(t *testing.T) {
 	tests := []struct {

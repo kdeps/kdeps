@@ -34,6 +34,22 @@ export KDEPS_API_AUTH_TOKEN="your-secret-token"
 
 No `auth:` block in `workflow.yaml`. Omit `api_auth_token` (or leave it empty) to disable authentication entirely. kdeps logs a startup warning when `apiServer` is configured but no token is set.
 
+## Trusted Proxies
+
+`X-Forwarded-For` and `X-Real-IP` are ignored unless the direct TCP peer matches an entry in `trustedProxies`. This prevents clients from spoofing their IP for rate limiting and request context. Configure CIDRs or exact IPs for your load balancer or ingress.
+
+```yaml
+# workflow.yaml
+settings:
+  apiServer:
+    trustedProxies:
+      - "10.0.0.0/8"
+      - "172.16.0.0/12"
+      - "192.168.0.0/16"
+```
+
+Without `trustedProxies`, kdeps uses `RemoteAddr` only.
+
 ## Security Headers
 
 Both `apiServer` and `webServer` responses include defensive HTTP headers on every response:

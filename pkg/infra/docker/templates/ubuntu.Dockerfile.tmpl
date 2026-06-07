@@ -129,6 +129,13 @@ RUN (OLLAMA_HOST=127.0.0.1 /usr/local/bin/ollama serve &) && \
 
 WORKDIR /app
 
+{{- if not .InstallOllama }}
+# Run as non-root when Ollama is not required (supervisord + kdeps only).
+RUN groupadd -r kdeps && useradd -r -g kdeps -d /app -s /usr/sbin/nologin kdeps && \
+    chown -R kdeps:kdeps /app /var/log
+USER kdeps
+{{- end }}
+
 # Expose ports
 {{- if .HasAPIServer }}
 EXPOSE {{ .APIPort }}
