@@ -87,15 +87,6 @@ jobs:
       run: make test-unit
       timeout-minutes: 15
 
-    - name: Upload unit coverage
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage.out
-        flags: unit
-        name: unit
-        fail_ci_if_error: false
-
     - name: Update coverage badge
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
@@ -120,13 +111,12 @@ jobs:
       run: make test-integration
       timeout-minutes: 15
 
-    - name: Upload integration coverage
+    - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage-integration.out
-        flags: integration
-        name: integration
+        slug: kdeps/kdeps
+        files: coverage.out,coverage-integration.out
         fail_ci_if_error: false
 
     - name: Test E2E
