@@ -125,7 +125,8 @@ offlineMode: true
 ### Check Workflow Status
 
 ```bash
-curl http://localhost:16395/_kdeps/status
+curl -H "Authorization: Bearer $KDEPS_MANAGEMENT_TOKEN" \
+  http://localhost:16395/_kdeps/status
 ```
 
 ```json
@@ -150,14 +151,16 @@ services:
     ports:
       - "16395:16395"
     environment:
+      - KDEPS_API_AUTH_TOKEN=${KDEPS_API_AUTH_TOKEN}
       - KDEPS_MANAGEMENT_TOKEN=${KDEPS_MANAGEMENT_TOKEN}
     restart: unless-stopped
 ```
 
-Set the token in your `.env` file (never commit this file):
+Set tokens in your `.env` file (never commit this file):
 
 ```bash
 # .env
+KDEPS_API_AUTH_TOKEN=api-secret
 KDEPS_MANAGEMENT_TOKEN=mysecret
 ```
 
