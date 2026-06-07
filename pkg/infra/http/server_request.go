@@ -19,83 +19,93 @@
 package http
 
 import (
-	"encoding/json"
+	"context"
+	"fmt"
 	stdhttp "net/http"
 	"strings"
-
-	"github.com/google/uuid"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func (s *Server) ParseRequest(
-	r *stdhttp.Request,
-	uploadedFiles []*domain.UploadedFile,
-) *RequestContext {
-	kdeps_debug.Log("enter: ParseRequest")
-	// Parse query parameters
-	query := make(map[string]string)
-	for key, values := range r.URL.Query() {
-		if len(values) > 0 {
-			query[key] = values[0]
-		}
-	}
-
-	// Parse headers
-	headers := make(map[string]string)
-	for key, values := range r.Header {
-		if len(values) > 0 {
-			headers[key] = values[0]
-		}
-	}
-
-	// Parse body - check content type first to determine parsing strategy
-	var body map[string]interface{}
+func isMultipartRequest(r *stdhttp.Request) bool {
 	contentType := r.Header.Get("Content-Type")
-	isFormData := strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
+	return contentType != "" && strings.HasPrefix(contentType, "multipart/form-data")
+}
 
-	if r.Body != nil && !isFormData {
-		// Try to decode as JSON for non-form data
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			// If JSON decode fails, body might be empty
-			body = make(map[string]interface{})
-		}
+func (s *Server) processRequestUploads(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+) ([]*domain.UploadedFile, bool) {
+	if !isMultipartRequest(r) {
+		return nil, true
 	}
 
-	// Parse form data (for both multipart/form-data and application/x-www-form-urlencoded)
-	if isFormData || strings.HasPrefix(contentType, "multipart/form-data") {
-		body = parseFormData(r, body)
+	files, err := s.uploadHandler.HandleUpload(r)
+	if err != nil {
+		RespondWithError(w, r, domain.NewAppError(
+			domain.ErrCodeBadRequest,
+			fmt.Sprintf("File upload failed: %v", err),
+		), GetDebugMode(r.Context()))
+		return nil, false
 	}
 
-	clientIP := extractClientIP(r)
+	return files, true
+}
 
-	// Generate request ID
-	requestID := uuid.New().String()
+func (s *Server) applySessionFromRequestContext(
+	r *stdhttp.Request,
+	reqCtx *RequestContext,
+) *stdhttp.Request {
+	if reqCtx.SessionID == "" {
+		return r
+	}
+	if GetSessionID(r.Context()) == reqCtx.SessionID {
+		return r
+	}
+	ctx := context.WithValue(r.Context(), SessionIDKey, reqCtx.SessionID)
+	return r.WithContext(ctx)
+}
 
-	// Convert domain.UploadedFile to FileUpload
-	files := make([]FileUpload, 0, len(uploadedFiles))
+func (s *Server) cleanupUploadedFiles(uploadedFiles []*domain.UploadedFile) {
 	for _, file := range uploadedFiles {
-		files = append(files, FileUpload{
-			Name:      file.Filename,
-			FieldName: file.FieldName,
-			Path:      file.Path,
-			MimeType:  file.ContentType,
-			Size:      file.Size,
-		})
-	}
-
-	return &RequestContext{
-		Method:    r.Method,
-		Path:      r.URL.Path,
-		Headers:   headers,
-		Query:     query,
-		Body:      body,
-		Files:     files,
-		IP:        clientIP,
-		ID:        requestID,
-		SessionID: "", // Will be set by HandleRequest from context
+		if delErr := s.fileStore.Delete(file.ID); delErr != nil {
+			s.logger.Warn("failed to cleanup uploaded file", "file", file.ID, "error", delErr)
+		}
 	}
 }
 
-// CorsMiddleware handles CORS.
+func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+	s.logger.Error(
+		"workflow execution failed",
+		"error",
+		err,
+		"path",
+		r.URL.Path,
+		"method",
+		r.Method,
+	)
+	RespondWithError(w, r, err, GetDebugMode(r.Context()))
+}
+
+func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {
+	kdeps_debug.Log("enter: parseFormData")
+	// ParseForm handles both application/x-www-form-urlencoded and multipart/form-data
+	if err := r.ParseForm(); err != nil {
+		return body
+	}
+
+	if body == nil {
+		body = make(map[string]interface{})
+	}
+
+	// Use PostForm instead of Form - PostForm only contains POST form values
+	// Form includes both form values and query params (which we already parsed separately)
+	for key, values := range r.PostForm {
+		if len(values) > 0 {
+			body[key] = values[0]
+		}
+	}
+
+	return body
+}
