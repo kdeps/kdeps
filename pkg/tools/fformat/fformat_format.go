@@ -23,7 +23,7 @@ import (
 	"encoding/xml"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func formatYAML(input string) Result {

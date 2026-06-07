@@ -24,7 +24,7 @@ import (
 	"encoding/xml"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func validateStructured(unmarshal func([]byte, interface{}) error, input string) Result {
