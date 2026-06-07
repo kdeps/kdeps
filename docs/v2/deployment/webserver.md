@@ -144,6 +144,7 @@ The Streamlit app:
 
 ```python
 # dashboard/dashboard.py
+import os
 import streamlit as st
 import requests
 
@@ -153,7 +154,8 @@ query = st.text_input("Ask a question:")
 if st.button("Submit"):
     response = requests.post(
         "http://localhost:16395/api/v1/chat",
-        json={"q": query}
+        headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
+        json={"q": query},
     )
     st.write(response.json()["response"]["answer"])
 ```
@@ -172,13 +174,15 @@ routes:
 
 ```python
 # gradio-app/app.py
+import os
 import gradio as gr
 import requests
 
 def chat(message):
     response = requests.post(
         "http://localhost:16395/api/v1/chat",
-        json={"q": message}
+        headers={"Authorization": f"Bearer {os.environ['KDEPS_API_AUTH_TOKEN']}"},
+        json={"q": message},
     )
     return response.json()["response"]["answer"]
 

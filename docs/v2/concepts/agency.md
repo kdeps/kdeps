@@ -174,10 +174,12 @@ examples/agency/
 
 ```bash
 # Run the example
+export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run examples/agency/agency.yaml
 
 # Query the API
-curl "http://localhost:17100/api/v1/greet?name=Alice"
+curl "http://localhost:17100/api/v1/greet?name=Alice" \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN"
 # → {"success":true,"data":"Hello, Alice! (from responder-agent)"}
 ```
 

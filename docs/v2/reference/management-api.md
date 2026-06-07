@@ -13,12 +13,15 @@ The built-in management API lets you update a running kdeps server's workflow wi
 
 ## Authentication
 
-All management endpoints require a **bearer token**. Set the token on the server by exporting `KDEPS_MANAGEMENT_TOKEN`:
+All management endpoints require a **bearer token** separate from workflow API auth. When `apiServer` is configured, the server also requires `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`) before it starts.
 
 ```bash
+export KDEPS_API_AUTH_TOKEN=api-secret
 export KDEPS_MANAGEMENT_TOKEN=mysecret
 kdeps run workflow.yaml
 ```
+
+Workflow routes (`/api/*`, etc.) use `KDEPS_API_AUTH_TOKEN`. Management routes (`/_kdeps/*`) use `KDEPS_MANAGEMENT_TOKEN`.
 
 Clients send the token in the `Authorization` header:
 

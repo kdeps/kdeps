@@ -104,12 +104,16 @@ apiResponse:
 Run:
 
 ```bash
+export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 
 curl -X POST http://localhost:16395/api/v1/chat \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"q": "What is entropy?"}'
 ```
+
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead. See [Security Reference](/reference/security).
 
 ## Input sources
 

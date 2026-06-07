@@ -184,6 +184,32 @@ Fix:
 - Increase `maxIterations` if you genuinely need more iterations
 - Add an `every` delay to slow the loop if it's running too fast
 
+## Authentication Errors
+
+### 401 Unauthorized
+
+```
+HTTP/1.1 401 Unauthorized
+```
+
+A request to a workflow route (`/api/*`, etc.) is missing or has the wrong API auth token.
+
+Fix:
+
+```bash
+export KDEPS_API_AUTH_TOKEN=dev-token
+kdeps run workflow.yaml
+
+curl -X POST http://localhost:16395/api/v1/chat \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "hello"}'
+```
+
+`/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`, not `KDEPS_API_AUTH_TOKEN`. See [Security Reference](/reference/security).
+
+If the server refuses to start, set `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` before running `kdeps run`.
+
 ## Debugging
 
 ### Enable debug logging
