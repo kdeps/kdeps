@@ -9,11 +9,13 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'README.md'
+      - '.github/coverage-badge.json'
   pull_request:
     branches: [ "main" ]
     paths-ignore:
       - 'docs/**'
       - 'README.md'
+      - '.github/coverage-badge.json'
 
 jobs:
   lint:
@@ -48,7 +50,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     env:
       UV_NO_CACHE: 1
@@ -92,6 +94,26 @@ jobs:
         flags: unit
         name: unit
         fail_ci_if_error: false
+
+    - name: Update coverage badge
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        COV=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
+        NUM=${COV%\%}
+        if awk "BEGIN {exit !($NUM >= 100)}"; then COLOR=brightgreen
+        elif awk "BEGIN {exit !($NUM >= 90)}"; then COLOR=green
+        elif awk "BEGIN {exit !($NUM >= 80)}"; then COLOR=yellowgreen
+        elif awk "BEGIN {exit !($NUM >= 70)}"; then COLOR=yellow
+        else COLOR=orange
+        fi
+        printf '%s\n' "{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${COV}\",\"color\":\"${COLOR}\"}" > .github/coverage-badge.json
+
+    - name: Commit coverage badge
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "chore: update coverage badge [skip ci]"
+        file_pattern: .github/coverage-badge.json
 
     - name: Test Integration
       run: make test-integration
