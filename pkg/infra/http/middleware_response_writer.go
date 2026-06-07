@@ -21,7 +21,6 @@ package http
 import (
 	"crypto/subtle"
 	"html"
-	"net"
 	stdhttp "net/http"
 	"strings"
 
@@ -80,11 +79,7 @@ func extractAuthToken(r *stdhttp.Request) string {
 
 // clientIPFromAddr strips the port suffix from a RemoteAddr value.
 func clientIPFromAddr(addr string) string {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return addr
-	}
-	return host
+	return peerIPFromAddr(addr)
 }
 
 // respondMiddlewareError sends a standardized middleware error response.

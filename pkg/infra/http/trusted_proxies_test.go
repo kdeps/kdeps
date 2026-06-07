@@ -87,6 +87,10 @@ func TestPeerIPFromRequest_NoPort(t *testing.T) {
 	assert.Equal(t, "10.0.0.1", peerIPFromRequest(req))
 }
 
+func TestPeerIPFromAddr_IPv4WithPort(t *testing.T) {
+	assert.Equal(t, "192.0.2.1", peerIPFromAddr("192.0.2.1:443"))
+}
+
 func TestTrustedProxiesFromSettings_mergesAPIServerAndWebServer(t *testing.T) {
 	settings := domain.WorkflowSettings{
 		APIServer: &domain.APIServerConfig{
