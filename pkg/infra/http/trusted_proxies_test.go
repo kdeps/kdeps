@@ -67,3 +67,14 @@ func TestIsTrustedPeer_CIDRAndExactIP(t *testing.T) {
 	assert.True(t, isTrustedPeer("192.168.1.1", []string{"192.168.1.1"}))
 	assert.False(t, isTrustedPeer("203.0.113.1", []string{"10.0.0.0/8"}))
 }
+
+func TestPeerIPFromRequest_IPv6(t *testing.T) {
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	req.RemoteAddr = "[2001:db8::1]:443"
+	assert.Equal(t, "2001:db8::1", peerIPFromRequest(req))
+}
+
+func TestInvalidTrustedProxyEntries(t *testing.T) {
+	invalid := invalidTrustedProxyEntries([]string{"10.0.0.0/8", "not-an-ip", "192.168.0.0/16"})
+	assert.Equal(t, []string{"not-an-ip"}, invalid)
+}
