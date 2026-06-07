@@ -335,7 +335,7 @@ func TestResponseWriterWrapper_HeadersWritten(t *testing.T) {
 }
 
 func TestSecurityHeadersMiddleware(t *testing.T) {
-	middleware := http.SecurityHeadersMiddleware()
+	middleware := http.SecurityHeadersMiddleware(false)
 	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 	})
@@ -346,11 +346,23 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	assert.Equal(t, "DENY", w.Header().Get("X-Frame-Options"))
 	assert.Equal(t, "strict-origin-when-cross-origin", w.Header().Get("Referrer-Policy"))
 	assert.Equal(t, "camera=(), microphone=(), geolocation=()", w.Header().Get("Permissions-Policy"))
+	assert.Empty(t, w.Header().Get("Content-Security-Policy"))
 	assert.Empty(t, w.Header().Get("Strict-Transport-Security"))
 }
 
+func TestSecurityHeadersMiddleware_WithCSP(t *testing.T) {
+	middleware := http.SecurityHeadersMiddleware(true)
+	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+		w.WriteHeader(stdhttp.StatusOK)
+	})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	handler(w, req)
+	assert.Contains(t, w.Header().Get("Content-Security-Policy"), "default-src 'none'")
+}
+
 func TestSecurityHeadersMiddleware_TLS(t *testing.T) {
-	middleware := http.SecurityHeadersMiddleware()
+	middleware := http.SecurityHeadersMiddleware(false)
 	handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)
 	})

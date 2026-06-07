@@ -183,6 +183,30 @@ spec:
 
 Health check probes are automatically generated from the configured port.
 
+When `apiServer` is configured, the Deployment references auth tokens from a Kubernetes Secret (never from `agentSettings.env`):
+
+```yaml
+# deploy/auth-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chatbot-auth
+type: Opaque
+stringData:
+  api-token: "your-api-secret"
+  management-token: "your-mgmt-secret"   # optional; omit if you do not use /_kdeps/*
+```
+
+The generated Deployment expects `secretKeyRef.name` to be `{metadata.name}-auth` with keys `api-token` and `management-token` (management is optional). Create the Secret before applying the Deployment:
+
+```bash
+kubectl apply -f deploy/auth-secret.yaml
+kdeps export k8s examples/chatbot --output k8s.yaml
+kubectl apply -f k8s.yaml
+```
+
+Pod `securityContext` defaults include `runAsNonRoot: true` and `capabilities.drop: ["ALL"]`.
+
 ## Typical Workflow
 
 ```bash

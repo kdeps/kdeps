@@ -126,6 +126,13 @@ else
     test_failed "export k8s - env vars from workflow appear in manifest" "Output: $OUTPUT"
 fi
 
+# ── Test 9b: apiServer emits auth token secretKeyRef ─────────────────────────
+if echo "$OUTPUT" | grep -q "KDEPS_API_AUTH_TOKEN" && echo "$OUTPUT" | grep -q "secretKeyRef"; then
+    test_passed "export k8s - apiServer auth tokens use secretKeyRef"
+else
+    test_failed "export k8s - apiServer auth tokens use secretKeyRef" "Output: $OUTPUT"
+fi
+
 # ── Test 10: --output writes to file ─────────────────────────────────────────
 OUTPUT_FILE="$TMP_DIR/k8s-manifest.yaml"
 "$KDEPS_BIN" export k8s "$TMP_DIR" --output "$OUTPUT_FILE" 2>/dev/null

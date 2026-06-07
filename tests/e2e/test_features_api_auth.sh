@@ -137,6 +137,14 @@ if command -v curl &> /dev/null; then
     else
         test_failed "API Auth - Health endpoint exempt from auth" "got HTTP $HEALTH_CODE"
     fi
+
+    CSP_HEADER=$(command curl -s -D - -o /dev/null \
+        "http://127.0.0.1:${PORT}/health" 2>/dev/null | grep -i "^content-security-policy:" || true)
+    if echo "$CSP_HEADER" | grep -qi "default-src 'none'"; then
+        test_passed "API Auth - Content-Security-Policy header on apiServer"
+    else
+        test_failed "API Auth - Content-Security-Policy header on apiServer" "header: $CSP_HEADER"
+    fi
 else
     test_skipped "API Auth - HTTP checks" "curl not available"
 fi

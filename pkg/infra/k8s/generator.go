@@ -46,6 +46,7 @@ type ManifestData struct {
 	APIPort       int
 	WebServerPort int
 	BackendPort   int
+	HasAPIServer  bool
 	Env           map[string]string
 	Resources     *domain.Resources
 }
@@ -89,12 +90,13 @@ func (g *Generator) buildTemplateData(workflow *domain.Workflow) *ManifestData {
 	kdeps_debug.Log("enter: buildTemplateData")
 
 	data := &ManifestData{
-		Name:      workflow.Metadata.Name,
-		Version:   workflow.Metadata.Version,
-		Image:     g.ImageName,
-		Replicas:  resolveReplicas(workflow),
-		Env:       workflow.Settings.AgentSettings.Env,
-		Resources: workflow.Settings.AgentSettings.Resources,
+		Name:         workflow.Metadata.Name,
+		Version:      workflow.Metadata.Version,
+		Image:        g.ImageName,
+		Replicas:     resolveReplicas(workflow),
+		HasAPIServer: workflow.Settings.APIServer != nil,
+		Env:          workflow.Settings.AgentSettings.Env,
+		Resources:    workflow.Settings.AgentSettings.Resources,
 	}
 
 	applyManifestPorts(data, workflow)
