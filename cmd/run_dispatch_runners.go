@@ -30,6 +30,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/events"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
+	llminput "github.com/kdeps/kdeps/v2/pkg/input/llm"
 	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
