@@ -90,6 +90,7 @@ jobs:
     - name: Upload unit coverage
       uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage.out
         flags: unit
         name: unit
@@ -122,6 +123,7 @@ jobs:
     - name: Upload integration coverage
       uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: coverage-integration.out
         flags: integration
         name: integration
