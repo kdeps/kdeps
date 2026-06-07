@@ -56,10 +56,11 @@ func isMultipartContentType(ct string) bool {
 	return strings.HasPrefix(ct, "multipart/form-data")
 }
 
-// constantTimeEqual compares two secret strings without leaking timing via length.
+// constantTimeEqual compares secret strings in constant time when lengths match.
 func constantTimeEqual(a, b string) bool {
 	if len(a) != len(b) {
-		subtle.ConstantTimeCompare([]byte(a), []byte(b))
+		// Burn comparable work without comparing unequal-length slices.
+		subtle.ConstantTimeCompare([]byte(a), []byte(a))
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
@@ -68,7 +69,7 @@ func constantTimeEqual(a, b string) bool {
 // extractAuthToken reads bearer or API-key credentials from the request.
 func extractAuthToken(r *stdhttp.Request) string {
 	if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-		return strings.TrimPrefix(authHeader, "Bearer ")
+		return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
 	}
 	if apiKey := r.Header.Get("X-Api-Key"); apiKey != "" {
 		return apiKey

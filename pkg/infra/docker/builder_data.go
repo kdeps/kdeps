@@ -80,9 +80,9 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 }
 
 func validateDockerEnv(env map[string]string) error {
-	const forbiddenValueChars = "\"\\\n\r"
+	const forbiddenValueChars = "\"\\$`\n\r"
 	for key, value := range env {
-		if key == "" || strings.ContainsAny(key, " \t=\\\"") {
+		if !isValidDockerEnvKey(key) {
 			return fmt.Errorf("invalid docker env key %q", key)
 		}
 		if strings.ContainsAny(value, forbiddenValueChars) {
@@ -90,6 +90,21 @@ func validateDockerEnv(env map[string]string) error {
 		}
 	}
 	return nil
+}
+
+func isValidDockerEnvKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for i, r := range key {
+		switch {
+		case r == '_', r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z':
+		case i > 0 && r >= '0' && r <= '9':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func resolveBaseImage(baseOS string, installOllama bool) string {

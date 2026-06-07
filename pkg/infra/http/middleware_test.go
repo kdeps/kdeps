@@ -487,6 +487,21 @@ func TestAuthMiddleware(t *testing.T) {
 		assert.Equal(t, stdhttp.StatusOK, w.Code)
 	})
 
+	t.Run("bearer token trims surrounding whitespace", func(t *testing.T) {
+		middleware := http.AuthMiddleware("mytoken")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+		req.Header.Set("Authorization", "Bearer  mytoken ")
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
 	t.Run("X-Api-Key accepted", func(t *testing.T) {
 		middleware := http.AuthMiddleware("mytoken")
 		called := false

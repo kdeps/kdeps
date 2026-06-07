@@ -57,8 +57,8 @@ var (
 	findWorkflowFileHook = findWorkflowFile
 )
 
-// requireManagementAuth enforces bearer-token based authorization for write
-// management endpoints.  The expected token is read from the environment
+// requireManagementAuth enforces bearer-token authorization for all management
+// endpoints. The expected token is read from the environment
 // variable named by managementAuthEnvVar.  If no token is configured, the
 // endpoint returns 503 Service Unavailable to prevent accidental open access.
 func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
