@@ -17,7 +17,7 @@ A -> B -> C -> D -> E -> F
 
 ## Authentication
 
-When `apiServer` is configured, authentication is required. Every request must include the token via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt. kdeps refuses to start the API server without a token.
+When `apiServer` is configured, authentication is required. Every request must include the token via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN` instead (see [Management API](./management-api.md)). kdeps refuses to start the API server without a token.
 
 Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 

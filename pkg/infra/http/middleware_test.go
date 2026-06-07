@@ -472,6 +472,21 @@ func TestAuthMiddleware(t *testing.T) {
 		assert.Equal(t, stdhttp.StatusOK, w.Code)
 	})
 
+	t.Run("management endpoints exempt from API auth", func(t *testing.T) {
+		middleware := http.AuthMiddleware("api-secret")
+		called := false
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			called = true
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
+		req.Header.Set("Authorization", "Bearer management-secret")
+		handler(w, req)
+		assert.True(t, called)
+		assert.Equal(t, stdhttp.StatusOK, w.Code)
+	})
+
 	t.Run("bearer token accepted", func(t *testing.T) {
 		middleware := http.AuthMiddleware("mytoken")
 		called := false
