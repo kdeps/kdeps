@@ -29,23 +29,17 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func TestServer_applySecurityMiddleware_warnsWithoutAuthToken(t *testing.T) {
-	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+func TestRequireAPIAuthToken(t *testing.T) {
+	_, err := requireAPIAuthToken("")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
 
-	var buf bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	_, err = requireAPIAuthToken("   ")
+	require.Error(t, err)
 
-	server, err := NewServer(&domain.Workflow{
-		Metadata: domain.WorkflowMetadata{Name: "test"},
-		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{},
-		},
-	}, nil, logger)
+	token, err := requireAPIAuthToken("  secret  ")
 	require.NoError(t, err)
-
-	server.applySecurityMiddleware()
-
-	assert.Contains(t, buf.String(), "running without authentication")
+	assert.Equal(t, "secret", token)
 }
 
 func TestServer_applySecurityMiddleware_warnsInvalidTrustedProxies(t *testing.T) {
@@ -62,7 +56,7 @@ func TestServer_applySecurityMiddleware_warnsInvalidTrustedProxies(t *testing.T)
 	}, nil, logger)
 	require.NoError(t, err)
 
-	server.applySecurityMiddleware()
+	require.NoError(t, server.applySecurityMiddleware())
 
 	assert.Contains(t, buf.String(), "invalid trustedProxies")
 }

@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     {{- if .InstallOllama }}
     OLLAMA_HOST=127.0.0.1 \
     OLLAMA_PORT={{ .BackendPort }} \
-    OLLAMA_MODELS=/root/.ollama/models \
+    OLLAMA_MODELS=/app/.ollama/models \
     {{- end }}
     BACKEND_PORT={{ .BackendPort }}
 {{- if .Env }}
@@ -125,12 +125,13 @@ RUN (OLLAMA_HOST=127.0.0.1 /usr/local/bin/ollama serve &) && \
 
 WORKDIR /app
 
-{{- if not .InstallOllama }}
-# Run as non-root when Ollama is not required (supervisord + kdeps only).
+# Run as non-root (supervisord + kdeps; Ollama models live under /app/.ollama).
 RUN addgroup -S kdeps && adduser -S -G kdeps kdeps && \
+    {{- if .InstallOllama }}
+    mkdir -p /app/.ollama/models && \
+    {{- end }}
     chown -R kdeps:kdeps /app /var/log /entrypoint.sh /etc/supervisord.conf
 USER kdeps
-{{- end }}
 
 # Expose ports
 {{- if .HasAPIServer }}

@@ -2137,6 +2137,7 @@ func TestFindAvailablePort_AboveMaxPort(t *testing.T) {
 }
 
 func TestDefaultServerHooks_Direct(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
 	eng := executor.NewEngine(nil)
 	wf := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "api", Version: "1.0", TargetActionID: "act"},

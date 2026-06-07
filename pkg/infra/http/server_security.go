@@ -19,30 +19,40 @@
 package http
 
 import (
+	"errors"
 	"os"
+	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+func requireAPIAuthToken(raw string) (string, error) {
+	token := strings.TrimSpace(raw)
+	if token == "" {
+		return "", errors.New(
+			"apiServer requires KDEPS_API_AUTH_TOKEN or api_auth_token in ~/.kdeps/config.yaml",
+		)
+	}
+	return token, nil
+}
+
 // applySecurityMiddleware wires auth, rate-limit, and body-limit middleware
 // from the workflow's APIServer config.
-func (s *Server) applySecurityMiddleware() {
+func (s *Server) applySecurityMiddleware() error {
 	kdeps_debug.Log("enter: applySecurityMiddleware")
 	if s.Workflow == nil || s.Workflow.Settings.APIServer == nil {
-		return
+		return nil
 	}
 	api := s.Workflow.Settings.APIServer
 	trustedProxies := trustedProxiesFromSettings(s.Workflow.Settings)
 	if invalid := invalidTrustedProxyEntries(trustedProxies); len(invalid) > 0 && s.logger != nil {
 		s.logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
 	}
-	if token := os.Getenv("KDEPS_API_AUTH_TOKEN"); token != "" {
-		s.Router.Use(AuthMiddleware(token))
-	} else if s.logger != nil {
-		s.logger.Warn(
-			"API server running without authentication; set KDEPS_API_AUTH_TOKEN or api_auth_token in ~/.kdeps/config.yaml",
-		)
+	token, err := requireAPIAuthToken(os.Getenv("KDEPS_API_AUTH_TOKEN"))
+	if err != nil {
+		return err
 	}
+	s.Router.Use(AuthMiddleware(token))
 	if api.RateLimit != nil && api.RateLimit.RequestsPerMinute > 0 {
 		burst := api.RateLimit.Burst
 		if burst <= 0 {
@@ -58,4 +68,5 @@ func (s *Server) applySecurityMiddleware() {
 	if api.MaxConcurrent > 0 {
 		s.Router.Use(ConcurrentLimitMiddleware(api.MaxConcurrent))
 	}
+	return nil
 }

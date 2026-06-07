@@ -201,7 +201,7 @@ defaults:
 
 # ── API server auth token ─────────────────────────────────────────────────────
 # Bearer token required on all requests to the agent HTTP server.
-# Set here or via KDEPS_API_AUTH_TOKEN env var. When empty, auth is disabled.
+# Required when apiServer is enabled. Set here or via KDEPS_API_AUTH_TOKEN env var.
 # api_auth_token: "${API_AUTH_TOKEN}"
 
 # ── Per-agent config profiles ──────────────────────────────────────────────

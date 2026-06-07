@@ -64,6 +64,9 @@ export KDEPS_COMPONENT_DIR="${PROJECT_ROOT}/contrib/components"
 # temp directory that has no ~/.kdeps/config.yaml.
 export KDEPS_SKIP_BOOTSTRAP=1
 
+# apiServer requires a token; provide a default for E2E runs without ~/.kdeps/config.yaml.
+export KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN:-e2e-test-auth-token}"
+
 # Start a local mock registry server that immediately returns 404 for all
 # requests, so no e2e test ever calls the real registry.kdeps.io server.
 # Guard against being sourced multiple times (each sub-script sources common.sh).

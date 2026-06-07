@@ -37,8 +37,7 @@ wait_for_ollama() {
 if [ -d "/llm/models" ]; then
     echo "Offline mode: Copying pre-downloaded models to Ollama directory..."
 
-    # OLLAMA_MODELS points to the models dir (default: /root/.ollama/models)
-    MODELS_DIR="${OLLAMA_MODELS:-/root/.ollama/models}"
+    MODELS_DIR="${OLLAMA_MODELS:-/app/.ollama/models}"
     mkdir -p "$MODELS_DIR"
     rsync -avrPtz --human-readable /llm/models/. "$MODELS_DIR/" || \
     cp -r /llm/models/* "$MODELS_DIR/" 2>/dev/null || true
