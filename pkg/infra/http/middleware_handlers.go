@@ -22,6 +22,7 @@ import (
 	"context"
 	stdhttp "net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,13 +89,13 @@ func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 }
 
 // AuthMiddleware enforces bearer-token / API-key authentication when a token is configured.
-// The /health endpoint is always exempt. Clients supply the token via
-// "Authorization: Bearer <token>" or "X-API-Key: <token>".
+// /health and /_kdeps/* are exempt (/health is public; management routes use KDEPS_MANAGEMENT_TOKEN).
+// Clients supply the API token via "Authorization: Bearer <token>" or "X-API-Key: <token>".
 func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: AuthMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if token == "" || r.URL.Path == "/health" {
+			if token == "" || r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, managementPathPrefix) {
 				next(w, r)
 				return
 			}
