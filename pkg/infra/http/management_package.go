@@ -56,7 +56,12 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 // baseDirAbs is the resolved destination root; absTargetPath must already have
 // been validated by resolvePackageEntryPath, but we re-check the prefix here
 // so that static-analysis tools can see the guard in this call frame.
-func extractPackageEntry(hdr *tar.Header, baseDirAbs, absTargetPath string, tr *tar.Reader) error {
+func extractPackageEntry(
+	hdr *tar.Header,
+	baseDirAbs, absTargetPath string,
+	tr *tar.Reader,
+	totalExtracted *int64,
+) error {
 	if !strings.HasPrefix(absTargetPath, baseDirAbs+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid path in package: %s", filepath.Clean(hdr.Name))
 	}
@@ -69,7 +74,7 @@ func extractPackageEntry(hdr *tar.Header, baseDirAbs, absTargetPath string, tr *
 	if mkdirErr := AppFS.MkdirAll(filepath.Dir(absTargetPath), 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create parent directory for %s: %w", filepath.Clean(hdr.Name), mkdirErr)
 	}
-	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr); writeErr != nil {
+	if writeErr := writeExtractedFile(baseDirAbs, absTargetPath, tr, totalExtracted); writeErr != nil {
 		return fmt.Errorf("failed to extract %s: %w", filepath.Clean(hdr.Name), writeErr)
 	}
 	return nil
@@ -89,6 +94,8 @@ func extractKdepsPackage(data []byte, destDir string) error {
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
+	var entryCount int
+	var totalExtracted int64
 	for {
 		hdr, nextErr := tr.Next()
 		if errors.Is(nextErr, io.EOF) {
@@ -97,11 +104,15 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		if nextErr != nil {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
+		entryCount++
+		if entryCount > maxPackageEntryCount {
+			return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCount)
+		}
 		absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
 		if pathErr != nil {
 			return pathErr
 		}
-		if entryErr := extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr); entryErr != nil {
+		if entryErr := extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr, &totalExtracted); entryErr != nil {
 			return entryErr
 		}
 	}
@@ -113,7 +124,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 // capped at maxPackageFileSize to guard against decompression bombs.
 // baseDirAbs is the resolved destination root; the prefix is re-checked here
 // so that static-analysis tools can see the guard in this call frame.
-func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader) error {
+func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {
 	kdeps_debug.Log("enter: writeExtractedFile")
 	if !strings.HasPrefix(targetPath, baseDirAbs+string(os.PathSeparator)) {
 		return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
@@ -127,9 +138,26 @@ func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader) error {
 		return err
 	}
 
-	if _, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize)); copyErr != nil {
+	n, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSize+1))
+	if copyErr != nil {
 		_ = f.Close()
 		return copyErr
+	}
+	if n > maxPackageFileSize {
+		_ = f.Close()
+		return fmt.Errorf(
+			"file %s exceeds maximum allowed size of %d bytes",
+			filepath.Base(targetPath),
+			maxPackageFileSize,
+		)
+	}
+	*totalExtracted += n
+	if *totalExtracted > maxPackageTotalUncompressed {
+		_ = f.Close()
+		return fmt.Errorf(
+			"package exceeds maximum total uncompressed size of %d bytes",
+			maxPackageTotalUncompressed,
+		)
 	}
 
 	if closeErr := closeExtractedFile(f); closeErr != nil {

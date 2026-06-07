@@ -19,6 +19,7 @@
 package http
 
 import (
+	"context"
 	"net"
 	stdhttp "net/http"
 	"strings"
@@ -96,6 +97,11 @@ func isTrustedPeer(peerIP string, trusted []string) bool {
 		}
 	}
 	return false
+}
+
+func trustedProxiesFromContext(ctx context.Context) []string {
+	proxies, _ := ctx.Value(TrustedProxiesKey).([]string)
+	return proxies
 }
 
 // extractClientIP returns the client IP for rate limiting and request context.

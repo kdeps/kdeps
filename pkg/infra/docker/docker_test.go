@@ -2307,5 +2307,18 @@ func TestBuilder_validateDockerEnv_rejectsExpansionChars(t *testing.T) {
 
 	_, err := builder.GenerateDockerfile(workflow)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid docker env value")
+}
+
+func TestBuilder_validateDockerEnv_rejectsBakedAuthToken(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+	workflow.Settings.AgentSettings.Env = map[string]string{
+		"KDEPS_API_AUTH_TOKEN": "secret",
+	}
+
+	_, err := builder.GenerateDockerfile(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "runtime")
 }

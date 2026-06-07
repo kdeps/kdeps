@@ -65,6 +65,22 @@ func TestGenerateManifests(t *testing.T) {
 	assert.Contains(t, manifests, "kind: Service")
 	assert.Contains(t, manifests, "port: 8080")
 	assert.Contains(t, manifests, "targetPort: api")
+	assert.Contains(t, manifests, "runAsNonRoot: true")
+	assert.Contains(t, manifests, `drop: ["ALL"]`)
+}
+
+func TestGenerateManifests_rejectsBakedAuthToken(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{"KDEPS_API_AUTH_TOKEN": "secret"},
+			},
+		},
+	}
+	_, err := NewGenerator("img").GenerateManifests(workflow)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "runtime")
 }
 
 func TestGenerateManifests_WebServer(t *testing.T) {

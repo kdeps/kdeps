@@ -385,7 +385,7 @@ func TestWriteKomponentRegularFile_Success(t *testing.T) {
 	_, err = tr.Next()
 	require.NoError(t, err)
 	target := filepath.Join(destDir, "file.txt")
-	err = writeKomponentRegularFile(target, tr)
+	err = writeKomponentRegularFile(target, &tar.Header{Name: "f", Size: 1}, tr)
 	require.NoError(t, err)
 	data, err := os.ReadFile(target)
 	require.NoError(t, err)

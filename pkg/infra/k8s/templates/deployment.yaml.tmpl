@@ -16,9 +16,16 @@ spec:
       labels:
         app: {{ .Name }}
     spec:
+      securityContext:
+        runAsNonRoot: true
       containers:
       - name: {{ .Name }}
         image: {{ .Image }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop: ["ALL"]
         ports:
         {{- if .APIPort }}
         - containerPort: {{ .APIPort }}

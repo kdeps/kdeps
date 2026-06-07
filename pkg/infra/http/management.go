@@ -42,6 +42,12 @@ const (
 	// maxPackageFileSize is the maximum allowed size for a single extracted file within a .kdeps package (500 MB).
 	maxPackageFileSize = 500 * 1024 * 1024
 
+	// maxPackageEntryCount caps the number of tar entries in a management package upload.
+	maxPackageEntryCount = 1000
+
+	// maxPackageTotalUncompressed caps total extracted bytes across all entries (1 GiB).
+	maxPackageTotalUncompressed = 1024 * 1024 * 1024
+
 	// managementAuthEnvVar is the name of the environment variable containing the
 	// bearer token required to access the write management endpoints.
 	// If the variable is unset or empty, the write endpoints are disabled.

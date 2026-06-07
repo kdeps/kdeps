@@ -97,12 +97,23 @@ func extractArchive(archivePath, destDir string) error {
 				return fmt.Errorf("mkdir %s: %w", absTarget, mkdirErr)
 			}
 		case tar.TypeReg:
-			if extractErr := extractFile(absTarget, tr); extractErr != nil {
+			if extractErr := extractRegularFile(absTarget, hdr, tr); extractErr != nil {
 				return extractErr
 			}
 		}
 	}
 	return nil
+}
+
+func extractRegularFile(absTarget string, hdr *tar.Header, tr *tar.Reader) error {
+	if hdr.Size > maxExtractFileSize {
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			hdr.Name,
+			maxExtractFileSize,
+		)
+	}
+	return extractFile(absTarget, tr)
 }
 
 func extractFile(target string, r io.Reader) (retErr error) {
@@ -119,8 +130,16 @@ func extractFile(target string, r io.Reader) (retErr error) {
 			retErr = fmt.Errorf("close file %s: %w", target, closeErr)
 		}
 	}()
-	if _, copyErr := extractFileIOCopyFunc(out, r); copyErr != nil {
+	n, copyErr := extractFileIOCopyFunc(out, io.LimitReader(r, maxExtractFileSize))
+	if copyErr != nil {
 		return fmt.Errorf("write file %s: %w", target, copyErr)
+	}
+	if n >= maxExtractFileSize {
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			target,
+			maxExtractFileSize,
+		)
 	}
 	return nil
 }

@@ -1304,7 +1304,7 @@ func TestWriteKomponentRegularFile_CopyAndCloseErrors(t *testing.T) {
 	tr := tar.NewReader(gz)
 	_, err = tr.Next()
 	require.NoError(t, err)
-	require.NoError(t, writeKomponentRegularFile(target, tr))
+	require.NoError(t, writeKomponentRegularFile(target, &tar.Header{Name: "f", Size: 1}, tr))
 
 	// Close error: write to read-only destination file.
 	roDir := filepath.Join(destDir, "ro")
@@ -1325,7 +1325,7 @@ func TestWriteKomponentRegularFile_CopyAndCloseErrors(t *testing.T) {
 	tr2 := tar.NewReader(gz2)
 	_, err = tr2.Next()
 	require.NoError(t, err)
-	err = writeKomponentRegularFile(filepath.Join(roDir, "c.txt"), tr2)
+	err = writeKomponentRegularFile(filepath.Join(roDir, "c.txt"), &tar.Header{Name: "c.txt", Size: 1}, tr2)
 	require.Error(t, err)
 }
 
@@ -2664,6 +2664,7 @@ func TestWriteKomponentRegularFile_Errors(t *testing.T) {
 	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
 	err := writeKomponentRegularFile(
 		filepath.Join(blocker, "nested", "f.txt"),
+		&tar.Header{Name: "f.txt", Size: 1},
 		tar.NewReader(bytes.NewReader([]byte("x"))),
 	)
 	require.Error(t, err)
@@ -3212,7 +3213,8 @@ func TestCmdExtractTarGz_GzipError(t *testing.T) {
 func TestWriteKomponentRegularFile_CopyError(t *testing.T) {
 	tmp := t.TempDir()
 	target := filepath.Join(tmp, "f.txt")
-	err := writeKomponentRegularFile(target, tar.NewReader(bytes.NewReader([]byte("x"))))
+	hdr := &tar.Header{Name: "f.txt", Size: 1}
+	err := writeKomponentRegularFile(target, hdr, tar.NewReader(bytes.NewReader([]byte("x"))))
 	require.NoError(t, err)
 }
 
@@ -3844,7 +3846,7 @@ func TestWriteKomponentRegularFile_CloseHookError(t *testing.T) {
 	_, err := tw.Write([]byte("x"))
 	require.NoError(t, err)
 	require.NoError(t, tw.Close())
-	err = writeKomponentRegularFile(target, tar.NewReader(&tbuf))
+	err = writeKomponentRegularFile(target, &tar.Header{Name: "f.txt", Size: int64(tbuf.Len())}, tar.NewReader(&tbuf))
 	require.Error(t, err)
 }
 
@@ -4213,7 +4215,8 @@ func TestSafeKomponentTarget_RelParentSkip(t *testing.T) {
 }
 
 func TestWriteKomponentRegularFile_MkdirError_Final(t *testing.T) {
-	err := writeKomponentRegularFile("/\x00bad/file.txt", tar.NewReader(bytes.NewReader(nil)))
+	hdr := &tar.Header{Name: "file.txt", Size: 0}
+	err := writeKomponentRegularFile("/\x00bad/file.txt", hdr, tar.NewReader(bytes.NewReader(nil)))
 	require.Error(t, err)
 }
 
@@ -4229,7 +4232,7 @@ func TestWriteKomponentRegularFile_CopyError_Final(t *testing.T) {
 	_, err := tw.Write([]byte("x"))
 	require.NoError(t, err)
 	require.NoError(t, tw.Close())
-	err = writeKomponentRegularFile(target, tar.NewReader(&tbuf))
+	err = writeKomponentRegularFile(target, &tar.Header{Name: "f.txt", Size: int64(tbuf.Len())}, tar.NewReader(&tbuf))
 	require.Error(t, err)
 }
 

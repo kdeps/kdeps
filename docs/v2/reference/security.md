@@ -110,6 +110,26 @@ settings:
     maxConcurrent: 50
 ```
 
+## Build-Time Env (Docker and Kubernetes Export)
+
+`agentSettings.env` is embedded into generated Dockerfiles and Kubernetes manifests as plain `ENV` / `value:` entries. kdeps rejects auth tokens and secret-like keys at export time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`, keys containing `_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.).
+
+Set those at runtime instead:
+
+```bash
+docker run -e KDEPS_API_AUTH_TOKEN=api-secret -e KDEPS_MANAGEMENT_TOKEN=mgmt-secret ...
+```
+
+```yaml
+# kubernetes secret + deployment env
+env:
+  - name: KDEPS_API_AUTH_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: kdeps-auth
+        key: api-token
+```
+
 ## Resource Output Caps
 
 Four environment variables limit how many bytes executor resources return to the workflow engine. Set them in `agentSettings.env`.

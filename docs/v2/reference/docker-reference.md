@@ -75,6 +75,8 @@ networks:
 
 Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. Ollama models are stored under `/app/.ollama/models`.
 
+Do not put `KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`, or other secret-like keys in `agentSettings.env` - Docker build fails if you try. Pass auth tokens at container runtime with `-e` or secrets mounts.
+
 Before exposing a container externally, add these fields to `workflow.yaml`:
 
 ```yaml

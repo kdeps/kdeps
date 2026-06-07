@@ -163,6 +163,9 @@ func (s *Server) Start(addr string, devMode bool) error {
 	kdeps_debug.Log("enter: Start")
 	// Add core middleware (request ID and error handling)
 	s.Router.Use(SecurityHeadersMiddleware())
+	if s.Workflow != nil {
+		s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
+	}
 	s.Router.Use(RequestIDMiddleware())
 	s.Router.Use(DebugModeMiddleware())
 

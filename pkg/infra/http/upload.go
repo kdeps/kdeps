@@ -46,9 +46,7 @@ var (
 	openMultipartFile = func(h *multipart.FileHeader) (multipart.File, error) {
 		return h.Open()
 	}
-	readMultipartFile = func(file multipart.File) ([]byte, error) {
-		return io.ReadAll(file)
-	}
+	readMultipartFile = io.ReadAll
 )
 
 // UploadHandler handles file uploads.
@@ -188,10 +186,18 @@ func (h *UploadHandler) processFileHeader(
 		_ = src.Close()
 	}()
 
-	// Read file content
-	content, err := readMultipartFile(src)
+	// Read file content (cap even when Content-Length is missing or wrong)
+	limited := io.LimitReader(src, h.maxFileSize+1)
+	content, err := readMultipartFile(limited)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file content: %w", err)
+	}
+	if int64(len(content)) > h.maxFileSize {
+		return nil, domain.NewAppError(
+			domain.ErrCodeRequestTooLarge,
+			fmt.Sprintf("File too large: %d bytes (max: %d)", len(content), h.maxFileSize),
+		).WithDetails("filename", fileHeader.Filename).
+			WithDetails("maxSize", h.maxFileSize)
 	}
 
 	// Detect MIME type using standard library

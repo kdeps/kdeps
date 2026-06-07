@@ -152,20 +152,21 @@ func UploadMiddleware(maxFileSize int64) func(stdhttp.HandlerFunc) stdhttp.Handl
 				return
 			}
 
-			if r.ContentLength <= maxFileSize {
-				next(w, r)
+			if r.ContentLength > maxFileSize {
+				respondMiddlewareError(
+					w, r,
+					domain.ErrCodeRequestTooLarge,
+					fmt.Sprintf(
+						"Request body too large: %d bytes (max: %d)",
+						r.ContentLength,
+						maxFileSize,
+					),
+				)
 				return
 			}
 
-			respondMiddlewareError(
-				w, r,
-				domain.ErrCodeRequestTooLarge,
-				fmt.Sprintf(
-					"Request body too large: %d bytes (max: %d)",
-					r.ContentLength,
-					maxFileSize,
-				),
-			)
+			r.Body = stdhttp.MaxBytesReader(w, r.Body, maxFileSize)
+			next(w, r)
 		}
 	}
 }

@@ -65,6 +65,8 @@ const (
 	DebugModeKey RequestContextKey = "debugMode"
 	// SessionIDKey is the context key for session ID.
 	SessionIDKey RequestContextKey = "sessionID"
+	// TrustedProxiesKey is the context key for trusted proxy CIDRs/IPs.
+	TrustedProxiesKey RequestContextKey = "trustedProxies"
 	// SessionCookieName is the name of the session cookie.
 	SessionCookieName = "kdeps_session_id"
 )

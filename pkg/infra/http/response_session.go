@@ -32,6 +32,10 @@ func isSecureRequest(r *stdhttp.Request) bool {
 	if r.TLS != nil {
 		return true
 	}
+	trusted := trustedProxiesFromContext(r.Context())
+	if !isTrustedPeer(peerIPFromRequest(r), trusted) {
+		return false
+	}
 	return r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
