@@ -38,6 +38,10 @@ func TestClientIPFromAddr_NoPort(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1"))
 }
 
+func TestClientIPFromAddr_WithPort(t *testing.T) {
+	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1:8080"))
+}
+
 func TestIPLimiterStore_CleanupLoop(t *testing.T) {
 	orig := limiterCleanupInterval
 	limiterCleanupInterval = 5 * time.Millisecond

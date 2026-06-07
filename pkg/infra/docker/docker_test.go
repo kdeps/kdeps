@@ -2254,6 +2254,20 @@ func TestBuilder_validateDockerEnv_rejectsUnsafeValues(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid docker env value")
 }
 
+func TestBuilder_validateDockerEnv_rejectsInvalidKey(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+	workflow.Settings.AgentSettings.Env = map[string]string{
+		"BAD KEY": "value",
+	}
+
+	_, err := builder.GenerateDockerfile(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid docker env key")
+}
+
 func TestBuilder_validateDockerEnv_rejectsExpansionChars(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 	workflow := &domain.Workflow{
