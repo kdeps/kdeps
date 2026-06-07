@@ -18,7 +18,6 @@
 
 //go:build !js
 
-//nolint:mnd // magic numbers used for expression parsing offsets
 package exec
 
 import (

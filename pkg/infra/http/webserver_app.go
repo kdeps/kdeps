@@ -16,7 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//nolint:mnd // default timeouts and channel sizes are intentional
 package http
 
 import (

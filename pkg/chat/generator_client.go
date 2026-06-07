@@ -24,9 +24,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	stdhttp "net/http"
 	"strings"
 )
 
+// HTTPLLMClient implements LLMClient using direct HTTP calls to the backend API.
 // It supports Ollama and OpenAI-compatible APIs.
 type HTTPLLMClient struct {
 	httpClient *stdhttp.Client
