@@ -371,6 +371,15 @@ jobs:
             echo "✓ No existing release found for $TAG"
           fi
 
+      - name: Clean cmd test artifacts before release
+        if: steps.should_release.outputs.should_release == 'true'
+        run: |
+          git clean -fd -- cmd/
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Remaining dirty paths after cleanup:"
+            git status --porcelain
+          fi
+
       - name: Release with GoReleaser
         if: steps.should_release.outputs.should_release == 'true'
         uses: goreleaser/goreleaser-action@v7
