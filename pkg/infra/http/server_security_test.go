@@ -21,6 +21,8 @@ package http
 import (
 	"bytes"
 	"log/slog"
+	stdhttp "net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,4 +61,86 @@ func TestServer_applySecurityMiddleware_warnsInvalidTrustedProxies(t *testing.T)
 	require.NoError(t, server.applySecurityMiddleware())
 
 	assert.Contains(t, buf.String(), "invalid trustedProxies")
+}
+
+func TestServer_applySecurityMiddleware_skipsWithoutAPIServer(t *testing.T) {
+	server := &Server{Workflow: &domain.Workflow{Settings: domain.WorkflowSettings{}}}
+	require.NoError(t, server.applySecurityMiddleware())
+}
+
+func TestServer_applySecurityMiddleware_requiresToken(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+
+	server, err := NewServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{},
+		},
+	}, nil, nil)
+	require.NoError(t, err)
+
+	err = server.applySecurityMiddleware()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
+}
+
+func TestServer_applySecurityMiddleware_appliesRateLimitAndConcurrent(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "secret")
+
+	server, err := NewServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				RateLimit: &domain.RateLimitConfig{
+					RequestsPerMinute: 60,
+				},
+				MaxConcurrent: 5,
+			},
+		},
+	}, nil, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, server.applySecurityMiddleware())
+}
+
+func TestServer_Start_rejectsMissingAuthToken(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "")
+
+	server, err := NewServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{},
+		},
+	}, nil, nil)
+	require.NoError(t, err)
+
+	err = server.Start("127.0.0.1:0", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "KDEPS_API_AUTH_TOKEN")
+}
+
+func TestServer_CorsMiddleware_AllowCredentials(t *testing.T) {
+	server, err := NewServer(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				CORS: &domain.CORS{
+					AllowOrigins:     []string{"http://localhost:3000"},
+					AllowCredentials: true,
+				},
+			},
+		},
+	}, nil, nil)
+	require.NoError(t, err)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+
+	called := false
+	server.CorsMiddleware(func(stdhttp.ResponseWriter, *stdhttp.Request) {
+		called = true
+	})(w, req)
+
+	assert.True(t, called)
+	assert.Equal(t, "true", w.Header().Get("Access-Control-Allow-Credentials"))
 }
