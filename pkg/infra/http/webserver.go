@@ -87,6 +87,8 @@ func (s *WebServer) Start(ctx context.Context) error {
 		return errors.New("webServer configuration is required")
 	}
 
+	s.Router.Use(SecurityHeadersMiddleware())
+
 	// Setup routes
 	s.SetupWebRoutes(ctx)
 

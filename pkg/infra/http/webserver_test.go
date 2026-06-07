@@ -158,6 +158,13 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 		t.Errorf("GET / status = %v, want %v", resp.StatusCode, http.StatusOK)
 	}
 
+	if got := resp.Header.Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("X-Content-Type-Options = %q, want nosniff", got)
+	}
+	if got := resp.Header.Get("X-Frame-Options"); got != "DENY" {
+		t.Errorf("X-Frame-Options = %q, want DENY", got)
+	}
+
 	// Read response body
 	body := make([]byte, len(testHTML)+100)
 	n, _ := resp.Body.Read(body)
