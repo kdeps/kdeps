@@ -585,7 +585,8 @@ func TestBuilder_GenerateDockerfile_WithInstallOllamaFlag(t *testing.T) {
 
 	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
 	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
-	assert.NotContains(t, dockerfile, "USER kdeps")
+	assert.Contains(t, dockerfile, "USER kdeps")
+	assert.Contains(t, dockerfile, "OLLAMA_MODELS=/app/.ollama/models")
 }
 func TestBuilder_GenerateDockerfile_MultiplePythonVersions(t *testing.T) {
 	tests := []struct {

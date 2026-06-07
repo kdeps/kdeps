@@ -839,6 +839,7 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 }
 
 func TestStartHTTPServer_ValidConfig(t *testing.T) {
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "test-auth-token")
 	if testing.Short() {
 		t.Skip("skipping test that starts HTTP server and sends SIGINT in short mode")
 	}

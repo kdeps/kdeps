@@ -73,7 +73,7 @@ networks:
 
 ## Security Hardening
 
-Images without a local Ollama backend run as the unprivileged `kdeps` user. Images that install Ollama still run as root because the Ollama daemon requires it.
+Generated images run as the unprivileged `kdeps` user, including Ollama-backed images. Ollama models are stored under `/app/.ollama/models`.
 
 Before exposing a container externally, add these fields to `workflow.yaml`:
 

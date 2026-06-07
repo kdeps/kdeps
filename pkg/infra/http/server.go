@@ -170,7 +170,9 @@ func (s *Server) Start(addr string, devMode bool) error {
 	s.Router.Use(SessionMiddleware())
 
 	// Apply security middleware from apiServer config when present.
-	s.applySecurityMiddleware()
+	if err := s.applySecurityMiddleware(); err != nil {
+		return err
+	}
 
 	// Add upload middleware for size validation
 	s.Router.Use(UploadMiddleware(MaxUploadSize))

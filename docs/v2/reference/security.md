@@ -17,7 +17,7 @@ A -> B -> C -> D -> E -> F
 
 ## Authentication
 
-Protect the API server with a shared secret. When `api_auth_token` is set, every request must include it via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt.
+When `apiServer` is configured, authentication is required. Every request must include the token via `Authorization: Bearer <token>` or `X-Api-Key: <token>`. The `/health` endpoint is always exempt. kdeps refuses to start the API server without a token.
 
 Set the token in `~/.kdeps/config.yaml` (machine-local, never committed):
 
@@ -32,7 +32,7 @@ Or via environment variable:
 export KDEPS_API_AUTH_TOKEN="your-secret-token"
 ```
 
-No `auth:` block in `workflow.yaml`. Omit `api_auth_token` (or leave it empty) to disable authentication entirely. kdeps logs a startup warning when `apiServer` is configured but no token is set.
+No `auth:` block in `workflow.yaml`. The token is never stored in the workflow file.
 
 ## Trusted Proxies
 
