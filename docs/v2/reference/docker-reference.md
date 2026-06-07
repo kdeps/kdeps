@@ -73,6 +73,8 @@ networks:
 
 ## Security Hardening
 
+Images without a local Ollama backend run as the unprivileged `kdeps` user. Images that install Ollama still run as root because the Ollama daemon requires it.
+
 Before exposing a container externally, add these fields to `workflow.yaml`:
 
 ```yaml

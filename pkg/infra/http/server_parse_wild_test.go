@@ -36,11 +36,17 @@ import (
 func TestServer_ParseRequest_WithXForwardedFor(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				TrustedProxies: []string{"10.0.0.1"},
+			},
+		},
 	}
 	server, err := httppkg.NewServer(workflow, nil, slog.Default())
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
+	req.RemoteAddr = "10.0.0.1:443"
 	req.Header.Set("X-Forwarded-For", "192.168.1.1, 10.0.0.1")
 
 	ctx := server.ParseRequest(req, nil)
@@ -51,11 +57,17 @@ func TestServer_ParseRequest_WithXForwardedFor(t *testing.T) {
 func TestServer_ParseRequest_WithXRealIP(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				TrustedProxies: []string{"10.0.0.1"},
+			},
+		},
 	}
 	server, err := httppkg.NewServer(workflow, nil, slog.Default())
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
+	req.RemoteAddr = "10.0.0.1:443"
 	req.Header.Set("X-Real-IP", "192.168.1.2")
 
 	ctx := server.ParseRequest(req, nil)

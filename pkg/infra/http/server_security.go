@@ -19,10 +19,7 @@
 package http
 
 import (
-	"net"
-	stdhttp "net/http"
 	"os"
-	"strings"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
@@ -47,7 +44,7 @@ func (s *Server) applySecurityMiddleware() {
 		if burst <= 0 {
 			burst = api.RateLimit.RequestsPerMinute
 		}
-		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst))
+		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst, api.TrustedProxies))
 	}
 	maxBody := api.MaxBodyBytes
 	if maxBody <= 0 {
@@ -57,27 +54,4 @@ func (s *Server) applySecurityMiddleware() {
 	if api.MaxConcurrent > 0 {
 		s.Router.Use(ConcurrentLimitMiddleware(api.MaxConcurrent))
 	}
-}
-
-// extractClientIP returns a validated IP address from the request. Header values are
-// attacker-controlled, so each candidate is validated with net.ParseIP before use.
-func extractClientIP(r *stdhttp.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		// Take only the first address (index 0) to avoid parsing the whole chain.
-		parts := strings.SplitN(forwarded, ",", maxForwardedParts)
-		if parsed := net.ParseIP(strings.TrimSpace(parts[0])); parsed != nil {
-			return parsed.String()
-		}
-	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		if parsed := net.ParseIP(realIP); parsed != nil {
-			return parsed.String()
-		}
-	}
-	// Fall back to RemoteAddr (host:port — strip port).
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
 }

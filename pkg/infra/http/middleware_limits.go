@@ -71,12 +71,15 @@ func (s *ipLimiterStore) cleanupOnce() {
 
 // RateLimitMiddleware enforces per-IP request rate limiting.
 // requestsPerMinute is the sustained rate; burst is the allowed burst above that rate.
-func RateLimitMiddleware(requestsPerMinute, burst int) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+func RateLimitMiddleware(
+	requestsPerMinute, burst int,
+	trustedProxies []string,
+) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: RateLimitMiddleware")
 	store := newIPLimiterStore(requestsPerMinute, burst)
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if !store.get(clientIPFromAddr(r.RemoteAddr)).Allow() {
+			if !store.get(extractClientIP(r, trustedProxies)).Allow() {
 				w.Header().Set("Retry-After", "60")
 				respondMiddlewareError(
 					w, r,

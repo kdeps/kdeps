@@ -218,7 +218,7 @@ sql:
 
 ## Trusted Proxies
 
-Configure trusted proxies for accurate client IP detection behind load balancers.
+Configure trusted proxies for accurate client IP detection behind load balancers. kdeps ignores `X-Forwarded-For` and `X-Real-IP` unless the direct peer matches an entry in this list.
 
 ### API Server
 

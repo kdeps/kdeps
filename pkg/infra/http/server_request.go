@@ -64,7 +64,11 @@ func (s *Server) ParseRequest(
 		body = parseFormData(r, body)
 	}
 
-	clientIP := extractClientIP(r)
+	var trustedProxies []string
+	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
+		trustedProxies = s.Workflow.Settings.APIServer.TrustedProxies
+	}
+	clientIP := extractClientIP(r, trustedProxies)
 	requestID := uuid.New().String()
 
 	files := make([]FileUpload, 0, len(uploadedFiles))

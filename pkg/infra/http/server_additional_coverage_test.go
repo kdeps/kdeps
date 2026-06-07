@@ -208,27 +208,39 @@ func TestServer_CorsMiddleware_OptionsRequest_Coverage(t *testing.T) {
 
 // TestServer_ParseRequest_XForwardedFor tests X-Forwarded-For header parsing.
 func TestServer_ParseRequest_XForwardedFor(t *testing.T) {
-	server, err := httppkg.NewServer(nil, nil, nil)
+	server, err := httppkg.NewServer(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				TrustedProxies: []string{"10.0.0.1"},
+			},
+		},
+	}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
+	req.RemoteAddr = "10.0.0.1:443"
 	req.Header.Set("X-Forwarded-For", "192.168.1.1, 10.0.0.1")
 
 	ctx := server.ParseRequest(req, nil)
-	// Should extract first IP from X-Forwarded-For
 	assert.Equal(t, "192.168.1.1", ctx.IP)
 }
 
 // TestServer_ParseRequest_XRealIP tests X-Real-IP header parsing.
 func TestServer_ParseRequest_XRealIP(t *testing.T) {
-	server, err := httppkg.NewServer(nil, nil, nil)
+	server, err := httppkg.NewServer(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				TrustedProxies: []string{"10.0.0.1"},
+			},
+		},
+	}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
+	req.RemoteAddr = "10.0.0.1:443"
 	req.Header.Set("X-Real-IP", "192.168.1.100")
 
 	ctx := server.ParseRequest(req, nil)
-	// Should use X-Real-IP if X-Forwarded-For is not present
 	assert.Equal(t, "192.168.1.100", ctx.IP)
 }
 
