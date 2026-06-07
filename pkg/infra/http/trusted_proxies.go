@@ -26,6 +26,8 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// trustedProxiesFromSettings merges apiServer and webServer entries because
+// combined-mode routes share one router and security middleware chain.
 func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
 	var proxies []string
 	if settings.APIServer != nil {
@@ -37,12 +39,16 @@ func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
 	return proxies
 }
 
-func peerIPFromRequest(r *stdhttp.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
+func peerIPFromAddr(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return r.RemoteAddr
+		return addr
 	}
 	return host
+}
+
+func peerIPFromRequest(r *stdhttp.Request) string {
+	return peerIPFromAddr(r.RemoteAddr)
 }
 
 func invalidTrustedProxyEntries(trusted []string) []string {
