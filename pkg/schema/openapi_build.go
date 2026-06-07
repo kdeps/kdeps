@@ -26,6 +26,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+// GenerateOpenAPI produces an OpenAPI 3.0.3 specification from a workflow.
 // It returns an empty-paths spec (not nil) when the workflow is nil.
 func GenerateOpenAPI(workflow *domain.Workflow) *OpenAPISpec {
 	kdeps_debug.Log("enter: GenerateOpenAPI")
