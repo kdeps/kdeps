@@ -29,6 +29,8 @@ G -> H
 
 `apiServer` and `webServer` share the same port. Path prefix determines which handler fires.
 
+`webServer` responses include the same defensive security headers as `apiServer` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when TLS is enabled). Bearer auth applies only to `apiServer` routes, not static files or app proxies.
+
 ## Basic Configuration
 
 ```yaml

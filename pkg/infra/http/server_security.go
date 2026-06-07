@@ -37,6 +37,10 @@ func (s *Server) applySecurityMiddleware() {
 	api := s.Workflow.Settings.APIServer
 	if token := os.Getenv("KDEPS_API_AUTH_TOKEN"); token != "" {
 		s.Router.Use(AuthMiddleware(token))
+	} else if s.logger != nil {
+		s.logger.Warn(
+			"API server running without authentication; set KDEPS_API_AUTH_TOKEN or api_auth_token in ~/.kdeps/config.yaml",
+		)
 	}
 	if api.RateLimit != nil && api.RateLimit.RequestsPerMinute > 0 {
 		burst := api.RateLimit.Burst

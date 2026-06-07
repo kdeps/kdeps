@@ -32,7 +32,17 @@ Or via environment variable:
 export KDEPS_API_AUTH_TOKEN="your-secret-token"
 ```
 
-No `auth:` block in `workflow.yaml`. Omit `api_auth_token` (or leave it empty) to disable authentication entirely.
+No `auth:` block in `workflow.yaml`. Omit `api_auth_token` (or leave it empty) to disable authentication entirely. kdeps logs a startup warning when `apiServer` is configured but no token is set.
+
+## Security Headers
+
+Both `apiServer` and `webServer` responses include defensive HTTP headers on every response:
+
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (TLS only)
 
 ## Rate Limiting
 
