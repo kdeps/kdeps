@@ -137,7 +137,7 @@ fi
 # Test 3: GET /_kdeps/status
 # ---------------------------------------------------------------------------
 
-STATUS_RESP=$(curl -sf "http://127.0.0.1:${MGMT_PORT}/_kdeps/status" 2>/dev/null || echo "")
+STATUS_RESP=$(curl -sf -H "Authorization: Bearer ${MGMT_TOKEN}" "http://127.0.0.1:${MGMT_PORT}/_kdeps/status" 2>/dev/null || echo "")
 if [ -n "$STATUS_RESP" ]; then
     test_passed "Management API - GET /_kdeps/status reachable"
 

@@ -47,6 +47,10 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	usePrepackagedBinary := prepackagedAMD64 || prepackagedARM64
 	hasResources, hasData := resolveBuildContextDirs(usePrepackagedBinary)
 
+	if envErr := validateDockerEnv(workflow.Settings.AgentSettings.Env); envErr != nil {
+		return nil, envErr
+	}
+
 	return &DockerfileData{
 		BaseImage:            resolveBaseImage(b.BaseOS, installOllama),
 		OS:                   b.BaseOS,
@@ -73,6 +77,19 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		HasData:              hasData,
 		Env:                  workflow.Settings.AgentSettings.Env,
 	}, nil
+}
+
+func validateDockerEnv(env map[string]string) error {
+	const forbiddenValueChars = "\"\\\n\r"
+	for key, value := range env {
+		if key == "" || strings.ContainsAny(key, " \t=\\\"") {
+			return fmt.Errorf("invalid docker env key %q", key)
+		}
+		if strings.ContainsAny(value, forbiddenValueChars) {
+			return fmt.Errorf("invalid docker env value for %q: contains forbidden characters", key)
+		}
+	}
+	return nil
 }
 
 func resolveBaseImage(baseOS string, installOllama bool) string {

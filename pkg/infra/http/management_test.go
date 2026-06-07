@@ -217,8 +217,10 @@ func TestSetupManagementRoutes_RoutesRegistered(t *testing.T) {
 	server := makeTestServer(t, nil)
 	server.SetupManagementRoutes()
 
-	// GET /_kdeps/status should return 200 (no auth required)
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "mgmt-test-token")
+
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
+	req.Header.Set("Authorization", "Bearer mgmt-test-token")
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, req)
 	assert.Equal(t, stdhttp.StatusOK, rec.Code)
@@ -233,8 +235,10 @@ func TestSetupRoutes_IncludesManagementRoutes(t *testing.T) {
 	server := makeTestServer(t, workflow)
 	server.SetupRoutes()
 
-	// Management status endpoint should be reachable without auth
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "mgmt-test-token")
+
 	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
+	req.Header.Set("Authorization", "Bearer mgmt-test-token")
 	rec := httptest.NewRecorder()
 	server.Router.ServeHTTP(rec, req)
 	assert.Equal(t, stdhttp.StatusOK, rec.Code)
@@ -242,6 +246,18 @@ func TestSetupRoutes_IncludesManagementRoutes(t *testing.T) {
 	var body map[string]interface{}
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
 	assert.Equal(t, "ok", body["status"])
+}
+
+// TestSetupManagementRoutes_StatusRequiresAuth verifies read endpoints require a token.
+func TestSetupManagementRoutes_StatusRequiresAuth(t *testing.T) {
+	t.Setenv("KDEPS_MANAGEMENT_TOKEN", "mgmt-test-token")
+	server := makeTestServer(t, nil)
+	server.SetupManagementRoutes()
+
+	req := httptest.NewRequest(stdhttp.MethodGet, "/_kdeps/status", nil)
+	rec := httptest.NewRecorder()
+	server.Router.ServeHTTP(rec, req)
+	assert.Equal(t, stdhttp.StatusUnauthorized, rec.Code)
 }
 
 // TestRequireManagementAuth_NoTokenConfigured verifies 503 when env var is unset.

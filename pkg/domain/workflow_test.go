@@ -386,6 +386,9 @@ func TestGetCORSConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := tt.settings.GetCORSConfig()
+			if tt.name == "default settings (no APIServer)" && config.AllowCredentials {
+				t.Error("default AllowCredentials should be false with wildcard origins")
+			}
 			if len(config.AllowOrigins) == 0 {
 				t.Error("AllowOrigins should not be empty")
 			}

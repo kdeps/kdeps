@@ -69,6 +69,10 @@ func SecurityHeadersMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+			if r.TLS != nil {
+				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			}
 			next(w, r)
 		}
 	}
@@ -94,7 +98,7 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 				next(w, r)
 				return
 			}
-			if extractAuthToken(r) != token {
+			if !constantTimeEqual(extractAuthToken(r), token) {
 				respondMiddlewareError(
 					w, r,
 					domain.ErrCodeUnauthorized,

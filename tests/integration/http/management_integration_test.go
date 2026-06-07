@@ -65,6 +65,9 @@ func startManagementServer(
 	workflowPath string,
 ) *httptest.Server {
 	t.Helper()
+	if _, ok := os.LookupEnv("KDEPS_MANAGEMENT_TOKEN"); !ok {
+		t.Setenv("KDEPS_MANAGEMENT_TOKEN", testManagementToken)
+	}
 
 	logger := slog.Default()
 	executor := &mockExecutor{}
@@ -99,6 +102,15 @@ func authedPut(t *testing.T, url string, body []byte) *http.Request {
 	return req
 }
 
+// authedGet builds a GET request with the test bearer token set.
+func authedGet(t *testing.T, url string) *http.Request {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+testManagementToken)
+	return req
+}
+
 // authedPost builds a POST request with the test bearer token set.
 func authedPost(t *testing.T, url string) *http.Request {
 	t.Helper()
@@ -119,13 +131,13 @@ func (m *mockExecutor) Execute(
 }
 
 // ---------------------------------------------------------------------------
-// GET /_kdeps/status  (no auth required)
+// GET /_kdeps/status  (requires KDEPS_MANAGEMENT_TOKEN)
 // ---------------------------------------------------------------------------
 
 func TestManagementIntegration_Status_NoWorkflow(t *testing.T) {
 	ts := startManagementServer(t, nil, "")
 
-	resp, err := http.Get(ts.URL + "/_kdeps/status")
+	resp, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -141,7 +153,7 @@ func TestManagementIntegration_Status_WithWorkflow(t *testing.T) {
 	wf := minimalWorkflow("integration-agent", "1.2.3")
 	ts := startManagementServer(t, wf, "")
 
-	resp, err := http.Get(ts.URL + "/_kdeps/status")
+	resp, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -390,7 +402,7 @@ settings:
 	ts := startManagementServer(t, nil, workflowPath)
 
 	// Step 1: confirm initial status (no workflow loaded yet since we passed nil)
-	resp1, err := http.Get(ts.URL + "/_kdeps/status")
+	resp1, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	resp1.Body.Close()
 	assert.Equal(t, http.StatusOK, resp1.StatusCode)
@@ -413,7 +425,7 @@ settings:
 	require.Equal(t, http.StatusOK, resp2.StatusCode)
 
 	// Step 3: status now shows v2
-	resp3, err := http.Get(ts.URL + "/_kdeps/status")
+	resp3, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp3.Body.Close()
 
@@ -464,7 +476,7 @@ settings:
 	require.Equal(t, http.StatusOK, resp2.StatusCode)
 
 	// Confirm version is now 3.0.0
-	resp3, err := http.Get(ts.URL + "/_kdeps/status")
+	resp3, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp3.Body.Close()
 
@@ -518,7 +530,7 @@ func TestManagementIntegration_AlwaysAvailable_WithoutAPIServer(t *testing.T) {
 
 	ts := startManagementServer(t, wf, "")
 
-	resp, err := http.Get(ts.URL + "/_kdeps/status")
+	resp, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -544,7 +556,7 @@ func TestManagementIntegration_ReloadPreservesMiddleware(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp1.StatusCode)
 
 	// After reload, status endpoint must still work (router was rebuilt correctly)
-	resp2, err := http.Get(ts.URL + "/_kdeps/status")
+	resp2, err := http.DefaultClient.Do(authedGet(t, ts.URL+"/_kdeps/status"))
 	require.NoError(t, err)
 	defer resp2.Body.Close()
 	assert.Equal(t, http.StatusOK, resp2.StatusCode)
