@@ -37,6 +37,7 @@ const (
 	setupCommandTimeout = 5 * time.Minute
 	osPackageTimeout    = 5 * time.Minute
 	pkgCheckTimeout     = 10 * time.Second
+	goOSDarwin          = "darwin"
 )
 
 // pythonManagerFactory creates a Python package manager. Overridable for testing.
@@ -264,7 +265,7 @@ func detectPackageManager() (string, pkgCheckFn, pkgInstallFn) {
 				args := append([]string{"install", "-y", "-q"}, pkgs...)
 				return runCommand("apt-get", args)
 			}
-	case commandExists("brew") && componentGOOS == "darwin":
+	case commandExists("brew") && componentGOOS == goOSDarwin:
 		return "brew",
 			func(pkg string) bool {
 				return pkgInstalled("brew", []string{"list", "--formula", pkg})

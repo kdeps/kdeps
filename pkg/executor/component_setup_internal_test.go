@@ -444,7 +444,7 @@ func TestDetectPackageManager_AptGet(t *testing.T) {
 func TestDetectPackageManager_Brew(t *testing.T) {
 	origGOOS := componentGOOS
 	t.Cleanup(func() { componentGOOS = origGOOS })
-	componentGOOS = "darwin"
+	componentGOOS = goOSDarwin
 
 	tmpDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
@@ -461,7 +461,7 @@ func TestDetectPackageManager_Brew(t *testing.T) {
 func TestInstallOSPackages_WithBrewOverride(t *testing.T) {
 	origGOOS := componentGOOS
 	t.Cleanup(func() { componentGOOS = origGOOS })
-	componentGOOS = "darwin"
+	componentGOOS = goOSDarwin
 
 	tmpDir := t.TempDir()
 	brewContent := "#!/bin/sh\n" +
