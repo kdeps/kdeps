@@ -565,6 +565,28 @@ func TestRateLimitMiddleware(t *testing.T) {
 		assert.Equal(t, 5, called)
 	})
 
+	t.Run("rate limits by forwarded IP from trusted proxy", func(t *testing.T) {
+		middleware := http.RateLimitMiddleware(1, 1, []string{"10.0.0.1"})
+		handler := middleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
+			w.WriteHeader(stdhttp.StatusOK)
+		})
+
+		makeReq := func() *stdhttp.Request {
+			req := httptest.NewRequest(stdhttp.MethodGet, "/api", nil)
+			req.RemoteAddr = "10.0.0.1:443"
+			req.Header.Set("X-Forwarded-For", "198.51.100.5")
+			return req
+		}
+
+		w1 := httptest.NewRecorder()
+		handler(w1, makeReq())
+		assert.Equal(t, stdhttp.StatusOK, w1.Code)
+
+		w2 := httptest.NewRecorder()
+		handler(w2, makeReq())
+		assert.Equal(t, stdhttp.StatusTooManyRequests, w2.Code)
+	})
+
 	t.Run("rate limits after burst exhausted", func(t *testing.T) {
 		// 1 req/min, burst 1 - second request from same IP should be limited
 		middleware := http.RateLimitMiddleware(1, 1, nil)

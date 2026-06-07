@@ -65,8 +65,8 @@ func (s *Server) ParseRequest(
 	}
 
 	var trustedProxies []string
-	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
-		trustedProxies = s.Workflow.Settings.APIServer.TrustedProxies
+	if s.Workflow != nil {
+		trustedProxies = trustedProxiesFromSettings(s.Workflow.Settings)
 	}
 	clientIP := extractClientIP(r, trustedProxies)
 	requestID := uuid.New().String()
