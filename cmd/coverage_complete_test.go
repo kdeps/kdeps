@@ -1686,8 +1686,11 @@ func TestNewNewCmd_RunE(t *testing.T) {
 }
 
 func TestRunNewWithFlags_ExistingDir(t *testing.T) {
-	tmp := t.TempDir()
-	err := RunNewWithFlags(&cobra.Command{}, []string{filepath.Base(tmp)}, &NewFlags{})
+	parent := t.TempDir()
+	agentName := "existing-agent"
+	require.NoError(t, os.MkdirAll(filepath.Join(parent, agentName), 0755))
+	t.Chdir(parent)
+	err := RunNewWithFlags(&cobra.Command{}, []string{agentName}, &NewFlags{})
 	// May fail because agent name is temp base name in cwd - just exercise prepareNewOutputDir.
 	t.Logf("new: %v", err)
 }
@@ -1731,6 +1734,7 @@ func TestValidateComponentFile_ParseError(t *testing.T) {
 func TestCobraRunEHandlers(t *testing.T) {
 	stubDispatchHooks(t)
 	tmp := t.TempDir()
+	t.Chdir(tmp)
 	require.NoError(
 		t,
 		os.WriteFile(filepath.Join(tmp, "workflow.yaml"), []byte(minimalWorkflowYAML()), 0644),
@@ -3898,6 +3902,7 @@ func TestAddFileToArchive_RelHookError(t *testing.T) {
 }
 
 func TestRunNewWithFlags_GeneratorInitError(t *testing.T) {
+	t.Chdir(t.TempDir())
 	orig := templatesNewGeneratorFunc
 	t.Cleanup(func() { templatesNewGeneratorFunc = orig })
 	templatesNewGeneratorFunc = func() (*templates.Generator, error) {

@@ -241,6 +241,11 @@ musl-binaries/
 # Local refactor/split tooling scripts (not shipped)
 scripts/refactor-tooling/
 
+# Ephemeral artifacts from cmd package tests (default output dir is cwd)
+/cmd/test-agent-*/
+/cmd/gap-test-*
+/cmd/[0-9]*/
+
 # Private/personal files - not for repo
 private/
 kdeps-io*

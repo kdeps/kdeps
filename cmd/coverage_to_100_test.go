@@ -1143,6 +1143,7 @@ func TestRenderMarkdown_RenderFail(t *testing.T) {
 }
 
 func TestRunNewWithFlags_GeneratorErr(t *testing.T) {
+	t.Chdir(t.TempDir())
 	err := RunNewWithFlags(&cobra.Command{}, []string{"valid-name"}, &NewFlags{Template: "nonexistent-tpl"})
 	require.Error(t, err)
 }

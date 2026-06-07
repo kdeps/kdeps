@@ -216,6 +216,7 @@ func TestPrepareNewOutputDir_ForceRemove(t *testing.T) {
 }
 
 func TestRunNewWithFlags_GeneratorError(t *testing.T) {
+	t.Chdir(t.TempDir())
 	err := RunNewWithFlags(
 		&cobra.Command{},
 		[]string{"valid-agent-name"},
