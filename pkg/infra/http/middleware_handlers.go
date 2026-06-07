@@ -62,6 +62,18 @@ func DebugModeMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return ErrorHandlerMiddleware(debugMode)
 }
 
+// TrustedProxiesMiddleware stores trusted proxy entries in the request context
+// so forwarded headers (X-Forwarded-Proto, X-Forwarded-For) are honored only from trusted peers.
+func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+	kdeps_debug.Log("enter: TrustedProxiesMiddleware")
+	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
+		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			ctx := context.WithValue(r.Context(), TrustedProxiesKey, trusted)
+			next(w, r.WithContext(ctx))
+		}
+	}
+}
+
 // SecurityHeadersMiddleware sets defensive HTTP security headers on every response.
 func SecurityHeadersMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: SecurityHeadersMiddleware")

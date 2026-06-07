@@ -26,6 +26,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
 
 //go:embed templates/deployment.yaml.tmpl
@@ -64,6 +65,10 @@ func NewGenerator(imageName string) *Generator {
 // GenerateManifests generates Kubernetes Deployment and Service manifests.
 func (g *Generator) GenerateManifests(workflow *domain.Workflow) (string, error) {
 	kdeps_debug.Log("enter: GenerateManifests")
+
+	if secretErr := deployenv.ValidateBuildTimeEnv(workflow.Settings.AgentSettings.Env); secretErr != nil {
+		return "", secretErr
+	}
 
 	data := g.buildTemplateData(workflow)
 

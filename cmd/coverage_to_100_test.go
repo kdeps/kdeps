@@ -557,7 +557,7 @@ func TestWriteKomponentRegularFile_CloseErr(t *testing.T) {
 	require.NoError(t, err)
 	roDir := filepath.Join(destDir, "ro")
 	require.NoError(t, os.Mkdir(roDir, 0500))
-	err = writeKomponentRegularFile(filepath.Join(roDir, "c.txt"), tr)
+	err = writeKomponentRegularFile(filepath.Join(roDir, "c.txt"), &tar.Header{Name: "c.txt", Size: 1}, tr)
 	require.Error(t, err)
 }
 

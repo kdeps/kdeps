@@ -211,7 +211,7 @@ func TestWriteKomponentRegularFile_MkdirError(t *testing.T) {
 	tr := tar.NewReader(gzr)
 	_, err = tr.Next()
 	require.NoError(t, err)
-	err = writeKomponentRegularFile(target, tr)
+	err = writeKomponentRegularFile(target, &tar.Header{Name: "f", Size: 1}, tr)
 	require.Error(t, err)
 }
 

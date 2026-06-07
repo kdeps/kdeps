@@ -14,6 +14,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"log/slog"
 	"mime/multipart"
 	stdhttp "net/http"
@@ -84,11 +85,13 @@ func TestResolvePackageEntryPath_AbsError(t *testing.T) {
 }
 
 func TestExtractPackageEntry_PrefixGuard(t *testing.T) {
+	var total int64
 	err := extractPackageEntry(
 		&tar.Header{Name: "file.txt"},
 		"/tmp/base",
 		"/other/file.txt",
 		tar.NewReader(bytes.NewReader(nil)),
+		&total,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid path in package")
@@ -110,7 +113,8 @@ func TestExtractKdepsPackage_AbsDestError(t *testing.T) {
 }
 
 func TestWriteExtractedFile_PrefixGuard(t *testing.T) {
-	err := writeExtractedFile("/tmp/base", "/other/file.txt", bytes.NewReader([]byte("x")))
+	var total int64
+	err := writeExtractedFile("/tmp/base", "/other/file.txt", bytes.NewReader([]byte("x")), &total)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid target path")
 }
@@ -127,7 +131,8 @@ func TestWriteExtractedFile_CloseError(t *testing.T) {
 
 	baseAbs, err := filepath.Abs(tmpDir)
 	require.NoError(t, err)
-	err = writeExtractedFile(baseAbs, target, bytes.NewReader([]byte("payload")))
+	var totalBytes int64
+	err = writeExtractedFile(baseAbs, target, bytes.NewReader([]byte("payload")), &totalBytes)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "close failed")
 }
@@ -403,7 +408,7 @@ func TestUploadHandler_ProcessFileHeader_OpenError(t *testing.T) {
 func TestUploadHandler_ProcessFileHeader_ReadError(t *testing.T) {
 	orig := readMultipartFile
 	t.Cleanup(func() { readMultipartFile = orig })
-	readMultipartFile = func(multipart.File) ([]byte, error) {
+	readMultipartFile = func(io.Reader) ([]byte, error) {
 		return nil, errors.New("read failed")
 	}
 

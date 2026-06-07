@@ -88,7 +88,14 @@ func safeKomponentTarget(destDir, entryName string) (string, bool, error) {
 }
 
 // writeKomponentRegularFile creates a regular file from a tar entry.
-func writeKomponentRegularFile(absTarget string, tr *tar.Reader) error {
+func writeKomponentRegularFile(absTarget string, header *tar.Header, tr *tar.Reader) error {
+	if header.Size > maxExtractFileSize {
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			header.Name,
+			maxExtractFileSize,
+		)
+	}
 	if mkErr := os.MkdirAll(filepath.Dir(absTarget), 0o750); mkErr != nil {
 		return fmt.Errorf("mkdir parent: %w", mkErr)
 	}
@@ -96,12 +103,19 @@ func writeKomponentRegularFile(absTarget string, tr *tar.Reader) error {
 	if createErr != nil {
 		return fmt.Errorf("create %s: %w", absTarget, createErr)
 	}
-	_, copyErr := komponentIOCopyFunc(f, tr)
+	n, copyErr := komponentIOCopyFunc(f, io.LimitReader(tr, maxExtractFileSize))
 	if closeErr := komponentFileCloseFunc(f); closeErr != nil && copyErr == nil {
 		return fmt.Errorf("close %s: %w", absTarget, closeErr)
 	}
 	if copyErr != nil {
 		return fmt.Errorf("copy %s: %w", absTarget, copyErr)
+	}
+	if n >= maxExtractFileSize {
+		return fmt.Errorf(
+			"archive entry %q exceeds maximum allowed size of %d bytes",
+			header.Name,
+			maxExtractFileSize,
+		)
 	}
 	return nil
 }
@@ -125,7 +139,7 @@ func cmdExtractTarEntry(tr *tar.Reader, header *tar.Header, destDir string) erro
 			return fmt.Errorf("mkdir %s: %w", absTarget, mkErr)
 		}
 	case tar.TypeReg:
-		return writeKomponentRegularFile(absTarget, tr)
+		return writeKomponentRegularFile(absTarget, header, tr)
 	}
 	return nil
 }

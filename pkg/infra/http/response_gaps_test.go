@@ -32,11 +32,14 @@ import (
 )
 
 // TestSetSessionCookie_XForwardedProto verifies that SetSessionCookie sets Secure=true
-// when the X-Forwarded-Proto header is https (line 264-265).
+// when the X-Forwarded-Proto header is https from a trusted proxy peer.
 func TestSetSessionCookie_XForwardedProto(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodGet, "/test", nil)
+	req.RemoteAddr = "10.0.0.1:12345"
 	req.Header.Set("X-Forwarded-Proto", "https")
+	ctx := context.WithValue(req.Context(), httppkg.TrustedProxiesKey, []string{"10.0.0.0/8"})
+	req = req.WithContext(ctx)
 
 	httppkg.SetSessionCookie(w, req, "test-session-id")
 
@@ -51,6 +54,22 @@ func TestSetSessionCookie_XForwardedProto(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "session cookie should be set")
+}
+
+func TestSetSessionCookie_UntrustedForwardedProto(t *testing.T) {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(stdhttp.MethodGet, "/test", nil)
+	req.Header.Set("X-Forwarded-Proto", "https")
+
+	httppkg.SetSessionCookie(w, req, "test-session-id")
+
+	cookies := w.Result().Cookies()
+	for _, cookie := range cookies {
+		if cookie.Name == httppkg.SessionCookieName {
+			assert.False(t, cookie.Secure,
+				"cookie must not be Secure when X-Forwarded-Proto is not from a trusted proxy")
+		}
+	}
 }
 
 // TestRespondWithError_DebugModeNonAppError exercises the debugMode path with a plain

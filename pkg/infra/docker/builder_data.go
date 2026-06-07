@@ -29,6 +29,7 @@ import (
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/security/deployenv"
 )
 
 // buildTemplateData builds data for template rendering.
@@ -49,6 +50,9 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 
 	if envErr := validateDockerEnv(workflow.Settings.AgentSettings.Env); envErr != nil {
 		return nil, envErr
+	}
+	if secretErr := deployenv.ValidateBuildTimeEnv(workflow.Settings.AgentSettings.Env); secretErr != nil {
+		return nil, secretErr
 	}
 
 	return &DockerfileData{

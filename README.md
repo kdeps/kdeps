@@ -244,20 +244,27 @@ Config is validated on load. Warnings go to stderr for unknown keys, missing API
 
 ## Security
 
+When `apiServer` is configured, authentication is required. Set the token via `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml` (never in `workflow.yaml`). Clients send `Authorization: Bearer <token>` or `X-Api-Key: <token>`. `/health` is exempt. `/_kdeps/*` management routes use `KDEPS_MANAGEMENT_TOKEN`.
+
+```bash
+export KDEPS_API_AUTH_TOKEN=your-secret-token
+kdeps run workflow.yaml
+```
+
 ```yaml
 settings:
   apiServer:
-    auth:
-      token: "your-secret-token"     # require Bearer or X-Api-Key header; omit to disable
     rateLimit:
       requestsPerMinute: 60          # sustained per-IP rate; excess gets 429
       burst: 10                      # burst allowance above the sustained rate
     maxBodyBytes: 1048576            # 1 MB request body cap; 413 if exceeded
+    trustedProxies:                  # honor X-Forwarded-For only from these peers
+      - "10.0.0.0/8"
     cors:
       allowOrigins:
         - https://myapp.com
-    certFile: /path/to/cert.pem      # TLS -- omit for plain HTTP
-    keyFile: /path/to/key.pem
+  certFile: /path/to/cert.pem        # TLS -- omit for plain HTTP
+  keyFile: /path/to/key.pem
 ```
 
 ## Logging
