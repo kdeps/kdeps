@@ -26,6 +26,7 @@ kdeps run [workflow.yaml | package.kdeps] [flags]
 **Examples:**
 
 ```bash
+export KDEPS_API_AUTH_TOKEN=dev-token      # Required when apiServer is configured
 kdeps run workflow.yaml                    # Run from file
 kdeps run myapp.kdeps                      # Run from package
 kdeps run workflow.yaml --dev              # Hot reload
@@ -33,6 +34,8 @@ kdeps run workflow.yaml --debug            # Debug logging
 kdeps run workflow.yaml --port 16395       # Custom port
 kdeps run workflow.yaml --interactive      # LLM REPL alongside server
 ```
+
+When `apiServer` is configured, kdeps refuses to start without `KDEPS_API_AUTH_TOKEN` or `api_auth_token` in `~/.kdeps/config.yaml`. Clients must send `Authorization: Bearer <token>` on workflow routes. See [Security Reference](/reference/security).
 
 ---
 

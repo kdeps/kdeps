@@ -147,6 +147,7 @@ kdeps bundle package . --output dist/
 The `.kdeps` archive can be deployed directly on any machine with kdeps installed:
 
 ```bash
+export KDEPS_API_AUTH_TOKEN=api-secret
 kdeps run dist/my-agent-1.0.0.kdeps --port 16395
 ```
 

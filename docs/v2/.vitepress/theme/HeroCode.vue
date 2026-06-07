@@ -80,10 +80,12 @@ const files = [
         <pre class="code-body"><code v-html="files[active].html"></code></pre>
 
         <div class="terminal">
+          <div class="tl"><span class="p">$</span><span class="c">export KDEPS_API_AUTH_TOKEN=dev-token</span></div>
           <div class="tl"><span class="p">$</span><span class="c">kdeps run workflow.yaml</span></div>
           <div class="tl dim">Listening on :16395</div>
           <div class="tl">&nbsp;</div>
           <div class="tl"><span class="p">$</span><span class="c">curl -s -X POST localhost:16395/summarize \</span></div>
+          <div class="tl"><span class="pad"></span><span class="c dim">-H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \</span></div>
           <div class="tl"><span class="pad"></span><span class="c dim">-H "Content-Type: application/json" \</span></div>
           <div class="tl"><span class="pad"></span><span class="c dim">-d '{"url": "https://example.com"}'</span></div>
           <div class="tl">&nbsp;</div>

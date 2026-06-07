@@ -97,14 +97,20 @@ apiResponse:
 
 ## Run it
 
+When `apiServer` is configured, kdeps requires an API auth token before it starts. Set one for local development (never in `workflow.yaml`):
+
 ```bash
+export KDEPS_API_AUTH_TOKEN=dev-token
 kdeps run workflow.yaml
 ```
+
+You can also set `api_auth_token` in `~/.kdeps/config.yaml`. See [Security Reference](/reference/security).
 
 Test the API:
 
 ```bash
 curl -X POST http://localhost:16395/api/v1/chat \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"q": "What is entropy?"}'
 ```

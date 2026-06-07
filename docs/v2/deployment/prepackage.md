@@ -143,10 +143,16 @@ chmod +x my-agent-1.0.0-linux-amd64
 my-agent-1.0.0-windows-amd64.exe
 ```
 
-The port configured in `workflow.yaml` under `settings.apiServer.portNum` (default 16395) is automatically used:
+The port configured in `workflow.yaml` under `settings.apiServer.portNum` (default 16395) is automatically used. Workflow routes require `KDEPS_API_AUTH_TOKEN` (or `api_auth_token` in `~/.kdeps/config.yaml`):
 
 ```bash
-curl http://localhost:16395/api/chat -d '{"message":"Hello"}'
+export KDEPS_API_AUTH_TOKEN=dev-token
+./my-agent-1.0.0-linux-amd64
+
+curl -X POST http://localhost:16395/api/chat \
+  -H "Authorization: Bearer $KDEPS_API_AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello"}'
 ```
 
 ## See Also
