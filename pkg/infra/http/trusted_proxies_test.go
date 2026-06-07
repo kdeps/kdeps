@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func TestExtractClientIP_ignoresForwardedWithoutTrustedProxy(t *testing.T) {
@@ -83,6 +85,27 @@ func TestPeerIPFromRequest_NoPort(t *testing.T) {
 	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
 	req.RemoteAddr = "10.0.0.1"
 	assert.Equal(t, "10.0.0.1", peerIPFromRequest(req))
+}
+
+func TestTrustedProxiesFromSettings_mergesAPIServerAndWebServer(t *testing.T) {
+	settings := domain.WorkflowSettings{
+		APIServer: &domain.APIServerConfig{
+			TrustedProxies: []string{"10.0.0.0/8"},
+		},
+		WebServer: &domain.WebServerConfig{
+			TrustedProxies: []string{"172.16.0.0/12"},
+		},
+	}
+	assert.Equal(t, []string{"10.0.0.0/8", "172.16.0.0/12"}, trustedProxiesFromSettings(settings))
+}
+
+func TestTrustedProxiesFromSettings_webServerOnly(t *testing.T) {
+	settings := domain.WorkflowSettings{
+		WebServer: &domain.WebServerConfig{
+			TrustedProxies: []string{"192.168.1.1"},
+		},
+	}
+	assert.Equal(t, []string{"192.168.1.1"}, trustedProxiesFromSettings(settings))
 }
 
 func TestIsTrustedPeer_edgeCases(t *testing.T) {

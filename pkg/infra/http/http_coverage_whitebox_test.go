@@ -42,6 +42,10 @@ func TestClientIPFromAddr_WithPort(t *testing.T) {
 	assert.Equal(t, "192.168.1.1", clientIPFromAddr("192.168.1.1:8080"))
 }
 
+func TestClientIPFromAddr_IPv6(t *testing.T) {
+	assert.Equal(t, "2001:db8::1", clientIPFromAddr("[2001:db8::1]:443"))
+}
+
 func TestIPLimiterStore_CleanupLoop(t *testing.T) {
 	orig := limiterCleanupInterval
 	limiterCleanupInterval = 5 * time.Millisecond

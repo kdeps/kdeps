@@ -22,7 +22,20 @@ import (
 	"net"
 	stdhttp "net/http"
 	"strings"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func trustedProxiesFromSettings(settings domain.WorkflowSettings) []string {
+	var proxies []string
+	if settings.APIServer != nil {
+		proxies = append(proxies, settings.APIServer.TrustedProxies...)
+	}
+	if settings.WebServer != nil {
+		proxies = append(proxies, settings.WebServer.TrustedProxies...)
+	}
+	return proxies
+}
 
 func peerIPFromRequest(r *stdhttp.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)

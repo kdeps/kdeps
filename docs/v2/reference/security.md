@@ -48,7 +48,7 @@ settings:
       - "192.168.0.0/16"
 ```
 
-Without `trustedProxies`, kdeps uses `RemoteAddr` only.
+Without `trustedProxies`, kdeps uses `RemoteAddr` only. When both `apiServer` and `webServer` are configured, entries from both blocks are merged for rate limiting and request IP context.
 
 ## Security Headers
 

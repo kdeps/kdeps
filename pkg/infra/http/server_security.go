@@ -32,7 +32,8 @@ func (s *Server) applySecurityMiddleware() {
 		return
 	}
 	api := s.Workflow.Settings.APIServer
-	if invalid := invalidTrustedProxyEntries(api.TrustedProxies); len(invalid) > 0 && s.logger != nil {
+	trustedProxies := trustedProxiesFromSettings(s.Workflow.Settings)
+	if invalid := invalidTrustedProxyEntries(trustedProxies); len(invalid) > 0 && s.logger != nil {
 		s.logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
 	}
 	if token := os.Getenv("KDEPS_API_AUTH_TOKEN"); token != "" {
@@ -47,7 +48,7 @@ func (s *Server) applySecurityMiddleware() {
 		if burst <= 0 {
 			burst = api.RateLimit.RequestsPerMinute
 		}
-		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst, api.TrustedProxies))
+		s.Router.Use(RateLimitMiddleware(api.RateLimit.RequestsPerMinute, burst, trustedProxies))
 	}
 	maxBody := api.MaxBodyBytes
 	if maxBody <= 0 {
