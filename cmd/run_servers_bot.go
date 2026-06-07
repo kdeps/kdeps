@@ -33,6 +33,7 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/infra/logging"
 	"github.com/kdeps/kdeps/v2/pkg/input/bot"
+	fileinput "github.com/kdeps/kdeps/v2/pkg/input/file"
 )
 
 func botPlatformsFromInput(input *domain.InputConfig) []string {

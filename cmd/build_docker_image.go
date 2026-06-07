@@ -30,6 +30,7 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	kdepslog "github.com/kdeps/kdeps/v2/pkg/log"
 )
 
 func attachPrepackagedBinaries(
