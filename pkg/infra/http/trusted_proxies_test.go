@@ -75,6 +75,18 @@ func TestPeerIPFromRequest_IPv6(t *testing.T) {
 }
 
 func TestInvalidTrustedProxyEntries(t *testing.T) {
-	invalid := invalidTrustedProxyEntries([]string{"10.0.0.0/8", "not-an-ip", "192.168.0.0/16"})
-	assert.Equal(t, []string{"not-an-ip"}, invalid)
+	invalid := invalidTrustedProxyEntries([]string{"10.0.0.0/8", "not-an-ip", "192.168.0.0/16", "10.0.0.0/99", "  "})
+	assert.Equal(t, []string{"not-an-ip", "10.0.0.0/99"}, invalid)
+}
+
+func TestPeerIPFromRequest_NoPort(t *testing.T) {
+	req := httptest.NewRequest(stdhttp.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1"
+	assert.Equal(t, "10.0.0.1", peerIPFromRequest(req))
+}
+
+func TestIsTrustedPeer_edgeCases(t *testing.T) {
+	assert.False(t, isTrustedPeer("10.0.0.1", nil))
+	assert.False(t, isTrustedPeer("not-an-ip", []string{"10.0.0.0/8"}))
+	assert.False(t, isTrustedPeer("10.0.0.1", []string{" ", "10.0.0.0/99"}))
 }

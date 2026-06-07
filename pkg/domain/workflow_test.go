@@ -402,6 +402,25 @@ func TestGetCORSConfig(t *testing.T) {
 	}
 }
 
+func TestGetCORSConfig_sanitizeWildcardCredentialsWithoutMutatingSource(t *testing.T) {
+	settings := domain.WorkflowSettings{
+		APIServer: &domain.APIServerConfig{
+			CORS: &domain.CORS{
+				AllowOrigins:     []string{"*"},
+				AllowCredentials: true,
+			},
+		},
+	}
+
+	config := settings.GetCORSConfig()
+	if config.AllowCredentials {
+		t.Error("sanitized AllowCredentials should be false with wildcard origins")
+	}
+	if !settings.APIServer.CORS.AllowCredentials {
+		t.Error("source CORS config should remain unchanged")
+	}
+}
+
 func TestWorkflowSettings_GetHostIP(t *testing.T) {
 	tests := []struct {
 		name     string
