@@ -32,6 +32,9 @@ func (s *Server) applySecurityMiddleware() {
 		return
 	}
 	api := s.Workflow.Settings.APIServer
+	if invalid := invalidTrustedProxyEntries(api.TrustedProxies); len(invalid) > 0 && s.logger != nil {
+		s.logger.Warn("ignored invalid trustedProxies entries", "entries", invalid)
+	}
 	if token := os.Getenv("KDEPS_API_AUTH_TOKEN"); token != "" {
 		s.Router.Use(AuthMiddleware(token))
 	} else if s.logger != nil {

@@ -47,3 +47,22 @@ func TestServer_applySecurityMiddleware_warnsWithoutAuthToken(t *testing.T) {
 
 	assert.Contains(t, buf.String(), "running without authentication")
 }
+
+func TestServer_applySecurityMiddleware_warnsInvalidTrustedProxies(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	server, err := NewServer(&domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{
+				TrustedProxies: []string{"10.0.0.0/8", "bad-entry"},
+			},
+		},
+	}, nil, logger)
+	require.NoError(t, err)
+
+	server.applySecurityMiddleware()
+
+	assert.Contains(t, buf.String(), "invalid trustedProxies")
+}

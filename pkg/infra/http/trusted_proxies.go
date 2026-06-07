@@ -32,6 +32,26 @@ func peerIPFromRequest(r *stdhttp.Request) string {
 	return host
 }
 
+func invalidTrustedProxyEntries(trusted []string) []string {
+	var invalid []string
+	for _, entry := range trusted {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			if _, _, err := net.ParseCIDR(entry); err != nil {
+				invalid = append(invalid, entry)
+			}
+			continue
+		}
+		if net.ParseIP(entry) == nil {
+			invalid = append(invalid, entry)
+		}
+	}
+	return invalid
+}
+
 func isTrustedPeer(peerIP string, trusted []string) bool {
 	if len(trusted) == 0 {
 		return false

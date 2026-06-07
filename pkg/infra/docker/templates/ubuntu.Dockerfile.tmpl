@@ -132,7 +132,7 @@ WORKDIR /app
 {{- if not .InstallOllama }}
 # Run as non-root when Ollama is not required (supervisord + kdeps only).
 RUN groupadd -r kdeps && useradd -r -g kdeps -d /app -s /usr/sbin/nologin kdeps && \
-    chown -R kdeps:kdeps /app /var/log
+    chown -R kdeps:kdeps /app /var/log /entrypoint.sh /etc/supervisord.conf
 USER kdeps
 {{- end }}
 
