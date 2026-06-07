@@ -2251,3 +2251,17 @@ func TestBuilder_validateDockerEnv_rejectsUnsafeValues(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid docker env value")
 }
+
+func TestBuilder_validateDockerEnv_rejectsExpansionChars(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+	}
+	workflow.Settings.AgentSettings.Env = map[string]string{
+		"SAFE_VAR": "${PATH}",
+	}
+
+	_, err := builder.GenerateDockerfile(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid docker env value")
+}

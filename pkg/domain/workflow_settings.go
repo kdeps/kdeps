@@ -55,10 +55,11 @@ func (w *WorkflowSettings) GetCORSConfig() *CORS {
 }
 
 func sanitizeCORSConfig(config *CORS) *CORS {
-	if corsAllowsWildcard(config) && config.AllowCredentials {
-		config.AllowCredentials = false
+	safe := *config
+	if corsAllowsWildcard(&safe) && safe.AllowCredentials {
+		safe.AllowCredentials = false
 	}
-	return config
+	return &safe
 }
 
 func corsAllowsWildcard(config *CORS) bool {
