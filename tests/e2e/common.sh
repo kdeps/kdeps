@@ -67,6 +67,51 @@ export KDEPS_SKIP_BOOTSTRAP=1
 # apiServer requires a token; provide a default for E2E runs without ~/.kdeps/config.yaml.
 export KDEPS_API_AUTH_TOKEN="${KDEPS_API_AUTH_TOKEN:-e2e-test-auth-token}"
 
+_kdeps_curl_find_url() {
+    for arg in "$@"; do
+        if [[ "$arg" == http://* || "$arg" == https://* ]]; then
+            echo "$arg"
+            return 0
+        fi
+    done
+    return 1
+}
+
+_kdeps_curl_has_auth_header() {
+    local prev=""
+    for arg in "$@"; do
+        if [[ "$prev" == "-H" || "$prev" == "--header" ]] && [[ "$arg" == [Aa]uthorization:* ]]; then
+            return 0
+        fi
+        prev="$arg"
+    done
+    return 1
+}
+
+_kdeps_curl_needs_auth() {
+    local url="$1"
+    shift
+    [[ -z "${KDEPS_API_AUTH_TOKEN:-}" ]] && return 1
+    _kdeps_curl_has_auth_header "$@" && return 1
+    [[ "$url" == *"/health"* ]] && return 1
+    [[ "$url" == *"/_kdeps/"* ]] && return 1
+    [[ "$url" == *":11434"* ]] && return 1
+    [[ -n "${KDEPS_REGISTRY_URL:-}" && "$url" == "${KDEPS_REGISTRY_URL}"* ]] && return 1
+    [[ "$url" == http://127.0.0.1:* || "$url" == http://localhost:* ]]
+}
+
+# Inject API auth on localhost kdeps requests unless the caller already set Authorization.
+curl() {
+    local url
+    url=$(_kdeps_curl_find_url "$@") || { command curl "$@"; return $?; }
+    if _kdeps_curl_needs_auth "$url" "$@"; then
+        command curl -H "Authorization: Bearer ${KDEPS_API_AUTH_TOKEN}" "$@"
+    else
+        command curl "$@"
+    fi
+}
+export -f curl _kdeps_curl_find_url _kdeps_curl_has_auth_header _kdeps_curl_needs_auth
+
 # Start a local mock registry server that immediately returns 404 for all
 # requests, so no e2e test ever calls the real registry.kdeps.io server.
 # Guard against being sourced multiple times (each sub-script sources common.sh).

@@ -621,6 +621,20 @@ func TestLoadWithAgent_NoAgents(t *testing.T) {
 	assert.Equal(t, "sk-base", cfg.LLM.OpenAI)
 }
 
+func TestLoadWithAgent_PreservesExplicitAPIAuthToken(t *testing.T) {
+	dir := t.TempDir()
+	writeTempConfig(t, dir, "llm:\n  openai_api_key: sk-base\n")
+	t.Setenv("KDEPS_API_AUTH_TOKEN", "from-shell")
+	for _, key := range knownConfigEnvVars() {
+		if key != "KDEPS_API_AUTH_TOKEN" {
+			_ = os.Unsetenv(key)
+		}
+	}
+	_, err := LoadWithAgent("workflow-without-agent-profile")
+	require.NoError(t, err)
+	assert.Equal(t, "from-shell", os.Getenv("KDEPS_API_AUTH_TOKEN"))
+}
+
 func TestLoadWithAgent_LoadError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")

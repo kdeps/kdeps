@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
@@ -110,11 +111,21 @@ func LoadWithAgent(agentName string) (*Config, error) {
 			mergeConfig(cfg, &profile)
 		}
 	}
-	// Clear known config env vars before applying so merged values take effect.
+	// Clear known config env vars before applying so merged agent values take effect.
+	// Preserve explicitly-set env values when the merged config leaves them empty.
+	preserved := make(map[string]string)
 	for _, key := range knownConfigEnvVars() {
+		if v, ok := os.LookupEnv(key); ok && strings.TrimSpace(v) != "" {
+			preserved[key] = v
+		}
 		os.Unsetenv(key)
 	}
 	applyEnv(*cfg)
+	for key, value := range preserved {
+		if strings.TrimSpace(os.Getenv(key)) == "" {
+			_ = os.Setenv(key, value)
+		}
+	}
 	return cfg, nil
 }
 
