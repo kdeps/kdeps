@@ -47,6 +47,9 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
       UV_NO_CACHE: 1
     steps:
@@ -82,9 +85,25 @@ jobs:
       run: make test-unit
       timeout-minutes: 15
 
+    - name: Upload unit coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage.out
+        flags: unit
+        name: unit
+        fail_ci_if_error: false
+
     - name: Test Integration
       run: make test-integration
       timeout-minutes: 15
+
+    - name: Upload integration coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: coverage-integration.out
+        flags: integration
+        name: integration
+        fail_ci_if_error: false
 
     - name: Test E2E
       run: make test-e2e
