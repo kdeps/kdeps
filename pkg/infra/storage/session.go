@@ -30,6 +30,14 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+const sqliteMemoryDSN = ":memory:"
+
+//nolint:gochecknoglobals // overridden in tests for fast cleanup
+var (
+	defaultCleanupInterval = 5 * time.Minute
+	sessionsSchemaMigrator = migrateSessionsSchema
+)
+
 // SessionStorage provides per-session key-value storage using SQLite.
 type SessionStorage struct {
 	DB              *sql.DB

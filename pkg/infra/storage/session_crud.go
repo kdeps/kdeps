@@ -18,7 +18,6 @@
 
 //go:build !js
 
-//nolint:mnd // default TTLs and cleanup intervals are intentional
 package storage
 
 import (
