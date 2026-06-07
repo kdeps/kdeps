@@ -109,5 +109,3 @@ func getWorkflowPorts(workflow *domain.Workflow) []int {
 	}
 	return ports
 }
-
-// performDockerBuild executes the actual Docker build and tagging.

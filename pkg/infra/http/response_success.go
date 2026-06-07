@@ -16,7 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//nolint:mnd // default header values documented inline
 package http
 
 import (
