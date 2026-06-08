@@ -64,7 +64,7 @@ Both `apiServer` and `webServer` responses include defensive HTTP headers on eve
 
 ### webServer-only mode
 
-When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth, rate limits, or body size caps. Static files and app proxies are world-readable if bound to `0.0.0.0`. Put an ingress or reverse proxy with auth in front, or bind to `127.0.0.1` for local development.
+When only `webServer` is configured (no `apiServer`), kdeps does not enforce bearer auth. Static files and app proxies are world-readable if bound to `0.0.0.0` unless you add an ingress with auth. You can still set `rateLimit`, `maxBodyBytes`, and `maxConcurrent` under `webServer` to throttle abuse.
 
 ## Rate Limiting
 
@@ -77,6 +77,23 @@ settings:
     rateLimit:
       requestsPerMinute: 60
       burst: 10
+```
+
+For `webServer`-only workflows, put the same fields under `webServer`:
+
+```yaml
+# workflow.yaml
+settings:
+  webServer:
+    rateLimit:
+      requestsPerMinute: 120
+      burst: 20
+    maxBodyBytes: 1048576
+    maxConcurrent: 50
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
 ```
 
 ## Body Size Limit
@@ -118,22 +135,35 @@ settings:
 
 ## Build-Time Env (Docker and Kubernetes Export)
 
-`agentSettings.env` is embedded into generated Dockerfiles and Kubernetes manifests as plain `ENV` / `value:` entries. kdeps rejects auth tokens and secret-like keys at export time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`, keys containing `_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.).
+`agentSettings.env` is embedded into generated Dockerfiles and Kubernetes manifests. Plain keys become `ENV` / `value:` entries. kdeps rejects auth tokens at Docker build time (`KDEPS_API_AUTH_TOKEN`, `KDEPS_MANAGEMENT_TOKEN`) and any secret-like key (`_TOKEN`, `_SECRET`, `_PASSWORD`, `_API_KEY`, etc.) in both Docker and Kubernetes export.
 
 Set those at runtime instead:
 
 ```bash
-docker run -e KDEPS_API_AUTH_TOKEN=api-secret -e KDEPS_MANAGEMENT_TOKEN=mgmt-secret ...
+docker run -e KDEPS_API_AUTH_TOKEN=api-secret -e KDEPS_MANAGEMENT_TOKEN=mgmt-secret -e OPENAI_API_KEY=sk-...
+```
+
+Kubernetes export maps auth tokens to `{metadata.name}-auth` and secret-like `agentSettings.env` keys to `{metadata.name}-env` via `secretKeyRef` (values are never written into the manifest):
+
+```yaml
+# deploy/env-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-agent-env
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "sk-..."
 ```
 
 ```yaml
-# kubernetes secret + deployment env
+# fragment from kdeps export k8s output
 env:
-  - name: KDEPS_API_AUTH_TOKEN
+  - name: OPENAI_API_KEY
     valueFrom:
       secretKeyRef:
-        name: kdeps-auth
-        key: api-token
+        name: my-agent-env
+        key: OPENAI_API_KEY
 ```
 
 ## Resource Output Caps

@@ -48,18 +48,24 @@ func TestK8sExport_AuthTokensUseSecretKeyRef(t *testing.T) {
 	assert.True(t, strings.Contains(manifests, "optional: true"))
 }
 
-func TestK8sExport_RejectsBakedSecretsInEnv(t *testing.T) {
+func TestK8sExport_SecretEnvUsesSecretKeyRef(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "my-agent", Version: "1.0.0"},
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{PortNum: 8080},
 			AgentSettings: domain.AgentSettings{
-				Env: map[string]string{"OPENAI_API_KEY": "sk-test"},
+				Env: map[string]string{
+					"LOG_LEVEL":      "info",
+					"OPENAI_API_KEY": "sk-test",
+				},
 			},
 		},
 	}
 
-	_, err := k8s.NewGenerator("my-agent:1.0.0").GenerateManifests(workflow)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "secret")
+	manifests, err := k8s.NewGenerator("my-agent:1.0.0").GenerateManifests(workflow)
+	require.NoError(t, err)
+	assert.Contains(t, manifests, "name: my-agent-env")
+	assert.Contains(t, manifests, "name: OPENAI_API_KEY")
+	assert.Contains(t, manifests, `value: "info"`)
+	assert.NotContains(t, manifests, `value: "sk-test"`)
 }

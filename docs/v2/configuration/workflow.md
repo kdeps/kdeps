@@ -117,6 +117,13 @@ settings:
   webServer:
     hostIp: "127.0.0.1"
     portNum: 16395
+    trustedProxies:
+      - "10.0.0.0/8"         # honor X-Forwarded-For from load balancer peers
+    rateLimit:
+      requestsPerMinute: 120   # optional; applies even without apiServer
+      burst: 20
+    maxBodyBytes: 1048576      # 1 MB -- excludes multipart file uploads
+    maxConcurrent: 50          # max in-flight requests; 0 = unlimited
     routes:
       - path: "/"
         serverType: "static"   # serve files from publicPath

@@ -263,6 +263,9 @@ settings:
     cors:
       allowOrigins:
         - https://myapp.com
+  webServer:                         # optional; same rateLimit/maxBodyBytes/maxConcurrent fields
+    rateLimit:
+      requestsPerMinute: 120
   certFile: /path/to/cert.pem        # TLS -- omit for plain HTTP
   keyFile: /path/to/key.pem
 ```

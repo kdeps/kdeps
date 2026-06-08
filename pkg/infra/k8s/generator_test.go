@@ -72,6 +72,27 @@ func TestGenerateManifests(t *testing.T) {
 	assert.Contains(t, manifests, "name: test-app-auth")
 }
 
+func TestGenerateManifests_secretEnvUsesSecretKeyRef(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
+		Settings: domain.WorkflowSettings{
+			APIServer: &domain.APIServerConfig{PortNum: 8080},
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{
+					"APP_ENV":        "prod",
+					"OPENAI_API_KEY": "sk-test",
+				},
+			},
+		},
+	}
+	manifests, err := NewGenerator("img").GenerateManifests(workflow)
+	assert.NoError(t, err)
+	assert.Contains(t, manifests, "name: test-env")
+	assert.Contains(t, manifests, "name: OPENAI_API_KEY")
+	assert.Contains(t, manifests, `value: "prod"`)
+	assert.NotContains(t, manifests, "sk-test")
+}
+
 func TestGenerateManifests_rejectsBakedAuthToken(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
@@ -83,7 +104,7 @@ func TestGenerateManifests_rejectsBakedAuthToken(t *testing.T) {
 	}
 	_, err := NewGenerator("img").GenerateManifests(workflow)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "runtime")
+	assert.Contains(t, err.Error(), "secretKeyRef")
 }
 
 func TestGenerateManifests_WebServer(t *testing.T) {

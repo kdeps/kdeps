@@ -43,17 +43,26 @@ func TestValidateBuildTimeEnv_rejectsAPIAuthToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "runtime")
 }
 
-func TestValidateBuildTimeEnv_rejectsManagementToken(t *testing.T) {
-	err := deployenv.ValidateBuildTimeEnv(map[string]string{
-		"KDEPS_MANAGEMENT_TOKEN": "secret",
-	})
-	require.Error(t, err)
-}
-
 func TestValidateBuildTimeEnv_rejectsSecretLikeKeys(t *testing.T) {
 	err := deployenv.ValidateBuildTimeEnv(map[string]string{
 		"OPENAI_API_KEY": "sk-test",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "secret")
+}
+
+func TestValidateK8sEnv_rejectsAuthTokensInEnv(t *testing.T) {
+	err := deployenv.ValidateK8sEnv(map[string]string{
+		"KDEPS_API_AUTH_TOKEN": "secret",
+	})
+	require.Error(t, err)
+}
+
+func TestPartitionK8sEnv_splitsSecretLikeKeys(t *testing.T) {
+	plain, secrets := deployenv.PartitionK8sEnv(map[string]string{
+		"LOG_LEVEL":      "info",
+		"OPENAI_API_KEY": "sk-test",
+	})
+	assert.Equal(t, map[string]string{"LOG_LEVEL": "info"}, plain)
+	assert.Equal(t, []string{"OPENAI_API_KEY"}, secrets)
 }

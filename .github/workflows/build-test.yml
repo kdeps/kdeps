@@ -32,6 +32,25 @@ jobs:
           skip-dirs: docs/v2/node_modules,kdeps-io,kdeps-io.bak,private,.git
           skip-files: coverage.out,coverage-integration.out
 
+  docker-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build kdeps binary
+        run: make build
+      - name: Build sample Docker image
+        run: ./kdeps build examples/webserver-static --tag kdeps-ci-scan:local
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: kdeps-ci-scan:local
+          severity: CRITICAL,HIGH
+          exit-code: 1
+
   lint:
     runs-on: ubuntu-latest
     steps:
