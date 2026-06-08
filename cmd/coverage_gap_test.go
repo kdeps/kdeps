@@ -247,6 +247,29 @@ func TestAttachPrepackagedBinaries_EnsureKdepsError(t *testing.T) {
 	assert.Empty(t, builder.PrepackagedBinaries)
 }
 
+func TestAttachPrepackagedBinaries_NoBinariesCreated(t *testing.T) {
+	origResolve := resolveBaseBinary
+	t.Cleanup(func() { resolveBaseBinary = origResolve })
+	resolveBaseBinary = func(_ context.Context, _ string, _ archTarget, _ string) (string, bool, error) {
+		return "", false, errors.New("no base binary")
+	}
+
+	tmpDir := t.TempDir()
+	kdepsPath := filepath.Join(tmpDir, "pkg.kdeps")
+	require.NoError(t, os.WriteFile(kdepsPath, []byte("pkg"), 0644))
+
+	builder := &docker.Builder{BaseOS: "alpine"}
+	cleanup := attachPrepackagedBinaries(
+		context.Background(),
+		builder,
+		kdepsPath,
+		tmpDir,
+		&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}},
+	)
+	assert.Nil(t, cleanup)
+	assert.Empty(t, builder.PrepackagedBinaries)
+}
+
 func TestAttachPrepackagedBinaries_Success(t *testing.T) {
 	origResolve := resolveBaseBinary
 	t.Cleanup(func() { resolveBaseBinary = origResolve })

@@ -122,6 +122,37 @@ func TestEnsureVenv_InstallsPackagesWithMockedUV(t *testing.T) {
 	assert.NotEmpty(t, venvPath)
 }
 
+func TestEnsureVenv_InstallsPackagesAndRequirementsWithMockedUV(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			venvPath := args[len(args)-1]
+			bin := filepath.Join(venvPath, "bin")
+			if err := os.MkdirAll(bin, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(bin, "python"), []byte("x"), 0755)
+		}
+		return nil
+	}
+	m := NewManager(t.TempDir())
+	req := filepath.Join(t.TempDir(), "requirements.txt")
+	require.NoError(t, os.WriteFile(req, []byte("pkg-b\n"), 0644))
+	venvPath, err := m.EnsureVenv("3.12", []string{"pkg-a"}, req, "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, venvPath)
+}
+
+func TestEnsureVenv_BaseDirCreateFailure(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
+	m := NewManager(filepath.Join(blocker, "venv"))
+	_, err := m.EnsureVenv("3.12", nil, "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create base directory")
+}
+
 func TestEnsureVenv_InstallsRequirementsWithMockedUV(t *testing.T) {
 	orig := runUVFunc
 	t.Cleanup(func() { runUVFunc = orig })
