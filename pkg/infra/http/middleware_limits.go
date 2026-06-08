@@ -38,8 +38,12 @@ func uploadBodyTooLargeMessage(contentLength, maxFileSize int64) string {
 	return fmt.Sprintf("Request body too large: %d bytes (max: %d)", contentLength, maxFileSize)
 }
 
+func respondRequestEntityTooLarge(w stdhttp.ResponseWriter, r *stdhttp.Request, message string) {
+	respondMiddlewareError(w, r, domain.ErrCodeRequestTooLarge, message)
+}
+
 func respondRequestBodyTooLarge(w stdhttp.ResponseWriter, r *stdhttp.Request, maxBytes int64) {
-	respondMiddlewareError(w, r, domain.ErrCodeRequestTooLarge, requestBodyTooLargeMessage(maxBytes))
+	respondRequestEntityTooLarge(w, r, requestBodyTooLargeMessage(maxBytes))
 }
 
 func respondUploadBodyTooLarge(
@@ -47,11 +51,7 @@ func respondUploadBodyTooLarge(
 	r *stdhttp.Request,
 	contentLength, maxFileSize int64,
 ) {
-	respondMiddlewareError(
-		w, r,
-		domain.ErrCodeRequestTooLarge,
-		uploadBodyTooLargeMessage(contentLength, maxFileSize),
-	)
+	respondRequestEntityTooLarge(w, r, uploadBodyTooLargeMessage(contentLength, maxFileSize))
 }
 
 func respondRateLimitExceeded(w stdhttp.ResponseWriter, r *stdhttp.Request) {
