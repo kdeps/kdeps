@@ -134,6 +134,40 @@ func TestWebServer_applyWebSecurityMiddleware_appliesRateLimit(t *testing.T) {
 	webServer.applyWebSecurityMiddleware()
 }
 
+func TestWebServer_applyWebSecurityMiddleware_skipsWithoutConfig(t *testing.T) {
+	t.Parallel()
+	(&WebServer{}).applyWebSecurityMiddleware()
+	(&WebServer{Workflow: &domain.Workflow{}}).applyWebSecurityMiddleware()
+}
+
+func TestWebServer_applyWebSecurityMiddleware_defaultUploadLimit(t *testing.T) {
+	webServer, err := NewWebServer(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			WebServer: &domain.WebServerConfig{},
+		},
+	}, slog.Default())
+	require.NoError(t, err)
+
+	webServer.applyWebSecurityMiddleware()
+}
+
+func TestWebServer_applyWebSecurityMiddleware_warnsInvalidTrustedProxies(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
+
+	webServer, err := NewWebServer(&domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			WebServer: &domain.WebServerConfig{
+				TrustedProxies: []string{"bad-entry"},
+			},
+		},
+	}, logger)
+	require.NoError(t, err)
+
+	webServer.applyWebSecurityMiddleware()
+	assert.Contains(t, buf.String(), "invalid trustedProxies")
+}
+
 func TestServer_CorsMiddleware_AllowCredentials(t *testing.T) {
 	server, err := NewServer(&domain.Workflow{
 		Settings: domain.WorkflowSettings{
