@@ -88,16 +88,13 @@ func headersAlreadyWritten(w stdhttp.ResponseWriter) bool {
 
 // appErrorFromPanic wraps a recovered panic in a domain.AppError.
 func appErrorFromPanic(panicErr error, errorMsg string, debugMode bool) *domain.AppError {
-	msg := "Internal server error"
-	if debugMode && errorMsg != "" {
-		msg = fmt.Sprintf("Internal server error: %s", errorMsg)
-	}
-
-	appErr := domain.NewAppError(domain.ErrCodeInternal, msg).WithError(panicErr)
+	appErr := domain.NewAppError(
+		domain.ErrCodeInternal,
+		internalErrorMessage(debugMode, errorMsg),
+	).WithError(panicErr)
 	if !debugMode {
 		return appErr
 	}
-
 	return appErr.WithStack(string(debug.Stack())).WithDetails("panic", errorMsg)
 }
 

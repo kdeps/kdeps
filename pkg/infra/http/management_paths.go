@@ -36,12 +36,12 @@ func isYAMLResourceFile(name string) bool {
 // not load stale duplicate definitions from the resources/ directory.
 // Errors are silently ignored because the absence of the directory (or
 // individual file-remove failures) is not fatal.
-func workflowPackageDestDir(workflowPath string) string {
+func workflowDirFromPath(workflowPath string) string {
 	return filepath.Dir(workflowPath)
 }
 
 func workflowResourcesDir(workflowPath string) string {
-	return filepath.Join(filepath.Dir(workflowPath), "resources")
+	return filepath.Join(workflowDirFromPath(workflowPath), "resources")
 }
 
 func clearWorkflowResources(workflowPath string) {

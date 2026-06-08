@@ -30,27 +30,42 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func internalErrorMessage(debugMode bool, detail string) string {
+	if !debugMode || detail == "" {
+		return "Internal server error"
+	}
+	return fmt.Sprintf("Internal server error: %s", detail)
+}
+
+func errorDetailString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func appendDebugAppErrorDetails(appErr *domain.AppError, debugMode bool, err error) *domain.AppError {
+	if !debugMode {
+		return appErr
+	}
+	appErr = appErr.WithStack(string(debug.Stack()))
+	if err != nil {
+		appErr = appErr.WithDetails("error", err.Error())
+	}
+	return appErr
+}
+
 func normalizeToAppError(err error, debugMode bool) *domain.AppError {
 	var appErr *domain.AppError
 	if errors.As(err, &appErr) {
 		return appErr
 	}
 
-	errorMsg := "Internal server error"
-	if debugMode && err != nil {
-		errorMsg = fmt.Sprintf("Internal server error: %v", err)
-	}
-
-	appErr = domain.NewAppError(domain.ErrCodeInternal, errorMsg).WithError(err)
-	if !debugMode {
-		return appErr
-	}
-
-	appErr = appErr.WithStack(string(debug.Stack()))
-	if err != nil {
-		appErr = appErr.WithDetails("error", err.Error())
-	}
-	return appErr
+	appErr = domain.NewAppError(
+		domain.ErrCodeInternal,
+		internalErrorMessage(debugMode, errorDetailString(err)),
+	).WithError(err)
+	return appendDebugAppErrorDetails(appErr, debugMode, err)
 }
 
 // requestMetaFromRequest builds response metadata from the incoming request.
@@ -73,7 +88,7 @@ func applySessionCookieIfPresent(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func marshalFailureError(err error, label string) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeInternal,
-		fmt.Sprintf("failed to marshal %s: %v", label, err),
+		prefixedErrorMessage("failed to marshal "+label, err),
 	)
 }
 
@@ -87,9 +102,25 @@ func respondPlainHTTPError(w stdhttp.ResponseWriter, message string, statusCode 
 	stdhttp.Error(w, message, statusCode)
 }
 
+func respondWebServerNotFound(w stdhttp.ResponseWriter) {
+	respondPlainHTTPError(w, "Not Found", stdhttp.StatusNotFound)
+}
+
+func respondWebServerInternalError(w stdhttp.ResponseWriter) {
+	respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+}
+
+func writePreflightOK(w stdhttp.ResponseWriter) {
+	w.WriteHeader(stdhttp.StatusOK)
+}
+
+func setJSONContentType(w stdhttp.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+}
+
 // writeJSONResponse writes a JSON payload with the given status code.
 func writeJSONResponse(w stdhttp.ResponseWriter, statusCode int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
+	setJSONContentType(w)
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
 }

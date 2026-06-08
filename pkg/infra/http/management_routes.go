@@ -98,7 +98,7 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 		return
 	}
 
-	destDir := workflowPackageDestDir(workflowPath)
+	destDir := workflowDirFromPath(workflowPath)
 
 	if extractErr := extractKdepsPackage(body, destDir); extractErr != nil {
 		s.respondManagementExtractError(w, extractErr)

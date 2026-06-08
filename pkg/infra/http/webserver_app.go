@@ -46,8 +46,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 
 	workDir := appRouteWorkDir(s, route)
 
-	s.logger.InfoContext(
-		context.Background(),
+	s.logBackgroundInfo(
 		"starting app command",
 		"command",
 		route.Command,
@@ -62,8 +61,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 
 	// Start command
 	if err := cmd.Start(); err != nil {
-		s.logger.ErrorContext(
-			context.Background(),
+		s.logBackgroundError(
 			"failed to start app command",
 			"command",
 			route.Command,
@@ -73,8 +71,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		return
 	}
 
-	s.logger.InfoContext(
-		context.Background(),
+	s.logBackgroundInfo(
 		"app command started",
 		"command",
 		route.Command,
@@ -82,7 +79,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		cmd.Process.Pid,
 	)
 
-	logAppCommandExit(s.logger, route.Command, cmd.Wait())
+	logAppCommandExit(s, route.Command, cmd.Wait())
 }
 
 func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd {
@@ -93,47 +90,23 @@ func newAppShellCommand(ctx context.Context, workDir, command string) *exec.Cmd 
 	return cmd
 }
 
-func logAppCommandExit(logger interface {
-	ErrorContext(context.Context, string, ...any)
-	InfoContext(context.Context, string, ...any)
-}, command string, err error) {
+func logAppCommandExit(s *WebServer, command string, err error) {
 	if err != nil {
-		logger.ErrorContext(
-			context.Background(),
-			"app command exited with error",
-			"command",
-			command,
-			"error",
-			err,
-		)
+		s.logBackgroundError("app command exited with error", "command", command, "error", err)
 		return
 	}
-	logger.InfoContext(context.Background(), "app command exited", "command", command)
+	s.logBackgroundInfo("app command exited", "command", command)
 }
 
 // Stop stops the web server and cleans up running commands.
 func (s *WebServer) Stop() {
 	kdeps_debug.Log("enter: Stop")
-	s.logger.InfoContext(context.Background(), "stopping web server and cleaning up commands")
+	s.logBackgroundInfo("stopping web server and cleaning up commands")
 	for path, cmd := range s.Commands {
 		if cmd.Process != nil {
-			s.logger.InfoContext(
-				context.Background(),
-				"stopping command",
-				"path",
-				path,
-				"pid",
-				cmd.Process.Pid,
-			)
+			s.logBackgroundInfo("stopping command", "path", path, "pid", cmd.Process.Pid)
 			if err := killProcessIfRunning(cmd); err != nil {
-				s.logger.ErrorContext(
-					context.Background(),
-					"failed to stop command",
-					"path",
-					path,
-					"error",
-					err,
-				)
+				s.logBackgroundError("failed to stop command", "path", path, "error", err)
 			}
 		}
 	}

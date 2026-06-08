@@ -89,7 +89,7 @@ func expiredFileIDs(files map[string]*domain.UploadedFile, cutoff time.Time) []s
 
 func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
 	file := files[id]
-	_ = os.Remove(file.Path)
+	_ = removeUploadedFile(file)
 	delete(files, id)
 }
 

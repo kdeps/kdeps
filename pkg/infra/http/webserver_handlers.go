@@ -46,8 +46,8 @@ func (s *WebServer) HandleStaticRequest(
 
 	// Check if directory exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-		s.logger.ErrorContext(context.Background(), "public path does not exist", "path", fullPath)
-		respondPlainHTTPError(w, "Not Found", stdhttp.StatusNotFound)
+		s.logBackgroundError("public path does not exist", "path", fullPath)
+		respondWebServerNotFound(w)
 		return
 	}
 
@@ -65,15 +65,14 @@ func (s *WebServer) HandleAppRequest(
 	kdeps_debug.Log("enter: HandleAppRequest")
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
-		s.logger.ErrorContext(context.Background(), "app port is required for app server type")
-		respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+		s.logBackgroundError("app port is required for app server type")
+		respondWebServerInternalError(w)
 		return
 	}
 
 	targetURL, err := localAppProxyTarget(appPort)
 	if err != nil {
-		s.logger.ErrorContext(
-			context.Background(),
+		s.logBackgroundError(
 			"invalid proxy URL",
 			"host",
 			"127.0.0.1",
@@ -82,7 +81,7 @@ func (s *WebServer) HandleAppRequest(
 			"error",
 			err,
 		)
-		respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+		respondWebServerInternalError(w)
 		return
 	}
 
@@ -114,8 +113,7 @@ func newAppReverseProxy(
 			ResponseHeaderTimeout: 30 * time.Second,
 		},
 		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
-			s.logger.ErrorContext(
-				context.Background(),
+			s.logBackgroundError(
 				"proxy request failed",
 				"url",
 				req.URL.String(),
@@ -135,8 +133,20 @@ func requireAppRoutePort(route *domain.WebRoute) (int, bool) {
 }
 
 func localAppProxyTarget(port int) (*url.URL, error) {
-	hostPort := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	return httpURLFromHostPort("127.0.0.1", port)
+}
+
+func httpURLFromHostPort(host string, port int) (*url.URL, error) {
+	hostPort := net.JoinHostPort(host, strconv.Itoa(port))
 	return parseProxyURL(fmt.Sprintf("http://%s", hostPort))
+}
+
+func (s *WebServer) logBackgroundError(msg string, attrs ...any) {
+	s.logger.ErrorContext(context.Background(), msg, attrs...)
+}
+
+func (s *WebServer) logBackgroundInfo(msg string, attrs ...any) {
+	s.logger.InfoContext(context.Background(), msg, attrs...)
 }
 
 func forwardProxyRequestHeaders(dst, src stdhttp.Header) {

@@ -20,7 +20,6 @@
 package http
 
 import (
-	"context"
 	"log/slog"
 	stdhttp "net/http"
 	"net/url"
@@ -46,8 +45,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	targetConn, resp, err := dialTargetWebSocketHook(targetWSURL, r.Header)
 	if err != nil {
-		s.logger.ErrorContext(
-			context.Background(),
+		s.logBackgroundError(
 			"failed to connect to target WebSocket",
 			"url",
 			targetWSURL.String(),
@@ -66,8 +64,7 @@ func (s *WebServer) HandleWebSocketProxy(
 			_ = resp.Body.Close()
 		}()
 		if !isWebSocketHandshakeOK(resp) {
-			s.logger.ErrorContext(
-				context.Background(),
+			s.logBackgroundError(
 				"WebSocket handshake failed",
 				"statusCode",
 				resp.StatusCode,
@@ -79,8 +76,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
-		s.logger.ErrorContext(
-			context.Background(),
+		s.logBackgroundError(
 			"failed to upgrade client connection to WebSocket",
 			"error",
 			err,

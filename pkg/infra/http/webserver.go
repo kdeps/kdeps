@@ -148,10 +148,7 @@ func (s *WebServer) CreateWebHandler(
 	kdeps_debug.Log("enter: CreateWebHandler")
 	// Start app command if needed
 	if route.ServerType == serverTypeApp && route.Command != "" {
-		go s.StartAppCommand( //nolint:gosec // G118: ctx is the server-level context, not a per-request context
-			ctx,
-			route,
-		)
+		go s.StartAppCommand(ctx, route)
 	}
 
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
@@ -216,7 +213,7 @@ func stopWebServerCommands(
 }
 
 func registerWebRouteMethods(router *Router, path string, handler stdhttp.HandlerFunc) {
-	for _, method := range []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"} {
+	for _, method := range supportedHTTPMethods() {
 		registerRouterMethod(router, method, path, handler)
 	}
 }
