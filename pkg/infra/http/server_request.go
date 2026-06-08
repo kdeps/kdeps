@@ -21,7 +21,6 @@ package http
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	stdhttp "net/http"
 	"strings"
 
@@ -82,7 +81,7 @@ func parseRequestBody(r *stdhttp.Request) map[string]interface{} {
 func uploadRequestError(err error) *domain.AppError {
 	return domain.NewAppError(
 		domain.ErrCodeBadRequest,
-		fmt.Sprintf("File upload failed: %v", err),
+		prefixedErrorMessage("File upload failed", err),
 	)
 }
 

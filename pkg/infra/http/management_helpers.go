@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	stdhttp "net/http"
-	"path/filepath"
 
 	"github.com/spf13/afero"
 
@@ -69,16 +68,16 @@ func workflowNameVersion(workflow *domain.Workflow) map[string]interface{} {
 	}
 }
 
-func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
-	return workflowNameVersion(workflow)
-}
-
 func prefixedErrorMessage(prefix string, err error) string {
 	return fmt.Sprintf("%s: %v", prefix, err)
 }
 
-func reloadWorkflowErrorMessage(prefix string, err error) string {
-	return prefixedErrorMessage(prefix, err)
+func managementReadBodyError(err error) string {
+	return prefixedErrorMessage("failed to read request body", err)
+}
+
+func managementBodyTooLargeMessage(label string, maxSize int) string {
+	return fmt.Sprintf("%s exceeds maximum allowed size of %d bytes", label, maxSize)
 }
 
 func readLimitedManagementBody(
@@ -88,14 +87,13 @@ func readLimitedManagementBody(
 ) ([]byte, int, string) {
 	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, int64(maxSize)+1))
 	if err != nil {
-		return nil, stdhttp.StatusBadRequest, fmt.Sprintf("failed to read request body: %v", err)
+		return nil, stdhttp.StatusBadRequest, managementReadBodyError(err)
 	}
 	if len(limitedBody) == 0 {
 		return nil, stdhttp.StatusBadRequest, "request body is empty"
 	}
 	if len(limitedBody) > maxSize {
-		return nil, stdhttp.StatusRequestEntityTooLarge,
-			fmt.Sprintf("%s exceeds maximum allowed size of %d bytes", label, maxSize)
+		return nil, stdhttp.StatusRequestEntityTooLarge, managementBodyTooLargeMessage(label, maxSize)
 	}
 	return limitedBody, 0, ""
 }
@@ -112,7 +110,7 @@ func writeManagementWorkflowFile(workflowPath string, body []byte) error {
 }
 
 func ensureManagementDir(workflowPath string) error {
-	if mkdirErr := AppFS.MkdirAll(filepath.Dir(workflowPath), 0750); mkdirErr != nil {
+	if mkdirErr := AppFS.MkdirAll(workflowDirFromPath(workflowPath), 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create workflow directory: %w", mkdirErr)
 	}
 	return nil
@@ -131,7 +129,7 @@ func managementSuccessPayload(message string, workflow *domain.Workflow) map[str
 		"status":  "ok",
 		"message": message,
 	}
-	if info := managementWorkflowInfo(workflow); info != nil {
+	if info := workflowNameVersion(workflow); info != nil {
 		response["workflow"] = info
 	}
 	return response
@@ -143,7 +141,7 @@ func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string
 
 func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {
 	if err := s.reloadWorkflow(); err != nil {
-		return statusCode, reloadWorkflowErrorMessage(messagePrefix, err)
+		return statusCode, prefixedErrorMessage(messagePrefix, err)
 	}
 	return 0, ""
 }

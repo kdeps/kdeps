@@ -25,6 +25,10 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+func supportedHTTPMethods() []string {
+	return []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"}
+}
+
 // Router is a simple HTTP router.
 type Router struct {
 	Routes     map[string]map[string]stdhttp.HandlerFunc

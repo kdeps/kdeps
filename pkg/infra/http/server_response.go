@@ -33,7 +33,7 @@ func isJSONAPIContentType(contentType string) bool {
 }
 
 func mergeRequestMetaInto(meta map[string]any, r *stdhttp.Request) {
-	for key, value := range requestResponseMeta(r) {
+	for key, value := range responseMetaFields(GetRequestID(r.Context())) {
 		meta[key] = value
 	}
 }
@@ -58,7 +58,7 @@ func (s *Server) logResponseWriteError(label string, writeErr error, path string
 }
 
 func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
-	w.Header().Set("Content-Type", "application/json")
+	setJSONContentType(w)
 	w.WriteHeader(stdhttp.StatusOK)
 	_, err := w.Write(payload)
 	return err
@@ -69,7 +69,7 @@ func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
 	if contentType != "" {
 		return contentType
 	}
-	w.Header().Set("Content-Type", "application/json")
+	setJSONContentType(w)
 	return "application/json"
 }
 

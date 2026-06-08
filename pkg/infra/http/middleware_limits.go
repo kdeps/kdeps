@@ -30,12 +30,16 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func requestBodyTooLargeMessage(maxBytes int64) string {
+	return fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes)
+}
+
+func uploadBodyTooLargeMessage(contentLength, maxFileSize int64) string {
+	return fmt.Sprintf("Request body too large: %d bytes (max: %d)", contentLength, maxFileSize)
+}
+
 func respondRequestBodyTooLarge(w stdhttp.ResponseWriter, r *stdhttp.Request, maxBytes int64) {
-	respondMiddlewareError(
-		w, r,
-		domain.ErrCodeRequestTooLarge,
-		fmt.Sprintf("request body exceeds limit of %d bytes", maxBytes),
-	)
+	respondMiddlewareError(w, r, domain.ErrCodeRequestTooLarge, requestBodyTooLargeMessage(maxBytes))
 }
 
 func respondUploadBodyTooLarge(
@@ -46,7 +50,7 @@ func respondUploadBodyTooLarge(
 	respondMiddlewareError(
 		w, r,
 		domain.ErrCodeRequestTooLarge,
-		fmt.Sprintf("Request body too large: %d bytes (max: %d)", contentLength, maxFileSize),
+		uploadBodyTooLargeMessage(contentLength, maxFileSize),
 	)
 }
 

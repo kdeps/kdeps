@@ -40,7 +40,7 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		}
 
 		if isCorsPreflight(r.Method) {
-			w.WriteHeader(stdhttp.StatusOK)
+			writePreflightOK(w)
 			return
 		}
 
