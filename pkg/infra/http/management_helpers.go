@@ -59,19 +59,26 @@ func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interf
 	}
 }
 
-func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
-	detail := managementWorkflowStatusDetail(workflow)
-	if detail == nil {
+func workflowNameVersion(workflow *domain.Workflow) map[string]interface{} {
+	if workflow == nil {
 		return nil
 	}
 	return map[string]interface{}{
-		"name":    detail["name"],
-		"version": detail["version"],
+		"name":    workflow.Metadata.Name,
+		"version": workflow.Metadata.Version,
 	}
 }
 
-func reloadWorkflowErrorMessage(prefix string, err error) string {
+func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
+	return workflowNameVersion(workflow)
+}
+
+func prefixedErrorMessage(prefix string, err error) string {
 	return fmt.Sprintf("%s: %v", prefix, err)
+}
+
+func reloadWorkflowErrorMessage(prefix string, err error) string {
+	return prefixedErrorMessage(prefix, err)
 }
 
 func readLimitedManagementBody(
@@ -146,7 +153,7 @@ func (s *Server) respondManagementWriteError(
 	writeErr error,
 ) {
 	s.respondManagementError(w, stdhttp.StatusInternalServerError,
-		fmt.Sprintf("failed to write workflow file: %v", writeErr))
+		prefixedErrorMessage("failed to write workflow file", writeErr))
 }
 
 func (s *Server) respondManagementExtractError(
@@ -154,7 +161,7 @@ func (s *Server) respondManagementExtractError(
 	extractErr error,
 ) {
 	s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,
-		fmt.Sprintf("failed to extract package: %v", extractErr))
+		prefixedErrorMessage("failed to extract package", extractErr))
 }
 
 func (s *Server) prepareManagementDestination(

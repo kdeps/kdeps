@@ -47,7 +47,7 @@ func (s *WebServer) HandleStaticRequest(
 	// Check if directory exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 		s.logger.ErrorContext(context.Background(), "public path does not exist", "path", fullPath)
-		stdhttp.Error(w, "Not Found", stdhttp.StatusNotFound)
+		respondPlainHTTPError(w, "Not Found", stdhttp.StatusNotFound)
 		return
 	}
 
@@ -66,7 +66,7 @@ func (s *WebServer) HandleAppRequest(
 	appPort, ok := requireAppRoutePort(route)
 	if !ok {
 		s.logger.ErrorContext(context.Background(), "app port is required for app server type")
-		stdhttp.Error(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+		respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *WebServer) HandleAppRequest(
 			"error",
 			err,
 		)
-		stdhttp.Error(w, "Internal Server Error", stdhttp.StatusInternalServerError)
+		respondPlainHTTPError(w, "Internal Server Error", stdhttp.StatusInternalServerError)
 		return
 	}
 
@@ -122,7 +122,7 @@ func newAppReverseProxy(
 				"error",
 				err,
 			)
-			stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
+			respondPlainHTTPError(w, "Failed to reach app", stdhttp.StatusBadGateway)
 		},
 	}
 }

@@ -46,11 +46,8 @@ func (s *Server) SetupRoutes() {
 
 func healthCheckPayload(workflow *domain.Workflow) map[string]interface{} {
 	return map[string]interface{}{
-		"status": "ok",
-		"workflow": map[string]interface{}{
-			"name":    workflow.Metadata.Name,
-			"version": workflow.Metadata.Version,
-		},
+		"status":   "ok",
+		"workflow": workflowNameVersion(workflow),
 	}
 }
 

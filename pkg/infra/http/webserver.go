@@ -171,7 +171,7 @@ func (s *WebServer) dispatchWebRoute(
 		s.HandleAppRequest(w, r, route)
 	default:
 		s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
-		stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
+		respondPlainHTTPError(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 	}
 }
 

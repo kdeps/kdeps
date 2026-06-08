@@ -95,7 +95,7 @@ func (s *WebServer) HandleWebSocketProxy(
 }
 
 func webSocketBadGateway(w stdhttp.ResponseWriter, message string) {
-	stdhttp.Error(w, message, stdhttp.StatusBadGateway)
+	respondPlainHTTPError(w, message, stdhttp.StatusBadGateway)
 }
 
 func isWebSocketHandshakeOK(resp *stdhttp.Response) bool {

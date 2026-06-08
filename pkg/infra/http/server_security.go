@@ -67,13 +67,20 @@ func effectiveMaxBodyBytes(maxBody int64) int64 {
 	return maxBody
 }
 
+func rateLimitBurst(rateLimit *domain.RateLimitConfig) int {
+	if rateLimit.Burst > 0 {
+		return rateLimit.Burst
+	}
+	return rateLimit.RequestsPerMinute
+}
+
 func applyLimitMiddleware(router *Router, cfg limitMiddlewareConfig, trustedProxies []string) {
 	if cfg.rateLimit != nil && cfg.rateLimit.RequestsPerMinute > 0 {
-		burst := cfg.rateLimit.Burst
-		if burst <= 0 {
-			burst = cfg.rateLimit.RequestsPerMinute
-		}
-		router.Use(RateLimitMiddleware(cfg.rateLimit.RequestsPerMinute, burst, trustedProxies))
+		router.Use(RateLimitMiddleware(
+			cfg.rateLimit.RequestsPerMinute,
+			rateLimitBurst(cfg.rateLimit),
+			trustedProxies,
+		))
 	}
 	router.Use(BodyLimitMiddleware(effectiveMaxBodyBytes(cfg.maxBodyBytes)))
 	if cfg.maxConcurrent > 0 {
