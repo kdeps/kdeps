@@ -68,15 +68,8 @@ func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // PUT /_kdeps/workflow.
 func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementUpdateWorkflow")
-	body, statusCode, errMsg := readLimitedManagementBody(r, maxWorkflowBodySize, "workflow YAML")
-	if errMsg != "" {
-		s.respondManagementError(w, statusCode, errMsg)
-		return
-	}
-
-	workflowPath := s.getManagementWorkflowPath()
-	if mkdirErr := ensureManagementDir(workflowPath); mkdirErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError, mkdirErr.Error())
+	body, workflowPath, ok := s.prepareManagementDestination(w, r, maxWorkflowBodySize, "workflow YAML")
+	if !ok {
 		return
 	}
 
@@ -100,15 +93,12 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 // POST /_kdeps/reload.
 func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementReload")
-	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+	s.completeManagementReload(
+		w,
 		stdhttp.StatusInternalServerError,
 		"failed to reload workflow",
-	); reloadErrMsg != "" {
-		s.respondManagementError(w, reloadStatus, reloadErrMsg)
-		return
-	}
-
-	s.writeManagementSuccess(w, "workflow reloaded")
+		"workflow reloaded",
+	)
 }
 
 // HandleManagementUpdatePackage accepts a raw .kdeps package archive in the request body,
@@ -116,18 +106,12 @@ func (s *Server) HandleManagementReload(w stdhttp.ResponseWriter, _ *stdhttp.Req
 // PUT /_kdeps/package.
 func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementUpdatePackage")
-	body, statusCode, errMsg := readLimitedManagementBody(r, maxPackageBodySize, "package")
-	if errMsg != "" {
-		s.respondManagementError(w, statusCode, errMsg)
+	body, workflowPath, ok := s.prepareManagementDestination(w, r, maxPackageBodySize, "package")
+	if !ok {
 		return
 	}
 
-	workflowPath := s.getManagementWorkflowPath()
 	destDir := filepath.Dir(workflowPath)
-	if mkdirErr := ensureManagementDir(workflowPath); mkdirErr != nil {
-		s.respondManagementError(w, stdhttp.StatusInternalServerError, mkdirErr.Error())
-		return
-	}
 
 	if extractErr := extractKdepsPackage(body, destDir); extractErr != nil {
 		s.respondManagementError(w, stdhttp.StatusUnprocessableEntity,

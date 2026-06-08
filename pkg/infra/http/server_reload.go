@@ -64,29 +64,18 @@ func (s *Server) SetupHotReload() error {
 		s.parser = parser
 	}
 
-	// Watch workflow file
-	if watchErr := s.Watcher.Watch(absWorkflowPath, func() {
-		s.logger.Info("workflow file changed, reloading...")
-		if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-			s.logger.Error("failed to reload workflow", "error", reloadErr)
-		} else {
-			s.logger.Info("workflow reloaded successfully")
-		}
-	}); watchErr != nil {
+	reloadOnChange := s.hotReloadCallback()
+
+	workflowChanged := reloadOnChange("workflow file changed, reloading...")
+	if watchErr := s.Watcher.Watch(absWorkflowPath, workflowChanged); watchErr != nil {
 		return fmt.Errorf("failed to watch workflow file: %w", watchErr)
 	}
 
 	// Watch resources directory (relative to workflow file)
 	workflowDir := filepath.Dir(absWorkflowPath)
 	resourcesPath := filepath.Join(workflowDir, "resources")
-	if watchErr := s.Watcher.Watch(resourcesPath, func() {
-		s.logger.Info("resources changed, reloading...")
-		if reloadErr := s.reloadWorkflow(); reloadErr != nil {
-			s.logger.Error("failed to reload workflow", "error", reloadErr)
-		} else {
-			s.logger.Info("workflow reloaded successfully")
-		}
-	}); watchErr != nil {
+	resourcesChanged := reloadOnChange("resources changed, reloading...")
+	if watchErr := s.Watcher.Watch(resourcesPath, resourcesChanged); watchErr != nil {
 		// Resources directory might not exist, which is OK
 		s.logger.Debug(
 			"failed to watch resources directory (may not exist)",
@@ -98,6 +87,19 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	return nil
+}
+
+func (s *Server) hotReloadCallback() func(string) func() {
+	return func(changeMsg string) func() {
+		return func() {
+			s.logger.Info(changeMsg)
+			if reloadErr := s.reloadWorkflow(); reloadErr != nil {
+				s.logger.Error("failed to reload workflow", "error", reloadErr)
+				return
+			}
+			s.logger.Info("workflow reloaded successfully")
+		}
+	}
 }
 
 // reloadWorkflow reloads the workflow from disk.

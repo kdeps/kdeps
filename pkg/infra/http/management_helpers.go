@@ -48,12 +48,13 @@ func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interf
 }
 
 func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
-	if workflow == nil {
+	detail := managementWorkflowStatusDetail(workflow)
+	if detail == nil {
 		return nil
 	}
 	return map[string]interface{}{
-		"name":    workflow.Metadata.Name,
-		"version": workflow.Metadata.Version,
+		"name":    detail["name"],
+		"version": detail["version"],
 	}
 }
 
@@ -110,6 +111,40 @@ func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (in
 		return statusCode, fmt.Sprintf("%s: %v", messagePrefix, err)
 	}
 	return 0, ""
+}
+
+func (s *Server) prepareManagementDestination(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	maxSize int,
+	label string,
+) ([]byte, string, bool) {
+	body, statusCode, errMsg := readLimitedManagementBody(r, maxSize, label)
+	if errMsg != "" {
+		s.respondManagementError(w, statusCode, errMsg)
+		return nil, "", false
+	}
+
+	workflowPath := s.getManagementWorkflowPath()
+	if mkdirErr := ensureManagementDir(workflowPath); mkdirErr != nil {
+		s.respondManagementError(w, stdhttp.StatusInternalServerError, mkdirErr.Error())
+		return nil, "", false
+	}
+
+	return body, workflowPath, true
+}
+
+func (s *Server) completeManagementReload(
+	w stdhttp.ResponseWriter,
+	reloadStatusCode int,
+	reloadMsgPrefix string,
+	successMsg string,
+) {
+	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(reloadStatusCode, reloadMsgPrefix); reloadErrMsg != "" {
+		s.respondManagementError(w, reloadStatus, reloadErrMsg)
+		return
+	}
+	s.writeManagementSuccess(w, successMsg)
 }
 
 func (s *Server) completeManagementUpdate(
