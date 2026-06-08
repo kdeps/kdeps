@@ -178,15 +178,23 @@ func (s *WebServer) CreateWebHandler(
 	}
 
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		switch route.ServerType {
-		case serverTypeStatic:
-			s.HandleStaticRequest(w, r, route)
-		case serverTypeApp:
-			s.HandleAppRequest(w, r, route)
-		default:
-			s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
-			stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
-		}
+		s.dispatchWebRoute(w, r, route)
+	}
+}
+
+func (s *WebServer) dispatchWebRoute(
+	w stdhttp.ResponseWriter,
+	r *stdhttp.Request,
+	route *domain.WebRoute,
+) {
+	switch route.ServerType {
+	case serverTypeStatic:
+		s.HandleStaticRequest(w, r, route)
+	case serverTypeApp:
+		s.HandleAppRequest(w, r, route)
+	default:
+		s.logger.ErrorContext(r.Context(), "unsupported server type", "type", route.ServerType)
+		stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 	}
 }
 

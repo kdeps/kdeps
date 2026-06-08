@@ -50,6 +50,12 @@ func generateUploadID(content []byte) string {
 	return hex.EncodeToString(hash[:])[:16]
 }
 
+func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
+	file := files[id]
+	_ = os.Remove(file.Path)
+	delete(files, id)
+}
+
 func removeUploadedFile(file *domain.UploadedFile) error {
 	if err := os.Remove(file.Path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete file: %w", err)
@@ -167,9 +173,7 @@ func (s *TemporaryFileStore) Cleanup(ttl time.Duration) error {
 	}
 
 	for _, id := range toDelete {
-		file := s.files[id]
-		_ = os.Remove(file.Path) // Ignore errors for cleanup
-		delete(s.files, id)
+		removeStoredFileEntry(s.files, id)
 	}
 
 	return nil
@@ -188,9 +192,8 @@ func (s *TemporaryFileStore) Close() error {
 	close(s.stopCh)
 	s.stopped = true
 
-	for id, file := range s.files {
-		_ = os.Remove(file.Path) // Ignore errors
-		delete(s.files, id)
+	for id := range s.files {
+		removeStoredFileEntry(s.files, id)
 	}
 
 	return nil
