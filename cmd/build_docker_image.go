@@ -38,22 +38,24 @@ func attachPrepackagedBinaries(
 	builder *docker.Builder,
 	absPackagePath, absPackageDir string,
 	workflow *domain.Workflow,
-) {
+) func() {
 	kdepsFile, createdKdeps, kdepsErr := ensureKdepsFile(absPackagePath, absPackageDir, workflow)
 	if kdepsErr != nil {
 		kdepslog.Warn("could not prepare .kdeps file for prepackaging", "error", kdepsErr)
 		kdepslog.Info("falling back to kdeps install.sh in the Docker image")
-		return
+		return nil
 	}
 
 	if createdKdeps {
 		defer os.Remove(kdepsFile)
 	}
 	prepackagedBinaries, cleanupBinaries := createPrepackagedBinariesForDocker(ctx, kdepsFile)
-	defer cleanupBinaries()
 	if len(prepackagedBinaries) > 0 {
 		builder.PrepackagedBinaries = prepackagedBinaries
+		return cleanupBinaries
 	}
+	cleanupBinaries()
+	return nil
 }
 
 // buildImageInternal executes the build command with flags parameter.
@@ -105,7 +107,11 @@ func buildImageInternal(cmd *cobra.Command, args []string, flags *BuildFlags) er
 		return handleDockerfileShow(builder, workflow)
 	}
 
-	attachPrepackagedBinaries(cmd.Context(), builder, absPackagePath, absPackageDir, workflow)
+	if cleanupPrepackaged := attachPrepackagedBinaries(
+		cmd.Context(), builder, absPackagePath, absPackageDir, workflow,
+	); cleanupPrepackaged != nil {
+		defer cleanupPrepackaged()
+	}
 	return performDockerBuild(builder, workflow, packagePath, flags)
 }
 

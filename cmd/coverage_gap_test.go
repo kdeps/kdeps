@@ -236,13 +236,14 @@ func TestPerformISOBuild_Success(t *testing.T) {
 
 func TestAttachPrepackagedBinaries_EnsureKdepsError(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
-	attachPrepackagedBinaries(
+	cleanup := attachPrepackagedBinaries(
 		context.Background(),
 		builder,
 		"/nonexistent/pkg.kdeps",
 		"/nonexistent",
 		&domain.Workflow{},
 	)
+	assert.Nil(t, cleanup)
 	assert.Empty(t, builder.PrepackagedBinaries)
 }
 
@@ -262,8 +263,14 @@ func TestAttachPrepackagedBinaries_Success(t *testing.T) {
 
 	builder := &docker.Builder{BaseOS: "alpine"}
 	wf := &domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}}
-	attachPrepackagedBinaries(context.Background(), builder, kdepsPath, tmpDir, wf)
+	cleanup := attachPrepackagedBinaries(context.Background(), builder, kdepsPath, tmpDir, wf)
+	require.NotNil(t, cleanup)
+	defer cleanup()
 	assert.NotEmpty(t, builder.PrepackagedBinaries)
+	for _, path := range builder.PrepackagedBinaries {
+		_, statErr := os.Stat(path)
+		require.NoError(t, statErr)
+	}
 }
 
 // ---------------------------------------------------------------------------
