@@ -57,7 +57,7 @@ func (s *WebServer) HandleWebSocketProxy(
 
 	clientConn, err := upgradeClientWebSocket(w, r)
 	if err != nil {
-		s.logBackgroundError(webSocketUpgradeFailedLogMessage(), logKeyError, err)
+		s.logBackgroundError(webSocketUpgradeFailedLogMessage, logKeyError, err)
 		return
 	}
 	defer func() {

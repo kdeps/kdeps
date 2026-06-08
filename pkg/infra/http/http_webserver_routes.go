@@ -29,10 +29,6 @@ const (
 	serverTypeStatic = "static"
 )
 
-func unsupportedServerTypeMessage() string {
-	return "Unsupported server type"
-}
-
 func (s *WebServer) dispatchWebRoute(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -54,7 +50,7 @@ func (s *WebServer) respondUnsupportedServerType(
 	serverType string,
 ) {
 	s.logger.ErrorContext(r.Context(), "unsupported server type", "type", serverType)
-	respondPlainHTTPError(w, unsupportedServerTypeMessage(), stdhttp.StatusInternalServerError)
+	respondPlainHTTPError(w, unsupportedServerTypeMessage, stdhttp.StatusInternalServerError)
 }
 
 func (s *WebServer) logWebRouteConfigured(route domain.WebRoute) {

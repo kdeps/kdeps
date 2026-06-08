@@ -129,3 +129,82 @@ func chainMiddleware(
 	}
 	return handler
 }
+
+type routerMethodRegistrar func(*Router, string, stdhttp.HandlerFunc)
+
+//nolint:gochecknoglobals // method name to registrar dispatch table
+var routerMethodRegistrars = map[string]routerMethodRegistrar{
+	"GET":     (*Router).GET,
+	"POST":    (*Router).POST,
+	"PUT":     (*Router).PUT,
+	"DELETE":  (*Router).DELETE,
+	"PATCH":   (*Router).PATCH,
+	"OPTIONS": (*Router).OPTIONS,
+}
+
+func registerRouterMethod(router *Router, method, path string, handler stdhttp.HandlerFunc) {
+	if register, ok := routerMethodRegistrars[method]; ok {
+		register(router, path, handler)
+	}
+}
+
+func findRouterHandler(r *Router, method, path string) stdhttp.HandlerFunc {
+	methodRoutes, ok := r.Routes[method]
+	if !ok {
+		return nil
+	}
+	if handler, found := exactRouteHandler(methodRoutes, path); found {
+		return handler
+	}
+	return longestMatchingPattern(methodRoutes, path, matchRouterPattern)
+}
+
+func routerPathRegisteredForMethod(r *Router, method, path string) bool {
+	routes, ok := r.Routes[method]
+	if !ok {
+		return false
+	}
+	return pathRegisteredInRoutes(routes, path, matchRouterPattern)
+}
+
+func routerAllowedMethods(r *Router, path string) []string {
+	var allowed []string
+	for method := range r.Routes {
+		if routerPathRegisteredForMethod(r, method, path) {
+			allowed = append(allowed, method)
+		}
+	}
+	return allowed
+}
+
+func matchRouterPattern(pattern, path string) bool {
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(path, "/")
+
+	var hasTrailingWildcard bool
+	patternParts, hasTrailingWildcard = stripTrailingWildcard(patternParts)
+	if hasTrailingWildcard {
+		if len(pathParts) < len(patternParts) {
+			return false
+		}
+		pathParts = pathParts[:len(patternParts)]
+	} else if len(patternParts) != len(pathParts) {
+		return false
+	}
+
+	return pathPartsMatch(patternParts, pathParts)
+}
+
+func dispatchRouter(r *Router, w stdhttp.ResponseWriter, req *stdhttp.Request) {
+	if handler := findRouterHandler(r, req.Method, requestPath(req)); handler != nil {
+		handler(w, req)
+		return
+	}
+
+	if allowed := routerAllowedMethods(r, requestPath(req)); len(allowed) > 0 {
+		respondMethodNotAllowed(w, allowed)
+		return
+	}
+
+	respondRouterNotFound(w, req)
+}

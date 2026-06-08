@@ -20,25 +20,10 @@ package http
 
 import (
 	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"io"
 	"os"
 	"path/filepath"
 )
-
-func abortExtractedWrite(f *os.File, err error) error {
-	_ = f.Close()
-	return err
-}
-
-func openPackageTarReader(data []byte) (*tar.Reader, io.Closer, error) {
-	gzr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return nil, nil, packageInvalidGzipError(err)
-	}
-	return tar.NewReader(gzr), gzr, nil
-}
 
 func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	relPath := filepath.Clean(entryName)
@@ -89,17 +74,6 @@ func ensurePackageEntryDir(hdr *tar.Header, absTargetPath string) error {
 		return packageParentDirectoryCreateError(label, mkdirErr)
 	}
 	return nil
-}
-
-func readNextPackageEntry(tr *tar.Reader) (*tar.Header, error) {
-	hdr, err := tr.Next()
-	if isTarEOF(err) {
-		return nil, io.EOF
-	}
-	if err != nil {
-		return nil, packageReadEntryFailed(err)
-	}
-	return hdr, nil
 }
 
 func extractKdepsPackageEntry(

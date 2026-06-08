@@ -41,14 +41,14 @@ func (s *Server) SetupHotReload() error {
 
 	reloadOnChange := s.hotReloadCallback()
 
-	workflowChanged := reloadOnChange(hotReloadWorkflowChangeMessage())
+	workflowChanged := reloadOnChange(hotReloadWorkflowChangeMessage)
 	if watchErr := s.Watcher.Watch(absWorkflowPath, workflowChanged); watchErr != nil {
 		return hotReloadWatchWorkflowFailed(watchErr)
 	}
 
 	// Watch resources directory (relative to workflow file)
 	resourcesPath := workflowResourcesDir(absWorkflowPath)
-	resourcesChanged := reloadOnChange(hotReloadResourcesChangeMessage())
+	resourcesChanged := reloadOnChange(hotReloadResourcesChangeMessage)
 	s.watchOptionalResourcesDir(resourcesPath, resourcesChanged)
 
 	return nil

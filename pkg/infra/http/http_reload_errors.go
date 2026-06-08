@@ -18,14 +18,6 @@
 
 package http
 
-func hotReloadWorkflowChangeMessage() string {
-	return "workflow file changed, reloading..."
-}
-
-func hotReloadResourcesChangeMessage() string {
-	return "resources changed, reloading..."
-}
-
 func hotReloadWatchWorkflowFailed(err error) error {
 	return prefixedWrapError("failed to watch workflow file", err)
 }

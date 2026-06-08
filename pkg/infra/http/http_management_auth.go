@@ -28,14 +28,6 @@ const (
 	managementAuthEnvVar = "KDEPS_MANAGEMENT_TOKEN"
 )
 
-func managementDisabledMessage() string {
-	return "management API disabled: set " + managementAuthEnvVar + " to enable"
-}
-
-func managementUnauthorizedMessage() string {
-	return "unauthorized"
-}
-
 func managementAuthToken() (string, bool) {
 	token := trimAuthToken(os.Getenv(managementAuthEnvVar))
 	return token, token != ""

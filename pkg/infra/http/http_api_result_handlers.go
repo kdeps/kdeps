@@ -18,10 +18,7 @@
 
 package http
 
-import (
-	"encoding/json"
-	stdhttp "net/http"
-)
+import stdhttp "net/http"
 
 func (s *Server) respondMarshalError(
 	w stdhttp.ResponseWriter,
@@ -31,10 +28,6 @@ func (s *Server) respondMarshalError(
 ) {
 	s.logMarshalFailure(r, label, err)
 	s.respondWithRequestError(w, r, marshalFailureError(err, label))
-}
-
-func (s *Server) logResponseWriteError(label string, writeErr error, path string) {
-	s.logResponseWriteFailure(path, label, writeErr)
 }
 
 func (s *Server) tryRespondAPIResult(
@@ -113,7 +106,7 @@ func (s *Server) writeJSONAPIResponse(
 	meta = enrichResponseMeta(r, meta)
 	data = parseJSONStringPayload(data)
 
-	responseBytes, marshalErr := json.Marshal(successResponseMap(data, anyMapToInterfaceMap(meta)))
+	responseBytes, marshalErr := marshalSuccessResponse(data, anyMapToInterfaceMap(meta))
 	if marshalErr != nil {
 		s.respondMarshalError(w, r, marshalErr, apiResponseMarshalLabel)
 		return
@@ -135,7 +128,7 @@ func (s *Server) respondRegularResult(
 	s.logRegularResult(r)
 
 	result = parseJSONStringPayload(result)
-	regularBytes, marshalErr := json.Marshal(successResponseMap(result, requestResponseMeta(r)))
+	regularBytes, marshalErr := marshalSuccessResponse(result, requestResponseMeta(r))
 	if marshalErr != nil {
 		s.respondMarshalError(w, r, marshalErr, responseMarshalLabel)
 		return
@@ -157,7 +150,7 @@ func (s *Server) writeRawSuccessResponseBytes(
 	writeErrLabel string,
 ) {
 	if _, writeErr := writeRawOKBytes(w, payload); writeErr != nil {
-		s.logResponseWriteError(writeErrLabel, writeErr, requestPath(r))
+		s.logResponseWriteFailure(requestPath(r), writeErrLabel, writeErr)
 		return
 	}
 	flushResponse(w, requestPath(r), s.logger)
@@ -171,7 +164,7 @@ func (s *Server) writeSuccessResponseBytes(
 	flush bool,
 ) bool {
 	if writeErr := writeOKResponseBytes(w, payload); writeErr != nil {
-		s.logResponseWriteError(writeErrLabel, writeErr, requestPath(r))
+		s.logResponseWriteFailure(requestPath(r), writeErrLabel, writeErr)
 		return false
 	}
 	if flush {

@@ -36,7 +36,7 @@ func readLimitedManagementBody(
 		return nil, stdhttp.StatusBadRequest, managementReadBodyError(err)
 	}
 	if isEmptyBody(limitedBody) {
-		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage()
+		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage
 	}
 	if exceedsMaxSizeInt(len(limitedBody), maxSize) {
 		return nil, stdhttp.StatusRequestEntityTooLarge, labelExceedsMaxMessage(label, maxSize)

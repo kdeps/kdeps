@@ -48,7 +48,11 @@ func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
 }
 
 func apiResourceFailureError() *domain.AppError {
-	return domain.NewAppError(domain.ErrCodeResourceFailed, apiResourceFailureMessage())
+	return domain.NewAppError(domain.ErrCodeResourceFailed, apiResourceFailureMessage)
+}
+
+func marshalSuccessResponse(data interface{}, meta map[string]interface{}) ([]byte, error) {
+	return json.Marshal(successResponseMap(data, meta))
 }
 
 func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {
