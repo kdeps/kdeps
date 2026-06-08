@@ -200,13 +200,7 @@ func (s *Server) Start(addr string, devMode bool) error {
 		keyFile = s.Workflow.Settings.KeyFile
 	}
 
-	s.httpServer = &stdhttp.Server{
-		Addr:         addr,
-		Handler:      s.Router,
-		ReadTimeout:  DefaultHTTPReadTimeout,
-		WriteTimeout: DefaultHTTPWriteTimeout,
-		IdleTimeout:  DefaultHTTPIdleTimeout,
-	}
+	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
 	if certFile != "" && keyFile != "" {
 		s.logger.Info("starting HTTPS server", "addr", addr, "cert", certFile)
@@ -215,6 +209,16 @@ func (s *Server) Start(addr string, devMode bool) error {
 
 	s.logger.Info("starting HTTP server", "addr", addr)
 	return s.httpServer.ListenAndServe()
+}
+
+func newDefaultHTTPServer(addr string, handler stdhttp.Handler) *stdhttp.Server {
+	return &stdhttp.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  DefaultHTTPReadTimeout,
+		WriteTimeout: DefaultHTTPWriteTimeout,
+		IdleTimeout:  DefaultHTTPIdleTimeout,
+	}
 }
 
 // Shutdown gracefully shuts down the HTTP server.

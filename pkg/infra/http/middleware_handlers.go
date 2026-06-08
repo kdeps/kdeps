@@ -106,6 +106,10 @@ func LoggingMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	}
 }
 
+func isPublicAPIPath(path string) bool {
+	return path == "/health" || strings.HasPrefix(path, managementPathPrefix)
+}
+
 // AuthMiddleware enforces bearer-token / API-key authentication when a token is configured.
 // /health and /_kdeps/* are exempt (/health is public; management routes use KDEPS_MANAGEMENT_TOKEN).
 // Clients supply the API token via "Authorization: Bearer <token>" or "X-API-Key: <token>".
@@ -113,7 +117,7 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 	kdeps_debug.Log("enter: AuthMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			if token == "" || r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, managementPathPrefix) {
+			if token == "" || isPublicAPIPath(r.URL.Path) {
 				next(w, r)
 				return
 			}

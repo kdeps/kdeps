@@ -24,6 +24,8 @@ import (
 	stdhttp "net/http"
 	"path/filepath"
 
+	"github.com/spf13/afero"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
@@ -75,6 +77,17 @@ func readLimitedManagementBody(
 			fmt.Sprintf("%s exceeds maximum allowed size of %d bytes", label, maxSize)
 	}
 	return limitedBody, 0, ""
+}
+
+func managementErrorPayload(message string) map[string]interface{} {
+	return map[string]interface{}{
+		"status":  "error",
+		"message": message,
+	}
+}
+
+func writeManagementWorkflowFile(workflowPath string, body []byte) error {
+	return afero.WriteFile(AppFS, workflowPath, body, 0600)
 }
 
 func ensureManagementDir(workflowPath string) error {
@@ -134,7 +147,7 @@ func (s *Server) prepareManagementDestination(
 	return body, workflowPath, true
 }
 
-func (s *Server) completeManagementReload(
+func (s *Server) finishManagementReload(
 	w stdhttp.ResponseWriter,
 	reloadStatusCode int,
 	reloadMsgPrefix string,
@@ -147,6 +160,15 @@ func (s *Server) completeManagementReload(
 	s.writeManagementSuccess(w, successMsg)
 }
 
+func (s *Server) completeManagementReload(
+	w stdhttp.ResponseWriter,
+	reloadStatusCode int,
+	reloadMsgPrefix string,
+	successMsg string,
+) {
+	s.finishManagementReload(w, reloadStatusCode, reloadMsgPrefix, successMsg)
+}
+
 func (s *Server) completeManagementUpdate(
 	w stdhttp.ResponseWriter,
 	workflowPath string,
@@ -155,9 +177,5 @@ func (s *Server) completeManagementUpdate(
 	successMsg string,
 ) {
 	s.ensureManagementWorkflowPath(workflowPath)
-	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(reloadStatusCode, reloadMsgPrefix); reloadErrMsg != "" {
-		s.respondManagementError(w, reloadStatus, reloadErrMsg)
-		return
-	}
-	s.writeManagementSuccess(w, successMsg)
+	s.finishManagementReload(w, reloadStatusCode, reloadMsgPrefix, successMsg)
 }

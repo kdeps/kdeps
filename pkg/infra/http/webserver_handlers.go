@@ -25,8 +25,8 @@ import (
 	"net"
 	stdhttp "net/http"
 	"net/http/httputil"
+	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -42,12 +42,7 @@ func (s *WebServer) HandleStaticRequest(
 	route *domain.WebRoute,
 ) {
 	kdeps_debug.Log("enter: HandleStaticRequest")
-	// Resolve public path relative to workflow directory
-	fullPath := route.PublicPath
-	if !filepath.IsAbs(fullPath) {
-		// For relative paths, resolve relative to workflow directory
-		fullPath = filepath.Join(s.WorkflowDir, fullPath)
-	}
+	fullPath := resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
 
 	// Check if directory exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
@@ -74,18 +69,13 @@ func (s *WebServer) HandleAppRequest(
 		return
 	}
 
-	// Build target URL
-	// The proxy target should always be 127.0.0.1 (connect to the local app process)
-	hostIP := "127.0.0.1"
-	targetURL, err := parseProxyURL(
-		fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))),
-	)
+	targetURL, err := localAppProxyTarget(route.AppPort)
 	if err != nil {
 		s.logger.ErrorContext(
 			context.Background(),
 			"invalid proxy URL",
 			"host",
-			hostIP,
+			"127.0.0.1",
 			"port",
 			route.AppPort,
 			"error",
@@ -113,12 +103,7 @@ func (s *WebServer) HandleAppRequest(
 			pr.Out.URL.RawQuery = r.URL.RawQuery
 			pr.Out.Host = targetURL.Host
 
-			// Forward headers
-			for key, values := range r.Header {
-				for _, value := range values {
-					pr.Out.Header.Add(key, value)
-				}
-			}
+			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
 
 			s.logger.Debug("proxying request", "url", pr.Out.URL.String())
 		},
@@ -139,6 +124,19 @@ func (s *WebServer) HandleAppRequest(
 	}
 
 	proxy.ServeHTTP(w, r)
+}
+
+func localAppProxyTarget(port int) (*url.URL, error) {
+	hostPort := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+	return parseProxyURL(fmt.Sprintf("http://%s", hostPort))
+}
+
+func forwardProxyRequestHeaders(dst, src stdhttp.Header) {
+	for key, values := range src {
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
 }
 
 // HandleWebSocketProxy handles WebSocket proxying.

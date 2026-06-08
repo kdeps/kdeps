@@ -23,30 +23,36 @@ import (
 	stdhttp "net/http"
 	"path/filepath"
 
-	"github.com/spf13/afero"
-
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
 // SetupManagementRoutes registers the internal management API routes that allow
 // the kdeps host to remotely update the workflow and settings of a running kdeps
 // container (client).
+func (s *Server) registerManagementRoute(
+	method, path string,
+	handler stdhttp.HandlerFunc,
+) {
+	wrapped := requireManagementAuth(handler)
+	fullPath := managementPathPrefix + path
+	switch method {
+	case "GET":
+		s.Router.GET(fullPath, wrapped)
+	case "PUT":
+		s.Router.PUT(fullPath, wrapped)
+	case "POST":
+		s.Router.POST(fullPath, wrapped)
+	}
+}
+
 func (s *Server) SetupManagementRoutes() {
 	kdeps_debug.Log("enter: SetupManagementRoutes")
-	// All management routes require KDEPS_MANAGEMENT_TOKEN.
-	s.Router.GET(managementPathPrefix+"/status", requireManagementAuth(s.HandleManagementStatus))
-	s.Router.GET(managementPathPrefix+"/openapi", requireManagementAuth(s.HandleManagementOpenAPI))
-	s.Router.GET(managementPathPrefix+"/schema", requireManagementAuth(s.HandleManagementSchema))
-	// Write operations require the KDEPS_MANAGEMENT_TOKEN bearer token.
-	s.Router.PUT(
-		managementPathPrefix+"/workflow",
-		requireManagementAuth(s.HandleManagementUpdateWorkflow),
-	)
-	s.Router.PUT(
-		managementPathPrefix+"/package",
-		requireManagementAuth(s.HandleManagementUpdatePackage),
-	)
-	s.Router.POST(managementPathPrefix+"/reload", requireManagementAuth(s.HandleManagementReload))
+	s.registerManagementRoute("GET", "/status", s.HandleManagementStatus)
+	s.registerManagementRoute("GET", "/openapi", s.HandleManagementOpenAPI)
+	s.registerManagementRoute("GET", "/schema", s.HandleManagementSchema)
+	s.registerManagementRoute("PUT", "/workflow", s.HandleManagementUpdateWorkflow)
+	s.registerManagementRoute("PUT", "/package", s.HandleManagementUpdatePackage)
+	s.registerManagementRoute("POST", "/reload", s.HandleManagementReload)
 }
 
 // HandleManagementStatus returns the current workflow status.
@@ -73,7 +79,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	if writeErr := afero.WriteFile(AppFS, workflowPath, body, 0600); writeErr != nil {
+	if writeErr := writeManagementWorkflowFile(workflowPath, body); writeErr != nil {
 		s.respondManagementError(w, stdhttp.StatusInternalServerError,
 			fmt.Sprintf("failed to write workflow file: %v", writeErr))
 		return

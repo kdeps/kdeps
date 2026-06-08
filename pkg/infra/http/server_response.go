@@ -29,6 +29,13 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
+	return map[string]interface{}{
+		"requestID": GetRequestID(r.Context()),
+		"timestamp": time.Now(),
+	}
+}
+
 func (s *Server) tryRespondAPIResult(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -209,8 +216,9 @@ func (s *Server) writeJSONAPIResponse(
 	data interface{},
 	meta map[string]any,
 ) {
-	meta["requestID"] = GetRequestID(r.Context())
-	meta["timestamp"] = time.Now()
+	for key, value := range requestResponseMeta(r) {
+		meta[key] = value
+	}
 	data = parseJSONStringPayload(data)
 
 	responseBytes, marshalErr := json.Marshal(map[string]interface{}{
@@ -275,10 +283,7 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 	regularBytes, marshalErr := json.Marshal(map[string]interface{}{
 		"success": true,
 		"data":    result,
-		"meta": map[string]interface{}{
-			"requestID": GetRequestID(r.Context()),
-			"timestamp": time.Now(),
-		},
+		"meta":    requestResponseMeta(r),
 	})
 	if marshalErr != nil {
 		s.logger.Error(

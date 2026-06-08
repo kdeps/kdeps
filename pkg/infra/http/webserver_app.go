@@ -21,11 +21,18 @@ package http
 import (
 	"context"
 	"os"
-	"path/filepath"
+	"os/exec"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func killProcessIfRunning(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	return cmd.Process.Kill()
+}
 
 func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute) {
 	kdeps_debug.Log("enter: StartAppCommand")
@@ -33,11 +40,7 @@ func (s *WebServer) StartAppCommand(ctx context.Context, route *domain.WebRoute)
 		return
 	}
 
-	// Resolve public path for command working directory relative to workflow
-	workDir := route.PublicPath
-	if !filepath.IsAbs(workDir) {
-		workDir = filepath.Join(s.WorkflowDir, workDir)
-	}
+	workDir := resolveWebRoutePublicPath(s.WorkflowDir, route.PublicPath)
 
 	s.logger.InfoContext(
 		context.Background(),
@@ -108,7 +111,7 @@ func (s *WebServer) Stop() {
 				"pid",
 				cmd.Process.Pid,
 			)
-			if err := cmd.Process.Kill(); err != nil {
+			if err := killProcessIfRunning(cmd); err != nil {
 				s.logger.ErrorContext(
 					context.Background(),
 					"failed to stop command",

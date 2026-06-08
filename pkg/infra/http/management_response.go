@@ -32,10 +32,7 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		s.logger.Error("management API error", "status", statusCode, "message", message)
 	}
 
-	writeJSONResponse(w, statusCode, map[string]interface{}{
-		"status":  "error",
-		"message": message,
-	})
+	writeJSONResponse(w, statusCode, managementErrorPayload(message))
 }
 
 // HandleManagementOpenAPI returns an OpenAPI 3.0 specification generated from

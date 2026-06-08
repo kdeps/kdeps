@@ -52,20 +52,33 @@ func peerIPFromRequest(r *stdhttp.Request) string {
 	return peerIPFromAddr(r.RemoteAddr)
 }
 
+func parseTrustedProxyEntry(entry string) (net.IP, *net.IPNet, bool) {
+	entry = strings.TrimSpace(entry)
+	if entry == "" {
+		return nil, nil, false
+	}
+	if strings.Contains(entry, "/") {
+		parsedIP, parsedNetwork, err := net.ParseCIDR(entry)
+		if err != nil {
+			return nil, nil, false
+		}
+		return parsedIP, parsedNetwork, true
+	}
+	parsedIP := net.ParseIP(entry)
+	if parsedIP == nil {
+		return nil, nil, false
+	}
+	return parsedIP, nil, true
+}
+
 func invalidTrustedProxyEntries(trusted []string) []string {
 	var invalid []string
 	for _, entry := range trusted {
-		entry = strings.TrimSpace(entry)
-		if entry == "" {
+		trimmed := strings.TrimSpace(entry)
+		if trimmed == "" {
 			continue
 		}
-		if strings.Contains(entry, "/") {
-			if _, _, err := net.ParseCIDR(entry); err != nil {
-				invalid = append(invalid, entry)
-			}
-			continue
-		}
-		if net.ParseIP(entry) == nil {
+		if _, _, ok := parseTrustedProxyEntry(entry); !ok {
 			invalid = append(invalid, entry)
 		}
 	}
@@ -81,18 +94,14 @@ func isTrustedPeer(peerIP string, trusted []string) bool {
 		return false
 	}
 	for _, entry := range trusted {
-		entry = strings.TrimSpace(entry)
-		if entry == "" {
+		ip, network, ok := parseTrustedProxyEntry(entry)
+		if !ok {
 			continue
 		}
-		if strings.Contains(entry, "/") {
-			_, network, err := net.ParseCIDR(entry)
-			if err == nil && network.Contains(parsed) {
-				return true
-			}
-			continue
+		if network != nil && network.Contains(parsed) {
+			return true
 		}
-		if ip := net.ParseIP(entry); ip != nil && ip.Equal(parsed) {
+		if network == nil && ip.Equal(parsed) {
 			return true
 		}
 	}

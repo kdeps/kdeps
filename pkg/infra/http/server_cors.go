@@ -74,21 +74,27 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 // setCorsMethods sets the CORS methods header.
 func (s *Server) setCorsMethods(w stdhttp.ResponseWriter, cors *domain.CORS) {
 	kdeps_debug.Log("enter: setCorsMethods")
-	if len(cors.AllowMethods) > 0 {
-		w.Header().Set("Access-Control-Allow-Methods", strings.Join(cors.AllowMethods, ", "))
-	} else {
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
-	}
+	w.Header().Set("Access-Control-Allow-Methods", corsAllowedMethods(cors))
 }
 
 // setCorsHeaders sets the CORS headers header.
 func (s *Server) setCorsHeaders(w stdhttp.ResponseWriter, cors *domain.CORS) {
 	kdeps_debug.Log("enter: setCorsHeaders")
-	if len(cors.AllowHeaders) > 0 {
-		w.Header().Set("Access-Control-Allow-Headers", strings.Join(cors.AllowHeaders, ", "))
-	} else {
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Allow-Headers", corsAllowedHeaders(cors))
+}
+
+func corsAllowedMethods(cors *domain.CORS) string {
+	if len(cors.AllowMethods) > 0 {
+		return strings.Join(cors.AllowMethods, ", ")
 	}
+	return "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+}
+
+func corsAllowedHeaders(cors *domain.CORS) string {
+	if len(cors.AllowHeaders) > 0 {
+		return strings.Join(cors.AllowHeaders, ", ")
+	}
+	return "Content-Type, Authorization"
 }
 
 // SetupHotReload sets up file watching for hot reload.
