@@ -29,6 +29,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func apiResourceFailureError() *domain.AppError {
+	return domain.NewAppError(domain.ErrCodeResourceFailed, "API response indicated failure")
+}
+
 func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
 	return map[string]interface{}{
 		"requestID": GetRequestID(r.Context()),
@@ -73,10 +77,7 @@ func (s *Server) tryRespondAPIResult(
 	}
 
 	s.logger.Debug("API response indicated failure", "path", r.URL.Path)
-	RespondWithError(w, r, domain.NewAppError(
-		domain.ErrCodeResourceFailed,
-		"API response indicated failure",
-	), GetDebugMode(r.Context()))
+	RespondWithError(w, r, apiResourceFailureError(), GetDebugMode(r.Context()))
 	return true
 }
 

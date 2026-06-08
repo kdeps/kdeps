@@ -68,6 +68,19 @@ var (
 	maxPackageTotalUncompressedLimit = int64(maxPackageTotalUncompressed)
 )
 
+func managementAuthToken() (string, bool) {
+	token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
+	return token, token != ""
+}
+
+func managementAuthMatches(r *stdhttp.Request, expected string) bool {
+	provided, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization"))
+	if !ok {
+		return false
+	}
+	return constantTimeEqual(provided, expected)
+}
+
 // requireManagementAuth enforces bearer-token authorization for all management
 // endpoints. The expected token is read from the environment
 // variable named by managementAuthEnvVar.  If no token is configured, the
@@ -75,8 +88,8 @@ var (
 func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	kdeps_debug.Log("enter: requireManagementAuth")
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
-		if token == "" {
+		token, ok := managementAuthToken()
+		if !ok {
 			stdhttp.Error(
 				w,
 				"management API disabled: set "+managementAuthEnvVar+" to enable",
@@ -84,13 +97,7 @@ func requireManagementAuth(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			)
 			return
 		}
-
-		provided, ok := bearerTokenFromAuthHeader(r.Header.Get("Authorization"))
-		if !ok {
-			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
-			return
-		}
-		if !constantTimeEqual(provided, token) {
+		if !managementAuthMatches(r, token) {
 			stdhttp.Error(w, "unauthorized", stdhttp.StatusUnauthorized)
 			return
 		}
