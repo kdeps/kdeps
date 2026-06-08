@@ -32,6 +32,15 @@ import (
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
 )
 
+func isExtractedPathUnderBase(baseDirAbs, targetPath string) bool {
+	return strings.HasPrefix(targetPath, baseDirAbs+string(os.PathSeparator))
+}
+
+func abortExtractedWrite(f *os.File, err error) error {
+	_ = f.Close()
+	return err
+}
+
 func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	relPath := filepath.Clean(entryName)
 	if relPath == "." || filepath.IsAbs(relPath) {
@@ -62,7 +71,7 @@ func extractPackageEntry(
 	tr *tar.Reader,
 	totalExtracted *int64,
 ) error {
-	if !strings.HasPrefix(absTargetPath, baseDirAbs+string(os.PathSeparator)) {
+	if !isExtractedPathUnderBase(baseDirAbs, absTargetPath) {
 		return fmt.Errorf("invalid path in package: %s", filepath.Clean(hdr.Name))
 	}
 	if hdr.FileInfo().IsDir() {
@@ -121,12 +130,12 @@ func extractKdepsPackage(data []byte, destDir string) error {
 }
 
 // writeExtractedFile creates/overwrites targetPath with content from r,
-// capped at maxPackageFileSize to guard against decompression bombs.
+// capped at maxPackageFileSizeLimit to guard against decompression bombs.
 // baseDirAbs is the resolved destination root; the prefix is re-checked here
 // so that static-analysis tools can see the guard in this call frame.
 func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtracted *int64) error {
 	kdeps_debug.Log("enter: writeExtractedFile")
-	if !strings.HasPrefix(targetPath, baseDirAbs+string(os.PathSeparator)) {
+	if !isExtractedPathUnderBase(baseDirAbs, targetPath) {
 		return fmt.Errorf("invalid target path: %s", filepath.Base(targetPath))
 	}
 	f, err := os.OpenFile(
@@ -140,24 +149,21 @@ func writeExtractedFile(baseDirAbs, targetPath string, r io.Reader, totalExtract
 
 	n, copyErr := io.Copy(f, io.LimitReader(r, maxPackageFileSizeLimit+1))
 	if copyErr != nil {
-		_ = f.Close()
-		return copyErr
+		return abortExtractedWrite(f, copyErr)
 	}
 	if n > maxPackageFileSizeLimit {
-		_ = f.Close()
-		return fmt.Errorf(
+		return abortExtractedWrite(f, fmt.Errorf(
 			"file %s exceeds maximum allowed size of %d bytes",
 			filepath.Base(targetPath),
 			maxPackageFileSizeLimit,
-		)
+		))
 	}
 	*totalExtracted += n
 	if *totalExtracted > maxPackageTotalUncompressedLimit {
-		_ = f.Close()
-		return fmt.Errorf(
+		return abortExtractedWrite(f, fmt.Errorf(
 			"package exceeds maximum total uncompressed size of %d bytes",
 			maxPackageTotalUncompressedLimit,
-		)
+		))
 	}
 
 	if closeErr := closeExtractedFile(f); closeErr != nil {
