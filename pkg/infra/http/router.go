@@ -82,6 +82,23 @@ func (r *Router) OPTIONS(path string, handler stdhttp.HandlerFunc) {
 	r.register("OPTIONS", path, handler)
 }
 
+func registerRouterMethod(router *Router, method, path string, handler stdhttp.HandlerFunc) {
+	switch method {
+	case "GET":
+		router.GET(path, handler)
+	case "POST":
+		router.POST(path, handler)
+	case "PUT":
+		router.PUT(path, handler)
+	case "DELETE":
+		router.DELETE(path, handler)
+	case "PATCH":
+		router.PATCH(path, handler)
+	case "OPTIONS":
+		router.OPTIONS(path, handler)
+	}
+}
+
 // register registers a route.
 func (r *Router) register(method, path string, handler stdhttp.HandlerFunc) {
 	kdeps_debug.Log("enter: register")

@@ -161,16 +161,7 @@ func (s *Server) SetWatcher(watcher FileWatcher) {
 // Start starts the HTTP server.
 func (s *Server) Start(addr string, devMode bool) error {
 	kdeps_debug.Log("enter: Start")
-	// Add core middleware (request ID and error handling)
-	s.Router.Use(SecurityHeadersMiddleware(true))
-	if s.Workflow != nil {
-		s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
-	}
-	s.Router.Use(RequestIDMiddleware())
-	s.Router.Use(DebugModeMiddleware())
-
-	// Add session middleware to read session cookies
-	s.Router.Use(SessionMiddleware())
+	s.setupCoreMiddleware()
 
 	// Apply security middleware from apiServer config when present.
 	if err := s.applySecurityMiddleware(); err != nil {
@@ -193,12 +184,7 @@ func (s *Server) Start(addr string, devMode bool) error {
 		}
 	}
 
-	certFile := ""
-	keyFile := ""
-	if s.Workflow != nil {
-		certFile = s.Workflow.Settings.CertFile
-		keyFile = s.Workflow.Settings.KeyFile
-	}
+	certFile, keyFile := workflowTLSCertificates(s.Workflow)
 
 	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
@@ -209,6 +195,23 @@ func (s *Server) Start(addr string, devMode bool) error {
 
 	s.logger.Info("starting HTTP server", "addr", addr)
 	return s.httpServer.ListenAndServe()
+}
+
+func (s *Server) setupCoreMiddleware() {
+	s.Router.Use(SecurityHeadersMiddleware(true))
+	if s.Workflow != nil {
+		s.Router.Use(TrustedProxiesMiddleware(trustedProxiesFromSettings(s.Workflow.Settings)))
+	}
+	s.Router.Use(RequestIDMiddleware())
+	s.Router.Use(DebugModeMiddleware())
+	s.Router.Use(SessionMiddleware())
+}
+
+func workflowTLSCertificates(workflow *domain.Workflow) (string, string) {
+	if workflow == nil {
+		return "", ""
+	}
+	return workflow.Settings.CertFile, workflow.Settings.KeyFile
 }
 
 func newDefaultHTTPServer(addr string, handler stdhttp.Handler) *stdhttp.Server {

@@ -154,6 +154,14 @@ func (h *UploadHandler) processFileHeaders(
 	return uploadedFiles, nil
 }
 
+func resolveUploadContentType(content []byte, headerContentType string) string {
+	contentType := stdhttp.DetectContentType(content)
+	if headerContentType != "" && headerContentType != "application/octet-stream" {
+		return headerContentType
+	}
+	return contentType
+}
+
 func uploadFieldSuffix(fieldName string) string {
 	if fieldName == uploadFieldFile || fieldName == uploadFieldArray || fieldName == uploadFieldFiles {
 		return ""
@@ -200,14 +208,7 @@ func (h *UploadHandler) processFileHeader(
 		return nil, h.uploadTooLargeError(fileHeader.Filename, int64(len(content)))
 	}
 
-	// Detect MIME type using standard library
-	contentType := stdhttp.DetectContentType(content)
-
-	// If the header has a Content-Type, prefer that if it's more specific
-	if fileHeader.Header.Get("Content-Type") != "" &&
-		fileHeader.Header.Get("Content-Type") != "application/octet-stream" {
-		contentType = fileHeader.Header.Get("Content-Type")
-	}
+	contentType := resolveUploadContentType(content, fileHeader.Header.Get("Content-Type"))
 
 	// Store file
 	file, err := h.store.Store(fileHeader.Filename, content, contentType)

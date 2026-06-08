@@ -29,6 +29,15 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "" {
+		return contentType
+	}
+	w.Header().Set("Content-Type", "application/json")
+	return "application/json"
+}
+
 func apiResourceFailureError() *domain.AppError {
 	return domain.NewAppError(domain.ErrCodeResourceFailed, "API response indicated failure")
 }
@@ -40,25 +49,44 @@ func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
 	}
 }
 
+func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {
+	resultMap, ok := result.(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	if _, hasSuccess := resultMap["success"]; !hasSuccess {
+		return nil, false
+	}
+	return resultMap, true
+}
+
+func apiResultSuccess(resultMap map[string]interface{}) bool {
+	success, validBool := domain.ParseBool(resultMap["success"])
+	if !validBool {
+		return false
+	}
+	return success
+}
+
+func marshalSuccessPayload(data interface{}, meta map[string]interface{}) ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"success": true,
+		"data":    data,
+		"meta":    meta,
+	})
+}
+
 func (s *Server) tryRespondAPIResult(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
 	result interface{},
 ) bool {
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := parseAPIResultMap(result)
 	if !ok {
 		return false
 	}
 
-	successRaw, hasSuccess := resultMap["success"]
-	if !hasSuccess {
-		return false
-	}
-
-	success, validBool := domain.ParseBool(successRaw)
-	if !validBool {
-		success = false
-	}
+	success := apiResultSuccess(resultMap)
 
 	s.logger.Debug(
 		"detected API response resource result",
@@ -99,11 +127,8 @@ func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]an
 		return meta
 	}
 
-	metaHeaders, okMetaHeaders := metaRaw.(map[string]string)
-	if okMetaHeaders {
-		for key, value := range metaHeaders {
-			w.Header().Set(key, value)
-		}
+	if metaHeaders, okMetaHeaders := metaRaw.(map[string]string); okMetaHeaders {
+		setStringResponseHeaders(w, metaHeaders)
 	}
 
 	return meta
@@ -120,11 +145,8 @@ func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
 		return
 	}
 
-	headersStr, okHeadersStr := headersRaw.(map[string]string)
-	if okHeadersStr {
-		for hKey, hValue := range headersStr {
-			w.Header().Set(hKey, hValue)
-		}
+	if headersStr, okHeadersStr := headersRaw.(map[string]string); okHeadersStr {
+		setStringResponseHeaders(w, headersStr)
 	}
 }
 
@@ -142,15 +164,9 @@ func (s *Server) writeAPISuccessResponse(
 		fmt.Sprintf("%T", data),
 	)
 
-	if ctxSessionID := GetSessionID(r.Context()); ctxSessionID != "" {
-		SetSessionCookie(w, r, ctxSessionID)
-	}
+	applySessionCookieIfPresent(w, r)
 
-	respContentType := w.Header().Get("Content-Type")
-	if respContentType == "" {
-		respContentType = "application/json"
-		w.Header().Set("Content-Type", respContentType)
-	}
+	respContentType := defaultAPIResponseContentType(w)
 
 	if !strings.HasPrefix(respContentType, "application/json") {
 		s.writeRawAPIResponse(w, r, data, respContentType)
@@ -169,10 +185,7 @@ func (s *Server) writeRawAPIResponse(
 	rawBytes, contentType, marshalErr := marshalAPIRawPayload(data, respContentType)
 	if marshalErr != nil {
 		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
-		RespondWithError(w, r, domain.NewAppError(
-			domain.ErrCodeInternal,
-			fmt.Sprintf("failed to marshal API response: %v", marshalErr),
-		), GetDebugMode(r.Context()))
+		RespondWithError(w, r, marshalFailureError(marshalErr, "API response"), GetDebugMode(r.Context()))
 		return
 	}
 	if contentType != respContentType {
@@ -222,17 +235,10 @@ func (s *Server) writeJSONAPIResponse(
 	}
 	data = parseJSONStringPayload(data)
 
-	responseBytes, marshalErr := json.Marshal(map[string]interface{}{
-		"success": true,
-		"data":    data,
-		"meta":    meta,
-	})
+	responseBytes, marshalErr := marshalSuccessPayload(data, meta)
 	if marshalErr != nil {
 		s.logger.Error("failed to marshal API response", "error", marshalErr, "path", r.URL.Path)
-		RespondWithError(w, r, domain.NewAppError(
-			domain.ErrCodeInternal,
-			fmt.Sprintf("failed to marshal API response: %v", marshalErr),
-		), GetDebugMode(r.Context()))
+		RespondWithError(w, r, marshalFailureError(marshalErr, "API response"), GetDebugMode(r.Context()))
 		return
 	}
 
@@ -281,11 +287,7 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 	s.logger.Debug("sending regular resource result", "path", r.URL.Path)
 
 	result = parseJSONStringPayload(result)
-	regularBytes, marshalErr := json.Marshal(map[string]interface{}{
-		"success": true,
-		"data":    result,
-		"meta":    requestResponseMeta(r),
-	})
+	regularBytes, marshalErr := marshalSuccessPayload(result, requestResponseMeta(r))
 	if marshalErr != nil {
 		s.logger.Error(
 			"failed to marshal regular resource result",
@@ -294,10 +296,7 @@ func (s *Server) respondRegularResult(w stdhttp.ResponseWriter, r *stdhttp.Reque
 			"path",
 			r.URL.Path,
 		)
-		RespondWithError(w, r, domain.NewAppError(
-			domain.ErrCodeInternal,
-			fmt.Sprintf("failed to marshal response: %v", marshalErr),
-		), GetDebugMode(r.Context()))
+		RespondWithError(w, r, marshalFailureError(marshalErr, "response"), GetDebugMode(r.Context()))
 		return
 	}
 

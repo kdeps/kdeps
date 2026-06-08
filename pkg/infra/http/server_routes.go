@@ -44,18 +44,7 @@ func (s *Server) SetupRoutes() {
 }
 
 func (s *Server) registerAPIServerRoute(path, method string) {
-	switch method {
-	case "GET":
-		s.Router.GET(path, s.HandleRequest)
-	case "POST":
-		s.Router.POST(path, s.HandleRequest)
-	case "PUT":
-		s.Router.PUT(path, s.HandleRequest)
-	case "DELETE":
-		s.Router.DELETE(path, s.HandleRequest)
-	case "PATCH":
-		s.Router.PATCH(path, s.HandleRequest)
-	}
+	registerRouterMethod(s.Router, method, path, s.HandleRequest)
 }
 
 // HandleHealth handles health check requests.

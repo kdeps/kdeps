@@ -91,39 +91,39 @@ func (s *WebServer) HandleAppRequest(
 		return
 	}
 
-	// Create reverse proxy
-	// Note: must use literal ReverseProxy struct (not NewSingleHostReverseProxy)
-	// because we set Rewrite, and Go 1.24+ enforces that Director and Rewrite
-	// are mutually exclusive.
-	proxy := &httputil.ReverseProxy{
+	newAppReverseProxy(s, targetURL, route, r).ServeHTTP(w, r)
+}
+
+func newAppReverseProxy(
+	s *WebServer,
+	targetURL *url.URL,
+	route *domain.WebRoute,
+	r *stdhttp.Request,
+) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(targetURL)
-
 			pr.Out.URL.Path = buildProxiedPath(route.Path, r.URL.Path)
 			pr.Out.URL.RawQuery = r.URL.RawQuery
 			pr.Out.Host = targetURL.Host
-
 			forwardProxyRequestHeaders(pr.Out.Header, r.Header)
-
 			s.logger.Debug("proxying request", "url", pr.Out.URL.String())
 		},
 		Transport: &stdhttp.Transport{
 			ResponseHeaderTimeout: 30 * time.Second,
 		},
-		ErrorHandler: func(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+		ErrorHandler: func(w stdhttp.ResponseWriter, req *stdhttp.Request, err error) {
 			s.logger.ErrorContext(
 				context.Background(),
 				"proxy request failed",
 				"url",
-				r.URL.String(),
+				req.URL.String(),
 				"error",
 				err,
 			)
 			stdhttp.Error(w, "Failed to reach app", stdhttp.StatusBadGateway)
 		},
 	}
-
-	proxy.ServeHTTP(w, r)
 }
 
 func localAppProxyTarget(port int) (*url.URL, error) {

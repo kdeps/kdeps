@@ -61,14 +61,19 @@ func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cor
 	// Most common case: frontend on localhost:5173, backend on localhost:16395.
 	// If AllowOrigins is "*", we can just return the origin if we want to support credentials,
 	// or return "*" if not.
+	if corsOriginAllowed(cors, origin) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Add("Vary", "Origin")
+	}
+}
+
+func corsOriginAllowed(cors *domain.CORS, origin string) bool {
 	for _, allowedOrigin := range cors.AllowOrigins {
 		if allowedOrigin == "*" || allowedOrigin == origin {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			// Add Vary header to support multiple origins and proxies
-			w.Header().Add("Vary", "Origin")
-			return
+			return true
 		}
 	}
+	return false
 }
 
 // setCorsMethods sets the CORS methods header.
