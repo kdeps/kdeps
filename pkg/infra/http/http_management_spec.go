@@ -25,7 +25,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/schema"
 )
 
-// respondManagementError sends a JSON error response for management endpoints.
 func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int, message string) {
 	debugEnter("respondManagementError")
 	logManagementAPIError(s.logger, statusCode, message)
@@ -37,9 +36,6 @@ func writeManagementErrorJSON(w stdhttp.ResponseWriter, statusCode int, message 
 	writeJSONResponse(w, statusCode, managementErrorPayload(message))
 }
 
-// HandleManagementOpenAPI returns an OpenAPI 3.0 specification generated from
-// the currently loaded workflow.
-// GET /_kdeps/openapi.
 func (s *Server) writeManagementWorkflowSpec(
 	w stdhttp.ResponseWriter,
 	generate func(*domain.Workflow) any,
@@ -60,9 +56,6 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 	s.writeManagementWorkflowSpec(w, generateWorkflowOpenAPI)
 }
 
-// HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
-// describes the input accepted by the currently loaded workflow.
-// GET /_kdeps/schema.
 func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	debugEnter("HandleManagementSchema")
 	s.writeManagementWorkflowSpec(w, generateWorkflowJSONSchema)

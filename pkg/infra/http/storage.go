@@ -20,10 +20,6 @@
 package http
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -39,64 +35,6 @@ type TemporaryFileStore struct {
 	mu      sync.RWMutex
 	stopCh  chan struct{}
 	stopped bool
-}
-
-func storedUploadPath(baseDir, id, filename string) string {
-	return filepath.Join(baseDir, id+"_"+filename)
-}
-
-func newUploadedFileRecord(
-	id, filename, contentType, filePath string,
-	size int64,
-) *domain.UploadedFile {
-	return &domain.UploadedFile{
-		ID:          id,
-		Filename:    filename,
-		ContentType: contentType,
-		Size:        size,
-		Path:        filePath,
-		UploadedAt:  time.Now(),
-		Metadata:    newUploadMetadataMap(),
-	}
-}
-
-func lookupStoredFile(
-	files map[string]*domain.UploadedFile,
-	id string,
-) (*domain.UploadedFile, error) {
-	file, exists := files[id]
-	if !exists {
-		return nil, fileNotFoundError(id)
-	}
-	return file, nil
-}
-
-func generateUploadID(content []byte) string {
-	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
-	return hex.EncodeToString(hash[:])[:16]
-}
-
-func expiredFileIDs(files map[string]*domain.UploadedFile, cutoff time.Time) []string {
-	var ids []string
-	for id, file := range files {
-		if file.UploadedAt.Before(cutoff) {
-			ids = append(ids, id)
-		}
-	}
-	return ids
-}
-
-func removeStoredFileEntry(files map[string]*domain.UploadedFile, id string) {
-	file := files[id]
-	_ = removeUploadedFile(file)
-	delete(files, id)
-}
-
-func removeUploadedFile(file *domain.UploadedFile) error {
-	if err := os.Remove(file.Path); err != nil && !isNotExistErr(err) {
-		return storageDeleteFileFailed(err)
-	}
-	return nil
 }
 
 func NewTemporaryFileStore(baseDir string) (*TemporaryFileStore, error) {

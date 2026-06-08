@@ -73,49 +73,6 @@ func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
 	return anyMapToInterfaceMap(enrichResponseMeta(r, nil))
 }
 
-func setInterfaceStringHeaders(w stdhttp.ResponseWriter, headers map[string]interface{}) {
-	for hKey, hValue := range headers {
-		if strValue, okStr := hValue.(string); okStr {
-			setResponseHeader(w, hKey, strValue)
-		}
-	}
-}
-
-func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
-	if headers, ok := headersRaw.(map[string]interface{}); ok {
-		setInterfaceStringHeaders(w, headers)
-		return
-	}
-	if headersStr, ok := headersRaw.(map[string]string); ok {
-		setStringResponseHeaders(w, headersStr)
-	}
-}
-
-func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]any {
-	meta := newAPIMetaMap()
-	if metaRaw == nil {
-		return meta
-	}
-
-	metaMap, okMeta := metaRaw.(map[string]interface{})
-	if okMeta {
-		for key, value := range metaMap {
-			if isMetaHeadersKey(key) {
-				applyMetaHeaders(w, value)
-				continue
-			}
-			meta[key] = value
-		}
-		return meta
-	}
-
-	if metaHeaders, okMetaHeaders := metaRaw.(map[string]string); okMetaHeaders {
-		applyMetaHeaders(w, metaHeaders)
-	}
-
-	return meta
-}
-
 func marshalAPIRawPayload(data interface{}, respContentType string) ([]byte, string, error) {
 	switch v := data.(type) {
 	case string:

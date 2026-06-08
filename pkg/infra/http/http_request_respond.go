@@ -18,35 +18,24 @@
 
 package http
 
-import stdhttp "net/http"
+import (
+	stdhttp "net/http"
 
-// SetupRoutes sets up all API routes.
-func (s *Server) SetupRoutes() {
-	debugEnter("SetupRoutes")
-	s.Router.GET("/health", s.HandleHealth)
+	"github.com/kdeps/kdeps/v2/pkg/domain"
+)
 
-	s.SetupManagementRoutes()
-
-	s.registerWorkflowAPIRoutes()
+func (s *Server) respondWithRequestError(w stdhttp.ResponseWriter, r *stdhttp.Request, err error) {
+	RespondWithError(w, r, err, requestDebugMode(r))
 }
 
-// HandleHealth handles health check requests.
-func (s *Server) HandleHealth(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
-	debugEnter("HandleHealth")
-	writeWorkflowStatusJSON(w, s.lockedWorkflow(), healthCheckPayload)
+func respondManagementDisabled(w stdhttp.ResponseWriter) {
+	respondPlainHTTPError(w, managementDisabledMessage(), stdhttp.StatusServiceUnavailable)
 }
 
-// HandleRequest handles API requests.
-func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-	debugEnter("HandleRequest")
+func respondManagementUnauthorized(w stdhttp.ResponseWriter) {
+	respondPlainHTTPError(w, managementUnauthorizedMessage(), stdhttp.StatusUnauthorized)
+}
 
-	uploadedFiles, ok := s.processRequestUploads(w, r)
-	if !ok {
-		return
-	}
-
-	reqCtx := s.ParseRequest(r, uploadedFiles)
-	applyInboundSessionID(r, reqCtx)
-
-	s.executeAndRespond(w, r, reqCtx, uploadedFiles)
+func respondUnauthorized(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	respondMiddlewareError(w, r, domain.ErrCodeUnauthorized, authRequiredMessage())
 }

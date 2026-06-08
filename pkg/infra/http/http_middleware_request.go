@@ -27,7 +27,6 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("RequestIDMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			// Check if request ID already exists in header
 			requestID := requestIDHeader(r)
 			if requestID == "" {
 				requestID = newRequestID()
@@ -35,7 +34,6 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 			r = r.WithContext(withRequestID(r.Context(), requestID))
 
-			// Add to response header
 			setRequestIDResponseHeader(w, requestID)
 
 			next(w, r)
@@ -48,10 +46,8 @@ func SessionMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	debugEnter("SessionMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			// Try to read session ID from cookie
 			cookie, err := r.Cookie(SessionCookieName)
 			if err == nil && cookie.Value != "" {
-				// Store session ID in context
 				r = r.WithContext(withSessionIDContext(r.Context(), cookie.Value))
 			}
 

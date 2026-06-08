@@ -19,30 +19,10 @@
 package http
 
 import (
-	"io"
 	"mime/multipart"
 	stdhttp "net/http"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
-)
-
-const (
-	MaxUploadSize = 10 * 1024 * 1024
-	MaxMemory     = 32 << 20
-
-	uploadFieldFile  = "file"
-	uploadFieldFiles = "files"
-	uploadFieldArray = "file[]"
-
-	octetStreamContentType = "application/octet-stream"
-)
-
-//nolint:gochecknoglobals // test-replaceable
-var (
-	openMultipartFile = func(h *multipart.FileHeader) (multipart.File, error) {
-		return h.Open()
-	}
-	readMultipartFile = io.ReadAll
 )
 
 type UploadHandler struct {
@@ -88,71 +68,6 @@ func (h *UploadHandler) HandleUpload(r *stdhttp.Request) ([]*domain.UploadedFile
 	}
 
 	return emptyUploadFiles(), nil
-}
-
-func (h *UploadHandler) collectPreferredUploadFiles(
-	formFiles map[string][]*multipart.FileHeader,
-) ([]*domain.UploadedFile, error) {
-	for _, fieldName := range uploadPreferredFieldNames() {
-		files, ok := formFiles[fieldName]
-		if !ok || isEmptyFileList(files) {
-			continue
-		}
-
-		if fieldName == uploadFieldFile {
-			return h.processFileHeaders(fieldName, singleFileSlice(files))
-		}
-		return h.processFileHeaders(fieldName, files)
-	}
-	return nil, nil
-}
-
-func (h *UploadHandler) collectAllUploadFiles(
-	formFiles map[string][]*multipart.FileHeader,
-) ([]*domain.UploadedFile, error) {
-	var uploadedFiles []*domain.UploadedFile
-	for fieldName, files := range formFiles {
-		if isEmptyFileList(files) {
-			continue
-		}
-		uploaded, err := h.processFileHeaders(fieldName, files)
-		if err != nil {
-			return nil, err
-		}
-		uploadedFiles = append(uploadedFiles, uploaded...)
-	}
-	return uploadedFiles, nil
-}
-
-func (h *UploadHandler) processFileHeaders(
-	fieldName string,
-	files []*multipart.FileHeader,
-) ([]*domain.UploadedFile, error) {
-	uploadedFiles := make([]*domain.UploadedFile, 0, len(files))
-	for _, fileHeader := range files {
-		file, err := h.processFileHeader(fileHeader, fieldName)
-		if err != nil {
-			if isSingleStandardUpload(fieldName, len(files)) {
-				return nil, uploadProcessFileFailed(err)
-			}
-			return nil, processNamedUploadFileError(
-				fileHeader.Filename,
-				uploadFieldSuffix(fieldName),
-				err,
-			)
-		}
-		uploadedFiles = append(uploadedFiles, file)
-	}
-	return uploadedFiles, nil
-}
-
-func (h *UploadHandler) uploadTooLargeError(filename string, size int64) *domain.AppError {
-	return domain.NewAppError(
-		domain.ErrCodeRequestTooLarge,
-		fileTooLargeMessage(size, h.maxFileSize),
-	).WithDetails("filename", filename).
-		WithDetails("size", size).
-		WithDetails("maxSize", h.maxFileSize)
 }
 
 func (h *UploadHandler) processFileHeader(

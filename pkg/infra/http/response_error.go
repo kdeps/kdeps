@@ -19,56 +19,11 @@
 package http
 
 import (
-	"errors"
-	"fmt"
 	stdhttp "net/http"
-	"runtime/debug"
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func internalErrorMessage(debugMode bool, detail string) string {
-	if !debugMode || detail == "" {
-		return "Internal server error"
-	}
-	return fmt.Sprintf("Internal server error: %s", detail)
-}
-
-func errorDetailString(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
-}
-
-func appendDebugAppErrorDetails(
-	appErr *domain.AppError,
-	debugMode bool,
-	err error,
-) *domain.AppError {
-	if !debugMode {
-		return appErr
-	}
-	appErr = appErr.WithStack(string(debug.Stack()))
-	if err != nil {
-		appErr = appErr.WithDetails("error", err.Error())
-	}
-	return appErr
-}
-
-func normalizeToAppError(err error, debugMode bool) *domain.AppError {
-	var appErr *domain.AppError
-	if errors.As(err, &appErr) {
-		return appErr
-	}
-
-	appErr = domain.NewAppError(
-		domain.ErrCodeInternal,
-		internalErrorMessage(debugMode, errorDetailString(err)),
-	).WithError(err)
-	return appendDebugAppErrorDetails(appErr, debugMode, err)
-}
 
 // requestMetaFromRequest builds response metadata from the incoming request.
 func requestMetaFromRequest(r *stdhttp.Request) *MetaData {
@@ -131,5 +86,3 @@ func buildErrorResponse(
 	}
 	return response
 }
-
-// RespondWithSuccess sends a success response.
