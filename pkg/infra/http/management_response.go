@@ -43,11 +43,7 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 // GET /_kdeps/openapi.
 func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementOpenAPI")
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-
-	spec := schema.GenerateOpenAPI(workflow)
+	spec := schema.GenerateOpenAPI(s.lockedWorkflow())
 
 	writeJSONResponse(w, stdhttp.StatusOK, spec)
 }
@@ -57,11 +53,7 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 // GET /_kdeps/schema.
 func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementSchema")
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-
-	s2 := schema.GenerateJSONSchema(workflow)
+	s2 := schema.GenerateJSONSchema(s.lockedWorkflow())
 
 	writeJSONResponse(w, stdhttp.StatusOK, s2)
 }
