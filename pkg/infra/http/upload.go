@@ -161,6 +161,15 @@ func uploadFieldSuffix(fieldName string) string {
 	return fmt.Sprintf(" from field %s", fieldName)
 }
 
+func (h *UploadHandler) uploadTooLargeError(filename string, size int64) *domain.AppError {
+	return domain.NewAppError(
+		domain.ErrCodeRequestTooLarge,
+		fmt.Sprintf("File too large: %d bytes (max: %d)", size, h.maxFileSize),
+	).WithDetails("filename", filename).
+		WithDetails("size", size).
+		WithDetails("maxSize", h.maxFileSize)
+}
+
 // processFileHeader processes a single file header.
 func (h *UploadHandler) processFileHeader(
 	fileHeader *multipart.FileHeader,
@@ -169,12 +178,7 @@ func (h *UploadHandler) processFileHeader(
 	kdeps_debug.Log("enter: processFileHeader")
 	// Check file size
 	if fileHeader.Size > h.maxFileSize {
-		return nil, domain.NewAppError(
-			domain.ErrCodeRequestTooLarge,
-			fmt.Sprintf("File too large: %d bytes (max: %d)", fileHeader.Size, h.maxFileSize),
-		).WithDetails("filename", fileHeader.Filename).
-			WithDetails("size", fileHeader.Size).
-			WithDetails("maxSize", h.maxFileSize)
+		return nil, h.uploadTooLargeError(fileHeader.Filename, fileHeader.Size)
 	}
 
 	// Open uploaded file
@@ -193,11 +197,7 @@ func (h *UploadHandler) processFileHeader(
 		return nil, fmt.Errorf("failed to read file content: %w", err)
 	}
 	if int64(len(content)) > h.maxFileSize {
-		return nil, domain.NewAppError(
-			domain.ErrCodeRequestTooLarge,
-			fmt.Sprintf("File too large: %d bytes (max: %d)", len(content), h.maxFileSize),
-		).WithDetails("filename", fileHeader.Filename).
-			WithDetails("maxSize", h.maxFileSize)
+		return nil, h.uploadTooLargeError(fileHeader.Filename, int64(len(content)))
 	}
 
 	// Detect MIME type using standard library

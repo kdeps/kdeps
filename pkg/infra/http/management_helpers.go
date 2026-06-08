@@ -24,7 +24,25 @@ import (
 	"io"
 	stdhttp "net/http"
 	"path/filepath"
+
+	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
+
+func writeManagementJSON(w stdhttp.ResponseWriter, statusCode int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
+	if workflow == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"name":    workflow.Metadata.Name,
+		"version": workflow.Metadata.Version,
+	}
+}
 
 func readLimitedManagementBody(
 	r *stdhttp.Request,
@@ -65,19 +83,13 @@ func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string
 	workflow := s.Workflow
 	s.mu.RUnlock()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-
 	response := map[string]interface{}{
 		"status":  "ok",
 		"message": message,
 	}
-	if workflow != nil {
-		response["workflow"] = map[string]interface{}{
-			"name":    workflow.Metadata.Name,
-			"version": workflow.Metadata.Version,
-		}
+	if info := managementWorkflowInfo(workflow); info != nil {
+		response["workflow"] = info
 	}
 
-	_ = json.NewEncoder(w).Encode(response)
+	writeManagementJSON(w, stdhttp.StatusOK, response)
 }

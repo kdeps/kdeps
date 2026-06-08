@@ -41,6 +41,21 @@ func abortExtractedWrite(f *os.File, err error) error {
 	return err
 }
 
+func packagePathEscapesBase(relToBase string, relErr error) bool {
+	return relErr != nil ||
+		relToBase == ".." ||
+		strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) ||
+		filepath.IsAbs(relToBase)
+}
+
+func openPackageTarReader(data []byte) (*tar.Reader, io.Closer, error) {
+	gzr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
+	}
+	return tar.NewReader(gzr), gzr, nil
+}
+
 func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 	relPath := filepath.Clean(entryName)
 	if relPath == "." || filepath.IsAbs(relPath) {
@@ -51,11 +66,7 @@ func resolvePackageEntryPath(absDestDir, entryName string) (string, error) {
 		return "", fmt.Errorf("failed to resolve target path %s: %w", relPath, err)
 	}
 	relToBase, relErr := filepath.Rel(absDestDir, absTargetPath)
-	escaped := relErr != nil ||
-		relToBase == ".." ||
-		strings.HasPrefix(relToBase, ".."+string(os.PathSeparator)) ||
-		filepath.IsAbs(relToBase)
-	if escaped {
+	if packagePathEscapesBase(relToBase, relErr) {
 		return "", fmt.Errorf("invalid path in package: %s", entryName)
 	}
 	return absTargetPath, nil
@@ -96,13 +107,11 @@ func extractKdepsPackage(data []byte, destDir string) error {
 		return fmt.Errorf("failed to resolve destination directory: %w", baseErr)
 	}
 
-	gzr, err := gzip.NewReader(bytes.NewReader(data))
+	tr, closer, err := openPackageTarReader(data)
 	if err != nil {
-		return fmt.Errorf("invalid package: not a valid gzip archive: %w", err)
+		return err
 	}
-	defer gzr.Close()
-
-	tr := tar.NewReader(gzr)
+	defer closer.Close()
 	var entryCount int
 	var totalExtracted int64
 	for {

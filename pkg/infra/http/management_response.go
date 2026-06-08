@@ -19,7 +19,6 @@
 package http
 
 import (
-	"encoding/json"
 	stdhttp "net/http"
 
 	kdeps_debug "github.com/kdeps/kdeps/v2/pkg/debug"
@@ -33,10 +32,7 @@ func (s *Server) respondManagementError(w stdhttp.ResponseWriter, statusCode int
 		s.logger.Error("management API error", "status", statusCode, "message", message)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	writeManagementJSON(w, statusCode, map[string]interface{}{
 		"status":  "error",
 		"message": message,
 	})
@@ -53,9 +49,7 @@ func (s *Server) HandleManagementOpenAPI(w stdhttp.ResponseWriter, _ *stdhttp.Re
 
 	spec := schema.GenerateOpenAPI(workflow)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-	_ = json.NewEncoder(w).Encode(spec)
+	writeManagementJSON(w, stdhttp.StatusOK, spec)
 }
 
 // HandleManagementSchema returns a JSON Schema (draft 2020-12) document that
@@ -69,7 +63,5 @@ func (s *Server) HandleManagementSchema(w stdhttp.ResponseWriter, _ *stdhttp.Req
 
 	s2 := schema.GenerateJSONSchema(workflow)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(stdhttp.StatusOK)
-	_ = json.NewEncoder(w).Encode(s2)
+	writeManagementJSON(w, stdhttp.StatusOK, s2)
 }
