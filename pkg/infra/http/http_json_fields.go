@@ -20,26 +20,39 @@ package http
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 const (
-	jsonFieldSuccess   = "success"
-	jsonFieldData      = "data"
-	jsonFieldMeta      = "meta"
-	jsonFieldAPIMeta   = "_meta"
-	jsonFieldStatus    = "status"
-	jsonFieldMessage   = "message"
-	jsonFieldWorkflow  = "workflow"
-	jsonFieldErrors    = "errors"
-	logKeyPath         = "path"
-	logKeyError        = "error"
-	logKeyMethod       = "method"
-	logKeySize         = "size"
-	logKeyDataType     = "data_type"
-	logKeyContentType  = "content_type"
-	logKeyBytesWritten = "bytes_written"
+	jsonFieldSuccess        = "success"
+	jsonFieldData           = "data"
+	jsonFieldMeta           = "meta"
+	jsonFieldAPIMeta        = "_meta"
+	jsonFieldStatus         = "status"
+	jsonFieldMessage        = "message"
+	jsonFieldWorkflow       = "workflow"
+	jsonFieldErrors         = "errors"
+	jsonFieldName           = "name"
+	jsonFieldVersion        = "version"
+	jsonFieldDescription    = "description"
+	jsonFieldTargetActionID = "targetActionId"
+	jsonFieldResources      = "resources"
+	jsonFieldField          = "field"
+	jsonFieldType           = "type"
+	jsonFieldValue          = "value"
+	jsonFieldRequestID      = "requestID"
+	jsonFieldTimestamp      = "timestamp"
+	logKeyPath              = "path"
+	logKeyError             = "error"
+	logKeyMethod            = "method"
+	logKeySize              = "size"
+	logKeyDataType          = "data_type"
+	logKeyContentType       = "content_type"
+	logKeyBytesWritten      = "bytes_written"
+	logKeyName              = "name"
+	logKeyResources         = "resources"
 )
 
 func successResponseMap(data interface{}, meta map[string]interface{}) map[string]interface{} {
@@ -56,14 +69,49 @@ func validationErrorDetailsMap(errors []*domain.ValidationError) map[string]any 
 
 func validationErrorDetailMap(err *domain.ValidationError) map[string]any {
 	detail := map[string]any{
-		"field":   err.Field,
-		"type":    err.Type,
-		"message": err.Message,
+		jsonFieldField:   err.Field,
+		jsonFieldType:    err.Type,
+		jsonFieldMessage: err.Message,
 	}
 	if err.Value != nil {
-		detail["value"] = err.Value
+		detail[jsonFieldValue] = err.Value
 	}
 	return detail
+}
+
+func apiResultSuccessValue(resultMap map[string]interface{}) bool {
+	success, validBool := domain.ParseBool(resultMap[jsonFieldSuccess])
+	if !validBool {
+		return false
+	}
+	return success
+}
+
+func apiResultData(resultMap map[string]interface{}) interface{} {
+	return resultMap[jsonFieldData]
+}
+
+func apiResultMetaRaw(resultMap map[string]interface{}) interface{} {
+	return resultMap[jsonFieldAPIMeta]
+}
+
+func isMetaHeadersKey(key string) bool {
+	return key == metaHeadersKey
+}
+
+func anyMapToInterfaceMap(src map[string]any) map[string]interface{} {
+	dst := make(map[string]interface{}, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
+}
+
+func responseMetaFields(requestID string) map[string]any {
+	return map[string]any{
+		jsonFieldRequestID: requestID,
+		jsonFieldTimestamp: time.Now(),
+	}
 }
 
 func typeNameOf(v interface{}) string {

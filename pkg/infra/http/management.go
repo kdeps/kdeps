@@ -22,7 +22,6 @@ import (
 	stdhttp "net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/afero"
 )
@@ -75,7 +74,7 @@ func managementUnauthorizedMessage() string {
 }
 
 func managementAuthToken() (string, bool) {
-	token := strings.TrimSpace(os.Getenv(managementAuthEnvVar))
+	token := trimAuthToken(os.Getenv(managementAuthEnvVar))
 	return token, token != ""
 }
 

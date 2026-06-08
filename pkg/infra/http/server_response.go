@@ -20,21 +20,8 @@ package http
 
 import (
 	"encoding/json"
-	"log/slog"
 	stdhttp "net/http"
-	"strings"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
-
-func isJSONAPIContentType(contentType string) bool {
-	return strings.HasPrefix(contentType, "application/json")
-}
-
-func writeRawOKBytes(w stdhttp.ResponseWriter, payload []byte) (int, error) {
-	writeStatusOK(w)
-	return w.Write(payload)
-}
 
 func (s *Server) respondMarshalError(
 	w stdhttp.ResponseWriter,
@@ -50,61 +37,6 @@ func (s *Server) logResponseWriteError(label string, writeErr error, path string
 	s.logResponseWriteFailure(path, label, writeErr)
 }
 
-func writeOKResponseBytes(w stdhttp.ResponseWriter, payload []byte) error {
-	setJSONContentType(w)
-	writeStatusOK(w)
-	_, err := w.Write(payload)
-	return err
-}
-
-func defaultAPIResponseContentType(w stdhttp.ResponseWriter) string {
-	contentType := responseContentType(w)
-	if contentType != "" {
-		return contentType
-	}
-	setJSONContentType(w)
-	return defaultJSONMediaType
-}
-
-func apiResourceFailureError() *domain.AppError {
-	return domain.NewAppError(domain.ErrCodeResourceFailed, apiResourceFailureMessage())
-}
-
-func anyMapToInterfaceMap(src map[string]any) map[string]interface{} {
-	dst := make(map[string]interface{}, len(src))
-	for key, value := range src {
-		dst[key] = value
-	}
-	return dst
-}
-
-func requestResponseMeta(r *stdhttp.Request) map[string]interface{} {
-	return anyMapToInterfaceMap(enrichResponseMeta(r, nil))
-}
-
-func parseAPIResultMap(result interface{}) (map[string]interface{}, bool) {
-	resultMap, ok := result.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	if !isAPIResultMap(resultMap) {
-		return nil, false
-	}
-	return resultMap, true
-}
-
-func apiResultSuccess(resultMap map[string]interface{}) bool {
-	success, validBool := domain.ParseBool(resultMap["success"])
-	if !validBool {
-		return false
-	}
-	return success
-}
-
-func marshalSuccessPayload(data interface{}, meta map[string]interface{}) ([]byte, error) {
-	return json.Marshal(successResponseMap(data, meta))
-}
-
 func (s *Server) tryRespondAPIResult(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -115,12 +47,12 @@ func (s *Server) tryRespondAPIResult(
 		return false
 	}
 
-	success := apiResultSuccess(resultMap)
+	success := apiResultSuccessValue(resultMap)
 
 	s.logAPIResultDetected(r, success)
 
-	meta := extractAPIMeta(w, resultMap[jsonFieldAPIMeta])
-	data := resultMap[jsonFieldData]
+	meta := extractAPIMeta(w, apiResultMetaRaw(resultMap))
+	data := apiResultData(resultMap)
 
 	if success {
 		s.writeAPISuccessResponse(w, r, data, meta)
@@ -130,49 +62,6 @@ func (s *Server) tryRespondAPIResult(
 	s.logAPIResultFailure(r)
 	s.respondWithRequestError(w, r, apiResourceFailureError())
 	return true
-}
-
-func extractAPIMeta(w stdhttp.ResponseWriter, metaRaw interface{}) map[string]any {
-	meta := newAPIMetaMap()
-	if metaRaw == nil {
-		return meta
-	}
-
-	metaMap, okMeta := metaRaw.(map[string]interface{})
-	if okMeta {
-		for key, value := range metaMap {
-			if key == metaHeadersKey {
-				applyMetaHeaders(w, value)
-				continue
-			}
-			meta[key] = value
-		}
-		return meta
-	}
-
-	if metaHeaders, okMetaHeaders := metaRaw.(map[string]string); okMetaHeaders {
-		applyMetaHeaders(w, metaHeaders)
-	}
-
-	return meta
-}
-
-func setInterfaceStringHeaders(w stdhttp.ResponseWriter, headers map[string]interface{}) {
-	for hKey, hValue := range headers {
-		if strValue, okStr := hValue.(string); okStr {
-			w.Header().Set(hKey, strValue)
-		}
-	}
-}
-
-func applyMetaHeaders(w stdhttp.ResponseWriter, headersRaw interface{}) {
-	if headers, ok := headersRaw.(map[string]interface{}); ok {
-		setInterfaceStringHeaders(w, headers)
-		return
-	}
-	if headersStr, ok := headersRaw.(map[string]string); ok {
-		setStringResponseHeaders(w, headersStr)
-	}
 }
 
 func (s *Server) writeAPISuccessResponse(
@@ -215,21 +104,6 @@ func (s *Server) writeRawAPIResponse(
 	s.writeRawSuccessResponseBytes(w, r, rawBytes, "failed to write raw API response")
 }
 
-func marshalAPIRawPayload(data interface{}, respContentType string) ([]byte, string, error) {
-	switch v := data.(type) {
-	case string:
-		return []byte(v), respContentType, nil
-	case []byte:
-		return v, respContentType, nil
-	default:
-		rawBytes, marshalErr := json.Marshal(data)
-		if marshalErr != nil {
-			return nil, respContentType, marshalErr
-		}
-		return rawBytes, jsonCharsetMediaType, nil
-	}
-}
-
 func (s *Server) writeJSONAPIResponse(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -239,7 +113,7 @@ func (s *Server) writeJSONAPIResponse(
 	meta = enrichResponseMeta(r, meta)
 	data = parseJSONStringPayload(data)
 
-	responseBytes, marshalErr := marshalSuccessPayload(data, meta)
+	responseBytes, marshalErr := json.Marshal(successResponseMap(data, anyMapToInterfaceMap(meta)))
 	if marshalErr != nil {
 		s.respondMarshalError(w, r, marshalErr, apiResponseMarshalLabel)
 		return
@@ -253,29 +127,6 @@ func (s *Server) writeJSONAPIResponse(
 	s.logAPIResponseWritten(r, len(responseBytes))
 }
 
-func parseJSONStringPayload(data interface{}) interface{} {
-	dataStr, isStr := data.(string)
-	if !isStr || strings.TrimSpace(dataStr) == "" {
-		return data
-	}
-
-	var parsed interface{}
-	if jsonErr := json.Unmarshal([]byte(dataStr), &parsed); jsonErr == nil {
-		return parsed
-	}
-	return data
-}
-
-func flushResponse(w stdhttp.ResponseWriter, path string, logger *slog.Logger) {
-	flusher, canFlush := w.(stdhttp.Flusher)
-	if !canFlush {
-		logFlushUnsupported(logger, path)
-		return
-	}
-	flusher.Flush()
-	logResponseFlushed(logger, path)
-}
-
 func (s *Server) respondRegularResult(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -284,7 +135,7 @@ func (s *Server) respondRegularResult(
 	s.logRegularResult(r)
 
 	result = parseJSONStringPayload(result)
-	regularBytes, marshalErr := marshalSuccessPayload(result, requestResponseMeta(r))
+	regularBytes, marshalErr := json.Marshal(successResponseMap(result, requestResponseMeta(r)))
 	if marshalErr != nil {
 		s.respondMarshalError(w, r, marshalErr, responseMarshalLabel)
 		return

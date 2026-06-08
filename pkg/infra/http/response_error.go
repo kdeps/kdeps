@@ -88,13 +88,6 @@ func applySessionCookieIfPresent(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	}
 }
 
-func marshalFailureError(err error, label string) *domain.AppError {
-	return domain.NewAppError(
-		domain.ErrCodeInternal,
-		prefixedErrorMessage("failed to marshal "+label, err),
-	)
-}
-
 func setStringResponseHeaders(w stdhttp.ResponseWriter, headers map[string]string) {
 	for key, value := range headers {
 		setResponseHeader(w, key, value)

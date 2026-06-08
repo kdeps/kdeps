@@ -19,7 +19,6 @@
 package http
 
 import (
-	"crypto/subtle"
 	"html"
 	stdhttp "net/http"
 	"strings"
@@ -27,12 +26,10 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-// ResponseWriterWrapper wraps http.ResponseWriter to track if headers were written.
-// It also forwards all interface methods (Flusher, Hijacker, etc.) to the underlying writer.
 type ResponseWriterWrapper struct {
 	stdhttp.ResponseWriter
 	headersWritten bool
-	flusher        stdhttp.Flusher // Cache Flusher interface if available
+	flusher        stdhttp.Flusher
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
@@ -41,51 +38,6 @@ func (w *ResponseWriterWrapper) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-// contentTypeBase returns the media type without parameters (e.g. "; charset=utf-8").
-func contentTypeBase(ct string) string {
-	ct = strings.TrimSpace(strings.ToLower(ct))
-	if i := strings.IndexByte(ct, ';'); i >= 0 {
-		return strings.TrimSpace(ct[:i])
-	}
-	return ct
-}
-
-// isMultipartContentType reports whether ct is a multipart form upload.
-func isMultipartContentType(ct string) bool {
-	return strings.HasPrefix(ct, "multipart/form-data")
-}
-
-// constantTimeEqual compares secret strings in constant time when lengths match.
-func constantTimeEqual(a, b string) bool {
-	if len(a) != len(b) {
-		// Burn comparable work without comparing unequal-length slices.
-		subtle.ConstantTimeCompare([]byte(a), []byte(a))
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
-}
-
-const bearerAuthPrefix = "Bearer "
-
-func bearerTokenFromAuthHeader(authHeader string) (string, bool) {
-	if !strings.HasPrefix(authHeader, bearerAuthPrefix) {
-		return "", false
-	}
-	return strings.TrimSpace(authHeader[len(bearerAuthPrefix):]), true
-}
-
-// extractAuthToken reads bearer or API-key credentials from the request.
-func extractAuthToken(r *stdhttp.Request) string {
-	if token, ok := bearerTokenFromAuthHeader(authorizationHeader(r)); ok {
-		return token
-	}
-	if apiKey := apiKeyHeader(r); apiKey != "" {
-		return apiKey
-	}
-	return ""
-}
-
-// clientIPFromAddr strips the port suffix from a RemoteAddr value.
 func clientIPFromAddr(addr string) string {
 	return peerIPFromAddr(addr)
 }
@@ -98,7 +50,6 @@ func copyStringHeaderValues(dst, src stdhttp.Header) {
 	}
 }
 
-// respondMiddlewareError sends a standardized middleware error response.
 func respondMiddlewareError(
 	w stdhttp.ResponseWriter,
 	r *stdhttp.Request,
@@ -115,9 +66,9 @@ func (w *ResponseWriterWrapper) markHeadersWritten() {
 }
 
 func (w *ResponseWriterWrapper) resolvedContentType(body []byte) string {
-	ct := w.ResponseWriter.Header().Get("Content-Type")
+	ct := responseContentType(w.ResponseWriter)
 	if strings.TrimSpace(ct) == "" {
-		return stdhttp.DetectContentType(body)
+		return detectContentType(body)
 	}
 	return ct
 }
@@ -126,9 +77,6 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	debugEnter("Write")
 	w.markHeadersWritten()
 
-	// Perform contextual output encoding for browser-rendered content types
-	// to prevent reflected XSS regardless of where the taint originates.
-	// JSON and binary responses are intentionally excluded.
 	ct := w.resolvedContentType(b)
 	if !browserRenderedContentType(ct) {
 		return w.ResponseWriter.Write(b)
@@ -140,17 +88,14 @@ func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write([]byte(html.EscapeString(string(b))))
 }
 
-// HeadersWritten returns whether headers have been written.
 func (w *ResponseWriterWrapper) HeadersWritten() bool {
 	debugEnter("HeadersWritten")
 	return w.headersWritten
 }
 
-// Flush implements Flusher interface - forwards to underlying writer if it supports it.
 func (w *ResponseWriterWrapper) Flush() {
 	debugEnter("Flush")
 	if w.flusher == nil {
-		// Check and cache Flusher on first call
 		if flusher, ok := w.ResponseWriter.(stdhttp.Flusher); ok {
 			w.flusher = flusher
 		}

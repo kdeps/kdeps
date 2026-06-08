@@ -22,13 +22,12 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
 func requireAPIAuthToken(raw string) (string, error) {
-	token := strings.TrimSpace(raw)
+	token := trimAuthToken(raw)
 	if token == "" {
 		return "", errors.New(apiAuthTokenRequiredError())
 	}
@@ -108,7 +107,7 @@ func warnInvalidTrustedProxies(logger *slog.Logger, trustedProxies []string) {
 // from the workflow's APIServer config.
 func (s *Server) applySecurityMiddleware() error {
 	debugEnter("applySecurityMiddleware")
-	if !apiServerConfigured(s.Workflow) {
+	if skipSecurityIfNoAPI(s.Workflow) {
 		return nil
 	}
 	api := s.Workflow.Settings.APIServer
@@ -124,7 +123,7 @@ func (s *Server) applySecurityMiddleware() error {
 // applyWebSecurityMiddleware wires rate-limit and body-limit middleware for webServer-only mode.
 func (s *WebServer) applyWebSecurityMiddleware() {
 	debugEnter("applyWebSecurityMiddleware")
-	if !webServerConfigured(s.Workflow) {
+	if skipWebSecurityIfNoWeb(s.Workflow) {
 		return
 	}
 	web := s.Workflow.Settings.WebServer

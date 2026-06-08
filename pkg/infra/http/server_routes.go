@@ -47,12 +47,6 @@ func (s *Server) registerWorkflowAPIRoutes() {
 	}
 }
 
-func healthCheckPayload(workflow *domain.Workflow) map[string]interface{} {
-	payload := managementStatusOK()
-	payload["workflow"] = workflowNameVersion(workflow)
-	return payload
-}
-
 func applyInboundSessionID(r *stdhttp.Request, reqCtx *RequestContext) {
 	if sessionID := GetSessionID(r.Context()); sessionID != "" {
 		reqCtx.SessionID = sessionID

@@ -18,6 +18,41 @@
 
 package http
 
+import (
+	stdhttp "net/http"
+	"strings"
+)
+
+const formURLEncodedMediaType = "application/x-www-form-urlencoded"
+
+func contentTypeBase(ct string) string {
+	ct = strings.TrimSpace(strings.ToLower(ct))
+	if i := strings.IndexByte(ct, ';'); i >= 0 {
+		return strings.TrimSpace(ct[:i])
+	}
+	return ct
+}
+
+func isMultipartContentType(ct string) bool {
+	return strings.HasPrefix(ct, "multipart/form-data")
+}
+
+func isFormURLEncodedContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, formURLEncodedMediaType)
+}
+
+func isJSONAPIContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, "application/json")
+}
+
+func detectContentType(body []byte) string {
+	return stdhttp.DetectContentType(body)
+}
+
+func isNonemptyString(s string) bool {
+	return strings.TrimSpace(s) != ""
+}
+
 //nolint:gochecknoglobals // lookup table for XSS content-type checks
 var browserRenderedContentTypes = map[string]struct{}{
 	"text/html":             {},

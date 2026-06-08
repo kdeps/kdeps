@@ -26,6 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 )
 
 func serverHasWorkflow(s *Server) bool {
@@ -70,8 +71,32 @@ func shouldUpdateSessionContext(r *stdhttp.Request, sessionID string) bool {
 }
 
 func isAPIResultMap(resultMap map[string]interface{}) bool {
-	_, hasSuccess := resultMap["success"]
+	_, hasSuccess := resultMap[jsonFieldSuccess]
 	return hasSuccess
+}
+
+func shouldEnableHotReload(devMode bool, watcher FileWatcher) bool {
+	return devMode && watcher != nil
+}
+
+func hasTLSCertificates(certFile, keyFile string) bool {
+	return certFile != "" && keyFile != ""
+}
+
+func hasWorkflowParser(parser *yaml.Parser) bool {
+	return parser != nil
+}
+
+func hasOriginHeader(origin string) bool {
+	return origin != ""
+}
+
+func skipSecurityIfNoAPI(workflow *domain.Workflow) bool {
+	return !apiServerConfigured(workflow)
+}
+
+func skipWebSecurityIfNoWeb(workflow *domain.Workflow) bool {
+	return !webServerConfigured(workflow)
 }
 
 func shouldSkipBodyLimit(r *stdhttp.Request) bool {

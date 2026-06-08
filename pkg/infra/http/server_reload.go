@@ -144,7 +144,7 @@ func reloadWorkflowLogAttrs(detail map[string]interface{}) []any {
 }
 
 func logReloadedWorkflow(s *Server) {
-	detail := managementWorkflowStatusDetail(s.Workflow)
+	detail := workflowStatusDetailMap(s.Workflow)
 	if detail == nil {
 		s.logger.Info("workflow reloaded")
 		return
@@ -153,7 +153,7 @@ func logReloadedWorkflow(s *Server) {
 }
 
 func (s *Server) ensureWorkflowParser() error {
-	if s.parser != nil {
+	if hasWorkflowParser(s.parser) {
 		return nil
 	}
 	parser, err := workflowParserFactory()

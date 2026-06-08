@@ -69,7 +69,7 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 		return
 	}
 
-	if writeErr := writeManagementWorkflowFile(workflowPath, body); writeErr != nil {
+	if writeErr := writeSecureWorkflowFile(workflowPath, body); writeErr != nil {
 		s.respondManagementWriteError(w, writeErr)
 		return
 	}

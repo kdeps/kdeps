@@ -19,10 +19,7 @@
 package http
 
 import (
-	"context"
 	stdhttp "net/http"
-
-	"github.com/google/uuid"
 )
 
 // RequestIDMiddleware adds a unique request ID to each request.
@@ -33,12 +30,10 @@ func RequestIDMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			// Check if request ID already exists in header
 			requestID := requestIDHeader(r)
 			if requestID == "" {
-				requestID = uuid.New().String()
+				requestID = newRequestID()
 			}
 
-			// Store in context
-			ctx := context.WithValue(r.Context(), RequestIDKey, requestID)
-			r = r.WithContext(ctx)
+			r = r.WithContext(withRequestID(r.Context(), requestID))
 
 			// Add to response header
 			setRequestIDResponseHeader(w, requestID)
@@ -57,8 +52,7 @@ func SessionMiddleware() func(stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 			cookie, err := r.Cookie(SessionCookieName)
 			if err == nil && cookie.Value != "" {
 				// Store session ID in context
-				ctx := context.WithValue(r.Context(), SessionIDKey, cookie.Value)
-				r = r.WithContext(ctx)
+				r = r.WithContext(withSessionIDContext(r.Context(), cookie.Value))
 			}
 
 			next(w, r)

@@ -19,7 +19,6 @@
 package http
 
 import (
-	"context"
 	stdhttp "net/http"
 	"strings"
 	"sync"
@@ -39,8 +38,7 @@ func ErrorHandlerMiddleware(debugMode bool) func(stdhttp.HandlerFunc) stdhttp.Ha
 			}
 
 			// Add debug mode to context
-			ctx := context.WithValue(r.Context(), DebugModeKey, debugMode)
-			r = r.WithContext(ctx)
+			r = r.WithContext(withDebugMode(r.Context(), debugMode))
 
 			// Recover from panics
 			defer RecoverPanic(wrapped, r, debugMode)
@@ -63,8 +61,7 @@ func TrustedProxiesMiddleware(trusted []string) func(stdhttp.HandlerFunc) stdhtt
 	debugEnter("TrustedProxiesMiddleware")
 	return func(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 		return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-			ctx := context.WithValue(r.Context(), TrustedProxiesKey, trusted)
-			next(w, r.WithContext(ctx))
+			next(w, r.WithContext(withTrustedProxies(r.Context(), trusted)))
 		}
 	}
 }
@@ -124,7 +121,7 @@ func AuthMiddleware(token string) func(stdhttp.HandlerFunc) stdhttp.HandlerFunc 
 				next(w, r)
 				return
 			}
-			if !constantTimeEqual(extractAuthToken(r), token) {
+			if !authTokenMatches(r, token) {
 				respondUnauthorized(w, r)
 				return
 			}

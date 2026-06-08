@@ -19,79 +19,13 @@
 package http
 
 import (
-	"fmt"
-	"io"
 	stdhttp "net/http"
-
-	"github.com/spf13/afero"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
-func (s *Server) lockedWorkflow() *domain.Workflow {
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-	return workflow
-}
-
-func managementStatusOK() map[string]interface{} {
-	return map[string]interface{}{"status": statusOKValue}
-}
-
-func writeWorkflowStatusJSON(
-	w stdhttp.ResponseWriter,
-	workflow *domain.Workflow,
-	build func(*domain.Workflow) map[string]interface{},
-) {
-	writeJSONResponse(w, stdhttp.StatusOK, build(workflow))
-}
-
-func managementOKStatus(workflow *domain.Workflow) map[string]interface{} {
-	status := managementStatusOK()
-	if detail := managementWorkflowStatusDetail(workflow); detail != nil {
-		status["workflow"] = detail
-	}
-	return status
-}
-
-func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interface{} {
-	if workflow == nil {
-		return nil
-	}
-	return map[string]interface{}{
-		"name":           workflowMetadataName(workflow),
-		"version":        workflowMetadataVersion(workflow),
-		"description":    workflow.Metadata.Description,
-		"targetActionId": workflow.Metadata.TargetActionID,
-		"resources":      len(workflow.Resources),
-	}
-}
-
-func workflowNameVersion(workflow *domain.Workflow) map[string]interface{} {
-	if workflow == nil {
-		return nil
-	}
-	return map[string]interface{}{
-		"name":    workflowMetadataName(workflow),
-		"version": workflowMetadataVersion(workflow),
-	}
-}
-
-func prefixedErrorMessage(prefix string, err error) string {
-	return fmt.Sprintf("%s: %v", prefix, err)
-}
-
-func prefixedWrapError(prefix string, err error) error {
-	return fmt.Errorf("%s: %w", prefix, err)
-}
-
 func managementReadBodyError(err error) string {
 	return prefixedErrorMessage("failed to read request body", err)
-}
-
-func managementBodyTooLargeMessage(label string, maxSize int) string {
-	return fmt.Sprintf("%s exceeds maximum allowed size of %d bytes", label, maxSize)
 }
 
 func readLimitedManagementBody(
@@ -99,55 +33,24 @@ func readLimitedManagementBody(
 	maxSize int,
 	label string,
 ) ([]byte, int, string) {
-	limitedBody, err := io.ReadAll(io.LimitReader(r.Body, int64(maxSize)+1))
+	limitedBody, err := readLimitedBytesInt(r.Body, maxSize)
 	if err != nil {
 		return nil, stdhttp.StatusBadRequest, managementReadBodyError(err)
 	}
-	if len(limitedBody) == 0 {
+	if isEmptyBody(limitedBody) {
 		return nil, stdhttp.StatusBadRequest, managementEmptyBodyMessage()
 	}
-	if len(limitedBody) > maxSize {
-		return nil, stdhttp.StatusRequestEntityTooLarge, managementBodyTooLargeMessage(
-			label,
-			maxSize,
-		)
+	if exceedsMaxSizeInt(len(limitedBody), maxSize) {
+		return nil, stdhttp.StatusRequestEntityTooLarge, labelExceedsMaxMessage(label, maxSize)
 	}
 	return limitedBody, 0, ""
 }
 
-func managementErrorPayload(message string) map[string]interface{} {
-	return map[string]interface{}{
-		"status":  statusErrorValue,
-		"message": message,
-	}
-}
-
-func writeManagementWorkflowFile(workflowPath string, body []byte) error {
-	return afero.WriteFile(AppFS, workflowPath, body, 0600)
-}
-
 func ensureManagementDir(workflowPath string) error {
-	if mkdirErr := AppFS.MkdirAll(workflowDirFromPath(workflowPath), 0750); mkdirErr != nil {
+	if mkdirErr := mkdirSecureAfero(workflowDirFromPath(workflowPath)); mkdirErr != nil {
 		return managementMkdirWorkflowDirFailed(mkdirErr)
 	}
 	return nil
-}
-
-func (s *Server) ensureManagementWorkflowPath(workflowPath string) {
-	s.mu.Lock()
-	if s.workflowPath == "" {
-		s.workflowPath = workflowPath
-	}
-	s.mu.Unlock()
-}
-
-func managementSuccessPayload(message string, workflow *domain.Workflow) map[string]interface{} {
-	response := managementStatusOK()
-	response["message"] = message
-	if info := workflowNameVersion(workflow); info != nil {
-		response["workflow"] = info
-	}
-	return response
 }
 
 func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
@@ -241,6 +144,6 @@ func (s *Server) completeManagementUpdate(
 	reloadMsgPrefix string,
 	successMsg string,
 ) {
-	s.ensureManagementWorkflowPath(workflowPath)
+	s.setWorkflowPathIfEmpty(workflowPath)
 	s.finishManagementReload(w, reloadStatusCode, reloadMsgPrefix, successMsg)
 }
