@@ -433,13 +433,12 @@ func TestManager_EnsureVenv_NilPackageList(t *testing.T) {
 }
 
 func TestManager_EnsureVenv_BaseDirectoryCreationFailure(t *testing.T) {
-	// Test with a path that can't be created (simulate permission issues)
-	invalidPath := "/nonexistent/deep/path/that/cannot/be/created"
-	manager := python.NewManager(invalidPath)
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
+	manager := python.NewManager(filepath.Join(blocker, "venv"))
 
 	_, err := manager.EnsureVenv("3.12", []string{}, "", "")
 
-	// Should fail at directory creation
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create base directory")
 }

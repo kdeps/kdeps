@@ -18,6 +18,7 @@ package python
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -151,6 +152,48 @@ func TestEnsureVenv_BaseDirCreateFailure(t *testing.T) {
 	_, err := m.EnsureVenv("3.12", nil, "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create base directory")
+}
+
+func TestEnsureVenv_InstallPackagesError(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			venvPath := args[len(args)-1]
+			bin := filepath.Join(venvPath, "bin")
+			if err := os.MkdirAll(bin, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(bin, "python"), []byte("x"), 0755)
+		}
+		return errors.New("pip install failed")
+	}
+	m := NewManager(t.TempDir())
+	_, err := m.EnsureVenv("3.12", []string{"pkg-a"}, "", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to install packages")
+}
+
+func TestEnsureVenv_InstallRequirementsError(t *testing.T) {
+	orig := runUVFunc
+	t.Cleanup(func() { runUVFunc = orig })
+	runUVFunc = func(_ context.Context, args []string, _ []string) error {
+		if args[0] == "venv" {
+			venvPath := args[len(args)-1]
+			bin := filepath.Join(venvPath, "bin")
+			if err := os.MkdirAll(bin, 0755); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(bin, "python"), []byte("x"), 0755)
+		}
+		return errors.New("pip install failed")
+	}
+	m := NewManager(t.TempDir())
+	req := filepath.Join(t.TempDir(), "requirements.txt")
+	require.NoError(t, os.WriteFile(req, []byte("pkg-a\n"), 0644))
+	_, err := m.EnsureVenv("3.12", nil, req, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to install requirements")
 }
 
 func TestEnsureVenv_InstallsRequirementsWithMockedUV(t *testing.T) {
