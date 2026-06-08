@@ -53,22 +53,11 @@ func (s *Server) SetupManagementRoutes() {
 // GET /_kdeps/status.
 func (s *Server) HandleManagementStatus(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 	kdeps_debug.Log("enter: HandleManagementStatus")
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
-
 	status := map[string]interface{}{
 		"status": "ok",
 	}
-
-	if workflow != nil {
-		status["workflow"] = map[string]interface{}{
-			"name":           workflow.Metadata.Name,
-			"version":        workflow.Metadata.Version,
-			"description":    workflow.Metadata.Description,
-			"targetActionId": workflow.Metadata.TargetActionID,
-			"resources":      len(workflow.Resources),
-		}
+	if detail := managementWorkflowStatusDetail(s.lockedWorkflow()); detail != nil {
+		status["workflow"] = detail
 	}
 
 	writeJSONResponse(w, stdhttp.StatusOK, status)
@@ -98,17 +87,13 @@ func (s *Server) HandleManagementUpdateWorkflow(w stdhttp.ResponseWriter, r *std
 	}
 
 	clearResourcesDir(filepath.Join(filepath.Dir(workflowPath), "resources"))
-	s.ensureManagementWorkflowPath(workflowPath)
-
-	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+	s.completeManagementUpdate(
+		w,
+		workflowPath,
 		stdhttp.StatusUnprocessableEntity,
 		"workflow written but failed to reload",
-	); reloadErrMsg != "" {
-		s.respondManagementError(w, reloadStatus, reloadErrMsg)
-		return
-	}
-
-	s.writeManagementSuccess(w, "workflow updated and reloaded")
+		"workflow updated and reloaded",
+	)
 }
 
 // HandleManagementReload triggers a workflow reload from disk.
@@ -150,15 +135,11 @@ func (s *Server) HandleManagementUpdatePackage(w stdhttp.ResponseWriter, r *stdh
 		return
 	}
 
-	s.ensureManagementWorkflowPath(workflowPath)
-
-	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(
+	s.completeManagementUpdate(
+		w,
+		workflowPath,
 		stdhttp.StatusUnprocessableEntity,
 		"package extracted but failed to reload",
-	); reloadErrMsg != "" {
-		s.respondManagementError(w, reloadStatus, reloadErrMsg)
-		return
-	}
-
-	s.writeManagementSuccess(w, "package extracted and workflow reloaded")
+		"package extracted and workflow reloaded",
+	)
 }

@@ -62,15 +62,23 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
-      - name: Read golangci-lint version
-        id: lint-version
-        run: echo "version=$(cat .golangci-lint-version)" >> "$GITHUB_OUTPUT"
+      - name: Install golangci-lint
+        run: |
+          set -euo pipefail
+          VERSION="$(cat .golangci-lint-version)"
+          BIN_DIR="$(go env GOPATH)/bin"
+          for attempt in 1 2 3 4 5; do
+            if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$BIN_DIR" "$VERSION"; then
+              echo "$BIN_DIR" >> "$GITHUB_PATH"
+              golangci-lint version
+              exit 0
+            fi
+            echo "golangci-lint install attempt $attempt failed; retrying in $((attempt * 15))s..."
+            sleep $((attempt * 15))
+          done
+          exit 1
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: ${{ steps.lint-version.outputs.version }}
-          args: --timeout=10m --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...
-          only-new-issues: false
+        run: golangci-lint run --timeout=10m --config=.golangci.yml ./cmd/... ./pkg/... ./tests/...
       - name: govulncheck
         run: |
           set +e
@@ -109,7 +117,20 @@ jobs:
 
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
     - name: Install golangci-lint
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $(cat .golangci-lint-version)
+      run: |
+        set -euo pipefail
+        VERSION="$(cat .golangci-lint-version)"
+        BIN_DIR="$(go env GOPATH)/bin"
+        for attempt in 1 2 3 4 5; do
+          if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$BIN_DIR" "$VERSION"; then
+            echo "$BIN_DIR" >> "$GITHUB_PATH"
+            golangci-lint version
+            exit 0
+          fi
+          echo "golangci-lint install attempt $attempt failed; retrying in $((attempt * 15))s..."
+          sleep $((attempt * 15))
+        done
+        exit 1
 
     - name: Build
       run: make build

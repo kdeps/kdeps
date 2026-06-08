@@ -27,6 +27,26 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func (s *Server) lockedWorkflow() *domain.Workflow {
+	s.mu.RLock()
+	workflow := s.Workflow
+	s.mu.RUnlock()
+	return workflow
+}
+
+func managementWorkflowStatusDetail(workflow *domain.Workflow) map[string]interface{} {
+	if workflow == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"name":           workflow.Metadata.Name,
+		"version":        workflow.Metadata.Version,
+		"description":    workflow.Metadata.Description,
+		"targetActionId": workflow.Metadata.TargetActionID,
+		"resources":      len(workflow.Resources),
+	}
+}
+
 func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
 	if workflow == nil {
 		return nil
@@ -72,9 +92,7 @@ func (s *Server) ensureManagementWorkflowPath(workflowPath string) {
 }
 
 func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string) {
-	s.mu.RLock()
-	workflow := s.Workflow
-	s.mu.RUnlock()
+	workflow := s.lockedWorkflow()
 
 	response := map[string]interface{}{
 		"status":  "ok",
@@ -92,4 +110,19 @@ func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (in
 		return statusCode, fmt.Sprintf("%s: %v", messagePrefix, err)
 	}
 	return 0, ""
+}
+
+func (s *Server) completeManagementUpdate(
+	w stdhttp.ResponseWriter,
+	workflowPath string,
+	reloadStatusCode int,
+	reloadMsgPrefix string,
+	successMsg string,
+) {
+	s.ensureManagementWorkflowPath(workflowPath)
+	if reloadStatus, reloadErrMsg := s.reloadWorkflowOrError(reloadStatusCode, reloadMsgPrefix); reloadErrMsg != "" {
+		s.respondManagementError(w, reloadStatus, reloadErrMsg)
+		return
+	}
+	s.writeManagementSuccess(w, successMsg)
 }
