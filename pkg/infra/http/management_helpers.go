@@ -70,6 +70,10 @@ func managementWorkflowInfo(workflow *domain.Workflow) map[string]interface{} {
 	}
 }
 
+func reloadWorkflowErrorMessage(prefix string, err error) string {
+	return fmt.Sprintf("%s: %v", prefix, err)
+}
+
 func readLimitedManagementBody(
 	r *stdhttp.Request,
 	maxSize int,
@@ -132,7 +136,7 @@ func (s *Server) writeManagementSuccess(w stdhttp.ResponseWriter, message string
 
 func (s *Server) reloadWorkflowOrError(statusCode int, messagePrefix string) (int, string) {
 	if err := s.reloadWorkflow(); err != nil {
-		return statusCode, fmt.Sprintf("%s: %v", messagePrefix, err)
+		return statusCode, reloadWorkflowErrorMessage(messagePrefix, err)
 	}
 	return 0, ""
 }

@@ -28,6 +28,18 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 )
 
+func newSessionCookie(sessionID string, secure bool) *stdhttp.Cookie {
+	return &stdhttp.Cookie{
+		Name:     SessionCookieName,
+		Value:    sessionID,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: stdhttp.SameSiteLaxMode,
+		MaxAge:   3600,
+	}
+}
+
 func isSecureRequest(r *stdhttp.Request) bool {
 	if r.TLS != nil {
 		return true
@@ -42,15 +54,7 @@ func isSecureRequest(r *stdhttp.Request) bool {
 // SetSessionCookie sets a secure HTTP cookie for the session ID.
 func SetSessionCookie(w stdhttp.ResponseWriter, r *stdhttp.Request, sessionID string) {
 	kdeps_debug.Log("enter: SetSessionCookie")
-	cookie := &stdhttp.Cookie{
-		Name:     SessionCookieName,
-		Value:    sessionID,
-		Path:     "/",
-		HttpOnly: true,                    // Prevents JavaScript access (XSS protection)
-		Secure:   isSecureRequest(r),      // HTTPS only in production
-		SameSite: stdhttp.SameSiteLaxMode, // CSRF protection
-		MaxAge:   3600,                    // 1 hour default (TODO: make configurable from workflow settings)
-	}
+	cookie := newSessionCookie(sessionID, isSecureRequest(r))
 
 	stdhttp.SetCookie(w, cookie)
 }

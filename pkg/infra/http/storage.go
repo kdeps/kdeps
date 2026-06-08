@@ -45,6 +45,33 @@ type TemporaryFileStore struct {
 	stopped bool
 }
 
+func storedUploadPath(baseDir, id, filename string) string {
+	return filepath.Join(baseDir, id+"_"+filename)
+}
+
+func newUploadedFileRecord(
+	id, filename, contentType, filePath string,
+	size int64,
+) *domain.UploadedFile {
+	return &domain.UploadedFile{
+		ID:          id,
+		Filename:    filename,
+		ContentType: contentType,
+		Size:        size,
+		Path:        filePath,
+		UploadedAt:  time.Now(),
+		Metadata:    make(map[string]string),
+	}
+}
+
+func lookupStoredFile(files map[string]*domain.UploadedFile, id string) (*domain.UploadedFile, error) {
+	file, exists := files[id]
+	if !exists {
+		return nil, fmt.Errorf("file not found: %s", id)
+	}
+	return file, nil
+}
+
 func generateUploadID(content []byte) string {
 	hash := sha256.Sum256(append(content, []byte(time.Now().String())...))
 	return hex.EncodeToString(hash[:])[:16]
@@ -101,21 +128,13 @@ func (s *TemporaryFileStore) Store(
 	kdeps_debug.Log("enter: Store")
 	id := generateUploadID(content)
 	safeFilename := filepath.Base(filename)
-	filePath := filepath.Join(s.baseDir, id+"_"+safeFilename)
+	filePath := storedUploadPath(s.baseDir, id, safeFilename)
 
 	if err := os.WriteFile(filePath, content, 0600); err != nil {
 		return nil, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	file := &domain.UploadedFile{
-		ID:          id,
-		Filename:    safeFilename,
-		ContentType: contentType,
-		Size:        int64(len(content)),
-		Path:        filePath,
-		UploadedAt:  time.Now(),
-		Metadata:    make(map[string]string),
-	}
+	file := newUploadedFileRecord(id, safeFilename, contentType, filePath, int64(len(content)))
 
 	s.mu.Lock()
 	s.files[id] = file
@@ -130,12 +149,7 @@ func (s *TemporaryFileStore) Get(id string) (*domain.UploadedFile, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	file, exists := s.files[id]
-	if !exists {
-		return nil, fmt.Errorf("file not found: %s", id)
-	}
-
-	return file, nil
+	return lookupStoredFile(s.files, id)
 }
 
 // GetPath returns the filesystem path for a file ID.
@@ -154,13 +168,13 @@ func (s *TemporaryFileStore) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	file, exists := s.files[id]
-	if !exists {
-		return fmt.Errorf("file not found: %s", id)
+	file, err := lookupStoredFile(s.files, id)
+	if err != nil {
+		return err
 	}
 
-	if err := removeUploadedFile(file); err != nil {
-		return err
+	if removeErr := removeUploadedFile(file); removeErr != nil {
+		return removeErr
 	}
 
 	delete(s.files, id)
