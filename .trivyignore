@@ -1,2 +1,4 @@
-# github.com/docker/docker v28.5.2 - no v29.x module tag available yet (GO-2026-4887 class)
+# github.com/docker/docker v28.5.2 - no v29.x go module tag available yet
 CVE-2026-34040
+CVE-2026-41567
+CVE-2026-42306

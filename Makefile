@@ -160,7 +160,7 @@ test: fmt lint build
 test-unit:
 	@echo "Running unit tests with coverage..."
 	@mkdir -p "$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" 2>/dev/null || true; \
-	GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	GOTMPDIR="$${GITHUB_WORKSPACE:-/tmp}/go-test-tmp" go test -short -parallel 1 -count=1 -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \
