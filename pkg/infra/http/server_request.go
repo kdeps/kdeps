@@ -36,23 +36,12 @@ func (s *Server) ParseRequest(
 	uploadedFiles []*domain.UploadedFile,
 ) *RequestContext {
 	kdeps_debug.Log("enter: ParseRequest")
-	query := make(map[string]string)
-	for key, values := range r.URL.Query() {
-		if len(values) > 0 {
-			query[key] = values[0]
-		}
-	}
-
-	headers := make(map[string]string)
-	for key, values := range r.Header {
-		if len(values) > 0 {
-			headers[key] = values[0]
-		}
-	}
+	query := firstValuesFromMultiMap(r.URL.Query())
+	headers := firstValuesFromMultiMap(r.Header)
 
 	var body map[string]interface{}
 	contentType := r.Header.Get("Content-Type")
-	isFormData := strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
+	isFormData := isFormURLEncodedContentType(contentType)
 
 	if r.Body != nil && !isFormData {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -60,7 +49,7 @@ func (s *Server) ParseRequest(
 		}
 	}
 
-	if isFormData || strings.HasPrefix(contentType, "multipart/form-data") {
+	if isFormData || isMultipartContentType(contentType) {
 		body = parseFormData(r, body)
 	}
 
@@ -95,9 +84,12 @@ func (s *Server) ParseRequest(
 	}
 }
 
+func isFormURLEncodedContentType(contentType string) bool {
+	return strings.HasPrefix(contentType, "application/x-www-form-urlencoded")
+}
+
 func isMultipartRequest(r *stdhttp.Request) bool {
-	contentType := r.Header.Get("Content-Type")
-	return contentType != "" && strings.HasPrefix(contentType, "multipart/form-data")
+	return isMultipartContentType(r.Header.Get("Content-Type"))
 }
 
 func (s *Server) processRequestUploads(
@@ -155,6 +147,16 @@ func (s *Server) respondWorkflowError(w stdhttp.ResponseWriter, r *stdhttp.Reque
 	RespondWithError(w, r, err, GetDebugMode(r.Context()))
 }
 
+func firstValuesFromMultiMap(values map[string][]string) map[string]string {
+	result := make(map[string]string, len(values))
+	for key, vals := range values {
+		if len(vals) > 0 {
+			result[key] = vals[0]
+		}
+	}
+	return result
+}
+
 func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]interface{} {
 	kdeps_debug.Log("enter: parseFormData")
 	// ParseForm handles both application/x-www-form-urlencoded and multipart/form-data
@@ -168,10 +170,8 @@ func parseFormData(r *stdhttp.Request, body map[string]interface{}) map[string]i
 
 	// Use PostForm instead of Form - PostForm only contains POST form values
 	// Form includes both form values and query params (which we already parsed separately)
-	for key, values := range r.PostForm {
-		if len(values) > 0 {
-			body[key] = values[0]
-		}
+	for key, value := range firstValuesFromMultiMap(r.PostForm) {
+		body[key] = value
 	}
 
 	return body

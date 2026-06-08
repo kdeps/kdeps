@@ -104,13 +104,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 
 	s.logger.InfoContext(context.Background(), "starting web server", "addr", addr)
 
-	s.httpServer = &stdhttp.Server{
-		Addr:         addr,
-		Handler:      s.Router,
-		ReadTimeout:  DefaultHTTPReadTimeout,
-		WriteTimeout: DefaultHTTPWriteTimeout,
-		IdleTimeout:  DefaultHTTPIdleTimeout,
-	}
+	s.httpServer = newDefaultHTTPServer(addr, s.Router)
 
 	return s.httpServer.ListenAndServe()
 }
@@ -122,7 +116,7 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 	for name, cmd := range s.Commands {
 		if cmd != nil && cmd.Process != nil {
 			s.logger.InfoContext(ctx, "stopping app command", "name", name)
-			_ = cmd.Process.Kill()
+			_ = killProcessIfRunning(cmd)
 		}
 	}
 
@@ -156,12 +150,7 @@ func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 		if !strings.HasSuffix(path, "/") {
 			path += "/"
 		}
-		router.GET(path+"*", handler)
-		router.POST(path+"*", handler)
-		router.PUT(path+"*", handler)
-		router.DELETE(path+"*", handler)
-		router.PATCH(path+"*", handler)
-		router.OPTIONS(path+"*", handler)
+		registerWebRouteMethods(router, path+"*", handler)
 
 		s.logger.InfoContext(
 			context.Background(),
@@ -199,6 +188,15 @@ func (s *WebServer) CreateWebHandler(
 			stdhttp.Error(w, "Unsupported server type", stdhttp.StatusInternalServerError)
 		}
 	}
+}
+
+func registerWebRouteMethods(router *Router, path string, handler stdhttp.HandlerFunc) {
+	router.GET(path, handler)
+	router.POST(path, handler)
+	router.PUT(path, handler)
+	router.DELETE(path, handler)
+	router.PATCH(path, handler)
+	router.OPTIONS(path, handler)
 }
 
 // HandleStaticRequest handles static file serving.

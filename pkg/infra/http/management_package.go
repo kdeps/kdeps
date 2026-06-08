@@ -104,6 +104,23 @@ func extractPackageEntry(
 	return nil
 }
 
+func extractKdepsPackageEntry(
+	hdr *tar.Header,
+	baseDirAbs string,
+	tr *tar.Reader,
+	entryCount int,
+	totalExtracted *int64,
+) error {
+	if entryCount > maxPackageEntryCountLimit {
+		return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCountLimit)
+	}
+	absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
+	if pathErr != nil {
+		return pathErr
+	}
+	return extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr, totalExtracted)
+}
+
 func extractKdepsPackage(data []byte, destDir string) error {
 	kdeps_debug.Log("enter: extractKdepsPackage")
 	baseDirAbs, baseErr := filepathAbs(destDir)
@@ -127,14 +144,7 @@ func extractKdepsPackage(data []byte, destDir string) error {
 			return fmt.Errorf("failed to read archive entry: %w", nextErr)
 		}
 		entryCount++
-		if entryCount > maxPackageEntryCountLimit {
-			return fmt.Errorf("package exceeds maximum entry count of %d", maxPackageEntryCountLimit)
-		}
-		absTargetPath, pathErr := resolvePackageEntryPath(baseDirAbs, hdr.Name)
-		if pathErr != nil {
-			return pathErr
-		}
-		if entryErr := extractPackageEntry(hdr, baseDirAbs, absTargetPath, tr, &totalExtracted); entryErr != nil {
+		if entryErr := extractKdepsPackageEntry(hdr, baseDirAbs, tr, entryCount, &totalExtracted); entryErr != nil {
 			return entryErr
 		}
 	}

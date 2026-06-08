@@ -37,11 +37,7 @@ func (s *Server) SetupHotReload() error {
 		return errors.New("no file watcher configured")
 	}
 
-	// Determine workflow path (use stored path or default to "workflow.yaml")
-	watchWorkflowPath := s.workflowPath
-	if watchWorkflowPath == "" {
-		watchWorkflowPath = defaultWorkflowFile
-	}
+	watchWorkflowPath := s.hotReloadWorkflowPath()
 
 	// Ensure workflow path is absolute for watching
 	absWorkflowPath, err := filepathAbs(watchWorkflowPath)
@@ -56,12 +52,8 @@ func (s *Server) SetupHotReload() error {
 		absWorkflowPath = watchWorkflowPath
 	}
 
-	if s.parser == nil {
-		parser, parserErr := workflowParserFactory()
-		if parserErr != nil {
-			return parserErr
-		}
-		s.parser = parser
+	if parserErr := s.ensureWorkflowParser(); parserErr != nil {
+		return parserErr
 	}
 
 	reloadOnChange := s.hotReloadCallback()
@@ -87,6 +79,13 @@ func (s *Server) SetupHotReload() error {
 	}
 
 	return nil
+}
+
+func (s *Server) hotReloadWorkflowPath() string {
+	if s.workflowPath != "" {
+		return s.workflowPath
+	}
+	return defaultWorkflowFile
 }
 
 func (s *Server) hotReloadCallback() func(string) func() {
@@ -136,13 +135,21 @@ func (s *Server) reloadWorkflow() error {
 	return nil
 }
 
+func (s *Server) ensureWorkflowParser() error {
+	if s.parser != nil {
+		return nil
+	}
+	parser, err := workflowParserFactory()
+	if err != nil {
+		return err
+	}
+	s.parser = parser
+	return nil
+}
+
 func (s *Server) ensureReloadReady() error {
-	if s.parser == nil {
-		parser, err := workflowParserFactory()
-		if err != nil {
-			return err
-		}
-		s.parser = parser
+	if err := s.ensureWorkflowParser(); err != nil {
+		return err
 	}
 
 	if s.workflowPath != "" {
