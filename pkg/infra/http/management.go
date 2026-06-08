@@ -56,11 +56,13 @@ const (
 
 //nolint:gochecknoglobals // test-replaceable
 var (
-	AppFS                            = afero.NewOsFs()
-	filepathAbs                      = filepath.Abs
-	osStat                           = os.Stat
-	closeExtractedFile               = func(f *os.File) error { return f.Close() }
-	findWorkflowFileHook             = findWorkflowFile
+	AppFS                = afero.NewOsFs()
+	filepathAbs          = filepath.Abs
+	osStat               = os.Stat
+	closeExtractedFile   = func(f *os.File) error { return f.Close() }
+	findWorkflowFileHook = findWorkflowFile
+	// Package extraction limits are vars (not consts) so whitebox tests can lower
+	// them without allocating 500MB+ payloads. Production values match the consts.
 	maxPackageFileSizeLimit          = int64(maxPackageFileSize)
 	maxPackageEntryCountLimit        = maxPackageEntryCount
 	maxPackageTotalUncompressedLimit = int64(maxPackageTotalUncompressed)
